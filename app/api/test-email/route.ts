@@ -48,7 +48,13 @@ function extractClientIp(req: NextRequest): string {
   }
   const realIp = req.headers.get("x-real-ip");
   if (realIp) return realIp;
-  return (req as any).ip ?? "unknown";
+  if ("ip" in req) {
+    const candidate = (req as NextRequest & { ip?: string | null }).ip;
+    if (candidate) {
+      return candidate;
+    }
+  }
+  return "unknown";
 }
 
 function isOriginAllowed(req: NextRequest): boolean {
@@ -157,6 +163,7 @@ export async function POST(req: NextRequest) {
       // Test booking confirmation email with mock data
       const mockBooking: BookingRecord = {
         id: "test-booking-id",
+        customer_id: "test-customer-id",
         reference: "TEST123",
         restaurant_id: "mock-restaurant-id",
         table_id: "mock-table-id",
@@ -173,6 +180,7 @@ export async function POST(req: NextRequest) {
         notes: "Test booking for email verification",
         marketing_opt_in: false,
         loyalty_points_awarded: 0,
+        source: "test",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };

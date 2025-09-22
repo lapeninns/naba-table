@@ -1,21 +1,29 @@
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import { cookies } from "next/headers";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+
+import { Database } from "@/types/supabase";
 
 export { BOOKING_BLOCKING_STATUSES } from "@/lib/enums";
 
-type Database = any;
-
-let serviceClient: SupabaseClient<Database> | null = null;
+let serviceClient: SupabaseClient<Database, any, any> | null = null;
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-export function getServiceSupabaseClient(): SupabaseClient<Database> {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    throw new Error("Supabase environment variables are not configured. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.");
+function assertSupabaseEnv(varName: string, value: string | undefined): string {
+  if (!value) {
+    throw new Error(`Missing Supabase environment variable: ${varName}`);
   }
+  return value;
+}
+
+export function getServiceSupabaseClient(): SupabaseClient<Database, any, any> {
+  const supabaseUrl = assertSupabaseEnv("NEXT_PUBLIC_SUPABASE_URL", SUPABASE_URL);
+  const serviceRoleKey = assertSupabaseEnv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_SERVICE_ROLE_KEY);
 
   if (!serviceClient) {
-    serviceClient = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    serviceClient = createClient<Database>(supabaseUrl, serviceRoleKey, {
       auth: {
         persistSession: false,
       },
@@ -23,6 +31,10 @@ export function getServiceSupabaseClient(): SupabaseClient<Database> {
   }
 
   return serviceClient;
+}
+
+export function getRouteHandlerSupabaseClient(cookieStore = cookies()): SupabaseClient<Database, any, any> {
+  return createRouteHandlerClient<Database>({ cookies: () => cookieStore }) as SupabaseClient<Database, any, any>;
 }
 
 export function getDefaultRestaurantId(): string {

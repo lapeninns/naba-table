@@ -1,14 +1,34 @@
 import { NextResponse, NextRequest } from "next/server";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
+import { z } from "zod";
+
 import { createCustomerPortal } from "@/libs/stripe";
+
+function stringifyError(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
     const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 
-    const body = await req.json();
+    const bodySchema = z.object({
+      returnUrl: z.string(),
+    });
+
+    const parsed = bodySchema.safeParse(await req.json());
+
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    }
 
     const {
       data: { session },
@@ -20,7 +40,7 @@ export async function POST(req: NextRequest) {
         { error: "You must be logged in to view billing information." },
         { status: 401 }
       );
-    } else if (!body.returnUrl) {
+    } else if (!parsed.data.returnUrl) {
       return NextResponse.json(
         { error: "Return URL is required" },
         { status: 400 }
@@ -44,14 +64,15 @@ export async function POST(req: NextRequest) {
 
     const stripePortalUrl = await createCustomerPortal({
       customerId: data.customer_id,
-      returnUrl: body.returnUrl,
+      returnUrl: parsed.data.returnUrl,
     });
 
     return NextResponse.json({
       url: stripePortalUrl,
     });
-  } catch (e) {
-    console.error(e);
-    return NextResponse.json({ error: e?.message }, { status: 500 });
+  } catch (error: unknown) {
+    const message = stringifyError(error);
+    console.error(message);
+    return NextResponse.json({ error: message || "Unable to create billing portal" }, { status: 500 });
   }
 }

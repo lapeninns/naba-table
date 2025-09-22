@@ -11,48 +11,35 @@ import {
   type BookingType,
   type SeatingPreference,
 } from "@/lib/enums";
+import type { Database, Json, Tables } from "@/types/supabase";
 import { generateBookingReference, generateUniqueBookingReference } from "./booking-reference";
+import {
+  findCustomerByContact,
+  normalizeEmail,
+  normalizePhone,
+  recordBookingForCustomerProfile,
+  recordCancellationForCustomerProfile,
+  upsertCustomer,
+} from "./customers";
 
 export { generateBookingReference, generateUniqueBookingReference } from "./booking-reference";
 
-export type TableRecord = {
-  id: string;
-  label: string;
-  capacity: number;
-  seating_type: SeatingPreference;
-  features: string[] | null;
-};
+type DbClient = SupabaseClient<Database, any, any>;
+type BookingRow = Tables<"bookings">;
+type RestaurantTableRow = Tables<"restaurant_tables">;
 
-export type BookingRecord = {
-  id: string;
-  restaurant_id: string;
-  table_id: string | null;
-  booking_date: string;
-  start_time: string;
-  end_time: string;
-  reference: string;
-  party_size: number;
-  booking_type: BookingType;
-  seating_preference: SeatingPreference;
-  status: BookingStatus;
-  customer_name: string;
-  customer_email: string;
-  customer_phone: string;
-  notes: string | null;
-  marketing_opt_in: boolean;
-  loyalty_points_awarded: number;
-  created_at: string;
-  updated_at: string;
-};
+export type BookingRecord = BookingRow;
+export type TableRecord = Pick<RestaurantTableRow, "id" | "label" | "capacity" | "seating_type" | "features">;
 
 const TABLE_SELECT = "id,label,capacity,seating_type,features";
-const BOOKING_SELECT = "id,restaurant_id,table_id,booking_date,start_time,end_time,reference,party_size,booking_type,seating_preference,status,customer_name,customer_email,customer_phone,notes,marketing_opt_in,loyalty_points_awarded,created_at,updated_at";
+const BOOKING_SELECT = "*";
 
 export const BOOKING_TYPES = BOOKING_TYPES_UI;
 export const SEATING_OPTIONS = SEATING_PREFERENCES_UI;
 
 const AUDIT_BOOKING_FIELDS: Array<keyof BookingRecord> = [
   "restaurant_id",
+  "customer_id",
   "table_id",
   "booking_date",
   "start_time",
@@ -70,12 +57,32 @@ const AUDIT_BOOKING_FIELDS: Array<keyof BookingRecord> = [
   "loyalty_points_awarded",
 ];
 
+async function resolveWaitlistPosition(
+  client: DbClient,
+  params: { restaurantId: string; bookingDate: string; desiredTime: string; createdAt: string },
+): Promise<number> {
+  const { count, error } = await client
+    .from("waiting_list")
+    .select("id", { count: "exact", head: true })
+    .eq("restaurant_id", params.restaurantId)
+    .eq("booking_date", params.bookingDate)
+    .eq("desired_time", params.desiredTime)
+    .lte("created_at", params.createdAt);
+
+  if (error) {
+    throw error;
+  }
+
+  return count ?? 0;
+}
+
 function pickBookingFields(source: Partial<BookingRecord> | null | undefined) {
   if (!source) return null;
-  const picked: Partial<Record<keyof BookingRecord, unknown>> = {};
+  const picked: Partial<Record<keyof BookingRecord, Json>> = {};
   for (const field of AUDIT_BOOKING_FIELDS) {
     if (field in source) {
-      picked[field] = source[field] ?? null;
+      const value = source[field];
+      picked[field] = (value ?? null) as Json;
     }
   }
   return picked;
@@ -85,17 +92,17 @@ export function buildBookingAuditSnapshot(
   previous: Partial<BookingRecord> | null | undefined,
   current: Partial<BookingRecord> | null | undefined,
 ): {
-  previous: Partial<Record<keyof BookingRecord, unknown>> | null;
-  current: Partial<Record<keyof BookingRecord, unknown>> | null;
-  changes: Array<{ field: keyof BookingRecord; before: unknown; after: unknown }>;
+  previous: Partial<Record<keyof BookingRecord, Json>> | null;
+  current: Partial<Record<keyof BookingRecord, Json>> | null;
+  changes: Array<{ field: keyof BookingRecord; before: Json; after: Json }>;
 } {
   const prev = pickBookingFields(previous);
   const curr = pickBookingFields(current);
-  const changes: Array<{ field: keyof BookingRecord; before: unknown; after: unknown }> = [];
+  const changes: Array<{ field: keyof BookingRecord; before: Json; after: Json }> = [];
 
   for (const field of AUDIT_BOOKING_FIELDS) {
-    const before = prev ? prev[field] ?? null : null;
-    const after = curr ? curr[field] ?? null : null;
+    const before = prev ? (prev[field] ?? null) : null;
+    const after = curr ? (curr[field] ?? null) : null;
     const changed = Array.isArray(before) || Array.isArray(after)
       ? JSON.stringify(before) !== JSON.stringify(after)
       : before !== after;
@@ -153,17 +160,21 @@ export function rangesOverlap(startA: string, endA: string, startB: string, endB
 }
 
 export async function fetchBookingsForContact(
-  client: SupabaseClient,
+  client: DbClient,
   restaurantId: string,
   email: string,
   phone: string,
 ): Promise<BookingRecord[]> {
+  const customer = await findCustomerByContact(client, restaurantId, email, phone);
+  if (!customer) {
+    return [];
+  }
+
   const { data, error } = await client
     .from("bookings")
     .select(BOOKING_SELECT)
     .eq("restaurant_id", restaurantId)
-    .eq("customer_email", email)
-    .eq("customer_phone", phone)
+    .eq("customer_id", customer.id)
     .in("status", BOOKING_BLOCKING_STATUSES)
     .order("booking_date", { ascending: true })
     .order("start_time", { ascending: true });
@@ -176,7 +187,7 @@ export async function fetchBookingsForContact(
 }
 
 export async function fetchTablesForPreference(
-  client: SupabaseClient,
+  client: DbClient,
   restaurantId: string,
   partySize: number,
   seatingPreference: SeatingPreference,
@@ -189,7 +200,7 @@ export async function fetchTablesForPreference(
     .order("capacity", { ascending: true });
 
   if (seatingPreference !== "any") {
-    const seatingMatches = seatingPreference === "indoor"
+    const seatingMatches: SeatingPreference[] = seatingPreference === "indoor"
       ? ["indoor", "any"]
       : [seatingPreference];
     query = query.in("seating_type", seatingMatches);
@@ -205,7 +216,7 @@ export async function fetchTablesForPreference(
 }
 
 export async function findAvailableTable(
-  client: SupabaseClient,
+  client: DbClient,
   restaurantId: string,
   bookingDate: string,
   startTime: string,
@@ -243,8 +254,8 @@ export async function findAvailableTable(
 }
 
 export async function logAuditEvent(
-  client: SupabaseClient,
-  params: { action: string; entity: string; entityId?: string | null; metadata?: Record<string, unknown> }
+  client: DbClient,
+  params: { action: string; entity: string; entityId?: string | null; metadata?: Json }
 ): Promise<void> {
   const { error } = await client.from("audit_logs").insert({
     action: params.action,
@@ -258,43 +269,8 @@ export async function logAuditEvent(
   }
 }
 
-export async function upsertLoyaltyPoints(
-  client: SupabaseClient,
-  email: string,
-  pointsDelta: number,
-): Promise<void> {
-  const nowIso = new Date().toISOString();
-  const { data, error } = await client
-    .from("loyalty_points")
-    .select("total_points")
-    .eq("customer_email", email)
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  const total = (data?.total_points ?? 0) + pointsDelta;
-
-  const tier = total >= 500 ? "platinum" : total >= 250 ? "gold" : total >= 100 ? "silver" : "bronze";
-
-  const { error: upsertError } = await client.from("loyalty_points").upsert(
-    {
-      customer_email: email,
-      total_points: total,
-      tier,
-      last_awarded_at: nowIso,
-    },
-    { onConflict: "customer_email" }
-  );
-
-  if (upsertError) {
-    throw upsertError;
-  }
-}
-
 export async function addToWaitingList(
-  client: SupabaseClient,
+  client: DbClient,
   payload: {
     restaurant_id: string;
     booking_date: string;
@@ -306,8 +282,14 @@ export async function addToWaitingList(
     customer_phone: string;
     notes?: string | null;
   }
-): Promise<boolean> {
+): Promise<{ id: string; position: number; existing: boolean } | null> {
   const seatingPreference = ensureSeatingPreference(payload.seating_preference);
+  const email = normalizeEmail(payload.customer_email);
+  const phoneNormalizedRaw = normalizePhone(payload.customer_phone);
+  const hasPlusPrefix = payload.customer_phone.trim().startsWith("+");
+  const phoneForStorage = hasPlusPrefix && phoneNormalizedRaw
+    ? `+${phoneNormalizedRaw}`
+    : phoneNormalizedRaw || payload.customer_phone.trim();
 
   const {
     data: existing,
@@ -318,8 +300,8 @@ export async function addToWaitingList(
     .eq("restaurant_id", payload.restaurant_id)
     .eq("booking_date", payload.booking_date)
     .eq("desired_time", payload.desired_time)
-    .eq("customer_email", payload.customer_email)
-    .eq("customer_phone", payload.customer_phone)
+    .eq("customer_email", email)
+    .eq("customer_phone", phoneForStorage)
     .limit(1)
     .maybeSingle();
 
@@ -341,7 +323,28 @@ export async function addToWaitingList(
       throw updateError;
     }
 
-    return true;
+    const { data: entry, error: entryError } = await client
+      .from("waiting_list")
+      .select("id,created_at")
+      .eq("id", existing.id)
+      .maybeSingle();
+
+    if (entryError) {
+      throw entryError;
+    }
+
+    if (!entry) {
+      return null;
+    }
+
+    const position = await resolveWaitlistPosition(client, {
+      restaurantId: payload.restaurant_id,
+      bookingDate: payload.booking_date,
+      desiredTime: payload.desired_time,
+      createdAt: entry.created_at,
+    });
+
+    return { id: entry.id, position, existing: true };
   }
 
   const { error } = await client.from("waiting_list").insert({
@@ -351,8 +354,8 @@ export async function addToWaitingList(
     party_size: payload.party_size,
     seating_preference: seatingPreference,
     customer_name: payload.customer_name,
-    customer_email: payload.customer_email,
-    customer_phone: payload.customer_phone,
+    customer_email: email,
+    customer_phone: phoneForStorage,
     notes: payload.notes ?? null,
   });
 
@@ -360,10 +363,35 @@ export async function addToWaitingList(
     throw error;
   }
 
-  return true;
+  const { data: created, error: createdError } = await client
+    .from("waiting_list")
+    .select("id,created_at")
+    .eq("restaurant_id", payload.restaurant_id)
+    .eq("booking_date", payload.booking_date)
+    .eq("desired_time", payload.desired_time)
+    .eq("customer_email", email)
+    .eq("customer_phone", phoneForStorage)
+    .maybeSingle();
+
+  if (createdError) {
+    throw createdError;
+  }
+
+  if (!created) {
+    return null;
+  }
+
+  const position = await resolveWaitlistPosition(client, {
+    restaurantId: payload.restaurant_id,
+    bookingDate: payload.booking_date,
+    desiredTime: payload.desired_time,
+    createdAt: created.created_at,
+  });
+
+  return { id: created.id, position, existing: false };
 }
 
-export async function softCancelBooking(client: SupabaseClient, bookingId: string): Promise<BookingRecord> {
+export async function softCancelBooking(client: DbClient, bookingId: string): Promise<BookingRecord> {
   const { data, error } = await client
     .from("bookings")
     .update({ status: "cancelled" })
@@ -375,17 +403,28 @@ export async function softCancelBooking(client: SupabaseClient, bookingId: strin
     throw error;
   }
 
-  return (data ?? null) as BookingRecord;
+  const booking = (data ?? null) as BookingRecord;
+
+  await recordCancellationForCustomerProfile(client, {
+    customerId: booking.customer_id,
+    cancelledAt: booking.updated_at,
+  });
+
+  return booking;
 }
 
 export async function updateBookingRecord(
-  client: SupabaseClient,
+  client: DbClient,
   bookingId: string,
   payload: Partial<Omit<BookingRecord, "id" | "restaurant_id" | "created_at" | "updated_at">> & {
     restaurant_id?: string;
   }
 ): Promise<BookingRecord> {
   const nextPayload = { ...payload };
+
+  if ("customer_id" in nextPayload) {
+    delete (nextPayload as Partial<BookingRecord>).customer_id;
+  }
 
   if (nextPayload.booking_type) {
     nextPayload.booking_type = ensureBookingType(nextPayload.booking_type);
@@ -412,11 +451,13 @@ export async function updateBookingRecord(
 }
 
 export async function insertBookingRecord(
-  client: SupabaseClient,
+  client: DbClient,
   payload: Omit<BookingRecord, "id" | "created_at" | "updated_at" | "status" | "table_id" | "loyalty_points_awarded"> & {
     table_id: string | null;
     status?: BookingStatus;
     loyalty_points_awarded?: number;
+    source?: string;
+    customer_id: string;
   }
 ): Promise<BookingRecord> {
   const bookingType = ensureBookingType(payload.booking_type);
@@ -442,6 +483,8 @@ export async function insertBookingRecord(
       notes: payload.notes ?? null,
       marketing_opt_in: payload.marketing_opt_in ?? false,
       loyalty_points_awarded: payload.loyalty_points_awarded ?? 0,
+      source: payload.source ?? "web",
+      customer_id: payload.customer_id,
     })
     .select(BOOKING_SELECT)
     .single();
@@ -450,5 +493,16 @@ export async function insertBookingRecord(
     throw error;
   }
 
-  return data as BookingRecord;
+  const booking = data as BookingRecord;
+
+  await recordBookingForCustomerProfile(client, {
+    customerId: booking.customer_id,
+    createdAt: booking.created_at,
+    partySize: booking.party_size,
+    marketingOptIn: booking.marketing_opt_in,
+    waitlisted: booking.status === "pending_allocation",
+    status: booking.status,
+  });
+
+  return booking;
 }

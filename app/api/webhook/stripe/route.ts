@@ -6,11 +6,49 @@ import configFile from "@/config";
 import { findCheckoutSession, getStripeClient } from "@/libs/stripe";
 import { getServiceSupabaseClient } from "@/server/supabase";
 import { recordObservabilityEvent } from "@/server/observability";
+import type { Json, TablesInsert } from "@/types/supabase";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+function stringifyError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
+function readLegacyPriceId(lineItem: Stripe.InvoiceLineItem): string | undefined {
+  const candidate = (lineItem as Stripe.InvoiceLineItem & { price_id?: unknown }).price_id;
+  return typeof candidate === "string" ? candidate : undefined;
+}
+
+function resolveCustomerId(
+  value: string | Stripe.Customer | Stripe.DeletedCustomer | null | undefined,
+): string | null {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (typeof value === "object" && "id" in value && typeof value.id === "string") {
+    return value.id;
+  }
+
+  return null;
+}
 
 export async function POST(req: NextRequest) {
   if (!webhookSecret) {
@@ -48,10 +86,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing Supabase configuration" }, { status: 500 });
   }
 
-  const eventId = event.id;
-  const serializedEvent = JSON.parse(JSON.stringify(event));
+  const db = supabase as any;
 
-  const { data: existingEvent, error: lookupError } = await supabase
+  const eventId = event.id;
+  const serializedEvent = JSON.parse(JSON.stringify(event)) as Json;
+
+  const { data: existingEvent, error: lookupError } = await db
     .from("stripe_events")
     .select("id,status")
     .eq("event_id", eventId)
@@ -72,13 +112,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ received: true, duplicate: true });
   }
 
-  const insertResult = await supabase
+  const eventRow: TablesInsert<"stripe_events"> = {
+    event_id: eventId,
+    event_type: event.type,
+    payload: serializedEvent,
+  };
+
+  const insertResult = await db
     .from("stripe_events")
-    .insert({
-      event_id: eventId,
-      event_type: event.type,
-      payload: serializedEvent,
-    })
+    .insert(eventRow)
     .select("id")
     .single();
 
@@ -93,10 +135,10 @@ export async function POST(req: NextRequest) {
         message: insertResult.error.message,
       },
     });
-    if ((insertResult.error as any)?.code === "23505") {
+    if (insertResult.error.code === "23505") {
       return NextResponse.json({ received: true, duplicate: true });
     }
-    console.error("[stripe][webhook] Failed to persist Stripe event", insertResult.error);
+    console.error("[stripe][webhook] Failed to persist Stripe event", stringifyError(insertResult.error));
     return NextResponse.json({ error: "Event persistence failed" }, { status: 500 });
   }
 
@@ -109,13 +151,13 @@ export async function POST(req: NextRequest) {
         const stripeObject: Stripe.Checkout.Session = event.data.object as Stripe.Checkout.Session;
         const session = await findCheckoutSession(stripeObject.id);
 
-        const customerId = session?.customer;
+        const customerId = resolveCustomerId(session?.customer);
         const priceId = session?.line_items?.data[0]?.price.id;
         const userId = stripeObject.client_reference_id;
         const plan = configFile.stripe.plans.find((p) => p.priceId === priceId);
 
         if (plan && customerId && userId) {
-          await supabase
+          await db
             .from("profiles")
             .update({
               customer_id: customerId,
@@ -132,11 +174,14 @@ export async function POST(req: NextRequest) {
       case "customer.subscription.deleted": {
         const stripeObject: Stripe.Subscription = event.data.object as Stripe.Subscription;
         const subscription = await stripe.subscriptions.retrieve(stripeObject.id);
+        const customerId = resolveCustomerId(subscription.customer);
 
-        await supabase
-          .from("profiles")
-          .update({ has_access: false })
-          .eq("customer_id", subscription.customer);
+        if (customerId) {
+          await db
+            .from("profiles")
+            .update({ has_access: false })
+            .eq("customer_id", customerId);
+        }
 
         processingStatus = "processed";
         break;
@@ -145,20 +190,26 @@ export async function POST(req: NextRequest) {
       case "invoice.paid": {
         const stripeObject: Stripe.Invoice = event.data.object as Stripe.Invoice;
         const lineItem = stripeObject.lines.data[0];
-        const priceId = (lineItem as any).price_id || (lineItem as any).price?.id || lineItem.metadata?.price_id;
-        const customerId = stripeObject.customer;
+        const expandedPriceId = (lineItem as Stripe.InvoiceLineItem & { price?: Stripe.Price | null }).price?.id;
+        const priceId =
+          readLegacyPriceId(lineItem) ??
+          expandedPriceId ??
+          (typeof lineItem.metadata?.price_id === "string" ? lineItem.metadata.price_id : undefined);
+        const customerId = resolveCustomerId(stripeObject.customer);
 
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("customer_id", customerId)
-          .maybeSingle();
-
-        if (profile && profile.price_id === priceId) {
-          await supabase
+        if (customerId) {
+          const { data: profile } = await db
             .from("profiles")
-            .update({ has_access: true })
-            .eq("customer_id", customerId);
+            .select("*")
+            .eq("customer_id", customerId)
+            .maybeSingle();
+
+          if (profile && profile.price_id === priceId) {
+            await db
+              .from("profiles")
+              .update({ has_access: true })
+              .eq("customer_id", customerId);
+          }
         }
 
         processingStatus = "processed";
@@ -177,9 +228,9 @@ export async function POST(req: NextRequest) {
         break;
       }
     }
-  } catch (error) {
+  } catch (error: unknown) {
     processingStatus = "failed";
-    console.error("[stripe][webhook] Processing error", error);
+    console.error("[stripe][webhook] Processing error", stringifyError(error));
     void recordObservabilityEvent({
       source: "api.stripe-webhook",
       eventType: "stripe.event.processing_failed",
@@ -193,7 +244,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
   } finally {
     if (eventRowId) {
-      const { error: updateError } = await supabase
+      const { error: updateError } = await db
         .from("stripe_events")
         .update({
           processed_at: new Date().toISOString(),

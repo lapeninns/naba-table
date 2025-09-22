@@ -1,33 +1,33 @@
--- SAFE RESET: no DROP SCHEMA, no CREATE EXTENSION required
--- DANGER: This still DROPS all listed tables/types/domain in schema "public".
-BEGIN;
+-- ====================================================================
+-- Extensions (safe to run on Postgres/Supabase)
+-- ====================================================================
+CREATE EXTENSION IF NOT EXISTS pgcrypto;   -- for gen_random_uuid()
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp"; -- fallback for uuid_generate_v4()
 
 -- =========================
--- Compatibility helpers (no-superuser)
+-- Helper functions & types
 -- =========================
 
--- UUID generator that works with or without pgcrypto/uuid-ossp.
--- Tries gen_random_uuid(), then uuid_generate_v4(), then pure-SQL fallback.
-CREATE OR REPLACE FUNCTION public.app_uuid() RETURNS uuid
+CREATE OR REPLACE FUNCTION public.app_uuid()
+RETURNS uuid
 LANGUAGE plpgsql
 AS $$
 DECLARE
   v uuid;
 BEGIN
   BEGIN
-    SELECT gen_random_uuid() INTO v;     -- pgcrypto (if available)
+    SELECT gen_random_uuid() INTO v;
     RETURN v;
   EXCEPTION WHEN undefined_function THEN
     BEGIN
-      SELECT uuid_generate_v4() INTO v;  -- uuid-ossp (if available)
+      SELECT uuid_generate_v4() INTO v;
       RETURN v;
     EXCEPTION WHEN undefined_function THEN
-      -- pure SQL fallback (valid v4 UUID)
       RETURN (
         lpad(to_hex((random()*4294967295)::bigint), 8, '0') || '-' ||
         lpad(to_hex((random()*65535)::int),          4, '0') || '-' ||
         '4' || substr(lpad(to_hex((random()*65535)::int), 4, '0'), 2) || '-' ||
-        to_hex( (8 + (random()*3)::int) ) ||
+        to_hex(8 + (random()*3)::int) ||
         substr(lpad(to_hex((random()*65535)::int), 4, '0'), 2) || '-' ||
         lpad(to_hex((random()*4294967295)::bigint), 8, '0') ||
         lpad(to_hex((random()*65535)::int),          4, '0')
@@ -37,100 +37,29 @@ BEGIN
 END;
 $$;
 
--- Create a tiny compatibility version of auth.role() if it doesn't exist
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM pg_proc p
-    JOIN pg_namespace n ON n.oid = p.pronamespace
-    WHERE n.nspname = 'auth' AND p.proname = 'role'
-  ) THEN
-    CREATE SCHEMA IF NOT EXISTS auth;
-
-    CREATE OR REPLACE FUNCTION auth.role() RETURNS text
-    LANGUAGE sql
-    STABLE
-    AS $fn$
-      SELECT current_user::text;
-    $fn$;
-  END IF;
-END
+-- NOTE: moved from schema 'auth' to 'public' to avoid permission errors
+CREATE OR REPLACE FUNCTION public.tenant_permitted(tenant uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT
+    CASE
+      WHEN auth.role() = 'service_role' THEN true
+      WHEN tenant IS NULL THEN false
+      ELSE (
+        COALESCE(
+          (coalesce(auth.jwt()::jsonb, '{}'::jsonb) -> 'tenant_ids') ? tenant::text,
+          false
+        )
+        OR COALESCE(
+          coalesce(auth.jwt()::jsonb, '{}'::jsonb) ->> 'tenant_id' = tenant::text,
+          false
+        )
+      )
+    END;
 $$;
 
-
--- =========================
--- Tear down (no DROP SCHEMA)
--- =========================
-
--- Drop RLS policies first (to avoid dependency errors)
-DO $$
-DECLARE
-  r record;
-BEGIN
-  FOR r IN
-    SELECT polname, n.nspname, c.relname
-    FROM pg_policy
-    JOIN pg_class c ON c.oid = pg_policy.polrelid
-    JOIN pg_namespace n ON n.oid = c.relnamespace
-    WHERE n.nspname = 'public'
-  LOOP
-    EXECUTE format('DROP POLICY IF EXISTS %I ON %I.%I', r.polname, r.nspname, r.relname);
-  END LOOP;
-END
-$$;
-
--- Disable RLS before dropping (defensive)
-ALTER TABLE IF EXISTS public.restaurants            DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.restaurant_areas       DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.restaurant_tables      DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.bookings               DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.reviews                DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.availability_rules     DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.waiting_list           DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.loyalty_points         DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.audit_logs             DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.stripe_events          DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.observability_events   DISABLE ROW LEVEL SECURITY;
-
--- Drop tables in FK-safe order (children -> parents)
-DROP TABLE IF EXISTS public.reviews              CASCADE;
-DROP TABLE IF EXISTS public.bookings             CASCADE;
-DROP TABLE IF EXISTS public.restaurant_tables    CASCADE;
-DROP TABLE IF EXISTS public.restaurant_areas     CASCADE;
-DROP TABLE IF EXISTS public.availability_rules   CASCADE;
-DROP TABLE IF EXISTS public.waiting_list         CASCADE;
-DROP TABLE IF EXISTS public.loyalty_points       CASCADE;
-DROP TABLE IF EXISTS public.audit_logs           CASCADE;
-DROP TABLE IF EXISTS public.stripe_events        CASCADE;
-DROP TABLE IF EXISTS public.observability_events CASCADE;
-DROP TABLE IF EXISTS public.restaurants          CASCADE;
-
--- Sequences
-DROP SEQUENCE IF EXISTS public.audit_logs_id_seq;
-
--- Types & domain
-DROP DOMAIN IF EXISTS public.email_address;
-DROP TYPE   IF EXISTS public.waiting_status;
-DROP TYPE   IF EXISTS public.loyalty_tier;
-DROP TYPE   IF EXISTS public.seating_preference_type;
-DROP TYPE   IF EXISTS public.booking_type;
-DROP TYPE   IF EXISTS public.booking_status;
-
--- =========================
--- Recreate types / domain / functions
--- =========================
-
-CREATE DOMAIN public.email_address AS text
-  CHECK (VALUE ~* '^[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}$');
-
-CREATE TYPE public.booking_status           AS ENUM ('confirmed','cancelled','pending','pending_allocation');
-CREATE TYPE public.booking_type             AS ENUM ('breakfast','lunch','dinner','drinks');
-CREATE TYPE public.seating_preference_type  AS ENUM ('any','indoor','window','booth','bar','outdoor');
-CREATE TYPE public.loyalty_tier             AS ENUM ('bronze','silver','gold','platinum');
-CREATE TYPE public.waiting_status           AS ENUM ('waiting','notified','expired','fulfilled','cancelled');
-
--- Booking reference generator
 CREATE OR REPLACE FUNCTION public.generate_booking_reference()
 RETURNS text
 LANGUAGE plpgsql
@@ -147,57 +76,95 @@ BEGIN
 END;
 $$;
 
--- Sequence
-CREATE SEQUENCE public.audit_logs_id_seq START WITH 1 INCREMENT BY 1 OWNED BY NONE;
+CREATE DOMAIN public.email_address AS text
+  CHECK (VALUE ~* '^[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}$');
+
+CREATE TYPE public.booking_status          AS ENUM ('confirmed','cancelled','pending','pending_allocation');
+CREATE TYPE public.booking_type            AS ENUM ('breakfast','lunch','dinner','drinks');
+CREATE TYPE public.seating_preference_type AS ENUM ('any','indoor','window','booth','bar','outdoor');
+CREATE TYPE public.loyalty_tier            AS ENUM ('bronze','silver','gold','platinum');
+CREATE TYPE public.waiting_status          AS ENUM ('waiting','notified','expired','fulfilled','cancelled');
+CREATE TYPE public.analytics_event_type    AS ENUM ('booking.created','booking.cancelled','booking.allocated','booking.waitlisted');
+
+CREATE SEQUENCE IF NOT EXISTS public.audit_logs_id_seq START WITH 1 INCREMENT BY 1 OWNED BY NONE;
 
 -- =========================
--- Tables (created in FK-safe order)
+-- Core tables
 -- =========================
 
-CREATE TABLE public.restaurants (
-  id uuid NOT NULL DEFAULT public.app_uuid(),
+CREATE TABLE IF NOT EXISTS public.restaurants (
+  id uuid PRIMARY KEY DEFAULT public.app_uuid(),
   name text NOT NULL,
   slug text NOT NULL UNIQUE CHECK (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'),
   timezone text NOT NULL DEFAULT 'Europe/London',
   capacity integer CHECK (capacity IS NULL OR capacity > 0),
   created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT restaurants_pkey PRIMARY KEY (id)
+  updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.restaurant_areas (
-  id uuid NOT NULL DEFAULT public.app_uuid(),
-  restaurant_id uuid NOT NULL,
+CREATE TABLE IF NOT EXISTS public.restaurant_areas (
+  id uuid PRIMARY KEY DEFAULT public.app_uuid(),
+  restaurant_id uuid NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
   name text NOT NULL,
   seating_type public.seating_preference_type NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT restaurant_areas_pkey PRIMARY KEY (id),
-  CONSTRAINT restaurant_areas_restaurant_id_fkey
-    FOREIGN KEY (restaurant_id) REFERENCES public.restaurants(id) ON DELETE CASCADE
+  updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.restaurant_tables (
-  id uuid NOT NULL DEFAULT public.app_uuid(),
-  restaurant_id uuid NOT NULL,
-  area_id uuid,
+CREATE TABLE IF NOT EXISTS public.restaurant_tables (
+  id uuid PRIMARY KEY DEFAULT public.app_uuid(),
+  restaurant_id uuid NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
+  area_id uuid REFERENCES public.restaurant_areas(id) ON DELETE SET NULL,
   label text NOT NULL,
   capacity integer NOT NULL CHECK (capacity > 0),
   seating_type public.seating_preference_type NOT NULL,
   features text[] NOT NULL DEFAULT '{}',
   created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT restaurant_tables_pkey PRIMARY KEY (id),
-  CONSTRAINT restaurant_tables_restaurant_id_fkey
-    FOREIGN KEY (restaurant_id) REFERENCES public.restaurants(id) ON DELETE CASCADE,
-  CONSTRAINT restaurant_tables_area_id_fkey
-    FOREIGN KEY (area_id) REFERENCES public.restaurant_areas(id) ON DELETE SET NULL
+  updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.bookings (
-  id uuid NOT NULL DEFAULT public.app_uuid(),
-  restaurant_id uuid NOT NULL,
-  table_id uuid,
+CREATE TABLE IF NOT EXISTS public.customers (
+  id uuid PRIMARY KEY DEFAULT public.app_uuid(),
+  restaurant_id uuid NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
+  email public.email_address NOT NULL,
+  phone text NOT NULL,
+  email_normalized text GENERATED ALWAYS AS (lower(email::text)) STORED,
+  phone_normalized text GENERATED ALWAYS AS (regexp_replace(phone, '[^0-9]+', '', 'g')) STORED,
+  full_name text,
+  marketing_opt_in boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT customers_email_lower CHECK (email = lower(email::text)),
+  CONSTRAINT customers_phone_length CHECK (char_length(phone_normalized) BETWEEN 7 AND 20),
+  CONSTRAINT customers_restaurant_contact_uidx UNIQUE (restaurant_id, email_normalized, phone_normalized)
+);
+
+CREATE INDEX IF NOT EXISTS customers_restaurant_email_idx
+  ON public.customers (restaurant_id, email_normalized);
+
+CREATE INDEX IF NOT EXISTS customers_restaurant_created_idx
+  ON public.customers (restaurant_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS public.customer_profiles (
+  customer_id uuid PRIMARY KEY REFERENCES public.customers(id) ON DELETE CASCADE,
+  first_booking_at timestamptz,
+  last_booking_at timestamptz,
+  total_bookings integer NOT NULL DEFAULT 0,
+  total_cancellations integer NOT NULL DEFAULT 0,
+  total_covers integer NOT NULL DEFAULT 0,
+  marketing_opt_in boolean NOT NULL DEFAULT false,
+  last_marketing_opt_in_at timestamptz,
+  last_waitlist_at timestamptz,
+  preferences jsonb NOT NULL DEFAULT '{}'::jsonb,
+  notes text,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.bookings (
+  id uuid PRIMARY KEY DEFAULT public.app_uuid(),
+  restaurant_id uuid NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
+  customer_id uuid NOT NULL REFERENCES public.customers(id) ON DELETE RESTRICT,
+  table_id uuid REFERENCES public.restaurant_tables(id) ON DELETE SET NULL,
   booking_date date NOT NULL,
   start_time time NOT NULL,
   end_time time NOT NULL,
@@ -215,56 +182,41 @@ CREATE TABLE public.bookings (
   updated_at timestamptz NOT NULL DEFAULT now(),
   reference text NOT NULL DEFAULT public.generate_booking_reference()
     UNIQUE CHECK (reference ~ '^[A-Z0-9]{10}$'),
-  marketing_opt_in boolean NOT NULL DEFAULT false,
-  CONSTRAINT bookings_pkey PRIMARY KEY (id),
-  CONSTRAINT bookings_restaurant_id_fkey
-    FOREIGN KEY (restaurant_id) REFERENCES public.restaurants(id) ON DELETE CASCADE,
-  CONSTRAINT bookings_table_id_fkey
-    FOREIGN KEY (table_id) REFERENCES public.restaurant_tables(id) ON DELETE SET NULL
+  marketing_opt_in boolean NOT NULL DEFAULT false
 );
 
--- Booking performance indexes
 CREATE INDEX IF NOT EXISTS bookings_table_date_start_idx
   ON public.bookings (table_id, booking_date, start_time)
   INCLUDE (end_time, status, party_size, seating_preference, id);
 
-CREATE INDEX IF NOT EXISTS bookings_restaurant_contact_idx
-  ON public.bookings (restaurant_id, customer_email, customer_phone)
-  INCLUDE (status, id, created_at);
+CREATE INDEX IF NOT EXISTS bookings_customer_lookup_idx
+  ON public.bookings (restaurant_id, customer_id, booking_date);
 
-CREATE TABLE public.reviews (
-  id uuid NOT NULL DEFAULT public.app_uuid(),
-  restaurant_id uuid NOT NULL,
-  booking_id uuid,
+CREATE TABLE IF NOT EXISTS public.reviews (
+  id uuid PRIMARY KEY DEFAULT public.app_uuid(),
+  restaurant_id uuid NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
+  booking_id uuid REFERENCES public.bookings(id) ON DELETE SET NULL,
   rating smallint NOT NULL CHECK (rating BETWEEN 1 AND 5),
   title text,
   comment text,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT reviews_pkey PRIMARY KEY (id),
-  CONSTRAINT reviews_restaurant_id_fkey
-    FOREIGN KEY (restaurant_id) REFERENCES public.restaurants(id) ON DELETE CASCADE,
-  CONSTRAINT reviews_booking_id_fkey
-    FOREIGN KEY (booking_id) REFERENCES public.bookings(id) ON DELETE SET NULL
+  created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.availability_rules (
-  id uuid NOT NULL DEFAULT public.app_uuid(),
-  restaurant_id uuid NOT NULL,
+CREATE TABLE IF NOT EXISTS public.availability_rules (
+  id uuid PRIMARY KEY DEFAULT public.app_uuid(),
+  restaurant_id uuid NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
   day_of_week smallint NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
   booking_type public.booking_type NOT NULL DEFAULT 'dinner',
   open_time time NOT NULL,
   close_time time NOT NULL,
   is_closed boolean NOT NULL DEFAULT false,
   notes text,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT availability_rules_pkey PRIMARY KEY (id),
-  CONSTRAINT availability_rules_restaurant_id_fkey
-    FOREIGN KEY (restaurant_id) REFERENCES public.restaurants(id) ON DELETE CASCADE
+  created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.waiting_list (
-  id uuid NOT NULL DEFAULT public.app_uuid(),
-  restaurant_id uuid NOT NULL,
+CREATE TABLE IF NOT EXISTS public.waiting_list (
+  id uuid PRIMARY KEY DEFAULT public.app_uuid(),
+  restaurant_id uuid NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
   booking_date date NOT NULL,
   desired_time time NOT NULL,
   party_size integer NOT NULL CHECK (party_size > 0),
@@ -274,193 +226,493 @@ CREATE TABLE public.waiting_list (
   customer_phone text NOT NULL,
   notes text,
   status public.waiting_status NOT NULL DEFAULT 'waiting',
-  created_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT waiting_list_pkey PRIMARY KEY (id),
-  CONSTRAINT waiting_list_restaurant_id_fkey
-    FOREIGN KEY (restaurant_id) REFERENCES public.restaurants(id) ON DELETE CASCADE
+  created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.loyalty_points (
-  id uuid NOT NULL DEFAULT public.app_uuid(),
-  customer_email public.email_address NOT NULL UNIQUE,
-  total_points integer NOT NULL DEFAULT 0 CHECK (total_points >= 0),
+CREATE TABLE IF NOT EXISTS public.loyalty_programs (
+  id uuid PRIMARY KEY DEFAULT public.app_uuid(),
+  restaurant_id uuid NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
+  slug text NOT NULL CHECK (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'),
+  name text NOT NULL,
+  description text,
+  is_active boolean NOT NULL DEFAULT false,
+  pilot_only boolean NOT NULL DEFAULT true,
+  accrual_version integer NOT NULL DEFAULT 1,
+  accrual_rule jsonb NOT NULL DEFAULT jsonb_build_object(
+    'type','per_guest',
+    'base_points',10,
+    'points_per_guest',5,
+    'minimum_party_size',1
+  ),
+  tier_definitions jsonb NOT NULL DEFAULT jsonb_build_array(
+    jsonb_build_object('tier','bronze','min_points',0),
+    jsonb_build_object('tier','silver','min_points',100),
+    jsonb_build_object('tier','gold','min_points',250),
+    jsonb_build_object('tier','platinum','min_points',500)
+  ),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT loyalty_programs_restaurant_slug_idx UNIQUE (restaurant_id, slug)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS loyalty_programs_active_program_idx
+  ON public.loyalty_programs (restaurant_id)
+  WHERE is_active;
+
+CREATE TABLE IF NOT EXISTS public.loyalty_points (
+  id uuid PRIMARY KEY DEFAULT public.app_uuid(),
+  program_id uuid NOT NULL REFERENCES public.loyalty_programs(id) ON DELETE CASCADE,
+  customer_id uuid NOT NULL REFERENCES public.customers(id) ON DELETE CASCADE,
+  balance integer NOT NULL DEFAULT 0 CHECK (balance >= 0),
+  lifetime_points integer NOT NULL DEFAULT 0 CHECK (lifetime_points >= 0),
   tier public.loyalty_tier NOT NULL DEFAULT 'bronze',
   last_awarded_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT loyalty_points_pkey PRIMARY KEY (id)
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT loyalty_points_program_customer_key UNIQUE (program_id, customer_id)
 );
 
-CREATE TABLE public.audit_logs (
-  id bigint NOT NULL DEFAULT nextval('public.audit_logs_id_seq'::regclass),
+CREATE INDEX IF NOT EXISTS loyalty_points_customer_idx
+  ON public.loyalty_points (customer_id, program_id);
+
+CREATE TABLE IF NOT EXISTS public.loyalty_point_events (
+  id uuid PRIMARY KEY DEFAULT public.app_uuid(),
+  program_id uuid NOT NULL REFERENCES public.loyalty_programs(id) ON DELETE CASCADE,
+  customer_id uuid NOT NULL REFERENCES public.customers(id) ON DELETE CASCADE,
+  booking_id uuid REFERENCES public.bookings(id) ON DELETE SET NULL,
+  points_delta integer NOT NULL,
+  balance_after integer NOT NULL CHECK (balance_after >= 0),
+  reason text NOT NULL,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  occurred_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT loyalty_point_events_nonzero CHECK (points_delta <> 0)
+);
+
+CREATE INDEX IF NOT EXISTS loyalty_point_events_customer_idx
+  ON public.loyalty_point_events (customer_id, occurred_at DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS loyalty_point_events_booking_reason_idx
+  ON public.loyalty_point_events (booking_id, reason)
+  WHERE booking_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS public.audit_logs (
+  id bigint PRIMARY KEY DEFAULT nextval('public.audit_logs_id_seq'::regclass),
   actor text DEFAULT 'system',
   action text NOT NULL,
   entity text NOT NULL,
   entity_id uuid,
   metadata jsonb,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT audit_logs_pkey PRIMARY KEY (id)
+  created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.stripe_events (
-  id uuid NOT NULL DEFAULT public.app_uuid(),
+CREATE TABLE IF NOT EXISTS public.stripe_events (
+  id uuid PRIMARY KEY DEFAULT public.app_uuid(),
   event_id text NOT NULL UNIQUE,
   event_type text NOT NULL,
   payload jsonb NOT NULL,
   received_at timestamptz NOT NULL DEFAULT now(),
   processed_at timestamptz,
-  status text NOT NULL DEFAULT 'pending',
-  CONSTRAINT stripe_events_pkey PRIMARY KEY (id)
+  status text NOT NULL DEFAULT 'pending'
 );
-CREATE INDEX stripe_events_received_idx ON public.stripe_events (received_at DESC);
 
-CREATE TABLE public.observability_events (
-  id uuid NOT NULL DEFAULT public.app_uuid(),
+CREATE INDEX IF NOT EXISTS stripe_events_received_idx
+  ON public.stripe_events (received_at DESC);
+
+CREATE TABLE IF NOT EXISTS public.observability_events (
+  id uuid PRIMARY KEY DEFAULT public.app_uuid(),
   event_type text NOT NULL,
   source text NOT NULL,
   severity text NOT NULL CHECK (severity IN ('info','warning','error','critical')),
   context jsonb,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT observability_events_pkey PRIMARY KEY (id)
+  created_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX observability_events_type_idx
+
+CREATE INDEX IF NOT EXISTS observability_events_type_idx
   ON public.observability_events (event_type, created_at DESC);
 
+CREATE TABLE IF NOT EXISTS public.analytics_events (
+  id uuid PRIMARY KEY DEFAULT public.app_uuid(),
+  event_type public.analytics_event_type NOT NULL,
+  schema_version integer NOT NULL DEFAULT 1,
+  restaurant_id uuid NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
+  booking_id uuid NOT NULL REFERENCES public.bookings(id) ON DELETE CASCADE,
+  customer_id uuid REFERENCES public.customers(id) ON DELETE SET NULL,
+  emitted_by text NOT NULL DEFAULT 'server',
+  payload jsonb NOT NULL,
+  occurred_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT analytics_events_version_match CHECK ((payload ->> 'version')::integer = schema_version),
+  CONSTRAINT analytics_events_booking_match CHECK ((payload ->> 'booking_id')::uuid = booking_id),
+  CONSTRAINT analytics_events_restaurant_match CHECK ((payload ->> 'restaurant_id')::uuid = restaurant_id),
+  CONSTRAINT analytics_events_payload_shape CHECK (
+    CASE event_type
+      WHEN 'booking.created' THEN
+        payload ?& ARRAY['version','booking_id','restaurant_id','customer_id','status','party_size','booking_type','seating_preference','source','waitlisted']
+        AND jsonb_typeof(payload -> 'party_size') = 'number'
+        AND jsonb_typeof(payload -> 'waitlisted') = 'boolean'
+      WHEN 'booking.cancelled' THEN
+        payload ?& ARRAY['version','booking_id','restaurant_id','customer_id','previous_status','cancelled_by']
+      WHEN 'booking.allocated' THEN
+        payload ?& ARRAY['version','booking_id','restaurant_id','customer_id','table_id','allocation_status']
+      WHEN 'booking.waitlisted' THEN
+        payload ?& ARRAY['version','booking_id','restaurant_id','customer_id','waitlist_id','position']
+        AND jsonb_typeof(payload -> 'position') = 'number'
+      ELSE false
+    END
+  )
+);
+
+CREATE INDEX IF NOT EXISTS analytics_events_type_ts_idx
+  ON public.analytics_events (event_type, occurred_at DESC);
+
+CREATE INDEX IF NOT EXISTS analytics_events_restaurant_idx
+  ON public.analytics_events (restaurant_id, occurred_at DESC);
+
 -- =========================
--- Row Level Security (RLS)
+-- Row Level Security & Policies
 -- =========================
 
 ALTER TABLE public.restaurants            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.restaurant_areas       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.restaurant_tables      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bookings               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.customers              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.customer_profiles      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reviews                ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.availability_rules     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.waiting_list           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.loyalty_programs       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.loyalty_points         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.loyalty_point_events   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stripe_events          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.observability_events   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.analytics_events       ENABLE ROW LEVEL SECURITY;
 
 -- Service role policies (full access)
-CREATE POLICY "Service role full access restaurants"
-  ON public.restaurants
-  USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+DO $blk$
+BEGIN
+  -- Restaurants
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='restaurants' AND policyname='Service role full access restaurants'
+  ) THEN
+    EXECUTE $sql$
+      CREATE POLICY "Service role full access restaurants"
+        ON public.restaurants
+        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+    $sql$;
+  END IF;
 
-CREATE POLICY "Service role full access restaurant_areas"
-  ON public.restaurant_areas
-  USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+  -- Restaurant areas
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='restaurant_areas' AND policyname='Service role full access restaurant_areas'
+  ) THEN
+    EXECUTE $sql$
+      CREATE POLICY "Service role full access restaurant_areas"
+        ON public.restaurant_areas
+        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+    $sql$;
+  END IF;
 
-CREATE POLICY "Service role full access restaurant_tables"
-  ON public.restaurant_tables
-  USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+  -- Restaurant tables
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='restaurant_tables' AND policyname='Service role full access restaurant_tables'
+  ) THEN
+    EXECUTE $sql$
+      CREATE POLICY "Service role full access restaurant_tables"
+        ON public.restaurant_tables
+        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+    $sql$;
+  END IF;
 
-CREATE POLICY "Service role full access bookings"
-  ON public.bookings
-  USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+  -- Bookings
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='bookings' AND policyname='Service role full access bookings'
+  ) THEN
+    EXECUTE $sql$
+      CREATE POLICY "Service role full access bookings"
+        ON public.bookings
+        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+    $sql$;
+  END IF;
 
-CREATE POLICY "Service role full access reviews"
-  ON public.reviews
-  USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+  -- Customers
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='customers' AND policyname='Service role full access customers'
+  ) THEN
+    EXECUTE $sql$
+      CREATE POLICY "Service role full access customers"
+        ON public.customers
+        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+    $sql$;
+  END IF;
 
-CREATE POLICY "Service role full access availability_rules"
-  ON public.availability_rules
-  USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+  -- Customer profiles
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='customer_profiles' AND policyname='Service role full access customer_profiles'
+  ) THEN
+    EXECUTE $sql$
+      CREATE POLICY "Service role full access customer_profiles"
+        ON public.customer_profiles
+        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+    $sql$;
+  END IF;
 
-CREATE POLICY "Service role full access waiting_list"
-  ON public.waiting_list
-  USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+  -- Reviews
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='reviews' AND policyname='Service role full access reviews'
+  ) THEN
+    EXECUTE $sql$
+      CREATE POLICY "Service role full access reviews"
+        ON public.reviews
+        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+    $sql$;
+  END IF;
 
-CREATE POLICY "Service role full access loyalty_points"
-  ON public.loyalty_points
-  USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+  -- Availability rules
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='availability_rules' AND policyname='Service role full access availability_rules'
+  ) THEN
+    EXECUTE $sql$
+      CREATE POLICY "Service role full access availability_rules"
+        ON public.availability_rules
+        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+    $sql$;
+  END IF;
 
-CREATE POLICY "Service role full access audit_logs"
-  ON public.audit_logs
-  USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+  -- Waiting list
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='waiting_list' AND policyname='Service role full access waiting_list'
+  ) THEN
+    EXECUTE $sql$
+      CREATE POLICY "Service role full access waiting_list"
+        ON public.waiting_list
+        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+    $sql$;
+  END IF;
 
-CREATE POLICY "Service role full access stripe_events"
-  ON public.stripe_events
-  USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+  -- Loyalty programs
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='loyalty_programs' AND policyname='Service role full access loyalty_programs'
+  ) THEN
+    EXECUTE $sql$
+      CREATE POLICY "Service role full access loyalty_programs"
+        ON public.loyalty_programs
+        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+    $sql$;
+  END IF;
 
-CREATE POLICY "Service role full access observability_events"
-  ON public.observability_events
-  USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+  -- Loyalty points
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='loyalty_points' AND policyname='Service role full access loyalty_points'
+  ) THEN
+    EXECUTE $sql$
+      CREATE POLICY "Service role full access loyalty_points"
+        ON public.loyalty_points
+        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+    $sql$;
+  END IF;
 
--- Public read policies for frontend discovery
-CREATE POLICY "Public read restaurants"
-  ON public.restaurants FOR SELECT USING (true);
+  -- Loyalty point events
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='loyalty_point_events' AND policyname='Service role full access loyalty_point_events'
+  ) THEN
+    EXECUTE $sql$
+      CREATE POLICY "Service role full access loyalty_point_events"
+        ON public.loyalty_point_events
+        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+    $sql$;
+  END IF;
 
-CREATE POLICY "Public read restaurant_areas"
-  ON public.restaurant_areas FOR SELECT USING (true);
+  -- Audit logs
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='audit_logs' AND policyname='Service role full access audit_logs'
+  ) THEN
+    EXECUTE $sql$
+      CREATE POLICY "Service role full access audit_logs"
+        ON public.audit_logs
+        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+    $sql$;
+  END IF;
 
-CREATE POLICY "Public read restaurant_tables"
-  ON public.restaurant_tables FOR SELECT USING (true);
+  -- Stripe events
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='stripe_events' AND policyname='Service role full access stripe_events'
+  ) THEN
+    EXECUTE $sql$
+      CREATE POLICY "Service role full access stripe_events"
+        ON public.stripe_events
+        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+    $sql$;
+  END IF;
 
-CREATE POLICY "Public read availability_rules"
-  ON public.availability_rules FOR SELECT USING (true);
+  -- Observability events
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='observability_events' AND policyname='Service role full access observability_events'
+  ) THEN
+    EXECUTE $sql$
+      CREATE POLICY "Service role full access observability_events"
+        ON public.observability_events
+        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+    $sql$;
+  END IF;
+
+  -- Analytics events
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='analytics_events' AND policyname='Service role full access analytics_events'
+  ) THEN
+    EXECUTE $sql$
+      CREATE POLICY "Service role full access analytics_events"
+        ON public.analytics_events
+        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+    $sql$;
+  END IF;
+END
+$blk$;
+
+-- Public/tenant access policies
+-- Public reads
+DO $blk$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='restaurants' AND policyname='Public read restaurants') THEN
+    EXECUTE $$CREATE POLICY "Public read restaurants" ON public.restaurants FOR SELECT USING (true);$$;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='restaurant_areas' AND policyname='Public read restaurant_areas') THEN
+    EXECUTE $$CREATE POLICY "Public read restaurant_areas" ON public.restaurant_areas FOR SELECT USING (true);$$;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='restaurant_tables' AND policyname='Public read restaurant_tables') THEN
+    EXECUTE $$CREATE POLICY "Public read restaurant_tables" ON public.restaurant_tables FOR SELECT USING (true);$$;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='availability_rules' AND policyname='Public read availability_rules') THEN
+    EXECUTE $$CREATE POLICY "Public read availability_rules" ON public.availability_rules FOR SELECT USING (true);$$;
+  END IF;
+END
+$blk$;
+
+-- Tenant reads (use public.tenant_permitted)
+DO $blk$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='bookings' AND policyname='Tenant read bookings') THEN
+    EXECUTE $$
+      CREATE POLICY "Tenant read bookings"
+        ON public.bookings
+        FOR SELECT TO authenticated
+        USING (public.tenant_permitted(restaurant_id));
+    $$;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='customers' AND policyname='Tenant read customers') THEN
+    EXECUTE $$
+      CREATE POLICY "Tenant read customers"
+        ON public.customers
+        FOR SELECT TO authenticated
+        USING (public.tenant_permitted(restaurant_id));
+    $$;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='customer_profiles' AND policyname='Tenant read customer_profiles') THEN
+    EXECUTE $$
+      CREATE POLICY "Tenant read customer_profiles"
+        ON public.customer_profiles
+        FOR SELECT TO authenticated
+        USING (
+          public.tenant_permitted(
+            (SELECT restaurant_id FROM public.customers c WHERE c.id = customer_profiles.customer_id)
+          )
+        );
+    $$;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='loyalty_programs' AND policyname='Tenant read loyalty_programs') THEN
+    EXECUTE $$
+      CREATE POLICY "Tenant read loyalty_programs"
+        ON public.loyalty_programs
+        FOR SELECT TO authenticated
+        USING (public.tenant_permitted(restaurant_id));
+    $$;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='loyalty_points' AND policyname='Tenant read loyalty_points') THEN
+    EXECUTE $$
+      CREATE POLICY "Tenant read loyalty_points"
+        ON public.loyalty_points
+        FOR SELECT TO authenticated
+        USING (
+          public.tenant_permitted(
+            (SELECT restaurant_id FROM public.loyalty_programs lp WHERE lp.id = loyalty_points.program_id)
+          )
+        );
+    $$;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='loyalty_point_events' AND policyname='Tenant read loyalty_point_events') THEN
+    EXECUTE $$
+      CREATE POLICY "Tenant read loyalty_point_events"
+        ON public.loyalty_point_events
+        FOR SELECT TO authenticated
+        USING (
+          public.tenant_permitted(
+            (SELECT restaurant_id FROM public.loyalty_programs lp WHERE lp.id = loyalty_point_events.program_id)
+          )
+        );
+    $$;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='analytics_events' AND policyname='Tenant read analytics_events') THEN
+    EXECUTE $$
+      CREATE POLICY "Tenant read analytics_events"
+        ON public.analytics_events
+        FOR SELECT TO authenticated
+        USING (public.tenant_permitted(restaurant_id));
+    $$;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='audit_logs' AND policyname='Tenant read audit_logs') THEN
+    EXECUTE $$
+      CREATE POLICY "Tenant read audit_logs"
+        ON public.audit_logs
+        FOR SELECT TO authenticated
+        USING (
+          CASE
+            WHEN coalesce(metadata, '{}'::jsonb) ? 'restaurant_id' THEN
+              CASE
+                WHEN coalesce(metadata, '{}'::jsonb) ->> 'restaurant_id' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+                  THEN public.tenant_permitted((metadata ->> 'restaurant_id')::uuid)
+                WHEN coalesce(metadata, '{}'::jsonb) ->> 'restaurant_id' = '' THEN true
+                ELSE false
+              END
+            ELSE true
+          END
+        );
+    $$;
+  END IF;
+END
+$blk$;
 
 -- =========================
--- Sample Data (for development)
+-- Grants
 -- =========================
 
-INSERT INTO public.restaurants (id, name, slug, timezone, capacity)
-VALUES ('f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 'Sajilo Restaurant', 'sajilo-restaurant', 'Europe/London', 100)
-ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO public.restaurant_areas (id, restaurant_id, name, seating_type) VALUES
-  ('d89f4b2a-5e3c-4f7a-8b91-1d2e3f4a5b6c', 'f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 'Main Dining', 'indoor'),
-  ('e73a2f1d-9c8b-4e5f-a2d7-6f8e9d1c2b3a', 'f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 'Window Seating', 'window'),
-  ('b4e7c9d2-1f3a-4c6b-8e5d-2a7f9c1e4b8d', 'f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 'Outdoor Terrace', 'outdoor'),
-  ('a8c3e6f1-4d7b-4f9e-b2c5-7e9a1d4f6c8b', 'f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 'Private Booth', 'booth')
-ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO public.restaurant_tables (id, restaurant_id, area_id, label, capacity, seating_type, features) VALUES
-  ('11111111-1111-4111-8111-111111111001', 'f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 'd89f4b2a-5e3c-4f7a-8b91-1d2e3f4a5b6c', 'Table 1', 4, 'indoor',  '{}'),
-  ('11111111-1111-4111-8111-111111111002', 'f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 'd89f4b2a-5e3c-4f7a-8b91-1d2e3f4a5b6c', 'Table 2', 4, 'indoor',  '{}'),
-  ('11111111-1111-4111-8111-111111111003', 'f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 'd89f4b2a-5e3c-4f7a-8b91-1d2e3f4a5b6c', 'Table 3', 2, 'indoor',  '{}'),
-  ('11111111-1111-4111-8111-111111111004', 'f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 'd89f4b2a-5e3c-4f7a-8b91-1d2e3f4a5b6c', 'Table 4', 2, 'indoor',  '{}'),
-  ('11111111-1111-4111-8111-111111111005', 'f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 'd89f4b2a-5e3c-4f7a-8b91-1d2e3f4a5b6c', 'Table 5', 6, 'indoor',  '{}'),
-  ('11111111-1111-4111-8111-111111111006', 'f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 'd89f4b2a-5e3c-4f7a-8b91-1d2e3f4a5b6c', 'Table 6', 8, 'indoor',  '{}'),
-  ('22222222-2222-4222-8222-222222222007', 'f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 'e73a2f1d-9c8b-4e5f-a2d7-6f8e9d1c2b3a', 'Window 1', 2, 'window', '{"city view"}'),
-  ('22222222-2222-4222-8222-222222222008', 'f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 'e73a2f1d-9c8b-4e5f-a2d7-6f8e9d1c2b3a', 'Window 2', 2, 'window', '{"city view"}'),
-  ('22222222-2222-4222-8222-222222222009', 'f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 'e73a2f1d-9c8b-4e5f-a2d7-6f8e9d1c2b3a', 'Window 3', 4, 'window', '{"city view"}'),
-  ('33333333-3333-4333-8333-333333333010', 'f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 'b4e7c9d2-1f3a-4c6b-8e5d-2a7f9c1e4b8d', 'Terrace 1', 4, 'outdoor', '{"heater","umbrella"}'),
-  ('33333333-3333-4333-8333-333333333011', 'f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 'b4e7c9d2-1f3a-4c6b-8e5d-2a7f9c1e4b8d', 'Terrace 2', 4, 'outdoor', '{"heater","umbrella"}'),
-  ('33333333-3333-4333-8333-333333333012', 'f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 'b4e7c9d2-1f3a-4c6b-8e5d-2a7f9c1e4b8d', 'Terrace 3', 6, 'outdoor', '{"heater","umbrella","large table"}'),
-  ('44444444-4444-4444-8444-444444444013', 'f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 'a8c3e6f1-4d7b-4f9e-b2c5-7e9a1d4f6c8b', 'Booth 1',   4, 'booth',   '{"private","quiet"}'),
-  ('44444444-4444-4444-8444-444444444014', 'f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 'a8c3e6f1-4d7b-4f9e-b2c5-7e9a1d4f6c8b', 'Booth 2',   6, 'booth',   '{"private","quiet","large booth"}')
-ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO public.availability_rules (restaurant_id, day_of_week, booking_type, open_time, close_time, is_closed, notes) VALUES
-  ('f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 1, 'lunch',  '12:00', '15:00', false, 'Monday lunch service'),
-  ('f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 1, 'dinner', '17:00', '22:00', false, 'Monday dinner service'),
-  ('f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 1, 'drinks', '15:00', '22:30', false, 'Monday drinks service'),
-  ('f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 2, 'lunch',  '12:00', '15:00', false, 'Tuesday lunch service'),
-  ('f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 2, 'dinner', '17:00', '22:00', false, 'Tuesday dinner service'),
-  ('f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 2, 'drinks', '15:00', '22:30', false, 'Tuesday drinks service'),
-  ('f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 3, 'lunch',  '12:00', '15:00', false, 'Wednesday lunch service'),
-  ('f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 3, 'dinner', '17:00', '22:00', false, 'Wednesday dinner service'),
-  ('f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 3, 'drinks', '15:00', '22:30', false, 'Wednesday drinks service'),
-  ('f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 4, 'lunch',  '12:00', '15:00', false, 'Thursday lunch service'),
-  ('f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 4, 'dinner', '17:00', '22:00', false, 'Thursday dinner service'),
-  ('f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 4, 'drinks', '15:00', '22:30', false, 'Thursday drinks service'),
-  ('f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 5, 'lunch',  '12:00', '15:00', false, 'Friday lunch service'),
-  ('f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 5, 'dinner', '17:00', '23:00', false, 'Friday dinner service'),
-  ('f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 5, 'drinks', '15:00', '23:00', false, 'Friday drinks service'),
-  ('f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 6, 'lunch',  '12:00', '15:00', false, 'Saturday lunch service'),
-  ('f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 6, 'dinner', '17:00', '23:00', false, 'Saturday dinner service'),
-  ('f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 6, 'drinks', '15:00', '23:00', false, 'Saturday drinks service'),
-  ('f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 0, 'lunch',  '12:00', '15:00', false, 'Sunday lunch service'),
-  ('f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 0, 'dinner', '17:00', '22:00', false, 'Sunday dinner service'),
-  ('f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68', 0, 'drinks', '15:00', '22:30', false, 'Sunday drinks service')
-ON CONFLICT DO NOTHING;
-
-COMMIT;
-
+-- Ensure schema usage
 GRANT USAGE ON SCHEMA public TO service_role, authenticated, anon;
+GRANT USAGE ON SCHEMA auth   TO service_role, authenticated, anon;
 
-GRANT ALL ON ALL TABLES IN SCHEMA public       TO service_role;
+-- Tables
+GRANT ALL ON ALL TABLES    IN SCHEMA public TO service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
-GRANT SELECT ON ALL TABLES IN SCHEMA public    TO anon;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;
 
+-- Sequences
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO service_role, authenticated;
+
+-- Functions
+GRANT EXECUTE ON FUNCTION public.tenant_permitted(uuid)
+  TO authenticated, anon, service_role;
+
+-- (Optional) grant execute on other helpers
+GRANT EXECUTE ON FUNCTION public.app_uuid() TO authenticated, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.generate_booking_reference() TO authenticated, anon, service_role;

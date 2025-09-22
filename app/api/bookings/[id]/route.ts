@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import type { BookingRecord } from "@/server/bookings";
+import type { Json, Tables } from "@/types/supabase";
 import {
   BOOKING_TYPES,
   SEATING_OPTIONS,
@@ -15,8 +15,10 @@ import {
   softCancelBooking,
   updateBookingRecord,
 } from "@/server/bookings";
-import { BOOKING_BLOCKING_STATUSES, getDefaultRestaurantId, getServiceSupabaseClient } from "@/server/supabase";
+import { BOOKING_BLOCKING_STATUSES, getDefaultRestaurantId, getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 import { sendBookingCancellationEmail, sendBookingUpdateEmail } from "@/server/emails/bookings";
+import { normalizeEmail } from "@/server/customers";
+import { recordBookingCancelledEvent, recordBookingAllocatedEvent } from "@/server/analytics";
 
 const bookingTypeEnum = z.enum(BOOKING_TYPES);
 
@@ -40,6 +42,47 @@ const contactQuerySchema = z.object({
   restaurantId: z.string().uuid().optional(),
 });
 
+type RouteParams = {
+  params: Promise<{
+    id: string | string[];
+  }>;
+};
+
+async function resolveBookingId(
+  paramsPromise: Promise<{ id: string | string[] }> | undefined,
+): Promise<string | null> {
+  if (!paramsPromise) {
+    return null;
+  }
+
+  const result = await paramsPromise;
+  const { id } = result;
+
+  if (typeof id === "string") {
+    return id;
+  }
+
+  if (Array.isArray(id)) {
+    return id[0] ?? null;
+  }
+
+  return null;
+}
+
+function stringifyError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
 function handleZodError(error: z.ZodError) {
   return NextResponse.json(
     {
@@ -50,17 +93,15 @@ function handleZodError(error: z.ZodError) {
   );
 }
 
-export async function GET(req: NextRequest, context: any) {
-  const supabase = getServiceSupabaseClient();
-  const params = await context?.params;
-  const param = params?.id;
-  const bookingId = Array.isArray(param) ? param[0] : param;
+export async function GET(req: NextRequest, { params }: RouteParams) {
+  const bookingId = await resolveBookingId(params);
 
   if (!bookingId) {
     return NextResponse.json({ error: "Missing booking id" }, { status: 400 });
   }
 
   try {
+    const supabase = getRouteHandlerSupabaseClient();
     const { data, error } = await supabase
       .from("bookings")
       .select("id,restaurant_id,table_id,booking_date,start_time,end_time,reference,party_size,booking_type,seating_preference,status,customer_name,customer_email,customer_phone,notes,marketing_opt_in,loyalty_points_awarded,created_at,updated_at")
@@ -76,16 +117,14 @@ export async function GET(req: NextRequest, context: any) {
     }
 
     return NextResponse.json({ booking: data });
-  } catch (error: any) {
-    console.error("[bookings][GET:id]", error);
-    return NextResponse.json({ error: error?.message ?? "Unable to load booking" }, { status: 500 });
+  } catch (error: unknown) {
+    console.error("[bookings][GET:id]", stringifyError(error));
+    return NextResponse.json({ error: stringifyError(error) || "Unable to load booking" }, { status: 500 });
   }
 }
 
-export async function PUT(req: NextRequest, context: any) {
-  const params = await context?.params;
-  const param = params?.id;
-  const bookingId = Array.isArray(param) ? param[0] : param;
+export async function PUT(req: NextRequest, { params }: RouteParams) {
+  const bookingId = await resolveBookingId(params);
 
   if (!bookingId) {
     return NextResponse.json({ error: "Missing booking id" }, { status: 400 });
@@ -110,12 +149,13 @@ export async function PUT(req: NextRequest, context: any) {
   }
 
   const data = parsed.data;
-  const supabase = getServiceSupabaseClient();
+  const tenantSupabase = getRouteHandlerSupabaseClient();
+  const serviceSupabase = getServiceSupabaseClient();
 
   try {
-    const { data: existing, error } = await supabase
+    const { data: existing, error } = await tenantSupabase
       .from("bookings")
-      .select("id,restaurant_id,table_id,booking_date,start_time,end_time,reference,party_size,booking_type,seating_preference,status,customer_name,customer_email,customer_phone,notes,marketing_opt_in,loyalty_points_awarded")
+      .select("*")
       .eq("id", bookingId)
       .maybeSingle();
 
@@ -123,41 +163,48 @@ export async function PUT(req: NextRequest, context: any) {
       throw error;
     }
 
-    if (!existing) {
+    const existingBooking = existing as Tables<"bookings"> | null;
+
+    if (!existingBooking) {
       return NextResponse.json({ error: "Booking not found" }, { status: 404 });
     }
 
-    if (existing.customer_email !== data.email || existing.customer_phone !== data.phone) {
+    const normalizedEmail = normalizeEmail(data.email);
+    const normalizedPhone = data.phone.trim();
+
+    if (existingBooking.customer_email !== normalizedEmail || existingBooking.customer_phone !== normalizedPhone) {
       return NextResponse.json({ error: "You can only update your own reservation" }, { status: 403 });
     }
 
-    const restaurantId = data.restaurantId ?? existing.restaurant_id ?? getDefaultRestaurantId();
+    const restaurantId = data.restaurantId ?? existingBooking.restaurant_id ?? getDefaultRestaurantId();
     const startTime = data.time;
     const normalizedBookingType = data.bookingType === "drinks" ? "drinks" : inferMealTypeFromTime(startTime);
     const endTime = deriveEndTime(startTime, normalizedBookingType);
 
     // Attempt to reuse the current table when possible
-    let nextTableId: string | null = existing.table_id ?? null;
+    let nextTableId: string | null = existingBooking.table_id ?? null;
 
-    if (existing.table_id) {
-      const { data: currentTable, error: tableError } = await supabase
+    if (existingBooking.table_id) {
+      const { data: currentTable, error: tableError } = await tenantSupabase
         .from("restaurant_tables")
         .select("id,capacity,seating_type")
-        .eq("id", existing.table_id)
+        .eq("id", existingBooking.table_id)
         .maybeSingle();
 
       if (tableError) {
         throw tableError;
       }
 
-      const tableSupportsParty = currentTable && currentTable.capacity >= data.party;
-      const tableMatchesSeating = currentTable && (data.seating === "any" || currentTable.seating_type === data.seating);
+      const typedCurrentTable = currentTable as Tables<"restaurant_tables"> | null;
+
+      const tableSupportsParty = typedCurrentTable && typedCurrentTable.capacity >= data.party;
+      const tableMatchesSeating = typedCurrentTable && (data.seating === "any" || typedCurrentTable.seating_type === data.seating);
 
       if (tableSupportsParty && tableMatchesSeating) {
-        const { data: overlaps, error: overlapsError } = await supabase
+        const { data: overlaps, error: overlapsError } = await tenantSupabase
           .from("bookings")
           .select("id,start_time,end_time,status")
-          .eq("table_id", existing.table_id)
+          .eq("table_id", existingBooking.table_id)
           .eq("booking_date", data.date)
           .in("status", BOOKING_BLOCKING_STATUSES)
           .order("start_time", { ascending: true });
@@ -166,8 +213,14 @@ export async function PUT(req: NextRequest, context: any) {
           throw overlapsError;
         }
 
-        const hasConflict = (overlaps ?? []).some((entry) => {
-          if (entry.id === existing.id) return false;
+        const overlappingBookings = (overlaps ?? []) as Array<{
+          id: string;
+          start_time: string;
+          end_time: string;
+        }>;
+
+        const hasConflict = overlappingBookings.some((entry) => {
+          if (entry.id === existingBooking.id) return false;
           return rangesOverlap(entry.start_time, entry.end_time, startTime, endTime);
         });
 
@@ -181,14 +234,14 @@ export async function PUT(req: NextRequest, context: any) {
 
     if (!nextTableId) {
       const tableRecord = await findAvailableTable(
-        supabase,
+        tenantSupabase,
         restaurantId,
         data.date,
         startTime,
         endTime,
         data.party,
         data.seating,
-        existing.id,
+        existingBooking.id,
       );
 
       if (!tableRecord) {
@@ -201,7 +254,7 @@ export async function PUT(req: NextRequest, context: any) {
       nextTableId = tableRecord.id;
     }
 
-    const updated = await updateBookingRecord(supabase, bookingId, {
+    const updated = await updateBookingRecord(serviceSupabase, bookingId, {
       restaurant_id: restaurantId,
       table_id: nextTableId,
       booking_date: data.date,
@@ -211,41 +264,59 @@ export async function PUT(req: NextRequest, context: any) {
       booking_type: normalizedBookingType,
       seating_preference: data.seating,
       customer_name: data.name,
-      customer_email: data.email,
-      customer_phone: data.phone,
+      customer_email: normalizedEmail,
+      customer_phone: normalizedPhone,
       notes: data.notes ?? null,
-      marketing_opt_in: data.marketingOptIn ?? existing.marketing_opt_in,
+      marketing_opt_in: data.marketingOptIn ?? existingBooking.marketing_opt_in,
     });
 
-    await logAuditEvent(supabase, {
+    const auditMetadata = {
+      restaurant_id: restaurantId,
+      ...buildBookingAuditSnapshot(existingBooking, updated),
+    } as Json;
+
+    await logAuditEvent(serviceSupabase, {
       action: "booking.updated",
       entity: "booking",
       entityId: bookingId,
-      metadata: {
-        restaurant_id: restaurantId,
-        ...buildBookingAuditSnapshot(existing as BookingRecord, updated),
-      },
+      metadata: auditMetadata,
     });
 
-    const bookings = await fetchBookingsForContact(supabase, restaurantId, data.email, data.phone);
+    if (updated.table_id) {
+      const allocationStatus = existingBooking.table_id && existingBooking.table_id !== updated.table_id
+        ? "reallocated"
+        : "allocated";
+      try {
+        await recordBookingAllocatedEvent(serviceSupabase, {
+          bookingId,
+          restaurantId,
+          customerId: updated.customer_id,
+          tableId: updated.table_id,
+          allocationStatus,
+          occurredAt: updated.updated_at,
+        });
+      } catch (analyticsError) {
+        console.error("[bookings][PUT][analytics]", stringifyError(analyticsError));
+      }
+    }
+
+    const bookings = await fetchBookingsForContact(tenantSupabase, restaurantId, data.email, data.phone);
 
     try {
       await sendBookingUpdateEmail(updated);
-    } catch (error) {
-      console.error("[bookings][PUT][email]", error);
+    } catch (error: unknown) {
+      console.error("[bookings][PUT][email]", stringifyError(error));
     }
 
     return NextResponse.json({ booking: updated, bookings });
-  } catch (error: any) {
-    console.error("[bookings][PUT:id]", error);
-    return NextResponse.json({ error: error?.message ?? "Unable to update booking" }, { status: 500 });
+  } catch (error: unknown) {
+    console.error("[bookings][PUT:id]", stringifyError(error));
+    return NextResponse.json({ error: stringifyError(error) || "Unable to update booking" }, { status: 500 });
   }
 }
 
-export async function DELETE(req: NextRequest, context: any) {
-  const params = await context?.params;
-  const param = params?.id;
-  const bookingId = Array.isArray(param) ? param[0] : param;
+export async function DELETE(req: NextRequest, { params }: RouteParams) {
+  const bookingId = await resolveBookingId(params);
 
   if (!bookingId) {
     return NextResponse.json({ error: "Missing booking id" }, { status: 400 });
@@ -261,12 +332,13 @@ export async function DELETE(req: NextRequest, context: any) {
   }
 
   const { email, phone, restaurantId } = parsed.data;
-  const supabase = getServiceSupabaseClient();
+  const tenantSupabase = getRouteHandlerSupabaseClient();
+  const serviceSupabase = getServiceSupabaseClient();
 
   try {
-    const { data: existing, error } = await supabase
+    const { data: existing, error } = await tenantSupabase
       .from("bookings")
-      .select("id,restaurant_id,table_id,booking_date,start_time,end_time,reference,party_size,booking_type,seating_preference,status,customer_name,customer_email,customer_phone,notes,marketing_opt_in,loyalty_points_awarded,created_at,updated_at")
+      .select("*")
       .eq("id", bookingId)
       .maybeSingle();
 
@@ -274,38 +346,58 @@ export async function DELETE(req: NextRequest, context: any) {
       throw error;
     }
 
-    if (!existing) {
+    const existingBooking = existing as Tables<"bookings"> | null;
+
+    if (!existingBooking) {
       return NextResponse.json({ error: "Booking not found" }, { status: 404 });
     }
 
-    if (existing.customer_email !== email || existing.customer_phone !== phone) {
+    const normalizedEmail = normalizeEmail(email);
+    const normalizedPhone = phone.trim();
+
+    if (existingBooking.customer_email !== normalizedEmail || existingBooking.customer_phone !== normalizedPhone) {
       return NextResponse.json({ error: "You can only cancel your own reservation" }, { status: 403 });
     }
 
-    const cancelledRecord = await softCancelBooking(supabase, bookingId);
+    const cancelledRecord = await softCancelBooking(serviceSupabase, bookingId);
 
-    await logAuditEvent(supabase, {
+    const cancellationMetadata = {
+      restaurant_id: existingBooking.restaurant_id,
+      ...buildBookingAuditSnapshot(existingBooking, cancelledRecord),
+    } as Json;
+
+    await logAuditEvent(serviceSupabase, {
       action: "booking.cancelled",
       entity: "booking",
       entityId: bookingId,
-      metadata: {
-        restaurant_id: existing.restaurant_id,
-        ...buildBookingAuditSnapshot(existing as BookingRecord, cancelledRecord),
-      },
+      metadata: cancellationMetadata,
     });
 
-    const targetRestaurantId = restaurantId ?? existing.restaurant_id ?? getDefaultRestaurantId();
-    const bookings = await fetchBookingsForContact(supabase, targetRestaurantId, email, phone);
+    try {
+      await recordBookingCancelledEvent(serviceSupabase, {
+        bookingId: cancelledRecord.id,
+        restaurantId: cancelledRecord.restaurant_id,
+        customerId: cancelledRecord.customer_id,
+        previousStatus: existingBooking.status,
+        cancelledBy: "customer",
+        occurredAt: cancelledRecord.updated_at,
+      });
+    } catch (analyticsError) {
+      console.error("[bookings][DELETE][analytics]", stringifyError(analyticsError));
+    }
+
+    const targetRestaurantId = restaurantId ?? existingBooking.restaurant_id ?? getDefaultRestaurantId();
+    const bookings = await fetchBookingsForContact(tenantSupabase, targetRestaurantId, email, phone);
 
     try {
       await sendBookingCancellationEmail(cancelledRecord);
-    } catch (error) {
-      console.error("[bookings][DELETE][email]", error);
+    } catch (error: unknown) {
+      console.error("[bookings][DELETE][email]", stringifyError(error));
     }
 
     return NextResponse.json({ success: true, bookings });
-  } catch (error: any) {
-    console.error("[bookings][DELETE:id]", error);
-    return NextResponse.json({ error: error?.message ?? "Unable to cancel booking" }, { status: 500 });
+  } catch (error: unknown) {
+    console.error("[bookings][DELETE:id]", stringifyError(error));
+    return NextResponse.json({ error: stringifyError(error) || "Unable to cancel booking" }, { status: 500 });
   }
 }

@@ -2,6 +2,8 @@ import { randomInt } from "node:crypto";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import type { Database } from "@/types/supabase";
+
 const BOOKING_REFERENCE_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 export function generateBookingReference(length = 10): string {
@@ -14,7 +16,7 @@ export function generateBookingReference(length = 10): string {
 }
 
 export async function generateUniqueBookingReference(
-  client: SupabaseClient,
+  client: SupabaseClient<Database, any, any>,
   options: { maxAttempts?: number } = {},
 ): Promise<string> {
   const maxAttempts = options.maxAttempts ?? 5;

@@ -1,7 +1,19 @@
 import { NextResponse, NextRequest } from "next/server";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
+import { z } from "zod";
+
 import { createCheckout } from "@/libs/stripe";
+
+function stringifyError(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
 
 // This function is used to create a Stripe Checkout Session (one-time payment or subscription)
 // It's called by the <ButtonCheckout /> component
@@ -23,9 +35,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json();
+    const bodySchema = z.object({
+      priceId: z.string(),
+      mode: z.enum(["payment", "subscription"]).optional(),
+      successUrl: z.string(),
+      cancelUrl: z.string(),
+      couponId: z.string().optional(),
+    });
 
-    const { priceId, mode, successUrl, cancelUrl } = body;
+    const parsed = bodySchema.safeParse(await req.json());
+
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    }
+
+    const { priceId, mode, successUrl, cancelUrl, couponId } = parsed.data;
 
     if (!priceId) {
       return NextResponse.json(
@@ -37,7 +61,7 @@ export async function POST(req: NextRequest) {
         { error: "Success and cancel URLs are required" },
         { status: 400 }
       );
-    } else if (!body.mode) {
+    } else if (!mode) {
       return NextResponse.json(
         {
           error:
@@ -56,18 +80,18 @@ export async function POST(req: NextRequest) {
 
     // If no profile found, create one. This is used to store the Stripe customer ID
     if (!data) {
-      await supabase.from("profiles").insert([
-        {
-          id: session.user.id,
-          price_id: body.priceId,
-          email: session?.user?.email,
-        },
-      ]);
+      await supabase.from("profiles").insert({
+        id: session.user.id,
+        price_id: priceId,
+        email: session?.user?.email,
+      });
     }
+
+    const resolvedMode = mode as "payment" | "subscription";
 
     const stripeSessionURL = await createCheckout({
       priceId,
-      mode,
+      mode: resolvedMode,
       successUrl,
       cancelUrl,
       clientReferenceId: session.user.id,
@@ -77,12 +101,13 @@ export async function POST(req: NextRequest) {
         customerId: data?.customer_id,
       },
       // If you send coupons from the frontend, you can pass it here
-      // couponId: body.couponId,
+      couponId,
     });
 
     return NextResponse.json({ url: stripeSessionURL });
-  } catch (e) {
-    console.error(e);
-    return NextResponse.json({ error: e?.message }, { status: 500 });
+  } catch (error: unknown) {
+    const message = stringifyError(error);
+    console.error(message);
+    return NextResponse.json({ error: message || "Unable to create checkout session" }, { status: 500 });
   }
 }

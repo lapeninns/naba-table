@@ -2,6 +2,16 @@ import { NextResponse, NextRequest } from "next/server";
 import { sendEmail } from "@/libs/resend";
 import config from "@/config";
 
+function stringifyError(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
 // This route is used to receive emails from Mailgun and forward them to our customer support email.
 // Updated to use Resend instead of Mailgun for sending forwarded emails
 // See more: https://shipfa.st/docs/features/emails
@@ -24,8 +34,9 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({});
-  } catch (e) {
-    console.error(e?.message);
-    return NextResponse.json({ error: e?.message }, { status: 500 });
+  } catch (error: unknown) {
+    const message = stringifyError(error);
+    console.error(message);
+    return NextResponse.json({ error: message || "Failed to handle webhook" }, { status: 500 });
   }
 }

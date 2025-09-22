@@ -323,7 +323,7 @@ Risk Register
 | TS strict off; DB `any` | P1 | `tsconfig.json:8–11`; `server/supabase.ts:3` | Enable strict; typegen | M | 0.85 |
 | RLS lacks tenant scope | P1 | `database/...01_init_booking.sql:263–286` | Tenant RLS policies | M | 0.8 |
 | Conflict loop inefficiency | P2 | `server/bookings.ts:203–226` | Batch query; index | M | 0.8 |
-| Missing customer entities | P2 | `database/migrations/*` | Add `customers`, `customer_profiles` | M | 0.75 |
+| Missing customer entities | P2 | `database/migrations/*` | ✅ Added `customers`, `customer_profiles`, `loyalty_programs` (Sprint 3) | M | 0.75 |
 | No caching directives | P2 | `app/api/bookings/route.ts:1–20` | `dynamic='force-dynamic'` | S | 0.85 |
 
 Performance Hotspots
@@ -705,9 +705,9 @@ Machine‑Readable Appendix (JSON)
       { "title": "Type safety gaps", "severity": "P1", "effort": "M", "confidence": 0.85 },
       { "title": "RLS lacks tenant scope", "severity": "P1", "effort": "M", "confidence": 0.8 },
       { "title": "Conflict check inefficiency", "severity": "P2", "effort": "M", "confidence": 0.8 },
-      { "title": "Missing customer entities", "severity": "P2", "effort": "M", "confidence": 0.75 },
+      { "title": "Missing customer entities (shipped Sprint 3)", "severity": "P2", "effort": "M", "confidence": 0.75 },
       { "title": "No caching/idempotency on API", "severity": "P2", "effort": "S", "confidence": 0.85 },
-      { "title": "Limited analytics typing", "severity": "P3", "effort": "S", "confidence": 0.7 }
+      { "title": "Limited analytics typing (analytics_events v1 shipped)", "severity": "P3", "effort": "S", "confidence": 0.7 }
     ],
     "plan_30_60_90": [
       { "item": "Secrets hygiene", "owner": "CTO", "window": "30", "success": "0 secrets in repo" },
@@ -736,7 +736,7 @@ Machine‑Readable Appendix (JSON)
       "score": 4,
       "risks": [
         { "title": "No tenant RLS policies", "severity": "P1", "evidence": ["database/migrations/20250203000001_init_booking.sql:263-286"], "confidence": 0.8 },
-        { "title": "Missing customers tables", "severity": "P2", "evidence": ["database/migrations/*"], "confidence": 0.75 }
+        { "title": "Missing customers tables", "severity": "P2", "status": "resolved", "evidence": ["database/migrations/005_customers_profiles.sql","database/migrations/006_loyalty_programs.sql"], "confidence": 0.75 }
       ],
       "recommendations": [
         { "title": "Add composite indexes", "effort": "S", "impact": "high", "roi_note": "Conflict checks", "snippet_ref": "sql-idx-1" },
@@ -774,4 +774,3 @@ Machine‑Readable Appendix (JSON)
   ]
 }
 ```
-
