@@ -498,25 +498,6 @@ const Checkbox = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HT
 );
 Checkbox.displayName = "Checkbox";
 
-const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(
-  ({ className, children, ...props }, ref) => (
-    <div className="relative">
-      <select
-        className={U.cn(
-          "h-10 w-full appearance-none rounded-md border border-slate-300 bg-transparent pl-3 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2",
-          className,
-        )}
-        ref={ref}
-        {...props}
-      >
-        {children}
-      </select>
-      <Icon.ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50" />
-    </div>
-  ),
-);
-Select.displayName = "Select";
-
 const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(
   ({ className, ...props }, ref) => (
     <textarea
@@ -538,22 +519,42 @@ const AlertDialog: React.FC<{
   title: string;
   description: string;
 }> = ({ open, onOpenChange, onConfirm, title, description }) => {
+  const confirmRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (open && confirmRef.current) {
+      confirmRef.current.focus();
+    }
+  }, [open]);
+
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => onOpenChange(false)}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      onClick={() => onOpenChange(false)}
+      role="presentation"
+    >
       <div
         className="relative m-4 w-full max-w-md rounded-lg bg-white shadow-xl"
         onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
       >
         <div className="p-6">
-          <h3 className="text-lg font-semibold">{title}</h3>
-          <p className="mt-2 text-sm text-slate-600">{description}</p>
+          <h3 id="alert-dialog-title" className="text-lg font-semibold">
+            {title}
+          </h3>
+          <p id="alert-dialog-description" className="mt-2 text-sm text-slate-600">
+            {description}
+          </p>
         </div>
         <div className="flex justify-end gap-2 rounded-b-lg bg-slate-50 px-6 py-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button variant="destructive" onClick={onConfirm}>
+          <Button ref={confirmRef} variant="destructive" onClick={onConfirm}>
             Confirm
           </Button>
         </div>
@@ -867,6 +868,35 @@ const Step1: React.FC<{ state: State; dispatch: React.Dispatch<Action> }> = ({ s
     return map;
   }, [serviceSlots]);
 
+  const partyOptions = useMemo(() => Array.from({ length: 12 }, (_, index) => index + 1), []);
+
+  const ensureAlignedBookingType = useCallback(
+    (slot: string | undefined) => {
+      if (!slot) return;
+      const inferred = slotTypeMap.get(slot);
+      if (inferred && inferred !== bookingType) {
+        dispatch({ type: "SET_FIELD", key: "bookingType", value: inferred });
+      }
+    },
+    [bookingType, dispatch, slotTypeMap],
+  );
+
+  const ensureTimeForType = useCallback(
+    (targetType: BookingOption) => {
+      const candidateSlots = targetType === "drinks" ? serviceSlots.drinks : diningSlots;
+      if (!candidateSlots.length) {
+        dispatch({ type: "SET_FIELD", key: "time", value: "" });
+        return;
+      }
+      const preferredSlot = candidateSlots.includes(time) ? time : candidateSlots[0];
+      if (preferredSlot && time !== preferredSlot) {
+        dispatch({ type: "SET_FIELD", key: "time", value: preferredSlot });
+        track("select_time", { time: preferredSlot });
+      }
+    },
+    [diningSlots, dispatch, serviceSlots.drinks, time],
+  );
+
   useEffect(() => {
     if (!slots.length) {
       if (time) {
@@ -875,34 +905,23 @@ const Step1: React.FC<{ state: State; dispatch: React.Dispatch<Action> }> = ({ s
       return;
     }
 
-    const alignBookingType = (slot: string | undefined) => {
-      if (!slot) return;
-      const inferred = slotTypeMap.get(slot);
-      if (inferred && inferred !== bookingType) {
-        dispatch({ type: "SET_FIELD", key: "bookingType", value: inferred });
-      }
-    };
-
     if (!time || !slots.includes(time)) {
       const nextSlot = slots[0];
-      alignBookingType(nextSlot);
-      if (time !== nextSlot) {
+      ensureAlignedBookingType(nextSlot);
+      if (time !== nextSlot && nextSlot) {
         dispatch({ type: "SET_FIELD", key: "time", value: nextSlot });
       }
       return;
     }
 
     if (bookingType !== "drinks") {
-      alignBookingType(time);
+      ensureAlignedBookingType(time);
     }
-  }, [bookingType, dispatch, slotTypeMap, slots, time]);
+  }, [bookingType, dispatch, ensureAlignedBookingType, slots, time]);
 
   const handleSlotSelect = (slot: string) => {
     if (!slot) return;
-    const inferred = slotTypeMap.get(slot);
-    if (inferred && inferred !== bookingType) {
-      dispatch({ type: "SET_FIELD", key: "bookingType", value: inferred });
-    }
+    ensureAlignedBookingType(slot);
     if (slot !== time) {
       dispatch({ type: "SET_FIELD", key: "time", value: slot });
       track("select_time", { time: slot });
@@ -917,87 +936,58 @@ const Step1: React.FC<{ state: State; dispatch: React.Dispatch<Action> }> = ({ s
     }
   };
 
-  const handlePartyChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const nextParty = Number(event.target.value);
+  const handlePartySelect = (nextParty: number) => {
+    if (party === nextParty) return;
     dispatch({ type: "SET_FIELD", key: "party", value: nextParty });
     track("select_party", { party: nextParty });
   };
 
-  const handleToggleDrinks = (checked: boolean) => {
-    if (checked) {
-      if (bookingType !== "drinks") {
-        dispatch({ type: "SET_FIELD", key: "bookingType", value: "drinks" });
-      }
-      const drinkSlots = serviceSlots.drinks;
-      if (drinkSlots.length) {
-        const preferred = drinkSlots.includes(time) ? time : drinkSlots[0];
-        if (preferred && time !== preferred) {
-          dispatch({ type: "SET_FIELD", key: "time", value: preferred });
-          track("select_time", { time: preferred });
-        }
-      }
-      return;
-    }
-
-    const candidates = diningSlots.length ? diningSlots : serviceSlots.drinks;
-    const fallbackSlot = candidates.includes(time) ? time : candidates[0] ?? "";
-    if (fallbackSlot) {
-      const inferred = U.bookingTypeFromTime(fallbackSlot, date);
-      if (bookingType !== inferred) {
-        dispatch({ type: "SET_FIELD", key: "bookingType", value: inferred });
-      }
-      if (time !== fallbackSlot) {
-        dispatch({ type: "SET_FIELD", key: "time", value: fallbackSlot });
-        track("select_time", { time: fallbackSlot });
-      }
-    } else if (bookingType !== "lunch") {
-      dispatch({ type: "SET_FIELD", key: "bookingType", value: "lunch" });
-    }
+  const handleBookingTypeSelect = (nextType: BookingOption) => {
+    if (nextType === bookingType) return;
+    dispatch({ type: "SET_FIELD", key: "bookingType", value: nextType });
+    ensureTimeForType(nextType);
   };
 
   const canContinue = Boolean(date && time && party > 0);
 
   return (
-    <Card className="mx-auto w-full max-w-2xl">
-      <CardHeader>
-        <CardTitle className="text-2xl">{state.editingId ? "Modify Booking" : "Reserve a Table"}</CardTitle>
-        <CardDescription>Select your preferred date, time, and party size.</CardDescription>
+    <Card className="mx-auto w-full max-w-3xl">
+      <CardHeader className="space-y-3">
+        <CardTitle className="text-2xl">
+          {state.editingId ? "Modify booking details" : "Plan your visit"}
+        </CardTitle>
+        <CardDescription className="text-sm text-slate-600">
+          Select a date, time, and group size to see available slots.
+        </CardDescription>
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+          <span className="font-medium text-slate-900">Next step:</span> Choose a time to continue.
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field id="date" label="Date" required>
-            <Input
-              type="date"
-              id="date"
-              value={date}
-              min={U.formatForDateInput(new Date())}
-              onChange={handleDateChange}
-            />
-          </Field>
-          <Field id="party" label="Guests" required>
-            <Select
-              id="party"
-              value={party}
-              onChange={handlePartyChange}
-            >
-              {Array.from({ length: 12 }, (_, index) => (
-                <option key={index + 1} value={index + 1}>
-                  {index + 1} {index === 0 ? "person" : "people"}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </div>
-        <div>
-          <Label className="mb-2.5 flex items-center gap-2">
+        <Field id="date" label="Date" required>
+          <Input
+            type="date"
+            id="date"
+            value={date}
+            min={U.formatForDateInput(new Date())}
+            onChange={handleDateChange}
+          />
+        </Field>
+
+        <div className="space-y-2">
+          <Label className="flex items-center gap-2 text-sm font-medium text-slate-900">
             <Icon.Clock className="h-4 w-4" /> Time
           </Label>
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
-            {slots.length === 0 && <span className="text-sm text-slate-500">No availability for this selection.</span>}
+          <p className="text-xs text-slate-500">Scroll horizontally to see more times.</p>
+          <div className="flex snap-x gap-2 overflow-x-auto pb-2">
+            {slots.length === 0 && (
+              <span className="text-sm text-slate-500">No availability for this selection.</span>
+            )}
             {slots.map((slot) => (
               <Button
                 key={slot}
                 variant={time === slot ? "default" : "outline"}
+                className="min-w-[88px] justify-center rounded-full"
                 onClick={() => handleSlotSelect(slot)}
               >
                 {U.formatTime(slot)}
@@ -1005,23 +995,49 @@ const Step1: React.FC<{ state: State; dispatch: React.Dispatch<Action> }> = ({ s
             ))}
           </div>
         </div>
-        <details className="group">
-          <summary className="flex cursor-pointer list-none items-center justify-between font-medium text-slate-900">
-            Additional options
+
+        <div className="space-y-2">
+          <Label className="text-sm font-medium text-slate-900">Guests</Label>
+          <div className="flex snap-x gap-2 overflow-x-auto pb-2">
+            {partyOptions.map((option) => (
+              <Button
+                key={option}
+                variant={party === option ? "default" : "outline"}
+                className="min-w-[64px] justify-center rounded-full"
+                onClick={() => handlePartySelect(option)}
+              >
+                {option}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-sm font-medium text-slate-900">Service</Label>
+          <div className="flex flex-wrap gap-2">
+            {BOOKING_TYPES_UI.map((option) => (
+              <Button
+                key={option}
+                variant={bookingType === option ? "default" : "outline"}
+                size="sm"
+                className="rounded-full"
+                onClick={() => handleBookingTypeSelect(option)}
+              >
+                {U.formatBookingLabel(option)}
+              </Button>
+            ))}
+          </div>
+          <p className="text-xs text-slate-500">
+            Drinks reservations show bar availability; lunch and dinner align to table service.
+          </p>
+        </div>
+
+        <details className="group rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-medium text-slate-900">
+            Additional preferences
             <Icon.ChevronDown className="h-5 w-5 transition group-open:rotate-180" />
           </summary>
           <div className="mt-4 space-y-6">
-            <Field id="drinks" label="Service">
-              <div className="flex items-center gap-3">
-                <Checkbox
-                  id="drinks"
-                  checked={bookingType === "drinks"}
-                  onChange={(event) => handleToggleDrinks(event.target.checked)}
-                />
-                <span className="text-sm text-slate-700">This reservation is for drinks only</span>
-              </div>
-              <p className="text-xs text-slate-500">Leave unchecked and we’ll categorise your booking as lunch or dinner based on the time you choose.</p>
-            </Field>
             <Field id="seating" label="Seating preference">
               <div className="flex flex-wrap gap-2">
                 {SEATING_PREFERENCES_UI.map((option) => (
@@ -1029,6 +1045,7 @@ const Step1: React.FC<{ state: State; dispatch: React.Dispatch<Action> }> = ({ s
                     key={option}
                     variant={seating === option ? "default" : "outline"}
                     size="sm"
+                    className="rounded-full"
                     onClick={() => dispatch({ type: "SET_FIELD", key: "seating", value: option })}
                   >
                     {option.charAt(0).toUpperCase() + option.slice(1)}
@@ -1047,7 +1064,7 @@ const Step1: React.FC<{ state: State; dispatch: React.Dispatch<Action> }> = ({ s
           </div>
         </details>
       </CardContent>
-      <CardFooter className="justify-end">
+      <CardFooter className="sticky bottom-0 left-0 right-0 -mx-1 -mb-1 flex justify-end gap-2 border-t border-slate-100 bg-white/95 px-6 py-4 backdrop-blur supports-[backdrop-filter]:backdrop-blur">
         <Button onClick={() => dispatch({ type: "SET_STEP", step: 2 })} disabled={!canContinue}>
           Continue
         </Button>
@@ -1076,135 +1093,139 @@ const Step2: React.FC<{ state: State; dispatch: React.Dispatch<Action> }> = ({ s
   };
 
   return (
-    <Card className="mx-auto w-full max-w-2xl">
-      <CardHeader>
-        <CardTitle className="text-2xl">Your Details</CardTitle>
-        <CardDescription>We use these details to confirm and manage your booking.</CardDescription>
+    <Card className="mx-auto w-full max-w-3xl">
+      <CardHeader className="space-y-3">
+        <CardTitle className="text-2xl">Tell us how to reach you</CardTitle>
+        <CardDescription className="text-sm text-slate-600">
+          We’ll send confirmation and any updates to the contact details below.
+        </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <Field id="name" label="Full name" required error={name && !nameOk ? "Please enter at least two characters." : ""}>
-          <Input
-            id="name"
-            type="text"
-            value={name}
-            onChange={(event) => dispatch({ type: "SET_FIELD", key: "name", value: event.target.value })}
-            placeholder="Jane Smith"
-            autoComplete="name"
-          />
-        </Field>
-        <Field id="email" label="Email address" required error={email && !emailOk ? "Please enter a valid email." : ""}>
-          <Input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(event) => dispatch({ type: "SET_FIELD", key: "email", value: event.target.value })}
-            placeholder="you@example.com"
-            autoComplete="email"
-          />
-        </Field>
-        <Field
-          id="phone"
-          label="UK phone number"
-          required
-          error={phone && !phoneOk ? "Please enter a valid UK mobile number (e.g., 07123 456789)." : ""}
-        >
-          <Input
-            id="phone"
-            type="tel"
-            value={phone}
-            onChange={(event) => dispatch({ type: "SET_FIELD", key: "phone", value: event.target.value })}
-            placeholder="07123 456789"
-            autoComplete="tel"
-          />
-        </Field>
-        <div className="flex items-start gap-2 pt-2">
-          <Checkbox
-            id="remember"
-            checked={rememberDetails}
-            onChange={(event) =>
-              dispatch({ type: "SET_FIELD", key: "rememberDetails", value: event.target.checked })
-            }
-          />
-          <div className="space-y-1">
-            <Label htmlFor="remember" className="text-sm font-normal">
-              Remember my contact details on this device
-            </Label>
-            <p className="text-xs text-slate-500">
-              We store your contact information locally (never on our servers) so future bookings are quicker.
-            </p>
+      <CardContent className="space-y-6">
+        <section className="space-y-4 rounded-xl border border-slate-200 p-4">
+          <h3 className="text-base font-semibold text-slate-900">Contact details</h3>
+          <div className="space-y-4">
+            <Field id="name" label="Full name" required error={name && !nameOk ? "Please enter at least two characters." : ""}>
+              <Input
+                id="name"
+                type="text"
+                value={name}
+                onChange={(event) => dispatch({ type: "SET_FIELD", key: "name", value: event.target.value })}
+                placeholder="Jane Smith"
+                autoComplete="name"
+              />
+            </Field>
+            <Field id="email" label="Email address" required error={email && !emailOk ? "Please enter a valid email." : ""}>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(event) => dispatch({ type: "SET_FIELD", key: "email", value: event.target.value })}
+                placeholder="you@example.com"
+                autoComplete="email"
+              />
+            </Field>
+            <Field
+              id="phone"
+              label="UK phone number"
+              required
+              error={phone && !phoneOk ? "Please enter a valid UK mobile number (e.g., 07123 456789)." : ""}
+            >
+              <Input
+                id="phone"
+                type="tel"
+                value={phone}
+                onChange={(event) => dispatch({ type: "SET_FIELD", key: "phone", value: event.target.value })}
+                placeholder="07123 456789"
+                autoComplete="tel"
+              />
+            </Field>
           </div>
-        </div>
-        <div className="flex items-start gap-2">
-          <Checkbox
-            id="agree"
-            checked={agree}
-            onChange={(event) => dispatch({ type: "SET_FIELD", key: "agree", value: event.target.checked })}
-          />
-          <div className="space-y-1">
-            <Label htmlFor="agree" className="text-sm font-normal">
-              I agree to the {" "}
-              <Link href="/terms/SajiloReserveX" target="_blank" rel="noopener noreferrer" className="underline">
-                SajiloReserveX Terms
-              </Link>{" "}
-              and {" "}
-              <Link href="/terms/venue" target="_blank" rel="noopener noreferrer" className="underline">
-                Venue Terms
-              </Link>
-              .
-            </Label>
-            <p className="text-xs text-slate-500">
-              Both documents open in a new tab so you do not lose progress.
-            </p>
-            {showAgreementError && (
-              <p className="text-xs text-red-600">Please accept the terms to continue.</p>
-            )}
+        </section>
+
+        <section className="space-y-4 rounded-xl border border-slate-200 p-4">
+          <h3 className="text-base font-semibold text-slate-900">Preferences</h3>
+          <div className="space-y-4">
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="remember"
+                checked={rememberDetails}
+                onChange={(event) =>
+                  dispatch({ type: "SET_FIELD", key: "rememberDetails", value: event.target.checked })
+                }
+              />
+              <div className="space-y-1">
+                <Label htmlFor="remember" className="text-sm font-medium text-slate-900">
+                  Remember my details on this device
+                </Label>
+                <p className="text-xs text-slate-500">
+                  Saves your name and contact info locally so future bookings are faster. Clear anytime from this step.
+                </p>
+              </div>
+            </div>
+
+            <div className={U.cn(
+              "space-y-2 rounded-lg border px-4 py-3",
+              showAgreementError ? "border-red-200 bg-red-50" : "border-slate-200 bg-slate-50",
+            )}>
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="agree"
+                  checked={agree}
+                  onChange={(event) => dispatch({ type: "SET_FIELD", key: "agree", value: event.target.checked })}
+                />
+                <div className="space-y-1">
+                  <Label htmlFor="agree" className="text-sm font-medium text-slate-900">
+                    I agree to the
+                    {" "}
+                    <Link href="/terms/SajiloReserveX" target="_blank" rel="noopener noreferrer" className="underline">
+                      SajiloReserveX Terms
+                    </Link>
+                    {" "}and
+                    {" "}
+                    <Link href="/terms/venue" target="_blank" rel="noopener noreferrer" className="underline">
+                      Venue Terms
+                    </Link>
+                    .
+                  </Label>
+                  <p className="text-xs text-slate-500">Each link opens in a new tab so you keep your progress here.</p>
+                </div>
+              </div>
+              {showAgreementError && (
+                <p className="flex items-center gap-1 text-xs text-red-600">
+                  <Icon.AlertCircle className="h-4 w-4" /> Please accept the terms to continue.
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="marketing"
+                checked={marketingOptIn}
+                onChange={(event) =>
+                  dispatch({ type: "SET_FIELD", key: "marketingOptIn", value: event.target.checked })
+                }
+              />
+              <div className="space-y-1">
+                <Label htmlFor="marketing" className="text-sm font-medium text-slate-900">
+                  Send me SajiloReserveX news and offers (optional)
+                </Label>
+                <p className="text-xs text-slate-500">Occasional updates only. Unsubscribe anytime from any email.</p>
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="flex items-start gap-2">
-          <Checkbox
-            id="marketing"
-            checked={marketingOptIn}
-            onChange={(event) =>
-              dispatch({ type: "SET_FIELD", key: "marketingOptIn", value: event.target.checked })
-            }
-          />
-          <div className="space-y-1">
-            <Label htmlFor="marketing" className="text-sm font-normal">
-              Send me SajiloReserveX news and offers (optional)
-            </Label>
-            <p className="text-xs text-slate-500">We only share occasional updates and you can opt out anytime.</p>
-          </div>
-        </div>
+        </section>
       </CardContent>
-      <CardFooter className="justify-between">
-        <Button variant="outline" onClick={() => dispatch({ type: "SET_STEP", step: 1 })}>
+      <CardFooter className="sticky bottom-0 left-0 right-0 -mx-1 -mb-1 flex flex-col gap-2 border-t border-slate-100 bg-white/95 px-6 py-4 backdrop-blur supports-[backdrop-filter]:backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+        <Button variant="outline" onClick={() => dispatch({ type: "SET_STEP", step: 1 })} className="w-full sm:w-auto">
           Back
         </Button>
-        <Button onClick={handleContinue} disabled={!canContinue}>
+        <Button onClick={handleContinue} disabled={!canContinue} className="w-full sm:w-auto">
           Review booking
         </Button>
       </CardFooter>
     </Card>
   );
 };
-
-const ReviewRow: React.FC<{
-  label: string;
-  value: string;
-  onEdit?: () => void;
-}> = ({ label, value, onEdit }) => (
-  <div className="flex items-center justify-between py-3">
-    <span className="text-sm text-slate-600">{label}</span>
-    <div className="flex items-center gap-2">
-      <span className="text-sm font-medium text-slate-900">{value}</span>
-      {onEdit && (
-        <Button variant="ghost" size="sm" className="h-auto p-1 text-xs" onClick={onEdit}>
-          Edit
-        </Button>
-      )}
-    </div>
-  </div>
-);
 
 const ConfirmationSummaryView: React.FC<{
   booking: ApiBooking | null;
@@ -1248,37 +1269,57 @@ const ConfirmationSummaryView: React.FC<{
 
   return (
     <div className="space-y-6">
+      <div
+        className={U.cn(
+          "flex flex-col gap-3 rounded-2xl border px-5 py-5 sm:flex-row sm:items-center",
+          isWaitlisted
+            ? "border-amber-200 bg-amber-50"
+            : isAllocationPending
+              ? "border-sky-200 bg-sky-50"
+              : "border-green-200 bg-green-50",
+        )}
+        role="status"
+      >
+        <HeadingIcon className={U.cn("h-10 w-10", iconClassName)} />
+        <div className="space-y-1">
+          <h2 className="text-xl font-semibold text-slate-900">{heading}</h2>
+          <p className="text-sm text-slate-700">{description}</p>
+          {isWaitlisted && (
+            <p className="text-xs text-slate-600">
+              Tip: keep an eye on your inbox—we’ll release the table to the next guest if we don’t hear back.
+            </p>
+          )}
+        </div>
+      </div>
+
       <Card>
-        <CardHeader className="text-center">
-          <HeadingIcon className={`mx-auto h-12 w-12 ${iconClassName}`} />
-          <CardTitle className="mt-3 text-3xl font-bold">{heading}</CardTitle>
-          <CardDescription className="mt-1 text-base text-slate-600">{description}</CardDescription>
+        <CardHeader>
+          <CardTitle className="text-lg">Booking recap</CardTitle>
+          <CardDescription>Save or update your reservation details below.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <dl className="grid gap-4 text-sm">
-            <div>
+        <CardContent className="space-y-4">
+          <dl className="grid gap-4 text-sm sm:grid-cols-2">
+            <div className="space-y-1">
               <dt className="text-slate-600">Booking reference</dt>
               <dd className="text-base font-semibold text-slate-900">{reference}</dd>
             </div>
-            <div>
+            <div className="space-y-1">
               <dt className="text-slate-600">Guest</dt>
               <dd className="text-base font-medium text-slate-900">{guestName || "Guest"}</dd>
             </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div>
-                <dt className="text-slate-600">Date</dt>
-                <dd className="text-base font-medium text-slate-900">{summaryDate}</dd>
-              </div>
-              <div>
-                <dt className="text-slate-600">Time</dt>
-                <dd className="text-base font-medium text-slate-900">{summaryTime}</dd>
-              </div>
+            <div className="space-y-1">
+              <dt className="text-slate-600">Date</dt>
+              <dd className="text-base font-medium text-slate-900">{summaryDate}</dd>
             </div>
-            <div>
+            <div className="space-y-1">
+              <dt className="text-slate-600">Time</dt>
+              <dd className="text-base font-medium text-slate-900">{summaryTime}</dd>
+            </div>
+            <div className="space-y-1">
               <dt className="text-slate-600">Party</dt>
               <dd className="text-base font-medium text-slate-900">{partyText}</dd>
             </div>
-            <div>
+            <div className="space-y-1">
               <dt className="text-slate-600">Venue</dt>
               <dd className="text-base font-medium text-slate-900">
                 <p>{venue.name}</p>
@@ -1286,36 +1327,38 @@ const ConfirmationSummaryView: React.FC<{
               </dd>
             </div>
             {details.marketingOptIn && (
-              <div>
+              <div className="space-y-1">
                 <dt className="text-slate-600">Marketing updates</dt>
                 <dd className="text-base text-slate-900">Opted in</dd>
               </div>
             )}
             {details.notes && (
-              <div>
+              <div className="space-y-1 sm:col-span-2">
                 <dt className="text-slate-600">Notes</dt>
                 <dd className="text-base text-slate-900">{details.notes}</dd>
               </div>
             )}
           </dl>
-          <div className="flex flex-wrap gap-3">
-            <Button onClick={onCancelAmend} variant="default">
-              Cancel / Amend
-            </Button>
-            <Button variant="outline" onClick={onViewUpdate}>
-              View / Update (login)
-            </Button>
-            <Button variant="ghost" onClick={handleClose}>
-              Close
-            </Button>
-          </div>
         </CardContent>
+        <CardFooter className="flex flex-col gap-2 border-t border-slate-100 bg-slate-50 px-6 py-4 sm:flex-row sm:justify-end">
+          <Button onClick={onCancelAmend} variant="outline" className="w-full sm:w-auto">
+            Cancel / Amend
+          </Button>
+          <Button variant="ghost" className="w-full sm:w-auto" onClick={onViewUpdate}>
+            View / Update (login)
+          </Button>
+          <Button variant="default" className="w-full sm:w-auto" onClick={handleClose}>
+            Close
+          </Button>
+        </CardFooter>
       </Card>
 
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Venue policy</CardTitle>
-          <CardDescription>{venue.name} · {venue.phone} · {venue.email}</CardDescription>
+          <CardDescription>
+            {venue.name} · {venue.phone} · {venue.email}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-slate-700">{venue.policy}</p>
@@ -1365,7 +1408,36 @@ const ConfirmationStep: React.FC<{
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-8">
-      {mode === "summary" ? (
+      <div className="flex justify-center sm:justify-start">
+        <div className="flex rounded-full border border-slate-200 bg-slate-50 p-1">
+          {(hasSummary
+            ? [
+                { id: "summary" as const, label: "Confirmation" },
+                { id: "manage" as const, label: "Manage bookings" },
+              ]
+            : [{ id: "manage" as const, label: "Manage bookings" }]
+          ).map((tab) => {
+            const isActive = mode === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setMode(tab.id)}
+                className={U.cn(
+                  "rounded-full px-4 py-2 text-sm font-medium transition",
+                  isActive ? "bg-white text-slate-900 shadow" : "text-slate-500 hover:text-slate-800",
+                  tab.id === "summary" && !hasSummary ? "cursor-not-allowed opacity-50" : "",
+                )}
+                disabled={tab.id === "summary" && !hasSummary}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {mode === "summary" && hasSummary ? (
         <ConfirmationSummaryView
           booking={state.lastConfirmed}
           details={state.details}
@@ -1411,51 +1483,84 @@ const Step3: React.FC<{ state: State; dispatch: React.Dispatch<Action>; onConfir
     : `${details.party} guest${details.party === 1 ? "" : "s"}`;
 
   return (
-    <Card className="mx-auto w-full max-w-2xl">
-      <CardHeader>
-        <CardTitle className="text-2xl">Confirm your reservation</CardTitle>
-        <CardDescription>Please review your booking before confirming.</CardDescription>
+    <Card className="mx-auto w-full max-w-3xl">
+      <CardHeader className="space-y-3">
+        <CardTitle className="text-2xl">Review and confirm</CardTitle>
+        <CardDescription className="text-sm text-slate-600">
+          Double-check the details below. You can edit any section before confirming.
+        </CardDescription>
       </CardHeader>
       <CardContent>
-        {state.error && (
-          <p className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {state.error}
-          </p>
-        )}
-        <div className="divide-y divide-slate-200 rounded-lg border border-slate-200 px-4">
-          <ReviewRow
-            label="Summary"
-            value={summaryValue}
-            onEdit={() => dispatch({ type: "SET_STEP", step: 1 })}
-          />
-          <ReviewRow
-            label="Party size"
-            value={`${details.party} ${details.party === 1 ? "guest" : "guests"}`}
-            onEdit={() => dispatch({ type: "SET_STEP", step: 1 })}
-          />
-          <ReviewRow label="Full name" value={details.name} onEdit={() => dispatch({ type: "SET_STEP", step: 2 })} />
-          <ReviewRow label="Email" value={details.email} onEdit={() => dispatch({ type: "SET_STEP", step: 2 })} />
-          <ReviewRow label="Phone" value={details.phone} onEdit={() => dispatch({ type: "SET_STEP", step: 2 })} />
-          <ReviewRow
-            label="Booking type"
-            value={U.formatBookingLabel(details.bookingType)}
-            onEdit={() => dispatch({ type: "SET_STEP", step: 1 })}
-          />
-          <ReviewRow
-            label="Marketing updates"
-            value={details.marketingOptIn ? "Subscribed" : "Not subscribed"}
-            onEdit={() => dispatch({ type: "SET_STEP", step: 2 })}
-          />
-          {details.notes && (
-            <ReviewRow label="Notes" value={details.notes} onEdit={() => dispatch({ type: "SET_STEP", step: 1 })} />
+        <div className="space-y-4">
+          {state.error && (
+            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <Icon.AlertCircle className="mt-0.5 h-4 w-4" />
+              <span>{state.error}</span>
+            </div>
           )}
+          <dl className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
+            <div className="space-y-1">
+              <dt className="text-xs uppercase tracking-wide text-slate-500">Summary</dt>
+              <dd className="text-sm font-semibold text-slate-900">{summaryValue}</dd>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-auto px-0 text-xs text-slate-600 hover:text-slate-900"
+                onClick={() => dispatch({ type: "SET_STEP", step: 1 })}
+              >
+                Edit selection
+              </Button>
+            </div>
+            <div className="space-y-1">
+              <dt className="text-xs uppercase tracking-wide text-slate-500">Party size</dt>
+              <dd className="text-sm font-medium text-slate-900">
+                {details.party} {details.party === 1 ? "guest" : "guests"}
+              </dd>
+            </div>
+            <div className="space-y-1">
+              <dt className="text-xs uppercase tracking-wide text-slate-500">Full name</dt>
+              <dd className="text-sm font-medium text-slate-900">{details.name}</dd>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-auto px-0 text-xs text-slate-600 hover:text-slate-900"
+                onClick={() => dispatch({ type: "SET_STEP", step: 2 })}
+              >
+                Edit contact info
+              </Button>
+            </div>
+            <div className="space-y-1">
+              <dt className="text-xs uppercase tracking-wide text-slate-500">Email</dt>
+              <dd className="text-sm font-medium text-slate-900">{details.email}</dd>
+            </div>
+            <div className="space-y-1">
+              <dt className="text-xs uppercase tracking-wide text-slate-500">Phone</dt>
+              <dd className="text-sm font-medium text-slate-900">{details.phone}</dd>
+            </div>
+            <div className="space-y-1">
+              <dt className="text-xs uppercase tracking-wide text-slate-500">Booking type</dt>
+              <dd className="text-sm font-medium text-slate-900">{U.formatBookingLabel(details.bookingType)}</dd>
+            </div>
+            <div className="space-y-1">
+              <dt className="text-xs uppercase tracking-wide text-slate-500">Marketing updates</dt>
+              <dd className="text-sm font-medium text-slate-900">
+                {details.marketingOptIn ? "Subscribed" : "Not subscribed"}
+              </dd>
+            </div>
+            {details.notes && (
+              <div className="space-y-1 sm:col-span-2">
+                <dt className="text-xs uppercase tracking-wide text-slate-500">Notes</dt>
+                <dd className="text-sm text-slate-700">{details.notes}</dd>
+              </div>
+            )}
+          </dl>
         </div>
       </CardContent>
-      <CardFooter className="justify-between">
-        <Button variant="outline" onClick={() => dispatch({ type: "SET_STEP", step: 2 })}>
+      <CardFooter className="sticky bottom-0 left-0 right-0 -mx-1 -mb-1 flex flex-col gap-2 border-t border-slate-100 bg-white/95 px-6 py-4 backdrop-blur supports-[backdrop-filter]:backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+        <Button variant="outline" onClick={() => dispatch({ type: "SET_STEP", step: 2 })} className="w-full sm:w-auto">
           Back
         </Button>
-        <Button onClick={onConfirm} disabled={state.submitting}>
+        <Button onClick={onConfirm} disabled={state.submitting} className="w-full sm:w-auto">
           {state.submitting ? (
             <>
               <Icon.Spinner className="mr-2 h-4 w-4 animate-spin" /> Processing...
@@ -1548,8 +1653,8 @@ function ManageBookings({
           <CardDescription>Look up, modify, or cancel upcoming reservations.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <form onSubmit={handleLookupSubmit} className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2">
+          <form onSubmit={handleLookupSubmit} className="space-y-4 rounded-xl border border-slate-200 p-4">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="manage-email">Email</Label>
                 <Input
@@ -1571,62 +1676,62 @@ function ManageBookings({
                 />
               </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button type="submit" disabled={!canLookup || loading}>
-                {loading ? (
-                  <>
-                    <Icon.Spinner className="mr-2 h-4 w-4 animate-spin" /> Fetching
-                  </>
-                ) : (
-                  "Find my bookings"
-                )}
-              </Button>
-            </div>
+            <Button type="submit" disabled={!canLookup || loading} className="w-full sm:w-auto">
+              {loading ? (
+                <>
+                  <Icon.Spinner className="mr-2 h-4 w-4 animate-spin" /> Fetching
+                </>
+              ) : (
+                "Find my bookings"
+              )}
+            </Button>
           </form>
 
           {bookings.length > 0 ? (
-            <ul className="divide-y divide-slate-200">
+            <ul className="space-y-4">
               {bookings.map((booking) => (
-                <li
-                  key={booking.id}
-                  className="flex flex-col items-start justify-between gap-3 py-4 sm:flex-row sm:items-center"
-                >
-                  <div>
-                    <p className="font-semibold">
-                      {U.formatDate(booking.booking_date)} at {U.formatTime(booking.start_time)}
-                    </p>
-                    <p className="text-sm text-slate-500">
-                      {booking.party_size} {booking.party_size === 1 ? "guest" : "guests"} · {U.formatBookingLabel(toBookingOption(booking.booking_type))} · {booking.customer_name}
-                    </p>
-                    <p className="text-xs uppercase tracking-wide text-slate-400">Ref: {booking.reference}</p>
-                  </div>
-                  <div className="flex gap-2 self-end sm:self-center">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onEdit(booking)}
-                      disabled={loading}
-                    >
-                      <Icon.Pencil className="mr-2 h-4 w-4" /> Modify
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => setBookingToCancel(booking)}
-                      disabled={loading}
-                    >
-                      <Icon.Trash2 className="mr-2 h-4 w-4" /> Cancel
-                    </Button>
+                <li key={booking.id}>
+                  <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-1">
+                      <p className="text-base font-semibold text-slate-900">
+                        {U.formatDate(booking.booking_date)} at {U.formatTime(booking.start_time)}
+                      </p>
+                      <p className="text-sm text-slate-600">
+                        {booking.party_size} {booking.party_size === 1 ? "guest" : "guests"} · {U.formatBookingLabel(toBookingOption(booking.booking_type))}
+                      </p>
+                      <p className="text-xs uppercase tracking-wide text-slate-400">Ref: {booking.reference}</p>
+                      <p className="text-xs text-slate-500">Booked for {booking.customer_name}</p>
+                    </div>
+                    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                      <Button
+                        variant="outline"
+                        onClick={() => onEdit(booking)}
+                        disabled={loading}
+                        className="w-full sm:w-auto"
+                      >
+                        <Icon.Pencil className="mr-2 h-4 w-4" /> Modify
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        onClick={() => setBookingToCancel(booking)}
+                        disabled={loading}
+                        className="w-full sm:w-auto"
+                      >
+                        <Icon.Trash2 className="mr-2 h-4 w-4" /> Cancel
+                      </Button>
+                    </div>
                   </div>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="py-4 text-center text-slate-500">You have no active bookings.</p>
+            <div className="rounded-2xl border border-dashed border-slate-200 py-10 text-center text-slate-500">
+              You have no active bookings.
+            </div>
           )}
         </CardContent>
-        <CardFooter className="justify-center">
-          <Button onClick={onNewBooking} disabled={loading}>
+        <CardFooter className="justify-center border-t border-slate-100 bg-slate-50">
+          <Button onClick={onNewBooking} disabled={loading} className="w-full sm:w-auto">
             Make a new booking
           </Button>
         </CardFooter>
@@ -1653,6 +1758,29 @@ function BookingFlowContent() {
   const { rememberDetails, name, email, phone } = state.details;
   const searchParams = useSearchParams();
   const manageInitRef = useRef(false);
+  const stepsMeta = useMemo(
+    () => [
+      { id: 1, label: "Plan", helper: "Pick date, time, and party" },
+      { id: 2, label: "Details", helper: "Share contact information" },
+      { id: 3, label: "Review", helper: "Double-check and confirm" },
+      { id: 4, label: "Manage", helper: "View confirmation or update" },
+    ],
+    [],
+  );
+
+  const selectionSummary = useMemo(() => {
+    const formattedDate = state.details.date ? U.formatSummaryDate(state.details.date) : "Choose a date";
+    const formattedTime = state.details.time ? U.formatTime(state.details.time) : "Pick a time";
+    const partyText = state.details.party
+      ? `${state.details.party} ${state.details.party === 1 ? "guest" : "guests"}`
+      : "Add guests";
+
+    return {
+      formattedDate,
+      formattedTime,
+      partyText,
+    };
+  }, [state.details.date, state.details.party, state.details.time]);
 
   const handleLookupBookings = useCallback(
     async (overrides?: { email?: string; phone?: string; restaurantId?: string }) => {
@@ -1940,7 +2068,65 @@ function BookingFlowContent() {
     }
   };
 
-  return <main className="min-h-screen w-full bg-slate-50 px-4 py-12 font-sans text-slate-800 sm:py-20">{renderStep()}</main>;
+  return (
+    <main className="min-h-screen w-full bg-slate-50 px-4 py-10 font-sans text-slate-800 sm:py-16">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
+        <section className="rounded-2xl border border-slate-200 bg-white/95 p-5 shadow-sm backdrop-blur supports-[backdrop-filter]:backdrop-blur-sm sm:p-6">
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Reserve your table</h1>
+            <p className="text-sm text-slate-600">
+              Complete each step to secure your booking. We’ll keep your progress if you need to jump back.
+            </p>
+            <div className="flex flex-wrap gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+              <span className="font-medium text-slate-900">{selectionSummary.partyText}</span>
+              <span aria-hidden="true">•</span>
+              <span>{selectionSummary.formattedTime}</span>
+              <span aria-hidden="true">•</span>
+              <span>{selectionSummary.formattedDate}</span>
+            </div>
+          </div>
+          <ol className="mt-5 grid gap-3 sm:grid-cols-2">
+            {stepsMeta.map((stepItem) => {
+              const isActive = state.step === stepItem.id;
+              const isComplete = state.step > stepItem.id;
+              return (
+                <li
+                  key={stepItem.id}
+                  className={U.cn(
+                    "flex items-start gap-3 rounded-xl border px-3 py-3 transition",
+                    isActive
+                      ? "border-slate-900 bg-slate-900/5 text-slate-900"
+                      : isComplete
+                        ? "border-green-200 bg-green-50 text-slate-700"
+                        : "border-slate-200 bg-white text-slate-600",
+                  )}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={U.cn(
+                      "flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold",
+                      isActive
+                        ? "bg-slate-900 text-white"
+                        : isComplete
+                          ? "bg-green-500 text-white"
+                          : "bg-slate-200 text-slate-600",
+                    )}
+                  >
+                    {isComplete ? <Icon.Check className="h-4 w-4" /> : stepItem.id}
+                  </span>
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold leading-tight">{stepItem.label}</p>
+                    <p className="text-xs text-slate-500 sm:text-sm">{stepItem.helper}</p>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+        <div>{renderStep()}</div>
+      </div>
+    </main>
+  );
 }
 
 export default function BookingFlowPage() {
