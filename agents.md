@@ -18,6 +18,13 @@ b. Go for as long as possible. If ambiguous, leave all questions to the end and 
 4. Verification - Create feedback loops to test that the plan was implemented correctly (models still occasionally fail on execution)
 
 
+
+
+must follow design principles 
+- subtle haptics
+- space + typography hierarchy
+- micro-speed animations
+
 # AGENTS.md
 
 > A practical playbook for humans and coding agents working on this repo.
