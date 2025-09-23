@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type RefObject } from "react";
 
-export function useStickyProgress(anchorRef: RefObject<HTMLElement>, currentStep: number) {
+export function useStickyProgress(anchorRef: RefObject<HTMLElement>) {
   const [anchorVisible, setAnchorVisible] = useState(true);
 
   useEffect(() => {
@@ -24,6 +24,6 @@ export function useStickyProgress(anchorRef: RefObject<HTMLElement>, currentStep
 
   return {
     isAnchorVisible: anchorVisible,
-    shouldShow: currentStep > 1 || !anchorVisible,
+    shouldShow: true,
   } as const;
 }

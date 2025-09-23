@@ -2,7 +2,6 @@
 
 import React, { Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { useSearchParams } from "next/navigation";
 
 import { Icon } from "@/components/reserve/icons";
 import { bookingHelpers, storageKeys } from "@/components/reserve/helpers";
@@ -41,7 +40,7 @@ const ConfirmationStep = dynamic(
 
 // bookingHelpers + storageKeys imported from @/components/reserve/helpers
 
-import { reducer, getInitialState, type ApiBooking, type StepAction } from "./state";
+import { reducer, getInitialState, type StepAction } from "./state";
 
 // =============================================================================================
 // MAIN COMPONENT
@@ -49,8 +48,6 @@ import { reducer, getInitialState, type ApiBooking, type StepAction } from "./st
 function BookingFlowContent() {
   const [state, dispatch] = useReducer(reducer, undefined, getInitialState);
   const { rememberDetails, name, email, phone } = state.details;
-  const searchParams = useSearchParams();
-  const manageInitRef = useRef(false);
   const heroRef = useRef<HTMLElement | null>(null);
   const [stickyActions, setStickyActions] = useState<StepAction[]>([]);
   const [stickyHeight, setStickyHeight] = useState(0);
@@ -59,12 +56,12 @@ function BookingFlowContent() {
       { id: 1, label: "Plan", helper: "Pick date, time, and party" },
       { id: 2, label: "Details", helper: "Share contact information" },
       { id: 3, label: "Review", helper: "Double-check and confirm" },
-      { id: 4, label: "Manage", helper: "View confirmation or update" },
+      { id: 4, label: "Confirmation", helper: "Your reservation status" },
     ],
     [],
   );
 
-  const { shouldShow: stickyVisible } = useStickyProgress(heroRef, state.step);
+  const { shouldShow: stickyVisible } = useStickyProgress(heroRef);
 
   const handleStickyHeightChange = useCallback((height: number) => {
     setStickyHeight((prev) => (Math.abs(prev - height) < 1 ? prev : height));
@@ -122,50 +119,6 @@ function BookingFlowContent() {
     };
   }, [state.details.date, state.details.party, state.details.time]);
 
-  const handleLookupBookings = useCallback(
-    async (overrides?: { email?: string; phone?: string; restaurantId?: string }) => {
-      const emailValue = (overrides?.email ?? state.details.email ?? "").trim();
-      const phoneValue = (overrides?.phone ?? state.details.phone ?? "").trim();
-      const restaurantIdValue =
-        overrides?.restaurantId ?? state.details.restaurantId ?? DEFAULT_RESTAURANT_ID;
-
-      if (!emailValue || !phoneValue) {
-        dispatch({ type: "SET_ERROR", message: "Provide your email and phone number to manage reservations." });
-        return;
-      }
-
-      dispatch({ type: "SET_FIELD", key: "email", value: emailValue });
-      dispatch({ type: "SET_FIELD", key: "phone", value: phoneValue });
-      dispatch({ type: "SET_FIELD", key: "restaurantId", value: restaurantIdValue });
-
-      dispatch({ type: "SET_LOADING", value: true });
-      dispatch({ type: "SET_ERROR", message: null });
-
-      try {
-        const params = new URLSearchParams({
-          email: emailValue,
-          phone: phoneValue,
-          restaurantId: restaurantIdValue,
-        });
-
-        const response = await fetch(`/api/bookings?${params.toString()}`);
-        const data = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-          throw new Error(typeof data?.error === "string" ? data.error : "Unable to load bookings");
-        }
-
-        dispatch({ type: "SET_BOOKINGS", bookings: data.bookings ?? [] });
-        dispatch({ type: "SET_STEP", step: 4 });
-      } catch (error: any) {
-        dispatch({ type: "SET_ERROR", message: error?.message ?? "Unable to load bookings" });
-      } finally {
-        dispatch({ type: "SET_LOADING", value: false });
-      }
-    },
-    [state.details.email, state.details.phone, state.details.restaurantId],
-  );
-
   // Load remembered contact details
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -195,44 +148,6 @@ function BookingFlowContent() {
       console.error("Failed to persist contact details", error);
     }
   }, [rememberDetails, name, email, phone]);
-
-  useEffect(() => {
-    const view = searchParams.get("view");
-    if (view !== "manage" || manageInitRef.current) {
-      return;
-    }
-
-    manageInitRef.current = true;
-
-    const emailParam = searchParams.get("email") ?? "";
-    const phoneParam = searchParams.get("phone") ?? "";
-    const restaurantParam =
-      searchParams.get("restaurantId") ?? state.details.restaurantId ?? DEFAULT_RESTAURANT_ID;
-
-    if (emailParam) {
-      dispatch({ type: "SET_FIELD", key: "email", value: emailParam });
-    }
-    if (phoneParam) {
-      dispatch({ type: "SET_FIELD", key: "phone", value: phoneParam });
-    }
-    if (restaurantParam) {
-      dispatch({ type: "SET_FIELD", key: "restaurantId", value: restaurantParam });
-    }
-
-    if (emailParam && phoneParam) {
-      void handleLookupBookings({
-        email: emailParam,
-        phone: phoneParam,
-        restaurantId: restaurantParam,
-      });
-    } else {
-      dispatch({ type: "SET_STEP", step: 4 });
-      dispatch({
-        type: "SET_ERROR",
-        message: "Enter your email and phone number to manage reservations.",
-      });
-    }
-  }, [handleLookupBookings, searchParams, state.details.restaurantId]);
 
   const handleConfirm = async () => {
     const normalizedTime = bookingHelpers.normalizeTime(state.details.time);
@@ -337,50 +252,9 @@ function BookingFlowContent() {
     }
   };
 
-  const handleEditBooking = (booking: ApiBooking) => {
-    dispatch({ type: "SET_ERROR", message: null });
-    dispatch({ type: "START_EDIT", bookingId: booking.id });
-  };
-
   const handleNewBooking = () => {
     dispatch({ type: "SET_ERROR", message: null });
     dispatch({ type: "RESET_FORM" });
-  };
-
-  const handleCancelBooking = async (booking: ApiBooking) => {
-    if (!state.details.email || !state.details.phone) {
-      dispatch({ type: "SET_ERROR", message: "Provide your email and phone number to manage reservations." });
-      return;
-    }
-
-    dispatch({ type: "SET_LOADING", value: true });
-    dispatch({ type: "SET_ERROR", message: null });
-
-    const restaurantId = state.details.restaurantId || DEFAULT_RESTAURANT_ID;
-
-    try {
-      const params = new URLSearchParams({
-        email: state.details.email.trim(),
-        phone: state.details.phone.trim(),
-        restaurantId,
-      });
-
-      const response = await fetch(`/api/bookings/${booking.id}?${params.toString()}`, {
-        method: "DELETE",
-      });
-
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(typeof data?.error === "string" ? data.error : "Unable to cancel booking");
-      }
-
-      dispatch({ type: "SET_BOOKINGS", bookings: data.bookings ?? [] });
-    } catch (error: any) {
-      dispatch({ type: "SET_ERROR", message: error?.message ?? "Unable to cancel booking" });
-    } finally {
-      dispatch({ type: "SET_LOADING", value: false });
-    }
   };
 
   const renderStep = () => {
@@ -402,12 +276,7 @@ function BookingFlowContent() {
         return (
           <ConfirmationStep
             state={state}
-            dispatch={dispatch}
-            onEdit={handleEditBooking}
-            onCancel={handleCancelBooking}
-            onLookup={handleLookupBookings}
             onNewBooking={handleNewBooking}
-            forceManageView={searchParams.get("view") === "manage"}
             onActionsChange={handleActionsChange}
           />
         );

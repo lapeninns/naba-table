@@ -2,7 +2,6 @@
 
 import React, { useCallback, useEffect } from "react";
 
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -43,8 +42,8 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ state, dispatch, onConfi
     ? `${details.party} at ${bookingHelpers.formatTime(details.time)} on ${bookingHelpers.formatSummaryDate(details.date)}`
     : `${details.party} guest${details.party === 1 ? "" : "s"}`;
 
-  const handleBack = useCallback(() => {
-    dispatch({ type: "SET_STEP", step: 2 });
+  const handleEdit = useCallback(() => {
+    dispatch({ type: "SET_STEP", step: 1 });
   }, [dispatch]);
 
   const handleConfirm = useCallback(() => {
@@ -54,10 +53,10 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ state, dispatch, onConfi
   useEffect(() => {
     const actions: StepAction[] = [
       {
-        id: "review-back",
-        label: "Back",
+        id: "review-edit",
+        label: "Edit details",
         variant: "outline",
-        onClick: handleBack,
+        onClick: handleEdit,
       },
       {
         id: "review-confirm",
@@ -69,7 +68,7 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ state, dispatch, onConfi
       },
     ];
     onActionsChange(actions);
-  }, [handleBack, handleConfirm, onActionsChange, state.submitting]);
+  }, [handleEdit, handleConfirm, onActionsChange, state.submitting]);
 
   return (
     <Card className="mx-auto w-full max-w-4xl lg:max-w-5xl">
@@ -93,14 +92,6 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ state, dispatch, onConfi
             <div className="space-y-1">
               <dt className="text-helper uppercase tracking-[0.18em] text-srx-ink-soft">Summary</dt>
               <dd className="text-body-sm font-semibold text-srx-ink-strong">{summaryValue}</dd>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-auto px-0 text-helper text-srx-ink-soft hover:text-srx-ink-strong"
-                onClick={() => dispatch({ type: "SET_STEP", step: 1 })}
-              >
-                Edit selection
-              </Button>
             </div>
             <div className="space-y-1">
               <dt className="text-helper uppercase tracking-[0.18em] text-srx-ink-soft">Party size</dt>
@@ -111,14 +102,6 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ state, dispatch, onConfi
             <div className="space-y-1">
               <dt className="text-helper uppercase tracking-[0.18em] text-srx-ink-soft">Full name</dt>
               <dd className="text-body-sm font-medium text-srx-ink-strong">{details.name}</dd>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-auto px-0 text-helper text-srx-ink-soft hover:text-srx-ink-strong"
-                onClick={() => dispatch({ type: "SET_STEP", step: 2 })}
-              >
-                Edit contact info
-              </Button>
             </div>
             <div className="space-y-1">
               <dt className="text-helper uppercase tracking-[0.18em] text-srx-ink-soft">Email</dt>

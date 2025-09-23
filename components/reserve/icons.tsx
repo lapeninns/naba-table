@@ -246,6 +246,60 @@ export const Icon = {
       <path d="M21 12a9 9 0 1 1-6.219-8.56" />
     </svg>
   ),
+  X: (p: React.SVGProps<SVGSVGElement>) => (
+    <svg
+      {...p}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
+  ),
+  Wallet: (p: React.SVGProps<SVGSVGElement>) => (
+    <svg
+      {...p}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 13.5V6a2 2 0 0 0-2-2H5a4 4 0 0 0 0 8h14" />
+      <path d="M21 13h-5" />
+      <path d="M10 17H5a4 4 0 0 1 0-8" />
+      <path d="M12 13h.01" />
+      <path d="M16 17h5v2a2 2 0 0 1-2 2H5a4 4 0 0 1 0-8h5" />
+    </svg>
+  ),
+  Plus: (p: React.SVGProps<SVGSVGElement>) => (
+    <svg
+      {...p}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </svg>
+  ),
 };
 
 export type IconKey = keyof typeof Icon;

@@ -1,3 +1,4 @@
+import type { IconKey } from "@/components/reserve/icons";
 import { bookingHelpers, type BookingOption } from "@/components/reserve/helpers";
 import {
   BOOKING_TYPES_UI,
@@ -40,12 +41,9 @@ export type StepAction = {
   variant?: "default" | "outline" | "ghost" | "destructive";
   disabled?: boolean;
   loading?: boolean;
+  icon?: IconKey;
+  ariaLabel?: string;
 };
-
-// eslint-disable-next-line no-unused-vars
-export type BookingEditHandler = (_booking: ApiBooking) => void;
-// eslint-disable-next-line no-unused-vars
-export type BookingMutationHandler = (_booking: ApiBooking) => Promise<void> | void;
 
 export type BookingDetails = {
   bookingId: string | null;
