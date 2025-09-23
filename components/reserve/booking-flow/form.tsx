@@ -3,7 +3,7 @@
 import React from "react";
 import { bookingHelpers } from "@/components/reserve/helpers";
 import { Icon } from "@/components/reserve/icons";
-import { Label } from "@/components/reserve/ui-primitives";
+import { Label } from "@/components/ui/label";
 
 export const Field: React.FC<{
   id: string;

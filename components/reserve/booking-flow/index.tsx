@@ -1,23 +1,47 @@
 "use client";
 
 import React, { Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 
 import { Icon } from "@/components/reserve/icons";
 import { bookingHelpers, storageKeys } from "@/components/reserve/helpers";
 import { track } from "@/lib/analytics";
 import { DEFAULT_RESTAURANT_ID } from "@/lib/venue";
-import { PlanStep } from "../steps/PlanStep";
-import { DetailsStep } from "../steps/DetailsStep";
-import { ReviewStep } from "../steps/ReviewStep";
-import { ConfirmationStep } from "../steps/ConfirmationStep";
 import { StickyProgress } from "./sticky-progress";
 import { useStickyProgress } from "./use-sticky-progress";
 import { triggerSubtleHaptic } from "./haptics";
 
+const StepSkeleton: React.FC = () => (
+  <div className="animate-pulse rounded-2xl border border-srx-border-subtle bg-white/70 p-6 shadow-sm">
+    <div className="h-6 w-40 rounded-lg bg-slate-200/80" />
+    <div className="mt-6 space-y-3">
+      <div className="h-4 w-full rounded bg-slate-200/70" />
+      <div className="h-4 w-3/4 rounded bg-slate-200/70" />
+      <div className="h-4 w-2/3 rounded bg-slate-200/70" />
+    </div>
+  </div>
+);
+
+const PlanStep = dynamic(() => import("../steps/PlanStep").then((mod) => mod.PlanStep), {
+  loading: () => <StepSkeleton />,
+});
+const DetailsStep = dynamic(() => import("../steps/DetailsStep").then((mod) => mod.DetailsStep), {
+  loading: () => <StepSkeleton />,
+});
+const ReviewStep = dynamic(() => import("../steps/ReviewStep").then((mod) => mod.ReviewStep), {
+  loading: () => <StepSkeleton />,
+});
+const ConfirmationStep = dynamic(
+  () => import("../steps/ConfirmationStep").then((mod) => mod.ConfirmationStep),
+  {
+    loading: () => <StepSkeleton />,
+  },
+);
+
 // bookingHelpers + storageKeys imported from @/components/reserve/helpers
 
-import { reducer, getInitialState, type ApiBooking } from "./state";
+import { reducer, getInitialState, type ApiBooking, type StepAction } from "./state";
 
 // =============================================================================================
 // MAIN COMPONENT
@@ -27,8 +51,9 @@ function BookingFlowContent() {
   const { rememberDetails, name, email, phone } = state.details;
   const searchParams = useSearchParams();
   const manageInitRef = useRef(false);
-  const heroRef = useRef<HTMLDivElement | null>(null);
-  const [progressExpanded, setProgressExpanded] = useState(false);
+  const heroRef = useRef<HTMLElement | null>(null);
+  const [stickyActions, setStickyActions] = useState<StepAction[]>([]);
+  const [stickyHeight, setStickyHeight] = useState(0);
   const stepsMeta = useMemo(
     () => [
       { id: 1, label: "Plan", helper: "Pick date, time, and party" },
@@ -40,11 +65,10 @@ function BookingFlowContent() {
   );
 
   const { shouldShow: stickyVisible } = useStickyProgress(heroRef, state.step);
-  useEffect(() => {
-    if (!stickyVisible) {
-      setProgressExpanded(false);
-    }
-  }, [stickyVisible]);
+
+  const handleStickyHeightChange = useCallback((height: number) => {
+    setStickyHeight((prev) => (Math.abs(prev - height) < 1 ? prev : height));
+  }, []);
 
   const previousStepRef = useRef(state.step);
   useEffect(() => {
@@ -61,6 +85,28 @@ function BookingFlowContent() {
     }
     previousVisibilityRef.current = stickyVisible;
   }, [stickyVisible]);
+
+  const handleActionsChange = useCallback((actions: StepAction[]) => {
+    setStickyActions((prev) => {
+      if (prev.length === actions.length && prev.every((action, index) => {
+        const next = actions[index];
+        return (
+          action.id === next.id &&
+          action.label === next.label &&
+          action.variant === next.variant &&
+          action.disabled === next.disabled &&
+          action.loading === next.loading
+        );
+      })) {
+        return prev;
+      }
+      return actions;
+    });
+  }, []);
+
+  useEffect(() => {
+    setStickyActions([]);
+  }, [state.step]);
 
   const selectionSummary = useMemo(() => {
     const formattedDate = state.details.date ? bookingHelpers.formatSummaryDate(state.details.date) : "Choose a date";
@@ -340,11 +386,18 @@ function BookingFlowContent() {
   const renderStep = () => {
     switch (state.step) {
       case 1:
-        return <PlanStep state={state} dispatch={dispatch} />;
+        return <PlanStep state={state} dispatch={dispatch} onActionsChange={handleActionsChange} />;
       case 2:
-        return <DetailsStep state={state} dispatch={dispatch} />;
+        return <DetailsStep state={state} dispatch={dispatch} onActionsChange={handleActionsChange} />;
       case 3:
-        return <ReviewStep state={state} dispatch={dispatch} onConfirm={handleConfirm} />;
+        return (
+          <ReviewStep
+            state={state}
+            dispatch={dispatch}
+            onConfirm={handleConfirm}
+            onActionsChange={handleActionsChange}
+          />
+        );
       case 4:
         return (
           <ConfirmationStep
@@ -355,6 +408,7 @@ function BookingFlowContent() {
             onLookup={handleLookupBookings}
             onNewBooking={handleNewBooking}
             forceManageView={searchParams.get("view") === "manage"}
+            onActionsChange={handleActionsChange}
           />
         );
       default:
@@ -365,40 +419,23 @@ function BookingFlowContent() {
   return (
     <>
       <main
+        style={stickyVisible ? { paddingBottom: `calc(${stickyHeight}px + env(safe-area-inset-bottom, 0px) + 1.5rem)` } : undefined}
         className={bookingHelpers.cn(
-          "min-h-screen w-full bg-slate-50 px-4 py-10 font-sans text-slate-800 transition-[padding-bottom] sm:py-16",
-          stickyVisible ? "pb-32 sm:pb-28" : "pb-16",
+          "min-h-screen w-full bg-slate-50 px-4 pb-24 pt-10 font-sans text-srx-ink-strong transition-[padding-bottom] sm:pt-16 md:px-8 lg:px-12",
         )}
       >
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
-        <section
-          ref={heroRef}
-          className="rounded-2xl border border-slate-200 bg-white/95 p-5 shadow-sm backdrop-blur supports-[backdrop-filter]:backdrop-blur-sm sm:p-6"
-        >
-          <div className="space-y-2">
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Reserve your table</h1>
-            <p className="text-sm text-slate-600">
-              Complete each step to secure your booking. We’ll keep your progress if you need to jump back.
-            </p>
-            <div className="flex flex-wrap gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
-              <span className="font-medium text-slate-900">{selectionSummary.partyText}</span>
-              <span aria-hidden="true">•</span>
-              <span>{selectionSummary.formattedTime}</span>
-              <span aria-hidden="true">•</span>
-              <span>{selectionSummary.formattedDate}</span>
-            </div>
-          </div>
-        </section>
-        <div>{renderStep()}</div>
-      </div>
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-10 sm:gap-12 md:max-w-4xl lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
+          <span ref={heroRef} aria-hidden className="block h-px w-full" />
+          {renderStep()}
+        </div>
       </main>
       <StickyProgress
         steps={stepsMeta}
         currentStep={state.step}
         summary={selectionSummary}
         visible={stickyVisible}
-        expanded={progressExpanded}
-        onToggle={() => setProgressExpanded((prev) => !prev)}
+        actions={stickyActions}
+        onHeightChange={handleStickyHeightChange}
       />
     </>
   );

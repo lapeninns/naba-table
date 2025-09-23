@@ -3,21 +3,30 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { AlertDialog } from "@/components/reserve/booking-flow/alert-dialog";
 import { bookingHelpers } from "@/components/reserve/helpers";
+import { Icon } from "@/components/reserve/icons";
+import { DEFAULT_VENUE } from "@/lib/venue";
+import { Button } from "@/components/ui/button";
 import {
-  Button,
   Card,
   CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
-  Input,
-  Label,
-} from "@/components/reserve/ui-primitives";
-import { Icon } from "@/components/reserve/icons";
-import { DEFAULT_VENUE } from "@/lib/venue";
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 import {
   toBookingOption,
@@ -28,6 +37,7 @@ import {
   type BookingMutationHandler,
   type LastAction,
   type State,
+  type StepAction,
 } from "../booking-flow/state";
 
 interface ConfirmationStepProps {
@@ -38,6 +48,8 @@ interface ConfirmationStepProps {
   onLookup: () => Promise<void> | void;
   onNewBooking: () => void;
   forceManageView?: boolean;
+  // eslint-disable-next-line no-unused-vars
+  onActionsChange: (_actions: StepAction[]) => void;
 }
 
 interface ConfirmationSummaryProps {
@@ -91,21 +103,22 @@ const ConfirmationSummaryView: React.FC<ConfirmationSummaryProps> = ({
     <div className="space-y-6">
       <div
         className={bookingHelpers.cn(
-          "flex flex-col gap-3 rounded-2xl border px-5 py-5 sm:flex-row sm:items-center",
+          "flex flex-col gap-3 rounded-2xl border border-srx-border-strong bg-white px-6 py-5 shadow-srx-card sm:flex-row sm:items-center",
           isWaitlisted
-            ? "border-amber-200 bg-amber-50"
+            ? "border-l-4 border-l-amber-500"
             : isAllocationPending
-              ? "border-sky-200 bg-sky-50"
-              : "border-green-200 bg-green-50",
+              ? "border-l-4 border-l-sky-500"
+              : "border-l-4 border-l-emerald-500",
         )}
         role="status"
+        aria-live="polite"
       >
         <HeadingIcon className={bookingHelpers.cn("h-10 w-10", iconClassName)} />
-        <div className="space-y-1">
-          <h2 className="text-xl font-semibold text-slate-900">{heading}</h2>
-          <p className="text-sm text-slate-700">{description}</p>
+        <div className="space-y-1 text-body-sm text-srx-ink-soft">
+          <h2 className="text-xl font-semibold text-srx-ink-strong">{heading}</h2>
+          <p>{description}</p>
           {isWaitlisted && (
-            <p className="text-xs text-slate-600">
+            <p className="text-helper text-srx-ink-soft">
               Tip: keep an eye on your inbox—we’ll release the table to the next guest if we don’t hear back.
             </p>
           )}
@@ -113,54 +126,56 @@ const ConfirmationSummaryView: React.FC<ConfirmationSummaryProps> = ({
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Booking recap</CardTitle>
-          <CardDescription>Save or update your reservation details below.</CardDescription>
+        <CardHeader className="space-y-2">
+          <CardTitle className="text-lg text-srx-ink-strong">Booking recap</CardTitle>
+          <CardDescription className="text-body-sm text-srx-ink-soft">
+            Save or update your reservation details below.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <dl className="grid gap-4 text-sm sm:grid-cols-2">
+          <dl className="grid gap-4 text-body-sm sm:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-1">
-              <dt className="text-slate-600">Booking reference</dt>
-              <dd className="text-base font-semibold text-slate-900">{reference}</dd>
+              <dt className="text-srx-ink-soft">Booking reference</dt>
+              <dd className="text-base font-semibold text-srx-ink-strong">{reference}</dd>
             </div>
             <div className="space-y-1">
-              <dt className="text-slate-600">Guest</dt>
-              <dd className="text-base font-medium text-slate-900">{guestName || "Guest"}</dd>
+              <dt className="text-srx-ink-soft">Guest</dt>
+              <dd className="text-base font-medium text-srx-ink-strong">{guestName || "Guest"}</dd>
             </div>
             <div className="space-y-1">
-              <dt className="text-slate-600">Date</dt>
-              <dd className="text-base font-medium text-slate-900">{summaryDate}</dd>
+              <dt className="text-srx-ink-soft">Date</dt>
+              <dd className="text-base font-medium text-srx-ink-strong">{summaryDate}</dd>
             </div>
             <div className="space-y-1">
-              <dt className="text-slate-600">Time</dt>
-              <dd className="text-base font-medium text-slate-900">{summaryTime}</dd>
+              <dt className="text-srx-ink-soft">Time</dt>
+              <dd className="text-base font-medium text-srx-ink-strong">{summaryTime}</dd>
             </div>
             <div className="space-y-1">
-              <dt className="text-slate-600">Party</dt>
-              <dd className="text-base font-medium text-slate-900">{partyText}</dd>
+              <dt className="text-srx-ink-soft">Party</dt>
+              <dd className="text-base font-medium text-srx-ink-strong">{partyText}</dd>
             </div>
             <div className="space-y-1">
-              <dt className="text-slate-600">Venue</dt>
-              <dd className="text-base font-medium text-slate-900">
+              <dt className="text-srx-ink-soft">Venue</dt>
+              <dd className="text-base font-medium text-srx-ink-strong">
                 <p>{venue.name}</p>
-                <p className="text-sm text-slate-600">{venue.address}</p>
+                <p className="text-helper text-srx-ink-soft">{venue.address}</p>
               </dd>
             </div>
             {details.marketingOptIn && (
               <div className="space-y-1">
-                <dt className="text-slate-600">Marketing updates</dt>
-                <dd className="text-base text-slate-900">Opted in</dd>
+                <dt className="text-srx-ink-soft">Marketing updates</dt>
+                <dd className="text-base text-srx-ink-strong">Opted in</dd>
               </div>
             )}
             {details.notes && (
               <div className="space-y-1 sm:col-span-2">
-                <dt className="text-slate-600">Notes</dt>
-                <dd className="text-base text-slate-900">{details.notes}</dd>
+                <dt className="text-srx-ink-soft">Notes</dt>
+                <dd className="text-base text-srx-ink-strong">{details.notes}</dd>
               </div>
             )}
           </dl>
         </CardContent>
-        <CardFooter className="flex flex-col gap-2 border-t border-slate-100 bg-slate-50 px-6 py-4 sm:flex-row sm:justify-end">
+        <CardFooter className="flex flex-col gap-2 border-t border-srx-border-subtle bg-srx-surface-positive-alt/45 px-6 py-4 sm:flex-row sm:justify-end">
           <Button onClick={onCancelAmend} variant="outline" className="w-full sm:w-auto">
             Cancel / Amend
           </Button>
@@ -174,15 +189,15 @@ const ConfirmationSummaryView: React.FC<ConfirmationSummaryProps> = ({
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Venue policy</CardTitle>
-          <CardDescription>
+        <CardHeader className="space-y-2">
+          <CardTitle className="text-lg text-srx-ink-strong">Venue policy</CardTitle>
+          <CardDescription className="text-body-sm text-srx-ink-soft">
             {venue.name} · {venue.phone} · {venue.email}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-slate-700">{venue.policy}</p>
-          <div className="text-sm text-slate-600">
+          <p className="text-body-sm text-srx-ink-soft">{venue.policy}</p>
+          <div className="text-body-sm text-srx-ink-soft">
             <p>Need help? Call us on {venue.phone} or email {venue.email}.</p>
           </div>
         </CardContent>
@@ -199,6 +214,7 @@ export const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
   onLookup,
   onNewBooking,
   forceManageView = false,
+  onActionsChange,
 }) => {
   const router = useRouter();
   const hasSummary = Boolean(state.lastConfirmed || state.lastAction);
@@ -226,10 +242,46 @@ export const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
     router.push("/thank-you");
   };
 
+  useEffect(() => {
+    const actions: StepAction[] = [];
+    if (mode === "summary" && hasSummary) {
+      actions.push({
+        id: "summary-manage",
+        label: "Manage bookings",
+        variant: "default",
+        onClick: () => setMode("manage"),
+      });
+      actions.push({
+        id: "summary-new",
+        label: "New booking",
+        variant: "outline",
+        onClick: onNewBooking,
+      });
+    } else {
+      if (hasSummary) {
+        actions.push({
+          id: "manage-back",
+          label: "Back to confirmation",
+          variant: "outline",
+          disabled: state.loading,
+          onClick: () => setMode("summary"),
+        });
+      }
+      actions.push({
+        id: "manage-new",
+        label: "New booking",
+        variant: "default",
+        disabled: state.loading,
+        onClick: onNewBooking,
+      });
+    }
+    onActionsChange(actions);
+  }, [hasSummary, mode, onActionsChange, onNewBooking, state.loading]);
+
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-8">
+    <div className="mx-auto w-full max-w-4xl space-y-8 md:space-y-10 lg:max-w-5xl xl:max-w-6xl">
       <div className="flex justify-center sm:justify-start">
-        <div className="flex rounded-full border border-slate-200 bg-slate-50 p-1">
+        <div className="flex rounded-full border border-srx-border-subtle bg-white/90 p-1 shadow-sm backdrop-blur supports-[backdrop-filter]:backdrop-blur-sm">
           {(hasSummary
             ? [
                 { id: "summary" as const, label: "Confirmation" },
@@ -244,8 +296,10 @@ export const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                 type="button"
                 onClick={() => setMode(tab.id)}
                 className={bookingHelpers.cn(
-                  "rounded-full px-4 py-2 text-sm font-medium transition",
-                  isActive ? "bg-white text-slate-900 shadow" : "text-slate-500 hover:text-slate-800",
+                  "rounded-full px-4 py-2 text-body-sm font-medium transition duration-fast ease-srx-standard",
+                  isActive
+                    ? "bg-[color:var(--srx-brand)] text-white shadow"
+                    : "text-srx-ink-soft hover:bg-srx-surface-positive-alt hover:text-srx-ink-strong",
                   tab.id === "summary" && !hasSummary ? "cursor-not-allowed opacity-50" : "",
                 )}
                 disabled={tab.id === "summary" && !hasSummary}
@@ -275,8 +329,6 @@ export const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
           onEdit={onEdit}
           onCancel={onCancel}
           onLookup={onLookup}
-          onNewBooking={onNewBooking}
-          onBack={hasSummary ? () => setMode("summary") : undefined}
         />
       )}
     </div>
@@ -289,16 +341,12 @@ function ManageBookings({
   onEdit,
   onCancel,
   onLookup,
-  onNewBooking,
-  onBack,
 }: {
   state: State;
   dispatch: React.Dispatch<Action>;
   onEdit: BookingEditHandler;
   onCancel: BookingMutationHandler;
   onLookup: () => Promise<void> | void;
-  onNewBooking: () => void;
-  onBack?: () => void;
 }) {
   const { bookings, lastConfirmed, lastAction, waitlisted, allocationPending, details, error, loading } = state;
   const [bookingToCancel, setBookingToCancel] = useState<ApiBooking | null>(null);
@@ -339,30 +387,27 @@ function ManageBookings({
   };
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-8">
+    <div className="mx-auto w-full max-w-4xl space-y-8 md:space-y-10 lg:max-w-5xl xl:max-w-6xl">
       <div className="text-center">
         <HeadingIcon className={`mx-auto h-12 w-12 ${iconClassName}`} />
-        <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-900">{heading}</h1>
+        <h1 className="mt-4 text-[clamp(2rem,1.7rem+0.6vw,2.5rem)] font-bold tracking-tight text-srx-ink-strong">
+          {heading}
+        </h1>
         {confirmationEmail && (
-          <p className="mt-2 text-slate-600">{description}</p>
+          <p className="mt-2 text-body-sm text-srx-ink-soft">{description}</p>
         )}
-        {onBack && (
-          <div className="mt-4 flex justify-center">
-            <Button variant="outline" onClick={onBack} disabled={loading}>
-              Back to confirmation
-            </Button>
-          </div>
-        )}
-        {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+        {error && <p className="mt-4 text-body-sm text-red-600">{error}</p>}
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Your bookings</CardTitle>
-          <CardDescription>Look up, modify, or cancel upcoming reservations.</CardDescription>
+        <CardHeader className="space-y-2">
+          <CardTitle className="text-lg text-srx-ink-strong">Your bookings</CardTitle>
+          <CardDescription className="text-body-sm text-srx-ink-soft">
+            Look up, modify, or cancel upcoming reservations.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <form onSubmit={handleLookupSubmit} className="space-y-4 rounded-xl border border-slate-200 p-4">
+          <form onSubmit={handleLookupSubmit} className="space-y-4 rounded-xl border border-srx-border-subtle bg-white/95 p-5 shadow-sm">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="manage-email">Email</Label>
@@ -400,16 +445,16 @@ function ManageBookings({
             <ul className="space-y-4">
               {bookings.map((booking) => (
                 <li key={booking.id}>
-                  <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-col gap-4 rounded-2xl border border-srx-border-subtle bg-white/95 p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                     <div className="space-y-1">
-                      <p className="text-base font-semibold text-slate-900">
+                      <p className="text-base font-semibold text-srx-ink-strong">
                         {bookingHelpers.formatDate(booking.booking_date)} at {bookingHelpers.formatTime(booking.start_time)}
                       </p>
-                      <p className="text-sm text-slate-600">
+                      <p className="text-body-sm text-srx-ink-soft">
                         {booking.party_size} {booking.party_size === 1 ? "guest" : "guests"} · {bookingHelpers.formatBookingLabel(toBookingOption(booking.booking_type))}
                       </p>
-                      <p className="text-xs uppercase tracking-wide text-slate-400">Ref: {booking.reference}</p>
-                      <p className="text-xs text-slate-500">Booked for {booking.customer_name}</p>
+                      <p className="text-helper uppercase tracking-[0.18em] text-srx-ink-soft">Ref: {booking.reference}</p>
+                      <p className="text-helper text-srx-ink-soft">Booked for {booking.customer_name}</p>
                     </div>
                     <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
                       <Button
@@ -434,16 +479,11 @@ function ManageBookings({
               ))}
             </ul>
           ) : (
-            <div className="rounded-2xl border border-dashed border-slate-200 py-10 text-center text-slate-500">
+            <div className="rounded-2xl border border-dashed border-srx-border-subtle bg-white/80 py-10 text-center text-srx-ink-soft">
               You have no active bookings.
             </div>
           )}
         </CardContent>
-        <CardFooter className="justify-center border-t border-slate-100 bg-slate-50">
-          <Button onClick={onNewBooking} disabled={loading} className="w-full sm:w-auto">
-            Make a new booking
-          </Button>
-        </CardFooter>
       </Card>
 
       <AlertDialog
@@ -451,10 +491,27 @@ function ManageBookings({
         onOpenChange={(open) => {
           if (!open) setBookingToCancel(null);
         }}
-        onConfirm={handleConfirmCancel}
-        title="Cancel this booking?"
-        description="This action cannot be undone. The reservation will be released immediately."
-      />
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this booking?</AlertDialogTitle>
+          </AlertDialogHeader>
+          <AlertDialogDescription>
+            This action cannot be undone. The reservation will be released immediately.
+          </AlertDialogDescription>
+          <AlertDialogFooter>
+            <AlertDialogCancel aria-label="Close cancellation dialog">Never mind</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={async () => {
+                await handleConfirmCancel();
+              }}
+            >
+              Yes, cancel it
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

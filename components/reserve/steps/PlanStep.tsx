@@ -3,30 +3,32 @@
 import React, { useCallback, useEffect, useMemo } from "react";
 
 import { Field } from "@/components/reserve/booking-flow/form";
+import { Button } from "@/components/ui/button";
 import {
-  Button,
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
-  Input,
-  Label,
-  Textarea,
-} from "@/components/reserve/ui-primitives";
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { bookingHelpers, type BookingOption } from "@/components/reserve/helpers";
 import { Icon } from "@/components/reserve/icons";
 import { track } from "@/lib/analytics";
+import { BOOKING_TYPES_UI } from "@/lib/enums";
 
-import type { Action, State } from "../booking-flow/state";
+import type { Action, State, StepAction } from "../booking-flow/state";
 
 interface PlanStepProps {
   state: State;
   dispatch: React.Dispatch<Action>;
+  // eslint-disable-next-line no-unused-vars
+  onActionsChange: (_actions: StepAction[]) => void;
 }
 
-export const PlanStep: React.FC<PlanStepProps> = ({ state, dispatch }) => {
+export const PlanStep: React.FC<PlanStepProps> = ({ state, dispatch, onActionsChange }) => {
   const { date, time, party, bookingType, seating, notes } = state.details;
 
   const serviceSlots = useMemo(() => bookingHelpers.slotsByService(date), [date]);
@@ -111,6 +113,11 @@ export const PlanStep: React.FC<PlanStepProps> = ({ state, dispatch }) => {
     }
   };
 
+  const handleContinue = useCallback(() => {
+    if (!date || !time || party <= 0) return;
+    dispatch({ type: "SET_STEP", step: 2 });
+  }, [date, time, party, dispatch]);
+
   const handleDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const nextDate = event.target.value;
     dispatch({ type: "SET_FIELD", key: "date", value: nextDate });
@@ -133,20 +140,30 @@ export const PlanStep: React.FC<PlanStepProps> = ({ state, dispatch }) => {
 
   const canContinue = Boolean(date && time && party > 0);
 
+  useEffect(() => {
+    const actions: StepAction[] = [
+      {
+        id: "plan-continue",
+        label: "Continue",
+        variant: "default",
+        disabled: !canContinue,
+        onClick: handleContinue,
+      },
+    ];
+    onActionsChange(actions);
+  }, [canContinue, handleContinue, onActionsChange]);
+
   return (
-    <Card className="mx-auto w-full max-w-3xl">
-      <CardHeader className="space-y-3">
-        <CardTitle className="text-2xl">
+    <Card className="mx-auto w-full max-w-4xl lg:max-w-5xl">
+      <CardHeader className="space-y-4">
+        <CardTitle className="text-[clamp(1.75rem,1.4rem+0.8vw,2.25rem)] text-srx-ink-strong">
           {state.editingId ? "Modify booking details" : "Plan your visit"}
         </CardTitle>
-        <CardDescription className="text-sm text-slate-600">
+        <CardDescription className="text-body-sm text-srx-ink-soft">
           Select a date, time, and group size to see available slots.
         </CardDescription>
-        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
-          <span className="font-medium text-slate-900">Next step:</span> Choose a time to continue.
-        </div>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-6 md:space-y-8">
         <Field id="date" label="Date" required>
           <Input
             type="date"
@@ -158,19 +175,19 @@ export const PlanStep: React.FC<PlanStepProps> = ({ state, dispatch }) => {
         </Field>
 
         <div className="space-y-2">
-          <Label className="flex items-center gap-2 text-sm font-medium text-slate-900">
+          <Label className="flex items-center gap-2 font-medium">
             <Icon.Clock className="h-4 w-4" /> Time
           </Label>
-          <p className="text-xs text-slate-500">Scroll horizontally to see more times.</p>
-          <div className="flex snap-x gap-2 overflow-x-auto pb-2">
+          <p className="text-helper text-srx-ink-soft">Swipe or scroll horizontally to see more times.</p>
+          <div className="flex snap-x gap-3 overflow-x-auto pb-3 [-ms-overflow-style:'none'] [scrollbar-width:'none'] [&::-webkit-scrollbar]:hidden">
             {slots.length === 0 && (
-              <span className="text-sm text-slate-500">No availability for this selection.</span>
+              <span className="text-body-sm text-srx-ink-soft">No availability for this selection.</span>
             )}
             {slots.map((slot) => (
               <Button
                 key={slot}
                 variant={time === slot ? "default" : "outline"}
-                className="min-w-[88px] justify-center rounded-full"
+                className="min-w-[96px] justify-center rounded-full px-5"
                 onClick={() => handleSlotSelect(slot)}
               >
                 {bookingHelpers.formatTime(slot)}
@@ -180,13 +197,13 @@ export const PlanStep: React.FC<PlanStepProps> = ({ state, dispatch }) => {
         </div>
 
         <div className="space-y-2">
-          <Label className="text-sm font-medium text-slate-900">Guests</Label>
-          <div className="flex snap-x gap-2 overflow-x-auto pb-2">
+          <Label className="font-medium">Guests</Label>
+          <div className="flex snap-x gap-3 overflow-x-auto pb-3 [-ms-overflow-style:'none'] [scrollbar-width:'none'] [&::-webkit-scrollbar]:hidden">
             {partyOptions.map((option) => (
               <Button
                 key={option}
                 variant={party === option ? "default" : "outline"}
-                className="min-w-[64px] justify-center rounded-full"
+                className="min-w-[64px] justify-center rounded-full px-5"
                 onClick={() => handlePartySelect(option)}
               >
                 {option}
@@ -195,32 +212,30 @@ export const PlanStep: React.FC<PlanStepProps> = ({ state, dispatch }) => {
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label className="text-sm font-medium text-slate-900">Service</Label>
-          <div className="flex flex-wrap gap-2">
-            {["lunch", "dinner", "drinks"].map((option) => (
-              <Button
-                key={option}
-                variant={bookingType === option ? "default" : "outline"}
-                size="sm"
-                className="rounded-full"
-                onClick={() => handleBookingTypeSelect(option as BookingOption)}
-              >
-                {bookingHelpers.formatBookingLabel(option as BookingOption)}
-              </Button>
-            ))}
-          </div>
-          <p className="text-xs text-slate-500">
-            Drinks reservations show bar availability; lunch and dinner align to table service.
-          </p>
-        </div>
-
-        <details className="group rounded-lg border border-slate-200 bg-slate-50 p-4">
-          <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-medium text-slate-900">
+        <details className="group rounded-xl border border-srx-border-subtle bg-white/90 p-5 shadow-sm">
+          <summary className="flex cursor-pointer list-none items-center justify-between text-body-sm font-medium text-srx-ink-strong">
             Additional preferences
             <Icon.ChevronDown className="h-5 w-5 transition group-open:rotate-180" />
           </summary>
           <div className="mt-4 space-y-6">
+            <Field id="service" label="Service">
+              <div className="flex flex-wrap gap-2">
+                {BOOKING_TYPES_UI.map((option) => (
+                  <Button
+                    key={option}
+                    variant={bookingType === option ? "default" : "outline"}
+                    size="sm"
+                    className="rounded-full"
+                    onClick={() => handleBookingTypeSelect(option)}
+                  >
+                    {bookingHelpers.formatBookingLabel(option)}
+                  </Button>
+                ))}
+              </div>
+              <p className="mt-2 text-helper text-srx-ink-soft">
+                Drinks reservations show bar availability; lunch and dinner align to table service.
+              </p>
+            </Field>
             <Field id="seating" label="Seating preference">
               <div className="flex flex-wrap gap-2">
                 {["any", "indoor", "outdoor"].map((option) => (
@@ -247,11 +262,6 @@ export const PlanStep: React.FC<PlanStepProps> = ({ state, dispatch }) => {
           </div>
         </details>
       </CardContent>
-      <CardFooter className="sticky bottom-0 left-0 right-0 -mx-1 -mb-1 flex justify-end gap-2 border-t border-slate-100 bg-white/95 px-6 py-4 backdrop-blur supports-[backdrop-filter]:backdrop-blur">
-        <Button onClick={() => dispatch({ type: "SET_STEP", step: 2 })} disabled={!canContinue}>
-          Continue
-        </Button>
-      </CardFooter>
     </Card>
   );
 };

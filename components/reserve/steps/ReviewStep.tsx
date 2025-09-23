@@ -1,29 +1,30 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useCallback, useEffect } from "react";
 
+import { Button } from "@/components/ui/button";
 import {
-  Button,
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/reserve/ui-primitives";
+} from "@/components/ui/card";
 import { bookingHelpers } from "@/components/reserve/helpers";
 import { Icon } from "@/components/reserve/icons";
 import { track } from "@/lib/analytics";
 
-import type { Action, State } from "../booking-flow/state";
+import type { Action, State, StepAction } from "../booking-flow/state";
 
 interface ReviewStepProps {
   state: State;
   dispatch: React.Dispatch<Action>;
   onConfirm: () => void | Promise<void>;
+  // eslint-disable-next-line no-unused-vars
+  onActionsChange: (_actions: StepAction[]) => void;
 }
 
-export const ReviewStep: React.FC<ReviewStepProps> = ({ state, dispatch, onConfirm }) => {
+export const ReviewStep: React.FC<ReviewStepProps> = ({ state, dispatch, onConfirm, onActionsChange }) => {
   const details = state.details;
 
   useEffect(() => {
@@ -42,94 +43,110 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ state, dispatch, onConfi
     ? `${details.party} at ${bookingHelpers.formatTime(details.time)} on ${bookingHelpers.formatSummaryDate(details.date)}`
     : `${details.party} guest${details.party === 1 ? "" : "s"}`;
 
+  const handleBack = useCallback(() => {
+    dispatch({ type: "SET_STEP", step: 2 });
+  }, [dispatch]);
+
+  const handleConfirm = useCallback(() => {
+    onConfirm();
+  }, [onConfirm]);
+
+  useEffect(() => {
+    const actions: StepAction[] = [
+      {
+        id: "review-back",
+        label: "Back",
+        variant: "outline",
+        onClick: handleBack,
+      },
+      {
+        id: "review-confirm",
+        label: state.submitting ? "Processing..." : "Confirm booking",
+        variant: "default",
+        disabled: state.submitting,
+        loading: state.submitting,
+        onClick: handleConfirm,
+      },
+    ];
+    onActionsChange(actions);
+  }, [handleBack, handleConfirm, onActionsChange, state.submitting]);
+
   return (
-    <Card className="mx-auto w-full max-w-3xl">
-      <CardHeader className="space-y-3">
-        <CardTitle className="text-2xl">Review and confirm</CardTitle>
-        <CardDescription className="text-sm text-slate-600">
+    <Card className="mx-auto w-full max-w-4xl lg:max-w-5xl">
+      <CardHeader className="space-y-4">
+        <CardTitle className="text-[clamp(1.75rem,1.45rem+0.6vw,2.2rem)] text-srx-ink-strong">
+          Review and confirm
+        </CardTitle>
+        <CardDescription className="text-body-sm text-srx-ink-soft">
           Double-check the details below. You can edit any section before confirming.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           {state.error && (
-            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-body-sm text-red-700">
               <Icon.AlertCircle className="mt-0.5 h-4 w-4" />
               <span>{state.error}</span>
             </div>
           )}
-          <dl className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
+          <dl className="grid gap-4 rounded-2xl border border-srx-border-subtle bg-white/95 p-5 shadow-sm sm:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-1">
-              <dt className="text-xs uppercase tracking-wide text-slate-500">Summary</dt>
-              <dd className="text-sm font-semibold text-slate-900">{summaryValue}</dd>
+              <dt className="text-helper uppercase tracking-[0.18em] text-srx-ink-soft">Summary</dt>
+              <dd className="text-body-sm font-semibold text-srx-ink-strong">{summaryValue}</dd>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-auto px-0 text-xs text-slate-600 hover:text-slate-900"
+                className="h-auto px-0 text-helper text-srx-ink-soft hover:text-srx-ink-strong"
                 onClick={() => dispatch({ type: "SET_STEP", step: 1 })}
               >
                 Edit selection
               </Button>
             </div>
             <div className="space-y-1">
-              <dt className="text-xs uppercase tracking-wide text-slate-500">Party size</dt>
-              <dd className="text-sm font-medium text-slate-900">
+              <dt className="text-helper uppercase tracking-[0.18em] text-srx-ink-soft">Party size</dt>
+              <dd className="text-body-sm font-medium text-srx-ink-strong">
                 {details.party} {details.party === 1 ? "guest" : "guests"}
               </dd>
             </div>
             <div className="space-y-1">
-              <dt className="text-xs uppercase tracking-wide text-slate-500">Full name</dt>
-              <dd className="text-sm font-medium text-slate-900">{details.name}</dd>
+              <dt className="text-helper uppercase tracking-[0.18em] text-srx-ink-soft">Full name</dt>
+              <dd className="text-body-sm font-medium text-srx-ink-strong">{details.name}</dd>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-auto px-0 text-xs text-slate-600 hover:text-slate-900"
+                className="h-auto px-0 text-helper text-srx-ink-soft hover:text-srx-ink-strong"
                 onClick={() => dispatch({ type: "SET_STEP", step: 2 })}
               >
                 Edit contact info
               </Button>
             </div>
             <div className="space-y-1">
-              <dt className="text-xs uppercase tracking-wide text-slate-500">Email</dt>
-              <dd className="text-sm font-medium text-slate-900">{details.email}</dd>
+              <dt className="text-helper uppercase tracking-[0.18em] text-srx-ink-soft">Email</dt>
+              <dd className="text-body-sm font-medium text-srx-ink-strong">{details.email}</dd>
             </div>
             <div className="space-y-1">
-              <dt className="text-xs uppercase tracking-wide text-slate-500">Phone</dt>
-              <dd className="text-sm font-medium text-slate-900">{details.phone}</dd>
+              <dt className="text-helper uppercase tracking-[0.18em] text-srx-ink-soft">Phone</dt>
+              <dd className="text-body-sm font-medium text-srx-ink-strong">{details.phone}</dd>
             </div>
             <div className="space-y-1">
-              <dt className="text-xs uppercase tracking-wide text-slate-500">Booking type</dt>
-              <dd className="text-sm font-medium text-slate-900">{bookingHelpers.formatBookingLabel(details.bookingType)}</dd>
+              <dt className="text-helper uppercase tracking-[0.18em] text-srx-ink-soft">Booking type</dt>
+              <dd className="text-body-sm font-medium text-srx-ink-strong">{bookingHelpers.formatBookingLabel(details.bookingType)}</dd>
             </div>
             <div className="space-y-1">
-              <dt className="text-xs uppercase tracking-wide text-slate-500">Marketing updates</dt>
-              <dd className="text-sm font-medium text-slate-900">
+              <dt className="text-helper uppercase tracking-[0.18em] text-srx-ink-soft">Marketing updates</dt>
+              <dd className="text-body-sm font-medium text-srx-ink-strong">
                 {details.marketingOptIn ? "Subscribed" : "Not subscribed"}
               </dd>
             </div>
             {details.notes && (
               <div className="space-y-1 sm:col-span-2">
-                <dt className="text-xs uppercase tracking-wide text-slate-500">Notes</dt>
-                <dd className="text-sm text-slate-700">{details.notes}</dd>
+                <dt className="text-helper uppercase tracking-[0.18em] text-srx-ink-soft">Notes</dt>
+                <dd className="text-body-sm text-srx-ink-soft">{details.notes}</dd>
               </div>
             )}
           </dl>
         </div>
       </CardContent>
-      <CardFooter className="sticky bottom-0 left-0 right-0 -mx-1 -mb-1 flex flex-col gap-2 border-t border-slate-100 bg-white/95 px-6 py-4 backdrop-blur supports-[backdrop-filter]:backdrop-blur sm:flex-row sm:items-center sm:justify-between">
-        <Button variant="outline" onClick={() => dispatch({ type: "SET_STEP", step: 2 })} className="w-full sm:w-auto">
-          Back
-        </Button>
-        <Button onClick={onConfirm} disabled={state.submitting} className="w-full sm:w-auto">
-          {state.submitting ? (
-            <>
-              <Icon.Spinner className="mr-2 h-4 w-4 animate-spin" /> Processing...
-            </>
-          ) : (
-            "Confirm booking"
-          )}
-        </Button>
-      </CardFooter>
     </Card>
   );
 };

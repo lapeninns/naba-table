@@ -33,10 +33,19 @@ export type ApiBooking = {
   updated_at: string;
 };
 
+export type StepAction = {
+  id: string;
+  label: string;
+  onClick: () => void;
+  variant?: "default" | "outline" | "ghost" | "destructive";
+  disabled?: boolean;
+  loading?: boolean;
+};
+
 // eslint-disable-next-line no-unused-vars
-export type BookingEditHandler = (booking: ApiBooking) => void;
+export type BookingEditHandler = (_booking: ApiBooking) => void;
 // eslint-disable-next-line no-unused-vars
-export type BookingMutationHandler = (booking: ApiBooking) => Promise<void> | void;
+export type BookingMutationHandler = (_booking: ApiBooking) => Promise<void> | void;
 
 export type BookingDetails = {
   bookingId: string | null;
@@ -124,9 +133,9 @@ export const getInitialDetails = (): BookingDetails => ({
   name: "",
   email: "",
   phone: "",
-  rememberDetails: false,
-  agree: false,
-  marketingOptIn: false,
+  rememberDetails: true,
+  agree: true,
+  marketingOptIn: true,
 });
 
 export const getInitialState = (): State => ({

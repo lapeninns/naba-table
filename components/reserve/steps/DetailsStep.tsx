@@ -1,31 +1,31 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 
 import { Field } from "@/components/reserve/booking-flow/form";
 import {
-  Button,
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
-  Checkbox,
-  Input,
-} from "@/components/reserve/ui-primitives";
+} from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { bookingHelpers } from "@/components/reserve/helpers";
 import { Icon } from "@/components/reserve/icons";
 import { track } from "@/lib/analytics";
 
-import type { Action, State } from "../booking-flow/state";
+import type { Action, State, StepAction } from "../booking-flow/state";
 
 interface DetailsStepProps {
   state: State;
   dispatch: React.Dispatch<Action>;
+  // eslint-disable-next-line no-unused-vars
+  onActionsChange: (_actions: StepAction[]) => void;
 }
 
-export const DetailsStep: React.FC<DetailsStepProps> = ({ state, dispatch }) => {
+export const DetailsStep: React.FC<DetailsStepProps> = ({ state, dispatch, onActionsChange }) => {
   const { name, email, phone, agree, rememberDetails, marketingOptIn } = state.details;
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const nameOk = name.trim().length >= 2;
@@ -34,7 +34,11 @@ export const DetailsStep: React.FC<DetailsStepProps> = ({ state, dispatch }) => 
   const canContinue = nameOk && emailOk && phoneOk && agree;
   const showAgreementError = attemptedSubmit && !agree;
 
-  const handleContinue = () => {
+  const handleBack = useCallback(() => {
+    dispatch({ type: "SET_STEP", step: 1 });
+  }, [dispatch]);
+
+  const handleContinue = useCallback(() => {
     setAttemptedSubmit(true);
     if (!canContinue) return;
     track("details_submit", {
@@ -42,19 +46,40 @@ export const DetailsStep: React.FC<DetailsStepProps> = ({ state, dispatch }) => 
       terms_checked: agree ? 1 : 0,
     });
     dispatch({ type: "SET_STEP", step: 3 });
-  };
+  }, [agree, canContinue, dispatch, marketingOptIn]);
+
+  useEffect(() => {
+    const actions: StepAction[] = [
+      {
+        id: "details-back",
+        label: "Back",
+        variant: "outline",
+        onClick: handleBack,
+      },
+      {
+        id: "details-review",
+        label: "Review booking",
+        variant: "default",
+        disabled: !canContinue,
+        onClick: handleContinue,
+      },
+    ];
+    onActionsChange(actions);
+  }, [canContinue, handleBack, handleContinue, onActionsChange]);
 
   return (
-    <Card className="mx-auto w-full max-w-3xl">
-      <CardHeader className="space-y-3">
-        <CardTitle className="text-2xl">Tell us how to reach you</CardTitle>
-        <CardDescription className="text-sm text-slate-600">
+    <Card className="mx-auto w-full max-w-4xl lg:max-w-5xl">
+      <CardHeader className="space-y-4">
+        <CardTitle className="text-[clamp(1.75rem,1.45rem+0.6vw,2.2rem)] text-srx-ink-strong">
+          Tell us how to reach you
+        </CardTitle>
+        <CardDescription className="text-body-sm text-srx-ink-soft">
           We’ll send confirmation and any updates to the contact details below.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <section className="space-y-4 rounded-xl border border-slate-200 p-4">
-          <h3 className="text-base font-semibold text-slate-900">Contact details</h3>
+      <CardContent className="space-y-6 md:space-y-8">
+        <section className="space-y-4 rounded-xl border border-srx-border-subtle bg-white/95 p-5 shadow-sm">
+          <h3 className="text-lg font-semibold text-srx-ink-strong">Contact details</h3>
           <div className="space-y-4">
             <Field
               id="name"
@@ -104,47 +129,47 @@ export const DetailsStep: React.FC<DetailsStepProps> = ({ state, dispatch }) => 
           </div>
         </section>
 
-        <section className="space-y-4 rounded-xl border border-slate-200 p-4">
-          <h3 className="text-base font-semibold text-slate-900">Preferences</h3>
+        <section className="space-y-4 rounded-xl border border-srx-border-subtle bg-white/95 p-5 shadow-sm">
+          <h3 className="text-lg font-semibold text-srx-ink-strong">Preferences</h3>
           <div className="space-y-3">
-            <label className="flex items-start gap-3 text-sm text-slate-700">
+            <label className="flex items-start gap-3 text-body-sm text-srx-ink-soft">
               <Checkbox
                 checked={rememberDetails}
                 onChange={(event) => dispatch({ type: "SET_FIELD", key: "rememberDetails", value: event.target.checked })}
               />
               <span>
                 Save contact details for next time
-                <span className="block text-xs text-slate-500">
+                <span className="block text-helper text-srx-ink-soft">
                   We’ll pre-fill your info on this device.
                 </span>
               </span>
             </label>
-            <label className="flex items-start gap-3 text-sm text-slate-700">
+            <label className="flex items-start gap-3 text-body-sm text-srx-ink-soft">
               <Checkbox
                 checked={marketingOptIn}
                 onChange={(event) => dispatch({ type: "SET_FIELD", key: "marketingOptIn", value: event.target.checked })}
               />
               <span>
                 Send me occasional updates
-                <span className="block text-xs text-slate-500">
+                <span className="block text-helper text-srx-ink-soft">
                   News on seasonal menus and exclusive events.
                 </span>
               </span>
             </label>
-            <label className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+            <label className="flex items-start gap-3 rounded-xl border border-srx-border-strong bg-srx-surface-positive-alt/50 p-4 text-body-sm text-srx-ink-soft">
               <Checkbox
                 checked={agree}
                 onChange={(event) => dispatch({ type: "SET_FIELD", key: "agree", value: event.target.checked })}
               />
               <span>
                 I agree to the terms and privacy notice
-                <span className="block text-xs text-slate-500">
+                <span className="block text-helper text-srx-ink-soft">
                   Required to confirm your booking. View our
-                  <a href="/terms" className="ml-1 text-slate-900 underline">
+                  <a href="/terms" className="ml-1 text-srx-ink-strong underline underline-offset-4">
                     terms
                   </a>
                   and
-                  <a href="/privacy-policy" className="ml-1 text-slate-900 underline">
+                  <a href="/privacy-policy" className="ml-1 text-srx-ink-strong underline underline-offset-4">
                     privacy policy
                   </a>
                   .
@@ -152,21 +177,13 @@ export const DetailsStep: React.FC<DetailsStepProps> = ({ state, dispatch }) => 
               </span>
             </label>
             {showAgreementError && (
-              <p className="flex items-center gap-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">
+              <p className="flex items-center gap-2 rounded-md bg-red-50 px-3 py-2 text-body-sm text-red-600">
                 <Icon.AlertCircle className="h-4 w-4" /> Please accept the terms to continue.
               </p>
             )}
           </div>
         </section>
       </CardContent>
-      <CardFooter className="sticky bottom-0 left-0 right-0 -mx-1 -mb-1 flex flex-col gap-2 border-t border-slate-100 bg-white/95 px-6 py-4 backdrop-blur supports-[backdrop-filter]:backdrop-blur sm:flex-row sm:items-center sm:justify-between">
-        <Button variant="outline" onClick={() => dispatch({ type: "SET_STEP", step: 1 })} className="w-full sm:w-auto">
-          Back
-        </Button>
-        <Button onClick={handleContinue} disabled={!canContinue} className="w-full sm:w-auto">
-          Review booking
-        </Button>
-      </CardFooter>
     </Card>
   );
 };
