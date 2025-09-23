@@ -1,3 +1,5 @@
+
+
 Multi-step approach to Context Engineering
 0. Tasks
 • Operating on a task basis. Store all intermediate context in markdown files in tasks/<task-id>/ folders.
@@ -19,392 +21,117 @@ b. Go for as long as possible. If ambiguous, leave all questions to the end and 
 
 
 
+Concise rules for building accessible, fast, delightful UIs Use MUST/SHOULD/NEVER to guide decisions
 
-must follow design principles 
-- subtle haptics
-- space + typography hierarchy
-- micro-speed animations
+## Interactions
 
-# AGENTS.md - SajiloReserveX Mobile App UI/UX
+- Keyboard
+  - MUST: Full keyboard support per [WAI-ARIA APG](https://wwww3org/WAI/ARIA/apg/patterns/)
+  - MUST: Visible focus rings (`:focus-visible`; group with `:focus-within`)
+  - MUST: Manage focus (trap, move, and return) per APG patterns
+- Targets & input
+  - MUST: Hit target ≥24px (mobile ≥44px) If visual <24px, expand hit area
+  - MUST: Mobile `<input>` font-size ≥16px or set:
+    ```html
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+    ```
+  - NEVER: Disable browser zoom
+  - MUST: `touch-action: manipulation` to prevent double-tap zoom; set `-webkit-tap-highlight-color` to match design
+- Inputs & forms (behavior)
+  - MUST: Hydration-safe inputs (no lost focus/value)
+  - NEVER: Block paste in `<input>/<textarea>`
+  - MUST: Loading buttons show spinner and keep original label
+  - MUST: Enter submits focused text input In `<textarea>`, ⌘/Ctrl+Enter submits; Enter adds newline
+  - MUST: Keep submit enabled until request starts; then disable, show spinner, use idempotency key
+  - MUST: Don’t block typing; accept free text and validate after
+  - MUST: Allow submitting incomplete forms to surface validation
+  - MUST: Errors inline next to fields; on submit, focus first error
+  - MUST: `autocomplete` + meaningful `name`; correct `type` and `inputmode`
+  - SHOULD: Disable spellcheck for emails/codes/usernames
+  - SHOULD: Placeholders end with ellipsis and show example pattern (eg, `+1 (123) 456-7890`, `sk-012345…`)
+  - MUST: Warn on unsaved changes before navigation
+  - MUST: Compatible with password managers & 2FA; allow pasting one-time codes
+  - MUST: Trim values to handle text expansion trailing spaces
+  - MUST: No dead zones on checkboxes/radios; label+control share one generous hit target
+- State & navigation
+  - MUST: URL reflects state (deep-link filters/tabs/pagination/expanded panels) Prefer libs like [nuqs](https://nuqs.dev)
+  - MUST: Back/Forward restores scroll
+  - MUST: Links are links—use `<a>/<Link>` for navigation (support Cmd/Ctrl/middle-click)
+- Feedback
+  - SHOULD: Optimistic UI; reconcile on response; on failure show error and rollback or offer Undo
+  - MUST: Confirm destructive actions or provide Undo window
+  - MUST: Use polite `aria-live` for toasts/inline validation
+  - SHOULD: Ellipsis (`…`) for options that open follow-ups (eg, “Rename…”)
+- Touch/drag/scroll
+  - MUST: Design forgiving interactions (generous targets, clear affordances; avoid finickiness)
+  - MUST: Delay first tooltip in a group; subsequent peers no delay
+  - MUST: Intentional `overscroll-behavior: contain` in modals/drawers
+  - MUST: During drag, disable text selection and set `inert` on dragged element/containers
+  - MUST: No “dead-looking” interactive zones—if it looks clickable, it is
+- Autofocus
+  - SHOULD: Autofocus on desktop when there’s a single primary input; rarely on mobile (to avoid layout shift)
 
-## Project Overview
+## Animation
 
-This is a mobile-first SajiloReserveX application focused on creating exceptional user experiences through clean, modern design. 
+- MUST: Honor `prefers-reduced-motion` (provide reduced variant)
+- SHOULD: Prefer CSS > Web Animations API > JS libraries
+- MUST: Animate compositor-friendly props (`transform`, `opacity`); avoid layout/repaint props (`top/left/width/height`)
+- SHOULD: Animate only to clarify cause/effect or add deliberate delight
+- SHOULD: Choose easing to match the change (size/distance/trigger)
+- MUST: Animations are interruptible and input-driven (avoid autoplay)
+- MUST: Correct `transform-origin` (motion starts where it “physically” should)
 
-### Design Philosophy
-- **Visual Style**: Clean, modern, high-contrast, spacious, content-forward, vibrant
-- **User Experience**: Intuitive navigation, seamless interactions, accessibility-first
-- **Platform**: Web App , Mobile First Development
-- **Layout**: Single-column, bottom tab navigation, modal-driven flows
+## Layout
 
-## Design System & Visual Guidelines
+- SHOULD: Optical alignment; adjust by ±1px when perception beats geometry
+- MUST: Deliberate alignment to grid/baseline/edges/optical centers—no accidental placement
+- SHOULD: Balance icon/text lockups (stroke/weight/size/spacing/color)
+- MUST: Verify mobile, laptop, ultra-wide (simulate ultra-wide at 50% zoom)
+- MUST: Respect safe areas (use env(safe-area-inset-*))
+- MUST: Avoid unwanted scrollbars; fix overflows
 
-### Typography System
-```css
-/* Primary Font Family */
-font-family: "SajiloReserveX Cereal App", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+## Content & Accessibility
 
-/* Type Scale */
---font-screen-title: 700 34px/40px;    /* Bold headings */
---font-section-header: 600 22px/28px;  /* Section titles */
---font-card-title: 600 18px/22px;      /* Card headings */
---font-body: 400 16px/24px;            /* Body text */
---font-label: 400 14px/20px;           /* Labels, captions */
---font-button: 600 16px/20px;          /* Button text */
-```
+- SHOULD: Inline help first; tooltips last resort
+- MUST: Skeletons mirror final content to avoid layout shift
+- MUST: `<title>` matches current context
+- MUST: No dead ends; always offer next step/recovery
+- MUST: Design empty/sparse/dense/error states
+- SHOULD: Curly quotes (“ ”); avoid widows/orphans
+- MUST: Tabular numbers for comparisons (`font-variant-numeric: tabular-nums` or a mono like Geist Mono)
+- MUST: Redundant status cues (not color-only); icons have text labels
+- MUST: Don’t ship the schema—visuals may omit labels but accessible names still exist
+- MUST: Use the ellipsis character `…` (not ``)
+- MUST: `scroll-margin-top` on headings for anchored links; include a “Skip to content” link; hierarchical `<h1–h6>`
+- MUST: Resilient to user-generated content (short/avg/very long)
+- MUST: Locale-aware dates/times/numbers/currency
+- MUST: Accurate names (`aria-label`), decorative elements `aria-hidden`, verify in the Accessibility Tree
+- MUST: Icon-only buttons have descriptive `aria-label`
+- MUST: Prefer native semantics (`button`, `a`, `label`, `table`) before ARIA
+- SHOULD: Right-clicking the nav logo surfaces brand assets
+- MUST: Use non-breaking spaces to glue terms: `10&nbsp;MB`, `⌘&nbsp;+&nbsp;K`, `Vercel&nbsp;SDK`
 
-### Color Palette
-```css
-/* Primary Colors */
---color-primary: #FF385C;              /* SajiloReserveX pink - CTAs, active states */
---color-primary-pressed: #E01D45;      /* Pressed/hover state */
---color-accent: #00A699;               /* Teal accent - badges, highlights */
+## Performance
 
-/* Text Colors */
---color-text-primary: #222222;        /* Main text, headings */
---color-text-secondary: #717171;      /* Secondary text, labels */
---color-on-primary: #FFFFFF;          /* Text on pink backgrounds */
+- SHOULD: Test iOS Low Power Mode and macOS Safari
+- MUST: Measure reliably (disable extensions that skew runtime)
+- MUST: Track and minimize re-renders (React DevTools/React Scan)
+- MUST: Profile with CPU/network throttling
+- MUST: Batch layout reads/writes; avoid unnecessary reflows/repaints
+- MUST: Mutations (`POST/PATCH/DELETE`) target <500 ms
+- SHOULD: Prefer uncontrolled inputs; make controlled loops cheap (keystroke cost)
+- MUST: Virtualize large lists (eg, `virtua`)
+- MUST: Preload only above-the-fold images; lazy-load the rest
+- MUST: Prevent CLS from images (explicit dimensions or reserved space)
 
-/* Surface Colors */
---color-surface: #FFFFFF;             /* Cards, modals, buttons */
---color-background: #F7F7F7;          /* Screen backgrounds */
---color-border: #DDDDDD;              /* Subtle borders, dividers */
-```
+## Design
 
-### Spacing & Layout System
-```css
-/* 8px Grid System */
---space-1: 4px;   /* Micro spacing */
---space-2: 8px;   /* Small gaps */
---space-3: 12px;  /* Card internal padding */
---space-4: 16px;  /* Standard gaps */
---space-5: 20px;  /* Medium spacing */
---space-6: 24px;  /* Screen margins, major sections */
---space-8: 32px;  /* Large sections */
---space-10: 40px; /* XL spacing */
---space-12: 48px; /* XXL spacing */
-
-/* Layout Constants */
---screen-margin: 24px;     /* Left/right screen padding */
---card-padding: 12px;      /* Internal card spacing */
---button-height: 48px;     /* Standard button height */
---touch-target: 44px;      /* Minimum touch target */
-```
-
-### Border Radius & Shadows
-```css
-/* Radius Scale */
---radius-sm: 8px;      /* Small buttons, tags */
---radius-md: 12px;     /* Primary buttons, inputs */
---radius-lg: 16px;     /* Cards, modals */
---radius-full: 9999px; /* Pills, avatars */
-
-/* Shadow System */
---shadow-card: 0 4px 12px rgba(0,0,0,0.1);      /* Floating cards */
---shadow-header: 0 2px 4px rgba(0,0,0,0.08);    /* Sticky headers */
---shadow-modal: 0 8px 32px rgba(0,0,0,0.12);    /* Modal overlays */
-```
-
-## Component Design Specifications
-
-### PrimaryButton
-**Purpose**: Main call-to-action button
-```css
-.primary-button {
-  height: 48px;
-  padding: 0 24px;
-  border-radius: var(--radius-md);
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-  font: var(--font-button);
-  box-shadow: none;
-  border: none;
-}
-
-.primary-button:active {
-  background: var(--color-primary-pressed);
-  transform: scale(0.98);
-}
-```
-**UX Notes**: Instant feedback on press, no loading spinners inside button text
-
-### SearchBar
-**Purpose**: Primary search entry point
-```css
-.search-bar {
-  height: 52px;
-  border-radius: var(--radius-full);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-card);
-  padding: 0 16px;
-}
-```
-**UX Notes**: Pill shape suggests tappability, shadow indicates interactivity
-
-### CategoryTab
-**Purpose**: Content filtering tabs
-```css
-.category-tab {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-}
-
-.category-tab__icon {
-  width: 24px;
-  height: 24px;
-}
-
-.category-tab--active {
-  border-bottom: 2px solid var(--color-primary);
-  color: var(--color-text-primary);
-}
-
-.category-tab--inactive {
-  color: var(--color-text-secondary);
-}
-```
-**UX Notes**: Visual hierarchy through color and underline, icons provide quick recognition
-
-### ExperienceCard
-**Purpose**: Listing preview with booking action
-```css
-.experience-card {
-  background: var(--color-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  overflow: hidden;
-}
-
-.experience-card__image {
-  aspect-ratio: 1 / 1;
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-}
-
-.experience-card__content {
-  padding: var(--space-3) var(--space-4);
-}
-
-.experience-card__wishlist {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 24px;
-  height: 24px;
-}
-```
-**UX Notes**: Entire card is tappable, wishlist heart positioned for thumb accessibility
-
-## Animation & Interaction Guidelines
-
-### Core Animation Principles
-- **Duration**: Keep interactions snappy (< 300ms)
-- **Easing**: Use `ease-out` for natural deceleration
-- **Feedback**: Provide immediate visual response to all touches
-- **Performance**: Animate only `transform` and `opacity` when possible
-
-### Standard Animations
-```css
-/* Button Press Feedback */
-.button-press {
-  transition: transform 100ms ease-out, background-color 100ms ease-out;
-}
-.button-press:active {
-  transform: scale(0.98);
-}
-
-/* Modal Entry */
-.modal-enter {
-  animation: slideUp 300ms ease-out;
-  transform-origin: bottom;
-}
-@keyframes slideUp {
-  from { transform: translateY(100%); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
-
-/* Screen Transition */
-.screen-transition {
-  transition: transform 350ms cubic-bezier(0.4, 0.0, 0.2, 1);
-}
-```
-
-### Interactive States
-```css
-/* Loading State */
-.loading {
-  position: relative;
-  overflow: hidden;
-}
-.loading::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-  animation: shimmer 1.5s infinite;
-}
-
-/* Focus States (for accessibility) */
-.focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
-```
-
-### Gesture Interactions
-- **Tap**: Immediate visual feedback with scale animation
-- **Scroll**: Smooth momentum with header shadow on scroll
-- **Swipe**: Horizontal swipe for image carousels
-- **Pull-to-refresh**: Custom loading animation matching brand
-
-## User Experience Patterns
-
-### Navigation Patterns
-```css
-/* Bottom Tab Bar */
-.bottom-tabs {
-  height: 83px; /* Include safe area */
-  background: var(--color-surface);
-  box-shadow: var(--shadow-header);
-}
-
-.tab-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  min-height: var(--touch-target);
-}
-
-.tab-item--active {
-  color: var(--color-primary);
-}
-```
-
-### Content Layout Patterns
-- **Card Grids**: Consistent spacing, staggered loading
-- **List Items**: Left-aligned content, right-aligned actions
-- **Headers**: Sticky behavior with subtle shadow on scroll
-- **Modals**: Bottom-anchored, swipe-to-dismiss
-
-### Loading & Empty States
-```css
-/* Skeleton Loading */
-.skeleton {
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-  background-size: 200% 100%;
-  animation: loading 1.5s infinite;
-}
-
-/* Empty States */
-.empty-state {
-  text-align: center;
-  padding: var(--space-12) var(--space-6);
-}
-```
-
-## Accessibility & Usability
-
-### Touch Target Guidelines
-- **Minimum Size**: 44x44px for all interactive elements
-- **Spacing**: 8px minimum between adjacent touch targets
-- **Thumb Zones**: Place primary actions within comfortable thumb reach
-
-### Color & Contrast
-- **Primary Text**: 15.85:1 contrast ratio ✅
-- **Secondary Text**: 4.63:1 contrast ratio ✅
-- **Warning**: Pink primary (#FF385C) on white fails for small text - use only for large UI elements
-
-### Screen Reader Support
-```html
-<!-- Semantic markup examples -->
-<button aria-label="Add to wishlist" class="wishlist-button">
-  <HeartIcon aria-hidden="true" />
-</button>
-
-<img alt="Cozy apartment in Paris with city view" src="..." />
-
-<nav role="tablist" aria-label="Content categories">
-  <button role="tab" aria-selected="true">Homes</button>
-</nav>
-```
-
-## Responsive & Adaptive Design
-
-### Current Breakpoint
-- **Mobile**: 390-393px (iPhone 14 Pro)
-- **Layout**: Single column, full-width cards
-- **Navigation**: Bottom tabs, modal overlays
-
-### Adaptive Behaviors
-- **Text Scaling**: Support iOS Dynamic Type
-- **Dark Mode**: Prepare color tokens for future dark theme
-- **Reduced Motion**: Respect `prefers-reduced-motion`
-
-## Content & Imagery Guidelines
-
-### Image Requirements
-```css
-/* Listing Images */
-.listing-image {
-  aspect-ratio: 1 / 1; /* or 4 / 3 */
-  object-fit: cover;
-  background: var(--color-background); /* Loading state */
-}
-
-/* Avatar Images */
-.avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-full);
-  object-fit: cover;
-}
-```
-
-### Microcopy Patterns
-- **Button Labels**: Action-oriented, 1-3 words ("Show dates", "Reserve")
-- **Placeholders**: Contextual and helpful ("Start your search")
-- **Error Messages**: Clear, actionable ("Please select a check-in date")
-- **Success Messages**: Encouraging and personal ("You're all set!")
-
-## Common UI Patterns
-
-### Modal Flows
-```css
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.4);
-  z-index: 1000;
-}
-
-.modal-content {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: var(--color-surface);
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  min-height: 50vh;
-  max-height: 90vh;
-}
-```
-
-### List & Grid Layouts
-- **Card Spacing**: 16px between cards
-- **Grid Gutters**: 16px horizontal, 24px vertical
-- **List Separators**: 1px border in border-subtle color
-
-### Form Patterns
-- **Input Height**: 52px to match search bar
-- **Focus States**: Primary color border, no box-shadow
-- **Validation**: Inline errors below fields, success states
-
----
-
-**Design Principles**: Always prioritize user experience over visual complexity. Every interaction should feel immediate and purposeful. Maintain consistency with established patterns while creating delightful moments of interaction.
+- SHOULD: Layered shadows (ambient + direct)
+- SHOULD: Crisp edges via semi-transparent borders + shadows
+- SHOULD: Nested radii: child ≤ parent; concentric
+- SHOULD: Hue consistency: tint borders/shadows/text toward bg hue
+- MUST: Accessible charts (color-blind-friendly palettes)
+- MUST: Meet contrast—prefer [APCA](https://apcacontrastcom/) over WCAG 2
+- MUST: Increase contrast on `:hover/:active/:focus`
+- SHOULD: Match browser UI to bg
+- SHOULD: Avoid gradient banding (use masks when needed)

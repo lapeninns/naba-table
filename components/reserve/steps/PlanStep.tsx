@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { bookingHelpers, type BookingOption } from "@/components/reserve/helpers";
 import { Icon } from "@/components/reserve/icons";
@@ -55,6 +57,14 @@ export const PlanStep: React.FC<PlanStepProps> = ({ state, dispatch, onActionsCh
 
   const partyOptions = useMemo(() => Array.from({ length: 12 }, (_, index) => index + 1), []);
   const todayStr = useMemo(() => bookingHelpers.formatForDateInput(new Date()), []);
+  const selectedDateObj = useMemo(() => {
+    if (!date) return undefined;
+    const [y, m, d] = date.split("-").map(Number);
+    if (!y || !m || !d) return undefined;
+    return new Date(y, (m ?? 1) - 1, d ?? 1);
+  }, [date]);
+  const [dateOpen, setDateOpen] = React.useState(false);
+  const [timeInput, setTimeInput] = React.useState<string>(time ? `${bookingHelpers.normalizeTime(time)}:00` : "");
 
   const isPastSlot = useCallback(
     (slot: string) => {
@@ -155,6 +165,35 @@ export const PlanStep: React.FC<PlanStepProps> = ({ state, dispatch, onActionsCh
     }
   };
 
+  const findNearestSlot = useCallback(
+    (hhmm: string): string | undefined => {
+      if (!hhmm || !slots.length) return undefined;
+      const targetMinutes = bookingHelpers.timeToMinutes(hhmm);
+      let best: { slot: string; diff: number } | undefined;
+      for (const s of slots) {
+        if (date === todayStr && isPastSlot(s)) continue;
+        const diff = Math.abs(bookingHelpers.timeToMinutes(s) - targetMinutes);
+        if (!best || diff < best.diff) best = { slot: s, diff };
+      }
+      return best?.slot;
+    },
+    [slots, date, todayStr, isPastSlot],
+  );
+
+  const handleTimeInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = event.target.value || ""; // HH:MM or HH:MM:SS
+    setTimeInput(raw);
+    const hhmm = raw.slice(0, 5);
+    const nearest = findNearestSlot(hhmm);
+    if (nearest) {
+      handleSlotSelect(nearest);
+    }
+  };
+
+  useEffect(() => {
+    setTimeInput(time ? `${bookingHelpers.normalizeTime(time)}:00` : "");
+  }, [time]);
+
   const handlePartySelect = (nextParty: number) => {
     if (party === nextParty) return;
     dispatch({ type: "SET_FIELD", key: "party", value: nextParty });
@@ -194,15 +233,48 @@ export const PlanStep: React.FC<PlanStepProps> = ({ state, dispatch, onActionsCh
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6 md:space-y-8">
-        <Field id="date" label="Date" required>
-          <Input
-            type="date"
-            id="date"
-            value={date}
-            min={bookingHelpers.formatForDateInput(new Date())}
-            onChange={handleDateChange}
-          />
-        </Field>
+        <div className="flex flex-wrap gap-4">
+          <div className="flex flex-col gap-3">
+            <Label htmlFor="date-picker" className="px-1">Date</Label>
+            <Popover open={dateOpen} onOpenChange={setDateOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  id="date-picker"
+                  className="h-11 w-40 justify-between rounded-full px-4 font-normal"
+                >
+                  {selectedDateObj ? selectedDateObj.toLocaleDateString("en-GB") : "Select date"}
+                  <Icon.ChevronDown className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto overflow-hidden p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={selectedDateObj}
+                  captionLayout="dropdown"
+                  onSelect={(next) => {
+                    if (!next) return;
+                    const formatted = bookingHelpers.formatForDateInput(next);
+                    dispatch({ type: "SET_FIELD", key: "date", value: formatted });
+                    track("select_date", { date: formatted });
+                    setDateOpen(false);
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="flex flex-col gap-3">
+            <Label htmlFor="time-picker" className="px-1">Time</Label>
+            <Input
+              type="time"
+              id="time-picker"
+              step="1"
+              value={timeInput}
+              onChange={handleTimeInputChange}
+              className="appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
+            />
+          </div>
+        </div>
 
         <div className="space-y-2">
           <Label className="flex items-center gap-2 font-medium">
