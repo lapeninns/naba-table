@@ -55,12 +55,14 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ state, dispatch, onConfi
       {
         id: "review-edit",
         label: "Edit details",
+        icon: "Pencil",
         variant: "outline",
         onClick: handleEdit,
       },
       {
         id: "review-confirm",
         label: state.submitting ? "Processing..." : "Confirm booking",
+        icon: state.submitting ? undefined : "Check",
         variant: "default",
         disabled: state.submitting,
         loading: state.submitting,

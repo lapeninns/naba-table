@@ -124,7 +124,7 @@ export const getInitialDetails = (): BookingDetails => ({
   restaurantId: DEFAULT_RESTAURANT_ID,
   date: bookingHelpers.formatForDateInput(new Date()),
   time: "",
-  party: 2,
+  party: 1,
   bookingType: BOOKING_TYPES_UI[0],
   seating: SEATING_PREFERENCES_UI[0],
   notes: "",

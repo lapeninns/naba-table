@@ -54,6 +54,22 @@ export const PlanStep: React.FC<PlanStepProps> = ({ state, dispatch, onActionsCh
   }, [serviceSlots]);
 
   const partyOptions = useMemo(() => Array.from({ length: 12 }, (_, index) => index + 1), []);
+  const todayStr = useMemo(() => bookingHelpers.formatForDateInput(new Date()), []);
+
+  const isPastSlot = useCallback(
+    (slot: string) => {
+      try {
+        if (date !== todayStr) return false;
+        // slot format HH:MM
+        const now = new Date();
+        const slotDate = new Date(`${date}T${slot}:00`);
+        return slotDate.getTime() <= now.getTime();
+      } catch {
+        return false;
+      }
+    },
+    [date, todayStr],
+  );
 
   const ensureAlignedBookingType = useCallback(
     (slot: string | undefined) => {
@@ -66,6 +82,17 @@ export const PlanStep: React.FC<PlanStepProps> = ({ state, dispatch, onActionsCh
     [bookingType, dispatch, slotTypeMap],
   );
 
+  const firstAvailableSlot = useCallback(
+    (arr: string[]): string | undefined => {
+      if (!arr.length) return undefined;
+      if (date === todayStr) {
+        return arr.find((s) => !isPastSlot(s));
+      }
+      return arr[0];
+    },
+    [date, isPastSlot, todayStr],
+  );
+
   const ensureTimeForType = useCallback(
     (targetType: BookingOption) => {
       const candidateSlots = targetType === "drinks" ? serviceSlots.drinks : diningSlots;
@@ -73,13 +100,14 @@ export const PlanStep: React.FC<PlanStepProps> = ({ state, dispatch, onActionsCh
         dispatch({ type: "SET_FIELD", key: "time", value: "" });
         return;
       }
-      const preferredSlot = candidateSlots.includes(time) ? time : candidateSlots[0];
+      const currentUsable = time && (!isPastSlot(time) || date !== todayStr) && candidateSlots.includes(time);
+      const preferredSlot = currentUsable ? time : firstAvailableSlot(candidateSlots);
       if (preferredSlot && time !== preferredSlot) {
         dispatch({ type: "SET_FIELD", key: "time", value: preferredSlot });
         track("select_time", { time: preferredSlot });
       }
     },
-    [diningSlots, dispatch, serviceSlots.drinks, time],
+    [diningSlots, dispatch, firstAvailableSlot, isPastSlot, serviceSlots.drinks, time, date, todayStr],
   );
 
   useEffect(() => {
@@ -90,8 +118,9 @@ export const PlanStep: React.FC<PlanStepProps> = ({ state, dispatch, onActionsCh
       return;
     }
 
-    if (!time || !slots.includes(time)) {
-      const nextSlot = slots[0];
+    const currentValid = time && slots.includes(time) && !(date === todayStr && isPastSlot(time));
+    if (!currentValid) {
+      const nextSlot = firstAvailableSlot(slots);
       ensureAlignedBookingType(nextSlot);
       if (time !== nextSlot && nextSlot) {
         dispatch({ type: "SET_FIELD", key: "time", value: nextSlot });
@@ -102,7 +131,7 @@ export const PlanStep: React.FC<PlanStepProps> = ({ state, dispatch, onActionsCh
     if (bookingType !== "drinks") {
       ensureAlignedBookingType(time);
     }
-  }, [bookingType, dispatch, ensureAlignedBookingType, slots, time]);
+  }, [bookingType, date, dispatch, ensureAlignedBookingType, firstAvailableSlot, isPastSlot, slots, time, todayStr]);
 
   const handleSlotSelect = (slot: string) => {
     if (!slot) return;
@@ -145,6 +174,7 @@ export const PlanStep: React.FC<PlanStepProps> = ({ state, dispatch, onActionsCh
       {
         id: "plan-continue",
         label: "Continue",
+        icon: "Check",
         variant: "default",
         disabled: !canContinue,
         onClick: handleContinue,
@@ -188,7 +218,10 @@ export const PlanStep: React.FC<PlanStepProps> = ({ state, dispatch, onActionsCh
                 key={slot}
                 variant={time === slot ? "default" : "outline"}
                 className="min-w-[96px] justify-center rounded-full px-5"
-                onClick={() => handleSlotSelect(slot)}
+                onClick={() => !isPastSlot(slot) && handleSlotSelect(slot)}
+                disabled={isPastSlot(slot)}
+                aria-disabled={isPastSlot(slot)}
+                title={isPastSlot(slot) ? "Past time" : undefined}
               >
                 {bookingHelpers.formatTime(slot)}
               </Button>
@@ -209,6 +242,27 @@ export const PlanStep: React.FC<PlanStepProps> = ({ state, dispatch, onActionsCh
                 {option}
               </Button>
             ))}
+            <div className="flex items-center gap-2 rounded-full border border-srx-border-strong bg-white/90 px-3 py-1.5">
+              <Label htmlFor="custom-guests" className="text-helper text-srx-ink-soft">
+                Custom
+              </Label>
+              <Input
+                id="custom-guests"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                step={1}
+                className="h-11 w-24 rounded-full border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 text-center"
+                value={Math.max(1, party)}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10);
+                  if (Number.isNaN(val)) return;
+                  const clamped = Math.max(1, val);
+                  dispatch({ type: "SET_FIELD", key: "party", value: clamped });
+                  track("select_party", { party: clamped });
+                }}
+              />
+            </div>
           </div>
         </div>
 

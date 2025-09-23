@@ -2,9 +2,7 @@
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
-@plugin "daisyui" {
-  themes: light --default, dark --prefersdark;
-}
+/* DaisyUI removed; using shadcn/ui + Tailwind tokens only. */
 
 @plugin "tailwindcss-animate";
 
@@ -50,6 +48,33 @@ progress::-webkit-progress-value {
 }
 
 @layer base {
+  /* Minimal shim for legacy .btn/.link usages so removing DaisyUI doesn't break pages */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--touch-target);
+    height: var(--button-height);
+    padding: 0 16px;
+    border: none;
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    font: var(--font-button);
+    transition: transform 100ms ease-out, background-color 100ms ease-out, color 100ms ease-out;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn-primary { background: var(--color-primary); color: var(--color-on-primary); }
+  .btn-primary:active { background: var(--color-primary-pressed); }
+  .btn-ghost { background: transparent; color: var(--color-text-primary); }
+  .btn-sm { height: 40px; min-height: 40px; padding: 0 12px; border-radius: var(--radius-sm); }
+  .btn-square { width: var(--button-height); padding: 0; aspect-ratio: 1 / 1; }
+  .btn-wide { padding-left: 24px; padding-right: 24px; }
+  .btn-block { width: 100%; display: inline-flex; }
+
+  .link { color: var(--color-primary); text-decoration: underline; text-underline-offset: 4px; }
+  .link-hover:hover { opacity: 0.9; }
+
   .btn-gradient {
     background-image: linear-gradient(60deg, #f79533, #f37055, #ef4e7b, #a166ab, #5073b8, #1098ad, #07b39b, #6fba82);
     @apply bg-[length:300%_300%] hover:saturate-[1.2] shadow duration-100 border-0 border-transparent text-white;
@@ -59,9 +84,7 @@ progress::-webkit-progress-value {
     @apply bg-none bg-gray-500/30;
     animation: none;
   }
-  .btn {
-    @apply capitalize;
-  }
+  .btn { text-transform: capitalize; }
 
   /* Custom animation utilities */
   .animate-shimmer {
@@ -120,6 +143,56 @@ progress::-webkit-progress-value {
 }
 
 :root {
+  /* === SajiloReserveX Design Tokens (from AGENTS.md) === */
+  --font-sajilo: "SajiloReserveX Cereal App", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  /* Colors */
+  --color-primary: #FF385C;
+  --color-primary-pressed: #E01D45;
+  --color-accent: #00A699;
+  --color-text-primary: #222222;
+  --color-text-secondary: #717171;
+  --color-on-primary: #FFFFFF;
+  --color-surface: #FFFFFF;
+  --color-background: #F7F7F7;
+  --color-border: #DDDDDD;
+
+  /* Spacing (8px grid) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Layout constants */
+  --screen-margin: 24px;
+  --card-padding: 12px;
+  --button-height: 48px;
+  --touch-target: 44px;
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-card: 0 4px 12px rgba(0,0,0,0.1);
+  --shadow-header: 0 2px 4px rgba(0,0,0,0.08);
+  --shadow-modal: 0 8px 32px rgba(0,0,0,0.12);
+
+  /* Typography scale */
+  --font-screen-title: 700 34px/40px var(--font-sajilo);
+  --font-section-header: 600 22px/28px var(--font-sajilo);
+  --font-card-title: 600 18px/22px var(--font-sajilo);
+  --font-body: 400 16px/24px var(--font-sajilo);
+  --font-label: 400 14px/20px var(--font-sajilo);
+  --font-button: 600 16px/20px var(--font-sajilo);
+
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -221,9 +294,9 @@ progress::-webkit-progress-value {
     @apply border-border outline-ring/50;
   }
   body {
-    font-size: var(--srx-type-base);
-    line-height: 1.6;
-    @apply bg-background text-foreground;
+    font: var(--font-body);
+    background: var(--color-background);
+    color: var(--color-text-primary);
   }
 
   small,
@@ -232,3 +305,54 @@ progress::-webkit-progress-value {
     line-height: 1.45;
   }
 }
+
+/* === AGENTS.md Animation and Interaction Utilities === */
+.button-press {
+  transition: transform 100ms ease-out, background-color 100ms ease-out;
+}
+.button-press:active {
+  transform: scale(0.98);
+}
+
+.modal-enter {
+  animation: slideUp 300ms ease-out;
+  transform-origin: bottom;
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.screen-transition {
+  transition: transform 350ms cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+/* Loading shimmer helper matching AGENTS.md */
+.loading {
+  position: relative;
+  overflow: hidden;
+}
+.loading::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  animation: shimmer 1.5s infinite;
+}
+
+/* Focus visible outline for accessibility */
+.focus-visible:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Typography utility classes */
+.text-screen-title { font: var(--font-screen-title); color: var(--color-text-primary); }
+.text-section-header { font: var(--font-section-header); color: var(--color-text-primary); }
+.text-card-title { font: var(--font-card-title); color: var(--color-text-primary); }
+.text-body { font: var(--font-body); }
+.text-label { font: var(--font-label); color: var(--color-text-secondary); }
+.text-button { font: var(--font-button); }

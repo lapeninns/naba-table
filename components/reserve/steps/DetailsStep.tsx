@@ -53,12 +53,14 @@ export const DetailsStep: React.FC<DetailsStepProps> = ({ state, dispatch, onAct
       {
         id: "details-back",
         label: "Back",
+        icon: "ChevronLeft",
         variant: "outline",
         onClick: handleBack,
       },
       {
         id: "details-review",
         label: "Review booking",
+        icon: "Check",
         variant: "default",
         disabled: !canContinue,
         onClick: handleContinue,

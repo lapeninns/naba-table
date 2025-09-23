@@ -97,6 +97,9 @@ function BookingFlowContent() {
       })) {
         return prev;
       }
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[sticky-actions] updating", { prev, next: actions });
+      }
       return actions;
     });
   }, []);
@@ -165,7 +168,7 @@ function BookingFlowContent() {
       restaurantId,
       date: state.details.date,
       time: normalizedTime,
-      party: state.details.party,
+      party: Math.max(1, state.details.party),
       bookingType:
         state.details.bookingType === "drinks"
           ? "drinks"
@@ -252,10 +255,10 @@ function BookingFlowContent() {
     }
   };
 
-  const handleNewBooking = () => {
+  const handleNewBooking = useCallback(() => {
     dispatch({ type: "SET_ERROR", message: null });
     dispatch({ type: "RESET_FORM" });
-  };
+  }, []);
 
   const renderStep = () => {
     switch (state.step) {

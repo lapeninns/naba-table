@@ -4,11 +4,13 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-[transform,box-shadow,background-color,color] duration-fast ease-srx-standard focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-srx-brand focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.985]",
+  "inline-flex items-center justify-center whitespace-nowrap rounded-[var(--radius-md)] text-button ring-offset-background transition-[transform,box-shadow,background-color,color] duration-100 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98] button-press",
   {
     variants: {
       variant: {
         default: "bg-[color:var(--srx-brand)] text-white shadow-sm hover:bg-[color:var(--srx-brand-soft)]",
+        primary:
+          "bg-[color:var(--color-primary)] text-[color:var(--color-on-primary)] hover:bg-[color:var(--color-primary)] active:bg-[color:var(--color-primary-pressed)]",
         destructive: "bg-red-500 text-white shadow-sm hover:bg-red-600",
         outline:
           "border border-srx-border-strong bg-white/90 text-srx-ink-strong hover:bg-srx-surface-positive-alt",
@@ -17,15 +19,16 @@ const buttonVariants = cva(
         link: "text-srx-brand underline underline-offset-4 hover:text-srx-brand-soft",
       },
       size: {
-        default: "min-h-[44px] h-11 rounded-xl px-5 py-2.5 text-body",
-        sm: "min-h-[40px] h-10 rounded-lg px-4 py-2 text-[0.95rem]",
-        lg: "min-h-[48px] h-12 rounded-2xl px-7 py-3 text-[1.05rem]",
-        icon: "h-10 w-10 rounded-xl",
+        default: "min-h-[44px] h-11 px-5 py-2.5",
+        primary: "min-h-[var(--button-height)] h-[var(--button-height)] px-6",
+        sm: "min-h-[40px] h-10 rounded-[var(--radius-sm)] px-4 py-2 text-[0.95rem]",
+        lg: "min-h-[48px] h-12 rounded-[var(--radius-lg)] px-7 py-3 text-[1.05rem]",
+        icon: "h-11 w-11",
       },
     },
     defaultVariants: {
-      variant: "default",
-      size: "default",
+      variant: "primary",
+      size: "primary",
     },
   },
 );

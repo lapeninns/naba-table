@@ -26,7 +26,7 @@ const updateSchema = z.object({
   restaurantId: z.string().uuid().optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   time: z.string().regex(/^\d{2}:\d{2}$/),
-  party: z.number().int().min(1).max(20),
+  party: z.number().int().min(1),
   bookingType: bookingTypeEnum,
   seating: z.enum(SEATING_OPTIONS),
   notes: z.string().max(500).optional().nullable(),
