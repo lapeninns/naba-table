@@ -21,6 +21,7 @@ interface StickyProgressProps {
     partyText: string;
     formattedTime: string;
     formattedDate: string;
+    serviceLabel: string;
   };
   visible: boolean;
   actions?: StepAction[];
@@ -38,8 +39,8 @@ export const StickyProgress: React.FC<StickyProgressProps> = ({
   const totalSteps = steps.length;
   const safeTotal = Math.max(totalSteps, 1);
   const current = totalSteps === 0 ? 0 : Math.min(Math.max(currentStep, 1), totalSteps);
-  const summaryPrimaryText = summary.partyText || "Add guests";
-  const summarySecondaryPartsRaw = [summary.formattedTime, summary.formattedDate].filter(Boolean);
+  const summaryPrimaryText = summary.serviceLabel || "Select a service";
+  const summarySecondaryPartsRaw = [summary.partyText, summary.formattedTime, summary.formattedDate].filter(Boolean);
   const summarySecondaryParts = summarySecondaryPartsRaw.length > 0
     ? summarySecondaryPartsRaw
     : ["Select a date and time to continue"];

@@ -253,6 +253,12 @@ export const ConfirmationStep: React.FC<ConfirmationStepProps> = ({ state, onNew
               <dd className="text-base font-medium text-srx-ink-strong">{summaryTime}</dd>
             </div>
             <div className="space-y-1">
+              <dt className="text-srx-ink-soft">Service</dt>
+              <dd className="text-base font-medium text-srx-ink-strong">
+                {bookingHelpers.formatBookingLabel(details.bookingType)}
+              </dd>
+            </div>
+            <div className="space-y-1">
               <dt className="text-srx-ink-soft">Party</dt>
               <dd className="text-base font-medium text-srx-ink-strong">{partyText}</dd>
             </div>

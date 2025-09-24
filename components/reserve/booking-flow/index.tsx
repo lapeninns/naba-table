@@ -114,12 +114,14 @@ function BookingFlowContent() {
     const partyText = state.details.party
       ? `${state.details.party} ${state.details.party === 1 ? "guest" : "guests"}`
       : "Add guests";
+    const serviceLabel = bookingHelpers.formatBookingLabel(state.details.bookingType);
     return {
       formattedDate,
       formattedTime,
       partyText,
+      serviceLabel,
     };
-  }, [state.details.date, state.details.party, state.details.time]);
+  }, [state.details.date, state.details.party, state.details.time, state.details.bookingType]);
 
   // Load remembered contact details
   useEffect(() => {
