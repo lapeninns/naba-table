@@ -76,27 +76,21 @@ export const bookingHelpers = {
     return out;
   },
   serviceWindows(dateStr: string) {
-    const day = new Date(`${dateStr}T00:00:00Z`).getUTCDay();
-    const isWeekend = day === 5 || day === 6;
-    const isSunday = day === 0;
+    const baseDate = dateStr ? new Date(`${dateStr}T00:00:00`) : new Date();
+    const day = baseDate.getDay();
+    const isWeekend = day === 0 || day === 6; // Sunday or Saturday
+    const close = "23:00";
 
-    const lunch: { start: string; end: string } = isWeekend
-      ? { start: "11:30", end: "16:00" }
-      : isSunday
-        ? { start: "11:30", end: "15:30" }
-        : { start: "12:00", end: "15:30" };
+    const lunchEnd = isWeekend ? "17:00" : "15:00";
+    const happyHour: { start: string; end: string } | null = isWeekend
+      ? null
+      : { start: "15:00", end: "17:00" };
 
-    const dinner: { start: string; end: string } = isWeekend
-      ? { start: "18:00", end: "23:00" }
-      : isSunday
-        ? { start: "17:30", end: "21:30" }
-        : { start: "17:30", end: "22:00" };
+    const lunch: { start: string; end: string } = { start: "12:00", end: lunchEnd };
+    const dinner: { start: string; end: string } = { start: "17:00", end: close };
+    const drinks: { start: string; end: string } = { start: "12:00", end: close };
 
-    const drinks: { start: string; end: string } = isWeekend
-      ? { start: "15:00", end: "23:00" }
-      : { start: "15:00", end: "22:30" };
-
-    return { lunch, dinner, drinks };
+    return { lunch, dinner, drinks, happyHour };
   },
   slotsByService(dateStr: string) {
     const windows = bookingHelpers.serviceWindows(dateStr);
@@ -115,9 +109,9 @@ export const bookingHelpers = {
       return minutes >= startMinutes && minutes < endMinutes;
     };
 
+    if (windows.happyHour && inRange(windows.happyHour)) return "drinks";
     if (inRange(windows.lunch)) return "lunch";
     if (inRange(windows.dinner)) return "dinner";
-    if (inRange(windows.drinks)) return "drinks";
 
     return minutes >= bookingHelpers.timeToMinutes(windows.dinner.start) ? "dinner" : "lunch";
   },

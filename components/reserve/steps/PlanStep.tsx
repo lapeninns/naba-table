@@ -108,52 +108,37 @@ function getServiceAvailability(date: string, time: string): ServiceAvailability
   const closeMinutes = timeStringToMinutes(RESERVATION_CONFIG.close);
   const slotDate = createDateFromParts(date, time);
   const minutes = slotDate.getHours() * 60 + slotDate.getMinutes();
-  const isWeekday = slotDate.getDay() >= 1 && slotDate.getDay() <= 5;
-
   const isOpen = minutes >= openMinutes && minutes < closeMinutes;
-  const inLunchWindow = minutes >= 12 * 60 && minutes < 15 * 60;
-  const inDinnerWindow = minutes >= 17 * 60 && minutes < closeMinutes;
-  const inHappyHourWindow = isWeekday && minutes >= 15 * 60 && minutes < 17 * 60;
+  const windows = bookingHelpers.serviceWindows(date);
 
-  const baseServices: Record<BookingOption, ServiceState> = {
-    drinks: isOpen ? "enabled" : "disabled",
-    lunch: "disabled",
-    dinner: "disabled",
+  const within = (window: { start: string; end: string } | null | undefined) => {
+    if (!window) return false;
+    const startMinutes = timeStringToMinutes(window.start);
+    const endMinutes = timeStringToMinutes(window.end);
+    return minutes >= startMinutes && minutes < endMinutes;
   };
 
-  if (isOpen && !inHappyHourWindow) {
-    if (inLunchWindow) {
-      baseServices.lunch = "enabled";
-    }
-    if (inDinnerWindow) {
-      baseServices.dinner = "enabled";
-    }
-  }
+  const baseLunch = isOpen && within(windows.lunch);
+  const baseDinner = isOpen && within(windows.dinner);
+  const inHappyHourWindow = isOpen && within(windows.happyHour);
 
-  if (!inLunchWindow) {
-    baseServices.lunch = baseServices.lunch === "enabled" ? "enabled" : "disabled";
-  }
-  if (!inDinnerWindow) {
-    baseServices.dinner = baseServices.dinner === "enabled" ? "enabled" : "disabled";
-  }
+  const services: Record<BookingOption, ServiceState> = {
+    lunch: baseLunch && !inHappyHourWindow ? "enabled" : "disabled",
+    dinner: baseDinner && !inHappyHourWindow ? "enabled" : "disabled",
+    drinks: isOpen ? "enabled" : "disabled",
+  };
 
-  if (inHappyHourWindow) {
-    baseServices.lunch = "disabled";
-    baseServices.dinner = "disabled";
-  }
-
-  const drinksOnly = baseServices.drinks === "enabled" &&
-    baseServices.lunch === "disabled" &&
-    baseServices.dinner === "disabled";
+  const drinksOnly =
+    services.drinks === "enabled" && services.lunch === "disabled" && services.dinner === "disabled";
 
   return {
-    services: baseServices,
+    services,
     labels: {
       happyHour: inHappyHourWindow,
       drinksOnly,
       kitchenClosed: inHappyHourWindow,
-      lunchWindow: inLunchWindow,
-      dinnerWindow: inDinnerWindow,
+      lunchWindow: services.lunch === "enabled",
+      dinnerWindow: services.dinner === "enabled",
     },
   };
 }
@@ -174,11 +159,13 @@ function resolveDefaultService(date: string, time: string): BookingOption {
 }
 
 function getSlotLabel(slotDate: Date): TimeSlot["label"] {
-  const isWeekday = slotDate.getDay() >= 1 && slotDate.getDay() <= 5;
+  const day = slotDate.getDay();
+  const isWeekend = day === 0 || day === 6;
   const minutes = slotDate.getHours() * 60 + slotDate.getMinutes();
-  const inLunchWindow = minutes >= 12 * 60 && minutes < 15 * 60;
+  const lunchEnd = isWeekend ? 17 * 60 : 15 * 60;
+  const inLunchWindow = minutes >= 12 * 60 && minutes < lunchEnd;
+  const inHappyHourWindow = !isWeekend && minutes >= 15 * 60 && minutes < 17 * 60;
   const inDinnerWindow = minutes >= 17 * 60;
-  const inHappyHourWindow = isWeekday && minutes >= 15 * 60 && minutes < 17 * 60;
 
   if (inHappyHourWindow) return "Happy Hour";
   if (inLunchWindow) return "Lunch";
@@ -243,6 +230,10 @@ export const PlanStep: React.FC<PlanStepProps> = ({ state, dispatch, onActionsCh
 
   useEffect(() => {
     const currentState = serviceAvailability.services[bookingType];
+    const noOptionsEnabled = Object.values(serviceAvailability.services).every((state) => state === "disabled");
+    if (noOptionsEnabled) {
+      return;
+    }
     if (currentState === "disabled") {
       const fallback = SERVICE_ORDER.find((option) => serviceAvailability.services[option] === "enabled") || "drinks";
       if (fallback !== bookingType) {
