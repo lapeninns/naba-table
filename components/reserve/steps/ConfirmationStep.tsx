@@ -44,7 +44,16 @@ export const ConfirmationStep: React.FC<ConfirmationStepProps> = ({ state, onNew
   const router = useRouter();
   const booking = state.lastConfirmed;
   const details = state.details;
-  const venue = DEFAULT_VENUE;
+  const venue = useMemo(
+    () => ({
+      ...DEFAULT_VENUE,
+      id: details.restaurantId || DEFAULT_VENUE.id,
+      name: details.restaurantName || DEFAULT_VENUE.name,
+      address: details.restaurantAddress || DEFAULT_VENUE.address,
+      timezone: details.restaurantTimezone || DEFAULT_VENUE.timezone,
+    }),
+    [details.restaurantAddress, details.restaurantId, details.restaurantName, details.restaurantTimezone],
+  );
 
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [walletLoading, setWalletLoading] = useState(false);

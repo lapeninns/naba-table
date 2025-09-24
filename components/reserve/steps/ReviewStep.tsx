@@ -96,6 +96,12 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ state, dispatch, onConfi
               <dd className="text-body-sm font-semibold text-srx-ink-strong">{summaryValue}</dd>
             </div>
             <div className="space-y-1">
+              <dt className="text-helper uppercase tracking-[0.18em] text-srx-ink-soft">Venue</dt>
+              <dd className="text-body-sm font-medium text-srx-ink-strong">
+                {details.restaurantName}
+              </dd>
+            </div>
+            <div className="space-y-1">
               <dt className="text-helper uppercase tracking-[0.18em] text-srx-ink-soft">Party size</dt>
               <dd className="text-body-sm font-medium text-srx-ink-strong">
                 {details.party} {details.party === 1 ? "guest" : "guests"}

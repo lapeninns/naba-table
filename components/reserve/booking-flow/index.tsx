@@ -114,7 +114,6 @@ function BookingFlowContent() {
     const partyText = state.details.party
       ? `${state.details.party} ${state.details.party === 1 ? "guest" : "guests"}`
       : "Add guests";
-
     return {
       formattedDate,
       formattedTime,

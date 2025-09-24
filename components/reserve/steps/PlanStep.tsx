@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Field } from "@/components/reserve/booking-flow/form";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -11,17 +12,202 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
 import { bookingHelpers, type BookingOption } from "@/components/reserve/helpers";
 import { Icon } from "@/components/reserve/icons";
 import { track } from "@/lib/analytics";
-import { BOOKING_TYPES_UI } from "@/lib/enums";
 
 import type { Action, State, StepAction } from "../booking-flow/state";
+
+const RESERVATION_CONFIG = {
+  /** Opening time (inclusive) */
+  open: "12:00",
+  /** Closing time (exclusive) */
+  close: "23:00",
+  intervalMinutes: 30,
+};
+
+const SERVICE_LABELS: Record<BookingOption, string> = {
+  lunch: "Lunch",
+  dinner: "Dinner",
+  drinks: "Drinks & cocktails",
+};
+
+const SERVICE_ORDER: BookingOption[] = ["lunch", "dinner", "drinks"];
+
+type ServiceState = "enabled" | "disabled";
+
+type ServiceAvailability = {
+  services: Record<BookingOption, ServiceState>;
+  labels: {
+    happyHour: boolean;
+    drinksOnly: boolean;
+    kitchenClosed: boolean;
+    lunchWindow: boolean;
+    dinnerWindow: boolean;
+  };
+};
+
+type TimeSlot = {
+  value: string; // HH:MM
+  display: string; // formatted for UI
+  label: "Lunch" | "Dinner" | "Happy Hour" | "Drinks only";
+};
+
+function timeStringToMinutes(value: string): number {
+  const [hours, minutes] = value.split(":").map(Number);
+  return (hours || 0) * 60 + (minutes || 0);
+}
+
+function minutesToTimeString(totalMinutes: number): string {
+  const hours = Math.floor(totalMinutes / 60)
+    .toString()
+    .padStart(2, "0");
+  const minutes = (totalMinutes % 60).toString().padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
+function createDateFromParts(date: string, time: string): Date {
+  if (!date || !time) return new Date();
+  return new Date(`${date}T${time}:00`);
+}
+
+function getServiceAvailability(date: string, time: string): ServiceAvailability {
+  if (!date || !time) {
+    return {
+      services: {
+        lunch: "disabled",
+        dinner: "disabled",
+        drinks: "disabled",
+      },
+      labels: {
+        happyHour: false,
+        drinksOnly: false,
+        kitchenClosed: false,
+        lunchWindow: false,
+        dinnerWindow: false,
+      },
+    };
+  }
+
+  const openMinutes = timeStringToMinutes(RESERVATION_CONFIG.open);
+  const closeMinutes = timeStringToMinutes(RESERVATION_CONFIG.close);
+  const slotDate = createDateFromParts(date, time);
+  const minutes = slotDate.getHours() * 60 + slotDate.getMinutes();
+  const isWeekday = slotDate.getDay() >= 1 && slotDate.getDay() <= 5;
+
+  const isOpen = minutes >= openMinutes && minutes < closeMinutes;
+  const inLunchWindow = minutes >= 12 * 60 && minutes < 15 * 60;
+  const inDinnerWindow = minutes >= 17 * 60 && minutes < closeMinutes;
+  const inHappyHourWindow = isWeekday && minutes >= 15 * 60 && minutes < 17 * 60;
+
+  const baseServices: Record<BookingOption, ServiceState> = {
+    drinks: isOpen ? "enabled" : "disabled",
+    lunch: "disabled",
+    dinner: "disabled",
+  };
+
+  if (isOpen && !inHappyHourWindow) {
+    if (inLunchWindow) {
+      baseServices.lunch = "enabled";
+    }
+    if (inDinnerWindow) {
+      baseServices.dinner = "enabled";
+    }
+  }
+
+  if (!inLunchWindow) {
+    baseServices.lunch = baseServices.lunch === "enabled" ? "enabled" : "disabled";
+  }
+  if (!inDinnerWindow) {
+    baseServices.dinner = baseServices.dinner === "enabled" ? "enabled" : "disabled";
+  }
+
+  if (inHappyHourWindow) {
+    baseServices.lunch = "disabled";
+    baseServices.dinner = "disabled";
+  }
+
+  const drinksOnly = baseServices.drinks === "enabled" &&
+    baseServices.lunch === "disabled" &&
+    baseServices.dinner === "disabled";
+
+  return {
+    services: baseServices,
+    labels: {
+      happyHour: inHappyHourWindow,
+      drinksOnly,
+      kitchenClosed: inHappyHourWindow,
+      lunchWindow: inLunchWindow,
+      dinnerWindow: inDinnerWindow,
+    },
+  };
+}
+
+function resolveDefaultService(date: string, time: string): BookingOption {
+  const availability = getServiceAvailability(date, time);
+
+  if (availability.labels.happyHour) {
+    return "drinks";
+  }
+  if (availability.services.lunch === "enabled") {
+    return "lunch";
+  }
+  if (availability.services.dinner === "enabled") {
+    return "dinner";
+  }
+  return "drinks";
+}
+
+function getSlotLabel(slotDate: Date): TimeSlot["label"] {
+  const isWeekday = slotDate.getDay() >= 1 && slotDate.getDay() <= 5;
+  const minutes = slotDate.getHours() * 60 + slotDate.getMinutes();
+  const inLunchWindow = minutes >= 12 * 60 && minutes < 15 * 60;
+  const inDinnerWindow = minutes >= 17 * 60;
+  const inHappyHourWindow = isWeekday && minutes >= 15 * 60 && minutes < 17 * 60;
+
+  if (inHappyHourWindow) return "Happy Hour";
+  if (inLunchWindow) return "Lunch";
+  if (inDinnerWindow) return "Dinner";
+  return "Drinks only";
+}
+
+function generateTimeSlots(date: string): TimeSlot[] {
+  const openMinutes = timeStringToMinutes(RESERVATION_CONFIG.open);
+  const closeMinutes = timeStringToMinutes(RESERVATION_CONFIG.close);
+  const interval = RESERVATION_CONFIG.intervalMinutes;
+  const slots: TimeSlot[] = [];
+
+  if (!date) return slots;
+
+  for (let minutes = openMinutes; minutes < closeMinutes; minutes += interval) {
+    const value = minutesToTimeString(minutes);
+    const slotDate = createDateFromParts(date, value);
+    slots.push({
+      value,
+      display: bookingHelpers.formatTime(value),
+      label: getSlotLabel(slotDate),
+    });
+  }
+
+  return slots;
+}
+
+const SERVICE_TOOLTIP = "Not available for the selected time.";
 
 interface PlanStepProps {
   state: State;
@@ -32,184 +218,75 @@ interface PlanStepProps {
 
 export const PlanStep: React.FC<PlanStepProps> = ({ state, dispatch, onActionsChange }) => {
   const { date, time, party, bookingType, seating, notes } = state.details;
+  const [dateOpen, setDateOpen] = useState(false);
+  const [timeOpen, setTimeOpen] = useState(false);
 
-  const serviceSlots = useMemo(() => bookingHelpers.slotsByService(date), [date]);
-  const diningSlots = useMemo(() => {
-    const combined = [...serviceSlots.lunch, ...serviceSlots.dinner];
-    return Array.from(new Set(combined));
-  }, [serviceSlots]);
-  const slots = useMemo(
-    () => (bookingType === "drinks" ? serviceSlots.drinks : diningSlots),
-    [bookingType, diningSlots, serviceSlots],
-  );
-
-  const slotTypeMap = useMemo(() => {
-    const map = new Map<string, BookingOption>();
-    serviceSlots.lunch.forEach((slot) => map.set(slot, "lunch"));
-    serviceSlots.dinner.forEach((slot) => map.set(slot, "dinner"));
-    serviceSlots.drinks.forEach((slot) => {
-      if (!map.has(slot)) {
-        map.set(slot, "drinks");
-      }
-    });
-    return map;
-  }, [serviceSlots]);
-
-  const partyOptions = useMemo(() => Array.from({ length: 12 }, (_, index) => index + 1), []);
-  const todayStr = useMemo(() => bookingHelpers.formatForDateInput(new Date()), []);
-  const selectedDateObj = useMemo(() => {
-    if (!date) return undefined;
-    const [y, m, d] = date.split("-").map(Number);
-    if (!y || !m || !d) return undefined;
-    return new Date(y, (m ?? 1) - 1, d ?? 1);
-  }, [date]);
-  const [dateOpen, setDateOpen] = React.useState(false);
-  const [timeInput, setTimeInput] = React.useState<string>(time ? `${bookingHelpers.normalizeTime(time)}:00` : "");
-
-  const isPastSlot = useCallback(
-    (slot: string) => {
-      try {
-        if (date !== todayStr) return false;
-        // slot format HH:MM
-        const now = new Date();
-        const slotDate = new Date(`${date}T${slot}:00`);
-        return slotDate.getTime() <= now.getTime();
-      } catch {
-        return false;
-      }
-    },
-    [date, todayStr],
-  );
-
-  const ensureAlignedBookingType = useCallback(
-    (slot: string | undefined) => {
-      if (!slot) return;
-      const inferred = slotTypeMap.get(slot);
-      if (inferred && inferred !== bookingType) {
-        dispatch({ type: "SET_FIELD", key: "bookingType", value: inferred });
-      }
-    },
-    [bookingType, dispatch, slotTypeMap],
-  );
-
-  const firstAvailableSlot = useCallback(
-    (arr: string[]): string | undefined => {
-      if (!arr.length) return undefined;
-      if (date === todayStr) {
-        return arr.find((s) => !isPastSlot(s));
-      }
-      return arr[0];
-    },
-    [date, isPastSlot, todayStr],
-  );
-
-  const ensureTimeForType = useCallback(
-    (targetType: BookingOption) => {
-      const candidateSlots = targetType === "drinks" ? serviceSlots.drinks : diningSlots;
-      if (!candidateSlots.length) {
-        dispatch({ type: "SET_FIELD", key: "time", value: "" });
-        return;
-      }
-      const currentUsable = time && (!isPastSlot(time) || date !== todayStr) && candidateSlots.includes(time);
-      const preferredSlot = currentUsable ? time : firstAvailableSlot(candidateSlots);
-      if (preferredSlot && time !== preferredSlot) {
-        dispatch({ type: "SET_FIELD", key: "time", value: preferredSlot });
-        track("select_time", { time: preferredSlot });
-      }
-    },
-    [diningSlots, dispatch, firstAvailableSlot, isPastSlot, serviceSlots.drinks, time, date, todayStr],
+  const timeSlots = useMemo(() => generateTimeSlots(date), [date]);
+  const serviceAvailability = useMemo(
+    () => getServiceAvailability(date, time),
+    [date, time],
   );
 
   useEffect(() => {
-    if (!slots.length) {
-      if (time) {
-        dispatch({ type: "SET_FIELD", key: "time", value: "" });
+    if (!timeSlots.length) return;
+    const normalizedTime = bookingHelpers.normalizeTime(time);
+    const hasTime = normalizedTime && timeSlots.some((slot) => slot.value === normalizedTime);
+    if (!hasTime) {
+      const firstSlot = timeSlots[0]?.value ?? "";
+      if (firstSlot) {
+        dispatch({ type: "SET_FIELD", key: "time", value: firstSlot });
+        const defaultService = resolveDefaultService(date, firstSlot);
+        dispatch({ type: "SET_FIELD", key: "bookingType", value: defaultService });
       }
-      return;
     }
+  }, [date, dispatch, timeSlots, time]);
 
-    const currentValid = time && slots.includes(time) && !(date === todayStr && isPastSlot(time));
-    if (!currentValid) {
-      const nextSlot = firstAvailableSlot(slots);
-      ensureAlignedBookingType(nextSlot);
-      if (time !== nextSlot && nextSlot) {
-        dispatch({ type: "SET_FIELD", key: "time", value: nextSlot });
+  useEffect(() => {
+    const currentState = serviceAvailability.services[bookingType];
+    if (currentState === "disabled") {
+      const fallback = SERVICE_ORDER.find((option) => serviceAvailability.services[option] === "enabled") || "drinks";
+      if (fallback !== bookingType) {
+        dispatch({ type: "SET_FIELD", key: "bookingType", value: fallback });
       }
-      return;
     }
+  }, [bookingType, dispatch, serviceAvailability.services]);
 
-    if (bookingType !== "drinks") {
-      ensureAlignedBookingType(time);
-    }
-  }, [bookingType, date, dispatch, ensureAlignedBookingType, firstAvailableSlot, isPastSlot, slots, time, todayStr]);
-
-  const handleSlotSelect = (slot: string) => {
-    if (!slot) return;
-    ensureAlignedBookingType(slot);
-    if (slot !== time) {
-      dispatch({ type: "SET_FIELD", key: "time", value: slot });
-      track("select_time", { time: slot });
-    }
-  };
+  const handleSlotSelect = useCallback(
+    (slot: TimeSlot) => {
+      if (!slot) return;
+      dispatch({ type: "SET_FIELD", key: "time", value: slot.value });
+      const defaultService = resolveDefaultService(date, slot.value);
+      dispatch({ type: "SET_FIELD", key: "bookingType", value: defaultService });
+      track("select_time", { time: slot.value });
+    },
+    [date, dispatch],
+  );
 
   const handleContinue = useCallback(() => {
     if (!date || !time || party <= 0) return;
     dispatch({ type: "SET_STEP", step: 2 });
   }, [date, time, party, dispatch]);
 
-  const handleDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const nextDate = event.target.value;
-    dispatch({ type: "SET_FIELD", key: "date", value: nextDate });
-    if (nextDate) {
-      track("select_date", { date: nextDate });
+  const handlePartyAdjust = useCallback((delta: number) => {
+    const next = Math.max(1, party + delta);
+    if (next === party) return;
+    dispatch({ type: "SET_FIELD", key: "party", value: next });
+    track("select_party", { party: next });
+  }, [dispatch, party]);
+
+  const handleServiceChange = useCallback((next: string) => {
+    if (!next) return;
+    const serviceKey = next as BookingOption;
+    if (serviceAvailability.services[serviceKey] === "disabled") return;
+    if (serviceKey !== bookingType) {
+      dispatch({ type: "SET_FIELD", key: "bookingType", value: serviceKey });
     }
-  };
-
-  const findNearestSlot = useCallback(
-    (hhmm: string): string | undefined => {
-      if (!hhmm || !slots.length) return undefined;
-      const targetMinutes = bookingHelpers.timeToMinutes(hhmm);
-      let best: { slot: string; diff: number } | undefined;
-      for (const s of slots) {
-        if (date === todayStr && isPastSlot(s)) continue;
-        const diff = Math.abs(bookingHelpers.timeToMinutes(s) - targetMinutes);
-        if (!best || diff < best.diff) best = { slot: s, diff };
-      }
-      return best?.slot;
-    },
-    [slots, date, todayStr, isPastSlot],
-  );
-
-  const handleTimeInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = event.target.value || ""; // HH:MM or HH:MM:SS
-    setTimeInput(raw);
-    const hhmm = raw.slice(0, 5);
-    const nearest = findNearestSlot(hhmm);
-    if (nearest) {
-      handleSlotSelect(nearest);
-    }
-  };
-
-  useEffect(() => {
-    setTimeInput(time ? `${bookingHelpers.normalizeTime(time)}:00` : "");
-  }, [time]);
-
-  const handlePartySelect = (nextParty: number) => {
-    if (party === nextParty) return;
-    dispatch({ type: "SET_FIELD", key: "party", value: nextParty });
-    track("select_party", { party: nextParty });
-  };
-
-  const handleBookingTypeSelect = (nextType: BookingOption) => {
-    if (nextType === bookingType) return;
-    dispatch({ type: "SET_FIELD", key: "bookingType", value: nextType });
-    ensureTimeForType(nextType);
-  };
+  }, [bookingType, dispatch, serviceAvailability.services]);
 
   const canContinue = Boolean(date && time && party > 0);
 
   useEffect(() => {
-    const actions: StepAction[] = [
+    onActionsChange([
       {
         id: "plan-continue",
         label: "Continue",
@@ -218,22 +295,29 @@ export const PlanStep: React.FC<PlanStepProps> = ({ state, dispatch, onActionsCh
         disabled: !canContinue,
         onClick: handleContinue,
       },
-    ];
-    onActionsChange(actions);
+    ]);
   }, [canContinue, handleContinue, onActionsChange]);
+
+  const guestLabel = party === 1 ? "1 person" : `${party} people`;
+
+  const selectedSlotMeta = useMemo(() => {
+    if (!time) return null;
+    const slotDate = createDateFromParts(date, bookingHelpers.normalizeTime(time));
+    return getSlotLabel(slotDate);
+  }, [date, time]);
 
   return (
     <Card className="mx-auto w-full max-w-4xl lg:max-w-5xl">
       <CardHeader className="space-y-4">
-        <CardTitle className="text-[clamp(1.75rem,1.4rem+0.8vw,2.25rem)] text-srx-ink-strong">
+        <CardTitle className="text-[clamp(1.75rem,1.45rem+0.6vw,2.2rem)] text-srx-ink-strong">
           {state.editingId ? "Modify booking details" : "Plan your visit"}
         </CardTitle>
         <CardDescription className="text-body-sm text-srx-ink-soft">
           Select a date, time, and group size to see available slots.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6 md:space-y-8">
-        <div className="flex flex-wrap gap-4">
+      <CardContent className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:items-end">
           <div className="flex flex-col gap-3">
             <Label htmlFor="date-picker" className="px-1">Date</Label>
             <Popover open={dateOpen} onOpenChange={setDateOpen}>
@@ -241,16 +325,16 @@ export const PlanStep: React.FC<PlanStepProps> = ({ state, dispatch, onActionsCh
                 <Button
                   variant="outline"
                   id="date-picker"
-                  className="h-11 w-40 justify-between rounded-full px-4 font-normal"
+                  className="h-11 w-full justify-between rounded-full px-4 font-normal"
                 >
-                  {selectedDateObj ? selectedDateObj.toLocaleDateString("en-GB") : "Select date"}
+                  {date ? bookingHelpers.formatSummaryDate(date) : "Select date"}
                   <Icon.ChevronDown className="h-4 w-4" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto overflow-hidden p-0" align="start">
                 <Calendar
                   mode="single"
-                  selected={selectedDateObj}
+                  selected={date ? new Date(`${date}T00:00:00`) : undefined}
                   captionLayout="dropdown"
                   onSelect={(next) => {
                     if (!next) return;
@@ -264,79 +348,122 @@ export const PlanStep: React.FC<PlanStepProps> = ({ state, dispatch, onActionsCh
             </Popover>
           </div>
           <div className="flex flex-col gap-3">
-            <Label htmlFor="time-picker" className="px-1">Time</Label>
-            <Input
-              type="time"
-              id="time-picker"
-              step="1"
-              value={timeInput}
-              onChange={handleTimeInputChange}
-              className="appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
-            />
+            <Label className="px-1">Time</Label>
+            <Popover open={timeOpen} onOpenChange={setTimeOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 w-full justify-between rounded-full px-4 font-normal"
+                >
+                  <span className="flex flex-col items-start leading-tight">
+                    <span className="text-sm font-semibold text-srx-ink-strong">
+                      {time ? bookingHelpers.formatTime(time) : "Select time"}
+                    </span>
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-srx-ink-soft">
+                      {selectedSlotMeta ?? "Choose a slot"}
+                    </span>
+                  </span>
+                  <Icon.ChevronDown className="h-4 w-4" aria-hidden />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                className="w-60 overflow-hidden rounded-xl border border-srx-border-subtle bg-white/95 p-0 shadow-lg"
+              >
+                <div
+                  role="listbox"
+                  aria-label="Available reservation times"
+                  className="max-h-72 overflow-y-auto py-1"
+                >
+                  {timeSlots.map((slot) => {
+                    const normalizedTime = bookingHelpers.normalizeTime(time);
+                    const isSelected = normalizedTime === slot.value;
+                    return (
+                      <button
+                        key={slot.value}
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        onClick={() => {
+                          handleSlotSelect(slot);
+                          setTimeOpen(false);
+                        }}
+                        className={bookingHelpers.cn(
+                          "flex w-full items-center justify-between px-4 py-2 text-left text-sm transition focus:bg-srx-ink-strong/10 focus:outline-none",
+                          isSelected
+                            ? "bg-srx-ink-strong text-white"
+                            : "text-srx-ink-strong hover:bg-srx-ink-strong/5"
+                        )}
+                      >
+                        <span>{slot.display}</span>
+                        <span className={bookingHelpers.cn(
+                          "ml-4 text-[10px] font-semibold uppercase tracking-[0.16em]",
+                          isSelected ? "text-white/80" : "text-srx-ink-soft"
+                        )}
+                        >
+                          {slot.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                  {timeSlots.length === 0 && (
+                    <div className="px-4 py-3 text-sm text-srx-ink-soft">Select a date to see available times.</div>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label className="flex items-center gap-2 font-medium">
-            <Icon.Clock className="h-4 w-4" /> Time
-          </Label>
-          <p className="text-helper text-srx-ink-soft">Swipe or scroll horizontally to see more times.</p>
-          <div className="flex snap-x gap-3 overflow-x-auto pb-3 [-ms-overflow-style:'none'] [scrollbar-width:'none'] [&::-webkit-scrollbar]:hidden">
-            {slots.length === 0 && (
-              <span className="text-body-sm text-srx-ink-soft">No availability for this selection.</span>
-            )}
-            {slots.map((slot) => (
-              <Button
-                key={slot}
-                variant={time === slot ? "default" : "outline"}
-                className="min-w-[96px] justify-center rounded-full px-5"
-                onClick={() => !isPastSlot(slot) && handleSlotSelect(slot)}
-                disabled={isPastSlot(slot)}
-                aria-disabled={isPastSlot(slot)}
-                title={isPastSlot(slot) ? "Past time" : undefined}
-              >
-                {bookingHelpers.formatTime(slot)}
-              </Button>
-            ))}
-          </div>
-        </div>
+        {selectedSlotMeta === "Happy Hour" && (
+          <Badge variant="secondary" className="w-fit uppercase tracking-[0.18em] text-xs">
+            Happy Hour
+          </Badge>
+        )}
 
-        <div className="space-y-2">
-          <Label className="font-medium">Guests</Label>
-          <div className="flex snap-x gap-3 overflow-x-auto pb-3 [-ms-overflow-style:'none'] [scrollbar-width:'none'] [&::-webkit-scrollbar]:hidden">
-            {partyOptions.map((option) => (
+        {serviceAvailability.labels.kitchenClosed && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+          >
+            <Icon.Info className="mt-0.5 h-4 w-4" />
+            <span>
+              Kitchen closed from 15:00 to 17:00 on weekdays. Drinks and cocktails are still available.
+            </span>
+          </div>
+        )}
+
+        <section className="space-y-3">
+          <Label className="text-base font-semibold">Guests</Label>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4 rounded-full border border-srx-border-subtle bg-white/95 px-4 py-2">
               <Button
-                key={option}
-                variant={party === option ? "default" : "outline"}
-                className="min-w-[64px] justify-center rounded-full px-5"
-                onClick={() => handlePartySelect(option)}
+                type="button"
+                variant="ghost"
+                className="h-8 w-8 rounded-full border border-srx-border-subtle p-0 text-lg leading-none"
+                onClick={() => handlePartyAdjust(-1)}
+                aria-label="Decrease guest count"
+                disabled={party <= 1}
               >
-                {option}
+                -
               </Button>
-            ))}
-            <div className="flex items-center gap-2 rounded-full border border-srx-border-strong bg-white/90 px-3 py-1.5">
-              <Label htmlFor="custom-guests" className="text-helper text-srx-ink-soft">
-                Custom
-              </Label>
-              <Input
-                id="custom-guests"
-                type="number"
-                inputMode="numeric"
-                min={1}
-                step={1}
-                className="h-11 w-24 rounded-full border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 text-center"
-                value={Math.max(1, party)}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value, 10);
-                  if (Number.isNaN(val)) return;
-                  const clamped = Math.max(1, val);
-                  dispatch({ type: "SET_FIELD", key: "party", value: clamped });
-                  track("select_party", { party: clamped });
-                }}
-              />
+              <span aria-live="polite" className="min-w-[72px] text-center text-sm font-semibold text-srx-ink-strong">
+                {guestLabel}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-8 w-8 rounded-full border border-srx-border-subtle p-0 text-lg leading-none"
+                onClick={() => handlePartyAdjust(1)}
+                aria-label="Increase guest count"
+              >
+                +
+              </Button>
             </div>
           </div>
-        </div>
+        </section>
 
         <details className="group rounded-xl border border-srx-border-subtle bg-white/90 p-5 shadow-sm">
           <summary className="flex cursor-pointer list-none items-center justify-between text-body-sm font-medium text-srx-ink-strong">
@@ -345,22 +472,51 @@ export const PlanStep: React.FC<PlanStepProps> = ({ state, dispatch, onActionsCh
           </summary>
           <div className="mt-4 space-y-6">
             <Field id="service" label="Service">
-              <div className="flex flex-wrap gap-2">
-                {BOOKING_TYPES_UI.map((option) => (
-                  <Button
-                    key={option}
-                    variant={bookingType === option ? "default" : "outline"}
-                    size="sm"
-                    className="rounded-full"
-                    onClick={() => handleBookingTypeSelect(option)}
-                  >
-                    {bookingHelpers.formatBookingLabel(option)}
-                  </Button>
-                ))}
-              </div>
-              <p className="mt-2 text-helper text-srx-ink-soft">
-                Drinks reservations show bar availability; lunch and dinner align to table service.
-              </p>
+              <TooltipProvider>
+                <ToggleGroup
+                  type="single"
+                  value={bookingType}
+                  onValueChange={handleServiceChange}
+                  className="flex flex-wrap gap-2"
+                >
+                  {SERVICE_ORDER.map((option) => {
+                    const disabled = serviceAvailability.services[option] === "disabled";
+                    const item = (
+                      <ToggleGroupItem
+                        key={option}
+                        value={option}
+                        aria-disabled={disabled}
+                        data-disabled={disabled ? "true" : undefined}
+                        className="rounded-full px-5 py-2 text-sm font-medium data-[disabled='true']:cursor-not-allowed data-[disabled='true']:opacity-40"
+                        onPointerDown={(event) => {
+                          if (disabled) {
+                            event.preventDefault();
+                          }
+                        }}
+                        onKeyDown={(event) => {
+                          if (disabled && (event.key === " " || event.key === "Enter")) {
+                            event.preventDefault();
+                          }
+                        }}
+                      >
+                        {SERVICE_LABELS[option]}
+                      </ToggleGroupItem>
+                    );
+                    if (!disabled) {
+                      return item;
+                    }
+                    return (
+                      <Tooltip key={option} delayDuration={150}>
+                        <TooltipTrigger asChild>{item}</TooltipTrigger>
+                        <TooltipContent>{SERVICE_TOOLTIP}</TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+                </ToggleGroup>
+              </TooltipProvider>
+              {serviceAvailability.labels.drinksOnly && !serviceAvailability.labels.happyHour && (
+                <p className="mt-2 text-helper text-srx-ink-soft">This time is available for drinks and cocktails only.</p>
+              )}
             </Field>
             <Field id="seating" label="Seating preference">
               <div className="flex flex-wrap gap-2">

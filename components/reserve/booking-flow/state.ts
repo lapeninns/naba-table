@@ -6,7 +6,7 @@ import {
   type BookingType,
   type SeatingPreference,
 } from "@/lib/enums";
-import { DEFAULT_RESTAURANT_ID } from "@/lib/venue";
+import { DEFAULT_RESTAURANT_ID, DEFAULT_VENUE } from "@/lib/venue";
 
 export type SeatingOption = (typeof SEATING_PREFERENCES_UI)[number];
 
@@ -48,6 +48,9 @@ export type StepAction = {
 export type BookingDetails = {
   bookingId: string | null;
   restaurantId: string;
+  restaurantName: string;
+  restaurantAddress: string;
+  restaurantTimezone: string;
   date: string;
   time: string;
   party: number;
@@ -122,6 +125,9 @@ export function toSeatingOption(value: SeatingPreference): SeatingOption {
 export const getInitialDetails = (): BookingDetails => ({
   bookingId: null,
   restaurantId: DEFAULT_RESTAURANT_ID,
+  restaurantName: DEFAULT_VENUE.name,
+  restaurantAddress: DEFAULT_VENUE.address,
+  restaurantTimezone: DEFAULT_VENUE.timezone,
   date: bookingHelpers.formatForDateInput(new Date()),
   time: "",
   party: 1,
@@ -177,6 +183,9 @@ export function reducer(state: State, action: Action): State {
         ...state.details,
         bookingId: booking ? booking.id : null,
         restaurantId: booking ? booking.restaurant_id : state.details.restaurantId,
+        restaurantName: state.details.restaurantName,
+        restaurantAddress: state.details.restaurantAddress,
+        restaurantTimezone: state.details.restaurantTimezone,
         date: booking ? booking.booking_date : state.details.date,
         time: booking ? bookingHelpers.normalizeTime(booking.start_time) : state.details.time,
         party: booking ? booking.party_size : state.details.party,
@@ -216,6 +225,9 @@ export function reducer(state: State, action: Action): State {
           ...state.details,
           bookingId: booking.id,
           restaurantId: booking.restaurant_id,
+          restaurantName: state.details.restaurantName,
+          restaurantAddress: state.details.restaurantAddress,
+          restaurantTimezone: state.details.restaurantTimezone,
           date: booking.booking_date,
           time: bookingHelpers.normalizeTime(booking.start_time),
           party: booking.party_size,
@@ -248,6 +260,10 @@ export function reducer(state: State, action: Action): State {
           name: shouldRemember ? state.details.name : "",
           email: shouldRemember ? state.details.email : "",
           phone: shouldRemember ? state.details.phone : "",
+          restaurantId: state.details.restaurantId,
+          restaurantName: state.details.restaurantName,
+          restaurantAddress: state.details.restaurantAddress,
+          restaurantTimezone: state.details.restaurantTimezone,
         },
       };
     }
