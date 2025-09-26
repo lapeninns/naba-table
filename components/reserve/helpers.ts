@@ -22,13 +22,24 @@ export const bookingHelpers = {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
   },
   formatDate(date: string) {
-    return new Date(date).toLocaleDateString("en-GB", {
+    if (!date) return "";
+
+    const formatter = new Intl.DateTimeFormat("en-GB", {
       weekday: "long",
       year: "numeric",
       month: "long",
       day: "numeric",
       timeZone: "Europe/London",
     });
+
+    const parts = formatter.formatToParts(new Date(`${date}T00:00:00Z`));
+    const weekday = parts.find((part) => part.type === "weekday")?.value ?? "";
+    const day = parts.find((part) => part.type === "day")?.value ?? "";
+    const month = parts.find((part) => part.type === "month")?.value ?? "";
+    const year = parts.find((part) => part.type === "year")?.value ?? "";
+
+    const body = [day, month, year].filter(Boolean).join(" ");
+    return [weekday, body].filter(Boolean).join(", ");
   },
   normalizeTime(value: string) {
     if (!value) return "";
