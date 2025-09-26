@@ -1,0 +1,25 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "importsNotUsedAsValues": "error",
+    "forceConsistentCasingInFileNames": true,
+    "allowJs": false,
+    "skipLibCheck": false,
+    "rootDir": "./",
+    "baseUrl": "./",
+    "paths": {
+      "@app/*": ["app/*"],
+      "@features/*": ["features/*"],
+      "@entities/*": ["entities/*"],
+      "@shared/*": ["shared/*"],
+      "@pages/*": ["pages/*"],
+      "@tests/*": ["tests/*"]
+    },
+    "types": ["vitest", "jest"]
+  },
+  "include": ["app", "features", "entities", "shared", "pages", "tests"]
+}
