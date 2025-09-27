@@ -1,12 +1,22 @@
 'use client';
 
+import { zodResolver } from '@hookform/resolvers/zod';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useForm } from 'react-hook-form';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -14,6 +24,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { track } from '@/lib/analytics';
 import { Icon } from '@reserve/shared/ui/icons';
 import { bookingHelpers, type BookingOption } from '@reserve/shared/utils/booking';
+
+import { planFormSchema, type PlanFormValues } from '../../model/schemas';
 
 import type { Action, State, StepAction } from '../../model/reducer';
 
@@ -203,32 +215,138 @@ export function PlanStep({ state, dispatch, onActionsChange }: PlanStepProps) {
     [state.details.date, state.details.time],
   );
 
+  const form = useForm<PlanFormValues>({
+    resolver: zodResolver(planFormSchema),
+    mode: 'onChange',
+    reValidateMode: 'onBlur',
+    defaultValues: {
+      date: state.details.date ?? '',
+      time: state.details.time ?? '',
+      party: state.details.party ?? 1,
+      bookingType: state.details.bookingType,
+      notes: state.details.notes ?? '',
+    },
+  });
+
+  useEffect(() => {
+    const current = form.getValues();
+    const next: PlanFormValues = {
+      date: state.details.date ?? '',
+      time: state.details.time ?? '',
+      party: state.details.party ?? 1,
+      bookingType: state.details.bookingType,
+      notes: state.details.notes ?? '',
+    };
+
+    if (
+      current.date !== next.date ||
+      current.time !== next.time ||
+      current.party !== next.party ||
+      current.bookingType !== next.bookingType ||
+      (current.notes ?? '') !== (next.notes ?? '')
+    ) {
+      form.reset(next, { keepDirty: false, keepTouched: false });
+    }
+  }, [
+    form,
+    state.details.date,
+    state.details.time,
+    state.details.party,
+    state.details.bookingType,
+    state.details.notes,
+  ]);
+
+  const handleError = useCallback(
+    (errors: Record<string, unknown>) => {
+      const firstKey = Object.keys(errors)[0];
+      if (firstKey) {
+        form.setFocus(firstKey as keyof PlanFormValues, { shouldSelect: true });
+      }
+    },
+    [form],
+  );
+
+  const dispatchField = useCallback(
+    <K extends keyof State['details']>(key: K, value: State['details'][K]) => {
+      dispatch({ type: 'SET_FIELD', key, value });
+    },
+    [dispatch],
+  );
+
+  const handleSubmit = useCallback(
+    (values: PlanFormValues) => {
+      dispatchField('date', values.date);
+      dispatchField('time', values.time);
+      dispatchField('party', values.party);
+      dispatchField('bookingType', values.bookingType);
+      dispatchField('notes', values.notes ?? '');
+      dispatch({ type: 'SET_STEP', step: 2 });
+    },
+    [dispatch, dispatchField],
+  );
+
+  const handleSelectDate = useCallback(
+    (value: Date | undefined | null) => {
+      const formatted = value ? bookingHelpers.formatForDateInput(value) : '';
+      form.setValue('date', formatted, { shouldDirty: true, shouldValidate: true });
+      dispatchField('date', formatted);
+      setOpen(false);
+    },
+    [dispatchField, form],
+  );
+
   const handleSelectTime = useCallback(
     (value: string) => {
-      dispatch({ type: 'SET_FIELD', key: 'time', value });
+      form.setValue('time', value, { shouldDirty: true, shouldValidate: true });
+      dispatchField('time', value);
       const inferredService = resolveDefaultService(state.details.date, value);
-      dispatch({ type: 'SET_FIELD', key: 'bookingType', value: inferredService });
+      form.setValue('bookingType', inferredService, { shouldDirty: true, shouldValidate: true });
+      dispatchField('bookingType', inferredService);
       track('select_time', {
         time: value,
         booking_type: inferredService,
       });
     },
-    [dispatch, state.details.date],
+    [dispatchField, form, state.details.date],
   );
 
+  const handlePartyChange = useCallback(
+    (direction: 'decrement' | 'increment') => {
+      const current = form.getValues('party');
+      const next = direction === 'decrement' ? Math.max(1, current - 1) : Math.min(12, current + 1);
+      form.setValue('party', next, { shouldDirty: true, shouldValidate: true });
+      dispatchField('party', next);
+    },
+    [dispatchField, form],
+  );
+
+  const handleOccasionChange = useCallback(
+    (value: string) => {
+      if (!value) return;
+      const typed = value as BookingOption;
+      form.setValue('bookingType', typed, { shouldDirty: true, shouldValidate: true });
+      dispatchField('bookingType', typed);
+    },
+    [dispatchField, form],
+  );
+
+  const { isSubmitting, isValid } = form.formState;
+
   useEffect(() => {
+    const submit = () => form.handleSubmit(handleSubmit, handleError)();
     const actions: StepAction[] = [
       {
         id: 'plan-continue',
         label: 'Continue',
         icon: 'ChevronDown',
         variant: 'default',
-        disabled: !state.details.time,
-        onClick: () => dispatch({ type: 'SET_STEP', step: 2 }),
+        disabled: isSubmitting || !isValid,
+        loading: isSubmitting,
+        onClick: submit,
       },
     ];
     onActionsChange(actions);
-  }, [dispatch, onActionsChange, state.details.time]);
+  }, [form, handleError, handleSubmit, isSubmitting, isValid, onActionsChange]);
 
   return (
     <Card className="mx-auto w-full max-w-4xl lg:max-w-5xl">
@@ -242,172 +360,215 @@ export function PlanStep({ state, dispatch, onActionsChange }: PlanStepProps) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-8">
-        <div className="grid gap-6 md:grid-cols-2">
-          <section className="space-y-3">
-            <Label>Date</Label>
-            <Popover open={open} onOpenChange={setOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full justify-between"
-                  aria-label="Choose reservation date"
-                >
-                  {state.details.date ? (
-                    <span>{bookingHelpers.formatDate(state.details.date)}</span>
-                  ) : (
-                    <span>Select a date</span>
-                  )}
-                  <Icon.Calendar className="ml-2 h-4 w-4" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={state.details.date ? new Date(state.details.date) : undefined}
-                  onSelect={(value) => {
-                    const formatted = value ? bookingHelpers.formatForDateInput(value) : '';
-                    dispatch({ type: 'SET_FIELD', key: 'date', value: formatted });
-                    setOpen(false);
-                  }}
-                  disabled={(day) => (day ? day < minSelectableDate : false)}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </section>
+        <Form {...form}>
+          <form
+            className="space-y-8"
+            onSubmit={form.handleSubmit(handleSubmit, handleError)}
+            noValidate
+          >
+            <button type="submit" className="hidden" aria-hidden />
 
-          <section className="space-y-3">
-            <Label>Party size</Label>
-            <div className="flex items-center gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={() =>
-                  dispatch({
-                    type: 'SET_FIELD',
-                    key: 'party',
-                    value: Math.max(1, state.details.party - 1),
-                  })
-                }
-                aria-label="Decrease guests"
-              >
-                -
-              </Button>
-              <div className="text-lg font-semibold" aria-live="polite">
-                {state.details.party}
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={() =>
-                  dispatch({
-                    type: 'SET_FIELD',
-                    key: 'party',
-                    value: Math.min(12, state.details.party + 1),
-                  })
-                }
-                aria-label="Increase guests"
-              >
-                +
-              </Button>
-            </div>
-          </section>
-        </div>
+            <div className="grid gap-6 md:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="date"
+                render={({ field }) => (
+                  <FormItem className="space-y-3">
+                    <FormLabel>Date</FormLabel>
+                    <Popover open={open} onOpenChange={setOpen}>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-between"
+                            aria-label="Choose reservation date"
+                          >
+                            {field.value ? (
+                              <span>{bookingHelpers.formatDate(field.value)}</span>
+                            ) : (
+                              <span>Select a date</span>
+                            )}
+                            <Icon.Calendar className="ml-2 h-4 w-4" aria-hidden />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value ? new Date(field.value) : undefined}
+                          onSelect={handleSelectDate}
+                          disabled={(day) => (day ? day < minSelectableDate : false)}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage>{form.formState.errors.date?.message}</FormMessage>
+                  </FormItem>
+                )}
+              />
 
-        <section className="space-y-3">
-          <Label htmlFor="time">Time</Label>
-          <TooltipProvider>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {slots.map((slot) => {
-                const isSelected = state.details.time === slot.value;
-                const availability = getServiceAvailability(state.details.date, slot.value);
-                const disabled =
-                  availability.services[resolveDefaultService(state.details.date, slot.value)] ===
-                  'disabled';
-
-                return (
-                  <Tooltip key={slot.value} delayDuration={hoveredSlot === slot.value ? 0 : 500}>
-                    <TooltipTrigger asChild>
+              <FormField
+                control={form.control}
+                name="party"
+                render={({ field }) => (
+                  <FormItem className="space-y-3">
+                    <FormLabel>Party size</FormLabel>
+                    <div className="flex items-center gap-3">
                       <Button
                         type="button"
-                        variant={isSelected ? 'default' : 'outline'}
-                        className="justify-between"
-                        disabled={disabled}
-                        onMouseEnter={() => setHoveredSlot(slot.value)}
-                        onMouseLeave={() => setHoveredSlot(null)}
-                        onFocus={() => setHoveredSlot(slot.value)}
-                        onBlur={() => setHoveredSlot(null)}
-                        onClick={() => handleSelectTime(slot.value)}
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handlePartyChange('decrement')}
+                        aria-label="Decrease guests"
                       >
-                        <span>{slot.display}</span>
-                        <Badge variant="secondary">{slot.label}</Badge>
+                        -
                       </Button>
-                    </TooltipTrigger>
-                    {disabled ? (
-                      <TooltipContent side="top">{SERVICE_TOOLTIP}</TooltipContent>
-                    ) : null}
-                  </Tooltip>
-                );
-              })}
+                      <div className="text-lg font-semibold" aria-live="polite">
+                        {field.value}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handlePartyChange('increment')}
+                        aria-label="Increase guests"
+                      >
+                        +
+                      </Button>
+                    </div>
+                    <FormDescription>
+                      Tables of more than 12? Call us and we’ll help.
+                    </FormDescription>
+                    <FormMessage>{form.formState.errors.party?.message}</FormMessage>
+                  </FormItem>
+                )}
+              />
             </div>
-          </TooltipProvider>
-        </section>
 
-        <section className="space-y-3">
-          <Label>Occasion</Label>
-          <ToggleGroup
-            type="single"
-            className="grid grid-cols-3 gap-2"
-            value={state.details.bookingType}
-            onValueChange={(value) =>
-              dispatch({
-                type: 'SET_FIELD',
-                key: 'bookingType',
-                value: (value as BookingOption) ?? state.details.bookingType,
-              })
-            }
-          >
-            {SERVICE_ORDER.map((option) => {
-              const enabled = serviceAvailability.services[option] === 'enabled';
-              return (
-                <ToggleGroupItem
-                  key={option}
-                  value={option}
-                  aria-disabled={!enabled}
-                  disabled={!enabled}
-                >
-                  {SERVICE_LABELS[option]}
-                </ToggleGroupItem>
-              );
-            })}
-          </ToggleGroup>
-          <div className="flex flex-wrap gap-2 text-xs text-srx-ink-soft">
-            {serviceAvailability.labels.happyHour ? (
-              <Badge variant="outline">Happy hour selected</Badge>
-            ) : null}
-            {serviceAvailability.labels.drinksOnly ? (
-              <Badge variant="outline">Drinks only</Badge>
-            ) : null}
-            {serviceAvailability.labels.kitchenClosed ? (
-              <Badge variant="destructive">Kitchen closed</Badge>
-            ) : null}
-          </div>
-        </section>
+            <FormField
+              control={form.control}
+              name="time"
+              render={({ field }) => (
+                <FormItem className="space-y-3">
+                  <FormLabel>Time</FormLabel>
+                  <TooltipProvider>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                      {slots.map((slot) => {
+                        const isSelected = field.value === slot.value;
+                        const availability = getServiceAvailability(state.details.date, slot.value);
+                        const inferred = resolveDefaultService(state.details.date, slot.value);
+                        const disabled = availability.services[inferred] === 'disabled';
+                        return (
+                          <Tooltip
+                            key={slot.value}
+                            delayDuration={hoveredSlot === slot.value ? 0 : 500}
+                          >
+                            <TooltipTrigger asChild>
+                              <Button
+                                type="button"
+                                variant={isSelected ? 'default' : 'outline'}
+                                className="justify-between"
+                                disabled={disabled}
+                                data-state={isSelected ? 'on' : 'off'}
+                                onMouseEnter={() => setHoveredSlot(slot.value)}
+                                onMouseLeave={() => setHoveredSlot(null)}
+                                onFocus={() => setHoveredSlot(slot.value)}
+                                onBlur={() => setHoveredSlot(null)}
+                                onClick={() => {
+                                  if (disabled) return;
+                                  handleSelectTime(slot.value);
+                                }}
+                              >
+                                <span>{slot.display}</span>
+                                <Badge variant="secondary">{slot.label}</Badge>
+                              </Button>
+                            </TooltipTrigger>
+                            {disabled ? (
+                              <TooltipContent side="top">{SERVICE_TOOLTIP}</TooltipContent>
+                            ) : null}
+                          </Tooltip>
+                        );
+                      })}
+                    </div>
+                  </TooltipProvider>
+                  <FormMessage>{form.formState.errors.time?.message}</FormMessage>
+                </FormItem>
+              )}
+            />
 
-        <section className="space-y-3">
-          <Label htmlFor="notes">Notes</Label>
-          <Textarea
-            id="notes"
-            placeholder="Birthday, accessibility needs, allergies…"
-            value={state.details.notes}
-            onChange={(event) =>
-              dispatch({ type: 'SET_FIELD', key: 'notes', value: event.target.value })
-            }
-            rows={4}
-          />
-        </section>
+            <FormField
+              control={form.control}
+              name="bookingType"
+              render={({ field }) => (
+                <FormItem className="space-y-3">
+                  <FormLabel>Occasion</FormLabel>
+                  <ToggleGroup
+                    type="single"
+                    className="grid grid-cols-3 gap-2"
+                    value={field.value}
+                    onValueChange={handleOccasionChange}
+                  >
+                    {SERVICE_ORDER.map((option) => {
+                      const enabled = serviceAvailability.services[option] === 'enabled';
+                      return (
+                        <ToggleGroupItem
+                          key={option}
+                          value={option}
+                          aria-disabled={!enabled}
+                          disabled={!enabled}
+                        >
+                          {SERVICE_LABELS[option]}
+                        </ToggleGroupItem>
+                      );
+                    })}
+                  </ToggleGroup>
+                  <div className="flex flex-wrap gap-2 text-xs text-srx-ink-soft">
+                    {serviceAvailability.labels.happyHour ? (
+                      <Badge variant="outline">Happy hour selected</Badge>
+                    ) : null}
+                    {serviceAvailability.labels.drinksOnly ? (
+                      <Badge variant="outline">Drinks only</Badge>
+                    ) : null}
+                    {serviceAvailability.labels.kitchenClosed ? (
+                      <Badge variant="destructive">Kitchen closed</Badge>
+                    ) : null}
+                  </div>
+                  <FormMessage>{form.formState.errors.bookingType?.message}</FormMessage>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem className="space-y-3">
+                  <FormLabel htmlFor="notes">Notes</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      id="notes"
+                      placeholder="Birthday, accessibility needs, allergies…"
+                      value={field.value ?? ''}
+                      onChange={(event) => {
+                        field.onChange(event);
+                        dispatchField('notes', event.target.value);
+                      }}
+                      rows={4}
+                      spellCheck
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Optional. Share anything we should know before you arrive.
+                  </FormDescription>
+                  <div className="text-right text-xs text-srx-ink-soft" aria-live="polite">
+                    {(field.value?.length ?? 0).toString()} / 500
+                  </div>
+                  <FormMessage>{form.formState.errors.notes?.message}</FormMessage>
+                </FormItem>
+              )}
+            />
+          </form>
+        </Form>
       </CardContent>
     </Card>
   );

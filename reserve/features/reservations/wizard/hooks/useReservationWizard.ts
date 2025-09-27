@@ -21,7 +21,7 @@ export function useReservationWizard() {
   const navigate = useNavigate();
   const [state, dispatch] = useReducer(reducer, undefined, getInitialState);
   const { rememberDetails, name, email, phone } = state.details;
-  const heroRef = useRef<HTMLElement | null>(null);
+  const heroRef = useRef<HTMLSpanElement | null>(null);
   const [stickyActions, setStickyActions] = useState<StepAction[]>(EMPTY_ACTIONS);
   const [stickyHeight, setStickyHeight] = useState(0);
 
@@ -88,21 +88,19 @@ export function useReservationWizard() {
   const selectionSummary = useMemo(() => {
     const formattedDate = state.details.date
       ? bookingHelpers.formatSummaryDate(state.details.date)
-      : 'Choose a date';
+      : 'Date not selected';
     const formattedTime = state.details.time
       ? bookingHelpers.formatTime(state.details.time)
-      : 'Pick a time';
-    const partyText = state.details.party
-      ? `${state.details.party} ${state.details.party === 1 ? 'guest' : 'guests'}`
-      : 'Add guests';
+      : 'Time not selected';
+    const partyText = `${state.details.party} ${state.details.party === 1 ? 'guest' : 'guests'}`;
     const serviceLabel = bookingHelpers.formatBookingLabel(state.details.bookingType);
+    const details = [partyText, formattedTime, formattedDate];
     return {
-      formattedDate,
-      formattedTime,
-      partyText,
-      serviceLabel,
+      primary: serviceLabel,
+      details,
+      srLabel: `${serviceLabel}. ${details.join(', ')}`,
     };
-  }, [state.details.date, state.details.party, state.details.time, state.details.bookingType]);
+  }, [state.details.bookingType, state.details.date, state.details.party, state.details.time]);
 
   // Load remembered contact details
   useEffect(() => {

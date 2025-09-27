@@ -1,10 +1,11 @@
 'use client';
 
+import { AlertTriangle } from 'lucide-react';
 import React, { useCallback, useEffect } from 'react';
 
+import { Alert, AlertDescription, AlertIcon } from '@/components/ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { track } from '@/lib/analytics';
-import { Icon } from '@reserve/shared/ui/icons';
 import { bookingHelpers } from '@reserve/shared/utils/booking';
 
 import type { Action, State, StepAction } from '../../model/reducer';
@@ -78,11 +79,16 @@ export function ReviewStep({ state, dispatch, onConfirm, onActionsChange }: Revi
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
+          <p className="sr-only" aria-live="polite">
+            {`Review details for ${summaryValue}. Press confirm to finalise your reservation.`}
+          </p>
           {state.error ? (
-            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-body-sm text-red-700">
-              <Icon.AlertCircle className="mt-0.5 h-4 w-4" />
-              <span>{state.error}</span>
-            </div>
+            <Alert variant="destructive" role="alert" className="items-start">
+              <AlertIcon>
+                <AlertTriangle className="h-4 w-4" aria-hidden />
+              </AlertIcon>
+              <AlertDescription>{state.error}</AlertDescription>
+            </Alert>
           ) : null}
           <dl className="grid gap-4 rounded-2xl border border-srx-border-subtle bg-white/95 p-5 shadow-sm sm:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-1">

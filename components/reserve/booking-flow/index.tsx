@@ -2,12 +2,13 @@
 
 import React, { Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import { Loader2 } from "lucide-react";
 
-import { Icon } from "@/components/reserve/icons";
 import { bookingHelpers, storageKeys } from "@/components/reserve/helpers";
 import { track } from "@/lib/analytics";
 import { DEFAULT_RESTAURANT_ID } from "@/lib/venue";
-import { StickyProgress } from "./sticky-progress";
+import { WizardFooter } from "@features/reservations/wizard/ui/WizardFooter";
+import { WizardLayout } from "@features/reservations/wizard/ui/WizardLayout";
 import { useStickyProgress } from "./use-sticky-progress";
 import { triggerSubtleHaptic } from "./haptics";
 
@@ -48,7 +49,7 @@ import { reducer, getInitialState, type StepAction } from "./state";
 function BookingFlowContent() {
   const [state, dispatch] = useReducer(reducer, undefined, getInitialState);
   const { rememberDetails, name, email, phone } = state.details;
-  const heroRef = useRef<HTMLElement | null>(null);
+  const heroRef = useRef<HTMLSpanElement | null>(null);
   const [stickyActions, setStickyActions] = useState<StepAction[]>([]);
   const [stickyHeight, setStickyHeight] = useState(0);
   const stepsMeta = useMemo(
@@ -109,19 +110,21 @@ function BookingFlowContent() {
   }, [state.step]);
 
   const selectionSummary = useMemo(() => {
-    const formattedDate = state.details.date ? bookingHelpers.formatSummaryDate(state.details.date) : "Choose a date";
-    const formattedTime = state.details.time ? bookingHelpers.formatTime(state.details.time) : "Pick a time";
-    const partyText = state.details.party
-      ? `${state.details.party} ${state.details.party === 1 ? "guest" : "guests"}`
-      : "Add guests";
+    const formattedDate = state.details.date
+      ? bookingHelpers.formatSummaryDate(state.details.date)
+      : "Date not selected";
+    const formattedTime = state.details.time
+      ? bookingHelpers.formatTime(state.details.time)
+      : "Time not selected";
+    const partyText = `${state.details.party} ${state.details.party === 1 ? "guest" : "guests"}`;
     const serviceLabel = bookingHelpers.formatBookingLabel(state.details.bookingType);
+    const detailsText = [partyText, formattedTime, formattedDate];
     return {
-      formattedDate,
-      formattedTime,
-      partyText,
-      serviceLabel,
+      primary: serviceLabel,
+      details: detailsText,
+      srLabel: `${serviceLabel}. ${detailsText.join(", ")}`,
     };
-  }, [state.details.date, state.details.party, state.details.time, state.details.bookingType]);
+  }, [state.details.bookingType, state.details.date, state.details.party, state.details.time]);
 
   // Load remembered contact details
   useEffect(() => {
@@ -290,27 +293,23 @@ function BookingFlowContent() {
   };
 
   return (
-    <>
-      <main
-        style={stickyVisible ? { paddingBottom: `calc(${stickyHeight}px + env(safe-area-inset-bottom, 0px) + 1.5rem)` } : undefined}
-        className={bookingHelpers.cn(
-          "min-h-screen w-full bg-slate-50 px-4 pb-24 pt-10 font-sans text-srx-ink-strong transition-[padding-bottom] sm:pt-16 md:px-8 lg:px-12",
-        )}
-      >
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-10 sm:gap-12 md:max-w-4xl lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
-          <span ref={heroRef} aria-hidden className="block h-px w-full" />
-          {renderStep()}
-        </div>
-      </main>
-      <StickyProgress
-        steps={stepsMeta}
-        currentStep={state.step}
-        summary={selectionSummary}
-        visible={stickyVisible}
-        actions={stickyActions}
-        onHeightChange={handleStickyHeightChange}
-      />
-    </>
+    <WizardLayout
+      heroRef={heroRef}
+      stickyHeight={stickyHeight}
+      stickyVisible={stickyVisible}
+      footer={
+        <WizardFooter
+          steps={stepsMeta}
+          currentStep={state.step}
+          summary={selectionSummary}
+          actions={stickyActions}
+          visible={stickyVisible}
+          onHeightChange={handleStickyHeightChange}
+        />
+      }
+    >
+      {renderStep()}
+    </WizardLayout>
   );
 }
 
@@ -319,8 +318,10 @@ export default function BookingFlowPage() {
     <Suspense fallback={
       <main className="flex min-h-screen w-full items-center justify-center bg-slate-50 px-4 py-12">
         <div className="space-y-3 text-center text-slate-600">
-          <Icon.Spinner className="mx-auto h-8 w-8 animate-spin" />
-          <p>Loading reservation flow…</p>
+          <Loader2 className="mx-auto h-8 w-8 animate-spin" aria-hidden />
+          <p className="text-base" role="status">
+            Loading reservation flow…
+          </p>
         </div>
       </main>
     }>

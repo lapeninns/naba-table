@@ -1,10 +1,12 @@
 'use client';
 
+import { AlertTriangle, CheckCircle2, Clock3, Info, XCircle } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { Alert, AlertDescription, AlertIcon } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { DEFAULT_VENUE } from '@/lib/venue';
-import { Icon } from '@reserve/shared/ui/icons';
 import { bookingHelpers } from '@reserve/shared/utils/booking';
 
 import type { State, StepAction } from '../../model/reducer';
@@ -59,6 +61,17 @@ export function ConfirmationStep({
 
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [walletLoading, setWalletLoading] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    variant: 'info' | 'success' | 'warning' | 'error';
+    message: string;
+  } | null>(null);
+
+  const showFeedback = useCallback(
+    (variant: 'info' | 'success' | 'warning' | 'error', message: string) => {
+      setFeedback({ variant, message });
+    },
+    [],
+  );
 
   const reference = booking?.reference ?? (state.waitlisted ? 'WAITLIST' : 'Pending');
   const guestName = booking?.customer_name ?? details.name;
@@ -83,18 +96,21 @@ export function ConfirmationStep({
       ? `Our host team will allocate the best table and follow up at ${details.email}.`
       : `A confirmation email has been sent to ${details.email}.`;
 
-  const StatusIcon = isWaitlisted ? Icon.Info : isAllocationPending ? Icon.Clock : Icon.CheckCircle;
+  const StatusIcon = isWaitlisted ? Info : isAllocationPending ? Clock3 : CheckCircle2;
   const statusIconClass = isWaitlisted
     ? 'text-amber-500'
     : isAllocationPending
       ? 'text-sky-500'
-      : 'text-green-500';
+      : 'text-emerald-500';
 
   const reservationWindow = useMemo(() => buildReservationWindow(state), [state]);
 
   const handleAddToCalendar = useCallback(() => {
     if (!reservationWindow) {
-      alert('We need a confirmed date and time before adding this to your calendar.');
+      showFeedback(
+        'warning',
+        'Select a confirmed date and time before adding this to your calendar.',
+      );
       return;
     }
 
@@ -125,14 +141,18 @@ export function ConfirmationStep({
       anchor.click();
       document.body.removeChild(anchor);
       URL.revokeObjectURL(url);
+      showFeedback(
+        'success',
+        'Calendar event downloaded. Check your downloads folder to import it.',
+      );
     } finally {
       setCalendarLoading(false);
     }
-  }, [guestName, partyText, reference, reservationWindow, venue.address, venue.name]);
+  }, [guestName, partyText, reference, reservationWindow, showFeedback, venue.address, venue.name]);
 
   const handleAddToWallet = useCallback(async () => {
     if (!reservationWindow) {
-      alert('We need a confirmed date and time before saving to Wallet.');
+      showFeedback('warning', 'Select a confirmed date and time before saving the reservation.');
       return;
     }
 
@@ -148,17 +168,19 @@ export function ConfirmationStep({
     try {
       if (navigator.share) {
         await navigator.share({ title: `${venue.name} reservation`, text: shareText });
+        showFeedback(
+          'success',
+          'Sharing sheet opened. Follow the prompts to save your reservation.',
+        );
       } else if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(shareText);
-        alert(
-          'Reservation details copied to your clipboard. Use your Wallet app to create a pass.',
-        );
+        showFeedback('info', 'Reservation details copied. Use your Wallet app to create a pass.');
       } else {
-        alert(shareText);
+        showFeedback('info', shareText);
       }
     } catch (error) {
       console.error('Unable to share reservation', error);
-      alert("We couldn't share the reservation details. Please try again.");
+      showFeedback('error', "We couldn't share the reservation details. Please try again.");
     } finally {
       setWalletLoading(false);
     }
@@ -166,6 +188,7 @@ export function ConfirmationStep({
     partyText,
     reference,
     reservationWindow,
+    showFeedback,
     summaryDate,
     summaryTime,
     venue.address,
@@ -224,6 +247,22 @@ export function ConfirmationStep({
     walletLoading,
   ]);
 
+  const dismissFeedback = useCallback(() => setFeedback(null), []);
+
+  const FeedbackIcon = useMemo(() => {
+    if (!feedback) return null;
+    switch (feedback.variant) {
+      case 'success':
+        return CheckCircle2;
+      case 'warning':
+        return AlertTriangle;
+      case 'error':
+        return XCircle;
+      default:
+        return Info;
+    }
+  }, [feedback]);
+
   return (
     <Card className="mx-auto w-full max-w-4xl lg:max-w-5xl">
       <CardHeader className="space-y-2">
@@ -236,6 +275,39 @@ export function ConfirmationStep({
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        <p className="sr-only" aria-live="polite">
+          {`Reference ${reference}. Reservation for ${partyText} at ${summaryTime} on ${summaryDate}.`}
+        </p>
+        {feedback ? (
+          <Alert
+            variant={
+              feedback.variant === 'error'
+                ? 'destructive'
+                : feedback.variant === 'warning'
+                  ? 'warning'
+                  : feedback.variant === 'success'
+                    ? 'success'
+                    : 'info'
+            }
+            role={feedback.variant === 'error' ? 'alert' : 'status'}
+            className="items-start gap-3"
+          >
+            <AlertIcon>
+              {FeedbackIcon ? <FeedbackIcon className="h-4 w-4" aria-hidden /> : null}
+            </AlertIcon>
+            <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <AlertDescription>{feedback.message}</AlertDescription>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={dismissFeedback}
+                className="self-end sm:self-auto"
+              >
+                Dismiss
+              </Button>
+            </div>
+          </Alert>
+        ) : null}
         <div className="rounded-xl border border-srx-border-subtle bg-white/95 p-5 shadow-sm">
           <dl className="grid gap-4 sm:grid-cols-2">
             <div>
