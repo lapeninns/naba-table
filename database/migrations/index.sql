@@ -1,13 +1,20 @@
 -- ====================================================================
--- Extensions (safe to run on Postgres/Supabase)
+-- Booking Engine — Production Schema (Postgres/Supabase compatible)
+-- Safe to re-run (idempotent where possible).
 -- ====================================================================
-CREATE EXTENSION IF NOT EXISTS pgcrypto;   -- for gen_random_uuid()
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp"; -- fallback for uuid_generate_v4()
+
+-- =========================
+-- Extensions
+-- =========================
+CREATE EXTENSION IF NOT EXISTS pgcrypto;    -- gen_random_uuid()
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp"; -- uuid_generate_v4()
+CREATE EXTENSION IF NOT EXISTS btree_gist;  -- needed for GiST equality on uuid etc.
 
 -- =========================
 -- Helper functions & types
 -- =========================
 
+-- UUID helper with fallbacks (pgcrypto -> uuid-ossp -> manual v4)
 CREATE OR REPLACE FUNCTION public.app_uuid()
 RETURNS uuid
 LANGUAGE plpgsql
@@ -37,7 +44,7 @@ BEGIN
 END;
 $$;
 
--- NOTE: moved from schema 'auth' to 'public' to avoid permission errors
+-- JWT tenant check (public schema to avoid permission issues)
 CREATE OR REPLACE FUNCTION public.tenant_permitted(tenant uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -60,6 +67,7 @@ AS $$
     END;
 $$;
 
+-- Random AA..Z/0..9 booking reference (10 chars)
 CREATE OR REPLACE FUNCTION public.generate_booking_reference()
 RETURNS text
 LANGUAGE plpgsql
@@ -76,16 +84,46 @@ BEGIN
 END;
 $$;
 
-CREATE DOMAIN public.email_address AS text
-  CHECK (VALUE ~* '^[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}$');
+-- Domain for emails (idempotent; CREATE DOMAIN lacks IF NOT EXISTS)
+DO $blk$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE t.typname = 'email_address' AND n.nspname = 'public'
+  ) THEN
+    CREATE DOMAIN public.email_address AS text
+      CHECK (VALUE ~* '^[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}$');
+  END IF;
+END
+$blk$;
 
-CREATE TYPE public.booking_status          AS ENUM ('confirmed','cancelled','pending','pending_allocation');
-CREATE TYPE public.booking_type            AS ENUM ('breakfast','lunch','dinner','drinks');
-CREATE TYPE public.seating_preference_type AS ENUM ('any','indoor','window','booth','bar','outdoor');
-CREATE TYPE public.loyalty_tier            AS ENUM ('bronze','silver','gold','platinum');
-CREATE TYPE public.waiting_status          AS ENUM ('waiting','notified','expired','fulfilled','cancelled');
-CREATE TYPE public.analytics_event_type    AS ENUM ('booking.created','booking.cancelled','booking.allocated','booking.waitlisted');
+-- Enums
+DO $blk$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'booking_status') THEN
+    CREATE TYPE public.booking_status AS ENUM ('confirmed','cancelled','pending','pending_allocation');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'booking_type') THEN
+    CREATE TYPE public.booking_type AS ENUM ('breakfast','lunch','dinner','drinks');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'seating_preference_type') THEN
+    CREATE TYPE public.seating_preference_type AS ENUM ('any','indoor','window','booth','bar','outdoor');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'loyalty_tier') THEN
+    CREATE TYPE public.loyalty_tier AS ENUM ('bronze','silver','gold','platinum');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'waiting_status') THEN
+    CREATE TYPE public.waiting_status AS ENUM ('waiting','notified','expired','fulfilled','cancelled');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'analytics_event_type') THEN
+    CREATE TYPE public.analytics_event_type AS ENUM ('booking.created','booking.cancelled','booking.allocated','booking.waitlisted');
+  END IF;
+END
+$blk$;
 
+-- Sequences
 CREATE SEQUENCE IF NOT EXISTS public.audit_logs_id_seq START WITH 1 INCREMENT BY 1 OWNED BY NONE;
 
 -- =========================
@@ -123,6 +161,10 @@ CREATE TABLE IF NOT EXISTS public.restaurant_tables (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Per-restaurant unique table label
+CREATE UNIQUE INDEX IF NOT EXISTS restaurant_tables_restaurant_label_uidx
+  ON public.restaurant_tables (restaurant_id, lower(label));
+
 CREATE TABLE IF NOT EXISTS public.customers (
   id uuid PRIMARY KEY DEFAULT public.app_uuid(),
   restaurant_id uuid NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
@@ -132,6 +174,7 @@ CREATE TABLE IF NOT EXISTS public.customers (
   phone_normalized text GENERATED ALWAYS AS (regexp_replace(phone, '[^0-9]+', '', 'g')) STORED,
   full_name text,
   marketing_opt_in boolean NOT NULL DEFAULT false,
+  auth_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT customers_email_lower CHECK (email = lower(email::text)),
@@ -144,6 +187,13 @@ CREATE INDEX IF NOT EXISTS customers_restaurant_email_idx
 
 CREATE INDEX IF NOT EXISTS customers_restaurant_created_idx
   ON public.customers (restaurant_id, created_at DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS customers_restaurant_auth_user_uidx
+  ON public.customers (restaurant_id, auth_user_id)
+  WHERE auth_user_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS customers_auth_user_idx
+  ON public.customers (auth_user_id);
 
 CREATE TABLE IF NOT EXISTS public.customer_profiles (
   customer_id uuid PRIMARY KEY REFERENCES public.customers(id) ON DELETE CASCADE,
@@ -168,6 +218,11 @@ CREATE TABLE IF NOT EXISTS public.bookings (
   booking_date date NOT NULL,
   start_time time NOT NULL,
   end_time time NOT NULL,
+  -- absolute times (computed by trigger if not provided)
+  start_at timestamptz NOT NULL,
+  end_at timestamptz NOT NULL,
+  -- range for overlap checks
+  slot tstzrange GENERATED ALWAYS AS (tstzrange(start_at, end_at, '[)')) STORED,
   party_size integer NOT NULL CHECK (party_size > 0),
   booking_type public.booking_type NOT NULL DEFAULT 'dinner',
   seating_preference public.seating_preference_type NOT NULL DEFAULT 'any',
@@ -182,15 +237,60 @@ CREATE TABLE IF NOT EXISTS public.bookings (
   updated_at timestamptz NOT NULL DEFAULT now(),
   reference text NOT NULL DEFAULT public.generate_booking_reference()
     UNIQUE CHECK (reference ~ '^[A-Z0-9]{10}$'),
-  marketing_opt_in boolean NOT NULL DEFAULT false
+  marketing_opt_in boolean NOT NULL DEFAULT false,
+  -- extras from v2:
+  auth_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  client_request_id uuid NOT NULL,      -- no default; caller must send
+  pending_ref uuid NOT NULL DEFAULT public.app_uuid(),
+  idempotency_key text,
+  details jsonb,
+  CONSTRAINT bookings_time_order CHECK (end_at > start_at)
 );
 
+-- Exclusion constraint (no overlaps per table for blocking statuses)
+DO $blk$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'bookings_no_overlap'
+      AND conrelid = 'public.bookings'::regclass
+  ) THEN
+    ALTER TABLE public.bookings
+      ADD CONSTRAINT bookings_no_overlap
+      EXCLUDE USING gist (
+        table_id WITH =,
+        slot     WITH &&
+      )
+      WHERE (status IN ('confirmed','pending','pending_allocation'))
+      DEFERRABLE INITIALLY IMMEDIATE;
+  END IF;
+END
+$blk$;
+
+-- Useful indexes
 CREATE INDEX IF NOT EXISTS bookings_table_date_start_idx
   ON public.bookings (table_id, booking_date, start_time)
   INCLUDE (end_time, status, party_size, seating_preference, id);
 
-CREATE INDEX IF NOT EXISTS bookings_customer_lookup_idx
-  ON public.bookings (restaurant_id, customer_id, booking_date);
+CREATE INDEX IF NOT EXISTS bookings_restaurant_date_start_idx
+  ON public.bookings (restaurant_id, booking_date, start_time)
+  INCLUDE (end_time, status, party_size, seating_preference, id);
+
+CREATE INDEX IF NOT EXISTS bookings_idempotency_key_idx
+  ON public.bookings (idempotency_key);
+
+CREATE UNIQUE INDEX IF NOT EXISTS bookings_idem_unique_per_restaurant
+  ON public.bookings (restaurant_id, idempotency_key)
+  WHERE idempotency_key IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS bookings_client_request_id_idx
+  ON public.bookings (client_request_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS bookings_client_request_unique
+  ON public.bookings (restaurant_id, client_request_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS bookings_pending_ref_key
+  ON public.bookings (pending_ref);
 
 CREATE TABLE IF NOT EXISTS public.reviews (
   id uuid PRIMARY KEY DEFAULT public.app_uuid(),
@@ -201,6 +301,9 @@ CREATE TABLE IF NOT EXISTS public.reviews (
   comment text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+CREATE INDEX IF NOT EXISTS reviews_restaurant_idx
+  ON public.reviews (restaurant_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS public.availability_rules (
   id uuid PRIMARY KEY DEFAULT public.app_uuid(),
@@ -229,6 +332,20 @@ CREATE TABLE IF NOT EXISTS public.waiting_list (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE INDEX IF NOT EXISTS waiting_list_restaurant_date_idx
+  ON public.waiting_list (restaurant_id, booking_date, desired_time);
+
+-- Waitlist de-dupe for active states
+CREATE UNIQUE INDEX IF NOT EXISTS waiting_list_contact_dedupe_uidx
+  ON public.waiting_list (
+    restaurant_id,
+    booking_date,
+    desired_time,
+    lower(customer_email::text),
+    regexp_replace(customer_phone, '[^0-9]+', '', 'g')
+  )
+  WHERE status IN ('waiting','notified');
+
 CREATE TABLE IF NOT EXISTS public.loyalty_programs (
   id uuid PRIMARY KEY DEFAULT public.app_uuid(),
   restaurant_id uuid NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
@@ -239,10 +356,7 @@ CREATE TABLE IF NOT EXISTS public.loyalty_programs (
   pilot_only boolean NOT NULL DEFAULT true,
   accrual_version integer NOT NULL DEFAULT 1,
   accrual_rule jsonb NOT NULL DEFAULT jsonb_build_object(
-    'type','per_guest',
-    'base_points',10,
-    'points_per_guest',5,
-    'minimum_party_size',1
+    'type','per_guest','base_points',10,'points_per_guest',5,'minimum_party_size',1
   ),
   tier_definitions jsonb NOT NULL DEFAULT jsonb_build_array(
     jsonb_build_object('tier','bronze','min_points',0),
@@ -280,13 +394,12 @@ CREATE TABLE IF NOT EXISTS public.loyalty_point_events (
   program_id uuid NOT NULL REFERENCES public.loyalty_programs(id) ON DELETE CASCADE,
   customer_id uuid NOT NULL REFERENCES public.customers(id) ON DELETE CASCADE,
   booking_id uuid REFERENCES public.bookings(id) ON DELETE SET NULL,
-  points_delta integer NOT NULL,
+  points_delta integer NOT NULL CHECK (points_delta <> 0),
   balance_after integer NOT NULL CHECK (balance_after >= 0),
   reason text NOT NULL,
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
   occurred_at timestamptz NOT NULL DEFAULT now(),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT loyalty_point_events_nonzero CHECK (points_delta <> 0)
+  created_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS loyalty_point_events_customer_idx
@@ -370,9 +483,145 @@ CREATE INDEX IF NOT EXISTS analytics_events_restaurant_idx
   ON public.analytics_events (restaurant_id, occurred_at DESC);
 
 -- =========================
--- Row Level Security & Policies
+-- Extra tables (drafts, leads, pending, profiles)
 -- =========================
 
+CREATE TABLE IF NOT EXISTS public.booking_drafts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  restaurant_id uuid NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
+  email_normalized text NOT NULL CHECK (email_normalized = lower(email_normalized)),
+  phone_normalized text CHECK (phone_normalized IS NULL OR char_length(phone_normalized) BETWEEN 7 AND 20),
+  payload jsonb NOT NULL,
+  expires_at timestamptz NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS booking_drafts_restaurant_idx
+  ON public.booking_drafts (restaurant_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS booking_drafts_expires_idx
+  ON public.booking_drafts (expires_at);
+
+CREATE TABLE IF NOT EXISTS public.leads (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  email public.email_address,
+  created_at timestamptz NOT NULL DEFAULT timezone('utc', now())
+);
+
+CREATE TABLE IF NOT EXISTS public.pending_bookings (
+  nonce uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_request_id uuid NOT NULL,
+  email public.email_address NOT NULL,
+  payload jsonb NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz NOT NULL DEFAULT (now() + interval '30 minutes')
+);
+
+CREATE INDEX IF NOT EXISTS pending_bookings_client_req_idx
+  ON public.pending_bookings (client_request_id);
+
+CREATE INDEX IF NOT EXISTS pending_bookings_expires_idx
+  ON public.pending_bookings (expires_at);
+
+-- Typical Supabase-style user profile table
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id uuid PRIMARY KEY,                      -- same as auth.users.id
+  name text,
+  email public.email_address,
+  image text,
+  customer_id text,
+  price_id text,
+  has_access boolean DEFAULT false,
+  created_at timestamptz DEFAULT (now() AT TIME ZONE 'UTC'),
+  updated_at timestamptz DEFAULT (now() AT TIME ZONE 'UTC'),
+  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE
+);
+
+-- =========================
+-- Triggers
+-- =========================
+
+-- Generic updated_at touch trigger
+CREATE OR REPLACE FUNCTION public.tg__touch_updated_at()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.updated_at := now();
+  RETURN NEW;
+END$$;
+
+-- Attach touch triggers (idempotent)
+DO $blk$
+DECLARE t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY[
+    'restaurants','restaurant_areas','restaurant_tables','customers',
+    'customer_profiles','bookings','waiting_list','loyalty_points',
+    'booking_drafts'
+  ]
+  LOOP
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'touch_updated_at_'||t) THEN
+      EXECUTE format(
+        'CREATE TRIGGER %I BEFORE UPDATE ON public.%I
+         FOR EACH ROW EXECUTE FUNCTION public.tg__touch_updated_at();',
+        'touch_updated_at_'||t, t
+      );
+    END IF;
+  END LOOP;
+END
+$blk$;
+
+-- Bookings: compute start_at/end_at from date/time + restaurant timezone
+CREATE OR REPLACE FUNCTION public.tg__bookings_compute_times()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE tz text;
+BEGIN
+  SELECT timezone INTO tz FROM public.restaurants WHERE id = NEW.restaurant_id;
+  IF tz IS NULL THEN tz := 'UTC'; END IF;
+
+  IF TG_OP = 'INSERT'
+     OR NEW.start_at IS NULL OR NEW.end_at IS NULL
+     OR (OLD.booking_date IS DISTINCT FROM NEW.booking_date)
+     OR (OLD.start_time  IS DISTINCT FROM NEW.start_time)
+     OR (OLD.end_time    IS DISTINCT FROM NEW.end_time)
+     OR (OLD.restaurant_id IS DISTINCT FROM NEW.restaurant_id)
+  THEN
+    NEW.start_at := make_timestamptz(
+      EXTRACT(YEAR FROM NEW.booking_date)::int,
+      EXTRACT(MONTH FROM NEW.booking_date)::int,
+      EXTRACT(DAY FROM NEW.booking_date)::int,
+      EXTRACT(HOUR FROM NEW.start_time)::int,
+      EXTRACT(MINUTE FROM NEW.start_time)::int,
+      0,
+      tz
+    );
+    NEW.end_at := make_timestamptz(
+      EXTRACT(YEAR FROM NEW.booking_date)::int,
+      EXTRACT(MONTH FROM NEW.booking_date)::int,
+      EXTRACT(DAY FROM NEW.booking_date)::int,
+      EXTRACT(HOUR FROM NEW.end_time)::int,
+      EXTRACT(MINUTE FROM NEW.end_time)::int,
+      0,
+      tz
+    );
+  END IF;
+
+  RETURN NEW;
+END$$;
+
+DO $blk$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'set_booking_times') THEN
+    CREATE TRIGGER set_booking_times
+      BEFORE INSERT OR UPDATE ON public.bookings
+      FOR EACH ROW EXECUTE FUNCTION public.tg__bookings_compute_times();
+  END IF;
+END
+$blk$;
+
+-- =========================
+-- Row Level Security & Policies
+-- =========================
 ALTER TABLE public.restaurants            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.restaurant_areas       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.restaurant_tables      ENABLE ROW LEVEL SECURITY;
@@ -389,190 +638,46 @@ ALTER TABLE public.audit_logs             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stripe_events          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.observability_events   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.analytics_events       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.booking_drafts         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pending_bookings       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.leads                  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles               ENABLE ROW LEVEL SECURITY;
 
--- Service role policies (full access)
+-- Service role policies (full access) - created idempotently
 DO $blk$
+DECLARE
+  t text;
 BEGIN
-  -- Restaurants
   IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='restaurants' AND policyname='Service role full access restaurants'
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='restaurants' AND policyname='Service role full access restaurants'
   ) THEN
-    EXECUTE $sql$
-      CREATE POLICY "Service role full access restaurants"
-        ON public.restaurants
-        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
-    $sql$;
+    EXECUTE $$CREATE POLICY "Service role full access restaurants" ON public.restaurants
+      USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');$$;
   END IF;
 
-  -- Restaurant areas
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='restaurant_areas' AND policyname='Service role full access restaurant_areas'
-  ) THEN
-    EXECUTE $sql$
-      CREATE POLICY "Service role full access restaurant_areas"
-        ON public.restaurant_areas
-        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
-    $sql$;
-  END IF;
-
-  -- Restaurant tables
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='restaurant_tables' AND policyname='Service role full access restaurant_tables'
-  ) THEN
-    EXECUTE $sql$
-      CREATE POLICY "Service role full access restaurant_tables"
-        ON public.restaurant_tables
-        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
-    $sql$;
-  END IF;
-
-  -- Bookings
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='bookings' AND policyname='Service role full access bookings'
-  ) THEN
-    EXECUTE $sql$
-      CREATE POLICY "Service role full access bookings"
-        ON public.bookings
-        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
-    $sql$;
-  END IF;
-
-  -- Customers
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='customers' AND policyname='Service role full access customers'
-  ) THEN
-    EXECUTE $sql$
-      CREATE POLICY "Service role full access customers"
-        ON public.customers
-        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
-    $sql$;
-  END IF;
-
-  -- Customer profiles
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='customer_profiles' AND policyname='Service role full access customer_profiles'
-  ) THEN
-    EXECUTE $sql$
-      CREATE POLICY "Service role full access customer_profiles"
-        ON public.customer_profiles
-        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
-    $sql$;
-  END IF;
-
-  -- Reviews
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='reviews' AND policyname='Service role full access reviews'
-  ) THEN
-    EXECUTE $sql$
-      CREATE POLICY "Service role full access reviews"
-        ON public.reviews
-        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
-    $sql$;
-  END IF;
-
-  -- Availability rules
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='availability_rules' AND policyname='Service role full access availability_rules'
-  ) THEN
-    EXECUTE $sql$
-      CREATE POLICY "Service role full access availability_rules"
-        ON public.availability_rules
-        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
-    $sql$;
-  END IF;
-
-  -- Waiting list
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='waiting_list' AND policyname='Service role full access waiting_list'
-  ) THEN
-    EXECUTE $sql$
-      CREATE POLICY "Service role full access waiting_list"
-        ON public.waiting_list
-        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
-    $sql$;
-  END IF;
-
-  -- Loyalty programs
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='loyalty_programs' AND policyname='Service role full access loyalty_programs'
-  ) THEN
-    EXECUTE $sql$
-      CREATE POLICY "Service role full access loyalty_programs"
-        ON public.loyalty_programs
-        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
-    $sql$;
-  END IF;
-
-  -- Loyalty points
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='loyalty_points' AND policyname='Service role full access loyalty_points'
-  ) THEN
-    EXECUTE $sql$
-      CREATE POLICY "Service role full access loyalty_points"
-        ON public.loyalty_points
-        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
-    $sql$;
-  END IF;
-
-  -- Loyalty point events
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='loyalty_point_events' AND policyname='Service role full access loyalty_point_events'
-  ) THEN
-    EXECUTE $sql$
-      CREATE POLICY "Service role full access loyalty_point_events"
-        ON public.loyalty_point_events
-        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
-    $sql$;
-  END IF;
-
-  -- Audit logs
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='audit_logs' AND policyname='Service role full access audit_logs'
-  ) THEN
-    EXECUTE $sql$
-      CREATE POLICY "Service role full access audit_logs"
-        ON public.audit_logs
-        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
-    $sql$;
-  END IF;
-
-  -- Stripe events
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='stripe_events' AND policyname='Service role full access stripe_events'
-  ) THEN
-    EXECUTE $sql$
-      CREATE POLICY "Service role full access stripe_events"
-        ON public.stripe_events
-        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
-    $sql$;
-  END IF;
-
-  -- Observability events
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='observability_events' AND policyname='Service role full access observability_events'
-  ) THEN
-    EXECUTE $sql$
-      CREATE POLICY "Service role full access observability_events"
-        ON public.observability_events
-        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
-    $sql$;
-  END IF;
-
-  -- Analytics events
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='analytics_events' AND policyname='Service role full access analytics_events'
-  ) THEN
-    EXECUTE $sql$
-      CREATE POLICY "Service role full access analytics_events"
-        ON public.analytics_events
-        USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
-    $sql$;
-  END IF;
+  FOR t IN
+    SELECT unnest(ARRAY[
+      'restaurant_areas','restaurant_tables','bookings','customers','customer_profiles','reviews',
+      'availability_rules','waiting_list','loyalty_programs','loyalty_points','loyalty_point_events',
+      'audit_logs','stripe_events','observability_events','analytics_events',
+      'booking_drafts','pending_bookings','leads','profiles'
+    ])
+  LOOP
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE schemaname='public' AND tablename=t AND policyname=('Service role full access '||t)
+    ) THEN
+      EXECUTE format(
+        'CREATE POLICY %I ON public.%I USING (auth.role() = %L) WITH CHECK (auth.role() = %L);',
+        'Service role full access '||t, t, 'service_role', 'service_role'
+      );
+    END IF;
+  END LOOP;
 END
 $blk$;
 
--- Public/tenant access policies
--- Public reads
+-- Public reads (no auth) for catalog-ish tables
 DO $blk$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='restaurants' AND policyname='Public read restaurants') THEN
@@ -596,99 +701,119 @@ $blk$;
 -- Tenant reads (use public.tenant_permitted)
 DO $blk$
 BEGIN
+  -- bookings
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='bookings' AND policyname='Tenant read bookings') THEN
-    EXECUTE $$
-      CREATE POLICY "Tenant read bookings"
-        ON public.bookings
-        FOR SELECT TO authenticated
-        USING (public.tenant_permitted(restaurant_id));
-    $$;
+    EXECUTE $$CREATE POLICY "Tenant read bookings" ON public.bookings
+      FOR SELECT TO authenticated USING (public.tenant_permitted(restaurant_id));$$;
   END IF;
 
+  -- customers
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='customers' AND policyname='Tenant read customers') THEN
-    EXECUTE $$
-      CREATE POLICY "Tenant read customers"
-        ON public.customers
-        FOR SELECT TO authenticated
-        USING (public.tenant_permitted(restaurant_id));
-    $$;
+    EXECUTE $$CREATE POLICY "Tenant read customers" ON public.customers
+      FOR SELECT TO authenticated USING (public.tenant_permitted(restaurant_id));$$;
   END IF;
 
+  -- customer_profiles
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='customer_profiles' AND policyname='Tenant read customer_profiles') THEN
     EXECUTE $$
-      CREATE POLICY "Tenant read customer_profiles"
-        ON public.customer_profiles
-        FOR SELECT TO authenticated
-        USING (
-          public.tenant_permitted(
-            (SELECT restaurant_id FROM public.customers c WHERE c.id = customer_profiles.customer_id)
-          )
-        );
-    $$;
+      CREATE POLICY "Tenant read customer_profiles" ON public.customer_profiles
+      FOR SELECT TO authenticated
+      USING (
+        public.tenant_permitted(
+          (SELECT restaurant_id FROM public.customers c WHERE c.id = customer_profiles.customer_id)
+        )
+      ); $$;
   END IF;
 
+  -- reviews
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='reviews' AND policyname='Tenant read reviews') THEN
+    EXECUTE $$CREATE POLICY "Tenant read reviews" ON public.reviews
+      FOR SELECT TO authenticated USING (public.tenant_permitted(restaurant_id));$$;
+  END IF;
+
+  -- loyalty_programs
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='loyalty_programs' AND policyname='Tenant read loyalty_programs') THEN
-    EXECUTE $$
-      CREATE POLICY "Tenant read loyalty_programs"
-        ON public.loyalty_programs
-        FOR SELECT TO authenticated
-        USING (public.tenant_permitted(restaurant_id));
-    $$;
+    EXECUTE $$CREATE POLICY "Tenant read loyalty_programs" ON public.loyalty_programs
+      FOR SELECT TO authenticated USING (public.tenant_permitted(restaurant_id));$$;
   END IF;
 
+  -- loyalty_points
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='loyalty_points' AND policyname='Tenant read loyalty_points') THEN
     EXECUTE $$
-      CREATE POLICY "Tenant read loyalty_points"
-        ON public.loyalty_points
-        FOR SELECT TO authenticated
-        USING (
-          public.tenant_permitted(
-            (SELECT restaurant_id FROM public.loyalty_programs lp WHERE lp.id = loyalty_points.program_id)
-          )
-        );
-    $$;
+      CREATE POLICY "Tenant read loyalty_points" ON public.loyalty_points
+      FOR SELECT TO authenticated
+      USING (
+        public.tenant_permitted(
+          (SELECT restaurant_id FROM public.loyalty_programs lp WHERE lp.id = loyalty_points.program_id)
+        )
+      ); $$;
   END IF;
 
+  -- loyalty_point_events
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='loyalty_point_events' AND policyname='Tenant read loyalty_point_events') THEN
     EXECUTE $$
-      CREATE POLICY "Tenant read loyalty_point_events"
-        ON public.loyalty_point_events
-        FOR SELECT TO authenticated
-        USING (
-          public.tenant_permitted(
-            (SELECT restaurant_id FROM public.loyalty_programs lp WHERE lp.id = loyalty_point_events.program_id)
-          )
-        );
-    $$;
+      CREATE POLICY "Tenant read loyalty_point_events" ON public.loyalty_point_events
+      FOR SELECT TO authenticated
+      USING (
+        public.tenant_permitted(
+          (SELECT restaurant_id FROM public.loyalty_programs lp WHERE lp.id = loyalty_point_events.program_id)
+        )
+      ); $$;
   END IF;
 
+  -- analytics_events
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='analytics_events' AND policyname='Tenant read analytics_events') THEN
-    EXECUTE $$
-      CREATE POLICY "Tenant read analytics_events"
-        ON public.analytics_events
-        FOR SELECT TO authenticated
-        USING (public.tenant_permitted(restaurant_id));
-    $$;
+    EXECUTE $$CREATE POLICY "Tenant read analytics_events" ON public.analytics_events
+      FOR SELECT TO authenticated USING (public.tenant_permitted(restaurant_id));$$;
   END IF;
 
+  -- audit_logs (tenant-aware via metadata.restaurant_id when present)
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='audit_logs' AND policyname='Tenant read audit_logs') THEN
     EXECUTE $$
-      CREATE POLICY "Tenant read audit_logs"
-        ON public.audit_logs
-        FOR SELECT TO authenticated
-        USING (
-          CASE
-            WHEN coalesce(metadata, '{}'::jsonb) ? 'restaurant_id' THEN
-              CASE
-                WHEN coalesce(metadata, '{}'::jsonb) ->> 'restaurant_id' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-                  THEN public.tenant_permitted((metadata ->> 'restaurant_id')::uuid)
-                WHEN coalesce(metadata, '{}'::jsonb) ->> 'restaurant_id' = '' THEN true
-                ELSE false
-              END
-            ELSE true
-          END
-        );
-    $$;
+      CREATE POLICY "Tenant read audit_logs" ON public.audit_logs
+      FOR SELECT TO authenticated
+      USING (
+        CASE
+          WHEN coalesce(metadata, '{}'::jsonb) ? 'restaurant_id' THEN
+            CASE
+              WHEN coalesce(metadata, '{}'::jsonb) ->> 'restaurant_id' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+                THEN public.tenant_permitted((metadata ->> 'restaurant_id')::uuid)
+              WHEN coalesce(metadata, '{}'::jsonb) ->> 'restaurant_id' = '' THEN true
+              ELSE false
+            END
+          ELSE true
+        END
+      ); $$;
+  END IF;
+
+  -- waiting_list
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='waiting_list' AND policyname='Tenant read waiting_list') THEN
+    EXECUTE $$CREATE POLICY "Tenant read waiting_list" ON public.waiting_list
+      FOR SELECT TO authenticated USING (public.tenant_permitted(restaurant_id));$$;
+  END IF;
+
+  -- booking_drafts (optional: readable by tenant)
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='booking_drafts' AND policyname='Tenant read booking_drafts') THEN
+    EXECUTE $$CREATE POLICY "Tenant read booking_drafts" ON public.booking_drafts
+      FOR SELECT TO authenticated USING (public.tenant_permitted(restaurant_id));$$;
+  END IF;
+END
+$blk$;
+
+-- Profiles: allow users to manage their own row
+DO $blk$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='profiles' AND policyname='Users read own profile') THEN
+    EXECUTE $$CREATE POLICY "Users read own profile" ON public.profiles
+      FOR SELECT TO authenticated USING (auth.uid() = id);$$;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='profiles' AND policyname='Users insert own profile') THEN
+    EXECUTE $$CREATE POLICY "Users insert own profile" ON public.profiles
+      FOR INSERT TO authenticated WITH CHECK (auth.uid() = id);$$;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='profiles' AND policyname='Users update own profile') THEN
+    EXECUTE $$CREATE POLICY "Users update own profile" ON public.profiles
+      FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);$$;
   END IF;
 END
 $blk$;
@@ -710,9 +835,12 @@ GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO service_role, authenticated;
 
 -- Functions
-GRANT EXECUTE ON FUNCTION public.tenant_permitted(uuid)
-  TO authenticated, anon, service_role;
-
--- (Optional) grant execute on other helpers
-GRANT EXECUTE ON FUNCTION public.app_uuid() TO authenticated, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.tenant_permitted(uuid)       TO authenticated, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.app_uuid()                   TO authenticated, anon, service_role;
 GRANT EXECUTE ON FUNCTION public.generate_booking_reference() TO authenticated, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.tg__touch_updated_at()       TO authenticated, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.tg__bookings_compute_times() TO authenticated, anon, service_role;
+
+-- ====================================================================
+-- End schema
+-- ====================================================================

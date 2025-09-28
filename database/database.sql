@@ -1,8 +1,14 @@
 -- ====================================================================
--- Extensions (safe to run on Postgres/Supabase)
+-- Booking Engine — Production Schema (Postgres/Supabase compatible)
+-- Safe to re-run (idempotent where possible).
 -- ====================================================================
+
+-- =========================
+-- Extensions
+-- =========================
 CREATE EXTENSION IF NOT EXISTS pgcrypto;    -- gen_random_uuid()
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp"; -- uuid_generate_v4()
+CREATE EXTENSION IF NOT EXISTS btree_gist;  -- needed for GiST equality on uuid etc.
 
 -- =========================
 -- Helper functions & types
@@ -93,7 +99,7 @@ BEGIN
 END
 $blk$;
 
--- Enums (replace USER-DEFINED)
+-- Enums
 DO $blk$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'booking_status') THEN
@@ -155,6 +161,10 @@ CREATE TABLE IF NOT EXISTS public.restaurant_tables (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Per-restaurant unique table label
+CREATE UNIQUE INDEX IF NOT EXISTS restaurant_tables_restaurant_label_uidx
+  ON public.restaurant_tables (restaurant_id, lower(label));
+
 CREATE TABLE IF NOT EXISTS public.customers (
   id uuid PRIMARY KEY DEFAULT public.app_uuid(),
   restaurant_id uuid NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
@@ -208,6 +218,11 @@ CREATE TABLE IF NOT EXISTS public.bookings (
   booking_date date NOT NULL,
   start_time time NOT NULL,
   end_time time NOT NULL,
+  -- absolute times (computed by trigger if not provided)
+  start_at timestamptz NOT NULL,
+  end_at timestamptz NOT NULL,
+  -- range for overlap checks
+  slot tstzrange GENERATED ALWAYS AS (tstzrange(start_at, end_at, '[)')) STORED,
   party_size integer NOT NULL CHECK (party_size > 0),
   booking_type public.booking_type NOT NULL DEFAULT 'dinner',
   seating_preference public.seating_preference_type NOT NULL DEFAULT 'any',
@@ -225,18 +240,41 @@ CREATE TABLE IF NOT EXISTS public.bookings (
   marketing_opt_in boolean NOT NULL DEFAULT false,
   -- extras from v2:
   auth_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
-  client_request_id uuid NOT NULL DEFAULT gen_random_uuid(),
+  client_request_id uuid NOT NULL,      -- no default; caller must send
   pending_ref uuid NOT NULL DEFAULT public.app_uuid(),
   idempotency_key text,
-  details jsonb
+  details jsonb,
+  CONSTRAINT bookings_time_order CHECK (end_at > start_at)
 );
 
+-- Exclusion constraint (no overlaps per table for blocking statuses)
+DO $blk$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'bookings_no_overlap'
+      AND conrelid = 'public.bookings'::regclass
+  ) THEN
+    ALTER TABLE public.bookings
+      ADD CONSTRAINT bookings_no_overlap
+      EXCLUDE USING gist (
+        table_id WITH =,
+        slot     WITH &&
+      )
+      WHERE (status IN ('confirmed','pending','pending_allocation'))
+      DEFERRABLE INITIALLY IMMEDIATE;
+  END IF;
+END
+$blk$;
+
+-- Useful indexes
 CREATE INDEX IF NOT EXISTS bookings_table_date_start_idx
   ON public.bookings (table_id, booking_date, start_time)
   INCLUDE (end_time, status, party_size, seating_preference, id);
 
-CREATE INDEX IF NOT EXISTS bookings_customer_lookup_idx
-  ON public.bookings (restaurant_id, customer_id, booking_date);
+CREATE INDEX IF NOT EXISTS bookings_restaurant_date_start_idx
+  ON public.bookings (restaurant_id, booking_date, start_time)
+  INCLUDE (end_time, status, party_size, seating_preference, id);
 
 CREATE INDEX IF NOT EXISTS bookings_idempotency_key_idx
   ON public.bookings (idempotency_key);
@@ -247,6 +285,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS bookings_idem_unique_per_restaurant
 
 CREATE INDEX IF NOT EXISTS bookings_client_request_id_idx
   ON public.bookings (client_request_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS bookings_client_request_unique
+  ON public.bookings (restaurant_id, client_request_id);
 
 CREATE UNIQUE INDEX IF NOT EXISTS bookings_pending_ref_key
   ON public.bookings (pending_ref);
@@ -293,6 +334,17 @@ CREATE TABLE IF NOT EXISTS public.waiting_list (
 
 CREATE INDEX IF NOT EXISTS waiting_list_restaurant_date_idx
   ON public.waiting_list (restaurant_id, booking_date, desired_time);
+
+-- Waitlist de-dupe for active states
+CREATE UNIQUE INDEX IF NOT EXISTS waiting_list_contact_dedupe_uidx
+  ON public.waiting_list (
+    restaurant_id,
+    booking_date,
+    desired_time,
+    lower(customer_email::text),
+    regexp_replace(customer_phone, '[^0-9]+', '', 'g')
+  )
+  WHERE status IN ('waiting','notified');
 
 CREATE TABLE IF NOT EXISTS public.loyalty_programs (
   id uuid PRIMARY KEY DEFAULT public.app_uuid(),
@@ -431,7 +483,7 @@ CREATE INDEX IF NOT EXISTS analytics_events_restaurant_idx
   ON public.analytics_events (restaurant_id, occurred_at DESC);
 
 -- =========================
--- Extra tables from v2 draft
+-- Extra tables (drafts, leads, pending, profiles)
 -- =========================
 
 CREATE TABLE IF NOT EXISTS public.booking_drafts (
@@ -485,6 +537,87 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   updated_at timestamptz DEFAULT (now() AT TIME ZONE 'UTC'),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE
 );
+
+-- =========================
+-- Triggers
+-- =========================
+
+-- Generic updated_at touch trigger
+CREATE OR REPLACE FUNCTION public.tg__touch_updated_at()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.updated_at := now();
+  RETURN NEW;
+END$$;
+
+-- Attach touch triggers (idempotent)
+DO $blk$
+DECLARE t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY[
+    'restaurants','restaurant_areas','restaurant_tables','customers',
+    'customer_profiles','bookings','waiting_list','loyalty_points',
+    'booking_drafts'
+  ]
+  LOOP
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'touch_updated_at_'||t) THEN
+      EXECUTE format(
+        'CREATE TRIGGER %I BEFORE UPDATE ON public.%I
+         FOR EACH ROW EXECUTE FUNCTION public.tg__touch_updated_at();',
+        'touch_updated_at_'||t, t
+      );
+    END IF;
+  END LOOP;
+END
+$blk$;
+
+-- Bookings: compute start_at/end_at from date/time + restaurant timezone
+CREATE OR REPLACE FUNCTION public.tg__bookings_compute_times()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE tz text;
+BEGIN
+  SELECT timezone INTO tz FROM public.restaurants WHERE id = NEW.restaurant_id;
+  IF tz IS NULL THEN tz := 'UTC'; END IF;
+
+  IF TG_OP = 'INSERT'
+     OR NEW.start_at IS NULL OR NEW.end_at IS NULL
+     OR (OLD.booking_date IS DISTINCT FROM NEW.booking_date)
+     OR (OLD.start_time  IS DISTINCT FROM NEW.start_time)
+     OR (OLD.end_time    IS DISTINCT FROM NEW.end_time)
+     OR (OLD.restaurant_id IS DISTINCT FROM NEW.restaurant_id)
+  THEN
+    NEW.start_at := make_timestamptz(
+      EXTRACT(YEAR FROM NEW.booking_date)::int,
+      EXTRACT(MONTH FROM NEW.booking_date)::int,
+      EXTRACT(DAY FROM NEW.booking_date)::int,
+      EXTRACT(HOUR FROM NEW.start_time)::int,
+      EXTRACT(MINUTE FROM NEW.start_time)::int,
+      0,
+      tz
+    );
+    NEW.end_at := make_timestamptz(
+      EXTRACT(YEAR FROM NEW.booking_date)::int,
+      EXTRACT(MONTH FROM NEW.booking_date)::int,
+      EXTRACT(DAY FROM NEW.booking_date)::int,
+      EXTRACT(HOUR FROM NEW.end_time)::int,
+      EXTRACT(MINUTE FROM NEW.end_time)::int,
+      0,
+      tz
+    );
+  END IF;
+
+  RETURN NEW;
+END$$;
+
+DO $blk$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'set_booking_times') THEN
+    CREATE TRIGGER set_booking_times
+      BEFORE INSERT OR UPDATE ON public.bookings
+      FOR EACH ROW EXECUTE FUNCTION public.tg__bookings_compute_times();
+  END IF;
+END
+$blk$;
 
 -- =========================
 -- Row Level Security & Policies
@@ -685,9 +818,6 @@ BEGIN
 END
 $blk$;
 
--- (Intentionally no tenant access to stripe_events, observability_events, leads, pending_bookings)
--- These remain service_role-only by policy above.
-
 -- =========================
 -- Grants
 -- =========================
@@ -708,3 +838,9 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO service_role, authentic
 GRANT EXECUTE ON FUNCTION public.tenant_permitted(uuid)       TO authenticated, anon, service_role;
 GRANT EXECUTE ON FUNCTION public.app_uuid()                   TO authenticated, anon, service_role;
 GRANT EXECUTE ON FUNCTION public.generate_booking_reference() TO authenticated, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.tg__touch_updated_at()       TO authenticated, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.tg__bookings_compute_times() TO authenticated, anon, service_role;
+
+-- ====================================================================
+-- End schema
+-- ====================================================================

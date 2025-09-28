@@ -2,13 +2,33 @@ Below is a **practical, drop‑in migration patch** that hardens security, enfor
 
 > **What you’ll get**
 >
-> * Corrected regex / policy DDL that currently won’t run (the script you shared has stray `</task>` fragments and broken `DO ... EXECUTE` quoting).
-> * **Row‑level‑security** kept, but **anonymous reads are limited to a safe allow‑list**.
-> * **No table double‑bookings** via a GiST **exclusion constraint** (requires `btree_gist`).
-> * **Cross‑restaurant isolation** enforced (same‑restaurant checks for FK pairs).
-> * **Email & phone** validation tightened (no trailing-dot domains; optional `citext`).
-> * **Indexes** aligned to your hot queries.
-> * **Audit/analytics** partitioning scaffolding + retention hook.
+> - Corrected regex / policy DDL that currently won’t run (the script you shared has stray `</task>` fragments and broken `DO ... EXECUTE` quoting).
+> - **Row‑level‑security** kept, but **anonymous reads are limited to a safe allow‑list**.
+> - **No table double‑bookings** via a GiST **exclusion constraint** (requires `btree_gist`).
+> - **Cross‑restaurant isolation** enforced (same‑restaurant checks for FK pairs).
+> - **Email & phone** validation tightened (no trailing-dot domains; optional `citext`).
+> - **Indexes** aligned to your hot queries.
+> - **Audit/analytics** partitioning scaffolding + retention hook.
+
+---
+
+## 5) Booking idempotency + application alignment (Sept 2025)
+
+**What changed**
+
+- `bookings` now persists service-generated request metadata: `client_request_id` (UUID), unique `pending_ref`, optional `idempotency_key`, plus computed timestamps `start_at`, `end_at`, and stored `slot` range.
+- Supabase typings, server handlers, and email templates were updated to consume these columns directly.
+- API clients (Next.js flow and the Vite wizard) send an `Idempotency-Key` header per submission; the server deduplicates retries and returns the stored `client_request_id`.
+- Analytics and audit logs include the new identifiers for traceability.
+
+**Verification checklist**
+
+1. Apply the updated `database/database.sql` (or run `database/migrations/index.sql`) to materialise the new columns/indexes.
+2. Run `npm run typecheck && npm run lint` – verifies Supabase typings and downstream imports.
+3. Exercise `POST /api/bookings` twice with the same `Idempotency-Key`; confirm the second call returns `duplicate: true` and the database has a single row.
+4. Confirm confirmation emails still display the correct local time (they now prefer `start_at`/`end_at`).
+
+---
 
 ---
 
@@ -16,8 +36,8 @@ Below is a **practical, drop‑in migration patch** that hardens security, enfor
 
 **Why**
 
-* Postgres **CHECK** constraints cannot reference other tables—use triggers/other constraints instead. ([PostgreSQL][1])
-* **EXCLUDE** constraints on `tsrange` need GiST; to combine with `uuid` equality you need **btree\_gist** operator classes. ([PostgreSQL][2])
+- Postgres **CHECK** constraints cannot reference other tables—use triggers/other constraints instead. ([PostgreSQL][1])
+- **EXCLUDE** constraints on `tsrange` need GiST; to combine with `uuid` equality you need **btree_gist** operator classes. ([PostgreSQL][2])
 
 ```sql
 BEGIN;
@@ -289,7 +309,7 @@ ALTER TABLE public.bookings
 COMMIT;
 ```
 
-> If you allow **“pending\_allocation”** rows with `table_id IS NULL`, they won’t block; the constraint is scoped with `WHERE (table_id IS NOT NULL ...)`.
+> If you allow **“pending_allocation”** rows with `table_id IS NULL`, they won’t block; the constraint is scoped with `WHERE (table_id IS NOT NULL ...)`.
 
 ### 3b) Enforce same‑restaurant across relations
 
@@ -402,8 +422,8 @@ COMMIT;
 
 ### 4a) Email: keep it simple and strict enough
 
-* Domain fixed in §1 (rejects trailing dots).
-* You’re already normalizing to lowercase and ensuring `email = lower(email)`; keep that.
+- Domain fixed in §1 (rejects trailing dots).
+- You’re already normalizing to lowercase and ensuring `email = lower(email)`; keep that.
 
 **Alternative (optional): use `citext` + unique**—case‑insensitive by type, simplifies uniqueness. ([PostgreSQL][4])
 
@@ -469,8 +489,8 @@ COMMIT;
 
 ## 6) Operational safety: audit & analytics growth
 
-* Convert **audit\_logs** (and optionally **analytics\_events**, **stripe\_events**) to **monthly partitions**; attach a simple retention job (drop partitions older than N months).
-* Below is **forward‑only** scaffolding—migrates *new* writes; you can backfill later.
+- Convert **audit_logs** (and optionally **analytics_events**, **stripe_events**) to **monthly partitions**; attach a simple retention job (drop partitions older than N months).
+- Below is **forward‑only** scaffolding—migrates _new_ writes; you can backfill later.
 
 ```sql
 BEGIN;
@@ -535,14 +555,14 @@ INSERT INTO public.customers (..., phone_e164) VALUES (..., '+0123');  -- should
 
 ## 8) Notes, trade‑offs & alternatives
 
-* **Why not a CHECK to enforce cross-restaurant?** Postgres **does not** support checks that read other tables; use **triggers** or redesign FKs (denormalize `restaurant_id` everywhere and use composite FKs—but `ON DELETE SET NULL` becomes awkward). ([PostgreSQL][1])
-* **Exclusion constraint details**
+- **Why not a CHECK to enforce cross-restaurant?** Postgres **does not** support checks that read other tables; use **triggers** or redesign FKs (denormalize `restaurant_id` everywhere and use composite FKs—but `ON DELETE SET NULL` becomes awkward). ([PostgreSQL][1])
+- **Exclusion constraint details**
+  - We mark intervals `[start, end)` to allow **back‑to‑back** bookings. Use `'[]'` if you want end‑points considered overlapping. ([Redgate Software][6])
+  - `btree_gist` is necessary to combine `uuid` equality with a range GiST in the same EXCLUDE. ([PostgreSQL][7])
 
-  * We mark intervals `[start, end)` to allow **back‑to‑back** bookings. Use `'[]'` if you want end‑points considered overlapping. ([Redgate Software][6])
-  * `btree_gist` is necessary to combine `uuid` equality with a range GiST in the same EXCLUDE. ([PostgreSQL][7])
-* **RLS & GRANTs** are complementary; with RLS enabled, **no policy = no rows**, regardless of GRANTs. ([PostgreSQL][3])
-* **Email validation** in SQL should be **pragmatic**; true RFC compliance is huge. Consider app‑side libraries for deeper checks.
-* **Phones**: DB regex validates format only; country/line validity needs a library or API (e.g., libphonenumber/Twilio Lookup). The E.164 regex is only a **baseline**. ([Twilio][8])
+- **RLS & GRANTs** are complementary; with RLS enabled, **no policy = no rows**, regardless of GRANTs. ([PostgreSQL][3])
+- **Email validation** in SQL should be **pragmatic**; true RFC compliance is huge. Consider app‑side libraries for deeper checks.
+- **Phones**: DB regex validates format only; country/line validity needs a library or API (e.g., libphonenumber/Twilio Lookup). The E.164 regex is only a **baseline**. ([Twilio][8])
 
 ---
 
@@ -550,11 +570,11 @@ INSERT INTO public.customers (..., phone_e164) VALUES (..., '+0123');  -- should
 
 If you want, I can also produce a **single consolidated SQL file** tailored to your environment (e.g., swap to `citext`, add a routing trigger to move `audit_logs` writes automatically, or adopt ordered UUIDs).
 
-[1]: https://www.postgresql.org/docs/current/ddl-constraints.html?utm_source=chatgpt.com "Documentation: 17: 5.5. Constraints"
-[2]: https://www.postgresql.org/docs/current/rangetypes.html?utm_source=chatgpt.com "Documentation: 17: 8.17. Range Types"
-[3]: https://www.postgresql.org/docs/current/ddl-rowsecurity.html?utm_source=chatgpt.com "Documentation: 17: 5.9. Row Security Policies"
-[4]: https://www.postgresql.org/docs/current/citext.html?utm_source=chatgpt.com "17: F.9. citext — a case-insensitive character string type"
-[5]: https://en.wikipedia.org/wiki/E.164?utm_source=chatgpt.com "E.164"
-[6]: https://www.red-gate.com/simple-talk/?p=104588&utm_source=chatgpt.com "Overlapping Ranges in Subsets in PostgreSQL - Simple Talk"
-[7]: https://www.postgresql.org/docs/current/btree-gist.html?utm_source=chatgpt.com "F.8. btree_gist — GiST operator classes with B-tree behavior"
-[8]: https://www.twilio.com/docs/glossary/what-e164?utm_source=chatgpt.com "What is E.164?"
+[1]: https://www.postgresql.org/docs/current/ddl-constraints.html?utm_source=chatgpt.com 'Documentation: 17: 5.5. Constraints'
+[2]: https://www.postgresql.org/docs/current/rangetypes.html?utm_source=chatgpt.com 'Documentation: 17: 8.17. Range Types'
+[3]: https://www.postgresql.org/docs/current/ddl-rowsecurity.html?utm_source=chatgpt.com 'Documentation: 17: 5.9. Row Security Policies'
+[4]: https://www.postgresql.org/docs/current/citext.html?utm_source=chatgpt.com '17: F.9. citext — a case-insensitive character string type'
+[5]: https://en.wikipedia.org/wiki/E.164?utm_source=chatgpt.com 'E.164'
+[6]: https://www.red-gate.com/simple-talk/?p=104588&utm_source=chatgpt.com 'Overlapping Ranges in Subsets in PostgreSQL - Simple Talk'
+[7]: https://www.postgresql.org/docs/current/btree-gist.html?utm_source=chatgpt.com 'F.8. btree_gist — GiST operator classes with B-tree behavior'
+[8]: https://www.twilio.com/docs/glossary/what-e164?utm_source=chatgpt.com 'What is E.164?'

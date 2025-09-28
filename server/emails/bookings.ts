@@ -49,6 +49,32 @@ function formatTime(time: string, timeZone: string) {
   }).format(dt);
 }
 
+function formatDateFromDate(date: Date, timeZone: string) {
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    weekday: "short",
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+    timeZone,
+  });
+  return formatter.format(date);
+}
+
+function formatTimeFromDate(date: Date, timeZone: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone,
+  }).format(date);
+}
+
+function parseTimestamp(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 function buildManageUrl(booking: BookingRecord) {
   const params = new URLSearchParams({
     view: "manage",
@@ -64,9 +90,13 @@ function buildManageUrl(booking: BookingRecord) {
 }
 
 function buildSummary(booking: BookingRecord) {
-  const date = formatDate(booking.booking_date, DEFAULT_VENUE.timezone);
-  const startTime = formatTime(booking.start_time, DEFAULT_VENUE.timezone);
-  const endTime = formatTime(booking.end_time, DEFAULT_VENUE.timezone);
+  const startAt = parseTimestamp(booking.start_at);
+  const endAt = parseTimestamp(booking.end_at);
+  const { timezone } = DEFAULT_VENUE;
+
+  const date = startAt ? formatDateFromDate(startAt, timezone) : formatDate(booking.booking_date, timezone);
+  const startTime = startAt ? formatTimeFromDate(startAt, timezone) : formatTime(booking.start_time, timezone);
+  const endTime = endAt ? formatTimeFromDate(endAt, timezone) : formatTime(booking.end_time, timezone);
   const party = `${booking.party_size} ${booking.party_size === 1 ? "guest" : "guests"}`;
 
   return { date, startTime, endTime, party };

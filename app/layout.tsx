@@ -1,13 +1,10 @@
 import { ReactNode } from "react";
-import { Inter } from "next/font/google";
 import { Viewport } from "next";
 import PlausibleProvider from "next-plausible";
 import { getSEOTags } from "@/libs/seo";
 import ClientLayout from "@/components/LayoutClient";
 import config from "@/config";
 import "./globals.css";
-
-const font = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const viewport: Viewport = {
   // Will use the primary color of your theme to show a nice theme color in the URL bar of supported browsers
@@ -22,13 +19,13 @@ export const metadata = getSEOTags();
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" data-theme={config.colors.theme} className={`${font.variable} antialiased`}>
+    <html lang="en" data-theme={config.colors.theme} className="antialiased font-sans">
       {config.domainName && (
         <head>
           <PlausibleProvider domain={config.domainName} />
         </head>
       )}
-      <body className={font.className}>
+      <body className="font-sans">
         {/* ClientLayout contains all the client wrappers (Crisp chat support, toast messages, tooltips, etc.) */}
         <ClientLayout>{children}</ClientLayout>
       </body>

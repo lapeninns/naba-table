@@ -21,6 +21,9 @@ type BookingCreatedPayload = BaseEventPayload & {
   source: string;
   waitlisted: boolean;
   loyaltyPointsAwarded?: number;
+  clientRequestId?: string;
+  idempotencyKey?: string | null;
+  pendingRef?: string;
 };
 
 type BookingCancelledPayload = BaseEventPayload & {
@@ -93,6 +96,9 @@ export async function recordBookingCreatedEvent(
       source: payload.source,
       waitlisted: payload.waitlisted,
       loyalty_points_awarded: payload.loyaltyPointsAwarded ?? 0,
+      client_request_id: payload.clientRequestId ?? null,
+      idempotency_key: payload.idempotencyKey ?? null,
+      pending_ref: payload.pendingRef ?? null,
     },
   });
 }

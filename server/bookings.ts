@@ -11,7 +11,7 @@ import {
   type BookingType,
   type SeatingPreference,
 } from "@/lib/enums";
-import type { Database, Json, Tables } from "@/types/supabase";
+import type { Database, Json, Tables, TablesInsert } from "@/types/supabase";
 import { generateBookingReference, generateUniqueBookingReference } from "./booking-reference";
 import {
   findCustomerByContact,
@@ -31,6 +31,54 @@ type RestaurantTableRow = Tables<"restaurant_tables">;
 export type BookingRecord = BookingRow;
 export type TableRecord = Pick<RestaurantTableRow, "id" | "label" | "capacity" | "seating_type" | "features">;
 
+type CreateBookingPayload = {
+  restaurant_id: string;
+  table_id: string | null;
+  booking_date: string;
+  start_time: string;
+  end_time: string;
+  party_size: number;
+  booking_type: BookingType;
+  seating_preference: SeatingPreference;
+  status?: BookingStatus;
+  reference: string;
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string;
+  notes?: string | null;
+  marketing_opt_in?: boolean;
+  loyalty_points_awarded?: number;
+  source?: string;
+  customer_id: string;
+  auth_user_id?: string | null;
+  client_request_id: string;
+  pending_ref?: string;
+  idempotency_key?: string | null;
+  details?: Json | null;
+};
+
+type UpdateBookingPayload = {
+  restaurant_id?: string;
+  table_id?: string | null;
+  booking_date?: string;
+  start_time?: string;
+  end_time?: string;
+  party_size?: number;
+  booking_type?: BookingType;
+  seating_preference?: SeatingPreference;
+  status?: BookingStatus;
+  customer_name?: string;
+  customer_email?: string;
+  customer_phone?: string;
+  notes?: string | null;
+  marketing_opt_in?: boolean;
+  loyalty_points_awarded?: number;
+  source?: string;
+  auth_user_id?: string | null;
+  details?: Json | null;
+  idempotency_key?: string | null;
+};
+
 const TABLE_SELECT = "id,label,capacity,seating_type,features";
 const BOOKING_SELECT = "*";
 
@@ -44,6 +92,9 @@ const AUDIT_BOOKING_FIELDS: Array<keyof BookingRecord> = [
   "booking_date",
   "start_time",
   "end_time",
+  "start_at",
+  "end_at",
+  "slot",
   "reference",
   "party_size",
   "booking_type",
@@ -55,6 +106,12 @@ const AUDIT_BOOKING_FIELDS: Array<keyof BookingRecord> = [
   "notes",
   "marketing_opt_in",
   "loyalty_points_awarded",
+  "source",
+  "auth_user_id",
+  "client_request_id",
+  "pending_ref",
+  "idempotency_key",
+  "details",
 ];
 
 async function resolveWaitlistPosition(
@@ -416,15 +473,9 @@ export async function softCancelBooking(client: DbClient, bookingId: string): Pr
 export async function updateBookingRecord(
   client: DbClient,
   bookingId: string,
-  payload: Partial<Omit<BookingRecord, "id" | "restaurant_id" | "created_at" | "updated_at">> & {
-    restaurant_id?: string;
-  }
+  payload: UpdateBookingPayload,
 ): Promise<BookingRecord> {
-  const nextPayload = { ...payload };
-
-  if ("customer_id" in nextPayload) {
-    delete (nextPayload as Partial<BookingRecord>).customer_id;
-  }
+  const nextPayload: UpdateBookingPayload = { ...payload };
 
   if (nextPayload.booking_type) {
     nextPayload.booking_type = ensureBookingType(nextPayload.booking_type);
@@ -434,6 +485,13 @@ export async function updateBookingRecord(
   }
   if (nextPayload.status) {
     nextPayload.status = ensureBookingStatus(nextPayload.status);
+  }
+
+  if ("details" in nextPayload && nextPayload.details === undefined) {
+    nextPayload.details = null;
+  }
+  if ("idempotency_key" in nextPayload && nextPayload.idempotency_key === undefined) {
+    nextPayload.idempotency_key = null;
   }
 
   const { data, error } = await client
@@ -452,40 +510,44 @@ export async function updateBookingRecord(
 
 export async function insertBookingRecord(
   client: DbClient,
-  payload: Omit<BookingRecord, "id" | "created_at" | "updated_at" | "status" | "table_id" | "loyalty_points_awarded"> & {
-    table_id: string | null;
-    status?: BookingStatus;
-    loyalty_points_awarded?: number;
-    source?: string;
-    customer_id: string;
-  }
+  payload: CreateBookingPayload,
 ): Promise<BookingRecord> {
   const bookingType = ensureBookingType(payload.booking_type);
   const seatingPreference = ensureSeatingPreference(payload.seating_preference);
   const status = ensureBookingStatus(payload.status ?? "confirmed");
 
+  const insertPayload: TablesInsert<"bookings"> = {
+    restaurant_id: payload.restaurant_id,
+    table_id: payload.table_id,
+    booking_date: payload.booking_date,
+    start_time: payload.start_time,
+    end_time: payload.end_time,
+    reference: payload.reference,
+    party_size: payload.party_size,
+    booking_type: bookingType,
+    seating_preference: seatingPreference,
+    status,
+    customer_name: payload.customer_name,
+    customer_email: payload.customer_email,
+    customer_phone: payload.customer_phone,
+    notes: payload.notes ?? null,
+    marketing_opt_in: payload.marketing_opt_in ?? false,
+    loyalty_points_awarded: payload.loyalty_points_awarded ?? 0,
+    source: payload.source ?? "web",
+    customer_id: payload.customer_id,
+    auth_user_id: payload.auth_user_id ?? null,
+    client_request_id: payload.client_request_id,
+    idempotency_key: payload.idempotency_key ?? null,
+    details: payload.details ?? null,
+  };
+
+  if (payload.pending_ref) {
+    insertPayload.pending_ref = payload.pending_ref;
+  }
+
   const { data, error } = await client
     .from("bookings")
-    .insert({
-      restaurant_id: payload.restaurant_id,
-      table_id: payload.table_id,
-      booking_date: payload.booking_date,
-      start_time: payload.start_time,
-      end_time: payload.end_time,
-      reference: payload.reference,
-      party_size: payload.party_size,
-      booking_type: bookingType,
-      seating_preference: seatingPreference,
-      status,
-      customer_name: payload.customer_name,
-      customer_email: payload.customer_email,
-      customer_phone: payload.customer_phone,
-      notes: payload.notes ?? null,
-      marketing_opt_in: payload.marketing_opt_in ?? false,
-      loyalty_points_awarded: payload.loyalty_points_awarded ?? 0,
-      source: payload.source ?? "web",
-      customer_id: payload.customer_id,
-    })
+    .insert(insertPayload)
     .select(BOOKING_SELECT)
     .single();
 

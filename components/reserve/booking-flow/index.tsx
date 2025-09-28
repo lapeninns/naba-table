@@ -84,6 +84,8 @@ function BookingFlowContent() {
     previousVisibilityRef.current = stickyVisible;
   }, [stickyVisible]);
 
+  const idempotencyKeyRef = useRef<string | null>(null);
+
   const handleActionsChange = useCallback((actions: StepAction[]) => {
     setStickyActions((prev) => {
       if (prev.length === actions.length && prev.every((action, index) => {
@@ -167,6 +169,13 @@ function BookingFlowContent() {
     dispatch({ type: "SET_ERROR", message: null });
     dispatch({ type: "SET_SUBMITTING", value: true });
 
+    const idempotencyKey =
+      idempotencyKeyRef.current ??
+      (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    idempotencyKeyRef.current = idempotencyKey;
+
     const restaurantId = state.details.restaurantId || DEFAULT_RESTAURANT_ID;
     const payload = {
       restaurantId,
@@ -192,13 +201,17 @@ function BookingFlowContent() {
     try {
       const response = await fetch(endpoint, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey,
+        },
         body: JSON.stringify(payload),
       });
 
       const data = await response.json().catch(() => ({}));
 
       if (response.status === 202) {
+        idempotencyKeyRef.current = null;
         track("booking_created", {
           waitlisted: 1,
           allocation_pending: data.allocationPending ? 1 : 0,
@@ -224,6 +237,8 @@ function BookingFlowContent() {
         dispatch({ type: "SET_SUBMITTING", value: false });
         return;
       }
+
+      idempotencyKeyRef.current = null;
 
       dispatch({
         type: "SET_CONFIRMATION",

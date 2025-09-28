@@ -104,7 +104,9 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     const supabase = getRouteHandlerSupabaseClient();
     const { data, error } = await supabase
       .from("bookings")
-      .select("id,restaurant_id,table_id,booking_date,start_time,end_time,reference,party_size,booking_type,seating_preference,status,customer_name,customer_email,customer_phone,notes,marketing_opt_in,loyalty_points_awarded,created_at,updated_at")
+      .select(
+        "id,restaurant_id,table_id,booking_date,start_time,end_time,start_at,end_at,slot,reference,party_size,booking_type,seating_preference,status,customer_name,customer_email,customer_phone,notes,marketing_opt_in,loyalty_points_awarded,client_request_id,pending_ref,idempotency_key,details,created_at,updated_at",
+      )
       .eq("id", bookingId)
       .maybeSingle();
 
