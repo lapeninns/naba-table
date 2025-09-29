@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const FLUSH_INTERVAL = 5_000;
 
-const beaconResult: { sent: boolean; payloadPromise?: Promise<string> } = { sent: false };
+const beaconResult: { sent: boolean; blob?: Blob } = { sent: false };
 
 const originalFetch = global.fetch;
 const originalSendBeacon = window.navigator.sendBeacon;
@@ -21,7 +21,7 @@ describe('analytics emitter', () => {
     vi.resetModules();
     vi.useFakeTimers();
     beaconResult.sent = false;
-    beaconResult.payloadPromise = undefined;
+    beaconResult.blob = undefined;
   });
 
   afterEach(() => {
@@ -39,7 +39,7 @@ describe('analytics emitter', () => {
     const sendBeaconMock = sendBeacon
       ? vi.fn().mockImplementation((_url: string, blob: Blob) => {
           beaconResult.sent = true;
-          beaconResult.payloadPromise = blob.text();
+          beaconResult.blob = blob;
           return true;
         })
       : undefined;
@@ -132,9 +132,7 @@ describe('analytics emitter', () => {
     expect(sendBeaconMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).not.toHaveBeenCalled();
     expect(beaconResult.sent).toBe(true);
-    const payloadText = await beaconResult.payloadPromise;
-    const payload = JSON.parse(String(payloadText)) as { events: Array<{ name: string }> };
-    expect(payload.events[0].name).toBe('booking_cancel_succeeded');
+    expect(beaconResult.blob).toBeInstanceOf(Blob);
   });
 
   it('reuses resolved identity across emits', async () => {

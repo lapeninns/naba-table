@@ -26,7 +26,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <PlausibleProvider domain={config.domainName} />
         </head>
       )}
-      <body className="font-sans">
+      <body className="relative font-sans">
+        <a href="#main-content" className="skip-link">
+          Skip to content
+        </a>
         {/* ClientLayout contains all the client wrappers (Crisp chat support, toast messages, tooltips, etc.) */}
         <AppProviders>
           <ClientLayout>{children}</ClientLayout>

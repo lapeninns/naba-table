@@ -4,7 +4,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-[var(--radius-md)] text-button ring-offset-background transition-[transform,box-shadow,background-color,color] duration-100 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98] button-press",
+  "inline-flex items-center justify-center whitespace-nowrap rounded-[var(--radius-md)] text-button ring-offset-background transition-[transform,box-shadow,background-color,color] duration-100 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98] button-press touch-manipulation",
   {
     variants: {
       variant: {
@@ -21,7 +21,7 @@ const buttonVariants = cva(
       size: {
         default: "min-h-[44px] h-11 px-5 py-2.5",
         primary: "min-h-[var(--button-height)] h-[var(--button-height)] px-6",
-        sm: "min-h-[40px] h-10 rounded-[var(--radius-sm)] px-4 py-2 text-[0.95rem]",
+        sm: "min-h-[44px] h-11 rounded-[var(--radius-sm)] px-4 py-2 text-[0.95rem]",
         lg: "min-h-[48px] h-12 rounded-[var(--radius-lg)] px-7 py-3 text-[1.05rem]",
         icon: "h-11 w-11",
       },

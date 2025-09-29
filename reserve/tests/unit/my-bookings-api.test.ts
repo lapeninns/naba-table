@@ -23,6 +23,7 @@ type Mock = ReturnType<typeof vi.fn>;
 const tenantMock = {
   auth: {
     getSession: vi.fn(),
+    getUser: vi.fn(),
   },
   from: vi.fn(),
 };
@@ -38,6 +39,7 @@ describe('GET /api/bookings?me=1', () => {
     vi.resetAllMocks();
     console.error = vi.fn();
     tenantMock.auth.getSession.mockReset();
+    tenantMock.auth.getUser.mockReset();
     tenantMock.from.mockReset();
     serviceMock.from.mockReset();
     (getRouteHandlerSupabaseClient as unknown as Mock).mockResolvedValue(tenantMock);
@@ -49,7 +51,7 @@ describe('GET /api/bookings?me=1', () => {
   });
 
   it('returns 401 when session is missing', async () => {
-    tenantMock.auth.getSession.mockResolvedValue({ data: { session: null } });
+    tenantMock.auth.getUser.mockResolvedValue({ data: { user: null }, error: null });
 
     const request = new NextRequest('http://example.com/api/bookings?me=1');
     const response = await GET(request);
@@ -59,17 +61,14 @@ describe('GET /api/bookings?me=1', () => {
   });
 
   it('returns paginated results for the session email', async () => {
-    const sessionStub = {
+    tenantMock.auth.getUser.mockResolvedValue({
       data: {
-        session: {
-          user: {
-            email: 'user@example.com',
-          },
+        user: {
+          email: 'user@example.com',
         },
       },
-    };
-
-    tenantMock.auth.getSession.mockResolvedValue(sessionStub);
+      error: null,
+    });
 
     const rangeMock = vi.fn().mockResolvedValue({
       data: [
