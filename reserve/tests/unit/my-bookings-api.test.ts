@@ -4,6 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GET } from '@/app/api/bookings/route';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 
+vi.mock('@/server/bookings', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    fetchBookingsForContact: vi.fn(async () => []),
+  };
+});
+
 vi.mock('@/server/supabase', () => ({
   getRouteHandlerSupabaseClient: vi.fn(),
   getServiceSupabaseClient: vi.fn(),
@@ -12,12 +20,28 @@ vi.mock('@/server/supabase', () => ({
 
 type Mock = ReturnType<typeof vi.fn>;
 
+const tenantMock = {
+  auth: {
+    getSession: vi.fn(),
+  },
+  from: vi.fn(),
+};
+
+const serviceMock = {
+  from: vi.fn(),
+};
+
 describe('GET /api/bookings?me=1', () => {
   const originalConsoleError = console.error;
 
   beforeEach(() => {
     vi.resetAllMocks();
     console.error = vi.fn();
+    tenantMock.auth.getSession.mockReset();
+    tenantMock.from.mockReset();
+    serviceMock.from.mockReset();
+    (getRouteHandlerSupabaseClient as unknown as Mock).mockResolvedValue(tenantMock);
+    (getServiceSupabaseClient as unknown as Mock).mockReturnValue(serviceMock);
   });
 
   afterEach(() => {
@@ -25,11 +49,7 @@ describe('GET /api/bookings?me=1', () => {
   });
 
   it('returns 401 when session is missing', async () => {
-    (getRouteHandlerSupabaseClient as unknown as Mock).mockResolvedValueOnce({
-      auth: {
-        getSession: vi.fn(async () => ({ data: { session: null } })),
-      },
-    });
+    tenantMock.auth.getSession.mockResolvedValue({ data: { session: null } });
 
     const request = new NextRequest('http://example.com/api/bookings?me=1');
     const response = await GET(request);
@@ -49,11 +69,7 @@ describe('GET /api/bookings?me=1', () => {
       },
     };
 
-    (getRouteHandlerSupabaseClient as unknown as Mock).mockResolvedValue({
-      auth: {
-        getSession: vi.fn(async () => sessionStub),
-      },
-    });
+    tenantMock.auth.getSession.mockResolvedValue(sessionStub);
 
     const rangeMock = vi.fn().mockResolvedValue({
       data: [
@@ -93,11 +109,7 @@ describe('GET /api/bookings?me=1', () => {
     queryBuilder.order.mockImplementation(() => queryBuilder);
 
     const selectMock = vi.fn().mockReturnValue(queryBuilder);
-    const fromMock = vi.fn().mockReturnValue({ select: selectMock });
-
-    (getServiceSupabaseClient as unknown as Mock).mockReturnValue({
-      from: fromMock,
-    });
+    serviceMock.from.mockReturnValue({ select: selectMock });
 
     const request = new NextRequest(
       'http://example.com/api/bookings?me=1&page=2&pageSize=5&status=confirmed&sort=desc',
@@ -106,7 +118,7 @@ describe('GET /api/bookings?me=1', () => {
     const response = await GET(request);
 
     expect(response.status).toBe(200);
-    expect(fromMock).toHaveBeenCalledWith('bookings');
+    expect(serviceMock.from).toHaveBeenCalledWith('bookings');
     expect(selectMock).toHaveBeenCalledWith(
       'id, start_at, end_at, party_size, status, notes, restaurants(name)',
       { count: 'exact' },

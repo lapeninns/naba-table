@@ -1,17 +1,16 @@
 'use client';
 
 import { useMemo } from 'react';
-import Link from 'next/link';
-
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusChip } from './StatusChip';
 import { Pagination } from './Pagination';
+import { EmptyState } from './EmptyState';
 import type { BookingDTO, BookingStatus, BookingsPage } from '@/hooks/useBookings';
 import type { HttpError } from '@/lib/http/errors';
 
-export type StatusFilter = BookingStatus | 'all';
+export type StatusFilter = BookingStatus | 'all' | 'active';
 
 export type BookingsTableProps = {
   bookings: BookingDTO[];
@@ -25,10 +24,13 @@ export type BookingsTableProps = {
   onStatusFilterChange: (status: StatusFilter) => void;
   onPageChange: (page: number) => void;
   onRetry: () => void;
+  onEdit: (booking: BookingDTO) => void;
+  onCancel: (booking: BookingDTO) => void;
 };
 
 const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: 'all', label: 'All' },
+  { value: 'active', label: 'Active' },
   { value: 'confirmed', label: 'Confirmed' },
   { value: 'pending', label: 'Pending' },
   { value: 'pending_allocation', label: 'Pending allocation' },
@@ -49,6 +51,8 @@ export function BookingsTable({
   onStatusFilterChange,
   onPageChange,
   onRetry,
+  onEdit,
+  onCancel,
 }: BookingsTableProps) {
   const showSkeleton = isLoading;
   const showEmpty = !isLoading && !error && bookings.length === 0;
@@ -154,26 +158,37 @@ export function BookingsTable({
                       <StatusChip status={booking.status} />
                     </td>
                     <td className="px-4 py-4 text-right text-sm text-base-content">
-                      <Button type="button" size="sm" variant="ghost" className="text-primary" disabled>
-                        Manage
-                      </Button>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="text-primary"
+                          disabled={booking.status === 'cancelled'}
+                          onClick={() => onEdit(booking)}
+                          aria-disabled={booking.status === 'cancelled'}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="text-rose-600 hover:text-rose-700"
+                          disabled={booking.status === 'cancelled'}
+                          onClick={() => onCancel(booking)}
+                          aria-disabled={booking.status === 'cancelled'}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
           </tbody>
         </table>
 
-        {showEmpty ? (
-          <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center" aria-live="polite">
-            <h3 className="text-base font-medium text-base-content">No bookings yet</h3>
-            <p className="max-w-md text-sm text-base-content/70">
-              Once you make a reservation, it will appear here. Ready to secure your next table?
-            </p>
-            <Link href="/reserve" className="btn btn-primary">
-              Start a new booking
-            </Link>
-          </div>
-        ) : null}
+        {showEmpty ? <EmptyState /> : null}
       </div>
 
       {total > 0 && (

@@ -42,9 +42,14 @@ const contactQuerySchema = baseQuerySchema.extend({
   phone: z.string().min(7).max(50),
 });
 
+const statusFilterSchema = z.union([
+  z.enum(["pending", "pending_allocation", "confirmed", "cancelled"]),
+  z.literal("active"),
+]);
+
 const myBookingsQuerySchema = baseQuerySchema.extend({
   me: z.literal("1"),
-  status: z.enum(["pending", "pending_allocation", "confirmed", "cancelled"]).optional(),
+  status: statusFilterSchema.optional(),
   from: z.string().datetime({ offset: true }).optional(),
   to: z.string().datetime({ offset: true }).optional(),
   sort: z.enum(["asc", "desc"]).default("asc"),
@@ -587,10 +592,11 @@ export async function POST(req: NextRequest) {
 async function handleMyBookings(req: NextRequest) {
   const supabase = await getRouteHandlerSupabaseClient();
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
 
-  if (!session?.user?.email) {
+  if (authError || !user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -615,7 +621,7 @@ async function handleMyBookings(req: NextRequest) {
   const page = params.page;
   const pageSize = params.pageSize;
   const offset = (page - 1) * pageSize;
-  const email = session.user.email.toLowerCase();
+  const email = user.email.toLowerCase();
   let fromIso: string | undefined;
   let toIso: string | undefined;
 
@@ -627,9 +633,11 @@ async function handleMyBookings(req: NextRequest) {
   }
 
   const client = getServiceSupabaseClient();
+  const relation: "bookings" | "current_bookings" =
+    params.status === "active" ? "current_bookings" : "bookings";
 
   let query = client
-    .from("bookings")
+    .from(relation)
     .select("id, start_at, end_at, party_size, status, notes, restaurants(name)", { count: "exact" })
     .eq("customer_email", email);
 
@@ -637,7 +645,7 @@ async function handleMyBookings(req: NextRequest) {
     query = query.eq("restaurant_id", params.restaurantId);
   }
 
-  if (params.status) {
+  if (params.status && params.status !== "active") {
     query = query.eq("status", params.status);
   }
 

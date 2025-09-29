@@ -197,6 +197,39 @@ export type Database = {
           }
         ];
       };
+      booking_versions: {
+        Row: {
+          booking_id: string;
+          changed_at: string;
+          changed_by: string | null;
+          change_type: "created" | "updated" | "cancelled";
+          new_data: Json;
+          old_data: Json | null;
+          restaurant_id: string;
+          version_id: number;
+        };
+        Insert: {
+          booking_id: string;
+          changed_at?: string;
+          changed_by?: string | null;
+          change_type: "created" | "updated" | "cancelled";
+          new_data: Json;
+          old_data?: Json | null;
+          restaurant_id: string;
+          version_id?: number;
+        };
+        Update: {
+          booking_id?: string;
+          changed_at?: string;
+          changed_by?: string | null;
+          change_type?: "created" | "updated" | "cancelled";
+          new_data?: Json;
+          old_data?: Json | null;
+          restaurant_id?: string;
+          version_id?: number;
+        };
+        Relationships: [];
+      };
       customer_profiles: {
         Row: {
           customer_id: string;
@@ -830,7 +863,40 @@ export type Database = {
       };
     };
     Views: {
-      [_ in never]: never;
+      current_bookings: {
+        Row: {
+          auth_user_id: string | null;
+          booking_date: string;
+          booking_type: Database["public"]["Enums"]["booking_type"];
+          client_request_id: string;
+          created_at: string;
+          customer_email: string;
+          customer_id: string;
+          customer_name: string;
+          customer_phone: string;
+          details: Json | null;
+          end_at: string;
+          end_time: string;
+          id: string;
+          idempotency_key: string | null;
+          loyalty_points_awarded: number;
+          marketing_opt_in: boolean;
+          notes: string | null;
+          party_size: number;
+          pending_ref: string;
+          reference: string;
+          restaurant_id: string;
+          seating_preference: Database["public"]["Enums"]["seating_preference_type"];
+          slot: string;
+          source: string;
+          start_at: string;
+          start_time: string;
+          status: Database["public"]["Enums"]["booking_status"];
+          table_id: string | null;
+          updated_at: string;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       app_uuid: {

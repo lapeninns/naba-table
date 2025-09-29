@@ -34,7 +34,7 @@ export type BookingsPage = {
 export type BookingsFilters = {
   page?: number;
   pageSize?: number;
-  status?: BookingStatus | 'all';
+  status?: BookingStatus | 'all' | 'active';
   sort?: 'asc' | 'desc';
   from?: Date | string | null;
   to?: Date | string | null;
