@@ -18,7 +18,11 @@ import {
 } from "@/server/bookings";
 import type { BookingRecord } from "@/server/bookings";
 import type { Json } from "@/types/supabase";
-import { getDefaultRestaurantId, getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
+import {
+  getDefaultRestaurantId,
+  getRouteHandlerSupabaseClient,
+  getServiceSupabaseClient,
+} from "@/server/supabase";
 import { sendBookingConfirmationEmail } from "@/server/emails/bookings";
 import { recordObservabilityEvent } from "@/server/observability";
 import { normalizeEmail, upsertCustomer } from "@/server/customers";
@@ -29,10 +33,23 @@ import {
   recordBookingWaitlistedEvent,
 } from "@/server/analytics";
 
-const querySchema = z.object({
+const baseQuerySchema = z.object({
+  restaurantId: z.string().uuid().optional(),
+});
+
+const contactQuerySchema = baseQuerySchema.extend({
   email: z.string().email(),
   phone: z.string().min(7).max(50),
-  restaurantId: z.string().uuid().optional(),
+});
+
+const myBookingsQuerySchema = baseQuerySchema.extend({
+  me: z.literal("1"),
+  status: z.enum(["pending", "pending_allocation", "confirmed", "cancelled"]).optional(),
+  from: z.string().datetime({ offset: true }).optional(),
+  to: z.string().datetime({ offset: true }).optional(),
+  sort: z.enum(["asc", "desc"]).default("asc"),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(50).default(10),
 });
 
 const bookingTypeEnum = z.enum(BOOKING_TYPES);
@@ -121,9 +138,59 @@ function handleZodError(error: z.ZodError) {
   );
 }
 
+type BookingDTO = {
+  id: string;
+  restaurantName: string;
+  partySize: number;
+  startIso: string;
+  endIso: string;
+  status: "pending" | "pending_allocation" | "confirmed" | "cancelled";
+  notes?: string | null;
+};
+
+type PageInfo = {
+  page: number;
+  pageSize: number;
+  total: number;
+  hasNext: boolean;
+};
+
+type PageResponse<T> = {
+  items: T[];
+  pageInfo: PageInfo;
+};
+
+function toIsoStringOrThrow(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error("Invalid date");
+  }
+  return date.toISOString();
+}
+
+function toIsoString(value: unknown): string {
+  if (typeof value !== "string" && !(value instanceof Date)) {
+    return "";
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toISOString();
+}
+
 export async function GET(req: NextRequest) {
   try {
-    const parsedQuery = querySchema.safeParse({
+    const meParam = req.nextUrl.searchParams.get("me");
+
+    if (meParam === "1") {
+      return await handleMyBookings(req);
+    }
+
+    const parsedQuery = contactQuerySchema.safeParse({
       email: req.nextUrl.searchParams.get("email"),
       phone: req.nextUrl.searchParams.get("phone"),
       restaurantId: req.nextUrl.searchParams.get("restaurantId") ?? undefined,
@@ -135,7 +202,7 @@ export async function GET(req: NextRequest) {
 
     const { email, phone, restaurantId } = parsedQuery.data;
     const supabase = await getRouteHandlerSupabaseClient();
-    const targetRestaurantId = restaurantId ?? await getDefaultRestaurantId();
+    const targetRestaurantId = restaurantId ?? (await getDefaultRestaurantId());
 
     const bookings = await fetchBookingsForContact(supabase, targetRestaurantId, email, phone);
 
@@ -516,4 +583,121 @@ export async function POST(req: NextRequest) {
       { status: 500 },
     );
   }
+}
+async function handleMyBookings(req: NextRequest) {
+  const supabase = await getRouteHandlerSupabaseClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const rawParams = {
+    me: req.nextUrl.searchParams.get("me"),
+    status: req.nextUrl.searchParams.get("status") ?? undefined,
+    from: req.nextUrl.searchParams.get("from") ?? undefined,
+    to: req.nextUrl.searchParams.get("to") ?? undefined,
+    sort: req.nextUrl.searchParams.get("sort") ?? undefined,
+    page: req.nextUrl.searchParams.get("page") ?? undefined,
+    pageSize: req.nextUrl.searchParams.get("pageSize") ?? undefined,
+    restaurantId: req.nextUrl.searchParams.get("restaurantId") ?? undefined,
+  };
+
+  const parsed = myBookingsQuerySchema.safeParse(rawParams);
+
+  if (!parsed.success) {
+    return handleZodError(parsed.error);
+  }
+
+  const params = parsed.data;
+  const page = params.page;
+  const pageSize = params.pageSize;
+  const offset = (page - 1) * pageSize;
+  const email = session.user.email.toLowerCase();
+  let fromIso: string | undefined;
+  let toIso: string | undefined;
+
+  try {
+    fromIso = params.from ? toIsoStringOrThrow(params.from) : undefined;
+    toIso = params.to ? toIsoStringOrThrow(params.to) : undefined;
+  } catch (error) {
+    return NextResponse.json({ error: "Invalid date range" }, { status: 400 });
+  }
+
+  const client = getServiceSupabaseClient();
+
+  let query = client
+    .from("bookings")
+    .select("id, start_at, end_at, party_size, status, notes, restaurants(name)", { count: "exact" })
+    .eq("customer_email", email);
+
+  if (params.restaurantId) {
+    query = query.eq("restaurant_id", params.restaurantId);
+  }
+
+  if (params.status) {
+    query = query.eq("status", params.status);
+  }
+
+  if (fromIso) {
+    query = query.gte("start_at", fromIso);
+  }
+
+  if (toIso) {
+    query = query.lt("start_at", toIso);
+  }
+
+  query = query.order("start_at", { ascending: params.sort === "asc" });
+
+  type BookingRow = {
+    id: string;
+    start_at: string | Date | null;
+    end_at: string | Date | null;
+    party_size: number;
+    status: BookingDTO['status'];
+    notes: string | null;
+    restaurants: { name: string } | { name: string }[] | null;
+  };
+
+  const { data, error, count } = await query.range(offset, offset + pageSize - 1);
+
+  if (error) {
+    console.error("[bookings][GET][me]", error);
+    return NextResponse.json({ error: "Unable to fetch bookings" }, { status: 500 });
+  }
+
+  const rows: BookingRow[] = (data ?? []) as BookingRow[];
+
+  const items: BookingDTO[] = rows.map((booking) => {
+    const restaurant = Array.isArray(booking.restaurants)
+      ? booking.restaurants[0] ?? null
+      : booking.restaurants;
+
+    return {
+      id: booking.id,
+      restaurantName: restaurant?.name ?? "",
+      partySize: booking.party_size,
+      startIso: toIsoString(booking.start_at),
+      endIso: toIsoString(booking.end_at),
+      status: booking.status,
+      notes: booking.notes,
+    };
+  });
+
+  const total = count ?? items.length;
+  const hasNext = offset + items.length < total;
+
+  const response: PageResponse<BookingDTO> = {
+    items,
+    pageInfo: {
+      page,
+      pageSize,
+      total,
+      hasNext,
+    },
+  };
+
+  return NextResponse.json(response);
 }

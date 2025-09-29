@@ -241,7 +241,7 @@ CREATE TABLE IF NOT EXISTS public.bookings (
   -- extras from v2:
   auth_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   client_request_id uuid NOT NULL,      -- no default; caller must send
-  pending_ref uuid NOT NULL DEFAULT public.app_uuid(),
+  pending_ref uuid,                     -- made nullable (FK added later)
   idempotency_key text,
   details jsonb,
   CONSTRAINT bookings_time_order CHECK (end_at > start_at)
@@ -572,6 +572,7 @@ END
 $blk$;
 
 -- Bookings: compute start_at/end_at from date/time + restaurant timezone
+-- (with overnight handling when end_time <= start_time)
 CREATE OR REPLACE FUNCTION public.tg__bookings_compute_times()
 RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE tz text;
@@ -604,6 +605,9 @@ BEGIN
       0,
       tz
     );
+    IF NEW.end_at <= NEW.start_at THEN
+      NEW.end_at := NEW.end_at + interval '1 day';
+    END IF;
   END IF;
 
   RETURN NEW;
@@ -737,7 +741,7 @@ BEGIN
       FOR SELECT TO authenticated USING (public.tenant_permitted(restaurant_id));$$;
   END IF;
 
-  -- loyalty_points
+  -- loyalty_points (kept join-based for compatibility)
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='loyalty_points' AND policyname='Tenant read loyalty_points') THEN
     EXECUTE $$
       CREATE POLICY "Tenant read loyalty_points" ON public.loyalty_points
@@ -749,7 +753,7 @@ BEGIN
       ); $$;
   END IF;
 
-  -- loyalty_point_events
+  -- loyalty_point_events (kept join-based for compatibility)
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='loyalty_point_events' AND policyname='Tenant read loyalty_point_events') THEN
     EXECUTE $$
       CREATE POLICY "Tenant read loyalty_point_events" ON public.loyalty_point_events
@@ -842,5 +846,565 @@ GRANT EXECUTE ON FUNCTION public.tg__touch_updated_at()       TO authenticated, 
 GRANT EXECUTE ON FUNCTION public.tg__bookings_compute_times() TO authenticated, anon, service_role;
 
 -- ====================================================================
+-- MULTI-TENANT HARDENING (Idempotent upgrades for existing DBs)
+-- ====================================================================
+
+-- 0) Make bookings.pending_ref nullable and remove default (safe if already so)
+ALTER TABLE public.bookings
+  ALTER COLUMN pending_ref DROP NOT NULL,
+  ALTER COLUMN pending_ref DROP DEFAULT;
+
+-- 1) Composite uniqueness so we can reference (restaurant_id,id)
+CREATE UNIQUE INDEX IF NOT EXISTS customers_restaurant_id_uidx
+  ON public.customers (restaurant_id, id);
+CREATE UNIQUE INDEX IF NOT EXISTS restaurant_tables_restaurant_id_uidx
+  ON public.restaurant_tables (restaurant_id, id);
+CREATE UNIQUE INDEX IF NOT EXISTS restaurant_areas_restaurant_id_uidx
+  ON public.restaurant_areas (restaurant_id, id);
+CREATE UNIQUE INDEX IF NOT EXISTS loyalty_programs_restaurant_id_uidx
+  ON public.loyalty_programs (restaurant_id, id);
+
+-- 2) Enforce SAME-RESTAURANT relationships with composite FKs
+DO $blk$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname='bookings_customer_same_restaurant_fkey'
+  ) THEN
+    ALTER TABLE public.bookings
+      ADD CONSTRAINT bookings_customer_same_restaurant_fkey
+      FOREIGN KEY (restaurant_id, customer_id)
+      REFERENCES public.customers (restaurant_id, id)
+      DEFERRABLE INITIALLY IMMEDIATE;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname='bookings_table_same_restaurant_fkey'
+  ) THEN
+    ALTER TABLE public.bookings
+      ADD CONSTRAINT bookings_table_same_restaurant_fkey
+      FOREIGN KEY (restaurant_id, table_id)
+      REFERENCES public.restaurant_tables (restaurant_id, id)
+      DEFERRABLE INITIALLY IMMEDIATE;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname='restaurant_tables_area_same_restaurant_fkey'
+  ) THEN
+    ALTER TABLE public.restaurant_tables
+      ADD CONSTRAINT restaurant_tables_area_same_restaurant_fkey
+      FOREIGN KEY (restaurant_id, area_id)
+      REFERENCES public.restaurant_areas (restaurant_id, id)
+      DEFERRABLE INITIALLY IMMEDIATE;
+  END IF;
+END
+$blk$;
+
+-- 3) Loyalty tables: add restaurant scoping (Option B)
+ALTER TABLE public.loyalty_points
+  ADD COLUMN IF NOT EXISTS restaurant_id uuid;
+ALTER TABLE public.loyalty_point_events
+  ADD COLUMN IF NOT EXISTS restaurant_id uuid;
+
+-- Backfill restaurant_id from loyalty_programs
+UPDATE public.loyalty_points lp
+SET restaurant_id = p.restaurant_id
+FROM public.loyalty_programs p
+WHERE lp.restaurant_id IS NULL AND lp.program_id = p.id;
+
+UPDATE public.loyalty_point_events lpe
+SET restaurant_id = p.restaurant_id
+FROM public.loyalty_programs p
+WHERE lpe.restaurant_id IS NULL AND lpe.program_id = p.id;
+
+-- Lock it in
+ALTER TABLE public.loyalty_points
+  ALTER COLUMN restaurant_id SET NOT NULL;
+ALTER TABLE public.loyalty_point_events
+  ALTER COLUMN restaurant_id SET NOT NULL;
+
+-- Composite uniqueness for fast FK checks (optional but helpful)
+CREATE UNIQUE INDEX IF NOT EXISTS loyalty_points_prog_customer_uidx
+  ON public.loyalty_points (program_id, customer_id);
+
+-- Composite FKs
+DO $blk$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname='loyalty_points_program_same_restaurant_fkey'
+  ) THEN
+    ALTER TABLE public.loyalty_points
+      ADD CONSTRAINT loyalty_points_program_same_restaurant_fkey
+      FOREIGN KEY (restaurant_id, program_id)
+      REFERENCES public.loyalty_programs (restaurant_id, id)
+      DEFERRABLE INITIALLY IMMEDIATE;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname='loyalty_points_customer_same_restaurant_fkey'
+  ) THEN
+    ALTER TABLE public.loyalty_points
+      ADD CONSTRAINT loyalty_points_customer_same_restaurant_fkey
+      FOREIGN KEY (restaurant_id, customer_id)
+      REFERENCES public.customers (restaurant_id, id)
+      DEFERRABLE INITIALLY IMMEDIATE;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname='loyalty_point_events_program_same_restaurant_fkey'
+  ) THEN
+    ALTER TABLE public.loyalty_point_events
+      ADD CONSTRAINT loyalty_point_events_program_same_restaurant_fkey
+      FOREIGN KEY (restaurant_id, program_id)
+      REFERENCES public.loyalty_programs (restaurant_id, id)
+      DEFERRABLE INITIALLY IMMEDIATE;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname='loyalty_point_events_customer_same_restaurant_fkey'
+  ) THEN
+    ALTER TABLE public.loyalty_point_events
+      ADD CONSTRAINT loyalty_point_events_customer_same_restaurant_fkey
+      FOREIGN KEY (restaurant_id, customer_id)
+      REFERENCES public.customers (restaurant_id, id)
+      DEFERRABLE INITIALLY IMMEDIATE;
+  END IF;
+END
+$blk$;
+
+-- 4) Pending flow: link bookings.pending_ref -> pending_bookings.nonce
+DO $blk$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname='bookings_pending_ref_fkey'
+  ) THEN
+    ALTER TABLE public.bookings
+      ADD CONSTRAINT bookings_pending_ref_fkey
+      FOREIGN KEY (pending_ref) REFERENCES public.pending_bookings(nonce)
+      ON DELETE SET NULL DEFERRABLE INITIALLY IMMEDIATE;
+  END IF;
+END
+$blk$;
+
+-- 5) Business-logic constraints
+
+-- Unique area name per restaurant
+CREATE UNIQUE INDEX IF NOT EXISTS restaurant_areas_restaurant_name_uidx
+  ON public.restaurant_areas (restaurant_id, lower(name));
+
+-- Availability rules: valid times (use DO block for idempotence)
+DO $blk$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'availability_rules_time_order'
+      AND conrelid = 'public.availability_rules'::regclass
+  ) THEN
+    ALTER TABLE public.availability_rules
+      ADD CONSTRAINT availability_rules_time_order
+      CHECK (close_time > open_time);
+  END IF;
+END
+$blk$;
+
+-- Prevent duplicates per (day, type)
+CREATE UNIQUE INDEX IF NOT EXISTS availability_rules_nodup_uidx
+  ON public.availability_rules (restaurant_id, day_of_week, booking_type);
+
+-- One review per booking (when booking_id present)
+CREATE UNIQUE INDEX IF NOT EXISTS reviews_booking_uidx
+  ON public.reviews (booking_id)
+  WHERE booking_id IS NOT NULL;
+
+-- 6) FK indexes (performance)
+CREATE INDEX IF NOT EXISTS restaurant_areas_restaurant_idx
+  ON public.restaurant_areas (restaurant_id);
+CREATE INDEX IF NOT EXISTS restaurant_tables_restaurant_idx
+  ON public.restaurant_tables (restaurant_id);
+CREATE INDEX IF NOT EXISTS restaurant_tables_area_idx
+  ON public.restaurant_tables (area_id);
+CREATE INDEX IF NOT EXISTS loyalty_points_program_idx
+  ON public.loyalty_points (program_id);
+CREATE INDEX IF NOT EXISTS loyalty_points_restaurant_idx
+  ON public.loyalty_points (restaurant_id);
+CREATE INDEX IF NOT EXISTS loyalty_point_events_program_idx
+  ON public.loyalty_point_events (program_id);
+CREATE INDEX IF NOT EXISTS loyalty_point_events_restaurant_idx
+  ON public.loyalty_point_events (restaurant_id);
+CREATE INDEX IF NOT EXISTS loyalty_point_events_booking_idx
+  ON public.loyalty_point_events (booking_id);
+CREATE INDEX IF NOT EXISTS analytics_events_booking_idx
+  ON public.analytics_events (booking_id);
+
+-- 7) RLS write policies for authenticated clients (tenant-safe inserts/updates)
+DO $blk$
+DECLARE
+  t text;
+BEGIN
+  -- Tables with explicit restaurant_id (exclude 'restaurants' itself)
+  FOR t IN
+    SELECT unnest(ARRAY[
+      'restaurant_areas','restaurant_tables','customers','bookings',
+      'reviews','availability_rules','waiting_list','loyalty_programs',
+      'booking_drafts','analytics_events'
+    ])
+  LOOP
+    -- INSERT policy
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE schemaname='public' AND tablename=t AND policyname=('Tenant insert '||t)
+    ) THEN
+      EXECUTE format(
+        'CREATE POLICY %I ON %I.%I FOR INSERT TO authenticated
+         WITH CHECK (public.tenant_permitted(restaurant_id));',
+        'Tenant insert '||t, 'public', t
+      );
+    END IF;
+
+    -- UPDATE policy
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE schemaname='public' AND tablename=t AND policyname=('Tenant update '||t)
+    ) THEN
+      EXECUTE format(
+        'CREATE POLICY %I ON %I.%I FOR UPDATE TO authenticated
+         USING (public.tenant_permitted(restaurant_id))
+         WITH CHECK (public.tenant_permitted(restaurant_id));',
+        'Tenant update '||t, 'public', t
+      );
+    END IF;
+  END LOOP;
+
+  -- Loyalty points/events (restaurant_id now explicit)
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='loyalty_points' AND policyname='Tenant insert loyalty_points'
+  ) THEN
+    EXECUTE $sql$
+      CREATE POLICY "Tenant insert loyalty_points" ON public.loyalty_points
+      FOR INSERT TO authenticated
+      WITH CHECK (public.tenant_permitted(restaurant_id));
+    $sql$;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='loyalty_points' AND policyname='Tenant update loyalty_points'
+  ) THEN
+    EXECUTE $sql$
+      CREATE POLICY "Tenant update loyalty_points" ON public.loyalty_points
+      FOR UPDATE TO authenticated
+      USING (public.tenant_permitted(restaurant_id))
+      WITH CHECK (public.tenant_permitted(restaurant_id));
+    $sql$;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='loyalty_point_events' AND policyname='Tenant insert loyalty_point_events'
+  ) THEN
+    EXECUTE $sql$
+      CREATE POLICY "Tenant insert loyalty_point_events" ON public.loyalty_point_events
+      FOR INSERT TO authenticated
+      WITH CHECK (public.tenant_permitted(restaurant_id));
+    $sql$;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='loyalty_point_events' AND policyname='Tenant update loyalty_point_events'
+  ) THEN
+    EXECUTE $sql$
+      CREATE POLICY "Tenant update loyalty_point_events" ON public.loyalty_point_events
+      FOR UPDATE TO authenticated
+      USING (public.tenant_permitted(restaurant_id))
+      WITH CHECK (public.tenant_permitted(restaurant_id));
+    $sql$;
+  END IF;
+END
+$blk$;
+
+
+-- 8) Optional: make profiles.customer_id a UUID FK (if desired)
+-- ALTER TABLE public.profiles
+--   ALTER COLUMN customer_id TYPE uuid USING NULLIF(customer_id,'')::uuid;
+-- DO $blk$
+-- BEGIN
+--   IF NOT EXISTS (
+--     SELECT 1 FROM pg_constraint
+--     WHERE conname = 'profiles_customer_fkey'
+--   ) THEN
+--     ALTER TABLE public.profiles
+--       ADD CONSTRAINT profiles_customer_fkey
+--       FOREIGN KEY (customer_id) REFERENCES public.customers(id) ON DELETE SET NULL;
+--   END IF;
+-- END
+-- $blk$;
+
+-- ====================================================================
 -- End schema
+-- ====================================================================
+
+-- ====================================================================
+-- PATCH: Switch to DB-driven multi-tenant auth (Option B)
+-- - Adds public.restaurant_memberships
+-- - Replaces public.tenant_permitted() to check DB membership
+-- - Adds public.has_role() helper (optional but recommended)
+-- - Enables RLS & policies on memberships
+-- - Adds grants for new objects
+-- Safe to re-run (idempotent).
+-- ====================================================================
+
+-- =========================
+-- Membership table
+-- =========================
+CREATE TABLE IF NOT EXISTS public.restaurant_memberships (
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  restaurant_id uuid NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
+  role text NOT NULL CHECK (role IN ('owner','admin','staff','viewer')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, restaurant_id)
+);
+
+-- Helpful index for RLS EXISTS() checks (restaurant-first)
+CREATE INDEX IF NOT EXISTS restaurant_memberships_restaurant_idx
+  ON public.restaurant_memberships (restaurant_id, user_id);
+
+-- Also useful for "my orgs" lookups
+CREATE INDEX IF NOT EXISTS restaurant_memberships_user_idx
+  ON public.restaurant_memberships (user_id, restaurant_id);
+
+-- =========================
+-- RLS on memberships
+-- =========================
+ALTER TABLE public.restaurant_memberships ENABLE ROW LEVEL SECURITY;
+
+-- Service role: full access (idempotent)
+DO $blk$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public'
+      AND tablename='restaurant_memberships'
+      AND policyname='Service role full access restaurant_memberships'
+  ) THEN
+    EXECUTE $SQL$
+      CREATE POLICY "Service role full access restaurant_memberships"
+      ON public.restaurant_memberships
+      USING (auth.role() = 'service_role')
+      WITH CHECK (auth.role() = 'service_role');
+    $SQL$;
+  END IF;
+END
+$blk$;
+
+-- Authenticated users: read memberships they are part of
+DO $blk$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public'
+      AND tablename='restaurant_memberships'
+      AND policyname='Users read own memberships'
+  ) THEN
+    EXECUTE $SQL$
+      CREATE POLICY "Users read own memberships"
+      ON public.restaurant_memberships
+      FOR SELECT TO authenticated
+      USING (user_id = auth.uid());
+    $SQL$;
+  END IF;
+END
+$blk$;
+
+-- NOTE on write policies:
+-- To avoid bootstrap deadlocks (no member can add the first member),
+-- we keep writes restricted to service_role by default. If you want
+-- owners/admins to manage membership from the app, enable the
+-- optional role-based policies further below.
+
+-- =========================
+-- Replace tenant_permitted() to use DB membership
+-- =========================
+CREATE OR REPLACE FUNCTION public.tenant_permitted(tenant uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT
+    CASE
+      WHEN auth.role() = 'service_role' THEN true
+      WHEN tenant IS NULL THEN false
+      ELSE EXISTS (
+        SELECT 1
+        FROM public.restaurant_memberships m
+        WHERE m.restaurant_id = tenant
+          AND m.user_id = auth.uid()
+      )
+    END;
+$$;
+
+-- Keep your existing policies as-is; they already call public.tenant_permitted(restaurant_id).
+
+-- =========================
+-- Optional: role helper for finer-grained RLS
+-- =========================
+CREATE OR REPLACE FUNCTION public.has_role(tenant uuid, need text)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+AS $$
+  -- need ∈ {'viewer','staff','admin','owner'}
+  -- Hierarchy: owner > admin > staff > viewer
+  WITH me AS (
+    SELECT m.role
+    FROM public.restaurant_memberships m
+    WHERE m.restaurant_id = tenant
+      AND m.user_id = auth.uid()
+    LIMIT 1
+  )
+  SELECT CASE
+    WHEN auth.role() = 'service_role' THEN true
+    WHEN tenant IS NULL THEN false
+    WHEN NOT EXISTS (SELECT 1 FROM me) THEN false
+    ELSE (
+      SELECT
+        (need = 'viewer' AND me.role IN ('viewer','staff','admin','owner')) OR
+        (need = 'staff'  AND me.role IN ('staff','admin','owner')) OR
+        (need = 'admin'  AND me.role IN ('admin','owner')) OR
+        (need = 'owner'  AND me.role =  'owner')
+      FROM me
+    )
+  END;
+$$;
+
+-- =========================
+-- (Optional) Role-based write policies for memberships
+-- Comment out if you want service_role-only writes.
+-- =========================
+DO $blk$
+BEGIN
+  -- Owners/admins can add/modify members in their tenant
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public'
+      AND tablename='restaurant_memberships'
+      AND policyname='Admins manage memberships'
+  ) THEN
+    EXECUTE $SQL$
+      CREATE POLICY "Admins manage memberships"
+      ON public.restaurant_memberships
+      FOR INSERT TO authenticated
+      WITH CHECK (public.has_role(restaurant_id, 'admin'));
+    $SQL$;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public'
+      AND tablename='restaurant_memberships'
+      AND policyname='Admins update memberships'
+  ) THEN
+    EXECUTE $SQL$
+      CREATE POLICY "Admins update memberships"
+      ON public.restaurant_memberships
+      FOR UPDATE TO authenticated
+      USING (public.has_role(restaurant_id, 'admin'))
+      WITH CHECK (public.has_role(restaurant_id, 'admin'));
+    $SQL$;
+  END IF;
+
+  -- Owners/admins can remove memberships
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public'
+      AND tablename='restaurant_memberships'
+      AND policyname='Admins delete memberships'
+  ) THEN
+    EXECUTE $SQL$
+      CREATE POLICY "Admins delete memberships"
+      ON public.restaurant_memberships
+      FOR DELETE TO authenticated
+      USING (public.has_role(restaurant_id, 'admin'));
+    $SQL$;
+  END IF;
+END
+$blk$;
+
+-- =========================
+-- Grants for new objects
+-- =========================
+GRANT SELECT ON TABLE public.restaurant_memberships TO authenticated;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated; -- (already present, but harmless)
+GRANT EXECUTE ON FUNCTION public.has_role(uuid, text) TO authenticated, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.tenant_permitted(uuid) TO authenticated, anon, service_role;
+
+-- ====================================================================
+-- (Optional) Strengthen existing write policies to require roles
+-- If you want stricter control than tenant membership alone,
+-- uncomment per-table lines below to require at least 'staff' or 'admin'.
+-- This keeps your current policy names; it just narrows the predicate.
+-- ====================================================================
+/*
+DO $blk$
+DECLARE t text;
+BEGIN
+  -- Tables where writes should require at least 'staff'
+  FOR t IN
+    SELECT unnest(ARRAY[
+      'restaurant_areas','restaurant_tables','customers','bookings',
+      'reviews','availability_rules','waiting_list','loyalty_programs',
+      'booking_drafts','analytics_events','loyalty_points','loyalty_point_events'
+    ])
+  LOOP
+    -- UPDATE policy tightening (if it exists, replace with USING/CHECK on has_role)
+    EXECUTE format($SQL$
+      DO $inner$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM pg_policies
+          WHERE schemaname='public' AND tablename=%L AND policyname=('Tenant update '||%L)
+        ) THEN
+          -- Drop & recreate to include role check (idempotent approach could also wrap in dedicated names)
+          EXECUTE format('DROP POLICY %I ON public.%I;', 'Tenant update '||%1$s, %1$s);
+          EXECUTE format(
+            'CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated
+             USING (public.tenant_permitted(restaurant_id) AND public.has_role(restaurant_id, ''staff''))
+             WITH CHECK (public.tenant_permitted(restaurant_id) AND public.has_role(restaurant_id, ''staff''));',
+            'Tenant update '||%1$s, %1$s
+          );
+        END IF;
+
+        IF EXISTS (
+          SELECT 1 FROM pg_policies
+          WHERE schemaname='public' AND tablename=%L AND policyname=('Tenant insert '||%L)
+        ) THEN
+          EXECUTE format('DROP POLICY %I ON public.%I;', 'Tenant insert '||%1$s, %1$s);
+          EXECUTE format(
+            'CREATE POLICY %I ON public.%I FOR INSERT TO authenticated
+             WITH CHECK (public.tenant_permitted(restaurant_id) AND public.has_role(restaurant_id, ''staff''));',
+            'Tenant insert '||%1$s, %1$s
+          );
+        END IF;
+      END
+      $inner$;
+    $SQL$, t, t);
+  END LOOP;
+END
+$blk$;
+*/
+
+-- ====================================================================
+-- Bootstrap notes (non-SQL):
+-- - Use your service key (Edge Function / server) to insert the first
+--   membership row per restaurant as ('owner' or 'admin').
+-- - After that, your admins can manage membership via the optional
+--   policies above (or keep it service-only if you prefer).
 -- ====================================================================

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { JSX } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -8,6 +8,7 @@ import Image from "next/image";
 import ButtonSignin from "./ButtonSignin";
 import logo from "@/app/icon.png";
 import config from "@/config";
+import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 const links: {
   href: string;
@@ -34,6 +35,46 @@ const cta: JSX.Element = <ButtonSignin extraStyle="btn-primary" />;
 const Header = () => {
   const searchParams = useSearchParams();
   const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [hasSession, setHasSession] = useState<boolean>(false);
+  const supabase = getSupabaseBrowserClient();
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const syncSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (isMounted) {
+        setHasSession((prev) => {
+          const next = Boolean(session);
+          return prev === next ? prev : next;
+        });
+      }
+    };
+
+    void syncSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setHasSession(Boolean(session));
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  const navLinks = useMemo(() => {
+    if (hasSession) {
+      return [...links, { href: "/dashboard", label: "Dashboard" }];
+    }
+
+    return links;
+  }, [hasSession]);
 
   // setIsOpen(false) when the route changes (i.e: when the user clicks on a link on mobile)
   useEffect(() => {
@@ -92,7 +133,7 @@ const Header = () => {
 
         {/* Your links on large screens */}
         <div className="hidden lg:flex lg:justify-center lg:gap-12 lg:items-center">
-          {links.map((link) => (
+          {navLinks.map((link) => (
             <Link
               href={link.href}
               key={link.href}
@@ -158,7 +199,7 @@ const Header = () => {
           <div className="flow-root mt-6">
             <div className="py-4">
               <div className="flex flex-col gap-y-4 items-start">
-                {links.map((link) => (
+                {navLinks.map((link) => (
                   <Link
                     href={link.href}
                     key={link.href}

@@ -5,6 +5,7 @@ import { getSEOTags } from "@/libs/seo";
 import ClientLayout from "@/components/LayoutClient";
 import config from "@/config";
 import "./globals.css";
+import { AppProviders } from "./providers";
 
 export const viewport: Viewport = {
   // Will use the primary color of your theme to show a nice theme color in the URL bar of supported browsers
@@ -27,7 +28,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       )}
       <body className="font-sans">
         {/* ClientLayout contains all the client wrappers (Crisp chat support, toast messages, tooltips, etc.) */}
-        <ClientLayout>{children}</ClientLayout>
+        <AppProviders>
+          <ClientLayout>{children}</ClientLayout>
+        </AppProviders>
       </body>
     </html>
   );
