@@ -1,0 +1,284 @@
+'use client';
+
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { CancelBookingDialog } from '@/components/dashboard/CancelBookingDialog';
+import { EditBookingDialog } from '@/components/dashboard/EditBookingDialog';
+import { StatusChip } from '@/components/dashboard/StatusChip';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { emit } from '@/lib/analytics/emit';
+import { useReservation } from '@features/reservations/wizard/api/useReservation';
+
+import type { BookingDTO } from '@/hooks/useBookings';
+import type { Reservation } from '@entities/reservation/reservation.schema';
+
+const formatDate = (iso: string | null | undefined) => {
+  if (!iso) return '—';
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return '—';
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'full',
+  }).format(parsed);
+};
+
+const formatTimeRange = (startIso: string | null | undefined, endIso: string | null | undefined) => {
+  if (!startIso) return '—';
+  const start = new Date(startIso);
+  if (Number.isNaN(start.getTime())) return '—';
+  const timeFormatter = new Intl.DateTimeFormat(undefined, {
+    hour: 'numeric',
+    minute: 'numeric',
+  });
+  const startLabel = timeFormatter.format(start);
+  if (!endIso) {
+    return startLabel;
+  }
+  const end = new Date(endIso);
+  if (Number.isNaN(end.getTime())) {
+    return startLabel;
+  }
+  return `${startLabel} – ${timeFormatter.format(end)}`;
+};
+
+const buildBookingDto = (reservation: Reservation | undefined, restaurantName: string | null): BookingDTO | null => {
+  if (!reservation) return null;
+  return {
+    id: reservation.id,
+    restaurantName: restaurantName ?? 'Reservation',
+    partySize: reservation.partySize,
+    startIso: reservation.startAt,
+    endIso: reservation.endAt ?? reservation.startAt,
+    status: reservation.status as BookingDTO['status'],
+    notes: reservation.notes ?? null,
+  };
+};
+
+export type ReservationDetailClientProps = {
+  reservationId: string;
+  restaurantName: string | null;
+};
+
+export function ReservationDetailClient({ reservationId, restaurantName }: ReservationDetailClientProps) {
+  const router = useRouter();
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isCancelOpen, setIsCancelOpen] = useState(false);
+  const viewTrackedRef = useRef(false);
+
+  const { data: reservation, error, isError, isLoading, refetch, isFetching } = useReservation(reservationId);
+
+  const bookingDto = useMemo(() => buildBookingDto(reservation, restaurantName), [reservation, restaurantName]);
+
+  useEffect(() => {
+    if (!reservation || viewTrackedRef.current) return;
+    viewTrackedRef.current = true;
+    void emit('reservation_detail_viewed', {
+      reservationId,
+      status: reservation.status,
+      allocation_pending: reservation.allocationPending ? 1 : 0,
+    });
+  }, [reservation, reservationId]);
+
+  const handleEdit = useCallback(() => {
+    if (!reservation) return;
+    void emit('reservation_detail_edit_clicked', { reservationId });
+    setIsEditOpen(true);
+  }, [reservation, reservationId]);
+
+  const handleCancel = useCallback(() => {
+    if (!reservation) return;
+    void emit('reservation_detail_cancel_clicked', { reservationId });
+    setIsCancelOpen(true);
+  }, [reservation, reservationId]);
+
+  const handleRebook = useCallback(() => {
+    if (!reservation) return;
+    void emit('reservation_detail_rebook_clicked', {
+      reservationId,
+      party: reservation.partySize,
+    });
+    router.push(`/reserve?source=rebook&reservationId=${reservation.id}`);
+  }, [reservation, reservationId, router]);
+
+  const closeEditDialog = useCallback((open: boolean) => {
+    setIsEditOpen(open);
+  }, []);
+
+  const closeCancelDialog = useCallback((open: boolean) => {
+    setIsCancelOpen(open);
+  }, []);
+
+  const actionDisabled = reservation?.status === 'cancelled';
+
+  if (isLoading && !reservation) {
+    return (
+      <section className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-12" aria-busy>
+        <Skeleton className="h-5 w-24" />
+        <Skeleton className="h-10 w-2/3" />
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-16 w-full" />
+      </section>
+    );
+  }
+
+  if (isError && !reservation) {
+    return (
+      <section className="mx-auto w-full max-w-3xl space-y-6 px-4 py-12">
+        <Alert variant="destructive">
+          <div className="space-y-2">
+            <AlertTitle>Unable to load reservation</AlertTitle>
+            <AlertDescription>
+              {error?.message ?? 'Something went wrong while fetching the reservation details.'}
+            </AlertDescription>
+          </div>
+          <div className="ml-auto flex flex-wrap gap-3">
+            <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
+              Retry
+            </Button>
+            <Link href="/reserve" className={buttonVariants({ variant: 'primary' })}>
+              Back to booking
+            </Link>
+          </div>
+        </Alert>
+      </section>
+    );
+  }
+
+  if (!reservation) {
+    return null;
+  }
+
+  const reservationDate = formatDate(reservation.startAt);
+  const reservationTime = formatTimeRange(reservation.startAt, reservation.endAt);
+
+  const warnings: Array<{ id: string; title: string; description: string; variant: 'warning' | 'info' }> = [];
+
+  if (reservation.status === 'pending_allocation' || reservation.allocationPending) {
+    warnings.push({
+      id: 'allocation',
+      title: 'We are finding you a table',
+      description:
+        'Thanks for your patience—our team is confirming a table for your party. We will email you as soon as the booking is allocated.',
+      variant: 'warning',
+    });
+  } else if (reservation.status === 'pending') {
+    warnings.push({
+      id: 'pending',
+      title: 'Reservation awaiting confirmation',
+      description:
+        'This reservation is awaiting confirmation. Our team will update you shortly; feel free to reach out if your plans change.',
+      variant: 'info',
+    });
+  }
+
+  const metadataConflict = reservation.metadata?.conflict?.reason;
+  if (metadataConflict) {
+    warnings.push({
+      id: 'conflict',
+      title: 'Schedule conflict detected',
+      description:
+        reservation.metadata?.conflict?.reason ?? 'A conflict was detected for this reservation. Please review the details and adjust.',
+      variant: 'warning',
+    });
+  }
+
+  const metadataRescheduled = reservation.metadata?.rescheduledFrom;
+  if (metadataRescheduled) {
+    const previousDate = formatDate(metadataRescheduled);
+    warnings.push({
+      id: 'rescheduled',
+      title: 'Reservation rescheduled',
+      description: `This reservation was moved from ${previousDate}. Double-check the new time before you arrive.`,
+      variant: 'info',
+    });
+  }
+
+  return (
+    <section className="mx-auto w-full max-w-4xl space-y-8 px-4 py-12">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="space-y-2">
+          <Link href="/dashboard" className="text-sm text-srx-brand underline-offset-4 hover:underline">
+            ← Back to dashboard
+          </Link>
+          <h1 className="text-3xl font-semibold text-srx-ink-strong">Reservation details</h1>
+          <p className="text-srx-ink-soft">
+            {reservation.reference ? `Reference ${reservation.reference}` : 'Manage your upcoming visit.'}
+          </p>
+        </div>
+        <StatusChip status={reservation.status as BookingDTO['status']} />
+      </div>
+
+      {warnings.map((warning) => (
+        <Alert key={warning.id} variant={warning.variant}>
+          <div>
+            <AlertTitle>{warning.title}</AlertTitle>
+            <AlertDescription>{warning.description}</AlertDescription>
+          </div>
+        </Alert>
+      ))}
+
+      <div className="rounded-[var(--radius-lg)] border border-srx-border-subtle bg-white/95 shadow-card">
+        <div className="flex flex-col gap-4 border-b border-srx-border-subtle p-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <h2 className="text-xl font-semibold text-srx-ink-strong">
+              {restaurantName ?? 'Your reservation'}
+            </h2>
+            <p className="text-sm text-srx-ink-soft">{reservationDate}</p>
+            <p className="text-sm text-srx-ink-soft">
+              {reservationTime} · party of {reservation.partySize}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="primary" onClick={handleRebook} disabled={isFetching}>
+              Rebook
+            </Button>
+            <Button variant="outline" onClick={handleEdit} disabled={actionDisabled}>
+              Edit
+            </Button>
+            <Button variant="destructive" onClick={handleCancel} disabled={actionDisabled}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid gap-6 p-6 md:grid-cols-2">
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold text-srx-ink-muted">Guest name</h3>
+            <p className="text-base text-srx-ink-strong">{reservation.customerName}</p>
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold text-srx-ink-muted">Contact</h3>
+            <p className="text-base text-srx-ink-strong">{reservation.customerEmail}</p>
+            <p className="text-base text-srx-ink-soft">{reservation.customerPhone}</p>
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold text-srx-ink-muted">Seating preference</h3>
+            <p className="text-base text-srx-ink-strong">{reservation.seatingPreference}</p>
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold text-srx-ink-muted">Booking type</h3>
+            <p className="text-base text-srx-ink-strong">{reservation.bookingType}</p>
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <h3 className="text-sm font-semibold text-srx-ink-muted">Notes</h3>
+            <p className="text-base text-srx-ink-strong">
+              {reservation.notes?.trim() ? reservation.notes : 'No special notes added.'}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {bookingDto ? (
+        <>
+          <EditBookingDialog booking={bookingDto} open={isEditOpen} onOpenChange={closeEditDialog} />
+          <CancelBookingDialog booking={bookingDto} open={isCancelOpen} onOpenChange={closeCancelDialog} />
+        </>
+      ) : null}
+    </section>
+  );
+}
+
+export default ReservationDetailClient;

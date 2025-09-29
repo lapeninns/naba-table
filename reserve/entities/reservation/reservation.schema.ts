@@ -1,14 +1,41 @@
 import { z } from 'zod';
 
+const reservationMetadataSchema = z
+  .object({
+    channel: z.string().nullable().optional(),
+    allocationPending: z.boolean().optional(),
+    request: z
+      .object({
+        idempotencyKey: z.string().nullable().optional(),
+        clientRequestId: z.string().nullable().optional(),
+        userAgent: z.string().nullable().optional(),
+      })
+      .optional(),
+    conflict: z
+      .object({
+        reason: z.string().nullable().optional(),
+        detectedAt: z.string().datetime().nullable().optional(),
+        resolvedAt: z.string().datetime().nullable().optional(),
+      })
+      .optional(),
+    rescheduledFrom: z.string().datetime().nullable().optional(),
+    rescheduledAt: z.string().datetime().nullable().optional(),
+  })
+  .partial()
+  .nullable();
+
 export const reservationSchema = z.object({
   id: z.string().uuid(),
   restaurantId: z.string().uuid(),
+  restaurantName: z.string().nullable().optional(),
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   startTime: z.string().regex(/^\d{2}:\d{2}$/),
   endTime: z
     .string()
     .regex(/^\d{2}:\d{2}$/)
     .optional(),
+  startAt: z.string().datetime(),
+  endAt: z.string().datetime().nullable().optional(),
   partySize: z.number().int().positive(),
   bookingType: z.enum(['lunch', 'dinner', 'drinks']),
   seatingPreference: z.string(),
@@ -19,8 +46,16 @@ export const reservationSchema = z.object({
   marketingOptIn: z.boolean(),
   notes: z.string().nullable(),
   reference: z.string().optional(),
+  allocationPending: z.boolean(),
+  clientRequestId: z.string().uuid().nullable(),
+  idempotencyKey: z.string().nullable(),
+  pendingRef: z.string().nullable(),
+  metadata: reservationMetadataSchema,
+  createdAt: z.string().datetime().nullable().optional(),
+  updatedAt: z.string().datetime().nullable().optional(),
 });
 
+export type ReservationMetadata = z.infer<typeof reservationMetadataSchema>;
 export type Reservation = z.infer<typeof reservationSchema>;
 
 export const reservationListSchema = z.array(reservationSchema);

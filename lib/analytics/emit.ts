@@ -36,7 +36,7 @@ export type AnalyticsEventPayload = {
 };
 
 let queue: AnalyticsEventPayload[] = [];
-let flushTimer: ReturnType<typeof setTimeout> | null = null;
+let flushTimer: number | null = null;
 let isFlushing = false;
 let identityPromise: Promise<AnalyticsUser> | null = null;
 let listenersBound = false;
@@ -142,7 +142,7 @@ async function resolveIdentity(): Promise<AnalyticsUser> {
       console.warn('[analytics] identity promise rejected', error);
     }
     identityPromise = null;
-    return { anonId: getAnonId(), emailHash: null };
+    return { anonId: getAnonId(), emailHash: null as string | null };
   });
 
   return identityPromise;
@@ -157,7 +157,7 @@ function sanitizeProps(input: Record<string, unknown> | undefined): AnalyticsEve
       continue;
     }
     if (value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-      props[key] = value;
+      props[key] = value as JsonValue;
       continue;
     }
     if (Array.isArray(value)) {
