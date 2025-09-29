@@ -1,6 +1,5 @@
 import { NextResponse, NextRequest } from "next/server";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
+import { getRouteHandlerSupabaseClient } from "@/server/supabase";
 import { z } from "zod";
 
 import { createCheckout } from "@/libs/stripe";
@@ -20,8 +19,7 @@ function stringifyError(error: unknown): string {
 // Users must be authenticated. It will prefill the Checkout data with their email and/or credit card (if any)
 export async function POST(req: NextRequest) {
   try {
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const supabase = await getRouteHandlerSupabaseClient();
 
     const {
       data: { session },

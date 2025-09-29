@@ -20,7 +20,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { track } from '@/lib/analytics';
 
-import { detailsFormSchema, type DetailsFormValues } from '../../model/schemas';
+import {
+  detailsFormSchema,
+  type DetailsFormInputValues,
+  type DetailsFormValues,
+} from '../../model/schemas';
 
 import type { Action, State, StepAction } from '../../model/reducer';
 
@@ -31,7 +35,7 @@ interface DetailsStepProps {
 }
 
 export function DetailsStep({ state, dispatch, onActionsChange }: DetailsStepProps) {
-  const form = useForm<DetailsFormValues>({
+  const form = useForm<DetailsFormInputValues, unknown, DetailsFormValues>({
     resolver: zodResolver(detailsFormSchema),
     mode: 'onChange',
     reValidateMode: 'onBlur',
@@ -45,9 +49,16 @@ export function DetailsStep({ state, dispatch, onActionsChange }: DetailsStepPro
     },
   });
 
+  const normalizeValues = (values: DetailsFormInputValues): DetailsFormValues => ({
+    ...values,
+    rememberDetails: values.rememberDetails ?? true,
+    marketingOptIn: values.marketingOptIn ?? true,
+    agree: values.agree ?? false,
+  });
+
   useEffect(() => {
-    const current = form.getValues();
-    const next: DetailsFormValues = {
+    const current = normalizeValues(form.getValues());
+    const nextInput: DetailsFormInputValues = {
       name: state.details.name ?? '',
       email: state.details.email ?? '',
       phone: state.details.phone ?? '',
@@ -55,6 +66,7 @@ export function DetailsStep({ state, dispatch, onActionsChange }: DetailsStepPro
       marketingOptIn: state.details.marketingOptIn ?? true,
       agree: state.details.agree ?? false,
     };
+    const next = normalizeValues(nextInput);
 
     if (
       current.name !== next.name ||
@@ -64,7 +76,7 @@ export function DetailsStep({ state, dispatch, onActionsChange }: DetailsStepPro
       current.marketingOptIn !== next.marketingOptIn ||
       current.agree !== next.agree
     ) {
-      form.reset(next, { keepDirty: false, keepTouched: false });
+      form.reset(nextInput, { keepDirty: false, keepTouched: false });
     }
   }, [
     form,

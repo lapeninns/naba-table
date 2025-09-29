@@ -7,5 +7,5 @@ import { reserveRoutes } from './routes';
 
 export function ReserveRouter() {
   const router = useMemo(() => createBrowserRouter(reserveRoutes), []);
-  return <RouterProvider router={router} future={{ v7_startTransition: true }} />;
+  return <RouterProvider router={router} />;
 }

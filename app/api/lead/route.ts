@@ -1,6 +1,5 @@
 import { NextResponse, NextRequest } from "next/server";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
+import { getRouteHandlerSupabaseClient } from "@/server/supabase";
 
 function stringifyError(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -30,7 +29,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = await getRouteHandlerSupabaseClient();
     await supabase.from("leads").insert({ email: body.email });
 
     return NextResponse.json({});

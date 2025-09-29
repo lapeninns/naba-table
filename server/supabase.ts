@@ -1,6 +1,7 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
+import { NextResponse, type NextRequest } from "next/server";
 
 import { Database } from "@/types/supabase";
 
@@ -8,8 +9,14 @@ export { BOOKING_BLOCKING_STATUSES } from "@/lib/enums";
 
 let serviceClient: SupabaseClient<Database, any, any> | null = null;
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_URL = assertSupabaseEnv("NEXT_PUBLIC_SUPABASE_URL", process.env.NEXT_PUBLIC_SUPABASE_URL);
+const SUPABASE_ANON_KEY = assertSupabaseEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+const SUPABASE_SERVICE_ROLE_KEY = assertSupabaseEnv("SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY);
+const DEFAULT_RESTAURANT_FALLBACK_ID = "f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68";
+const DEFAULT_RESTAURANT_SLUG = process.env.NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG;
+
+let cachedDefaultRestaurantId: string | null = process.env.NEXT_PUBLIC_DEFAULT_RESTAURANT_ID ?? null;
+let resolvingDefaultRestaurantId: Promise<string> | null = null;
 
 function assertSupabaseEnv(varName: string, value: string | undefined): string {
   if (!value) {
@@ -18,12 +25,34 @@ function assertSupabaseEnv(varName: string, value: string | undefined): string {
   return value;
 }
 
-export function getServiceSupabaseClient(): SupabaseClient<Database, any, any> {
-  const supabaseUrl = assertSupabaseEnv("NEXT_PUBLIC_SUPABASE_URL", SUPABASE_URL);
-  const serviceRoleKey = assertSupabaseEnv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_SERVICE_ROLE_KEY);
+type CookieReader = {
+  getAll: () => { name: string; value: string }[];
+};
 
+type CookieWriter = {
+  set: (options: { name: string; value: string; [key: string]: unknown }) => void;
+};
+
+type NextCookies = Awaited<ReturnType<typeof cookies>>;
+
+function createCookieAdapter(store: CookieReader, writer?: CookieWriter) {
+  return {
+    getAll: () => store.getAll().map(({ name, value }) => ({ name, value })),
+    ...(writer
+      ? {
+          setAll: (cookiesToSet: { name: string; value: string; options: Record<string, unknown> }[]) => {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              writer.set({ name, value, ...options });
+            });
+          },
+        }
+      : {}),
+  };
+}
+
+export function getServiceSupabaseClient(): SupabaseClient<Database, any, any> {
   if (!serviceClient) {
-    serviceClient = createClient<Database>(supabaseUrl, serviceRoleKey, {
+    serviceClient = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: {
         persistSession: false,
       },
@@ -33,10 +62,81 @@ export function getServiceSupabaseClient(): SupabaseClient<Database, any, any> {
   return serviceClient;
 }
 
-export function getRouteHandlerSupabaseClient(cookieStore = cookies()): SupabaseClient<Database, any, any> {
-  return createRouteHandlerClient<Database>({ cookies: () => cookieStore }) as SupabaseClient<Database, any, any>;
+export async function getServerComponentSupabaseClient(): Promise<SupabaseClient<Database, any, any>> {
+  const cookieStore = await cookies();
+  return createServerClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    cookies: createCookieAdapter(cookieStore),
+  });
 }
 
-export function getDefaultRestaurantId(): string {
-  return process.env.BOOKING_DEFAULT_RESTAURANT_ID ?? process.env.NEXT_PUBLIC_DEFAULT_RESTAURANT_ID ?? "f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68";
+export async function getRouteHandlerSupabaseClient(
+  cookieStore?: NextCookies,
+): Promise<SupabaseClient<Database, any, any>> {
+  const store = cookieStore ?? (await cookies());
+  return createServerClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    cookies: createCookieAdapter(store, store as CookieWriter),
+  });
 }
+
+export function getMiddlewareSupabaseClient(req: NextRequest, res: NextResponse): SupabaseClient<Database, any, any> {
+  return createServerClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    cookies: createCookieAdapter(req.cookies, res.cookies),
+  });
+}
+
+export async function getDefaultRestaurantId(): Promise<string> {
+  if (process.env.BOOKING_DEFAULT_RESTAURANT_ID) {
+    return process.env.BOOKING_DEFAULT_RESTAURANT_ID;
+  }
+
+  if (cachedDefaultRestaurantId) {
+    return cachedDefaultRestaurantId;
+  }
+
+  if (!resolvingDefaultRestaurantId) {
+    const service = getServiceSupabaseClient();
+
+    const resolve = async (): Promise<string> => {
+      try {
+        if (DEFAULT_RESTAURANT_SLUG) {
+          const { data, error } = await service
+            .from("restaurants")
+            .select("id")
+            .eq("slug", DEFAULT_RESTAURANT_SLUG)
+            .maybeSingle();
+
+          if (!error && data?.id) {
+            return data.id;
+          }
+        }
+
+        const { data, error } = await service
+          .from("restaurants")
+          .select("id")
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
+        if (!error && data?.id) {
+          return data.id;
+        }
+      } catch (cause) {
+        console.error("[supabase][default-restaurant] failed to resolve id", cause);
+      }
+
+      return DEFAULT_RESTAURANT_FALLBACK_ID;
+    };
+
+    resolvingDefaultRestaurantId = resolve().then((value) => {
+      cachedDefaultRestaurantId = value ?? DEFAULT_RESTAURANT_FALLBACK_ID;
+      return cachedDefaultRestaurantId;
+    });
+  }
+
+  const resolved = await resolvingDefaultRestaurantId;
+  cachedDefaultRestaurantId = resolved ?? DEFAULT_RESTAURANT_FALLBACK_ID;
+  return cachedDefaultRestaurantId;
+}
+
+
+

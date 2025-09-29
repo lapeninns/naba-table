@@ -50,6 +50,7 @@ export const detailsFormSchema = z.object({
   }),
 });
 
-export type DetailsFormValues = z.infer<typeof detailsFormSchema>;
+export type DetailsFormInputValues = z.input<typeof detailsFormSchema>;
+export type DetailsFormValues = z.output<typeof detailsFormSchema>;
 
 export type BookingOptionSchema = BookingOption;

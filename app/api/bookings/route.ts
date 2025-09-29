@@ -134,8 +134,8 @@ export async function GET(req: NextRequest) {
     }
 
     const { email, phone, restaurantId } = parsedQuery.data;
-    const supabase = getRouteHandlerSupabaseClient();
-    const targetRestaurantId = restaurantId ?? getDefaultRestaurantId();
+    const supabase = await getRouteHandlerSupabaseClient();
+    const targetRestaurantId = restaurantId ?? await getDefaultRestaurantId();
 
     const bookings = await fetchBookingsForContact(supabase, targetRestaurantId, email, phone);
 
@@ -170,7 +170,7 @@ export async function POST(req: NextRequest) {
   }
 
   const data = parsed.data;
-  const restaurantId = data.restaurantId ?? getDefaultRestaurantId();
+  const restaurantId = data.restaurantId ?? await getDefaultRestaurantId();
   const idempotencyKey = normalizeIdempotencyKey(req.headers.get("Idempotency-Key"));
   const clientRequestId = coerceUuid(idempotencyKey) ?? randomUUID();
   const userAgent = req.headers.get("user-agent");

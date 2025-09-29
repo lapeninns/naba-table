@@ -101,7 +101,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   }
 
   try {
-    const supabase = getRouteHandlerSupabaseClient();
+    const supabase = await getRouteHandlerSupabaseClient();
     const { data, error } = await supabase
       .from("bookings")
       .select(
@@ -151,7 +151,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
   }
 
   const data = parsed.data;
-  const tenantSupabase = getRouteHandlerSupabaseClient();
+  const tenantSupabase = await getRouteHandlerSupabaseClient();
   const serviceSupabase = getServiceSupabaseClient();
 
   try {
@@ -178,7 +178,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "You can only update your own reservation" }, { status: 403 });
     }
 
-    const restaurantId = data.restaurantId ?? existingBooking.restaurant_id ?? getDefaultRestaurantId();
+    const restaurantId = data.restaurantId ?? existingBooking.restaurant_id ?? await getDefaultRestaurantId();
     const startTime = data.time;
     const normalizedBookingType = data.bookingType === "drinks" ? "drinks" : inferMealTypeFromTime(startTime);
     const endTime = deriveEndTime(startTime, normalizedBookingType);
@@ -334,7 +334,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
   }
 
   const { email, phone, restaurantId } = parsed.data;
-  const tenantSupabase = getRouteHandlerSupabaseClient();
+  const tenantSupabase = await getRouteHandlerSupabaseClient();
   const serviceSupabase = getServiceSupabaseClient();
 
   try {
@@ -388,7 +388,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       console.error("[bookings][DELETE][analytics]", stringifyError(analyticsError));
     }
 
-    const targetRestaurantId = restaurantId ?? existingBooking.restaurant_id ?? getDefaultRestaurantId();
+    const targetRestaurantId = restaurantId ?? existingBooking.restaurant_id ?? await getDefaultRestaurantId();
     const bookings = await fetchBookingsForContact(tenantSupabase, targetRestaurantId, email, phone);
 
     try {
