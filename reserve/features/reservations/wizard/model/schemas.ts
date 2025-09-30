@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import { BOOKING_TYPES_UI } from '@/lib/enums';
 import { bookingHelpers, type BookingOption } from '@reserve/shared/utils/booking';
+import { BOOKING_TYPES_UI } from '@shared/config/booking';
 
 const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
 

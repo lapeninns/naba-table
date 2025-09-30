@@ -5,7 +5,7 @@ import * as React from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { cn } from '@/lib/utils';
+import { cn } from '@shared/lib/cn';
 
 import { resolveWizardIcon } from './wizardIcons';
 import { WizardProgress, type WizardStepMeta, type WizardSummary } from './WizardProgress';
