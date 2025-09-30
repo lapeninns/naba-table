@@ -11,7 +11,7 @@ export default function NotFoundPage() {
         continue.
       </p>
       <Link
-        to="/reserve"
+        to="/"
         className="mt-6 rounded-md bg-srx-ink-strong px-4 py-2 text-white hover:bg-srx-ink-strong/90"
       >
         Return to reservations

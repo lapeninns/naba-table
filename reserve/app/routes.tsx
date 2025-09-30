@@ -1,4 +1,4 @@
-import { lazy } from 'react';
+import React, { lazy } from 'react';
 
 import { ReserveRootLayout } from '@pages/RootLayout';
 import { ReserveErrorBoundary } from '@pages/RouteError';
@@ -10,7 +10,7 @@ const ReservationDetailsPage = lazy(() => import('@pages/ReservationDetailsPage'
 
 export const reserveRoutes: RouteObject[] = [
   {
-    path: '/reserve',
+    path: '/',
     element: <ReserveRootLayout />,
     errorElement: <ReserveErrorBoundary />,
     children: [

@@ -4,12 +4,16 @@ import { visualizer } from 'rollup-plugin-visualizer';
 import { defineConfig } from 'vite';
 
 const analyze = process.env.ANALYZE === 'true';
+const buildOutDir = process.env.RESERVE_BUILD_OUT_DIR
+  ? path.resolve(__dirname, process.env.RESERVE_BUILD_OUT_DIR)
+  : path.resolve(__dirname, '../dist/reserve');
 
 export default defineConfig({
   root: __dirname,
-  plugins: [react(), analyze && visualizer({ filename: 'dist/analyze.html', open: false })].filter(
-    Boolean,
-  ),
+  plugins: [
+    react(),
+    analyze && visualizer({ filename: path.join(buildOutDir, 'analyze.html'), open: false }),
+  ].filter(Boolean),
   resolve: {
     alias: {
       '@reserve': path.resolve(__dirname),
@@ -23,7 +27,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: path.resolve(__dirname, '../.reserve-dist'),
+    outDir: buildOutDir,
     emptyOutDir: true,
   },
   server: {

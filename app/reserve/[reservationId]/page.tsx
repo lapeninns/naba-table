@@ -4,7 +4,7 @@ import { notFound, redirect } from 'next/navigation';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
 import { reservationAdapter } from '@entities/reservation/adapter';
 
-import ReservationDetailClient from './ReservationDetailClient';
+import { ReservationDetailClient } from './ReservationDetailClient';
 
 import type { Metadata } from 'next';
 

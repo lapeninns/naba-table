@@ -6,7 +6,22 @@ const envSchema = z.object({
   API_BASE_URL: z.string().min(1),
   API_TIMEOUT_MS: z.number().int().positive(),
   RESERVE_V2_ENABLED: z.boolean(),
+  ROUTER_BASE_PATH: z.string().min(1),
 });
+
+const sanitizeBasePath = (value: string | null | undefined): string => {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return '/reserve';
+  }
+
+  if (trimmed === '/') {
+    return '/';
+  }
+
+  const withoutSlashes = trimmed.replace(/^\/+/, '').replace(/\/+$/, '');
+  return `/${withoutSlashes}`;
+};
 
 const apiBaseUrlRaw = runtime.readString('RESERVE_API_BASE_URL', {
   alternatives: ['NEXT_PUBLIC_RESERVE_API_BASE_URL', 'API_BASE_URL'],
@@ -22,10 +37,17 @@ const reserveV2Raw = runtime.readBoolean('RESERVE_V2_ENABLED', {
   fallback: false,
 });
 
+const routerBasePathRaw = runtime.readString('RESERVE_ROUTER_BASE_PATH', {
+  alternatives: ['NEXT_PUBLIC_RESERVE_ROUTER_BASE_PATH', 'ROUTER_BASE_PATH'],
+});
+
+const routerBasePath = sanitizeBasePath(routerBasePathRaw);
+
 const raw = {
   API_BASE_URL: apiBaseUrlRaw ?? '/api',
   API_TIMEOUT_MS: apiTimeoutRaw ?? 15_000,
   RESERVE_V2_ENABLED: reserveV2Raw ?? false,
+  ROUTER_BASE_PATH: routerBasePath,
 };
 
 const parsed = envSchema.safeParse(raw);
@@ -42,6 +64,12 @@ if (!apiBaseUrlRaw && !(runtime.isDev || runtime.isTest)) {
 
 if (!apiBaseUrlRaw && runtime.isDev) {
   console.warn('[reserve env] Using fallback API base URL "/api" because no env var was found.');
+}
+
+if (routerBasePathRaw && routerBasePathRaw !== routerBasePath && runtime.isDev) {
+  console.warn(
+    `[reserve env] Normalized RESERVE_ROUTER_BASE_PATH from "${routerBasePathRaw}" to "${routerBasePath}".`,
+  );
 }
 
 export const env = parsed.data;

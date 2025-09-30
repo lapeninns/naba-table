@@ -5,6 +5,7 @@ import { useRef } from 'react';
 
 import { reservationAdapter, reservationListAdapter } from '@entities/reservation/adapter';
 import { apiClient, type ApiError } from '@shared/api/client';
+import { reservationKeys } from '@shared/api/queryKeys';
 
 import type { ReservationSubmissionResult } from './types';
 import type { ReservationDraft } from '../model/reducer';
@@ -63,9 +64,9 @@ export function useCreateReservation() {
       } satisfies ReservationSubmissionResult;
     },
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['reservations'] });
+      queryClient.invalidateQueries({ queryKey: reservationKeys.all() });
       if (result.booking) {
-        queryClient.setQueryData(['reservation', result.booking.id], result.booking);
+        queryClient.setQueryData(reservationKeys.detail(result.booking.id), result.booking);
       }
     },
   });

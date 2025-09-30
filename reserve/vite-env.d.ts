@@ -13,6 +13,8 @@ interface ImportMetaEnv {
   readonly VITE_RESERVE_DEFAULT_VENUE_POLICY?: string;
   readonly RESERVE_DEFAULT_RESTAURANT_ID?: string;
   readonly RESERVE_ANALYTICS_DEBUG?: string;
+  readonly VITE_RESERVE_ROUTER_BASE_PATH?: string;
+  readonly RESERVE_ROUTER_BASE_PATH?: string;
 }
 
 interface ImportMeta {

@@ -4,12 +4,13 @@ import { useQuery } from '@tanstack/react-query';
 
 import { reservationAdapter } from '@entities/reservation/adapter';
 import { apiClient, type ApiError } from '@shared/api/client';
+import { reservationKeys } from '@shared/api/queryKeys';
 
 import type { Reservation } from '@entities/reservation/reservation.schema';
 
 export function useReservation(reservationId: string | undefined) {
   return useQuery<Reservation, ApiError>({
-    queryKey: ['reservation', reservationId],
+    queryKey: reservationKeys.detail(reservationId),
     enabled: Boolean(reservationId),
     queryFn: async ({ signal }) => {
       if (!reservationId) {
