@@ -1,5 +1,8 @@
 import Image from "next/image";
-import PrimaryButton from "@/components/mobile/PrimaryButton";
+import Link from "next/link";
+
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export default function ProfilePage() {
   return (
@@ -10,6 +13,7 @@ export default function ProfilePage() {
         <div>
           <p className="text-card-title">Guest User</p>
           <p className="text-label">Verified traveler</p>
+          <p className="text-xs text-label mt-1">Add your name, phone, and photo to keep confirmations accurate.</p>
         </div>
       </div>
       <div className="mt-6 grid gap-3">
@@ -23,9 +27,13 @@ export default function ProfilePage() {
         </button>
       </div>
       <div className="mt-6">
-        <PrimaryButton className="w-full">Edit profile</PrimaryButton>
+        <Link
+          href="/profile/manage"
+          className={cn(buttonVariants({ variant: "primary", size: "primary" }), "w-full text-center")}
+        >
+          Edit profile
+        </Link>
       </div>
     </main>
   );
 }
-

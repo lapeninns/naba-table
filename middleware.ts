@@ -1,7 +1,8 @@
+import appConfig from "@/config";
 import { getMiddlewareSupabaseClient } from "@/server/supabase";
 import { NextResponse, type NextRequest } from "next/server";
 
-const DASHBOARD_MATCHER = /^\/dashboard(\/.*)?$/;
+const PROTECTED_MATCHERS = [/^\/dashboard(\/.*)?$/, /^\/profile(\/.*)?$/];
 
 // Refresh the Supabase session and gate dashboard routes behind authentication.
 export async function middleware(req: NextRequest) {
@@ -11,9 +12,10 @@ export async function middleware(req: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession();
 
-  if (!session && DASHBOARD_MATCHER.test(req.nextUrl.pathname)) {
+  if (!session && PROTECTED_MATCHERS.some((matcher) => matcher.test(req.nextUrl.pathname))) {
     const redirectUrl = req.nextUrl.clone();
-    redirectUrl.pathname = "/login";
+    const loginPath = appConfig.auth?.loginUrl ?? "/signin";
+    redirectUrl.pathname = loginPath.startsWith("/") ? loginPath : `/${loginPath}`;
     redirectUrl.searchParams.set("redirectedFrom", req.nextUrl.pathname);
     return NextResponse.redirect(redirectUrl);
   }
@@ -22,5 +24,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*"],
+  matcher: ["/dashboard/:path*", "/profile/:path*"],
 };

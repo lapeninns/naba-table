@@ -3,11 +3,11 @@
 import { AlertTriangle, CheckCircle2, Clock3, Info, XCircle } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Alert, AlertDescription, AlertIcon } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { bookingHelpers } from '@reserve/shared/utils/booking';
 import { DEFAULT_VENUE } from '@shared/config/venue';
+import { Alert, AlertDescription, AlertIcon } from '@shared/ui/alert';
+import { Button } from '@shared/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@shared/ui/card';
 
 import type { State, StepAction } from '../../model/reducer';
 

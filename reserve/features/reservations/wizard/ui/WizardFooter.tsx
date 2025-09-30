@@ -3,9 +3,9 @@
 import { Loader2 } from 'lucide-react';
 import * as React from 'react';
 
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { cn } from '@shared/lib/cn';
+import { Button } from '@shared/ui/button';
+import { Separator } from '@shared/ui/separator';
 
 import { resolveWizardIcon } from './wizardIcons';
 import { WizardProgress, type WizardStepMeta, type WizardSummary } from './WizardProgress';

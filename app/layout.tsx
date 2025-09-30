@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { type CSSProperties, type ReactNode } from "react";
 import { Viewport } from "next";
 import PlausibleProvider from "next-plausible";
 import { getSEOTags } from "@/libs/seo";
@@ -18,9 +18,19 @@ export const viewport: Viewport = {
 // You can override them in each page passing params to getSOTags() function.
 export const metadata = getSEOTags();
 
+const htmlStyle: CSSProperties = {
+  transitionProperty: "none",
+  marginRight: "0px",
+};
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" data-theme={config.colors.theme} className="antialiased font-sans">
+    <html
+      lang={config.locale ?? "en"}
+      data-theme={config.colors.theme}
+      className="antialiased font-sans"
+      style={htmlStyle}
+    >
       {config.domainName && (
         <head>
           <PlausibleProvider domain={config.domainName} />

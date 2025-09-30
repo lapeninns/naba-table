@@ -566,6 +566,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   id uuid PRIMARY KEY,
   name text,
   email public.email_address,
+  phone text CHECK (phone IS NULL OR char_length(phone) BETWEEN 7 AND 20),
   image text,
   customer_id text,
   price_id text,

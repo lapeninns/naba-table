@@ -9,7 +9,7 @@ const tabs = [
   { href: "/wishlists", label: "Wishlists", icon: Heart },
   { href: "/trips", label: "Trips", icon: CalendarDays },
   { href: "/messages", label: "Messages", icon: MessageSquare },
-  { href: "/profile", label: "Profile", icon: User },
+  { href: "/profile/manage", label: "Profile", icon: User },
 ];
 
 export default function BottomTabs() {
@@ -48,4 +48,3 @@ export default function BottomTabs() {
     </nav>
   );
 }
-

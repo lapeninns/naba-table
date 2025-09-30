@@ -1,8 +1,8 @@
 'use client';
 
-import { Label } from '@/components/ui/label';
 import { Icon } from '@reserve/shared/ui/icons';
 import { bookingHelpers } from '@reserve/shared/utils/booking';
+import { Label } from '@shared/ui/label';
 
 import type { PropsWithChildren, ReactNode } from 'react';
 

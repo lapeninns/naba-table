@@ -1,46 +1,98 @@
 import Link from "next/link";
+
 import ButtonSignin from "@/components/ButtonSignin";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export default function Page() {
   return (
-    <>
-      <header className="p-4 flex justify-end max-w-7xl mx-auto">
-        <ButtonSignin text="Login" />
+    <div className="flex min-h-screen flex-col bg-base-100">
+      <header className="border-b border-base-300 bg-base-200/80 backdrop-blur">
+        <div className="container mx-auto flex items-center justify-between gap-4 px-6 py-5">
+          <Link href="/" className="text-lg font-semibold text-base-content">
+            SajiloReserveX
+          </Link>
+
+          <nav className="hidden items-center gap-6 text-sm font-medium md:flex">
+            <Link href="/reserve" className="text-base-content/80 hover:text-base-content transition">
+              Make a reservation
+            </Link>
+            <Link href="/dashboard" className="text-base-content/80 hover:text-base-content transition">
+              View dashboard
+            </Link>
+            <Link href="/profile/manage" className="text-base-content/80 hover:text-base-content transition">
+              Manage profile
+            </Link>
+          </nav>
+
+          <ButtonSignin text="Sign in" />
+        </div>
       </header>
 
-      <main>
-        <section className="flex flex-col items-center justify-center text-center gap-12 px-8 py-24">
-          <h1 className="text-3xl font-extrabold">Ship Fast ⚡️</h1>
+      <main className="flex-1">
+        <section className="container mx-auto flex flex-col items-center gap-10 px-6 py-24 text-center md:px-10">
+          <div className="max-w-3xl space-y-6">
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-base-content/70">Hospitality CRM</p>
+            <h1 className="text-4xl font-extrabold tracking-tight text-base-content sm:text-5xl">
+              Plan, confirm, and manage reservations in seconds
+            </h1>
+            <p className="text-lg text-base-content/80">
+              SajiloReserveX keeps your tables full and your guests informed. Create bookings, monitor status changes, and update guest details without leaving your browser.
+            </p>
+          </div>
 
-          <p className="text-lg opacity-80">
-            The start of your new startup... What are you gonna build?
-          </p>
-
-          <a
-            className="btn btn-primary"
-            href="https://shipfa.st/docs"
-            target="_blank"
-          >
-            Documentation & tutorials{" "}
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              className="w-5 h-5"
+          <div className="flex w-full flex-col justify-center gap-4 sm:flex-row">
+            <Link
+              href="/reserve"
+              className={cn(buttonVariants({ variant: "primary", size: "primary" }), 'w-full sm:w-auto')}
             >
-              <path
-                fillRule="evenodd"
-                d="M5 10a.75.75 0 01.75-.75h6.638L10.23 7.29a.75.75 0 111.04-1.08l3.5 3.25a.75.75 0 010 1.08l-3.5 3.25a.75.75 0 11-1.04-1.08l2.158-1.96H5.75A.75.75 0 015 10z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </a>
+              Start a new reservation
+            </Link>
+            <Link
+              href="/dashboard"
+              className={cn(buttonVariants({ variant: "outline", size: "primary" }), 'w-full sm:w-auto')}
+            >
+              Review upcoming bookings
+            </Link>
+            <Link
+              href="/profile/manage"
+              className={cn(buttonVariants({ variant: "ghost", size: "primary" }), 'w-full sm:w-auto')}
+            >
+              Update guest profile
+            </Link>
+          </div>
 
-          <Link href="/blog" className="link link-hover text-sm">
-            Fancy a blog?
-          </Link>
+          <div className="grid w-full gap-6 rounded-3xl border border-base-200 bg-white/80 p-8 text-left shadow-sm md:grid-cols-3">
+            <div className="space-y-2">
+              <h2 className="text-base font-semibold text-base-content">Reserve in moments</h2>
+              <p className="text-sm text-base-content/70">
+                Guide guests through availability, seating preferences, and confirmation emails without leaving the flow.
+              </p>
+              <Link href="/reserve" className="text-sm font-medium text-primary hover:underline">
+                Try the booking flow →
+              </Link>
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-base font-semibold text-base-content">Manage bookings centrally</h2>
+              <p className="text-sm text-base-content/70">
+                Filter, edit, and cancel reservations from your dashboard with audit history and loyalty status at a glance.
+              </p>
+              <Link href="/dashboard" className="text-sm font-medium text-primary hover:underline">
+                Open the dashboard →
+              </Link>
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-base font-semibold text-base-content">Keep contact info current</h2>
+              <p className="text-sm text-base-content/70">
+                Upload a guest avatar, adjust names, and add reliable phone numbers so confirmations reach the right person.
+              </p>
+              <Link href="/profile/manage" className="text-sm font-medium text-primary hover:underline">
+                Edit your profile →
+              </Link>
+            </div>
+          </div>
         </section>
       </main>
-    </>
+    </div>
   );
 }

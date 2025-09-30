@@ -5,9 +5,10 @@ import { AlertCircle } from 'lucide-react';
 import React, { useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 
-import { Alert, AlertDescription, AlertIcon } from '@/components/ui/alert';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
+import { track } from '@shared/lib/analytics';
+import { Alert, AlertDescription, AlertIcon } from '@shared/ui/alert';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@shared/ui/card';
+import { Checkbox } from '@shared/ui/checkbox';
 import {
   Form,
   FormControl,
@@ -16,9 +17,8 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { track } from '@shared/lib/analytics';
+} from '@shared/ui/form';
+import { Input } from '@shared/ui/input';
 
 import {
   detailsFormSchema,
@@ -268,7 +268,7 @@ export function DetailsStep({ state, actions, onActionsChange }: DetailsStepProp
                         <Checkbox
                           checked={field.value}
                           onChange={(event) => {
-                            const next = event.target.checked;
+                            const next = (event.target as HTMLInputElement).checked;
                             field.onChange(next);
                             updateField('rememberDetails', next);
                           }}
@@ -295,7 +295,7 @@ export function DetailsStep({ state, actions, onActionsChange }: DetailsStepProp
                         <Checkbox
                           checked={field.value}
                           onChange={(event) => {
-                            const next = event.target.checked;
+                            const next = (event.target as HTMLInputElement).checked;
                             field.onChange(next);
                             updateField('marketingOptIn', next);
                           }}
@@ -323,7 +323,7 @@ export function DetailsStep({ state, actions, onActionsChange }: DetailsStepProp
                           <Checkbox
                             checked={field.value}
                             onChange={(event) => {
-                              const next = event.target.checked;
+                              const next = (event.target as HTMLInputElement).checked;
                               field.onChange(next);
                               updateField('agree', next);
                             }}

@@ -174,6 +174,7 @@ CREATE TABLE public.profiles (
   id uuid NOT NULL,
   name text,
   email text,
+  phone text,
   image text,
   customer_id text,
   price_id text,

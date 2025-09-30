@@ -3,10 +3,10 @@
 import { AlertTriangle } from 'lucide-react';
 import React, { useCallback, useEffect } from 'react';
 
-import { Alert, AlertDescription, AlertIcon } from '@/components/ui/alert';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { bookingHelpers } from '@reserve/shared/utils/booking';
 import { track } from '@shared/lib/analytics';
+import { Alert, AlertDescription, AlertIcon } from '@shared/ui/alert';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@shared/ui/card';
 
 import type { State, StepAction } from '../../model/reducer';
 import type { WizardActions } from '../../model/store';

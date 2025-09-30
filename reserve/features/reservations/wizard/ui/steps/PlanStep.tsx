@@ -4,10 +4,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Icon } from '@reserve/shared/ui/icons';
+import { bookingHelpers, type BookingOption } from '@reserve/shared/utils/booking';
+import { track } from '@shared/lib/analytics';
+import { Badge } from '@shared/ui/badge';
+import { Button } from '@shared/ui/button';
+import { Calendar } from '@shared/ui/calendar';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@shared/ui/card';
 import {
   Form,
   FormControl,
@@ -16,14 +19,11 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Textarea } from '@/components/ui/textarea';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Icon } from '@reserve/shared/ui/icons';
-import { bookingHelpers, type BookingOption } from '@reserve/shared/utils/booking';
-import { track } from '@shared/lib/analytics';
+} from '@shared/ui/form';
+import { Popover, PopoverContent, PopoverTrigger } from '@shared/ui/popover';
+import { Textarea } from '@shared/ui/textarea';
+import { ToggleGroup, ToggleGroupItem } from '@shared/ui/toggle-group';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@shared/ui/tooltip';
 
 import { planFormSchema, type PlanFormValues } from '../../model/schemas';
 

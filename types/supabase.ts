@@ -577,30 +577,39 @@ export type Database = {
       };
       profiles: {
         Row: {
-          created_at: string | null;
-          customer_id: string | null;
-          email: string | null;
-          has_access: boolean | null;
           id: string;
+          name: string | null;
+          email: string | null;
+          phone: string | null;
+          image: string | null;
+          customer_id: string | null;
           price_id: string | null;
+          has_access: boolean | null;
+          created_at: string | null;
           updated_at: string | null;
         };
         Insert: {
-          created_at?: string | null;
-          customer_id?: string | null;
-          email?: string | null;
-          has_access?: boolean | null;
           id: string;
+          name?: string | null;
+          email?: string | null;
+          phone?: string | null;
+          image?: string | null;
+          customer_id?: string | null;
           price_id?: string | null;
+          has_access?: boolean | null;
+          created_at?: string | null;
           updated_at?: string | null;
         };
         Update: {
-          created_at?: string | null;
-          customer_id?: string | null;
-          email?: string | null;
-          has_access?: boolean | null;
           id?: string;
+          name?: string | null;
+          email?: string | null;
+          phone?: string | null;
+          image?: string | null;
+          customer_id?: string | null;
           price_id?: string | null;
+          has_access?: boolean | null;
+          created_at?: string | null;
           updated_at?: string | null;
         };
         Relationships: [];

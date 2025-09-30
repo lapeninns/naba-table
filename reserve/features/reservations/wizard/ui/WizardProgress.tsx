@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 
-import { Progress } from '@/components/ui/progress';
 import { cn } from '@shared/lib/cn';
+import { Progress } from '@shared/ui/progress';
 
 export interface WizardStepMeta {
   id: number;
@@ -53,7 +53,7 @@ export function WizardProgress({ steps, currentStep, summary, className }: Wizar
           </p>
         ) : null}
       </div>
-      <Progress value={progressValue} max={100} className="h-1.5" />
+      <Progress value={progressValue} className="h-1.5" />
       <ol className="flex items-center justify-between gap-2" aria-label="Steps">
         {steps.map((step, index) => {
           const stepNumber = index + 1;
