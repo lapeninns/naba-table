@@ -14,7 +14,7 @@ import { WizardLayout } from './WizardLayout';
 function ReservationWizardContent() {
   const {
     state,
-    dispatch,
+    actions,
     heroRef,
     stepsMeta,
     stickyVisible,
@@ -48,21 +48,17 @@ function ReservationWizardContent() {
         switch (state.step) {
           case 1:
             return (
-              <PlanStep state={state} dispatch={dispatch} onActionsChange={handleActionsChange} />
+              <PlanStep state={state} actions={actions} onActionsChange={handleActionsChange} />
             );
           case 2:
             return (
-              <DetailsStep
-                state={state}
-                dispatch={dispatch}
-                onActionsChange={handleActionsChange}
-              />
+              <DetailsStep state={state} actions={actions} onActionsChange={handleActionsChange} />
             );
           case 3:
             return (
               <ReviewStep
                 state={state}
-                dispatch={dispatch}
+                actions={actions}
                 onConfirm={handleConfirm}
                 onActionsChange={handleActionsChange}
               />

@@ -18,7 +18,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { track } from '@/lib/analytics';
+import { track } from '@shared/lib/analytics';
 
 import {
   detailsFormSchema,
@@ -26,15 +26,16 @@ import {
   type DetailsFormValues,
 } from '../../model/schemas';
 
-import type { Action, State, StepAction } from '../../model/reducer';
+import type { State, StepAction } from '../../model/reducer';
+import type { WizardActions } from '../../model/store';
 
 interface DetailsStepProps {
   state: State;
-  dispatch: React.Dispatch<Action>;
+  actions: Pick<WizardActions, 'updateDetails' | 'goToStep'>;
   onActionsChange: (actions: StepAction[]) => void;
 }
 
-export function DetailsStep({ state, dispatch, onActionsChange }: DetailsStepProps) {
+export function DetailsStep({ state, actions, onActionsChange }: DetailsStepProps) {
   const form = useForm<DetailsFormInputValues, unknown, DetailsFormValues>({
     resolver: zodResolver(detailsFormSchema),
     mode: 'onChange',
@@ -88,16 +89,16 @@ export function DetailsStep({ state, dispatch, onActionsChange }: DetailsStepPro
     state.details.rememberDetails,
   ]);
 
-  const dispatchField = useCallback(
+  const updateField = useCallback(
     <K extends keyof State['details']>(key: K, value: State['details'][K]) => {
-      dispatch({ type: 'SET_FIELD', key, value });
+      actions.updateDetails(key, value);
     },
-    [dispatch],
+    [actions],
   );
 
   const handleBack = useCallback(() => {
-    dispatch({ type: 'SET_STEP', step: 1 });
-  }, [dispatch]);
+    actions.goToStep(1);
+  }, [actions]);
 
   const handleError = useCallback(
     (errors: Record<string, unknown>) => {
@@ -115,28 +116,28 @@ export function DetailsStep({ state, dispatch, onActionsChange }: DetailsStepPro
       const trimmedEmail = values.email.trim();
       const trimmedPhone = values.phone.trim();
 
-      dispatchField('name', trimmedName);
-      dispatchField('email', trimmedEmail);
-      dispatchField('phone', trimmedPhone);
-      dispatchField('rememberDetails', values.rememberDetails);
-      dispatchField('marketingOptIn', values.marketingOptIn);
-      dispatchField('agree', values.agree);
+      updateField('name', trimmedName);
+      updateField('email', trimmedEmail);
+      updateField('phone', trimmedPhone);
+      updateField('rememberDetails', values.rememberDetails);
+      updateField('marketingOptIn', values.marketingOptIn);
+      updateField('agree', values.agree);
 
       track('details_submit', {
         marketing_opt_in: values.marketingOptIn ? 1 : 0,
         terms_checked: values.agree ? 1 : 0,
       });
 
-      dispatch({ type: 'SET_STEP', step: 3 });
+      actions.goToStep(3);
     },
-    [dispatch, dispatchField],
+    [actions, updateField],
   );
 
   const { isSubmitting, isValid, errors } = form.formState;
 
   useEffect(() => {
     const submit = () => form.handleSubmit(handleSubmit, handleError)();
-    const actions: StepAction[] = [
+    const stepActions: StepAction[] = [
       {
         id: 'details-back',
         label: 'Back',
@@ -155,7 +156,7 @@ export function DetailsStep({ state, dispatch, onActionsChange }: DetailsStepPro
         onClick: submit,
       },
     ];
-    onActionsChange(actions);
+    onActionsChange(stepActions);
   }, [form, handleBack, handleError, handleSubmit, isSubmitting, isValid, onActionsChange]);
 
   return (
@@ -195,7 +196,7 @@ export function DetailsStep({ state, dispatch, onActionsChange }: DetailsStepPro
                           onChange={(event) => {
                             const next = event.target.value;
                             field.onChange(next);
-                            dispatchField('name', next);
+                            updateField('name', next);
                           }}
                         />
                       </FormControl>
@@ -219,7 +220,7 @@ export function DetailsStep({ state, dispatch, onActionsChange }: DetailsStepPro
                           onChange={(event) => {
                             const next = event.target.value;
                             field.onChange(next);
-                            dispatchField('email', next);
+                            updateField('email', next);
                           }}
                         />
                       </FormControl>
@@ -244,7 +245,7 @@ export function DetailsStep({ state, dispatch, onActionsChange }: DetailsStepPro
                           onChange={(event) => {
                             const next = event.target.value;
                             field.onChange(next);
-                            dispatchField('phone', next);
+                            updateField('phone', next);
                           }}
                         />
                       </FormControl>
@@ -269,7 +270,7 @@ export function DetailsStep({ state, dispatch, onActionsChange }: DetailsStepPro
                           onChange={(event) => {
                             const next = event.target.checked;
                             field.onChange(next);
-                            dispatchField('rememberDetails', next);
+                            updateField('rememberDetails', next);
                           }}
                         />
                       </FormControl>
@@ -296,7 +297,7 @@ export function DetailsStep({ state, dispatch, onActionsChange }: DetailsStepPro
                           onChange={(event) => {
                             const next = event.target.checked;
                             field.onChange(next);
-                            dispatchField('marketingOptIn', next);
+                            updateField('marketingOptIn', next);
                           }}
                         />
                       </FormControl>
@@ -324,7 +325,7 @@ export function DetailsStep({ state, dispatch, onActionsChange }: DetailsStepPro
                             onChange={(event) => {
                               const next = event.target.checked;
                               field.onChange(next);
-                              dispatchField('agree', next);
+                              updateField('agree', next);
                             }}
                           />
                         </FormControl>

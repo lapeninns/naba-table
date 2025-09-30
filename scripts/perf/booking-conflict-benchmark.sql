@@ -1,7 +1,7 @@
 -- Benchmark script for batched booking conflict detection.
 -- Run with psql, overriding defaults as needed:
 --   psql "$DATABASE_URL" \
---     -v restaurant_id='f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68' \
+--     -v restaurant_id='39cb1346-20fb-4fa2-b163-0230e1caf749' \
 --     -v booking_date='2025-03-01' \
 --     -v start_time='19:00' \
 --     -v end_time='21:00' \
@@ -33,7 +33,7 @@ END AS run_explain_only \gset
 
 WITH request AS (
   SELECT
-    COALESCE(NULLIF(:'restaurant_id', ''), 'f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68')::uuid      AS restaurant_id,
+    COALESCE(NULLIF(:'restaurant_id', ''), '39cb1346-20fb-4fa2-b163-0230e1caf749')::uuid      AS restaurant_id,
     COALESCE(NULLIF(:'booking_date', ''), current_date::text)::date                         AS booking_date,
     COALESCE(NULLIF(:'start_time', ''), '19:00')::time                                       AS start_time,
     COALESCE(NULLIF(:'end_time', ''), '21:00')::time                                         AS end_time,
@@ -108,7 +108,7 @@ ORDER BY ct.table_id, ct.start_time;
   EXPLAIN (ANALYZE, BUFFERS, FORMAT YAML)
   WITH request AS (
     SELECT
-      COALESCE(NULLIF(:'restaurant_id', ''), 'f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68')::uuid      AS restaurant_id,
+      COALESCE(NULLIF(:'restaurant_id', ''), '39cb1346-20fb-4fa2-b163-0230e1caf749')::uuid      AS restaurant_id,
       COALESCE(NULLIF(:'booking_date', ''), current_date::text)::date                         AS booking_date,
       COALESCE(NULLIF(:'start_time', ''), '19:00')::time                                       AS start_time,
       COALESCE(NULLIF(:'end_time', ''), '21:00')::time                                         AS end_time,

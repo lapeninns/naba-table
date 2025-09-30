@@ -9,7 +9,7 @@ export type VenueDetails = {
 };
 
 export const DEFAULT_RESTAURANT_ID =
-  process.env.NEXT_PUBLIC_DEFAULT_RESTAURANT_ID ?? "f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68";
+  process.env.NEXT_PUBLIC_DEFAULT_RESTAURANT_ID ?? "39cb1346-20fb-4fa2-b163-0230e1caf749";
 
 export const DEFAULT_VENUE: VenueDetails = {
   id: DEFAULT_RESTAURANT_ID,

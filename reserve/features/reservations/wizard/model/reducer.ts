@@ -4,8 +4,8 @@ import {
   type BookingType,
   type SeatingPreference,
 } from '@/lib/enums';
-import { DEFAULT_RESTAURANT_ID, DEFAULT_VENUE } from '@/lib/venue';
 import { bookingHelpers, type BookingOption } from '@reserve/shared/utils/booking';
+import { DEFAULT_RESTAURANT_ID, DEFAULT_VENUE } from '@shared/config/venue';
 
 import type { IconKey } from '@reserve/shared/ui/icons';
 

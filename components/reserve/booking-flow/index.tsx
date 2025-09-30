@@ -42,6 +42,7 @@ const ConfirmationStep = dynamic(
 // bookingHelpers + storageKeys imported from @/components/reserve/helpers
 
 import { reducer, getInitialState, type StepAction } from "./state";
+import { type WizardActions } from "@features/reservations/wizard/model/store";
 
 // =============================================================================================
 // MAIN COMPONENT
@@ -110,6 +111,14 @@ function BookingFlowContent() {
   useEffect(() => {
     setStickyActions([]);
   }, [state.step]);
+
+  const actions = useMemo<Pick<WizardActions, "goToStep" | "updateDetails">>(
+    () => ({
+      goToStep: (step) => dispatch({ type: "SET_STEP", step }),
+      updateDetails: (key, value) => dispatch({ type: "SET_FIELD", key, value }),
+    }),
+    [dispatch],
+  );
 
   const selectionSummary = useMemo(() => {
     const formattedDate = state.details.date
@@ -282,14 +291,14 @@ function BookingFlowContent() {
   const renderStep = () => {
     switch (state.step) {
       case 1:
-        return <PlanStep state={state} dispatch={dispatch} onActionsChange={handleActionsChange} />;
+        return <PlanStep state={state} actions={actions} onActionsChange={handleActionsChange} />;
       case 2:
-        return <DetailsStep state={state} dispatch={dispatch} onActionsChange={handleActionsChange} />;
+        return <DetailsStep state={state} actions={actions} onActionsChange={handleActionsChange} />;
       case 3:
         return (
           <ReviewStep
             state={state}
-            dispatch={dispatch}
+            actions={actions}
             onConfirm={handleConfirm}
             onActionsChange={handleActionsChange}
           />

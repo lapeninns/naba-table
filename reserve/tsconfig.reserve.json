@@ -21,5 +21,5 @@
     },
     "types": ["vitest", "jest"]
   },
-  "include": ["app", "features", "entities", "shared", "pages", "tests"]
+  "include": ["app", "features", "entities", "shared", "pages", "tests", "vite-env.d.ts"]
 }

@@ -15,6 +15,8 @@ import {
   X,
 } from 'lucide-react';
 
+import { runtime } from '@shared/config/runtime';
+
 import type { LucideIcon } from 'lucide-react';
 
 const ICONS: Record<string, LucideIcon> = {
@@ -40,7 +42,7 @@ export function resolveWizardIcon(name?: string | null): LucideIcon | null {
   if (!name) return null;
   const IconComponent = ICONS[name];
   if (!IconComponent) {
-    if (process.env.NODE_ENV !== 'production') {
+    if (runtime.isDev) {
       console.warn(`[wizardIcons] Missing icon mapping for "${name}".`);
     }
     return null;

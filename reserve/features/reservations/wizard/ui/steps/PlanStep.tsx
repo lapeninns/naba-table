@@ -21,13 +21,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Textarea } from '@/components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { track } from '@/lib/analytics';
 import { Icon } from '@reserve/shared/ui/icons';
 import { bookingHelpers, type BookingOption } from '@reserve/shared/utils/booking';
+import { track } from '@shared/lib/analytics';
 
 import { planFormSchema, type PlanFormValues } from '../../model/schemas';
 
-import type { Action, State, StepAction } from '../../model/reducer';
+import type { State, StepAction } from '../../model/reducer';
+import type { WizardActions } from '../../model/store';
 
 const RESERVATION_CONFIG = {
   open: '12:00',
@@ -194,11 +195,11 @@ const SERVICE_TOOLTIP = 'Not available for the selected time.';
 
 interface PlanStepProps {
   state: State;
-  dispatch: React.Dispatch<Action>;
+  actions: Pick<WizardActions, 'updateDetails' | 'goToStep'>;
   onActionsChange: (actions: StepAction[]) => void;
 }
 
-export function PlanStep({ state, dispatch, onActionsChange }: PlanStepProps) {
+export function PlanStep({ state, actions, onActionsChange }: PlanStepProps) {
   const [open, setOpen] = useState(false);
   const [hoveredSlot, setHoveredSlot] = useState<string | null>(null);
 
@@ -266,48 +267,48 @@ export function PlanStep({ state, dispatch, onActionsChange }: PlanStepProps) {
     [form],
   );
 
-  const dispatchField = useCallback(
+  const updateField = useCallback(
     <K extends keyof State['details']>(key: K, value: State['details'][K]) => {
-      dispatch({ type: 'SET_FIELD', key, value });
+      actions.updateDetails(key, value);
     },
-    [dispatch],
+    [actions],
   );
 
   const handleSubmit = useCallback(
     (values: PlanFormValues) => {
-      dispatchField('date', values.date);
-      dispatchField('time', values.time);
-      dispatchField('party', values.party);
-      dispatchField('bookingType', values.bookingType);
-      dispatchField('notes', values.notes ?? '');
-      dispatch({ type: 'SET_STEP', step: 2 });
+      updateField('date', values.date);
+      updateField('time', values.time);
+      updateField('party', values.party);
+      updateField('bookingType', values.bookingType);
+      updateField('notes', values.notes ?? '');
+      actions.goToStep(2);
     },
-    [dispatch, dispatchField],
+    [actions, updateField],
   );
 
   const handleSelectDate = useCallback(
     (value: Date | undefined | null) => {
       const formatted = value ? bookingHelpers.formatForDateInput(value) : '';
       form.setValue('date', formatted, { shouldDirty: true, shouldValidate: true });
-      dispatchField('date', formatted);
+      updateField('date', formatted);
       setOpen(false);
     },
-    [dispatchField, form],
+    [form, updateField],
   );
 
   const handleSelectTime = useCallback(
     (value: string) => {
       form.setValue('time', value, { shouldDirty: true, shouldValidate: true });
-      dispatchField('time', value);
+      updateField('time', value);
       const inferredService = resolveDefaultService(state.details.date, value);
       form.setValue('bookingType', inferredService, { shouldDirty: true, shouldValidate: true });
-      dispatchField('bookingType', inferredService);
+      updateField('bookingType', inferredService);
       track('select_time', {
         time: value,
         booking_type: inferredService,
       });
     },
-    [dispatchField, form, state.details.date],
+    [form, state.details.date, updateField],
   );
 
   const handlePartyChange = useCallback(
@@ -315,9 +316,9 @@ export function PlanStep({ state, dispatch, onActionsChange }: PlanStepProps) {
       const current = form.getValues('party');
       const next = direction === 'decrement' ? Math.max(1, current - 1) : Math.min(12, current + 1);
       form.setValue('party', next, { shouldDirty: true, shouldValidate: true });
-      dispatchField('party', next);
+      updateField('party', next);
     },
-    [dispatchField, form],
+    [form, updateField],
   );
 
   const handleOccasionChange = useCallback(
@@ -325,16 +326,16 @@ export function PlanStep({ state, dispatch, onActionsChange }: PlanStepProps) {
       if (!value) return;
       const typed = value as BookingOption;
       form.setValue('bookingType', typed, { shouldDirty: true, shouldValidate: true });
-      dispatchField('bookingType', typed);
+      updateField('bookingType', typed);
     },
-    [dispatchField, form],
+    [form, updateField],
   );
 
   const { isSubmitting, isValid } = form.formState;
 
   useEffect(() => {
     const submit = () => form.handleSubmit(handleSubmit, handleError)();
-    const actions: StepAction[] = [
+    const stepActions: StepAction[] = [
       {
         id: 'plan-continue',
         label: 'Continue',
@@ -345,7 +346,7 @@ export function PlanStep({ state, dispatch, onActionsChange }: PlanStepProps) {
         onClick: submit,
       },
     ];
-    onActionsChange(actions);
+    onActionsChange(stepActions);
   }, [form, handleError, handleSubmit, isSubmitting, isValid, onActionsChange]);
 
   return (
@@ -551,7 +552,7 @@ export function PlanStep({ state, dispatch, onActionsChange }: PlanStepProps) {
                       value={field.value ?? ''}
                       onChange={(event) => {
                         field.onChange(event);
-                        dispatchField('notes', event.target.value);
+                        updateField('notes', event.target.value);
                       }}
                       rows={4}
                       spellCheck

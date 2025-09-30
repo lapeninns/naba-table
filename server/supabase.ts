@@ -12,7 +12,7 @@ let serviceClient: SupabaseClient<Database, any, any> | null = null;
 const SUPABASE_URL = assertSupabaseEnv("NEXT_PUBLIC_SUPABASE_URL", process.env.NEXT_PUBLIC_SUPABASE_URL);
 const SUPABASE_ANON_KEY = assertSupabaseEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 const SUPABASE_SERVICE_ROLE_KEY = assertSupabaseEnv("SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY);
-const DEFAULT_RESTAURANT_FALLBACK_ID = "f6c2f62d-0b6c-4dfd-b0ec-2d1c7a509a68";
+const DEFAULT_RESTAURANT_FALLBACK_ID = "39cb1346-20fb-4fa2-b163-0230e1caf749";
 const DEFAULT_RESTAURANT_SLUG = process.env.NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG;
 
 let cachedDefaultRestaurantId: string | null = process.env.NEXT_PUBLIC_DEFAULT_RESTAURANT_ID ?? null;

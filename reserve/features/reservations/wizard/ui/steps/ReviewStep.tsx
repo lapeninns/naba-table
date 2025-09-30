@@ -5,19 +5,20 @@ import React, { useCallback, useEffect } from 'react';
 
 import { Alert, AlertDescription, AlertIcon } from '@/components/ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { track } from '@/lib/analytics';
 import { bookingHelpers } from '@reserve/shared/utils/booking';
+import { track } from '@shared/lib/analytics';
 
-import type { Action, State, StepAction } from '../../model/reducer';
+import type { State, StepAction } from '../../model/reducer';
+import type { WizardActions } from '../../model/store';
 
 interface ReviewStepProps {
   state: State;
-  dispatch: React.Dispatch<Action>;
+  actions: Pick<WizardActions, 'goToStep'>;
   onConfirm: () => void | Promise<void>;
   onActionsChange: (actions: StepAction[]) => void;
 }
 
-export function ReviewStep({ state, dispatch, onConfirm, onActionsChange }: ReviewStepProps) {
+export function ReviewStep({ state, actions, onConfirm, onActionsChange }: ReviewStepProps) {
   const details = state.details;
 
   useEffect(() => {
@@ -38,15 +39,15 @@ export function ReviewStep({ state, dispatch, onConfirm, onActionsChange }: Revi
       : `${details.party} guest${details.party === 1 ? '' : 's'}`;
 
   const handleEdit = useCallback(() => {
-    dispatch({ type: 'SET_STEP', step: 1 });
-  }, [dispatch]);
+    actions.goToStep(1);
+  }, [actions]);
 
   const handleConfirm = useCallback(() => {
     onConfirm();
   }, [onConfirm]);
 
   useEffect(() => {
-    const actions: StepAction[] = [
+    const stepActions: StepAction[] = [
       {
         id: 'review-edit',
         label: 'Edit details',
@@ -64,7 +65,7 @@ export function ReviewStep({ state, dispatch, onConfirm, onActionsChange }: Revi
         onClick: handleConfirm,
       },
     ];
-    onActionsChange(actions);
+    onActionsChange(stepActions);
   }, [handleEdit, handleConfirm, onActionsChange, state.submitting]);
 
   return (
