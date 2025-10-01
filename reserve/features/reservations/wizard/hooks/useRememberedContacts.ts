@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 
-import { storageKeys } from '@reserve/shared/utils/booking';
-import { runtime } from '@shared/config/runtime';
+import { storageKeys } from '@reserve/shared/booking';
+
+import { useWizardDependencies } from '../di';
 
 import type { BookingDetails } from '../model/reducer';
 import type { WizardActions } from '../model/store';
@@ -18,6 +19,8 @@ const STORAGE_KEY = storageKeys.contacts;
 const sanitizeContactValue = (value: string) => value.trim();
 
 export const useRememberedContacts = ({ details, actions }: RememberedContactsConfig) => {
+  const { errorReporter } = useWizardDependencies();
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -36,11 +39,9 @@ export const useRememberedContacts = ({ details, actions }: RememberedContactsCo
         actions.hydrateContacts({ name, email, phone, rememberDetails: true });
       }
     } catch (error) {
-      if (runtime.isDev) {
-        console.error('[reserve][remembered-contacts] failed to hydrate', error);
-      }
+      errorReporter.capture(error, { scope: 'rememberedContacts.hydrate' });
     }
-  }, [actions]);
+  }, [actions, errorReporter]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -58,9 +59,7 @@ export const useRememberedContacts = ({ details, actions }: RememberedContactsCo
         window.localStorage.removeItem(STORAGE_KEY);
       }
     } catch (error) {
-      if (runtime.isDev) {
-        console.error('[reserve][remembered-contacts] failed to persist', error);
-      }
+      errorReporter.capture(error, { scope: 'rememberedContacts.persist' });
     }
-  }, [details.rememberDetails, details.name, details.email, details.phone]);
+  }, [details.email, details.name, details.phone, details.rememberDetails, errorReporter]);
 };

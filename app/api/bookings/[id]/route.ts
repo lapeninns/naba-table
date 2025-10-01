@@ -19,6 +19,8 @@ import { BOOKING_BLOCKING_STATUSES, getDefaultRestaurantId, getRouteHandlerSupab
 import { sendBookingCancellationEmail, sendBookingUpdateEmail } from "@/server/emails/bookings";
 import { normalizeEmail } from "@/server/customers";
 import { recordBookingCancelledEvent, recordBookingAllocatedEvent } from "@/server/analytics";
+import { formatDateForInput } from "@reserve/shared/formatting/booking";
+import { fromMinutes, normalizeTime } from "@reserve/shared/time";
 
 const bookingTypeEnum = z.enum(BOOKING_TYPES);
 
@@ -87,13 +89,6 @@ function stringifyError(error: unknown): string {
   }
 }
 
-function normalizeTimeFragment(value: string | null | undefined): string | null {
-  if (!value) {
-    return null;
-  }
-  return value.slice(0, 5);
-}
-
 function handleZodError(error: z.ZodError) {
   return NextResponse.json(
     {
@@ -128,18 +123,18 @@ async function handleDashboardUpdate(bookingId: string, data: z.infer<typeof das
     // Convert ISO strings to date and time components for database update
     const startDate = new Date(data.startIso);
     const endDate = new Date(data.endIso);
-    
-    const bookingDate = startDate.toISOString().split('T')[0]; // YYYY-MM-DD
-    const startTime = startDate.toTimeString().slice(0, 5); // HH:MM
-    const endTime = endDate.toTimeString().slice(0, 5); // HH:MM
+
+    const bookingDate = formatDateForInput(startDate);
+    const startTime = fromMinutes(startDate.getHours() * 60 + startDate.getMinutes());
+    const endTime = fromMinutes(endDate.getHours() * 60 + endDate.getMinutes());
 
     const restaurantId = existingBooking.restaurant_id ?? await getDefaultRestaurantId();
 
     // Attempt to reuse the current table when possible
     let nextTableId: string | null = existingBooking.table_id ?? null;
 
-    const existingStartTime = normalizeTimeFragment(existingBooking.start_time);
-    const existingEndTime = normalizeTimeFragment(existingBooking.end_time);
+    const existingStartTime = normalizeTime(existingBooking.start_time);
+    const existingEndTime = normalizeTime(existingBooking.end_time);
     const slotMatchesExisting = existingBooking.booking_date === bookingDate
       && existingStartTime === startTime
       && existingEndTime === endTime;
@@ -400,8 +395,8 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     // Attempt to reuse the current table when possible
     let nextTableId: string | null = existingBooking.table_id ?? null;
 
-    const existingStartTime = normalizeTimeFragment(existingBooking.start_time);
-    const existingEndTime = normalizeTimeFragment(existingBooking.end_time);
+    const existingStartTime = normalizeTime(existingBooking.start_time);
+    const existingEndTime = normalizeTime(existingBooking.end_time);
     const slotMatchesExisting = existingBooking.booking_date === data.date
       && existingStartTime === startTime
       && existingEndTime === endTime;

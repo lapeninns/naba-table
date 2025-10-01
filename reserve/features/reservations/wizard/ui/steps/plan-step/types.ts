@@ -1,0 +1,36 @@
+import type { State, StepAction } from '../../../model/reducer';
+import type { PlanFormValues } from '../../../model/schemas';
+import type { WizardActions } from '../../../model/store';
+import type {
+  ServiceAvailability,
+  TimeSlotDescriptor,
+} from '@reserve/features/reservations/wizard/services';
+import type { UseFormReturn } from 'react-hook-form';
+
+export interface PlanStepFormProps {
+  state: State;
+  actions: Pick<WizardActions, 'updateDetails' | 'goToStep'>;
+  onActionsChange: (actions: StepAction[]) => void;
+  onTrack?: (event: string, payload?: Record<string, unknown>) => void;
+  minDate: Date;
+}
+
+export type PlanStepFormHandlers = {
+  selectDate: (value: Date | undefined | null) => void;
+  selectTime: (value: string) => void;
+  changeParty: (direction: 'decrement' | 'increment') => void;
+  changeOccasion: (value: PlanFormValues['bookingType']) => void;
+  changeNotes: (value: string) => void;
+};
+
+export type PlanStepFormState = {
+  form: UseFormReturn<PlanFormValues>;
+  slots: TimeSlotDescriptor[];
+  availability: ServiceAvailability;
+  handlers: PlanStepFormHandlers;
+  minDate: Date;
+  isSubmitting: boolean;
+  isValid: boolean;
+  submitForm: (values: PlanFormValues) => void;
+  handleError: (errors: Record<string, unknown>) => void;
+};

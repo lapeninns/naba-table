@@ -1,52 +1,37 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 
-import { BookingsTable, type StatusFilter } from "@/components/dashboard/BookingsTable";
+import { BookingsTable } from "@/components/dashboard/BookingsTable";
 import { CancelBookingDialog } from "@/components/dashboard/CancelBookingDialog";
 import { EditBookingDialog } from "@/components/dashboard/EditBookingDialog";
 import { useBookings, type BookingDTO } from "@/hooks/useBookings";
+import { useBookingsTableState } from "@/hooks/useBookingsTableState";
 
 const DEFAULT_PAGE_SIZE = 10;
 
 export default function DashboardPage() {
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [page, setPage] = useState(1);
+  const tableState = useBookingsTableState({ pageSize: DEFAULT_PAGE_SIZE });
+  const { statusFilter, page, pageSize, queryFilters, handleStatusFilterChange } = tableState;
   const [editBooking, setEditBooking] = useState<BookingDTO | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [cancelBooking, setCancelBooking] = useState<BookingDTO | null>(null);
   const [isCancelOpen, setIsCancelOpen] = useState(false);
 
-  const queryFilters = useMemo(
-    () => ({ page, pageSize: DEFAULT_PAGE_SIZE, status: statusFilter }),
-    [page, statusFilter],
-  );
-
   const { data, error, isLoading, isFetching, refetch } = useBookings(queryFilters);
 
   const pageInfo = data?.pageInfo ?? {
     page,
-    pageSize: DEFAULT_PAGE_SIZE,
+    pageSize,
     total: 0,
     hasNext: false,
   };
 
-  const handleStatusChange = useCallback((nextStatus: StatusFilter) => {
-    setStatusFilter(nextStatus);
-    setPage(1);
-  }, []);
-
   const handlePageChange = useCallback(
     (nextPage: number) => {
-      if (nextPage < 1) {
-        setPage(1);
-        return;
-      }
-
-      const totalPages = Math.max(1, Math.ceil(pageInfo.total / pageInfo.pageSize));
-      setPage(Math.min(nextPage, totalPages));
+      tableState.handlePageChange(nextPage, pageInfo.total);
     },
-    [pageInfo.pageSize, pageInfo.total],
+    [pageInfo.total, tableState],
   );
 
   const handleEdit = useCallback((booking: BookingDTO) => {
@@ -84,7 +69,7 @@ export default function DashboardPage() {
         isLoading={isLoading}
         isFetching={isFetching}
         error={error ?? null}
-        onStatusFilterChange={handleStatusChange}
+        onStatusFilterChange={handleStatusFilterChange}
         onPageChange={handlePageChange}
         onRetry={refetch}
         onEdit={handleEdit}

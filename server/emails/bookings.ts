@@ -2,71 +2,25 @@ import config from "@/config";
 import { DEFAULT_VENUE } from "@/lib/venue";
 import { sendEmail } from "@/libs/resend";
 import type { BookingRecord } from "@/server/bookings";
+import {
+  formatDateForInput,
+  formatReservationDateShort,
+  formatReservationTime,
+  formatReservationTimeFromDate,
+} from "@reserve/shared/formatting/booking";
+import { normalizeTime } from "@reserve/shared/time";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
-function formatDate(dateIso: string, timeZone: string) {
-  const formatter = new Intl.DateTimeFormat("en-GB", {
-    weekday: "short",
-    month: "short",
-    day: "2-digit",
-    year: "numeric",
-    timeZone,
-  });
-  return formatter.format(new Date(`${dateIso}T00:00:00Z`));
-}
-
-function normalizeTimeString(value: string | null | undefined): string | null {
+function normalizeTimeLoose(value: string | null | undefined) {
   if (!value) return null;
-  const raw = String(value).trim();
-  // Accept HH:MM or HH:MM:SS and normalize to HH:MM
-  const match = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
-  if (match) {
-    const h = match[1].padStart(2, "0");
-    const m = match[2];
-    return `${h}:${m}`;
-  }
-  // Fallback: try to split and coerce first two parts
-  const parts = raw.split(":");
-  if (parts.length >= 2) {
-    const h = String(Number(parts[0]) || 0).padStart(2, "0");
-    const m = String(Number(parts[1]) || 0).padStart(2, "0");
-    return `${h}:${m}`;
+  const trimmed = value.trim();
+  const normalized = normalizeTime(trimmed);
+  if (normalized) return normalized;
+  if (trimmed.length >= 5) {
+    return normalizeTime(trimmed.slice(0, 5));
   }
   return null;
-}
-
-function formatTime(time: string, timeZone: string) {
-  const normalized = normalizeTimeString(time);
-  if (!normalized) return "";
-  const dt = new Date(`1970-01-01T${normalized}:00Z`);
-  if (isNaN(dt.getTime())) return normalized; // graceful fallback
-  return new Intl.DateTimeFormat("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone,
-  }).format(dt);
-}
-
-function formatDateFromDate(date: Date, timeZone: string) {
-  const formatter = new Intl.DateTimeFormat("en-GB", {
-    weekday: "short",
-    month: "short",
-    day: "2-digit",
-    year: "numeric",
-    timeZone,
-  });
-  return formatter.format(date);
-}
-
-function formatTimeFromDate(date: Date, timeZone: string) {
-  return new Intl.DateTimeFormat("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone,
-  }).format(date);
 }
 
 function parseTimestamp(value: string | null | undefined): Date | null {
@@ -94,9 +48,17 @@ function buildSummary(booking: BookingRecord) {
   const endAt = parseTimestamp(booking.end_at);
   const { timezone } = DEFAULT_VENUE;
 
-  const date = startAt ? formatDateFromDate(startAt, timezone) : formatDate(booking.booking_date, timezone);
-  const startTime = startAt ? formatTimeFromDate(startAt, timezone) : formatTime(booking.start_time, timezone);
-  const endTime = endAt ? formatTimeFromDate(endAt, timezone) : formatTime(booking.end_time, timezone);
+  const date = startAt
+    ? formatReservationDateShort(formatDateForInput(startAt), { timezone })
+    : formatReservationDateShort(booking.booking_date, { timezone });
+
+  const startTime = startAt
+    ? formatReservationTimeFromDate(startAt, { timezone })
+    : formatReservationTime(normalizeTimeLoose(booking.start_time), { timezone });
+
+  const endTime = endAt
+    ? formatReservationTimeFromDate(endAt, { timezone })
+    : formatReservationTime(normalizeTimeLoose(booking.end_time), { timezone });
   const party = `${booking.party_size} ${booking.party_size === 1 ? "guest" : "guests"}`;
 
   return { date, startTime, endTime, party };

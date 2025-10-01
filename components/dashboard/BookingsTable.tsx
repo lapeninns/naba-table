@@ -1,16 +1,16 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { StatusChip } from './StatusChip';
-import { Pagination } from './Pagination';
+import { BookingsHeader } from './BookingsHeader';
+import { BookingRow } from './BookingRow';
 import { EmptyState } from './EmptyState';
+import { Pagination } from './Pagination';
 import type { BookingDTO, BookingStatus, BookingsPage } from '@/hooks/useBookings';
+import type { StatusFilter } from '@/hooks/useBookingsTableState';
 import type { HttpError } from '@/lib/http/errors';
-
-export type StatusFilter = BookingStatus | 'all' | 'active';
 
 export type BookingsTableProps = {
   bookings: BookingDTO[];
@@ -58,47 +58,34 @@ export function BookingsTable({
   const showEmpty = !isLoading && !error && bookings.length === 0;
 
   const dateFormatter = useMemo(() => new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }), []);
+  const formatDate = useCallback(
+    (iso: string) => {
+      if (!iso) return '—';
+      const date = new Date(iso);
+      if (Number.isNaN(date.getTime())) return '—';
+      return dateFormatter.format(date);
+    },
+    [dateFormatter],
+  );
+
   const timeFormatter = useMemo(() => new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }), []);
-
-  const formatDate = (iso: string) => {
-    if (!iso) return '—';
-    const date = new Date(iso);
-    if (Number.isNaN(date.getTime())) return '—';
-    return dateFormatter.format(date);
-  };
-
-  const formatTime = (iso: string) => {
-    if (!iso) return '—';
-    const date = new Date(iso);
-    if (Number.isNaN(date.getTime())) return '—';
-    return timeFormatter.format(date);
-  };
-
-  const statusChips = useMemo(
-    () =>
-      STATUS_OPTIONS.map((option) => (
-        <Button
-          key={option.value}
-          type="button"
-          size="sm"
-          variant={option.value === statusFilter ? 'default' : 'outline'}
-          onClick={() => onStatusFilterChange(option.value)}
-          aria-pressed={option.value === statusFilter}
-        >
-          {option.label}
-        </Button>
-      )),
-    [statusFilter, onStatusFilterChange],
+  const formatTime = useCallback(
+    (iso: string) => {
+      if (!iso) return '—';
+      const date = new Date(iso);
+      if (Number.isNaN(date.getTime())) return '—';
+      return timeFormatter.format(date);
+    },
+    [timeFormatter],
   );
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-medium text-base-content">Bookings</h2>
-        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filter by status">
-          {statusChips}
-        </div>
-      </div>
+      <BookingsHeader
+        statusFilter={statusFilter}
+        onStatusFilterChange={onStatusFilterChange}
+        statusOptions={STATUS_OPTIONS}
+      />
 
       {error ? (
         <Alert variant="destructive" role="alert">
@@ -112,31 +99,31 @@ export function BookingsTable({
         </Alert>
       ) : null}
 
-      <div className="overflow-x-auto rounded-xl border border-base-300 bg-base-100">
-        <table className="min-w-full divide-y divide-base-300" role="grid">
-          <thead className="bg-base-200">
+      <div className="overflow-x-auto rounded-xl border border-border bg-card">
+        <table className="min-w-full divide-y divide-border" role="grid">
+          <thead className="bg-muted">
             <tr>
-              <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-base-content/70">
+              <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Date
               </th>
-              <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-base-content/70">
+              <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Time
               </th>
-              <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-base-content/70">
+              <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Party
               </th>
-              <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-base-content/70">
+              <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Restaurant
               </th>
-              <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-base-content/70">
+              <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Status
               </th>
-              <th scope="col" className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-base-content/70">
+              <th scope="col" className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-base-200">
+          <tbody className="divide-y divide-border/70">
             {showSkeleton
               ? skeletonRows.map((row) => (
                   <tr key={`skeleton-${row}`}>
@@ -149,41 +136,14 @@ export function BookingsTable({
                   </tr>
                 ))
               : bookings.map((booking) => (
-                  <tr key={booking.id} className="align-middle">
-                    <td className="px-4 py-4 text-sm text-base-content">{formatDate(booking.startIso)}</td>
-                    <td className="px-4 py-4 text-sm text-base-content">{formatTime(booking.startIso)}</td>
-                    <td className="px-4 py-4 text-sm text-base-content">{booking.partySize}</td>
-                    <td className="px-4 py-4 text-sm text-base-content">{booking.restaurantName}</td>
-                    <td className="px-4 py-4 text-sm text-base-content">
-                      <StatusChip status={booking.status} />
-                    </td>
-                    <td className="px-4 py-4 text-right text-sm text-base-content">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="text-primary"
-                          disabled={booking.status === 'cancelled'}
-                          onClick={() => onEdit(booking)}
-                          aria-disabled={booking.status === 'cancelled'}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="text-rose-600 hover:text-rose-700"
-                          disabled={booking.status === 'cancelled'}
-                          onClick={() => onCancel(booking)}
-                          aria-disabled={booking.status === 'cancelled'}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
+                  <BookingRow
+                    key={booking.id}
+                    booking={booking}
+                    formatDate={formatDate}
+                    formatTime={formatTime}
+                    onEdit={onEdit}
+                    onCancel={onCancel}
+                  />
                 ))}
           </tbody>
         </table>

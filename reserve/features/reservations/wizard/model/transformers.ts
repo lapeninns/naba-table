@@ -1,4 +1,4 @@
-import { bookingHelpers } from '@reserve/shared/utils/booking';
+import { inferBookingOption, normalizeTime } from '@reserve/shared/time';
 import { DEFAULT_RESTAURANT_ID } from '@shared/config/venue';
 
 import type { ApiBooking, BookingDetails, ReservationDraft } from './reducer';
@@ -20,16 +20,14 @@ const buildMarketingOptIn = (marketingOptIn: boolean | undefined): boolean =>
   Boolean(marketingOptIn);
 
 export const buildReservationDraft = (details: BookingDetails): DraftResult => {
-  const normalizedTime = bookingHelpers.normalizeTime(details.time);
+  const normalizedTime = normalizeTime(details.time);
 
   if (!normalizedTime) {
     return { ok: false, error: 'Please select a time for your reservation.' };
   }
 
   const bookingType =
-    details.bookingType === 'drinks'
-      ? 'drinks'
-      : bookingHelpers.bookingTypeFromTime(normalizedTime, details.date);
+    details.bookingType === 'drinks' ? 'drinks' : inferBookingOption(normalizedTime, details.date);
 
   return {
     ok: true,

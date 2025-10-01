@@ -1,8 +1,10 @@
 'use client';
 
 import { Loader2 } from 'lucide-react';
-import React, { Suspense } from 'react';
+import React, { Suspense, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 
+import { WizardDependenciesProvider, useWizardDependencies } from '../di';
 import { useReservationWizard } from '../hooks/useReservationWizard';
 import { ConfirmationStep } from './steps/ConfirmationStep';
 import { DetailsStep } from './steps/DetailsStep';
@@ -27,6 +29,7 @@ function ReservationWizardContent() {
     handleNewBooking,
     handleClose,
   } = useReservationWizard();
+  const { analytics } = useWizardDependencies();
 
   return (
     <WizardLayout
@@ -48,7 +51,12 @@ function ReservationWizardContent() {
         switch (state.step) {
           case 1:
             return (
-              <PlanStep state={state} actions={actions} onActionsChange={handleActionsChange} />
+              <PlanStep
+                state={state}
+                actions={actions}
+                onActionsChange={handleActionsChange}
+                onTrack={analytics.track}
+              />
             );
           case 2:
             return (
@@ -81,6 +89,18 @@ function ReservationWizardContent() {
 }
 
 export function ReservationWizard() {
+  const navigate = useNavigate();
+  const navigatorDeps = useMemo(
+    () => ({
+      navigator: {
+        push: (path: string) => navigate(path),
+        replace: (path: string) => navigate(path, { replace: true }),
+        back: () => navigate(-1),
+      },
+    }),
+    [navigate],
+  );
+
   return (
     <Suspense
       fallback={
@@ -94,7 +114,9 @@ export function ReservationWizard() {
         </main>
       }
     >
-      <ReservationWizardContent />
+      <WizardDependenciesProvider value={navigatorDeps}>
+        <ReservationWizardContent />
+      </WizardDependenciesProvider>
     </Suspense>
   );
 }

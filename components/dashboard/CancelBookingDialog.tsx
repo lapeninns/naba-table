@@ -64,10 +64,10 @@ export function CancelBookingDialog({ booking, open, onOpenChange }: CancelBooki
               : 'Are you sure you want to cancel this booking?'}
           </DialogDescription>
         </DialogHeader>
-        <p className="text-sm text-base-content/70">
+        <p className="text-sm text-muted-foreground">
           This action cannot be undone. The venue will be notified and the table will be released to other guests.
         </p>
-        {errorMessage ? <p className="text-sm text-rose-600" role="alert">{errorMessage}</p> : null}
+        {errorMessage ? <p className="text-sm text-destructive" role="alert">{errorMessage}</p> : null}
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={mutation.isPending}>
             Keep booking

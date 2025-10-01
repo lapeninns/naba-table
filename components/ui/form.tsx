@@ -79,7 +79,10 @@ const FormLabel = React.forwardRef<
     <LabelPrimitive.Root
       ref={ref}
       htmlFor={props.htmlFor ?? id}
-      className={cn("text-label font-medium text-srx-ink-strong", className)}
+      className={cn(
+        "text-sm font-medium leading-none text-foreground peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
+        className,
+      )}
       data-form-item-name={name}
       {...props}
     />
@@ -97,7 +100,7 @@ FormControl.displayName = "FormControl";
 
 const FormDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
   ({ className, ...props }, ref) => (
-    <p ref={ref} className={cn("text-sm text-srx-ink-soft", className)} {...props} />
+    <p ref={ref} className={cn("text-sm text-muted-foreground", className)} {...props} />
   ),
 );
 FormDescription.displayName = "FormDescription";
@@ -108,7 +111,7 @@ const FormMessage = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<
     return (
       <p
         ref={ref}
-        className={cn('flex items-center gap-2 text-sm text-red-600', className)}
+        className={cn('flex items-center gap-2 text-sm text-destructive', className)}
         role="alert"
         {...props}
       >
