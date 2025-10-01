@@ -1,4 +1,5 @@
-import { bookingHelpers, type BookingOption } from '@reserve/shared/utils/booking';
+import { formatDateForInput } from '@reserve/shared/formatting/booking';
+import { normalizeTime } from '@reserve/shared/time';
 import {
   BOOKING_TYPES_UI,
   SEATING_PREFERENCES_UI,
@@ -7,6 +8,7 @@ import {
 } from '@shared/config/booking';
 import { DEFAULT_RESTAURANT_ID, DEFAULT_VENUE } from '@shared/config/venue';
 
+import type { BookingOption } from '@reserve/shared/booking';
 import type { IconKey } from '@reserve/shared/ui/icons';
 
 export type SeatingOption = (typeof SEATING_PREFERENCES_UI)[number];
@@ -147,7 +149,7 @@ export const getInitialDetails = (): BookingDetails => ({
   restaurantName: DEFAULT_VENUE.name,
   restaurantAddress: DEFAULT_VENUE.address,
   restaurantTimezone: DEFAULT_VENUE.timezone,
-  date: bookingHelpers.formatForDateInput(new Date()),
+  date: formatDateForInput(new Date()),
   time: '',
   party: 1,
   bookingType: BOOKING_TYPES_UI[0],
@@ -206,7 +208,9 @@ export function reducer(state: State, action: Action): State {
         restaurantAddress: state.details.restaurantAddress,
         restaurantTimezone: state.details.restaurantTimezone,
         date: booking ? booking.booking_date : state.details.date,
-        time: booking ? bookingHelpers.normalizeTime(booking.start_time) : state.details.time,
+        time: booking
+          ? (normalizeTime(booking.start_time) ?? state.details.time)
+          : state.details.time,
         party: booking ? booking.party_size : state.details.party,
         bookingType: booking ? toBookingOption(booking.booking_type) : state.details.bookingType,
         seating: booking ? toSeatingOption(booking.seating_preference) : state.details.seating,
@@ -248,7 +252,7 @@ export function reducer(state: State, action: Action): State {
           restaurantAddress: state.details.restaurantAddress,
           restaurantTimezone: state.details.restaurantTimezone,
           date: booking.booking_date,
-          time: bookingHelpers.normalizeTime(booking.start_time),
+          time: normalizeTime(booking.start_time) ?? state.details.time,
           party: booking.party_size,
           bookingType: toBookingOption(booking.booking_type),
           seating: toSeatingOption(booking.seating_preference),

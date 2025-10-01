@@ -1,15 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 
+import { mapErrorToMessage } from '@reserve/shared/error';
 import { useStickyProgress } from '@reserve/shared/hooks/useStickyProgress';
-import { triggerSubtleHaptic } from '@reserve/shared/lib/haptics';
 import { runtime } from '@shared/config/runtime';
-import { track } from '@shared/lib/analytics';
 
-import { useRememberedContacts } from './useRememberedContacts';
 import { useCreateReservation } from '../api/useCreateReservation';
+import { useWizardDependencies } from '../di';
+import { useRememberedContacts } from './useRememberedContacts';
 import { createSelectionSummary } from '../model/selectors';
 import { useWizardStore } from '../model/store';
 import { buildReservationDraft, reservationToApiBooking } from '../model/transformers';
@@ -19,11 +18,11 @@ import type { StepAction } from '../model/reducer';
 const EMPTY_ACTIONS: StepAction[] = [];
 
 export function useReservationWizard() {
-  const navigate = useNavigate();
   const { state, actions } = useWizardStore();
   const heroRef = useRef<HTMLSpanElement | null>(null);
   const [stickyActions, setStickyActions] = useState<StepAction[]>(EMPTY_ACTIONS);
   const [stickyHeight, setStickyHeight] = useState(0);
+  const { analytics, haptics, navigator, errorReporter } = useWizardDependencies();
 
   useRememberedContacts({ details: state.details, actions });
 
@@ -46,18 +45,18 @@ export function useReservationWizard() {
   const previousStepRef = useRef(state.step);
   useEffect(() => {
     if (previousStepRef.current !== state.step) {
-      triggerSubtleHaptic();
+      haptics.trigger();
       previousStepRef.current = state.step;
     }
-  }, [state.step]);
+  }, [haptics, state.step]);
 
   const previousVisibilityRef = useRef(stickyVisible);
   useEffect(() => {
     if (stickyVisible && !previousVisibilityRef.current) {
-      triggerSubtleHaptic(5);
+      haptics.trigger(5);
     }
     previousVisibilityRef.current = stickyVisible;
-  }, [stickyVisible]);
+  }, [haptics, stickyVisible]);
 
   const handleActionsChange = useCallback((actions: StepAction[]) => {
     setStickyActions((prev) => {
@@ -95,7 +94,8 @@ export function useReservationWizard() {
   const handleConfirm = useCallback(async () => {
     const result = buildReservationDraft(state.details);
     if (!result.ok) {
-      const message = 'error' in result ? result.error : 'Unable to process booking';
+      errorReporter.capture(result.error, { scope: 'wizard.buildReservationDraft' });
+      const message = mapErrorToMessage(result.error, 'Unable to process booking');
       actions.setError(message);
       return;
     }
@@ -122,7 +122,7 @@ export function useReservationWizard() {
         allocationPending: submission.allocationPending,
       });
 
-      track('booking_created', {
+      analytics.track('booking_created', {
         waitlisted: submission.waitlisted ? 1 : 0,
         allocation_pending: submission.allocationPending ? 1 : 0,
         party: draft.party,
@@ -130,14 +130,15 @@ export function useReservationWizard() {
         reference: submission.booking?.reference ?? 'pending',
       });
     } catch (error) {
-      const message =
-        typeof error === 'object' && error && 'message' in error
-          ? String((error as { message?: unknown }).message)
-          : 'Unable to process booking';
+      errorReporter.capture(error, {
+        scope: 'wizard.submitReservation',
+        bookingId: state.editingId ?? undefined,
+      });
+      const message = mapErrorToMessage(error, 'Unable to process booking');
       actions.setError(message);
       actions.setSubmitting(false);
     }
-  }, [actions, mutation, state.details, state.editingId]);
+  }, [actions, analytics, errorReporter, mutation, state.details, state.editingId]);
 
   const handleNewBooking = useCallback(() => {
     actions.clearError();
@@ -145,8 +146,8 @@ export function useReservationWizard() {
   }, [actions]);
 
   const handleClose = useCallback(() => {
-    navigate('/thank-you');
-  }, [navigate]);
+    navigator.push('/thank-you');
+  }, [navigator]);
 
   return {
     state,

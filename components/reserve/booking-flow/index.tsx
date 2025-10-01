@@ -4,7 +4,13 @@ import React, { Suspense, useCallback, useEffect, useMemo, useReducer, useRef, u
 import dynamic from "next/dynamic";
 import { Loader2 } from "lucide-react";
 
-import { bookingHelpers, storageKeys } from "@/components/reserve/helpers";
+import { storageKeys } from "@reserve/shared/booking";
+import {
+  formatBookingLabel,
+  formatReservationSummaryDate,
+  formatReservationTime,
+} from "@reserve/shared/formatting/booking";
+import { inferBookingOption, normalizeTime } from "@reserve/shared/time";
 import { track } from "@/lib/analytics";
 import { DEFAULT_RESTAURANT_ID } from "@/lib/venue";
 import { WizardFooter } from "@features/reservations/wizard/ui/WizardFooter";
@@ -38,8 +44,6 @@ const ConfirmationStep = dynamic(
     loading: () => <StepSkeleton />,
   },
 );
-
-// bookingHelpers + storageKeys imported from @/components/reserve/helpers
 
 import { reducer, getInitialState, type StepAction } from "./state";
 import { type WizardActions } from "@features/reservations/wizard/model/store";
@@ -122,13 +126,13 @@ function BookingFlowContent() {
 
   const selectionSummary = useMemo(() => {
     const formattedDate = state.details.date
-      ? bookingHelpers.formatSummaryDate(state.details.date)
+      ? formatReservationSummaryDate(state.details.date)
       : "Date not selected";
     const formattedTime = state.details.time
-      ? bookingHelpers.formatTime(state.details.time)
+      ? formatReservationTime(state.details.time)
       : "Time not selected";
     const partyText = `${state.details.party} ${state.details.party === 1 ? "guest" : "guests"}`;
-    const serviceLabel = bookingHelpers.formatBookingLabel(state.details.bookingType);
+    const serviceLabel = formatBookingLabel(state.details.bookingType);
     const detailsText = [partyText, formattedTime, formattedDate];
     return {
       primary: serviceLabel,
@@ -168,7 +172,7 @@ function BookingFlowContent() {
   }, [rememberDetails, name, email, phone]);
 
   const handleConfirm = async () => {
-    const normalizedTime = bookingHelpers.normalizeTime(state.details.time);
+    const normalizedTime = normalizeTime(state.details.time);
 
     if (!normalizedTime) {
       dispatch({ type: "SET_ERROR", message: "Please select a time for your reservation." });
@@ -194,7 +198,7 @@ function BookingFlowContent() {
       bookingType:
         state.details.bookingType === "drinks"
           ? "drinks"
-          : bookingHelpers.bookingTypeFromTime(normalizedTime, state.details.date),
+          : inferBookingOption(normalizedTime, state.details.date),
       seating: state.details.seating,
       notes: state.details.notes ? state.details.notes : undefined,
       name: state.details.name.trim(),
@@ -291,7 +295,14 @@ function BookingFlowContent() {
   const renderStep = () => {
     switch (state.step) {
       case 1:
-        return <PlanStep state={state} actions={actions} onActionsChange={handleActionsChange} />;
+        return (
+          <PlanStep
+            state={state}
+            actions={actions}
+            onActionsChange={handleActionsChange}
+            onTrack={track}
+          />
+        );
       case 2:
         return <DetailsStep state={state} actions={actions} onActionsChange={handleActionsChange} />;
       case 3:

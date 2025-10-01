@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
 import type { BookingStatus } from '@/hooks/useBookings';
+import type { CSSProperties } from 'react';
 
 const STATUS_LABEL: Record<BookingStatus, string> = {
   confirmed: 'Confirmed',
@@ -9,19 +9,20 @@ const STATUS_LABEL: Record<BookingStatus, string> = {
   cancelled: 'Cancelled',
 };
 
-const STATUS_CLASSNAME: Record<BookingStatus, string> = {
-  confirmed: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-  pending: 'bg-amber-100 text-amber-800 border-amber-200',
-  pending_allocation: 'bg-blue-100 text-blue-800 border-blue-200',
-  cancelled: 'bg-rose-100 text-rose-800 border-rose-200',
+const STATUS_ACCENT: Record<BookingStatus, string> = {
+  confirmed: '#047857',
+  pending: '#b45309',
+  pending_allocation: '#0369a1',
+  cancelled: '#b91c1c',
 };
 
 export function StatusChip({ status }: { status: BookingStatus }) {
   return (
     <Badge
-      variant="outline"
+      variant="secondary"
       aria-label={`Booking status: ${STATUS_LABEL[status]}`}
-      className={cn('capitalize px-3 py-1 text-xs font-medium', STATUS_CLASSNAME[status])}
+      style={{ '--status-accent': STATUS_ACCENT[status] } as CSSProperties}
+      className="relative flex items-center gap-2 border-transparent bg-muted/60 px-3 py-1 text-xs font-medium capitalize text-foreground before:block before:h-2 before:w-2 before:rounded-full before:bg-[color:var(--status-accent)]"
     >
       {STATUS_LABEL[status]}
     </Badge>

@@ -1,149 +1,92 @@
 'use client';
 
 import { AlertTriangle } from 'lucide-react';
-import React, { useCallback, useEffect } from 'react';
+import React from 'react';
 
-import { bookingHelpers } from '@reserve/shared/utils/booking';
-import { track } from '@shared/lib/analytics';
+import { useReviewStep } from '@features/reservations/wizard/hooks/useReviewStep';
+import { formatBookingLabel } from '@reserve/shared/formatting/booking';
 import { Alert, AlertDescription, AlertIcon } from '@shared/ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@shared/ui/card';
 
-import type { State, StepAction } from '../../model/reducer';
-import type { WizardActions } from '../../model/store';
+import type { ReviewStepProps } from './review-step/types';
 
-interface ReviewStepProps {
-  state: State;
-  actions: Pick<WizardActions, 'goToStep'>;
-  onConfirm: () => void | Promise<void>;
-  onActionsChange: (actions: StepAction[]) => void;
-}
-
-export function ReviewStep({ state, actions, onConfirm, onActionsChange }: ReviewStepProps) {
-  const details = state.details;
-
-  useEffect(() => {
-    if (details.date && details.time) {
-      track('confirm_open', {
-        date: details.date,
-        time: details.time,
-        party: details.party,
-      });
-    } else {
-      track('confirm_open');
-    }
-  }, [details.date, details.time, details.party]);
-
-  const summaryValue =
-    details.date && details.time
-      ? `${details.party} at ${bookingHelpers.formatTime(details.time)} on ${bookingHelpers.formatSummaryDate(details.date)}`
-      : `${details.party} guest${details.party === 1 ? '' : 's'}`;
-
-  const handleEdit = useCallback(() => {
-    actions.goToStep(1);
-  }, [actions]);
-
-  const handleConfirm = useCallback(() => {
-    onConfirm();
-  }, [onConfirm]);
-
-  useEffect(() => {
-    const stepActions: StepAction[] = [
-      {
-        id: 'review-edit',
-        label: 'Edit details',
-        icon: 'Pencil',
-        variant: 'outline',
-        onClick: handleEdit,
-      },
-      {
-        id: 'review-confirm',
-        label: state.submitting ? 'Processing…' : 'Confirm booking',
-        icon: state.submitting ? undefined : 'Check',
-        variant: 'default',
-        disabled: state.submitting,
-        loading: state.submitting,
-        onClick: handleConfirm,
-      },
-    ];
-    onActionsChange(stepActions);
-  }, [handleEdit, handleConfirm, onActionsChange, state.submitting]);
+export function ReviewStep(props: ReviewStepProps) {
+  const { details, summary, error } = useReviewStep(props);
 
   return (
     <Card className="mx-auto w-full max-w-4xl lg:max-w-5xl">
       <CardHeader className="space-y-4">
-        <CardTitle className="text-[clamp(1.75rem,1.45rem+0.6vw,2.2rem)] text-srx-ink-strong">
+        <CardTitle className="text-[clamp(1.75rem,1.45rem+0.6vw,2.2rem)] text-foreground">
           Review and confirm
         </CardTitle>
-        <CardDescription className="text-body-sm text-srx-ink-soft">
+        <CardDescription className="text-sm text-muted-foreground">
           Double-check the details below. You can edit any section before confirming.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           <p className="sr-only" aria-live="polite">
-            {`Review details for ${summaryValue}. Press confirm to finalise your reservation.`}
+            {`Review details for ${summary.summaryValue}. Press confirm to finalise your reservation.`}
           </p>
-          {state.error ? (
+          {error ? (
             <Alert variant="destructive" role="alert" className="items-start">
               <AlertIcon>
                 <AlertTriangle className="h-4 w-4" aria-hidden />
               </AlertIcon>
-              <AlertDescription>{state.error}</AlertDescription>
+              <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : null}
-          <dl className="grid gap-4 rounded-2xl border border-srx-border-subtle bg-white/95 p-5 shadow-sm sm:grid-cols-2 lg:grid-cols-3">
+          <dl className="grid gap-4 rounded-2xl border border-border bg-card p-5 shadow-sm sm:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-1">
-              <dt className="text-helper uppercase tracking-[0.18em] text-srx-ink-soft">Summary</dt>
-              <dd className="text-body-sm font-semibold text-srx-ink-strong">{summaryValue}</dd>
+              <dt className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Summary</dt>
+              <dd className="text-sm font-semibold text-foreground">{summary.summaryValue}</dd>
             </div>
             <div className="space-y-1">
-              <dt className="text-helper uppercase tracking-[0.18em] text-srx-ink-soft">Venue</dt>
-              <dd className="text-body-sm font-medium text-srx-ink-strong">
-                {details.restaurantName}
-              </dd>
+              <dt className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Venue</dt>
+              <dd className="text-sm font-medium text-foreground">{details.restaurantName}</dd>
             </div>
             <div className="space-y-1">
-              <dt className="text-helper uppercase tracking-[0.18em] text-srx-ink-soft">
+              <dt className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                 Party size
               </dt>
-              <dd className="text-body-sm font-medium text-srx-ink-strong">
+              <dd className="text-sm font-medium text-foreground">
                 {details.party} {details.party === 1 ? 'guest' : 'guests'}
               </dd>
             </div>
             <div className="space-y-1">
-              <dt className="text-helper uppercase tracking-[0.18em] text-srx-ink-soft">
+              <dt className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                 Full name
               </dt>
-              <dd className="text-body-sm font-medium text-srx-ink-strong">{details.name}</dd>
+              <dd className="text-sm font-medium text-foreground">{details.name}</dd>
             </div>
             <div className="space-y-1">
-              <dt className="text-helper uppercase tracking-[0.18em] text-srx-ink-soft">Email</dt>
-              <dd className="text-body-sm font-medium text-srx-ink-strong">{details.email}</dd>
+              <dt className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Email</dt>
+              <dd className="text-sm font-medium text-foreground">{details.email}</dd>
             </div>
             <div className="space-y-1">
-              <dt className="text-helper uppercase tracking-[0.18em] text-srx-ink-soft">Phone</dt>
-              <dd className="text-body-sm font-medium text-srx-ink-strong">{details.phone}</dd>
+              <dt className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Phone</dt>
+              <dd className="text-sm font-medium text-foreground">{details.phone}</dd>
             </div>
             <div className="space-y-1">
-              <dt className="text-helper uppercase tracking-[0.18em] text-srx-ink-soft">
+              <dt className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                 Booking type
               </dt>
-              <dd className="text-body-sm font-medium text-srx-ink-strong">
-                {bookingHelpers.formatBookingLabel(details.bookingType)}
+              <dd className="text-sm font-medium text-foreground">
+                {formatBookingLabel(details.bookingType)}
               </dd>
             </div>
             <div className="space-y-1">
-              <dt className="text-helper uppercase tracking-[0.18em] text-srx-ink-soft">
+              <dt className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                 Marketing updates
               </dt>
-              <dd className="text-body-sm font-medium text-srx-ink-strong">
+              <dd className="text-sm font-medium text-foreground">
                 {details.marketingOptIn ? 'Subscribed' : 'Not subscribed'}
               </dd>
             </div>
             {details.notes ? (
               <div className="space-y-1 sm:col-span-2">
-                <dt className="text-helper uppercase tracking-[0.18em] text-srx-ink-soft">Notes</dt>
-                <dd className="text-body-sm text-srx-ink-soft">{details.notes}</dd>
+                <dt className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Notes</dt>
+                <dd className="text-sm text-muted-foreground">{details.notes}</dd>
               </div>
             ) : null}
           </dl>
@@ -152,3 +95,5 @@ export function ReviewStep({ state, actions, onConfirm, onActionsChange }: Revie
     </Card>
   );
 }
+
+export type { ReviewStepProps } from './review-step/types';

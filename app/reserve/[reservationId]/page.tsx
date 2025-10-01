@@ -1,8 +1,9 @@
 import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
 import { notFound, redirect } from 'next/navigation';
 
+import { defaultErrorReporter } from '@reserve/shared/error';
+import { getReservation } from '@/server/reservations/getReservation';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
-import { reservationAdapter } from '@entities/reservation/adapter';
 
 import { ReservationDetailClient } from './ReservationDetailClient';
 
@@ -43,38 +44,29 @@ export default async function ReservationDetailPage({ params }: { params: RouteP
   } = await supabase.auth.getUser();
 
   if (authError) {
-    console.error('[reserve][detail] auth resolution failed', authError.message);
+    defaultErrorReporter.capture(authError, { scope: 'reservationDetail.auth' });
   }
 
   if (!user) {
     redirect(`/signin?redirectedFrom=/reserve/${reservationId}`);
   }
 
-  const { data, error } = await supabase
-    .from('bookings')
-    .select(
-      'id,restaurant_id,booking_date,start_time,end_time,start_at,end_at,booking_type,seating_preference,status,party_size,customer_name,customer_email,customer_phone,marketing_opt_in,notes,reference,client_request_id,idempotency_key,pending_ref,details,created_at,updated_at,restaurants(name)'
-    )
-    .eq('id', reservationId)
-    .maybeSingle();
-
-  if (error) {
-    console.error('[reserve][detail] failed to fetch reservation', error.message);
+  let reservationResult;
+  try {
+    reservationResult = await getReservation(reservationId, { supabase });
+  } catch (error) {
+    defaultErrorReporter.capture(error, {
+      scope: 'reservationDetail.fetch',
+      reservationId,
+    });
     notFound();
   }
 
-  if (!data) {
+  if (!reservationResult) {
     notFound();
   }
 
-  const reservation = reservationAdapter(data);
-  const restaurantRecord = Array.isArray(data.restaurants) ? data.restaurants[0] : data.restaurants;
-  const restaurantName =
-    restaurantRecord && typeof restaurantRecord === 'object' && restaurantRecord !== null
-      ? (restaurantRecord as { name?: unknown }).name
-      : null;
-
-  const normalizedRestaurantName = typeof restaurantName === 'string' ? restaurantName : null;
+  const { reservation, restaurantName } = reservationResult;
 
   const queryClient = new QueryClient();
   queryClient.setQueryData(['reservation', reservationId], reservation);
@@ -82,7 +74,7 @@ export default async function ReservationDetailPage({ params }: { params: RouteP
 
   return (
     <HydrationBoundary state={dehydratedState}>
-      <ReservationDetailClient reservationId={reservationId} restaurantName={normalizedRestaurantName} />
+      <ReservationDetailClient reservationId={reservationId} restaurantName={restaurantName} />
     </HydrationBoundary>
   );
 }

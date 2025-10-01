@@ -200,11 +200,11 @@ export function ReservationDetailClient({ reservationId, restaurantName }: Reser
     <section className="mx-auto w-full max-w-4xl space-y-8 px-4 py-12">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-2">
-          <Link href="/dashboard" className="text-sm text-srx-brand underline-offset-4 hover:underline">
+          <Link href="/dashboard" className="text-sm text-primary underline-offset-4 hover:underline">
             ← Back to dashboard
           </Link>
-          <h1 className="text-3xl font-semibold text-srx-ink-strong">Reservation details</h1>
-          <p className="text-srx-ink-soft">
+          <h1 className="text-3xl font-semibold text-foreground">Reservation details</h1>
+          <p className="text-muted-foreground">
             {reservation.reference ? `Reference ${reservation.reference}` : 'Manage your upcoming visit.'}
           </p>
         </div>
@@ -220,14 +220,14 @@ export function ReservationDetailClient({ reservationId, restaurantName }: Reser
         </Alert>
       ))}
 
-      <div className="rounded-[var(--radius-lg)] border border-srx-border-subtle bg-white/95 shadow-card">
-        <div className="flex flex-col gap-4 border-b border-srx-border-subtle p-6 sm:flex-row sm:items-center sm:justify-between">
+      <div className="rounded-[var(--radius-lg)] border border-border bg-card shadow-sm">
+        <div className="flex flex-col gap-4 border-b border-border/80 p-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
-            <h2 className="text-xl font-semibold text-srx-ink-strong">
+            <h2 className="text-xl font-semibold text-foreground">
               {restaurantName ?? 'Your reservation'}
             </h2>
-            <p className="text-sm text-srx-ink-soft">{reservationDate}</p>
-            <p className="text-sm text-srx-ink-soft">
+            <p className="text-sm text-muted-foreground">{reservationDate}</p>
+            <p className="text-sm text-muted-foreground">
               {reservationTime} · party of {reservation.partySize}
             </p>
           </div>
@@ -246,25 +246,25 @@ export function ReservationDetailClient({ reservationId, restaurantName }: Reser
 
         <div className="grid gap-6 p-6 md:grid-cols-2">
           <div className="space-y-1">
-            <h3 className="text-sm font-semibold text-srx-ink-muted">Guest name</h3>
-            <p className="text-base text-srx-ink-strong">{reservation.customerName}</p>
+            <h3 className="text-sm font-semibold text-muted-foreground">Guest name</h3>
+            <p className="text-base text-foreground">{reservation.customerName}</p>
           </div>
           <div className="space-y-1">
-            <h3 className="text-sm font-semibold text-srx-ink-muted">Contact</h3>
-            <p className="text-base text-srx-ink-strong">{reservation.customerEmail}</p>
-            <p className="text-base text-srx-ink-soft">{reservation.customerPhone}</p>
+            <h3 className="text-sm font-semibold text-muted-foreground">Contact</h3>
+            <p className="text-base text-foreground">{reservation.customerEmail}</p>
+            <p className="text-base text-muted-foreground">{reservation.customerPhone}</p>
           </div>
           <div className="space-y-1">
-            <h3 className="text-sm font-semibold text-srx-ink-muted">Seating preference</h3>
-            <p className="text-base text-srx-ink-strong">{reservation.seatingPreference}</p>
+            <h3 className="text-sm font-semibold text-muted-foreground">Seating preference</h3>
+            <p className="text-base text-foreground">{reservation.seatingPreference}</p>
           </div>
           <div className="space-y-1">
-            <h3 className="text-sm font-semibold text-srx-ink-muted">Booking type</h3>
-            <p className="text-base text-srx-ink-strong">{reservation.bookingType}</p>
+            <h3 className="text-sm font-semibold text-muted-foreground">Booking type</h3>
+            <p className="text-base text-foreground">{reservation.bookingType}</p>
           </div>
           <div className="space-y-1 md:col-span-2">
-            <h3 className="text-sm font-semibold text-srx-ink-muted">Notes</h3>
-            <p className="text-base text-srx-ink-strong">
+            <h3 className="text-sm font-semibold text-muted-foreground">Notes</h3>
+            <p className="text-base text-foreground">
               {reservation.notes?.trim() ? reservation.notes : 'No special notes added.'}
             </p>
           </div>

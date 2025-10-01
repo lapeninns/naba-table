@@ -21,22 +21,22 @@ export function Pagination({ page, pageSize, total, isLoading = false, onPageCha
 
   return (
     <nav
-      className="flex items-center justify-between gap-4 border-t border-base-300 pt-4"
+      className="flex items-center justify-between gap-4 border-t border-border pt-4"
       aria-label="Bookings pagination"
     >
-      <p className="text-sm text-base-content/70" aria-live="polite" aria-atomic="true">
+      <p className="text-sm text-muted-foreground" aria-live="polite" aria-atomic="true">
         {total === 0 ? (
           <>
-            Showing <span className="font-medium text-base-content">0</span> of{' '}
-            <span className="font-medium text-base-content">0</span> bookings
+            Showing <span className="font-medium text-foreground">0</span> of{' '}
+            <span className="font-medium text-foreground">0</span> bookings
           </>
         ) : (
           <>
             Showing{' '}
-            <span className="font-medium text-base-content">{start}</span>
+            <span className="font-medium text-foreground">{start}</span>
             {' - '}
-            <span className="font-medium text-base-content">{end}</span> of{' '}
-            <span className="font-medium text-base-content">{total}</span> bookings
+            <span className="font-medium text-foreground">{end}</span> of{' '}
+            <span className="font-medium text-foreground">{total}</span> bookings
           </>
         )}
         {isLoading ? ' (updating...)' : ''}

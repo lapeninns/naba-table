@@ -145,7 +145,7 @@ export function EditBookingDialog({ booking, open, onOpenChange }: EditBookingDi
                 control={control}
                 render={({ field }) => <Input id="start" type="datetime-local" step="900" {...field} />}
               />
-              {errors.start ? <p className="text-sm text-rose-600">{errors.start.message}</p> : null}
+              {errors.start ? <p className="text-sm text-destructive">{errors.start.message}</p> : null}
             </div>
 
             <div className="grid gap-2">
@@ -155,7 +155,7 @@ export function EditBookingDialog({ booking, open, onOpenChange }: EditBookingDi
                 control={control}
                 render={({ field }) => <Input id="end" type="datetime-local" step="900" {...field} />}
               />
-              {errors.end ? <p className="text-sm text-rose-600">{errors.end.message}</p> : null}
+              {errors.end ? <p className="text-sm text-destructive">{errors.end.message}</p> : null}
             </div>
 
             <div className="grid gap-2">
@@ -165,7 +165,7 @@ export function EditBookingDialog({ booking, open, onOpenChange }: EditBookingDi
                 control={control}
                 render={({ field }) => <Input id="partySize" type="number" min={1} {...field} />}
               />
-              {errors.partySize ? <p className="text-sm text-rose-600">{errors.partySize.message}</p> : null}
+              {errors.partySize ? <p className="text-sm text-destructive">{errors.partySize.message}</p> : null}
             </div>
 
             <div className="grid gap-2">
@@ -175,10 +175,10 @@ export function EditBookingDialog({ booking, open, onOpenChange }: EditBookingDi
                 control={control}
                 render={({ field }) => <Textarea id="notes" rows={3} {...field} />}
               />
-              {errors.notes ? <p className="text-sm text-rose-600">{errors.notes.message}</p> : null}
+              {errors.notes ? <p className="text-sm text-destructive">{errors.notes.message}</p> : null}
             </div>
 
-            {serverMessage ? <p className="text-sm text-rose-600" role="alert">{serverMessage}</p> : null}
+            {serverMessage ? <p className="text-sm text-destructive" role="alert">{serverMessage}</p> : null}
           </div>
 
           <DialogFooter>

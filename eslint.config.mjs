@@ -17,7 +17,11 @@ export default [
     parserOptions: {
       ecmaVersion: 2023,
       sourceType: "module",
-      project: ["./tsconfig.json", "./reserve/tsconfig.reserve.json"],
+      project: [
+        "./tsconfig.json",
+        "./reserve/tsconfig.reserve.json",
+        "./reserve/.storybook/tsconfig.json",
+      ],
       tsconfigRootDir: __dirname,
     },
     extends: [
@@ -33,9 +37,13 @@ export default [
     plugins: ["@typescript-eslint", "jsx-a11y", "import"],
     settings: {
       "import/resolver": {
-        typescript: {
-          project: ["./tsconfig.json", "./reserve/tsconfig.reserve.json"],
-        },
+       typescript: {
+          project: [
+            "./tsconfig.json",
+            "./reserve/tsconfig.reserve.json",
+            "./reserve/.storybook/tsconfig.json",
+          ],
+       },
       },
     },
     rules: {

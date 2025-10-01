@@ -1,7 +1,7 @@
 'use client';
 
 import { Icon } from '@reserve/shared/ui/icons';
-import { bookingHelpers } from '@reserve/shared/utils/booking';
+import { cn } from '@shared/lib/cn';
 import { Label } from '@shared/ui/label';
 
 import type { PropsWithChildren, ReactNode } from 'react';
@@ -16,7 +16,7 @@ export type FieldProps = PropsWithChildren<{
 
 export function Field({ id, label, required, error, className, children }: FieldProps) {
   return (
-    <div className={bookingHelpers.cn('grid w-full items-center gap-1.5', className)}>
+    <div className={cn('grid w-full items-center gap-1.5', className)}>
       <Label htmlFor={id} className="flex items-center">
         {label}
         {required ? <span className="ml-1 text-red-500">*</span> : null}
