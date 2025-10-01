@@ -1,9 +1,9 @@
 import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
 import { notFound, redirect } from 'next/navigation';
 
-import { defaultErrorReporter } from '@reserve/shared/error';
 import { getReservation } from '@/server/reservations/getReservation';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
+import { defaultErrorReporter } from '@reserve/shared/error';
 
 import { ReservationDetailClient } from './ReservationDetailClient';
 

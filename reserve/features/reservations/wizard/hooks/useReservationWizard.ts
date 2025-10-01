@@ -94,8 +94,13 @@ export function useReservationWizard() {
   const handleConfirm = useCallback(async () => {
     const result = buildReservationDraft(state.details);
     if (!result.ok) {
-      errorReporter.capture(result.error, { scope: 'wizard.buildReservationDraft' });
-      const message = mapErrorToMessage(result.error, 'Unable to process booking');
+      if ('error' in result) {
+        errorReporter.capture(result.error, { scope: 'wizard.buildReservationDraft' });
+      }
+      const message = mapErrorToMessage(
+        'error' in result ? result.error : null,
+        'Unable to process booking',
+      );
       actions.setError(message);
       return;
     }
