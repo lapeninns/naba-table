@@ -2,10 +2,15 @@ import Stripe from "stripe";
 
 const STRIPE_API_VERSION = "2023-10-16";
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY ?? "";
+const STRIPE_MOCK_MODE = process.env.STRIPE_MOCK_MODE === 'true';
 
 let stripeClient: Stripe | null = null;
 
 export function getStripeClient(): Stripe {
+  if (STRIPE_MOCK_MODE) {
+    throw new Error('Stripe client is not available while STRIPE_MOCK_MODE=true');
+  }
+
   if (!STRIPE_SECRET_KEY) {
     throw new Error("STRIPE_SECRET_KEY is not configured.");
   }
@@ -48,6 +53,16 @@ export const createCheckout = async ({
   priceId,
   couponId,
 }: CreateCheckoutParams): Promise<string> => {
+  if (STRIPE_MOCK_MODE) {
+    const url = new URL(successUrl);
+    url.searchParams.set('mockCheckout', '1');
+    if (clientReferenceId) {
+      url.searchParams.set('clientReferenceId', clientReferenceId);
+    }
+    url.searchParams.set('priceId', priceId);
+    return url.toString();
+  }
+
   try {
     const stripe = getStripeClient();
 
@@ -109,6 +124,13 @@ export const createCustomerPortal = async ({
   customerId,
   returnUrl,
 }: CreateCustomerPortalParams): Promise<string> => {
+  if (STRIPE_MOCK_MODE) {
+    const url = new URL(returnUrl);
+    url.searchParams.set('mockPortal', '1');
+    url.searchParams.set('customerId', customerId);
+    return url.toString();
+  }
+
   const stripe = getStripeClient();
 
   const portalSession = await stripe.billingPortal.sessions.create({
@@ -121,6 +143,27 @@ export const createCustomerPortal = async ({
 
 // This is used to get the uesr checkout session and populate the data so we get the planId the user subscribed to
 export const findCheckoutSession = async (sessionId: string) => {
+  if (STRIPE_MOCK_MODE) {
+    return {
+      id: sessionId,
+      payment_status: 'paid',
+      status: 'complete',
+      amount_total: 0,
+      currency: 'usd',
+      url: null,
+      created: Date.now() / 1000,
+      livemode: false,
+      customer: null,
+      line_items: {
+        object: 'list',
+        data: [],
+        has_more: false,
+        total_count: 0,
+        url: '',
+      },
+    } as Partial<Stripe.Checkout.Session>;
+  }
+
   try {
     const stripe = getStripeClient();
 

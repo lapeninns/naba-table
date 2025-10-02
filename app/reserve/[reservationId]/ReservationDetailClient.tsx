@@ -69,6 +69,7 @@ export function ReservationDetailClient({ reservationId, restaurantName }: Reser
   const viewTrackedRef = useRef(false);
 
   const { data: reservation, error, isError, isLoading, refetch, isFetching } = useReservation(reservationId);
+  const testUiEnabled = process.env.NEXT_PUBLIC_ENABLE_TEST_UI === 'true';
 
   const bookingDto = useMemo(() => buildBookingDto(reservation, restaurantName), [reservation, restaurantName]);
 
@@ -241,6 +242,17 @@ export function ReservationDetailClient({ reservationId, restaurantName }: Reser
             <Button variant="destructive" onClick={handleCancel} disabled={actionDisabled}>
               Cancel
             </Button>
+            {testUiEnabled ? (
+              <Button variant="outline" asChild>
+                <a
+                  href={`/api/test/reservations/${reservation.id}/confirmation`}
+                  download
+                  className="inline-flex items-center gap-2"
+                >
+                  Download confirmation
+                </a>
+              </Button>
+            ) : null}
           </div>
         </div>
 

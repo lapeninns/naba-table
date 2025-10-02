@@ -27,7 +27,12 @@
     "storybook:build": "storybook build -c reserve/.storybook -o reserve/storybook-static",
     "analyze": "vite build --config reserve/vite.config.ts --mode analyze",
     "prepare": "husky",
-    "secret:scan": "gitleaks detect --no-banner --redact && trufflehog filesystem --no-update --only-verified --fail ."
+    "secret:scan": "gitleaks detect --no-banner --redact && trufflehog filesystem --no-update --only-verified --fail .",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:smoke": "playwright test --grep @smoke",
+    "test:e2e:update-snapshots": "PLAYWRIGHT_UPDATE_SNAPSHOTS=1 playwright test",
+    "test:component": "playwright test -c playwright.component.config.ts",
+    "test:report": "playwright show-report"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.9",
