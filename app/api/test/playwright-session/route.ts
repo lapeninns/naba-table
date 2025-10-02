@@ -19,7 +19,7 @@ const payloadSchema = z.object({
       restaurantId: z.string().uuid().optional(),
     })
     .default({}),
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -38,15 +38,16 @@ export async function POST(req: NextRequest) {
 
   const normalizedEmail = email.toLowerCase();
 
-  const existingUser = await service.auth.admin.getUserByEmail(normalizedEmail);
-  let user = existingUser.data.user ?? null;
+  // List users and filter by email since getUserByEmail doesn't exist
+  const { data: usersData } = await service.auth.admin.listUsers();
+  const existingUser = usersData?.users?.find((u: { email?: string }) => u.email?.toLowerCase() === normalizedEmail);
+  let user = existingUser ?? null;
 
   if (!user) {
     const created = await service.auth.admin.createUser({
       email: normalizedEmail,
       password,
       email_confirm: true,
-      email_confirmed_at: new Date().toISOString(),
       user_metadata: metadata ?? {},
     });
 
@@ -66,7 +67,6 @@ export async function POST(req: NextRequest) {
 
     updates.password = password;
     updates.email_confirm = true;
-    updates.email_confirmed_at = new Date().toISOString();
 
     const updated = await service.auth.admin.updateUserById(user.id, updates);
     if (updated.error || !updated.data.user) {
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
     phone: profile.phone ?? '07123 456789',
     image: profile.image ?? null,
     has_access: true,
-    price_id: null,
+    price_id: null as string | null,
     updated_at: new Date().toISOString(),
   };
 

@@ -11,6 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { emit } from '@/lib/analytics/emit';
+import { cn } from '@/lib/utils';
 import { useReservation } from '@features/reservations/wizard/api/useReservation';
 
 import type { BookingDTO } from '@/hooks/useBookings';
@@ -243,15 +244,20 @@ export function ReservationDetailClient({ reservationId, restaurantName }: Reser
               Cancel
             </Button>
             {testUiEnabled ? (
-              <Button variant="outline" asChild>
-                <a
-                  href={`/api/test/reservations/${reservation.id}/confirmation`}
-                  download
-                  className="inline-flex items-center gap-2"
-                >
-                  Download confirmation
-                </a>
-              </Button>
+              <a
+                href={`/api/test/reservations/${reservation.id}/confirmation`}
+                download
+                className={cn(
+                  'inline-flex items-center justify-center gap-2',
+                  'min-h-[44px] h-11 px-5 py-2.5',
+                  'rounded-[var(--radius-md)] text-button',
+                  'border border-srx-border-strong bg-white/90 text-srx-ink-strong hover:bg-srx-surface-positive-alt',
+                  'transition-[transform,box-shadow,background-color,color] duration-100 ease-out',
+                  'active:scale-[0.98]',
+                )}
+              >
+                Download confirmation
+              </a>
             ) : null}
           </div>
         </div>
