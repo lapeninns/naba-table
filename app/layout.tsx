@@ -27,7 +27,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang={config.locale ?? "en"}
-      data-theme={config.colors.theme}
       className="antialiased font-sans"
       style={htmlStyle}
     >
