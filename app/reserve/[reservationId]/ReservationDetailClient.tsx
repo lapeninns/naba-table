@@ -14,6 +14,8 @@ import { emit } from '@/lib/analytics/emit';
 import { cn } from '@/lib/utils';
 import { useReservation } from '@features/reservations/wizard/api/useReservation';
 
+import { ReservationHistory } from './ReservationHistory';
+
 import type { BookingDTO } from '@/hooks/useBookings';
 import type { Reservation } from '@entities/reservation/reservation.schema';
 
@@ -288,6 +290,8 @@ export function ReservationDetailClient({ reservationId, restaurantName }: Reser
           </div>
         </div>
       </div>
+
+      <ReservationHistory reservationId={reservationId} />
 
       {bookingDto ? (
         <>

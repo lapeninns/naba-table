@@ -1,39 +1,28 @@
-import * as React from "react";
+"use client"
 
-import { cn } from "@/lib/utils";
+import * as React from "react"
+import * as ProgressPrimitive from "@radix-ui/react-progress"
 
-export interface ProgressProps extends React.HTMLAttributes<HTMLDivElement> {
-  value?: number;
-  max?: number;
-}
+import { cn } from "@/lib/utils"
 
-const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
-  ({ className, value = 0, max = 100, children, ...props }, ref) => {
-    const clamped = Math.min(Math.max(value, 0), max);
-    const percentage = max === 0 ? 0 : (clamped / max) * 100;
+const Progress = React.forwardRef<
+  React.ElementRef<typeof ProgressPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof ProgressPrimitive.Root>
+>(({ className, value, ...props }, ref) => (
+  <ProgressPrimitive.Root
+    ref={ref}
+    className={cn(
+      "relative h-2 w-full overflow-hidden rounded-full bg-primary/20",
+      className
+    )}
+    {...props}
+  >
+    <ProgressPrimitive.Indicator
+      className="h-full w-full flex-1 bg-primary transition-all"
+      style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
+    />
+  </ProgressPrimitive.Root>
+))
+Progress.displayName = ProgressPrimitive.Root.displayName
 
-    return (
-      <div
-        ref={ref}
-        className={cn(
-          "relative h-2 w-full overflow-hidden rounded-full bg-[color:var(--color-border)]/60",
-          className,
-        )}
-        role="progressbar"
-        aria-valuemin={0}
-        aria-valuemax={max}
-        aria-valuenow={Math.round(percentage)}
-        {...props}
-      >
-        <div
-          className="h-full w-full origin-left rounded-full bg-[color:var(--color-primary)] transition-transform duration-fast ease-srx-standard"
-          style={{ transform: `scaleX(${percentage / 100})` }}
-        />
-        {children}
-      </div>
-    );
-  },
-);
-Progress.displayName = "Progress";
-
-export { Progress };
+export { Progress }

@@ -473,6 +473,7 @@ export async function POST(req: NextRequest) {
         entity: "booking",
         entityId: booking.id,
         metadata: auditMetadata,
+        actor: data.email,
       });
     }
 

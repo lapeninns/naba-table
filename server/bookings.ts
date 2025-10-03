@@ -312,13 +312,14 @@ export async function findAvailableTable(
 
 export async function logAuditEvent(
   client: DbClient,
-  params: { action: string; entity: string; entityId?: string | null; metadata?: Json }
+  params: { action: string; entity: string; entityId?: string | null; metadata?: Json; actor?: string | null }
 ): Promise<void> {
   const { error } = await client.from("audit_logs").insert({
     action: params.action,
     entity: params.entity,
     entity_id: params.entityId ?? null,
     metadata: params.metadata ?? null,
+    actor: params.actor?.trim() ? params.actor.trim() : undefined,
   });
 
   if (error) {

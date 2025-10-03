@@ -2,7 +2,7 @@
 @import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
-/* DaisyUI removed; using shadcn/ui + Tailwind tokens only. */
+/* UI Stack: Custom components + daisyUI + Headless UI + Tailwind tokens. No shadcn/ui. */
 
 @plugin "tailwindcss-animate";
 
@@ -318,8 +318,6 @@ progress::-webkit-progress-value {
   --font-button: 600 16px/20px var(--font-sajilo);
 
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
@@ -366,6 +364,8 @@ progress::-webkit-progress-value {
   --srx-space-card: clamp(1.5rem, 1.25rem + 1vw, 2.5rem);
   --srx-space-section: clamp(1.75rem, 1.5rem + 1.4vw, 3rem);
   --srx-easing-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
 }
 
 .dark {
@@ -503,4 +503,13 @@ progress::-webkit-progress-value {
 }
 .text-button {
   font: var(--font-button);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }

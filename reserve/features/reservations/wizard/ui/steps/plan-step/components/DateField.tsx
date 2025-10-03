@@ -44,7 +44,7 @@ export function DateField({ value, minDate, onSelect, error }: DateFieldProps) {
             mode="single"
             selected={selectedDate}
             onSelect={(date) => {
-              onSelect(date);
+              onSelect(date as Date | undefined | null);
               setOpen(false);
             }}
             disabled={(day) => (day ? day < minDate : false)}

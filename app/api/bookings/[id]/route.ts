@@ -247,6 +247,7 @@ async function handleDashboardUpdate(bookingId: string, data: z.infer<typeof das
       entity: "booking",
       entityId: bookingId,
       metadata: auditMetadata,
+      actor: existingBooking.customer_email ?? "dashboard",
     });
 
     // Record analytics event
@@ -380,6 +381,15 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Booking not found" }, { status: 404 });
     }
 
+    const {
+      data: { user },
+      error: authError,
+    } = await tenantSupabase.auth.getUser();
+
+    if (authError) {
+      console.error('[bookings][PUT:id] auth resolution failed', authError.message);
+    }
+
     const normalizedEmail = normalizeEmail(data.email);
     const normalizedPhone = data.phone.trim();
 
@@ -502,11 +512,14 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       ...buildBookingAuditSnapshot(existingBooking, updated),
     } as Json;
 
+    const actorIdentity = user?.email ?? user?.id ?? data.email ?? existingBooking.customer_email ?? null;
+
     await logAuditEvent(serviceSupabase, {
       action: "booking.updated",
       entity: "booking",
       entityId: bookingId,
       metadata: auditMetadata,
+      actor: actorIdentity,
     });
 
     if (updated.table_id) {
@@ -601,6 +614,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       entity: "booking",
       entityId: bookingId,
       metadata: cancellationMetadata,
+      actor: user.email ?? user.id ?? null,
     });
 
     try {

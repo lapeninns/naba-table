@@ -1,64 +1,69 @@
-import * as React from "react";
+import * as React from "react"
+import { cva, type VariantProps } from "class-variance-authority"
 
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils"
 
-const alertVariants = {
-  default:
-    "border border-srx-border-subtle bg-white/95 text-srx-ink-strong shadow-card",
-  destructive:
-    "border border-red-200 bg-red-50 text-red-700 [&>svg]:text-red-600",
-  info: "border border-srx-border-subtle bg-srx-surface-info text-srx-ink-strong",
-  success:
-    "border border-emerald-200 bg-emerald-50 text-emerald-700 [&>svg]:text-emerald-600",
-  warning:
-    "border border-amber-200 bg-amber-50 text-amber-700 [&>svg]:text-amber-600",
-} as const;
+const alertVariants = cva(
+  "relative w-full rounded-lg border px-4 py-3 text-sm [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-foreground [&>svg~*]:pl-7",
+  {
+    variants: {
+      variant: {
+        default: "bg-background text-foreground",
+        destructive:
+          "border-destructive/50 text-destructive dark:border-destructive [&>svg]:text-destructive",
+        info: "bg-info/10 border-info/50 text-info-foreground [&>svg]:text-info",
+        success: "bg-success/10 border-success/50 text-success-foreground [&>svg]:text-success",
+        warning: "bg-warning/10 border-warning/50 text-warning-foreground [&>svg]:text-warning",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+    },
+  }
+)
 
-type AlertVariant = keyof typeof alertVariants;
+const Alert = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement> & VariantProps<typeof alertVariants>
+>(({ className, variant, ...props }, ref) => (
+  <div
+    ref={ref}
+    role="alert"
+    className={cn(alertVariants({ variant }), className)}
+    {...props}
+  />
+))
+Alert.displayName = "Alert"
 
-export interface AlertProps extends React.HTMLAttributes<HTMLDivElement> {
-  variant?: AlertVariant;
-}
-
-const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
-  ({ className, variant = "default", role = "alert", ...props }, ref) => (
-    <div
-      ref={ref}
-      role={role}
-      className={cn(
-        "relative flex w-full gap-3 rounded-[var(--radius-md)] px-4 py-3 text-sm",
-        alertVariants[variant],
-        className,
-      )}
-      {...props}
-    />
-  ),
-);
-Alert.displayName = "Alert";
-
-const AlertIcon = ({ children }: React.PropsWithChildren) => (
-  <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center" aria-hidden>
-    {children}
-  </span>
-);
-
-const AlertTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
-  ({ className, ...props }, ref) => (
-    <p ref={ref} className={cn("font-semibold leading-none tracking-tight", className)} {...props} />
-  ),
-);
-AlertTitle.displayName = "AlertTitle";
+const AlertTitle = React.forwardRef<
+  HTMLParagraphElement,
+  React.HTMLAttributes<HTMLHeadingElement>
+>(({ className, ...props }, ref) => (
+  <h5
+    ref={ref}
+    className={cn("mb-1 font-medium leading-none tracking-tight", className)}
+    {...props}
+  />
+))
+AlertTitle.displayName = "AlertTitle"
 
 const AlertDescription = React.forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, ...props }, ref) => (
-  <p
+  <div
     ref={ref}
-    className={cn("text-sm text-srx-ink-soft [&_p]:leading-relaxed", className)}
+    className={cn("text-sm [&_p]:leading-relaxed", className)}
     {...props}
   />
-));
-AlertDescription.displayName = "AlertDescription";
+))
+AlertDescription.displayName = "AlertDescription"
 
-export { Alert, AlertIcon, AlertTitle, AlertDescription };
+// AlertIcon for backward compatibility
+const AlertIcon = ({ children }: React.PropsWithChildren) => (
+  <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center" aria-hidden>
+    {children}
+  </span>
+)
+
+export { Alert, AlertTitle, AlertDescription, AlertIcon }
