@@ -16,13 +16,13 @@ describe('booking formatting helpers', () => {
     expect(formatBookingLabel('lunch')).toBe('Lunch');
   });
 
-  it('formats reservation dates and times with timezone aware formatters', () => {
+  it('formats reservation dates and times without shifting stored values', () => {
     expect(formatReservationDate('2025-03-01')).toBe('Saturday, 1 March 2025');
     expect(formatReservationSummaryDate('2025-03-01')).toBe('Mar 01 2025');
-    expect(formatReservationTime('18:30')).toBe('19:30');
+    expect(formatReservationTime('18:30')).toBe('18:30');
   });
 
-  it('supports timezone overrides and additional formats', () => {
+  it('ignores timezone overrides for raw reservation times but supports other formats', () => {
     expect(formatReservationTime('18:30', { timezone: 'UTC' })).toBe('18:30');
     const sampleDate = new Date('2025-03-01T18:30:00Z');
     expect(formatReservationTimeFromDate(sampleDate, { timezone: 'UTC' })).toBe('18:30');

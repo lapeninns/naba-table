@@ -12,6 +12,8 @@ import { planFormSchema, type PlanFormValues } from '../model/schemas';
 import type { BookingDetails } from '../model/reducer';
 import type { PlanStepFormProps, PlanStepFormState } from '../ui/steps/plan-step/types';
 
+const DEFAULT_TIME = '12:00';
+
 export function usePlanStepForm({
   state,
   actions,
@@ -25,7 +27,7 @@ export function usePlanStepForm({
     reValidateMode: 'onBlur',
     defaultValues: {
       date: state.details.date ?? '',
-      time: state.details.time ?? '',
+      time: state.details.time ?? DEFAULT_TIME,
       party: state.details.party ?? 1,
       bookingType: state.details.bookingType,
       notes: state.details.notes ?? '',
@@ -41,7 +43,7 @@ export function usePlanStepForm({
     form.reset(
       {
         date: state.details.date ?? '',
-        time: state.details.time ?? '',
+        time: state.details.time ?? DEFAULT_TIME,
         party: state.details.party ?? 1,
         bookingType: state.details.bookingType,
         notes: state.details.notes ?? '',
@@ -63,6 +65,12 @@ export function usePlanStepForm({
     },
     [actions],
   );
+
+  useEffect(() => {
+    if (!state.details.time) {
+      updateField('time', DEFAULT_TIME);
+    }
+  }, [state.details.time, updateField]);
 
   const submitForm = useCallback(
     (values: PlanFormValues) => {

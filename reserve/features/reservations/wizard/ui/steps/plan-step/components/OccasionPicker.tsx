@@ -2,7 +2,6 @@
 
 import React from 'react';
 
-import { Badge } from '@shared/ui/badge';
 import { FormDescription, FormItem, FormLabel, FormMessage } from '@shared/ui/form';
 import { ToggleGroup, ToggleGroupItem } from '@shared/ui/toggle-group';
 
@@ -59,15 +58,6 @@ export function OccasionPicker({
           );
         })}
       </ToggleGroup>
-      <div className="flex flex-wrap gap-2 text-xs text-srx-ink-soft">
-        {availability.labels.happyHour ? (
-          <Badge variant="outline">Happy hour selected</Badge>
-        ) : null}
-        {availability.labels.drinksOnly ? <Badge variant="outline">Drinks only</Badge> : null}
-        {availability.labels.kitchenClosed ? (
-          <Badge variant="destructive">Kitchen closed</Badge>
-        ) : null}
-      </div>
       <FormDescription>{DESCRIPTION}</FormDescription>
       <FormMessage>{error}</FormMessage>
     </FormItem>

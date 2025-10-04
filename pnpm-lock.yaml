@@ -23,6 +23,9 @@ importers:
       '@next/mdx':
         specifier: ^15.5.4
         version: 15.5.4(@mdx-js/loader@3.1.1)(@mdx-js/react@3.1.1(@types/react@19.1.15)(react@19.1.1))
+      '@radix-ui/react-accordion':
+        specifier: ^1.1.6
+        version: 1.2.12(@types/react-dom@19.1.9(@types/react@19.1.15))(@types/react@19.1.15)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
       '@radix-ui/react-alert-dialog':
         specifier: ^1.1.15
         version: 1.1.15(@types/react-dom@19.1.9(@types/react@19.1.15))(@types/react@19.1.15)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)

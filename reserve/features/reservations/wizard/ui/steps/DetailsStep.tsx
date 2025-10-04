@@ -1,35 +1,61 @@
 'use client';
 
 import { AlertCircle } from 'lucide-react';
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useWatch } from 'react-hook-form';
 
+import { cn } from '@/lib/utils';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@shared/ui/accordion';
 import { Alert, AlertDescription, AlertIcon } from '@shared/ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@shared/ui/card';
 import { Checkbox } from '@shared/ui/checkbox';
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@shared/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@shared/ui/form';
 import { Input } from '@shared/ui/input';
+import { Label } from '@shared/ui/label';
 
 import { useDetailsStepForm } from '../../hooks/useDetailsStepForm';
 
 import type { DetailsStepProps } from './details-step/types';
 
 const CONTACT_SECTION_CLASS = 'space-y-4 rounded-xl border border-border bg-card p-5 shadow-sm';
-const PREFERENCE_WRAPPER_CLASS = 'flex items-start gap-3 rounded-xl bg-muted/60 p-3';
-const EMPHASIS_BOX_CLASS =
-  'flex items-start gap-3 rounded-xl border border-border bg-muted/80 p-4 text-sm text-muted-foreground';
+const basePreferenceLabelClass =
+  'hover:bg-accent/50 flex w-full items-start gap-3 rounded-lg border p-3 transition-colors has-[[aria-checked=true]]:border-primary has-[[aria-checked=true]]:bg-primary/10 dark:has-[[aria-checked=true]]:border-primary/60 dark:has-[[aria-checked=true]]:bg-primary/20';
+
+const optionalPreferenceLabelClass = (checked: boolean) =>
+  cn(basePreferenceLabelClass, checked ? 'border-primary/60' : 'border-border bg-muted/40');
+
+const requiredPreferenceLabelClass = (checked: boolean) =>
+  cn(
+    basePreferenceLabelClass,
+    checked
+      ? 'border-primary/60'
+      : 'border-destructive/40 bg-destructive/10 text-destructive-foreground dark:text-destructive-foreground',
+  );
 
 export function DetailsStep(props: DetailsStepProps) {
   const controller = useDetailsStepForm(props);
   const { form, handleSubmit, handleError, handlers } = controller;
   const { errors } = form.formState;
+  const rememberDetailsValue = useWatch({ control: form.control, name: 'rememberDetails' });
+  const marketingOptInValue = useWatch({ control: form.control, name: 'marketingOptIn' });
+  const agreeValue = useWatch({ control: form.control, name: 'agree' });
+
+  const preferenceSummary = useMemo(() => {
+    const parts = [
+      rememberDetailsValue ? 'Details saved' : 'Details not saved',
+      marketingOptInValue ? 'Updates on' : 'Updates off',
+      agreeValue ? 'Terms accepted' : 'Terms pending',
+    ];
+    return parts.join(' • ');
+  }, [rememberDetailsValue, marketingOptInValue, agreeValue]);
+
+  const [accordionValue, setAccordionValue] = useState<string | undefined>();
+
+  useEffect(() => {
+    if (errors.agree) {
+      setAccordionValue('preferences');
+    }
+  }, [errors.agree]);
 
   return (
     <Card className="mx-auto w-full max-w-4xl lg:max-w-5xl">
@@ -129,118 +155,171 @@ export function DetailsStep(props: DetailsStepProps) {
             </section>
 
             <section className={CONTACT_SECTION_CLASS}>
-              <h3 className="text-lg font-semibold text-foreground">Preferences</h3>
-              <div className="space-y-3">
-                <FormField
-                  control={form.control}
-                  name="rememberDetails"
-                  render={({ field }) => (
-                    <FormItem className={PREFERENCE_WRAPPER_CLASS}>
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onChange={(event) => {
-                            const next = (event.target as HTMLInputElement).checked;
-                            field.onChange(next);
-                            handlers.toggleRemember(next);
-                          }}
-                        />
-                      </FormControl>
-                      <div className="space-y-1">
-                        <FormLabel className="text-sm font-medium text-foreground">
-                          Save contact details for next time
-                        </FormLabel>
-                        <FormDescription>
-                          We’ll pre-fill your info the next time you book on this device.
-                        </FormDescription>
-                      </div>
-                    </FormItem>
-                  )}
-                />
+              <Accordion
+                type="single"
+                collapsible
+                value={accordionValue}
+                onValueChange={(next) => setAccordionValue(next ?? undefined)}
+                className="w-full"
+              >
+                <AccordionItem value="preferences">
+                  <AccordionTrigger>
+                    <span className="flex flex-col text-left">
+                      <span className="text-base font-semibold text-foreground">Preferences</span>
+                      <span
+                        className={
+                          agreeValue ? 'text-sm text-muted-foreground' : 'text-sm text-destructive'
+                        }
+                      >
+                        {preferenceSummary}
+                      </span>
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-4 pt-4">
+                      <FormField
+                        control={form.control}
+                        name="rememberDetails"
+                        render={({ field }) => {
+                          const checkboxId = 'remember-details';
+                          return (
+                            <FormItem className="space-y-1">
+                              <Label
+                                htmlFor={checkboxId}
+                                className={optionalPreferenceLabelClass(Boolean(field.value))}
+                              >
+                                <FormControl>
+                                  <Checkbox
+                                    id={checkboxId}
+                                    checked={field.value}
+                                    onCheckedChange={(next) => {
+                                      const value = next === true;
+                                      field.onChange(value);
+                                      handlers.toggleRemember(value);
+                                    }}
+                                    className="h-4 w-4 rounded-[4px] border border-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                                  />
+                                </FormControl>
+                                <div className="space-y-1">
+                                  <span className="text-sm font-semibold text-foreground">
+                                    Save contact details for next time
+                                  </span>
+                                  <p className="text-sm text-muted-foreground">
+                                    We’ll pre-fill your info the next time you book on this device.
+                                  </p>
+                                </div>
+                              </Label>
+                            </FormItem>
+                          );
+                        }}
+                      />
 
-                <FormField
-                  control={form.control}
-                  name="marketingOptIn"
-                  render={({ field }) => (
-                    <FormItem className={PREFERENCE_WRAPPER_CLASS}>
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onChange={(event) => {
-                            const next = (event.target as HTMLInputElement).checked;
-                            field.onChange(next);
-                            handlers.toggleMarketing(next);
-                          }}
-                        />
-                      </FormControl>
-                      <div className="space-y-1">
-                        <FormLabel className="text-sm font-medium text-foreground">
-                          Send me occasional updates
-                        </FormLabel>
-                        <FormDescription>
-                          News on seasonal menus, experiences, and exclusive events.
-                        </FormDescription>
-                      </div>
-                    </FormItem>
-                  )}
-                />
+                      <FormField
+                        control={form.control}
+                        name="marketingOptIn"
+                        render={({ field }) => {
+                          const checkboxId = 'marketing-opt-in';
+                          return (
+                            <FormItem className="space-y-1">
+                              <Label
+                                htmlFor={checkboxId}
+                                className={optionalPreferenceLabelClass(Boolean(field.value))}
+                              >
+                                <FormControl>
+                                  <Checkbox
+                                    id={checkboxId}
+                                    checked={field.value}
+                                    onCheckedChange={(next) => {
+                                      const value = next === true;
+                                      field.onChange(value);
+                                      handlers.toggleMarketing(value);
+                                    }}
+                                    className="h-4 w-4 rounded-[4px] border border-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                                  />
+                                </FormControl>
+                                <div className="space-y-1">
+                                  <span className="text-sm font-semibold text-foreground">
+                                    Send me occasional updates
+                                  </span>
+                                  <p className="text-sm text-muted-foreground">
+                                    News on seasonal menus, experiences, and exclusive events.
+                                  </p>
+                                </div>
+                              </Label>
+                            </FormItem>
+                          );
+                        }}
+                      />
 
-                <FormField
-                  control={form.control}
-                  name="agree"
-                  render={({ field }) => (
-                    <FormItem className="space-y-3">
-                      <div className={EMPHASIS_BOX_CLASS}>
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onChange={(event) => {
-                              const next = (event.target as HTMLInputElement).checked;
-                              field.onChange(next);
-                              handlers.toggleAgree(next);
-                            }}
-                          />
-                        </FormControl>
-                        <div className="space-y-1">
-                          <FormLabel className="text-sm font-semibold text-foreground">
-                            I agree to the terms and privacy notice
-                          </FormLabel>
-                          <FormDescription>
-                            Required to confirm your booking. View our
-                            <a
-                              href="/terms"
-                              className="ml-1 text-foreground underline underline-offset-4"
-                            >
-                              terms
-                            </a>
-                            and
-                            <a
-                              href="/privacy-policy"
-                              className="ml-1 text-foreground underline underline-offset-4"
-                            >
-                              privacy policy
-                            </a>
-                            .
-                          </FormDescription>
-                        </div>
-                      </div>
-                      <FormMessage className="sr-only">{errors.agree?.message}</FormMessage>
-                      {errors.agree ? (
-                        <Alert
-                          variant="destructive"
-                          role="alert"
-                          className="flex items-start gap-3"
-                        >
-                          <AlertIcon>
-                            <AlertCircle className="h-4 w-4" aria-hidden />
-                          </AlertIcon>
-                          <AlertDescription>{errors.agree.message}</AlertDescription>
-                        </Alert>
-                      ) : null}
-                    </FormItem>
-                  )}
-                />
-              </div>
+                      <FormField
+                        control={form.control}
+                        name="agree"
+                        render={({ field }) => {
+                          const checkboxId = 'agree-terms';
+                          return (
+                            <FormItem className="space-y-3">
+                              <Label
+                                htmlFor={checkboxId}
+                                className={requiredPreferenceLabelClass(Boolean(field.value))}
+                              >
+                                <FormControl>
+                                  <Checkbox
+                                    id={checkboxId}
+                                    checked={field.value}
+                                    onCheckedChange={(next) => {
+                                      const value = next === true;
+                                      field.onChange(value);
+                                      handlers.toggleAgree(value);
+                                    }}
+                                    className="h-4 w-4 rounded-[4px] border border-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                                  />
+                                </FormControl>
+                                <div className="space-y-1 text-sm text-muted-foreground">
+                                  <span className="text-foreground font-semibold">
+                                    I agree to the terms and privacy notice
+                                  </span>
+                                  <span>
+                                    Required to confirm your booking. View our
+                                    <a
+                                      href="/terms"
+                                      className="ml-1 text-foreground underline underline-offset-4"
+                                      onClick={(event) => event.stopPropagation()}
+                                    >
+                                      terms
+                                    </a>
+                                    and
+                                    <a
+                                      href="/privacy-policy"
+                                      className="ml-1 text-foreground underline underline-offset-4"
+                                      onClick={(event) => event.stopPropagation()}
+                                    >
+                                      privacy policy
+                                    </a>
+                                    .
+                                  </span>
+                                </div>
+                              </Label>
+                              <FormMessage className="sr-only">{errors.agree?.message}</FormMessage>
+                              {errors.agree ? (
+                                <Alert
+                                  variant="destructive"
+                                  role="alert"
+                                  className="flex items-start gap-3"
+                                >
+                                  <AlertIcon>
+                                    <AlertCircle className="h-4 w-4" aria-hidden />
+                                  </AlertIcon>
+                                  <AlertDescription>{errors.agree.message}</AlertDescription>
+                                </Alert>
+                              ) : null}
+                            </FormItem>
+                          );
+                        }}
+                      />
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
             </section>
           </form>
         </Form>

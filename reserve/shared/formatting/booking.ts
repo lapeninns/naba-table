@@ -117,28 +117,12 @@ export function formatReservationDateShort(
 
 export function formatReservationTime(
   value: string | ReservationTime | null | undefined,
-  options?: FormattingOptions,
+  _options?: FormattingOptions,
 ): string {
   const normalized = normalizeTime(value);
   if (!normalized) return '';
-  try {
-    const formatter = getFormatter(
-      'reservation-time',
-      {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-      },
-      options?.timezone,
-    );
-    const [hours, minutes] = normalized.split(':').map((part) => Number.parseInt(part, 10));
-    return formatter.format(new Date(Date.UTC(1970, 0, 1, hours, minutes)));
-  } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('[formatReservationTime] failed to format time', { value, error });
-    }
-    return '';
-  }
+  const [hours, minutes] = normalized.split(':');
+  return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
 }
 
 export function formatReservationTimeFromDate(date: Date, options?: FormattingOptions): string {

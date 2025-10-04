@@ -2,6 +2,7 @@ import {
   defaultReservationConfig,
   reservationConfigResult,
 } from '@reserve/shared/config/reservations';
+import { formatReservationTime } from '@reserve/shared/formatting/booking';
 import {
   createDateFromParts,
   isReservationDate,
@@ -65,24 +66,6 @@ const EMPTY_AVAILABILITY: ServiceAvailability = {
     lunchWindow: false,
     dinnerWindow: false,
   },
-};
-
-const formatters = new Map<string, Intl.DateTimeFormat>();
-
-const getFormatter = (timezone: string) => {
-  const key = timezone || 'Europe/London';
-  if (!formatters.has(key)) {
-    formatters.set(
-      key,
-      new Intl.DateTimeFormat('en-GB', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-        timeZone: key,
-      }),
-    );
-  }
-  return formatters.get(key)!;
 };
 
 const toMinutesFromTime = (time: ReservationTime): number => toMinutes(time);
@@ -184,7 +167,6 @@ export type BuildTimeSlotsOptions = {
 
 export function buildTimeSlots({ date, config }: BuildTimeSlotsOptions): TimeSlotDescriptor[] {
   const resolvedConfig = resolveConfig(config);
-  const formatter = getFormatter(resolvedConfig.timezone);
   const reservationDate = safeReservationDate(date);
   if (!reservationDate) return [];
 
@@ -206,9 +188,7 @@ export function buildTimeSlots({ date, config }: BuildTimeSlotsOptions): TimeSlo
       resolvedConfig,
     );
     const disabled = availability.services[defaultBookingOption] === 'disabled';
-    const display = formatter.format(
-      new Date(Date.UTC(1970, 0, 1, Number(value.slice(0, 2)), Number(value.slice(3, 5)))),
-    );
+    const display = formatReservationTime(value);
 
     return {
       value,
