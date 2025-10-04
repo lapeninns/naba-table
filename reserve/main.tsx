@@ -1,4 +1,5 @@
 import React from 'react';
+import './app/responsive.css';
 import { createRoot } from 'react-dom/client';
 
 import { ReserveApp } from './app';

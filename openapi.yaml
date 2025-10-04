@@ -1,0 +1,176 @@
+openapi: 3.0.3
+info:
+  title: SajiloReserveX API
+  version: 1.0.0
+  description: Versioned API under /api/v1 with RESTful conventions.
+servers:
+  - url: /api/v1
+tags:
+  - name: Events
+  - name: Leads
+  - name: Profile
+  - name: Bookings
+  - name: Stripe
+paths:
+  /events:
+    get:
+      tags: [Events]
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+    post:
+      tags: [Events]
+      summary: Record analytics events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                - type: array
+      responses:
+        '202': { description: Accepted }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/Internal' }
+  /lead:
+    post:
+      tags: [Leads]
+      summary: Capture lead email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, format: email }
+      responses:
+        '200': { description: OK }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/Internal' }
+  /profile:
+    get:
+      tags: [Profile]
+      summary: Get current user profile
+      responses:
+        '200': { description: OK }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    put:
+      tags: [Profile]
+      summary: Update current user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200': { description: OK }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/Internal' }
+  /profile/image:
+    post:
+      tags: [Profile]
+      summary: Upload profile image
+      responses:
+        '200': { description: OK }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/Internal' }
+  /bookings:
+    get:
+      tags: [Bookings]
+      summary: List bookings by contact or current user
+      parameters:
+        - in: query
+          name: me
+          schema: { type: string, enum: ['1'] }
+        - in: query
+          name: email
+          schema: { type: string, format: email }
+        - in: query
+          name: phone
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+      responses:
+        '200': { description: OK }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/Internal' }
+    post:
+      tags: [Bookings]
+      summary: Create a new booking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201': { description: Created }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/Internal' }
+  /stripe/create-checkout:
+    post:
+      tags: [Stripe]
+      summary: Create Stripe checkout session
+      responses:
+        '200': { description: OK }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/Internal' }
+  /stripe/create-portal:
+    post:
+      tags: [Stripe]
+      summary: Create Stripe billing portal session
+      responses:
+        '200': { description: OK }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/Internal' }
+components:
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  code: { type: string }
+                  message: { type: string }
+                  details: {}
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  code: { type: string }
+                  message: { type: string }
+    Internal:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  code: { type: string }
+                  message: { type: string }
+

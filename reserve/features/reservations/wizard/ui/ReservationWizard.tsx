@@ -12,6 +12,7 @@ import { PlanStep } from './steps/PlanStep';
 import { ReviewStep } from './steps/ReviewStep';
 import { WizardFooter } from './WizardFooter';
 import { WizardLayout } from './WizardLayout';
+import { WizardStickyConfirmation } from './WizardStickyConfirmation';
 
 function ReservationWizardContent() {
   const {
@@ -31,21 +32,45 @@ function ReservationWizardContent() {
   } = useReservationWizard();
   const { analytics } = useWizardDependencies();
 
+  // Map confirmation actions from stickyActions for the redesigned footer
+  const findAction = (id: string) => stickyActions.find((a) => a.id === id);
+
+  // Prefer new confirmation footer on step 4
+  const footer =
+    state.step === 4 ? (
+      <WizardStickyConfirmation
+        steps={stepsMeta}
+        currentStep={state.step}
+        summary={selectionSummary}
+        visible={stickyVisible}
+        onClose={findAction('confirmation-close')?.onClick}
+        onAddToCalendar={findAction('confirmation-calendar')?.onClick}
+        onAddToWallet={findAction('confirmation-wallet')?.onClick}
+        onStartNew={findAction('confirmation-new')?.onClick}
+        closeDisabled={findAction('confirmation-close')?.disabled}
+        calendarDisabled={findAction('confirmation-calendar')?.disabled}
+        walletDisabled={findAction('confirmation-wallet')?.disabled}
+        startNewDisabled={findAction('confirmation-new')?.disabled}
+        calendarLoading={findAction('confirmation-calendar')?.loading}
+        walletLoading={findAction('confirmation-wallet')?.loading}
+      />
+    ) : (
+      <WizardFooter
+        steps={stepsMeta}
+        currentStep={state.step}
+        summary={selectionSummary}
+        actions={stickyActions}
+        visible={stickyVisible}
+        onHeightChange={handleStickyHeightChange}
+      />
+    );
+
   return (
     <WizardLayout
       heroRef={heroRef}
       stickyHeight={stickyHeight}
       stickyVisible={stickyVisible}
-      footer={
-        <WizardFooter
-          steps={stepsMeta}
-          currentStep={state.step}
-          summary={selectionSummary}
-          actions={stickyActions}
-          visible={stickyVisible}
-          onHeightChange={handleStickyHeightChange}
-        />
-      }
+      footer={footer}
     >
       {(() => {
         switch (state.step) {
