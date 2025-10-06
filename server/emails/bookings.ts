@@ -50,53 +50,42 @@ function formatSeatingLabel(value: string | null | undefined) {
   return titleize(value);
 }
 
-function coalesceVenueField(value: string | null | undefined, fallback: string): string {
-  if (!value) return fallback;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : fallback;
-}
-
 async function resolveVenueDetails(restaurantId: string | null | undefined): Promise<VenueDetails> {
   if (!restaurantId) {
-    return DEFAULT_VENUE;
+    throw new Error("[emails][bookings] restaurantId is required");
   }
 
-  try {
-    const supabase = getServiceSupabaseClient();
-    const { data, error } = await supabase
-      .from("restaurants")
-      .select("id,name,timezone,contact_email,contact_phone,address,booking_policy")
-      .eq("id", restaurantId)
-      .maybeSingle();
+  const supabase = getServiceSupabaseClient();
+  const { data, error } = await supabase
+    .from("restaurants")
+    .select("id,name,timezone,contact_email,contact_phone,address,booking_policy")
+    .eq("id", restaurantId)
+    .maybeSingle();
 
-    if (error) {
-      console.error("[emails][bookings] venue lookup failed", {
-        restaurantId,
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-      });
-      return DEFAULT_VENUE;
-    }
-
-    if (!data) {
-      return DEFAULT_VENUE;
-    }
-
-    return {
-      id: data.id ?? restaurantId,
-      name: coalesceVenueField(data.name, DEFAULT_VENUE.name),
-      timezone: coalesceVenueField(data.timezone, DEFAULT_VENUE.timezone),
-      address: coalesceVenueField(data.address, DEFAULT_VENUE.address),
-      phone: coalesceVenueField(data.contact_phone, DEFAULT_VENUE.phone),
-      email: coalesceVenueField(data.contact_email, DEFAULT_VENUE.email),
-      policy: coalesceVenueField(data.booking_policy, DEFAULT_VENUE.policy),
-    };
-  } catch (error) {
-    console.error("[emails][bookings] unexpected venue lookup error", { restaurantId, error });
-    return DEFAULT_VENUE;
+  if (error) {
+    console.error("[emails][bookings] venue lookup failed", {
+      restaurantId,
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+    throw new Error(`Failed to fetch restaurant details: ${error.message}`);
   }
+
+  if (!data) {
+    throw new Error(`Restaurant not found: ${restaurantId}`);
+  }
+
+  return {
+    id: data.id,
+    name: data.name || "Restaurant",
+    timezone: data.timezone || "Europe/London",
+    address: data.address || "",
+    phone: data.contact_phone || "",
+    email: data.contact_email || "",
+    policy: data.booking_policy || "",
+  };
 }
 
 function escapeHtml(value: string) {
@@ -176,7 +165,8 @@ function buildManageUrl(booking: BookingRecord) {
     params.set("restaurantId", booking.restaurant_id);
   }
 
-  return `${siteUrl}/reserve?${params.toString()}`;
+  const query = params.toString();
+  return query ? `${siteUrl}/?${query}` : `${siteUrl}/`;
 }
 
 type BookingSummary = {
@@ -232,9 +222,9 @@ function renderHtml({
   const notes = booking.notes?.trim();
   const notesHtml = notes
     ? `
-          <div style="margin-top:24px;padding:20px;border:1px solid #e2e8f0;border-radius:16px;background:#f8fafc;">
-            <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#0f172a;">Guest notes</p>
-            <p style="margin:0;font-size:14px;line-height:1.6;color:#334155;">${escapeHtml(notes)}</p>
+          <div style="margin-top:28px;padding:20px;border:1px solid #e2e8f0;border-radius:16px;background:#f8fafc;">
+            <p style="margin:0 0 8px;font-size:12px;font-weight:600;color:#0f172a;letter-spacing:0.08em;text-transform:uppercase;">Guest notes</p>
+            <p style="margin:0;font-size:14px;line-height:1.7;color:#334155;">${escapeHtml(notes)}</p>
           </div>
         `
     : "";
@@ -242,79 +232,185 @@ function renderHtml({
     ctaLabel && ctaUrl
       ? `
             <tr>
-              <td align="center" style="padding:24px 0 0;">
-                <a href="${ctaUrl}" style="display:inline-block;padding:14px 28px;border-radius:999px;background:#4338ca;color:#ffffff;font-weight:600;font-size:14px;text-decoration:none;">${ctaLabel}</a>
+              <td align="center" style="padding:28px 0 0;">
+                <a href="${ctaUrl}" style="display:inline-block;padding:16px 32px;border-radius:999px;background:#4338ca;color:#ffffff;font-weight:600;font-size:15px;text-decoration:none;min-height:unset;" class="cta-button">${ctaLabel}</a>
               </td>
             </tr>
           `
       : "";
 
   return `
-    <div style="font-family: Inter, Arial, sans-serif; background:#f1f5f9; padding:32px; color:#0f172a;">
-      <div style="max-width:600px;margin:0 auto;">
-        <div style="background:#111827;color:#f8fafc;padding:32px 32px 28px;border-radius:24px 24px 0 0;">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
-            <tr>
-              <td style="vertical-align:top;">
-                <p style="margin:0 0 10px;font-size:12px;letter-spacing:0.18em;text-transform:uppercase;color:#a5b4fc;">${venue.name}</p>
-                <h1 style="margin:0;font-size:28px;line-height:1.2;">${headline}</h1>
-              </td>
-              <td style="text-align:right;vertical-align:top;">
-                <span style="display:inline-block;padding:6px 12px;border-radius:999px;background:${statusPresentation.badgeBg};color:${statusPresentation.badgeText};font-weight:600;font-size:12px;border:1px solid ${statusPresentation.border};">${statusPresentation.label}</span>
-                <p style="margin:12px 0 4px;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#c7d2fe;">Reference</p>
-                <p style="margin:0;font-size:20px;font-weight:700;">${booking.reference}</p>
-              </td>
-            </tr>
-          </table>
-          <p style="margin:18px 0 0;font-size:15px;line-height:1.7;color:#e0e7ff;">${intro}</p>
-          <p style="margin:14px 0 0;font-size:13px;line-height:1.6;color:#cbd5f5;">${statusPresentation.note}</p>
-        </div>
-        <div style="border-top:1px dashed #cbd5f5;background:#f1f5f9;height:16px;margin:0;">&nbsp;</div>
-        <div style="background:#ffffff;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 24px 24px;padding:32px;box-shadow:0 24px 40px -20px rgba(15,23,42,0.35);">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
-            <tr>
-              <td style="padding-right:16px;border-right:1px dashed #e2e8f0;vertical-align:top;width:55%;">
-                <p style="margin:0 0 8px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#64748b;">When</p>
-                <p style="margin:0 0 16px;font-size:18px;font-weight:600;color:#111827;">${summary.date}</p>
-                <p style="margin:0;font-size:14px;color:#334155;line-height:1.6;">${timeRange}</p>
-                <p style="margin:6px 0 18px;font-size:12px;color:#94a3b8;">${venue.timezone}</p>
-                <p style="margin:0 0 8px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#64748b;">Guests</p>
-                <p style="margin:0 0 16px;font-size:14px;font-weight:600;color:#111827;">${summary.party}</p>
-                <p style="margin:0 0 8px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#64748b;">Booking type</p>
-                <p style="margin:0 0 12px;font-size:14px;color:#334155;">${bookingTypeLabel}</p>
-                <p style="margin:0 0 8px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#64748b;">Seating</p>
-                <p style="margin:0;font-size:14px;color:#334155;">${seatingLabel}</p>
-                <p style="margin:16px 0 0;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#64748b;">Lead guest</p>
-                <p style="margin:4px 0 0;font-size:14px;color:#334155;line-height:1.6;">${booking.customer_name}<br>${booking.customer_phone}</p>
-              </td>
-              <td style="padding-left:16px;vertical-align:top;width:45%;">
-                <p style="margin:0 0 8px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#64748b;">Restaurant</p>
-                <p style="margin:0 0 16px;font-size:16px;font-weight:600;color:#111827;">${venue.name}</p>
-                <p style="margin:0 0 8px;font-size:12px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;">Address</p>
-                <p style="margin:0 0 16px;font-size:14px;color:#334155;line-height:1.6;">${venue.address}</p>
-                <p style="margin:0 0 8px;font-size:12px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;">Phone</p>
-                <p style="margin:0 0 16px;font-size:14px;color:#334155;">${venue.phone}</p>
-                <p style="margin:0 0 8px;font-size:12px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;">Email</p>
-                <p style="margin:0 0 16px;font-size:14px;color:#334155;">${venue.email}</p>
-                <p style="margin:0 0 8px;font-size:12px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;">Policy</p>
-                <p style="margin:0;font-size:13px;line-height:1.6;color:#475569;">${venue.policy}</p>
-              </td>
-            </tr>
-          </table>
-          ${notesHtml}
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
-            ${ctaBlock}
-            <tr>
-              <td style="padding:32px 0 0;font-size:12px;color:#94a3b8;line-height:1.6;" align="center">
-                Manage your reservation anytime:
-                <br />
-                <a href="${manageUrl}" style="color:#4338ca;">${manageUrl}</a>
-              </td>
-            </tr>
-          </table>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="x-apple-disable-message-reformatting">
+      <meta http-equiv="X-UA-Compatible" content="IE=edge">
+      <title>${headline}</title>
+      <!--[if mso]>
+      <style type="text/css">
+        table {border-collapse: collapse;}
+      </style>
+      <![endif]-->
+      <style type="text/css">
+        @media only screen and (max-width: 600px) {
+          .email-container {
+            width: 100% !important;
+            padding: 16px !important;
+          }
+          .email-header {
+            padding: 24px 20px 20px !important;
+            border-radius: 16px 16px 0 0 !important;
+          }
+          .email-body {
+            padding: 20px !important;
+            border-radius: 0 0 16px 16px !important;
+          }
+          .two-column {
+            display: block !important;
+            width: 100% !important;
+            padding: 0 !important;
+            border: none !important;
+          }
+          .column-left {
+            border-right: none !important;
+            padding-right: 0 !important;
+            padding-bottom: 24px !important;
+            border-bottom: 1px dashed #e2e8f0 !important;
+            width: 100% !important;
+          }
+          .column-right {
+            padding-left: 0 !important;
+            padding-top: 24px !important;
+            width: 100% !important;
+          }
+          .header-table {
+            display: block !important;
+            width: 100% !important;
+          }
+          .header-left, .header-right {
+            display: block !important;
+            width: 100% !important;
+            text-align: left !important;
+            padding-bottom: 16px !important;
+          }
+          .header-right {
+            text-align: left !important;
+            padding-bottom: 0 !important;
+          }
+          .status-badge {
+            display: inline-block !important;
+            margin-bottom: 12px !important;
+          }
+          h1 {
+            font-size: 24px !important;
+            line-height: 1.3 !important;
+          }
+          .cta-button {
+            display: block !important;
+            width: 100% !important;
+            padding: 16px 24px !important;
+            font-size: 16px !important;
+          }
+          .mobile-space {
+            height: 12px !important;
+          }
+        }
+        
+        /* Touch-friendly targets */
+        a {
+          min-height: 44px;
+          display: inline-block;
+        }
+        
+        /* Prevent text resizing in iOS */
+        body {
+          -webkit-text-size-adjust: 100%;
+          -ms-text-size-adjust: 100%;
+        }
+      </style>
+    </head>
+    <body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background:#f1f5f9;color:#0f172a;line-height:1.5;">
+      <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background:#f1f5f9;padding:32px 16px;color:#0f172a;" class="email-container">
+        <div style="max-width:600px;margin:0 auto;">
+          <!-- Header -->
+          <div style="background:#111827;color:#f8fafc;padding:32px 28px 24px;border-radius:24px 24px 0 0;" class="email-header">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;" class="header-table">
+              <tr>
+                <td style="vertical-align:top;" class="header-left">
+                  <p style="margin:0 0 10px;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#a5b4fc;">${venue.name}</p>
+                  <h1 style="margin:0;font-size:28px;line-height:1.2;font-weight:700;">${headline}</h1>
+                </td>
+                <td style="text-align:right;vertical-align:top;" class="header-right">
+                  <span style="display:inline-block;padding:8px 14px;border-radius:999px;background:${statusPresentation.badgeBg};color:${statusPresentation.badgeText};font-weight:600;font-size:13px;border:1px solid ${statusPresentation.border};min-height:unset;" class="status-badge">${statusPresentation.label}</span>
+                  <p style="margin:12px 0 4px;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:#c7d2fe;">Reference</p>
+                  <p style="margin:0;font-size:20px;font-weight:700;">${booking.reference}</p>
+                </td>
+              </tr>
+            </table>
+            <p style="margin:18px 0 0;font-size:15px;line-height:1.7;color:#e0e7ff;">${intro}</p>
+            <p style="margin:14px 0 0;font-size:13px;line-height:1.6;color:#cbd5f5;">${statusPresentation.note}</p>
+          </div>
+          
+          <!-- Separator -->
+          <div style="border-top:1px dashed #cbd5f5;background:#f1f5f9;height:16px;margin:0;" class="mobile-space">&nbsp;</div>
+          
+          <!-- Body -->
+          <div style="background:#ffffff;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 24px 24px;padding:32px 28px;box-shadow:0 24px 40px -20px rgba(15,23,42,0.35);" class="email-body">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;" class="two-column">
+              <tr>
+                <td style="padding-right:20px;border-right:1px dashed #e2e8f0;vertical-align:top;width:55%;" class="column-left">
+                  <p style="margin:0 0 8px;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#64748b;font-weight:600;">When</p>
+                  <p style="margin:0 0 16px;font-size:18px;font-weight:600;color:#111827;line-height:1.3;">${summary.date}</p>
+                  <p style="margin:0;font-size:15px;color:#334155;line-height:1.6;font-weight:500;">${timeRange}</p>
+                  <p style="margin:6px 0 20px;font-size:12px;color:#94a3b8;">${venue.timezone}</p>
+                  
+                  <p style="margin:0 0 8px;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#64748b;font-weight:600;">Guests</p>
+                  <p style="margin:0 0 20px;font-size:15px;font-weight:600;color:#111827;">${summary.party}</p>
+                  
+                  <p style="margin:0 0 8px;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#64748b;font-weight:600;">Booking type</p>
+                  <p style="margin:0 0 16px;font-size:14px;color:#334155;">${bookingTypeLabel}</p>
+                  
+                  <p style="margin:0 0 8px;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#64748b;font-weight:600;">Seating</p>
+                  <p style="margin:0 0 20px;font-size:14px;color:#334155;">${seatingLabel}</p>
+                  
+                  <p style="margin:0 0 8px;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#64748b;font-weight:600;">Lead guest</p>
+                  <p style="margin:4px 0 0;font-size:14px;color:#334155;line-height:1.6;">${booking.customer_name}<br><a href="tel:${booking.customer_phone}" style="color:#4338ca;text-decoration:none;min-height:unset;">${booking.customer_phone}</a></p>
+                </td>
+                <td style="padding-left:20px;vertical-align:top;width:45%;" class="column-right">
+                  <p style="margin:0 0 8px;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#64748b;font-weight:600;">Restaurant</p>
+                  <p style="margin:0 0 16px;font-size:17px;font-weight:600;color:#111827;line-height:1.3;">${venue.name}</p>
+                  
+                  <p style="margin:0 0 8px;font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;">Address</p>
+                  <p style="margin:0 0 16px;font-size:14px;color:#334155;line-height:1.6;">${venue.address}</p>
+                  
+                  <p style="margin:0 0 8px;font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;">Phone</p>
+                  <p style="margin:0 0 16px;font-size:14px;color:#334155;"><a href="tel:${venue.phone}" style="color:#4338ca;text-decoration:none;min-height:unset;">${venue.phone}</a></p>
+                  
+                  <p style="margin:0 0 8px;font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;">Email</p>
+                  <p style="margin:0 0 16px;font-size:14px;color:#334155;word-break:break-word;"><a href="mailto:${venue.email}" style="color:#4338ca;text-decoration:none;min-height:unset;">${venue.email}</a></p>
+                  
+                  <p style="margin:0 0 8px;font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;">Policy</p>
+                  <p style="margin:0;font-size:13px;line-height:1.6;color:#475569;">${venue.policy}</p>
+                </td>
+              </tr>
+            </table>
+            ${notesHtml}
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+              ${ctaBlock}
+              <tr>
+                <td style="padding:32px 0 0;font-size:12px;color:#94a3b8;line-height:1.7;" align="center">
+                  <p style="margin:0 0 8px;">Manage your reservation anytime:</p>
+                  <a href="${manageUrl}" style="color:#4338ca;word-break:break-all;min-height:unset;">${manageUrl}</a>
+                </td>
+              </tr>
+            </table>
+          </div>
         </div>
       </div>
-    </div>
+    </body>
+    </html>
   `;
 }
 

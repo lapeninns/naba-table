@@ -84,10 +84,6 @@ const parseMetadata = (details: unknown): ReservationMetadata => {
 
   const metadata: ReservationMetadata = {
     channel: typeof record.channel === 'string' ? record.channel : null,
-    allocationPending:
-      typeof (record as { allocation_pending?: unknown }).allocation_pending === 'boolean'
-        ? Boolean((record as { allocation_pending?: unknown }).allocation_pending)
-        : undefined,
     request: requestRecord
       ? {
           idempotencyKey:
@@ -149,12 +145,6 @@ const normalizeReservation = (input: z.infer<typeof apiReservationSchema>) => {
         ? toIsoString(input.booking_date, input.end_time)
         : null;
 
-  const allocationPendingFromMetadata = metadata?.allocationPending;
-  const allocationPending =
-    typeof allocationPendingFromMetadata === 'boolean'
-      ? allocationPendingFromMetadata
-      : input.status === 'pending_allocation';
-
   return {
     id: input.id,
     restaurantId: input.restaurant_id,
@@ -174,7 +164,6 @@ const normalizeReservation = (input: z.infer<typeof apiReservationSchema>) => {
     marketingOptIn: Boolean(input.marketing_opt_in),
     notes: input.notes ?? null,
     reference: input.reference,
-    allocationPending,
     clientRequestId:
       typeof input.client_request_id === 'string' && input.client_request_id.length > 0
         ? input.client_request_id

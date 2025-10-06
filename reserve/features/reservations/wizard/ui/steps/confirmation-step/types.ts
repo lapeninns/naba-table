@@ -7,7 +7,7 @@ export interface ConfirmationStepProps {
   onActionsChange: (actions: StepAction[]) => void;
 }
 
-export type ConfirmationStatus = 'waitlisted' | 'allocationPending' | 'confirmed' | 'updated';
+export type ConfirmationStatus = 'confirmed' | 'updated';
 
 export type ConfirmationFeedback = {
   variant: 'info' | 'success' | 'warning' | 'error';

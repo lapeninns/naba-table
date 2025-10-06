@@ -2,16 +2,10 @@ import { z } from "zod";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import {
-  recordBookingAllocatedEvent,
-  recordBookingCancelledEvent,
-  recordBookingCreatedEvent,
-  recordBookingWaitlistedEvent,
-} from "@/server/analytics";
+import { recordBookingCancelledEvent, recordBookingCreatedEvent } from "@/server/analytics";
 import type { BookingRecord } from "@/server/bookings";
 import { sendBookingCancellationEmail, sendBookingConfirmationEmail, sendBookingUpdateEmail } from "@/server/emails/bookings";
 import { inngest, isAsyncQueueEnabled } from "@/server/queue/inngest";
-import { recordObservabilityEvent } from "@/server/observability";
 import { getServiceSupabaseClient } from "@/server/supabase";
 import type { Tables } from "@/types/supabase";
 
@@ -24,7 +18,6 @@ const bookingPayloadSchema = z
     id: z.string(),
     restaurant_id: z.string().nullable(),
     customer_id: z.string(),
-    table_id: z.string().nullable(),
     booking_date: z.string(),
     start_time: z.string(),
     end_time: z.string(),
@@ -49,18 +42,8 @@ const bookingPayloadSchema = z
 
 type BookingPayload = z.infer<typeof bookingPayloadSchema>;
 
-const waitlistEntrySchema = z
-  .object({
-    id: z.string(),
-    position: z.number().int().min(0),
-  })
-  .nullable();
-
 const bookingCreatedSideEffectsSchema = z.object({
   booking: bookingPayloadSchema,
-  waitlisted: z.boolean(),
-  allocationPending: z.boolean(),
-  waitlistEntry: waitlistEntrySchema,
   idempotencyKey: z.string().nullable(),
   restaurantId: z.string(),
 });
@@ -101,7 +84,7 @@ async function processBookingCreatedSideEffects(
   supabase?: SupabaseLike,
 ) {
   const client = resolveSupabase(supabase);
-  const { booking, waitlisted, allocationPending, waitlistEntry, idempotencyKey, restaurantId } = payload;
+  const { booking, idempotencyKey, restaurantId } = payload;
 
   try {
     await recordBookingCreatedEvent(client, {
@@ -113,53 +96,20 @@ async function processBookingCreatedSideEffects(
       bookingType: booking.booking_type as Tables<"bookings">["booking_type"],
       seatingPreference: booking.seating_preference as Tables<"bookings">["seating_preference"],
       source: booking.source ?? "api",
-      waitlisted,
       loyaltyPointsAwarded: booking.loyalty_points_awarded ?? 0,
       occurredAt: booking.created_at,
       clientRequestId: booking.client_request_id ?? undefined,
       idempotencyKey,
       pendingRef: booking.pending_ref ?? undefined,
     });
-
-    if (waitlistEntry) {
-      await recordBookingWaitlistedEvent(client, {
-        bookingId: booking.id,
-        restaurantId,
-        customerId: booking.customer_id,
-        waitlistId: waitlistEntry.id,
-        position: waitlistEntry.position,
-        occurredAt: booking.created_at,
-      });
-    } else if (!allocationPending && booking.table_id) {
-      await recordBookingAllocatedEvent(client, {
-        bookingId: booking.id,
-        restaurantId,
-        customerId: booking.customer_id,
-        tableId: booking.table_id,
-        allocationStatus: "allocated",
-        occurredAt: booking.updated_at,
-      });
-    }
   } catch (error) {
     console.error("[jobs][booking.created][analytics]", error);
-    void recordObservabilityEvent({
-      source: "jobs.booking",
-      eventType: "analytics.emit.failed",
-      severity: "warning",
-      context: {
-        bookingId: booking.id,
-        event: "booking.created",
-        error: error instanceof Error ? error.message : String(error),
-      },
-    });
   }
 
-  if (booking.status !== "pending_allocation") {
-    try {
-      await sendBookingConfirmationEmail(booking as BookingRecord);
-    } catch (error) {
-      console.error("[jobs][booking.created][email]", error);
-    }
+  try {
+    await sendBookingConfirmationEmail(booking as BookingRecord);
+  } catch (error) {
+    console.error("[jobs][booking.created][email]", error);
   }
 }
 
@@ -167,26 +117,7 @@ async function processBookingUpdatedSideEffects(
   payload: BookingUpdatedSideEffectsPayload,
   supabase?: SupabaseLike,
 ) {
-  const client = resolveSupabase(supabase);
-  const { previous, current, restaurantId } = payload;
-
-  if (current.table_id) {
-    const allocationStatus = previous.table_id && previous.table_id !== current.table_id ? "reallocated" : "allocated";
-
-    try {
-      await recordBookingAllocatedEvent(client, {
-        bookingId: current.id,
-        restaurantId,
-        customerId: current.customer_id,
-        tableId: current.table_id,
-        allocationStatus,
-        occurredAt: current.updated_at,
-      });
-    } catch (error) {
-      console.error("[jobs][booking.updated][analytics]", error);
-    }
-  }
-
+  const { current } = payload;
   try {
     await sendBookingUpdateEmail(current as BookingRecord);
   } catch (error) {

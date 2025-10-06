@@ -16,8 +16,6 @@ export type ConfirmationPayload = {
   bookings: State['bookings'];
   booking: State['lastConfirmed'];
   lastAction: Exclude<State['lastAction'], null>;
-  waitlisted: boolean;
-  allocationPending: boolean;
 };
 
 export type WizardActions = {
@@ -54,8 +52,6 @@ const createActions = (
         bookings: payload.bookings,
         booking: payload.booking,
         lastAction: payload.lastAction,
-        waitlisted: payload.waitlisted,
-        allocationPending: payload.allocationPending,
       },
     }),
   startEdit: (bookingId) => dispatch({ type: 'START_EDIT', bookingId }),

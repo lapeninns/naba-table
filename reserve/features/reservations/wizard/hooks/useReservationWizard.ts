@@ -125,14 +125,10 @@ export function useReservationWizard(initialDetails?: Partial<BookingDetails>) {
       actions.applyConfirmation({
         bookings,
         booking,
-        lastAction: submission.booking ? (state.editingId ? 'update' : 'create') : 'waitlist',
-        waitlisted: submission.waitlisted,
-        allocationPending: submission.allocationPending,
+        lastAction: submission.booking ? (state.editingId ? 'update' : 'create') : 'create',
       });
 
       analytics.track('booking_created', {
-        waitlisted: submission.waitlisted ? 1 : 0,
-        allocation_pending: submission.allocationPending ? 1 : 0,
         party: draft.party,
         start_time: draft.time,
         reference: submission.booking?.reference ?? 'pending',

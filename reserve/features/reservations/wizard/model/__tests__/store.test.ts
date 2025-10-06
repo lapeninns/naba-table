@@ -9,7 +9,6 @@ const createBooking = (overrides: Partial<ApiBooking> = {}): ApiBooking => ({
   id: 'booking-1',
   restaurant_id: 'restaurant-1',
   customer_id: 'unknown',
-  table_id: null,
   booking_date: '2025-05-10',
   start_time: '18:00',
   end_time: '20:00',
@@ -87,8 +86,6 @@ describe('useWizardStore', () => {
         bookings: [booking],
         booking,
         lastAction: 'create',
-        waitlisted: false,
-        allocationPending: false,
       });
     });
 

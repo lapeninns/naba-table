@@ -12,8 +12,9 @@ echo -e "${BLUE}═════════════════════�
 # 1. Check counts
 echo -e "${YELLOW}📊 Database Counts:${NC}"
 echo "SELECT 
-  (SELECT COUNT(*) FROM public.restaurants) as pubs,
-  (SELECT COUNT(*) FROM public.restaurant_tables) as tables,
+  (SELECT COUNT(*) FROM public.restaurants) as restaurants,
+  (SELECT COUNT(*) FROM public.restaurant_operating_hours) as operating_hours,
+  (SELECT COUNT(*) FROM public.restaurant_capacity_rules) as capacity_rules,
   (SELECT COUNT(*) FROM public.customers) as customers,
   (SELECT COUNT(*) FROM public.bookings) as bookings;" | docker exec -i supabase_db_SajiloReserveX psql -U postgres -d postgres -t -A -F' | ' | awk '{print "  " $0}'
 
@@ -53,7 +54,7 @@ echo -e "${YELLOW}🔍 Data Integrity Checks:${NC}"
 echo "────────────────────────────────────────"
 
 # Check for overlaps
-overlaps=$(echo "SELECT COUNT(*) FROM bookings b1 JOIN bookings b2 ON b1.table_id = b2.table_id AND b1.id < b2.id AND b1.status IN ('confirmed', 'pending') AND b2.status IN ('confirmed', 'pending') AND tstzrange(b1.start_at, b1.end_at, '[)') && tstzrange(b2.start_at, b2.end_at, '[)');" | docker exec -i supabase_db_SajiloReserveX psql -U postgres -d postgres -t -A)
+overlaps=$(echo "SELECT COUNT(*) FROM bookings b1 JOIN bookings b2 ON b1.restaurant_id = b2.restaurant_id AND b1.id < b2.id AND b1.status IN ('confirmed', 'pending') AND b2.status IN ('confirmed', 'pending') AND tstzrange(b1.start_at, b1.end_at, '[)') && tstzrange(b2.start_at, b2.end_at, '[)');" | docker exec -i supabase_db_SajiloReserveX psql -U postgres -d postgres -t -A)
 
 if [ "$overlaps" = "0" ]; then
     echo -e "  ${GREEN}✓${NC} No overlapping bookings"
@@ -83,12 +84,10 @@ echo ""
 echo -e "${YELLOW}📍 Sample Bookings (Today):${NC}"
 echo "────────────────────────────────────────"
 echo "SELECT 
-  '  ' || r.name || ' - Table ' || t.label || 
-  ' at ' || b.start_time || 
+  '  ' || r.name || ' at ' || b.start_time || 
   ' (' || b.customer_name || ', party of ' || b.party_size || ')'
 FROM bookings b
 JOIN restaurants r ON r.id = b.restaurant_id
-JOIN restaurant_tables t ON t.id = b.table_id
 WHERE b.booking_date = CURRENT_DATE
 ORDER BY r.name, b.start_time
 LIMIT 10;" | docker exec -i supabase_db_SajiloReserveX psql -U postgres -d postgres -t -A

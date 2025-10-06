@@ -17,7 +17,6 @@ export type ApiBooking = {
   id: string;
   restaurant_id: string;
   customer_id: string;
-  table_id: string | null;
   booking_date: string;
   start_time: string;
   end_time: string;
@@ -68,7 +67,7 @@ export type BookingDetails = {
   marketingOptIn: boolean;
 };
 
-export type LastAction = 'create' | 'update' | 'waitlist' | null;
+export type LastAction = 'create' | 'update' | null;
 
 export type WizardStep = 1 | 2 | 3 | 4;
 
@@ -79,8 +78,6 @@ export type State = {
   error: string | null;
   editingId: string | null;
   lastAction: LastAction;
-  waitlisted: boolean;
-  allocationPending: boolean;
   bookings: ApiBooking[];
   details: BookingDetails;
   lastConfirmed: ApiBooking | null;
@@ -99,8 +96,6 @@ export type Action =
         bookings: ApiBooking[];
         booking: ApiBooking | null;
         lastAction: Exclude<LastAction, null>;
-        waitlisted: boolean;
-        allocationPending: boolean;
       };
     }
   | { type: 'START_EDIT'; bookingId: string }
@@ -185,8 +180,6 @@ export const getInitialState = (overrides?: Partial<BookingDetails>): State => (
   error: null,
   editingId: null,
   lastAction: null,
-  waitlisted: false,
-  allocationPending: false,
   bookings: [],
   details: getInitialDetails(overrides),
   lastConfirmed: null,
@@ -214,7 +207,7 @@ export function reducer(state: State, action: Action): State {
     case 'SET_BOOKINGS':
       return { ...state, bookings: action.bookings };
     case 'SET_CONFIRMATION': {
-      const { bookings, booking, lastAction, waitlisted, allocationPending } = action.payload;
+      const { bookings, booking, lastAction } = action.payload;
       const updatedDetails = {
         ...state.details,
         bookingId: booking ? booking.id : null,
@@ -241,8 +234,6 @@ export function reducer(state: State, action: Action): State {
         editingId: null,
         bookings,
         lastAction,
-        waitlisted,
-        allocationPending,
         lastConfirmed: booking ?? state.lastConfirmed,
         details: updatedDetails,
         error: null,
@@ -257,7 +248,6 @@ export function reducer(state: State, action: Action): State {
         submitting: false,
         editingId: booking.id,
         lastAction: null,
-        waitlisted: false,
         error: null,
         details: {
           ...state.details,
@@ -289,8 +279,6 @@ export function reducer(state: State, action: Action): State {
         loading: false,
         editingId: null,
         lastAction: null,
-        waitlisted: false,
-        allocationPending: false,
         error: null,
         details: {
           ...base,

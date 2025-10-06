@@ -20,7 +20,7 @@ const DEFAULT_EVENT = 'dashboard_empty_state_viewed';
 export function EmptyState({
   title = 'No bookings yet',
   description = 'Once you make a reservation, it will appear here. Ready to secure your next table?',
-  ctaHref = '/reserve',
+  ctaHref = '/',
   ctaLabel = 'Start a new booking',
   analyticsEvent = DEFAULT_EVENT,
 }: EmptyStateProps) {

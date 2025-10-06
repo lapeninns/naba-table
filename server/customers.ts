@@ -170,7 +170,6 @@ export async function recordBookingForCustomerProfile(
     createdAt: string;
     partySize: number;
     marketingOptIn: boolean;
-    waitlisted: boolean;
     status: Tables<"bookings">["status"];
   },
 ): Promise<void> {
@@ -195,7 +194,6 @@ export async function recordBookingForCustomerProfile(
   const lastMarketingOptInAt = params.marketingOptIn
     ? params.createdAt
     : existingProfile?.last_marketing_opt_in_at ?? null;
-  const lastWaitlistAt = params.waitlisted ? params.createdAt : existingProfile?.last_waitlist_at ?? null;
   const nextTotalCancellations =
     (existingProfile?.total_cancellations ?? 0) + (params.status === "cancelled" ? 1 : 0);
 
@@ -208,7 +206,6 @@ export async function recordBookingForCustomerProfile(
     total_cancellations: nextTotalCancellations,
     marketing_opt_in: nextMarketingOptIn,
     last_marketing_opt_in_at: lastMarketingOptInAt,
-    last_waitlist_at: lastWaitlistAt,
     updated_at: nowIso,
   };
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle, CheckCircle2, Clock3, Info, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Info, XCircle } from 'lucide-react';
 import React, { useMemo } from 'react';
 
 import { useConfirmationStep } from '@features/reservations/wizard/hooks/useConfirmationStep';
@@ -11,8 +11,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@shar
 import type { ConfirmationStepProps } from './confirmation-step/types';
 
 const STATUS_ICON_MAP = {
-  waitlisted: { Icon: Info, className: 'text-amber-500' },
-  allocationPending: { Icon: Clock3, className: 'text-sky-500' },
   confirmed: { Icon: CheckCircle2, className: 'text-emerald-500' },
   updated: { Icon: CheckCircle2, className: 'text-emerald-500' },
 } as const;

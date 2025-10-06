@@ -1,6 +1,5 @@
 "use client";
 
-import type { JSX } from "react";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Popover, Transition } from "@headlessui/react";
@@ -9,7 +8,7 @@ import Image from "next/image";
 import logo from "@/app/icon.png";
 import config from "@/config";
 import { categories } from "../content";
-import ButtonSignin from "@/components/ButtonSignin";
+import { MarketingSessionActions } from "@/components/marketing/MarketingSessionActions";
 
 const links: {
   href: string;
@@ -20,10 +19,6 @@ const links: {
     label: "All Posts",
   },
 ];
-
-const cta: JSX.Element = (
-  <ButtonSignin text="Prevent disputes" extraStyle="btn-primary md:btn-sm" />
-);
 
 const ButtonPopoverCategories = () => {
   return (
@@ -215,7 +210,12 @@ const HeaderBlog = () => {
         </div>
 
         {/* CTA on large screens */}
-        <div className="hidden lg:flex lg:justify-end lg:flex-1">{cta}</div>
+        <MarketingSessionActions
+          mode="account"
+          size="sm"
+          showSecondary={false}
+          className="hidden lg:flex lg:flex-1 lg:justify-end [&>a]:w-auto"
+        />
       </nav>
 
       {/* Mobile menu, show/hide based on menu state. */}
@@ -283,7 +283,12 @@ const HeaderBlog = () => {
             </div>
             <div className="divider"></div>
             {/* Your CTA on small screens */}
-            <div className="flex flex-col">{cta}</div>
+            <MarketingSessionActions
+              mode="account"
+              size="lg"
+              showSecondary={false}
+              className="flex flex-col [&>a]:w-full"
+            />
           </div>
         </div>
       </div>

@@ -19,7 +19,6 @@ type BookingCreatedPayload = BaseEventPayload & {
   bookingType: Tables<"bookings">["booking_type"];
   seatingPreference: Tables<"bookings">["seating_preference"];
   source: string;
-  waitlisted: boolean;
   loyaltyPointsAwarded?: number;
   clientRequestId?: string;
   idempotencyKey?: string | null;
@@ -29,16 +28,6 @@ type BookingCreatedPayload = BaseEventPayload & {
 type BookingCancelledPayload = BaseEventPayload & {
   previousStatus: Tables<"bookings">["status"];
   cancelledBy: "customer" | "staff" | "system";
-};
-
-type BookingAllocatedPayload = BaseEventPayload & {
-  tableId: string;
-  allocationStatus: "allocated" | "reallocated";
-};
-
-type BookingWaitlistedPayload = BaseEventPayload & {
-  waitlistId: string;
-  position: number;
 };
 
 async function insertAnalyticsEvent(
@@ -94,7 +83,6 @@ export async function recordBookingCreatedEvent(
       booking_type: payload.bookingType,
       seating_preference: payload.seatingPreference,
       source: payload.source,
-      waitlisted: payload.waitlisted,
       loyalty_points_awarded: payload.loyaltyPointsAwarded ?? 0,
       client_request_id: payload.clientRequestId ?? null,
       idempotency_key: payload.idempotencyKey ?? null,
@@ -119,46 +107,6 @@ export async function recordBookingCancelledEvent(
       customer_id: payload.customerId ?? null,
       previous_status: payload.previousStatus,
       cancelled_by: payload.cancelledBy,
-    },
-  });
-}
-
-export async function recordBookingAllocatedEvent(
-  client: DbClient,
-  payload: BookingAllocatedPayload,
-): Promise<void> {
-  await insertAnalyticsEvent(client, {
-    eventType: "booking.allocated",
-    bookingId: payload.bookingId,
-    restaurantId: payload.restaurantId,
-    customerId: payload.customerId ?? null,
-    occurredAt: payload.occurredAt,
-    payload: {
-      booking_id: payload.bookingId,
-      restaurant_id: payload.restaurantId,
-      customer_id: payload.customerId ?? null,
-      table_id: payload.tableId,
-      allocation_status: payload.allocationStatus,
-    },
-  });
-}
-
-export async function recordBookingWaitlistedEvent(
-  client: DbClient,
-  payload: BookingWaitlistedPayload,
-): Promise<void> {
-  await insertAnalyticsEvent(client, {
-    eventType: "booking.waitlisted",
-    bookingId: payload.bookingId,
-    restaurantId: payload.restaurantId,
-    customerId: payload.customerId ?? null,
-    occurredAt: payload.occurredAt,
-    payload: {
-      booking_id: payload.bookingId,
-      restaurant_id: payload.restaurantId,
-      customer_id: payload.customerId ?? null,
-      waitlist_id: payload.waitlistId,
-      position: payload.position,
     },
   });
 }

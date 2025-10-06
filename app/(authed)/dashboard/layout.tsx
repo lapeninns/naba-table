@@ -23,7 +23,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               Manage profile
             </Link>
             <Link
-              href="/reserve"
+              href="/"
               className={cn(buttonVariants({ variant: "primary", size: "primary" }), "min-w-[164px]")}
             >
               New booking

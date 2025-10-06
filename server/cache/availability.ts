@@ -12,7 +12,6 @@ type CacheEntry<T> = {
 
 export type AvailabilitySnapshotEntry = {
   id: string;
-  table_id: string | null;
   start_time: string;
   end_time: string;
   status: string;

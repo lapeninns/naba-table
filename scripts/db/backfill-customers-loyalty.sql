@@ -67,17 +67,6 @@ WITH booking_summary AS (
   FROM public.bookings b
   GROUP BY b.customer_id
 ),
-waitlist_summary AS (
-  SELECT
-    c.id AS customer_id,
-    max(w.created_at) AS last_waitlist_at
-  FROM public.customers c
-  JOIN public.waiting_list w
-    ON w.restaurant_id = c.restaurant_id
-   AND lower(w.customer_email::text) = c.email_normalized
-   AND regexp_replace(w.customer_phone, '[^0-9]+', '', 'g') = c.phone_normalized
-  GROUP BY c.id
-)
 INSERT INTO public.customer_profiles (
   customer_id,
   first_booking_at,
@@ -87,7 +76,6 @@ INSERT INTO public.customer_profiles (
   total_covers,
   marketing_opt_in,
   last_marketing_opt_in_at,
-  last_waitlist_at,
   updated_at
 )
 SELECT
@@ -99,11 +87,9 @@ SELECT
   COALESCE(bs.total_covers, 0),
   COALESCE(bs.marketing_opt_in, false),
   bs.last_marketing_opt_in_at,
-  ws.last_waitlist_at,
   now()
 FROM public.customers c
 LEFT JOIN booking_summary bs ON bs.customer_id = c.id
-LEFT JOIN waitlist_summary ws ON ws.customer_id = c.id
 ON CONFLICT (customer_id) DO UPDATE SET
   first_booking_at = COALESCE(customer_profiles.first_booking_at, EXCLUDED.first_booking_at),
   last_booking_at = GREATEST(customer_profiles.last_booking_at, EXCLUDED.last_booking_at),
@@ -112,7 +98,6 @@ ON CONFLICT (customer_id) DO UPDATE SET
   total_covers = EXCLUDED.total_covers,
   marketing_opt_in = customer_profiles.marketing_opt_in OR EXCLUDED.marketing_opt_in,
   last_marketing_opt_in_at = GREATEST(customer_profiles.last_marketing_opt_in_at, EXCLUDED.last_marketing_opt_in_at),
-  last_waitlist_at = GREATEST(customer_profiles.last_waitlist_at, EXCLUDED.last_waitlist_at),
   updated_at = EXCLUDED.updated_at;
 
 -- Recalculate loyalty balances from bookings.

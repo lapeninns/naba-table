@@ -1,5 +1,3 @@
-import { performance } from "node:perf_hooks";
-
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
@@ -13,7 +11,6 @@ import {
   type BookingType,
   type SeatingPreference,
 } from "@/lib/enums";
-import { env } from "@/lib/env";
 import type { Database, Json, Tables, TablesInsert } from "@/types/supabase";
 import { generateBookingReference, generateUniqueBookingReference } from "./booking-reference";
 import {
@@ -24,28 +21,17 @@ import {
   recordCancellationForCustomerProfile,
   upsertCustomer,
 } from "./customers";
-import {
-  type AvailabilitySnapshot,
-  isAvailabilityCacheEnabled,
-  readAvailabilitySnapshot,
-  writeAvailabilitySnapshot,
-  invalidateAvailabilitySnapshot,
-} from "./cache/availability";
-import { deduplicate } from "./cache/request-deduplication";
-import { recordObservabilityEvent } from "./observability";
+import { invalidateAvailabilitySnapshot } from "./cache/availability";
 
 export { generateBookingReference, generateUniqueBookingReference } from "./booking-reference";
 
 type DbClient = SupabaseClient<Database, any, any>;
 type BookingRow = Tables<"bookings">;
-type RestaurantTableRow = Tables<"restaurant_tables">;
 
 export type BookingRecord = BookingRow;
-export type TableRecord = Pick<RestaurantTableRow, "id" | "label" | "capacity" | "seating_type" | "features">;
 
 type CreateBookingPayload = {
   restaurant_id: string;
-  table_id: string | null;
   booking_date: string;
   start_time: string;
   end_time: string;
@@ -71,7 +57,6 @@ type CreateBookingPayload = {
 
 type UpdateBookingPayload = {
   restaurant_id?: string;
-  table_id?: string | null;
   booking_date?: string;
   start_time?: string;
   end_time?: string;
@@ -100,7 +85,6 @@ export const SEATING_OPTIONS = SEATING_PREFERENCES_UI;
 const AUDIT_BOOKING_FIELDS: Array<keyof BookingRecord> = [
   "restaurant_id",
   "customer_id",
-  "table_id",
   "booking_date",
   "start_time",
   "end_time",
@@ -252,167 +236,6 @@ export async function fetchBookingsForContact(
   }
 
   return data ?? [];
-}
-
-export async function fetchTablesForPreference(
-  client: DbClient,
-  restaurantId: string,
-  partySize: number,
-  seatingPreference: SeatingPreference,
-): Promise<TableRecord[]> {
-  let query = client
-    .from("restaurant_tables")
-    .select(TABLE_SELECT)
-    .eq("restaurant_id", restaurantId)
-    .gte("capacity", partySize)
-    .order("capacity", { ascending: true });
-
-  if (seatingPreference !== "any") {
-    const seatingMatches: SeatingPreference[] = seatingPreference === "indoor"
-      ? ["indoor", "any"]
-      : [seatingPreference];
-    query = query.in("seating_type", seatingMatches);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    throw error;
-  }
-
-  return data ?? [];
-}
-
-export async function findAvailableTable(
-  client: DbClient,
-  restaurantId: string,
-  bookingDate: string,
-  startTime: string,
-  endTime: string,
-  partySize: number,
-  seatingPreference: SeatingPreference,
-  ignoreBookingId?: string,
-): Promise<TableRecord | null> {
-  const candidateTables = await fetchTablesForPreference(client, restaurantId, partySize, seatingPreference);
-
-  if (candidateTables.length === 0) {
-    return null;
-  }
-
-  const cacheKey = `${restaurantId}:${bookingDate}`;
-  const start = performance.now();
-
-  let snapshot: AvailabilitySnapshot | null = null;
-  let cacheStatus: "disabled" | "miss" | "hit" = "disabled";
-
-  const cacheResult = await readAvailabilitySnapshot(restaurantId, bookingDate);
-  if (cacheResult.status === "hit") {
-    snapshot = cacheResult.value;
-    cacheStatus = "hit";
-  } else if (cacheResult.status === "miss") {
-    cacheStatus = "miss";
-  }
-
-  const loadSnapshot = async (): Promise<AvailabilitySnapshot> => {
-    const { data, error } = await client
-      .from("bookings")
-      .select("id,table_id,start_time,end_time,status")
-      .eq("restaurant_id", restaurantId)
-      .eq("booking_date", bookingDate)
-      .in("status", BOOKING_BLOCKING_STATUSES);
-
-    if (error) {
-      throw error;
-    }
-
-    const result = (data ?? []) as AvailabilitySnapshot;
-
-    if (cacheStatus !== "hit" && isAvailabilityCacheEnabled()) {
-      void writeAvailabilitySnapshot(
-        restaurantId,
-        bookingDate,
-        result,
-        Math.max(30, env.cache.availabilityTtlSeconds),
-      );
-    }
-
-    return result;
-  };
-
-  if (!snapshot) {
-    snapshot = await deduplicate(cacheKey, loadSnapshot);
-  }
-
-  const bookingsByTable = new Map<string, AvailabilitySnapshot[number][] >();
-
-  for (const entry of snapshot) {
-    if (!entry.table_id) {
-      continue;
-    }
-    const bucket = bookingsByTable.get(entry.table_id);
-    if (bucket) {
-      bucket.push(entry);
-    } else {
-      bookingsByTable.set(entry.table_id, [entry]);
-    }
-  }
-
-  for (const table of candidateTables) {
-    const existing = bookingsByTable.get(table.id) ?? [];
-    const conflicting = existing.some((entry) => {
-      if (ignoreBookingId && entry.id === ignoreBookingId) {
-        return false;
-      }
-      return rangesOverlap(entry.start_time, entry.end_time, startTime, endTime);
-    });
-
-    if (!conflicting) {
-      const durationMs = Math.round(performance.now() - start);
-      if (Math.random() < 0.05) {
-        void recordObservabilityEvent({
-          source: "server.bookings",
-          eventType: "availability.lookup",
-          context: {
-            restaurantId,
-            bookingDate,
-            startTime,
-            endTime,
-            partySize,
-            seatingPreference,
-            candidateCount: candidateTables.length,
-            bookingCount: snapshot.length,
-            cacheStatus,
-            durationMs,
-            result: "allocated",
-          },
-        });
-      }
-      return table;
-    }
-  }
-
-  const durationMs = Math.round(performance.now() - start);
-  if (Math.random() < 0.05) {
-    void recordObservabilityEvent({
-      source: "server.bookings",
-      eventType: "availability.lookup",
-      context: {
-        restaurantId,
-        bookingDate,
-        startTime,
-        endTime,
-        partySize,
-        seatingPreference,
-        candidateCount: candidateTables.length,
-        bookingCount: snapshot.length,
-        cacheStatus,
-        durationMs,
-        result: "waitlisted",
-      },
-    });
-  }
-
-  return null;
 }
 
 export async function logAuditEvent(
@@ -630,7 +453,6 @@ export async function insertBookingRecord(
 
   const insertPayload: TablesInsert<"bookings"> = {
     restaurant_id: payload.restaurant_id,
-    table_id: payload.table_id,
     booking_date: payload.booking_date,
     start_time: payload.start_time,
     end_time: payload.end_time,
@@ -672,7 +494,6 @@ export async function insertBookingRecord(
     createdAt: booking.created_at,
     partySize: booking.party_size,
     marketingOptIn: booking.marketing_opt_in,
-    waitlisted: booking.status === "pending_allocation",
     status: booking.status,
   });
 

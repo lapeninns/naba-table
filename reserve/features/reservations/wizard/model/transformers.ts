@@ -51,7 +51,6 @@ export const reservationToApiBooking = (reservation: Reservation): ApiBooking =>
   id: reservation.id,
   restaurant_id: reservation.restaurantId,
   customer_id: 'unknown',
-  table_id: null,
   booking_date: reservation.bookingDate,
   start_time: reservation.startTime,
   end_time: reservation.endTime ?? reservation.startTime,

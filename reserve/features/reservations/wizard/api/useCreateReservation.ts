@@ -45,8 +45,6 @@ export function useCreateReservation() {
       const response = await method<{
         booking?: unknown;
         bookings?: unknown;
-        waitlisted?: boolean;
-        allocationPending?: boolean;
       }>(path, payload, {
         headers: { 'Idempotency-Key': idempotencyKey },
       });
@@ -59,8 +57,6 @@ export function useCreateReservation() {
       return {
         booking,
         bookings,
-        waitlisted: Boolean(response?.waitlisted),
-        allocationPending: Boolean(response?.allocationPending),
       } satisfies ReservationSubmissionResult;
     },
     onSuccess: (result) => {

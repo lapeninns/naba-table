@@ -3,7 +3,6 @@ import { z } from 'zod';
 const reservationMetadataSchema = z
   .object({
     channel: z.string().nullable().optional(),
-    allocationPending: z.boolean().optional(),
     request: z
       .object({
         idempotencyKey: z.string().nullable().optional(),
@@ -46,7 +45,6 @@ export const reservationSchema = z.object({
   marketingOptIn: z.boolean(),
   notes: z.string().nullable(),
   reference: z.string().optional(),
-  allocationPending: z.boolean(),
   clientRequestId: z.string().uuid().nullable(),
   idempotencyKey: z.string().nullable(),
   pendingRef: z.string().nullable(),

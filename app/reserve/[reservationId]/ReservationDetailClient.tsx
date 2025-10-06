@@ -82,7 +82,6 @@ export function ReservationDetailClient({ reservationId, restaurantName }: Reser
     void emit('reservation_detail_viewed', {
       reservationId,
       status: reservation.status,
-      allocation_pending: reservation.allocationPending ? 1 : 0,
     });
   }, [reservation, reservationId]);
 
@@ -104,7 +103,7 @@ export function ReservationDetailClient({ reservationId, restaurantName }: Reser
       reservationId,
       party: reservation.partySize,
     });
-    router.push(`/reserve?source=rebook&reservationId=${reservation.id}`);
+    router.push(`/?source=rebook&reservationId=${reservation.id}`);
   }, [reservation, reservationId, router]);
 
   const closeEditDialog = useCallback((open: boolean) => {
@@ -142,7 +141,7 @@ export function ReservationDetailClient({ reservationId, restaurantName }: Reser
             <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
               Retry
             </Button>
-            <Link href="/reserve" className={buttonVariants({ variant: 'primary' })}>
+            <Link href="/" className={buttonVariants({ variant: 'primary' })}>
               Back to booking
             </Link>
           </div>
@@ -160,7 +159,7 @@ export function ReservationDetailClient({ reservationId, restaurantName }: Reser
 
   const warnings: Array<{ id: string; title: string; description: string; variant: 'warning' | 'info' }> = [];
 
-  if (reservation.status === 'pending_allocation' || reservation.allocationPending) {
+  if (reservation.status === 'pending_allocation') {
     warnings.push({
       id: 'allocation',
       title: 'We are finding you a table',

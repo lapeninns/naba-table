@@ -7,14 +7,12 @@ import {
   SEATING_OPTIONS,
   deriveEndTime,
   fetchBookingsForContact,
-  findAvailableTable,
   insertBookingRecord,
   buildBookingAuditSnapshot,
   updateBookingRecord,
   inferMealTypeFromTime,
   logAuditEvent,
   generateUniqueBookingReference,
-  addToWaitingList,
 } from "@/server/bookings";
 import type { BookingRecord } from "@/server/bookings";
 import type { Json } from "@/types/supabase";
@@ -23,10 +21,10 @@ import {
   getRouteHandlerSupabaseClient,
   getServiceSupabaseClient,
 } from "@/server/supabase";
-import { recordObservabilityEvent } from "@/server/observability";
 import { normalizeEmail, upsertCustomer } from "@/server/customers";
 import { getActiveLoyaltyProgram, calculateLoyaltyAward, applyLoyaltyAward } from "@/server/loyalty";
 import { enqueueBookingCreatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
+import { recordObservabilityEvent } from "@/server/observability";
 
 const baseQuerySchema = z.object({
   restaurantId: z.string().uuid().optional(),
@@ -84,12 +82,10 @@ function coerceUuid(value: string | null): string | null {
 function buildBookingDetails(params: {
   idempotencyKey: string | null;
   clientRequestId: string;
-  allocationPending: boolean;
   userAgent: string | null;
 }): Json {
   return {
     channel: "api.bookings",
-    allocation_pending: params.allocationPending,
     request: {
       idempotency_key: params.idempotencyKey,
       client_request_id: params.clientRequestId,
@@ -275,8 +271,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           booking: existingBooking,
           bookings,
-          waitlisted: existingBooking.status === "pending_allocation",
-          allocationPending: existingBooking.status === "pending_allocation",
           idempotencyKey,
           clientRequestId: existingBooking.client_request_id,
           duplicate: true,
@@ -286,24 +280,9 @@ export async function POST(req: NextRequest) {
 
     const loyaltyProgram = await getActiveLoyaltyProgram(supabase, restaurantId);
 
-    const table = await findAvailableTable(
-      supabase,
-      restaurantId,
-      data.date,
-      startTime,
-      endTime,
-      data.party,
-      data.seating,
-    );
-
-    const allocationPending = !table;
-    const bookingStatus = allocationPending ? "pending_allocation" : "confirmed";
-    let waitlistEntry: { id: string; position: number; existing: boolean } | null = null;
-
     const bookingDetails = buildBookingDetails({
       idempotencyKey,
       clientRequestId,
-      allocationPending,
       userAgent,
     });
 
@@ -317,7 +296,6 @@ export async function POST(req: NextRequest) {
       try {
         booking = await insertBookingRecord(supabase, {
           restaurant_id: restaurantId,
-          table_id: table?.id ?? null,
           customer_id: customer.id,
           booking_date: data.date,
           start_time: startTime,
@@ -326,7 +304,7 @@ export async function POST(req: NextRequest) {
           party_size: data.party,
           booking_type: normalizedBookingType,
           seating_preference: data.seating,
-          status: bookingStatus,
+          status: "confirmed",
           customer_name: data.name,
           customer_email: normalizeEmail(data.email),
           customer_phone: data.phone.trim(),
@@ -398,48 +376,28 @@ export async function POST(req: NextRequest) {
     let finalBooking = booking;
     let loyaltyAward = 0;
 
-    if (!reusedExisting && allocationPending) {
-      try {
-        waitlistEntry = await addToWaitingList(supabase, {
-          restaurant_id: restaurantId,
-          booking_date: data.date,
-          desired_time: startTime,
-          party_size: data.party,
-          seating_preference: data.seating,
-          customer_name: data.name,
-          customer_email: data.email,
-          customer_phone: data.phone,
-          notes: data.notes ?? null,
-        });
-      } catch (error) {
-        console.error("[bookings][POST][waitlist] Failed to add to waitlist", {
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    } else if (!reusedExisting && loyaltyProgram) {
-      if (loyaltyProgram) {
-        loyaltyAward = calculateLoyaltyAward(loyaltyProgram, { partySize: data.party });
+    if (!reusedExisting && loyaltyProgram) {
+      loyaltyAward = calculateLoyaltyAward(loyaltyProgram, { partySize: data.party });
 
-        if (loyaltyAward > 0) {
-          try {
-            await applyLoyaltyAward(supabase, {
-              program: loyaltyProgram,
-              customerId: customer.id,
-              bookingId: booking.id,
-              points: loyaltyAward,
-              metadata: {
-                reference: booking.reference,
-                source: "api",
-              },
-              occurredAt: booking.created_at,
-            });
-          } catch (error) {
-            console.error("[bookings][POST][loyalty] Failed to record loyalty award", {
-              bookingId: booking.id,
-              error: stringifyError(error),
-            });
-            loyaltyAward = 0;
-          }
+      if (loyaltyAward > 0) {
+        try {
+          await applyLoyaltyAward(supabase, {
+            program: loyaltyProgram,
+            customerId: customer.id,
+            bookingId: booking.id,
+            points: loyaltyAward,
+            metadata: {
+              reference: booking.reference,
+              source: "api",
+            },
+            occurredAt: booking.created_at,
+          });
+        } catch (error) {
+          console.error("[bookings][POST][loyalty] Failed to record loyalty award", {
+            bookingId: booking.id,
+            error: stringifyError(error),
+          });
+          loyaltyAward = 0;
         }
       }
 
@@ -450,16 +408,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const waitlisted = Boolean(waitlistEntry) || finalBooking.status === "pending_allocation";
-
     if (!reusedExisting) {
       const auditMetadata = {
         restaurant_id: restaurantId,
         customer_id: customer.id,
-        table_id: table?.id ?? null,
         reference: finalBooking.reference,
-        waitlisted,
-        allocation_pending: allocationPending,
         ...buildBookingAuditSnapshot(null, finalBooking),
       } as Json;
 
@@ -474,16 +427,11 @@ export async function POST(req: NextRequest) {
 
     const bookings = await fetchBookingsForContact(supabase, restaurantId, data.email, data.phone);
 
-    const responseAllocationPending = finalBooking.status === "pending_allocation";
-
     if (!reusedExisting) {
       try {
         await enqueueBookingCreatedSideEffects(
           {
             booking: safeBookingPayload(finalBooking),
-            waitlisted,
-            allocationPending: responseAllocationPending,
-            waitlistEntry,
             idempotencyKey,
             restaurantId,
           },
@@ -497,11 +445,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         booking: finalBooking,
-        table: table ?? null,
         loyaltyPointsAwarded: loyaltyAward,
         bookings,
-        waitlisted,
-        allocationPending: responseAllocationPending,
         clientRequestId: finalBooking.client_request_id,
         idempotencyKey,
         duplicate: reusedExisting,

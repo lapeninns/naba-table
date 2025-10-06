@@ -52,7 +52,7 @@ export default async function RestaurantBookingPage({ params }: { params: RouteP
     <div className="min-h-screen bg-slate-50">
       <nav className="border-b border-border/50 bg-background/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/reserve" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
+          <Link href="/" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
             ← All restaurants
           </Link>
           <span className="text-sm text-muted-foreground">Currently booking: {restaurant.name}</span>

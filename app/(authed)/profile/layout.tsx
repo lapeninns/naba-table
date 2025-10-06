@@ -24,7 +24,7 @@ export default function ProfileLayout({ children }: { children: ReactNode }) {
             </Link>
             <Link
               className={cn(buttonVariants({ variant: "primary", size: "primary" }), "min-w-[164px]")}
-              href="/reserve"
+              href="/"
             >
               New booking
             </Link>

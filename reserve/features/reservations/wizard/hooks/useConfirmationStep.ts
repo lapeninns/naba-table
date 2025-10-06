@@ -68,35 +68,20 @@ export function useConfirmationStep({
 
   const dismissFeedback = useCallback(() => setFeedback(null), []);
 
-  const reference = booking?.reference ?? (state.waitlisted ? 'WAITLIST' : 'Pending');
+  const reference = booking?.reference ?? 'Pending';
   const guestName = booking?.customer_name ?? details.name;
   const summaryDate = details.date ? formatReservationSummaryDate(details.date) : 'TBC';
   const summaryTime = details.time ? formatReservationTime(details.time) : 'TBC';
   const partyText = `${details.party} ${details.party === 1 ? 'guest' : 'guests'}`;
 
-  const status: ConfirmationStatus = state.waitlisted
-    ? 'waitlisted'
-    : state.allocationPending
-      ? 'allocationPending'
-      : state.lastAction === 'update'
-        ? 'updated'
-        : 'confirmed';
+  const status: ConfirmationStatus = state.lastAction === 'update' ? 'updated' : 'confirmed';
 
-  const heading =
-    status === 'waitlisted'
-      ? "You're on the waiting list"
-      : status === 'allocationPending'
-        ? 'Manual allocation pending'
-        : status === 'updated'
-          ? 'Booking updated'
-          : 'Booking confirmed';
+  const heading = status === 'updated' ? 'Booking updated' : 'Booking confirmed';
 
   const description =
-    status === 'waitlisted'
-      ? `We’ll notify ${details.email} if a table opens near ${summaryTime} on ${summaryDate}.`
-      : status === 'allocationPending'
-        ? `Our host team will allocate the best table and follow up at ${details.email}.`
-        : `A confirmation email has been sent to ${details.email}.`;
+    status === 'updated'
+      ? `Your reservation was updated. A confirmation email has been sent to ${details.email}.`
+      : `A confirmation email has been sent to ${details.email}.`;
 
   const reservationWindow = useMemo(() => buildReservationWindow(state), [state]);
 
