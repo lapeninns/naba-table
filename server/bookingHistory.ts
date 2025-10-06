@@ -163,7 +163,8 @@ export async function getBookingHistory(
     if (action) {
       const index = auditQueue.findIndex((log) => log.action === action);
       if (index >= 0) {
-        matchedAudit = auditQueue.splice(index, 1)[0];
+        const [match] = auditQueue.splice(index, 1);
+        matchedAudit = match ?? null;
       }
     }
 

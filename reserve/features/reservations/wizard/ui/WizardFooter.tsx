@@ -96,9 +96,10 @@ export function WizardFooter({
                 .map((action) => renderActionButton(action, 'secondary'))}
             </div>
             <div className="flex w-full justify-end gap-2 sm:w-auto">
-              {actions.length > 0
-                ? renderActionButton(actions[actions.length - 1], 'primary')
-                : null}
+              {(() => {
+                const primaryAction = actions.at(-1);
+                return primaryAction ? renderActionButton(primaryAction, 'primary') : null;
+              })()}
             </div>
           </div>
         </div>

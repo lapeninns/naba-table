@@ -16,10 +16,10 @@ export type categoryType = {
 };
 
 // These slugs are used to generate pages in the /blog/category/[categoryI].js. It's a way to group articles by category.
-const categorySlugs: { [key: string]: string } = {
+export const categorySlugs = {
   feature: "feature",
   tutorial: "tutorial",
-};
+} as const;
 
 // All the blog categories data display in the /blog/category/[categoryI].js pages.
 export const categories: categoryType[] = [
@@ -65,12 +65,7 @@ export type authorType = {
 };
 
 // Social icons used in the author's bio.
-const socialIcons: {
-  [key: string]: {
-    name: string;
-    svg: JSX.Element;
-  };
-} = {
+const socialIcons = {
   twitter: {
     name: "Twitter",
     svg: (
@@ -119,13 +114,12 @@ const socialIcons: {
     ),
   },
 };
+type SocialKey = keyof typeof socialIcons;
 
 // These slugs are used to generate pages in the /blog/author/[authorId].js. It's a way to show all articles from an author.
-const authorSlugs: {
-  [key: string]: string;
-} = {
+export const authorSlugs = {
   marc: "marc",
-};
+} as const;
 
 // All the blog authors data display in the /blog/author/[authorId].js pages.
 export const authors: authorType[] = [
@@ -182,9 +176,7 @@ export type articleType = {
 };
 
 // These styles are used in the content of the articles. When you update them, all articles will be updated.
-const styles: {
-  [key: string]: string;
-} = {
+const styles: Record<string, string> = {
   h2: "text-2xl lg:text-4xl font-bold tracking-tight mb-4 text-base-content",
   h3: "text-xl lg:text-2xl font-bold tracking-tight mb-2 text-base-content",
   p: "text-base-content/90 leading-relaxed",
@@ -197,6 +189,30 @@ const styles: {
 };
 
 // All the blog articles data display in the /blog/[articleId].js pages.
+const categoryRegistry = new Map<string, categoryType>(
+  categories.map((category) => [category.slug, category]),
+);
+
+const authorRegistry = new Map<string, authorType>(
+  authors.map((author) => [author.slug, author]),
+);
+
+export function requireCategory(slug: string): categoryType {
+  const category = categoryRegistry.get(slug);
+  if (!category) {
+    throw new Error(`Unknown category slug: ${slug}`);
+  }
+  return category;
+}
+
+export function requireAuthor(slug: string): authorType {
+  const author = authorRegistry.get(slug);
+  if (!author) {
+    throw new Error(`Unknown author slug: ${slug}`);
+  }
+  return author;
+}
+
 export const articles: articleType[] = [
   {
     // The unique slug to use in the URL. It's also used to generate the canonical URL.
@@ -207,11 +223,9 @@ export const articles: articleType[] = [
     description:
       "Supabase is an open-source Firebase alternative. It's a great tool for building a backend for your app. It's now integrated with ShipFast!",
     // An array of categories of the article. It's used to generate the category badges, the category filter, and more.
-    categories: [
-      categories.find((category) => category.slug === categorySlugs.feature),
-    ],
+    categories: [requireCategory(categorySlugs.feature)],
     // The author of the article. It's used to generate a link to the author's bio page.
-    author: authors.find((author) => author.slug === authorSlugs.marc),
+    author: requireAuthor(authorSlugs.marc),
     // The date of the article. It's used to generate the meta date.
     publishedAt: "2023-11-20",
     image: {
@@ -288,3 +302,13 @@ export const articles: articleType[] = [
     ),
   },
 ];
+
+const articleRegistry = new Map<string, articleType>(articles.map((article) => [article.slug, article]));
+
+export function requireArticle(slug: string): articleType {
+  const article = articleRegistry.get(slug);
+  if (!article) {
+    throw new Error(`Unknown article slug: ${slug}`);
+  }
+  return article;
+}

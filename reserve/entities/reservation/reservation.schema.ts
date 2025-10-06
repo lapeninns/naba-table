@@ -14,12 +14,12 @@ const reservationMetadataSchema = z
     conflict: z
       .object({
         reason: z.string().nullable().optional(),
-        detectedAt: z.string().datetime().nullable().optional(),
-        resolvedAt: z.string().datetime().nullable().optional(),
+        detectedAt: z.string().datetime({ offset: true }).nullable().optional(),
+        resolvedAt: z.string().datetime({ offset: true }).nullable().optional(),
       })
       .optional(),
-    rescheduledFrom: z.string().datetime().nullable().optional(),
-    rescheduledAt: z.string().datetime().nullable().optional(),
+    rescheduledFrom: z.string().datetime({ offset: true }).nullable().optional(),
+    rescheduledAt: z.string().datetime({ offset: true }).nullable().optional(),
   })
   .partial()
   .nullable();
@@ -29,13 +29,13 @@ export const reservationSchema = z.object({
   restaurantId: z.string().uuid(),
   restaurantName: z.string().nullable().optional(),
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  startTime: z.string().regex(/^\d{2}:\d{2}$/),
+  startTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/), // Allow HH:MM or HH:MM:SS
   endTime: z
     .string()
-    .regex(/^\d{2}:\d{2}$/)
+    .regex(/^\d{2}:\d{2}(:\d{2})?$/) // Allow HH:MM or HH:MM:SS
     .optional(),
-  startAt: z.string().datetime(),
-  endAt: z.string().datetime().nullable().optional(),
+  startAt: z.string().datetime({ offset: true }), // Allow both Z and offset formats
+  endAt: z.string().datetime({ offset: true }).nullable().optional(),
   partySize: z.number().int().positive(),
   bookingType: z.enum(['lunch', 'dinner', 'drinks']),
   seatingPreference: z.string(),
@@ -51,8 +51,8 @@ export const reservationSchema = z.object({
   idempotencyKey: z.string().nullable(),
   pendingRef: z.string().nullable(),
   metadata: reservationMetadataSchema,
-  createdAt: z.string().datetime().nullable().optional(),
-  updatedAt: z.string().datetime().nullable().optional(),
+  createdAt: z.string().datetime({ offset: true }).nullable().optional(),
+  updatedAt: z.string().datetime({ offset: true }).nullable().optional(),
 });
 
 export type ReservationMetadata = z.infer<typeof reservationMetadataSchema>;

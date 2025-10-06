@@ -1,8 +1,10 @@
 import Stripe from "stripe";
 
+import { env } from "@/lib/env";
+
 const STRIPE_API_VERSION = "2023-10-16";
-const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY ?? "";
-const STRIPE_MOCK_MODE = process.env.STRIPE_MOCK_MODE === 'true';
+const STRIPE_SECRET_KEY = env.stripe.secretKey ?? "";
+const STRIPE_MOCK_MODE = env.stripe.mockMode;
 
 let stripeClient: Stripe | null = null;
 
@@ -52,7 +54,7 @@ export const createCheckout = async ({
   cancelUrl,
   priceId,
   couponId,
-}: CreateCheckoutParams): Promise<string> => {
+}: CreateCheckoutParams): Promise<string | null> => {
   if (STRIPE_MOCK_MODE) {
     const url = new URL(successUrl);
     url.searchParams.set('mockCheckout', '1');
@@ -112,7 +114,7 @@ export const createCheckout = async ({
       ...extraParams,
     });
 
-    return stripeSession.url;
+    return stripeSession.url ?? null;
   } catch (e) {
     console.error(e);
     return null;
@@ -123,7 +125,7 @@ export const createCheckout = async ({
 export const createCustomerPortal = async ({
   customerId,
   returnUrl,
-}: CreateCustomerPortalParams): Promise<string> => {
+}: CreateCustomerPortalParams): Promise<string | null> => {
   if (STRIPE_MOCK_MODE) {
     const url = new URL(returnUrl);
     url.searchParams.set('mockPortal', '1');
@@ -138,7 +140,7 @@ export const createCustomerPortal = async ({
     return_url: returnUrl,
   });
 
-  return portalSession.url;
+  return portalSession.url ?? null;
 };
 
 // This is used to get the uesr checkout session and populate the data so we get the planId the user subscribed to

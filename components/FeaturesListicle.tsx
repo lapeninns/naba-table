@@ -391,11 +391,18 @@ const features: {
 // - Good to use when multiples features are available.
 // - Autoscroll the list of features (optional).
 const FeaturesListicle = () => {
-  const featuresEndRef = useRef<null>(null);
+  const fallbackFeature = features[0];
+  if (!fallbackFeature) {
+    throw new Error("FeaturesListicle requires at least one feature.");
+  }
+
+  const featuresEndRef = useRef<HTMLParagraphElement | null>(null);
   const [featureSelected, setFeatureSelected] = useState<string>(
-    features[0].name
+    fallbackFeature.name
   );
   const [hasClicked, setHasClicked] = useState<boolean>(false);
+  const activeFeature =
+    features.find((f) => f.name === featureSelected) ?? fallbackFeature;
 
   // (Optional) Autoscroll the list of features so user know it's interactive.
   // Stop scrolling when user scroll after the featuresEndRef element (end of section)
@@ -407,7 +414,8 @@ const FeaturesListicle = () => {
           (feature) => feature.name === featureSelected
         );
         const nextIndex = (index + 1) % features.length;
-        setFeatureSelected(features[nextIndex].name);
+        const nextFeature = features[nextIndex] ?? fallbackFeature;
+        setFeatureSelected(nextFeature.name);
       }
     }, 5000);
 
@@ -415,7 +423,7 @@ const FeaturesListicle = () => {
       // stop the interval when the user scroll after the featuresRef element
       const observer = new IntersectionObserver(
         ([entry]) => {
-          if (entry.isIntersecting) {
+          if (entry?.isIntersecting) {
             console.log("STOP AUTO CHANGE");
             clearInterval(interval);
           }
@@ -491,15 +499,16 @@ const FeaturesListicle = () => {
         </div>
         <div className="bg-base-200">
           <div className="max-w-3xl mx-auto flex flex-col md:flex-row justify-center md:justify-start md:items-center gap-12">
+            {/** Use memoized active feature to avoid undefined access */}
             <div
               className="text-base-content/80 leading-relaxed space-y-4 px-12 md:px-0 py-12 max-w-xl animate-opacity"
               key={featureSelected}
             >
               <h3 className="font-semibold text-base-content text-lg">
-                {features.find((f) => f.name === featureSelected)["name"]}
+                {activeFeature.name}
               </h3>
 
-              {features.find((f) => f.name === featureSelected)["description"]}
+              {activeFeature.description}
             </div>
           </div>
         </div>

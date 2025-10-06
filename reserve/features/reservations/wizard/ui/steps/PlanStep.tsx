@@ -8,6 +8,7 @@ import { PlanStepForm } from './plan-step/PlanStepForm';
 
 import type { State, StepAction } from '../../model/reducer';
 import type { WizardActions } from '../../model/store';
+import type { AnalyticsEvent } from '@shared/lib/analytics';
 
 const TITLE = 'Plan your visit';
 const DESCRIPTION =
@@ -17,7 +18,7 @@ export interface PlanStepProps {
   state: State;
   actions: Pick<WizardActions, 'updateDetails' | 'goToStep'>;
   onActionsChange: (actions: StepAction[]) => void;
-  onTrack?: (event: string, payload?: Record<string, unknown>) => void;
+  onTrack?: (event: AnalyticsEvent, payload?: Record<string, unknown>) => void;
 }
 
 export function PlanStep({ state, actions, onActionsChange, onTrack }: PlanStepProps) {

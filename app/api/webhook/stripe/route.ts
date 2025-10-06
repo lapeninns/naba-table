@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import Stripe from "stripe";
 
 import configFile from "@/config";
+import { env } from "@/lib/env";
 import { findCheckoutSession, getStripeClient } from "@/libs/stripe";
 import { getServiceSupabaseClient } from "@/server/supabase";
 import { recordObservabilityEvent } from "@/server/observability";
@@ -11,7 +12,7 @@ import type { Json, TablesInsert } from "@/types/supabase";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+const webhookSecret = env.stripe.webhookSecret;
 
 function stringifyError(error: unknown): string {
   if (error instanceof Error) {
@@ -30,6 +31,13 @@ function stringifyError(error: unknown): string {
 function readLegacyPriceId(lineItem: Stripe.InvoiceLineItem): string | undefined {
   const candidate = (lineItem as Stripe.InvoiceLineItem & { price_id?: unknown }).price_id;
   return typeof candidate === "string" ? candidate : undefined;
+}
+
+function readExpandedPriceId(lineItem: Stripe.InvoiceLineItem | undefined): string | undefined {
+  if (!lineItem) return undefined;
+  const candidate = (lineItem as Stripe.InvoiceLineItem & { price?: Stripe.Price | null }).price;
+  if (!candidate || typeof candidate !== "object") return undefined;
+  return typeof candidate.id === "string" ? candidate.id : undefined;
 }
 
 function resolveCustomerId(
@@ -51,7 +59,8 @@ function resolveCustomerId(
 }
 
 export async function POST(req: NextRequest) {
-  if (!webhookSecret) {
+  const secret = webhookSecret;
+  if (!secret) {
     return NextResponse.json({ error: "Missing Stripe webhook secret" }, { status: 500 });
   }
 
@@ -64,15 +73,18 @@ export async function POST(req: NextRequest) {
   }
 
   const rawBody = await req.text();
-  const signature = (await headers()).get("stripe-signature");
+  const headerList = await headers();
+  const signature = headerList.get("stripe-signature");
 
   if (!signature) {
     return NextResponse.json({ error: "Missing stripe-signature header" }, { status: 400 });
   }
 
+  const verifiedSignature = signature;
+
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
+    event = stripe.webhooks.constructEvent(rawBody, verifiedSignature, secret);
   } catch (err) {
     console.error("[stripe][webhook] signature verification failed", err);
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
@@ -152,7 +164,7 @@ export async function POST(req: NextRequest) {
         const session = await findCheckoutSession(stripeObject.id);
 
         const customerId = resolveCustomerId(session?.customer);
-        const priceId = session?.line_items?.data[0]?.price.id;
+        const priceId = session?.line_items?.data[0]?.price?.id;
         const userId = stripeObject.client_reference_id;
         const plan = configFile.stripe.plans.find((p) => p.priceId === priceId);
 
@@ -189,12 +201,13 @@ export async function POST(req: NextRequest) {
 
       case "invoice.paid": {
         const stripeObject: Stripe.Invoice = event.data.object as Stripe.Invoice;
-        const lineItem = stripeObject.lines.data[0];
-        const expandedPriceId = (lineItem as Stripe.InvoiceLineItem & { price?: Stripe.Price | null }).price?.id;
-        const priceId =
-          readLegacyPriceId(lineItem) ??
-          expandedPriceId ??
-          (typeof lineItem.metadata?.price_id === "string" ? lineItem.metadata.price_id : undefined);
+        const [lineItem] = stripeObject.lines.data;
+        const expandedPriceId = readExpandedPriceId(lineItem);
+        const priceId = lineItem
+          ? readLegacyPriceId(lineItem) ??
+            expandedPriceId ??
+            (typeof lineItem.metadata?.price_id === "string" ? lineItem.metadata.price_id : undefined)
+          : undefined;
         const customerId = resolveCustomerId(stripeObject.customer);
 
         if (customerId) {

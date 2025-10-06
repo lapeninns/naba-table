@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { env } from "@/lib/env";
+
 type AnalyticsUser = {
   anonId: unknown;
   emailHash?: unknown;
@@ -73,7 +75,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid analytics payload" }, { status: 400 });
     }
 
-    if (process.env.NODE_ENV !== "production") {
+    if (env.node.env !== "production") {
       // eslint-disable-next-line no-console
       console.debug("[events]", events);
     }

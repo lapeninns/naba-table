@@ -64,6 +64,9 @@ export function useReservationWizard() {
         prev.length === actions.length &&
         prev.every((action, index) => {
           const next = actions[index];
+          if (!next) {
+            return false;
+          }
           return (
             action.id === next.id &&
             action.label === next.label &&

@@ -5,13 +5,14 @@ import type {
   ServiceAvailability,
   TimeSlotDescriptor,
 } from '@reserve/features/reservations/wizard/services';
+import type { AnalyticsEvent } from '@shared/lib/analytics';
 import type { UseFormReturn } from 'react-hook-form';
 
 export interface PlanStepFormProps {
   state: State;
   actions: Pick<WizardActions, 'updateDetails' | 'goToStep'>;
   onActionsChange: (actions: StepAction[]) => void;
-  onTrack?: (event: string, payload?: Record<string, unknown>) => void;
+  onTrack?: (event: AnalyticsEvent, payload?: Record<string, unknown>) => void;
   minDate: Date;
 }
 

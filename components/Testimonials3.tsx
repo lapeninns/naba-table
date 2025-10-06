@@ -62,8 +62,8 @@ const Testimonial = ({ i }: { i: number }) => {
               {testimonial.img ? (
                 <Image
                   className="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover"
-                  src={list[i].img}
-                  alt={`${list[i].name}'s testimonial for ${config.appName}`}
+                  src={testimonial.img}
+                  alt={`${testimonial.name}'s testimonial for ${config.appName}`}
                   width={48}
                   height={48}
                 />

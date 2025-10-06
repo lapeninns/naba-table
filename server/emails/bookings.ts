@@ -1,4 +1,5 @@
 import config from "@/config";
+import { env } from "@/lib/env";
 import { DEFAULT_VENUE } from "@/lib/venue";
 import { sendEmail } from "@/libs/resend";
 import type { BookingRecord } from "@/server/bookings";
@@ -10,7 +11,7 @@ import {
 } from "@reserve/shared/formatting/booking";
 import { normalizeTime } from "@reserve/shared/time";
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const siteUrl = env.app.url;
 
 function normalizeTimeLoose(value: string | null | undefined) {
   if (!value) return null;

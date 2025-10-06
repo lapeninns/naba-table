@@ -1,13 +1,14 @@
 import type { State, StepAction } from '../../../model/reducer';
 import type { DetailsFormInputValues, DetailsFormValues } from '../../../model/schemas';
 import type { WizardActions } from '../../../model/store';
+import type { AnalyticsEvent } from '@shared/lib/analytics';
 import type { UseFormReturn } from 'react-hook-form';
 
 export interface DetailsStepProps {
   state: State;
   actions: Pick<WizardActions, 'updateDetails' | 'goToStep'>;
   onActionsChange: (actions: StepAction[]) => void;
-  onTrack?: (event: string, payload?: Record<string, unknown>) => void;
+  onTrack?: (event: AnalyticsEvent, payload?: Record<string, unknown>) => void;
 }
 
 export type DetailsStepController = {

@@ -56,7 +56,8 @@ if (!parsed.success) {
   throw new Error(`reserve env validation failed: ${parsed.error.message}`);
 }
 
-if (!apiBaseUrlRaw && !(runtime.isDev || runtime.isTest)) {
+// Only throw error if we're in production AND no API base URL is available at all
+if (!apiBaseUrlRaw && !raw.API_BASE_URL && !(runtime.isDev || runtime.isTest)) {
   throw new Error(
     '[reserve env] Missing RESERVE_API_BASE_URL (or NEXT_PUBLIC_RESERVE_API_BASE_URL) for production build',
   );

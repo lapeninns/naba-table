@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Script from "next/script";
-import { articles } from "../_assets/content";
+import { notFound } from "next/navigation";
+import { articles, requireArticle } from "../_assets/content";
 import BadgeCategory from "../_assets/components/BadgeCategory";
 import Avatar from "../_assets/components/Avatar";
 import { getSEOTags } from "@/libs/seo";
@@ -12,7 +13,7 @@ export async function generateMetadata({
   params: Promise<{ articleId: string }>;
 }) {
   const { articleId } = await params;
-  const article = articles.find((article) => article.slug === articleId);
+  const article = loadArticleOrThrow(articleId);
 
   return getSEOTags({
     title: article.title,
@@ -43,7 +44,7 @@ export default async function Article({
   params: Promise<{ articleId: string }>;
 }) {
   const { articleId } = await params;
-  const article = articles.find((article) => article.slug === articleId);
+  const article = loadArticleOrThrow(articleId);
   const articlesRelated = articles
     .filter(
       (a) =>
@@ -182,4 +183,13 @@ export default async function Article({
       </article>
     </>
   );
+}
+
+function loadArticleOrThrow(articleId: string): ReturnType<typeof requireArticle> {
+  try {
+    return requireArticle(articleId);
+  } catch {
+    notFound();
+    throw new Error("unreachable");
+  }
 }

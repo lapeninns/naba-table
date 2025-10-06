@@ -183,8 +183,8 @@ const Testimonial = ({ i }: { i: number }) => {
             {testimonial.img ? (
               <Image
                 className="w-10 h-10 rounded-full object-cover"
-                src={list[i].img}
-                alt={`${list[i].name}'s testimonial for ${config.appName}`}
+                src={testimonial.img}
+                alt={`${testimonial.name}'s testimonial for ${config.appName}`}
                 width={48}
                 height={48}
               />
@@ -211,7 +211,7 @@ const Testimonial = ({ i }: { i: number }) => {
                 href={testimonial.link}
                 target="_blank"
                 className="shrink-0 "
-                aria-label={testimonial.type?.ariaLabel}
+                aria-label={testimonial.type?.ariaLabel ?? undefined}
               >
                 {testimonial.type?.svg}
               </a>
@@ -225,31 +225,60 @@ const Testimonial = ({ i }: { i: number }) => {
 
 // A video tesionial to build trust. 2 or 3 on a wall of love is perfect.
 const VideoTestimonial = ({ i }: { i: number }) => {
-  const vidRef = useRef(null);
+  const vidRef = useRef<HTMLVideoElement | null>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   useEffect(() => {
-    if (vidRef.current?.readyState != 0) {
+    const node = vidRef.current;
+    if (!node) {
+      return undefined;
+    }
+
+    const handleLoaded = () => setIsLoading(false);
+
+    if (node.readyState !== 0) {
       setIsLoading(false);
     }
-  }, [vidRef?.current?.readyState]);
+
+    node.addEventListener("loadeddata", handleLoaded);
+    node.addEventListener("loadedmetadata", handleLoaded);
+
+    return () => {
+      node.removeEventListener("loadeddata", handleLoaded);
+      node.removeEventListener("loadedmetadata", handleLoaded);
+    };
+  }, []);
 
   const handlePlayVideo = () => {
+    const node = vidRef.current;
+    if (!node) {
+      return;
+    }
+
     if (isPlaying) {
-      vidRef.current.pause();
+      node.pause();
       setIsPlaying(false);
     } else {
-      vidRef.current.play();
+      const playPromise = node.play();
       setIsPlaying(true);
 
-      if (vidRef.current?.readyState === 0) setIsLoading(true);
+      if (node.readyState === 0) {
+        setIsLoading(true);
+      }
+
+      if (playPromise && typeof playPromise.catch === "function") {
+        playPromise.catch(() => {
+          setIsPlaying(false);
+          setIsLoading(false);
+        });
+      }
     }
   };
 
   const testimonial = list[i];
 
-  if (!testimonial) return null;
+  if (!testimonial || !testimonial.videoSrc) return null;
 
   return (
     <li
@@ -263,15 +292,11 @@ const VideoTestimonial = ({ i }: { i: number }) => {
         <video
           className="w-full"
           ref={vidRef}
-          poster={testimonial.videoPoster}
+          poster={testimonial.videoPoster ?? undefined}
           preload="metadata"
           playsInline
-          width={testimonial.videoWidth}
-          height={testimonial.videoHeight}
-          onLoadedData={() => {
-            console.log("Video is loaded!");
-            setIsLoading(false);
-          }}
+          width={testimonial.videoWidth ?? undefined}
+          height={testimonial.videoHeight ?? undefined}
         >
           <source
             src={testimonial.videoSrc}
@@ -360,6 +385,11 @@ const VideoTestimonial = ({ i }: { i: number }) => {
 };
 
 const Testimonials11 = () => {
+  const featuredTestimonial = list[list.length - 1];
+  if (!featuredTestimonial) {
+    return null;
+  }
+
   return (
     <section className="bg-base-200" id="testimonials">
       <div className="py-24 px-8 max-w-7xl mx-auto">
@@ -394,34 +424,32 @@ const Testimonials11 = () => {
                 <figure className="relative h-full p-6 bg-base-100 rounded-lg">
                   <blockquote className="relative p-4">
                     <p className="text-lg font-medium text-base-content">
-                      {list[list.length - 1].text}
+                      {featuredTestimonial.text}
                     </p>
                   </blockquote>
                   <figcaption className="relative flex items-center justify-start gap-4 pt-4 mt-4 border-t border-base-content/5">
                     <div className="overflow-hidden rounded-full bg-base-300 shrink-0">
-                      {list[list.length - 1].img ? (
+                      {featuredTestimonial.img ? (
                         <Image
                           className="w-12 h-12 rounded-full object-cover"
-                          src={list[list.length - 1].img}
-                          alt={`${
-                            list[list.length - 1].name
-                          }'s testimonial for ${config.appName}`}
+                          src={featuredTestimonial.img}
+                          alt={`${featuredTestimonial.name}'s testimonial for ${config.appName}`}
                           width={48}
                           height={48}
                         />
                       ) : (
                         <span className="w-12 h-12 rounded-full flex justify-center items-center text-xl font-medium bg-base-300">
-                          {list[list.length - 1].name.charAt(0)}
+                          {featuredTestimonial.name.charAt(0)}
                         </span>
                       )}
                     </div>
                     <div>
                       <div className="text-base font-medium text-base-content">
-                        {list[list.length - 1].name}
+                        {featuredTestimonial.name}
                       </div>
-                      {list[list.length - 1].username && (
+                      {featuredTestimonial.username && (
                         <div className="mt-1 text-base text-base-content/80">
-                          @{list[list.length - 1].username}
+                          @{featuredTestimonial.username}
                         </div>
                       )}
                     </div>

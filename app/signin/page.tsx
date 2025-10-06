@@ -15,29 +15,26 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isDisabled, setIsDisabled] = useState<boolean>(false);
 
-  const handleSignup = async (
-    e: any,
-    options: {
-      type: string;
-      provider?: Provider;
-    }
-  ) => {
+  type SignupOptions =
+    | { type: "oauth"; provider: Provider }
+    | { type: "magic_link" };
+
+  const handleSignup = async (e: any, options: SignupOptions) => {
     e?.preventDefault();
 
     setIsLoading(true);
 
     try {
-      const { type, provider } = options;
       const redirectURL = window.location.origin + "/api/auth/callback";
 
-      if (type === "oauth") {
+      if (options.type === "oauth") {
         await supabase.auth.signInWithOAuth({
-          provider,
+          provider: options.provider,
           options: {
             redirectTo: redirectURL,
           },
         });
-      } else if (type === "magic_link") {
+      } else {
         await supabase.auth.signInWithOtp({
           email,
           options: {

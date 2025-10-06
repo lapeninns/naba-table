@@ -1,3 +1,5 @@
+import { performance } from "node:perf_hooks";
+
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
@@ -11,6 +13,7 @@ import {
   type BookingType,
   type SeatingPreference,
 } from "@/lib/enums";
+import { env } from "@/lib/env";
 import type { Database, Json, Tables, TablesInsert } from "@/types/supabase";
 import { generateBookingReference, generateUniqueBookingReference } from "./booking-reference";
 import {
@@ -21,6 +24,15 @@ import {
   recordCancellationForCustomerProfile,
   upsertCustomer,
 } from "./customers";
+import {
+  type AvailabilitySnapshot,
+  isAvailabilityCacheEnabled,
+  readAvailabilitySnapshot,
+  writeAvailabilitySnapshot,
+  invalidateAvailabilitySnapshot,
+} from "./cache/availability";
+import { deduplicate } from "./cache/request-deduplication";
+import { recordObservabilityEvent } from "./observability";
 
 export { generateBookingReference, generateUniqueBookingReference } from "./booking-reference";
 
@@ -172,7 +184,9 @@ export function buildBookingAuditSnapshot(
 }
 
 export function minutesFromTime(time: string): number {
-  const [hours, minutes] = time.split(":").map((value) => Number(value) || 0);
+  const [hoursPart = "0", minutesPart = "0"] = time.split(":");
+  const hours = Number(hoursPart) || 0;
+  const minutes = Number(minutesPart) || 0;
   return hours * 60 + minutes;
 }
 
@@ -284,27 +298,121 @@ export async function findAvailableTable(
 ): Promise<TableRecord | null> {
   const candidateTables = await fetchTablesForPreference(client, restaurantId, partySize, seatingPreference);
 
-  for (const table of candidateTables) {
-    const { data: existing, error } = await client
+  if (candidateTables.length === 0) {
+    return null;
+  }
+
+  const cacheKey = `${restaurantId}:${bookingDate}`;
+  const start = performance.now();
+
+  let snapshot: AvailabilitySnapshot | null = null;
+  let cacheStatus: "disabled" | "miss" | "hit" = "disabled";
+
+  const cacheResult = await readAvailabilitySnapshot(restaurantId, bookingDate);
+  if (cacheResult.status === "hit") {
+    snapshot = cacheResult.value;
+    cacheStatus = "hit";
+  } else if (cacheResult.status === "miss") {
+    cacheStatus = "miss";
+  }
+
+  const loadSnapshot = async (): Promise<AvailabilitySnapshot> => {
+    const { data, error } = await client
       .from("bookings")
-      .select("id,start_time,end_time,status")
-      .eq("table_id", table.id)
+      .select("id,table_id,start_time,end_time,status")
+      .eq("restaurant_id", restaurantId)
       .eq("booking_date", bookingDate)
-      .in("status", BOOKING_BLOCKING_STATUSES)
-      .order("start_time", { ascending: true });
+      .in("status", BOOKING_BLOCKING_STATUSES);
 
     if (error) {
       throw error;
     }
 
-    const conflicting = (existing ?? []).some((entry) => {
-      if (ignoreBookingId && entry.id === ignoreBookingId) return false;
+    const result = (data ?? []) as AvailabilitySnapshot;
+
+    if (cacheStatus !== "hit" && isAvailabilityCacheEnabled()) {
+      void writeAvailabilitySnapshot(
+        restaurantId,
+        bookingDate,
+        result,
+        Math.max(30, env.cache.availabilityTtlSeconds),
+      );
+    }
+
+    return result;
+  };
+
+  if (!snapshot) {
+    snapshot = await deduplicate(cacheKey, loadSnapshot);
+  }
+
+  const bookingsByTable = new Map<string, AvailabilitySnapshot[number][] >();
+
+  for (const entry of snapshot) {
+    if (!entry.table_id) {
+      continue;
+    }
+    const bucket = bookingsByTable.get(entry.table_id);
+    if (bucket) {
+      bucket.push(entry);
+    } else {
+      bookingsByTable.set(entry.table_id, [entry]);
+    }
+  }
+
+  for (const table of candidateTables) {
+    const existing = bookingsByTable.get(table.id) ?? [];
+    const conflicting = existing.some((entry) => {
+      if (ignoreBookingId && entry.id === ignoreBookingId) {
+        return false;
+      }
       return rangesOverlap(entry.start_time, entry.end_time, startTime, endTime);
     });
 
     if (!conflicting) {
+      const durationMs = Math.round(performance.now() - start);
+      if (Math.random() < 0.05) {
+        void recordObservabilityEvent({
+          source: "server.bookings",
+          eventType: "availability.lookup",
+          context: {
+            restaurantId,
+            bookingDate,
+            startTime,
+            endTime,
+            partySize,
+            seatingPreference,
+            candidateCount: candidateTables.length,
+            bookingCount: snapshot.length,
+            cacheStatus,
+            durationMs,
+            result: "allocated",
+          },
+        });
+      }
       return table;
     }
+  }
+
+  const durationMs = Math.round(performance.now() - start);
+  if (Math.random() < 0.05) {
+    void recordObservabilityEvent({
+      source: "server.bookings",
+      eventType: "availability.lookup",
+      context: {
+        restaurantId,
+        bookingDate,
+        startTime,
+        endTime,
+        partySize,
+        seatingPreference,
+        candidateCount: candidateTables.length,
+        bookingCount: snapshot.length,
+        cacheStatus,
+        durationMs,
+        result: "waitlisted",
+      },
+    });
   }
 
   return null;
@@ -468,6 +576,8 @@ export async function softCancelBooking(client: DbClient, bookingId: string): Pr
     cancelledAt: booking.updated_at,
   });
 
+  void invalidateAvailabilitySnapshot(booking.restaurant_id, booking.booking_date);
+
   return booking;
 }
 
@@ -506,7 +616,11 @@ export async function updateBookingRecord(
     throw error;
   }
 
-  return data as BookingRecord;
+  const booking = data as BookingRecord;
+
+  void invalidateAvailabilitySnapshot(booking.restaurant_id, booking.booking_date);
+
+  return booking;
 }
 
 export async function insertBookingRecord(
@@ -566,6 +680,8 @@ export async function insertBookingRecord(
     waitlisted: booking.status === "pending_allocation",
     status: booking.status,
   });
+
+  void invalidateAvailabilitySnapshot(booking.restaurant_id, booking.booking_date);
 
   return booking;
 }

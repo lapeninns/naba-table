@@ -4,15 +4,29 @@ import { useState, useRef } from "react";
 import type { JSX } from "react";
 import Image from "next/image";
 
-interface Feature {
+type BaseFeature = {
   title: string;
   description: string;
-  type?: "video" | "image";
-  path?: string;
-  format?: string;
-  alt?: string;
   svg?: JSX.Element;
-}
+};
+
+type VideoFeature = BaseFeature & {
+  type: "video";
+  path: string;
+  format: string;
+};
+
+type ImageFeature = BaseFeature & {
+  type: "image";
+  path: string;
+  alt: string;
+};
+
+type PlainFeature = BaseFeature & {
+  type?: undefined;
+};
+
+type Feature = VideoFeature | ImageFeature | PlainFeature;
 
 // The features array is a list of features that will be displayed in the accordion.
 // - title: The title of the feature
@@ -21,7 +35,7 @@ interface Feature {
 // - path: The path to the media (for better SEO, try to use a local path)
 // - format: The format of the media (if type is 'video')
 // - alt: The alt text of the image (if type is 'image')
-const features = [
+const features: Feature[] = [
   {
     title: "Emails",
     description:
@@ -111,7 +125,7 @@ const features = [
       </svg>
     ),
   },
-] as Feature[];
+];
 
 // An SEO-friendly accordion component including the title and a description (when clicked.)
 const Item = ({
@@ -124,7 +138,7 @@ const Item = ({
   isOpen: boolean;
   setFeatureSelected: () => void;
 }) => {
-  const accordion = useRef(null);
+  const accordion = useRef<HTMLDivElement | null>(null);
   const { title, description, svg } = feature;
 
   return (
@@ -154,7 +168,7 @@ const Item = ({
         className={`transition-all duration-300 ease-in-out text-base-content-secondary overflow-hidden`}
         style={
           isOpen
-            ? { maxHeight: accordion?.current?.scrollHeight, opacity: 1 }
+            ? { maxHeight: accordion.current?.scrollHeight ?? 0, opacity: 1 }
             : { maxHeight: 0, opacity: 0 }
         }
       >
@@ -167,14 +181,14 @@ const Item = ({
 // A component to display the media (video or image) of the feature. If the type is not specified, it will display an empty div.
 // Video are set to autoplay for best UX.
 const Media = ({ feature }: { feature: Feature }) => {
-  const { type, path, format, alt } = feature;
   const style = "rounded-2xl aspect-square w-full sm:w-[26rem]";
   const size = {
     width: 500,
     height: 500,
   };
 
-  if (type === "video") {
+  if (feature.type === "video") {
+    const videoFeature = feature as VideoFeature;
     return (
       <video
         className={style}
@@ -186,14 +200,15 @@ const Media = ({ feature }: { feature: Feature }) => {
         width={size.width}
         height={size.height}
       >
-        <source src={path} type={format} />
+        <source src={videoFeature.path} type={videoFeature.format} />
       </video>
     );
-  } else if (type === "image") {
+  } else if (feature.type === "image") {
+    const imageFeature = feature as ImageFeature;
     return (
       <Image
-        src={path}
-        alt={alt}
+        src={imageFeature.path}
+        alt={imageFeature.alt}
         className={`${style} object-cover object-center`}
         width={size.width}
         height={size.height}
@@ -208,6 +223,7 @@ const Media = ({ feature }: { feature: Feature }) => {
 // By default, the first feature is selected. When a feature is clicked, the others are closed.
 const FeaturesAccordion = () => {
   const [featureSelected, setFeatureSelected] = useState<number>(0);
+  const activeFeature = features[featureSelected] ?? features[0];
 
   return (
     <section
@@ -235,7 +251,7 @@ const FeaturesAccordion = () => {
               ))}
             </ul>
 
-            <Media feature={features[featureSelected]} key={featureSelected} />
+            {activeFeature ? <Media feature={activeFeature} key={featureSelected} /> : null}
           </div>
         </div>
       </div>

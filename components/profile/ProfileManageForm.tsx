@@ -121,8 +121,10 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
   useEffect(() => {
     const entries = Object.entries(form.formState.errors);
     if (entries.length > 0) {
-      const [firstKey] = entries;
-      form.setFocus(firstKey[0] as keyof ProfileManageFormValues, { shouldSelect: true });
+      const firstKey = entries[0]?.[0];
+      if (firstKey) {
+        form.setFocus(firstKey as keyof ProfileManageFormValues, { shouldSelect: true });
+      }
     }
   }, [form, form.formState.errors]);
 

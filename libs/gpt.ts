@@ -1,5 +1,7 @@
 import axios from 'axios';
 
+import { env } from '@/lib/env';
+
 // Use this if you want to make a call to OpenAI GPT-4 for instance. userId is used to identify the user on openAI side.
 export const sendOpenAi = async (
   messages: any[], // TODO: type this
@@ -22,9 +24,15 @@ export const sendOpenAi = async (
     user: userId,
   });
 
+  const apiKey = env.misc.openAiKey;
+
+  if (!apiKey) {
+    throw new Error('OpenAI API key is not configured. Set OPENAI_API_KEY.');
+  }
+
   const options = {
     headers: {
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
   };
@@ -48,8 +56,12 @@ export const sendOpenAi = async (
     console.log('\n');
 
     return answer;
-  } catch (e) {
-    console.error('GPT Error: ' + e?.response?.status, e?.response?.data);
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.error('GPT Error:', error.response?.status, error.response?.data);
+    } else {
+      console.error('GPT Error:', error);
+    }
     return null;
   }
 };

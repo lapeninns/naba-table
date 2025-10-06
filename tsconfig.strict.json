@@ -1,0 +1,27 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true
+  },
+  "include": [
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "components/**/*.ts",
+    "components/**/*.tsx",
+    "context/**/*.ts",
+    "context/**/*.tsx",
+    "hooks/**/*.ts",
+    "hooks/**/*.tsx",
+    "lib/**/*.ts",
+    "lib/**/*.tsx",
+    "libs/**/*.ts",
+    "libs/**/*.tsx",
+    "scripts/**/*.ts",
+    "config/**/*.ts",
+    "server/**/*.ts",
+    "server/**/*.tsx",
+    "types/**/*.ts",
+    "types/**/*.tsx"
+  ]
+}

@@ -23,15 +23,10 @@ import {
   getRouteHandlerSupabaseClient,
   getServiceSupabaseClient,
 } from "@/server/supabase";
-import { sendBookingConfirmationEmail } from "@/server/emails/bookings";
 import { recordObservabilityEvent } from "@/server/observability";
 import { normalizeEmail, upsertCustomer } from "@/server/customers";
 import { getActiveLoyaltyProgram, calculateLoyaltyAward, applyLoyaltyAward } from "@/server/loyalty";
-import {
-  recordBookingAllocatedEvent,
-  recordBookingCreatedEvent,
-  recordBookingWaitlistedEvent,
-} from "@/server/analytics";
+import { enqueueBookingCreatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
 
 const baseQuerySchema = z.object({
   restaurantId: z.string().uuid().optional(),
@@ -479,76 +474,25 @@ export async function POST(req: NextRequest) {
 
     const bookings = await fetchBookingsForContact(supabase, restaurantId, data.email, data.phone);
 
+    const responseAllocationPending = finalBooking.status === "pending_allocation";
+
     if (!reusedExisting) {
       try {
-        await recordBookingCreatedEvent(supabase, {
-          bookingId: finalBooking.id,
-          restaurantId,
-          customerId: finalBooking.customer_id,
-          status: finalBooking.status,
-          partySize: finalBooking.party_size,
-          bookingType: finalBooking.booking_type,
-          seatingPreference: finalBooking.seating_preference,
-          source: finalBooking.source ?? "api",
-          waitlisted,
-          loyaltyPointsAwarded: finalBooking.loyalty_points_awarded ?? 0,
-          occurredAt: finalBooking.created_at,
-          clientRequestId: finalBooking.client_request_id,
-          idempotencyKey,
-          pendingRef: finalBooking.pending_ref,
-        });
-
-        if (waitlistEntry) {
-          await recordBookingWaitlistedEvent(supabase, {
-            bookingId: finalBooking.id,
+        await enqueueBookingCreatedSideEffects(
+          {
+            booking: safeBookingPayload(finalBooking),
+            waitlisted,
+            allocationPending: responseAllocationPending,
+            waitlistEntry,
+            idempotencyKey,
             restaurantId,
-            customerId: finalBooking.customer_id,
-            waitlistId: waitlistEntry.id,
-            position: waitlistEntry.position,
-            occurredAt: finalBooking.created_at,
-          });
-        } else if (!allocationPending && finalBooking.table_id) {
-          await recordBookingAllocatedEvent(supabase, {
-            bookingId: finalBooking.id,
-            restaurantId,
-            customerId: finalBooking.customer_id,
-            tableId: finalBooking.table_id,
-            allocationStatus: "allocated",
-            occurredAt: finalBooking.updated_at,
-          });
-        }
-      } catch (analyticsError) {
-        console.error("[bookings][POST][analytics] Failed to record analytics", stringifyError(analyticsError));
-        void recordObservabilityEvent({
-          source: "api.bookings",
-          eventType: "analytics.emit.failed",
-          severity: "warning",
-          context: {
-            bookingId: finalBooking.id,
-            event: "booking.created",
-            error: stringifyError(analyticsError),
           },
-        });
+          { supabase },
+        );
+      } catch (jobError: unknown) {
+        console.error("[bookings][POST][side-effects]", stringifyError(jobError));
       }
     }
-
-    if (!reusedExisting && finalBooking.status !== "pending_allocation") {
-      try {
-        console.log(`[bookings][POST][email] Sending confirmation email to: ${finalBooking.customer_email} for booking: ${finalBooking.reference}`);
-        await sendBookingConfirmationEmail(finalBooking);
-        console.log(`[bookings][POST][email] Successfully sent confirmation email for booking: ${finalBooking.reference}`);
-      } catch (error: unknown) {
-        console.error("[bookings][POST][email] Failed to send confirmation email:", {
-          bookingId: finalBooking.id,
-          reference: finalBooking.reference,
-          customerEmail: finalBooking.customer_email,
-          error: stringifyError(error),
-          stack: error instanceof Error ? error.stack : undefined,
-        });
-      }
-    }
-
-    const responseAllocationPending = finalBooking.status === "pending_allocation";
 
     return NextResponse.json(
       {

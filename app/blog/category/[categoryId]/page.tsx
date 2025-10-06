@@ -1,4 +1,5 @@
-import { categories, articles } from "../../_assets/content";
+import { notFound } from "next/navigation";
+import { categories, articles, requireCategory } from "../../_assets/content";
 import CardArticle from "../../_assets/components/CardArticle";
 import CardCategory from "../../_assets/components/CardCategory";
 import { getSEOTags } from "@/libs/seo";
@@ -10,9 +11,7 @@ export async function generateMetadata({
   params: Promise<{ categoryId: string }>;
 }) {
   const { categoryId } = await params;
-  const category = categories.find(
-    (category) => category.slug === categoryId
-  );
+  const category = loadCategoryOrThrow(categoryId);
 
   return getSEOTags({
     title: `${category.title} | Blog by ${config.appName}`,
@@ -27,9 +26,7 @@ export default async function Category({
   params: Promise<{ categoryId: string }>;
 }) {
   const { categoryId } = await params;
-  const category = categories.find(
-    (category) => category.slug === categoryId
-  );
+  const category = loadCategoryOrThrow(categoryId);
   const articlesInCategory = articles
     .filter((article) =>
       article.categories.map((c) => c.slug).includes(category.slug)
@@ -83,4 +80,13 @@ export default async function Category({
       </section>
     </>
   );
+}
+
+function loadCategoryOrThrow(categoryId: string): ReturnType<typeof requireCategory> {
+  try {
+    return requireCategory(categoryId);
+  } catch {
+    notFound();
+    throw new Error("unreachable");
+  }
 }

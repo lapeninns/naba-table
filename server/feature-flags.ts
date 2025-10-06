@@ -1,5 +1,7 @@
+import { env } from "@/lib/env";
+
 const loyaltyPilotIds = new Set(
-  (process.env.LOYALTY_PILOT_RESTAURANT_IDS ?? "")
+  (env.featureFlags.loyaltyPilotRestaurantIds ?? "")
     .split(",")
     .map((value) => value.trim())
     .filter((value) => value.length > 0),

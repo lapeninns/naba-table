@@ -3,27 +3,21 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { env, getEnv } from "@/lib/env";
 import { Database } from "@/types/supabase";
 
 export { BOOKING_BLOCKING_STATUSES } from "@/lib/enums";
 
 let serviceClient: SupabaseClient<Database, any, any> | null = null;
 
-const SUPABASE_URL = assertSupabaseEnv("NEXT_PUBLIC_SUPABASE_URL", process.env.NEXT_PUBLIC_SUPABASE_URL);
-const SUPABASE_ANON_KEY = assertSupabaseEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-const SUPABASE_SERVICE_ROLE_KEY = assertSupabaseEnv("SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY);
+const runtimeEnv = getEnv();
+const { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY, serviceKey: SUPABASE_SERVICE_ROLE_KEY } = env.supabase;
 const DEFAULT_RESTAURANT_FALLBACK_ID = "39cb1346-20fb-4fa2-b163-0230e1caf749";
-const DEFAULT_RESTAURANT_SLUG = process.env.NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG;
+const DEFAULT_RESTAURANT_SLUG = runtimeEnv.NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG;
 
-let cachedDefaultRestaurantId: string | null = process.env.NEXT_PUBLIC_DEFAULT_RESTAURANT_ID ?? null;
+let cachedDefaultRestaurantId: string | null =
+  runtimeEnv.NEXT_PUBLIC_DEFAULT_RESTAURANT_ID ?? env.misc.bookingDefaultRestaurantId ?? null;
 let resolvingDefaultRestaurantId: Promise<string> | null = null;
-
-function assertSupabaseEnv(varName: string, value: string | undefined): string {
-  if (!value) {
-    throw new Error(`Missing Supabase environment variable: ${varName}`);
-  }
-  return value;
-}
 
 type CookieReader = {
   getAll: () => { name: string; value: string }[];
@@ -85,8 +79,8 @@ export function getMiddlewareSupabaseClient(req: NextRequest, res: NextResponse)
 }
 
 export async function getDefaultRestaurantId(): Promise<string> {
-  if (process.env.BOOKING_DEFAULT_RESTAURANT_ID) {
-    return process.env.BOOKING_DEFAULT_RESTAURANT_ID;
+  if (env.misc.bookingDefaultRestaurantId) {
+    return env.misc.bookingDefaultRestaurantId;
   }
 
   if (cachedDefaultRestaurantId) {

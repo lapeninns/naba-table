@@ -1,5 +1,6 @@
 import Image from "next/image";
-import { authors, articles } from "../../_assets/content";
+import { notFound } from "next/navigation";
+import { articles, requireAuthor } from "../../_assets/content";
 import CardArticle from "../../_assets/components/CardArticle";
 import { getSEOTags } from "@/libs/seo";
 import config from "@/config";
@@ -10,7 +11,7 @@ export async function generateMetadata({
   params: Promise<{ authorId: string }>;
 }) {
   const { authorId } = await params;
-  const author = authors.find((author) => author.slug === authorId);
+  const author = loadAuthorOrThrow(authorId);
 
   return getSEOTags({
     title: `${author.name}, Author at ${config.appName}'s Blog`,
@@ -25,13 +26,14 @@ export default async function Author({
   params: Promise<{ authorId: string }>;
 }) {
   const { authorId } = await params;
-  const author = authors.find((author) => author.slug === authorId);
+  const author = loadAuthorOrThrow(authorId);
   const articlesByAuthor = articles
     .filter((article) => article.author.slug === author.slug)
     .sort(
       (a, b) =>
         new Date(b.publishedAt).valueOf() - new Date(a.publishedAt).valueOf()
     );
+  const socials = author.socials ?? [];
 
   return (
     <>
@@ -59,9 +61,9 @@ export default async function Author({
             className="rounded-box w-[12rem] md:w-[16rem] "
           />
 
-          {author.socials?.length > 0 && (
+          {socials.length > 0 && (
             <div className="flex flex-col md:flex-row gap-4">
-              {author.socials.map((social) => (
+              {socials.map((social) => (
                 <a
                   key={social.name}
                   href={social.url}
@@ -91,4 +93,13 @@ export default async function Author({
       </section>
     </>
   );
+}
+
+function loadAuthorOrThrow(authorId: string): ReturnType<typeof requireAuthor> {
+  try {
+    return requireAuthor(authorId);
+  } catch {
+    notFound();
+    throw new Error("unreachable");
+  }
 }

@@ -1,14 +1,17 @@
 import config from "@/config";
+import { env } from "@/lib/env";
 const formData = require("form-data");
 const Mailgun = require("mailgun.js");
 const mailgun = new Mailgun(formData);
 
+const mailgunApiKey = env.mailgun.apiKey;
+
 const mg = mailgun.client({
   username: "api",
-  key: process.env.MAILGUN_API_KEY || "dummy",
+  key: mailgunApiKey ?? "dummy",
 });
 
-if (!process.env.MAILGUN_API_KEY && process.env.NODE_ENV === "development") {
+if (!mailgunApiKey && env.node.env === "development") {
   console.group("⚠️ MAILGUN_API_KEY missing from .env");
   console.error("It's not mandatory but it's required to send emails.");
   console.error("If you don't need it, remove the code from /libs/mailgun.js");

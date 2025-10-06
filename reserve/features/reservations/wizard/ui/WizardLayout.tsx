@@ -4,8 +4,12 @@ import * as React from 'react';
 
 import { cn } from '@shared/lib/cn';
 
+type HeroRef =
+  | React.RefObject<HTMLSpanElement | null>
+  | React.MutableRefObject<HTMLSpanElement | null>;
+
 interface WizardLayoutProps {
-  heroRef?: React.RefObject<HTMLSpanElement>;
+  heroRef?: HeroRef;
   stickyHeight?: number;
   stickyVisible?: boolean;
   children: React.ReactNode;

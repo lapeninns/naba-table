@@ -1,21 +1,23 @@
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { sendEmail } from "@/libs/resend";
+import { env } from "@/lib/env";
 import { sendBookingConfirmationEmail } from "@/server/emails/bookings";
 import type { BookingRecord } from "@/server/bookings";
 
-const isProd = process.env.NODE_ENV === "production";
-const accessToken = process.env.TEST_EMAIL_ACCESS_TOKEN ?? "";
+const runtimeEnv = env.raw;
+const isProd = env.node.env === "production";
+const accessToken = runtimeEnv.TEST_EMAIL_ACCESS_TOKEN ?? "";
 const rateLimitWindowMs = 60_000;
-const rateLimitMax = Number(process.env.TEST_EMAIL_RATE_LIMIT ?? "10");
+const rateLimitMax = runtimeEnv.TEST_EMAIL_RATE_LIMIT ?? 10;
 
 const defaultOrigins = [
-  process.env.NEXT_PUBLIC_SITE_URL,
+  env.app.url,
   "http://localhost:3000",
   "http://localhost:3001",
 ].filter(Boolean) as string[];
 
-const configuredOrigins = (process.env.TEST_EMAIL_ALLOWED_ORIGINS ?? "")
+const configuredOrigins = (runtimeEnv.TEST_EMAIL_ALLOWED_ORIGINS ?? "")
   .split(",")
   .map((value) => value.trim())
   .filter(Boolean);

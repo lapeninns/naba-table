@@ -1,18 +1,19 @@
 import config from "@/config";
+import { env } from "@/lib/env";
 import { Resend } from "resend";
 
-const resendApiKey = process.env.RESEND_API_KEY;
-const resendFrom = process.env.RESEND_FROM;
+const resendApiKey = env.resend.apiKey;
+const resendFrom = env.resend.from;
 
 let resendClient: Resend | null = null;
 
 if (resendApiKey) {
   resendClient = new Resend(resendApiKey);
-} else if (process.env.NODE_ENV === "development") {
+} else if (env.node.env === "development") {
   console.warn("[resend] RESEND_API_KEY is missing. Emails will not be sent.");
 }
 
-if (!resendFrom && process.env.NODE_ENV === "development") {
+if (!resendFrom && env.node.env === "development") {
   console.warn("[resend] RESEND_FROM is missing. Emails will not be sent.");
 }
 
@@ -47,7 +48,7 @@ export async function sendEmail({
   console.log(`[resend] Sending email to: ${Array.isArray(to) ? to.join(', ') : to}, subject: "${subject}"`);
 
   try {
-    const result = await resendClient.emails.send({
+    const payload = {
       from: resendFrom,
       to: normalize(to)!,
       subject,
@@ -56,7 +57,13 @@ export async function sendEmail({
       cc: normalize(cc),
       bcc: normalize(bcc),
       replyTo: replyTo ?? config.mailgun.supportEmail ?? undefined,
-    });
+    } satisfies Record<string, unknown>;
+
+    const sendEmail = resendClient.emails.send.bind(resendClient.emails) as unknown as (
+      body: Record<string, unknown>,
+    ) => Promise<{ data?: { id?: string } | null }>; 
+
+    const result = await sendEmail(payload);
 
     console.log(`[resend] Email sent successfully. ID: ${result.data?.id}`);
   } catch (error) {

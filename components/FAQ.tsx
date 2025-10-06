@@ -34,7 +34,7 @@ const faqList: FAQItemProps[] = [
 ];
 
 const FaqItem = ({ item }: { item: FAQItemProps }) => {
-  const accordion = useRef(null);
+  const accordion = useRef<HTMLDivElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -83,7 +83,7 @@ const FaqItem = ({ item }: { item: FAQItemProps }) => {
         className={`transition-all duration-300 ease-in-out opacity-80 overflow-hidden`}
         style={
           isOpen
-            ? { maxHeight: accordion?.current?.scrollHeight, opacity: 1 }
+            ? { maxHeight: accordion.current?.scrollHeight ?? 0, opacity: 1 }
             : { maxHeight: 0, opacity: 0 }
         }
       >

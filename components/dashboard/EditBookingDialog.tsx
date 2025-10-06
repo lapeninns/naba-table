@@ -117,9 +117,14 @@ export function EditBookingDialog({ booking, open, onOpenChange }: EditBookingDi
       onOpenChange(false);
     } catch (error) {
       const err = error as HttpError;
-      if (err?.code && errorCopy[err.code]) {
-        setFormError(errorCopy[err.code]);
-      } else if (err?.message) {
+      if (err?.code) {
+        const preset = errorCopy[err.code];
+        if (preset) {
+          setFormError(preset);
+          return;
+        }
+      }
+      if (err?.message) {
         setFormError(err.message);
       }
     }
@@ -173,7 +178,15 @@ export function EditBookingDialog({ booking, open, onOpenChange }: EditBookingDi
               <Controller
                 name="notes"
                 control={control}
-                render={({ field }) => <Textarea id="notes" rows={3} {...field} />}
+                render={({ field }) => (
+                  <Textarea
+                    id="notes"
+                    rows={3}
+                    {...field}
+                    value={field.value ?? ""}
+                    onChange={(event) => field.onChange(event.target.value)}
+                  />
+                )}
               />
               {errors.notes ? <p className="text-sm text-destructive">{errors.notes.message}</p> : null}
             </div>

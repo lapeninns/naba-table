@@ -8,6 +8,7 @@ import NextTopLoader from "nextjs-toploader";
 import { Toaster } from "react-hot-toast";
 import { Tooltip } from "react-tooltip";
 import config from "@/config";
+import type { User } from "@supabase/supabase-js";
 
 // Crisp customer chat support:
 // This component is separated from ClientLayout because it needs to be wrapped with <SessionProvider> to use useSession() hook
@@ -15,7 +16,7 @@ const CrispChat = (): null => {
   const pathname = usePathname();
 
   const supabase = getSupabaseBrowserClient();
-  const [data, setData] = useState(null);
+  const [data, setData] = useState<User | null>(null);
 
   // This is used to get the user data from Supabase Auth (if logged in) => user ID is used to identify users in Crisp
   useEffect(() => {
@@ -24,7 +25,7 @@ const CrispChat = (): null => {
         data: { session },
       } = await supabase.auth.getSession();
 
-      if (session) {
+      if (session?.user) {
         setData(session.user);
       }
     };
@@ -52,8 +53,8 @@ const CrispChat = (): null => {
 
   // Add User Unique ID to Crisp to easily identify users when reaching support (optional)
   useEffect(() => {
-    if (data?.user && config?.crisp?.id) {
-      Crisp.session.setData({ userId: data.user?.id });
+    if (data && config?.crisp?.id) {
+      Crisp.session.setData({ userId: data.id });
     }
   }, [data]);
 

@@ -121,7 +121,7 @@ export function formatReservationTime(
 ): string {
   const normalized = normalizeTime(value);
   if (!normalized) return '';
-  const [hours, minutes] = normalized.split(':');
+  const [hours = '00', minutes = '00'] = normalized.split(':');
   return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
 }
 

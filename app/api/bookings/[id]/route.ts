@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import type { Json, Tables } from "@/types/supabase";
+import type { BookingRecord } from "@/server/bookings";
 import {
   BOOKING_TYPES,
   SEATING_OPTIONS,
@@ -16,9 +17,12 @@ import {
   updateBookingRecord,
 } from "@/server/bookings";
 import { BOOKING_BLOCKING_STATUSES, getDefaultRestaurantId, getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
-import { sendBookingCancellationEmail, sendBookingUpdateEmail } from "@/server/emails/bookings";
+import {
+  enqueueBookingCancelledSideEffects,
+  enqueueBookingUpdatedSideEffects,
+  safeBookingPayload,
+} from "@/server/jobs/booking-side-effects";
 import { normalizeEmail } from "@/server/customers";
-import { recordBookingCancelledEvent, recordBookingAllocatedEvent } from "@/server/analytics";
 import { formatDateForInput } from "@reserve/shared/formatting/booking";
 import { fromMinutes, normalizeTime } from "@reserve/shared/time";
 
@@ -250,30 +254,17 @@ async function handleDashboardUpdate(bookingId: string, data: z.infer<typeof das
       actor: existingBooking.customer_email ?? "dashboard",
     });
 
-    // Record analytics event
-    if (updated.table_id) {
-      const allocationStatus = existingBooking.table_id && existingBooking.table_id !== updated.table_id
-        ? "reallocated"
-        : "allocated";
-      try {
-        await recordBookingAllocatedEvent(serviceSupabase, {
-          bookingId,
-          restaurantId,
-          customerId: updated.customer_id,
-          tableId: updated.table_id,
-          allocationStatus,
-          occurredAt: updated.updated_at,
-        });
-      } catch (analyticsError) {
-        console.error("[bookings][PUT][analytics]", stringifyError(analyticsError));
-      }
-    }
-
-    // Send update email
     try {
-      await sendBookingUpdateEmail(updated);
-    } catch (error: unknown) {
-      console.error("[bookings][PUT][email]", stringifyError(error));
+      await enqueueBookingUpdatedSideEffects(
+        {
+          previous: safeBookingPayload(existingBooking as unknown as BookingRecord),
+          current: safeBookingPayload(updated),
+          restaurantId,
+        },
+        { supabase: serviceSupabase },
+      );
+    } catch (jobError: unknown) {
+      console.error("[bookings][PUT:dashboard][side-effects]", stringifyError(jobError));
     }
 
     // Return the updated booking in the format expected by the frontend
@@ -522,30 +513,18 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       actor: actorIdentity,
     });
 
-    if (updated.table_id) {
-      const allocationStatus = existingBooking.table_id && existingBooking.table_id !== updated.table_id
-        ? "reallocated"
-        : "allocated";
-      try {
-        await recordBookingAllocatedEvent(serviceSupabase, {
-          bookingId,
-          restaurantId,
-          customerId: updated.customer_id,
-          tableId: updated.table_id,
-          allocationStatus,
-          occurredAt: updated.updated_at,
-        });
-      } catch (analyticsError) {
-        console.error("[bookings][PUT][analytics]", stringifyError(analyticsError));
-      }
-    }
-
     const bookings = await fetchBookingsForContact(tenantSupabase, restaurantId, data.email, data.phone);
-
     try {
-      await sendBookingUpdateEmail(updated);
-    } catch (error: unknown) {
-      console.error("[bookings][PUT][email]", stringifyError(error));
+      await enqueueBookingUpdatedSideEffects(
+        {
+          previous: safeBookingPayload(existingBooking as unknown as BookingRecord),
+          current: safeBookingPayload(updated),
+          restaurantId,
+        },
+        { supabase: serviceSupabase },
+      );
+    } catch (jobError: unknown) {
+      console.error("[bookings][PUT:id][side-effects]", stringifyError(jobError));
     }
 
     return NextResponse.json({ booking: updated, bookings });
@@ -617,26 +596,20 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       actor: user.email ?? user.id ?? null,
     });
 
-    try {
-      await recordBookingCancelledEvent(serviceSupabase, {
-        bookingId: cancelledRecord.id,
-        restaurantId: cancelledRecord.restaurant_id,
-        customerId: cancelledRecord.customer_id,
-        previousStatus: existingBooking.status,
-        cancelledBy: "customer",
-        occurredAt: cancelledRecord.updated_at,
-      });
-    } catch (analyticsError) {
-      console.error("[bookings][DELETE][analytics]", stringifyError(analyticsError));
-    }
-
     const targetRestaurantId = existingBooking.restaurant_id ?? await getDefaultRestaurantId();
     const bookings = await fetchBookingsForContact(tenantSupabase, targetRestaurantId, userEmail, existingBooking.customer_phone);
-
     try {
-      await sendBookingCancellationEmail(cancelledRecord);
-    } catch (error: unknown) {
-      console.error("[bookings][DELETE][email]", stringifyError(error));
+      await enqueueBookingCancelledSideEffects(
+        {
+          previous: safeBookingPayload(existingBooking as unknown as BookingRecord),
+          cancelled: safeBookingPayload(cancelledRecord),
+          restaurantId: targetRestaurantId,
+          cancelledBy: "customer",
+        },
+        { supabase: serviceSupabase },
+      );
+    } catch (jobError: unknown) {
+      console.error("[bookings][DELETE][side-effects]", stringifyError(jobError));
     }
 
     return NextResponse.json({ success: true, bookings });

@@ -1,4 +1,5 @@
 import appConfig from "@/config";
+import { env } from "@/lib/env";
 import { getMiddlewareSupabaseClient } from "@/server/supabase";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -13,7 +14,7 @@ export async function middleware(req: NextRequest) {
     const isVersioned = /^\/api\/v\d+\//.test(pathname);
     const response = NextResponse.next();
     if (!isVersioned) {
-      const days = Number(process.env.ROUTE_COMPAT_WINDOW_DAYS ?? 30);
+      const days = env.testing.routeCompatWindowDays ?? 30;
       const sunset = new Date(Date.now() + Math.max(1, days) * 24 * 60 * 60 * 1000).toISOString();
       const successor = pathname.replace(/^\/api\//, "/api/v1/");
       response.headers.set("Deprecation", "true");
