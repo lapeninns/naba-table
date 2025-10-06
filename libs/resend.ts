@@ -25,6 +25,7 @@ export type SendEmailParams = {
   replyTo?: string;
   cc?: string | string[];
   bcc?: string | string[];
+  fromName?: string; // Optional custom name for the sender
 };
 
 function normalize(value?: string | string[]) {
@@ -40,16 +41,20 @@ export async function sendEmail({
   replyTo,
   cc,
   bcc,
+  fromName,
 }: SendEmailParams): Promise<void> {
   if (!resendClient || !resendFrom) {
     throw new Error("Resend is not configured. Set RESEND_API_KEY and RESEND_FROM.");
   }
 
-  console.log(`[resend] Sending email to: ${Array.isArray(to) ? to.join(', ') : to}, subject: "${subject}"`);
+  // Format the from address with custom name if provided
+  const fromAddress = fromName ? `${fromName} <${resendFrom}>` : resendFrom;
+
+  console.log(`[resend] Sending email to: ${Array.isArray(to) ? to.join(', ') : to}, subject: "${subject}", from: "${fromAddress}"`);
 
   try {
     const payload = {
-      from: resendFrom,
+      from: fromAddress,
       to: normalize(to)!,
       subject,
       html,

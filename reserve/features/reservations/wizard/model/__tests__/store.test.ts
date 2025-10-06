@@ -39,6 +39,26 @@ describe('useWizardStore', () => {
     expect(result.current.state.details.name).toBe('');
   });
 
+  it('honours provided initial restaurant details and keeps them on reset', () => {
+    const overrides = {
+      restaurantId: 'restaurant-override',
+      restaurantName: 'Override Kitchen',
+      restaurantTimezone: 'America/New_York',
+    } as const;
+
+    const { result } = renderHook(() => useWizardStore(overrides));
+
+    expect(result.current.state.details.restaurantId).toBe('restaurant-override');
+    expect(result.current.state.details.restaurantName).toBe('Override Kitchen');
+
+    act(() => {
+      result.current.actions.resetForm();
+    });
+
+    expect(result.current.state.details.restaurantId).toBe('restaurant-override');
+    expect(result.current.state.details.restaurantName).toBe('Override Kitchen');
+  });
+
   it('updates booking details through actions', () => {
     const { result } = renderHook(() => useWizardStore());
 

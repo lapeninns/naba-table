@@ -13,12 +13,12 @@ import { createSelectionSummary } from '../model/selectors';
 import { useWizardStore } from '../model/store';
 import { buildReservationDraft, reservationToApiBooking } from '../model/transformers';
 
-import type { StepAction } from '../model/reducer';
+import type { BookingDetails, StepAction } from '../model/reducer';
 
 const EMPTY_ACTIONS: StepAction[] = [];
 
-export function useReservationWizard() {
-  const { state, actions } = useWizardStore();
+export function useReservationWizard(initialDetails?: Partial<BookingDetails>) {
+  const { state, actions } = useWizardStore(initialDetails);
   const heroRef = useRef<HTMLSpanElement | null>(null);
   const [stickyActions, setStickyActions] = useState<StepAction[]>(EMPTY_ACTIONS);
   const [stickyHeight, setStickyHeight] = useState(0);

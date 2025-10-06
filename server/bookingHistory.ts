@@ -129,9 +129,9 @@ export async function getBookingHistory(
   const limit = Math.max(1, Math.min(options.limit ?? 50, 100));
   const offset = Math.max(0, options.offset ?? 0);
 
-  const { data: versions, error: versionsError } = await client
+  const { data: versions, error: versionsError} = await client
     .from('booking_versions')
-    .select('version_id, booking_id, restaurant_id, change_type, changed_by, changed_at, old_data, new_data')
+    .select('version_id, booking_id, restaurant_id, change_type, changed_by, changed_at, old_data, new_data, created_at')
     .eq('booking_id', bookingId)
     .order('changed_at', { ascending: true })
     .range(offset, offset + limit - 1);

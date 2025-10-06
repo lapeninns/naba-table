@@ -1,5 +1,16 @@
 # SajiloReserveX
 
+> **🚀 NEW:** Database setup is complete! See [DATABASE_SETUP_COMPLETE.md](./DATABASE_SETUP_COMPLETE.md) for details.
+>
+> **Quick Start:**
+>
+> ```bash
+> npm run db:start    # Start local Supabase
+> npm run db:reset    # Apply schema & seed data
+> ```
+>
+> Open Supabase Studio: http://127.0.0.1:54323
+
 ## Reserve App Overview
 
 The `/reserve` booking experience is now served by a feature-sliced React application that mounts inside the Next.js shell. A feature flag (`NEXT_PUBLIC_RESERVE_V2`) controls rollout between the legacy flow and the new architecture.

@@ -98,7 +98,10 @@ CREATE TABLE public.customers (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT customers_pkey PRIMARY KEY (id),
-  CONSTRAINT customers_restaurant_id_fkey FOREIGN KEY (restaurant_id) REFERENCES public.restaurants(id)
+  CONSTRAINT customers_restaurant_id_fkey FOREIGN KEY (restaurant_id) REFERENCES public.restaurants(id),
+  CONSTRAINT customers_restaurant_email_key UNIQUE (restaurant_id, email_normalized),
+  CONSTRAINT customers_restaurant_phone_key UNIQUE (restaurant_id, phone_normalized),
+  CONSTRAINT customers_restaurant_email_phone_key UNIQUE (restaurant_id, email_normalized, phone_normalized)
 );
 CREATE TABLE public.leads (
   id uuid NOT NULL DEFAULT gen_random_uuid(),

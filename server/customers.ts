@@ -3,6 +3,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Tables, TablesInsert } from "@/types/supabase";
 
 const CUSTOMER_CONFLICT_KEY = "restaurant_id,email_normalized,phone_normalized";
+const CUSTOMER_CONFLICT_FALLBACK_KEYS = [
+  "restaurant_id,email_normalized",
+  "restaurant_id,phone_normalized",
+];
 
 export type CustomerRow = Tables<"customers">;
 
@@ -76,20 +80,63 @@ export async function upsertCustomer(
     .select("id,restaurant_id,email,phone,full_name,marketing_opt_in,created_at,updated_at,email_normalized,phone_normalized")
     .maybeSingle();
 
-  if (error) {
-    throw error;
+  const isMissingConflictConstraintError = (value: unknown): boolean => {
+    if (!value || typeof value !== "object") {
+      return false;
+    }
+    const record = value as { code?: unknown; message?: unknown };
+    const code = typeof record.code === "string" ? record.code : "";
+    if (code === "42P10") {
+      return true;
+    }
+    const message = typeof record.message === "string" ? record.message : "";
+    return /no unique or exclusion constraint matching the on conflict specification/i.test(message);
+  };
+
+  let customerData = data;
+  let lastError = error ?? null;
+
+  if (error && isMissingConflictConstraintError(error)) {
+    // Some environments may be missing the composite conflict target. Retry with the available uniques.
+    for (const fallbackKey of CUSTOMER_CONFLICT_FALLBACK_KEYS) {
+      const { data: fallbackData, error: fallbackError } = await client
+        .from("customers")
+        .upsert(insertPayload, {
+          onConflict: fallbackKey,
+          ignoreDuplicates: false,
+        })
+        .select(
+          "id,restaurant_id,email,phone,full_name,marketing_opt_in,created_at,updated_at,email_normalized,phone_normalized",
+        )
+        .maybeSingle();
+
+      customerData = fallbackData;
+      lastError = fallbackError ?? null;
+
+      if (!fallbackError) {
+        break;
+      }
+
+      if (!isMissingConflictConstraintError(fallbackError)) {
+        break;
+      }
+    }
   }
 
-  if (!data) {
+  if (lastError) {
+    throw lastError;
+  }
+
+  if (!customerData) {
     throw new Error("Failed to upsert customer contact");
   }
 
   // Ensure marketing opt-in is sticky when true.
-  if (marketingOptIn && !data.marketing_opt_in) {
+  if (marketingOptIn && !customerData.marketing_opt_in) {
     const { data: patched, error: updateError } = await client
       .from("customers")
-      .update({ marketing_opt_in: true, full_name: data.full_name ?? params.name ?? null })
-      .eq("id", data.id)
+      .update({ marketing_opt_in: true, full_name: customerData.full_name ?? params.name ?? null })
+      .eq("id", customerData.id)
       .select("id,restaurant_id,email,phone,full_name,marketing_opt_in,created_at,updated_at,email_normalized,phone_normalized")
       .single();
 
@@ -100,11 +147,11 @@ export async function upsertCustomer(
     return patched as CustomerRow;
   }
 
-  if (!data.full_name && params.name) {
+  if (!customerData.full_name && params.name) {
     const { data: patched, error: nameUpdateError } = await client
       .from("customers")
       .update({ full_name: params.name })
-      .eq("id", data.id)
+      .eq("id", customerData.id)
       .select("id,restaurant_id,email,phone,full_name,marketing_opt_in,created_at,updated_at,email_normalized,phone_normalized")
       .single();
 
@@ -113,7 +160,7 @@ export async function upsertCustomer(
     }
   }
 
-  return data as CustomerRow;
+  return customerData as CustomerRow;
 }
 
 export async function recordBookingForCustomerProfile(

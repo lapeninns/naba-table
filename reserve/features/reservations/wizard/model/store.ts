@@ -1,6 +1,7 @@
-import { useMemo, useReducer } from 'react';
+import { useCallback, useMemo, useReducer, useRef } from 'react';
 
 import {
+  getInitialDetails,
   getInitialState,
   reducer,
   type Action,
@@ -35,7 +36,10 @@ export type WizardActions = {
   ) => void;
 };
 
-const createActions = (dispatch: Dispatch<Action>): WizardActions => ({
+const createActions = (
+  dispatch: Dispatch<Action>,
+  resolveInitialDetails: () => Partial<BookingDetails> | undefined,
+): WizardActions => ({
   goToStep: (step) => dispatch({ type: 'SET_STEP', step }),
   updateDetails: (key, value) => dispatch({ type: 'SET_FIELD', key, value }),
   setSubmitting: (value) => dispatch({ type: 'SET_SUBMITTING', value }),
@@ -55,13 +59,27 @@ const createActions = (dispatch: Dispatch<Action>): WizardActions => ({
       },
     }),
   startEdit: (bookingId) => dispatch({ type: 'START_EDIT', bookingId }),
-  resetForm: () => dispatch({ type: 'RESET_FORM' }),
+  resetForm: () => dispatch({ type: 'RESET_FORM', initialDetails: resolveInitialDetails() }),
   hydrateContacts: (payload) => dispatch({ type: 'HYDRATE_CONTACTS', payload }),
 });
 
-export const useWizardStore = () => {
-  const [state, dispatch] = useReducer(reducer, undefined, getInitialState);
-  const actions = useMemo(() => createActions(dispatch), [dispatch]);
+export const useWizardStore = (initialDetails?: Partial<BookingDetails>) => {
+  const initialSnapshotRef = useRef<BookingDetails | null>(null);
+
+  if (initialSnapshotRef.current === null) {
+    initialSnapshotRef.current = getInitialDetails(initialDetails);
+  }
+
+  const [state, dispatch] = useReducer(reducer, initialSnapshotRef.current, (overrides) =>
+    getInitialState(overrides ?? undefined),
+  );
+
+  const resolveInitialDetails = useCallback(() => initialSnapshotRef.current ?? undefined, []);
+
+  const actions = useMemo(
+    () => createActions(dispatch, resolveInitialDetails),
+    [dispatch, resolveInitialDetails],
+  );
 
   return { state, actions } as const;
 };

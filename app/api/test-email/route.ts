@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
   if (guard) return guard;
 
   try {
-    const { type, email } = await req.json();
+    const { type, email, restaurantId } = await req.json();
 
     if (!email) {
       return NextResponse.json(
@@ -164,26 +164,26 @@ export async function POST(req: NextRequest) {
       });
     } else if (type === "booking") {
       // Test booking confirmation email with mock data
+      const testRestaurantId = restaurantId || "mock-restaurant-id";
+      
       const bookingDate = "2025-09-25";
       const startTime = "19:00";
       const endTime = "21:00";
       const startAtIso = new Date(`${bookingDate}T${startTime}:00Z`).toISOString();
       const endAtIso = new Date(`${bookingDate}T${endTime}:00Z`).toISOString();
-      const slotRange = `["${startAtIso}","${endAtIso}")`;
       const clientRequestId = randomUUID();
       const pendingRef = randomUUID();
       const mockBooking: BookingRecord = {
         id: "test-booking-id",
         customer_id: "test-customer-id",
         reference: "TEST123",
-        restaurant_id: "mock-restaurant-id",
+        restaurant_id: testRestaurantId,
         table_id: "mock-table-id",
         booking_date: bookingDate,
         start_time: startTime,
         end_time: endTime,
         start_at: startAtIso,
         end_at: endAtIso,
-        slot: slotRange,
         party_size: 2,
         booking_type: "dinner",
         seating_preference: "any",
@@ -193,9 +193,7 @@ export async function POST(req: NextRequest) {
         customer_phone: "+1234567890",
         notes: "Test booking for email verification",
         marketing_opt_in: false,
-        loyalty_points_awarded: 0,
         source: "test",
-        auth_user_id: null,
         client_request_id: clientRequestId,
         pending_ref: pendingRef,
         idempotency_key: "test-email",
@@ -210,6 +208,7 @@ export async function POST(req: NextRequest) {
         success: true,
         message: "Booking confirmation test email sent successfully",
         bookingReference: mockBooking.reference,
+        restaurantId: testRestaurantId,
       });
     }
 

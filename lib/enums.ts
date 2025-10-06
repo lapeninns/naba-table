@@ -8,7 +8,7 @@ export type BookingStatus = (typeof BOOKING_STATUSES)[number];
 
 export const BOOKING_BLOCKING_STATUSES = ["pending", "pending_allocation", "confirmed"] as const satisfies readonly BookingStatus[];
 
-export const SEATING_PREFERENCES = ["any", "indoor", "outdoor", "window", "booth", "bar"] as const;
+export const SEATING_PREFERENCES = ["any", "indoor", "outdoor", "window", "booth", "bar", "quiet"] as const;
 export type SeatingPreference = (typeof SEATING_PREFERENCES)[number];
 
 export const SEATING_PREFERENCES_UI = ["any", "indoor", "outdoor"] as const satisfies readonly SeatingPreference[];

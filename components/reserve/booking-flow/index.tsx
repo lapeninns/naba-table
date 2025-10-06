@@ -7,6 +7,7 @@ import { useMemo, useState, type PropsWithChildren } from "react";
 import { WizardDependenciesProvider } from "@features/reservations/wizard/di";
 import { BookingWizard } from "@features/reservations/wizard/ui/BookingWizard";
 import { track } from "@/lib/analytics";
+import type { BookingDetails } from "@features/reservations/wizard/model/reducer";
 
 const defaultQueryOptions = {
   queries: {
@@ -22,7 +23,11 @@ function BookingFlowProviders({ children }: PropsWithChildren) {
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }
 
-function BookingWizardWithNavigator() {
+type BookingWizardWithNavigatorProps = {
+  initialDetails?: Partial<BookingDetails>;
+};
+
+function BookingWizardWithNavigator({ initialDetails }: BookingWizardWithNavigatorProps) {
   const router = useRouter();
 
   const dependencies = useMemo(
@@ -41,15 +46,19 @@ function BookingWizardWithNavigator() {
 
   return (
     <WizardDependenciesProvider value={dependencies}>
-      <BookingWizard />
+      <BookingWizard initialDetails={initialDetails} />
     </WizardDependenciesProvider>
   );
 }
 
-export default function BookingFlowPage() {
+type BookingFlowPageProps = {
+  initialDetails?: Partial<BookingDetails>;
+};
+
+export default function BookingFlowPage({ initialDetails }: BookingFlowPageProps = {}) {
   return (
     <BookingFlowProviders>
-      <BookingWizardWithNavigator />
+      <BookingWizardWithNavigator initialDetails={initialDetails} />
     </BookingFlowProviders>
   );
 }

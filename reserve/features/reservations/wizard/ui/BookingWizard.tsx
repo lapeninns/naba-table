@@ -13,6 +13,8 @@ import { WizardFooter } from './WizardFooter';
 import { WizardLayout } from './WizardLayout';
 import { WizardStickyConfirmation } from './WizardStickyConfirmation';
 
+import type { BookingDetails } from '../model/reducer';
+
 function LoadingFallback() {
   return (
     <main className="flex min-h-screen w-full items-center justify-center bg-slate-50 px-4 py-12">
@@ -26,7 +28,11 @@ function LoadingFallback() {
   );
 }
 
-function BookingWizardContent() {
+type BookingWizardContentProps = {
+  initialDetails?: Partial<BookingDetails>;
+};
+
+function BookingWizardContent({ initialDetails }: BookingWizardContentProps) {
   const {
     state,
     actions,
@@ -41,7 +47,7 @@ function BookingWizardContent() {
     handleConfirm,
     handleNewBooking,
     handleClose,
-  } = useReservationWizard();
+  } = useReservationWizard(initialDetails);
   const { analytics } = useWizardDependencies();
 
   const findAction = (id: string) => stickyActions.find((action) => action.id === id);
@@ -123,10 +129,14 @@ function BookingWizardContent() {
   );
 }
 
-export function BookingWizard() {
+type BookingWizardProps = {
+  initialDetails?: Partial<BookingDetails>;
+};
+
+export function BookingWizard({ initialDetails }: BookingWizardProps = {}) {
   return (
     <Suspense fallback={<LoadingFallback />}>
-      <BookingWizardContent />
+      <BookingWizardContent initialDetails={initialDetails} />
     </Suspense>
   );
 }

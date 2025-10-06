@@ -104,7 +104,7 @@ export type Action =
       };
     }
   | { type: 'START_EDIT'; bookingId: string }
-  | { type: 'RESET_FORM' }
+  | { type: 'RESET_FORM'; initialDetails?: Partial<BookingDetails> }
   | {
       type: 'HYDRATE_CONTACTS';
       payload: Pick<BookingDetails, 'name' | 'email' | 'phone'> & { rememberDetails?: boolean };
@@ -143,27 +143,42 @@ export function toSeatingOption(value: SeatingPreference): SeatingOption {
   return SEATING_PREFERENCES_UI[0];
 }
 
-export const getInitialDetails = (): BookingDetails => ({
-  bookingId: null,
-  restaurantId: DEFAULT_RESTAURANT_ID,
-  restaurantName: DEFAULT_VENUE.name,
-  restaurantAddress: DEFAULT_VENUE.address,
-  restaurantTimezone: DEFAULT_VENUE.timezone,
-  date: formatDateForInput(new Date()),
-  time: '',
-  party: 1,
-  bookingType: BOOKING_TYPES_UI[0],
-  seating: SEATING_PREFERENCES_UI[0],
-  notes: '',
-  name: '',
-  email: '',
-  phone: '',
-  rememberDetails: true,
-  agree: true,
-  marketingOptIn: true,
-});
+export const getInitialDetails = (overrides?: Partial<BookingDetails>): BookingDetails => {
+  const base: BookingDetails = {
+    bookingId: null,
+    restaurantId: DEFAULT_RESTAURANT_ID,
+    restaurantName: DEFAULT_VENUE.name,
+    restaurantAddress: DEFAULT_VENUE.address,
+    restaurantTimezone: DEFAULT_VENUE.timezone,
+    date: formatDateForInput(new Date()),
+    time: '',
+    party: 1,
+    bookingType: BOOKING_TYPES_UI[0],
+    seating: SEATING_PREFERENCES_UI[0],
+    notes: '',
+    name: '',
+    email: '',
+    phone: '',
+    rememberDetails: true,
+    agree: true,
+    marketingOptIn: true,
+  };
 
-export const getInitialState = (): State => ({
+  if (!overrides) {
+    return base;
+  }
+
+  return {
+    ...base,
+    ...overrides,
+    restaurantId: overrides.restaurantId ?? base.restaurantId,
+    restaurantName: overrides.restaurantName ?? base.restaurantName,
+    restaurantAddress: overrides.restaurantAddress ?? base.restaurantAddress,
+    restaurantTimezone: overrides.restaurantTimezone ?? base.restaurantTimezone,
+  } satisfies BookingDetails;
+};
+
+export const getInitialState = (overrides?: Partial<BookingDetails>): State => ({
   step: 1,
   submitting: false,
   loading: false,
@@ -173,7 +188,7 @@ export const getInitialState = (): State => ({
   waitlisted: false,
   allocationPending: false,
   bookings: [],
-  details: getInitialDetails(),
+  details: getInitialDetails(overrides),
   lastConfirmed: null,
 });
 
@@ -265,7 +280,7 @@ export function reducer(state: State, action: Action): State {
       };
     }
     case 'RESET_FORM': {
-      const base = getInitialDetails();
+      const base = getInitialDetails(action.initialDetails);
       const shouldRemember = state.details.rememberDetails;
       return {
         ...state,
@@ -283,10 +298,6 @@ export function reducer(state: State, action: Action): State {
           name: shouldRemember ? state.details.name : '',
           email: shouldRemember ? state.details.email : '',
           phone: shouldRemember ? state.details.phone : '',
-          restaurantId: state.details.restaurantId,
-          restaurantName: state.details.restaurantName,
-          restaurantAddress: state.details.restaurantAddress,
-          restaurantTimezone: state.details.restaurantTimezone,
         },
       };
     }
