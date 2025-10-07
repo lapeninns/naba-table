@@ -31,19 +31,6 @@ export interface ConfigProps {
     id?: string;
     onlyShowOnRoutes?: string[];
   };
-  stripe: {
-    plans: {
-      isFeatured?: boolean;
-      priceId: string;
-      name: string;
-      description?: string;
-      price: number;
-      priceAnchor?: number;
-      features: {
-        name: string;
-      }[];
-    }[];
-  };
   aws?: {
     bucket?: string;
     bucketUrl?: string;

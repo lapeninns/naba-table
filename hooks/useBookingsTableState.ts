@@ -10,10 +10,10 @@ type Options = {
   pageSize?: number;
 };
 
-export type StatusFilter = BookingStatus | 'all' | 'active';
+export type StatusFilter = 'all' | 'upcoming' | 'past' | 'cancelled' | BookingStatus;
 
 export function useBookingsTableState({
-  initialStatus = 'all',
+  initialStatus = 'upcoming',
   initialPage = 1,
   pageSize = 10,
 }: Options = {}) {
@@ -35,14 +35,44 @@ export function useBookingsTableState({
     [pageSize],
   );
 
-  const queryFilters = useMemo(
-    () => ({
+  const queryFilters = useMemo(() => {
+    const now = new Date();
+    const filters: {
+      page: number;
+      pageSize: number;
+      status?: BookingStatus;
+      sort?: 'asc' | 'desc';
+      from?: Date;
+      to?: Date;
+    } = {
       page,
       pageSize,
-      status: statusFilter,
-    }),
-    [page, pageSize, statusFilter],
-  );
+    };
+
+    switch (statusFilter) {
+      case 'upcoming':
+        filters.from = now;
+        filters.sort = 'asc';
+        break;
+      case 'past':
+        filters.to = now;
+        filters.sort = 'desc';
+        break;
+      case 'cancelled':
+        filters.status = 'cancelled';
+        filters.sort = 'desc';
+        break;
+      case 'all':
+        filters.sort = 'asc';
+        break;
+      default:
+        filters.status = statusFilter as BookingStatus;
+        filters.sort = 'asc';
+        break;
+    }
+
+    return filters;
+  }, [page, pageSize, statusFilter]);
 
   return {
     statusFilter,

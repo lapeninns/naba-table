@@ -1,12 +1,5 @@
+import type { RestaurantFilters, RestaurantSummary } from '@/lib/restaurants/types';
 import { getServiceSupabaseClient } from '@/server/supabase';
-
-export type RestaurantSummary = {
-  id: string;
-  name: string;
-  slug: string;
-  timezone: string;
-  capacity: number | null;
-};
 
 export class ListRestaurantsError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {
@@ -18,14 +11,30 @@ export class ListRestaurantsError extends Error {
   }
 }
 
-export async function listRestaurants(): Promise<RestaurantSummary[]> {
+export async function listRestaurants(filters: RestaurantFilters = {}): Promise<RestaurantSummary[]> {
   const supabase = getServiceSupabaseClient();
 
   try {
-    const { data, error } = await supabase
+    const normalizedSearch = filters.search?.trim();
+    let query = supabase
       .from('restaurants')
       .select('id,name,slug,timezone,capacity')
       .order('name', { ascending: true });
+
+    if (normalizedSearch) {
+      const pattern = `%${normalizedSearch.replace(/\s+/g, '%')}%`;
+      query = query.ilike('name', pattern);
+    }
+
+    if (filters.timezone && filters.timezone !== 'all') {
+      query = query.eq('timezone', filters.timezone);
+    }
+
+    if (typeof filters.minCapacity === 'number' && Number.isFinite(filters.minCapacity)) {
+      query = query.gte('capacity', Math.max(0, filters.minCapacity));
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       // Enhanced error logging to help diagnose the issue
@@ -44,7 +53,7 @@ export async function listRestaurants(): Promise<RestaurantSummary[]> {
       );
     }
 
-    return data ?? [];
+    return (data ?? []) as RestaurantSummary[];
   } catch (error) {
     if (error instanceof ListRestaurantsError) {
       throw error;

@@ -16,6 +16,8 @@ import { profilePhoneSchema } from '@/lib/profile/schema';
 import type { ProfileResponse } from '@/lib/profile/schema';
 import { cn } from '@/lib/utils';
 import { queryKeys } from '@/lib/query/keys';
+import { track } from '@/lib/analytics';
+import { emit } from '@/lib/analytics/emit';
 import { useQueryClient } from '@tanstack/react-query';
 
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024; // 2 MB
@@ -59,13 +61,24 @@ type AvatarState = {
   removed: boolean;
 };
 
-function validateAvatarFile(file: File): string | null {
+type AvatarValidationError = {
+  code: 'FILE_TOO_LARGE' | 'UNSUPPORTED_FILE';
+  message: string;
+};
+
+function validateAvatarFile(file: File): AvatarValidationError | null {
   if (file.size > MAX_AVATAR_SIZE) {
-    return 'Images must be 2 MB or smaller';
+    return {
+      code: 'FILE_TOO_LARGE',
+      message: 'Images must be 2 MB or smaller',
+    };
   }
 
   if (!ALLOWED_MIME_TYPES.has(file.type)) {
-    return 'Supported formats: JPEG, PNG, WEBP, SVG';
+    return {
+      code: 'UNSUPPORTED_FILE',
+      message: 'Supported formats: JPEG, PNG, WEBP, SVG',
+    };
   }
 
   return null;
@@ -143,9 +156,16 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
       return;
     }
 
-    const error = validateAvatarFile(file);
-    if (error) {
-      setAvatarError(error);
+    const validation = validateAvatarFile(file);
+    if (validation) {
+      const payload = {
+        code: validation.code,
+        size: file.size,
+        type: file.type,
+      };
+      track('profile_upload_error', payload);
+      emit('profile_upload_error', payload);
+      setAvatarError(validation.message);
       setAvatarState((prev) => {
         if (prev.previewUrl) {
           URL.revokeObjectURL(prev.previewUrl);
@@ -196,6 +216,21 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
   const hasAvatarChanged = avatarState.removed || Boolean(avatarState.file);
   const isSubmitting = updateProfile.isPending || uploadAvatar.isPending;
   const disableSubmit = isSubmitting || (!hasNameChanged && !hasPhoneChanged && !hasAvatarChanged);
+  const hasUnsavedChanges = !disableSubmit;
+
+  useEffect(() => {
+    const handler = (event: BeforeUnloadEvent) => {
+      if (!hasUnsavedChanges) return;
+      event.preventDefault();
+      // Chrome requires returnValue to be set.
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handler);
+    return () => {
+      window.removeEventListener('beforeunload', handler);
+    };
+  }, [hasUnsavedChanges]);
 
   const onSubmit = form.handleSubmit(async (values) => {
     setStatusMessage(null);

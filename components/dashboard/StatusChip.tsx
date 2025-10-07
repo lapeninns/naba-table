@@ -7,6 +7,8 @@ const STATUS_LABEL: Record<BookingStatus, string> = {
   pending: 'Pending',
   pending_allocation: 'Pending allocation',
   cancelled: 'Cancelled',
+  completed: 'Completed',
+  no_show: 'No show',
 };
 
 const STATUS_ACCENT: Record<BookingStatus, string> = {
@@ -14,6 +16,8 @@ const STATUS_ACCENT: Record<BookingStatus, string> = {
   pending: '#b45309',
   pending_allocation: '#0369a1',
   cancelled: '#b91c1c',
+  completed: '#6b7280',
+  no_show: '#6b7280',
 };
 
 export function StatusChip({ status }: { status: BookingStatus }) {

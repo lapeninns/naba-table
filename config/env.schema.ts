@@ -32,9 +32,6 @@ const baseEnvSchema = z
     MAILGUN_API_KEY: z.string().optional(),
     RESEND_API_KEY: z.string().optional(),
     RESEND_FROM: z.string().email().optional(),
-    STRIPE_SECRET_KEY: z.string().optional(),
-    STRIPE_WEBHOOK_SECRET: z.string().optional(),
-    STRIPE_MOCK_MODE: booleanStringOptional,
     LOYALTY_PILOT_RESTAURANT_IDS: z.string().optional(),
     ENABLE_TEST_API: booleanStringOptional,
     TEST_ROUTE_API_KEY: z.string().optional(),
@@ -75,8 +72,6 @@ const baseEnvSchema = z
 const productionEnvSchema = baseEnvSchema.extend({
     NEXT_PUBLIC_APP_URL: z.string().url(),
     NEXT_PUBLIC_SITE_URL: z.string().url(),
-    STRIPE_SECRET_KEY: z.string().startsWith("sk_"),
-    STRIPE_WEBHOOK_SECRET: z.string().startsWith("whsec_"),
     RESEND_API_KEY: z.string().min(1),
     RESEND_FROM: z.string().email(),
   });

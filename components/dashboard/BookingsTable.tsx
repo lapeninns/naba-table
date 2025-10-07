@@ -29,11 +29,9 @@ export type BookingsTableProps = {
 };
 
 const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
+  { value: 'upcoming', label: 'Upcoming' },
   { value: 'all', label: 'All' },
-  { value: 'active', label: 'Active' },
-  { value: 'confirmed', label: 'Confirmed' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'pending_allocation', label: 'Pending allocation' },
+  { value: 'past', label: 'Past' },
   { value: 'cancelled', label: 'Cancelled' },
 ];
 
@@ -56,6 +54,35 @@ export function BookingsTable({
 }: BookingsTableProps) {
   const showSkeleton = isLoading;
   const showEmpty = !isLoading && !error && bookings.length === 0;
+
+  const emptyState = useMemo(() => {
+    switch (statusFilter) {
+      case 'upcoming':
+        return {
+          title: 'No upcoming bookings',
+          description: 'Ready for your next night out? Secure a table in just a few taps.',
+          analyticsEvent: 'dashboard_empty_upcoming',
+        } as const;
+      case 'past':
+        return {
+          title: 'No past visits recorded',
+          description: 'Completed or no-show reservations will appear here for your records.',
+          analyticsEvent: 'dashboard_empty_past',
+        } as const;
+      case 'cancelled':
+        return {
+          title: 'No cancelled bookings',
+          description: 'Great news—you haven’t had to cancel any reservations.',
+          analyticsEvent: 'dashboard_empty_cancelled',
+        } as const;
+      default:
+        return {
+          title: 'No bookings yet',
+          description: 'Once you make a reservation, it will appear here. Ready to secure your next table?',
+          analyticsEvent: 'dashboard_empty_all',
+        } as const;
+    }
+  }, [statusFilter]);
 
   const dateFormatter = useMemo(() => new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }), []);
   const formatDate = useCallback(
@@ -143,12 +170,13 @@ export function BookingsTable({
                     formatTime={formatTime}
                     onEdit={onEdit}
                     onCancel={onCancel}
+                    isPastView={statusFilter === 'past'}
                   />
                 ))}
           </tbody>
         </table>
 
-        {showEmpty ? <EmptyState /> : null}
+        {showEmpty ? <EmptyState {...emptyState} /> : null}
       </div>
 
       {total > 0 && (

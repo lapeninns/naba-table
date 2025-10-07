@@ -6,7 +6,8 @@ import {
   formatReservationSummaryDate,
   formatReservationTime,
 } from '@reserve/shared/formatting/booking';
-import { track } from '@shared/lib/analytics';
+
+import { useWizardDependencies } from '../di';
 
 import type {
   ReviewStepProps,
@@ -21,18 +22,19 @@ export function useReviewStep({
   onActionsChange,
 }: ReviewStepProps): ReviewStepController {
   const details = state.details;
+  const { analytics } = useWizardDependencies();
 
   useEffect(() => {
     if (details.date && details.time) {
-      track('confirm_open', {
+      analytics.track('confirm_open', {
         date: details.date,
         time: details.time,
         party: details.party,
       });
     } else {
-      track('confirm_open');
+      analytics.track('confirm_open');
     }
-  }, [details.date, details.party, details.time]);
+  }, [analytics, details.date, details.party, details.time]);
 
   const summary: ReviewSummary = useMemo(() => {
     const summaryDate = details.date ? formatReservationSummaryDate(details.date) : 'TBC';

@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { StatusChip } from './StatusChip';
 import type { BookingDTO } from '@/hooks/useBookings';
+import { cn } from '@/lib/utils';
 
 export type BookingRowProps = {
   booking: BookingDTO;
@@ -10,30 +11,47 @@ export type BookingRowProps = {
   formatTime: (iso: string) => string;
   onEdit: (booking: BookingDTO) => void;
   onCancel: (booking: BookingDTO) => void;
+  isPastView?: boolean;
 };
 
-export function BookingRow({ booking, formatDate, formatTime, onEdit, onCancel }: BookingRowProps) {
+export function BookingRow({ booking, formatDate, formatTime, onEdit, onCancel, isPastView = false }: BookingRowProps) {
   const isCancelled = booking.status === 'cancelled';
+  const startDate = new Date(booking.startIso);
+  const isPastByTime = !Number.isNaN(startDate.getTime()) && startDate.getTime() < Date.now();
+  const isPast = isPastView || isPastByTime || booking.status === 'completed' || booking.status === 'no_show';
+
+  let displayStatus: BookingDTO['status'] = booking.status;
+  if (isPast) {
+    if (displayStatus === 'confirmed') {
+      displayStatus = 'completed';
+    } else if (displayStatus === 'pending' || displayStatus === 'pending_allocation') {
+      displayStatus = 'no_show';
+    }
+  }
+
+  const textClass = (extra?: string) =>
+    cn('px-4 py-4 text-sm', extra, isPast ? 'text-muted-foreground' : 'text-foreground');
+  const disableActions = isCancelled || isPast;
 
   return (
     <tr className="align-middle">
-      <td className="px-4 py-4 text-sm text-foreground">{formatDate(booking.startIso)}</td>
-      <td className="px-4 py-4 text-sm text-foreground">{formatTime(booking.startIso)}</td>
-      <td className="px-4 py-4 text-sm text-foreground">{booking.partySize}</td>
-      <td className="px-4 py-4 text-sm text-foreground">{booking.restaurantName}</td>
-      <td className="px-4 py-4 text-sm text-foreground">
-        <StatusChip status={booking.status} />
+      <td className={textClass()}>{formatDate(booking.startIso)}</td>
+      <td className={textClass()}>{formatTime(booking.startIso)}</td>
+      <td className={textClass()}>{booking.partySize}</td>
+      <td className={textClass()}>{booking.restaurantName}</td>
+      <td className={textClass()}>
+        <StatusChip status={displayStatus} />
       </td>
-      <td className="px-4 py-4 text-right text-sm text-foreground">
+      <td className={textClass('text-right')}>
         <div className="flex justify-end gap-2">
           <Button
             type="button"
             size="sm"
             variant="ghost"
             className="text-primary"
-            disabled={isCancelled}
+            disabled={disableActions}
             onClick={() => onEdit(booking)}
-            aria-disabled={isCancelled}
+            aria-disabled={disableActions}
           >
             Edit
           </Button>
@@ -42,9 +60,9 @@ export function BookingRow({ booking, formatDate, formatTime, onEdit, onCancel }
             size="sm"
             variant="ghost"
             className="text-destructive hover:text-destructive/80"
-            disabled={isCancelled}
+            disabled={disableActions}
             onClick={() => onCancel(booking)}
-            aria-disabled={isCancelled}
+            aria-disabled={disableActions}
           >
             Cancel
           </Button>

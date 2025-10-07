@@ -124,7 +124,7 @@ describe('analytics emitter', () => {
       sendBeacon: true,
     });
 
-    await emit('booking_cancel_succeeded', { bookingId: 'booking-99' });
+    await emit('booking_cancelled', { bookingId: 'booking-99' });
 
     await flushPendingEvents();
     await Promise.resolve();
@@ -138,7 +138,7 @@ describe('analytics emitter', () => {
   it('reuses resolved identity across emits', async () => {
     const { emit, supabaseMock, flushPendingEvents } = await setup();
 
-    await emit('dashboard_opened');
+    await emit('booking_cancelled', { bookingId: 'booking-123' });
     await emit('filter_changed');
 
     expect(supabaseMock.auth.getUser).toHaveBeenCalledTimes(1);

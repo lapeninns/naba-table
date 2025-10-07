@@ -7,7 +7,13 @@ import { fetchJson } from '@/lib/http/fetchJson';
 import type { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
 
-export type BookingStatus = 'pending' | 'pending_allocation' | 'confirmed' | 'cancelled';
+export type BookingStatus =
+  | 'pending'
+  | 'pending_allocation'
+  | 'confirmed'
+  | 'cancelled'
+  | 'completed'
+  | 'no_show';
 
 export type BookingDTO = {
   id: string;
@@ -34,7 +40,7 @@ export type BookingsPage = {
 export type BookingsFilters = {
   page?: number;
   pageSize?: number;
-  status?: BookingStatus | 'all' | 'active';
+  status?: BookingStatus | 'all';
   sort?: 'asc' | 'desc';
   from?: Date | string | null;
   to?: Date | string | null;

@@ -10,7 +10,6 @@ tags:
   - name: Leads
   - name: Profile
   - name: Bookings
-  - name: Stripe
 paths:
   /events:
     get:
@@ -118,22 +117,6 @@ paths:
         '201': { description: Created }
         '400': { $ref: '#/components/responses/BadRequest' }
         '500': { $ref: '#/components/responses/Internal' }
-  /stripe/create-checkout:
-    post:
-      tags: [Stripe]
-      summary: Create Stripe checkout session
-      responses:
-        '200': { description: OK }
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '500': { $ref: '#/components/responses/Internal' }
-  /stripe/create-portal:
-    post:
-      tags: [Stripe]
-      summary: Create Stripe billing portal session
-      responses:
-        '200': { description: OK }
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '500': { $ref: '#/components/responses/Internal' }
 components:
   responses:
     BadRequest:
@@ -173,4 +156,3 @@ components:
                 properties:
                   code: { type: string }
                   message: { type: string }
-

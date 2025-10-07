@@ -99,8 +99,11 @@ export function usePlanStepForm({
       const formatted = value ? formatDateForInput(value) : '';
       form.setValue('date', formatted, { shouldDirty: true, shouldValidate: true });
       updateField('date', formatted);
+      if (formatted) {
+        onTrack?.('select_date', { date: formatted });
+      }
     },
-    [form, updateField],
+    [form, onTrack, updateField],
   );
 
   const selectTime = useCallback(
@@ -124,8 +127,9 @@ export function usePlanStepForm({
       const next = direction === 'decrement' ? Math.max(1, current - 1) : Math.min(12, current + 1);
       form.setValue('party', next, { shouldDirty: true, shouldValidate: true });
       updateField('party', next);
+      onTrack?.('select_party', { party: next });
     },
-    [form, updateField],
+    [form, onTrack, updateField],
   );
 
   const changeOccasion = useCallback(

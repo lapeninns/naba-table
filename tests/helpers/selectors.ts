@@ -4,7 +4,7 @@ export const wizardSelectors = {
   planHeading: (page: Page): Locator => page.getByRole('heading', { name: /Plan your visit/i }),
   datePickerTrigger: (page: Page): Locator => page.getByRole('button', { name: /Select a date/i }),
   continueButton: (page: Page): Locator => page.getByRole('button', { name: /^Continue$/i }),
-  confirmButton: (page: Page): Locator => page.getByRole('button', { name: /Confirm reservation/i }),
+  confirmButton: (page: Page): Locator => page.getByRole('button', { name: /Confirm booking/i }),
   contactHeading: (page: Page): Locator => page.getByRole('heading', { name: /Tell us how to reach you/i }),
 };
 

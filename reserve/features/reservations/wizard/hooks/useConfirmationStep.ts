@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { downloadCalendarEvent, shareReservationDetails } from '@/lib/reservations/share';
 import { reservationConfigResult } from '@reserve/shared/config/reservations';
 import {
   formatReservationSummaryDate,
@@ -20,8 +21,6 @@ import type {
 } from '../ui/steps/confirmation-step/types';
 
 const EVENT_DURATION_MINUTES = reservationConfigResult.config.defaultDurationMinutes;
-
-const toIcsTimestamp = (date: Date) => date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
 
 const buildReservationWindow = (state: ConfirmationStepProps['state']) => {
   const booking = state.lastConfirmed;
@@ -89,79 +88,48 @@ export function useConfirmationStep({
     setFeedback({ variant, message });
   }, []);
 
-  const handleAddToCalendar = useCallback(() => {
-    if (!reservationWindow) {
-      showFeedback(
-        'warning',
-        'Select a confirmed date and time before adding this to your calendar.',
-      );
-      return;
-    }
+  const sharePayload = useMemo(
+    () => ({
+      reservationId: booking?.id ?? state.details.bookingId ?? 'reservation',
+      reference: booking?.reference ?? null,
+      guestName,
+      partySize: booking?.party_size ?? details.party,
+      startAt: reservationWindow?.start.toISOString() ?? null,
+      endAt: reservationWindow?.end.toISOString() ?? null,
+      venueName: venue.name,
+      venueAddress: venue.address,
+      venueTimezone: venue.timezone,
+    }),
+    [
+      booking?.id,
+      booking?.reference,
+      booking?.party_size,
+      details.party,
+      state.details.bookingId,
+      guestName,
+      reservationWindow?.start,
+      reservationWindow?.end,
+      venue.name,
+      venue.address,
+      venue.timezone,
+    ],
+  );
 
+  const handleAddToCalendar = useCallback(() => {
     setCalendarLoading(true);
     try {
-      const lines = [
-        'BEGIN:VCALENDAR',
-        'VERSION:2.0',
-        'PRODID:-//SajiloReserveX//EN',
-        'BEGIN:VEVENT',
-        `UID:${reference}@sajiloreservex`,
-        `DTSTAMP:${toIcsTimestamp(new Date())}`,
-        `DTSTART:${toIcsTimestamp(reservationWindow.start)}`,
-        `DTEND:${toIcsTimestamp(reservationWindow.end)}`,
-        `SUMMARY:${venue.name} reservation`,
-        `LOCATION:${venue.address}`,
-        `DESCRIPTION:Reservation for ${guestName || 'guest'} (${partyText})`,
-        'END:VEVENT',
-        'END:VCALENDAR',
-      ].join('\r\n');
-
-      const blob = new Blob([lines], { type: 'text/calendar;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = `${venue.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-reservation.ics`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      document.body.removeChild(anchor);
-      URL.revokeObjectURL(url);
-      showFeedback(
-        'success',
-        'Calendar event downloaded. Check your downloads folder to import it.',
-      );
+      const result = downloadCalendarEvent(sharePayload);
+      showFeedback(result.variant, result.message);
     } finally {
       setCalendarLoading(false);
     }
-  }, [guestName, partyText, reference, reservationWindow, showFeedback, venue.address, venue.name]);
+  }, [sharePayload, showFeedback]);
 
   const handleAddToWallet = useCallback(async () => {
-    if (!reservationWindow) {
-      showFeedback('warning', 'Select a confirmed date and time before saving the reservation.');
-      return;
-    }
-
-    const shareText = [
-      `${venue.name} reservation`,
-      `Reference: ${reference}`,
-      `When: ${summaryDate} at ${summaryTime}`,
-      `Guests: ${partyText}`,
-      `Venue: ${venue.address}`,
-    ].join('\n');
-
     setWalletLoading(true);
     try {
-      if (navigator.share) {
-        await navigator.share({ title: `${venue.name} reservation`, text: shareText });
-        showFeedback(
-          'success',
-          'Sharing sheet opened. Follow the prompts to save your reservation.',
-        );
-      } else if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(shareText);
-        showFeedback('info', 'Reservation details copied. Use your Wallet app to create a pass.');
-      } else {
-        showFeedback('info', shareText);
-      }
+      const result = await shareReservationDetails(sharePayload);
+      showFeedback(result.variant, result.message);
     } catch (error) {
       errorReporter.capture(error, {
         scope: 'confirmation.share',
@@ -171,18 +139,7 @@ export function useConfirmationStep({
     } finally {
       setWalletLoading(false);
     }
-  }, [
-    errorReporter,
-    partyText,
-    reference,
-    reservationWindow,
-    showFeedback,
-    state.lastConfirmed?.id,
-    summaryDate,
-    summaryTime,
-    venue.address,
-    venue.name,
-  ]);
+  }, [errorReporter, sharePayload, showFeedback, state.lastConfirmed?.id]);
 
   const handleClose = useCallback(() => {
     onClose();

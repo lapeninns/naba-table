@@ -13,6 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@shared/ui/input';
 import { Label } from '@shared/ui/label';
 
+import { useWizardDependencies } from '../../di';
 import { useDetailsStepForm } from '../../hooks/useDetailsStepForm';
 
 import type { DetailsStepProps } from './details-step/types';
@@ -33,7 +34,11 @@ const requiredPreferenceLabelClass = (checked: boolean) =>
   );
 
 export function DetailsStep(props: DetailsStepProps) {
-  const controller = useDetailsStepForm(props);
+  const { analytics } = useWizardDependencies();
+  const controller = useDetailsStepForm({
+    ...props,
+    onTrack: props.onTrack ?? analytics.track,
+  });
   const { form, handleSubmit, handleError, handlers } = controller;
   const { errors } = form.formState;
   const rememberDetailsValue = useWatch({ control: form.control, name: 'rememberDetails' });

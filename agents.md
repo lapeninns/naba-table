@@ -18,6 +18,7 @@ Multi-step approach to Context Engineering 0. Tasks
 4. Verification - Create feedback loops to test that the plan was implemented correctly (models still occasionally fail on execution)
 
 - USE SHADCN AND IT'S COMPONENTS IF AVAILABLE.
+- Use Mobile First Development and Test Driven Development
 
 Concise rules for building accessible, fast, delightful UIs Use MUST/SHOULD/NEVER to guide decisions
 

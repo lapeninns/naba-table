@@ -1,6 +1,5 @@
+import type { RestaurantSummary } from '@/lib/restaurants/types';
 import { getServiceSupabaseClient } from '@/server/supabase';
-
-import type { RestaurantSummary } from './listRestaurants';
 
 export type RestaurantDetail = RestaurantSummary;
 

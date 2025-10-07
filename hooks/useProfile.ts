@@ -15,6 +15,8 @@ import {
   type ProfileUpdatePayload,
   type ProfileUploadResponse,
 } from '@/lib/profile/schema';
+import { track } from '@/lib/analytics';
+import { emit } from '@/lib/analytics/emit';
 
 const profileApiResponseSchema = z.object({ profile: profileResponseSchema });
 
@@ -30,10 +32,10 @@ export function useProfile(): UseQueryResult<ProfileResponse, HttpError> {
   });
 }
 
-export function useUpdateProfile(): UseMutationResult<ProfileResponse, HttpError, ProfileUpdatePayload> {
+export function useUpdateProfile(): UseMutationResult<ProfileResponse, HttpError, ProfileUpdatePayload, { previous?: ProfileResponse; payload: ProfileUpdatePayload }> {
   const queryClient = useQueryClient();
 
-  return useMutation<ProfileResponse, HttpError, ProfileUpdatePayload>({
+  return useMutation<ProfileResponse, HttpError, ProfileUpdatePayload, { previous?: ProfileResponse; payload: ProfileUpdatePayload }>({
     mutationFn: async (payload) => {
       const body = JSON.stringify(payload);
       const data = await fetchJson<unknown>('/api/profile', {
@@ -44,18 +46,54 @@ export function useUpdateProfile(): UseMutationResult<ProfileResponse, HttpError
       const parsed = profileApiResponseSchema.parse(data);
       return parsed.profile;
     },
-    onSuccess: (profile) => {
+    onMutate: async (payload) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.profile.self() });
+      const previous = queryClient.getQueryData<ProfileResponse>(queryKeys.profile.self());
+
+      if (previous) {
+        const optimistic: ProfileResponse = {
+          ...previous,
+          name: Object.prototype.hasOwnProperty.call(payload, 'name')
+            ? payload.name ?? null
+            : previous.name,
+          phone: Object.prototype.hasOwnProperty.call(payload, 'phone')
+            ? payload.phone ?? null
+            : previous.phone,
+          image: Object.prototype.hasOwnProperty.call(payload, 'image')
+            ? payload.image ?? null
+            : previous.image,
+          updatedAt: new Date().toISOString(),
+        };
+        queryClient.setQueryData(queryKeys.profile.self(), optimistic);
+      }
+
+      return { previous, payload };
+    },
+    onSuccess: (profile, variables, context) => {
       queryClient.setQueryData(queryKeys.profile.self(), profile);
+      const fields = Object.keys(variables ?? {});
+      const analyticsPayload = {
+        fields,
+        hasAvatar: Boolean(profile.image),
+      };
+      track('profile_updated', analyticsPayload);
+      emit('profile_updated', analyticsPayload);
       toast.success('Profile updated');
     },
-    onError: (error) => {
+    onError: (error, _variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.profile.self(), context.previous);
+      }
       toast.error(error.message);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile.self() });
     },
   });
 }
 
-export function useUploadProfileAvatar(): UseMutationResult<ProfileUploadResponse, HttpError, File> {
-  return useMutation<ProfileUploadResponse, HttpError, File>({
+export function useUploadProfileAvatar(): UseMutationResult<ProfileUploadResponse, HttpError, File, { file: File }> {
+  return useMutation<ProfileUploadResponse, HttpError, File, { file: File }>({
     mutationFn: async (file) => {
       const formData = new FormData();
       formData.append('file', file);
@@ -67,7 +105,16 @@ export function useUploadProfileAvatar(): UseMutationResult<ProfileUploadRespons
 
       return profileUploadResponseSchema.parse(data);
     },
-    onError: (error) => {
+    onMutate: (file) => ({ file }),
+    onError: (error, _variables, context) => {
+      const analyticsPayload = {
+        code: error.code,
+        status: error.status,
+        size: context?.file?.size,
+        type: context?.file?.type,
+      };
+      track('profile_upload_error', analyticsPayload);
+      emit('profile_upload_error', analyticsPayload);
       toast.error(error.message);
     },
   });

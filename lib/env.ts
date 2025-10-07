@@ -77,15 +77,6 @@ export const env = {
     } as const;
   },
 
-  get stripe() {
-    const parsed = parseEnv();
-    return {
-      secretKey: parsed.STRIPE_SECRET_KEY,
-      webhookSecret: parsed.STRIPE_WEBHOOK_SECRET,
-      mockMode: parsed.STRIPE_MOCK_MODE ?? false,
-    } as const;
-  },
-
   get resend() {
     const parsed = parseEnv();
     return {

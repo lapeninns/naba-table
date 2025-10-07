@@ -1,12 +1,20 @@
 const DEBUG_ENABLED = process.env.NODE_ENV !== "production";
 
 export type AnalyticsEvent =
+  | "restaurant_list_viewed"
+  | "restaurant_selected"
   | "select_date"
   | "select_party"
   | "select_time"
   | "confirm_open"
   | "details_submit"
-  | "booking_created";
+  | "booking_created"
+  | "dashboard_viewed"
+  | "booking_cancelled"
+  | "booking_cancel_error"
+  | "network_offline"
+  | "profile_updated"
+  | "profile_upload_error";
 
 type AnalyticsProps = Record<string, unknown>;
 

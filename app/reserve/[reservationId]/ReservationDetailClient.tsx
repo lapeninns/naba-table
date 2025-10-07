@@ -10,9 +10,13 @@ import { StatusChip } from '@/components/dashboard/StatusChip';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
+import { downloadCalendarEvent, shareReservationDetails, type ShareResult } from '@/lib/reservations/share';
 import { cn } from '@/lib/utils';
 import { useReservation } from '@features/reservations/wizard/api/useReservation';
+import { DEFAULT_VENUE } from '@shared/config/venue';
 
 import { ReservationHistory } from './ReservationHistory';
 
@@ -70,11 +74,118 @@ export function ReservationDetailClient({ reservationId, restaurantName }: Reser
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isCancelOpen, setIsCancelOpen] = useState(false);
   const viewTrackedRef = useRef(false);
+  const isOnline = useOnlineStatus();
+  const lastOnlineAtRef = useRef<number>(Date.now());
+  const offlineTrackedRef = useRef(false);
+  const [shareFeedback, setShareFeedback] = useState<ShareResult | null>(null);
+  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [shareLoading, setShareLoading] = useState(false);
+  const shareAlertVariant = shareFeedback
+    ? shareFeedback.variant === 'error'
+      ? 'destructive'
+      : shareFeedback.variant === 'warning'
+        ? 'warning'
+        : shareFeedback.variant === 'info'
+          ? 'info'
+          : 'success'
+    : 'info';
 
   const { data: reservation, error, isError, isLoading, refetch, isFetching } = useReservation(reservationId);
   const testUiEnabled = process.env.NEXT_PUBLIC_ENABLE_TEST_UI === 'true';
 
   const bookingDto = useMemo(() => buildBookingDto(reservation, restaurantName), [reservation, restaurantName]);
+
+  // Calculate venue info before any early returns
+  const venue = useMemo(
+    () => ({
+      name: restaurantName ?? reservation?.restaurantName ?? DEFAULT_VENUE.name,
+      address: DEFAULT_VENUE.address,
+      timezone: DEFAULT_VENUE.timezone,
+    }),
+    [restaurantName, reservation?.restaurantName],
+  );
+
+  // Calculate share payload before any early returns
+  const sharePayload = useMemo(() => {
+    if (!reservation) return null;
+    return {
+      reservationId,
+      reference: reservation.reference ?? null,
+      guestName: reservation.customerName,
+      partySize: reservation.partySize,
+      startAt: reservation.startAt,
+      endAt: reservation.endAt ?? undefined,
+      venueName: venue.name,
+      venueAddress: venue.address,
+      venueTimezone: venue.timezone,
+    };
+  }, [reservation, reservationId, venue.address, venue.name, venue.timezone]);
+
+  // Calculate JSON-LD before any early returns
+  const reservationJsonLd = useMemo(() => {
+    if (!reservation) return null;
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'Reservation',
+      reservationNumber: reservation.reference ?? reservation.id,
+      reservationStatus: reservation.status,
+      reservationFor: {
+        '@type': 'FoodEstablishment',
+        name: venue.name,
+        address: venue.address,
+      },
+      partySize: reservation.partySize,
+      startTime: reservation.startAt ? new Date(reservation.startAt).toISOString() : undefined,
+    };
+  }, [reservation, venue.address, venue.name]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    if (isOnline) {
+      lastOnlineAtRef.current = Date.now();
+      offlineTrackedRef.current = false;
+      return;
+    }
+
+    if (offlineTrackedRef.current) {
+      return;
+    }
+
+    const wasOnlineForMs = Date.now() - lastOnlineAtRef.current;
+    const payload = {
+      path: window.location?.pathname ?? '/reserve',
+      wasOnlineForMs: Number.isFinite(wasOnlineForMs) ? wasOnlineForMs : undefined,
+    };
+    track('network_offline', payload);
+    void emit('network_offline', payload);
+    offlineTrackedRef.current = true;
+  }, [isOnline]);
+
+  useEffect(() => {
+    if (!shareFeedback) {
+      if (feedbackTimerRef.current) {
+        clearTimeout(feedbackTimerRef.current);
+        feedbackTimerRef.current = null;
+      }
+      return;
+    }
+
+    feedbackTimerRef.current = setTimeout(() => {
+      setShareFeedback(null);
+      feedbackTimerRef.current = null;
+    }, 6000);
+
+    return () => {
+      if (feedbackTimerRef.current) {
+        clearTimeout(feedbackTimerRef.current);
+        feedbackTimerRef.current = null;
+      }
+    };
+  }, [shareFeedback]);
 
   useEffect(() => {
     if (!reservation || viewTrackedRef.current) return;
@@ -200,8 +311,33 @@ export function ReservationDetailClient({ reservationId, restaurantName }: Reser
   }
 
   return (
-    <section className="mx-auto w-full max-w-4xl space-y-8 px-4 py-12">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <>
+      {reservationJsonLd ? (
+        <script
+          type="application/ld+json"
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(reservationJsonLd) }}
+        />
+      ) : null}
+      <section className="mx-auto w-full max-w-4xl space-y-8 px-4 py-12">
+        {!isOnline ? (
+          <Alert variant="warning" role="status">
+            <div>
+              <AlertTitle>No internet connection</AlertTitle>
+              <AlertDescription>
+                You&apos;re offline. Sharing actions are disabled until you reconnect.
+              </AlertDescription>
+            </div>
+          </Alert>
+        ) : null}
+
+        {shareFeedback ? (
+          <Alert variant={shareAlertVariant} role="status" aria-live="polite">
+            <AlertDescription>{shareFeedback.message}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-2">
           <Link href="/dashboard" className="text-sm text-primary underline-offset-4 hover:underline">
             ← Back to dashboard
@@ -243,6 +379,40 @@ export function ReservationDetailClient({ reservationId, restaurantName }: Reser
             </Button>
             <Button variant="destructive" onClick={handleCancel} disabled={actionDisabled}>
               Cancel
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (!sharePayload) {
+                  setShareFeedback({ variant: 'warning', message: 'Reservation details not ready yet.' });
+                  return;
+                }
+                void emit('reservation_detail_calendar_clicked', { reservationId });
+                setCalendarLoading(true);
+                const result = downloadCalendarEvent(sharePayload);
+                setCalendarLoading(false);
+                setShareFeedback(result);
+              }}
+              disabled={!sharePayload || calendarLoading}
+            >
+              {calendarLoading ? 'Preparing…' : 'Add to calendar'}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                if (!sharePayload) {
+                  setShareFeedback({ variant: 'warning', message: 'Reservation details not ready yet.' });
+                  return;
+                }
+                void emit('reservation_detail_share_clicked', { reservationId });
+                setShareLoading(true);
+                const result = await shareReservationDetails(sharePayload);
+                setShareLoading(false);
+                setShareFeedback(result);
+              }}
+              disabled={!isOnline || !sharePayload || shareLoading}
+            >
+              {shareLoading ? 'Sharing…' : 'Share details'}
             </Button>
             {testUiEnabled ? (
               <a
@@ -298,7 +468,8 @@ export function ReservationDetailClient({ reservationId, restaurantName }: Reser
           <CancelBookingDialog booking={bookingDto} open={isCancelOpen} onOpenChange={closeCancelDialog} />
         </>
       ) : null}
-    </section>
+      </section>
+    </>
   );
 }
 

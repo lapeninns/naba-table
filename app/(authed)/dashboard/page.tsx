@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { BookingsTable } from "@/components/dashboard/BookingsTable";
 import { CancelBookingDialog } from "@/components/dashboard/CancelBookingDialog";
 import { EditBookingDialog } from "@/components/dashboard/EditBookingDialog";
 import { useBookings, type BookingDTO } from "@/hooks/useBookings";
 import { useBookingsTableState } from "@/hooks/useBookingsTableState";
+import { track } from "@/lib/analytics";
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -19,6 +20,14 @@ export default function DashboardPage() {
   const [isCancelOpen, setIsCancelOpen] = useState(false);
 
   const { data, error, isLoading, isFetching, refetch } = useBookings(queryFilters);
+
+  useEffect(() => {
+    if (!data) return;
+    track("dashboard_viewed", {
+      totalBookings: data.pageInfo?.total ?? 0,
+      filter: statusFilter,
+    });
+  }, [data, statusFilter]);
 
   const pageInfo = data?.pageInfo ?? {
     page,
