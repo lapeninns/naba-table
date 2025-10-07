@@ -17,7 +17,7 @@ test.describe('reservation wizard - plan step', () => {
 
     await wizardSelectors.datePickerTrigger(page).click();
     await page.getByRole('gridcell', { name: /\b1\b/ }).first().click();
-    await page.getByRole('button', { name: /12:00/i }).first().click();
+    await page.locator('[data-slot-value]').first().click();
 
     await wizardSelectors.continueButton(page).click();
     await expect(wizardSelectors.contactHeading(page)).toBeVisible();

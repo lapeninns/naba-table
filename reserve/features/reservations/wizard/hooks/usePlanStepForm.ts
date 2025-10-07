@@ -72,16 +72,40 @@ export function usePlanStepForm({
     }
   }, [state.details.time, updateField]);
 
+  const normalizeHalfHour = useCallback((value: string) => {
+    if (!value) {
+      return '';
+    }
+
+    const [hoursPart, minutesPart] = value.split(':');
+    const hours = Number.parseInt(hoursPart ?? '', 10);
+    const minutes = Number.parseInt(minutesPart ?? '', 10);
+
+    if (Number.isNaN(hours) || Number.isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0) {
+      return value;
+    }
+
+    const totalMinutes = Math.min(hours * 60 + minutes, 23 * 60 + 30);
+    const normalizedMinutes = Math.floor(totalMinutes / 30) * 30;
+    const nextHours = Math.floor(normalizedMinutes / 60);
+    const nextMinutes = normalizedMinutes % 60;
+
+    return `${nextHours.toString().padStart(2, '0')}:${nextMinutes.toString().padStart(2, '0')}`;
+  }, []);
+
   const submitForm = useCallback(
     (values: PlanFormValues) => {
+      const normalizedTime = normalizeHalfHour(values.time);
+
       updateField('date', values.date);
-      updateField('time', values.time);
+      updateField('time', normalizedTime);
       updateField('party', values.party);
       updateField('bookingType', values.bookingType);
       updateField('notes', values.notes ?? '');
+      form.setValue('time', normalizedTime, { shouldDirty: false, shouldValidate: true });
       actions.goToStep(2);
     },
-    [actions, updateField],
+    [actions, form, normalizeHalfHour, updateField],
   );
 
   const handleError = useCallback(
@@ -107,18 +131,26 @@ export function usePlanStepForm({
   );
 
   const selectTime = useCallback(
-    (value: string) => {
-      form.setValue('time', value, { shouldDirty: true, shouldValidate: true });
-      updateField('time', value);
-      const inferredService = inferBookingOption(value);
+    (value: string, options?: { commit?: boolean }) => {
+      if (options?.commit === false) {
+        form.setValue('time', value, { shouldDirty: true, shouldValidate: false });
+        return;
+      }
+
+      const normalized = normalizeHalfHour(value);
+      form.setValue('time', normalized, { shouldDirty: true, shouldValidate: true });
+      updateField('time', normalized);
+
+      const inferredService = inferBookingOption(normalized);
       form.setValue('bookingType', inferredService, { shouldDirty: true, shouldValidate: true });
       updateField('bookingType', inferredService);
+
       onTrack?.('select_time', {
-        time: value,
+        time: normalized,
         booking_type: inferredService,
       });
     },
-    [form, inferBookingOption, onTrack, updateField],
+    [form, inferBookingOption, normalizeHalfHour, onTrack, updateField],
   );
 
   const changeParty = useCallback(

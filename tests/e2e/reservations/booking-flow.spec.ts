@@ -36,7 +36,7 @@ test.describe('customer reservation flow', () => {
     await expect(calendarCell).toBeVisible();
     await calendarCell.click();
 
-    await page.getByLabel('Time').fill('19:00');
+    await page.locator('[data-slot-value]').first().click();
     await page.getByLabel('Increase guests').click();
 
     await wizardSelectors.continueButton(page).click();
@@ -68,4 +68,60 @@ test.describe('customer reservation flow', () => {
     await expect(page.getByText(bookingName, { exact: false })).toBeVisible();
     await expect(page.getByText(restaurantName ?? '', { exact: false })).toBeVisible();
   });
+
+  test(
+    'completes booking flow on mobile viewport',
+    async ({ page, request, baseURL }, testInfo) => {
+      test.skip(
+        testInfo.project.name !== 'mobile-chrome',
+        'Runs only on the mobile viewport project.',
+      );
+      test.skip(!baseURL, 'Base URL must be configured.');
+
+      const restaurantResponse = await request.get('/api/restaurants');
+      expect(restaurantResponse.ok()).toBeTruthy();
+
+      const payload = await restaurantResponse.json();
+      const restaurants = Array.isArray(payload?.data) ? payload.data : [];
+      test.skip(restaurants.length === 0, 'Requires at least one restaurant in Supabase.');
+
+      const { slug, name: restaurantName } = restaurants[0] ?? {};
+      test.skip(!slug, 'Restaurant slug required to run booking flow.');
+
+      await page.goto(`/reserve/r/${slug}`);
+      await expect(wizardSelectors.planHeading(page)).toBeVisible();
+
+      await wizardSelectors.datePickerTrigger(page).click();
+      await page.getByRole('gridcell').filter({ has: page.getByRole('button') }).first().click();
+      await page.locator('[data-slot-value]').first().click();
+
+      await wizardSelectors.continueButton(page).click();
+      await expect(wizardSelectors.contactHeading(page)).toBeVisible();
+
+      await page.getByLabel('Full name').fill(`Mobile Guest ${Date.now()}`);
+      await page.getByLabel('Email address').fill(`mobile+${Date.now()}@example.com`);
+      await page.getByLabel('UK phone number').fill('07123 456781');
+      await page.getByLabel(/I agree to the terms and privacy notice/i).check();
+
+      await page.getByRole('button', { name: /Review booking/i }).click();
+      await expect(page.getByRole('heading', { name: /Review and confirm/i })).toBeVisible();
+
+      const [createResponse] = await Promise.all([
+        page.waitForResponse(
+          (response) =>
+            response.url().includes('/api/bookings') &&
+            response.request().method() === 'POST' &&
+            response.ok(),
+        ),
+        wizardSelectors.confirmButton(page).click(),
+      ]);
+
+      const reservationPayload = await createResponse.json();
+      const primaryBooking = reservationPayload?.booking ?? reservationPayload?.bookings?.[0];
+      expect(primaryBooking).toBeTruthy();
+
+      await expect(page.getByRole('heading', { name: /Booking confirmed/i })).toBeVisible();
+      await expect(page.getByText(restaurantName ?? '', { exact: false })).toBeVisible();
+    },
+  );
 });

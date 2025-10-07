@@ -6,7 +6,13 @@ import { useController, useWatch } from 'react-hook-form';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@shared/ui/accordion';
 import { Form, FormField } from '@shared/ui/form';
 
-import { Calendar24Field, NotesField, OccasionPicker, PartySizeField } from './components';
+import {
+  Calendar24Field,
+  NotesField,
+  OccasionPicker,
+  PartySizeField,
+  TimeSlotGrid,
+} from './components';
 import { usePlanStepForm } from '../../../hooks/usePlanStepForm';
 
 import type { PlanStepFormProps, PlanStepFormState } from './types';
@@ -24,7 +30,7 @@ type PlanStepFormContentProps = {
 };
 
 function PlanStepFormContent({ state }: PlanStepFormContentProps) {
-  const { control, formState, handleSubmit } = state.form;
+  const { control, formState, handleSubmit, getValues } = state.form;
   const {
     field: dateField,
     fieldState: { error: dateFieldError },
@@ -37,23 +43,30 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
   const notesValue = useWatch({ name: 'notes', control });
 
   const accordionSummary = useMemo(() => {
+    const selectedSlot = state.slots.find((slot) => slot.value === timeField.value);
+    const timeSummary = timeField.value
+      ? `Time: ${selectedSlot?.display ?? timeField.value}`
+      : 'Time not selected';
+
     const label = bookingTypeValue ? SERVICE_LABELS[bookingTypeValue] : undefined;
     const hasNotes = Boolean(notesValue?.trim()?.length);
 
-    if (label && hasNotes) {
-      return `Occasion: ${label} • Notes added`;
-    }
+    const parts = [timeSummary];
 
     if (label) {
-      return `Occasion: ${label}`;
+      parts.push(`Occasion: ${label}`);
     }
 
     if (hasNotes) {
-      return 'Notes added';
+      parts.push('Notes added');
     }
 
-    return 'Select occasion or add notes (optional)';
-  }, [bookingTypeValue, notesValue]);
+    if (!label && !hasNotes) {
+      parts.push('Occasion or notes optional');
+    }
+
+    return parts.join(' • ');
+  }, [bookingTypeValue, notesValue, state.slots, timeField.value]);
 
   return (
     <form
@@ -75,10 +88,13 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
           }}
           time={{
             value: timeField.value,
-            onChange: (next) => {
-              state.handlers.selectTime(next);
+            onChange: (next, options) => {
+              state.handlers.selectTime(next, options);
             },
-            onBlur: timeField.onBlur,
+            onBlur: () => {
+              timeField.onBlur?.();
+              state.handlers.selectTime(getValues('time'), { commit: true });
+            },
             error: timeFieldError?.message ?? formState.errors.time?.message,
           }}
           suggestions={state.slots}
@@ -100,18 +116,28 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
       <Accordion
         type="single"
         collapsible
-        defaultValue={notesValue?.trim()?.length ? 'details' : undefined}
+        defaultValue="details"
         className="overflow-hidden rounded-xl border border-border bg-card text-card-foreground"
       >
         <AccordionItem value="details">
           <AccordionTrigger>
             <span className="flex flex-col text-left">
-              <span className="text-base font-semibold text-foreground">Occasion & notes</span>
+              <span className="text-base font-semibold text-foreground">
+                Time, occasion & notes
+              </span>
               <span className="text-sm font-normal text-muted-foreground">{accordionSummary}</span>
             </span>
           </AccordionTrigger>
           <AccordionContent>
             <div className="space-y-6 pt-4">
+              <TimeSlotGrid
+                slots={state.slots}
+                value={timeField.value}
+                onSelect={(next) => {
+                  state.handlers.selectTime(next);
+                  timeField.onBlur?.();
+                }}
+              />
               <FormField
                 control={control}
                 name="bookingType"

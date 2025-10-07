@@ -25,7 +25,7 @@ export type Calendar24FieldProps = {
   };
   time: {
     value: string;
-    onChange: (value: string) => void;
+    onChange: (value: string, options?: { commit?: boolean }) => void;
     onBlur?: () => void;
     error?: string;
   };
@@ -110,12 +110,15 @@ export function Calendar24Field({ date, time, suggestions = [] }: Calendar24Fiel
             id={timeInputId}
             type="time"
             value={time.value ?? ''}
-            step="60"
+            step="1800"
             onChange={(event) => {
               const value = event.target.value;
-              time.onChange(value);
+              time.onChange(value, { commit: false });
             }}
-            onBlur={time.onBlur}
+            onBlur={(event) => {
+              time.onBlur?.();
+              time.onChange(event.target.value, { commit: true });
+            }}
             aria-invalid={Boolean(time.error)}
             aria-describedby={
               [timeDescriptionId, timeErrorId].filter(Boolean).join(' ') || undefined

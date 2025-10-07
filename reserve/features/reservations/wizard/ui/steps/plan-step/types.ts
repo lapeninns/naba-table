@@ -18,7 +18,7 @@ export interface PlanStepFormProps {
 
 export type PlanStepFormHandlers = {
   selectDate: (value: Date | undefined | null) => void;
-  selectTime: (value: string) => void;
+  selectTime: (value: string, options?: { commit?: boolean }) => void;
   changeParty: (direction: 'decrement' | 'increment') => void;
   changeOccasion: (value: PlanFormValues['bookingType']) => void;
   changeNotes: (value: string) => void;

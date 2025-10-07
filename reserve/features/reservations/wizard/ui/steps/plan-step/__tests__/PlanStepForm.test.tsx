@@ -42,15 +42,30 @@ describe('<PlanStepForm />', () => {
     await user.click(screen.getByRole('button', { name: 'Increase guests' }));
     expect(updateDetails).toHaveBeenCalledWith('party', 3);
 
-    await user.click(screen.getByRole('button', { name: /Occasion & notes/i }));
-    const drinksButton = await screen.findByText('Drinks & cocktails');
-    await user.click(drinksButton);
+    await user.click(screen.getByRole('button', { name: /18:00, Dinner/i }));
+    expect(updateDetails).toHaveBeenCalledWith('time', '18:00');
+
+    let drinksButton = screen.queryByText('Drinks & cocktails');
+    if (!drinksButton) {
+      await user.click(screen.getByRole('button', { name: /Time, occasion & notes/i }));
+      drinksButton = await screen.findByText('Drinks & cocktails');
+    }
+    expect(drinksButton).toBeTruthy();
+    await user.click(drinksButton as HTMLElement);
 
     expect(updateDetails).toHaveBeenCalledWith('bookingType', 'drinks');
     expect(onTrack).toHaveBeenCalledWith(
       'select_time',
       expect.objectContaining({ booking_type: 'drinks' }),
     );
+
+    const timeInput = screen.getByLabelText('Time');
+    const callsBeforeManualTime = updateDetails.mock.calls.length;
+    await user.clear(timeInput);
+    await user.type(timeInput, '18:05');
+    await user.tab();
+    expect(timeInput).toHaveValue('18:00');
+    expect(updateDetails.mock.calls.slice(callsBeforeManualTime)).toContainEqual(['time', '18:00']);
   });
 
   it('submits and advances to the review step when continue action is invoked', async () => {
