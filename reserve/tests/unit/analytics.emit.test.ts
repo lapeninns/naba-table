@@ -32,9 +32,8 @@ describe('analytics emitter', () => {
   async function setup({ email = 'User@Example.com', sendBeacon = false } = {}) {
     const supabaseMock = createSupabaseMock(email);
 
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
-    // @ts-expect-error - jsdom global override for test
-    global.fetch = fetchMock;
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true } as Response);
+    global.fetch = fetchMock as unknown as typeof global.fetch;
 
     const sendBeaconMock = sendBeacon
       ? vi.fn().mockImplementation((_url: string, blob: Blob) => {
@@ -49,7 +48,7 @@ describe('analytics emitter', () => {
       subtle: {
         digest: vi.fn().mockResolvedValue(new Uint8Array([0xde, 0xad, 0xbe, 0xef]).buffer),
       },
-    } satisfies Partial<Crypto>;
+    } as unknown as Crypto;
 
     Object.defineProperty(global, 'crypto', {
       value: cryptoMock,

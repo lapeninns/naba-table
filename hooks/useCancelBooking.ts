@@ -19,7 +19,7 @@ export type CancelBookingResponse = {
   status: string;
 };
 
-type CancelContext = {
+export type CancelContext = {
   lists: Array<[QueryKey, BookingsPage | undefined]>;
   detail: BookingDTO | undefined;
 };

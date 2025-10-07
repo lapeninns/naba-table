@@ -2,14 +2,14 @@ import { render } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { wizardStateFixture } from '@/tests/fixtures/wizard';
 import { WizardDependenciesProvider } from '@features/reservations/wizard/di';
-import { getInitialState } from '@features/reservations/wizard/model/reducer';
 import { ReviewStep } from '@features/reservations/wizard/ui/steps/ReviewStep';
 
 describe('<ReviewStep /> analytics', () => {
   it('tracks confirm_open with dependency-provided analytics', () => {
     const track = vi.fn();
-    const state = getInitialState({
+    const state = wizardStateFixture({
       date: '2025-05-10',
       time: '19:30',
       party: 3,

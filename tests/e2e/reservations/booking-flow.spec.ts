@@ -50,7 +50,19 @@ test.describe('customer reservation flow', () => {
     await page.getByRole('button', { name: /Review booking/i }).click();
     await expect(page.getByRole('heading', { name: /Review and confirm/i })).toBeVisible();
 
-    await wizardSelectors.confirmButton(page).click();
+    const [createResponse] = await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().includes('/api/bookings') &&
+          response.request().method() === 'POST' &&
+          response.ok(),
+      ),
+      wizardSelectors.confirmButton(page).click(),
+    ]);
+
+    const reservationPayload = await createResponse.json();
+    const primaryBooking = reservationPayload?.booking ?? reservationPayload?.bookings?.[0];
+    expect(primaryBooking).toBeTruthy();
 
     await expect(page.getByRole('heading', { name: /Booking confirmed/i })).toBeVisible();
     await expect(page.getByText(bookingName, { exact: false })).toBeVisible();

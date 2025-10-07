@@ -20,7 +20,16 @@ function WrappedOccasionPicker() {
           <OccasionPicker
             value={field.value}
             order={['lunch', 'dinner', 'drinks']}
-            availability={{ services: { lunch: 'enabled', dinner: 'enabled', drinks: 'enabled' } }}
+            availability={{
+              services: { lunch: 'enabled', dinner: 'enabled', drinks: 'enabled' },
+              labels: {
+                happyHour: false,
+                drinksOnly: false,
+                kitchenClosed: false,
+                lunchWindow: true,
+                dinnerWindow: true,
+              },
+            }}
             onChange={field.onChange}
           />
         )}

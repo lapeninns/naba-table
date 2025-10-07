@@ -4,8 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GET } from '@/app/api/bookings/route';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 
-vi.mock('@/server/bookings', async (importOriginal) => {
-  const actual = await importOriginal();
+import type * as BookingsModule from '@/server/bookings';
+
+vi.mock('@/server/bookings', async () => {
+  const actual = await vi.importActual<typeof BookingsModule>('@/server/bookings');
   return {
     ...actual,
     fetchBookingsForContact: vi.fn(async () => []),
@@ -81,6 +83,15 @@ describe('GET /api/bookings?me=1', () => {
           notes: 'Anniversary dinner',
           restaurants: { name: 'The Corner House Pub' },
         },
+        {
+          id: 'booking-2',
+          start_at: '2025-01-20T12:00:00.000Z',
+          end_at: '2025-01-20T13:30:00.000Z',
+          party_size: 2,
+          status: 'pending',
+          notes: 'Lunch meeting',
+          restaurants: { name: 'Sajilo Kitchen' },
+        },
       ],
       count: 12,
       error: null,
@@ -139,6 +150,15 @@ describe('GET /api/bookings?me=1', () => {
           endIso: '2025-01-15T20:00:00.000Z',
           status: 'confirmed',
           notes: 'Anniversary dinner',
+        },
+        {
+          id: 'booking-2',
+          restaurantName: 'Sajilo Kitchen',
+          partySize: 2,
+          startIso: '2025-01-20T12:00:00.000Z',
+          endIso: '2025-01-20T13:30:00.000Z',
+          status: 'pending',
+          notes: 'Lunch meeting',
         },
       ],
       pageInfo: {

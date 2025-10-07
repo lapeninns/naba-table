@@ -136,8 +136,12 @@ export function usePlanStepForm({
     (value: PlanFormValues['bookingType']) => {
       form.setValue('bookingType', value, { shouldDirty: true, shouldValidate: true });
       updateField('bookingType', value);
+      onTrack?.('select_time', {
+        time: form.getValues('time'),
+        booking_type: value,
+      });
     },
-    [form, updateField],
+    [form, onTrack, updateField],
   );
 
   const changeNotes = useCallback(

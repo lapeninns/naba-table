@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+env:
+  NEXT_TELEMETRY_DISABLED: '1'
+  PLAYWRIGHT_BROWSERS_PATH: '0'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Run unit tests
+        run: pnpm test
+
+      - name: Build Next.js app
+        run: pnpm build
+
+      - name: Build reserve bundle
+        run: pnpm reserve:build
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps
+
+      - name: Start Next.js server
+        run: |
+          pnpm start -- -p 3000 &
+          echo $! > .next-server-pid
+        env:
+          NODE_ENV: production
+
+      - name: Wait for server
+        run: npx wait-on http://127.0.0.1:3000
+
+      - name: Playwright mobile smoke test
+        env:
+          BASE_URL: http://127.0.0.1:3000
+        run: pnpm test:e2e --project=mobile-chrome --grep @mobile-smoke
+
+      - name: Stop Next.js server
+        if: always()
+        run: |
+          if [ -f .next-server-pid ]; then
+            kill $(cat .next-server-pid) || true
+            rm .next-server-pid
+          fi

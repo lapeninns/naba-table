@@ -2,12 +2,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { RestaurantBrowser } from '@/components/marketing/RestaurantBrowser';
 
 import type { AnalyticsEvent } from '@/lib/analytics';
-import type { RestaurantSummary } from '@/lib/restaurants/types';
+import type { RestaurantFilters, RestaurantSummary } from '@/lib/restaurants/types';
 
 afterEach(() => {
   cleanup();
@@ -30,7 +30,13 @@ const sampleRestaurants: RestaurantSummary[] = [
   },
 ];
 
-function renderBrowser() {
+type RenderBrowserOptions = {
+  initialData?: RestaurantSummary[];
+  initialError?: boolean;
+  fetchRestaurants?: (filters: RestaurantFilters) => Promise<RestaurantSummary[]>;
+};
+
+function renderBrowser(options: RenderBrowserOptions = {}) {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
@@ -43,14 +49,22 @@ function renderBrowser() {
 
   const analytics: Array<{ name: AnalyticsEvent; props?: Record<string, unknown> }> = [];
 
-  const fetchRestaurants = async () => sampleRestaurants;
+  const fetchRestaurants =
+    options.fetchRestaurants ??
+    (async () => {
+      await Promise.resolve();
+      return sampleRestaurants;
+    });
+
+  const initialData = options.initialData ?? sampleRestaurants;
 
   const user = userEvent.setup();
 
   render(
     <QueryClientProvider client={queryClient}>
       <RestaurantBrowser
-        initialRestaurants={sampleRestaurants}
+        initialData={initialData}
+        initialError={options.initialError}
         fetchRestaurants={fetchRestaurants}
         analytics={(name, props) => analytics.push({ name, props })}
       />
@@ -85,6 +99,70 @@ describe('<RestaurantBrowser />', () => {
     expect(analytics).toContainEqual({
       name: 'restaurant_selected',
       props: { restaurantId: 'rest-1', position: 0 },
+    });
+
+    queryClient.clear();
+  });
+
+  it('shows retry button on error, refetches on click, and logs analytics', async () => {
+    const failingFetch = vi.fn().mockResolvedValue(sampleRestaurants);
+
+    const { analytics, user, queryClient } = renderBrowser({
+      initialData: [],
+      initialError: true,
+      fetchRestaurants: failingFetch,
+    });
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('We couldn’t load restaurants right now.');
+
+    const retryButton = screen.getByRole('button', { name: /retry/i });
+    expect(failingFetch).not.toHaveBeenCalled();
+
+    await user.click(retryButton);
+
+    await waitFor(() => {
+      expect(failingFetch).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(screen.getByText('The Ivy London')).toBeInTheDocument();
+    });
+
+    expect(analytics).toContainEqual(expect.objectContaining({ name: 'restaurants_list_error' }));
+
+    queryClient.clear();
+  });
+
+  it('shows contact support CTA and emits restaurants_empty analytics when no data', async () => {
+    const emptyFetch = vi.fn().mockResolvedValue([]);
+
+    const { analytics, queryClient } = renderBrowser({
+      initialData: [],
+      initialError: false,
+      fetchRestaurants: emptyFetch,
+    });
+
+    const emptyHeading = await screen.findByText('No restaurants available');
+    expect(emptyHeading).toBeInTheDocument();
+
+    const contactLink = screen.getByRole('link', { name: /contact support/i });
+    expect(contactLink).toHaveAttribute('href', 'mailto:support@example.com');
+
+    expect(analytics).toContainEqual(expect.objectContaining({ name: 'restaurants_empty' }));
+
+    queryClient.clear();
+  });
+
+  it('filters by minimum capacity', async () => {
+    const { user, queryClient } = renderBrowser();
+
+    const partySizeInput = screen.getByRole('spinbutton', { name: /minimum seats/i });
+    await user.clear(partySizeInput);
+    await user.type(partySizeInput, '80');
+
+    await waitFor(() => {
+      expect(screen.getByText('The Ivy London')).toBeInTheDocument();
+      expect(screen.queryByText('Tokyo Diner')).not.toBeInTheDocument();
     });
 
     queryClient.clear();

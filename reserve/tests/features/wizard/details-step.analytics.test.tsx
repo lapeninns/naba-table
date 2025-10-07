@@ -2,12 +2,12 @@ import { act, render } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { wizardStateFixture } from '@/tests/fixtures/wizard';
 import { WizardDependenciesProvider } from '@features/reservations/wizard/di';
-import { getInitialState } from '@features/reservations/wizard/model/reducer';
 import { DetailsStep } from '@features/reservations/wizard/ui/steps/DetailsStep';
 
 const createState = () => {
-  const state = getInitialState({
+  const state = wizardStateFixture({
     name: 'Ada Lovelace',
     email: 'ada@example.com',
     phone: '07123456789',

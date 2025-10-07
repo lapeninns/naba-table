@@ -28,7 +28,7 @@ describe('POST /api/events', () => {
   });
 
   it('accepts valid analytics payloads', async () => {
-    const payload = {
+    const payload: Record<string, unknown> = {
       events: [
         {
           name: 'booking_edit_submitted',
@@ -47,7 +47,7 @@ describe('POST /api/events', () => {
   });
 
   it('rejects invalid payloads', async () => {
-    const payload = {
+    const payload: Record<string, unknown> = {
       events: [
         {
           name: '',

@@ -41,7 +41,7 @@ describe('WizardDependenciesProvider', () => {
     expect(result.current.navigator).toBe(defaultWizardDependencies.navigator);
     expect(result.current.errorReporter).toBe(defaultWizardDependencies.errorReporter);
 
-    result.current.analytics.track('test-event');
-    expect(tracker.track).toHaveBeenCalledWith('test-event');
+    result.current.analytics.track('select_date');
+    expect(tracker.track).toHaveBeenCalledWith('select_date');
   });
 });

@@ -11,7 +11,7 @@ describe('buildReservationDraft', () => {
     const result = buildReservationDraft(details);
 
     expect(result.ok).toBe(false);
-    if (!result.ok) {
+    if (!result.ok && 'error' in result) {
       expect(result.error).toContain('Please select a time');
     }
   });
@@ -29,7 +29,7 @@ describe('buildReservationDraft', () => {
     const result = buildReservationDraft(details);
 
     expect(result.ok).toBe(true);
-    if (result.ok) {
+    if (result.ok && 'draft' in result) {
       expect(result.draft.time).toBe('18:00');
       expect(result.draft.party).toBe(2);
       expect(result.draft.name).toBe('Jane Doe');

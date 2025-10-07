@@ -4,10 +4,16 @@ import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CancelBookingDialog } from '@/components/dashboard/CancelBookingDialog';
-import { useCancelBooking } from '@/hooks/useCancelBooking';
+import {
+  useCancelBooking,
+  type CancelBookingInput,
+  type CancelBookingResponse,
+  type CancelContext,
+} from '@/hooks/useCancelBooking';
 
 import type { BookingDTO } from '@/hooks/useBookings';
 import type { HttpError } from '@/lib/http/errors';
+import type { UseMutationResult } from '@tanstack/react-query';
 
 vi.mock('@/hooks/useCancelBooking');
 vi.mock('react-hot-toast', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -24,22 +30,30 @@ const booking: BookingDTO = {
 
 const mockUseCancelBooking = vi.mocked(useCancelBooking);
 
-type MutationMock = {
-  mutateAsync: ReturnType<typeof vi.fn>;
-  isPending: boolean;
-  error: HttpError | null;
-};
+const asMutationResult = (
+  value: Partial<
+    UseMutationResult<CancelBookingResponse, HttpError, CancelBookingInput, CancelContext>
+  >,
+) =>
+  value as unknown as UseMutationResult<
+    CancelBookingResponse,
+    HttpError,
+    CancelBookingInput,
+    CancelContext
+  >;
 
 describe('CancelBookingDialog', () => {
   let mutateSpy: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     mutateSpy = vi.fn().mockResolvedValue({ id: booking.id, status: 'cancelled' });
-    mockUseCancelBooking.mockReturnValue({
-      mutateAsync: mutateSpy,
-      isPending: false,
-      error: null,
-    } satisfies MutationMock);
+    mockUseCancelBooking.mockReturnValue(
+      asMutationResult({
+        mutateAsync: mutateSpy,
+        isPending: false,
+        error: null,
+      }),
+    );
   });
 
   it('calls cancel mutation when confirming', async () => {
@@ -64,11 +78,13 @@ describe('CancelBookingDialog', () => {
     };
 
     mutateSpy = vi.fn().mockRejectedValue(error);
-    mockUseCancelBooking.mockReturnValue({
-      mutateAsync: mutateSpy,
-      isPending: false,
-      error,
-    } satisfies MutationMock);
+    mockUseCancelBooking.mockReturnValue(
+      asMutationResult({
+        mutateAsync: mutateSpy,
+        isPending: false,
+        error,
+      }),
+    );
 
     const user = userEvent.setup();
 

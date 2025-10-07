@@ -2,8 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { fetchJson } from '@/lib/http/fetchJson';
 
-import type { HttpError } from '@/lib/http/errors';
-
 type FetchMock = ReturnType<typeof vi.fn>;
 
 const originalFetch = global.fetch;
@@ -13,8 +11,7 @@ describe('fetchJson', () => {
 
   beforeEach(() => {
     fetchSpy = vi.fn();
-    // @ts-expect-error override for tests
-    global.fetch = fetchSpy;
+    global.fetch = fetchSpy as unknown as typeof global.fetch;
   });
 
   afterEach(() => {
@@ -33,7 +30,7 @@ describe('fetchJson', () => {
       }),
     );
 
-    const result = await fetchJson<typeof payload>('/api/example');
+    const result = await fetchJson('/api/example');
 
     expect(result).toEqual(payload);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
@@ -54,7 +51,7 @@ describe('fetchJson', () => {
       }),
     );
 
-    await expect(fetchJson('/api/example')).rejects.toMatchObject<HttpError>({
+    await expect(fetchJson('/api/example')).rejects.toMatchObject({
       status: 403,
       code: 'FORBIDDEN',
       message: 'Nope',
@@ -69,7 +66,7 @@ describe('fetchJson', () => {
       }),
     );
 
-    await expect(fetchJson('/api/example')).rejects.toMatchObject<HttpError>({
+    await expect(fetchJson('/api/example')).rejects.toMatchObject({
       status: 500,
       code: 'HTTP_500',
       message: 'Internal Server Error',
@@ -86,7 +83,7 @@ describe('fetchJson', () => {
       }),
     );
 
-    await expect(fetchJson('/api/example')).rejects.toMatchObject<HttpError>({
+    await expect(fetchJson('/api/example')).rejects.toMatchObject({
       status: 200,
       code: 'INVALID_JSON',
     });

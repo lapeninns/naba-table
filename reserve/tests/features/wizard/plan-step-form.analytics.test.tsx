@@ -1,11 +1,11 @@
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { wizardStateFixture } from '@/tests/fixtures/wizard';
 import { usePlanStepForm } from '@features/reservations/wizard/hooks/usePlanStepForm';
-import { getInitialState } from '@features/reservations/wizard/model/reducer';
 
 const createPlanState = () =>
-  getInitialState({
+  wizardStateFixture({
     date: '2025-05-10',
     time: '12:00',
   });
@@ -58,5 +58,56 @@ describe('usePlanStepForm analytics', () => {
     });
 
     expect(onTrack).toHaveBeenCalledWith('select_party', expect.objectContaining({ party: 2 }));
+  });
+
+  it('exposes time slot suggestions for a selected date', async () => {
+    const state = wizardStateFixture({
+      date: '2025-05-12',
+      time: '18:00',
+    });
+    const updateDetails = vi.fn();
+    const goToStep = vi.fn();
+
+    const { result } = renderHook(() =>
+      usePlanStepForm({
+        state,
+        actions: { updateDetails, goToStep },
+        onActionsChange: vi.fn(),
+        minDate: new Date('2025-05-01T00:00:00Z'),
+      }),
+    );
+
+    await act(async () => {});
+
+    expect(result.current.slots.length).toBeGreaterThan(0);
+    expect(result.current.slots[0]).toMatchObject({ value: expect.stringMatching(/\d{2}:\d{2}/) });
+  });
+  it('tracks changeOccasion when occasion picker toggled', async () => {
+    const onTrack = vi.fn();
+    const state = wizardStateFixture({
+      date: '2025-05-12',
+      time: '18:00',
+    });
+
+    const { result } = renderHook(() =>
+      usePlanStepForm({
+        state,
+        actions: { updateDetails: vi.fn(), goToStep: vi.fn() },
+        onActionsChange: vi.fn(),
+        onTrack,
+        minDate: new Date('2025-05-01T00:00:00Z'),
+      }),
+    );
+
+    await act(async () => {
+      result.current.handlers.changeOccasion('drinks');
+    });
+
+    await act(async () => {});
+
+    expect(onTrack).toHaveBeenCalledWith(
+      'select_time',
+      expect.objectContaining({ booking_type: 'drinks' }),
+    );
   });
 });

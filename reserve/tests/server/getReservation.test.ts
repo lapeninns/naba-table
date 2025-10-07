@@ -23,7 +23,36 @@ function createSupabaseStub(response: MaybeSingleResponse | Promise<MaybeSingleR
   return { from } as unknown as SupabaseClient<Database>;
 }
 
-const BASE_RECORD = {
+type BookingRecord = {
+  id: string;
+  restaurant_id: string;
+  booking_date: string;
+  start_time: string;
+  end_time: string | null;
+  start_at: string;
+  end_at: string | null;
+  booking_type: string;
+  seating_preference: string | null;
+  status: string;
+  party_size: number;
+  customer_name: string | null;
+  customer_email: string | null;
+  customer_phone: string | null;
+  marketing_opt_in: boolean | null;
+  notes: string | null;
+  reference: string | null;
+  client_request_id: string | null;
+  idempotency_key: string | null;
+  pending_ref: string | null;
+  details: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+  restaurants: {
+    name: string | null;
+  } | null;
+};
+
+const BASE_RECORD: BookingRecord = {
   id: '11111111-1111-4111-8111-111111111111',
   restaurant_id: '22222222-2222-4222-8222-222222222222',
   booking_date: '2025-05-01',

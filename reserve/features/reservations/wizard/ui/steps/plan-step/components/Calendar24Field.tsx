@@ -1,7 +1,7 @@
 'use client';
 
 import { ChevronDownIcon } from 'lucide-react';
-import { useId, useMemo, useState } from 'react';
+import React, { useId, useMemo, useState } from 'react';
 
 import { formatReservationDate } from '@reserve/shared/formatting/booking';
 import { Button } from '@shared/ui/button';

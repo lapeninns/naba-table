@@ -33,11 +33,10 @@ describe('apiClient', () => {
   });
 
   it('prefixes requests with the configured base URL', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      text: () => Promise.resolve(JSON.stringify({ ok: true })),
-    } satisfies Response);
-    global.fetch = fetchMock;
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    global.fetch = fetchMock as unknown as typeof global.fetch;
 
     const apiClient = await loadClient();
     await apiClient.get('/bookings');
@@ -54,13 +53,13 @@ describe('apiClient', () => {
   });
 
   it('normalizes error responses', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 502,
-      statusText: 'Bad Gateway',
-      text: () => Promise.resolve(JSON.stringify({ message: 'Proxy down', code: 'BAD_GATEWAY' })),
-    } satisfies Response);
-    global.fetch = fetchMock;
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ message: 'Proxy down', code: 'BAD_GATEWAY' }), {
+        status: 502,
+        statusText: 'Bad Gateway',
+      }),
+    );
+    global.fetch = fetchMock as unknown as typeof global.fetch;
 
     const apiClient = await loadClient();
 

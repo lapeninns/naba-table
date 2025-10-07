@@ -51,29 +51,24 @@ describe('ProfileManageForm', () => {
       HttpError
     >);
 
-    const uploadMutation: Partial<UseMutationResult<ProfileUploadResponse, HttpError, File>> = {
+    const uploadMutation = {
       mutateAsync: vi.fn(),
       isPending: false,
-    };
+    } as unknown as UseMutationResult<ProfileUploadResponse, HttpError, File, { file: File }>;
 
-    vi.mocked(useUploadProfileAvatar).mockReturnValue(
-      uploadMutation as unknown as UseMutationResult<ProfileUploadResponse, HttpError, File>,
-    );
+    vi.mocked(useUploadProfileAvatar).mockReturnValue(uploadMutation);
 
-    const updateMutation: Partial<
-      UseMutationResult<ProfileResponse, HttpError, ProfileUpdatePayload>
-    > = {
+    const updateMutation = {
       mutateAsync: vi.fn().mockResolvedValue({ ...initialProfile, name: 'Ada Lovelace' }),
       isPending: false,
-    };
+    } as unknown as UseMutationResult<
+      ProfileResponse,
+      HttpError,
+      ProfileUpdatePayload,
+      { previous?: ProfileResponse; payload: ProfileUpdatePayload }
+    >;
 
-    vi.mocked(useUpdateProfile).mockReturnValue(
-      updateMutation as unknown as UseMutationResult<
-        ProfileResponse,
-        HttpError,
-        ProfileUpdatePayload
-      >,
-    );
+    vi.mocked(useUpdateProfile).mockReturnValue(updateMutation);
   });
 
   function renderForm(profile: ProfileResponse = initialProfile) {
@@ -117,7 +112,12 @@ describe('ProfileManageForm', () => {
     vi.mocked(useUpdateProfile).mockReturnValue({
       mutateAsync: mutation,
       isPending: false,
-    } as unknown as UseMutationResult<ProfileResponse, HttpError, ProfileUpdatePayload>);
+    } as unknown as UseMutationResult<
+      ProfileResponse,
+      HttpError,
+      ProfileUpdatePayload,
+      { previous?: ProfileResponse; payload: ProfileUpdatePayload }
+    >);
 
     renderForm(initialProfile);
 
@@ -139,7 +139,12 @@ describe('ProfileManageForm', () => {
     vi.mocked(useUpdateProfile).mockReturnValue({
       mutateAsync: mutation,
       isPending: false,
-    } as unknown as UseMutationResult<ProfileResponse, HttpError, ProfileUpdatePayload>);
+    } as unknown as UseMutationResult<
+      ProfileResponse,
+      HttpError,
+      ProfileUpdatePayload,
+      { previous?: ProfileResponse; payload: ProfileUpdatePayload }
+    >);
 
     renderForm(initialProfile);
 

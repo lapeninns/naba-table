@@ -4,20 +4,15 @@ import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { EditBookingDialog } from '@/components/dashboard/EditBookingDialog';
-import { useUpdateBooking } from '@/hooks/useUpdateBooking';
+import { useUpdateBooking, type UpdateBookingInput } from '@/hooks/useUpdateBooking';
 
 import type { BookingDTO } from '@/hooks/useBookings';
 import type { HttpError } from '@/lib/http/errors';
+import type { UseMutationResult } from '@tanstack/react-query';
 
 vi.mock('@/hooks/useUpdateBooking');
 vi.mock('@/lib/analytics/emit', () => ({ emit: vi.fn() }));
 vi.mock('react-hot-toast', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
-
-type UpdateHookMock = {
-  mutateAsync: ReturnType<typeof vi.fn>;
-  isPending: boolean;
-  error: HttpError | null;
-};
 
 const booking: BookingDTO = {
   id: 'booking-1',
@@ -38,7 +33,7 @@ describe('EditBookingDialog', () => {
       mutateAsync,
       isPending: false,
       error: null,
-    } satisfies UpdateHookMock);
+    } as unknown as UseMutationResult<BookingDTO, HttpError, UpdateBookingInput>);
   });
 
   it('validates end time is after start time', async () => {
@@ -72,7 +67,7 @@ describe('EditBookingDialog', () => {
       mutateAsync,
       isPending: false,
       error,
-    } satisfies UpdateHookMock);
+    } as unknown as UseMutationResult<BookingDTO, HttpError, UpdateBookingInput>);
 
     const user = userEvent.setup();
 

@@ -3,6 +3,8 @@ const DEBUG_ENABLED = process.env.NODE_ENV !== "production";
 export type AnalyticsEvent =
   | "restaurant_list_viewed"
   | "restaurant_selected"
+  | "restaurants_empty"
+  | "restaurants_list_error"
   | "select_date"
   | "select_party"
   | "select_time"
