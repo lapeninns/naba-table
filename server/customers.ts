@@ -7,6 +7,8 @@ const CUSTOMER_CONFLICT_FALLBACK_KEYS = [
   "restaurant_id,email_normalized",
   "restaurant_id,phone_normalized",
 ];
+const CUSTOMER_COLUMNS =
+  "id,restaurant_id,email,phone,full_name,marketing_opt_in,created_at,updated_at,email_normalized,phone_normalized";
 
 export type CustomerRow = Tables<"customers">;
 
@@ -24,7 +26,6 @@ function sanitizePhoneValue(phone: string): string {
   return phone.trim();
 }
 
-
 export async function findCustomerByContact(
   client: DbClient,
   restaurantId: string,
@@ -36,7 +37,7 @@ export async function findCustomerByContact(
 
   const { data, error } = await client
     .from("customers")
-    .select("id,restaurant_id,email,phone,full_name,marketing_opt_in,created_at,updated_at,email_normalized,phone_normalized")
+    .select(CUSTOMER_COLUMNS)
     .eq("restaurant_id", restaurantId)
     .eq("email_normalized", normalizedEmail)
     .eq("phone_normalized", normalizedPhone)
@@ -77,7 +78,7 @@ export async function upsertCustomer(
       onConflict: CUSTOMER_CONFLICT_KEY,
       ignoreDuplicates: false,
     })
-    .select("id,restaurant_id,email,phone,full_name,marketing_opt_in,created_at,updated_at,email_normalized,phone_normalized")
+    .select(CUSTOMER_COLUMNS)
     .maybeSingle();
 
   const isMissingConflictConstraintError = (value: unknown): boolean => {
@@ -105,9 +106,7 @@ export async function upsertCustomer(
           onConflict: fallbackKey,
           ignoreDuplicates: false,
         })
-        .select(
-          "id,restaurant_id,email,phone,full_name,marketing_opt_in,created_at,updated_at,email_normalized,phone_normalized",
-        )
+        .select(CUSTOMER_COLUMNS)
         .maybeSingle();
 
       customerData = fallbackData;
@@ -119,6 +118,48 @@ export async function upsertCustomer(
 
       if (!isMissingConflictConstraintError(fallbackError)) {
         break;
+      }
+    }
+  }
+
+  const isUniqueViolationError = (value: unknown): boolean => {
+    if (!value || typeof value !== "object") {
+      return false;
+    }
+    const record = value as { code?: unknown };
+    return record.code === "23505";
+  };
+
+  if (lastError && isUniqueViolationError(lastError)) {
+    const { data: existing, error: existingError } = await client
+      .from("customers")
+      .select(CUSTOMER_COLUMNS)
+      .eq("restaurant_id", params.restaurantId)
+      .eq("email_normalized", email)
+      .maybeSingle();
+
+    if (existingError && existingError.code !== "PGRST116") {
+      throw existingError;
+    }
+
+    if (existing) {
+      customerData = existing;
+      lastError = null;
+
+      const existingNormalizedPhone = normalizePhone(existing.phone);
+      const incomingNormalizedPhone = normalizePhone(params.phone);
+
+      if (incomingNormalizedPhone && existingNormalizedPhone !== incomingNormalizedPhone) {
+        const { data: updated, error: phoneUpdateError } = await client
+          .from("customers")
+          .update({ phone: phoneForStorage })
+          .eq("id", existing.id)
+          .select(CUSTOMER_COLUMNS)
+          .single();
+
+        if (!phoneUpdateError && updated) {
+          customerData = updated;
+        }
       }
     }
   }
@@ -137,7 +178,7 @@ export async function upsertCustomer(
       .from("customers")
       .update({ marketing_opt_in: true, full_name: customerData.full_name ?? params.name ?? null })
       .eq("id", customerData.id)
-      .select("id,restaurant_id,email,phone,full_name,marketing_opt_in,created_at,updated_at,email_normalized,phone_normalized")
+      .select(CUSTOMER_COLUMNS)
       .single();
 
     if (updateError) {
@@ -152,7 +193,7 @@ export async function upsertCustomer(
       .from("customers")
       .update({ full_name: params.name })
       .eq("id", customerData.id)
-      .select("id,restaurant_id,email,phone,full_name,marketing_opt_in,created_at,updated_at,email_normalized,phone_normalized")
+      .select(CUSTOMER_COLUMNS)
       .single();
 
     if (!nameUpdateError && patched) {

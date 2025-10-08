@@ -13,6 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
+import { clientEnv } from '@/lib/env-client';
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { cn } from '@/lib/utils';
 
@@ -85,6 +86,19 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
     setTimeout(() => statusRef.current?.focus(), 0);
   };
 
+  const resolveCallbackUrl = (destination: string) => {
+    const origin =
+      typeof window !== 'undefined' && window.location?.origin
+        ? window.location.origin
+        : clientEnv.app.siteUrl;
+
+    const url = new URL('/api/auth/callback', origin);
+    if (destination && destination.startsWith('/')) {
+      url.searchParams.set('redirectedFrom', destination);
+    }
+    return url.toString();
+  };
+
   const handleMagicLink = async (values: FormValues) => {
     if (magicCooldown > 0) {
       return;
@@ -98,8 +112,7 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
       const { error } = await supabase.auth.signInWithOtp({
         email: values.email,
         options: {
-          emailRedirectTo:
-            typeof window !== 'undefined' ? `${window.location.origin}${targetPath}` : undefined,
+          emailRedirectTo: resolveCallbackUrl(targetPath),
         },
       });
 

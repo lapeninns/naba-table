@@ -17,13 +17,13 @@ The env validator (`pnpm run validate:env`) already checks for these keys. No ne
 
 | Scenario                      | Command                                                                                                                                                                             | Notes                                             |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| Unit tests                    | `pnpm vitest components/auth/__tests__/SignInForm.test.tsx`                                                                                                                         | Mocks Supabase + router behaviours.               |
+| Unit tests                    | `pnpm vitest components/auth/__tests__/SignInForm.test.tsx`                                                                                                                         | Mocks Supabase + magic-link behaviours.           |
+| Auth callback route           | `pnpm vitest app/api/auth/callback/route.test.ts`                                                                                                                                   | Ensures redirect + session exchange.              |
 | Wizard profile regressions    | `pnpm vitest reserve/tests/profile/ProfileManageForm.test.tsx reserve/tests/profile/useUpdateProfile.test.tsx`                                                                      | Covers duplicate/idempotency edge cases.          |
 | Wizard offline + error states | `pnpm vitest reserve/features/reservations/wizard/ui/__tests__/BookingWizard.plan-review.test.tsx reserve/features/reservations/wizard/ui/__tests__/BookingWizard.offline.test.tsx` | Validates skeleton + optimistic failure handling. |
 | Mutation hook behaviour       | `pnpm vitest reserve/features/reservations/wizard/api/__tests__/useCreateReservation.test.tsx`                                                                                      | Confirms analytics + idempotency behaviour.       |
 | Playwright profile flows      | `pnpm playwright test tests/e2e/profile/avatar-upload.spec.ts`                                                                                                                      | Requires authenticated storage state.             |
 | Playwright wizard failure     | `pnpm playwright test tests/e2e/reservations/booking-flow.spec.ts`                                                                                                                  | Requires populated Supabase dataset.              |
-| Playwright auth flow          | `PLAYWRIGHT_TEST_AUTH_FLOW=true PLAYWRIGHT_TEST_EMAIL=<email> PLAYWRIGHT_TEST_PASSWORD=<password> pnpm playwright test tests/e2e/profile/auth-session.spec.ts`                      | Optional smoke for password login.                |
 
 ## Analytics Events
 
@@ -32,9 +32,8 @@ The following events were added or updated and are emitted via `track`/`emit`:
 - `wizard_offline_detected` — fired when the wizard transitions from online to offline.
 - `wizard_submit_failed` — fired when reservation submission fails (includes status/code payload).
 - `auth_signin_viewed` — fired when the sign-in form mounts (includes `redirectedFrom`).
-- `auth_signin_attempt` — fired for each credential attempt (`method: 'password' | 'magic_link'`).
-- `auth_signin_success` — fired after a successful password sign-in.
-- `auth_signin_error` — fired when either password or magic link flows fail.
+- `auth_signin_attempt` — fired for each magic-link request (`method: 'magic_link'`).
+- `auth_signin_error` — fired when Supabase returns an error for the OTP request.
 - `auth_magiclink_sent` — fired after successfully requesting a magic link.
 
 All analytics payloads omit undefined fields and include the redirect target when available.

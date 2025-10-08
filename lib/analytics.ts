@@ -23,7 +23,6 @@ export type AnalyticsEvent =
   | "profile_update_duplicate"
   | "auth_signin_viewed"
   | "auth_signin_attempt"
-  | "auth_signin_success"
   | "auth_signin_error"
   | "auth_magiclink_sent";
 

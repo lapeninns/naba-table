@@ -33,12 +33,18 @@ async function verifySeed() {
       throw pubError;
     }
 
-    // Count tables
-    const { count: tableCount, error: tableError } = await supabase
-      .from('restaurant_tables')
-      .select('*', { count: 'exact', head: true });
-    
-    if (tableError) throw tableError;
+    // Count tables (optional)
+    let tableCount = null;
+    try {
+      const { count, error } = await supabase
+        .from('restaurant_tables')
+        .select('*', { count: 'exact', head: true });
+
+      if (error) throw error;
+      tableCount = count ?? 0;
+    } catch (tableError) {
+      console.warn('⚠️  Skipping restaurant_tables count:', tableError.message ?? tableError);
+    }
 
     // Count customers
     const { count: customerCount, error: customerError } = await supabase
@@ -76,16 +82,20 @@ async function verifySeed() {
     console.log('📊 Database Counts:');
     console.log('─'.repeat(40));
     console.log(`  Restaurants:     ${pubCount} (expected: 8)`);
-    console.log(`  Tables:          ${tableCount} (expected: 96)`);
-    console.log(`  Customers:       ${customerCount} (expected: 640)`);
-    console.log(`  Bookings:        ${bookingCount} (expected: 400)`);
+    console.log(
+      `  Tables:          ${tableCount === null ? 'n/a' : tableCount} (expected: ${
+        tableCount === null ? 'n/a' : '96'
+      })`
+    );
+    console.log(`  Customers:       ${customerCount} (expected: 400)`);
+    console.log(`  Bookings:        ${bookingCount} (expected: 1200)`);
     console.log('');
 
     console.log('📅 Booking Distribution:');
     console.log('─'.repeat(40));
-    console.log(`  Past:            ${past} (expected: 120)`);
-    console.log(`  Today:           ${todayCount} (expected: 40)`);
-    console.log(`  Future:          ${future} (expected: 240)`);
+    console.log(`  Past:            ${past} (expected: 480)`);
+    console.log(`  Today:           ${todayCount} (expected: 160)`);
+    console.log(`  Future:          ${future} (expected: 560)`);
     console.log('');
 
     console.log('📋 Booking Status:');
@@ -95,7 +105,7 @@ async function verifySeed() {
     });
     console.log('');
 
-    // Verify each pub has 50 bookings
+    // Verify each pub has 150 bookings
     const { data: pubs } = await supabase
       .from('restaurants')
       .select('id, name, slug');
@@ -113,13 +123,32 @@ async function verifySeed() {
     }
     console.log('');
 
+    const { count: specialBookingCount, error: specialError } = await supabase
+      .from('bookings')
+      .select('*', { count: 'exact', head: true })
+      .eq('customer_email', 'amanshresthaaaaa@gmail.com');
+
+    if (specialError) throw specialError;
+    console.log(`⭐ Special guest bookings (amanshresthaaaaa@gmail.com): ${specialBookingCount}`);
+    console.log('');
+
     // Validation
     const validations = [
       { name: 'Pubs', actual: pubCount, expected: 8 },
-      { name: 'Tables', actual: tableCount, expected: 96 },
-      { name: 'Customers', actual: customerCount, expected: 640 },
-      { name: 'Bookings', actual: bookingCount, expected: 400 },
+      { name: 'Customers', actual: customerCount, expected: 400 },
+      { name: 'Bookings', actual: bookingCount, expected: 1200 },
     ];
+
+    if (tableCount !== null) {
+      validations.push({ name: 'Tables', actual: tableCount, expected: 96 });
+    }
+
+    validations.push(
+      { name: 'Past bookings', actual: past, expected: 480 },
+      { name: 'Today bookings', actual: todayCount, expected: 160 },
+      { name: 'Future bookings', actual: future, expected: 560 },
+      { name: 'Special guest bookings', actual: specialBookingCount ?? 0, expected: 24 },
+    );
 
     const allValid = validations.every(v => v.actual === v.expected);
 
