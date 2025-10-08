@@ -3,6 +3,7 @@
 import { ChevronDownIcon } from 'lucide-react';
 import React, { useId, useMemo, useState } from 'react';
 
+import { reservationConfigResult } from '@reserve/shared/config/reservations';
 import { formatReservationDate } from '@reserve/shared/formatting/booking';
 import { Button } from '@shared/ui/button';
 import { Calendar } from '@shared/ui/calendar';
@@ -33,6 +34,7 @@ export type Calendar24FieldProps = {
 };
 
 export function Calendar24Field({ date, time, suggestions = [] }: Calendar24FieldProps) {
+  const timeStepSeconds = reservationConfigResult.config.opening.intervalMinutes * 60;
   const [open, setOpen] = useState(false);
   const baseId = useId();
   const dateButtonId = `${baseId}-date`;
@@ -110,7 +112,7 @@ export function Calendar24Field({ date, time, suggestions = [] }: Calendar24Fiel
             id={timeInputId}
             type="time"
             value={time.value ?? ''}
-            step="1800"
+            step={timeStepSeconds}
             onChange={(event) => {
               const value = event.target.value;
               time.onChange(value, { commit: false });

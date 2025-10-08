@@ -1,12 +1,25 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+
+import { getServerComponentSupabaseClient } from "@/server/supabase";
 
 export const metadata: Metadata = {
   title: "Thank You",
   description: "Appreciation page shown after a booking flow is completed.",
 };
 
-export default function ThankYouPage() {
+export default async function ThankYouPage() {
+  const supabase = await getServerComponentSupabaseClient();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    redirect(`/signin?redirectedFrom=/thank-you`);
+  }
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-6 py-24 text-center text-slate-800">
       <div className="mx-auto max-w-md space-y-4">

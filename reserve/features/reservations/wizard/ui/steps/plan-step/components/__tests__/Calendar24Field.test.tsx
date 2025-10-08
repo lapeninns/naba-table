@@ -71,7 +71,7 @@ describe('<Calendar24Field />', () => {
     const timeInput = screen.getByLabelText('Time');
     await user.type(timeInput, '19:00');
 
-    expect(onChange).toHaveBeenCalledWith('19:00');
+    expect(onChange).toHaveBeenCalledWith('19:00', { commit: false });
   });
 
   it('renders time suggestions as datalist options when provided', () => {

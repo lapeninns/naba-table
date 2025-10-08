@@ -10,9 +10,9 @@ import { normalizeTime } from '@reserve/shared/time';
 describe('wizard time slot service', () => {
   it('builds deterministic slots for a given date', () => {
     const slots = buildTimeSlots({ date: '2025-05-08' });
-    expect(slots).toHaveLength(22);
+    expect(slots).toHaveLength(44);
     expect(slots[0]?.value).toBe('12:00');
-    expect(slots.at(-1)?.value).toBe('22:30');
+    expect(slots.at(-1)?.value).toBe('22:45');
     expect(slots[0]?.label).toBe('Lunch');
   });
 
@@ -36,7 +36,7 @@ describe('wizard time slot service', () => {
     const springForward = buildTimeSlots({ date: '2025-03-30' });
     const fallBack = buildTimeSlots({ date: '2025-10-26' });
 
-    expect(springForward).toHaveLength(22);
-    expect(fallBack).toHaveLength(22);
+    expect(springForward).toHaveLength(44);
+    expect(fallBack).toHaveLength(44);
   });
 });

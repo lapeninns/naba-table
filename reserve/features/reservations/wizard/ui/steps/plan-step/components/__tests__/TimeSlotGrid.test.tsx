@@ -37,7 +37,7 @@ describe('<TimeSlotGrid />', () => {
         value=""
         onSelect={onSelect}
         slots={[
-          buildSlot({ value: '12:30' as ReservationTime, display: '12:30 PM', label: 'Lunch' }),
+          buildSlot({ value: '12:15' as ReservationTime, display: '12:15 PM', label: 'Lunch' }),
           buildSlot({ value: '18:00' as ReservationTime, display: '6:00 PM', label: 'Dinner' }),
         ]}
       />,
@@ -57,7 +57,7 @@ describe('<TimeSlotGrid />', () => {
         onSelect={vi.fn()}
         slots={[
           buildSlot({ value: '18:00' as ReservationTime, display: '6:00 PM' }),
-          buildSlot({ value: '18:30' as ReservationTime, display: '6:30 PM' }),
+          buildSlot({ value: '18:15' as ReservationTime, display: '6:15 PM' }),
         ]}
       />,
     );
@@ -66,7 +66,7 @@ describe('<TimeSlotGrid />', () => {
       'aria-pressed',
       'true',
     );
-    expect(screen.getByRole('button', { name: /6:30 PM/i })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: /6:15 PM/i })).toHaveAttribute(
       'aria-pressed',
       'false',
     );

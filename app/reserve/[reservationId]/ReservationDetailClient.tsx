@@ -23,6 +23,19 @@ import { ReservationHistory } from './ReservationHistory';
 import type { BookingDTO } from '@/hooks/useBookings';
 import type { Reservation } from '@entities/reservation/reservation.schema';
 
+export type ReservationVenue = {
+  name: string;
+  address: string;
+  timezone: string;
+};
+
+const sanitizeJsonLd = (value: string | null | undefined) => {
+  if (!value) {
+    return null;
+  }
+  return value.replace(/</g, '\\u003c');
+};
+
 const formatDate = (iso: string | null | undefined) => {
   if (!iso) return '—';
   const parsed = new Date(iso);
@@ -64,12 +77,33 @@ const buildBookingDto = (reservation: Reservation | undefined, restaurantName: s
   };
 };
 
+const buildReservationJsonLd = (reservation: Reservation, venue: ReservationVenue) => ({
+  '@context': 'https://schema.org',
+  '@type': 'Reservation',
+  reservationNumber: reservation.reference ?? reservation.id,
+  reservationStatus: reservation.status,
+  reservationFor: {
+    '@type': 'FoodEstablishment',
+    name: venue.name,
+    address: venue.address,
+  },
+  partySize: reservation.partySize,
+  startTime: reservation.startAt ? new Date(reservation.startAt).toISOString() : undefined,
+});
+
 export type ReservationDetailClientProps = {
   reservationId: string;
   restaurantName: string | null;
+  structuredData?: string | null;
+  venue?: ReservationVenue | null;
 };
 
-export function ReservationDetailClient({ reservationId, restaurantName }: ReservationDetailClientProps) {
+export function ReservationDetailClient({
+  reservationId,
+  restaurantName,
+  structuredData,
+  venue: providedVenue,
+}: ReservationDetailClientProps) {
   const router = useRouter();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isCancelOpen, setIsCancelOpen] = useState(false);
@@ -97,14 +131,20 @@ export function ReservationDetailClient({ reservationId, restaurantName }: Reser
   const bookingDto = useMemo(() => buildBookingDto(reservation, restaurantName), [reservation, restaurantName]);
 
   // Calculate venue info before any early returns
-  const venue = useMemo(
-    () => ({
+  const venue = useMemo<ReservationVenue>(() => {
+    if (providedVenue) {
+      return {
+        name: providedVenue.name ?? DEFAULT_VENUE.name,
+        address: providedVenue.address ?? DEFAULT_VENUE.address,
+        timezone: providedVenue.timezone ?? DEFAULT_VENUE.timezone,
+      };
+    }
+    return {
       name: restaurantName ?? reservation?.restaurantName ?? DEFAULT_VENUE.name,
       address: DEFAULT_VENUE.address,
       timezone: DEFAULT_VENUE.timezone,
-    }),
-    [restaurantName, reservation?.restaurantName],
-  );
+    };
+  }, [providedVenue, reservation?.restaurantName, restaurantName]);
 
   // Calculate share payload before any early returns
   const sharePayload = useMemo(() => {
@@ -123,22 +163,19 @@ export function ReservationDetailClient({ reservationId, restaurantName }: Reser
   }, [reservation, reservationId, venue.address, venue.name, venue.timezone]);
 
   // Calculate JSON-LD before any early returns
-  const reservationJsonLd = useMemo(() => {
-    if (!reservation) return null;
-    return {
-      '@context': 'https://schema.org',
-      '@type': 'Reservation',
-      reservationNumber: reservation.reference ?? reservation.id,
-      reservationStatus: reservation.status,
-      reservationFor: {
-        '@type': 'FoodEstablishment',
-        name: venue.name,
-        address: venue.address,
-      },
-      partySize: reservation.partySize,
-      startTime: reservation.startAt ? new Date(reservation.startAt).toISOString() : undefined,
-    };
-  }, [reservation, venue.address, venue.name]);
+  const reservationJsonLdString = useMemo(() => {
+    const provided = typeof structuredData === 'string' && structuredData.length > 0 ? structuredData : null;
+    const sanitizedProvided = sanitizeJsonLd(provided);
+    if (sanitizedProvided) {
+      return sanitizedProvided;
+    }
+
+    if (!reservation) {
+      return null;
+    }
+
+    return sanitizeJsonLd(JSON.stringify(buildReservationJsonLd(reservation, venue)));
+  }, [reservation, structuredData, venue]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -312,16 +349,16 @@ export function ReservationDetailClient({ reservationId, restaurantName }: Reser
 
   return (
     <>
-      {reservationJsonLd ? (
+      {reservationJsonLdString ? (
         <script
           type="application/ld+json"
           suppressHydrationWarning
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(reservationJsonLd) }}
+          dangerouslySetInnerHTML={{ __html: reservationJsonLdString }}
         />
       ) : null}
       <section className="mx-auto w-full max-w-4xl space-y-8 px-4 py-12">
         {!isOnline ? (
-          <Alert variant="warning" role="status">
+          <Alert variant="warning" role="status" aria-live="polite">
             <div>
               <AlertTitle>No internet connection</AlertTitle>
               <AlertDescription>

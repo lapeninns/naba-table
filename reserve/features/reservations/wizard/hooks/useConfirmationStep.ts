@@ -44,6 +44,7 @@ export function useConfirmationStep({
   const { errorReporter } = useWizardDependencies();
   const booking = state.lastConfirmed;
   const details = state.details;
+  const isLoading = state.loading;
 
   const venue = useMemo(
     () => ({
@@ -73,14 +74,25 @@ export function useConfirmationStep({
   const summaryTime = details.time ? formatReservationTime(details.time) : 'TBC';
   const partyText = `${details.party} ${details.party === 1 ? 'guest' : 'guests'}`;
 
-  const status: ConfirmationStatus = state.lastAction === 'update' ? 'updated' : 'confirmed';
+  const status: ConfirmationStatus = isLoading
+    ? 'pending'
+    : state.lastAction === 'update'
+      ? 'updated'
+      : 'confirmed';
 
-  const heading = status === 'updated' ? 'Booking updated' : 'Booking confirmed';
+  const heading =
+    status === 'pending'
+      ? 'Finalising reservation…'
+      : status === 'updated'
+        ? 'Booking updated'
+        : 'Booking confirmed';
 
   const description =
-    status === 'updated'
-      ? `Your reservation was updated. A confirmation email has been sent to ${details.email}.`
-      : `A confirmation email has been sent to ${details.email}.`;
+    status === 'pending'
+      ? 'Hang tight—we’re finishing up your booking. This usually takes just a moment.'
+      : status === 'updated'
+        ? `Your reservation was updated. A confirmation email has been sent to ${details.email}.`
+        : `A confirmation email has been sent to ${details.email}.`;
 
   const reservationWindow = useMemo(() => buildReservationWindow(state), [state]);
 
@@ -158,6 +170,7 @@ export function useConfirmationStep({
         variant: 'ghost',
         icon: 'X',
         onClick: handleClose,
+        disabled: isLoading,
       },
       {
         id: 'confirmation-calendar',
@@ -167,6 +180,7 @@ export function useConfirmationStep({
         icon: 'Calendar',
         onClick: handleAddToCalendar,
         loading: calendarLoading,
+        disabled: isLoading,
       },
       {
         id: 'confirmation-wallet',
@@ -176,6 +190,7 @@ export function useConfirmationStep({
         icon: 'Wallet',
         onClick: handleAddToWallet,
         loading: walletLoading,
+        disabled: isLoading,
       },
       {
         id: 'confirmation-new',
@@ -184,6 +199,7 @@ export function useConfirmationStep({
         variant: 'default',
         icon: 'Plus',
         onClick: handleNewBooking,
+        disabled: isLoading,
       },
     ]);
   }, [
@@ -192,6 +208,7 @@ export function useConfirmationStep({
     handleAddToWallet,
     handleClose,
     handleNewBooking,
+    isLoading,
     onActionsChange,
     walletLoading,
   ]);
@@ -201,6 +218,7 @@ export function useConfirmationStep({
     details,
     venue,
     status,
+    isLoading,
     heading,
     description,
     reference,

@@ -12,7 +12,7 @@ describe('useTimeSlots hook', () => {
       },
     );
 
-    expect(result.current.slots).toHaveLength(22);
+    expect(result.current.slots).toHaveLength(44);
     expect(result.current.serviceAvailability.services.lunch).toBe('enabled');
 
     rerender({ date: '2025-05-08', selectedTime: '16:00' });

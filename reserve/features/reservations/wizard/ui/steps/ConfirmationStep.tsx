@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle, CheckCircle2, Info, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Info, Loader2, XCircle } from 'lucide-react';
 import React, { useMemo } from 'react';
 
 import { useConfirmationStep } from '@features/reservations/wizard/hooks/useConfirmationStep';
@@ -25,7 +25,10 @@ const FEEDBACK_ICON_MAP = {
 export function ConfirmationStep(props: ConfirmationStepProps) {
   const controller = useConfirmationStep(props);
 
-  const { Icon: StatusIcon, className: statusIconClass } = STATUS_ICON_MAP[controller.status];
+  const { Icon: StatusIcon, className: statusIconClass } =
+    controller.status === 'pending'
+      ? { Icon: Loader2, className: 'animate-spin text-primary' }
+      : STATUS_ICON_MAP[controller.status];
 
   const FeedbackIcon = useMemo(() => {
     if (!controller.feedback) return null;
@@ -47,7 +50,9 @@ export function ConfirmationStep(props: ConfirmationStepProps) {
       </CardHeader>
       <CardContent className="space-y-6">
         <p className="sr-only" aria-live="polite">
-          {`Reference ${controller.reference}. Reservation for ${controller.partyText} at ${controller.summaryTime} on ${controller.summaryDate}.`}
+          {controller.status === 'pending'
+            ? 'Reservation is being confirmed. Please wait.'
+            : `Reference ${controller.reference}. Reservation for ${controller.partyText} at ${controller.summaryTime} on ${controller.summaryDate}.`}
         </p>
         {controller.feedback ? (
           <Alert
@@ -72,6 +77,7 @@ export function ConfirmationStep(props: ConfirmationStepProps) {
                 variant="ghost"
                 size="sm"
                 onClick={controller.dismissFeedback}
+                disabled={controller.isLoading}
                 className="self-end sm:self-auto"
               >
                 Dismiss

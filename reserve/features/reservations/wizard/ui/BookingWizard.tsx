@@ -1,7 +1,10 @@
 'use client';
 
 import { Loader2 } from 'lucide-react';
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { emit } from '@/lib/analytics/emit';
 
 import { useWizardDependencies } from '../di';
 import { useReservationWizard } from '../hooks/useReservationWizard';
@@ -11,6 +14,13 @@ import { PlanStep } from './steps/PlanStep';
 import { ReviewStep } from './steps/ReviewStep';
 import { WizardFooter } from './WizardFooter';
 import { WizardLayout } from './WizardLayout';
+import { WizardOfflineBanner } from './WizardOfflineBanner';
+import {
+  ConfirmationStepSkeleton,
+  DetailsStepSkeleton,
+  PlanStepSkeleton,
+  ReviewStepSkeleton,
+} from './WizardSkeletons';
 import { WizardStickyConfirmation } from './WizardStickyConfirmation';
 
 import type { BookingDetails } from '../model/reducer';
@@ -50,7 +60,72 @@ function BookingWizardContent({ initialDetails }: BookingWizardContentProps) {
   } = useReservationWizard(initialDetails);
   const { analytics } = useWizardDependencies();
 
-  const findAction = (id: string) => stickyActions.find((action) => action.id === id);
+  const isOnline = useOnlineStatus();
+  const isOffline = !isOnline;
+  const offlineBannerRef = useRef<HTMLDivElement | null>(null);
+  const lastOnlineAtRef = useRef<number>(Date.now());
+  const offlineTrackedRef = useRef(false);
+  const wasOfflineRef = useRef(false);
+  const [hasHydrated, setHasHydrated] = useState(false);
+
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    if (isOnline) {
+      lastOnlineAtRef.current = Date.now();
+      offlineTrackedRef.current = false;
+      return;
+    }
+
+    if (offlineTrackedRef.current) {
+      return;
+    }
+
+    const wasOnlineForMs = Date.now() - lastOnlineAtRef.current;
+    const payload = {
+      path: window.location?.pathname ?? '/reserve',
+      step: state.step,
+      wasOnlineForMs: Number.isFinite(wasOnlineForMs) ? wasOnlineForMs : undefined,
+    };
+
+    analytics.track('wizard_offline_detected', payload);
+    emit('wizard_offline_detected', payload);
+    offlineTrackedRef.current = true;
+  }, [analytics, isOnline, state.step]);
+
+  useEffect(() => {
+    if (!hasHydrated) {
+      return;
+    }
+
+    if (isOffline && !wasOfflineRef.current) {
+      setTimeout(() => {
+        offlineBannerRef.current?.focus();
+      }, 0);
+    }
+    wasOfflineRef.current = isOffline;
+  }, [hasHydrated, isOffline]);
+
+  const disableAllActions = isOffline || state.loading;
+
+  const effectiveActions = useMemo(() => {
+    if (!disableAllActions) {
+      return stickyActions;
+    }
+
+    return stickyActions.map((action) => ({
+      ...action,
+      disabled: true,
+    }));
+  }, [disableAllActions, stickyActions]);
+
+  const findAction = (id: string) => effectiveActions.find((action) => action.id === id);
 
   const footer =
     state.step === 4 ? (
@@ -75,56 +150,82 @@ function BookingWizardContent({ initialDetails }: BookingWizardContentProps) {
         steps={stepsMeta}
         currentStep={state.step}
         summary={selectionSummary}
-        actions={stickyActions}
+        actions={effectiveActions}
         visible={stickyVisible}
         onHeightChange={handleStickyHeightChange}
       />
     );
+
+  const banner =
+    hasHydrated && isOffline ? (
+      <WizardOfflineBanner
+        ref={offlineBannerRef}
+        description="Reconnecting will re-enable confirmation and sharing actions."
+      />
+    ) : null;
+
+  const stepContent = (() => {
+    if (state.loading) {
+      switch (state.step) {
+        case 1:
+          return <PlanStepSkeleton />;
+        case 2:
+          return <DetailsStepSkeleton />;
+        case 3:
+          return <ReviewStepSkeleton />;
+        case 4:
+          return <ConfirmationStepSkeleton />;
+        default:
+          return null;
+      }
+    }
+
+    switch (state.step) {
+      case 1:
+        return (
+          <PlanStep
+            state={state}
+            actions={actions}
+            onActionsChange={handleActionsChange}
+            onTrack={analytics.track}
+          />
+        );
+      case 2:
+        return (
+          <DetailsStep state={state} actions={actions} onActionsChange={handleActionsChange} />
+        );
+      case 3:
+        return (
+          <ReviewStep
+            state={state}
+            actions={actions}
+            onConfirm={handleConfirm}
+            onActionsChange={handleActionsChange}
+          />
+        );
+      case 4:
+        return (
+          <ConfirmationStep
+            state={state}
+            onNewBooking={handleNewBooking}
+            onClose={handleClose}
+            onActionsChange={handleActionsChange}
+          />
+        );
+      default:
+        return null;
+    }
+  })();
 
   return (
     <WizardLayout
       heroRef={heroRef}
       stickyHeight={stickyHeight}
       stickyVisible={stickyVisible}
+      banner={banner}
       footer={footer}
     >
-      {(() => {
-        switch (state.step) {
-          case 1:
-            return (
-              <PlanStep
-                state={state}
-                actions={actions}
-                onActionsChange={handleActionsChange}
-                onTrack={analytics.track}
-              />
-            );
-          case 2:
-            return (
-              <DetailsStep state={state} actions={actions} onActionsChange={handleActionsChange} />
-            );
-          case 3:
-            return (
-              <ReviewStep
-                state={state}
-                actions={actions}
-                onConfirm={handleConfirm}
-                onActionsChange={handleActionsChange}
-              />
-            );
-          case 4:
-            return (
-              <ConfirmationStep
-                state={state}
-                onNewBooking={handleNewBooking}
-                onClose={handleClose}
-                onActionsChange={handleActionsChange}
-              />
-            );
-          default:
-            return null;
-        }
-      })()}
+      {stepContent}
     </WizardLayout>
   );
 }

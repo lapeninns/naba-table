@@ -5,7 +5,7 @@ import { planFormSchema, detailsFormSchema } from '../schemas';
 describe('planFormSchema', () => {
   const base = {
     date: '2025-05-12',
-    time: '18:30',
+    time: '18:15',
     party: 2,
     bookingType: 'dinner' as const,
     notes: 'Table near the window please.',

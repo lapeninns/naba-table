@@ -3,9 +3,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef } from 'react';
 
+import { emit } from '@/lib/analytics/emit';
 import { reservationAdapter, reservationListAdapter } from '@entities/reservation/adapter';
 import { apiClient, type ApiError } from '@shared/api/client';
 import { reservationKeys } from '@shared/api/queryKeys';
+import { track } from '@shared/lib/analytics';
 
 import type { ReservationSubmissionResult } from './types';
 import type { ReservationDraft } from '../model/reducer';
@@ -42,28 +44,40 @@ export function useCreateReservation() {
           ? crypto.randomUUID()
           : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
       idempotencyKeyRef.current = idempotencyKey;
-      const response = await method<{
-        booking?: unknown;
-        bookings?: unknown;
-      }>(path, payload, {
-        headers: { 'Idempotency-Key': idempotencyKey },
-      });
+      try {
+        const response = await method<{
+          booking?: unknown;
+          bookings?: unknown;
+        }>(path, payload, {
+          headers: { 'Idempotency-Key': idempotencyKey },
+        });
 
-      const booking = response?.booking ? reservationAdapter(response.booking) : null;
-      const bookings = response?.bookings ? reservationListAdapter(response.bookings) : [];
+        const booking = response?.booking ? reservationAdapter(response.booking) : null;
+        const bookings = response?.bookings ? reservationListAdapter(response.bookings) : [];
 
-      idempotencyKeyRef.current = null;
-
-      return {
-        booking,
-        bookings,
-      } satisfies ReservationSubmissionResult;
+        return {
+          booking,
+          bookings,
+        } satisfies ReservationSubmissionResult;
+      } finally {
+        idempotencyKeyRef.current = null;
+      }
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: reservationKeys.all() });
       if (result.booking) {
         queryClient.setQueryData(reservationKeys.detail(result.booking.id), result.booking);
       }
+    },
+    onError: (error, variables) => {
+      idempotencyKeyRef.current = null;
+      const payload = {
+        code: error?.code ?? 'UNKNOWN',
+        status: error?.status,
+        bookingId: variables?.bookingId ?? null,
+      };
+      track('wizard_submit_failed', payload);
+      emit('wizard_submit_failed', payload);
     },
   });
 }

@@ -95,6 +95,10 @@ export function useReservationWizard(initialDetails?: Partial<BookingDetails>) {
   const submitting = state.submitting || mutation.isPending;
 
   const handleConfirm = useCallback(async () => {
+    if (submitting || state.loading) {
+      return;
+    }
+
     const result = buildReservationDraft(state.details);
     if (!result.ok) {
       if ('error' in result) {
@@ -109,9 +113,12 @@ export function useReservationWizard(initialDetails?: Partial<BookingDetails>) {
     }
 
     const draft = result.draft;
+    const originStep = state.step;
 
     actions.clearError();
+    actions.setLoading(true);
     actions.setSubmitting(true);
+    actions.goToStep(4);
 
     try {
       const submission = await mutation.mutateAsync({
@@ -139,10 +146,22 @@ export function useReservationWizard(initialDetails?: Partial<BookingDetails>) {
         bookingId: state.editingId ?? undefined,
       });
       const message = mapErrorToMessage(error, 'Unable to process booking');
-      actions.setError(message);
+      actions.goToStep(originStep);
+      actions.setLoading(false);
       actions.setSubmitting(false);
+      actions.setError(message);
     }
-  }, [actions, analytics, errorReporter, mutation, state.details, state.editingId]);
+  }, [
+    actions,
+    analytics,
+    errorReporter,
+    mutation,
+    state.details,
+    state.editingId,
+    state.loading,
+    state.step,
+    submitting,
+  ]);
 
   const handleNewBooking = useCallback(() => {
     actions.clearError();

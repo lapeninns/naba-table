@@ -5,7 +5,9 @@ import { useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { useTimeSlots } from '@reserve/features/reservations/wizard/services';
+import { reservationConfigResult } from '@reserve/shared/config/reservations';
 import { formatDateForInput } from '@reserve/shared/formatting/booking';
+import { toMinutes } from '@reserve/shared/time';
 
 import { planFormSchema, type PlanFormValues } from '../model/schemas';
 
@@ -13,6 +15,9 @@ import type { BookingDetails } from '../model/reducer';
 import type { PlanStepFormProps, PlanStepFormState } from '../ui/steps/plan-step/types';
 
 const DEFAULT_TIME = '12:00';
+const RESERVATION_INTERVAL_MINUTES = reservationConfigResult.config.opening.intervalMinutes;
+const CLOSING_MINUTES = toMinutes(reservationConfigResult.config.opening.close);
+const LATEST_SELECTABLE_MINUTES = Math.max(0, CLOSING_MINUTES - RESERVATION_INTERVAL_MINUTES);
 
 export function usePlanStepForm({
   state,
@@ -72,7 +77,7 @@ export function usePlanStepForm({
     }
   }, [state.details.time, updateField]);
 
-  const normalizeHalfHour = useCallback((value: string) => {
+  const normalizeToInterval = useCallback((value: string) => {
     if (!value) {
       return '';
     }
@@ -85,8 +90,9 @@ export function usePlanStepForm({
       return value;
     }
 
-    const totalMinutes = Math.min(hours * 60 + minutes, 23 * 60 + 30);
-    const normalizedMinutes = Math.floor(totalMinutes / 30) * 30;
+    const totalMinutes = Math.min(hours * 60 + minutes, LATEST_SELECTABLE_MINUTES);
+    const normalizedMinutes =
+      Math.floor(totalMinutes / RESERVATION_INTERVAL_MINUTES) * RESERVATION_INTERVAL_MINUTES;
     const nextHours = Math.floor(normalizedMinutes / 60);
     const nextMinutes = normalizedMinutes % 60;
 
@@ -95,7 +101,7 @@ export function usePlanStepForm({
 
   const submitForm = useCallback(
     (values: PlanFormValues) => {
-      const normalizedTime = normalizeHalfHour(values.time);
+      const normalizedTime = normalizeToInterval(values.time);
 
       updateField('date', values.date);
       updateField('time', normalizedTime);
@@ -105,7 +111,7 @@ export function usePlanStepForm({
       form.setValue('time', normalizedTime, { shouldDirty: false, shouldValidate: true });
       actions.goToStep(2);
     },
-    [actions, form, normalizeHalfHour, updateField],
+    [actions, form, normalizeToInterval, updateField],
   );
 
   const handleError = useCallback(
@@ -137,7 +143,7 @@ export function usePlanStepForm({
         return;
       }
 
-      const normalized = normalizeHalfHour(value);
+      const normalized = normalizeToInterval(value);
       form.setValue('time', normalized, { shouldDirty: true, shouldValidate: true });
       updateField('time', normalized);
 
@@ -150,7 +156,7 @@ export function usePlanStepForm({
         booking_type: inferredService,
       });
     },
-    [form, inferBookingOption, normalizeHalfHour, onTrack, updateField],
+    [form, inferBookingOption, normalizeToInterval, onTrack, updateField],
   );
 
   const changeParty = useCallback(

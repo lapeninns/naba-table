@@ -12,6 +12,7 @@ interface WizardLayoutProps {
   heroRef?: HeroRef;
   stickyHeight?: number;
   stickyVisible?: boolean;
+  banner?: React.ReactNode;
   children: React.ReactNode;
   footer?: React.ReactNode;
 }
@@ -20,6 +21,7 @@ export function WizardLayout({
   heroRef,
   stickyHeight = 0,
   stickyVisible = false,
+  banner,
   children,
   footer,
 }: WizardLayoutProps) {
@@ -39,6 +41,7 @@ export function WizardLayout({
       >
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 sm:gap-12">
           <span ref={heroRef} aria-hidden className="block h-px w-full" />
+          {banner ? <div>{banner}</div> : null}
           {children}
         </div>
       </main>

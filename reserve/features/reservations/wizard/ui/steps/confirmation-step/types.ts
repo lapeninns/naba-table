@@ -7,7 +7,7 @@ export interface ConfirmationStepProps {
   onActionsChange: (actions: StepAction[]) => void;
 }
 
-export type ConfirmationStatus = 'confirmed' | 'updated';
+export type ConfirmationStatus = 'pending' | 'confirmed' | 'updated';
 
 export type ConfirmationFeedback = {
   variant: 'info' | 'success' | 'warning' | 'error';
@@ -24,6 +24,7 @@ export type ConfirmationStepController = {
     timezone: string;
   };
   status: ConfirmationStatus;
+  isLoading: boolean;
   heading: string;
   description: string;
   reference: string;

@@ -41,7 +41,7 @@ const DEFAULT_RESERVATION_CONFIG: ReservationConfig = {
   opening: {
     open: '12:00' as ReservationTime,
     close: '23:00' as ReservationTime,
-    intervalMinutes: 30,
+    intervalMinutes: 15,
   },
   windows: {
     weekdayLunchEnd: '15:00' as ReservationTime,

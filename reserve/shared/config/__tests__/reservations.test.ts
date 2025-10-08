@@ -17,7 +17,7 @@ describe('reservation config', () => {
   it('provides default values when no overrides supplied', async () => {
     const configModule = await import('../reservations');
     expect(configModule.reservationConfigResult.config.opening.open).toBe('12:00');
-    expect(configModule.reservationConfigResult.config.opening.intervalMinutes).toBe(30);
+    expect(configModule.reservationConfigResult.config.opening.intervalMinutes).toBe(15);
     expect(configModule.reservationConfigResult.config.defaultDurationMinutes).toBe(90);
     expect(configModule.reservationConfigResult.issues).toHaveLength(0);
   });
@@ -42,7 +42,7 @@ describe('reservation config', () => {
     const configModule = await import('../reservations');
 
     expect(configModule.reservationConfigResult.config.opening.open).toBe('12:00');
-    expect(configModule.reservationConfigResult.config.opening.intervalMinutes).toBe(30);
+    expect(configModule.reservationConfigResult.config.opening.intervalMinutes).toBe(15);
     expect(configModule.reservationConfigResult.issues.length).toBeGreaterThanOrEqual(1);
   });
 });

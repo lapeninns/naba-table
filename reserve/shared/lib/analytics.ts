@@ -13,6 +13,8 @@ export const ANALYTICS_EVENTS = [
   'confirm_open',
   'details_submit',
   'booking_created',
+  'wizard_offline_detected',
+  'wizard_submit_failed',
 ] as const;
 
 export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[number];

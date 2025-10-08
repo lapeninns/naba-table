@@ -42,16 +42,12 @@ describe('<PlanStepForm />', () => {
     await user.click(screen.getByRole('button', { name: 'Increase guests' }));
     expect(updateDetails).toHaveBeenCalledWith('party', 3);
 
+    await user.click(screen.getByRole('button', { name: /Time, occasion & notes/i }));
     await user.click(screen.getByRole('button', { name: /18:00, Dinner/i }));
     expect(updateDetails).toHaveBeenCalledWith('time', '18:00');
 
-    let drinksButton = screen.queryByText('Drinks & cocktails');
-    if (!drinksButton) {
-      await user.click(screen.getByRole('button', { name: /Time, occasion & notes/i }));
-      drinksButton = await screen.findByText('Drinks & cocktails');
-    }
-    expect(drinksButton).toBeTruthy();
-    await user.click(drinksButton as HTMLElement);
+    const drinksButton = await screen.findByText('Drinks & cocktails');
+    await user.click(drinksButton);
 
     expect(updateDetails).toHaveBeenCalledWith('bookingType', 'drinks');
     expect(onTrack).toHaveBeenCalledWith(

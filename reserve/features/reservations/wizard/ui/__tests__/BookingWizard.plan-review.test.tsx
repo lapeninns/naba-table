@@ -49,7 +49,7 @@ describe('BookingWizard plan to review flow', () => {
     const analytics = { track: vi.fn() };
     const initialDetails = wizardDetailsFixture({
       date: '2025-05-20',
-      time: '18:30',
+      time: '18:15',
       party: 2,
       bookingType: 'dinner',
       name: '',
@@ -90,7 +90,7 @@ describe('BookingWizard plan to review flow', () => {
     await screen.findByText('Review and confirm');
     expect(screen.getByText(/Test Kitchen/)).toBeVisible();
     expect(screen.getByText(/Ada Lovelace/)).toBeVisible();
-    const timeNodes = screen.getAllByText(/18:30/);
+    const timeNodes = screen.getAllByText(/18:15/);
     expect(timeNodes.length).toBeGreaterThan(0);
 
     await userEvent.click(screen.getByRole('button', { name: /Confirm booking/i }));
@@ -102,7 +102,7 @@ describe('BookingWizard plan to review flow', () => {
     const payload = mutateAsync.mock.calls[0]?.[0];
     expect(payload?.draft).toMatchObject({
       date: '2025-05-20',
-      time: '18:30',
+      time: '18:15',
       party: 2,
       bookingType: 'dinner',
       name: 'Ada Lovelace',
@@ -114,8 +114,67 @@ describe('BookingWizard plan to review flow', () => {
       'booking_created',
       expect.objectContaining({
         party: 2,
-        start_time: '18:30',
+        start_time: '18:15',
       }),
     );
+  });
+
+  it('returns to review step and surfaces error when booking submission fails', async () => {
+    const analytics = { track: vi.fn() };
+    mutateAsync.mockRejectedValueOnce({
+      code: 'SERVER_ERROR',
+      message: 'Unable to save booking',
+      status: 500,
+    });
+
+    const initialDetails = wizardDetailsFixture({
+      date: '2025-05-20',
+      time: '19:00',
+      party: 2,
+      bookingType: 'dinner',
+      name: '',
+      email: '',
+      phone: '',
+    });
+
+    render(
+      <WizardDependenciesProvider value={{ analytics }}>
+        <BookingWizard initialDetails={initialDetails} />
+      </WizardDependenciesProvider>,
+    );
+
+    const planForm = document.querySelector('form');
+    expect(planForm).toBeTruthy();
+    await act(async () => {
+      if (planForm) {
+        fireEvent.submit(planForm);
+      }
+    });
+
+    await screen.findByText('Tell us how to reach you');
+
+    await userEvent.clear(screen.getByLabelText('Full name'));
+    await userEvent.type(screen.getByLabelText('Full name'), 'Ada Lovelace');
+    await userEvent.clear(screen.getByLabelText('Email address'));
+    await userEvent.type(screen.getByLabelText('Email address'), 'ada@example.com');
+    await userEvent.clear(screen.getByLabelText('UK phone number'));
+    await userEvent.type(screen.getByLabelText('UK phone number'), '07123 456789');
+
+    await act(async () => {
+      await userEvent.click(screen.getByRole('button', { name: /Review booking/i }));
+    });
+
+    await screen.findByText('Review and confirm');
+
+    await userEvent.click(screen.getByRole('button', { name: /Confirm booking/i }));
+
+    await waitFor(() => {
+      expect(mutateAsync).toHaveBeenCalledTimes(1);
+    });
+
+    await screen.findByText('Review and confirm');
+    const alertMessage = await screen.findByText(/Unable to .* booking/i);
+    expect(alertMessage).toBeVisible();
+    expect(analytics.track).not.toHaveBeenCalledWith('booking_created', expect.anything());
   });
 });

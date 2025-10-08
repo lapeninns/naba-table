@@ -1,92 +1,102 @@
-"use client";
+import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
+import { cookies, headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 
-import { useCallback, useEffect, useState } from "react";
+import { DASHBOARD_DEFAULT_PAGE_SIZE } from '@/components/dashboard/constants';
+import type { BookingsPage } from '@/hooks/useBookings';
+import { queryKeys } from '@/lib/query/keys';
+import { getServerComponentSupabaseClient } from '@/server/supabase';
 
-import { BookingsTable } from "@/components/dashboard/BookingsTable";
-import { CancelBookingDialog } from "@/components/dashboard/CancelBookingDialog";
-import { EditBookingDialog } from "@/components/dashboard/EditBookingDialog";
-import { useBookings, type BookingDTO } from "@/hooks/useBookings";
-import { useBookingsTableState } from "@/hooks/useBookingsTableState";
-import { track } from "@/lib/analytics";
+import { DashboardClient } from './DashboardClient';
 
-const DEFAULT_PAGE_SIZE = 10;
+export const dynamic = 'force-dynamic';
 
-export default function DashboardPage() {
-  const tableState = useBookingsTableState({ pageSize: DEFAULT_PAGE_SIZE });
-  const { statusFilter, page, pageSize, queryFilters, handleStatusFilterChange } = tableState;
-  const [editBooking, setEditBooking] = useState<BookingDTO | null>(null);
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [cancelBooking, setCancelBooking] = useState<BookingDTO | null>(null);
-  const [isCancelOpen, setIsCancelOpen] = useState(false);
+function buildDefaultSearchParams(pageSize: number): URLSearchParams {
+  const params = new URLSearchParams({
+    me: '1',
+    page: '1',
+    pageSize: String(pageSize),
+    sort: 'asc',
+  });
 
-  const { data, error, isLoading, isFetching, refetch } = useBookings(queryFilters);
+  params.set('from', new Date().toISOString());
+  return params;
+}
 
-  useEffect(() => {
-    if (!data) return;
-    track("dashboard_viewed", {
-      totalBookings: data.pageInfo?.total ?? 0,
-      filter: statusFilter,
+type HeaderLike = {
+  get(name: string): string | null | undefined;
+};
+
+function resolveOrigin(requestHeaders: HeaderLike): string {
+  const forwardedHost = requestHeaders.get('x-forwarded-host') ?? requestHeaders.get('host');
+  const forwardedProto = requestHeaders.get('x-forwarded-proto');
+  const origin = requestHeaders.get('origin');
+
+  if (origin) {
+    return origin;
+  }
+
+  if (forwardedHost) {
+    const protocol = forwardedProto ?? 'https';
+    return `${protocol}://${forwardedHost}`;
+  }
+
+  return process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+}
+
+async function prefetchUpcomingBookings(queryClient: QueryClient) {
+  const searchParams = buildDefaultSearchParams(DASHBOARD_DEFAULT_PAGE_SIZE);
+  const keyParams = Object.fromEntries(searchParams.entries());
+  const requestHeaders = await headers();
+  const cookieStore = await cookies();
+  const cookieHeader = cookieStore
+    .getAll()
+    .map(({ name, value }) => `${name}=${value}`)
+    .join('; ');
+  const origin = resolveOrigin(requestHeaders);
+  const url = `${origin}/api/bookings?${searchParams.toString()}`;
+
+  try {
+    await queryClient.prefetchQuery({
+      queryKey: queryKeys.bookings.list(keyParams),
+      queryFn: async () => {
+        const response = await fetch(url, {
+          headers: {
+            accept: 'application/json',
+            ...(cookieHeader ? { cookie: cookieHeader } : {}),
+          },
+          cache: 'no-store',
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to prefetch bookings (${response.status})`);
+        }
+
+        return (await response.json()) as BookingsPage;
+      },
     });
-  }, [data, statusFilter]);
+  } catch (error) {
+    console.error('[dashboard][prefetch]', error);
+  }
+}
 
-  const pageInfo = data?.pageInfo ?? {
-    page,
-    pageSize,
-    total: 0,
-    hasNext: false,
-  };
+export default async function DashboardPage() {
+  const supabase = await getServerComponentSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const handlePageChange = useCallback(
-    (nextPage: number) => {
-      tableState.handlePageChange(nextPage, pageInfo.total);
-    },
-    [pageInfo.total, tableState],
-  );
+  if (!user) {
+    redirect('/signin?redirectedFrom=/dashboard');
+  }
 
-  const handleEdit = useCallback((booking: BookingDTO) => {
-    setEditBooking(booking);
-    setIsEditOpen(true);
-  }, []);
-
-  const handleEditOpenChange = useCallback((open: boolean) => {
-    setIsEditOpen(open);
-    if (!open) {
-      setEditBooking(null);
-    }
-  }, []);
-
-  const handleCancel = useCallback((booking: BookingDTO) => {
-    setCancelBooking(booking);
-    setIsCancelOpen(true);
-  }, []);
-
-  const handleCancelOpenChange = useCallback((open: boolean) => {
-    setIsCancelOpen(open);
-    if (!open) {
-      setCancelBooking(null);
-    }
-  }, []);
+  const queryClient = new QueryClient();
+  await prefetchUpcomingBookings(queryClient);
+  const dehydratedState = dehydrate(queryClient);
 
   return (
-    <section className="space-y-6">
-      <BookingsTable
-        bookings={data?.items ?? []}
-        page={pageInfo.page}
-        pageSize={pageInfo.pageSize}
-        total={pageInfo.total}
-        statusFilter={statusFilter}
-        isLoading={isLoading}
-        isFetching={isFetching}
-        error={error ?? null}
-        onStatusFilterChange={handleStatusFilterChange}
-        onPageChange={handlePageChange}
-        onRetry={refetch}
-        onEdit={handleEdit}
-        onCancel={handleCancel}
-      />
-
-      <EditBookingDialog booking={editBooking} open={isEditOpen} onOpenChange={handleEditOpenChange} />
-      <CancelBookingDialog booking={cancelBooking} open={isCancelOpen} onOpenChange={handleCancelOpenChange} />
-    </section>
+    <HydrationBoundary state={dehydratedState}>
+      <DashboardClient />
+    </HydrationBoundary>
   );
 }

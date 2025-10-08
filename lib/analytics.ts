@@ -14,9 +14,18 @@ export type AnalyticsEvent =
   | "dashboard_viewed"
   | "booking_cancelled"
   | "booking_cancel_error"
+  | "dashboard_cancel_opened"
   | "network_offline"
+  | "wizard_offline_detected"
+  | "wizard_submit_failed"
   | "profile_updated"
-  | "profile_upload_error";
+  | "profile_upload_error"
+  | "profile_update_duplicate"
+  | "auth_signin_viewed"
+  | "auth_signin_attempt"
+  | "auth_signin_success"
+  | "auth_signin_error"
+  | "auth_magiclink_sent";
 
 type AnalyticsProps = Record<string, unknown>;
 

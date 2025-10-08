@@ -505,6 +505,38 @@ export type Database = {
           },
         ]
       }
+      profile_update_requests: {
+        Row: {
+          applied_at: string
+          id: string
+          idempotency_key: string
+          payload_hash: string
+          profile_id: string
+        }
+        Insert: {
+          applied_at?: string
+          id?: string
+          idempotency_key: string
+          payload_hash: string
+          profile_id: string
+        }
+        Update: {
+          applied_at?: string
+          id?: string
+          idempotency_key?: string
+          payload_hash?: string
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_update_requests_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string

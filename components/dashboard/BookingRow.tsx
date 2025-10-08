@@ -1,9 +1,10 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { StatusChip } from './StatusChip';
 import type { BookingDTO } from '@/hooks/useBookings';
 import { cn } from '@/lib/utils';
+
+import { StatusChip } from './StatusChip';
 
 export type BookingRowProps = {
   booking: BookingDTO;
@@ -14,11 +15,17 @@ export type BookingRowProps = {
   isPastView?: boolean;
 };
 
-export function BookingRow({ booking, formatDate, formatTime, onEdit, onCancel, isPastView = false }: BookingRowProps) {
-  const isCancelled = booking.status === 'cancelled';
+export function isBookingPast(booking: BookingDTO): boolean {
   const startDate = new Date(booking.startIso);
   const isPastByTime = !Number.isNaN(startDate.getTime()) && startDate.getTime() < Date.now();
-  const isPast = isPastView || isPastByTime || booking.status === 'completed' || booking.status === 'no_show';
+  return isPastByTime || booking.status === 'completed' || booking.status === 'no_show';
+}
+
+export function deriveBookingDisplayState(
+  booking: BookingDTO,
+  { isPastView = false }: { isPastView?: boolean } = {},
+): { displayStatus: BookingDTO['status']; isPast: boolean } {
+  const isPast = isPastView || isBookingPast(booking);
 
   let displayStatus: BookingDTO['status'] = booking.status;
   if (isPast) {
@@ -28,6 +35,13 @@ export function BookingRow({ booking, formatDate, formatTime, onEdit, onCancel, 
       displayStatus = 'no_show';
     }
   }
+
+  return { displayStatus, isPast };
+}
+
+export function BookingRow({ booking, formatDate, formatTime, onEdit, onCancel, isPastView = false }: BookingRowProps) {
+  const isCancelled = booking.status === 'cancelled';
+  const { displayStatus, isPast } = deriveBookingDisplayState(booking, { isPastView });
 
   const textClass = (extra?: string) =>
     cn('px-4 py-4 text-sm', extra, isPast ? 'text-muted-foreground' : 'text-foreground');

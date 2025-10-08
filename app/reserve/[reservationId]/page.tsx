@@ -4,9 +4,11 @@ import { notFound, redirect } from 'next/navigation';
 import { getReservation } from '@/server/reservations/getReservation';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
 import { defaultErrorReporter } from '@reserve/shared/error';
+import { DEFAULT_VENUE } from '@shared/config/venue';
 
 import { ReservationDetailClient } from './ReservationDetailClient';
 
+import type { Reservation } from '@entities/reservation/reservation.schema';
 import type { Metadata } from 'next';
 
 export const dynamic = 'force-dynamic';
@@ -16,6 +18,43 @@ type RouteParams = Promise<{ reservationId: string }>;
 function sanitizeReservationId(value: string | undefined): string | null {
   if (!value || typeof value !== 'string') return null;
   return value.trim() || null;
+}
+
+type ReservationVenue = {
+  name: string;
+  address: string;
+  timezone: string;
+};
+
+function deriveVenue(reservation: Reservation, restaurantName: string | null): ReservationVenue {
+  return {
+    name: restaurantName ?? reservation.restaurantName ?? DEFAULT_VENUE.name,
+    address: DEFAULT_VENUE.address,
+    timezone: DEFAULT_VENUE.timezone,
+  };
+}
+
+function buildReservationJsonLd(reservation: Reservation, venue: ReservationVenue) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Reservation',
+    reservationNumber: reservation.reference ?? reservation.id,
+    reservationStatus: reservation.status,
+    reservationFor: {
+      '@type': 'FoodEstablishment',
+      name: venue.name,
+      address: venue.address,
+    },
+    partySize: reservation.partySize,
+    startTime: reservation.startAt ? new Date(reservation.startAt).toISOString() : undefined,
+  };
+}
+
+function serializeJsonLd(payload: Record<string, unknown> | null): string | null {
+  if (!payload) {
+    return null;
+  }
+  return JSON.stringify(payload).replace(/</g, '\\u003c');
 }
 
 export async function generateMetadata({ params }: { params: RouteParams }): Promise<Metadata> {
@@ -71,10 +110,17 @@ export default async function ReservationDetailPage({ params }: { params: RouteP
   const queryClient = new QueryClient();
   queryClient.setQueryData(['reservation', reservationId], reservation);
   const dehydratedState = dehydrate(queryClient);
+  const venue = deriveVenue(reservation, restaurantName);
+  const structuredData = serializeJsonLd(buildReservationJsonLd(reservation, venue));
 
   return (
     <HydrationBoundary state={dehydratedState}>
-      <ReservationDetailClient reservationId={reservationId} restaurantName={restaurantName} />
+      <ReservationDetailClient
+        reservationId={reservationId}
+        restaurantName={restaurantName}
+        venue={venue}
+        structuredData={structuredData}
+      />
     </HydrationBoundary>
   );
 }

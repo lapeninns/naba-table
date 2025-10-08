@@ -1,16 +1,19 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
+
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BookingsHeader } from './BookingsHeader';
-import { BookingRow } from './BookingRow';
-import { EmptyState } from './EmptyState';
-import { Pagination } from './Pagination';
 import type { BookingDTO, BookingStatus, BookingsPage } from '@/hooks/useBookings';
 import type { StatusFilter } from '@/hooks/useBookingsTableState';
 import type { HttpError } from '@/lib/http/errors';
+
+import { BookingsHeader } from './BookingsHeader';
+import { BookingRow } from './BookingRow';
+import { BookingsListMobile } from './BookingsListMobile';
+import { EmptyState, type EmptyStateProps } from './EmptyState';
+import { Pagination } from './Pagination';
 
 export type BookingsTableProps = {
   bookings: BookingDTO[];
@@ -54,6 +57,7 @@ export function BookingsTable({
 }: BookingsTableProps) {
   const showSkeleton = isLoading;
   const showEmpty = !isLoading && !error && bookings.length === 0;
+  const isPastView = statusFilter === 'past';
 
   const emptyState = useMemo(() => {
     switch (statusFilter) {
@@ -106,6 +110,20 @@ export function BookingsTable({
     [timeFormatter],
   );
 
+  const mobileEmptyState: EmptyStateProps | undefined = emptyState
+    ? {
+        ...emptyState,
+        analyticsEvent: `${emptyState.analyticsEvent ?? 'dashboard_empty_state_viewed'}_mobile`,
+      }
+    : undefined;
+
+  const desktopEmptyState: EmptyStateProps | undefined = emptyState
+    ? {
+        ...emptyState,
+        analyticsEvent: `${emptyState.analyticsEvent ?? 'dashboard_empty_state_viewed'}_desktop`,
+      }
+    : undefined;
+
   return (
     <div className="space-y-4">
       <BookingsHeader
@@ -126,57 +144,86 @@ export function BookingsTable({
         </Alert>
       ) : null}
 
-      <div className="overflow-x-auto rounded-xl border border-border bg-card">
-        <table className="min-w-full divide-y divide-border" role="grid">
-          <thead className="bg-muted">
-            <tr>
-              <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Date
-              </th>
-              <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Time
-              </th>
-              <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Party
-              </th>
-              <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Restaurant
-              </th>
-              <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Status
-              </th>
-              <th scope="col" className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border/70">
-            {showSkeleton
-              ? skeletonRows.map((row) => (
-                  <tr key={`skeleton-${row}`}>
-                    <td className="px-4 py-4"><Skeleton className="h-4 w-24" /></td>
-                    <td className="px-4 py-4"><Skeleton className="h-4 w-16" /></td>
-                    <td className="px-4 py-4"><Skeleton className="h-4 w-12" /></td>
-                    <td className="px-4 py-4"><Skeleton className="h-4 w-40" /></td>
-                    <td className="px-4 py-4"><Skeleton className="h-5 w-28" /></td>
-                    <td className="px-4 py-4 text-right"><Skeleton className="h-9 w-24 ml-auto" /></td>
-                  </tr>
-                ))
-              : bookings.map((booking) => (
-                  <BookingRow
-                    key={booking.id}
-                    booking={booking}
-                    formatDate={formatDate}
-                    formatTime={formatTime}
-                    onEdit={onEdit}
-                    onCancel={onCancel}
-                    isPastView={statusFilter === 'past'}
-                  />
-                ))}
-          </tbody>
-        </table>
+      <div className="space-y-4">
+        <div className="md:hidden">
+          <BookingsListMobile
+            bookings={bookings}
+            isLoading={isLoading}
+            formatDate={formatDate}
+            formatTime={formatTime}
+            onEdit={onEdit}
+            onCancel={onCancel}
+            emptyState={mobileEmptyState}
+            isPastView={isPastView}
+          />
+        </div>
 
-        {showEmpty ? <EmptyState {...emptyState} /> : null}
+        <div className="hidden md:block">
+          <div className="overflow-x-auto rounded-xl border border-border bg-card">
+            <table className="min-w-full divide-y divide-border" role="grid">
+              <thead className="bg-muted">
+                <tr>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Date
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Time
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Party
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Restaurant
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Status
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/70">
+                {showSkeleton
+                  ? skeletonRows.map((row) => (
+                      <tr key={`skeleton-${row}`}>
+                        <td className="px-4 py-4">
+                          <Skeleton className="h-4 w-24" />
+                        </td>
+                        <td className="px-4 py-4">
+                          <Skeleton className="h-4 w-16" />
+                        </td>
+                        <td className="px-4 py-4">
+                          <Skeleton className="h-4 w-12" />
+                        </td>
+                        <td className="px-4 py-4">
+                          <Skeleton className="h-4 w-40" />
+                        </td>
+                        <td className="px-4 py-4">
+                          <Skeleton className="h-5 w-28" />
+                        </td>
+                        <td className="px-4 py-4 text-right">
+                          <Skeleton className="ml-auto h-9 w-24" />
+                        </td>
+                      </tr>
+                    ))
+                  : bookings.map((booking) => (
+                      <BookingRow
+                        key={booking.id}
+                        booking={booking}
+                        formatDate={formatDate}
+                        formatTime={formatTime}
+                        onEdit={onEdit}
+                        onCancel={onCancel}
+                        isPastView={isPastView}
+                      />
+                    ))}
+              </tbody>
+            </table>
+          </div>
+
+          {showEmpty ? <EmptyState {...desktopEmptyState} /> : null}
+        </div>
       </div>
 
       {total > 0 && (

@@ -17,7 +17,7 @@ describe('reservation time helpers', () => {
     const slots = getSlotsByService('2025-05-07');
     expect(slots.lunch.length).toBeGreaterThan(0);
     expect(slots.lunch[0]).toBe('12:00');
-    expect(slots.dinner[slots.dinner.length - 1]).toBe('22:30');
+    expect(slots.dinner[slots.dinner.length - 1]).toBe('22:45');
   });
 
   it('infers booking option based on time and date', () => {

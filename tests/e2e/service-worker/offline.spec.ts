@@ -12,7 +12,7 @@ test.describe('reservation wizard offline resilience', () => {
     await page.goto('/reserve');
     await context.setOffline(true);
     await page.getByRole('button', { name: /Confirm reservation/i }).click();
-    await expect(page.getByText(/You appear to be offline/i)).toBeVisible();
+    await expect(page.getByText(/You’re offline/i)).toBeVisible();
     await context.setOffline(false);
   });
 });

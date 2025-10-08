@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useProfile, useUpdateProfile, useUploadProfileAvatar, coerceProfileUpdatePayload } from '@/hooks/useProfile';
+import { HttpError } from '@/lib/http/errors';
 import { profilePhoneSchema } from '@/lib/profile/schema';
 import type { ProfileResponse } from '@/lib/profile/schema';
 import { cn } from '@/lib/utils';
@@ -66,6 +67,39 @@ type AvatarValidationError = {
   message: string;
 };
 
+type StatusTone = 'info' | 'success' | 'warning' | 'error';
+
+type StatusState = {
+  message: string;
+  tone: StatusTone;
+  live: 'polite' | 'assertive';
+};
+
+const FIELD_LABELS: Record<'name' | 'phone' | 'image', string> = {
+  name: 'display name',
+  phone: 'phone number',
+  image: 'avatar',
+};
+
+const getLiveForTone = (tone: StatusTone): 'polite' | 'assertive' =>
+  tone === 'warning' || tone === 'error' ? 'assertive' : 'polite';
+
+const formatFieldList = (keys: Array<'name' | 'phone' | 'image'>): string => {
+  const labels = keys.map((key) => FIELD_LABELS[key]);
+  if (labels.length === 0) {
+    return 'details';
+  }
+  if (labels.length === 1) {
+    return labels[0]!;
+  }
+  if (labels.length === 2) {
+    return `${labels[0]} and ${labels[1]}`;
+  }
+  const head = labels.slice(0, -1).join(', ');
+  const tail = labels[labels.length - 1];
+  return `${head}, and ${tail}`;
+};
+
 function validateAvatarFile(file: File): AvatarValidationError | null {
   if (file.size > MAX_AVATAR_SIZE) {
     return {
@@ -115,7 +149,7 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
     removed: false,
   });
   const [avatarError, setAvatarError] = useState<string | null>(null);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [status, setStatus] = useState<StatusState | null>(null);
   const statusRef = useRef<HTMLParagraphElement | null>(null);
 
   // Sync form when profile changes (e.g. after successful mutation elsewhere).
@@ -128,6 +162,7 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
     });
     setAvatarState({ file: null, previewUrl: null, removed: false });
     setAvatarError(null);
+    setStatus(null);
   }, [currentProfile.email, currentProfile.image, currentProfile.name, form]);
 
   // Focus first error when validation fails.
@@ -218,6 +253,26 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
   const disableSubmit = isSubmitting || (!hasNameChanged && !hasPhoneChanged && !hasAvatarChanged);
   const hasUnsavedChanges = !disableSubmit;
 
+  const focusStatus = () => {
+    setTimeout(() => statusRef.current?.focus(), 0);
+  };
+
+  const announceStatus = (
+    next: {
+      message: string;
+      tone: StatusTone;
+      live?: 'polite' | 'assertive';
+    } | null,
+  ) => {
+    if (!next) {
+      setStatus(null);
+      return;
+    }
+    const live = next.live ?? getLiveForTone(next.tone);
+    setStatus({ message: next.message, tone: next.tone, live });
+    focusStatus();
+  };
+
   useEffect(() => {
     const handler = (event: BeforeUnloadEvent) => {
       if (!hasUnsavedChanges) return;
@@ -233,7 +288,7 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
   }, [hasUnsavedChanges]);
 
   const onSubmit = form.handleSubmit(async (values) => {
-    setStatusMessage(null);
+    announceStatus(null);
 
     const trimmedName = values.name.trim();
     const baselineName = currentProfile.name ?? '';
@@ -276,15 +331,22 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
       draft.image = desiredImage;
     }
 
-    if (Object.keys(draft).length === 0) {
-      setStatusMessage('Nothing to update — your profile is up to date.');
-      setTimeout(() => statusRef.current?.focus(), 0);
+    const changedKeys = Object.keys(draft).filter((key): key is 'name' | 'phone' | 'image' =>
+      key === 'name' || key === 'phone' || key === 'image',
+    );
+
+    if (changedKeys.length === 0) {
+      announceStatus({
+        message: 'No changes detected — update a field before saving.',
+        tone: 'info',
+      });
       return;
     }
 
     try {
       const payload = coerceProfileUpdatePayload(draft);
-      const updated = await updateProfile.mutateAsync(payload);
+      const result = await updateProfile.mutateAsync(payload);
+      const updated = result.profile;
       form.reset({
         name: updated.name ?? '',
         phone: updated.phone ?? '',
@@ -298,14 +360,55 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
         return { file: null, previewUrl: null, removed: false };
       });
       setAvatarError(null);
-      setStatusMessage('Profile updated successfully.');
-      setTimeout(() => statusRef.current?.focus(), 0);
+      if (result.idempotent) {
+        const description =
+          changedKeys.length > 0
+            ? `We already saved your ${formatFieldList(changedKeys)} — everything is up to date.`
+            : 'We already saved those details — everything is up to date.';
+        announceStatus({
+          message: description,
+          tone: 'info',
+        });
+      } else {
+        announceStatus({
+          message: 'Profile updated successfully.',
+          tone: 'success',
+        });
+      }
     } catch (error) {
       console.error('[profile/manage] update failed', error);
+      if (error instanceof HttpError) {
+        if (error.code === 'IDEMPOTENCY_KEY_CONFLICT') {
+          announceStatus({
+            message:
+              'We already processed a recent update. Refresh the page to make sure you are editing the latest details.',
+            tone: 'warning',
+          });
+          return;
+        }
+
+        announceStatus({
+          message: error.message || 'We couldn’t update your profile. Please try again.',
+          tone: 'error',
+        });
+        return;
+      }
+
+      announceStatus({
+        message: 'We couldn’t update your profile. Please try again.',
+        tone: 'error',
+      });
     }
   });
 
   const avatarPreviewSrc = avatarState.previewUrl ?? currentProfile.image ?? null;
+
+  const statusToneClass: Record<StatusTone, string> = {
+    info: 'text-muted-foreground',
+    success: 'text-emerald-600',
+    warning: 'text-amber-600',
+    error: 'text-red-600',
+  };
 
   return (
     <Form {...form}>
@@ -359,7 +462,7 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
                 )}
               </div>
               {avatarError ? (
-                <p className="text-sm text-red-600" role="alert">
+                <p className="text-sm text-red-600" role="alert" aria-live="assertive">
                   {avatarError}
                 </p>
               ) : null}
@@ -425,12 +528,16 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p
             ref={statusRef}
-            tabIndex={statusMessage ? -1 : undefined}
-            className={cn('min-h-[1.25rem] text-sm text-srx-ink-soft', statusMessage ? 'text-srx-ink-strong' : 'text-srx-ink-soft')}
-            aria-live="polite"
+            tabIndex={status ? -1 : undefined}
+            className={cn(
+              'min-h-[1.25rem] text-sm text-srx-ink-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-srx-brand/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+              status ? statusToneClass[status.tone] : 'text-srx-ink-soft',
+            )}
+            role="status"
+            aria-live={status?.live ?? 'polite'}
             aria-atomic="true"
           >
-            {statusMessage ?? ''}
+            {status?.message ?? ''}
           </p>
           <div className="flex gap-3">
             <Button
@@ -446,7 +553,7 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
                   return { file: null, previewUrl: null, removed: false };
                 });
                 setAvatarError(null);
-                setStatusMessage(null);
+                announceStatus(null);
               }}
               disabled={isSubmitting}
             >

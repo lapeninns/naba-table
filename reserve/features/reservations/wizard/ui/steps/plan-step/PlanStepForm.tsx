@@ -116,7 +116,6 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
       <Accordion
         type="single"
         collapsible
-        defaultValue="details"
         className="overflow-hidden rounded-xl border border-border bg-card text-card-foreground"
       >
         <AccordionItem value="details">
