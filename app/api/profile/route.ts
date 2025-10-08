@@ -6,7 +6,7 @@ import type { User } from "@supabase/supabase-js";
 
 import { profileUpdateSchema, type ProfileUpdatePayload } from "@/lib/profile/schema";
 import { normalizeProfileRow, ensureProfileRow, PROFILE_COLUMNS } from "@/lib/profile/server";
-import { getRouteHandlerSupabaseClient } from "@/server/supabase";
+import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 import type { Database } from "@/types/supabase";
 
 function jsonError(status: number, code: string, message: string, details?: unknown) {
@@ -129,6 +129,7 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
     idempotencyKey = normalizeIdempotencyKey(req.headers.get("Idempotency-Key")) ?? randomUUID();
 
     const row = await ensureProfileRow(supabase, user);
+    const serviceSupabase = getServiceSupabaseClient();
 
     if (!Object.keys(parsedBody).some((key) => key === "name" || key === "phone" || key === "image")) {
       const profile = normalizeProfileRow(row, user.email ?? null);
@@ -145,7 +146,7 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
     const updatePayload = buildUpdatePayload(parsedBody);
     const payloadHash = hashPayload(parsedBody);
 
-    const existing = await supabase
+    const existing = await serviceSupabase
       .from("profile_update_requests")
       .select("payload_hash, applied_at")
       .eq("profile_id", user.id)
@@ -194,7 +195,7 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
       return jsonError(403, code, message);
     }
 
-    const insertResult = await supabase
+    const insertResult = await serviceSupabase
       .from("profile_update_requests")
       .insert({
         profile_id: user.id,

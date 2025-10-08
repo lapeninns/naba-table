@@ -8,16 +8,20 @@ export const metadata: Metadata = {
   description: "Access your SajiloReserveX account to manage bookings and settings.",
 };
 
-type SignInPageProps = {
-  searchParams?: {
-    redirectedFrom?: string;
-  };
+type SignInPageSearchParams = {
+  redirectedFrom?: string | string[];
 };
 
-export default function SignInPage({ searchParams }: SignInPageProps) {
+type SignInPageProps = {
+  searchParams: Promise<SignInPageSearchParams>;
+};
+
+export default async function SignInPage({ searchParams }: SignInPageProps) {
+  const resolvedParams = await searchParams;
+  const redirectedRaw = resolvedParams?.redirectedFrom;
   const redirectedFromParam =
-    typeof searchParams?.redirectedFrom === "string" && searchParams.redirectedFrom.length > 0
-      ? searchParams.redirectedFrom
+    typeof redirectedRaw === "string" && redirectedRaw.length > 0
+      ? redirectedRaw
       : undefined;
 
   return (
@@ -51,4 +55,3 @@ export default function SignInPage({ searchParams }: SignInPageProps) {
     </main>
   );
 }
-

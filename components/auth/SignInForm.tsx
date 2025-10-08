@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
@@ -21,13 +20,6 @@ import type { AuthApiError } from '@supabase/supabase-js';
 
 const formSchema = z.object({
   email: z.string().trim().min(1, 'Enter your email address').email('Enter a valid email address'),
-  password: z
-    .string()
-    .optional()
-    .transform((value) => value?.trim() ?? '')
-    .refine((value) => value.length === 0 || value.length >= 8, {
-      message: 'Password must be at least 8 characters',
-    }),
 });
 
 export type SignInFormProps = {
@@ -43,8 +35,6 @@ type StatusState = {
 };
 
 type FormValues = z.infer<typeof formSchema>;
-
-type SignInMode = 'password' | 'magic';
 
 const STATUS_TONE_CLASSES: Record<StatusTone, string> = {
   info: 'text-muted-foreground',
@@ -62,13 +52,11 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
     resolver: zodResolver(formSchema),
     defaultValues: {
       email: '',
-      password: '',
     },
     mode: 'onSubmit',
     reValidateMode: 'onBlur',
   });
 
-  const [mode, setMode] = useState<SignInMode>('password');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [magicCooldown, setMagicCooldown] = useState(0);
   const [status, setStatus] = useState<StatusState | null>(null);
@@ -91,58 +79,10 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
   useEffect(() => {
     form.clearErrors();
     setStatus(null);
-  }, [mode, form]);
+  }, [form]);
 
   const focusStatus = () => {
     setTimeout(() => statusRef.current?.focus(), 0);
-  };
-
-  const handlePasswordSignIn = async (values: FormValues) => {
-    const password = (values.password ?? '').trim();
-    if (password.length < 8) {
-      form.setError('password', { message: 'Password must be at least 8 characters' });
-      focusStatus();
-      return;
-    }
-
-    setIsSubmitting(true);
-    setStatus(null);
-    track('auth_signin_attempt', { method: 'password', redirectedFrom: targetPath });
-
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: values.email,
-        password,
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      track('auth_signin_success', { method: 'password', redirectedFrom: targetPath });
-      emit('auth_signin_success', { method: 'password', redirectedFrom: targetPath });
-
-      router.replace(targetPath);
-      router.refresh();
-    } catch (error) {
-      const authError = error as Partial<AuthApiError> | undefined;
-      track('auth_signin_error', {
-        method: 'password',
-        code: (authError?.name ?? authError?.status ?? 'UNKNOWN').toString(),
-      });
-      emit('auth_signin_error', {
-        method: 'password',
-        code: (authError?.name ?? authError?.status ?? 'UNKNOWN').toString(),
-      });
-
-      const message =
-        authError?.message ?? 'We couldn’t sign you in with those details. Double-check and try again.';
-      setStatus({ message, tone: 'error', live: 'assertive' });
-      form.setError('password', { message: 'Check your password and try again.' });
-      focusStatus();
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   const handleMagicLink = async (values: FormValues) => {
@@ -198,14 +138,10 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
   };
 
   const onSubmit = form.handleSubmit(async (values) => {
-    if (mode === 'password') {
-      await handlePasswordSignIn(values);
-    } else {
-      await handleMagicLink(values);
-    }
+    await handleMagicLink(values);
   });
 
-  const submitLabel = mode === 'password' ? 'Sign in' : magicCooldown > 0 ? `Resend in ${magicCooldown}s` : 'Send magic link';
+  const submitLabel = magicCooldown > 0 ? `Resend in ${magicCooldown}s` : 'Send magic link';
 
   return (
     <Card id="signin-form" className="w-full max-w-md border-border/70 bg-white/90 shadow-lg">
@@ -214,37 +150,10 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
           Welcome back
         </CardTitle>
         <CardDescription className="text-sm text-muted-foreground">
-          Choose how you’d like to sign in. You can use your password or request a one-time magic link.
+          Sign in with a one-time magic link sent to your inbox.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <ToggleGroup
-          type="single"
-          value={mode}
-          onValueChange={(value) => {
-            if (value === 'password' || value === 'magic') {
-              setMode(value);
-            }
-          }}
-          className="w-full justify-start"
-          aria-label="Select sign-in method"
-        >
-          <ToggleGroupItem
-            value="password"
-            className="touch-manipulation"
-            data-state={mode === 'password' ? 'on' : 'off'}
-          >
-            Password
-          </ToggleGroupItem>
-          <ToggleGroupItem
-            value="magic"
-            className="touch-manipulation"
-            data-state={mode === 'magic' ? 'on' : 'off'}
-          >
-            Magic link
-          </ToggleGroupItem>
-        </ToggleGroup>
-
         <Form {...form}>
           <form className="space-y-5" onSubmit={onSubmit} noValidate>
             <FormField
@@ -268,28 +177,6 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
               )}
             />
 
-            {mode === 'password' ? (
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        type="password"
-                        autoComplete="current-password"
-                        placeholder="••••••••"
-                        className="touch-manipulation"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            ) : null}
-
             <p
               ref={statusRef}
               tabIndex={status ? -1 : undefined}
@@ -304,11 +191,7 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
               {status?.message ?? ''}
             </p>
 
-            <Button
-              type="submit"
-              className="w-full touch-manipulation"
-              disabled={isSubmitting || (mode === 'magic' && magicCooldown > 0)}
-            >
+            <Button type="submit" className="w-full touch-manipulation" disabled={isSubmitting || magicCooldown > 0}>
               {isSubmitting ? (
                 <span className="flex items-center justify-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
