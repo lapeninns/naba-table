@@ -79,7 +79,7 @@ export default async function globalSetup(config: FullConfig) {
         profile: {
           name,
           phone,
-          role: 'admin',
+          role: 'manager',
         },
       },
     });

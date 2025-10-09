@@ -14,6 +14,11 @@ export const queryKeys = {
     all: ['restaurants'] as const,
     list: (params: RestaurantFilters = {}) => ['restaurants', 'list', params] as const,
   },
+  team: {
+    memberships: () => ['team', 'memberships'] as const,
+    invitations: (restaurantId: string, status: string = 'pending') =>
+      ['team', 'invitations', restaurantId, status] as const,
+  },
 };
 
 export type QueryKey =
@@ -21,4 +26,6 @@ export type QueryKey =
   | ReturnType<(typeof queryKeys)['bookings']['detail']>
   | ReturnType<(typeof queryKeys)['bookings']['history']>
   | ReturnType<(typeof queryKeys)['profile']['self']>
-  | ReturnType<(typeof queryKeys)['restaurants']['list']>;
+  | ReturnType<(typeof queryKeys)['restaurants']['list']>
+  | ReturnType<(typeof queryKeys)['team']['memberships']>
+  | ReturnType<(typeof queryKeys)['team']['invitations']>;

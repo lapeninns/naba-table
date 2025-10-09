@@ -15,7 +15,7 @@ const payloadSchema = z.object({
       name: z.string().optional(),
       phone: z.string().optional(),
       image: z.string().optional(),
-      role: z.enum(['owner', 'admin', 'staff', 'viewer']).optional(),
+      role: z.enum(['owner', 'manager', 'host', 'server']).optional(),
       restaurantId: z.string().uuid().optional(),
     })
     .default({}),
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
       {
         user_id: user.id,
         restaurant_id: restaurantId,
-        role: profile.role ?? 'admin',
+        role: profile.role ?? 'manager',
       },
       { onConflict: 'user_id,restaurant_id' },
     );
@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
     profile: upsertProfile.data,
     restaurantMembership: {
       restaurantId,
-      role: profile.role ?? 'admin',
+      role: profile.role ?? 'manager',
     },
     clientRequestId: randomUUID(),
   });

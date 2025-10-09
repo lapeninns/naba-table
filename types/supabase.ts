@@ -596,6 +596,69 @@ export type Database = {
           },
         ]
       }
+      restaurant_invites: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          email: string
+          email_normalized: string | null
+          expires_at: string
+          id: string
+          invited_by: string | null
+          restaurant_id: string
+          role: string
+          revoked_at: string | null
+          status: string
+          token_hash: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          email: string
+          email_normalized?: never
+          expires_at: string
+          id?: string
+          invited_by?: string | null
+          restaurant_id: string
+          role: string
+          revoked_at?: string | null
+          status?: string
+          token_hash: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          email?: string
+          email_normalized?: never
+          expires_at?: string
+          id?: string
+          invited_by?: string | null
+          restaurant_id?: string
+          role?: string
+          revoked_at?: string | null
+          status?: string
+          token_hash?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_invites_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "restaurant_invites_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       restaurant_operating_hours: {
         Row: {
           closes_at: string | null
