@@ -17,6 +17,12 @@ if (!resendFrom && env.node.env === "development") {
   console.warn("[resend] RESEND_FROM is missing. Emails will not be sent.");
 }
 
+export type EmailAttachment = {
+  filename: string;
+  content: string | Buffer;
+  type?: string;
+};
+
 export type SendEmailParams = {
   to: string | string[];
   subject: string;
@@ -26,6 +32,7 @@ export type SendEmailParams = {
   cc?: string | string[];
   bcc?: string | string[];
   fromName?: string; // Optional custom name for the sender
+  attachments?: EmailAttachment[];
 };
 
 function normalize(value?: string | string[]) {
@@ -42,6 +49,7 @@ export async function sendEmail({
   cc,
   bcc,
   fromName,
+  attachments,
 }: SendEmailParams): Promise<void> {
   if (!resendClient || !resendFrom) {
     throw new Error("Resend is not configured. Set RESEND_API_KEY and RESEND_FROM.");
@@ -53,6 +61,19 @@ export async function sendEmail({
   console.log(`[resend] Sending email to: ${Array.isArray(to) ? to.join(', ') : to}, subject: "${subject}", from: "${fromAddress}"`);
 
   try {
+    const normalizedAttachments = attachments?.map((attachment) => {
+      const base64Content =
+        typeof attachment.content === "string"
+          ? Buffer.from(attachment.content, "utf-8").toString("base64")
+          : attachment.content.toString("base64");
+
+      return {
+        filename: attachment.filename,
+        content: base64Content,
+        ...(attachment.type ? { type: attachment.type } : {}),
+      };
+    });
+
     const payload = {
       from: fromAddress,
       to: normalize(to)!,
@@ -62,6 +83,7 @@ export async function sendEmail({
       cc: normalize(cc),
       bcc: normalize(bcc),
       replyTo: replyTo ?? config.mailgun.supportEmail ?? undefined,
+      attachments: normalizedAttachments,
     } satisfies Record<string, unknown>;
 
     const sendEmail = resendClient.emails.send.bind(resendClient.emails) as unknown as (

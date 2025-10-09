@@ -1,22 +1,17 @@
 "use client";
 
-import { DEFAULT_VENUE } from "@shared/config/venue";
 import {
   formatReservationSummaryDate,
   formatReservationTimeFromDate,
 } from "@reserve/shared/formatting/booking";
 
-export type ReservationSharePayload = {
-  reservationId: string;
-  reference: string | null | undefined;
-  guestName: string | null | undefined;
-  partySize: number | null | undefined;
-  startAt: string | null | undefined;
-  endAt?: string | null | undefined;
-  venueName?: string | null | undefined;
-  venueAddress?: string | null | undefined;
-  venueTimezone?: string | null | undefined;
-};
+import {
+  buildCalendarEvent,
+  ensureReservationVenue,
+  type ReservationCalendarPayload,
+} from "@/lib/reservations/calendar-event";
+
+export type ReservationSharePayload = ReservationCalendarPayload;
 
 export type ShareResult =
   | { variant: "success"; message: string }
@@ -36,45 +31,6 @@ function normaliseDate(value: string | null | undefined): Date | null {
   return parsed;
 }
 
-function ensureVenue(payload: ReservationSharePayload) {
-  return {
-    name: payload.venueName || DEFAULT_VENUE.name,
-    address: payload.venueAddress || DEFAULT_VENUE.address,
-    timezone: payload.venueTimezone || DEFAULT_VENUE.timezone,
-  };
-}
-
-export function buildCalendarEvent(payload: ReservationSharePayload): string | null {
-  const startDate = normaliseDate(payload.startAt);
-  if (!startDate) return null;
-  const endDate = normaliseDate(payload.endAt) ?? new Date(startDate.getTime() + 90 * 60 * 1000);
-
-  const venue = ensureVenue(payload);
-
-  const toTimestamp = (date: Date) =>
-    date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
-
-  const lines = [
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    "PRODID:-//SajiloReserveX//EN",
-    "BEGIN:VEVENT",
-    `UID:${payload.reservationId}@sajiloreservex`,
-    `DTSTAMP:${toTimestamp(new Date())}`,
-    `DTSTART:${toTimestamp(startDate)}`,
-    `DTEND:${toTimestamp(endDate)}`,
-    `SUMMARY:${venue.name} reservation`,
-    `LOCATION:${venue.address}`,
-    `DESCRIPTION:Reservation for ${
-      payload.guestName || "guest"
-    } (${payload.partySize ?? 1} guests)`,
-    "END:VEVENT",
-    "END:VCALENDAR",
-  ];
-
-  return lines.join("\r\n");
-}
-
 export function downloadCalendarEvent(payload: ReservationSharePayload): ShareResult {
   const event = buildCalendarEvent(payload);
   if (!event) {
@@ -88,7 +44,7 @@ export function downloadCalendarEvent(payload: ReservationSharePayload): ShareRe
     const blob = new Blob([event], { type: "text/calendar;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
-    const venue = ensureVenue(payload);
+    const venue = ensureReservationVenue(payload);
     const slug = venue.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
     anchor.href = url;
     anchor.download = `${slug || "reservation"}-${payload.reference ?? payload.reservationId}.ics`;
@@ -107,7 +63,7 @@ export function downloadCalendarEvent(payload: ReservationSharePayload): ShareRe
 }
 
 export function buildShareText(payload: ReservationSharePayload): string {
-  const venue = ensureVenue(payload);
+  const venue = ensureReservationVenue(payload);
   const startDate = normaliseDate(payload.startAt);
   const summaryDate = startDate
     ? formatReservationSummaryDate(startDate.toISOString().slice(0, 10), {
@@ -130,7 +86,7 @@ export function buildShareText(payload: ReservationSharePayload): string {
 export async function shareReservationDetails(
   payload: ReservationSharePayload,
 ): Promise<ShareResult> {
-  const venue = ensureVenue(payload);
+  const venue = ensureReservationVenue(payload);
   const text = buildShareText(payload);
 
   try {

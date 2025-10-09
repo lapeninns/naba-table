@@ -18,9 +18,9 @@ export default function ProfileLayout({ children }: { children: ReactNode }) {
           <div className="flex flex-wrap items-center gap-3">
             <Link
               className={cn(buttonVariants({ variant: "outline", size: "primary" }), "min-w-[140px]")}
-              href="/dashboard"
+              href="/my-bookings"
             >
-              Back to dashboard
+              Back to My bookings
             </Link>
             <Link
               className={cn(buttonVariants({ variant: "primary", size: "primary" }), "min-w-[164px]")}

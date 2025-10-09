@@ -34,7 +34,7 @@ describe('POST /api/events', () => {
           name: 'booking_edit_submitted',
           ts: new Date().toISOString(),
           user: { anonId: 'anon-1', emailHash: 'deadbeef' },
-          context: { route: '/dashboard', version: 'web-dev' },
+          context: { route: '/my-bookings', version: 'web-dev' },
           props: { bookingId: 'booking-1' },
         },
       ],

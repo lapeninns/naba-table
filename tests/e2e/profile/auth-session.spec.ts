@@ -16,7 +16,7 @@ test.describe('authentication session management', () => {
     await page.getByLabel(/password/i).fill(demoPassword);
     await page.getByRole('button', { name: /sign in/i }).click();
 
-    await expect(page).toHaveURL(/dashboard/);
+    await expect(page).toHaveURL(/my-bookings/);
 
     const storage = await context.storageState();
     expect(storage.cookies.length).toBeGreaterThan(0);

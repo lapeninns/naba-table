@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { CancelBookingDialog } from '@/components/dashboard/CancelBookingDialog';
@@ -105,6 +105,7 @@ export function ReservationDetailClient({
   venue: providedVenue,
 }: ReservationDetailClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isCancelOpen, setIsCancelOpen] = useState(false);
   const viewTrackedRef = useRef(false);
@@ -115,6 +116,8 @@ export function ReservationDetailClient({
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
+  const calendarButtonRef = useRef<HTMLButtonElement | null>(null);
+  const shareButtonRef = useRef<HTMLButtonElement | null>(null);
   const shareAlertVariant = shareFeedback
     ? shareFeedback.variant === 'error'
       ? 'destructive'
@@ -232,6 +235,23 @@ export function ReservationDetailClient({
       status: reservation.status,
     });
   }, [reservation, reservationId]);
+
+  useEffect(() => {
+    const actionParam = searchParams?.get('action');
+    if (!actionParam) {
+      return;
+    }
+
+    if (actionParam === 'calendar' && calendarButtonRef.current) {
+      calendarButtonRef.current.focus();
+      calendarButtonRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setShareFeedback({ variant: 'info', message: 'Tap the button below to download your calendar event.' });
+    } else if (actionParam === 'wallet' && shareButtonRef.current) {
+      shareButtonRef.current.focus();
+      shareButtonRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setShareFeedback({ variant: 'info', message: 'Tap the button below to share your reservation details.' });
+    }
+  }, [searchParams]);
 
   const handleEdit = useCallback(() => {
     if (!reservation) return;
@@ -375,17 +395,17 @@ export function ReservationDetailClient({
         ) : null}
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="space-y-2">
-          <Link href="/dashboard" className="text-sm text-primary underline-offset-4 hover:underline">
-            ← Back to dashboard
-          </Link>
-          <h1 className="text-3xl font-semibold text-foreground">Reservation details</h1>
-          <p className="text-muted-foreground">
-            {reservation.reference ? `Reference ${reservation.reference}` : 'Manage your upcoming visit.'}
-          </p>
+          <div className="space-y-2">
+            <Link href="/my-bookings" className="text-sm text-primary underline-offset-4 hover:underline">
+              ← Back to dashboard
+            </Link>
+            <h1 className="text-3xl font-semibold text-foreground">Reservation details</h1>
+            <p className="text-muted-foreground">
+              {reservation.reference ? `Reference ${reservation.reference}` : 'Manage your upcoming visit.'}
+            </p>
+          </div>
+          <StatusChip status={reservation.status as BookingDTO['status']} />
         </div>
-        <StatusChip status={reservation.status as BookingDTO['status']} />
-      </div>
 
       {warnings.map((warning) => (
         <Alert key={warning.id} variant={warning.variant}>
@@ -431,6 +451,7 @@ export function ReservationDetailClient({
                 setShareFeedback(result);
               }}
               disabled={!sharePayload || calendarLoading}
+              ref={calendarButtonRef}
             >
               {calendarLoading ? 'Preparing…' : 'Add to calendar'}
             </Button>
@@ -448,6 +469,7 @@ export function ReservationDetailClient({
                 setShareFeedback(result);
               }}
               disabled={!isOnline || !sharePayload || shareLoading}
+              ref={shareButtonRef}
             >
               {shareLoading ? 'Sharing…' : 'Share details'}
             </Button>

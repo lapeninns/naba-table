@@ -9,6 +9,7 @@ import { Toaster } from "react-hot-toast";
 import { Tooltip } from "react-tooltip";
 import config from "@/config";
 import type { User } from "@supabase/supabase-js";
+import { CustomerNavbar } from "@/components/customer/navigation";
 
 // Crisp customer chat support:
 // This component is separated from ClientLayout because it needs to be wrapped with <SessionProvider> to use useSession() hook
@@ -71,6 +72,8 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
     <>
       {/* Show a progress bar at the top when navigating between pages */}
       <NextTopLoader color={config.colors.main} showSpinner={false} />
+
+      <CustomerNavbar />
 
       {/* Content inside app/page.js files  */}
       {children}

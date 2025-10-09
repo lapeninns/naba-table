@@ -30,7 +30,11 @@ const profileApiResponseSchema = z.object({
   idempotent: z.boolean().optional(),
 });
 
-export function useProfile(): UseQueryResult<ProfileResponse, HttpError> {
+type UseProfileOptions = {
+  enabled?: boolean;
+};
+
+export function useProfile(options?: UseProfileOptions): UseQueryResult<ProfileResponse, HttpError> {
   return useQuery<ProfileResponse, HttpError>({
     queryKey: queryKeys.profile.self(),
     queryFn: async () => {
@@ -39,6 +43,7 @@ export function useProfile(): UseQueryResult<ProfileResponse, HttpError> {
       return parsed.profile;
     },
     staleTime: 5 * 60 * 1000,
+    enabled: options?.enabled ?? true,
   });
 }
 

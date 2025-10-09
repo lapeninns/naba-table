@@ -4,7 +4,6 @@ import type { Metadata } from "next";
 import type { RestaurantSummary } from "@/lib/restaurants/types";
 import { queryKeys } from "@/lib/query/keys";
 import { MarketingSessionActions } from "@/components/marketing/MarketingSessionActions";
-import { Navbar } from "@/components/marketing/Navbar";
 import { RestaurantBrowser } from "@/components/marketing/RestaurantBrowser";
 import { listRestaurants, ListRestaurantsError } from "@/server/restaurants";
 
@@ -39,7 +38,6 @@ export default async function HomePage() {
   return (
     <HydrationBoundary state={dehydratedState}>
       <div className="relative min-h-screen bg-gradient-to-b from-background via-background/98 to-background">
-        <Navbar />
         <main
           id="main-content"
           className="mx-auto flex w-full max-w-6xl flex-col gap-16 px-6 pb-20 pt-12 sm:pt-16 md:gap-20 md:pb-28"

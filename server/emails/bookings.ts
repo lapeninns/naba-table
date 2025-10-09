@@ -1,7 +1,8 @@
 import config from "@/config";
 import { env } from "@/lib/env";
+import { buildCalendarEvent, type ReservationCalendarPayload } from "@/lib/reservations/calendar-event";
 import { DEFAULT_VENUE, type VenueDetails } from "@/lib/venue";
-import { sendEmail } from "@/libs/resend";
+import { sendEmail, type EmailAttachment } from "@/libs/resend";
 import type { BookingRecord } from "@/server/bookings";
 import { getServiceSupabaseClient } from "@/server/supabase";
 import {
@@ -169,6 +170,34 @@ function buildManageUrl(booking: BookingRecord) {
   return query ? `${siteUrl}/?${query}` : `${siteUrl}/`;
 }
 
+function buildCalendarPayload(booking: BookingRecord, venue: VenueDetails): ReservationCalendarPayload {
+  const startAt = parseTimestamp(booking.start_at);
+  const endAt = parseTimestamp(booking.end_at);
+
+  return {
+    reservationId: booking.id,
+    reference: booking.reference,
+    guestName: booking.customer_name,
+    partySize: booking.party_size,
+    startAt: startAt ? startAt.toISOString() : null,
+    endAt: endAt ? endAt.toISOString() : null,
+    venueName: venue.name,
+    venueAddress: venue.address,
+    venueTimezone: venue.timezone,
+  };
+}
+
+function buildActionUrl(baseUrl: string, action: "calendar" | "wallet") {
+  try {
+    const url = new URL(baseUrl);
+    url.searchParams.set("action", action);
+    return url.toString();
+  } catch (error) {
+    console.error("[emails][bookings] failed to build action url", error);
+    return baseUrl;
+  }
+}
+
 type BookingSummary = {
   date: string;
   startTime: string;
@@ -205,6 +234,9 @@ function renderHtml({
   intro,
   ctaLabel,
   ctaUrl,
+  calendarActionUrl,
+  walletActionUrl,
+  calendarAttachmentName,
 }: {
   booking: BookingRecord;
   venue: VenueDetails;
@@ -213,6 +245,9 @@ function renderHtml({
   intro: string;
   ctaLabel?: string;
   ctaUrl?: string;
+  calendarActionUrl?: string;
+  walletActionUrl?: string;
+  calendarAttachmentName?: string;
 }) {
   const manageUrl = buildManageUrl(booking);
   const statusPresentation = getStatusPresentation(booking.status);
@@ -238,6 +273,36 @@ function renderHtml({
             </tr>
           `
       : "";
+
+  const calendarButtons = calendarActionUrl || walletActionUrl
+    ? `
+            <tr>
+              <td align="center" style="padding:24px 0 0;">
+                <table role="presentation" cellspacing="0" cellpadding="0" class="action-table" style="border-collapse:separate;">
+                  <tr>
+                    ${calendarActionUrl ? `
+                      <td style="padding:0 6px 0 0;">
+                        <a href="${calendarActionUrl}" class="action-pill" style="display:inline-block;padding:14px 28px;border-radius:999px;border:1px solid #d6e2f5;background:#ffffff;color:#0f172a;font-weight:600;font-size:14px;text-decoration:none;min-height:44px;">
+                          <span class="action-pill-icon" style="margin-right:8px;font-size:16px;">📅</span>
+                          <span class="action-pill-text" style="vertical-align:middle;">Add reservation to calendar</span>
+                        </a>
+                      </td>
+                    ` : ""}
+                    ${walletActionUrl ? `
+                      <td style="padding:0 0 0 6px;">
+                        <a href="${walletActionUrl}" class="action-pill" style="display:inline-block;padding:14px 28px;border-radius:999px;border:1px solid #d6e2f5;background:#ffffff;color:#0f172a;font-weight:600;font-size:14px;text-decoration:none;min-height:44px;">
+                          <span class="action-pill-icon" style="margin-right:8px;font-size:16px;">💼</span>
+                          <span class="action-pill-text" style="vertical-align:middle;">Add reservation to wallet</span>
+                        </a>
+                      </td>
+                    ` : ""}
+                  </tr>
+                </table>
+                ${calendarAttachmentName ? `<div style="margin-top:12px;font-size:12px;color:#64748b;">Calendar file attached: ${calendarAttachmentName}</div>` : ""}
+              </td>
+            </tr>
+          `
+    : "";
 
   return `
     <!DOCTYPE html>
@@ -312,6 +377,21 @@ function renderHtml({
             width: 100% !important;
             padding: 16px 24px !important;
             font-size: 16px !important;
+          }
+          .action-table {
+            width: 100% !important;
+          }
+          .action-table tr {
+            display: block !important;
+          }
+          .action-table td {
+            display: block !important;
+            padding: 0 0 12px !important;
+            width: 100% !important;
+          }
+          .action-pill {
+            width: 100% !important;
+            text-align: center !important;
           }
           .mobile-space {
             height: 12px !important;
@@ -398,6 +478,7 @@ function renderHtml({
             </table>
             ${notesHtml}
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+              ${calendarButtons}
               ${ctaBlock}
               <tr>
                 <td style="padding:32px 0 0;font-size:12px;color:#94a3b8;line-height:1.7;" align="center">
@@ -414,7 +495,18 @@ function renderHtml({
   `;
 }
 
-function renderText(booking: BookingRecord, venue: VenueDetails, summary: BookingSummary, headline: string, intro: string) {
+function renderText(
+  booking: BookingRecord,
+  venue: VenueDetails,
+  summary: BookingSummary,
+  headline: string,
+  intro: string,
+  options?: {
+    calendarActionUrl?: string;
+    walletActionUrl?: string;
+    calendarAttachmentName?: string;
+  },
+) {
   const manageUrl = buildManageUrl(booking);
   const statusPresentation = getStatusPresentation(booking.status);
   const bookingTypeLabel = formatBookingTypeLabel(booking.booking_type);
@@ -449,6 +541,18 @@ function renderText(booking: BookingRecord, venue: VenueDetails, summary: Bookin
 
   lines.push("", `Manage this booking: ${manageUrl}`);
 
+  if (options?.calendarActionUrl) {
+    lines.push("", `Add to calendar: ${options.calendarActionUrl}`);
+  }
+
+  if (options?.calendarAttachmentName) {
+    lines.push(`Calendar file attached: ${options.calendarAttachmentName}`);
+  }
+
+  if (options?.walletActionUrl) {
+    lines.push("", `Add to wallet/share: ${options.walletActionUrl}`);
+  }
+
   return lines.join("\n");
 }
 
@@ -461,12 +565,28 @@ async function dispatchEmail(
   const summary = buildSummary(booking, venue);
   const guestFirstName = booking.customer_name.split(/\s+/)[0] || booking.customer_name;
   const isPending = booking.status === "pending" || booking.status === "pending_allocation";
+  const calendarPayload = buildCalendarPayload(booking, venue);
+  const calendarEventContent = buildCalendarEvent(calendarPayload);
+  const attachments: EmailAttachment[] = [];
+
+  let calendarAttachmentName: string | undefined;
+  if (calendarEventContent && !isPending) {
+    const venueSlug = venue.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "reservation";
+    calendarAttachmentName = `${venueSlug}-${booking.reference ?? booking.id}.ics`;
+    attachments.push({
+      filename: calendarAttachmentName,
+      content: calendarEventContent,
+      type: "text/calendar",
+    });
+  }
 
   let subject = "";
   let headline = "";
   let intro = "";
   let ctaLabel: string | undefined;
   let ctaUrl: string | undefined;
+  let calendarActionUrl: string | undefined;
+  let walletActionUrl: string | undefined;
 
   switch (type) {
     case "created":
@@ -498,13 +618,36 @@ async function dispatchEmail(
       break;
   }
 
+  if (type !== "cancelled") {
+    walletActionUrl = buildActionUrl(manageUrl, "wallet");
+    if (calendarEventContent) {
+      calendarActionUrl = buildActionUrl(manageUrl, "calendar");
+    }
+  }
+
   await sendEmail({
     to: booking.customer_email,
     subject,
-    html: renderHtml({ booking, venue, summary, headline, intro, ctaLabel, ctaUrl }),
-    text: renderText(booking, venue, summary, headline, intro),
+    html: renderHtml({
+      booking,
+      venue,
+      summary,
+      headline,
+      intro,
+      ctaLabel,
+      ctaUrl,
+      calendarActionUrl,
+      walletActionUrl,
+      calendarAttachmentName,
+    }),
+    text: renderText(booking, venue, summary, headline, intro, {
+      calendarActionUrl,
+      walletActionUrl,
+      calendarAttachmentName,
+    }),
     replyTo: config.mailgun.supportEmail,
     fromName: venue.name, // Use restaurant name as the sender name
+    attachments: attachments.length ? attachments : undefined,
   });
 }
 

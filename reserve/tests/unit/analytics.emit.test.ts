@@ -67,7 +67,7 @@ describe('analytics emitter', () => {
     });
 
     window.localStorage.clear();
-    window.history.pushState(null, '', '/dashboard');
+    window.history.pushState(null, '', '/my-bookings');
 
     await vi.doMock('@/lib/supabase/browser', () => ({
       getSupabaseBrowserClient: vi.fn(() => supabaseMock),
@@ -110,7 +110,7 @@ describe('analytics emitter', () => {
     expect(event).toMatchObject({
       name: 'booking_edit_submitted',
       user: { anonId: 'anon-123' },
-      context: { route: '/dashboard' },
+      context: { route: '/my-bookings' },
       props: { bookingId: 'booking-42' },
     });
     expect(event.user.emailHash).toBe('deadbeef');

@@ -70,7 +70,7 @@ const Header = () => {
 
   const navLinks = useMemo(() => {
     if (hasSession) {
-      return [...links, { href: "/dashboard", label: "Dashboard" }];
+      return [...links, { href: "/my-bookings", label: "My bookings" }];
     }
 
     return links;

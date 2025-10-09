@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildCalendarEvent, buildShareText } from '@/lib/reservations/share';
+import { buildCalendarEvent } from '@/lib/reservations/calendar-event';
+import { buildShareText } from '@/lib/reservations/share';
 
 const basePayload = {
   reservationId: 'test-res-id',

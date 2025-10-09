@@ -50,7 +50,7 @@ describe("<SignInForm /> magic link flow", () => {
   it("sends a magic link and shows success status", async () => {
     signInWithOtpMock.mockResolvedValue({ error: null });
 
-    render(<SignInForm redirectedFrom="/dashboard" />);
+    render(<SignInForm redirectedFrom="/my-bookings" />);
 
     await userEvent.type(screen.getByLabelText(/email address/i), "ada@example.com");
     await userEvent.click(screen.getByRole("button", { name: /send magic link/i }));
@@ -59,7 +59,7 @@ describe("<SignInForm /> magic link flow", () => {
       expect(signInWithOtpMock).toHaveBeenCalledWith({
         email: "ada@example.com",
         options: expect.objectContaining({
-          emailRedirectTo: expect.stringContaining("/api/auth/callback?redirectedFrom=%2Fdashboard"),
+          emailRedirectTo: expect.stringContaining("/api/auth/callback?redirectedFrom=%2Fmy-bookings"),
         }),
       });
     });
@@ -76,7 +76,7 @@ describe("<SignInForm /> magic link flow", () => {
       error: { message: "Invalid email domain", name: "AuthApiError", status: 400 },
     });
 
-    render(<SignInForm redirectedFrom="/dashboard" />);
+    render(<SignInForm redirectedFrom="/my-bookings" />);
 
     await userEvent.type(screen.getByLabelText(/email address/i), "invalid@example.com");
     await userEvent.click(screen.getByRole("button", { name: /send magic link/i }));
@@ -91,7 +91,7 @@ describe("<SignInForm /> magic link flow", () => {
   it("disables repeated submissions during cooldown", async () => {
     signInWithOtpMock.mockResolvedValue({ error: null });
 
-    render(<SignInForm redirectedFrom="/dashboard" />);
+    render(<SignInForm redirectedFrom="/my-bookings" />);
 
     const button = screen.getByRole("button", { name: /send magic link/i });
     await userEvent.type(screen.getByLabelText(/email address/i), "ada@example.com");

@@ -4,12 +4,12 @@ import { getMiddlewareSupabaseClient } from "@/server/supabase";
 import { NextResponse, type NextRequest } from "next/server";
 
 const PROTECTED_MATCHERS = [
-  /^\/dashboard(\/.*)?$/,
+  /^\/my-bookings(\/.*)?$/,
   /^\/profile(\/.*)?$/,
   /^\/thank-you(\/.*)?$/,
 ];
 
-// Refresh the Supabase session and gate dashboard routes behind authentication.
+// Refresh the Supabase session and gate my-bookings/profile routes behind authentication.
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
@@ -46,5 +46,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/api/:path*", "/dashboard/:path*", "/profile/:path*", "/thank-you/:path*"],
+  matcher: ["/api/:path*", "/my-bookings/:path*", "/profile/:path*", "/thank-you/:path*"],
 };

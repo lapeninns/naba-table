@@ -63,7 +63,7 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
   const [status, setStatus] = useState<StatusState | null>(null);
   const statusRef = useRef<HTMLParagraphElement | null>(null);
 
-  const targetPath = redirectedFrom && redirectedFrom.startsWith('/') ? redirectedFrom : '/dashboard';
+  const targetPath = redirectedFrom && redirectedFrom.startsWith('/') ? redirectedFrom : '/my-bookings';
 
   useEffect(() => {
     track('auth_signin_viewed', { redirectedFrom: targetPath });

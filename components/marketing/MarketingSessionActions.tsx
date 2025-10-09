@@ -52,7 +52,7 @@ function resolveActions(mode: "booking" | "account", isAuthenticated: boolean): 
   if (mode === "account") {
     if (isAuthenticated) {
       return {
-        primary: { href: "/dashboard", label: "Go to dashboard" },
+        primary: { href: "/my-bookings", label: "Go to My bookings" },
         secondary: { href: "/profile/manage", label: "Manage profile" },
       };
     }
@@ -64,7 +64,7 @@ function resolveActions(mode: "booking" | "account", isAuthenticated: boolean): 
 
   if (isAuthenticated) {
     return {
-      primary: { href: "/dashboard", label: "Go to dashboard" },
+      primary: { href: "/my-bookings", label: "Go to My bookings" },
       secondary: { href: "/profile/manage", label: "Manage profile" },
     };
   }
