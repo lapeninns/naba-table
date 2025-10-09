@@ -9,7 +9,15 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@s
 import { Alert, AlertDescription, AlertIcon } from '@shared/ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@shared/ui/card';
 import { Checkbox } from '@shared/ui/checkbox';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@shared/ui/form';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@shared/ui/form';
 import { Input } from '@shared/ui/input';
 import { Label } from '@shared/ui/label';
 
@@ -44,6 +52,10 @@ export function DetailsStep(props: DetailsStepProps) {
   const rememberDetailsValue = useWatch({ control: form.control, name: 'rememberDetails' });
   const marketingOptInValue = useWatch({ control: form.control, name: 'marketingOptIn' });
   const agreeValue = useWatch({ control: form.control, name: 'agree' });
+  const contactLocks = props.contactLocks ?? {};
+  const isNameLocked = Boolean(contactLocks.name);
+  const isEmailLocked = Boolean(contactLocks.email);
+  const isPhoneLocked = Boolean(contactLocks.phone);
 
   const preferenceSummary = useMemo(() => {
     const parts = [
@@ -96,6 +108,7 @@ export function DetailsStep(props: DetailsStepProps) {
                           placeholder="Jane Smith"
                           autoComplete="name"
                           value={field.value}
+                          disabled={isNameLocked}
                           onChange={(event) => {
                             const next = event.target.value;
                             field.onChange(next);
@@ -120,6 +133,7 @@ export function DetailsStep(props: DetailsStepProps) {
                           placeholder="you@example.com"
                           autoComplete="email"
                           value={field.value}
+                          disabled={isEmailLocked}
                           onChange={(event) => {
                             const next = event.target.value;
                             field.onChange(next);
@@ -127,6 +141,11 @@ export function DetailsStep(props: DetailsStepProps) {
                           }}
                         />
                       </FormControl>
+                      {isEmailLocked ? (
+                        <FormDescription className="text-xs text-muted-foreground">
+                          Email is linked to your account. Update it from your profile to change it.
+                        </FormDescription>
+                      ) : null}
                       <FormMessage>{errors.email?.message}</FormMessage>
                     </FormItem>
                   )}
@@ -145,6 +164,7 @@ export function DetailsStep(props: DetailsStepProps) {
                           autoComplete="tel"
                           inputMode="tel"
                           value={field.value}
+                          disabled={isPhoneLocked}
                           onChange={(event) => {
                             const next = event.target.value;
                             field.onChange(next);

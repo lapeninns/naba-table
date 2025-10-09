@@ -23,6 +23,14 @@ vi.mock('@/lib/analytics/emit', () => ({
   emit: emitMock,
 }));
 
+vi.mock('@/hooks/useSupabaseSession', () => ({
+  useSupabaseSession: () => ({ user: null, status: 'ready' }),
+}));
+
+vi.mock('@/hooks/useProfile', () => ({
+  useProfile: () => ({ data: undefined }),
+}));
+
 class ResizeObserverMock {
   callback: ResizeObserverCallback;
   constructor(callback: ResizeObserverCallback) {

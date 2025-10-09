@@ -4,6 +4,8 @@ import { Loader2 } from 'lucide-react';
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { useProfile } from '@/hooks/useProfile';
+import { useSupabaseSession } from '@/hooks/useSupabaseSession';
 import { emit } from '@/lib/analytics/emit';
 
 import { useWizardDependencies } from '../di';
@@ -59,6 +61,57 @@ function BookingWizardContent({ initialDetails }: BookingWizardContentProps) {
     handleClose,
   } = useReservationWizard(initialDetails);
   const { analytics } = useWizardDependencies();
+  const { user, status: sessionStatus } = useSupabaseSession();
+  const isSessionReady = sessionStatus === 'ready';
+  const isAuthenticated = isSessionReady && Boolean(user);
+  const { data: profile } = useProfile({ enabled: isAuthenticated });
+
+  const fallbackName =
+    (typeof user?.user_metadata?.full_name === 'string' && user.user_metadata.full_name.trim()) ||
+    (typeof user?.user_metadata?.name === 'string' && user.user_metadata.name.trim()) ||
+    '';
+  const lockedName = (profile?.name ?? fallbackName ?? '').trim();
+  const lockedEmail = isAuthenticated ? (profile?.email ?? user?.email ?? '').trim() : '';
+  const lockedPhone = (profile?.phone ?? '').trim();
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    if (lockedEmail && state.details.email.trim() !== lockedEmail) {
+      actions.updateDetails('email', lockedEmail);
+    }
+
+    if (lockedName && state.details.name.trim() !== lockedName) {
+      actions.updateDetails('name', lockedName);
+    }
+
+    if (lockedPhone && state.details.phone.trim() !== lockedPhone) {
+      actions.updateDetails('phone', lockedPhone);
+    }
+  }, [
+    actions,
+    isAuthenticated,
+    lockedEmail,
+    lockedName,
+    lockedPhone,
+    state.details.email,
+    state.details.name,
+    state.details.phone,
+  ]);
+
+  const contactLocks = useMemo(() => {
+    if (!isAuthenticated) {
+      return undefined;
+    }
+
+    return {
+      name: Boolean(lockedName),
+      email: true,
+      phone: Boolean(lockedPhone),
+    } as const;
+  }, [isAuthenticated, lockedName, lockedPhone]);
 
   const isOnline = useOnlineStatus();
   const isOffline = !isOnline;
@@ -192,7 +245,12 @@ function BookingWizardContent({ initialDetails }: BookingWizardContentProps) {
         );
       case 2:
         return (
-          <DetailsStep state={state} actions={actions} onActionsChange={handleActionsChange} />
+          <DetailsStep
+            state={state}
+            actions={actions}
+            onActionsChange={handleActionsChange}
+            contactLocks={contactLocks}
+          />
         );
       case 3:
         return (

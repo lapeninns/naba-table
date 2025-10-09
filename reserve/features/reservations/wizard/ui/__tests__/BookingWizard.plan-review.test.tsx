@@ -23,6 +23,14 @@ vi.mock('@features/reservations/wizard/api/useCreateReservation', () => ({
   useCreateReservation: () => ({ mutateAsync, isPending: false }),
 }));
 
+vi.mock('@/hooks/useSupabaseSession', () => ({
+  useSupabaseSession: () => ({ user: null, status: 'ready' }),
+}));
+
+vi.mock('@/hooks/useProfile', () => ({
+  useProfile: () => ({ data: undefined }),
+}));
+
 describe('BookingWizard plan to review flow', () => {
   beforeAll(() => {
     Object.defineProperty(window, 'ResizeObserver', {
@@ -80,12 +88,8 @@ describe('BookingWizard plan to review flow', () => {
     await userEvent.clear(screen.getByLabelText('UK phone number'));
     await userEvent.type(screen.getByLabelText('UK phone number'), '07123 456789');
 
-    const detailsForm = document.querySelector('form');
-    await act(async () => {
-      if (detailsForm) {
-        await userEvent.click(screen.getByRole('button', { name: /Review booking/i }));
-      }
-    });
+    const reviewButton = await screen.findByRole('button', { name: /Review booking/i });
+    await userEvent.click(reviewButton);
 
     await screen.findByText('Review and confirm');
     expect(screen.getByText(/Test Kitchen/)).toBeVisible();
@@ -160,9 +164,8 @@ describe('BookingWizard plan to review flow', () => {
     await userEvent.clear(screen.getByLabelText('UK phone number'));
     await userEvent.type(screen.getByLabelText('UK phone number'), '07123 456789');
 
-    await act(async () => {
-      await userEvent.click(screen.getByRole('button', { name: /Review booking/i }));
-    });
+    const reviewButton = await screen.findByRole('button', { name: /Review booking/i });
+    await userEvent.click(reviewButton);
 
     await screen.findByText('Review and confirm');
 

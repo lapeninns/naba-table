@@ -1,6 +1,12 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 
-import { profileResponseSchema } from "@/lib/profile/schema";
+import {
+  profileNameSchema,
+  profilePhoneSchema,
+  profileResponseSchema,
+} from "@/lib/profile/schema";
+import { normalizeEmail } from "@/server/customers";
+import { getServiceSupabaseClient } from "@/server/supabase";
 import type { Database } from "@/types/supabase";
 
 export const PROFILE_COLUMNS = "id,name,email,phone,image,created_at,updated_at" as const;
@@ -12,6 +18,10 @@ type ProfileRecord = Pick<
 >;
 
 type ProfileInsert = Database["public"]["Tables"]["profiles"]["Insert"];
+type CustomerContactRow = Pick<
+  Database["public"]["Tables"]["customers"]["Row"],
+  "full_name" | "phone" | "updated_at" | "created_at"
+>;
 
 function toIsoString(value: string | null | undefined, fallback: () => string): string {
   if (!value) {
@@ -49,7 +59,86 @@ export function normalizeProfileRow(row: ProfileRecord, fallbackEmail: string | 
   });
 }
 
-function resolveDefaultProfileInsert(user: User): ProfileInsert & { id: string } {
+function sanitizeName(value: string | null | undefined): string | null {
+  if (!value || typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const parsed = profileNameSchema.safeParse(trimmed);
+  return parsed.success ? parsed.data : null;
+}
+
+function sanitizePhone(value: string | null | undefined): string | null {
+  if (!value || typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const parsed = profilePhoneSchema.safeParse(trimmed);
+  if (!parsed.success) {
+    return null;
+  }
+  return parsed.data;
+}
+
+async function fetchLatestCustomerContact(email: string): Promise<CustomerContactRow | null> {
+  const service = getServiceSupabaseClient();
+  const normalizedEmail = normalizeEmail(email);
+
+  const { data, error } = await service
+    .from("customers")
+    .select("full_name,phone,updated_at,created_at")
+    .eq("email_normalized", normalizedEmail)
+    .order("updated_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false, nullsFirst: false })
+    .limit(1);
+
+  if (error) {
+    console.error("[profile][hydrate] failed to fetch customer contact", { email, error });
+    return null;
+  }
+
+  const contact = Array.isArray(data) ? (data[0] as CustomerContactRow | undefined) : null;
+  return contact ?? null;
+}
+
+async function hydrateProfileInsertFromCustomers(
+  base: ProfileInsert & { id: string },
+): Promise<ProfileInsert & { id: string }> {
+  const next = { ...base };
+
+  if (!next.email || (next.name && next.phone)) {
+    return next;
+  }
+
+  const contact = await fetchLatestCustomerContact(next.email);
+  if (!contact) {
+    return next;
+  }
+
+  if (!next.name) {
+    const candidate = sanitizeName(contact.full_name);
+    if (candidate) {
+      next.name = candidate;
+    }
+  }
+
+  if (!next.phone) {
+    const candidate = sanitizePhone(contact.phone);
+    if (candidate) {
+      next.phone = candidate;
+    }
+  }
+
+  return next;
+}
+
+async function resolveDefaultProfileInsert(user: User): Promise<ProfileInsert & { id: string }> {
   const email = typeof user.email === "string" && user.email.length > 0 ? user.email : null;
 
   const metadata = user.user_metadata ?? {};
@@ -72,13 +161,15 @@ function resolveDefaultProfileInsert(user: User): ProfileInsert & { id: string }
         ? metadata.picture
         : null;
 
-  return {
+  const base: ProfileInsert & { id: string } = {
     id: user.id,
     email,
     name: rawName,
     phone: rawPhone,
     image: rawImage,
   };
+
+  return await hydrateProfileInsertFromCustomers(base);
 }
 
 export async function ensureProfileRow(
@@ -96,10 +187,65 @@ export async function ensureProfileRow(
   }
 
   if (data) {
-    return data;
+    const existing = data as ProfileRecord;
+    const needsName = !existing.name || existing.name.trim().length === 0;
+    const needsPhone = !existing.phone || existing.phone.trim().length === 0;
+
+    if (!needsName && !needsPhone) {
+      return existing;
+    }
+
+    const lookupEmail =
+      (typeof existing.email === "string" && existing.email.length > 0
+        ? existing.email
+        : user.email) ?? null;
+
+    if (!lookupEmail) {
+      return existing;
+    }
+
+    const hydrated = await hydrateProfileInsertFromCustomers({
+      id: existing.id,
+      email: lookupEmail,
+      name: existing.name,
+      phone: existing.phone,
+      image: existing.image,
+    });
+
+    const updates: Partial<ProfileInsert> & { updated_at?: string } = {};
+
+    if (needsName && hydrated.name && hydrated.name !== existing.name) {
+      updates.name = hydrated.name;
+    }
+    if (needsPhone && hydrated.phone && hydrated.phone !== existing.phone) {
+      updates.phone = hydrated.phone;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return existing;
+    }
+
+    updates.updated_at = new Date().toISOString();
+
+    const { data: patched, error: updateError } = await client
+      .from("profiles")
+      .update(updates)
+      .eq("id", existing.id)
+      .select(PROFILE_COLUMNS)
+      .single<ProfileRecord>();
+
+    if (updateError) {
+      console.error("[profile][hydrate] failed to update profile with customer contact", {
+        profileId: existing.id,
+        error: updateError,
+      });
+      return existing;
+    }
+
+    return patched ?? existing;
   }
 
-  const insertPayload = resolveDefaultProfileInsert(user);
+  const insertPayload = await resolveDefaultProfileInsert(user);
 
   const { data: inserted, error: insertError } = await client
     .from("profiles")

@@ -4,6 +4,14 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  tr46@0.0.3:
+    hash: 590c3747afb00f7a520333c468e2cd15da5f896533777a88f94bbce8cd755aac
+    path: patches/tr46@0.0.3.patch
+  whatwg-url@5.0.0:
+    hash: 32c763e8b3bce24c1843a53b065a050fc58536ad6918547d435ffcbf513be644
+    path: patches/whatwg-url@5.0.0.patch
+
 importers:
 
   .:
@@ -9426,7 +9434,7 @@ snapshots:
 
   '@supabase/node-fetch@2.6.15':
     dependencies:
-      whatwg-url: 5.0.0
+      whatwg-url: 5.0.0(patch_hash=32c763e8b3bce24c1843a53b065a050fc58536ad6918547d435ffcbf513be644)
 
   '@supabase/postgrest-js@1.21.4':
     dependencies:
@@ -12503,7 +12511,7 @@ snapshots:
 
   node-fetch@2.7.0:
     dependencies:
-      whatwg-url: 5.0.0
+      whatwg-url: 5.0.0(patch_hash=32c763e8b3bce24c1843a53b065a050fc58536ad6918547d435ffcbf513be644)
 
   node-fetch@3.3.2:
     dependencies:
@@ -13668,7 +13676,7 @@ snapshots:
     dependencies:
       tldts: 7.0.16
 
-  tr46@0.0.3: {}
+  tr46@0.0.3(patch_hash=590c3747afb00f7a520333c468e2cd15da5f896533777a88f94bbce8cd755aac): {}
 
   tr46@6.0.0:
     dependencies:
@@ -14023,9 +14031,9 @@ snapshots:
       tr46: 6.0.0
       webidl-conversions: 8.0.0
 
-  whatwg-url@5.0.0:
+  whatwg-url@5.0.0(patch_hash=32c763e8b3bce24c1843a53b065a050fc58536ad6918547d435ffcbf513be644):
     dependencies:
-      tr46: 0.0.3
+      tr46: 0.0.3(patch_hash=590c3747afb00f7a520333c468e2cd15da5f896533777a88f94bbce8cd755aac)
       webidl-conversions: 3.0.1
 
   which-boxed-primitive@1.1.1:
