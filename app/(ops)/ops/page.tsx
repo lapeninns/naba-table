@@ -4,15 +4,53 @@ import { redirect } from "next/navigation";
 import { TodayBookingsCard } from "@/components/ops/dashboard/TodayBookingsCard";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { fetchUserMemberships } from "@/server/team/access";
-import { getTodayBookingsSummary, type TodayBookingsSummary } from "@/server/ops/bookings";
+import {
+  getBookingsHeatmap,
+  getTodayBookingsSummary,
+  type BookingHeatmap,
+  type TodayBookingsSummary,
+} from "@/server/ops/bookings";
 import { getServerComponentSupabaseClient } from "@/server/supabase";
+import { formatDateKey } from "@/lib/utils/datetime";
 
 export const metadata: Metadata = {
   title: "Ops Dashboard · SajiloReserveX",
   description: "Monitor today’s bookings and keep your front of house running smoothly.",
 };
 
-export default async function OpsDashboardPage() {
+type OpsPageSearchParams = {
+  date?: string;
+};
+
+function sanitizeDateParam(value: string | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+}
+
+function computeCalendarRange(date: string): { start: string; end: string } {
+  const base = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(base.getTime())) {
+    return { start: date, end: date };
+  }
+
+  const start = new Date(base);
+  start.setDate(1);
+  const startWeekday = start.getDay();
+  start.setDate(start.getDate() - startWeekday);
+
+  const end = new Date(start);
+  end.setDate(end.getDate() + 41);
+
+  return {
+    start: formatDateKey(start),
+    end: formatDateKey(end),
+  };
+}
+
+export default async function OpsDashboardPage({ searchParams }: { searchParams?: Promise<OpsPageSearchParams> }) {
+  const resolvedParams = (await searchParams) ?? {};
   const supabase = await getServerComponentSupabaseClient();
   const {
     data: { user },
@@ -46,16 +84,36 @@ export default async function OpsDashboardPage() {
   const primaryMembership = memberships[0];
   const restaurantName = primaryMembership.restaurants?.name ?? "Restaurant";
 
+  const requestedDate = sanitizeDateParam(resolvedParams.date);
+
   let summary: TodayBookingsSummary | null = null;
+  let heatmap: BookingHeatmap = {};
   try {
     summary = await getTodayBookingsSummary(primaryMembership.restaurant_id, {
       client: supabase,
+      targetDate: requestedDate ?? undefined,
     });
   } catch (cause) {
     console.error("[ops] failed to load today bookings summary", {
       restaurantId: primaryMembership.restaurant_id,
       cause,
     });
+  }
+
+  if (summary) {
+    const { start, end } = computeCalendarRange(summary.date);
+    try {
+      heatmap = await getBookingsHeatmap(primaryMembership.restaurant_id, {
+        client: supabase,
+        startDate: start,
+        endDate: end,
+      });
+    } catch (cause) {
+      console.error("[ops] failed to load booking heatmap", {
+        restaurantId: primaryMembership.restaurant_id,
+        cause,
+      });
+    }
   }
 
   return (
@@ -68,7 +126,12 @@ export default async function OpsDashboardPage() {
       </header>
 
       {summary ? (
-        <TodayBookingsCard summary={summary} restaurantName={restaurantName} />
+        <TodayBookingsCard
+          summary={summary}
+          restaurantName={restaurantName}
+          selectedDate={summary.date}
+          heatmap={heatmap}
+        />
       ) : (
         <Alert variant="destructive" className="border-border/60 bg-destructive/10 text-destructive">
           <AlertTitle>Bookings unavailable</AlertTitle>

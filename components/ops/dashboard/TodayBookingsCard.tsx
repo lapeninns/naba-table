@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useMemo, useState, useTransition } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
-import { AlertTriangle, Ban, CalendarDays, CheckCircle2, ClipboardList, Users } from 'lucide-react';
+import { AlertTriangle, Ban, CalendarDays, CheckCircle2, ClipboardList, Users, ChevronDown } from 'lucide-react';
 
 import {
   AlertDialog,
@@ -21,15 +21,19 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Calendar, CalendarDayButton } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { getDateInTimezone } from '@/lib/utils/datetime';
+import { formatDateKey, formatDateReadable, getDateInTimezone } from '@/lib/utils/datetime';
 import { formatReservationTime } from '@reserve/shared/formatting/booking';
 
-import type { TodayBookingsSummary, TodayBooking } from '@/server/ops/bookings';
+import type { BookingHeatmap, TodayBookingsSummary, TodayBooking } from '@/server/ops/bookings';
 
 type TodayBookingsCardProps = {
   summary: TodayBookingsSummary;
   restaurantName: string;
+  selectedDate: string;
+  heatmap: BookingHeatmap;
 };
 
 type BookingFilter = 'all' | 'upcoming' | 'completed' | 'no-show';
@@ -53,6 +57,22 @@ const FILTER_OPTIONS: { value: BookingFilter; label: string }[] = [
   { value: 'completed', label: 'Show' },
   { value: 'no-show', label: 'No show' },
 ];
+
+const AVERAGE_DAILY_COVERS = 60;
+
+type HeatIntensity = 'none' | 'faint' | 'low' | 'medium' | 'high';
+
+const HEATMAP_CLASS_MAP: Record<HeatIntensity, string> = {
+  none: '',
+  faint:
+    'data-[selected-single=false]:bg-emerald-100/60 data-[selected-single=false]:text-emerald-900 data-[selected-single=false]:hover:bg-emerald-100/80',
+  low:
+    'data-[selected-single=false]:bg-emerald-200/70 data-[selected-single=false]:text-emerald-950 data-[selected-single=false]:hover:bg-emerald-200/90',
+  medium:
+    'data-[selected-single=false]:bg-emerald-400/80 data-[selected-single=false]:text-white data-[selected-single=false]:hover:bg-emerald-400/90',
+  high:
+    'data-[selected-single=false]:bg-emerald-600/80 data-[selected-single=false]:text-white data-[selected-single=false]:hover:bg-emerald-600/90',
+};
 
 function formatStatus(value: string): string {
   switch (value) {
@@ -242,9 +262,21 @@ function BookingDetailsDialog({
   );
 }
 
-export function TodayBookingsCard({ summary, restaurantName }: TodayBookingsCardProps) {
+export function TodayBookingsCard({ summary, restaurantName, selectedDate, heatmap }: TodayBookingsCardProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [filter, setFilter] = useState<BookingFilter>('all');
+  const [isNavigating, startTransition] = useTransition();
+
+  const selectedDateObj = useMemo(() => {
+    const next = new Date(`${selectedDate}T00:00:00`);
+    return Number.isNaN(next.getTime()) ? new Date() : next;
+  }, [selectedDate]);
+
+  const selectedDateReadable = useMemo(
+    () => formatDateReadable(selectedDateObj, summary.timezone),
+    [selectedDateObj, summary.timezone],
+  );
 
   const currentContext = useMemo(() => {
     const now = new Date();
@@ -337,6 +369,55 @@ export function TodayBookingsCard({ summary, restaurantName }: TodayBookingsCard
     { label: 'Covers', value: summary.totals.covers, icon: Users },
   ];
 
+  const handleDateSelect = useCallback(
+    (date: Date | undefined) => {
+      if (!date) return;
+      const formatted = getDateInTimezone(date, summary.timezone);
+      const params = new URLSearchParams(searchParams?.toString() ?? '');
+      params.set('date', formatted);
+      const query = params.toString();
+      startTransition(() => {
+        router.replace(`?${query}`, { scroll: false });
+      });
+    },
+    [router, searchParams, summary.timezone],
+  );
+
+  const intensityByDate = useMemo(() => {
+    const result: Record<string, HeatIntensity> = {};
+    Object.entries(heatmap ?? {}).forEach(([date, value]) => {
+      const covers = value?.covers ?? 0;
+      if (!covers) return;
+      const ratio = covers / AVERAGE_DAILY_COVERS;
+      if (ratio >= 1.6) {
+        result[date] = 'high';
+      } else if (ratio >= 1.1) {
+        result[date] = 'medium';
+      } else if (ratio >= 0.75) {
+        result[date] = 'low';
+      } else {
+        result[date] = 'faint';
+      }
+    });
+    return result;
+  }, [heatmap]);
+
+  const getIntensityForDate = useCallback(
+    (date: Date): HeatIntensity => intensityByDate[formatDateKey(date)] ?? 'none',
+    [intensityByDate],
+  );
+
+  const calendarComponents = useMemo(
+    () => ({
+      DayButton: (props: React.ComponentProps<typeof CalendarDayButton>) => {
+        const intensity = getIntensityForDate(props.day.date);
+        const extraClass = HEATMAP_CLASS_MAP[intensity];
+        return <CalendarDayButton {...props} className={cn(extraClass, props.className)} />;
+      },
+    }),
+    [getIntensityForDate],
+  );
+
   const updateBookingStatus = useCallback(
     async (bookingId: string, targetStatus: 'completed' | 'no_show') => {
       try {
@@ -369,41 +450,89 @@ export function TodayBookingsCard({ summary, restaurantName }: TodayBookingsCard
 
   return (
     <Card className="border-border/60">
-      <CardHeader className="gap-2 md:flex-row md:items-center md:justify-between">
-        <div>
-          <CardTitle>Today’s bookings</CardTitle>
-          <CardDescription>
-            {summary.date} · {restaurantName}
+      <CardHeader className="gap-6 border-b border-border/60 pb-6 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-col gap-1">
+          <CardTitle className="text-2xl font-semibold text-foreground">Today’s bookings</CardTitle>
+          <CardDescription className="text-base text-muted-foreground">
+            {selectedDateReadable} · {restaurantName}
           </CardDescription>
         </div>
-        <div className="flex flex-col items-start gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:gap-3">
-          <Badge variant="outline" className="capitalize">
+        <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-muted-foreground">
+          <Badge className="rounded-full border border-border/60 bg-background px-3 py-1 text-xs font-medium text-muted-foreground">
             Timezone: {summary.timezone}
           </Badge>
-          <div className="flex items-center gap-2">
-            <ClipboardList className="h-4 w-4" aria-hidden />
-            <span>{summary.bookings.length} bookings today</span>
+          <div className="flex items-center gap-2 rounded-full border border-border/60 bg-background px-3 py-1">
+            <ClipboardList className="h-3.5 w-3.5" aria-hidden />
+            <span>{summary.bookings.length} bookings on {summary.date}</span>
           </div>
         </div>
       </CardHeader>
 
       <CardContent className="space-y-8">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          {stats.map((stat) => {
-            const Icon = stat.icon;
-            return (
-              <div
-                key={stat.label}
-                className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3 shadow-sm"
-              >
-                <div className="flex items-center justify-between text-sm text-muted-foreground">
-                  <span>{stat.label}</span>
-                  {Icon ? <Icon className="h-4 w-4" aria-hidden /> : null}
-                </div>
-                <p className="mt-2 text-2xl font-semibold text-foreground">{stat.value}</p>
+        <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex w-full flex-col items-center gap-3 text-center">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="flex h-11 w-full max-w-xs items-center justify-between rounded-full border-border/60 bg-background px-4 text-sm font-medium shadow-sm"
+                  aria-label="Select service date"
+                >
+                  <span>{selectedDateReadable}</span>
+                  <ChevronDown className="h-4 w-4" aria-hidden />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto overflow-hidden rounded-xl border border-border/60 bg-background p-3 shadow-lg" align="center" sideOffset={8}>
+                <Calendar
+                  mode="single"
+                  captionLayout="dropdown"
+                  selected={selectedDateObj}
+                  onSelect={handleDateSelect}
+                  initialFocus
+                  components={calendarComponents}
+                />
+              </PopoverContent>
+            </Popover>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              Showing reservations for{' '}
+              <span className="font-medium text-foreground">{selectedDateReadable}</span>.
+            </p>
+            <p className="sr-only" aria-live="polite">
+              {isNavigating ? 'Loading bookings for selected date…' : `Bookings loaded for ${selectedDateReadable}.`}
+            </p>
+            <div className="flex items-center gap-3 text-[0.7rem] text-muted-foreground/80">
+              <div className="flex items-center gap-1">
+                <span className="h-2 w-6 rounded-full bg-emerald-600/80" aria-hidden />
+                <span>Busy</span>
               </div>
-            );
-          })}
+              <div className="flex items-center gap-1">
+                <span className="h-2 w-6 rounded-full bg-emerald-300/70" aria-hidden />
+                <span>Steady</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="h-2 w-6 rounded-full bg-emerald-100/60" aria-hidden />
+                <span>Light</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid w-full gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {stats.map((stat) => {
+              const Icon = stat.icon;
+              return (
+                <div
+                  key={stat.label}
+                  className="flex flex-col gap-1 rounded-2xl border border-border/60 bg-background/80 px-5 py-4 shadow-sm"
+                >
+                  <div className="flex items-center justify-between text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground">
+                    <span>{stat.label}</span>
+                    {Icon ? <Icon className="h-3.5 w-3.5" aria-hidden /> : null}
+                  </div>
+                  <p className="text-3xl font-semibold tracking-tight text-foreground">{stat.value}</p>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -415,13 +544,15 @@ export function TodayBookingsCard({ summary, restaurantName }: TodayBookingsCard
               if (value) setFilter(value as BookingFilter);
             }}
             aria-label="Filter bookings by attendance status"
-            className="justify-start sm:justify-end"
+            className="flex-wrap justify-center gap-2 sm:justify-end"
           >
           {FILTER_OPTIONS.map(({ value, label }) => (
               <ToggleGroupItem
                 key={value}
                 value={value}
-                className={cn('data-[state=on]:bg-primary data-[state=on]:text-primary-foreground')}
+                className={cn(
+                  'rounded-full border border-border/60 px-4 py-1 text-xs font-medium capitalize transition-colors data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground',
+                )}
                 aria-label={`Show ${label.toLowerCase()} bookings`}
               >
                 {label}

@@ -279,3 +279,60 @@ test("getTodayBookingsSummary falls back to UTC when restaurant timezone missing
   assert.equal(summary.totals.upcoming, 1);
   assert.equal(summary.totals.covers, 2);
 });
+
+test("getTodayBookingsSummary respects explicit targetDate override", async () => {
+  const { getTodayBookingsSummary } = await bookingsModulePromise;
+  const bookings: BookingRow[] = [];
+
+  const targetDate = "2025-12-24";
+
+  const { client, captured } = createMockSupabaseClient({
+    restaurant: { id: "rest-explicit", timezone: "Europe/London" },
+    bookings,
+  });
+
+  const summary = await getTodayBookingsSummary("rest-explicit", {
+    client,
+    referenceDate: new Date("2025-01-01T00:00:00Z"),
+    targetDate,
+  });
+
+  assert.equal(summary.date, targetDate);
+  assert.equal(captured.bookingDateFilter, targetDate);
+  assert.equal(summary.totals.total, 0);
+});
+
+test("getBookingsHeatmap aggregates covers and booking counts", async () => {
+  const { getBookingsHeatmap } = await bookingsModulePromise;
+
+  const mockData = [
+    { booking_date: "2025-10-01", party_size: 4, status: "confirmed" },
+    { booking_date: "2025-10-01", party_size: 2, status: "cancelled" },
+    { booking_date: "2025-10-02", party_size: 5, status: "completed" },
+    { booking_date: "2025-10-02", party_size: 3, status: "no_show" },
+  ];
+
+  const client = {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          gte: () => ({
+            lte: async () => ({
+              data: mockData,
+              error: null as unknown,
+            }),
+          }),
+        }),
+      }),
+    }),
+  } as any;
+
+  const result = await getBookingsHeatmap("rest-heat", {
+    client,
+    startDate: "2025-10-01",
+    endDate: "2025-10-31",
+  });
+
+  assert.deepEqual(result["2025-10-01"], { bookings: 2, covers: 4 });
+  assert.deepEqual(result["2025-10-02"], { bookings: 2, covers: 5 });
+});

@@ -42,10 +42,15 @@ export type TodayBookingsSummary = {
 type SummaryOptions = {
   client?: DbClient;
   referenceDate?: Date;
+  targetDate?: string;
 };
 
 function resolveTimezone(value: string | null | undefined): string {
   return value && value.trim().length > 0 ? value : "UTC";
+}
+
+function isValidDateString(value: string | undefined): value is string {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
 export async function getTodayBookingsSummary(
@@ -66,7 +71,9 @@ export async function getTodayBookingsSummary(
   }
 
   const timezone = resolveTimezone(restaurant?.timezone);
-  const reportDate = getDateInTimezone(referenceDate, timezone);
+  const reportDate = isValidDateString(options.targetDate)
+    ? options.targetDate
+    : getDateInTimezone(referenceDate, timezone);
 
   const { data, error } = await client
     .from("bookings")
@@ -151,4 +158,52 @@ export async function getTodayBookingsSummary(
     totals,
     bookings: summaryBookings,
   };
+}
+
+export type BookingHeatmap = Record<
+  string,
+  {
+    covers: number;
+    bookings: number;
+  }
+>;
+
+type HeatmapOptions = {
+  startDate: string;
+  endDate: string;
+  client?: DbClient;
+};
+
+export async function getBookingsHeatmap(
+  restaurantId: string,
+  options: HeatmapOptions,
+): Promise<BookingHeatmap> {
+  const client = options.client ?? getServiceSupabaseClient();
+
+  const { data, error } = await client
+    .from("bookings")
+    .select("booking_date, party_size, status")
+    .eq("restaurant_id", restaurantId)
+    .gte("booking_date", options.startDate)
+    .lte("booking_date", options.endDate);
+
+  if (error) {
+    throw error;
+  }
+
+  const entries = (data ?? []) as Pick<Tables<"bookings">, "booking_date" | "party_size" | "status">[];
+
+  return entries.reduce<BookingHeatmap>((acc, booking) => {
+    const key = booking.booking_date;
+    if (!acc[key]) {
+      acc[key] = { covers: 0, bookings: 0 };
+    }
+
+    acc[key]!.bookings += 1;
+    if (!CANCELLED_STATUSES.includes(booking.status)) {
+      acc[key]!.covers += booking.party_size ?? 0;
+    }
+
+    return acc;
+  }, {});
 }

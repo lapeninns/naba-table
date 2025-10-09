@@ -44,3 +44,36 @@ export function getDateInTimezone(date: Date, timeZone: string): string {
 export function getTodayInTimezone(timeZone: string): string {
   return getDateInTimezone(new Date(), timeZone);
 }
+
+function toDateInstance(value: string | Date): Date {
+  if (value instanceof Date) {
+    return new Date(value.getTime());
+  }
+  return new Date(`${value}T00:00:00`);
+}
+
+export function formatDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export function formatDateReadable(value: string | Date, timeZone: string): string {
+  const date = toDateInstance(value);
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  const parts = formatter.formatToParts(date);
+  const weekday = parts.find((part) => part.type === "weekday")?.value ?? "";
+  const day = parts.find((part) => part.type === "day")?.value ?? "";
+  const month = parts.find((part) => part.type === "month")?.value ?? "";
+  const year = parts.find((part) => part.type === "year")?.value ?? "";
+
+  return [weekday, day, month, year].filter(Boolean).join(" ").trim();
+}
