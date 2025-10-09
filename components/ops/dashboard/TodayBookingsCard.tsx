@@ -3,7 +3,19 @@
 import { useCallback, useMemo, useState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
-import { AlertTriangle, Ban, CalendarDays, CheckCircle2, ClipboardList, Users, ChevronDown } from 'lucide-react';
+import {
+  AlertTriangle,
+  Ban,
+  CalendarDays,
+  CheckCircle2,
+  ClipboardList,
+  Users,
+  ChevronDown,
+  Mail,
+  Phone,
+  Calendar as CalendarIcon,
+  Clock,
+} from 'lucide-react';
 
 import {
   AlertDialog,
@@ -24,7 +36,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Calendar, CalendarDayButton } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { formatDateKey, formatDateReadable, getDateInTimezone } from '@/lib/utils/datetime';
+import { formatDateKey, formatDateReadable, formatTimeRange, getDateInTimezone, getTodayInTimezone } from '@/lib/utils/datetime';
 import { formatReservationTime } from '@reserve/shared/formatting/booking';
 
 import type { BookingHeatmap, TodayBookingsSummary, TodayBooking } from '@/server/ops/bookings';
@@ -64,14 +76,10 @@ type HeatIntensity = 'none' | 'faint' | 'low' | 'medium' | 'high';
 
 const HEATMAP_CLASS_MAP: Record<HeatIntensity, string> = {
   none: '',
-  faint:
-    'data-[selected-single=false]:bg-emerald-100/60 data-[selected-single=false]:text-emerald-900 data-[selected-single=false]:hover:bg-emerald-100/80',
-  low:
-    'data-[selected-single=false]:bg-emerald-200/70 data-[selected-single=false]:text-emerald-950 data-[selected-single=false]:hover:bg-emerald-200/90',
-  medium:
-    'data-[selected-single=false]:bg-emerald-400/80 data-[selected-single=false]:text-white data-[selected-single=false]:hover:bg-emerald-400/90',
-  high:
-    'data-[selected-single=false]:bg-emerald-600/80 data-[selected-single=false]:text-white data-[selected-single=false]:hover:bg-emerald-600/90',
+  faint: 'bg-emerald-100/70 text-emerald-900 hover:bg-emerald-100/90',
+  low: 'bg-emerald-200/70 text-emerald-950 hover:bg-emerald-200/90',
+  medium: 'bg-emerald-400/80 text-white hover:bg-emerald-400/90',
+  high: 'bg-emerald-600/80 text-white hover:bg-emerald-600/90',
 };
 
 function formatStatus(value: string): string {
@@ -135,7 +143,7 @@ function BookingDetailsDialog({
     try {
       await onStatusChange(booking.id, status);
     } catch (error) {
-      // errors handled upstream via toast; swallow to reset state
+      // surface handled upstream via toast
     } finally {
       setLoadingStatus(null);
     }
@@ -145,6 +153,21 @@ function BookingDetailsDialog({
   const isProcessing = loadingStatus !== null;
   const disableShow = isCancelled || isProcessing || booking.status === 'completed';
   const disableNoShow = isCancelled || isProcessing || booking.status === 'no_show';
+
+  const mailHref = booking.customerEmail ? `mailto:${booking.customerEmail}` : null;
+  const phoneHref = booking.customerPhone ? `tel:${booking.customerPhone.replace(/[^+\d]/g, '')}` : null;
+  const serviceDateReadable = formatDateReadable(summary.date, summary.timezone);
+  const serviceTime = formatTimeRange(booking.startTime, booking.endTime, summary.timezone);
+
+  const InfoTile = ({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string }) => (
+    <div className="flex items-center gap-3 rounded-2xl border border-border/60 bg-muted/10 px-4 py-3">
+      <Icon className="h-4 w-4 text-muted-foreground" aria-hidden />
+      <div className="flex flex-col">
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
+        <span className="text-sm text-foreground">{value}</span>
+      </div>
+    </div>
+  );
 
   return (
     <Dialog>
@@ -159,103 +182,130 @@ function BookingDetailsDialog({
           {booking.notes ? <span className="ml-2 inline-flex h-2 w-2 rounded-full bg-primary" aria-hidden /> : null}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{booking.customerName}</DialogTitle>
-          <DialogDescription>
-            Service on {summary.date} ({summary.timezone})
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 text-sm">
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</span>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader className="space-y-4 border-b border-border/60 pb-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <DialogTitle className="text-xl font-semibold text-foreground">{booking.customerName}</DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground">
+                {serviceDateReadable} · {serviceTime}
+              </DialogDescription>
+            </div>
             <StatusBadge status={booking.status} />
           </div>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Booking reference
+            <span className="ml-2 font-medium text-foreground">{booking.reference ?? 'Not provided'}</span>
+          </p>
+        </DialogHeader>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <DetailRow label="Start time" value={formatTime(booking.startTime)} />
-            <DetailRow label="End time" value={formatTime(booking.endTime, '—')} />
-            <DetailRow label="Guests" value={`${booking.partySize}`} />
-            <DetailRow label="Reference" value={booking.reference ?? 'Not provided'} />
-            <DetailRow label="Email" value={booking.customerEmail ?? 'Not provided'} />
-            <DetailRow label="Phone" value={booking.customerPhone ?? 'Not provided'} />
+        <div className="grid gap-4 py-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <div className="space-y-6">
+            <section className="space-y-3">
+              <h4 className="text-sm font-semibold text-foreground">Contact actions</h4>
+              <div className="flex flex-wrap gap-3">
+                <Button asChild disabled={!mailHref} className="gap-2">
+                  <a href={mailHref ?? '#'} aria-disabled={!mailHref}>
+                    <Mail className="h-4 w-4" aria-hidden /> Email guest
+                  </a>
+                </Button>
+                <Button asChild variant="secondary" disabled={!phoneHref} className="gap-2">
+                  <a href={phoneHref ?? '#'} aria-disabled={!phoneHref}>
+                    <Phone className="h-4 w-4" aria-hidden /> Call guest
+                  </a>
+                </Button>
+              </div>
+            </section>
+
+            <section className="space-y-3">
+              <h4 className="text-sm font-semibold text-foreground">Booking details</h4>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <InfoTile icon={Clock} label="Time" value={serviceTime} />
+                <InfoTile icon={Users} label="Guests" value={`${booking.partySize}`} />
+                <InfoTile icon={CalendarIcon} label="Service date" value={serviceDateReadable} />
+                <InfoTile icon={Mail} label="Contact email" value={booking.customerEmail ?? 'Not provided'} />
+                <InfoTile icon={Phone} label="Contact phone" value={booking.customerPhone ?? 'Not provided'} />
+              </div>
+            </section>
+
+            {booking.notes ? (
+              <section className="space-y-2">
+                <h4 className="text-sm font-semibold text-foreground">Notes from guest</h4>
+                <p className="rounded-2xl border border-border/60 bg-muted/15 px-4 py-3 text-sm leading-relaxed text-foreground">
+                  {booking.notes}
+                </p>
+              </section>
+            ) : null}
           </div>
 
-          {booking.notes ? (
-            <div className="space-y-1">
-              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Notes</span>
-              <p className="rounded-md border border-border/60 bg-muted/20 p-3 text-sm leading-relaxed text-foreground">
-                {booking.notes}
-              </p>
+          <aside className="space-y-4 rounded-3xl border border-border/60 bg-muted/10 px-4 py-5">
+            <h4 className="text-sm font-semibold text-foreground">Status actions</h4>
+            <p className="text-xs text-muted-foreground">
+              Use these shortcuts to keep the team in sync once the guest arrives or is marked as a no-show.
+            </p>
+            <div className="flex flex-col gap-2">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="default"
+                    className="w-full"
+                    disabled={disableShow}
+                  >
+                    Mark as show
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Mark as show?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Confirm that {booking.customerName} has arrived so the booking is recorded as attended.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={loadingStatus !== null}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => {
+                        void handleStatusChange('completed');
+                      }}
+                      disabled={loadingStatus !== null}
+                    >
+                      {loadingStatus === 'completed' ? 'Updating…' : 'Confirm'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="destructive"
+                    className="w-full"
+                    disabled={disableNoShow}
+                  >
+                    Mark as no show
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Mark as no show?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will flag the booking as not attended. You can revert later if the guest arrives.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={loadingStatus !== null}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => {
+                        void handleStatusChange('no_show');
+                      }}
+                      disabled={loadingStatus !== null}
+                    >
+                      {loadingStatus === 'no_show' ? 'Updating…' : 'Confirm'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
-          ) : null}
-        </div>
-
-        <div className="mt-6 flex flex-wrap justify-end gap-2">
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant="default"
-                size="sm"
-                disabled={disableShow}
-                className="touch-manipulation"
-              >
-                Mark as show
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Mark as show?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Confirm that {booking.customerName} has arrived so the booking is recorded as attended.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={loadingStatus !== null}>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() => {
-                    void handleStatusChange('completed');
-                  }}
-                  disabled={loadingStatus !== null}
-                >
-                  {loadingStatus === 'completed' ? 'Updating…' : 'Confirm'}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant="destructive"
-                size="sm"
-                disabled={disableNoShow}
-                className="touch-manipulation"
-              >
-                Mark as no show
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Mark as no show?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will flag the booking as not attended. You can revert later if the guest arrives.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={loadingStatus !== null}>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() => {
-                    void handleStatusChange('no_show');
-                  }}
-                  disabled={loadingStatus !== null}
-                >
-                  {loadingStatus === 'no_show' ? 'Updating…' : 'Confirm'}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          </aside>
         </div>
       </DialogContent>
     </Dialog>
@@ -411,12 +461,16 @@ export function TodayBookingsCard({ summary, restaurantName, selectedDate, heatm
     () => ({
       DayButton: (props: React.ComponentProps<typeof CalendarDayButton>) => {
         const intensity = getIntensityForDate(props.day.date);
-        const extraClass = HEATMAP_CLASS_MAP[intensity];
+        const extraClass = !props.modifiers.selected ? HEATMAP_CLASS_MAP[intensity] : '';
         return <CalendarDayButton {...props} className={cn(extraClass, props.className)} />;
       },
     }),
     [getIntensityForDate],
   );
+
+  const todayKey = useMemo(() => getTodayInTimezone(summary.timezone), [summary.timezone]);
+  const isViewingToday = summary.date === todayKey;
+  const headerTitle = isViewingToday ? "Today’s bookings" : "Bookings overview";
 
   const updateBookingStatus = useCallback(
     async (bookingId: string, targetStatus: 'completed' | 'no_show') => {
@@ -449,40 +503,38 @@ export function TodayBookingsCard({ summary, restaurantName, selectedDate, heatm
       : 'No bookings match this filter. Reset to view all reservations.';
 
   return (
-    <Card className="border-border/60">
-      <CardHeader className="gap-6 border-b border-border/60 pb-6 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex flex-col gap-1">
-          <CardTitle className="text-2xl font-semibold text-foreground">Today’s bookings</CardTitle>
-          <CardDescription className="text-base text-muted-foreground">
-            {selectedDateReadable} · {restaurantName}
-          </CardDescription>
-        </div>
-        <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-muted-foreground">
-          <Badge className="rounded-full border border-border/60 bg-background px-3 py-1 text-xs font-medium text-muted-foreground">
-            Timezone: {summary.timezone}
-          </Badge>
-          <div className="flex items-center gap-2 rounded-full border border-border/60 bg-background px-3 py-1">
-            <ClipboardList className="h-3.5 w-3.5" aria-hidden />
-            <span>{summary.bookings.length} bookings on {summary.date}</span>
+    <Card className="border-border/60 shadow-sm">
+      <CardHeader className="space-y-6 border-b border-border/60 pb-8">
+        <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,260px)_minmax(0,1fr)] lg:items-center">
+          <div className="flex flex-col gap-1 text-center lg:text-left">
+            <CardTitle className="text-2xl font-semibold tracking-tight text-foreground">{headerTitle}</CardTitle>
+            <CardDescription className="text-base text-muted-foreground">
+              {selectedDateReadable} · {restaurantName}
+            </CardDescription>
+            {!isViewingToday ? (
+              <span className="mt-1 inline-flex w-fit items-center gap-2 rounded-full border border-border/60 bg-muted/20 px-3 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Viewing future service
+              </span>
+            ) : null}
           </div>
-        </div>
-      </CardHeader>
 
-      <CardContent className="space-y-8">
-        <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex w-full flex-col items-center gap-3 text-center">
+          <div className="flex flex-col items-center gap-3 text-center">
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
-                  className="flex h-11 w-full max-w-xs items-center justify-between rounded-full border-border/60 bg-background px-4 text-sm font-medium shadow-sm"
+                  className="flex h-11 w-full max-w-xs items-center justify-between rounded-full border-border/60 bg-background px-5 text-sm font-medium shadow-sm"
                   aria-label="Select service date"
                 >
                   <span>{selectedDateReadable}</span>
                   <ChevronDown className="h-4 w-4" aria-hidden />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto overflow-hidden rounded-xl border border-border/60 bg-background p-3 shadow-lg" align="center" sideOffset={8}>
+              <PopoverContent
+                className="w-auto overflow-hidden rounded-2xl border border-border/60 bg-background p-4 shadow-lg"
+                align="center"
+                sideOffset={10}
+              >
                 <Calendar
                   mode="single"
                   captionLayout="dropdown"
@@ -493,46 +545,44 @@ export function TodayBookingsCard({ summary, restaurantName, selectedDate, heatm
                 />
               </PopoverContent>
             </Popover>
-            <p className="text-sm text-muted-foreground max-w-sm">
+            <p className="text-sm text-muted-foreground">
               Showing reservations for{' '}
               <span className="font-medium text-foreground">{selectedDateReadable}</span>.
             </p>
             <p className="sr-only" aria-live="polite">
               {isNavigating ? 'Loading bookings for selected date…' : `Bookings loaded for ${selectedDateReadable}.`}
             </p>
-            <div className="flex items-center gap-3 text-[0.7rem] text-muted-foreground/80">
-              <div className="flex items-center gap-1">
-                <span className="h-2 w-6 rounded-full bg-emerald-600/80" aria-hidden />
-                <span>Busy</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="h-2 w-6 rounded-full bg-emerald-300/70" aria-hidden />
-                <span>Steady</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="h-2 w-6 rounded-full bg-emerald-100/60" aria-hidden />
-                <span>Light</span>
-              </div>
-            </div>
           </div>
 
-          <div className="grid w-full gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {stats.map((stat) => {
-              const Icon = stat.icon;
-              return (
-                <div
-                  key={stat.label}
-                  className="flex flex-col gap-1 rounded-2xl border border-border/60 bg-background/80 px-5 py-4 shadow-sm"
-                >
-                  <div className="flex items-center justify-between text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground">
-                    <span>{stat.label}</span>
-                    {Icon ? <Icon className="h-3.5 w-3.5" aria-hidden /> : null}
-                  </div>
-                  <p className="text-3xl font-semibold tracking-tight text-foreground">{stat.value}</p>
-                </div>
-              );
-            })}
+          <div className="flex flex-col items-center gap-2 text-xs font-medium text-muted-foreground lg:items-end">
+            <Badge className="rounded-full border border-border/60 bg-background px-3 py-1 text-xs font-medium text-muted-foreground">
+              Timezone: {summary.timezone}
+            </Badge>
+            <div className="flex items-center gap-2 rounded-full border border-border/60 bg-background px-3 py-1">
+              <ClipboardList className="h-3.5 w-3.5" aria-hidden />
+              <span>{summary.bookings.length} bookings on {summary.date}</span>
+            </div>
           </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-10">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {stats.map((stat) => {
+            const Icon = stat.icon;
+            return (
+              <div
+                key={stat.label}
+                className="flex flex-col justify-between gap-2 rounded-3xl border border-border/60 bg-background px-5 py-5 shadow-sm"
+              >
+                <div className="flex items-center justify-between text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground">
+                  <span>{stat.label}</span>
+                  {Icon ? <Icon className="h-4 w-4" aria-hidden /> : null}
+                </div>
+                <p className="text-3xl font-semibold tracking-tight text-foreground">{stat.value}</p>
+              </div>
+            );
+          })}
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

@@ -77,3 +77,26 @@ export function formatDateReadable(value: string | Date, timeZone: string): stri
 
   return [weekday, day, month, year].filter(Boolean).join(" ").trim();
 }
+
+export function formatTimeRange(start: string | null, end: string | null, timeZone: string): string {
+  if (!start && !end) return "Time TBC";
+
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const withTime = (time: string | null) => {
+    if (!time) return null;
+    const [hours, minutes] = time.split(":");
+    const date = new Date();
+    date.setHours(Number.parseInt(hours ?? "0", 10), Number.parseInt(minutes ?? "0", 10), 0, 0);
+    return formatter.format(date);
+  };
+
+  const startLabel = withTime(start) ?? "Time TBC";
+  const endLabel = withTime(end);
+
+  return endLabel ? `${startLabel} – ${endLabel}` : startLabel;
+}
