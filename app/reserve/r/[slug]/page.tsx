@@ -43,6 +43,7 @@ export default async function RestaurantBookingPage({ params }: { params: RouteP
 
   const initialDetails = {
     restaurantId: restaurant.id,
+    restaurantSlug: slug,
     restaurantName: restaurant.name,
     restaurantTimezone: restaurant.timezone ?? DEFAULT_VENUE.timezone,
     restaurantAddress: DEFAULT_VENUE.address,

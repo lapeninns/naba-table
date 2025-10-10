@@ -12,6 +12,7 @@ export type ServicePeriod = {
   dayOfWeek: number | null;
   startTime: string;
   endTime: string;
+  bookingOption: 'lunch' | 'dinner' | 'drinks';
 };
 
 export type UpdateServicePeriodInput = {
@@ -20,6 +21,7 @@ export type UpdateServicePeriodInput = {
   dayOfWeek?: number | null;
   startTime: string;
   endTime: string;
+  bookingOption: 'lunch' | 'dinner' | 'drinks';
 };
 
 const DISABLED_KEY = ['owner', 'restaurants', 'disabled', 'service-periods'] as const;

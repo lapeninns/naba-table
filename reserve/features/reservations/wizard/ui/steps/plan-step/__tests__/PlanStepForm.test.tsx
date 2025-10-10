@@ -1,12 +1,90 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { wizardStateFixture } from '@/tests/fixtures/wizard';
 import { PlanStepForm } from '@features/reservations/wizard/ui/steps/plan-step/PlanStepForm';
 
 const MIN_DATE = new Date('2025-05-01T00:00:00Z');
+
+const getMock = vi.fn();
+
+vi.mock('@shared/api/client', () => ({
+  apiClient: {
+    get: (...args: unknown[]) => getMock(...args),
+  },
+}));
+
+const scheduleFixture = {
+  restaurantId: 'rest-1',
+  date: '2025-05-15',
+  timezone: 'Europe/London',
+  intervalMinutes: 15,
+  defaultDurationMinutes: 90,
+  window: { opensAt: '12:00', closesAt: '22:00' },
+  isClosed: false,
+  slots: [
+    {
+      value: '12:00',
+      display: '12:00',
+      periodId: 'sp-lunch',
+      periodName: 'Lunch',
+      bookingOption: 'lunch',
+      defaultBookingOption: 'lunch',
+      availability: {
+        services: { lunch: 'enabled', dinner: 'disabled', drinks: 'enabled' },
+        labels: {
+          happyHour: false,
+          drinksOnly: false,
+          kitchenClosed: false,
+          lunchWindow: true,
+          dinnerWindow: false,
+        },
+      },
+      disabled: false,
+    },
+    {
+      value: '18:00',
+      display: '18:00',
+      periodId: 'sp-dinner',
+      periodName: 'Dinner',
+      bookingOption: 'dinner',
+      defaultBookingOption: 'dinner',
+      availability: {
+        services: { lunch: 'disabled', dinner: 'enabled', drinks: 'enabled' },
+        labels: {
+          happyHour: false,
+          drinksOnly: false,
+          kitchenClosed: false,
+          lunchWindow: false,
+          dinnerWindow: true,
+        },
+      },
+      disabled: false,
+    },
+  ],
+};
+
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
+
+  return ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+}
+
+beforeEach(() => {
+  getMock.mockReset();
+  getMock.mockResolvedValue(scheduleFixture);
+});
 
 describe('<PlanStepForm />', () => {
   const setup = () => {
@@ -22,6 +100,8 @@ describe('<PlanStepForm />', () => {
     const onActionsChange = vi.fn();
     const onTrack = vi.fn();
 
+    const wrapper = createWrapper();
+
     render(
       <PlanStepForm
         state={state}
@@ -30,6 +110,7 @@ describe('<PlanStepForm />', () => {
         onTrack={onTrack}
         minDate={MIN_DATE}
       />,
+      { wrapper },
     );
 
     return { updateDetails, goToStep, onActionsChange, onTrack };

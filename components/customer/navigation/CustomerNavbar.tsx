@@ -38,7 +38,7 @@ type AccountLink = {
   label: string;
 };
 
-const PRIMARY_LINKS: PrimaryLink[] = [];
+const PRIMARY_LINKS: PrimaryLink[] = [{ href: "/restaurants", label: "Restaurants" }];
 
 const ACCOUNT_LINKS: AccountLink[] = [
   { href: "/my-bookings", label: "My bookings" },

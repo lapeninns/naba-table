@@ -98,6 +98,7 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
             error: timeFieldError?.message ?? formState.errors.time?.message,
           }}
           suggestions={state.slots}
+          intervalMinutes={state.intervalMinutes}
         />
 
         <FormField

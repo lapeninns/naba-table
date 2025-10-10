@@ -1,13 +1,25 @@
 import { expect, fn, userEvent, within } from '@storybook/test';
 
-import { getServiceAvailability } from '@reserve/features/reservations/wizard/services';
-
 import { OccasionPicker } from './components/OccasionPicker';
 
-import type { BookingOption } from '@reserve/features/reservations/wizard/services';
+import type { ServiceAvailability } from '@reserve/features/reservations/wizard/services';
+import type { BookingOption } from '@reserve/shared/booking';
 import type { Meta, StoryObj } from '@storybook/react';
 
-const availability = getServiceAvailability('2025-05-08', '16:00');
+const availability: ServiceAvailability = {
+  services: {
+    lunch: 'disabled',
+    dinner: 'disabled',
+    drinks: 'enabled',
+  },
+  labels: {
+    happyHour: true,
+    drinksOnly: true,
+    kitchenClosed: true,
+    lunchWindow: false,
+    dinnerWindow: false,
+  },
+};
 const ORDER: BookingOption[] = ['lunch', 'dinner', 'drinks'];
 
 const meta = {

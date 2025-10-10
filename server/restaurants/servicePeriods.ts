@@ -7,12 +7,15 @@ import type { Database } from '@/types/supabase';
 
 type DbClient = SupabaseClient<Database, 'public', any>;
 
+export type BookingOption = 'lunch' | 'dinner' | 'drinks';
+
 export type ServicePeriod = {
   id: string;
   name: string;
   dayOfWeek: number | null;
   startTime: string;
   endTime: string;
+  bookingOption: BookingOption;
 };
 
 export type UpdateServicePeriod = {
@@ -21,9 +24,11 @@ export type UpdateServicePeriod = {
   dayOfWeek?: number | null;
   startTime: string;
   endTime: string;
+  bookingOption: BookingOption;
 };
 
 const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
+const BOOKING_OPTIONS = new Set<BookingOption>(['lunch', 'dinner', 'drinks']);
 
 function normalizeTime(value: string): string {
   const trimmed = value.trim();
@@ -43,6 +48,17 @@ function normalizeDayOfWeek(value: number | null | undefined): number | null {
   return value;
 }
 
+function normalizeBookingOption(value: BookingOption | string | null | undefined): BookingOption {
+  if (!value) {
+    throw new Error('bookingOption is required');
+  }
+  const normalized = value.toLowerCase() as BookingOption;
+  if (!BOOKING_OPTIONS.has(normalized)) {
+    throw new Error(`Invalid booking option "${value}"`);
+  }
+  return normalized;
+}
+
 function validateServicePeriod(entry: UpdateServicePeriod): ServicePeriod {
   const name = entry.name.trim();
   if (!name) {
@@ -52,6 +68,7 @@ function validateServicePeriod(entry: UpdateServicePeriod): ServicePeriod {
   const dayOfWeek = normalizeDayOfWeek(entry.dayOfWeek ?? null);
   const startTime = normalizeTime(entry.startTime);
   const endTime = normalizeTime(entry.endTime);
+  const bookingOption = normalizeBookingOption(entry.bookingOption);
 
   if (startTime >= endTime) {
     throw new Error(`Service period "${name}" must end after it starts`);
@@ -63,6 +80,7 @@ function validateServicePeriod(entry: UpdateServicePeriod): ServicePeriod {
     dayOfWeek,
     startTime,
     endTime,
+    bookingOption,
   };
 }
 
@@ -72,7 +90,7 @@ export async function getServicePeriods(
 ): Promise<ServicePeriod[]> {
   const { data, error } = await client
     .from('restaurant_service_periods')
-    .select('id, name, day_of_week, start_time, end_time')
+    .select('id, name, day_of_week, start_time, end_time, booking_option')
     .eq('restaurant_id', restaurantId)
     .order('day_of_week', { ascending: true })
     .order('start_time', { ascending: true });
@@ -94,6 +112,7 @@ export async function getServicePeriods(
     dayOfWeek: row.day_of_week,
     startTime: row.start_time,
     endTime: row.end_time,
+    bookingOption: normalizeBookingOption(row.booking_option as BookingOption),
   }));
 }
 
@@ -142,6 +161,7 @@ export async function updateServicePeriods(
       day_of_week: period.dayOfWeek,
       start_time: period.startTime,
       end_time: period.endTime,
+      booking_option: period.bookingOption,
     }));
 
     const { error: insertError } = await client.from('restaurant_service_periods').insert(insertRows);

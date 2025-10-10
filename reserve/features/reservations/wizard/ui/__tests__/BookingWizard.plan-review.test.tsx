@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
@@ -8,6 +9,7 @@ import { WizardDependenciesProvider } from '@features/reservations/wizard/di';
 import { BookingWizard } from '@features/reservations/wizard/ui/BookingWizard';
 
 const mutateAsync = vi.fn();
+const getScheduleMock = vi.fn();
 
 class ResizeObserverMock {
   callback: ResizeObserverCallback;
@@ -21,6 +23,12 @@ class ResizeObserverMock {
 
 vi.mock('@features/reservations/wizard/api/useCreateReservation', () => ({
   useCreateReservation: () => ({ mutateAsync, isPending: false }),
+}));
+
+vi.mock('@shared/api/client', () => ({
+  apiClient: {
+    get: (...args: unknown[]) => getScheduleMock(...args),
+  },
 }));
 
 vi.mock('@/hooks/useSupabaseSession', () => ({
@@ -51,7 +59,69 @@ describe('BookingWizard plan to review flow', () => {
       bookings: [apiBookingFixture()],
       booking: apiBookingFixture(),
     });
+    getScheduleMock.mockReset();
+    getScheduleMock.mockResolvedValue({
+      restaurantId: 'rest-1',
+      date: '2025-05-20',
+      timezone: 'Europe/London',
+      intervalMinutes: 15,
+      defaultDurationMinutes: 90,
+      window: { opensAt: '12:00', closesAt: '22:00' },
+      isClosed: false,
+      slots: [
+        {
+          value: '18:15',
+          display: '18:15',
+          periodId: 'sp-dinner',
+          periodName: 'Dinner',
+          bookingOption: 'dinner',
+          defaultBookingOption: 'dinner',
+          availability: {
+            services: { lunch: 'disabled', dinner: 'enabled', drinks: 'enabled' },
+            labels: {
+              happyHour: false,
+              drinksOnly: false,
+              kitchenClosed: false,
+              lunchWindow: false,
+              dinnerWindow: true,
+            },
+          },
+          disabled: false,
+        },
+        {
+          value: '19:00',
+          display: '19:00',
+          periodId: 'sp-late',
+          periodName: 'Dinner',
+          bookingOption: 'dinner',
+          defaultBookingOption: 'dinner',
+          availability: {
+            services: { lunch: 'disabled', dinner: 'enabled', drinks: 'enabled' },
+            labels: {
+              happyHour: false,
+              drinksOnly: false,
+              kitchenClosed: false,
+              lunchWindow: false,
+              dinnerWindow: true,
+            },
+          },
+          disabled: false,
+        },
+      ],
+    });
   });
+
+  const renderWithProviders = (ui: React.ReactNode) => {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+        },
+      },
+    });
+
+    return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
+  };
 
   it('persists selections through review and triggers confirmation mutation', async () => {
     const analytics = { track: vi.fn() };
@@ -65,7 +135,7 @@ describe('BookingWizard plan to review flow', () => {
       phone: '',
     });
 
-    render(
+    renderWithProviders(
       <WizardDependenciesProvider value={{ analytics }}>
         <BookingWizard initialDetails={initialDetails} />
       </WizardDependenciesProvider>,
@@ -141,7 +211,7 @@ describe('BookingWizard plan to review flow', () => {
       phone: '',
     });
 
-    render(
+    renderWithProviders(
       <WizardDependenciesProvider value={{ analytics }}>
         <BookingWizard initialDetails={initialDetails} />
       </WizardDependenciesProvider>,

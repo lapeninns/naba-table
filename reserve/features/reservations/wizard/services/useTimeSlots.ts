@@ -1,40 +1,117 @@
+import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 
-import { buildTimeSlots, getServiceAvailability, resolveDefaultBookingOption } from './timeSlots';
+import { normalizeTime } from '@reserve/shared/time';
+import { apiClient } from '@shared/api/client';
 
-import type { BookingOption, ServiceAvailability, TimeSlotDescriptor } from './timeSlots';
-import type { ReservationConfig } from '@reserve/shared/config/reservations';
-import type { ReservationTime } from '@reserve/shared/time';
+import {
+  EMPTY_AVAILABILITY,
+  toTimeSlotDescriptor,
+  type ReservationSchedule,
+  type ServiceAvailability,
+  type TimeSlotDescriptor,
+} from './timeSlots';
+
+import type { BookingOption } from '@reserve/shared/booking';
 
 export type UseTimeSlotsOptions = {
+  restaurantSlug: string | null | undefined;
   date: string | null | undefined;
-  selectedTime: string | ReservationTime | null | undefined;
-  config?: ReservationConfig;
+  selectedTime: string | null | undefined;
 };
 
 export type UseTimeSlotsResult = {
   slots: TimeSlotDescriptor[];
   serviceAvailability: ServiceAvailability;
-  inferBookingOption: (time: string | ReservationTime | null | undefined) => BookingOption;
+  inferBookingOption: (time: string | null | undefined) => BookingOption;
+  schedule: ReservationSchedule | null;
+  isLoading: boolean;
+  isError: boolean;
 };
 
+const DEFAULT_BOOKING_OPTION: BookingOption = 'drinks';
+
+async function fetchSchedule(
+  restaurantSlug: string,
+  date: string | null | undefined,
+  signal: AbortSignal | undefined,
+): Promise<ReservationSchedule> {
+  const params = new URLSearchParams();
+  if (date) {
+    params.set('date', date);
+  }
+
+  const path =
+    params.size > 0
+      ? `/restaurants/${encodeURIComponent(restaurantSlug)}/schedule?${params.toString()}`
+      : `/restaurants/${encodeURIComponent(restaurantSlug)}/schedule`;
+
+  return apiClient.get<ReservationSchedule>(path, { signal });
+}
+
 export function useTimeSlots({
+  restaurantSlug,
   date,
   selectedTime,
-  config,
 }: UseTimeSlotsOptions): UseTimeSlotsResult {
-  const slots = useMemo(() => buildTimeSlots({ date, config }), [date, config]);
+  const scheduleQuery = useQuery<ReservationSchedule>({
+    queryKey: ['reservations', 'schedule', restaurantSlug, date ?? ''],
+    enabled: Boolean(restaurantSlug),
+    queryFn: ({ signal }) => {
+      if (!restaurantSlug) {
+        throw new Error('Missing restaurant slug');
+      }
+      return fetchSchedule(restaurantSlug, date ?? undefined, signal);
+    },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
 
-  const serviceAvailability = useMemo(
-    () => getServiceAvailability(date, selectedTime, config),
-    [date, selectedTime, config],
-  );
+  const slots = useMemo<TimeSlotDescriptor[]>(() => {
+    if (!scheduleQuery.data) {
+      return [];
+    }
+    return scheduleQuery.data.slots.map((slot) => toTimeSlotDescriptor(slot));
+  }, [scheduleQuery.data]);
+
+  const normalizedSelectedTime = useMemo(() => normalizeTime(selectedTime), [selectedTime]);
+
+  const activeSlot = useMemo(() => {
+    if (slots.length === 0) {
+      return undefined;
+    }
+    if (normalizedSelectedTime) {
+      const exact = slots.find((slot) => slot.value === normalizedSelectedTime);
+      if (exact) {
+        return exact;
+      }
+    }
+    return slots[0];
+  }, [slots, normalizedSelectedTime]);
+
+  const serviceAvailability = activeSlot?.availability ?? EMPTY_AVAILABILITY;
 
   const inferBookingOption = useCallback(
-    (time: string | ReservationTime | null | undefined) =>
-      resolveDefaultBookingOption(date, time, config),
-    [date, config],
+    (time: string | null | undefined): BookingOption => {
+      const normalized = normalizeTime(time);
+      if (!normalized) {
+        return activeSlot?.defaultBookingOption ?? DEFAULT_BOOKING_OPTION;
+      }
+      const slot = slots.find((entry) => entry.value === normalized);
+      if (slot) {
+        return slot.defaultBookingOption ?? slot.bookingOption;
+      }
+      return activeSlot?.defaultBookingOption ?? DEFAULT_BOOKING_OPTION;
+    },
+    [activeSlot, slots],
   );
 
-  return { slots, serviceAvailability, inferBookingOption };
+  return {
+    slots,
+    serviceAvailability,
+    inferBookingOption,
+    schedule: scheduleQuery.data ?? null,
+    isLoading: scheduleQuery.isLoading,
+    isError: scheduleQuery.isError,
+  };
 }

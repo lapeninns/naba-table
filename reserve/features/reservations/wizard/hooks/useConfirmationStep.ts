@@ -20,8 +20,6 @@ import type {
   ConfirmationStepProps,
 } from '../ui/steps/confirmation-step/types';
 
-const EVENT_DURATION_MINUTES = reservationConfigResult.config.defaultDurationMinutes;
-
 const buildReservationWindow = (state: ConfirmationStepProps['state']) => {
   const booking = state.lastConfirmed;
   const date = booking?.booking_date ?? state.details.date ?? '';
@@ -31,7 +29,10 @@ const buildReservationWindow = (state: ConfirmationStepProps['state']) => {
   const iso = normalizedTime ? `${date}T${normalizedTime}:00` : `${date}T00:00:00`;
   const start = new Date(iso);
   if (Number.isNaN(start.getTime())) return null;
-  const end = new Date(start.getTime() + EVENT_DURATION_MINUTES * 60 * 1000);
+  const durationMinutes = state.details.reservationDurationMinutes;
+  const fallbackDuration = reservationConfigResult.config.defaultDurationMinutes;
+  const safeDuration = durationMinutes > 0 ? durationMinutes : fallbackDuration;
+  const end = new Date(start.getTime() + safeDuration * 60 * 1000);
   return { start, end };
 };
 

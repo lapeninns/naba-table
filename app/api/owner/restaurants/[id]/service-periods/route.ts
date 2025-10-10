@@ -18,6 +18,7 @@ const servicePeriodSchema = z.object({
   dayOfWeek: z.number().int().min(0).max(6).nullable().optional(),
   startTime: timeSchema,
   endTime: timeSchema,
+  bookingOption: z.enum(['lunch', 'dinner', 'drinks']),
 });
 
 type RouteParams = {

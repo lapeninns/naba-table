@@ -1,3 +1,4 @@
+import { reservationConfigResult } from '@reserve/shared/config/reservations';
 import { formatDateForInput } from '@reserve/shared/formatting/booking';
 import { normalizeTime } from '@reserve/shared/time';
 import {
@@ -6,7 +7,11 @@ import {
   type BookingType,
   type SeatingPreference,
 } from '@shared/config/booking';
-import { DEFAULT_RESTAURANT_ID, DEFAULT_VENUE } from '@shared/config/venue';
+import {
+  DEFAULT_RESTAURANT_ID,
+  DEFAULT_RESTAURANT_SLUG,
+  DEFAULT_VENUE,
+} from '@shared/config/venue';
 
 import type { BookingOption } from '@reserve/shared/booking';
 import type { IconKey } from '@reserve/shared/ui/icons';
@@ -50,9 +55,11 @@ export type StepAction = {
 export type BookingDetails = {
   bookingId: string | null;
   restaurantId: string;
+  restaurantSlug: string;
   restaurantName: string;
   restaurantAddress: string;
   restaurantTimezone: string;
+  reservationDurationMinutes: number;
   date: string;
   time: string;
   party: number;
@@ -144,9 +151,11 @@ export const getInitialDetails = (overrides?: Partial<BookingDetails>): BookingD
   const base: BookingDetails = {
     bookingId: null,
     restaurantId: DEFAULT_RESTAURANT_ID,
+    restaurantSlug: DEFAULT_RESTAURANT_SLUG,
     restaurantName: DEFAULT_VENUE.name,
     restaurantAddress: DEFAULT_VENUE.address,
     restaurantTimezone: DEFAULT_VENUE.timezone,
+    reservationDurationMinutes: reservationConfigResult.config.defaultDurationMinutes,
     date: formatDateForInput(new Date()),
     time: '',
     party: 1,
@@ -169,9 +178,12 @@ export const getInitialDetails = (overrides?: Partial<BookingDetails>): BookingD
     ...base,
     ...overrides,
     restaurantId: overrides.restaurantId ?? base.restaurantId,
+    restaurantSlug: overrides.restaurantSlug ?? base.restaurantSlug,
     restaurantName: overrides.restaurantName ?? base.restaurantName,
     restaurantAddress: overrides.restaurantAddress ?? base.restaurantAddress,
     restaurantTimezone: overrides.restaurantTimezone ?? base.restaurantTimezone,
+    reservationDurationMinutes:
+      overrides.reservationDurationMinutes ?? base.reservationDurationMinutes,
   } satisfies BookingDetails;
 };
 

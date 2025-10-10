@@ -44,7 +44,14 @@ describe('/api/owner/restaurants/[id]/service-periods', () => {
     getUserMock.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
     requireMembershipMock.mockResolvedValue(undefined);
     getServicePeriodsMock.mockResolvedValue([
-      { id: 'sp-1', name: 'Lunch', dayOfWeek: 1, startTime: '12:00', endTime: '15:00' },
+      {
+        id: 'sp-1',
+        name: 'Lunch',
+        dayOfWeek: 1,
+        startTime: '12:00',
+        endTime: '15:00',
+        bookingOption: 'lunch',
+      },
     ]);
 
     const response = await GET(new NextRequest('http://localhost'), {
@@ -63,7 +70,9 @@ describe('/api/owner/restaurants/[id]/service-periods', () => {
 
     const request = new NextRequest('http://localhost', {
       method: 'PUT',
-      body: JSON.stringify([{ name: '', startTime: '10:00', endTime: '12:00' }]),
+      body: JSON.stringify([
+        { name: '', startTime: '10:00', endTime: '12:00', bookingOption: 'lunch' },
+      ]),
       headers: { 'Content-Type': 'application/json' },
       // @ts-expect-error Node fetch requires duplex for request bodies
       duplex: 'half',
@@ -81,12 +90,27 @@ describe('/api/owner/restaurants/[id]/service-periods', () => {
     getUserMock.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
     requireMembershipMock.mockResolvedValue(undefined);
     updateServicePeriodsMock.mockResolvedValue([
-      { id: 'sp-1', name: 'Dinner', dayOfWeek: 5, startTime: '18:00', endTime: '22:00' },
+      {
+        id: 'sp-1',
+        name: 'Dinner',
+        dayOfWeek: 5,
+        startTime: '18:00',
+        endTime: '22:00',
+        bookingOption: 'dinner',
+      },
     ]);
 
     const request = new NextRequest('http://localhost', {
       method: 'PUT',
-      body: JSON.stringify([{ name: 'Dinner', dayOfWeek: 5, startTime: '18:00', endTime: '22:00' }]),
+      body: JSON.stringify([
+        {
+          name: 'Dinner',
+          dayOfWeek: 5,
+          startTime: '18:00',
+          endTime: '22:00',
+          bookingOption: 'dinner',
+        },
+      ]),
       headers: { 'Content-Type': 'application/json' },
       // @ts-expect-error Node fetch requires duplex for request bodies
       duplex: 'half',

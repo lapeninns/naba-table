@@ -14,10 +14,9 @@ import { planFormSchema, type PlanFormValues } from '../model/schemas';
 import type { BookingDetails } from '../model/reducer';
 import type { PlanStepFormProps, PlanStepFormState } from '../ui/steps/plan-step/types';
 
-const DEFAULT_TIME = '12:00';
-const RESERVATION_INTERVAL_MINUTES = reservationConfigResult.config.opening.intervalMinutes;
-const CLOSING_MINUTES = toMinutes(reservationConfigResult.config.opening.close);
-const LATEST_SELECTABLE_MINUTES = Math.max(0, CLOSING_MINUTES - RESERVATION_INTERVAL_MINUTES);
+const DEFAULT_TIME = reservationConfigResult.config.opening.open;
+const DEFAULT_INTERVAL_MINUTES = reservationConfigResult.config.opening.intervalMinutes;
+const DEFAULT_CLOSING_MINUTES = toMinutes(reservationConfigResult.config.opening.close);
 
 export function usePlanStepForm({
   state,
@@ -39,16 +38,24 @@ export function usePlanStepForm({
     },
   });
 
-  const { slots, serviceAvailability, inferBookingOption } = useTimeSlots({
+  const { slots, serviceAvailability, inferBookingOption, schedule } = useTimeSlots({
+    restaurantSlug: state.details.restaurantSlug,
     date: state.details.date,
     selectedTime: state.details.time,
   });
+
+  const intervalMinutes = schedule?.intervalMinutes ?? DEFAULT_INTERVAL_MINUTES;
+  const closingMinutes = schedule?.window?.closesAt
+    ? toMinutes(schedule.window.closesAt)
+    : DEFAULT_CLOSING_MINUTES;
+  const latestSelectableMinutes = Math.max(0, closingMinutes - intervalMinutes);
+  const fallbackTime = slots[0]?.value ?? DEFAULT_TIME;
 
   useEffect(() => {
     form.reset(
       {
         date: state.details.date ?? '',
-        time: state.details.time ?? DEFAULT_TIME,
+        time: state.details.time ?? fallbackTime,
         party: state.details.party ?? 1,
         bookingType: state.details.bookingType,
         notes: state.details.notes ?? '',
@@ -62,6 +69,7 @@ export function usePlanStepForm({
     state.details.party,
     state.details.bookingType,
     state.details.notes,
+    fallbackTime,
   ]);
 
   const updateField = useCallback(
@@ -72,32 +80,36 @@ export function usePlanStepForm({
   );
 
   useEffect(() => {
-    if (!state.details.time) {
-      updateField('time', DEFAULT_TIME);
+    if (!state.details.time && fallbackTime) {
+      updateField('time', fallbackTime);
+      form.setValue('time', fallbackTime, { shouldDirty: false, shouldValidate: true });
     }
-  }, [state.details.time, updateField]);
+  }, [fallbackTime, form, state.details.time, updateField]);
 
-  const normalizeToInterval = useCallback((value: string) => {
-    if (!value) {
-      return '';
-    }
+  const normalizeToInterval = useCallback(
+    (value: string) => {
+      if (!value) {
+        return '';
+      }
 
-    const [hoursPart, minutesPart] = value.split(':');
-    const hours = Number.parseInt(hoursPart ?? '', 10);
-    const minutes = Number.parseInt(minutesPart ?? '', 10);
+      const [hoursPart, minutesPart] = value.split(':');
+      const hours = Number.parseInt(hoursPart ?? '', 10);
+      const minutes = Number.parseInt(minutesPart ?? '', 10);
 
-    if (Number.isNaN(hours) || Number.isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0) {
-      return value;
-    }
+      if (Number.isNaN(hours) || Number.isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0) {
+        return value;
+      }
 
-    const totalMinutes = Math.min(hours * 60 + minutes, LATEST_SELECTABLE_MINUTES);
-    const normalizedMinutes =
-      Math.floor(totalMinutes / RESERVATION_INTERVAL_MINUTES) * RESERVATION_INTERVAL_MINUTES;
-    const nextHours = Math.floor(normalizedMinutes / 60);
-    const nextMinutes = normalizedMinutes % 60;
+      const intervalValue = intervalMinutes > 0 ? intervalMinutes : DEFAULT_INTERVAL_MINUTES;
+      const totalMinutes = Math.min(hours * 60 + minutes, latestSelectableMinutes);
+      const normalizedMinutes = Math.floor(totalMinutes / intervalValue) * intervalValue;
+      const nextHours = Math.floor(normalizedMinutes / 60);
+      const nextMinutes = normalizedMinutes % 60;
 
-    return `${nextHours.toString().padStart(2, '0')}:${nextMinutes.toString().padStart(2, '0')}`;
-  }, []);
+      return `${nextHours.toString().padStart(2, '0')}:${nextMinutes.toString().padStart(2, '0')}`;
+    },
+    [intervalMinutes, latestSelectableMinutes],
+  );
 
   const submitForm = useCallback(
     (values: PlanFormValues) => {
@@ -192,6 +204,17 @@ export function usePlanStepForm({
   const { isSubmitting, isValid } = form.formState;
 
   useEffect(() => {
+    const duration = schedule?.defaultDurationMinutes;
+    if (!duration || duration <= 0) {
+      return;
+    }
+    if (state.details.reservationDurationMinutes === duration) {
+      return;
+    }
+    updateField('reservationDurationMinutes', duration);
+  }, [schedule?.defaultDurationMinutes, state.details.reservationDurationMinutes, updateField]);
+
+  useEffect(() => {
     const submit = () => form.handleSubmit(submitForm, handleError)();
     onActionsChange([
       {
@@ -218,6 +241,7 @@ export function usePlanStepForm({
       changeNotes,
     },
     minDate,
+    intervalMinutes,
     isSubmitting,
     isValid,
     submitForm,

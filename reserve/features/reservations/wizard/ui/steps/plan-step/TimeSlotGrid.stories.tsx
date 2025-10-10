@@ -1,11 +1,10 @@
 import { expect, fn, userEvent, within } from '@storybook/test';
 import React, { useMemo, useState } from 'react';
 
-import { buildTimeSlots } from '@reserve/features/reservations/wizard/services';
-
 import { Calendar24Field } from './components/Calendar24Field';
 
 import type { Calendar24FieldProps } from './components/Calendar24Field';
+import type { TimeSlotDescriptor } from '@reserve/features/reservations/wizard/services';
 import type { Meta, StoryObj } from '@storybook/react';
 
 const meta = {
@@ -18,7 +17,65 @@ export default meta;
 
 type Story = StoryObj<typeof Calendar24Field>;
 
-const slots = buildTimeSlots({ date: '2025-05-08' });
+const slots: TimeSlotDescriptor[] = [
+  {
+    value: '12:00',
+    display: '12:00',
+    label: 'Lunch',
+    bookingOption: 'lunch',
+    defaultBookingOption: 'lunch',
+    availability: {
+      services: { lunch: 'enabled', dinner: 'disabled', drinks: 'enabled' },
+      labels: {
+        happyHour: false,
+        drinksOnly: false,
+        kitchenClosed: false,
+        lunchWindow: true,
+        dinnerWindow: false,
+      },
+    },
+    disabled: false,
+    periodId: 'slot-lunch',
+  },
+  {
+    value: '17:30',
+    display: '17:30',
+    label: 'Dinner',
+    bookingOption: 'dinner',
+    defaultBookingOption: 'dinner',
+    availability: {
+      services: { lunch: 'disabled', dinner: 'enabled', drinks: 'enabled' },
+      labels: {
+        happyHour: false,
+        drinksOnly: false,
+        kitchenClosed: false,
+        lunchWindow: false,
+        dinnerWindow: true,
+      },
+    },
+    disabled: false,
+    periodId: 'slot-dinner',
+  },
+  {
+    value: '21:00',
+    display: '21:00',
+    label: 'Drinks & cocktails',
+    bookingOption: 'drinks',
+    defaultBookingOption: 'drinks',
+    availability: {
+      services: { lunch: 'disabled', dinner: 'disabled', drinks: 'enabled' },
+      labels: {
+        happyHour: true,
+        drinksOnly: true,
+        kitchenClosed: true,
+        lunchWindow: false,
+        dinnerWindow: false,
+      },
+    },
+    disabled: false,
+    periodId: 'slot-drinks',
+  },
+];
 
 const DEFAULT_MIN_DATE = new Date('2025-05-01');
 

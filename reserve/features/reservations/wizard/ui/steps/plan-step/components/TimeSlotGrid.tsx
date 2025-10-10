@@ -13,15 +13,8 @@ type TimeSlotGridProps = {
   onSelect: (value: string) => void;
 };
 
-const GROUP_TITLE: Record<TimeSlotDescriptor['label'], string> = {
-  Lunch: 'Lunch',
-  Dinner: 'Dinner',
-  'Happy Hour': 'Happy hour',
-  'Drinks only': 'Drinks & cocktails',
-};
-
 function buildGroups(slots: TimeSlotDescriptor[]) {
-  const groups = new Map<TimeSlotDescriptor['label'], TimeSlotDescriptor[]>();
+  const groups = new Map<string, TimeSlotDescriptor[]>();
   slots.forEach((slot) => {
     const existing = groups.get(slot.label);
     if (existing) {
@@ -56,7 +49,7 @@ export function TimeSlotGrid({ slots, value, onSelect }: TimeSlotGridProps) {
         <div key={label} className="space-y-2">
           <div className="flex items-center gap-2">
             <h4 className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-              {GROUP_TITLE[label] ?? label}
+              {label}
             </h4>
             {entries[0]?.availability.labels.happyHour ? (
               <Badge variant="secondary" className="text-[11px] font-medium">
@@ -86,7 +79,7 @@ export function TimeSlotGrid({ slots, value, onSelect }: TimeSlotGridProps) {
                         : 'border-border bg-card hover:border-primary/60 hover:bg-primary/10',
                   )}
                   aria-pressed={isActive}
-                  aria-label={`${slot.display}, ${GROUP_TITLE[slot.label] ?? slot.label}`}
+                  aria-label={`${slot.display}, ${label}`}
                   disabled={slot.disabled}
                   onClick={() => onSelect(slot.value)}
                   data-slot-value={slot.value}

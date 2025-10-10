@@ -1,8 +1,87 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import React from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { wizardStateFixture } from '@/tests/fixtures/wizard';
 import { usePlanStepForm } from '@features/reservations/wizard/hooks/usePlanStepForm';
+
+const getMock = vi.fn();
+
+vi.mock('@shared/api/client', () => ({
+  apiClient: {
+    get: (...args: unknown[]) => getMock(...args),
+  },
+}));
+
+const scheduleFixture = {
+  restaurantId: 'rest-1',
+  date: '2025-05-12',
+  timezone: 'Europe/London',
+  intervalMinutes: 15,
+  defaultDurationMinutes: 90,
+  window: { opensAt: '12:00', closesAt: '22:00' },
+  isClosed: false,
+  slots: [
+    {
+      value: '12:00',
+      display: '12:00',
+      periodId: 'sp-lunch',
+      periodName: 'Lunch',
+      bookingOption: 'lunch',
+      defaultBookingOption: 'lunch',
+      availability: {
+        services: { lunch: 'enabled', dinner: 'disabled', drinks: 'enabled' },
+        labels: {
+          happyHour: false,
+          drinksOnly: false,
+          kitchenClosed: false,
+          lunchWindow: true,
+          dinnerWindow: false,
+        },
+      },
+      disabled: false,
+    },
+    {
+      value: '18:00',
+      display: '18:00',
+      periodId: 'sp-dinner',
+      periodName: 'Dinner',
+      bookingOption: 'dinner',
+      defaultBookingOption: 'dinner',
+      availability: {
+        services: { lunch: 'disabled', dinner: 'enabled', drinks: 'enabled' },
+        labels: {
+          happyHour: false,
+          drinksOnly: false,
+          kitchenClosed: false,
+          lunchWindow: false,
+          dinnerWindow: true,
+        },
+      },
+      disabled: false,
+    },
+  ],
+};
+
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
+
+  return ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+}
+
+beforeEach(() => {
+  getMock.mockReset();
+  getMock.mockResolvedValue(scheduleFixture);
+});
 
 const createPlanState = () =>
   wizardStateFixture({
@@ -17,14 +96,18 @@ describe('usePlanStepForm analytics', () => {
     const updateDetails = vi.fn();
     const goToStep = vi.fn();
 
-    const { result } = renderHook(() =>
-      usePlanStepForm({
-        state,
-        actions: { updateDetails, goToStep },
-        onActionsChange: vi.fn(),
-        onTrack,
-        minDate: new Date('2025-05-01T00:00:00Z'),
-      }),
+    const wrapper = createWrapper();
+
+    const { result } = renderHook(
+      () =>
+        usePlanStepForm({
+          state,
+          actions: { updateDetails, goToStep },
+          onActionsChange: vi.fn(),
+          onTrack,
+          minDate: new Date('2025-05-01T00:00:00Z'),
+        }),
+      { wrapper },
     );
 
     await act(async () => {
@@ -43,14 +126,18 @@ describe('usePlanStepForm analytics', () => {
     const updateDetails = vi.fn();
     const goToStep = vi.fn();
 
-    const { result } = renderHook(() =>
-      usePlanStepForm({
-        state,
-        actions: { updateDetails, goToStep },
-        onActionsChange: vi.fn(),
-        onTrack,
-        minDate: new Date('2025-05-01T00:00:00Z'),
-      }),
+    const wrapper = createWrapper();
+
+    const { result } = renderHook(
+      () =>
+        usePlanStepForm({
+          state,
+          actions: { updateDetails, goToStep },
+          onActionsChange: vi.fn(),
+          onTrack,
+          minDate: new Date('2025-05-01T00:00:00Z'),
+        }),
+      { wrapper },
     );
 
     await act(async () => {
@@ -68,13 +155,17 @@ describe('usePlanStepForm analytics', () => {
     const updateDetails = vi.fn();
     const goToStep = vi.fn();
 
-    const { result } = renderHook(() =>
-      usePlanStepForm({
-        state,
-        actions: { updateDetails, goToStep },
-        onActionsChange: vi.fn(),
-        minDate: new Date('2025-05-01T00:00:00Z'),
-      }),
+    const wrapper = createWrapper();
+
+    const { result } = renderHook(
+      () =>
+        usePlanStepForm({
+          state,
+          actions: { updateDetails, goToStep },
+          onActionsChange: vi.fn(),
+          minDate: new Date('2025-05-01T00:00:00Z'),
+        }),
+      { wrapper },
     );
 
     await act(async () => {});
@@ -89,14 +180,18 @@ describe('usePlanStepForm analytics', () => {
       time: '18:00',
     });
 
-    const { result } = renderHook(() =>
-      usePlanStepForm({
-        state,
-        actions: { updateDetails: vi.fn(), goToStep: vi.fn() },
-        onActionsChange: vi.fn(),
-        onTrack,
-        minDate: new Date('2025-05-01T00:00:00Z'),
-      }),
+    const wrapper = createWrapper();
+
+    const { result } = renderHook(
+      () =>
+        usePlanStepForm({
+          state,
+          actions: { updateDetails: vi.fn(), goToStep: vi.fn() },
+          onActionsChange: vi.fn(),
+          onTrack,
+          minDate: new Date('2025-05-01T00:00:00Z'),
+        }),
+      { wrapper },
     );
 
     await act(async () => {

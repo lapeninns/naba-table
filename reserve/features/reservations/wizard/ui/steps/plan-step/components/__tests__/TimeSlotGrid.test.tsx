@@ -13,6 +13,8 @@ const buildSlot = (overrides: Partial<TimeSlotDescriptor> = {}): TimeSlotDescrip
   display: '6:00 PM',
   label: 'Dinner',
   disabled: false,
+  periodId: 'sp-test',
+  bookingOption: 'dinner',
   availability: {
     services: { lunch: 'disabled', dinner: 'enabled', drinks: 'enabled' },
     labels: {

@@ -5,7 +5,7 @@ import { getServerComponentSupabaseClient, getServiceSupabaseClient } from "@/se
 import { fetchUserMemberships } from "@/server/team/access";
 import { OpsWalkInBookingClient } from "@/components/ops/bookings/OpsWalkInBookingClient";
 
-const RESTAURANT_FIELDS = "id,name,timezone,address";
+const RESTAURANT_FIELDS = "id,slug,name,timezone,address";
 
 export const metadata: Metadata = {
   title: "Create walk-in booking · SajiloReserveX",
@@ -48,6 +48,7 @@ export default async function OpsWalkInBookingPage() {
 
   const restaurants = (restaurantsData ?? []).map((row) => ({
     id: row.id,
+    slug: row.slug ?? row.id ?? "",
     name: row.name ?? "Restaurant",
     timezone: row.timezone ?? "UTC",
     address: row.address ?? "",

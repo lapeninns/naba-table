@@ -31,10 +31,20 @@ export type Calendar24FieldProps = {
     error?: string;
   };
   suggestions?: TimeSlotDescriptor[];
+  intervalMinutes?: number;
 };
 
-export function Calendar24Field({ date, time, suggestions = [] }: Calendar24FieldProps) {
-  const timeStepSeconds = reservationConfigResult.config.opening.intervalMinutes * 60;
+export function Calendar24Field({
+  date,
+  time,
+  suggestions = [],
+  intervalMinutes,
+}: Calendar24FieldProps) {
+  const resolvedIntervalMinutes =
+    typeof intervalMinutes === 'number' && intervalMinutes > 0
+      ? intervalMinutes
+      : reservationConfigResult.config.opening.intervalMinutes;
+  const timeStepSeconds = Math.max(60, Math.round(resolvedIntervalMinutes * 60));
   const [open, setOpen] = useState(false);
   const baseId = useId();
   const dateButtonId = `${baseId}-date`;
@@ -138,7 +148,11 @@ export function Calendar24Field({ date, time, suggestions = [] }: Calendar24Fiel
                 />
               ))}
             </datalist>
-          ) : null}
+          ) : (
+            <p className="px-1 text-[0.8rem] text-muted-foreground">
+              No available times for the selected date.
+            </p>
+          )}
         </div>
         <p id={timeDescriptionId} className="px-1 text-[0.8rem] text-muted-foreground">
           {TIME_DESCRIPTION}

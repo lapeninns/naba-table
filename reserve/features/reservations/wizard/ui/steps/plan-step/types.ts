@@ -30,6 +30,7 @@ export type PlanStepFormState = {
   availability: ServiceAvailability;
   handlers: PlanStepFormHandlers;
   minDate: Date;
+  intervalMinutes: number;
   isSubmitting: boolean;
   isValid: boolean;
   submitForm: (values: PlanFormValues) => void;

@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,6 +11,7 @@ import { BookingWizard } from '@features/reservations/wizard/ui/BookingWizard';
 
 const useOnlineStatusMock = vi.hoisted(() => vi.fn());
 const emitMock = vi.hoisted(() => vi.fn());
+const getScheduleMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/hooks/useOnlineStatus', () => ({
   useOnlineStatus: () => useOnlineStatusMock(),
@@ -17,6 +19,12 @@ vi.mock('@/hooks/useOnlineStatus', () => ({
 
 vi.mock('@features/reservations/wizard/api/useCreateReservation', () => ({
   useCreateReservation: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+
+vi.mock('@shared/api/client', () => ({
+  apiClient: {
+    get: (...args: unknown[]) => getScheduleMock(...args),
+  },
 }));
 
 vi.mock('@/lib/analytics/emit', () => ({
@@ -58,6 +66,36 @@ describe('BookingWizard offline banner', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useOnlineStatusMock.mockReturnValue(false);
+    getScheduleMock.mockResolvedValue({
+      restaurantId: 'rest-1',
+      date: '2025-05-20',
+      timezone: 'Europe/London',
+      intervalMinutes: 15,
+      defaultDurationMinutes: 90,
+      window: { opensAt: '12:00', closesAt: '22:00' },
+      isClosed: false,
+      slots: [
+        {
+          value: '18:15',
+          display: '18:15',
+          periodId: 'sp-dinner',
+          periodName: 'Dinner',
+          bookingOption: 'dinner',
+          defaultBookingOption: 'dinner',
+          availability: {
+            services: { lunch: 'disabled', dinner: 'enabled', drinks: 'enabled' },
+            labels: {
+              happyHour: false,
+              drinksOnly: false,
+              kitchenClosed: false,
+              lunchWindow: false,
+              dinnerWindow: true,
+            },
+          },
+          disabled: false,
+        },
+      ],
+    });
   });
 
   it('shows offline banner, disables actions, and tracks analytics', async () => {
@@ -72,9 +110,19 @@ describe('BookingWizard offline banner', () => {
       phone: '07123 456789',
     });
 
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+        },
+      },
+    });
+
     render(
       <WizardDependenciesProvider value={{ analytics }}>
-        <BookingWizard initialDetails={initialDetails} />
+        <QueryClientProvider client={queryClient}>
+          <BookingWizard initialDetails={initialDetails} />
+        </QueryClientProvider>
       </WizardDependenciesProvider>,
     );
 

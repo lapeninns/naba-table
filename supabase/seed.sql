@@ -14,6 +14,8 @@ TRUNCATE TABLE
   public.bookings,
   public.customer_profiles,
   public.customers,
+  public.restaurant_operating_hours,
+  public.restaurant_service_periods,
   public.restaurant_memberships
 RESTART IDENTITY CASCADE;
 
@@ -129,6 +131,51 @@ inserted_restaurants AS (
     booking_policy
   FROM restaurant_input
   RETURNING id, slug, name
+),
+default_operating_hours AS (
+  SELECT
+    r.id AS restaurant_id,
+    dow AS day_of_week,
+    '12:00'::text AS opens_at,
+    '23:00'::text AS closes_at
+  FROM inserted_restaurants r
+  CROSS JOIN generate_series(0, 6) AS dow
+),
+inserted_operating_hours AS (
+  INSERT INTO public.restaurant_operating_hours (id, restaurant_id, day_of_week, opens_at, closes_at, is_closed, notes)
+  SELECT
+    gen_random_uuid(),
+    restaurant_id,
+    day_of_week,
+    opens_at,
+    closes_at,
+    false,
+    NULL
+  FROM default_operating_hours
+  RETURNING restaurant_id
+),
+service_period_templates AS (
+  SELECT *
+  FROM (VALUES
+    ('Lunch', 'lunch', '12:00', '15:00'),
+    ('Happy Hour', 'drinks', '15:00', '17:00'),
+    ('Dinner', 'dinner', '17:00', '21:30'),
+    ('Late Drinks', 'drinks', '21:30', '23:00')
+  ) AS t(name, booking_option, start_time, end_time)
+),
+inserted_service_periods AS (
+  INSERT INTO public.restaurant_service_periods (id, restaurant_id, name, booking_option, start_time, end_time, day_of_week)
+  SELECT
+    gen_random_uuid(),
+    r.id,
+    t.name,
+    t.booking_option,
+    t.start_time,
+    t.end_time,
+    NULL
+  FROM inserted_restaurants r
+  CROSS JOIN service_period_templates t
+  RETURNING restaurant_id
 ),
 customer_pool AS (
   SELECT

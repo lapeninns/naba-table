@@ -3,7 +3,7 @@ import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query
 import { redirect } from 'next/navigation';
 
 import config from '@/config';
-import { ManageRestaurantClient, type RestaurantMembershipOption } from '@/components/owner/ManageRestaurantClient';
+import { ManageRestaurantShell, type RestaurantMembershipOption } from '@/components/ops/manage/ManageRestaurantShell';
 import { getOperatingHours, getServicePeriods, getRestaurantDetails } from '@/server/restaurants';
 import { fetchUserMemberships } from '@/server/team/access';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
@@ -62,7 +62,7 @@ export default async function OpsManageRestaurantPage() {
 
   return (
     <HydrationBoundary state={dehydratedState}>
-      <ManageRestaurantClient memberships={membershipOptions} defaultRestaurantId={defaultRestaurantId} />
+      <ManageRestaurantShell memberships={membershipOptions} defaultRestaurantId={defaultRestaurantId} />
     </HydrationBoundary>
   );
 }

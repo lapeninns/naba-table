@@ -713,6 +713,7 @@ export type Database = {
           end_time: string
           id: string
           name: string
+          booking_option: string
           restaurant_id: string
           start_time: string
           updated_at: string
@@ -723,6 +724,7 @@ export type Database = {
           end_time: string
           id?: string
           name: string
+          booking_option?: string
           restaurant_id: string
           start_time: string
           updated_at?: string
@@ -733,6 +735,7 @@ export type Database = {
           end_time?: string
           id?: string
           name?: string
+          booking_option?: string
           restaurant_id?: string
           start_time?: string
           updated_at?: string
@@ -813,6 +816,8 @@ export type Database = {
           name: string
           slug: string
           timezone: string
+          reservation_interval_minutes: number
+          reservation_default_duration_minutes: number
           updated_at: string
         }
         Insert: {
@@ -826,6 +831,8 @@ export type Database = {
           name: string
           slug: string
           timezone?: string
+          reservation_interval_minutes?: number
+          reservation_default_duration_minutes?: number
           updated_at?: string
         }
         Update: {
@@ -839,6 +846,8 @@ export type Database = {
           name?: string
           slug?: string
           timezone?: string
+          reservation_interval_minutes?: number
+          reservation_default_duration_minutes?: number
           updated_at?: string
         }
         Relationships: []

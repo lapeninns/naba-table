@@ -14,6 +14,8 @@ const suggestions: TimeSlotDescriptor[] = [
     display: '6:00 PM',
     label: 'Dinner',
     disabled: false,
+    periodId: 'sp-cal',
+    bookingOption: 'dinner',
     availability: {
       services: { lunch: 'disabled', dinner: 'enabled', drinks: 'enabled' },
       labels: {

@@ -1,42 +1,62 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  buildTimeSlots,
-  getServiceAvailability,
-  resolveDefaultBookingOption,
+  EMPTY_AVAILABILITY,
+  toTimeSlotDescriptor,
+  type ServiceAvailability,
 } from '@reserve/features/reservations/wizard/services';
-import { normalizeTime } from '@reserve/shared/time';
 
-describe('wizard time slot service', () => {
-  it('builds deterministic slots for a given date', () => {
-    const slots = buildTimeSlots({ date: '2025-05-08' });
-    expect(slots).toHaveLength(44);
-    expect(slots[0]?.value).toBe('12:00');
-    expect(slots.at(-1)?.value).toBe('22:45');
-    expect(slots[0]?.label).toBe('Lunch');
+const baseAvailability: ServiceAvailability = {
+  services: {
+    lunch: 'disabled',
+    dinner: 'disabled',
+    drinks: 'enabled',
+  },
+  labels: {
+    happyHour: false,
+    drinksOnly: true,
+    kitchenClosed: true,
+    lunchWindow: false,
+    dinnerWindow: false,
+  },
+};
+
+describe('time slot helpers', () => {
+  it('uses provided period name when mapping descriptors', () => {
+    const descriptor = toTimeSlotDescriptor({
+      value: '17:00',
+      display: '17:00',
+      periodId: 'sp-1',
+      periodName: 'Chef tasting',
+      bookingOption: 'dinner',
+      defaultBookingOption: 'dinner',
+      availability: baseAvailability,
+      disabled: false,
+    });
+
+    expect(descriptor.label).toBe('Chef tasting');
+    expect(descriptor.periodId).toBe('sp-1');
+    expect(descriptor.bookingOption).toBe('dinner');
   });
 
-  it('marks happy hour slots as drinks only on weekdays', () => {
-    const availability = getServiceAvailability('2025-05-08', '16:00');
-    expect(availability.labels.happyHour).toBe(true);
-    expect(resolveDefaultBookingOption('2025-05-08', '16:00')).toBe('drinks');
+  it('falls back to default booking labels when name missing', () => {
+    const descriptor = toTimeSlotDescriptor({
+      value: '21:00',
+      display: '21:00',
+      periodId: null,
+      periodName: null,
+      bookingOption: 'drinks',
+      defaultBookingOption: 'drinks',
+      availability: baseAvailability,
+      disabled: false,
+    });
+
+    expect(descriptor.label).toBe('Drinks & cocktails');
+    expect(descriptor.bookingOption).toBe('drinks');
   });
 
-  it('supports weekend windows extending lunch to 17:00', () => {
-    const slots = buildTimeSlots({ date: '2025-05-10' });
-    const sixteenThirty = normalizeTime('16:30');
-    expect(sixteenThirty).not.toBeNull();
-    const slot = slots.find((entry) => entry.value === sixteenThirty);
-    expect(slot?.label).toBe('Lunch');
-    expect(slot?.availability.services.lunch).toBe('enabled');
-    expect(slot?.availability.services.dinner).toBe('disabled');
-  });
-
-  it('does not drop slots across DST transition days', () => {
-    const springForward = buildTimeSlots({ date: '2025-03-30' });
-    const fallBack = buildTimeSlots({ date: '2025-10-26' });
-
-    expect(springForward).toHaveLength(44);
-    expect(fallBack).toHaveLength(44);
+  it('exposes an immutable empty availability template', () => {
+    expect(EMPTY_AVAILABILITY.services.lunch).toBe('disabled');
+    expect(EMPTY_AVAILABILITY.labels.happyHour).toBe(false);
   });
 });

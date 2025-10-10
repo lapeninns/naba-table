@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export type OpsRestaurant = {
   id: string;
+  slug: string;
   name: string;
   timezone: string;
   address: string;
@@ -51,6 +52,7 @@ export function OpsWalkInBookingClient({ restaurants }: OpsWalkInBookingClientPr
 
   const initialDetails = {
     restaurantId: selectedRestaurant.id,
+    restaurantSlug: selectedRestaurant.slug,
     restaurantName: selectedRestaurant.name,
     restaurantAddress: selectedRestaurant.address,
     restaurantTimezone: selectedRestaurant.timezone,

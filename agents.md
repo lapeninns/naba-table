@@ -1,87 +1,83 @@
-# Context Engineering Framework
+# AGENTS.md
 
-## Overview
-
-This document defines a systematic approach to context engineering, ensuring consistency, quality, and maintainability across all development tasks.
+> **Instructions for AI coding agents working on this project**
 
 ---
 
-## Task Structure
+## Project Overview
 
-### Organization
+This project follows a systematic **Context Engineering Framework** for all development work. Before writing any code, you must follow the structured workflow phases to ensure quality, consistency, and maintainability.
 
-- **Task-based approach**: Each feature/bug/enhancement is a discrete task
-- **Storage**: All task artifacts live in `tasks/<task-id>/`
-- **Naming**: Use semantic slugs (e.g., `user-authentication-flow`, `payment-gateway-integration`)
+---
 
-### Standard Task Files
+## Core Workflow: Task-Based Development
+
+### Task Structure
+
+Every feature, bug fix, or enhancement is treated as a discrete task with its own timestamped directory:
 
 ```
-tasks/<task-id>/
+tasks/<task-id>-YYYYMMDD-HHMM/
 ├── research.md      # Findings, patterns, and resources
 ├── plan.md          # Implementation strategy and requirements
 ├── todo.md          # Executable checklist
 └── verification.md  # Test scenarios and validation criteria
 ```
 
+**Task ID naming**: Use semantic slug + timestamp (e.g., `user-authentication-flow-20250110-1430`, `payment-gateway-integration-20250110-0915`)
+
+**Timestamp format**: `YYYYMMDD-HHMM` (Year Month Day - Hour Minute in 24-hour format)
+
 ---
 
-## Workflow Phases
+## Mandatory Workflow Phases
+
+You **MUST** follow these phases in order. Do not skip phases or write code prematurely.
 
 ### Phase 0: Task Setup
 
-**Goal**: Establish clear boundaries and context
+**Before anything else:**
 
-- [ ] Create task directory with semantic ID
-- [ ] Document initial requirements
-- [ ] Identify stakeholders and success criteria
+1. Create task directory with timestamp: `tasks/<semantic-task-id>-YYYYMMDD-HHMM/`
+   - Example: `tasks/user-auth-flow-20250110-1430/`
+2. Document initial requirements
+3. Identify success criteria
 
----
+**Timestamp format**: Use `YYYYMMDD-HHMM` format (e.g., `20250110-1430` for January 10, 2025 at 2:30 PM)
 
-### Phase 1: Research
+### Phase 1: Research (`research.md`)
 
-**Goal**: Build comprehensive understanding before writing code
+**Goal**: Build comprehensive understanding before planning or coding.
 
-#### Activities
+**Required activities:**
 
-1. **Codebase analysis**
-   - Search for existing patterns, components, and utilities
-   - Identify reusable code and established conventions
-   - Note technical debt or anti-patterns to avoid
+- Search codebase for existing patterns, components, and utilities
+- Identify reusable code and established conventions
+- Note technical debt or anti-patterns to avoid
+- Review external documentation, RFCs, or specifications (if applicable)
+- Document all findings, constraints, and recommendations
 
-2. **External research** (if applicable)
-   - Review relevant documentation, RFCs, or specifications
-   - Search for best practices and common pitfalls
-   - Evaluate third-party solutions or libraries
-
-3. **Clarification**
-   - Ask follow-up questions early
-   - Resolve ambiguities before planning
-   - Document assumptions
-
-#### Output: `research.md`
-
-Should contain:
+**Output**: `research.md` containing:
 
 - Existing patterns discovered
 - Relevant external resources
 - Technical constraints or dependencies
-- Open questions and their answers
+- Open questions and answers
 - Recommended approach with rationale
 
-**Example structure:**
+**Example structure**:
 
 ```markdown
 # Research: <Feature Name>
 
 ## Existing Patterns
 
-- Component X in `/src/components/` handles similar logic
-- API pattern Y is used consistently for this type of request
+- Component X handles similar logic
+- API pattern Y is used consistently
 
 ## External Resources
 
-- [Relevant documentation](url)
+- [Documentation](url)
 - Best practices from [source](url)
 
 ## Technical Constraints
@@ -91,60 +87,47 @@ Should contain:
 
 ## Recommendations
 
-Based on findings, recommend approach Z because...
+Recommend approach Z because...
 ```
 
----
+### Phase 2: Planning (`plan.md`)
 
-### Phase 2: Planning
+**Goal**: Create comprehensive, implementable blueprint.
 
-**Goal**: Create a comprehensive, implementable blueprint
+**Required activities:**
 
-#### Activities
+- Review `research.md` thoroughly
+- Design solution using existing patterns
+- Follow established architectural patterns
+- Plan for edge cases and error states
+- Validate scope with stakeholder if needed
 
-1. **Review research**
-   - Read `research.md` thoroughly
-   - Validate assumptions with user if needed
-   - Clarify scope boundaries
+**Output**: `plan.md` containing:
 
-2. **Design solution**
-   - Reuse existing patterns and components (SHADCN preferred)
-   - Follow established architectural patterns
-   - Plan for edge cases and error states
-
-3. **Scope validation**
-   - Confirm understanding with stakeholder
-   - Identify dependencies and blockers
-   - Estimate complexity and timeline
-
-#### Output: `plan.md`
-
-Should contain:
-
-- **Objective**: Clear problem statement and success criteria
+- **Objective**: Problem statement and success criteria
 - **Architecture**: High-level design decisions
 - **Component breakdown**: What needs to be built/modified
-- **Data flow**: How information moves through the system
+- **Data flow**: How information moves through system
 - **API contracts**: Request/response formats
-- **UI/UX considerations**: User flows, states, and interactions
+- **UI/UX considerations**: User flows, states, interactions
 - **Testing strategy**: How to validate correctness
-- **Rollout plan**: How to deploy safely
-- **Open questions**: Anything still unclear (to be resolved before implementation)
+- **Edge cases**: Error states, empty states, loading states
+- **Rollout plan**: Deployment strategy
 
-**Example structure:**
+**Example structure**:
 
 ```markdown
 # Implementation Plan: <Feature Name>
 
 ## Objective
 
-Enable users to [specific goal] by [approach]
+Enable users to [goal] by [approach]
 
 ## Success Criteria
 
 - [ ] Users can complete [action] in <3 clicks
 - [ ] Page loads in <1s on 3G
-- [ ] Passes all accessibility checks
+- [ ] Passes accessibility checks
 
 ## Architecture
 
@@ -152,77 +135,67 @@ Enable users to [specific goal] by [approach]
 
 - `<FeatureContainer>`: Main orchestrator
 - `<FeatureForm>`: User input handling
-- `<FeatureResults>`: Display component
 
 ### State Management
 
-- Use React Context for [reason]
-- Local state for transient UI state
+Use React Context for [reason]
 
 ### API Integration
 
 **Endpoint**: `POST /api/feature`
-**Request**: `{ param: string, option: boolean }`
-**Response**: `{ data: Object[], meta: { total: number } }`
+**Request**: `{ param: string }`
+**Response**: `{ data: Object[] }`
 
 ## Implementation Steps
 
 1. Create base component structure
-2. Implement API integration with error handling
-3. Add form validation and submission
-4. Build results display with loading/empty/error states
-5. Add keyboard navigation and ARIA labels
-6. Write unit and integration tests
+2. Implement API integration
+3. Add form validation
+4. Build results display
+5. Add accessibility features
+6. Write tests
 
 ## Edge Cases
 
-- Empty state: Show helpful onboarding
-- Error state: Provide clear recovery options
-- Loading state: Optimistic UI with skeleton
+- Empty state: Show onboarding
+- Error state: Provide recovery options
+- Loading state: Show skeleton
 
 ## Testing
 
-- Unit: Component logic and validation
-- Integration: API calls and data flow
-- E2E: Complete user journeys
-- Accessibility: Keyboard nav and screen reader
+- Unit: Component logic
+- Integration: API calls
+- E2E: User journeys
+- Accessibility: Keyboard nav
 
 ## Rollout
 
 - Feature flag: `enable_new_feature`
-- Gradual rollout: 10% → 50% → 100%
-- Monitoring: Track [key metrics]
+- Gradual: 10% → 50% → 100%
 ```
 
----
+### Phase 3: Implementation (`todo.md`)
 
-### Phase 3: Implementation
+**Goal**: Execute plan systematically.
 
-**Goal**: Execute the plan with discipline and quality
+**Process:**
 
-#### Process
+1. Create `todo.md` breaking plan into atomic tasks
+2. Work through checklist sequentially
+3. Check off completed items
+4. Document deviations from plan
+5. **Batch questions** until end of implementation
+6. Make reasonable assumptions (document them)
 
-1. **Create todo list**
-   - Break plan into atomic, completable tasks
-   - Order tasks logically (dependencies first)
-   - Estimate each item
+**Guidelines:**
 
-2. **Execute systematically**
-   - Work through todo list sequentially
-   - Check off completed items
-   - Document deviations from plan
+- ✅ Work as long as possible without interruption
+- ✅ Prioritize working code over perfect code
+- ✅ Refactor after core functionality works
+- ❌ Don't stop for every small question
+- ❌ Don't interrupt momentum for clarifications
 
-3. **Handle ambiguity**
-   - Batch questions until end of implementation
-   - Make reasonable assumptions (document them)
-   - Group related questions together
-
-4. **Maintain momentum**
-   - Go as long as possible without interruption
-   - Prioritize working code over perfect code
-   - Refactor after core functionality works
-
-#### Output: `todo.md`
+**Output**: `todo.md` with checklist:
 
 ```markdown
 # Implementation Checklist
@@ -230,120 +203,91 @@ Enable users to [specific goal] by [approach]
 ## Setup
 
 - [x] Create component files
-- [x] Set up API client
 - [ ] Configure feature flag
 
 ## Core Functionality
 
 - [x] Implement data fetching
 - [ ] Add validation logic
-- [ ] Handle error states
 
 ## UI/UX
 
 - [ ] Build responsive layout
 - [ ] Add loading states
-- [ ] Implement keyboard navigation
 
 ## Testing
 
 - [ ] Write unit tests
-- [ ] Add integration tests
 - [ ] Manual QA pass
-
-## Documentation
-
-- [ ] Update README
-- [ ] Add JSDoc comments
-- [ ] Create usage examples
 
 ## Questions/Blockers
 
 - How should we handle [edge case]?
-- Need clarification on [requirement]
 ```
 
----
+### Phase 4: Verification (`verification.md`)
 
-### Phase 4: Verification
+**Goal**: Ensure implementation meets requirements and quality standards.
 
-**Goal**: Ensure implementation meets requirements and quality standards
+**Required activities:**
 
-#### Activities
+- Test all user flows
+- Verify edge cases
+- Confirm error handling
+- Performance profiling
+- Accessibility audit
+- Cross-browser/device testing
 
-1. **Functional testing**
-   - Test all user flows
-   - Verify edge cases
-   - Confirm error handling
-
-2. **Non-functional testing**
-   - Performance profiling
-   - Accessibility audit
-   - Cross-browser/device testing
-
-3. **Code review**
-   - Self-review against plan
-   - Peer review for quality
-   - Address feedback
-
-4. **Feedback loops**
-   - User testing (if applicable)
-   - Stakeholder approval
-   - Iterate based on findings
-
-#### Output: `verification.md`
+**Output**: `verification.md` containing:
 
 ```markdown
 # Verification Report
 
 ## Test Scenarios
 
-- [x] Happy path: User completes flow successfully
-- [x] Error handling: Invalid input shows helpful error
-- [x] Edge case: Empty state displays correctly
-- [ ] Performance: Loads in <1s (currently 1.3s - needs optimization)
+- [x] Happy path works
+- [x] Error handling correct
+- [ ] Performance needs optimization
 
 ## Accessibility Checklist
 
 - [x] Keyboard navigation works
-- [x] Screen reader announces correctly
+- [x] Screen reader support
 - [x] Focus indicators visible
-- [x] Color contrast passes WCAG AA
 
 ## Performance Metrics
 
 - FCP: 0.8s ✓
 - LCP: 1.2s ✓
-- CLS: 0.05 ✓
 
 ## Known Issues
 
-- [ ] Safari 15 has rendering glitch (ticket #123)
+- [ ] Safari 15 rendering glitch
 
 ## Sign-off
 
 - [ ] Engineering approved
 - [ ] Design approved
-- [ ] Product approved
 ```
 
 ---
 
-## Development Principles
+## Framework & Component Requirements
 
-### Framework & Components
+### UI Components
 
 - **MUST** use SHADCN UI components when available
-- **SHOULD** extend SHADCN rather than build from scratch
+- **MUST** extend SHADCN rather than build from scratch
 - **MUST** follow established component patterns in codebase
+- Search codebase first before creating new components
 
 ### Development Approach
 
 - **Mobile First**: Design and build for mobile, then enhance for desktop
 - **Test Driven**: Write tests alongside (or before) implementation
-- **Progressive Enhancement**: Core functionality works everywhere, enhancements for modern browsers
+- **Progressive Enhancement**: Core functionality works everywhere
 
-### Code Quality
+### Code Quality Principles
 
 - **DRY**: Reuse existing code and patterns
 - **KISS**: Simple solutions over clever ones
@@ -353,180 +297,197 @@ Enable users to [specific goal] by [approach]
 
 ## UI/UX Excellence Standards
 
-### Interactions
-
-#### Keyboard Support
+### Keyboard & Focus
 
 - **MUST** support full keyboard navigation per [WAI-ARIA APG](https://www.w3.org/WAI/ARIA/apg/patterns/)
-- **MUST** show visible focus rings using `:focus-visible` (group with `:focus-within`)
+- **MUST** show visible focus rings using `:focus-visible`
 - **MUST** manage focus correctly: trap in modals, move logically, return on close
 
-#### Touch Targets & Input
+### Touch Targets
 
 - **MUST** have hit targets ≥24px (mobile ≥44px)
-  - If visual element <24px, expand hit area with padding/pseudo-elements
-- **MUST** use mobile `<input>` font-size ≥16px to prevent zoom, OR set:
-  ```html
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
-  />
-  ```
-- **NEVER** disable browser zoom
+- If visual element <24px, expand hit area with padding/pseudo-elements
 - **MUST** use `touch-action: manipulation` to prevent double-tap zoom
-- **SHOULD** set `-webkit-tap-highlight-color` to match design system
 
-#### Forms & Input Behavior
+### Forms & Input
 
-- **MUST** make inputs hydration-safe (no lost focus or values on hydration)
-- **NEVER** block paste in `<input>` or `<textarea>`
-- **MUST** show spinner on loading buttons while keeping original label visible
+- **MUST** use mobile `<input>` font-size ≥16px to prevent zoom, OR set proper viewport meta
+- **NEVER** disable browser zoom
+- **NEVER** block paste in inputs
+- **MUST** make inputs hydration-safe (no lost focus/values)
+- **MUST** show spinner on loading buttons while keeping label visible
 - **MUST** make Enter submit focused text input
   - In `<textarea>`, ⌘/Ctrl+Enter submits; Enter adds newline
 - **MUST** keep submit button enabled until request starts
-  - Then: disable, show spinner, use idempotency key
-- **MUST** don't block typing—accept free text, validate afterward
 - **MUST** allow submitting incomplete forms to surface validation errors
-- **MUST** show errors inline next to fields
-  - On submit, focus first error field
+- **MUST** show errors inline next to fields (focus first error on submit)
 - **MUST** use proper `autocomplete` attributes and meaningful `name` values
 - **MUST** use correct `type` and `inputmode` for each field
-- **SHOULD** disable spellcheck for emails, codes, and usernames
-- **SHOULD** use placeholder text ending with ellipsis showing example patterns
-  - Example: `+1 (123) 456-7890`, `sk-012345…`
 - **MUST** warn users before navigating away with unsaved changes
-- **MUST** be compatible with password managers and 2FA
-  - Allow pasting one-time codes
-- **MUST** trim input values to handle text expansion and trailing spaces
-- **MUST** eliminate dead zones on checkboxes/radios
-  - Label and control share one generous hit target
+- **MUST** trim input values
 
-#### State & Navigation
+### State & Navigation
 
-- **MUST** reflect state in URL (deep-link filters, tabs, pagination, expanded panels)
-  - Prefer libraries like [nuqs](https://nuqs.47ng.com)
+- **MUST** reflect state in URL (deep-link filters, tabs, pagination)
 - **MUST** restore scroll position on back/forward navigation
-- **MUST** use `<a>` or `<Link>` components for navigation
-  - Support Cmd/Ctrl/middle-click for opening in new tab
+- **MUST** use `<a>` or `<Link>` for navigation (support Cmd/Ctrl/middle-click)
 
-#### Feedback & Confirmation
+### Feedback
 
-- **SHOULD** use optimistic UI updates
-  - Reconcile on response
-  - On failure: show error, rollback, or offer Undo
+- **SHOULD** use optimistic UI updates (reconcile on response)
 - **MUST** confirm destructive actions OR provide Undo window
-- **MUST** use polite `aria-live` regions for toasts and inline validation
-- **SHOULD** use ellipsis (`…`) for actions that open follow-ups (e.g., "Rename…")
-
-#### Touch, Drag & Scroll
-
-- **MUST** design forgiving interactions
-  - Generous targets, clear affordances, avoid finicky interactions
-- **MUST** delay first tooltip in a group; subsequent tooltips show immediately
-- **MUST** use intentional `overscroll-behavior: contain` in modals and drawers
-- **MUST** during drag: disable text selection, set `inert` on dragged element/containers
-- **MUST** ensure interactive zones look interactive ("if it looks clickable, it is")
-
-#### Autofocus
-
-- **SHOULD** autofocus on desktop when there's a single primary input
-- **SHOULD** rarely autofocus on mobile (avoid layout shift and unwanted keyboard)
-
----
+- **MUST** use polite `aria-live` regions for toasts and validation
 
 ### Animation
 
-- **MUST** honor `prefers-reduced-motion` (provide reduced-motion variant)
-- **SHOULD** prefer CSS > Web Animations API > JS animation libraries
-- **MUST** animate compositor-friendly properties only (`transform`, `opacity`)
-  - Avoid layout/repaint properties (`top`, `left`, `width`, `height`)
-- **SHOULD** animate only to clarify cause/effect or add deliberate delight
-- **SHOULD** choose easing that matches the change (size, distance, trigger type)
-- **MUST** make animations interruptible and input-driven (avoid autoplay)
-- **MUST** use correct `transform-origin` (motion starts where it "physically" should)
-
----
+- **MUST** honor `prefers-reduced-motion`
+- **MUST** animate only compositor-friendly properties (`transform`, `opacity`)
+- **MUST** make animations interruptible and input-driven
 
 ### Layout
 
-- **SHOULD** use optical alignment—adjust by ±1px when perception beats geometry
-- **MUST** align deliberately to grid/baseline/edges/optical centers
-  - No accidental placement
-- **SHOULD** balance icon/text lockups (stroke, weight, size, spacing, color)
 - **MUST** verify rendering on mobile, laptop, and ultra-wide screens
-  - Simulate ultra-wide at 50% zoom
 - **MUST** respect safe areas using `env(safe-area-inset-*)`
-- **MUST** avoid unwanted scrollbars—fix all overflows
-
----
+- **MUST** avoid unwanted scrollbars
 
 ### Content & Accessibility
 
-- **SHOULD** provide inline help first; use tooltips as last resort
-- **MUST** make skeleton loaders mirror final content to prevent layout shift
-- **MUST** set `<title>` to match current context/page
-- **MUST** avoid dead ends—always offer next step or recovery action
+- **MUST** set `<title>` to match current context
 - **MUST** design all states: empty, sparse, dense, error, loading
-- **SHOULD** use curly quotes (" "), avoid widows and orphans
-- **MUST** use tabular numbers for comparisons
-  - `font-variant-numeric: tabular-nums` or monospace font like Geist Mono
 - **MUST** provide redundant status cues (not color-only)
 - **MUST** ensure icons have text labels or `aria-label`
-- **MUST** don't ship the schema—visuals may omit labels but accessible names must exist
-- **MUST** use the ellipsis character `…` (not three periods `...`)
-- **MUST** add `scroll-margin-top` on headings for anchored links
-- **MUST** include "Skip to content" link for keyboard users
-- **MUST** use hierarchical heading structure (`<h1>` through `<h6>`)
-- **MUST** be resilient to user-generated content (short, average, very long)
-- **MUST** format dates, times, numbers, and currency with locale awareness
-- **MUST** provide accurate accessible names via `aria-label` or visible labels
-- **MUST** set decorative elements to `aria-hidden="true"`
-- **MUST** verify accessibility in browser's Accessibility Tree
-- **MUST** give icon-only buttons descriptive `aria-label` attributes
-- **MUST** prefer native semantic HTML (`button`, `a`, `label`, `table`) before ARIA
-- **SHOULD** enable right-clicking nav logo to surface brand assets
-- **MUST** use non-breaking spaces to glue related terms:
-  - `10&nbsp;MB`, `⌘&nbsp;+&nbsp;K`, `Vercel&nbsp;SDK`
-
----
+- **MUST** use hierarchical heading structure
+- **MUST** provide accurate accessible names
+- **MUST** prefer native semantic HTML before ARIA
+- **MUST** use non-breaking spaces: `10&nbsp;MB`, `⌘&nbsp;+&nbsp;K`
+- **MUST** use ellipsis character `…` (not three periods)
 
 ### Performance
 
-- **SHOULD** test in iOS Low Power Mode and macOS Safari
-- **MUST** measure reliably (disable browser extensions that skew measurements)
-- **MUST** track and minimize re-renders using React DevTools or React Scan
-- **MUST** profile with CPU and network throttling enabled
-- **MUST** batch layout reads/writes to avoid unnecessary reflows/repaints
-- **MUST** target <500ms for mutations (`POST`, `PATCH`, `DELETE`)
-- **SHOULD** prefer uncontrolled inputs when possible
-  - Make controlled input loops cheap (minimize keystroke cost)
-- **MUST** virtualize large lists (e.g., using `virtua` or similar)
-- **MUST** preload only above-the-fold images; lazy-load the rest
-- **MUST** prevent Cumulative Layout Shift (CLS) from images
-  - Use explicit dimensions or reserved space
+- **MUST** track and minimize re-renders
+- **MUST** profile with CPU and network throttling
+- **MUST** target <500ms for mutations
+- **MUST** virtualize large lists
+- **MUST** prevent Cumulative Layout Shift from images
 
 ---
 
-### Design
+## Nested AGENTS.md Files
 
-- **SHOULD** use layered shadows (ambient + directional)
-- **SHOULD** create crisp edges with semi-transparent borders + shadows
-- **SHOULD** use nested border radii: child ≤ parent radius for concentric look
-- **SHOULD** maintain hue consistency: tint borders, shadows, and text toward background hue
-- **MUST** use accessible, color-blind-friendly chart palettes
-- **MUST** meet contrast requirements—prefer [APCA](https://apcacontrast.com/) over WCAG 2.x
-- **MUST** increase contrast on `:hover`, `:active`, and `:focus` states
-- **SHOULD** style browser chrome (theme-color, etc.) to match background
-- **SHOULD** prevent gradient banding using dithering or masks
+### When to Create Nested Files
 
----
+For **large monorepos** or projects with distinct subprojects/packages, create nested `AGENTS.md` files inside each subproject directory.
 
-## Quick Reference
+### Nested File Rules
 
-### Task Checklist
+1. **Automatic precedence**: Agents automatically read the nearest `AGENTS.md` in the directory tree
+2. **Closest wins**: The closest file takes precedence for that subproject
+3. **Tailored instructions**: Each subproject can ship specific guidelines
+
+### Creating Nested Files
+
+**Main AGENTS.md creates nested files when:**
+
+- A subproject has unique build/test commands
+- Different code style or testing requirements exist
+- Subproject uses different frameworks or patterns
+- Security or deployment differs from main project
+
+**Nested AGENTS.md structure:**
 
 ```
-[ ] Create task directory
+/
+├── AGENTS.md (main, you are reading this)
+├── packages/
+│   ├── web-app/
+│   │   ├── AGENTS.md (web-specific instructions)
+│   │   └── src/
+│   ├── api-server/
+│   │   ├── AGENTS.md (API-specific instructions)
+│   │   └── src/
+│   └── shared-ui/
+│       ├── AGENTS.md (UI component library instructions)
+│       └── components/
+```
+
+**Nested AGENTS.md template:**
+
+```markdown
+# AGENTS.md - [Subproject Name]
+
+> Inherits from main AGENTS.md with these additions/overrides
+
+## Subproject Overview
+
+[Brief description]
+
+## Build Commands
+
+- `npm run dev` - Start development server
+- `npm run build` - Production build
+- `npm run test` - Run tests
+
+## Subproject-Specific Guidelines
+
+[Any unique patterns, conventions, or requirements]
+
+## Additional Context
+
+[Links to relevant documentation]
+```
+
+### Example: Large Monorepo
+
+```
+my-monorepo/
+├── AGENTS.md                          # Main project guidelines
+├── apps/
+│   ├── web/
+│   │   └── AGENTS.md                  # Next.js web app specifics
+│   ├── mobile/
+│   │   └── AGENTS.md                  # React Native specifics
+│   └── admin/
+│       └── AGENTS.md                  # Admin dashboard specifics
+├── packages/
+│   ├── ui/
+│   │   └── AGENTS.md                  # Design system guidelines
+│   ├── api-client/
+│   │   └── AGENTS.md                  # API client patterns
+│   └── database/
+│       └── AGENTS.md                  # Database migrations & schema
+└── infrastructure/
+    └── AGENTS.md                      # Deployment & infrastructure
+```
+
+---
+
+## MCP Server Integration
+
+**MUST** always utilize MCP (Model Context Protocol) server whenever possible for:
+
+- Enhanced context retrieval
+- Codebase navigation
+- Pattern discovery
+- Documentation access
+
+---
+
+## Red Flags & Warnings
+
+Stop and address these immediately:
+
+- ⚠️ **No existing pattern found** → May need architecture discussion
+- ⚠️ **Unclear requirements** → Stop and clarify before proceeding
+- ⚠️ **Large scope** → Consider breaking into smaller tasks
+- ⚠️ **Many assumptions** → Document and validate with stakeholder
+- ⚠️ **No verification plan** → Define success criteria first
+
+---
+
+## Quick Reference Checklist
+
+```
+[ ] Create task directory with semantic ID + timestamp (YYYYMMDD-HHMM)
 [ ] Complete research phase → research.md
 [ ] Write implementation plan → plan.md
 [ ] Create and execute todo list → todo.md
@@ -535,7 +496,9 @@ Enable users to [specific goal] by [approach]
 [ ] Deploy with monitoring
 ```
 
-### Key Questions Before Starting
+---
+
+## Key Questions Before Starting Any Task
 
 1. What problem are we solving, and for whom?
 2. What existing code can we reuse?
@@ -543,24 +506,20 @@ Enable users to [specific goal] by [approach]
 4. How will we know this is successful?
 5. What could go wrong, and how do we mitigate it?
 
-### Red Flags
+---
 
-- ⚠️ No existing pattern found → May need architecture discussion
-- ⚠️ Unclear requirements → Stop and clarify
-- ⚠️ Large scope → Consider breaking into smaller tasks
-- ⚠️ Many assumptions → Document and validate
-- ⚠️ No verification plan → Define success criteria first
+## Notes for AI Agents
+
+- **Follow phases sequentially** - do not skip research or planning
+- **Batch questions** during implementation to maintain momentum
+- **Document assumptions** when making reasonable judgments
+- **Search codebase first** before creating new patterns
+- **Prioritize SHADCN** components over custom builds
+- **Mobile-first** approach for all UI work
+- **Accessibility is not optional** - follow all MUST requirements
+- **Create nested AGENTS.md** for subprojects in monorepos
 
 ---
 
-## Maintenance
-
-This document should be:
-
-- **Reviewed** quarterly for relevance
-- **Updated** when patterns change
-- **Referenced** during task kickoffs
-- **Followed** consistently across team
-
-Last updated: [Date]
-Version: 2.0
+**Last Updated**: 2025-01-10  
+**Version**: 3.0
