@@ -7,7 +7,7 @@ import { useMemo, useState, type PropsWithChildren } from "react";
 import { WizardDependenciesProvider } from "@features/reservations/wizard/di";
 import { BookingWizard } from "@features/reservations/wizard/ui/BookingWizard";
 import { track } from "@/lib/analytics";
-import type { BookingDetails } from "@features/reservations/wizard/model/reducer";
+import type { BookingDetails, BookingWizardMode } from "@features/reservations/wizard/model/reducer";
 
 const defaultQueryOptions = {
   queries: {
@@ -25,9 +25,10 @@ function BookingFlowProviders({ children }: PropsWithChildren) {
 
 type BookingWizardWithNavigatorProps = {
   initialDetails?: Partial<BookingDetails>;
+  mode?: BookingWizardMode;
 };
 
-function BookingWizardWithNavigator({ initialDetails }: BookingWizardWithNavigatorProps) {
+function BookingWizardWithNavigator({ initialDetails, mode = "customer" }: BookingWizardWithNavigatorProps) {
   const router = useRouter();
 
   const dependencies = useMemo(
@@ -46,19 +47,20 @@ function BookingWizardWithNavigator({ initialDetails }: BookingWizardWithNavigat
 
   return (
     <WizardDependenciesProvider value={dependencies}>
-      <BookingWizard initialDetails={initialDetails} />
+      <BookingWizard initialDetails={initialDetails} mode={mode} />
     </WizardDependenciesProvider>
   );
 }
 
 type BookingFlowPageProps = {
   initialDetails?: Partial<BookingDetails>;
+  mode?: BookingWizardMode;
 };
 
-export default function BookingFlowPage({ initialDetails }: BookingFlowPageProps = {}) {
+export default function BookingFlowPage({ initialDetails, mode = "customer" }: BookingFlowPageProps = {}) {
   return (
     <BookingFlowProviders>
-      <BookingWizardWithNavigator initialDetails={initialDetails} />
+      <BookingWizardWithNavigator initialDetails={initialDetails} mode={mode} />
     </BookingFlowProviders>
   );
 }

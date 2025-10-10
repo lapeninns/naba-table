@@ -69,14 +69,14 @@ export default async function OpsDashboardPage({ searchParams }: { searchParams?
 
   if (memberships.length === 0) {
     return (
-      <main className="flex min-h-[60vh] items-center justify-center px-6 py-16">
+      <section className="flex min-h-[60vh] items-center justify-center">
         <div className="max-w-lg rounded-lg border border-dashed border-border/60 bg-muted/20 px-6 py-8 text-center">
-          <h1 className="text-xl font-semibold text-foreground">No restaurant access yet</h1>
+          <h2 className="text-xl font-semibold text-foreground">No restaurant access yet</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             Ask an owner or manager to send you an invitation so you can manage bookings.
           </p>
         </div>
-      </main>
+      </section>
     );
   }
 
@@ -117,13 +117,13 @@ export default async function OpsDashboardPage({ searchParams }: { searchParams?
   }
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-10">
-      <header className="flex flex-col gap-2">
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">Operations</h1>
+    <div className="mx-auto flex max-w-5xl flex-col gap-8 py-6">
+      <section className="flex flex-col gap-2">
+        <h2 className="text-2xl font-semibold tracking-tight text-foreground">Service snapshot</h2>
         <p className="text-sm text-muted-foreground">
           Stay on top of today’s reservations and spot issues before service begins.
         </p>
-      </header>
+      </section>
 
       {summary ? (
         <TodayBookingsCard
@@ -140,6 +140,6 @@ export default async function OpsDashboardPage({ searchParams }: { searchParams?
           </AlertDescription>
         </Alert>
       )}
-    </main>
+    </div>
   );
 }

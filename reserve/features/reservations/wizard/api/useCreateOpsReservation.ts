@@ -12,7 +12,7 @@ import { track } from '@shared/lib/analytics';
 import type { ReservationSubmissionResult } from './types';
 import type { ReservationDraft } from '../model/reducer';
 
-export function useCreateReservation() {
+export function useCreateOpsReservation() {
   const queryClient = useQueryClient();
   const idempotencyKeyRef = useRef<string | null>(null);
 
@@ -22,6 +22,12 @@ export function useCreateReservation() {
     { draft: ReservationDraft; bookingId?: string }
   >({
     mutationFn: async ({ draft, bookingId }) => {
+      if (bookingId) {
+        throw Object.assign(new Error('Editing bookings is not supported in ops wizard'), {
+          code: 'UNSUPPORTED_OPERATION',
+        });
+      }
+
       const payload = {
         restaurantId: draft.restaurantId,
         date: draft.date,
@@ -34,21 +40,20 @@ export function useCreateReservation() {
         email: draft.email ?? undefined,
         phone: draft.phone ?? undefined,
         marketingOptIn: draft.marketingOptIn,
-      };
+      } as const;
 
-      const path = bookingId ? `/bookings/${bookingId}` : '/bookings';
-      const method = bookingId ? apiClient.put : apiClient.post;
       const idempotencyKey =
         idempotencyKeyRef.current ??
         (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
           ? crypto.randomUUID()
           : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
       idempotencyKeyRef.current = idempotencyKey;
+
       try {
-        const response = await method<{
+        const response = await apiClient.post<{
           booking?: unknown;
           bookings?: unknown;
-        }>(path, payload, {
+        }>('/ops/bookings', payload, {
           headers: { 'Idempotency-Key': idempotencyKey },
         });
 
@@ -69,13 +74,12 @@ export function useCreateReservation() {
         queryClient.setQueryData(reservationKeys.detail(result.booking.id), result.booking);
       }
     },
-    onError: (error, variables) => {
+    onError: (error) => {
       idempotencyKeyRef.current = null;
       const payload = {
         code: error?.code ?? 'UNKNOWN',
         status: error?.status,
-        bookingId: variables?.bookingId ?? null,
-        context: 'customer' as const,
+        context: 'ops',
       };
       track('wizard_submit_failed', payload);
       emit('wizard_submit_failed', payload);

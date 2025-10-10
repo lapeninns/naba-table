@@ -37,7 +37,6 @@ import { Calendar, CalendarDayButton } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { formatDateKey, formatDateReadable, formatTimeRange, getDateInTimezone, getTodayInTimezone } from '@/lib/utils/datetime';
-import { formatReservationTime } from '@reserve/shared/formatting/booking';
 
 import type { BookingHeatmap, TodayBookingsSummary, TodayBooking } from '@/server/ops/bookings';
 
@@ -48,7 +47,7 @@ type TodayBookingsCardProps = {
   heatmap: BookingHeatmap;
 };
 
-type BookingFilter = 'all' | 'upcoming' | 'completed' | 'no-show';
+type BookingFilter = 'all' | 'completed' | 'no-show';
 
 const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destructive'> = {
   confirmed: 'default',
@@ -61,14 +60,14 @@ const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'dest
 
 const UPCOMING_STATUSES = new Set(['pending', 'pending_allocation', 'confirmed']);
 const ATTENTION_STATUSES = new Set(['pending', 'pending_allocation', 'confirmed']);
-const INACTIVE_STATUSES = new Set(['cancelled', 'no_show']);
 
 const FILTER_OPTIONS: { value: BookingFilter; label: string }[] = [
   { value: 'all', label: 'All' },
-  { value: 'upcoming', label: 'Upcoming' },
   { value: 'completed', label: 'Show' },
   { value: 'no-show', label: 'No show' },
 ];
+
+const DIMMED_STATUSES = new Set(['completed', 'cancelled', 'no_show']);
 
 const AVERAGE_DAILY_COVERS = 60;
 
@@ -91,12 +90,6 @@ function formatStatus(value: string): string {
     default:
       return value.replace(/_/g, ' ');
   }
-}
-
-function formatTime(value: string | null | undefined, fallback = 'Time TBC'): string {
-  if (!value) return fallback;
-  const formatted = formatReservationTime(value);
-  return formatted || fallback;
 }
 
 function parseTimeToMinutes(value: string | null | undefined): number | null {
@@ -122,6 +115,30 @@ function StatusBadge({ status }: { status: string }) {
   return (
     <Badge variant={variant} className="capitalize">
       {formatStatus(status)}
+    </Badge>
+  );
+}
+
+function isSystemCreatedBooking(booking: TodayBooking): boolean {
+  if (booking.source === 'system') {
+    return true;
+  }
+
+  const details = booking.details;
+  if (details && typeof details === 'object' && 'created_by' in details) {
+    const createdBy = (details as Record<string, unknown>).created_by;
+    if (typeof createdBy === 'string') {
+      return createdBy.toLowerCase() === 'system';
+    }
+  }
+
+  return false;
+}
+
+function SystemBadge() {
+  return (
+    <Badge variant="outline" className="border-dashed uppercase">
+      Created by system
     </Badge>
   );
 }
@@ -158,6 +175,7 @@ function BookingDetailsDialog({
   const phoneHref = booking.customerPhone ? `tel:${booking.customerPhone.replace(/[^+\d]/g, '')}` : null;
   const serviceDateReadable = formatDateReadable(summary.date, summary.timezone);
   const serviceTime = formatTimeRange(booking.startTime, booking.endTime, summary.timezone);
+  const systemCreated = isSystemCreatedBooking(booking);
 
   const InfoTile = ({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string }) => (
     <div className="flex items-center gap-3 rounded-2xl border border-border/60 bg-muted/10 px-4 py-3">
@@ -191,7 +209,10 @@ function BookingDetailsDialog({
                 {serviceDateReadable} · {serviceTime}
               </DialogDescription>
             </div>
-            <StatusBadge status={booking.status} />
+            <div className="flex items-center gap-2">
+              {systemCreated ? <SystemBadge /> : null}
+              <StatusBadge status={booking.status} />
+            </div>
           </div>
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Booking reference
             <span className="ml-2 font-medium text-foreground">{booking.reference ?? 'Not provided'}</span>
@@ -233,6 +254,15 @@ function BookingDetailsDialog({
                 <p className="rounded-2xl border border-border/60 bg-muted/15 px-4 py-3 text-sm leading-relaxed text-foreground">
                   {booking.notes}
                 </p>
+              </section>
+            ) : null}
+
+            {booking.details ? (
+              <section className="space-y-2">
+                <h4 className="text-sm font-semibold text-foreground">Service metadata</h4>
+                <pre className="max-h-48 overflow-auto rounded-2xl border border-border/60 bg-muted/15 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+                  {JSON.stringify(booking.details, null, 2)}
+                </pre>
               </section>
             ) : null}
           </div>
@@ -343,16 +373,18 @@ export function TodayBookingsCard({ summary, restaurantName, selectedDate, heatm
       minutes: parseTimeToMinutes(timeString),
     };
   }, [summary.timezone]);
+
+  const todayKey = useMemo(() => getTodayInTimezone(summary.timezone), [summary.timezone]);
   const isUpcoming = useCallback(
     (booking: TodayBooking) => {
-      if (summary.date !== currentContext.date) return false;
+      if (summary.date !== todayKey) return false;
       if (!booking.startTime) return false;
       if (!UPCOMING_STATUSES.has(booking.status)) return false;
       const startMinutes = parseTimeToMinutes(booking.startTime);
       if (startMinutes === null || currentContext.minutes === null) return false;
       return startMinutes > currentContext.minutes;
     },
-    [currentContext.date, currentContext.minutes, summary.date],
+    [currentContext.minutes, summary.date, todayKey],
   );
 
   const computedCounts = useMemo(() => {
@@ -376,17 +408,14 @@ export function TodayBookingsCard({ summary, restaurantName, selectedDate, heatm
   const filterCounts = useMemo<Record<BookingFilter, number>>(
     () => ({
       all: summary.bookings.length,
-      upcoming: computedCounts.upcoming,
       completed: computedCounts.show,
       'no-show': computedCounts.noShow,
     }),
-    [computedCounts.noShow, computedCounts.show, computedCounts.upcoming, summary.bookings.length],
+    [computedCounts.noShow, computedCounts.show, summary.bookings.length],
   );
 
   const filteredBookings = useMemo(() => {
     switch (filter) {
-      case 'upcoming':
-        return summary.bookings.filter((booking) => isUpcoming(booking));
       case 'completed':
         return summary.bookings.filter((booking) => booking.status === 'completed');
       case 'no-show':
@@ -394,21 +423,30 @@ export function TodayBookingsCard({ summary, restaurantName, selectedDate, heatm
       default:
         return summary.bookings;
     }
-  }, [filter, isUpcoming, summary.bookings]);
+  }, [filter, summary.bookings]);
 
   const bookingsWithAlerts = useMemo(() => {
+    const isViewingToday = summary.date === todayKey;
+    const isPastDate = summary.date < todayKey;
     return filteredBookings.map((booking) => {
       const startMinutes = parseTimeToMinutes(booking.startTime);
-      const isSameDay = summary.date === currentContext.date;
-      const isPastStart =
-        isSameDay && startMinutes !== null && currentContext.minutes !== null && currentContext.minutes >= startMinutes;
-      const needsAttention = isPastStart && ATTENTION_STATUSES.has(booking.status);
+      const hasStarted =
+        isViewingToday &&
+        startMinutes !== null &&
+        currentContext.minutes !== null &&
+        currentContext.minutes >= startMinutes;
+      const needsAttention = isViewingToday && hasStarted && ATTENTION_STATUSES.has(booking.status);
+      const isDimmed =
+        isPastDate ||
+        DIMMED_STATUSES.has(booking.status) ||
+        (hasStarted && !ATTENTION_STATUSES.has(booking.status));
       return {
         ...booking,
         needsAttention,
+        isDimmed,
       };
     });
-  }, [filteredBookings, summary.date, currentContext]);
+  }, [currentContext.minutes, filteredBookings, summary.date, todayKey]);
 
   const stats = [
     { label: 'Total bookings', value: summary.totals.total, icon: CalendarDays },
@@ -468,7 +506,6 @@ export function TodayBookingsCard({ summary, restaurantName, selectedDate, heatm
     [getIntensityForDate],
   );
 
-  const todayKey = useMemo(() => getTodayInTimezone(summary.timezone), [summary.timezone]);
   const isViewingToday = summary.date === todayKey;
   const headerTitle = isViewingToday ? "Today’s bookings" : "Bookings overview";
 
@@ -626,10 +663,15 @@ export function TodayBookingsCard({ summary, restaurantName, selectedDate, heatm
         ) : (
           <>
             <div className="md:hidden space-y-3">
-              {bookingsWithAlerts.map((booking) => (
+              {bookingsWithAlerts.map((booking) => {
+                const systemCreated = isSystemCreatedBooking(booking);
+                return (
                 <div
                   key={booking.id}
-                  className="rounded-lg border border-border/60 bg-card/50 p-4 shadow-sm focus-within:ring-2 focus-within:ring-primary/40"
+                  className={cn(
+                    'rounded-lg border border-border/60 bg-card/50 p-4 shadow-sm transition-opacity focus-within:ring-2 focus-within:ring-primary/40',
+                    booking.isDimmed ? 'opacity-60' : 'opacity-100',
+                  )}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -638,13 +680,18 @@ export function TodayBookingsCard({ summary, restaurantName, selectedDate, heatm
                         {formatStatus(booking.status)}
                       </p>
                     </div>
-                    <StatusBadge status={booking.status} />
+                    <div className="flex flex-col items-end gap-1">
+                      {systemCreated ? <SystemBadge /> : null}
+                      <StatusBadge status={booking.status} />
+                    </div>
                   </div>
 
                   <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
                     <div>
-                      <dt className="text-xs uppercase tracking-wide text-muted-foreground">Start</dt>
-                      <dd className="font-medium text-foreground">{formatTime(booking.startTime)}</dd>
+                      <dt className="text-xs uppercase tracking-wide text-muted-foreground">Time</dt>
+                      <dd className="font-medium text-foreground">
+                        {formatTimeRange(booking.startTime, booking.endTime, summary.timezone)}
+                      </dd>
                     </div>
                     <div>
                       <dt className="text-xs uppercase tracking-wide text-muted-foreground">Guests</dt>
@@ -653,6 +700,10 @@ export function TodayBookingsCard({ summary, restaurantName, selectedDate, heatm
                     <div className="col-span-2">
                       <dt className="text-xs uppercase tracking-wide text-muted-foreground">Reference</dt>
                       <dd className="font-medium text-foreground">{booking.reference ?? 'Not provided'}</dd>
+                    </div>
+                    <div className="col-span-2">
+                      <dt className="text-xs uppercase tracking-wide text-muted-foreground">Notes</dt>
+                      <dd className="text-sm text-muted-foreground">{booking.notes ?? '—'}</dd>
                     </div>
                   </dl>
 
@@ -671,7 +722,8 @@ export function TodayBookingsCard({ summary, restaurantName, selectedDate, heatm
                     />
                   </div>
                 </div>
-              ))}
+              );
+              })}
             </div>
 
             <div className="hidden overflow-x-auto rounded-lg border border-border/60 md:block">
@@ -679,15 +731,24 @@ export function TodayBookingsCard({ summary, restaurantName, selectedDate, heatm
                 <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th scope="col" className="px-4 py-3 font-medium">Customer</th>
-                    <th scope="col" className="px-4 py-3 font-medium">Start</th>
+                    <th scope="col" className="px-4 py-3 font-medium">Time</th>
                     <th scope="col" className="px-4 py-3 font-medium">Guests</th>
+                    <th scope="col" className="px-4 py-3 font-medium">Notes</th>
                     <th scope="col" className="px-4 py-3 font-medium">Status</th>
                     <th scope="col" className="px-4 py-3 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
-                  {bookingsWithAlerts.map((booking) => (
-                    <tr key={booking.id} className="bg-background/50 hover:bg-muted/30">
+                  {bookingsWithAlerts.map((booking) => {
+                    const systemCreated = isSystemCreatedBooking(booking);
+                    return (
+                    <tr
+                      key={booking.id}
+                      className={cn(
+                        'bg-background/50 transition-opacity hover:bg-muted/30',
+                        booking.isDimmed ? 'opacity-70' : undefined,
+                      )}
+                    >
                       <td className="px-4 py-3 text-sm font-medium text-foreground">
                         <div className="flex flex-col">
                           <span>{booking.customerName}</span>
@@ -696,10 +757,16 @@ export function TodayBookingsCard({ summary, restaurantName, selectedDate, heatm
                           </span>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-sm text-foreground">{formatTime(booking.startTime)}</td>
+                      <td className="px-4 py-3 text-sm text-foreground">
+                        {formatTimeRange(booking.startTime, booking.endTime, summary.timezone)}
+                      </td>
                       <td className="px-4 py-3 text-sm text-foreground">{booking.partySize}</td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">
+                        <span className="block max-w-[220px] truncate">{booking.notes ?? '—'}</span>
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
+                          {systemCreated ? <SystemBadge /> : null}
                           <StatusBadge status={booking.status} />
                           {booking.needsAttention ? (
                             <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
@@ -717,7 +784,8 @@ export function TodayBookingsCard({ summary, restaurantName, selectedDate, heatm
                         />
                       </td>
                     </tr>
-                  ))}
+                  );
+                  })}
                 </tbody>
               </table>
             </div>

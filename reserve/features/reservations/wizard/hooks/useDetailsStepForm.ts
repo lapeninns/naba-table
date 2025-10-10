@@ -1,13 +1,13 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { track } from '@shared/lib/analytics';
 
 import {
-  detailsFormSchema,
+  createDetailsFormSchema,
   type DetailsFormInputValues,
   type DetailsFormValues,
 } from '../model/schemas';
@@ -20,9 +20,11 @@ export function useDetailsStepForm({
   actions,
   onActionsChange,
   onTrack = track,
+  mode = 'customer',
 }: DetailsStepProps): DetailsStepController {
+  const schema = useMemo(() => createDetailsFormSchema(mode), [mode]);
   const form = useForm<DetailsFormInputValues, unknown, DetailsFormValues>({
-    resolver: zodResolver(detailsFormSchema),
+    resolver: zodResolver(schema),
     mode: 'onChange',
     reValidateMode: 'onBlur',
     defaultValues: {

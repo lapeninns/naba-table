@@ -8,7 +8,7 @@ describe('buildReservationDraft', () => {
     const details = getInitialDetails();
     details.time = '';
 
-    const result = buildReservationDraft(details);
+    const result = buildReservationDraft(details, 'customer');
 
     expect(result.ok).toBe(false);
     if (!result.ok && 'error' in result) {
@@ -26,7 +26,7 @@ describe('buildReservationDraft', () => {
     details.phone = ' +441234567890 ';
     details.rememberDetails = true;
 
-    const result = buildReservationDraft(details);
+    const result = buildReservationDraft(details, 'customer');
 
     expect(result.ok).toBe(true);
     if (result.ok && 'draft' in result) {
@@ -35,6 +35,24 @@ describe('buildReservationDraft', () => {
       expect(result.draft.name).toBe('Jane Doe');
       expect(result.draft.email).toBe('jane@example.com');
       expect(result.draft.phone).toBe('+441234567890');
+    }
+  });
+
+  it('allows missing email/phone in ops mode', () => {
+    const details = getInitialDetails();
+    details.time = '12:30';
+    details.party = 3;
+    details.bookingType = 'lunch';
+    details.name = 'Walk In Party';
+    details.email = '';
+    details.phone = '';
+
+    const result = buildReservationDraft(details, 'ops');
+
+    expect(result.ok).toBe(true);
+    if (result.ok && 'draft' in result) {
+      expect(result.draft.email).toBeNull();
+      expect(result.draft.phone).toBeNull();
     }
   });
 });

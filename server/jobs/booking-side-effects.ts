@@ -106,10 +106,12 @@ async function processBookingCreatedSideEffects(
     console.error("[jobs][booking.created][analytics]", error);
   }
 
-  try {
-    await sendBookingConfirmationEmail(booking as BookingRecord);
-  } catch (error) {
-    console.error("[jobs][booking.created][email]", error);
+  if (booking.customer_email && booking.customer_email.trim().length > 0) {
+    try {
+      await sendBookingConfirmationEmail(booking as BookingRecord);
+    } catch (error) {
+      console.error("[jobs][booking.created][email]", error);
+    }
   }
 }
 
@@ -118,10 +120,12 @@ async function processBookingUpdatedSideEffects(
   supabase?: SupabaseLike,
 ) {
   const { current } = payload;
-  try {
-    await sendBookingUpdateEmail(current as BookingRecord);
-  } catch (error) {
-    console.error("[jobs][booking.updated][email]", error);
+  if (current.customer_email && current.customer_email.trim().length > 0) {
+    try {
+      await sendBookingUpdateEmail(current as BookingRecord);
+    } catch (error) {
+      console.error("[jobs][booking.updated][email]", error);
+    }
   }
 }
 
@@ -145,10 +149,12 @@ async function processBookingCancelledSideEffects(
     console.error("[jobs][booking.cancelled][analytics]", error);
   }
 
-  try {
-    await sendBookingCancellationEmail(cancelled as BookingRecord);
-  } catch (error) {
-    console.error("[jobs][booking.cancelled][email]", error);
+  if (cancelled.customer_email && cancelled.customer_email.trim().length > 0) {
+    try {
+      await sendBookingCancellationEmail(cancelled as BookingRecord);
+    } catch (error) {
+      console.error("[jobs][booking.cancelled][email]", error);
+    }
   }
 }
 

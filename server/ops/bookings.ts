@@ -20,6 +20,7 @@ export type TodayBooking = {
   customerPhone: string | null;
   reference: string | null;
   details: Tables<"bookings">["details"] | null;
+  source: Tables<"bookings">["source"] | null;
 };
 
 export type TodayBookingsSummary = {
@@ -78,7 +79,7 @@ export async function getTodayBookingsSummary(
   const { data, error } = await client
     .from("bookings")
     .select(
-      "id, status, start_time, end_time, party_size, customer_name, customer_email, customer_phone, notes, reference, details",
+      "id, status, start_time, end_time, party_size, customer_name, customer_email, customer_phone, notes, reference, details, source",
     )
     .eq("restaurant_id", restaurantId)
     .eq("booking_date", reportDate)
@@ -102,6 +103,7 @@ export async function getTodayBookingsSummary(
     customerPhone: booking.customer_phone ?? null,
     reference: booking.reference ?? null,
     details: (booking.details as Tables<"bookings">["details"]) ?? null,
+    source: (booking.source as Tables<"bookings">["source"]) ?? null,
   }));
 
   const totals = summaryBookings.reduce(
@@ -126,7 +128,6 @@ export async function getTodayBookingsSummary(
           acc.cancelled += 1;
           break;
         case "no_show":
-          acc.cancelled += 1;
           acc.noShow += 1;
           break;
         default:

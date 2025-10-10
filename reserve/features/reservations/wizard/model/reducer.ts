@@ -67,6 +67,8 @@ export type BookingDetails = {
   marketingOptIn: boolean;
 };
 
+export type BookingWizardMode = 'customer' | 'ops';
+
 export type LastAction = 'create' | 'update' | null;
 
 export type WizardStep = 1 | 2 | 3 | 4;
@@ -114,8 +116,8 @@ export type ReservationDraft = {
   seating: SeatingOption;
   notes?: string | null;
   name: string;
-  email: string;
-  phone: string;
+  email: string | null;
+  phone: string | null;
   marketingOptIn: boolean;
 };
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { planFormSchema, detailsFormSchema } from '../schemas';
+import { planFormSchema, detailsFormSchema, createDetailsFormSchema } from '../schemas';
 
 describe('planFormSchema', () => {
   const base = {
@@ -61,5 +61,15 @@ describe('detailsFormSchema', () => {
         'Please accept the terms to continue.',
       );
     }
+  });
+
+  it('allows optional contact fields in ops mode', () => {
+    const opsSchema = createDetailsFormSchema('ops');
+    const result = opsSchema.safeParse({
+      ...base,
+      email: '',
+      phone: '',
+    });
+    expect(result.success).toBe(true);
   });
 });

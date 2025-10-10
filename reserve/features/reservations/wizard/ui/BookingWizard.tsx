@@ -25,7 +25,7 @@ import {
 } from './WizardSkeletons';
 import { WizardStickyConfirmation } from './WizardStickyConfirmation';
 
-import type { BookingDetails } from '../model/reducer';
+import type { BookingDetails, BookingWizardMode } from '../model/reducer';
 
 function LoadingFallback() {
   return (
@@ -42,9 +42,10 @@ function LoadingFallback() {
 
 type BookingWizardContentProps = {
   initialDetails?: Partial<BookingDetails>;
+  mode?: BookingWizardMode;
 };
 
-function BookingWizardContent({ initialDetails }: BookingWizardContentProps) {
+function BookingWizardContent({ initialDetails, mode = 'customer' }: BookingWizardContentProps) {
   const {
     state,
     actions,
@@ -59,23 +60,24 @@ function BookingWizardContent({ initialDetails }: BookingWizardContentProps) {
     handleConfirm,
     handleNewBooking,
     handleClose,
-  } = useReservationWizard(initialDetails);
+  } = useReservationWizard(initialDetails, mode);
   const { analytics } = useWizardDependencies();
   const { user, status: sessionStatus } = useSupabaseSession();
   const isSessionReady = sessionStatus === 'ready';
   const isAuthenticated = isSessionReady && Boolean(user);
-  const { data: profile } = useProfile({ enabled: isAuthenticated });
+  const shouldLockContacts = isAuthenticated && mode !== 'ops';
+  const { data: profile } = useProfile({ enabled: shouldLockContacts });
 
   const fallbackName =
     (typeof user?.user_metadata?.full_name === 'string' && user.user_metadata.full_name.trim()) ||
     (typeof user?.user_metadata?.name === 'string' && user.user_metadata.name.trim()) ||
     '';
-  const lockedName = (profile?.name ?? fallbackName ?? '').trim();
-  const lockedEmail = isAuthenticated ? (profile?.email ?? user?.email ?? '').trim() : '';
-  const lockedPhone = (profile?.phone ?? '').trim();
+  const lockedName = shouldLockContacts ? (profile?.name ?? fallbackName ?? '').trim() : '';
+  const lockedEmail = shouldLockContacts ? (profile?.email ?? user?.email ?? '').trim() : '';
+  const lockedPhone = shouldLockContacts ? (profile?.phone ?? '').trim() : '';
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!shouldLockContacts) {
       return;
     }
 
@@ -92,7 +94,7 @@ function BookingWizardContent({ initialDetails }: BookingWizardContentProps) {
     }
   }, [
     actions,
-    isAuthenticated,
+    shouldLockContacts,
     lockedEmail,
     lockedName,
     lockedPhone,
@@ -102,7 +104,7 @@ function BookingWizardContent({ initialDetails }: BookingWizardContentProps) {
   ]);
 
   const contactLocks = useMemo(() => {
-    if (!isAuthenticated) {
+    if (!shouldLockContacts) {
       return undefined;
     }
 
@@ -111,7 +113,7 @@ function BookingWizardContent({ initialDetails }: BookingWizardContentProps) {
       email: true,
       phone: Boolean(lockedPhone),
     } as const;
-  }, [isAuthenticated, lockedName, lockedPhone]);
+  }, [lockedName, lockedPhone, shouldLockContacts]);
 
   const isOnline = useOnlineStatus();
   const isOffline = !isOnline;
@@ -250,6 +252,7 @@ function BookingWizardContent({ initialDetails }: BookingWizardContentProps) {
             actions={actions}
             onActionsChange={handleActionsChange}
             contactLocks={contactLocks}
+            mode={mode}
           />
         );
       case 3:
@@ -290,12 +293,13 @@ function BookingWizardContent({ initialDetails }: BookingWizardContentProps) {
 
 type BookingWizardProps = {
   initialDetails?: Partial<BookingDetails>;
+  mode?: BookingWizardMode;
 };
 
-export function BookingWizard({ initialDetails }: BookingWizardProps = {}) {
+export function BookingWizard({ initialDetails, mode = 'customer' }: BookingWizardProps = {}) {
   return (
     <Suspense fallback={<LoadingFallback />}>
-      <BookingWizardContent initialDetails={initialDetails} />
+      <BookingWizardContent initialDetails={initialDetails} mode={mode} />
     </Suspense>
   );
 }

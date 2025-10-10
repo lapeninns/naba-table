@@ -55,13 +55,16 @@ const schema = z
 
 type FormValues = z.infer<typeof schema>;
 
+type UseUpdateBookingHook = () => ReturnType<typeof useUpdateBooking>;
+
 export type EditBookingDialogProps = {
   booking: BookingDTO | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  mutationHook?: UseUpdateBookingHook;
 };
 
-export function EditBookingDialog({ booking, open, onOpenChange }: EditBookingDialogProps) {
+export function EditBookingDialog({ booking, open, onOpenChange, mutationHook }: EditBookingDialogProps) {
   const defaultValues = useMemo<FormValues>(
     () => ({
       start: isoToLocalInput(booking?.startIso),
@@ -84,7 +87,8 @@ export function EditBookingDialog({ booking, open, onOpenChange }: EditBookingDi
     defaultValues,
   });
 
-  const mutation = useUpdateBooking();
+  const useMutationHook = mutationHook ?? useUpdateBooking;
+  const mutation = useMutationHook();
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {

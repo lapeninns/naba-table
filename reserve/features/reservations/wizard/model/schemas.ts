@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { isEmail, isUKPhone } from '@reserve/shared/validation';
 import { BOOKING_TYPES_UI } from '@shared/config/booking';
 
+import type { BookingWizardMode } from './reducer';
 import type { BookingOption } from '@reserve/shared/booking';
 
 const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -28,29 +29,70 @@ export const planFormSchema = z.object({
 
 export type PlanFormValues = z.infer<typeof planFormSchema>;
 
-export const detailsFormSchema = z.object({
-  name: z
+const nameSchema = z
+  .string()
+  .min(2, { message: 'Please enter at least two characters.' })
+  .max(120, { message: 'Name looks too long. Shorten it a little.' });
+
+const buildEmailSchema = (mode: BookingWizardMode) =>
+  z
     .string()
-    .min(2, { message: 'Please enter at least two characters.' })
-    .max(120, { message: 'Name looks too long. Shorten it a little.' }),
-  email: z
+    .trim()
+    .superRefine((value, ctx) => {
+      if (!value) {
+        if (mode !== 'ops') {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Please enter a valid email address.',
+          });
+        }
+        return;
+      }
+
+      if (!isEmail(value)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Please enter a valid email address.',
+        });
+      }
+    });
+
+const buildPhoneSchema = (mode: BookingWizardMode) =>
+  z
     .string()
-    .email({ message: 'Please enter a valid email address.' })
-    .refine((value) => isEmail(value), {
-      message: 'Please enter a valid email address.',
+    .trim()
+    .superRefine((value, ctx) => {
+      if (!value) {
+        if (mode !== 'ops') {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Please enter your phone number.',
+          });
+        }
+        return;
+      }
+
+      if (!isUKPhone(value)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Please enter a valid UK mobile number (e.g. 07123 456789).',
+        });
+      }
+    });
+
+export const createDetailsFormSchema = (mode: BookingWizardMode = 'customer') =>
+  z.object({
+    name: nameSchema,
+    email: buildEmailSchema(mode),
+    phone: buildPhoneSchema(mode),
+    rememberDetails: z.boolean().default(true),
+    marketingOptIn: z.boolean().default(true),
+    agree: z.boolean().refine((value) => value, {
+      message: 'Please accept the terms to continue.',
     }),
-  phone: z
-    .string()
-    .min(6, { message: 'Please enter your phone number.' })
-    .refine((value) => isUKPhone(value), {
-      message: 'Please enter a valid UK mobile number (e.g. 07123 456789).',
-    }),
-  rememberDetails: z.boolean().default(true),
-  marketingOptIn: z.boolean().default(true),
-  agree: z.boolean().refine((value) => value, {
-    message: 'Please accept the terms to continue.',
-  }),
-});
+  });
+
+export const detailsFormSchema = createDetailsFormSchema('customer');
 
 export type DetailsFormInputValues = z.input<typeof detailsFormSchema>;
 export type DetailsFormValues = z.output<typeof detailsFormSchema>;

@@ -1,4 +1,4 @@
-import type { State, StepAction } from '../../../model/reducer';
+import type { BookingWizardMode, State, StepAction } from '../../../model/reducer';
 import type { DetailsFormInputValues, DetailsFormValues } from '../../../model/schemas';
 import type { WizardActions } from '../../../model/store';
 import type { AnalyticsEvent } from '@shared/lib/analytics';
@@ -12,6 +12,7 @@ export interface DetailsStepProps {
   onActionsChange: (actions: StepAction[]) => void;
   onTrack?: (event: AnalyticsEvent, payload?: Record<string, unknown>) => void;
   contactLocks?: DetailsContactLocks;
+  mode?: BookingWizardMode;
 }
 
 export type DetailsStepController = {

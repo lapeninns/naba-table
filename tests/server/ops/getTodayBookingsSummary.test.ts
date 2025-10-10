@@ -20,6 +20,7 @@ type BookingRow = {
   customer_phone: string | null;
   reference: string | null;
   details: TodayBookingsSummary["bookings"][number]["details"];
+  source: string | null;
 };
 
 type MockClientOptions = {
@@ -130,6 +131,7 @@ test("getTodayBookingsSummary aggregates bookings respecting timezone and status
       customer_phone: "+447700900001",
       reference: "REF-001",
       details: { source: "online" },
+      source: "web",
     },
     {
       id: "b-2",
@@ -143,6 +145,7 @@ test("getTodayBookingsSummary aggregates bookings respecting timezone and status
       customer_phone: "+447700900002",
       reference: "REF-002",
       details: null,
+      source: "web",
     },
     {
       id: "b-3",
@@ -156,6 +159,7 @@ test("getTodayBookingsSummary aggregates bookings respecting timezone and status
       customer_phone: null,
       reference: null,
       details: null,
+      source: "api",
     },
     {
       id: "b-4",
@@ -169,6 +173,7 @@ test("getTodayBookingsSummary aggregates bookings respecting timezone and status
       customer_phone: null,
       reference: null,
       details: null,
+      source: "api",
     },
     {
       id: "b-5",
@@ -182,6 +187,7 @@ test("getTodayBookingsSummary aggregates bookings respecting timezone and status
       customer_phone: "+447700900005",
       reference: "REF-005",
       details: { reason: "personal" },
+      source: "web",
     },
     {
       id: "b-6",
@@ -195,6 +201,7 @@ test("getTodayBookingsSummary aggregates bookings respecting timezone and status
       customer_phone: "+447700900006",
       reference: "REF-006",
       details: null,
+      source: "web",
     },
   ];
 
@@ -221,7 +228,7 @@ test("getTodayBookingsSummary aggregates bookings respecting timezone and status
   assert.equal(summary.totals.pending, 2);
   assert.equal(summary.totals.confirmed, 2);
   assert.equal(summary.totals.completed, 1);
-  assert.equal(summary.totals.cancelled, 2);
+  assert.equal(summary.totals.cancelled, 1);
   assert.equal(summary.totals.noShow, 1);
   assert.equal(summary.totals.upcoming, 3);
   assert.equal(summary.totals.covers, 14);

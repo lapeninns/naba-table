@@ -41,10 +41,11 @@ const requiredPreferenceLabelClass = (checked: boolean) =>
       : 'border-destructive/40 bg-destructive/10 text-destructive-foreground dark:text-destructive-foreground',
   );
 
-export function DetailsStep(props: DetailsStepProps) {
+export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
   const { analytics } = useWizardDependencies();
   const controller = useDetailsStepForm({
     ...props,
+    mode,
     onTrack: props.onTrack ?? analytics.track,
   });
   const { form, handleSubmit, handleError, handlers } = controller;
@@ -126,7 +127,7 @@ export function DetailsStep(props: DetailsStepProps) {
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email address</FormLabel>
+                      <FormLabel>Email address{mode === 'ops' ? ' (optional)' : ''}</FormLabel>
                       <FormControl>
                         <Input
                           type="email"
@@ -156,7 +157,7 @@ export function DetailsStep(props: DetailsStepProps) {
                   name="phone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>UK phone number</FormLabel>
+                      <FormLabel>UK phone number{mode === 'ops' ? ' (optional)' : ''}</FormLabel>
                       <FormControl>
                         <Input
                           type="tel"

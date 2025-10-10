@@ -6,25 +6,29 @@ import { mapErrorToMessage } from '@reserve/shared/error';
 import { useStickyProgress } from '@reserve/shared/hooks/useStickyProgress';
 import { runtime } from '@shared/config/runtime';
 
+import { useRememberedContacts } from './useRememberedContacts';
+import { useCreateOpsReservation } from '../api/useCreateOpsReservation';
 import { useCreateReservation } from '../api/useCreateReservation';
 import { useWizardDependencies } from '../di';
-import { useRememberedContacts } from './useRememberedContacts';
 import { createSelectionSummary } from '../model/selectors';
 import { useWizardStore } from '../model/store';
 import { buildReservationDraft, reservationToApiBooking } from '../model/transformers';
 
-import type { BookingDetails, StepAction } from '../model/reducer';
+import type { BookingDetails, BookingWizardMode, StepAction } from '../model/reducer';
 
 const EMPTY_ACTIONS: StepAction[] = [];
 
-export function useReservationWizard(initialDetails?: Partial<BookingDetails>) {
+export function useReservationWizard(
+  initialDetails?: Partial<BookingDetails>,
+  mode: BookingWizardMode = 'customer',
+) {
   const { state, actions } = useWizardStore(initialDetails);
   const heroRef = useRef<HTMLSpanElement | null>(null);
   const [stickyActions, setStickyActions] = useState<StepAction[]>(EMPTY_ACTIONS);
   const [stickyHeight, setStickyHeight] = useState(0);
   const { analytics, haptics, navigator, errorReporter } = useWizardDependencies();
 
-  useRememberedContacts({ details: state.details, actions });
+  useRememberedContacts({ details: state.details, actions, enabled: mode === 'customer' });
 
   const stepsMeta = useMemo(
     () => [
@@ -91,7 +95,9 @@ export function useReservationWizard(initialDetails?: Partial<BookingDetails>) {
 
   const selectionSummary = useMemo(() => createSelectionSummary(state.details), [state.details]);
 
-  const mutation = useCreateReservation();
+  const customerMutation = useCreateReservation();
+  const opsMutation = useCreateOpsReservation();
+  const mutation = mode === 'ops' ? opsMutation : customerMutation;
   const submitting = state.submitting || mutation.isPending;
 
   const handleConfirm = useCallback(async () => {
@@ -99,7 +105,7 @@ export function useReservationWizard(initialDetails?: Partial<BookingDetails>) {
       return;
     }
 
-    const result = buildReservationDraft(state.details);
+    const result = buildReservationDraft(state.details, mode);
     if (!result.ok) {
       if ('error' in result) {
         errorReporter.capture(result.error, { scope: 'wizard.buildReservationDraft' });
@@ -139,6 +145,7 @@ export function useReservationWizard(initialDetails?: Partial<BookingDetails>) {
         party: draft.party,
         start_time: draft.time,
         reference: submission.booking?.reference ?? 'pending',
+        context: mode,
       });
     } catch (error) {
       errorReporter.capture(error, {
@@ -155,6 +162,7 @@ export function useReservationWizard(initialDetails?: Partial<BookingDetails>) {
     actions,
     analytics,
     errorReporter,
+    mode,
     mutation,
     state.details,
     state.editingId,
@@ -169,8 +177,12 @@ export function useReservationWizard(initialDetails?: Partial<BookingDetails>) {
   }, [actions]);
 
   const handleClose = useCallback(() => {
+    if (mode === 'ops') {
+      navigator.push('/ops');
+      return;
+    }
     navigator.push('/thank-you');
-  }, [navigator]);
+  }, [mode, navigator]);
 
   return {
     state,
@@ -187,5 +199,6 @@ export function useReservationWizard(initialDetails?: Partial<BookingDetails>) {
     handleNewBooking,
     handleClose,
     isSubmitting: submitting,
+    mode,
   };
 }

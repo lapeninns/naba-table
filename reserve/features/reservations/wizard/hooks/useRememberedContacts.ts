@@ -12,17 +12,22 @@ type ContactDetails = Pick<BookingDetails, 'name' | 'email' | 'phone' | 'remembe
 type RememberedContactsConfig = {
   details: ContactDetails;
   actions: Pick<WizardActions, 'hydrateContacts' | 'updateDetails'>;
+  enabled?: boolean;
 };
 
 const STORAGE_KEY = storageKeys.contacts;
 
 const sanitizeContactValue = (value: string) => value.trim();
 
-export const useRememberedContacts = ({ details, actions }: RememberedContactsConfig) => {
+export const useRememberedContacts = ({
+  details,
+  actions,
+  enabled = true,
+}: RememberedContactsConfig) => {
   const { errorReporter } = useWizardDependencies();
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (!enabled || typeof window === 'undefined') return;
 
     try {
       const stored = window.localStorage.getItem(STORAGE_KEY);
@@ -41,10 +46,10 @@ export const useRememberedContacts = ({ details, actions }: RememberedContactsCo
     } catch (error) {
       errorReporter.capture(error, { scope: 'rememberedContacts.hydrate' });
     }
-  }, [actions, errorReporter]);
+  }, [actions, enabled, errorReporter]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (!enabled || typeof window === 'undefined') return;
 
     try {
       if (details.rememberDetails) {
@@ -61,5 +66,5 @@ export const useRememberedContacts = ({ details, actions }: RememberedContactsCo
     } catch (error) {
       errorReporter.capture(error, { scope: 'rememberedContacts.persist' });
     }
-  }, [details.email, details.name, details.phone, details.rememberDetails, errorReporter]);
+  }, [details.email, details.name, details.phone, details.rememberDetails, enabled, errorReporter]);
 };

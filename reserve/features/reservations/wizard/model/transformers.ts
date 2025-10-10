@@ -1,7 +1,7 @@
 import { inferBookingOption, normalizeTime } from '@reserve/shared/time';
 import { DEFAULT_RESTAURANT_ID } from '@shared/config/venue';
 
-import type { ApiBooking, BookingDetails, ReservationDraft } from './reducer';
+import type { ApiBooking, BookingDetails, BookingWizardMode, ReservationDraft } from './reducer';
 import type { Reservation } from '@entities/reservation/reservation.schema';
 
 type DraftSuccess = {
@@ -19,7 +19,18 @@ type DraftResult = DraftSuccess | DraftFailure;
 const buildMarketingOptIn = (marketingOptIn: boolean | undefined): boolean =>
   Boolean(marketingOptIn);
 
-export const buildReservationDraft = (details: BookingDetails): DraftResult => {
+const normalizeContactValue = (value: string, required: boolean): string | null => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return required ? '' : null;
+  }
+  return trimmed;
+};
+
+export const buildReservationDraft = (
+  details: BookingDetails,
+  mode: BookingWizardMode = 'customer',
+): DraftResult => {
   const normalizedTime = normalizeTime(details.time);
 
   if (!normalizedTime) {
@@ -40,8 +51,8 @@ export const buildReservationDraft = (details: BookingDetails): DraftResult => {
       seating: details.seating,
       notes: details.notes ? details.notes : null,
       name: details.name.trim(),
-      email: details.email.trim(),
-      phone: details.phone.trim(),
+      email: normalizeContactValue(details.email, mode !== 'ops'),
+      phone: normalizeContactValue(details.phone, mode !== 'ops'),
       marketingOptIn: buildMarketingOptIn(details.marketingOptIn),
     },
   };

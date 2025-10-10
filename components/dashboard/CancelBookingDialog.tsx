@@ -29,14 +29,18 @@ const errorCopy: Record<string, string> = {
   UNKNOWN: 'Something went wrong on our side. Please try again.',
 };
 
+type UseCancelBookingHook = () => ReturnType<typeof useCancelBooking>;
+
 export type CancelBookingDialogProps = {
   booking: BookingDTO | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  mutationHook?: UseCancelBookingHook;
 };
 
-export function CancelBookingDialog({ booking, open, onOpenChange }: CancelBookingDialogProps) {
-  const mutation = useCancelBooking();
+export function CancelBookingDialog({ booking, open, onOpenChange, mutationHook }: CancelBookingDialogProps) {
+  const useMutationHook = mutationHook ?? useCancelBooking;
+  const mutation = useMutationHook();
   const errorMessage = useMemo(() => {
     const err = mutation.error;
     if (!err) return null;
