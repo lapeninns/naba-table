@@ -22,6 +22,7 @@ const TITLE_MAP: Array<{ match: (pathname: string) => boolean; title: string }> 
   { match: (pathname) => pathname === '/ops', title: "Today's service overview" },
   { match: (pathname) => pathname.startsWith('/ops/bookings/new'), title: 'Record walk-in booking' },
   { match: (pathname) => pathname.startsWith('/ops/bookings'), title: 'Manage bookings' },
+  { match: (pathname) => pathname.startsWith('/ops/manage-restaurant'), title: 'Manage restaurant settings' },
   { match: (pathname) => pathname.startsWith('/ops/team'), title: 'Manage team and invites' },
 ];
 
