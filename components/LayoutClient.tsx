@@ -68,12 +68,15 @@ const CrispChat = (): null => {
 // 3. Tooltip: Show tooltips if any JSX elements has these 2 attributes: data-tooltip-id="tooltip" data-tooltip-content=""
 // 4. CrispChat: Set Crisp customer chat support (see above)
 const ClientLayout = ({ children }: { children: ReactNode }) => {
+  const pathname = usePathname();
+  const isOpsRoute = pathname?.startsWith("/ops") ?? false;
+
   return (
     <>
       {/* Show a progress bar at the top when navigating between pages */}
       <NextTopLoader color={config.colors.main} showSpinner={false} />
 
-      <CustomerNavbar />
+      {!isOpsRoute && <CustomerNavbar />}
 
       {/* Content inside app/page.js files  */}
       {children}

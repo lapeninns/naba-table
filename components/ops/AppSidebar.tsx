@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import type { ComponentType, SVGProps } from 'react';
-import { BarChart3, CalendarDays, CalendarPlus, CircleHelp, Settings2, UsersRound } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useCallback, useMemo, useState, type ComponentType, type SVGProps } from 'react';
+import { BarChart3, CalendarDays, CalendarPlus, CircleHelp, LogOut, Loader2, Settings2, UsersRound } from 'lucide-react';
 
 import {
   Sidebar,
@@ -19,6 +19,8 @@ import {
   SidebarMenuSkeleton,
   SidebarSeparator,
 } from '@/components/ui/sidebar';
+import type { RestaurantRole } from '@/lib/owner/auth/roles';
+import { signOutFromSupabase } from '@/lib/supabase/signOut';
 import { cn } from '@/lib/utils';
 
 type OpsNavItem = {
@@ -27,6 +29,13 @@ type OpsNavItem = {
   href: string;
   icon: ComponentType<SVGProps<SVGSVGElement>>;
   matcher?: (pathname: string) => boolean;
+};
+
+const ROLE_LABELS: Record<RestaurantRole, string> = {
+  owner: 'Owner',
+  manager: 'Manager',
+  host: 'Host',
+  server: 'Server',
 };
 
 const NAV_ITEMS: OpsNavItem[] = [
@@ -82,9 +91,60 @@ function isActive(pathname: string, item: OpsNavItem) {
   return pathname === item.href;
 }
 
-export function AppSidebar() {
+function getInitials(name: string | null | undefined): string {
+  if (!name) return 'SR';
+  const trimmed = name.trim();
+  if (!trimmed) return 'SR';
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  if (words.length >= 2) {
+    return `${words[0][0] ?? ''}${words[1][0] ?? ''}`.toUpperCase();
+  }
+  const capitals = trimmed.match(/[A-Z]/g);
+  if (capitals && capitals.length >= 2) {
+    return `${capitals[0]}${capitals[1]}`;
+  }
+  if (trimmed.length >= 2) {
+    return `${trimmed[0]}${trimmed[trimmed.length - 1]}`.toUpperCase();
+  }
+  return trimmed[0]?.toUpperCase() ?? 'SR';
+}
+
+export type OpsSidebarAccount = {
+  restaurantName?: string | null;
+  userEmail?: string | null;
+  role?: RestaurantRole | null;
+};
+
+type AppSidebarProps = {
+  account?: OpsSidebarAccount | null;
+};
+
+export function AppSidebar({ account }: AppSidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const SupportIcon = SUPPORT_ITEM.icon;
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  const restaurantName = account?.restaurantName?.trim() || 'SajiloReserveX';
+  const roleLabel = account?.role ? ROLE_LABELS[account.role] ?? null : null;
+  const email = account?.userEmail?.trim();
+  const metaLine = email ? `${email}${roleLabel ? ` (${roleLabel})` : ''}` : roleLabel ?? 'Operations';
+
+  const initials = useMemo(() => getInitials(account?.restaurantName ?? 'SajiloReserveX'), [account?.restaurantName]);
+
+  const handleSignOut = useCallback(async () => {
+    if (isSigningOut) return;
+    try {
+      setIsSigningOut(true);
+      await signOutFromSupabase();
+      router.push('/signin');
+      router.refresh();
+    } catch (error) {
+      console.error('[ops] Failed to sign out', error);
+    } finally {
+      setIsSigningOut(false);
+    }
+  }, [isSigningOut, router]);
 
   if (!pathname) {
     return (
@@ -105,15 +165,15 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="px-3 pt-4">
-        <Link href="/ops" className="flex items-center gap-2 rounded-md border border-sidebar-border bg-sidebar p-2 text-sm font-semibold text-sidebar-foreground shadow-sm transition hover:border-sidebar-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
-          <span className="inline-flex size-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground font-mono text-base">
-            SR
+        <div className="flex items-center gap-3 rounded-lg border border-sidebar-border bg-sidebar p-3 text-sidebar-foreground shadow-sm">
+          <span className="inline-flex size-9 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground font-semibold">
+            {initials}
           </span>
-          <span className="flex flex-col">
-            <span className="text-sm font-semibold tracking-tight">SajiloReserveX</span>
-            <span className="text-xs text-sidebar-foreground/70">Operations</span>
-          </span>
-        </Link>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold tracking-tight">{restaurantName}</p>
+            <p className="truncate text-xs text-sidebar-foreground/70">{metaLine}</p>
+          </div>
+        </div>
       </SidebarHeader>
 
       <SidebarContent>
@@ -152,7 +212,31 @@ export function AppSidebar() {
 
       <SidebarSeparator className="mx-2" />
 
-      <SidebarFooter className="pb-4">
+      <SidebarFooter className="space-y-4 pb-4">
+        <SidebarGroup>
+          <SidebarGroupLabel>Account</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  type="button"
+                  onClick={handleSignOut}
+                  disabled={isSigningOut}
+                  aria-busy={isSigningOut}
+                  className="touch-manipulation"
+                >
+                  {isSigningOut ? (
+                    <Loader2 className="size-4 animate-spin text-sidebar-foreground" aria-hidden />
+                  ) : (
+                    <LogOut className="size-4 text-sidebar-foreground transition-colors group-hover/menu-button:text-sidebar-accent-foreground group-focus-visible/menu-button:text-sidebar-accent-foreground" aria-hidden />
+                  )}
+                  <span className="truncate">{isSigningOut ? 'Signing out…' : 'Log out'}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
         <SidebarGroup>
           <SidebarGroupLabel>Need help?</SidebarGroupLabel>
           <SidebarGroupContent>

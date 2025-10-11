@@ -1,47 +1,20 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 
-import { AppSidebar } from '@/components/ops/AppSidebar';
-import { Button } from '@/components/ui/button';
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarRail,
-  SidebarTrigger,
-} from '@/components/ui/sidebar';
+import { AppSidebar, type OpsSidebarAccount } from '@/components/ops/AppSidebar';
+import { SidebarInset, SidebarProvider, SidebarRail } from '@/components/ui/sidebar';
 
 type OpsAppShellProps = {
   children: ReactNode;
   defaultOpen?: boolean;
+  account?: OpsSidebarAccount | null;
 };
 
-const TITLE_MAP: Array<{ match: (pathname: string) => boolean; title: string }> = [
-  { match: (pathname) => pathname === '/ops', title: "Today's service overview" },
-  { match: (pathname) => pathname.startsWith('/ops/bookings/new'), title: 'Record walk-in booking' },
-  { match: (pathname) => pathname.startsWith('/ops/bookings'), title: 'Manage bookings' },
-  { match: (pathname) => pathname.startsWith('/ops/manage-restaurant'), title: 'Manage restaurant settings' },
-  { match: (pathname) => pathname.startsWith('/ops/team'), title: 'Manage team and invites' },
-];
-
-function resolveTitle(pathname: string | null): string {
-  if (!pathname) return 'Operations';
-  const fallback = 'Operations';
-  const matched = TITLE_MAP.find((entry) => entry.match(pathname));
-  return matched ? matched.title : fallback;
-}
-
-export function OpsAppShell({ children, defaultOpen }: OpsAppShellProps) {
-  const pathname = usePathname();
-  const pageTitle = resolveTitle(pathname);
-
-  const isOnWalkInPage = pathname?.startsWith('/ops/bookings/new') ?? false;
-
+export function OpsAppShell({ children, defaultOpen, account }: OpsAppShellProps) {
   return (
     <SidebarProvider defaultOpen={defaultOpen} className="bg-background">
-      <AppSidebar />
+      <AppSidebar account={account} />
       <SidebarRail />
       <SidebarInset id="main-content" tabIndex={-1} className="bg-background">
         <a
@@ -50,29 +23,6 @@ export function OpsAppShell({ children, defaultOpen }: OpsAppShellProps) {
         >
           Skip to content
         </a>
-
-        <header className="sticky inset-x-0 top-0 z-20 border-b border-border/60 bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/65">
-          <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:gap-4 sm:px-6 lg:px-8">
-            <div className="flex items-center gap-3 sm:gap-4">
-              <SidebarTrigger
-                className="size-9 rounded-full border border-border/60 bg-background text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background touch-manipulation md:size-8"
-              />
-              <div className="space-y-1">
-                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  SajiloReserveX Ops
-                </span>
-                <h1 className="text-base font-semibold leading-tight text-foreground sm:text-lg">{pageTitle}</h1>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {!isOnWalkInPage ? (
-                <Button asChild size="sm" className="touch-manipulation">
-                  <Link href="/ops/bookings/new">New walk-in booking</Link>
-                </Button>
-              ) : null}
-            </div>
-          </div>
-        </header>
 
         <div id="ops-content" tabIndex={-1} className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
           {children}
