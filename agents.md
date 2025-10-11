@@ -229,19 +229,62 @@ Use React Context for [reason]
 
 **Goal**: Ensure implementation meets requirements and quality standards.
 
+**⚠️ CRITICAL REQUIREMENT**: **MUST** perform manual QA using Chrome DevTools (MCP) tool for all UI/frontend work. This is not optional.
+
 **Required activities:**
 
+- **MUST** use Chrome DevTools MCP tool to inspect and test the implementation
 - Test all user flows
 - Verify edge cases
 - Confirm error handling
-- Performance profiling
-- Accessibility audit
-- Cross-browser/device testing
+- Performance profiling (using DevTools Performance tab)
+- Accessibility audit (using DevTools Lighthouse/Accessibility panel)
+- Cross-browser/device testing (using DevTools Device Emulation)
+- Console error/warning checks
+
+**Chrome DevTools MCP Tool Usage:**
+
+- Inspect DOM structure and verify semantic HTML
+- Test responsive layouts using Device Toolbar
+- Check Console for errors and warnings
+- Profile performance with Performance and Network tabs
+- Validate accessibility with Lighthouse
+- Test touch targets and interactive elements
+- Verify focus management and keyboard navigation
+- Check for layout shifts and rendering issues
 
 **Output**: `verification.md` containing:
 
 ```markdown
 # Verification Report
+
+## DevTools Manual QA
+
+**Tool Used**: Chrome DevTools (MCP)
+
+### Console Inspection
+
+- [x] No errors in Console
+- [x] No warnings that need addressing
+- [ ] Performance warnings addressed
+
+### DOM & Accessibility
+
+- [x] Semantic HTML structure verified
+- [x] ARIA attributes correct
+- [x] Focus order logical
+
+### Performance Profile
+
+- [x] No excessive re-renders detected
+- [x] Network waterfall optimized
+- [x] Memory leaks checked
+
+### Device Testing
+
+- [x] Mobile viewport (375px) tested
+- [x] Tablet viewport (768px) tested
+- [x] Desktop viewport (1920px) tested
 
 ## Test Scenarios
 
@@ -469,6 +512,7 @@ my-monorepo/
 - Codebase navigation
 - Pattern discovery
 - Documentation access
+- **Chrome DevTools integration for manual QA (MANDATORY in verification phase)**
 
 ---
 
@@ -481,6 +525,7 @@ Stop and address these immediately:
 - ⚠️ **Large scope** → Consider breaking into smaller tasks
 - ⚠️ **Many assumptions** → Document and validate with stakeholder
 - ⚠️ **No verification plan** → Define success criteria first
+- ⚠️ **Skipped DevTools QA** → NEVER skip manual QA with Chrome DevTools MCP tool
 
 ---
 
@@ -492,6 +537,7 @@ Stop and address these immediately:
 [ ] Write implementation plan → plan.md
 [ ] Create and execute todo list → todo.md
 [ ] Verify and document → verification.md
+[ ] MANDATORY: Perform manual QA with Chrome DevTools (MCP) tool
 [ ] Get stakeholder approval
 [ ] Deploy with monitoring
 ```
@@ -518,8 +564,9 @@ Stop and address these immediately:
 - **Mobile-first** approach for all UI work
 - **Accessibility is not optional** - follow all MUST requirements
 - **Create nested AGENTS.md** for subprojects in monorepos
+- **Chrome DevTools MCP tool is MANDATORY** for verification phase - never skip this step
 
 ---
 
 **Last Updated**: 2025-01-10  
-**Version**: 3.0
+**Version**: 3.1

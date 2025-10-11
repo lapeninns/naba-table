@@ -220,9 +220,9 @@ export function RestaurantBrowser({
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="grid gap-4 rounded-xl border border-border/60 bg-card/60 p-4 shadow-sm sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] sm:gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
-        <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-[var(--sr-space-5)]">
+      <div className="grid gap-[var(--sr-space-4)] rounded-xl border border-border/60 bg-card/60 p-[var(--sr-space-4)] shadow-sm sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] sm:gap-[var(--sr-space-5)] lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="flex flex-col gap-[var(--sr-space-2)]">
           <Label htmlFor="restaurant-search" className="text-sm font-medium text-muted-foreground">
             Search
           </Label>
@@ -237,7 +237,7 @@ export function RestaurantBrowser({
             className="h-11 text-base md:text-sm"
           />
         </div>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-[var(--sr-space-2)]">
           <Label htmlFor="restaurant-timezone" className="text-sm font-medium text-muted-foreground">
             Timezone
           </Label>
@@ -255,7 +255,7 @@ export function RestaurantBrowser({
             ))}
           </select>
         </div>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-[var(--sr-space-2)]">
           <Label
             htmlFor="restaurant-min-capacity"
             className="text-sm font-medium text-muted-foreground"
@@ -294,13 +294,13 @@ export function RestaurantBrowser({
         <div
           role="alert"
           aria-live="assertive"
-          className="space-y-3 rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive"
+          className="space-y-[var(--sr-space-3)] rounded-lg border border-destructive/40 bg-destructive/10 p-[var(--sr-space-4)] text-sm text-destructive"
         >
           <p className="font-semibold">We couldn’t load restaurants right now.</p>
           <p className="text-destructive/90">
             Check your connection and try again. If the problem continues, contact our support team.
           </p>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-[var(--sr-space-3)]">
             <Button
               type="button"
               variant="outline"
@@ -325,11 +325,14 @@ export function RestaurantBrowser({
 
       <div id="restaurant-results">
         {isInitialLoad ? (
-          <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3" aria-hidden="true">
+          <ul
+            className="grid gap-[var(--sr-space-5)] sm:grid-cols-2 lg:grid-cols-3"
+            aria-hidden="true"
+          >
             {Array.from({ length: 6 }).map((_, index) => (
               <li key={`skeleton-${index}`}>
-                <Card className="h-full border-border/50 bg-card/80 shadow-none">
-                  <CardHeader className="space-y-4">
+                <Card className="h-full border-[var(--sr-color-border)] bg-[var(--sr-color-surface)] shadow-none">
+                  <CardHeader className="space-y-[var(--sr-space-4)]">
                     <Skeleton className="h-7 w-3/4" />
                     <Skeleton className="h-4 w-1/2" />
                   </CardHeader>
@@ -342,15 +345,15 @@ export function RestaurantBrowser({
           </ul>
         ) : filteredRestaurants.length > 0 ? (
           <ul
-            className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+            className="grid gap-[var(--sr-space-5)] sm:grid-cols-2 lg:grid-cols-3"
             aria-label="Partner restaurants"
             id="restaurants-grid"
           >
             {filteredRestaurants.map((restaurant, index) => (
               <li key={restaurant.id}>
-                <Card className="group h-full scroll-m-24 border-border/70 bg-card/90 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-border focus-within:-translate-y-0.5 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/60">
-                  <CardHeader className="space-y-3">
-                    <div className="flex items-center justify-between gap-3">
+                <Card className="group h-full scroll-m-24 border-[var(--sr-color-border)] bg-[var(--sr-color-surface)] shadow-[var(--sr-shadow-sm)] transition-transform duration-[var(--sr-duration-medium)] hover:-translate-y-0.5 hover:shadow-[var(--sr-shadow-md)] focus-within:-translate-y-0.5 focus-within:border-ring focus-within:shadow-[var(--sr-shadow-md)] focus-within:ring-2 focus-within:ring-ring/60">
+                  <CardHeader className="space-y-[var(--sr-space-3)]">
+                    <div className="flex items-center justify-between gap-[var(--sr-space-3)]">
                       <CardTitle className="text-lg font-semibold text-foreground">
                         {restaurant.name}
                       </CardTitle>
@@ -378,12 +381,12 @@ export function RestaurantBrowser({
             ))}
           </ul>
         ) : (
-          <div className="rounded-xl border border-border bg-card p-8 text-center text-muted-foreground">
+          <div className="rounded-xl border border-[var(--sr-color-border)] bg-[var(--sr-color-surface)] p-[var(--sr-space-6)] text-center text-muted-foreground shadow-[var(--sr-shadow-sm)]">
             <h3 className="text-lg font-semibold text-foreground">No restaurants available</h3>
-            <p className="mt-2 text-sm">
+            <p className="mt-[var(--sr-space-2)] text-sm">
               Check back soon or reach out to our concierge team for personalised assistance.
             </p>
-            <div className="mt-4 flex justify-center">
+            <div className="mt-[var(--sr-space-4)] flex justify-center">
               <a
                 href={`mailto:${supportEmail}`}
                 className={cn(buttonVariants({ variant: "outline", size: "sm" }), "px-4")}

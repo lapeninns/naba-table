@@ -1,0 +1,130 @@
+@layer base {
+  :root {
+    /* ---------------------------------------------------------------------
+       Color aliases
+       --------------------------------------------------------------------- */
+    --sr-color-background: var(--color-background);
+    --sr-color-surface: var(--color-surface);
+    --sr-color-surface-muted: var(--card);
+    --sr-color-border: var(--color-border);
+    --sr-color-primary: var(--color-primary);
+    --sr-color-primary-pressed: var(--color-primary-pressed);
+    --sr-color-accent: var(--color-accent);
+    --sr-color-text-primary: var(--color-text-primary);
+    --sr-color-text-secondary: var(--color-text-secondary);
+    --sr-color-on-primary: var(--color-on-primary);
+
+    /* ---------------------------------------------------------------------
+       Typography scale
+       --------------------------------------------------------------------- */
+    --sr-font-size-xs: 0.75rem; /* 12px */
+    --sr-font-size-sm: 0.875rem; /* 14px */
+    --sr-font-size-md: 1rem; /* 16px */
+    --sr-font-size-lg: 1.125rem; /* 18px */
+    --sr-font-size-xl: 1.5rem; /* 24px */
+    --sr-font-size-2xl: 1.875rem; /* 30px */
+    --sr-font-size-3xl: 2.25rem; /* 36px */
+
+    --sr-line-height-tight: 1.25;
+    --sr-line-height-snug: 1.35;
+    --sr-line-height-normal: 1.5;
+    --sr-line-height-relaxed: 1.7;
+
+    --sr-font-weight-regular: 400;
+    --sr-font-weight-medium: 500;
+    --sr-font-weight-semibold: 600;
+    --sr-font-weight-bold: 700;
+
+    /* ---------------------------------------------------------------------
+       Spacing scale (4 / 8 pt system)
+       --------------------------------------------------------------------- */
+    --sr-space-0: 0rem;
+    --sr-space-1: 0.25rem; /* 4px */
+    --sr-space-2: 0.5rem; /* 8px */
+    --sr-space-3: 0.75rem; /* 12px */
+    --sr-space-4: 1rem; /* 16px */
+    --sr-space-5: 1.5rem; /* 24px */
+    --sr-space-6: 2rem; /* 32px */
+    --sr-space-7: 2.5rem; /* 40px */
+    --sr-space-8: 3rem; /* 48px */
+    --sr-space-9: 4rem; /* 64px */
+    --sr-space-10: 5rem; /* 80px */
+    --sr-space-11: 6rem; /* 96px */
+    --sr-space-12: 7rem; /* 112px */
+
+    /* ---------------------------------------------------------------------
+       Radii & elevation
+       --------------------------------------------------------------------- */
+    --sr-radius-sm: var(--radius-sm);
+    --sr-radius-md: var(--radius-md);
+    --sr-radius-lg: var(--radius-lg);
+
+    --sr-shadow-xs: var(--shadow-sm);
+    --sr-shadow-sm: var(--shadow);
+    --sr-shadow-md: var(--shadow-md);
+    --sr-shadow-lg: var(--shadow-lg);
+    --sr-shadow-xl: var(--shadow-xl);
+
+    /* ---------------------------------------------------------------------
+       Motion
+       --------------------------------------------------------------------- */
+    --sr-duration-fast: 150ms;
+    --sr-duration-medium: 250ms;
+    --sr-easing-standard: var(--srx-easing-standard);
+  }
+}
+
+@layer utilities {
+  .sr-container {
+    max-width: min(100%, 72rem);
+    margin-inline: auto;
+  }
+
+  .sr-stack-sm {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sr-space-3);
+  }
+
+  .sr-stack-md {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sr-space-4);
+  }
+
+  .sr-stack-lg {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sr-space-6);
+  }
+
+  .sr-stack-xl {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sr-space-7);
+  }
+
+  .sr-stack-inline-sm {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--sr-space-2);
+  }
+
+  .sr-surface {
+    background-color: var(--sr-color-surface);
+    color: var(--sr-color-text-primary);
+  }
+
+  .sr-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sr-space-1);
+    border-radius: var(--sr-radius-lg);
+    padding-inline: var(--sr-space-3);
+    padding-block: var(--sr-space-1);
+    font-size: var(--sr-font-size-xs);
+    font-weight: var(--sr-font-weight-medium);
+    line-height: var(--sr-line-height-tight);
+  }
+}

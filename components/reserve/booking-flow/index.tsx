@@ -26,9 +26,10 @@ function BookingFlowProviders({ children }: PropsWithChildren) {
 type BookingWizardWithNavigatorProps = {
   initialDetails?: Partial<BookingDetails>;
   mode?: BookingWizardMode;
+  layoutElement?: "main" | "div";
 };
 
-function BookingWizardWithNavigator({ initialDetails, mode = "customer" }: BookingWizardWithNavigatorProps) {
+function BookingWizardWithNavigator({ initialDetails, mode = "customer", layoutElement = "main" }: BookingWizardWithNavigatorProps) {
   const router = useRouter();
 
   const dependencies = useMemo(
@@ -47,7 +48,7 @@ function BookingWizardWithNavigator({ initialDetails, mode = "customer" }: Booki
 
   return (
     <WizardDependenciesProvider value={dependencies}>
-      <BookingWizard initialDetails={initialDetails} mode={mode} />
+      <BookingWizard initialDetails={initialDetails} mode={mode} layoutElement={layoutElement} />
     </WizardDependenciesProvider>
   );
 }
@@ -55,12 +56,13 @@ function BookingWizardWithNavigator({ initialDetails, mode = "customer" }: Booki
 type BookingFlowPageProps = {
   initialDetails?: Partial<BookingDetails>;
   mode?: BookingWizardMode;
+  layoutElement?: "main" | "div";
 };
 
-export default function BookingFlowPage({ initialDetails, mode = "customer" }: BookingFlowPageProps = {}) {
+export default function BookingFlowPage({ initialDetails, mode = "customer", layoutElement = "main" }: BookingFlowPageProps = {}) {
   return (
     <BookingFlowProviders>
-      <BookingWizardWithNavigator initialDetails={initialDetails} mode={mode} />
+      <BookingWizardWithNavigator initialDetails={initialDetails} mode={mode} layoutElement={layoutElement} />
     </BookingFlowProviders>
   );
 }

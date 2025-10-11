@@ -43,13 +43,13 @@ function HeroSection() {
   return (
     <section
       aria-labelledby="hero-title"
-      className="grid items-center gap-10 md:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]"
+      className="grid items-center gap-[var(--sr-space-7)] md:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]"
     >
-      <div className="space-y-6">
+      <div className="space-y-[var(--sr-space-5)]">
         <p className="text-sm font-semibold uppercase tracking-[0.25em] text-primary/80">
           SajiloReserveX
         </p>
-        <div className="space-y-4">
+        <div className="space-y-[var(--sr-space-4)]">
           <h1
             id="hero-title"
             className="text-4xl font-semibold tracking-tight text-foreground md:text-5xl lg:text-6xl"
@@ -61,10 +61,10 @@ function HeroSection() {
             Everything syncs to your profile so group plans stay organised.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-[var(--sr-space-3)]">
           <MarketingSessionActions
             size="lg"
-            className="flex w-full flex-col items-stretch gap-3 sm:w-auto sm:flex-row [&>a]:w-full sm:[&>a]:w-auto"
+            className="flex w-full flex-col items-stretch gap-[var(--sr-space-3)] sm:w-auto sm:flex-row [&>a]:w-full sm:[&>a]:w-auto"
           />
           <span className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
             No fees. No phone calls.
@@ -79,10 +79,13 @@ function HeroSection() {
 
 function HighlightGrid() {
   return (
-    <div className="grid gap-4 rounded-3xl border border-border/60 bg-background/60 p-6 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/40 sm:grid-cols-2">
+    <div className="grid gap-[var(--sr-space-4)] rounded-3xl border border-[var(--sr-color-border)] bg-[var(--sr-color-surface)] p-[var(--sr-space-6)] shadow-[var(--sr-shadow-md)] sm:grid-cols-2">
       {HIGHLIGHTS.map(({ title, description, icon: Icon }) => (
-        <div key={title} className="flex flex-col gap-2 rounded-2xl bg-muted/40 p-5">
-          <div className="flex items-center gap-3">
+        <div
+          key={title}
+          className="flex flex-col gap-[var(--sr-space-2)] rounded-2xl border border-[var(--sr-color-border)] bg-[var(--sr-color-surface)] p-[var(--sr-space-5)] shadow-[var(--sr-shadow-sm)]"
+        >
+          <div className="flex items-center gap-[var(--sr-space-3)]">
             <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
               <Icon className="h-5 w-5" aria-hidden />
             </span>
@@ -105,9 +108,9 @@ function RestaurantSection({ restaurants, hasError }: RestaurantSectionProps) {
     <section
       id="restaurants"
       aria-labelledby="restaurants-heading"
-      className="space-y-8"
+      className="space-y-[var(--sr-space-6)]"
     >
-      <div className="space-y-3">
+      <div className="space-y-[var(--sr-space-3)]">
         <h2
           id="restaurants-heading"
           className="scroll-m-28 text-3xl font-semibold text-foreground md:text-4xl"
@@ -151,7 +154,7 @@ export default async function HomePage() {
       <div className="relative min-h-screen bg-gradient-to-b from-background via-background/98 to-background">
         <main
           id="main-content"
-          className="mx-auto flex w-full max-w-6xl flex-col gap-20 px-6 pb-20 pt-16 md:gap-24 md:pb-28"
+          className="mx-auto flex w-full max-w-6xl flex-col gap-[var(--sr-space-10)] px-[var(--sr-space-6)] pb-[var(--sr-space-10)] pt-[var(--sr-space-9)] md:gap-[var(--sr-space-11)] md:pb-[var(--sr-space-12)]"
         >
           <HeroSection />
           <RestaurantSection restaurants={restaurants} hasError={loadError} />

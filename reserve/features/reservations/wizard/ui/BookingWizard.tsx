@@ -43,9 +43,14 @@ function LoadingFallback() {
 type BookingWizardContentProps = {
   initialDetails?: Partial<BookingDetails>;
   mode?: BookingWizardMode;
+  layoutElement?: 'main' | 'div';
 };
 
-function BookingWizardContent({ initialDetails, mode = 'customer' }: BookingWizardContentProps) {
+function BookingWizardContent({
+  initialDetails,
+  mode = 'customer',
+  layoutElement = 'main',
+}: BookingWizardContentProps) {
   const {
     state,
     actions,
@@ -285,6 +290,7 @@ function BookingWizardContent({ initialDetails, mode = 'customer' }: BookingWiza
       stickyVisible={stickyVisible}
       banner={banner}
       footer={footer}
+      elementType={layoutElement}
     >
       {stepContent}
     </WizardLayout>
@@ -294,12 +300,21 @@ function BookingWizardContent({ initialDetails, mode = 'customer' }: BookingWiza
 type BookingWizardProps = {
   initialDetails?: Partial<BookingDetails>;
   mode?: BookingWizardMode;
+  layoutElement?: 'main' | 'div';
 };
 
-export function BookingWizard({ initialDetails, mode = 'customer' }: BookingWizardProps = {}) {
+export function BookingWizard({
+  initialDetails,
+  mode = 'customer',
+  layoutElement = 'main',
+}: BookingWizardProps = {}) {
   return (
     <Suspense fallback={<LoadingFallback />}>
-      <BookingWizardContent initialDetails={initialDetails} mode={mode} />
+      <BookingWizardContent
+        initialDetails={initialDetails}
+        mode={mode}
+        layoutElement={layoutElement}
+      />
     </Suspense>
   );
 }

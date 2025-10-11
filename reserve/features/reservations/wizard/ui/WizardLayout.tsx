@@ -15,6 +15,7 @@ interface WizardLayoutProps {
   banner?: React.ReactNode;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  elementType?: 'main' | 'div';
 }
 
 export function WizardLayout({
@@ -24,6 +25,7 @@ export function WizardLayout({
   banner,
   children,
   footer,
+  elementType = 'main',
 }: WizardLayoutProps) {
   const mainStyle = stickyVisible
     ? {
@@ -31,9 +33,11 @@ export function WizardLayout({
       }
     : undefined;
 
+  const Container = elementType === 'div' ? 'div' : 'main';
+
   return (
     <>
-      <main
+      <Container
         style={mainStyle}
         className={cn(
           'min-h-screen w-full bg-muted/[0.15] px-4 pb-24 pt-10 font-sans text-foreground transition-[padding-bottom] duration-200 sm:pt-16 md:px-6 lg:px-10',
@@ -44,7 +48,7 @@ export function WizardLayout({
           {banner ? <div>{banner}</div> : null}
           {children}
         </div>
-      </main>
+      </Container>
       {footer}
     </>
   );

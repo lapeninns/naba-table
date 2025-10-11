@@ -25,7 +25,11 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
       : undefined;
 
   return (
-    <main className="flex min-h-screen flex-col items-center bg-slate-50">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="flex min-h-screen flex-col items-center bg-slate-50 focus:outline-none"
+    >
       <a
         href="#signin-form"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-slate-900 focus:shadow"

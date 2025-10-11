@@ -53,7 +53,7 @@ export function WizardProgress({ steps, currentStep, summary, className }: Wizar
           </p>
         ) : null}
       </div>
-      <Progress value={progressValue} className="h-1.5" />
+      <Progress value={progressValue} className="h-1.5" aria-hidden />
       <ol className="flex items-center justify-between gap-2" aria-label="Steps">
         {steps.map((step, index) => {
           const stepNumber = index + 1;

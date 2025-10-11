@@ -43,7 +43,7 @@ export function OpsAppShell({ children, defaultOpen }: OpsAppShellProps) {
     <SidebarProvider defaultOpen={defaultOpen} className="bg-background">
       <AppSidebar />
       <SidebarRail />
-      <SidebarInset className="bg-background">
+      <SidebarInset id="main-content" tabIndex={-1} className="bg-background">
         <a
           href="#ops-content"
           className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow"
@@ -52,16 +52,16 @@ export function OpsAppShell({ children, defaultOpen }: OpsAppShellProps) {
         </a>
 
         <header className="sticky inset-x-0 top-0 z-20 border-b border-border/60 bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/65">
-          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
-            <div className="flex items-center gap-3">
-              <SidebarTrigger className="size-9 touch-manipulation md:size-8" />
-              <div className="flex flex-col">
+          <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:gap-4 sm:px-6 lg:px-8">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <SidebarTrigger
+                className="size-9 rounded-full border border-border/60 bg-background text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background touch-manipulation md:size-8"
+              />
+              <div className="space-y-1">
                 <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   SajiloReserveX Ops
                 </span>
-                <h1 className="text-base font-semibold leading-tight text-foreground sm:text-lg">
-                  {pageTitle}
-                </h1>
+                <h1 className="text-base font-semibold leading-tight text-foreground sm:text-lg">{pageTitle}</h1>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -74,7 +74,7 @@ export function OpsAppShell({ children, defaultOpen }: OpsAppShellProps) {
           </div>
         </header>
 
-        <div id="ops-content" className="flex-1 px-4 py-6 sm:px-6 lg:px-10">
+        <div id="ops-content" tabIndex={-1} className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
           {children}
         </div>
       </SidebarInset>

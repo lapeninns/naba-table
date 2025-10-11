@@ -61,10 +61,10 @@ const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'dest
 const UPCOMING_STATUSES = new Set(['pending', 'pending_allocation', 'confirmed']);
 const ATTENTION_STATUSES = new Set(['pending', 'pending_allocation', 'confirmed']);
 
-const FILTER_OPTIONS: { value: BookingFilter; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'completed', label: 'Show' },
-  { value: 'no-show', label: 'No show' },
+const FILTER_OPTIONS: { value: BookingFilter; label: string; assistive: string }[] = [
+  { value: 'all', label: 'All', assistive: 'all bookings' },
+  { value: 'completed', label: 'Shows', assistive: 'completed bookings' },
+  { value: 'no-show', label: 'No shows', assistive: 'no-show bookings' },
 ];
 
 const DIMMED_STATUSES = new Set(['completed', 'cancelled', 'no_show']);
@@ -137,9 +137,9 @@ function isSystemCreatedBooking(booking: TodayBooking): boolean {
 
 function SystemBadge() {
   return (
-    <Badge variant="outline" className="border-dashed uppercase">
+    <span className="sr-chip border border-dashed border-border/60 bg-background text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground">
       Created by system
-    </Badge>
+    </span>
   );
 }
 
@@ -425,9 +425,11 @@ export function TodayBookingsCard({ summary, restaurantName, selectedDate, heatm
     }
   }, [filter, summary.bookings]);
 
+  const isViewingToday = summary.date === todayKey;
+  const isViewingFutureDate = summary.date > todayKey;
+  const isViewingPastDate = summary.date < todayKey;
+
   const bookingsWithAlerts = useMemo(() => {
-    const isViewingToday = summary.date === todayKey;
-    const isPastDate = summary.date < todayKey;
     return filteredBookings.map((booking) => {
       const startMinutes = parseTimeToMinutes(booking.startTime);
       const hasStarted =
@@ -437,7 +439,7 @@ export function TodayBookingsCard({ summary, restaurantName, selectedDate, heatm
         currentContext.minutes >= startMinutes;
       const needsAttention = isViewingToday && hasStarted && ATTENTION_STATUSES.has(booking.status);
       const isDimmed =
-        isPastDate ||
+        isViewingPastDate ||
         DIMMED_STATUSES.has(booking.status) ||
         (hasStarted && !ATTENTION_STATUSES.has(booking.status));
       return {
@@ -446,15 +448,15 @@ export function TodayBookingsCard({ summary, restaurantName, selectedDate, heatm
         isDimmed,
       };
     });
-  }, [currentContext.minutes, filteredBookings, summary.date, todayKey]);
+  }, [currentContext.minutes, filteredBookings, isViewingPastDate, isViewingToday]);
 
   const stats = [
-    { label: 'Total bookings', value: summary.totals.total, icon: CalendarDays },
-    { label: 'Upcoming', value: computedCounts.upcoming, icon: ClipboardList },
-    { label: 'Show', value: computedCounts.show, icon: CheckCircle2 },
-    { label: 'No shows', value: computedCounts.noShow, icon: AlertTriangle },
-    { label: 'Cancelled', value: summary.totals.cancelled, icon: Ban },
-    { label: 'Covers', value: summary.totals.covers, icon: Users },
+    { id: 'total', label: 'Total bookings', value: summary.totals.total, icon: CalendarDays },
+    { id: 'upcoming', label: 'Upcoming', value: computedCounts.upcoming, icon: ClipboardList },
+    { id: 'shows', label: 'Shows', value: computedCounts.show, icon: CheckCircle2 },
+    { id: 'no-shows', label: 'No shows', value: computedCounts.noShow, icon: AlertTriangle },
+    { id: 'cancelled', label: 'Cancelled', value: summary.totals.cancelled, icon: Ban },
+    { id: 'covers', label: 'Covers', value: summary.totals.covers, icon: Users },
   ];
 
   const handleDateSelect = useCallback(
@@ -506,7 +508,6 @@ export function TodayBookingsCard({ summary, restaurantName, selectedDate, heatm
     [getIntensityForDate],
   );
 
-  const isViewingToday = summary.date === todayKey;
   const headerTitle = isViewingToday ? "Today’s bookings" : "Bookings overview";
 
   const updateBookingStatus = useCallback(
@@ -534,95 +535,117 @@ export function TodayBookingsCard({ summary, restaurantName, selectedDate, heatm
     [router],
   );
 
-  const emptyState =
-    summary.bookings.length === 0
-      ? 'No bookings scheduled for today.'
-      : 'No bookings match this filter. Reset to view all reservations.';
+  const hasAnyBookings = summary.bookings.length > 0;
+  const emptyStateTitle = hasAnyBookings ? 'No bookings match this filter' : 'No bookings scheduled for today';
+  const emptyStateDescription = hasAnyBookings
+    ? 'Adjust your filters or choose another date to review upcoming reservations.'
+    : 'As guests book tables, their reservations will appear here for your team.';
 
   return (
     <Card className="border-border/60 shadow-sm">
-      <CardHeader className="space-y-6 border-b border-border/60 pb-8">
-        <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,260px)_minmax(0,1fr)] lg:items-center">
-          <div className="flex flex-col gap-1 text-center lg:text-left">
-            <CardTitle className="text-2xl font-semibold tracking-tight text-foreground">{headerTitle}</CardTitle>
-            <CardDescription className="text-base text-muted-foreground">
-              {selectedDateReadable} · {restaurantName}
-            </CardDescription>
+      <CardHeader className="space-y-6 border-b border-border/60 pb-[var(--sr-space-6)]">
+        <div className="flex flex-col gap-[var(--sr-space-6)] lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex flex-col items-center gap-[var(--sr-space-3)] text-center lg:items-start lg:text-left">
+            <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary/80">
+              <span className="inline-flex h-2 w-2 rounded-full bg-primary" aria-hidden />
+              <span>Service snapshot</span>
+            </div>
+            <div className="flex flex-col gap-[var(--sr-space-2)]">
+              <CardTitle className="text-3xl font-semibold tracking-tight text-foreground">{headerTitle}</CardTitle>
+              <CardDescription className="text-base text-muted-foreground">
+                {selectedDateReadable} · {restaurantName}
+              </CardDescription>
+            </div>
             {!isViewingToday ? (
-              <span className="mt-1 inline-flex w-fit items-center gap-2 rounded-full border border-border/60 bg-muted/20 px-3 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Viewing future service
-              </span>
+              <div className="sr-stack-inline-sm justify-center text-xs font-medium uppercase tracking-wide text-muted-foreground lg:justify-start">
+                <span className="sr-chip border border-border/60 bg-muted/30">
+                  {isViewingFutureDate ? 'Viewing future service' : 'Viewing past service'}
+                </span>
+                <span className="sr-only" role="status" aria-live="polite">
+                  {isViewingFutureDate
+                    ? `Future service selected for ${selectedDateReadable}.`
+                    : `Past service selected for ${selectedDateReadable}.`}
+                </span>
+              </div>
             ) : null}
           </div>
-
-          <div className="flex flex-col items-center gap-3 text-center">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="flex h-11 w-full max-w-xs items-center justify-between rounded-full border-border/60 bg-background px-5 text-sm font-medium shadow-sm"
-                  aria-label="Select service date"
+          <div className="flex flex-col items-center gap-[var(--sr-space-3)] text-center lg:items-end lg:text-right">
+            <div className="flex w-full max-w-xs flex-col gap-[var(--sr-space-2)]">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="h-11 justify-between rounded-[var(--sr-radius-lg)] border-border/60 px-[var(--sr-space-4)] shadow-sm"
+                    aria-label="Select service date"
+                  >
+                    <span className="text-sm font-medium text-foreground">{selectedDateReadable}</span>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-auto overflow-hidden rounded-[var(--sr-radius-lg)] border border-border/60 bg-background p-[var(--sr-space-4)] shadow-lg"
+                  align="center"
+                  sideOffset={10}
                 >
-                  <span>{selectedDateReadable}</span>
-                  <ChevronDown className="h-4 w-4" aria-hidden />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent
-                className="w-auto overflow-hidden rounded-2xl border border-border/60 bg-background p-4 shadow-lg"
-                align="center"
-                sideOffset={10}
-              >
-                <Calendar
-                  mode="single"
-                  captionLayout="dropdown"
-                  selected={selectedDateObj}
-                  onSelect={handleDateSelect}
-                  initialFocus
-                  components={calendarComponents}
-                />
-              </PopoverContent>
-            </Popover>
-            <p className="text-sm text-muted-foreground">
-              Showing reservations for{' '}
-              <span className="font-medium text-foreground">{selectedDateReadable}</span>.
-            </p>
-            <p className="sr-only" aria-live="polite">
-              {isNavigating ? 'Loading bookings for selected date…' : `Bookings loaded for ${selectedDateReadable}.`}
-            </p>
-          </div>
-
-          <div className="flex flex-col items-center gap-2 text-xs font-medium text-muted-foreground lg:items-end">
-            <Badge className="rounded-full border border-border/60 bg-background px-3 py-1 text-xs font-medium text-muted-foreground">
-              Timezone: {summary.timezone}
-            </Badge>
-            <div className="flex items-center gap-2 rounded-full border border-border/60 bg-background px-3 py-1">
-              <ClipboardList className="h-3.5 w-3.5" aria-hidden />
-              <span>{summary.bookings.length} bookings on {summary.date}</span>
+                  <Calendar
+                    mode="single"
+                    captionLayout="dropdown"
+                    selected={selectedDateObj}
+                    onSelect={handleDateSelect}
+                    initialFocus
+                    components={calendarComponents}
+                  />
+                </PopoverContent>
+              </Popover>
+              <p className="text-sm text-muted-foreground">
+                Showing reservations for{' '}
+                <span className="font-medium text-foreground">{selectedDateReadable}</span>.
+              </p>
+              <p className="sr-only" aria-live="polite">
+                {isNavigating ? 'Loading bookings for selected date…' : `Bookings loaded for ${selectedDateReadable}.`}
+              </p>
+            </div>
+            <div className="sr-stack-inline-sm justify-center text-xs font-medium text-muted-foreground lg:justify-end">
+              <span className="sr-chip border border-border/60 bg-background/80">
+                Timezone
+                <span className="ml-[var(--sr-space-1)] text-foreground">{summary.timezone}</span>
+              </span>
+              <span className="sr-chip border border-border/60 bg-background/80">
+                <ClipboardList className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                <span>
+                  {summary.bookings.length} bookings on {summary.date}
+                </span>
+              </span>
             </div>
           </div>
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-10">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {stats.map((stat) => {
-            const Icon = stat.icon;
-            return (
-              <div
-                key={stat.label}
-                className="flex flex-col justify-between gap-2 rounded-3xl border border-border/60 bg-background px-5 py-5 shadow-sm"
-              >
-                <div className="flex items-center justify-between text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground">
-                  <span>{stat.label}</span>
-                  {Icon ? <Icon className="h-4 w-4" aria-hidden /> : null}
-                </div>
-                <p className="text-3xl font-semibold tracking-tight text-foreground">{stat.value}</p>
-              </div>
-            );
-          })}
-        </div>
+      <CardContent className="space-y-[var(--sr-space-8)]">
+        <dl
+          className="grid gap-[var(--sr-space-4)] sm:grid-cols-2 xl:grid-cols-3"
+          aria-live="polite"
+          aria-atomic="false"
+        >
+          {stats.map(({ id, label, value, icon: Icon }) => (
+            <div
+              key={id}
+              className="flex flex-col justify-between gap-[var(--sr-space-3)] rounded-[var(--sr-radius-xl)] border border-border/60 bg-muted/10 px-[var(--sr-space-5)] py-[var(--sr-space-5)] shadow-sm transition-colors hover:border-primary/40"
+            >
+              <dt className="flex items-center gap-[var(--sr-space-3)] text-sm font-medium text-muted-foreground">
+                {Icon ? (
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Icon className="h-5 w-5" aria-hidden />
+                  </span>
+                ) : null}
+                <span className="text-sm uppercase tracking-wide text-muted-foreground/90">{label}</span>
+              </dt>
+              <dd className="text-4xl font-semibold leading-none tracking-tight text-foreground">{value}</dd>
+            </div>
+          ))}
+        </dl>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-[var(--sr-space-2)] sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-sm font-medium text-muted-foreground">Schedule</h3>
           <ToggleGroup
             type="single"
@@ -631,19 +654,19 @@ export function TodayBookingsCard({ summary, restaurantName, selectedDate, heatm
               if (value) setFilter(value as BookingFilter);
             }}
             aria-label="Filter bookings by attendance status"
-            className="flex-wrap justify-center gap-2 sm:justify-end"
+            className="flex-wrap justify-center gap-[var(--sr-space-2)] sm:justify-end"
           >
-          {FILTER_OPTIONS.map(({ value, label }) => (
+            {FILTER_OPTIONS.map(({ value, label, assistive }) => (
               <ToggleGroupItem
                 key={value}
                 value={value}
                 className={cn(
-                  'rounded-full border border-border/60 px-4 py-1 text-xs font-medium capitalize transition-colors data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground',
+                  'sr-chip border border-border/60 bg-background text-muted-foreground transition-colors data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground',
                 )}
-                aria-label={`Show ${label.toLowerCase()} bookings`}
+                aria-label={`Filter to ${assistive}`}
               >
-                {label}
-                <span className="ml-1 text-xs text-muted-foreground">
+                <span className="capitalize">{label}</span>
+                <span className="ml-[var(--sr-space-1)] text-[0.7rem] text-muted-foreground">
                   ({filterCounts[value]})
                 </span>
               </ToggleGroupItem>
@@ -651,140 +674,157 @@ export function TodayBookingsCard({ summary, restaurantName, selectedDate, heatm
           </ToggleGroup>
         </div>
 
+        <p className="sr-only" aria-live="polite">
+          Showing {bookingsWithAlerts.length} {bookingsWithAlerts.length === 1 ? 'booking' : 'bookings'} after filters.
+        </p>
+
         {bookingsWithAlerts.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 px-4 py-6 text-center text-sm text-muted-foreground">
-            <p>{emptyState}</p>
-            {summary.bookings.length > 0 ? (
-              <Button variant="ghost" size="sm" className="mt-3" onClick={() => setFilter('all')}>
+          <div
+            className="sr-stack-sm items-center rounded-[var(--sr-radius-xl)] border border-dashed border-border/60 bg-muted/15 px-[var(--sr-space-5)] py-[var(--sr-space-6)] text-center"
+            aria-live="polite"
+          >
+            <CalendarIcon className="h-8 w-8 text-muted-foreground/80" aria-hidden />
+            <h4 className="text-base font-semibold text-foreground">{emptyStateTitle}</h4>
+            <p className="max-w-xl text-sm text-muted-foreground">{emptyStateDescription}</p>
+            {hasAnyBookings ? (
+              <Button variant="ghost" size="sm" onClick={() => setFilter('all')}>
                 Reset filters
               </Button>
             ) : null}
           </div>
         ) : (
           <>
-            <div className="md:hidden space-y-3">
+            <div className="space-y-[var(--sr-space-3)] md:hidden">
               {bookingsWithAlerts.map((booking) => {
                 const systemCreated = isSystemCreatedBooking(booking);
+                const attentionHintId = booking.needsAttention ? `booking-${booking.id}-attention` : undefined;
                 return (
-                <div
-                  key={booking.id}
-                  className={cn(
-                    'rounded-lg border border-border/60 bg-card/50 p-4 shadow-sm transition-opacity focus-within:ring-2 focus-within:ring-primary/40',
-                    booking.isDimmed ? 'opacity-60' : 'opacity-100',
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-base font-medium text-foreground">{booking.customerName}</p>
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                        {formatStatus(booking.status)}
-                      </p>
+                  <div
+                    key={booking.id}
+                    tabIndex={0}
+                    aria-describedby={attentionHintId}
+                    className={cn(
+                      'sr-stack-sm rounded-[var(--sr-radius-lg)] border border-border/60 bg-card/60 p-[var(--sr-space-4)] shadow-sm transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                      booking.isDimmed ? 'opacity-60' : 'opacity-100',
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-[var(--sr-space-2)]">
+                      <div>
+                        <p className="text-base font-medium text-foreground">{booking.customerName}</p>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                          {formatStatus(booking.status)}
+                        </p>
+                      </div>
+                      <div className="sr-stack-sm items-end">
+                        {systemCreated ? <SystemBadge /> : null}
+                        <StatusBadge status={booking.status} />
+                      </div>
                     </div>
-                    <div className="flex flex-col items-end gap-1">
-                      {systemCreated ? <SystemBadge /> : null}
-                      <StatusBadge status={booking.status} />
+
+                    <dl className="grid grid-cols-2 gap-x-[var(--sr-space-3)] gap-y-[var(--sr-space-2)] text-sm">
+                      <div>
+                        <dt className="text-xs uppercase tracking-wide text-muted-foreground">Time</dt>
+                        <dd className="font-medium text-foreground">
+                          {formatTimeRange(booking.startTime, booking.endTime, summary.timezone)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs uppercase tracking-wide text-muted-foreground">Guests</dt>
+                        <dd className="font-medium text-foreground">{booking.partySize}</dd>
+                      </div>
+                      <div className="col-span-2">
+                        <dt className="text-xs uppercase tracking-wide text-muted-foreground">Reference</dt>
+                        <dd className="font-medium text-foreground">{booking.reference ?? 'Not provided'}</dd>
+                      </div>
+                      <div className="col-span-2">
+                        <dt className="text-xs uppercase tracking-wide text-muted-foreground">Notes</dt>
+                        <dd className="text-sm text-muted-foreground">{booking.notes ?? '—'}</dd>
+                      </div>
+                    </dl>
+
+                    {booking.needsAttention ? (
+                      <div
+                        id={attentionHintId}
+                        className="sr-stack-inline-sm rounded-[var(--sr-radius-md)] border border-amber-300 bg-amber-100 px-[var(--sr-space-3)] py-[var(--sr-space-2)] text-sm text-amber-900"
+                      >
+                        <AlertTriangle className="h-4 w-4" aria-hidden />
+                        <span>Past start — confirm arrival with the floor team.</span>
+                      </div>
+                    ) : null}
+
+                    <div>
+                      <BookingDetailsDialog
+                        booking={booking}
+                        summary={summary}
+                        onStatusChange={updateBookingStatus}
+                      />
                     </div>
                   </div>
-
-                  <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                    <div>
-                      <dt className="text-xs uppercase tracking-wide text-muted-foreground">Time</dt>
-                      <dd className="font-medium text-foreground">
-                        {formatTimeRange(booking.startTime, booking.endTime, summary.timezone)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs uppercase tracking-wide text-muted-foreground">Guests</dt>
-                      <dd className="font-medium text-foreground">{booking.partySize}</dd>
-                    </div>
-                    <div className="col-span-2">
-                      <dt className="text-xs uppercase tracking-wide text-muted-foreground">Reference</dt>
-                      <dd className="font-medium text-foreground">{booking.reference ?? 'Not provided'}</dd>
-                    </div>
-                    <div className="col-span-2">
-                      <dt className="text-xs uppercase tracking-wide text-muted-foreground">Notes</dt>
-                      <dd className="text-sm text-muted-foreground">{booking.notes ?? '—'}</dd>
-                    </div>
-                  </dl>
-
-                  {booking.needsAttention ? (
-                    <div className="mt-3 flex items-center gap-2 rounded-md border border-amber-300 bg-amber-100 px-3 py-2 text-sm text-amber-800">
-                      <AlertTriangle className="h-4 w-4 flex-none" aria-hidden />
-                      <span>Past start — confirm arrival with the floor team.</span>
-                    </div>
-                  ) : null}
-
-                  <div className="mt-4">
-                    <BookingDetailsDialog
-                      booking={booking}
-                      summary={summary}
-                      onStatusChange={updateBookingStatus}
-                    />
-                  </div>
-                </div>
-              );
+                );
               })}
             </div>
 
-            <div className="hidden overflow-x-auto rounded-lg border border-border/60 md:block">
+            <div className="hidden overflow-x-auto rounded-[var(--sr-radius-lg)] border border-border/60 md:block">
               <table className="w-full min-w-[720px] divide-y divide-border/60 text-left text-sm">
                 <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
-                    <th scope="col" className="px-4 py-3 font-medium">Customer</th>
-                    <th scope="col" className="px-4 py-3 font-medium">Time</th>
-                    <th scope="col" className="px-4 py-3 font-medium">Guests</th>
-                    <th scope="col" className="px-4 py-3 font-medium">Notes</th>
-                    <th scope="col" className="px-4 py-3 font-medium">Status</th>
-                    <th scope="col" className="px-4 py-3 font-medium text-right">Actions</th>
+                    <th scope="col" className="px-[var(--sr-space-4)] py-[var(--sr-space-3)] font-medium">Customer</th>
+                    <th scope="col" className="px-[var(--sr-space-4)] py-[var(--sr-space-3)] font-medium">Time</th>
+                    <th scope="col" className="px-[var(--sr-space-4)] py-[var(--sr-space-3)] font-medium">Guests</th>
+                    <th scope="col" className="px-[var(--sr-space-4)] py-[var(--sr-space-3)] font-medium">Notes</th>
+                    <th scope="col" className="px-[var(--sr-space-4)] py-[var(--sr-space-3)] font-medium">Status</th>
+                    <th scope="col" className="px-[var(--sr-space-4)] py-[var(--sr-space-3)] font-medium text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
                   {bookingsWithAlerts.map((booking) => {
                     const systemCreated = isSystemCreatedBooking(booking);
                     return (
-                    <tr
-                      key={booking.id}
-                      className={cn(
-                        'bg-background/50 transition-opacity hover:bg-muted/30',
-                        booking.isDimmed ? 'opacity-70' : undefined,
-                      )}
-                    >
-                      <td className="px-4 py-3 text-sm font-medium text-foreground">
-                        <div className="flex flex-col">
-                          <span>{booking.customerName}</span>
-                          <span className="text-xs text-muted-foreground">
-                            Ref: {booking.reference ?? 'N/A'}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-foreground">
-                        {formatTimeRange(booking.startTime, booking.endTime, summary.timezone)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-foreground">{booking.partySize}</td>
-                      <td className="px-4 py-3 text-sm text-muted-foreground">
-                        <span className="block max-w-[220px] truncate">{booking.notes ?? '—'}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          {systemCreated ? <SystemBadge /> : null}
-                          <StatusBadge status={booking.status} />
-                          {booking.needsAttention ? (
-                            <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-                              <AlertTriangle className="h-3 w-3" aria-hidden />
-                              Past start
+                      <tr
+                        key={booking.id}
+                        className={cn(
+                          'bg-background/50 transition-opacity hover:bg-muted/30',
+                          booking.isDimmed ? 'opacity-70' : undefined,
+                        )}
+                      >
+                        <td className="px-[var(--sr-space-4)] py-[var(--sr-space-3)] text-sm font-medium text-foreground">
+                          <div className="sr-stack-sm">
+                            <span>{booking.customerName}</span>
+                            <span className="text-xs text-muted-foreground">
+                              Ref: {booking.reference ?? 'N/A'}
                             </span>
-                          ) : null}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <BookingDetailsDialog
-                          booking={booking}
-                          summary={summary}
-                          onStatusChange={updateBookingStatus}
-                        />
-                      </td>
-                    </tr>
-                  );
+                          </div>
+                        </td>
+                        <td className="px-[var(--sr-space-4)] py-[var(--sr-space-3)] text-sm text-foreground">
+                          {formatTimeRange(booking.startTime, booking.endTime, summary.timezone)}
+                        </td>
+                        <td className="px-[var(--sr-space-4)] py-[var(--sr-space-3)] text-sm text-foreground">
+                          {booking.partySize}
+                        </td>
+                        <td className="px-[var(--sr-space-4)] py-[var(--sr-space-3)] text-sm text-muted-foreground">
+                          <span className="block max-w-[220px] truncate">{booking.notes ?? '—'}</span>
+                        </td>
+                        <td className="px-[var(--sr-space-4)] py-[var(--sr-space-3)]">
+                          <div className="sr-stack-inline-sm">
+                            {systemCreated ? <SystemBadge /> : null}
+                            <StatusBadge status={booking.status} />
+                            {booking.needsAttention ? (
+                              <span className="sr-chip border border-amber-300 bg-amber-100 text-xs font-medium text-amber-900">
+                                <AlertTriangle className="h-3 w-3" aria-hidden />
+                                Past start
+                              </span>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td className="px-[var(--sr-space-4)] py-[var(--sr-space-3)] text-right">
+                          <BookingDetailsDialog
+                            booking={booking}
+                            summary={summary}
+                            onStatusChange={updateBookingStatus}
+                          />
+                        </td>
+                      </tr>
+                    );
                   })}
                 </tbody>
               </table>

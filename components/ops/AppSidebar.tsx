@@ -19,6 +19,7 @@ import {
   SidebarMenuSkeleton,
   SidebarSeparator,
 } from '@/components/ui/sidebar';
+import { cn } from '@/lib/utils';
 
 type OpsNavItem = {
   title: string;
@@ -131,7 +132,13 @@ export function AppSidebar() {
                         aria-current={active ? 'page' : undefined}
                         className="touch-manipulation"
                       >
-                        <Icon className="size-4" aria-hidden />
+                        <Icon
+                          className={cn(
+                            'size-4 transition-colors group-hover/menu-button:text-sidebar-accent-foreground group-focus-visible/menu-button:text-sidebar-accent-foreground',
+                            active ? 'text-sidebar-accent-foreground' : 'text-sidebar-foreground',
+                          )}
+                          aria-hidden
+                        />
                         <span className="truncate">{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -153,7 +160,10 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
                   <a href={SUPPORT_ITEM.href} className="touch-manipulation">
-                    <SupportIcon className="size-4" aria-hidden />
+                    <SupportIcon
+                      className="size-4 text-sidebar-foreground transition-colors group-hover/menu-button:text-sidebar-accent-foreground group-focus-visible/menu-button:text-sidebar-accent-foreground"
+                      aria-hidden
+                    />
                     <span className="truncate">{SUPPORT_ITEM.title}</span>
                   </a>
                 </SidebarMenuButton>
