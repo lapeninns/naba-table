@@ -514,6 +514,65 @@ my-monorepo/
 - Documentation access
 - **Chrome DevTools integration for manual QA (MANDATORY in verification phase)**
 
+### Chrome DevTools MCP Authentication
+
+**CRITICAL**: Chrome DevTools MCP requires authentication session tokens.
+
+- **ALWAYS** ask the user for the authentication session token before running Chrome DevTools MCP
+- Never assume the token is available or cached
+- Session tokens expire and must be refreshed regularly
+
+**Usage pattern:**
+
+1. Before initiating DevTools QA, request: "Please provide your Chrome DevTools MCP authentication session token"
+2. Wait for user to provide token
+3. Proceed with DevTools inspection only after token is received
+
+---
+
+## Database & Supabase
+
+### Supabase Remote Configuration
+
+**CRITICAL**: This project uses Supabase REMOTE, not local instances.
+
+- **NEVER** run migrations or seeds against local Supabase
+- **ALWAYS** target the remote Supabase instance directly
+- Database changes go straight to production/staging remote environment
+
+### Running Migrations & Seeds
+
+When database changes are required:
+
+```bash
+# Run migrations against remote
+supabase db push
+
+# Run seeds against remote (if needed)
+supabase db seed
+```
+
+**Important considerations:**
+
+- Migrations are destructive - always review before pushing to remote
+- Coordinate with team before running migrations on shared remote
+- Document all migration changes in task verification.md
+- Test data modifications carefully as they affect live environment
+- Consider backup/rollback strategy before major schema changes
+
+**When to run migrations:**
+
+- New tables or schema changes required
+- Column additions/modifications
+- Index creation or optimization
+- RLS policy updates
+
+**When to run seeds:**
+
+- Initial data population needed
+- Test data requirements for new features
+- Reference data updates
+
 ---
 
 ## Red Flags & Warnings
@@ -526,6 +585,8 @@ Stop and address these immediately:
 - ⚠️ **Many assumptions** → Document and validate with stakeholder
 - ⚠️ **No verification plan** → Define success criteria first
 - ⚠️ **Skipped DevTools QA** → NEVER skip manual QA with Chrome DevTools MCP tool
+- ⚠️ **Running migrations without coordination** → Always coordinate remote database changes with team
+- ⚠️ **Local Supabase usage** → NEVER use local Supabase, always use remote
 
 ---
 
@@ -565,8 +626,11 @@ Stop and address these immediately:
 - **Accessibility is not optional** - follow all MUST requirements
 - **Create nested AGENTS.md** for subprojects in monorepos
 - **Chrome DevTools MCP tool is MANDATORY** for verification phase - never skip this step
+- **Always request Chrome DevTools auth token** before starting DevTools QA
+- **Use Supabase REMOTE only** - never run migrations/seeds against local instances
+- **Coordinate database changes** - migrations affect live remote environment
 
 ---
 
-**Last Updated**: 2025-01-10  
-**Version**: 3.1
+**Last Updated**: 2025-01-11  
+**Version**: 3.2
