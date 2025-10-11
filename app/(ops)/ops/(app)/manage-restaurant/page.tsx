@@ -1,30 +1,93 @@
 import type { Metadata } from 'next';
-import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
+import { headers, cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
 
-import config from '@/config';
-import { ManageRestaurantShell, type RestaurantMembershipOption } from '@/components/ops/manage/ManageRestaurantShell';
-import { getOperatingHours, getServicePeriods, getRestaurantDetails } from '@/server/restaurants';
-import { fetchUserMemberships } from '@/server/team/access';
-import { getServerComponentSupabaseClient } from '@/server/supabase';
+import { RestaurantsClient } from '@/components/ops/restaurants/RestaurantsClient';
+import { DASHBOARD_DEFAULT_PAGE_SIZE } from '@/components/dashboard/constants';
 import { queryKeys } from '@/lib/query/keys';
+import { getServerComponentSupabaseClient } from '@/server/supabase';
+import config from '@/config';
 
 export const metadata: Metadata = {
-  title: 'Manage restaurant · SajiloReserveX',
-  description: 'Configure operating hours, service periods, and contact details for your restaurant.',
+  title: 'Manage Restaurants · SajiloReserveX Ops',
+  description: 'Create, update, and manage your restaurants in the system.',
 };
 
-export const dynamic = 'force-dynamic';
+function buildDefaultSearchParams(pageSize: number): URLSearchParams {
+  const params = new URLSearchParams({
+    page: '1',
+    pageSize: String(pageSize),
+    sort: 'name',
+  });
+  return params;
+}
 
-export default async function OpsManageRestaurantPage() {
+type HeaderLike = {
+  get(name: string): string | null | undefined;
+};
+
+function resolveOrigin(requestHeaders: HeaderLike): string {
+  const forwardedHost = requestHeaders.get('x-forwarded-host') ?? requestHeaders.get('host');
+  const forwardedProto = requestHeaders.get('x-forwarded-proto');
+  const origin = requestHeaders.get('origin');
+
+  if (origin) {
+    return origin;
+  }
+
+  if (forwardedHost) {
+    const protocol = forwardedProto ?? 'https';
+    return `${protocol}://${forwardedHost}`;
+  }
+
+  return process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+}
+
+async function prefetchRestaurants(queryClient: QueryClient, params: URLSearchParams) {
+  const requestHeaders = await headers();
+  const cookieStore = await cookies();
+  const cookieHeader = cookieStore
+    .getAll()
+    .map(({ name, value }) => `${name}=${value}`)
+    .join('; ');
+  const origin = resolveOrigin(requestHeaders);
+  const url = `${origin}/api/ops/restaurants?${params.toString()}`;
+  const keyParams = Object.fromEntries(params.entries());
+
+  try {
+    await queryClient.prefetchQuery({
+      queryKey: queryKeys.opsRestaurants.list(keyParams),
+      queryFn: async () => {
+        const response = await fetch(url, {
+          headers: {
+            accept: 'application/json',
+            ...(cookieHeader ? { cookie: cookieHeader } : {}),
+          },
+          cache: 'no-store',
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to prefetch restaurants (${response.status})`);
+        }
+
+        return await response.json();
+      },
+    });
+  } catch (error) {
+    console.error('[ops/manage-restaurant] prefetch failed', error);
+  }
+}
+
+export default async function ManageRestaurantPage() {
   const supabase = await getServerComponentSupabaseClient();
   const {
     data: { user },
-    error: authError,
+    error,
   } = await supabase.auth.getUser();
 
-  if (authError) {
-    console.error('[ops/manage-restaurant] auth resolution failed', authError.message);
+  if (error) {
+    console.error('[ops/manage-restaurant] failed to resolve auth', error.message);
   }
 
   if (!user) {
@@ -32,37 +95,15 @@ export default async function OpsManageRestaurantPage() {
     redirect(`${loginUrl}?redirectedFrom=/ops/manage-restaurant`);
   }
 
-  const memberships = await fetchUserMemberships(user.id, supabase);
-  const membershipOptions: RestaurantMembershipOption[] = memberships.map((membership) => ({
-    restaurantId: membership.restaurant_id,
-    restaurantName: membership.restaurants?.name ?? null,
-    role: membership.role,
-  }));
-
-  const defaultRestaurantId = membershipOptions[0]?.restaurantId ?? null;
   const queryClient = new QueryClient();
-
-  if (defaultRestaurantId) {
-    try {
-      const [hoursSnapshot, servicePeriods, details] = await Promise.all([
-        getOperatingHours(defaultRestaurantId, supabase),
-        getServicePeriods(defaultRestaurantId, supabase),
-        getRestaurantDetails(defaultRestaurantId, supabase),
-      ]);
-
-      queryClient.setQueryData(queryKeys.ownerRestaurants.hours(defaultRestaurantId), hoursSnapshot);
-      queryClient.setQueryData(queryKeys.ownerRestaurants.servicePeriods(defaultRestaurantId), servicePeriods);
-      queryClient.setQueryData(queryKeys.ownerRestaurants.details(defaultRestaurantId), details);
-    } catch (error) {
-      console.error('[ops/manage-restaurant] failed to prefetch restaurant data', error);
-    }
-  }
+  const params = buildDefaultSearchParams(DASHBOARD_DEFAULT_PAGE_SIZE);
+  await prefetchRestaurants(queryClient, params);
 
   const dehydratedState = dehydrate(queryClient);
 
   return (
     <HydrationBoundary state={dehydratedState}>
-      <ManageRestaurantShell memberships={membershipOptions} defaultRestaurantId={defaultRestaurantId} />
+      <RestaurantsClient />
     </HydrationBoundary>
   );
 }

@@ -1,5 +1,5 @@
 -- Seed data for SajiloReserveX
--- Generated via tasks/restaurant-booking-seed
+-- Generated via tasks/seed-eight-pubs-dataset-20251011-1240
 
 BEGIN;
 
@@ -21,123 +21,211 @@ RESTART IDENTITY CASCADE;
 
 -- Remove restaurants we manage in this seed (bookings/truncate above already cascaded)
 DELETE FROM public.restaurants
-WHERE slug IN (
-  'the-queen-elizabeth-pub',
-  'old-crown-pub',
-  'white-horse-pub',
-  'the-corner-house-pub',
-  'prince-of-wales-pub',
-  'the-bell-sawtry',
-  'the-railway-pub',
-  'the-barley-mow-pub'
+WHERE id IN (
+  '259590fb-fd34-4a12-a346-f6557acc4e16',
+  '357d90b5-ce94-4a0b-bc0e-2e3cc38f3571',
+  '39cb1346-20fb-4fa2-b163-0230e1caf749',
+  'a23976e4-fef1-4c3a-98eb-fde2718d8253',
+  'bcd27051-65ad-4d11-b0cf-67604dc37b35',
+  'd7d26f37-a8fb-4116-9a24-0f3684d18ebe',
+  'e24a1635-62d9-4290-ab8c-fe19862b3edd',
+  'f19562bf-7ccc-4840-a95f-d9c2259397f4'
 );
 
-WITH restaurant_input AS (
+WITH constants AS (
+  SELECT
+    current_date AS seed_today,
+    (date_trunc('month', current_date) + interval '1 month - 1 day')::date AS month_end,
+    100 AS past_count,
+    40 AS today_count,
+    120 AS future_count
+),
+restaurant_input AS (
   SELECT *
   FROM (VALUES
     (
-      'the-queen-elizabeth-pub',
-      '39cb1346-20fb-4fa2-b163-0230e1caf749',
-      'The Queen Elizabeth Pub',
-      140,
-      'thequeen@lapeninns.com',
-      '01553 824083',
-      '32 Gayton Road, Kings Lynn, PE30 4EL',
-      'Call us at 01553 824083 or email thequeen@lapeninns.com for reservations. Walk-ins welcome based on availability.'
-    ),
-    (
-      'old-crown-pub',
-      gen_random_uuid()::text,
-      'Old Crown Pub',
-      120,
-      'oldcrown@lapeninns.com',
-      '01223 276027',
-      '89 High Street, Girton, Cambridge, CB3 0QQ',
-      'Book your table by calling 01223 276027 or emailing oldcrown@lapeninns.com. Same-day reservations welcome.'
-    ),
-    (
-      'white-horse-pub',
-      gen_random_uuid()::text,
-      'White Horse Pub',
-      110,
-      'whitehorse@lapeninns.com',
-      '01223 277217',
-      '89 High Street, Cambridge, CB3 0QD',
-      'Reserve your table at 01223 277217 or whitehorse@lapeninns.com. Groups of 6+ please call ahead.'
-    ),
-    (
-      'the-corner-house-pub',
-      gen_random_uuid()::text,
-      'The Corner House Pub',
-      130,
-      'cornerhouse@lapeninns.com',
-      '01223 921122',
-      '231 Newmarket Road, Cambridge, CB5 8JE',
-      'Contact us at 01223 921122 or cornerhouse@lapeninns.com to book. Weekend reservations recommended.'
-    ),
-    (
-      'prince-of-wales-pub',
-      gen_random_uuid()::text,
-      'Prince of Wales Pub',
-      125,
-      'theprince@lapeninns.com',
-      '01234 822447',
-      '8 Northampton Rd, Bedford, MK43 8PE',
-      'Call 01234 822447 or email theprince@lapeninns.com for bookings. Mobile: 07588 864819 for urgent inquiries.'
-    ),
-    (
-      'the-bell-sawtry',
-      gen_random_uuid()::text,
-      'The Bell Sawtry',
-      115,
-      'thebell@lapeninns.com',
-      '01487 900149',
-      '82 Green End Road, Sawtry, Huntingdon, PE28 5UY',
-      'Book your table at 01487 900149 or thebell@lapeninns.com. Large parties please reserve in advance.'
-    ),
-    (
       'the-railway-pub',
-      gen_random_uuid()::text,
+      '259590fb-fd34-4a12-a346-f6557acc4e16'::uuid,
       'The Railway Pub',
       135,
       'therailway@lapeninns.com',
       '01733 788345',
       '139 Station Road, Whittlesey, PE7 1UF',
-      'Reserve at 01733 788345 or therailway@lapeninns.com. Walk-ins welcome, bookings ensure your table.'
+      'Reserve at 01733 788345 or therailway@lapeninns.com. Walk-ins welcome, bookings ensure your table.',
+      'Europe/London',
+      15,
+      90,
+      TIMESTAMPTZ '2025-10-08 16:28:38.225+00',
+      TIMESTAMPTZ '2025-10-08 16:28:38.225+00'
+    ),
+    (
+      'the-bell-sawtry',
+      '357d90b5-ce94-4a0b-bc0e-2e3cc38f3571'::uuid,
+      'The Bell Sawtry',
+      115,
+      'thebell@lapeninns.com',
+      '01487 900149',
+      '82 Green End Road, Sawtry, Huntingdon, PE28 5UY',
+      'Book your table at 01487 900149 or thebell@lapeninns.com. Large parties please reserve in advance.',
+      'Europe/London',
+      15,
+      90,
+      TIMESTAMPTZ '2025-10-08 16:28:38.225+00',
+      TIMESTAMPTZ '2025-10-08 16:28:38.225+00'
+    ),
+    (
+      'the-queen-elizabeth-pub',
+      '39cb1346-20fb-4fa2-b163-0230e1caf749'::uuid,
+      'The Queen Elizabeth Pub',
+      140,
+      'thequeen@lapeninns.com',
+      '01553 824083',
+      '32 Gayton Road, Kings Lynn, PE30 4EL',
+      'Call us at 01553 824083 or email thequeen@lapeninns.com for reservations. Walk-ins welcome based on availability.',
+      'Europe/London',
+      15,
+      90,
+      TIMESTAMPTZ '2025-10-08 16:28:38.225+00',
+      TIMESTAMPTZ '2025-10-08 16:28:38.225+00'
+    ),
+    (
+      'the-corner-house-pub',
+      'a23976e4-fef1-4c3a-98eb-fde2718d8253'::uuid,
+      'The Corner House Pub',
+      130,
+      'cornerhouse@lapeninns.com',
+      '01223 921122',
+      '231 Newmarket Road, Cambridge, CB5 8JE',
+      'Contact us at 01223 921122 or cornerhouse@lapeninns.com to book. Weekend reservations recommended.',
+      'Europe/London',
+      15,
+      90,
+      TIMESTAMPTZ '2025-10-08 16:28:38.225+00',
+      TIMESTAMPTZ '2025-10-08 16:28:38.225+00'
     ),
     (
       'the-barley-mow-pub',
-      gen_random_uuid()::text,
+      'bcd27051-65ad-4d11-b0cf-67604dc37b35'::uuid,
       'The Barley Mow Pub',
       128,
       'barleymow@lapeninns.com',
       '01480 450550',
       '42 Main St, Hartford, Huntingdon, PE29 1XU',
-      'Call 01480 450550 or email barleymow@lapeninns.com to book. Mobile: 07399 835329 for urgent requests.'
+      'Call 01480 450550 or email barleymow@lapeninns.com to book. Mobile: 07399 835329 for urgent requests.',
+      'Europe/London',
+      15,
+      90,
+      TIMESTAMPTZ '2025-10-08 16:28:38.225+00',
+      TIMESTAMPTZ '2025-10-08 16:28:38.225+00'
+    ),
+    (
+      'prince-of-wales-pub',
+      'd7d26f37-a8fb-4116-9a24-0f3684d18ebe'::uuid,
+      'Prince of Wales Pub',
+      125,
+      'theprince@lapeninns.com',
+      '01234 822447',
+      '8 Northampton Rd, Bedford, MK43 8PE',
+      'Call 01234 822447 or email theprince@lapeninns.com for bookings. Mobile: 07588 864819 for urgent inquiries.',
+      'Europe/London',
+      15,
+      90,
+      TIMESTAMPTZ '2025-10-08 16:28:38.225+00',
+      TIMESTAMPTZ '2025-10-08 16:28:38.225+00'
+    ),
+    (
+      'old-crown-pub',
+      'e24a1635-62d9-4290-ab8c-fe19862b3edd'::uuid,
+      'Old Crown Pub',
+      120,
+      'oldcrown@lapeninns.com',
+      '01223 276027',
+      '89 High Street, Girton, Cambridge, CB3 0QQ',
+      'Book your table by calling 01223 276027 or emailing oldcrown@lapeninns.com. Same-day reservations welcome.',
+      'Europe/London',
+      15,
+      90,
+      TIMESTAMPTZ '2025-10-08 16:28:38.225+00',
+      TIMESTAMPTZ '2025-10-08 16:28:38.225+00'
+    ),
+    (
+      'white-horse-pub',
+      'f19562bf-7ccc-4840-a95f-d9c2259397f4'::uuid,
+      'White Horse Pub',
+      110,
+      'whitehorse@lapeninns.com',
+      '01223 277217',
+      '89 High Street, Cambridge, CB3 0QD',
+      'Reserve your table at 01223 277217 or whitehorse@lapeninns.com. Groups of 6+ please call ahead.',
+      'Europe/London',
+      15,
+      90,
+      TIMESTAMPTZ '2025-10-08 16:28:38.225+00',
+      TIMESTAMPTZ '2025-10-08 16:28:38.225+00'
     )
-  ) AS r(slug, id_text, name, capacity, contact_email, contact_phone, address, booking_policy)
-),
-inserted_restaurants AS (
-  INSERT INTO public.restaurants (id, name, slug, timezone, capacity, contact_email, contact_phone, address, booking_policy)
-  SELECT
-    id_text::uuid,
-    name,
+  ) AS r(
     slug,
-    'Europe/London',
+    id,
+    name,
     capacity,
     contact_email,
     contact_phone,
     address,
-    booking_policy
-  FROM restaurant_input
+    booking_policy,
+    timezone,
+    reservation_interval_minutes,
+    reservation_default_duration_minutes,
+    created_at,
+    updated_at
+  )
+),
+inserted_restaurants AS (
+  INSERT INTO public.restaurants (
+    id,
+    name,
+    slug,
+    timezone,
+    capacity,
+    contact_email,
+    contact_phone,
+    address,
+    booking_policy,
+    reservation_interval_minutes,
+    reservation_default_duration_minutes,
+    created_at,
+    updated_at
+  )
+  SELECT
+    r.id,
+    r.name,
+    r.slug,
+    r.timezone,
+    r.capacity,
+    r.contact_email,
+    r.contact_phone,
+    r.address,
+    r.booking_policy,
+    r.reservation_interval_minutes,
+    r.reservation_default_duration_minutes,
+    r.created_at,
+    r.updated_at
+  FROM restaurant_input r
   RETURNING id, slug, name
+),
+restaurants_ranked AS (
+  SELECT
+    id,
+    slug,
+    name,
+    ROW_NUMBER() OVER (ORDER BY slug) AS restaurant_rank
+  FROM inserted_restaurants
 ),
 default_operating_hours AS (
   SELECT
     r.id AS restaurant_id,
     dow AS day_of_week,
-    '12:00'::text AS opens_at,
-    '23:00'::text AS closes_at
+    '12:00'::time AS opens_at,
+    '23:00'::time AS closes_at
   FROM inserted_restaurants r
   CROSS JOIN generate_series(0, 6) AS dow
 ),
@@ -157,10 +245,10 @@ inserted_operating_hours AS (
 service_period_templates AS (
   SELECT *
   FROM (VALUES
-    ('Lunch', 'lunch', '12:00', '15:00'),
-    ('Happy Hour', 'drinks', '15:00', '17:00'),
-    ('Dinner', 'dinner', '17:00', '21:30'),
-    ('Late Drinks', 'drinks', '21:30', '23:00')
+    ('Lunch', 'lunch', '12:00'::time, '15:00'::time),
+    ('Happy Hour', 'drinks', '15:00'::time, '17:00'::time),
+    ('Dinner', 'dinner', '17:00'::time, '21:30'::time),
+    ('Late Drinks', 'drinks', '21:30'::time, '23:00'::time)
   ) AS t(name, booking_option, start_time, end_time)
 ),
 inserted_service_periods AS (
@@ -179,12 +267,11 @@ inserted_service_periods AS (
 ),
 customer_pool AS (
   SELECT
-    r.id AS restaurant_id,
-    r.slug,
-    g AS customer_index,
-    dense_rank() OVER (ORDER BY r.slug) AS restaurant_rank
-  FROM inserted_restaurants r
-  CROSS JOIN generate_series(1, 50) AS g
+    rr.id AS restaurant_id,
+    rr.slug,
+    rr.restaurant_rank,
+    generate_series(1, 60) AS customer_index
+  FROM restaurants_ranked rr
 ),
 normalized_customer_pool AS (
   SELECT
@@ -192,20 +279,11 @@ normalized_customer_pool AS (
     slug,
     customer_index,
     lower(
-      CASE
-        WHEN customer_index = 1 THEN 'amanshresthaaaaa@gmail.com'
-        ELSE format('%s-customer-%02s@seedsajilo.dev', slug, customer_index)
-      END
+      format('%s-customer-%02s@seedsajilo.dev', slug, customer_index)
     ) AS email,
-    CASE
-      WHEN customer_index = 1 THEN '079' || lpad((100000 + restaurant_rank)::text, 8, '0')
-      ELSE '07' || lpad(((restaurant_rank * 1000) + customer_index + 2000)::text, 9, '0')
-    END AS phone,
-    CASE
-      WHEN customer_index = 1 THEN initcap(replace(slug, '-', ' ')) || ' Regular'
-      ELSE initcap(replace(slug, '-', ' ')) || ' Guest ' || lpad(customer_index::text, 2, '0')
-    END AS full_name,
-    CASE WHEN customer_index % 7 = 0 THEN true ELSE false END AS marketing_opt_in
+    format('+447%08s', lpad(((restaurant_rank * 1000) + customer_index)::text, 8, '0')) AS phone,
+    initcap(replace(slug, '-', ' ')) || ' Guest ' || lpad(customer_index::text, 2, '0') AS full_name,
+    CASE WHEN customer_index % 5 = 0 THEN true ELSE false END AS marketing_opt_in
   FROM customer_pool
 ),
 inserted_customers AS (
@@ -235,79 +313,110 @@ indexed_customers AS (
     ON c.restaurant_id = nc.restaurant_id
    AND c.email = nc.email
 ),
-booking_base AS (
+booking_counts AS (
   SELECT
-    r.id AS restaurant_id,
-    r.slug,
+    past_count,
+    today_count,
+    future_count,
+    past_count + today_count + future_count AS total
+  FROM constants
+),
+booking_sequence AS (
+  SELECT
     gs AS booking_index,
-    ((gs - 1) % 50) + 1 AS customer_slot,
     CASE
-      WHEN gs <= 60 THEN (current_date - (61 - gs))::date
-      WHEN gs <= 80 THEN current_date
-      ELSE (current_date + (gs - 80))::date
-    END AS booking_date,
+      WHEN gs <= bc.past_count THEN 'past'
+      WHEN gs <= bc.past_count + bc.today_count THEN 'today'
+      ELSE 'future'
+    END AS bucket,
+    ((gs - 1) % 8) + 1 AS restaurant_rank
+  FROM booking_counts bc,
+       generate_series(1, bc.total) AS gs
+),
+booking_bucketed AS (
+  SELECT
+    bs.*,
+    ROW_NUMBER() OVER (PARTITION BY bucket ORDER BY booking_index) AS bucket_position
+  FROM booking_sequence bs
+),
+booking_dates AS (
+  SELECT
+    bb.*,
     CASE
-      WHEN gs <= 60 THEN
+      WHEN bb.bucket = 'past' THEN c.seed_today - ((((bb.bucket_position - 1) % 20) + 1)::int)
+      WHEN bb.bucket = 'today' THEN c.seed_today
+      ELSE c.seed_today + ((((bb.bucket_position - 1) % GREATEST((c.month_end - c.seed_today), 1)) + 1)::int)
+    END AS booking_date
+  FROM booking_bucketed bb
+  CROSS JOIN constants c
+),
+booking_with_restaurant AS (
+  SELECT
+    bd.*,
+    rr.id AS restaurant_id,
+    rr.slug
+  FROM booking_dates bd
+  JOIN restaurants_ranked rr
+    ON rr.restaurant_rank = bd.restaurant_rank
+),
+booking_prepared AS (
+  SELECT
+    bwr.*,
+    ((bwr.booking_index - 1) % 60) + 1 AS customer_slot,
+    ((bwr.booking_index - 1) % 8) AS start_slot,
+    ((bwr.booking_index - 1) % 5) + 2 AS party_size
+  FROM booking_with_restaurant bwr
+),
+booking_enriched AS (
+  SELECT
+    bp.*,
+    ((time '12:00') + (bp.start_slot * interval '45 minutes'))::time AS start_time,
+    (((time '12:00') + (bp.start_slot * interval '45 minutes')) + interval '90 minutes')::time AS end_time,
+    (
+      bp.booking_date::timestamp
+      + interval '12 hours'
+      + (bp.start_slot * interval '45 minutes')
+    ) AS local_start_at
+  FROM booking_prepared bp
+),
+booking_payload AS (
+  SELECT
+    be.booking_index,
+    be.booking_date,
+    be.bucket,
+    be.restaurant_id,
+    be.slug,
+    ic.id AS customer_id,
+    ic.full_name,
+    ic.email,
+    ic.phone,
+    ic.marketing_opt_in,
+    ic.slug AS customer_slug,
+    be.party_size,
+    be.start_time,
+    be.end_time,
+    be.local_start_at,
+    CASE be.bucket
+      WHEN 'past' THEN
         CASE
-          WHEN gs % 15 = 0 THEN 'no_show'::booking_status
-          WHEN gs % 10 = 0 THEN 'cancelled'::booking_status
+          WHEN be.booking_index % 15 = 0 THEN 'no_show'::booking_status
+          WHEN be.booking_index % 10 = 0 THEN 'cancelled'::booking_status
           ELSE 'completed'::booking_status
         END
-      WHEN gs <= 80 THEN
+      WHEN 'today' THEN
         CASE
-          WHEN gs % 4 = 0 THEN 'pending'::booking_status
+          WHEN be.booking_index % 5 = 0 THEN 'pending'::booking_status
+          WHEN be.booking_index % 7 = 0 THEN 'pending_allocation'::booking_status
           ELSE 'confirmed'::booking_status
         END
       ELSE
         CASE
-          WHEN gs % 9 = 0 THEN 'pending_allocation'::booking_status
-          WHEN gs % 7 = 0 THEN 'pending'::booking_status
+          WHEN be.booking_index % 9 = 0 THEN 'pending_allocation'::booking_status
+          WHEN be.booking_index % 6 = 0 THEN 'pending'::booking_status
           ELSE 'confirmed'::booking_status
         END
     END AS status,
-    CASE ((gs - 1) % 4)
-      WHEN 0 THEN 'dinner'::booking_type
-      WHEN 1 THEN 'lunch'::booking_type
-      WHEN 2 THEN 'drinks'::booking_type
-      ELSE 'breakfast'::booking_type
-    END AS booking_type,
-    ((gs - 1) % 8) AS start_slot,
-    ((gs - 1) % 5) + 2 AS party_size,
-    gs
-  FROM inserted_restaurants r
-  CROSS JOIN generate_series(1, 150) AS gs
-),
-booking_enriched AS (
-  SELECT
-    bb.restaurant_id,
-    bb.slug,
-    bb.booking_index,
-    bb.booking_date,
-    bb.status,
-    bb.booking_type,
-    bb.party_size,
-    bb.gs AS raw_index,
-    ((time '11:30') + (bb.start_slot * interval '45 minutes'))::time AS start_time,
-    (((time '11:30') + (bb.start_slot * interval '45 minutes')) + interval '90 minutes')::time AS end_time,
-    (
-      bb.booking_date::timestamp
-      + interval '11 hours 30 minutes'
-      + (bb.start_slot * interval '45 minutes')
-    ) AS local_start_at
-  FROM booking_base bb
-),
-booking_payload AS (
-  SELECT
-    b.restaurant_id,
-    c.id AS customer_id,
-    c.full_name,
-    c.email,
-    c.phone,
-    b.booking_index,
-    b.booking_date,
-    b.status,
-    b.booking_type,
-    CASE (b.booking_index % 6)
+    CASE (be.booking_index % 6)
       WHEN 0 THEN 'window'::seating_preference_type
       WHEN 1 THEN 'any'::seating_preference_type
       WHEN 2 THEN 'indoor'::seating_preference_type
@@ -315,27 +424,16 @@ booking_payload AS (
       WHEN 4 THEN 'quiet'::seating_preference_type
       ELSE 'booth'::seating_preference_type
     END AS seating_preference,
-    b.party_size,
-    b.start_time,
-    b.end_time,
-    (b.local_start_at AT TIME ZONE 'Europe/London') AS start_at,
-    (b.local_start_at + interval '90 minutes') AT TIME ZONE 'Europe/London' AS end_at,
-    upper(left(regexp_replace(b.slug, '[^a-z]', '', 'g'), 3)) || '-' || b.restaurant_id || '-' || lpad(b.booking_index::text, 4, '0') AS reference,
-    c.marketing_opt_in,
-    jsonb_build_object(
-      'seeded', true,
-      'source', 'supabase/seed.sql',
-      'sequence', b.booking_index,
-      'restaurant_slug', b.slug
-    ) AS details,
-    c.slug AS customer_slug
-  FROM booking_enriched b
-  JOIN booking_base bb
-    ON bb.restaurant_id = b.restaurant_id
-   AND bb.booking_index = b.booking_index
-  JOIN indexed_customers c
-    ON c.restaurant_id = bb.restaurant_id
-   AND c.customer_index = bb.customer_slot
+    CASE ((be.booking_index - 1) % 4)
+      WHEN 0 THEN 'dinner'::booking_type
+      WHEN 1 THEN 'lunch'::booking_type
+      WHEN 2 THEN 'drinks'::booking_type
+      ELSE 'breakfast'::booking_type
+    END AS booking_type
+  FROM booking_enriched be
+  JOIN indexed_customers ic
+    ON ic.restaurant_id = be.restaurant_id
+   AND ic.customer_index = be.customer_slot
 ),
 inserted_bookings AS (
   INSERT INTO public.bookings (
@@ -360,27 +458,33 @@ inserted_bookings AS (
     marketing_opt_in
   )
   SELECT
-    restaurant_id,
-    customer_id,
-    booking_date,
-    start_time,
-    end_time,
-    start_at,
-    end_at,
-    party_size,
-    seating_preference,
-    status,
-    full_name,
-    email,
-    phone,
-    format('Seeded booking %s for %s', booking_index, customer_slug),
-    reference,
+    bp.restaurant_id,
+    bp.customer_id,
+    bp.booking_date,
+    bp.start_time,
+    bp.end_time,
+    (bp.local_start_at AT TIME ZONE 'Europe/London') AS start_at,
+    ((bp.local_start_at + interval '90 minutes') AT TIME ZONE 'Europe/London') AS end_at,
+    bp.party_size,
+    bp.seating_preference,
+    bp.status,
+    bp.full_name,
+    bp.email,
+    bp.phone,
+    format('Seeded booking %s (%s bucket)', bp.booking_index, bp.bucket),
+    upper(left(regexp_replace(bp.slug, '[^a-z]', '', 'g'), 3)) || '-' || bp.restaurant_id || '-' || lpad(bp.booking_index::text, 4, '0') AS reference,
     'seed.sql',
-    booking_type,
-    details,
-    marketing_opt_in
-  FROM booking_payload
-  ORDER BY restaurant_id, booking_index
+    bp.booking_type,
+    jsonb_build_object(
+      'seeded', true,
+      'bucket', bp.bucket,
+      'source', 'supabase/seed.sql',
+      'sequence', bp.booking_index,
+      'restaurant_slug', bp.slug
+    ) AS details,
+    bp.marketing_opt_in
+  FROM booking_payload bp
+  ORDER BY bp.restaurant_id, bp.booking_index
   RETURNING id, restaurant_id, customer_id, start_at, status, party_size
 )
 INSERT INTO public.customer_profiles (
@@ -403,13 +507,17 @@ SELECT
   COUNT(*) FILTER (WHERE b.status = 'cancelled'),
   c.marketing_opt_in,
   NOW(),
-  CASE
-    WHEN c.email = 'amanshresthaaaaa@gmail.com' THEN 'VIP guest seeded via supabase/seed.sql'
-    ELSE NULL
-  END
+  NULL
 FROM inserted_customers c
 JOIN inserted_bookings b
   ON b.customer_id = c.id
-GROUP BY c.id, c.marketing_opt_in, c.email;
+GROUP BY c.id, c.marketing_opt_in;
+
+-- Validation helper (run manually after executing this seed):
+-- SELECT
+--   COUNT(*) FILTER (WHERE booking_date < current_date) AS past_bookings,
+--   COUNT(*) FILTER (WHERE booking_date = current_date) AS today_bookings,
+--   COUNT(*) FILTER (WHERE booking_date > current_date) AS future_bookings
+-- FROM public.bookings;
 
 COMMIT;

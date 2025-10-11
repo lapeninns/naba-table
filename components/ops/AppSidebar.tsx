@@ -55,10 +55,17 @@ const NAV_ITEMS: OpsNavItem[] = [
   },
   {
     title: 'Manage restaurant',
-    description: 'Update hours and details',
+    description: 'Create and manage restaurants',
     href: '/ops/manage-restaurant',
     icon: Settings2,
     matcher: (pathname) => pathname.startsWith('/ops/manage-restaurant'),
+  },
+  {
+    title: 'Restaurant settings',
+    description: 'Configure hours and service periods',
+    href: '/ops/restaurant-settings',
+    icon: Settings2,
+    matcher: (pathname) => pathname.startsWith('/ops/restaurant-settings'),
   },
   {
     title: 'Walk-in booking',

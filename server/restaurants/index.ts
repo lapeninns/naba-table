@@ -4,3 +4,7 @@ export * from './operatingHours';
 export * from './servicePeriods';
 export * from './details';
 export * from './schedule';
+export * from './list';
+export * from './create';
+export * from './update';
+export * from './delete';

@@ -15,6 +15,11 @@ export const queryKeys = {
   opsCustomers: {
     list: (params: Record<string, unknown> = {}) => ['ops', 'customers', 'list', params] as const,
   },
+  opsRestaurants: {
+    all: ['ops', 'restaurants'] as const,
+    list: (params: Record<string, unknown> = {}) => ['ops', 'restaurants', 'list', params] as const,
+    detail: (id: string) => ['ops', 'restaurants', 'detail', id] as const,
+  },
   ownerRestaurants: {
     hours: (restaurantId: string) => ['owner', 'restaurants', restaurantId, 'hours'] as const,
     servicePeriods: (restaurantId: string) => ['owner', 'restaurants', restaurantId, 'service-periods'] as const,
@@ -41,6 +46,8 @@ export type QueryKey =
   | ReturnType<(typeof queryKeys)['opsBookings']['list']>
   | ReturnType<(typeof queryKeys)['opsBookings']['detail']>
   | ReturnType<(typeof queryKeys)['opsCustomers']['list']>
+  | ReturnType<(typeof queryKeys)['opsRestaurants']['list']>
+  | ReturnType<(typeof queryKeys)['opsRestaurants']['detail']>
   | ReturnType<(typeof queryKeys)['ownerRestaurants']['hours']>
   | ReturnType<(typeof queryKeys)['ownerRestaurants']['servicePeriods']>
   | ReturnType<(typeof queryKeys)['ownerRestaurants']['details']>
