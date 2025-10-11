@@ -84,7 +84,6 @@ export async function POST(req: NextRequest) {
     phone: profile.phone ?? '07123 456789',
     image: profile.image ?? null,
     has_access: true,
-    price_id: null as string | null,
     updated_at: new Date().toISOString(),
   };
 
