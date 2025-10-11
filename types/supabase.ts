@@ -545,6 +545,7 @@ export type Database = {
           image: string | null
           name: string | null
           phone: string | null
+          has_access: boolean
           updated_at: string
         }
         Insert: {
@@ -554,6 +555,7 @@ export type Database = {
           image?: string | null
           name?: string | null
           phone?: string | null
+          has_access?: boolean
           updated_at?: string
         }
         Update: {
@@ -563,6 +565,7 @@ export type Database = {
           image?: string | null
           name?: string | null
           phone?: string | null
+          has_access?: boolean
           updated_at?: string
         }
         Relationships: []

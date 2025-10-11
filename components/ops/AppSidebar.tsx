@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ComponentType, SVGProps } from 'react';
-import { BarChart3, CalendarDays, CalendarPlus, CircleHelp, Settings2, UsersRound } from 'lucide-react';
+import { BarChart3, CalendarDays, CalendarPlus, CircleHelp, Settings2, Users, UsersRound } from 'lucide-react';
 
 import {
   Sidebar,
@@ -43,6 +43,13 @@ const NAV_ITEMS: OpsNavItem[] = [
     href: '/ops/bookings',
     icon: CalendarDays,
     matcher: (pathname) => pathname === '/ops/bookings',
+  },
+  {
+    title: 'Customers',
+    description: 'View customer data',
+    href: '/ops/customer-details',
+    icon: Users,
+    matcher: (pathname) => pathname.startsWith('/ops/customer-details'),
   },
   {
     title: 'Manage restaurant',
