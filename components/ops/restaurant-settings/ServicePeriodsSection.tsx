@@ -9,6 +9,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { normalizeTime } from '@reserve/shared/time';
+
 import { useServicePeriods, useUpdateServicePeriods } from '@/hooks/owner/useServicePeriods';
 import type { ServicePeriod } from '@/hooks/owner/useServicePeriods';
 import { cn } from '@/lib/utils';
@@ -24,10 +26,41 @@ function mapFromResponse(periods: any[]): ServicePeriodRow[] {
     id: p.id,
     name: p.name,
     dayOfWeek: p.dayOfWeek,
-    startTime: p.startTime,
-    endTime: p.endTime,
+    startTime: toInputTime(p.startTime),
+    endTime: toInputTime(p.endTime),
     bookingOption: p.bookingOption,
   }));
+}
+
+function canonicalizeRequiredTime(value: string): string {
+  const normalized = normalizeTime(value);
+  if (normalized) {
+    return normalized;
+  }
+  const trimmed = value.trim();
+  return trimmed.length >= 5 ? trimmed.slice(0, 5) : trimmed;
+}
+
+function toInputTime(value: string | null | undefined): string {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  return canonicalizeRequiredTime(value);
+}
+
+function toComparableTime(value: string | null | undefined): string | null {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  const normalized = normalizeTime(value);
+  if (normalized) {
+    return normalized;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return trimmed.length >= 5 ? trimmed.slice(0, 5) : trimmed;
 }
 
 function coerceServicePeriods(value: unknown): ServicePeriod[] | null {
@@ -109,19 +142,26 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
     // Check each period for basic validation
     periodRows.forEach((row, index) => {
       const err: ServicePeriodErrors[number] = {};
+      const startComparable = toComparableTime(row.startTime);
+      const endComparable = toComparableTime(row.endTime);
+
       if (!row.name.trim()) {
         err.name = 'Required';
       }
       if (!row.startTime) {
         err.startTime = 'Required';
+      } else if (!startComparable) {
+        err.startTime = 'Invalid time';
       }
       if (!row.endTime) {
         err.endTime = 'Required';
+      } else if (!endComparable) {
+        err.endTime = 'Invalid time';
       }
       if (!row.bookingOption) {
         err.bookingOption = 'Required';
       }
-      if (!err.startTime && !err.endTime && row.startTime >= row.endTime) {
+      if (!err.startTime && !err.endTime && startComparable && endComparable && startComparable >= endComparable) {
         err.endTime = 'Must be after start';
       }
       if (Object.keys(err).length > 0) {
@@ -131,16 +171,21 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
     });
 
     // Check for overlaps on the same day
-    const byDay = new Map<number | null, Array<{ start: string; end: string; index: number }>>();
+    const byDay = new Map<number | null, Array<{ start: string | null; end: string | null; index: number }>>();
     periodRows.forEach((row, index) => {
       const key = row.dayOfWeek ?? null;
       const list = byDay.get(key) ?? [];
-      list.push({ start: row.startTime, end: row.endTime, index });
+      list.push({
+        start: toComparableTime(row.startTime),
+        end: toComparableTime(row.endTime),
+        index,
+      });
       byDay.set(key, list);
     });
 
     byDay.forEach((list) => {
-      const sorted = [...list].sort((a, b) => a.start.localeCompare(b.start));
+      const filtered = list.filter((item): item is { start: string; end: string; index: number } => Boolean(item.start && item.end));
+      const sorted = [...filtered].sort((a, b) => a.start.localeCompare(b.start));
       for (let i = 1; i < sorted.length; i += 1) {
         const prev = sorted[i - 1];
         const current = sorted[i];
@@ -167,8 +212,8 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
         id: row.id,
         name: row.name.trim(),
         dayOfWeek: row.dayOfWeek,
-        startTime: row.startTime,
-        endTime: row.endTime,
+        startTime: canonicalizeRequiredTime(row.startTime),
+        endTime: canonicalizeRequiredTime(row.endTime),
         bookingOption: row.bookingOption,
       })));
       setIsDirty(false);

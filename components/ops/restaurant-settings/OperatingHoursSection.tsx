@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { normalizeTime } from '@reserve/shared/time';
+
 import { useOperatingHours, useUpdateOperatingHours } from '@/hooks/owner/useOperatingHours';
 import { cn } from '@/lib/utils';
 import type { WeeklyRow, OverrideRow, WeeklyErrors, OverrideErrors } from './types';
@@ -24,8 +26,8 @@ function mapWeeklyFromResponse(weekly: any[]): WeeklyRow[] {
     const found = weekly.find((row) => row.dayOfWeek === index);
     return {
       dayOfWeek: index,
-      opensAt: found?.opensAt ?? '',
-      closesAt: found?.closesAt ?? '',
+      opensAt: toInputTime(found?.opensAt ?? null),
+      closesAt: toInputTime(found?.closesAt ?? null),
       isClosed: found?.isClosed ?? true,
       notes: found?.notes ?? '',
     };
@@ -36,11 +38,42 @@ function mapOverridesFromResponse(overrides: any[]): OverrideRow[] {
   return overrides.map((row) => ({
     id: row.id,
     effectiveDate: row.effectiveDate,
-    opensAt: row.opensAt ?? '',
-    closesAt: row.closesAt ?? '',
+    opensAt: toInputTime(row.opensAt ?? null),
+    closesAt: toInputTime(row.closesAt ?? null),
     isClosed: row.isClosed,
     notes: row.notes ?? '',
   }));
+}
+
+function canonicalizeRequiredTime(value: string): string {
+  const normalized = normalizeTime(value);
+  if (normalized) {
+    return normalized;
+  }
+  const trimmed = value.trim();
+  return trimmed.length >= 5 ? trimmed.slice(0, 5) : trimmed;
+}
+
+function toInputTime(value: string | null | undefined): string {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  return canonicalizeRequiredTime(value);
+}
+
+function toComparableTime(value: string | null | undefined): string | null {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  const normalized = normalizeTime(value);
+  if (normalized) {
+    return normalized;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return trimmed.length >= 5 ? trimmed.slice(0, 5) : trimmed;
 }
 
 export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionProps) {
@@ -115,11 +148,25 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
     weeklyRows.forEach((row) => {
       if (row.isClosed) return;
       const errors: { opensAt?: string; closesAt?: string } = {};
-      if (!row.opensAt) errors.opensAt = 'Required';
-      if (!row.closesAt) errors.closesAt = 'Required';
-      if (!errors.opensAt && !errors.closesAt && row.opensAt >= row.closesAt) {
+      const openComparable = toComparableTime(row.opensAt);
+      const closeComparable = toComparableTime(row.closesAt);
+
+      if (!row.opensAt) {
+        errors.opensAt = 'Required';
+      } else if (!openComparable) {
+        errors.opensAt = 'Invalid time';
+      }
+
+      if (!row.closesAt) {
+        errors.closesAt = 'Required';
+      } else if (!closeComparable) {
+        errors.closesAt = 'Invalid time';
+      }
+
+      if (!errors.opensAt && !errors.closesAt && openComparable && closeComparable && openComparable >= closeComparable) {
         errors.closesAt = 'Must be after open';
       }
+
       if (Object.keys(errors).length > 0) {
         wErrors[row.dayOfWeek] = errors;
         valid = false;
@@ -142,9 +189,28 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
       }
 
       if (!row.isClosed) {
-        if (!row.opensAt) errors.opensAt = 'Required';
-        if (!row.closesAt) errors.closesAt = 'Required';
-        if (!errors.opensAt && !errors.closesAt && row.opensAt >= row.closesAt) {
+        const openComparable = toComparableTime(row.opensAt);
+        const closeComparable = toComparableTime(row.closesAt);
+
+        if (!row.opensAt) {
+          errors.opensAt = 'Required';
+        } else if (!openComparable) {
+          errors.opensAt = 'Invalid time';
+        }
+
+        if (!row.closesAt) {
+          errors.closesAt = 'Required';
+        } else if (!closeComparable) {
+          errors.closesAt = 'Invalid time';
+        }
+
+        if (
+          !errors.opensAt &&
+          !errors.closesAt &&
+          openComparable &&
+          closeComparable &&
+          openComparable >= closeComparable
+        ) {
           errors.closesAt = 'Must be after open';
         }
       }
@@ -166,24 +232,28 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
       return;
     }
 
+    const payload = {
+      weekly: weeklyRows.map((row) => ({
+        dayOfWeek: row.dayOfWeek,
+        opensAt: row.isClosed ? null : (row.opensAt ? canonicalizeRequiredTime(row.opensAt) : null),
+        closesAt: row.isClosed ? null : (row.closesAt ? canonicalizeRequiredTime(row.closesAt) : null),
+        isClosed: row.isClosed,
+        notes: row.notes || null,
+      })),
+      overrides: overrideRows.map((row) => ({
+        id: row.id,
+        effectiveDate: row.effectiveDate,
+        opensAt: row.isClosed ? null : (row.opensAt ? canonicalizeRequiredTime(row.opensAt) : null),
+        closesAt: row.isClosed ? null : (row.closesAt ? canonicalizeRequiredTime(row.closesAt) : null),
+        isClosed: row.isClosed,
+        notes: row.notes || null,
+      })),
+    };
+
+    console.log('[OperatingHours] Saving payload:', JSON.stringify(payload, null, 2));
+
     try {
-      await updateMutation.mutateAsync({
-        weekly: weeklyRows.map((row) => ({
-          dayOfWeek: row.dayOfWeek,
-          opensAt: row.isClosed ? null : row.opensAt || null,
-          closesAt: row.isClosed ? null : row.closesAt || null,
-          isClosed: row.isClosed,
-          notes: row.notes || null,
-        })),
-        overrides: overrideRows.map((row) => ({
-          id: row.id,
-          effectiveDate: row.effectiveDate,
-          opensAt: row.isClosed ? null : row.opensAt || null,
-          closesAt: row.isClosed ? null : row.closesAt || null,
-          isClosed: row.isClosed,
-          notes: row.notes || null,
-        })),
-      });
+      await updateMutation.mutateAsync(payload);
       setIsDirty(false);
       toast.success('Operating hours updated');
     } catch (err) {

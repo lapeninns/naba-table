@@ -25,6 +25,8 @@ import { normalizeEmail, upsertCustomer } from "@/server/customers";
 import { getActiveLoyaltyProgram, calculateLoyaltyAward, applyLoyaltyAward } from "@/server/loyalty";
 import { enqueueBookingCreatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
 import { recordObservabilityEvent } from "@/server/observability";
+import { getRestaurantSchedule } from "@/server/restaurants/schedule";
+import { OperatingHoursError, assertBookingWithinOperatingWindow } from "@/server/bookings/timeValidation";
 
 const baseQuerySchema = z.object({
   restaurantId: z.string().uuid().optional(),
@@ -240,8 +242,30 @@ export async function POST(req: NextRequest) {
 
   try {
     const supabase = getServiceSupabaseClient();
-    const startTime = data.time;
-    const normalizedBookingType = data.bookingType === "drinks" ? "drinks" : inferMealTypeFromTime(startTime);
+    const normalizedBookingType = data.bookingType === "drinks" ? "drinks" : inferMealTypeFromTime(data.time);
+
+    let startTime = data.time;
+
+    try {
+      const schedule = await getRestaurantSchedule(restaurantId, {
+        date: data.date,
+        client: supabase,
+      });
+
+      const { time } = assertBookingWithinOperatingWindow({
+        schedule,
+        requestedTime: data.time,
+        bookingType: normalizedBookingType,
+      });
+
+      startTime = time;
+    } catch (validationError) {
+      if (validationError instanceof OperatingHoursError) {
+        return NextResponse.json({ error: validationError.message }, { status: 400 });
+      }
+      throw validationError;
+    }
+
     const endTime = deriveEndTime(startTime, normalizedBookingType);
 
     const customer = await upsertCustomer(supabase, {

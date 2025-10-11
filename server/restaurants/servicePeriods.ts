@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { canonicalTime, canonicalizeFromDb } from '@/server/restaurants/timeNormalization';
 import { getServiceSupabaseClient } from '@/server/supabase';
 import type { Database } from '@/types/supabase';
 
@@ -27,16 +28,7 @@ export type UpdateServicePeriod = {
   bookingOption: BookingOption;
 };
 
-const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
 const BOOKING_OPTIONS = new Set<BookingOption>(['lunch', 'dinner', 'drinks']);
-
-function normalizeTime(value: string): string {
-  const trimmed = value.trim();
-  if (!TIME_REGEX.test(trimmed)) {
-    throw new Error(`Invalid time value "${value}", expected HH:MM`);
-  }
-  return trimmed;
-}
 
 function normalizeDayOfWeek(value: number | null | undefined): number | null {
   if (value === null || value === undefined) {
@@ -66,8 +58,8 @@ function validateServicePeriod(entry: UpdateServicePeriod): ServicePeriod {
   }
 
   const dayOfWeek = normalizeDayOfWeek(entry.dayOfWeek ?? null);
-  const startTime = normalizeTime(entry.startTime);
-  const endTime = normalizeTime(entry.endTime);
+  const startTime = canonicalTime(entry.startTime, `Service period "${name}" startTime`);
+  const endTime = canonicalTime(entry.endTime, `Service period "${name}" endTime`);
   const bookingOption = normalizeBookingOption(entry.bookingOption);
 
   if (startTime >= endTime) {
@@ -110,8 +102,8 @@ export async function getServicePeriods(
     id: row.id,
     name: row.name,
     dayOfWeek: row.day_of_week,
-    startTime: row.start_time,
-    endTime: row.end_time,
+    startTime: canonicalizeFromDb(row.start_time) ?? (row.start_time ?? ''),
+    endTime: canonicalizeFromDb(row.end_time) ?? (row.end_time ?? ''),
     bookingOption: normalizeBookingOption(row.booking_option as BookingOption),
   }));
 }

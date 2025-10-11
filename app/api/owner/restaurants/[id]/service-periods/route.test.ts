@@ -106,8 +106,8 @@ describe('/api/owner/restaurants/[id]/service-periods', () => {
         {
           name: 'Dinner',
           dayOfWeek: 5,
-          startTime: '18:00',
-          endTime: '22:00',
+          startTime: '18:00:00',
+          endTime: '22:00:00',
           bookingOption: 'dinner',
         },
       ]),
@@ -121,6 +121,14 @@ describe('/api/owner/restaurants/[id]/service-periods', () => {
     });
 
     expect(response.status).toBe(200);
-    expect(updateServicePeriodsMock).toHaveBeenCalled();
+    expect(updateServicePeriodsMock).toHaveBeenCalledWith('rest-1', [
+      {
+        name: 'Dinner',
+        dayOfWeek: 5,
+        startTime: '18:00',
+        endTime: '22:00',
+        bookingOption: 'dinner',
+      },
+    ]);
   });
 });

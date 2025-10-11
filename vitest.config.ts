@@ -19,7 +19,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["tests/server/**/*.test.ts", "tests/emails/**/*.test.ts"],
+    include: ["tests/server/**/*.test.ts", "tests/emails/**/*.test.ts", "app/api/**/*.test.ts"],
     exclude: ["tests/e2e/**", "tests/component/**", "tests/visual/**"],
     setupFiles: ["./tests/vitest.setup.ts"],
   },

@@ -6,10 +6,15 @@ import {
   updateOperatingHours,
   type UpdateOperatingHoursPayload,
 } from '@/server/restaurants/operatingHours';
+import { TIME_REGEX, canonicalTime } from '@/server/restaurants/timeNormalization';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 import { requireMembershipForRestaurant } from '@/server/team/access';
 
-const timeSchema = z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/);
+const timeSchema = z
+  .string()
+  .trim()
+  .regex(TIME_REGEX)
+  .transform((value) => canonicalTime(value));
 const notesSchema = z.string().max(250);
 
 const weeklyEntrySchema = z
@@ -144,11 +149,14 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
   let payload: UpdateOperatingHoursPayload;
   try {
     const json = await req.json();
+    console.log('[API][hours][PUT] Received payload:', JSON.stringify(json, null, 2));
     payload = payloadSchema.parse(json);
   } catch (error) {
     if (error instanceof z.ZodError) {
+      console.error('[API][hours][PUT] Validation error:', JSON.stringify(error.flatten(), null, 2));
       return NextResponse.json({ error: 'Invalid payload', details: error.flatten() }, { status: 400 });
     }
+    console.error('[API][hours][PUT] Parse error:', error);
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
   }
 

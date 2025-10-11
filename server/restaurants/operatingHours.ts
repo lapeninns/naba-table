@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { Database } from '@/types/supabase';
+import { canonicalOptionalTime, canonicalizeFromDb } from '@/server/restaurants/timeNormalization';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 type DbClient = SupabaseClient<Database, 'public', any>;
@@ -55,26 +56,7 @@ export type UpdateOperatingHoursPayload = {
 };
 
 const DAYS_IN_WEEK = 7;
-const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
-
-function normaliseTime(value: string | null | undefined): string | null {
-  if (!value) return null;
-  return value.trim();
-}
-
-function validateTime(value: string | null, context: string): string | null {
-  if (value === null) {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  if (!TIME_REGEX.test(trimmed)) {
-    throw new Error(`${context}: expected HH:MM format`);
-  }
-
-  return trimmed;
-}
 
 function ensureOpenBeforeClose(opensAt: string | null, closesAt: string | null, context: string) {
   if (!opensAt || !closesAt) {
@@ -92,8 +74,8 @@ function validateWeeklyEntry(entry: UpdateWeeklyOperatingHour): WeeklyOperatingH
   }
 
   const isClosed = entry.isClosed ?? false;
-  const opensAt = validateTime(normaliseTime(entry.opensAt ?? null), `Weekly day ${entry.dayOfWeek} opensAt`);
-  const closesAt = validateTime(normaliseTime(entry.closesAt ?? null), `Weekly day ${entry.dayOfWeek} closesAt`);
+  const opensAt = canonicalOptionalTime(entry.opensAt ?? null, `Weekly day ${entry.dayOfWeek} opensAt`);
+  const closesAt = canonicalOptionalTime(entry.closesAt ?? null, `Weekly day ${entry.dayOfWeek} closesAt`);
 
   if (isClosed) {
     return {
@@ -109,8 +91,8 @@ function validateWeeklyEntry(entry: UpdateWeeklyOperatingHour): WeeklyOperatingH
 
   return {
     dayOfWeek: entry.dayOfWeek,
-    opensAt,
-    closesAt,
+    opensAt: opensAt!,
+    closesAt: closesAt!,
     isClosed: false,
     notes: entry.notes?.trim() ?? null,
   };
@@ -122,8 +104,8 @@ function validateOverride(entry: UpdateOperatingHourOverride): OperatingHourOver
   }
 
   const isClosed = entry.isClosed ?? false;
-  const opensAt = validateTime(normaliseTime(entry.opensAt ?? null), `Override ${entry.effectiveDate} opensAt`);
-  const closesAt = validateTime(normaliseTime(entry.closesAt ?? null), `Override ${entry.effectiveDate} closesAt`);
+  const opensAt = canonicalOptionalTime(entry.opensAt ?? null, `Override ${entry.effectiveDate} opensAt`);
+  const closesAt = canonicalOptionalTime(entry.closesAt ?? null, `Override ${entry.effectiveDate} closesAt`);
 
   if (!isClosed) {
     ensureOpenBeforeClose(opensAt, closesAt, `Override ${entry.effectiveDate}`);
@@ -132,8 +114,8 @@ function validateOverride(entry: UpdateOperatingHourOverride): OperatingHourOver
   return {
     id: entry.id?.trim() || randomUUID(),
     effectiveDate: entry.effectiveDate,
-    opensAt: isClosed ? null : opensAt,
-    closesAt: isClosed ? null : closesAt,
+    opensAt: isClosed ? null : opensAt!,
+    closesAt: isClosed ? null : closesAt!,
     isClosed,
     notes: entry.notes?.trim() ?? null,
   };
@@ -204,8 +186,8 @@ export async function getOperatingHours(
 
   const weekly: WeeklyOperatingHour[] = (weeklyRows ?? []).map((row) => ({
     dayOfWeek: row.day_of_week ?? 0,
-    opensAt: row.opens_at,
-    closesAt: row.closes_at,
+    opensAt: canonicalizeFromDb(row.opens_at),
+    closesAt: canonicalizeFromDb(row.closes_at),
     isClosed: row.is_closed ?? false,
     notes: row.notes ?? null,
   }));
@@ -213,8 +195,8 @@ export async function getOperatingHours(
   const overrides: OperatingHourOverride[] = (overrideRows ?? []).map((row) => ({
     id: row.id,
     effectiveDate: row.effective_date ?? '',
-    opensAt: row.opens_at,
-    closesAt: row.closes_at,
+    opensAt: canonicalizeFromDb(row.opens_at),
+    closesAt: canonicalizeFromDb(row.closes_at),
     isClosed: row.is_closed ?? false,
     notes: row.notes ?? null,
   }));

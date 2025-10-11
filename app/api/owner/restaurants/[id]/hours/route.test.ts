@@ -93,8 +93,16 @@ describe('/api/owner/restaurants/[id]/hours', () => {
     const request = new NextRequest('http://localhost', {
       method: 'PUT',
       body: JSON.stringify({
-        weekly: [{ dayOfWeek: 1, opensAt: '09:00', closesAt: '18:00', isClosed: false }],
-        overrides: [],
+        weekly: [{ dayOfWeek: 1, opensAt: '09:00:00', closesAt: '18:00:00', isClosed: false }],
+        overrides: [
+          {
+            id: '123e4567-e89b-12d3-a456-426614174000',
+            effectiveDate: '2025-01-01',
+            opensAt: '10:00:00',
+            closesAt: '12:00:00',
+            isClosed: false,
+          },
+        ],
       }),
       headers: { 'Content-Type': 'application/json' },
       // @ts-expect-error Node fetch requires duplex for request bodies
@@ -108,7 +116,15 @@ describe('/api/owner/restaurants/[id]/hours', () => {
     expect(response.status).toBe(200);
     expect(updateOperatingHoursMock).toHaveBeenCalledWith('rest-1', {
       weekly: [{ dayOfWeek: 1, opensAt: '09:00', closesAt: '18:00', isClosed: false }],
-      overrides: [],
+      overrides: [
+        {
+          id: '123e4567-e89b-12d3-a456-426614174000',
+          effectiveDate: '2025-01-01',
+          opensAt: '10:00',
+          closesAt: '12:00',
+          isClosed: false,
+        },
+      ],
     });
   });
 });

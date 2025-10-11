@@ -6,10 +6,15 @@ import {
   updateServicePeriods,
   type UpdateServicePeriod,
 } from '@/server/restaurants/servicePeriods';
+import { TIME_REGEX, canonicalTime } from '@/server/restaurants/timeNormalization';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 import { requireMembershipForRestaurant } from '@/server/team/access';
 
-const timeSchema = z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/);
+const timeSchema = z
+  .string()
+  .trim()
+  .regex(TIME_REGEX)
+  .transform((value) => canonicalTime(value));
 const nameSchema = z.string().min(1).max(80);
 
 const servicePeriodSchema = z.object({
@@ -103,7 +108,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
   let payload: UpdateServicePeriod[];
   try {
     const json = await req.json();
-    payload = z.array(servicePeriodSchema).parse(json);
+    payload = z.array(servicePeriodSchema).parse(json) as UpdateServicePeriod[];
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Invalid payload', details: error.flatten() }, { status: 400 });

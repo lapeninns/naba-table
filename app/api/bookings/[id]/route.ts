@@ -23,6 +23,8 @@ import {
 import { normalizeEmail } from "@/server/customers";
 import { formatDateForInput } from "@reserve/shared/formatting/booking";
 import { fromMinutes } from "@reserve/shared/time";
+import { getRestaurantSchedule } from "@/server/restaurants/schedule";
+import { OperatingHoursError, assertBookingWithinOperatingWindow } from "@/server/bookings/timeValidation";
 
 const bookingTypeEnum = z.enum(BOOKING_TYPES);
 
@@ -295,8 +297,30 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     }
 
     const restaurantId = data.restaurantId ?? existingBooking.restaurant_id ?? await getDefaultRestaurantId();
-    const startTime = data.time;
-    const normalizedBookingType = data.bookingType === "drinks" ? "drinks" : inferMealTypeFromTime(startTime);
+    const normalizedBookingType = data.bookingType === "drinks" ? "drinks" : inferMealTypeFromTime(data.time);
+
+    let startTime = data.time;
+
+    try {
+      const schedule = await getRestaurantSchedule(restaurantId, {
+        date: data.date,
+        client: serviceSupabase,
+      });
+
+      const { time } = assertBookingWithinOperatingWindow({
+        schedule,
+        requestedTime: data.time,
+        bookingType: normalizedBookingType,
+      });
+
+      startTime = time;
+    } catch (validationError) {
+      if (validationError instanceof OperatingHoursError) {
+        return NextResponse.json({ error: validationError.message }, { status: 400 });
+      }
+      throw validationError;
+    }
+
     const endTime = deriveEndTime(startTime, normalizedBookingType);
 
     const updated = await updateBookingRecord(serviceSupabase, bookingId, {
