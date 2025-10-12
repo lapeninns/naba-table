@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { useTimeSlots } from '@reserve/features/reservations/wizard/services';
@@ -12,7 +12,11 @@ import { toMinutes } from '@reserve/shared/time';
 import { planFormSchema, type PlanFormValues } from '../model/schemas';
 
 import type { BookingDetails } from '../model/reducer';
-import type { PlanStepFormProps, PlanStepFormState } from '../ui/steps/plan-step/types';
+import type {
+  PlanStepFormProps,
+  PlanStepFormState,
+  PlanStepUnavailableReason,
+} from '../ui/steps/plan-step/types';
 
 const DEFAULT_TIME = reservationConfigResult.config.opening.open;
 const DEFAULT_INTERVAL_MINUTES = reservationConfigResult.config.opening.intervalMinutes;
@@ -38,18 +42,32 @@ export function usePlanStepForm({
     },
   });
 
-  const { slots, serviceAvailability, inferBookingOption, schedule } = useTimeSlots({
+  const [unavailableDates, setUnavailableDates] = useState<Map<string, PlanStepUnavailableReason>>(
+    () => new Map(),
+  );
+  const lastValidDateRef = useRef<string | null>(state.details.date ?? null);
+
+  const {
+    slots,
+    serviceAvailability,
+    inferBookingOption,
+    schedule,
+    isLoading: isScheduleLoading,
+  } = useTimeSlots({
     restaurantSlug: state.details.restaurantSlug,
     date: state.details.date,
     selectedTime: state.details.time,
   });
+
+  const enabledSlots = useMemo(() => slots.filter((slot) => !slot.disabled), [slots]);
+  const hasAvailableSlots = enabledSlots.length > 0;
 
   const intervalMinutes = schedule?.intervalMinutes ?? DEFAULT_INTERVAL_MINUTES;
   const closingMinutes = schedule?.window?.closesAt
     ? toMinutes(schedule.window.closesAt)
     : DEFAULT_CLOSING_MINUTES;
   const latestSelectableMinutes = Math.max(0, closingMinutes - intervalMinutes);
-  const fallbackTime = slots[0]?.value ?? DEFAULT_TIME;
+  const fallbackTime = enabledSlots[0]?.value ?? '';
 
   useEffect(() => {
     form.reset(
@@ -150,6 +168,10 @@ export function usePlanStepForm({
 
   const selectTime = useCallback(
     (value: string, options?: { commit?: boolean }) => {
+      if (!hasAvailableSlots) {
+        return;
+      }
+
       if (options?.commit === false) {
         form.setValue('time', value, { shouldDirty: true, shouldValidate: false });
         return;
@@ -168,7 +190,7 @@ export function usePlanStepForm({
         booking_type: inferredService,
       });
     },
-    [form, inferBookingOption, normalizeToInterval, onTrack, updateField],
+    [form, hasAvailableSlots, inferBookingOption, normalizeToInterval, onTrack, updateField],
   );
 
   const changeParty = useCallback(
@@ -201,7 +223,109 @@ export function usePlanStepForm({
     [updateField],
   );
 
+  useEffect(() => {
+    if (!schedule) {
+      return;
+    }
+
+    const scheduleDate = schedule.date;
+    const reason: PlanStepUnavailableReason = schedule.isClosed ? 'closed' : 'no-slots';
+    const shouldBlockDate = schedule.isClosed || !hasAvailableSlots;
+
+    setUnavailableDates((prev) => {
+      const existing = prev.get(scheduleDate);
+      if (shouldBlockDate) {
+        if (existing === reason) {
+          return prev;
+        }
+        const next = new Map(prev);
+        next.set(scheduleDate, reason);
+        return next;
+      }
+      if (!existing) {
+        return prev;
+      }
+      const next = new Map(prev);
+      next.delete(scheduleDate);
+      return next;
+    });
+
+    const isCurrentDate = scheduleDate === state.details.date;
+
+    if (shouldBlockDate) {
+      if (isCurrentDate) {
+        const fallbackDate = lastValidDateRef.current;
+        if (fallbackDate && fallbackDate !== scheduleDate) {
+          form.setValue('date', fallbackDate, { shouldDirty: true, shouldValidate: true });
+          updateField('date', fallbackDate);
+        } else if (!fallbackDate) {
+          form.setValue('date', '', { shouldDirty: true, shouldValidate: true });
+          updateField('date', '');
+        }
+
+        if (form.getValues('time')) {
+          form.setValue('time', '', { shouldDirty: true, shouldValidate: true });
+          updateField('time', '');
+        }
+
+        const dateMessage =
+          reason === 'closed'
+            ? 'We’re closed on the selected date. Please choose a different day.'
+            : 'No reservation times are available for the selected date. Please choose another day.';
+        form.setError('date', { type: 'manual', message: dateMessage });
+        form.setError('time', {
+          type: 'manual',
+          message: 'Select another date to continue.',
+        });
+      }
+      return;
+    }
+
+    if (isCurrentDate) {
+      form.clearErrors(['date', 'time']);
+      lastValidDateRef.current = scheduleDate;
+
+      const currentTime = form.getValues('time');
+      const hasCurrentSlot =
+        currentTime && enabledSlots.some((slot) => slot.value === currentTime && !slot.disabled);
+
+      if (!hasCurrentSlot) {
+        const nextSlot = enabledSlots[0]?.value ?? '';
+        if (nextSlot) {
+          form.setValue('time', nextSlot, { shouldDirty: false, shouldValidate: true });
+          updateField('time', nextSlot);
+          const inferredService = inferBookingOption(nextSlot);
+          form.setValue('bookingType', inferredService, {
+            shouldDirty: false,
+            shouldValidate: true,
+          });
+          updateField('bookingType', inferredService);
+        } else if (form.getValues('time')) {
+          form.setValue('time', '', { shouldDirty: true, shouldValidate: true });
+          updateField('time', '');
+        }
+      }
+    } else if (!shouldBlockDate && !schedule.isClosed) {
+      lastValidDateRef.current = scheduleDate;
+    }
+  }, [
+    enabledSlots,
+    form,
+    hasAvailableSlots,
+    inferBookingOption,
+    schedule,
+    state.details.date,
+    updateField,
+  ]);
+
   const { isSubmitting, isValid } = form.formState;
+  const currentUnavailabilityReason = useMemo<PlanStepUnavailableReason | null>(() => {
+    const currentDate = state.details.date;
+    if (!currentDate) {
+      return null;
+    }
+    return unavailableDates.get(currentDate) ?? null;
+  }, [state.details.date, unavailableDates]);
 
   useEffect(() => {
     const duration = schedule?.defaultDurationMinutes;
@@ -242,6 +366,11 @@ export function usePlanStepForm({
     },
     minDate,
     intervalMinutes,
+    unavailableDates,
+    hasAvailableSlots,
+    isScheduleLoading,
+    schedule,
+    currentUnavailabilityReason,
     isSubmitting,
     isValid,
     submitForm,

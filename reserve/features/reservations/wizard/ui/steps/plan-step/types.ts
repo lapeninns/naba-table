@@ -2,6 +2,7 @@ import type { State, StepAction } from '../../../model/reducer';
 import type { PlanFormValues } from '../../../model/schemas';
 import type { WizardActions } from '../../../model/store';
 import type {
+  ReservationSchedule,
   ServiceAvailability,
   TimeSlotDescriptor,
 } from '@reserve/features/reservations/wizard/services';
@@ -24,6 +25,8 @@ export type PlanStepFormHandlers = {
   changeNotes: (value: string) => void;
 };
 
+export type PlanStepUnavailableReason = 'closed' | 'no-slots';
+
 export type PlanStepFormState = {
   form: UseFormReturn<PlanFormValues>;
   slots: TimeSlotDescriptor[];
@@ -31,6 +34,11 @@ export type PlanStepFormState = {
   handlers: PlanStepFormHandlers;
   minDate: Date;
   intervalMinutes: number;
+  unavailableDates: Map<string, PlanStepUnavailableReason>;
+  hasAvailableSlots: boolean;
+  isScheduleLoading: boolean;
+  schedule: ReservationSchedule | null;
+  currentUnavailabilityReason: PlanStepUnavailableReason | null;
   isSubmitting: boolean;
   isValid: boolean;
   submitForm: (values: PlanFormValues) => void;

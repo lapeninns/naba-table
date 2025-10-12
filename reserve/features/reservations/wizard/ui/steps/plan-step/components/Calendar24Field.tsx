@@ -1,7 +1,7 @@
 'use client';
 
 import { ChevronDownIcon } from 'lucide-react';
-import React, { useId, useMemo, useState } from 'react';
+import React, { useCallback, useId, useMemo, useState } from 'react';
 
 import { reservationConfigResult } from '@reserve/shared/config/reservations';
 import { formatReservationDate } from '@reserve/shared/formatting/booking';
@@ -32,6 +32,9 @@ export type Calendar24FieldProps = {
   };
   suggestions?: TimeSlotDescriptor[];
   intervalMinutes?: number;
+  isDateUnavailable?: (date: Date) => boolean;
+  isTimeDisabled?: boolean;
+  unavailableMessage?: string;
 };
 
 export function Calendar24Field({
@@ -39,6 +42,9 @@ export function Calendar24Field({
   time,
   suggestions = [],
   intervalMinutes,
+  isDateUnavailable,
+  isTimeDisabled = false,
+  unavailableMessage,
 }: Calendar24FieldProps) {
   const resolvedIntervalMinutes =
     typeof intervalMinutes === 'number' && intervalMinutes > 0
@@ -64,6 +70,26 @@ export function Calendar24Field({
   const enabledSuggestions = useMemo(
     () => suggestions.filter((slot) => !slot.disabled),
     [suggestions],
+  );
+  const showSuggestions = !isTimeDisabled && enabledSuggestions.length > 0;
+  const inputValue = isTimeDisabled ? '' : (time.value ?? '');
+  const resolvedUnavailableMessage =
+    unavailableMessage ?? 'No available times for the selected date.';
+
+  const disabledMatcher = useCallback(
+    (day?: Date) => {
+      if (!day) {
+        return false;
+      }
+      if (day < date.minDate) {
+        return true;
+      }
+      if (typeof isDateUnavailable === 'function') {
+        return isDateUnavailable(day);
+      }
+      return false;
+    },
+    [date.minDate, isDateUnavailable],
   );
 
   return (
@@ -98,7 +124,7 @@ export function Calendar24Field({
                 date.onBlur?.();
                 setOpen(false);
               }}
-              disabled={(day) => (day ? day < date.minDate : false)}
+              disabled={disabledMatcher}
               initialFocus
             />
           </PopoverContent>
@@ -121,13 +147,20 @@ export function Calendar24Field({
           <Input
             id={timeInputId}
             type="time"
-            value={time.value ?? ''}
+            value={inputValue}
             step={timeStepSeconds}
             onChange={(event) => {
+              if (isTimeDisabled) {
+                return;
+              }
               const value = event.target.value;
               time.onChange(value, { commit: false });
             }}
             onBlur={(event) => {
+              if (isTimeDisabled) {
+                time.onBlur?.();
+                return;
+              }
               time.onBlur?.();
               time.onChange(event.target.value, { commit: true });
             }}
@@ -135,10 +168,11 @@ export function Calendar24Field({
             aria-describedby={
               [timeDescriptionId, timeErrorId].filter(Boolean).join(' ') || undefined
             }
-            list={enabledSuggestions.length > 0 ? timeListId : undefined}
+            list={showSuggestions ? timeListId : undefined}
             className="bg-background text-base font-normal appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
+            disabled={isTimeDisabled}
           />
-          {enabledSuggestions.length > 0 ? (
+          {showSuggestions ? (
             <datalist id={timeListId}>
               {enabledSuggestions.map((slot) => (
                 <option
@@ -149,8 +183,8 @@ export function Calendar24Field({
               ))}
             </datalist>
           ) : (
-            <p className="px-1 text-[0.8rem] text-muted-foreground">
-              No available times for the selected date.
+            <p className="px-1 text-[0.8rem] text-muted-foreground" aria-live="polite">
+              {resolvedUnavailableMessage}
             </p>
           )}
         </div>

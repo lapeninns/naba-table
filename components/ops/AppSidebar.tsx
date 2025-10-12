@@ -1,9 +1,9 @@
 'use client';
 
+import { BarChart3, CalendarDays, CalendarPlus, CircleHelp, LogOut, Loader2, SlidersHorizontal, Store, UsersRound } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useMemo, useState, type ComponentType, type SVGProps } from 'react';
-import { BarChart3, CalendarDays, CalendarPlus, CircleHelp, LogOut, Loader2, Settings2, UsersRound } from 'lucide-react';
 
 import {
   Sidebar,
@@ -19,9 +19,10 @@ import {
   SidebarMenuSkeleton,
   SidebarSeparator,
 } from '@/components/ui/sidebar';
-import type { RestaurantRole } from '@/lib/owner/auth/roles';
 import { signOutFromSupabase } from '@/lib/supabase/signOut';
 import { cn } from '@/lib/utils';
+
+import type { RestaurantRole } from '@/lib/owner/auth/roles';
 
 type OpsNavItem = {
   title: string;
@@ -31,6 +32,11 @@ type OpsNavItem = {
   matcher?: (pathname: string) => boolean;
 };
 
+type OpsNavSection = {
+  label: string;
+  items: OpsNavItem[];
+};
+
 const ROLE_LABELS: Record<RestaurantRole, string> = {
   owner: 'Owner',
   manager: 'Manager',
@@ -38,48 +44,58 @@ const ROLE_LABELS: Record<RestaurantRole, string> = {
   server: 'Server',
 };
 
-const NAV_ITEMS: OpsNavItem[] = [
+const NAV_SECTIONS: OpsNavSection[] = [
   {
-    title: 'Dashboard',
-    description: 'Today’s service overview',
-    href: '/ops',
-    icon: BarChart3,
-    matcher: (pathname) => pathname === '/ops',
+    label: 'Daily operations',
+    items: [
+      {
+        title: 'Dashboard',
+        description: 'Today’s service overview',
+        href: '/ops',
+        icon: BarChart3,
+        matcher: (pathname) => pathname === '/ops',
+      },
+      {
+        title: 'Bookings',
+        description: 'Manage reservations',
+        href: '/ops/bookings',
+        icon: CalendarDays,
+        matcher: (pathname) => pathname === '/ops/bookings',
+      },
+      {
+        title: 'Walk-in booking',
+        description: 'Record guests on arrival',
+        href: '/ops/bookings/new',
+        icon: CalendarPlus,
+        matcher: (pathname) => pathname.startsWith('/ops/bookings/new'),
+      },
+    ],
   },
   {
-    title: 'Bookings',
-    description: 'Manage reservations',
-    href: '/ops/bookings',
-    icon: CalendarDays,
-    matcher: (pathname) => pathname === '/ops/bookings',
-  },
-  {
-    title: 'Manage restaurant',
-    description: 'Create and manage restaurants',
-    href: '/ops/manage-restaurant',
-    icon: Settings2,
-    matcher: (pathname) => pathname.startsWith('/ops/manage-restaurant'),
-  },
-  {
-    title: 'Restaurant settings',
-    description: 'Configure hours and service periods',
-    href: '/ops/restaurant-settings',
-    icon: Settings2,
-    matcher: (pathname) => pathname.startsWith('/ops/restaurant-settings'),
-  },
-  {
-    title: 'Walk-in booking',
-    description: 'Record guests on arrival',
-    href: '/ops/bookings/new',
-    icon: CalendarPlus,
-    matcher: (pathname) => pathname.startsWith('/ops/bookings/new'),
-  },
-  {
-    title: 'Team',
-    description: 'Manage staff invitations',
-    href: '/ops/team',
-    icon: UsersRound,
-    matcher: (pathname) => pathname.startsWith('/ops/team'),
+    label: 'Restaurant management',
+    items: [
+      {
+        title: 'Team',
+        description: 'Manage staff invitations',
+        href: '/ops/team',
+        icon: UsersRound,
+        matcher: (pathname) => pathname.startsWith('/ops/team'),
+      },
+      {
+        title: 'Manage restaurant',
+        description: 'Create and manage restaurants',
+        href: '/ops/manage-restaurant',
+        icon: Store,
+        matcher: (pathname) => pathname.startsWith('/ops/manage-restaurant'),
+      },
+      {
+        title: 'Restaurant settings',
+        description: 'Configure hours and service periods',
+        href: '/ops/restaurant-settings',
+        icon: SlidersHorizontal,
+        matcher: (pathname) => pathname.startsWith('/ops/restaurant-settings'),
+      },
+    ],
   },
 ];
 
@@ -184,37 +200,39 @@ export function AppSidebar({ account }: AppSidebarProps) {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Operations</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {NAV_ITEMS.map((item) => {
-                const active = isActive(pathname, item);
-                const Icon = item.icon;
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={active}>
-                      <Link
-                        href={item.href}
-                        aria-current={active ? 'page' : undefined}
-                        className="touch-manipulation"
-                      >
-                        <Icon
-                          className={cn(
-                            'size-4 transition-colors group-hover/menu-button:text-sidebar-accent-foreground group-focus-visible/menu-button:text-sidebar-accent-foreground',
-                            active ? 'text-sidebar-accent-foreground' : 'text-sidebar-foreground',
-                          )}
-                          aria-hidden
-                        />
-                        <span className="truncate">{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {NAV_SECTIONS.map((section) => (
+          <SidebarGroup key={section.label}>
+            <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {section.items.map((item) => {
+                  const active = isActive(pathname, item);
+                  const Icon = item.icon;
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton asChild isActive={active}>
+                        <Link
+                          href={item.href}
+                          aria-current={active ? 'page' : undefined}
+                          className="touch-manipulation"
+                        >
+                          <Icon
+                            className={cn(
+                              'size-4 transition-colors group-hover/menu-button:text-sidebar-accent-foreground group-focus-visible/menu-button:text-sidebar-accent-foreground',
+                              active ? 'text-sidebar-accent-foreground' : 'text-sidebar-foreground',
+                            )}
+                            aria-hidden
+                          />
+                          <span className="truncate">{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
 
       <SidebarSeparator className="mx-2" />

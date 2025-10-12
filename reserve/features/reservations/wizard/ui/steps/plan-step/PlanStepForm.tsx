@@ -1,9 +1,12 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import { AlertCircle } from 'lucide-react';
+import React, { useCallback, useMemo } from 'react';
 import { useController, useWatch } from 'react-hook-form';
 
+import { formatDateForInput } from '@reserve/shared/formatting/booking';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@shared/ui/accordion';
+import { Alert, AlertDescription, AlertIcon } from '@shared/ui/alert';
 import { Form, FormField } from '@shared/ui/form';
 
 import {
@@ -41,6 +44,27 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
   } = useController({ name: 'time', control });
   const bookingTypeValue = useWatch({ name: 'bookingType', control });
   const notesValue = useWatch({ name: 'notes', control });
+
+  const isDateUnavailable = useCallback(
+    (day: Date) => {
+      const key = formatDateForInput(day);
+      return state.unavailableDates.has(key);
+    },
+    [state.unavailableDates],
+  );
+
+  const timeDisabled = state.currentUnavailabilityReason !== null;
+
+  const unavailableCopy = useMemo(() => {
+    switch (state.currentUnavailabilityReason) {
+      case 'closed':
+        return 'We’re closed on this date. Please choose a different day.';
+      case 'no-slots':
+        return 'All reservation times are taken on this date. Please choose a different day.';
+      default:
+        return null;
+    }
+  }, [state.currentUnavailabilityReason]);
 
   const accordionSummary = useMemo(() => {
     const selectedSlot = state.slots.find((slot) => slot.value === timeField.value);
@@ -99,6 +123,9 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
           }}
           suggestions={state.slots}
           intervalMinutes={state.intervalMinutes}
+          isDateUnavailable={isDateUnavailable}
+          isTimeDisabled={timeDisabled}
+          unavailableMessage={unavailableCopy ?? undefined}
         />
 
         <FormField
@@ -113,6 +140,15 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
           )}
         />
       </div>
+
+      {unavailableCopy ? (
+        <Alert variant="warning" className="border border-dashed">
+          <AlertIcon>
+            <AlertCircle className="h-4 w-4" aria-hidden />
+          </AlertIcon>
+          <AlertDescription>{unavailableCopy}</AlertDescription>
+        </Alert>
+      ) : null}
 
       <Accordion
         type="single"
@@ -131,7 +167,7 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
           <AccordionContent>
             <div className="space-y-6 pt-4">
               <TimeSlotGrid
-                slots={state.slots}
+                slots={timeDisabled ? [] : state.slots}
                 value={timeField.value}
                 onSelect={(next) => {
                   state.handlers.selectTime(next);

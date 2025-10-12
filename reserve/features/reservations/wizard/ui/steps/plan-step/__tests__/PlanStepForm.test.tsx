@@ -172,4 +172,95 @@ describe('<PlanStepForm />', () => {
       expect(goToStep).toHaveBeenCalledWith(2);
     });
   });
+
+  it('disables time selection and surfaces an alert when the schedule is closed', async () => {
+    getMock.mockReset();
+    getMock.mockResolvedValueOnce({
+      ...scheduleFixture,
+      date: '2025-05-11',
+      isClosed: true,
+      slots: [],
+    });
+
+    const state = wizardStateFixture({
+      date: '2025-05-11',
+      time: '18:00',
+    });
+    const updateDetails = vi.fn();
+    const goToStep = vi.fn();
+    const onActionsChange = vi.fn();
+    const wrapper = createWrapper();
+
+    render(
+      <PlanStepForm
+        state={state}
+        actions={{ updateDetails, goToStep }}
+        onActionsChange={onActionsChange}
+        minDate={MIN_DATE}
+      />,
+      { wrapper },
+    );
+
+    await waitFor(() => {
+      expect(updateDetails).toHaveBeenCalledWith('time', '');
+    });
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/We’re closed on this date/i);
+
+    await waitFor(() => {
+      const timeInput = screen.getByLabelText('Time');
+      expect(timeInput).toBeDisabled();
+    });
+
+    await waitFor(() => {
+      const latestActions =
+        onActionsChange.mock.calls[onActionsChange.mock.calls.length - 1]?.[0] ?? [];
+      const continueAction = latestActions.find(
+        (action: { id: string }) => action.id === 'plan-continue',
+      );
+      expect(continueAction?.disabled).toBe(true);
+    });
+
+    expect(updateDetails).toHaveBeenCalledWith('time', '');
+  });
+
+  it('disables time selection when all returned slots are unavailable', async () => {
+    getMock.mockReset();
+    getMock.mockResolvedValueOnce({
+      ...scheduleFixture,
+      date: '2025-05-12',
+      isClosed: false,
+      slots: scheduleFixture.slots.map((slot) => ({ ...slot, disabled: true })),
+    });
+
+    const state = wizardStateFixture({
+      date: '2025-05-12',
+      time: '12:00',
+    });
+    const updateDetails = vi.fn();
+    const goToStep = vi.fn();
+    const onActionsChange = vi.fn();
+    const wrapper = createWrapper();
+
+    render(
+      <PlanStepForm
+        state={state}
+        actions={{ updateDetails, goToStep }}
+        onActionsChange={onActionsChange}
+        minDate={MIN_DATE}
+      />,
+      { wrapper },
+    );
+
+    await waitFor(() => {
+      expect(updateDetails).toHaveBeenCalledWith('time', '');
+    });
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/All reservation times are taken/i);
+
+    expect(screen.getByLabelText('Time')).toBeDisabled();
+    expect(updateDetails).toHaveBeenCalledWith('time', '');
+  });
 });

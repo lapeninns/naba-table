@@ -89,4 +89,50 @@ describe('<Calendar24Field />', () => {
     expect(option).toBeTruthy();
     expect(option?.getAttribute('value')).toBe('18:00');
   });
+
+  it('prevents selection for dates flagged by the matcher', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+
+    render(
+      <Calendar24Field
+        date={{
+          value: '',
+          minDate: new Date('2025-05-01T00:00:00Z'),
+          onSelect,
+        }}
+        time={{ value: '18:00', onChange: vi.fn() }}
+        isDateUnavailable={(day) => day.getDate() === 15}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Date' }));
+    const disabledCell = (await screen.findAllByRole('gridcell')).find((cell) =>
+      cell.textContent?.trim()?.includes('15'),
+    );
+    expect(disabledCell).toBeDefined();
+    const disabledButton = disabledCell?.querySelector('button');
+    expect(disabledButton).toBeDefined();
+
+    if (disabledButton) {
+      await user.click(disabledButton);
+    }
+
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('disables time input and shows unavailable copy when time is blocked', () => {
+    render(
+      <Calendar24Field
+        date={{ value: '2025-05-15', minDate: new Date('2025-05-01'), onSelect: vi.fn() }}
+        time={{ value: '18:00', onChange: vi.fn() }}
+        isTimeDisabled
+        unavailableMessage="Closed for private event."
+      />,
+    );
+
+    const timeInput = screen.getByLabelText('Time');
+    expect(timeInput).toBeDisabled();
+    expect(screen.getByText('Closed for private event.')).toBeInTheDocument();
+  });
 });
