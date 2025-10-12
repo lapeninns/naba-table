@@ -1,6 +1,6 @@
 'use client';
 
-import { BarChart3, CalendarDays, CalendarPlus, CircleHelp, LogOut, Loader2, SlidersHorizontal, Store, UsersRound } from 'lucide-react';
+import { BarChart3, CalendarDays, CalendarPlus, CircleHelp, LogOut, Loader2, SlidersHorizontal, UsersRound } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useMemo, useState, type ComponentType, type SVGProps } from 'react';
@@ -80,13 +80,6 @@ const NAV_SECTIONS: OpsNavSection[] = [
         href: '/ops/team',
         icon: UsersRound,
         matcher: (pathname) => pathname.startsWith('/ops/team'),
-      },
-      {
-        title: 'Manage restaurant',
-        description: 'Create and manage restaurants',
-        href: '/ops/manage-restaurant',
-        icon: Store,
-        matcher: (pathname) => pathname.startsWith('/ops/manage-restaurant'),
       },
       {
         title: 'Restaurant settings',
