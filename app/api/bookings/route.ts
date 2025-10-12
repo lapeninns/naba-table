@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import { env } from "@/lib/env";
 import {
   BOOKING_TYPES,
   SEATING_OPTIONS,
@@ -25,6 +26,9 @@ import { normalizeEmail, upsertCustomer } from "@/server/customers";
 import { getActiveLoyaltyProgram, calculateLoyaltyAward, applyLoyaltyAward } from "@/server/loyalty";
 import { enqueueBookingCreatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
 import { recordObservabilityEvent } from "@/server/observability";
+import { computeGuestLookupHash } from "@/server/security/guest-lookup";
+import { consumeRateLimit } from "@/server/security/rate-limit";
+import { anonymizeIp, extractClientIp } from "@/server/security/request";
 import { getRestaurantSchedule } from "@/server/restaurants/schedule";
 import { OperatingHoursError, assertBookingWithinOperatingWindow } from "@/server/bookings/timeValidation";
 
@@ -201,8 +205,111 @@ export async function GET(req: NextRequest) {
     const { email, phone, restaurantId } = parsedQuery.data;
     const supabase = await getRouteHandlerSupabaseClient();
     const targetRestaurantId = restaurantId ?? (await getDefaultRestaurantId());
+    const clientIp = extractClientIp(req);
+
+    const rateResult = await consumeRateLimit({
+      identifier: `bookings:lookup:${targetRestaurantId}:${clientIp}`,
+      limit: 20,
+      windowMs: 60_000,
+    });
+
+    if (!rateResult.ok) {
+      const retryAfterSeconds = Math.max(1, Math.ceil((rateResult.resetAt - Date.now()) / 1000));
+      void recordObservabilityEvent({
+        source: "api.bookings",
+        eventType: "guest_lookup.rate_limited",
+        severity: "warning",
+        context: {
+          restaurant_id: targetRestaurantId,
+          ip_scope: anonymizeIp(clientIp),
+          reset_at: new Date(rateResult.resetAt).toISOString(),
+          limit: rateResult.limit,
+          window_ms: 60_000,
+          rate_source: rateResult.source,
+        },
+      });
+
+      return NextResponse.json(
+        {
+          error: "Too many requests",
+          code: "RATE_LIMITED",
+          retryAfter: retryAfterSeconds,
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": retryAfterSeconds.toString(),
+          },
+        },
+      );
+    }
+
+    const shouldUseGuestLookupPolicy =
+      env.featureFlags.guestLookupPolicy && !!env.security.guestLookupPepper;
+
+    if (shouldUseGuestLookupPolicy) {
+      const contactHash = computeGuestLookupHash({
+        restaurantId: targetRestaurantId,
+        email,
+        phone,
+      });
+
+      if (contactHash) {
+        try {
+          const { data: guestRows, error: guestError } = await supabase.rpc("get_guest_bookings", {
+            p_restaurant_id: targetRestaurantId,
+            p_hash: contactHash,
+          });
+
+          if (!guestError && Array.isArray(guestRows)) {
+            void recordObservabilityEvent({
+              source: "api.bookings",
+              eventType: "guest_lookup.allowed",
+              context: {
+                restaurant_id: targetRestaurantId,
+                ip_scope: anonymizeIp(clientIp),
+                matched: guestRows.length > 0,
+                count: guestRows.length,
+                policy_enabled: true,
+                lookup_strategy: "policy",
+                rate_source: rateResult.source,
+              },
+            });
+
+            return NextResponse.json({ bookings: guestRows });
+          }
+
+          if (guestError) {
+            const guestCode = typeof guestError.code === "string" ? guestError.code : undefined;
+            const message = stringifyError(guestError);
+            const isMissingFunction =
+              guestCode === "PGRST100" || guestCode === "42883" || message.includes("get_guest_bookings");
+
+            if (!isMissingFunction) {
+              console.error("[bookings][GET][guest-lookup] rpc failed", message);
+            }
+          }
+        } catch (guestError) {
+          console.error("[bookings][GET][guest-lookup] unexpected error", stringifyError(guestError));
+        }
+      }
+    }
 
     const bookings = await fetchBookingsForContact(supabase, targetRestaurantId, email, phone);
+
+    void recordObservabilityEvent({
+      source: "api.bookings",
+      eventType: "guest_lookup.allowed",
+      context: {
+        restaurant_id: targetRestaurantId,
+        ip_scope: anonymizeIp(clientIp),
+        matched: bookings.length > 0,
+        count: bookings.length,
+        policy_enabled: shouldUseGuestLookupPolicy,
+        lookup_strategy: shouldUseGuestLookupPolicy ? "legacy-fallback" : "legacy",
+        rate_source: rateResult.source,
+      },
+    });
 
     return NextResponse.json({ bookings });
   } catch (error: unknown) {

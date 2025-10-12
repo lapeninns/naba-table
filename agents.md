@@ -1,636 +1,603 @@
 # AGENTS.md
 
-> **Instructions for AI coding agents working on this project**
+**Operating handbook for AI coding agents and human contributors**
+
+> A concise, end‑to‑end process for delivering reliable software changes with the same structure every time.
 
 ---
 
-## Project Overview
+## 1) Scope & Audience
 
-This project follows a systematic **Context Engineering Framework** for all development work. Before writing any code, you must follow the structured workflow phases to ensure quality, consistency, and maintainability.
-
----
-
-## Core Workflow: Task-Based Development
-
-### Task Structure
-
-Every feature, bug fix, or enhancement is treated as a discrete task with its own timestamped directory:
-
-```
-tasks/<task-id>-YYYYMMDD-HHMM/
-├── research.md      # Findings, patterns, and resources
-├── plan.md          # Implementation strategy and requirements
-├── todo.md          # Executable checklist
-└── verification.md  # Test scenarios and validation criteria
-```
-
-**Task ID naming**: Use semantic slug + timestamp (e.g., `user-authentication-flow-20250110-1430`, `payment-gateway-integration-20250110-0915`)
-
-**Timestamp format**: `YYYYMMDD-HHMM` (Year Month Day - Hour Minute in 24-hour format)
+- **Who**: AI coding agents, human engineers, reviewers, and maintainers working in this repository.
+- **What**: The authoritative workflow, quality bars, file structure, and conventions for any change (feature, bug fix, refactor, experiment).
+- **Why**: Consistency, traceability, and safe iteration—especially across monorepos and multiple subprojects.
 
 ---
 
-## Mandatory Workflow Phases
+## 2) Non‑Negotiables (Read First)
 
-You **MUST** follow these phases in order. Do not skip phases or write code prematurely.
+1. **Follow the phases in order** (no coding before research & plan).
+2. **Everything is a Task** with its own time‑stamped directory and artifacts.
+3. **Manual UI QA via Chrome DevTools (MCP) is mandatory** for any UI change.
+4. **Supabase: remote only**—never run migrations or seeds against a local instance.
+5. **Prefer existing patterns** (DRY/KISS/YAGNI). Use **SHADCN UI** before building custom components.
+6. **Accessibility is required**, not optional (WCAG/WAI‑ARIA APG alignment).
+7. **Document assumptions & deviations** from the plan, inside the task folder.
 
-### Phase 0: Task Setup
+---
 
-**Before anything else:**
+## 3) Task Structure & Naming
 
-1. Create task directory with timestamp: `tasks/<semantic-task-id>-YYYYMMDD-HHMM/`
-   - Example: `tasks/user-auth-flow-20250110-1430/`
-2. Document initial requirements
-3. Identify success criteria
+- **Directory**: `tasks/<slug>-YYYYMMDD-HHMM/`
+  - Use a clear semantic **slug**: `user-auth-flow`, `payment-gateway-integration`, `fix-avatar-cropping`.
+  - **Timestamp**: `YYYYMMDD-HHMM` in **UTC** (e.g., `20250110-1430` → 2025‑01‑10 14:30 UTC).
 
-**Timestamp format**: Use `YYYYMMDD-HHMM` format (e.g., `20250110-1430` for January 10, 2025 at 2:30 PM)
+- **Required files** inside each task directory:
 
-### Phase 1: Research (`research.md`)
+  ```
+  tasks/<slug>-YYYYMMDD-HHMM/
+  ├── research.md      # What exists, what to reuse, constraints, references
+  ├── plan.md          # Objective, design, API, states, tests, rollout
+  ├── todo.md          # Executable checklist (atomic steps)
+  └── verification.md  # Manual QA, test outcomes, performance, sign-offs
+  ```
 
-**Goal**: Build comprehensive understanding before planning or coding.
+**Example**
+`tasks/user-authentication-flow-20250110-1430/`
 
-**Required activities:**
+---
 
-- Search codebase for existing patterns, components, and utilities
-- Identify reusable code and established conventions
-- Note technical debt or anti-patterns to avoid
-- Review external documentation, RFCs, or specifications (if applicable)
-- Document all findings, constraints, and recommendations
+## 4) End‑to‑End Workflow (Phases)
 
-**Output**: `research.md` containing:
+> Move through phases 0 → 6 without skipping. Use the **exit criteria** as gates.
 
-- Existing patterns discovered
-- Relevant external resources
-- Technical constraints or dependencies
-- Open questions and answers
-- Recommended approach with rationale
+### Phase 0 — **Task Setup**
 
-**Example structure**:
+**Inputs**: Ticket or problem statement.
+**Activities**:
+
+- Create `tasks/<slug>-YYYYMMDD-HHMM/` (UTC).
+- Capture initial requirements + success criteria (brief).
+  **Outputs**:
+- Directory created.
+- Success criteria drafted in `plan.md` (placeholder is fine).
+  **Exit**:
+- Task folder exists, with at least a stubbed `research.md` and `plan.md`.
+
+---
+
+### Phase 1 — **Research** (`research.md`)
+
+**Goal**: Understand before building.
+**Activities**:
+
+- Search the codebase for existing patterns/utilities/components.
+- Identify reuse opportunities and anti‑patterns to avoid.
+- Review relevant external specs, RFCs, docs.
+- Record constraints, open questions, and recommended approach.
+  **Outputs** (`research.md`):
+- Existing patterns/components to reuse.
+- External references and links.
+- Constraints (tech, performance, security, product).
+- Open Q&A (resolved if possible).
+- Rationale for a recommended direction.
+  **Exit**:
+- A reasoned recommendation exists; known constraints & risks are explicit.
+
+**Suggested Template** (use in `research.md`)
 
 ```markdown
-# Research: <Feature Name>
+# Research: <Feature/Change Name>
 
-## Existing Patterns
+## Existing Patterns & Reuse
 
-- Component X handles similar logic
-- API pattern Y is used consistently
+- ...
 
 ## External Resources
 
-- [Documentation](url)
-- Best practices from [source](url)
+- [Spec/Doc](url) – note why it matters
 
-## Technical Constraints
+## Constraints & Risks
 
-- Must support React 18 concurrent features
-- Performance budget: <200ms initial render
+- ...
 
-## Recommendations
+## Open Questions (and answers if resolved)
 
-Recommend approach Z because...
+- Q: ...
+  A: ...
+
+## Recommended Direction (with rationale)
+
+- ...
 ```
 
-### Phase 2: Planning (`plan.md`)
+---
 
-**Goal**: Create comprehensive, implementable blueprint.
+### Phase 2 — **Planning** (`plan.md`)
 
-**Required activities:**
+**Goal**: Turn research into an implementable blueprint.
+**Activities**:
 
-- Review `research.md` thoroughly
-- Design solution using existing patterns
-- Follow established architectural patterns
-- Plan for edge cases and error states
-- Validate scope with stakeholder if needed
+- Build mobile-first — design and develop for the smallest screens and core features first, then progressively enhance the layout, interactions, and visuals for larger screens. Responsive design ensures the site automatically adapts to different screen sizes.
+- Design with existing patterns and components.
+- Define data flow, API contracts, UI states, and error paths.
+- Plan tests and rollout.
+  **Outputs** (`plan.md`):
+- **Objective** + **Success Criteria** (measurable).
+- **Architecture** (diagrams optional), component breakdown, state mgmt.
+- **API contracts** (request/response, error shapes).
+- **UI/UX** flows (loading/empty/error/success).
+- **Testing strategy** (unit/integration/E2E/accessibility).
+- **Edge cases** and failure handling.
+- **Rollout plan** (flags, gradual exposure, metrics).
+  **Exit**:
+- Reviewer can say “yes, build this” without more meetings.
 
-**Output**: `plan.md` containing:
-
-- **Objective**: Problem statement and success criteria
-- **Architecture**: High-level design decisions
-- **Component breakdown**: What needs to be built/modified
-- **Data flow**: How information moves through system
-- **API contracts**: Request/response formats
-- **UI/UX considerations**: User flows, states, interactions
-- **Testing strategy**: How to validate correctness
-- **Edge cases**: Error states, empty states, loading states
-- **Rollout plan**: Deployment strategy
-
-**Example structure**:
+**Suggested Template** (use in `plan.md`)
 
 ```markdown
-# Implementation Plan: <Feature Name>
+# Implementation Plan: <Feature/Change Name>
 
 ## Objective
 
-Enable users to [goal] by [approach]
+We will enable <user> to <goal> so that <outcome>.
 
 ## Success Criteria
 
-- [ ] Users can complete [action] in <3 clicks
-- [ ] Page loads in <1s on 3G
-- [ ] Passes accessibility checks
+- [ ] <metric or condition>
+- [ ] <metric or condition>
 
-## Architecture
+## Architecture & Components
 
-### Components
+- <ComponentA>: role
+- <ComponentB>: role
+  State: <where/why> | Routing/URL state: <...>
 
-- `<FeatureContainer>`: Main orchestrator
-- `<FeatureForm>`: User input handling
+## Data Flow & API Contracts
 
-### State Management
+Endpoint: METHOD /api/...
+Request: { ... }
+Response: { ... }
+Errors: { code, message }
 
-Use React Context for [reason]
+## UI/UX States
 
-### API Integration
-
-**Endpoint**: `POST /api/feature`
-**Request**: `{ param: string }`
-**Response**: `{ data: Object[] }`
-
-## Implementation Steps
-
-1. Create base component structure
-2. Implement API integration
-3. Add form validation
-4. Build results display
-5. Add accessibility features
-6. Write tests
+- Loading: ...
+- Empty: ...
+- Error: ...
+- Success: ...
 
 ## Edge Cases
 
-- Empty state: Show onboarding
-- Error state: Provide recovery options
-- Loading state: Show skeleton
+- ...
 
-## Testing
+## Testing Strategy
 
-- Unit: Component logic
-- Integration: API calls
-- E2E: User journeys
-- Accessibility: Keyboard nav
+- Unit: ...
+- Integration: ...
+- E2E: ...
+- Accessibility: ...
 
 ## Rollout
 
-- Feature flag: `enable_new_feature`
-- Gradual: 10% → 50% → 100%
+- Feature flag: <flag_name>
+- Exposure: 10% → 50% → 100%
+- Monitoring: <metric/logs>
 ```
 
-### Phase 3: Implementation (`todo.md`)
+---
 
-**Goal**: Execute plan systematically.
+### Phase 3 — **Implementation** (`todo.md`)
 
-**Process:**
+**Goal**: Execute with momentum and traceability.
+**Activities**:
 
-1. Create `todo.md` breaking plan into atomic tasks
-2. Work through checklist sequentially
-3. Check off completed items
-4. Document deviations from plan
-5. **Batch questions** until end of implementation
-6. Make reasonable assumptions (document them)
+- Break work into atomic, checkable steps.
+- Work through them sequentially; batch questions in one block.
+- Log deviations from plan and assumptions.
+  **Outputs** (`todo.md`):
+- A living checklist with progress.
+  **Exit**:
+- Core functionality complete; tests passing locally.
 
-**Guidelines:**
-
-- ✅ Work as long as possible without interruption
-- ✅ Prioritize working code over perfect code
-- ✅ Refactor after core functionality works
-- ❌ Don't stop for every small question
-- ❌ Don't interrupt momentum for clarifications
-
-**Output**: `todo.md` with checklist:
+**Suggested Template** (use in `todo.md`)
 
 ```markdown
 # Implementation Checklist
 
 ## Setup
 
-- [x] Create component files
-- [ ] Configure feature flag
+- [ ] Create/extend components
+- [ ] Add feature flag <flag_name> (default off)
 
-## Core Functionality
+## Core
 
-- [x] Implement data fetching
-- [ ] Add validation logic
+- [ ] Data fetching / mutations
+- [ ] Validation & error surfaces
+- [ ] URL/state sync & navigation
 
 ## UI/UX
 
-- [ ] Build responsive layout
-- [ ] Add loading states
+- [ ] Responsive layout
+- [ ] Loading/empty/error states
+- [ ] A11y roles, labels, focus mgmt
 
-## Testing
+## Tests
 
-- [ ] Write unit tests
-- [ ] Manual QA pass
+- [ ] Unit
+- [ ] Integration
+- [ ] E2E (critical flows)
+- [ ] Axe/Accessibility checks
 
-## Questions/Blockers
+## Notes
 
-- How should we handle [edge case]?
+- Assumptions:
+- Deviations:
+
+## Batched Questions (if any)
+
+- ...
 ```
 
-### Phase 4: Verification (`verification.md`)
+---
 
-**Goal**: Ensure implementation meets requirements and quality standards.
+### Phase 4 — **Verification** (`verification.md`)
 
-**⚠️ CRITICAL REQUIREMENT**: **MUST** perform manual QA using Chrome DevTools (MCP) tool for all UI/frontend work. This is not optional.
+**Goal**: Prove the change works, performs, and is accessible.
+**Activities (all required for UI)**:
 
-**Required activities:**
+- **Chrome DevTools (MCP) Manual QA**:
+  - Inspect DOM semantics, Console (no errors), Network waterfall.
+  - Device emulation (mobile/tablet/desktop).
+  - Performance profiling (CPU/network throttling).
+  - Lighthouse/Accessibility checks (labels, headings, contrast, focus).
 
-- **MUST** use Chrome DevTools MCP tool to inspect and test the implementation
-- Test all user flows
-- Verify edge cases
-- Confirm error handling
-- Performance profiling (using DevTools Performance tab)
-- Accessibility audit (using DevTools Lighthouse/Accessibility panel)
-- Cross-browser/device testing (using DevTools Device Emulation)
-- Console error/warning checks
+- Cross‑browser smoke (where feasible).
+- Validate edge cases and error paths.
+  **Outputs** (`verification.md`):
+- Checklists, metrics, known issues, sign‑offs.
+  **Exit**:
+- Meets success criteria; no P0/P1 defects; sign‑offs captured.
 
-**Chrome DevTools MCP Tool Usage:**
-
-- Inspect DOM structure and verify semantic HTML
-- Test responsive layouts using Device Toolbar
-- Check Console for errors and warnings
-- Profile performance with Performance and Network tabs
-- Validate accessibility with Lighthouse
-- Test touch targets and interactive elements
-- Verify focus management and keyboard navigation
-- Check for layout shifts and rendering issues
-
-**Output**: `verification.md` containing:
+**Suggested Template** (use in `verification.md`)
 
 ```markdown
 # Verification Report
 
-## DevTools Manual QA
+## Manual QA — Chrome DevTools (MCP)
 
-**Tool Used**: Chrome DevTools (MCP)
+Tool: Chrome DevTools MCP
 
-### Console Inspection
+### Console & Network
 
-- [x] No errors in Console
-- [x] No warnings that need addressing
-- [ ] Performance warnings addressed
+- [x] No Console errors
+- [x] Network requests shaped per contract
+- [ ] Performance warnings addressed (note if any)
 
 ### DOM & Accessibility
 
-- [x] Semantic HTML structure verified
+- [x] Semantic HTML verified
 - [x] ARIA attributes correct
-- [x] Focus order logical
+- [x] Focus order logical & visible indicators
+- [x] Keyboard-only flows succeed
 
-### Performance Profile
+### Performance (profiled)
 
-- [x] No excessive re-renders detected
-- [x] Network waterfall optimized
-- [x] Memory leaks checked
+- FCP: <value> s
+- LCP: <value> s
+- CLS: <value>
+  Notes: ...
 
-### Device Testing
+### Device Emulation
 
-- [x] Mobile viewport (375px) tested
-- [x] Tablet viewport (768px) tested
-- [x] Desktop viewport (1920px) tested
+- [x] Mobile (≈375px)
+- [x] Tablet (≈768px)
+- [x] Desktop (≥1280px)
 
-## Test Scenarios
+## Test Outcomes
 
-- [x] Happy path works
-- [x] Error handling correct
-- [ ] Performance needs optimization
-
-## Accessibility Checklist
-
-- [x] Keyboard navigation works
-- [x] Screen reader support
-- [x] Focus indicators visible
-
-## Performance Metrics
-
-- FCP: 0.8s ✓
-- LCP: 1.2s ✓
+- [x] Happy paths
+- [x] Error handling
+- [ ] Non-critical performance issues (tracked as <ticket>)
 
 ## Known Issues
 
-- [ ] Safari 15 rendering glitch
+- [ ] <issue> (owner, priority)
 
 ## Sign-off
 
-- [ ] Engineering approved
-- [ ] Design approved
+- [ ] Engineering
+- [ ] Design/PM
 ```
 
 ---
 
-## Framework & Component Requirements
+### Phase 5 — **Review & Merge**
 
-### UI Components
+**Activities**:
 
-- **MUST** use SHADCN UI components when available
-- **MUST** extend SHADCN rather than build from scratch
-- **MUST** follow established component patterns in codebase
-- Search codebase first before creating new components
+- Open PR referencing the task directory.
+- Use **Conventional Commits** in the PR title (e.g., `feat: <...>`, `fix: <...>`).
+- Attach screenshots/clips for UI changes.
+  **Exit**:
+- Approvals obtained; CI green; PR merged via squash/rebase per repo policy.
 
-### Development Approach
+**PR Checklist** (include in PR description)
 
-- **Mobile First**: Design and build for mobile, then enhance for desktop
-- **Test Driven**: Write tests alongside (or before) implementation
-- **Progressive Enhancement**: Core functionality works everywhere
-
-### Code Quality Principles
-
-- **DRY**: Reuse existing code and patterns
-- **KISS**: Simple solutions over clever ones
-- **YAGNI**: Build what's needed, not what might be needed
+```
+[ ] Links to task folder and ticket
+[ ] Screenshots/clips (UI)
+[ ] Tests added/updated
+[ ] A11y verified (keyboard, SR cues)
+[ ] Perf checked (no regressions)
+[ ] Docs/changelogs updated if needed
+```
 
 ---
 
-## UI/UX Excellence Standards
+### Phase 6 — **Release & Post‑Release**
 
-### Keyboard & Focus
+**Activities**:
 
-- **MUST** support full keyboard navigation per [WAI-ARIA APG](https://www.w3.org/WAI/ARIA/apg/patterns/)
-- **MUST** show visible focus rings using `:focus-visible`
-- **MUST** manage focus correctly: trap in modals, move logically, return on close
+- Gradual rollout per plan; monitor metrics/logs.
+- Hotfix if needed; capture learnings in the task folder.
+  **Exit**:
+- Stable at 100%; task folder updated with final notes.
 
-### Touch Targets
+---
 
-- **MUST** have hit targets ≥24px (mobile ≥44px)
-- If visual element <24px, expand hit area with padding/pseudo-elements
-- **MUST** use `touch-action: manipulation` to prevent double-tap zoom
+## 5) Tooling & Integrations
 
-### Forms & Input
+### MCP Server (Model Context Protocol)
 
-- **MUST** use mobile `<input>` font-size ≥16px to prevent zoom, OR set proper viewport meta
-- **NEVER** disable browser zoom
-- **NEVER** block paste in inputs
-- **MUST** make inputs hydration-safe (no lost focus/values)
-- **MUST** show spinner on loading buttons while keeping label visible
-- **MUST** make Enter submit focused text input
-  - In `<textarea>`, ⌘/Ctrl+Enter submits; Enter adds newline
-- **MUST** keep submit button enabled until request starts
-- **MUST** allow submitting incomplete forms to surface validation errors
-- **MUST** show errors inline next to fields (focus first error on submit)
-- **MUST** use proper `autocomplete` attributes and meaningful `name` values
-- **MUST** use correct `type` and `inputmode` for each field
-- **MUST** warn users before navigating away with unsaved changes
-- **MUST** trim input values
+Use MCP to:
 
-### State & Navigation
+- Navigate/inspect the codebase at scale.
+- Retrieve docs/specs and prior art.
+- Run **Chrome DevTools MCP** for Manual QA (UI).
 
-- **MUST** reflect state in URL (deep-link filters, tabs, pagination)
-- **MUST** restore scroll position on back/forward navigation
-- **MUST** use `<a>` or `<Link>` for navigation (support Cmd/Ctrl/middle-click)
+**Chrome DevTools MCP Authentication**
 
-### Feedback
+- Obtain a **valid login session token for auth protected pages if required** (do not commit or hardcode).
+- Tokens **expire**; verify before each session.
+- **Do not proceed** with MCP‑based QA without a valid token.
+- If operating interactively with a human maintainer, request the token explicitly and wait to receive it before testing.
 
-- **SHOULD** use optimistic UI updates (reconcile on response)
-- **MUST** confirm destructive actions OR provide Undo window
-- **MUST** use polite `aria-live` regions for toasts and validation
+---
 
-### Animation
+## 6) Frontend: Component & UX Standards
 
-- **MUST** honor `prefers-reduced-motion`
-- **MUST** animate only compositor-friendly properties (`transform`, `opacity`)
-- **MUST** make animations interruptible and input-driven
+### Components
 
-### Layout
+- **Use SHADCN UI** when available; extend rather than rebuild.
+- Search for existing patterns before introducing new ones.
 
-- **MUST** verify rendering on mobile, laptop, and ultra-wide screens
-- **MUST** respect safe areas using `env(safe-area-inset-*)`
-- **MUST** avoid unwanted scrollbars
+### Mobile‑First & Progressive Enhancement
 
-### Content & Accessibility
+- Build for small screens first; enhance for desktop.
+- Core flows must work without JS bells/whistles where reasonable.
 
-- **MUST** set `<title>` to match current context
-- **MUST** design all states: empty, sparse, dense, error, loading
-- **MUST** provide redundant status cues (not color-only)
-- **MUST** ensure icons have text labels or `aria-label`
-- **MUST** use hierarchical heading structure
-- **MUST** provide accurate accessible names
-- **MUST** prefer native semantic HTML before ARIA
-- **MUST** use non-breaking spaces: `10&nbsp;MB`, `⌘&nbsp;+&nbsp;K`
-- **MUST** use ellipsis character `…` (not three periods)
+### Accessibility (must‑haves)
+
+- Full keyboard navigation; manage focus (trap in modals, restore on close).
+- Visible focus via `:focus-visible`.
+- Prefer semantic HTML; add ARIA only when necessary.
+- Provide accessible names/labels, not color‑only cues.
+- Hierarchical headings; proper titles per view.
+- Toasts/validation should use polite `aria-live`.
+
+### Forms
+
+- Inputs ≥16px font on mobile (prevent zoom).
+- Proper `type`, `inputmode`, and `autocomplete`.
+- Allow submission to surface inline validation errors; focus the first error.
+- Keep submit enabled until request starts; show non‑blocking spinners.
+- Permit paste; trim values; warn before navigating away with unsaved changes.
+- `Enter` submits single‑line inputs; `Ctrl/⌘+Enter` submits textareas.
+
+### Navigation & State
+
+- Reflect state in the **URL** (filters, tabs, pagination).
+- Restore **scroll position** on back/forward.
+- Use `<a>/<Link>` to support new‑tab and middle‑click.
+
+### Touch & Targets
+
+- Hit area ≥24px (mobile ≥44px). Expand via padding if visuals are smaller.
+- `touch-action: manipulation` where appropriate.
+
+### Motion & Layout
+
+- Respect `prefers-reduced-motion`.
+- Animate only `transform`/`opacity`; make animations interruptible.
+- Test layouts on mobile, laptop, and ultra‑wide; avoid unwanted scrollbars.
+- Respect safe areas via `env(safe-area-inset-*)`.
 
 ### Performance
 
-- **MUST** track and minimize re-renders
-- **MUST** profile with CPU and network throttling
-- **MUST** target <500ms for mutations
-- **MUST** virtualize large lists
-- **MUST** prevent Cumulative Layout Shift from images
+- Minimize re‑renders; virtualize large lists.
+- Prevent image‑induced CLS (reserve space).
+- Target sub‑500ms user‑visible mutations for common paths.
 
 ---
 
-## Nested AGENTS.md Files
+## 7) Back End & Data
 
-### When to Create Nested Files
+### Supabase — **Remote Only**
 
-For **large monorepos** or projects with distinct subprojects/packages, create nested `AGENTS.md` files inside each subproject directory.
+- **Never** run local Supabase for this project.
+- All migrations/seeds target the **remote** instance (staging/prod per plan).
 
-### Nested File Rules
-
-1. **Automatic precedence**: Agents automatically read the nearest `AGENTS.md` in the directory tree
-2. **Closest wins**: The closest file takes precedence for that subproject
-3. **Tailored instructions**: Each subproject can ship specific guidelines
-
-### Creating Nested Files
-
-**Main AGENTS.md creates nested files when:**
-
-- A subproject has unique build/test commands
-- Different code style or testing requirements exist
-- Subproject uses different frameworks or patterns
-- Security or deployment differs from main project
-
-**Nested AGENTS.md structure:**
-
-```
-/
-├── AGENTS.md (main, you are reading this)
-├── packages/
-│   ├── web-app/
-│   │   ├── AGENTS.md (web-specific instructions)
-│   │   └── src/
-│   ├── api-server/
-│   │   ├── AGENTS.md (API-specific instructions)
-│   │   └── src/
-│   └── shared-ui/
-│       ├── AGENTS.md (UI component library instructions)
-│       └── components/
-```
-
-**Nested AGENTS.md template:**
-
-```markdown
-# AGENTS.md - [Subproject Name]
-
-> Inherits from main AGENTS.md with these additions/overrides
-
-## Subproject Overview
-
-[Brief description]
-
-## Build Commands
-
-- `npm run dev` - Start development server
-- `npm run build` - Production build
-- `npm run test` - Run tests
-
-## Subproject-Specific Guidelines
-
-[Any unique patterns, conventions, or requirements]
-
-## Additional Context
-
-[Links to relevant documentation]
-```
-
-### Example: Large Monorepo
-
-```
-my-monorepo/
-├── AGENTS.md                          # Main project guidelines
-├── apps/
-│   ├── web/
-│   │   └── AGENTS.md                  # Next.js web app specifics
-│   ├── mobile/
-│   │   └── AGENTS.md                  # React Native specifics
-│   └── admin/
-│       └── AGENTS.md                  # Admin dashboard specifics
-├── packages/
-│   ├── ui/
-│   │   └── AGENTS.md                  # Design system guidelines
-│   ├── api-client/
-│   │   └── AGENTS.md                  # API client patterns
-│   └── database/
-│       └── AGENTS.md                  # Database migrations & schema
-└── infrastructure/
-    └── AGENTS.md                      # Deployment & infrastructure
-```
-
----
-
-## MCP Server Integration
-
-**MUST** always utilize MCP (Model Context Protocol) server whenever possible for:
-
-- Enhanced context retrieval
-- Codebase navigation
-- Pattern discovery
-- Documentation access
-- **Chrome DevTools integration for manual QA (MANDATORY in verification phase)**
-
-### Chrome DevTools MCP Authentication
-
-**CRITICAL**: Chrome DevTools MCP requires authentication session tokens.
-
-- **ALWAYS** ask the user for the authentication session token before running Chrome DevTools MCP
-- Never assume the token is available or cached
-- Session tokens expire and must be refreshed regularly
-
-**Usage pattern:**
-
-1. Before initiating DevTools QA, request: "Please provide your Chrome DevTools MCP authentication session token"
-2. Wait for user to provide token
-3. Proceed with DevTools inspection only after token is received
-
----
-
-## Database & Supabase
-
-### Supabase Remote Configuration
-
-**CRITICAL**: This project uses Supabase REMOTE, not local instances.
-
-- **NEVER** run migrations or seeds against local Supabase
-- **ALWAYS** target the remote Supabase instance directly
-- Database changes go straight to production/staging remote environment
-
-### Running Migrations & Seeds
-
-When database changes are required:
+**Commands**
 
 ```bash
-# Run migrations against remote
+# Migrations (remote)
 supabase db push
 
-# Run seeds against remote (if needed)
+# Seeds (remote; only if required and safe)
 supabase db seed
 ```
 
-**Important considerations:**
+**Safety**
 
-- Migrations are destructive - always review before pushing to remote
-- Coordinate with team before running migrations on shared remote
-- Document all migration changes in task verification.md
-- Test data modifications carefully as they affect live environment
-- Consider backup/rollback strategy before major schema changes
-
-**When to run migrations:**
-
-- New tables or schema changes required
-- Column additions/modifications
-- Index creation or optimization
-- RLS policy updates
-
-**When to run seeds:**
-
-- Initial data population needed
-- Test data requirements for new features
-- Reference data updates
+- Review migrations carefully; coordinate with the team.
+- Document changes and rollout/rollback in `verification.md`.
+- Backups/restore plan for impactful schema changes.
+- Run seeds only when necessary and idempotent.
 
 ---
 
-## Red Flags & Warnings
+## 8) Monorepos & Nested AGENTS.md
 
-Stop and address these immediately:
+### When to Create Nested Files
 
-- ⚠️ **No existing pattern found** → May need architecture discussion
-- ⚠️ **Unclear requirements** → Stop and clarify before proceeding
-- ⚠️ **Large scope** → Consider breaking into smaller tasks
-- ⚠️ **Many assumptions** → Document and validate with stakeholder
-- ⚠️ **No verification plan** → Define success criteria first
-- ⚠️ **Skipped DevTools QA** → NEVER skip manual QA with Chrome DevTools MCP tool
-- ⚠️ **Running migrations without coordination** → Always coordinate remote database changes with team
-- ⚠️ **Local Supabase usage** → NEVER use local Supabase, always use remote
+Create `AGENTS.md` **inside subprojects** that have:
 
----
+- Unique build/test commands
+- Different frameworks/patterns
+- Distinct security/deployment flows
+- Library vs app concerns that justify tailored guidance
 
-## Quick Reference Checklist
+### Precedence Rules
+
+1. The **closest** `AGENTS.md` to a file wins.
+2. Nested docs **inherit** main rules; they may **add/override** as needed.
+
+### Template for Nested Files
+
+```markdown
+# AGENTS.md — <Subproject Name>
+
+> Inherits main AGENTS.md. Additions/overrides below.
+
+## Overview
+
+<Brief purpose and scope>
+
+## Commands
+
+- `npm run dev`
+- `npm run build`
+- `npm run test`
+
+## Subproject-Specific Guidelines
+
+- ...
+
+## Links
+
+- ...
+```
+
+**Example Monorepo Layout**
 
 ```
-[ ] Create task directory with semantic ID + timestamp (YYYYMMDD-HHMM)
-[ ] Complete research phase → research.md
-[ ] Write implementation plan → plan.md
-[ ] Create and execute todo list → todo.md
-[ ] Verify and document → verification.md
-[ ] MANDATORY: Perform manual QA with Chrome DevTools (MCP) tool
-[ ] Get stakeholder approval
-[ ] Deploy with monitoring
+/
+├── AGENTS.md
+├── apps/
+│   ├── web/        └── AGENTS.md
+│   ├── mobile/     └── AGENTS.md
+│   └── admin/      └── AGENTS.md
+├── packages/
+│   ├── ui/         └── AGENTS.md
+│   ├── api-client/ └── AGENTS.md
+│   └── database/   └── AGENTS.md
+└── infrastructure/ └── AGENTS.md
 ```
 
 ---
 
-## Key Questions Before Starting Any Task
+## 9) Git & Branching
 
-1. What problem are we solving, and for whom?
-2. What existing code can we reuse?
-3. What are the edge cases and error scenarios?
-4. How will we know this is successful?
-5. What could go wrong, and how do we mitigate it?
+- **Branch name**: `task/<slug>-YYYYMMDD-HHMM`
+- **Commits**: Conventional Commits (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`).
+- **PR**: Reference the task folder; include checklists and evidence (screens, clips, metrics).
 
 ---
 
-## Notes for AI Agents
+## 10) Red Flags & Stop Signs
 
-- **Follow phases sequentially** - do not skip research or planning
-- **Batch questions** during implementation to maintain momentum
-- **Document assumptions** when making reasonable judgments
-- **Search codebase first** before creating new patterns
-- **Prioritize SHADCN** components over custom builds
-- **Mobile-first** approach for all UI work
-- **Accessibility is not optional** - follow all MUST requirements
-- **Create nested AGENTS.md** for subprojects in monorepos
-- **Chrome DevTools MCP tool is MANDATORY** for verification phase - never skip this step
-- **Always request Chrome DevTools auth token** before starting DevTools QA
-- **Use Supabase REMOTE only** - never run migrations/seeds against local instances
-- **Coordinate database changes** - migrations affect live remote environment
+Stop and escalate when you see:
+
+- No reusable pattern exists for a risky area → **request design/arch review**.
+- Requirements are ambiguous → **clarify before coding**.
+- Scope is too large → **split into multiple tasks**.
+- Many assumptions accumulating → **document & validate with a maintainer**.
+- No verification plan → **define success criteria** first.
+- Skipping **DevTools MCP** QA for UI → **not allowed**.
+- Attempting **local** Supabase migrations/seeds → **not allowed**.
 
 ---
 
-**Last Updated**: 2025-01-11  
-**Version**: 3.2
+## 11) Quick Reference Checklists
+
+**Task Lifecycle**
+
+```
+[ ] Create task dir (UTC timestamp)
+[ ] Research complete → research.md
+[ ] Plan written → plan.md
+[ ] Implementation executed → todo.md
+[ ] Verification recorded → verification.md
+[ ] UI changes: DevTools (MCP) QA done
+[ ] Approvals & merge
+[ ] Rollout & monitor, notes added
+```
+
+**UI/A11y Essentials**
+
+```
+[ ] Keyboard-only flows succeed
+[ ] Visible focus management
+[ ] Semantic roles/labels
+[ ] URL reflects state
+[ ] Loading/empty/error states implemented
+[ ] No CLS from media; images sized
+```
+
+**Perf Essentials**
+
+```
+[ ] No console errors/warnings
+[ ] Critical interactions < 500ms
+[ ] FCP/LCP reasonable; profile attached
+```
+
+**Data & Migrations**
+
+```
+[ ] Remote Supabase only
+[ ] Migration reviewed & coordinated
+[ ] Rollback/backup plan noted
+```
+
+---
+
+## 12) Key Questions Before You Start
+
+1. Who is the user and what exact problem are we solving?
+2. What can we **reuse** from the codebase?
+3. What are the edge cases and failure modes?
+4. What does **success** look like (metrics, states, acceptance criteria)?
+5. What could go wrong, and what is our mitigation/rollback?
+
+---
+
+## 13) Appendices
+
+### A) Example Artifacts
+
+- See the templates embedded in phases above; copy into your task files.
+
+### B) Style Principles
+
+- **DRY**: Reuse patterns/components.
+- **KISS**: Prefer simple, obvious solutions.
+- **YAGNI**: Build only what’s needed now.
+
+---
+
+**Last Updated**: 2025‑10‑12
+**Version**: 4.0
+
+---

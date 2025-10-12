@@ -6,6 +6,7 @@ import type { RestaurantOption } from './types';
 import { RestaurantSelector } from './RestaurantSelector';
 import { OperatingHoursSection } from './OperatingHoursSection';
 import { ServicePeriodsSection } from './ServicePeriodsSection';
+import { RestaurantProfileSection } from './RestaurantProfileSection';
 
 type RestaurantSettingsClientProps = {
   restaurants: RestaurantOption[];
@@ -37,7 +38,7 @@ export function RestaurantSettingsClient({ restaurants, defaultRestaurantId }: R
       <div className="flex flex-col gap-2">
         <h2 className="text-2xl font-semibold tracking-tight text-foreground">Restaurant Settings</h2>
         <p className="text-sm text-muted-foreground">
-          Configure operating hours and service periods for your restaurant
+          Configure your restaurant profile, operating hours, and service periods.
         </p>
       </div>
 
@@ -46,6 +47,8 @@ export function RestaurantSettingsClient({ restaurants, defaultRestaurantId }: R
         value={selectedRestaurantId}
         onChange={setSelectedRestaurantId}
       />
+
+      <RestaurantProfileSection restaurantId={selectedRestaurantId} />
 
       <OperatingHoursSection restaurantId={selectedRestaurantId} />
 

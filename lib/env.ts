@@ -97,6 +97,15 @@ export const env = {
     return {
       loyaltyPilotRestaurantIds: parsed.LOYALTY_PILOT_RESTAURANT_IDS,
       enableTestApi: parsed.ENABLE_TEST_API ?? false,
+      guestLookupPolicy: parsed.FEATURE_GUEST_LOOKUP_POLICY ?? false,
+      opsGuardV2: parsed.FEATURE_OPS_GUARD_V2 ?? false,
+    } as const;
+  },
+
+  get security() {
+    const parsed = parseEnv();
+    return {
+      guestLookupPepper: parsed.GUEST_LOOKUP_PEPPER ?? null,
     } as const;
   },
 

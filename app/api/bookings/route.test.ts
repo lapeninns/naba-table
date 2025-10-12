@@ -1,12 +1,15 @@
 import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { SpyInstance } from 'vitest';
 
-import { POST } from './route';
+import { GET, POST } from './route';
 import { OperatingHoursError } from '@/server/bookings/timeValidation';
+import { env } from '@/lib/env';
 
 const assertBookingWithinOperatingWindowMock = vi.hoisted(() => vi.fn());
 const getRestaurantScheduleMock = vi.hoisted(() => vi.fn());
 const getDefaultRestaurantIdMock = vi.hoisted(() => vi.fn());
+const getRouteHandlerSupabaseClientMock = vi.hoisted(() => vi.fn());
 const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn(() => ({})));
 const upsertCustomerMock = vi.hoisted(() => vi.fn());
 const insertBookingRecordMock = vi.hoisted(() => vi.fn());
@@ -20,6 +23,8 @@ const recordObservabilityEventMock = vi.hoisted(() => vi.fn());
 const getActiveLoyaltyProgramMock = vi.hoisted(() => vi.fn());
 const calculateLoyaltyAwardMock = vi.hoisted(() => vi.fn());
 const applyLoyaltyAwardMock = vi.hoisted(() => vi.fn());
+const consumeRateLimitMock = vi.hoisted(() => vi.fn());
+const computeGuestLookupHashMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/bookings/timeValidation', async () => {
   const actual = await vi.importActual<typeof import('@/server/bookings/timeValidation')>(
@@ -37,7 +42,7 @@ vi.mock('@/server/restaurants/schedule', () => ({
 
 vi.mock('@/server/supabase', () => ({
   getDefaultRestaurantId: (...args: unknown[]) => getDefaultRestaurantIdMock(...args),
-  getRouteHandlerSupabaseClient: vi.fn(),
+  getRouteHandlerSupabaseClient: (...args: unknown[]) => getRouteHandlerSupabaseClientMock(...args),
   getServiceSupabaseClient: (...args: unknown[]) => getServiceSupabaseClientMock(...args),
 }));
 
@@ -63,6 +68,14 @@ vi.mock('@/server/observability', () => ({
   recordObservabilityEvent: (...args: unknown[]) => recordObservabilityEventMock(...args),
 }));
 
+vi.mock('@/server/security/rate-limit', () => ({
+  consumeRateLimit: (...args: unknown[]) => consumeRateLimitMock(...args),
+}));
+
+vi.mock('@/server/security/guest-lookup', () => ({
+  computeGuestLookupHash: (...args: unknown[]) => computeGuestLookupHashMock(...args),
+}));
+
 vi.mock('@/server/bookings', async () => {
   const actual = await vi.importActual<typeof import('@/server/bookings')>('@/server/bookings');
   return {
@@ -83,6 +96,13 @@ function createRequest(body: unknown) {
       'content-type': 'application/json',
     },
     body: JSON.stringify(body),
+  });
+}
+
+function createGetRequest(search: string, headers: Record<string, string> = {}) {
+  return new NextRequest(`http://localhost/api/bookings${search}`, {
+    method: 'GET',
+    headers,
   });
 }
 
@@ -224,5 +244,108 @@ describe('/api/bookings POST', () => {
       start_time: '19:00',
     }));
     expect(json.booking.reference).toBe('REF123');
+  });
+});
+
+describe('/api/bookings GET', () => {
+  let featureFlagsSpy: SpyInstance;
+  let securitySpy: SpyInstance;
+
+  beforeEach(() => {
+    featureFlagsSpy = vi
+      .spyOn(env, 'featureFlags', 'get')
+      .mockReturnValue({
+        loyaltyPilotRestaurantIds: undefined,
+        enableTestApi: false,
+        guestLookupPolicy: true,
+        opsGuardV2: false,
+      });
+    securitySpy = vi
+      .spyOn(env, 'security', 'get')
+      .mockReturnValue({
+        guestLookupPepper: 'test-pepper',
+      });
+
+    getDefaultRestaurantIdMock.mockResolvedValue(RESTAURANT_ID);
+    consumeRateLimitMock.mockResolvedValue({
+      ok: true,
+      limit: 20,
+      remaining: 19,
+      resetAt: Date.now() + 60_000,
+      source: 'memory',
+    });
+    computeGuestLookupHashMock.mockReturnValue('hash-value');
+    getRouteHandlerSupabaseClientMock.mockResolvedValue({
+      rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+    });
+    fetchBookingsForContactMock.mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    featureFlagsSpy.mockRestore();
+    securitySpy.mockRestore();
+    vi.clearAllMocks();
+  });
+
+  it('returns 429 when rate limit exceeded', async () => {
+    const retryReset = Date.now() + 10_000;
+    consumeRateLimitMock.mockResolvedValueOnce({
+      ok: false,
+      limit: 20,
+      remaining: 0,
+      resetAt: retryReset,
+      source: 'memory',
+    });
+
+    const response = await GET(
+      createGetRequest('?email=test@example.com&phone=1234567890', { 'x-forwarded-for': '203.0.113.10' }),
+    );
+
+    expect(response.status).toBe(429);
+    const json = await response.json();
+    expect(json.code).toBe('RATE_LIMITED');
+    expect(fetchBookingsForContactMock).not.toHaveBeenCalled();
+    expect(recordObservabilityEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'guest_lookup.rate_limited',
+      }),
+    );
+  });
+
+  it('returns bookings from guest lookup RPC when available', async () => {
+    const bookings = [
+      {
+        id: 'booking-123',
+        restaurant_id: RESTAURANT_ID,
+        start_at: '2025-10-10T19:00:00.000Z',
+        end_at: '2025-10-10T21:00:00.000Z',
+        party_size: 2,
+        status: 'confirmed',
+        notes: null,
+      },
+    ];
+
+    const rpcMock = vi.fn().mockResolvedValue({ data: bookings, error: null });
+    getRouteHandlerSupabaseClientMock.mockResolvedValue({
+      rpc: rpcMock,
+    });
+
+    const response = await GET(
+      createGetRequest('?email=test@example.com&phone=1234567890', { 'x-forwarded-for': '198.51.100.25' }),
+    );
+
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.bookings).toEqual(bookings);
+    expect(rpcMock).toHaveBeenCalledWith('get_guest_bookings', {
+      p_restaurant_id: RESTAURANT_ID,
+      p_hash: 'hash-value',
+    });
+    expect(fetchBookingsForContactMock).not.toHaveBeenCalled();
+    expect(recordObservabilityEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'guest_lookup.allowed',
+      }),
+    );
   });
 });

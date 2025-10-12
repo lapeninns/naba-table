@@ -113,7 +113,7 @@ describe("/api/ops/bookings/[id] PATCH", () => {
     expect(enqueueBookingUpdatedSideEffectsMock).toHaveBeenCalled();
   });
 
-  it("returns 403 when membership check fails", async () => {
+  it("returns 404 when membership check fails to avoid leaking booking existence", async () => {
     const bookingId = "booking-1";
     getUserMock.mockResolvedValue({ data: { user: { id: "user-1", email: "ops@example.com" } }, error: null });
     requireMembershipForRestaurantMock.mockRejectedValue(new Error("Forbidden"));
@@ -141,7 +141,9 @@ describe("/api/ops/bookings/[id] PATCH", () => {
     });
 
     const response = await PATCH(request, { params: Promise.resolve({ id: bookingId }) });
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(404);
+    const json = await response.json();
+    expect(json.error).toBe("Booking not found");
   });
 });
 
@@ -180,7 +182,7 @@ describe("/api/ops/bookings/[id] DELETE", () => {
     expect(enqueueBookingCancelledSideEffectsMock).toHaveBeenCalled();
   });
 
-  it("returns 403 when membership check fails", async () => {
+  it("returns 404 when membership check fails to avoid leaking booking existence", async () => {
     const bookingId = "booking-1";
     getUserMock.mockResolvedValue({ data: { user: { id: "user-1", email: "ops@example.com" } }, error: null });
     requireMembershipForRestaurantMock.mockRejectedValue(new Error("Forbidden"));
@@ -195,6 +197,8 @@ describe("/api/ops/bookings/[id] DELETE", () => {
     });
 
     const response = await DELETE(request, { params: Promise.resolve({ id: bookingId }) });
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(404);
+    const json = await response.json();
+    expect(json.error).toBe("Booking not found");
   });
 });

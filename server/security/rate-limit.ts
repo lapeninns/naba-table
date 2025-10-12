@@ -1,0 +1,129 @@
+import { Redis } from "@upstash/redis";
+
+import { env } from "@/lib/env";
+
+type RateLimitParams = {
+  identifier: string;
+  limit: number;
+  windowMs: number;
+};
+
+export type RateLimitResult = {
+  ok: boolean;
+  limit: number;
+  remaining: number;
+  resetAt: number;
+  source: "redis" | "memory" | "none";
+};
+
+type MemoryBucket = {
+  count: number;
+  resetAt: number;
+};
+
+let redisClient: Redis | null | undefined;
+const memoryStore = new Map<string, MemoryBucket>();
+let warnedAboutMemoryStore = false;
+
+function getRedisClient(): Redis | null {
+  if (redisClient !== undefined) {
+    return redisClient;
+  }
+
+  try {
+    const { restUrl, restToken } = env.cache.upstash;
+    if (restUrl && restToken) {
+      redisClient = new Redis({
+        url: restUrl,
+        token: restToken,
+      });
+      return redisClient;
+    }
+  } catch (error) {
+    console.warn("[rate-limit] unable to initialize Upstash client, falling back to in-memory store", error instanceof Error ? error.message : error);
+  }
+
+  redisClient = null;
+  return redisClient;
+}
+
+function now(): number {
+  return Date.now();
+}
+
+function useMemoryStore(params: RateLimitParams): RateLimitResult {
+  if (!warnedAboutMemoryStore) {
+    console.warn("[rate-limit] Falling back to in-memory rate limiter. Configure Upstash Redis for multi-instance safety.");
+    warnedAboutMemoryStore = true;
+  }
+
+  const current = now();
+  const key = params.identifier;
+  const existing = memoryStore.get(key);
+
+  if (!existing || existing.resetAt <= current) {
+    const resetAt = current + params.windowMs;
+    memoryStore.set(key, { count: 1, resetAt });
+    return {
+      ok: true,
+      limit: params.limit,
+      remaining: params.limit - 1,
+      resetAt,
+      source: "memory",
+    };
+  }
+
+  const nextCount = existing.count + 1;
+  existing.count = nextCount;
+
+  return {
+    ok: nextCount <= params.limit,
+    limit: params.limit,
+    remaining: Math.max(0, params.limit - nextCount),
+    resetAt: existing.resetAt,
+    source: "memory",
+  };
+}
+
+export async function consumeRateLimit(params: RateLimitParams): Promise<RateLimitResult> {
+  const redis = getRedisClient();
+  if (!redis) {
+    return useMemoryStore(params);
+  }
+
+  const current = now();
+  const windowStart = Math.floor(current / params.windowMs) * params.windowMs;
+  const resetAt = windowStart + params.windowMs;
+  const redisKey = `rl:${params.identifier}:${windowStart}`;
+
+  try {
+    const countResult = await redis.incr(redisKey);
+    const count = typeof countResult === "number" ? countResult : Number(countResult ?? 0);
+
+    if (Number.isNaN(count)) {
+      console.error("[rate-limit] redis incr returned non-numeric value", countResult);
+      return useMemoryStore(params);
+    }
+
+    if (count === 1) {
+      try {
+        await redis.pexpire(redisKey, params.windowMs);
+      } catch (expireError) {
+        console.warn("[rate-limit] failed to set redis TTL", expireError);
+      }
+    }
+
+    const remaining = Math.max(0, params.limit - count);
+
+    return {
+      ok: count <= params.limit,
+      limit: params.limit,
+      remaining,
+      resetAt,
+      source: "redis",
+    };
+  } catch (error) {
+    console.error("[rate-limit] redis pipeline failed", error);
+    return useMemoryStore(params);
+  }
+}

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import type { Json, Tables } from "@/types/supabase";
+import { GuardError, listUserRestaurantMemberships, requireSession } from "@/server/auth/guards";
 import type { BookingRecord } from "@/server/bookings";
 import {
   BOOKING_TYPES,
@@ -20,6 +20,7 @@ import {
   enqueueBookingUpdatedSideEffects,
   safeBookingPayload,
 } from "@/server/jobs/booking-side-effects";
+import type { Json, Tables } from "@/types/supabase";
 import { normalizeEmail } from "@/server/customers";
 import { formatDateForInput } from "@reserve/shared/formatting/booking";
 import { fromMinutes } from "@reserve/shared/time";
@@ -103,28 +104,23 @@ function handleZodError(error: z.ZodError) {
   );
 }
 
-async function handleDashboardUpdate(bookingId: string, data: z.infer<typeof dashboardUpdateSchema>) {
-  const serviceSupabase = getServiceSupabaseClient();
+type DashboardUpdateInput = z.infer<typeof dashboardUpdateSchema>;
+
+type DashboardActor = {
+  id: string;
+  email: string | null;
+};
+
+async function handleDashboardUpdate(params: {
+  bookingId: string;
+  data: DashboardUpdateInput;
+  existingBooking: Tables<"bookings">;
+  actor: DashboardActor;
+  serviceSupabase: ReturnType<typeof getServiceSupabaseClient>;
+}) {
+  const { bookingId, data, existingBooking, actor, serviceSupabase } = params;
 
   try {
-    // Use service client for reading to avoid RLS issues
-    const { data: existing, error } = await serviceSupabase
-      .from("bookings")
-      .select("*")
-      .eq("id", bookingId)
-      .maybeSingle();
-
-    if (error) {
-      throw error;
-    }
-
-    const existingBooking = existing as Tables<"bookings"> | null;
-
-    if (!existingBooking) {
-      return NextResponse.json({ error: "Booking not found" }, { status: 404 });
-    }
-
-    // Convert ISO strings to date and time components for database update
     const startDate = new Date(data.startIso);
     const endDate = new Date(data.endIso);
 
@@ -132,14 +128,12 @@ async function handleDashboardUpdate(bookingId: string, data: z.infer<typeof das
     const startTime = fromMinutes(startDate.getHours() * 60 + startDate.getMinutes());
     const endTime = fromMinutes(endDate.getHours() * 60 + endDate.getMinutes());
 
-    // Update the booking record
     const updated = await updateBookingRecord(serviceSupabase, bookingId, {
       booking_date: bookingDate,
       start_time: startTime,
       end_time: endTime,
       party_size: data.partySize,
       notes: data.notes ?? null,
-      // Keep existing fields that weren't updated
       booking_type: existingBooking.booking_type,
       seating_preference: existingBooking.seating_preference,
       customer_name: existingBooking.customer_name,
@@ -148,9 +142,13 @@ async function handleDashboardUpdate(bookingId: string, data: z.infer<typeof das
       marketing_opt_in: existingBooking.marketing_opt_in,
     });
 
-    // Log audit event
+    const targetRestaurantId =
+      updated.restaurant_id ?? existingBooking.restaurant_id ?? (await getDefaultRestaurantId());
+
     const auditMetadata = {
-      restaurant_id: updated.restaurant_id ?? existingBooking.restaurant_id,
+      actor_user_id: actor.id,
+      actor_email: actor.email ?? null,
+      restaurant_id: targetRestaurantId,
       ...buildBookingAuditSnapshot(existingBooking, updated),
     } as Json;
 
@@ -159,7 +157,7 @@ async function handleDashboardUpdate(bookingId: string, data: z.infer<typeof das
       entity: "booking",
       entityId: bookingId,
       metadata: auditMetadata,
-      actor: existingBooking.customer_email ?? "dashboard",
+      actor: actor.email ?? actor.id ?? existingBooking.customer_email ?? "dashboard",
     });
 
     try {
@@ -167,7 +165,7 @@ async function handleDashboardUpdate(bookingId: string, data: z.infer<typeof das
         {
           previous: safeBookingPayload(existingBooking as unknown as BookingRecord),
           current: safeBookingPayload(updated),
-          restaurantId: updated.restaurant_id ?? existingBooking.restaurant_id ?? (await getDefaultRestaurantId()),
+          restaurantId: targetRestaurantId,
         },
         { supabase: serviceSupabase },
       );
@@ -175,10 +173,9 @@ async function handleDashboardUpdate(bookingId: string, data: z.infer<typeof das
       console.error("[bookings][PUT:dashboard][side-effects]", stringifyError(jobError));
     }
 
-    // Return the updated booking in the format expected by the frontend
     const bookingDTO = {
       id: updated.id,
-      restaurantName: "Unknown", // Frontend should refresh to get full data
+      restaurantName: "Unknown",
       partySize: updated.party_size,
       startIso: updated.start_at,
       endIso: updated.end_at,
@@ -191,6 +188,105 @@ async function handleDashboardUpdate(bookingId: string, data: z.infer<typeof das
     console.error("[bookings][PUT:dashboard]", stringifyError(error));
     return NextResponse.json({ error: stringifyError(error) || "Unable to update booking" }, { status: 500 });
   }
+}
+
+function respondWithGuardError(error: GuardError) {
+  return NextResponse.json(
+    {
+      error: error.message,
+      code: error.code,
+      details: error.details ?? null,
+    },
+    { status: error.status },
+  );
+}
+
+async function processDashboardUpdate(bookingId: string, data: DashboardUpdateInput) {
+  const { supabase, user } = await requireSession();
+  const actor: DashboardActor = { id: user.id, email: user.email ?? null };
+
+  const { data: tenantBooking, error: tenantError } = await supabase
+    .from("bookings")
+    .select("*")
+    .eq("id", bookingId)
+    .maybeSingle();
+
+  if (tenantError) {
+    throw new GuardError({
+      status: 500,
+      code: "BOOKING_LOOKUP_FAILED",
+      message: "Unable to load booking",
+      details: tenantError,
+      cause: tenantError,
+    });
+  }
+
+  if (tenantBooking) {
+    return handleDashboardUpdate({
+      bookingId,
+      data,
+      existingBooking: tenantBooking as Tables<"bookings">,
+      actor,
+      serviceSupabase: getServiceSupabaseClient(),
+    });
+  }
+
+  const memberships = await listUserRestaurantMemberships(supabase, user.id);
+
+  if (memberships.length === 0) {
+    throw new GuardError({
+      status: 403,
+      code: "FORBIDDEN",
+      message: "You do not have permission to modify bookings",
+    });
+  }
+
+  const membershipIds = new Set(
+    memberships
+      .map((membership) => membership.restaurant_id)
+      .filter((id): id is string => typeof id === "string" && id.length > 0),
+  );
+
+  const serviceSupabase = getServiceSupabaseClient();
+  const { data: serviceBooking, error: serviceError } = await serviceSupabase
+    .from("bookings")
+    .select("*")
+    .eq("id", bookingId)
+    .maybeSingle();
+
+  if (serviceError) {
+    throw new GuardError({
+      status: 500,
+      code: "BOOKING_LOOKUP_FAILED",
+      message: "Unable to load booking",
+      details: serviceError,
+      cause: serviceError,
+    });
+  }
+
+  if (!serviceBooking) {
+    return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+  }
+
+  const bookingRecord = serviceBooking as Tables<"bookings">;
+  const restaurantId = bookingRecord.restaurant_id;
+
+  if (!restaurantId || !membershipIds.has(restaurantId)) {
+    throw new GuardError({
+      status: 403,
+      code: "FORBIDDEN",
+      message: "You do not have permission to modify this booking",
+      details: { restaurantId },
+    });
+  }
+
+  return handleDashboardUpdate({
+    bookingId,
+    data,
+    existingBooking: bookingRecord,
+    actor,
+    serviceSupabase,
+  });
 }
 
 export async function GET(req: NextRequest, { params }: RouteParams) {
@@ -245,8 +341,15 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
   const dashboardParsed = dashboardUpdateSchema.safeParse(body);
   
   if (dashboardParsed.success) {
-    // Handle dashboard update format
-    return handleDashboardUpdate(bookingId, dashboardParsed.data);
+    try {
+      return await processDashboardUpdate(bookingId, dashboardParsed.data);
+    } catch (error) {
+      if (error instanceof GuardError) {
+        return respondWithGuardError(error);
+      }
+      console.error("[bookings][PUT:dashboard] unexpected failure", stringifyError(error));
+      return NextResponse.json({ error: "Unable to update booking" }, { status: 500 });
+    }
   }
 
   // Fall back to full update schema (legacy/complete booking updates)

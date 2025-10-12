@@ -19,6 +19,8 @@ const generateUniqueBookingReferenceMock = vi.fn();
 const insertBookingRecordMock = vi.fn();
 const fetchBookingsForContactMock = vi.fn();
 const enqueueBookingCreatedSideEffectsMock = vi.fn();
+const consumeRateLimitMock = vi.fn();
+const recordObservabilityEventMock = vi.fn();
 
 const RESTAURANT_ID = "123e4567-e89b-12d3-a456-426614174000";
 
@@ -66,7 +68,25 @@ vi.mock("@/server/jobs/booking-side-effects", () => ({
   safeBookingPayload: (record: unknown) => record,
 }));
 
+vi.mock("@/server/security/rate-limit", () => ({
+  consumeRateLimit: (...args: unknown[]) => consumeRateLimitMock(...args),
+}));
+
+vi.mock("@/server/observability", () => ({
+  recordObservabilityEvent: (...args: unknown[]) => recordObservabilityEventMock(...args),
+}));
+
 describe("POST /api/ops/bookings", () => {
+  beforeEach(() => {
+    consumeRateLimitMock.mockResolvedValue({
+      ok: true,
+      limit: 60,
+      remaining: 59,
+      resetAt: Date.now() + 60_000,
+      source: "memory",
+    });
+  });
+
   afterEach(() => {
     vi.clearAllMocks();
   });
@@ -197,9 +217,57 @@ describe("POST /api/ops/bookings", () => {
 
     expect(response.status).toBe(401);
   });
+
+  it("returns 429 when rate limit exceeded", async () => {
+    getUserMock.mockResolvedValue({ data: { user: { id: "user-1", email: "staff@example.com" } }, error: null });
+    consumeRateLimitMock.mockResolvedValueOnce({
+      ok: false,
+      limit: 60,
+      remaining: 0,
+      resetAt: Date.now() + 5000,
+      source: "memory",
+    });
+
+    const request = new NextRequest("http://localhost/api/ops/bookings", {
+      method: "POST",
+      body: JSON.stringify({
+        restaurantId: RESTAURANT_ID,
+        date: "2025-05-01",
+        time: "18:00",
+        party: 2,
+        bookingType: "dinner",
+        seating: "indoor",
+        notes: null,
+        name: "Walk In",
+      }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      // @ts-expect-error duplex is required in Node fetch for request bodies
+      duplex: "half",
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(429);
+    expect(recordObservabilityEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "ops_bookings.rate_limited",
+      }),
+    );
+  });
 });
 
 describe("GET /api/ops/bookings", () => {
+  beforeEach(() => {
+    consumeRateLimitMock.mockResolvedValue({
+      ok: true,
+      limit: 120,
+      remaining: 119,
+      resetAt: Date.now() + 60_000,
+      source: "memory",
+    });
+  });
+
   afterEach(() => {
     vi.clearAllMocks();
   });
@@ -257,5 +325,25 @@ describe("GET /api/ops/bookings", () => {
     expect(json.items[0].id).toBe("booking-1");
     expect(json.items[0].restaurantName).toBe("Sajilo Reserve");
     expect(queryStub.range).toHaveBeenCalledWith(0, 9);
+  });
+
+  it("returns 429 when rate limit exceeded", async () => {
+    getUserMock.mockResolvedValue({ data: { user: { id: "user-1", email: "staff@example.com" } }, error: null });
+    consumeRateLimitMock.mockResolvedValueOnce({
+      ok: false,
+      limit: 120,
+      remaining: 0,
+      resetAt: Date.now() + 5_000,
+      source: "memory",
+    });
+
+    const request = new NextRequest(`http://localhost/api/ops/bookings?restaurantId=${RESTAURANT_ID}&page=1&pageSize=10`);
+    const response = await GET(request);
+    expect(response.status).toBe(429);
+    expect(recordObservabilityEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "ops_bookings.rate_limited",
+      }),
+    );
   });
 });

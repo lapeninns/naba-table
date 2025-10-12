@@ -28,7 +28,11 @@ const errorCopy: Record<string, string> = {
   OVERLAP_DETECTED: 'That time overlaps an existing booking. Please choose another slot.',
   CUTOFF_PASSED: 'This booking can no longer be changed online. Please contact the venue.',
   BOOKING_NOT_FOUND: 'We couldn’t find that booking.',
+  BOOKING_LOOKUP_FAILED: 'We couldn’t load this booking. Please refresh and try again.',
   FORBIDDEN: 'You don’t have permission to modify this booking.',
+  UNAUTHENTICATED: 'Please sign in again to continue.',
+  SESSION_RESOLUTION_FAILED: 'We couldn’t confirm your session. Refresh the page and try again.',
+  MEMBERSHIP_VALIDATION_FAILED: 'We hit a problem checking your access. Try again or contact an admin.',
   INVALID_INPUT: 'Please check the fields and try again.',
   UNKNOWN: 'Something went wrong on our side. Please try again.',
 };

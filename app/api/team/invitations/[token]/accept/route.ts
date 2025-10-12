@@ -12,6 +12,53 @@ import {
   markInviteExpired,
 } from "@/server/team/invitations";
 
+type SupabaseAdminClient = SupabaseClient<Database, "public", any>;
+
+const LIST_USERS_PAGE_LIMIT = 100;
+
+async function findAuthUserByEmail(
+  admin: SupabaseAdminClient,
+  email: string,
+): Promise<User | null> {
+  let page: number | undefined = undefined;
+
+  while (true) {
+    const listUsersOptions =
+      page !== undefined
+        ? { perPage: LIST_USERS_PAGE_LIMIT, page }
+        : { perPage: LIST_USERS_PAGE_LIMIT };
+
+    const { data, error } = await admin.auth.admin.listUsers(listUsersOptions);
+
+    if (error) {
+      throw error;
+    }
+
+    const users = (data?.users as User[] | undefined) ?? [];
+    const match = users.find((candidate) => candidate.email?.toLowerCase() === email);
+    if (match) {
+      return match;
+    }
+
+    const pagination = data as { nextPage?: number | string | null } | undefined;
+    const rawNextPage = pagination?.nextPage;
+    if (typeof rawNextPage === "number" && Number.isFinite(rawNextPage)) {
+      page = rawNextPage;
+    } else if (typeof rawNextPage === "string") {
+      const parsed = Number.parseInt(rawNextPage, 10);
+      page = Number.isFinite(parsed) ? parsed : undefined;
+    } else {
+      page = undefined;
+    }
+
+    if (page === undefined) {
+      break;
+    }
+  }
+
+  return null;
+}
+
 const paramsSchema = z.object({ token: z.string().min(10) });
 
 const payloadSchema = z.object({
@@ -59,20 +106,13 @@ export async function POST(request: NextRequest, context: { params: Promise<{ to
       return NextResponse.json({ error: "Invitation expired" }, { status: 410 });
     }
 
-    const service = getServiceSupabaseClient() as SupabaseClient<Database, "public", any>;
+    const service = getServiceSupabaseClient() as SupabaseAdminClient;
     const normalizedEmail = invite.email.toLowerCase();
     const metadata = {
       full_name: parsedPayload.data.name,
       name: parsedPayload.data.name,
     } as Record<string, unknown>;
-
-    const { data: usersPage, error: listError } = await service.auth.admin.listUsers();
-    if (listError) {
-      throw listError;
-    }
-
-    const userCandidates = (usersPage?.users as User[] | undefined) ?? [];
-    const existing = userCandidates.find((candidate) => candidate.email?.toLowerCase() === normalizedEmail) ?? null;
+    const existing = await findAuthUserByEmail(service, normalizedEmail);
     let authUser: User;
 
     if (!existing) {

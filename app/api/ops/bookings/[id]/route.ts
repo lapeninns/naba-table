@@ -112,8 +112,11 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       client: tenantSupabase,
     });
   } catch (membershipError) {
-    console.error("[ops/bookings][PATCH] membership validation failed", membershipError);
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    console.warn("[ops/bookings][PATCH] membership denied", {
+      bookingId,
+      reason: membershipError instanceof Error ? membershipError.message : membershipError,
+    });
+    return NextResponse.json({ error: "Booking not found" }, { status: 404 });
   }
 
   const startDate = new Date(parsed.data.startIso);
@@ -234,8 +237,11 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
       client: tenantSupabase,
     });
   } catch (membershipError) {
-    console.error("[ops/bookings][DELETE] membership validation failed", membershipError);
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    console.warn("[ops/bookings][DELETE] membership denied", {
+      bookingId,
+      reason: membershipError instanceof Error ? membershipError.message : membershipError,
+    });
+    return NextResponse.json({ error: "Booking not found" }, { status: 404 });
   }
 
   try {

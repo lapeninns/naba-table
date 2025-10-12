@@ -11,10 +11,18 @@ import { requireMembershipForRestaurant } from '@/server/team/access';
 
 const detailsSchema = z.object({
   name: z.string().min(1).max(120).optional(),
+  slug: z
+    .string()
+    .min(1)
+    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/)
+    .max(120)
+    .optional(),
   timezone: z.string().min(1),
   capacity: z.number().int().min(0).nullable().optional(),
   phone: z.string().max(80).nullable().optional(),
   email: z.string().email().nullable().optional(),
+  address: z.string().max(240).nullable().optional(),
+  bookingPolicy: z.string().max(800).nullable().optional(),
 });
 
 type RouteParams = {
@@ -102,10 +110,13 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     const parsed = detailsSchema.parse(json);
     payload = {
       name: parsed.name,
+      slug: parsed.slug,
       timezone: parsed.timezone,
       capacity: parsed.capacity ?? null,
       contactPhone: parsed.phone ?? null,
       contactEmail: parsed.email ?? null,
+      address: parsed.address ?? null,
+      bookingPolicy: parsed.bookingPolicy ?? null,
     };
   } catch (error) {
     if (error instanceof z.ZodError) {

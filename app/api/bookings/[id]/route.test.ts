@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { PUT } from './route';
+import { GuardError } from '@/server/auth/guards';
 import { OperatingHoursError } from '@/server/bookings/timeValidation';
 
 const assertBookingWithinOperatingWindowMock = vi.hoisted(() => vi.fn());
@@ -14,6 +15,8 @@ const updateBookingRecordMock = vi.hoisted(() => vi.fn());
 const buildBookingAuditSnapshotMock = vi.hoisted(() => vi.fn());
 const logAuditEventMock = vi.hoisted(() => vi.fn());
 const enqueueBookingUpdatedSideEffectsMock = vi.hoisted(() => vi.fn());
+const requireSessionMock = vi.hoisted(() => vi.fn());
+const listUserRestaurantMembershipsMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/bookings/timeValidation', async () => {
   const actual = await vi.importActual<typeof import('@/server/bookings/timeValidation')>(
@@ -34,6 +37,15 @@ vi.mock('@/server/supabase', () => ({
   getRouteHandlerSupabaseClient: (...args: unknown[]) => getRouteHandlerSupabaseClientMock(...args),
   getServiceSupabaseClient: (...args: unknown[]) => getServiceSupabaseClientMock(...args),
 }));
+
+vi.mock('@/server/auth/guards', async () => {
+  const actual = await vi.importActual<typeof import('@/server/auth/guards')>('@/server/auth/guards');
+  return {
+    ...actual,
+    requireSession: (...args: unknown[]) => requireSessionMock(...args),
+    listUserRestaurantMemberships: (...args: unknown[]) => listUserRestaurantMembershipsMock(...args),
+  };
+});
 
 vi.mock('@/server/bookings', async () => {
   const actual = await vi.importActual<typeof import('@/server/bookings')>('@/server/bookings');
@@ -87,22 +99,43 @@ const existingBooking = {
   slot: null,
 };
 
-function createTenantSupabase() {
-  const maybeSingleMock = vi.fn().mockResolvedValue({ data: existingBooking, error: null });
-  const selectMock = vi.fn(() => ({
-    eq: vi.fn(() => ({ maybeSingle: maybeSingleMock })),
-  }));
+function createTenantSupabase(booking: typeof existingBooking | null = existingBooking) {
+  const maybeSingleMock = vi.fn().mockResolvedValue({ data: booking, error: null });
+  const eqMock = vi.fn(() => ({ maybeSingle: maybeSingleMock }));
+  const selectMock = vi.fn(() => ({ eq: eqMock }));
+  const fromMock = vi.fn(() => ({ select: selectMock }));
 
   return {
-    from: vi.fn(() => ({ select: selectMock })),
+    from: fromMock,
     auth: {
-      getUser: vi.fn().mockResolvedValue({ data: { user: { email: existingBooking.customer_email } }, error: null }),
+      getUser: vi.fn().mockResolvedValue({
+        data: { user: { email: (booking ?? existingBooking).customer_email } },
+        error: null,
+      }),
+    },
+    __mocks: {
+      maybeSingleMock,
+      selectMock,
+      eqMock,
     },
   };
 }
 
-function createServiceSupabase() {
-  return {};
+function createServiceSupabase(options: { booking?: typeof existingBooking | null } = {}) {
+  const booking = options.booking ?? existingBooking;
+  const maybeSingleMock = vi.fn().mockResolvedValue({ data: booking, error: null });
+  const eqMock = vi.fn(() => ({ maybeSingle: maybeSingleMock }));
+  const selectMock = vi.fn(() => ({ eq: eqMock }));
+  const fromMock = vi.fn(() => ({ select: selectMock }));
+
+  return {
+    from: fromMock,
+    __mocks: {
+      maybeSingleMock,
+      selectMock,
+      eqMock,
+    },
+  };
 }
 
 function createRequest(body: unknown) {
@@ -118,6 +151,135 @@ function createRequest(body: unknown) {
 describe('/api/bookings/[id] PUT', () => {
   afterEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('returns 401 when session is missing for dashboard updates', async () => {
+    const payload = {
+      startIso: '2025-10-10T19:00:00.000Z',
+      endIso: '2025-10-10T21:00:00.000Z',
+      partySize: 2,
+    };
+
+    const request = createRequest(payload);
+    const params = { params: Promise.resolve({ id: existingBooking.id }) } as const;
+
+    requireSessionMock.mockRejectedValue(
+      new GuardError({ status: 401, code: 'UNAUTHENTICATED', message: 'Authentication required' }),
+    );
+
+    const response = await PUT(request, params);
+
+    expect(response.status).toBe(401);
+    const json = await response.json();
+    expect(json.code).toBe('UNAUTHENTICATED');
+  });
+
+  it('returns 403 when staff has no memberships for dashboard updates', async () => {
+    const payload = {
+      startIso: '2025-10-10T19:00:00.000Z',
+      endIso: '2025-10-10T21:00:00.000Z',
+      partySize: 2,
+    };
+
+    const request = createRequest(payload);
+    const params = { params: Promise.resolve({ id: existingBooking.id }) } as const;
+
+    const tenantSupabase = createTenantSupabase(null);
+    requireSessionMock.mockResolvedValue({
+      supabase: tenantSupabase,
+      user: { id: 'user-1', email: 'ops@example.com' },
+    });
+    listUserRestaurantMembershipsMock.mockResolvedValue([]);
+
+    const response = await PUT(request, params);
+
+    expect(response.status).toBe(403);
+    const json = await response.json();
+    expect(json.code).toBe('FORBIDDEN');
+    expect(getServiceSupabaseClientMock).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 when staff is not a member of the booking restaurant', async () => {
+    const payload = {
+      startIso: '2025-10-10T19:00:00.000Z',
+      endIso: '2025-10-10T21:00:00.000Z',
+      partySize: 2,
+    };
+
+    const request = createRequest(payload);
+    const params = { params: Promise.resolve({ id: existingBooking.id }) } as const;
+
+    const tenantSupabase = createTenantSupabase(null);
+    requireSessionMock.mockResolvedValue({
+      supabase: tenantSupabase,
+      user: { id: 'user-1', email: 'ops@example.com' },
+    });
+    listUserRestaurantMembershipsMock.mockResolvedValue([
+      { restaurant_id: 'some-other-id', role: 'server', created_at: '', restaurants: null },
+    ]);
+
+    const serviceSupabase = createServiceSupabase({ booking: existingBooking });
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+
+    const response = await PUT(request, params);
+
+    expect(response.status).toBe(403);
+    const json = await response.json();
+    expect(json.code).toBe('FORBIDDEN');
+  });
+
+  it('updates booking through dashboard path for authorized staff', async () => {
+    const payload = {
+      startIso: '2025-10-10T19:00:00.000Z',
+      endIso: '2025-10-10T21:00:00.000Z',
+      partySize: 4,
+      notes: 'Table near window',
+    };
+
+    const request = createRequest(payload);
+    const params = { params: Promise.resolve({ id: existingBooking.id }) } as const;
+
+    const tenantSupabase = createTenantSupabase(existingBooking);
+    requireSessionMock.mockResolvedValue({
+      supabase: tenantSupabase,
+      user: { id: 'user-1', email: 'ops@example.com' },
+    });
+    listUserRestaurantMembershipsMock.mockResolvedValue([
+      { restaurant_id: existingBooking.restaurant_id, role: 'manager', created_at: '', restaurants: null },
+    ]);
+
+    const updatedBooking = {
+      ...existingBooking,
+      party_size: 4,
+      notes: 'Table near window',
+      start_at: '2025-10-10T19:00:00.000Z',
+      end_at: '2025-10-10T21:00:00.000Z',
+    };
+
+    updateBookingRecordMock.mockResolvedValue(updatedBooking);
+    buildBookingAuditSnapshotMock.mockReturnValue({ diff: 'changed' });
+    logAuditEventMock.mockResolvedValue(undefined);
+    enqueueBookingUpdatedSideEffectsMock.mockResolvedValue(undefined);
+
+    const serviceSupabase = createServiceSupabase({ booking: existingBooking });
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+
+    const response = await PUT(request, params);
+
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.id).toBe(updatedBooking.id);
+    expect(json.partySize).toBe(4);
+    expect(updateBookingRecordMock).toHaveBeenCalledWith(expect.any(Object), existingBooking.id, expect.objectContaining({
+      party_size: 4,
+      notes: 'Table near window',
+    }));
+    expect(logAuditEventMock).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({
+      metadata: expect.objectContaining({
+        actor_user_id: 'user-1',
+        restaurant_id: existingBooking.restaurant_id,
+      }),
+    }));
   });
 
   it('returns 400 when booking time is outside operating hours', async () => {

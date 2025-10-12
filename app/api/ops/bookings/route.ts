@@ -5,6 +5,9 @@ import { z } from "zod";
 import { deriveEndTime, fetchBookingsForContact, generateUniqueBookingReference, inferMealTypeFromTime, insertBookingRecord } from "@/server/bookings";
 import { normalizeEmail, upsertCustomer } from "@/server/customers";
 import { enqueueBookingCreatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
+import { recordObservabilityEvent } from "@/server/observability";
+import { consumeRateLimit } from "@/server/security/rate-limit";
+import { anonymizeIp, extractClientIp } from "@/server/security/request";
 import { fetchUserMemberships, requireMembershipForRestaurant } from "@/server/team/access";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 import type { BookingRecord } from "@/server/bookings";
@@ -163,6 +166,40 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   }
 
+  const clientIp = extractClientIp(req);
+  const listRateResult = await consumeRateLimit({
+    identifier: `ops:bookings:get:${user.id}`,
+    limit: 120,
+    windowMs: 60_000,
+  });
+
+  if (!listRateResult.ok) {
+    const retryAfterSeconds = Math.max(1, Math.ceil((listRateResult.resetAt - Date.now()) / 1000));
+    void recordObservabilityEvent({
+      source: "api.ops",
+      eventType: "ops_bookings.rate_limited",
+      severity: "warning",
+      context: {
+        action: "list",
+        staff_id: user.id,
+        ip_scope: anonymizeIp(clientIp),
+        limit: listRateResult.limit,
+        reset_at: new Date(listRateResult.resetAt).toISOString(),
+        rate_source: listRateResult.source,
+      },
+    });
+
+    return NextResponse.json(
+      { error: "Too many requests", code: "RATE_LIMITED", retryAfter: retryAfterSeconds },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": retryAfterSeconds.toString(),
+        },
+      },
+    );
+  }
+
   const rawParams = {
     restaurantId: req.nextUrl.searchParams.get("restaurantId") ?? undefined,
     status: req.nextUrl.searchParams.get("status") ?? undefined,
@@ -297,6 +334,17 @@ export async function GET(req: NextRequest) {
     },
   };
 
+  void recordObservabilityEvent({
+    source: "api.ops",
+    eventType: "ops_bookings.list",
+    context: {
+      staff_id: user.id,
+      restaurant_id: params.restaurantId ?? null,
+      result_count: items.length,
+      rate_source: listRateResult.source,
+    },
+  });
+
   return NextResponse.json(response);
 }
 
@@ -325,6 +373,41 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid payload", details: error.flatten() }, { status: 400 });
     }
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  }
+
+  const clientIp = extractClientIp(req);
+  const createRateResult = await consumeRateLimit({
+    identifier: `ops:bookings:create:${user.id}:${payload.restaurantId}`,
+    limit: 60,
+    windowMs: 60_000,
+  });
+
+  if (!createRateResult.ok) {
+    const retryAfterSeconds = Math.max(1, Math.ceil((createRateResult.resetAt - Date.now()) / 1000));
+    void recordObservabilityEvent({
+      source: "api.ops",
+      eventType: "ops_bookings.rate_limited",
+      severity: "warning",
+      context: {
+        action: "create",
+        staff_id: user.id,
+        restaurant_id: payload.restaurantId,
+        ip_scope: anonymizeIp(clientIp),
+        limit: createRateResult.limit,
+        reset_at: new Date(createRateResult.resetAt).toISOString(),
+        rate_source: createRateResult.source,
+      },
+    });
+
+    return NextResponse.json(
+      { error: "Too many requests", code: "RATE_LIMITED", retryAfter: retryAfterSeconds },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": retryAfterSeconds.toString(),
+        },
+      },
+    );
   }
 
   try {
@@ -483,6 +566,17 @@ export async function POST(req: NextRequest) {
     idempotencyKey: normalizedIdempotencyKey,
     clientRequestId,
   };
+
+  void recordObservabilityEvent({
+    source: "api.ops",
+    eventType: "ops_bookings.create",
+    context: {
+      staff_id: user.id,
+      restaurant_id: payload.restaurantId,
+      booking_id: booking.id,
+      rate_source: createRateResult.source,
+    },
+  });
 
   return NextResponse.json(responseBody, { status: 201 });
 }

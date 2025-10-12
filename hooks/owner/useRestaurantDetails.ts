@@ -9,18 +9,24 @@ import { queryKeys } from '@/lib/query/keys';
 export type RestaurantDetails = {
   restaurantId: string;
   name: string;
+  slug: string;
   timezone: string;
   capacity: number | null;
   contactEmail: string | null;
   contactPhone: string | null;
+  address: string | null;
+  bookingPolicy: string | null;
 };
 
 export type UpdateRestaurantDetailsInput = {
   name: string;
+  slug: string;
   timezone: string;
   capacity?: number | null;
   contactEmail?: string | null;
   contactPhone?: string | null;
+  address?: string | null;
+  bookingPolicy?: string | null;
 };
 
 const DISABLED_KEY = ['owner', 'restaurants', 'disabled', 'details'] as const;
@@ -59,10 +65,13 @@ export function useUpdateRestaurantDetails(restaurantId: string | null) {
         },
         body: JSON.stringify({
           name: input.name,
+          slug: input.slug,
           timezone: input.timezone,
           capacity: input.capacity ?? null,
           phone: input.contactPhone ?? null,
           email: input.contactEmail ?? null,
+          address: input.address ?? null,
+          bookingPolicy: input.bookingPolicy ?? null,
         }),
       });
     },
