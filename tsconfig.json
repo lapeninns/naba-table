@@ -15,7 +15,7 @@
     "noImplicitAny": true,
     "jsx": "preserve",
     "paths": {
-      "@/*": ["./*"],
+      "@/*": ["./*", "./src/*"],
       "@reserve/*": ["./reserve/*"],
       "@app/*": ["./reserve/app/*"],
       "@features/*": ["./reserve/features/*"],

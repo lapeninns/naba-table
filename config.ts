@@ -48,6 +48,9 @@ const config = {
     // REQUIRED — the path you want to redirect users after successful login (e.g. /, /profile). It's used in apiClient (/libs/api.js) upon 401 errors from our API & in ButtonSignin.js
     callbackUrl: "/",
   },
+  flags: {
+    opsV5: false,
+  },
 } as ConfigProps;
 
 export default config;

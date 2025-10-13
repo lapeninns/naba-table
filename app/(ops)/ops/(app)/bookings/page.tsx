@@ -3,7 +3,10 @@ import { headers, cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { HydrationBoundary, QueryClient, dehydrate } from "@tanstack/react-query";
 
-import { OpsBookingsClient, type OpsRestaurantOption } from "@/components/ops/bookings/OpsBookingsClient";
+import config from "@/config";
+import { OpsBookingsClient as LegacyOpsBookingsClient, type OpsRestaurantOption } from "@/components/ops/bookings/OpsBookingsClient";
+import { OpsBookingsClient } from "@/components/features/bookings";
+import type { OpsStatusFilter } from "@/hooks";
 import { DASHBOARD_DEFAULT_PAGE_SIZE } from "@/components/dashboard/constants";
 import { queryKeys } from "@/lib/query/keys";
 import { fetchUserMemberships } from "@/server/team/access";
@@ -44,6 +47,31 @@ function resolveOrigin(requestHeaders: HeaderLike): string {
   }
 
   return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+}
+
+type OpsBookingsSearchParams = {
+  restaurantId?: string;
+  filter?: string;
+  page?: string;
+  pageSize?: string;
+  status?: string;
+};
+
+const VALID_FILTERS: OpsStatusFilter[] = [
+  "all",
+  "upcoming",
+  "past",
+  "cancelled",
+  "pending",
+  "pending_allocation",
+  "confirmed",
+  "completed",
+  "no_show",
+];
+
+function parseStatusFilter(raw: string | undefined): OpsStatusFilter | null {
+  if (!raw) return null;
+  return VALID_FILTERS.includes(raw as OpsStatusFilter) ? (raw as OpsStatusFilter) : null;
 }
 
 async function prefetchOpsBookings(queryClient: QueryClient, params: URLSearchParams) {
@@ -94,7 +122,14 @@ function renderNoAccessState() {
   );
 }
 
-export default async function OpsBookingsPage() {
+export default async function OpsBookingsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<OpsBookingsSearchParams>;
+}) {
+  const resolvedParams = (await searchParams) ?? {};
+  const useNewOpsExperience = config.flags?.opsV5 ?? false;
+
   const supabase = await getServerComponentSupabaseClient();
   const {
     data: { user },
@@ -107,6 +142,23 @@ export default async function OpsBookingsPage() {
 
   if (!user) {
     redirect("/signin?redirectedFrom=/ops/bookings");
+  }
+
+  if (useNewOpsExperience) {
+    const initialFilter = parseStatusFilter(resolvedParams.filter ?? resolvedParams.status);
+    const parsedPage = resolvedParams.page ? Number.parseInt(resolvedParams.page, 10) : NaN;
+    const initialPage = Number.isNaN(parsedPage) || parsedPage <= 0 ? null : parsedPage;
+    const initialRestaurantId = resolvedParams.restaurantId ?? null;
+
+    return (
+      <div className="mx-auto flex max-w-5xl flex-col gap-8 py-6">
+        <OpsBookingsClient
+          initialFilter={initialFilter}
+          initialPage={initialPage}
+          initialRestaurantId={initialRestaurantId}
+        />
+      </div>
+    );
   }
 
   const memberships = await fetchUserMemberships(user.id, supabase);
@@ -137,7 +189,7 @@ export default async function OpsBookingsPage() {
 
   return (
     <HydrationBoundary state={dehydratedState}>
-      <OpsBookingsClient restaurants={restaurants} defaultRestaurantId={defaultRestaurant?.id ?? null} />
+      <LegacyOpsBookingsClient restaurants={restaurants} defaultRestaurantId={defaultRestaurant?.id ?? null} />
     </HydrationBoundary>
   );
 }

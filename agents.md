@@ -20,7 +20,7 @@
 2. **Everything is a Task** with its own time‑stamped directory and artifacts.
 3. **Manual UI QA via Chrome DevTools (MCP) is mandatory** for any UI change.
 4. **Supabase: remote only**—never run migrations or seeds against a local instance.
-5. **Prefer existing patterns** (DRY/KISS/YAGNI). Use **SHADCN UI** before building custom components.
+5. **Prefer existing patterns** (DRY/KISS/YAGNI). Use **SHADCN UI (Utilizing Shadcn MCP is mandatory)** before building custom components.
 6. **Accessibility is required**, not optional (WCAG/WAI‑ARIA APG alignment).
 7. **Document assumptions & deviations** from the plan, inside the task folder.
 
@@ -369,7 +369,7 @@ Use MCP to:
 
 ### Components
 
-- **Use SHADCN UI** when available; extend rather than rebuild.
+- **Use SHADCN UI (Utilizing Shadcn MCP is mandatory)** when available; extend rather than rebuild.
 - Search for existing patterns before introducing new ones.
 
 ### Mobile‑First & Progressive Enhancement

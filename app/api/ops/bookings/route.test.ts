@@ -323,6 +323,7 @@ describe("GET /api/ops/bookings", () => {
     const json = await response.json();
     expect(json.items).toHaveLength(1);
     expect(json.items[0].id).toBe("booking-1");
+    expect(json.items[0].restaurantId).toBe(RESTAURANT_ID);
     expect(json.items[0].restaurantName).toBe("Sajilo Reserve");
     expect(queryStub.range).toHaveBeenCalledWith(0, 9);
   });

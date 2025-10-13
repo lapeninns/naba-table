@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import config from "@/config";
+import { OpsDashboardClient } from "@/components/features/dashboard";
 import { TodayBookingsCard } from "@/components/ops/dashboard/TodayBookingsCard";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { fetchUserMemberships } from "@/server/team/access";
@@ -11,7 +13,7 @@ import {
   type TodayBookingsSummary,
 } from "@/server/ops/bookings";
 import { getServerComponentSupabaseClient } from "@/server/supabase";
-import { formatDateKey } from "@/lib/utils/datetime";
+import { sanitizeDateParam, computeCalendarRange } from "@/utils/ops/dashboard";
 
 export const metadata: Metadata = {
   title: "Ops Dashboard · SajiloReserveX",
@@ -21,33 +23,6 @@ export const metadata: Metadata = {
 type OpsPageSearchParams = {
   date?: string;
 };
-
-function sanitizeDateParam(value: string | undefined): string | null {
-  if (!value) {
-    return null;
-  }
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
-}
-
-function computeCalendarRange(date: string): { start: string; end: string } {
-  const base = new Date(`${date}T00:00:00`);
-  if (Number.isNaN(base.getTime())) {
-    return { start: date, end: date };
-  }
-
-  const start = new Date(base);
-  start.setDate(1);
-  const startWeekday = start.getDay();
-  start.setDate(start.getDate() - startWeekday);
-
-  const end = new Date(start);
-  end.setDate(end.getDate() + 41);
-
-  return {
-    start: formatDateKey(start),
-    end: formatDateKey(end),
-  };
-}
 
 export default async function OpsDashboardPage({ searchParams }: { searchParams?: Promise<OpsPageSearchParams> }) {
   const resolvedParams = (await searchParams) ?? {};
@@ -85,6 +60,15 @@ export default async function OpsDashboardPage({ searchParams }: { searchParams?
   const restaurantName = primaryMembership.restaurants?.name ?? "Restaurant";
 
   const requestedDate = sanitizeDateParam(resolvedParams.date);
+  const useNewDashboard = config.flags?.opsV5 ?? false;
+
+  if (useNewDashboard) {
+    return (
+      <div className="mx-auto flex max-w-5xl flex-col gap-8 py-6">
+        <OpsDashboardClient initialDate={requestedDate} />
+      </div>
+    );
+  }
 
   let summary: TodayBookingsSummary | null = null;
   let heatmap: BookingHeatmap = {};

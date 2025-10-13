@@ -2,12 +2,13 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
 
+import config from '@/config';
+import { OpsRestaurantSettingsClient } from '@/components/features';
 import { RestaurantSettingsClient } from '@/components/ops/restaurant-settings/RestaurantSettingsClient';
 import { fetchUserMemberships } from '@/server/team/access';
 import { getOperatingHours, getServicePeriods } from '@/server/restaurants';
 import { getServerComponentSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 import { queryKeys } from '@/lib/query/keys';
-import config from '@/config';
 
 export const metadata: Metadata = {
   title: 'Restaurant Settings · SajiloReserveX Ops',
@@ -38,6 +39,14 @@ export default async function RestaurantSettingsPage() {
   }));
 
   const defaultRestaurantId = restaurants[0]?.id ?? null;
+
+  if (config.flags?.opsV5) {
+    return (
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 py-6">
+        <OpsRestaurantSettingsClient defaultRestaurantId={defaultRestaurantId} />
+      </div>
+    );
+  }
 
   const queryClient = new QueryClient();
   const serviceSupabase = getServiceSupabaseClient();

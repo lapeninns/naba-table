@@ -51,4 +51,8 @@ export interface ConfigProps {
     loginUrl: string;
     callbackUrl: string;
   };
+  flags?: {
+    opsV5?: boolean;
+    [key: string]: boolean | undefined;
+  };
 }

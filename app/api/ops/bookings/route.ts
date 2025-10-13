@@ -108,6 +108,7 @@ type OpsBookingRow = Pick<
 
 type BookingDTO = {
   id: string;
+  restaurantId: string;
   restaurantName: string;
   partySize: number;
   startIso: string;
@@ -312,6 +313,7 @@ export async function GET(req: NextRequest) {
 
     return {
       id: row.id,
+      restaurantId: row.restaurant_id,
       restaurantName: restaurantRelation?.name ?? "",
       partySize: row.party_size,
       startIso,
