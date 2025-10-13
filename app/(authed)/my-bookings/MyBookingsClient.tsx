@@ -17,6 +17,7 @@ export function MyBookingsClient() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [cancelBooking, setCancelBooking] = useState<BookingDTO | null>(null);
   const [isCancelOpen, setIsCancelOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const { data, error, isLoading, isFetching, refetch } = useBookings(queryFilters);
 
@@ -70,6 +71,10 @@ export function MyBookingsClient() {
     }
   }, []);
 
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchTerm(value);
+  }, []);
+
   return (
     <section className="space-y-6">
       <BookingsTable
@@ -81,6 +86,8 @@ export function MyBookingsClient() {
         isLoading={isLoading}
         isFetching={isFetching}
         error={error ?? null}
+        searchTerm={searchTerm}
+        onSearchChange={handleSearchChange}
         onStatusFilterChange={handleStatusFilterChange}
         onPageChange={handlePageChange}
         onRetry={refetch}

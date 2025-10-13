@@ -111,6 +111,43 @@ export function OpsSessionProvider({
     persistRestaurantId(activeRestaurantId);
   }, [activeRestaurantId, fallbackRestaurantId, membershipIds]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== STORAGE_KEY) {
+        return;
+      }
+
+      const nextId = event.newValue && event.newValue.length > 0 ? event.newValue : null;
+
+      if (!nextId) {
+        if (fallbackRestaurantId !== activeRestaurantId) {
+          setActiveRestaurantIdState(fallbackRestaurantId ?? null);
+        }
+        return;
+      }
+
+      if (!membershipIds.has(nextId)) {
+        if (fallbackRestaurantId !== activeRestaurantId) {
+          setActiveRestaurantIdState(fallbackRestaurantId ?? null);
+        }
+        return;
+      }
+
+      if (nextId !== activeRestaurantId) {
+        setActiveRestaurantIdState(nextId);
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, [activeRestaurantId, fallbackRestaurantId, membershipIds]);
+
   const activeMembership = useMemo(() => {
     if (!activeRestaurantId) {
       return null;

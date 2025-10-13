@@ -24,6 +24,8 @@ export type BookingsTableProps = {
   isLoading: boolean;
   isFetching: boolean;
   error: HttpError | null;
+  searchTerm: string;
+  onSearchChange: (value: string) => void;
   onStatusFilterChange: (status: StatusFilter) => void;
   onPageChange: (page: number) => void;
   onRetry: () => void;
@@ -49,6 +51,8 @@ export function BookingsTable({
   isLoading,
   isFetching,
   error,
+  searchTerm,
+  onSearchChange,
   onStatusFilterChange,
   onPageChange,
   onRetry,
@@ -58,8 +62,17 @@ export function BookingsTable({
   const showSkeleton = isLoading;
   const showEmpty = !isLoading && !error && bookings.length === 0;
   const isPastView = statusFilter === 'past';
+  const trimmedSearch = searchTerm.trim();
 
   const emptyState = useMemo(() => {
+    if (trimmedSearch) {
+      return {
+        title: 'No bookings match your search',
+        description: 'Try searching for a different guest name or email.',
+        analyticsEvent: 'dashboard_empty_search',
+      } as const;
+    }
+
     switch (statusFilter) {
       case 'upcoming':
         return {
@@ -86,7 +99,7 @@ export function BookingsTable({
           analyticsEvent: 'dashboard_empty_all',
         } as const;
     }
-  }, [statusFilter]);
+  }, [statusFilter, trimmedSearch]);
 
   const dateFormatter = useMemo(() => new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }), []);
   const formatDate = useCallback(
@@ -130,6 +143,9 @@ export function BookingsTable({
         statusFilter={statusFilter}
         onStatusFilterChange={onStatusFilterChange}
         statusOptions={STATUS_OPTIONS}
+        searchTerm={searchTerm}
+        onSearchChange={onSearchChange}
+        isSearching={isFetching}
       />
 
       {error ? (

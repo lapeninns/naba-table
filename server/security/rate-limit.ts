@@ -24,6 +24,23 @@ type MemoryBucket = {
 let redisClient: Redis | null | undefined;
 const memoryStore = new Map<string, MemoryBucket>();
 let warnedAboutMemoryStore = false;
+let warnedAboutMissingUpstash = false;
+
+function logMissingUpstashWarning() {
+  if (warnedAboutMissingUpstash) {
+    return;
+  }
+  const envName = process.env.NODE_ENV ?? "development";
+  if (envName === "production") {
+    warnedAboutMissingUpstash = true;
+    return;
+  }
+
+  console.warn(
+    "[rate-limit] Upstash Redis credentials (UPSTASH_REDIS_REST_URL/UPSTASH_REDIS_REST_TOKEN) are missing. Falling back to in-memory limiter for this session.",
+  );
+  warnedAboutMissingUpstash = true;
+}
 
 function getRedisClient(): Redis | null {
   if (redisClient !== undefined) {
@@ -39,6 +56,7 @@ function getRedisClient(): Redis | null {
       });
       return redisClient;
     }
+    logMissingUpstashWarning();
   } catch (error) {
     console.warn("[rate-limit] unable to initialize Upstash client, falling back to in-memory store", error instanceof Error ? error.message : error);
   }

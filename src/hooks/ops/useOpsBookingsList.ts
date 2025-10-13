@@ -34,6 +34,9 @@ function normalizeFilters(filters: OpsBookingsFilters) {
   const toIso = toIsoString(filters.to ?? undefined);
   if (toIso) normalized.to = toIso;
 
+  const query = filters.query?.toString().trim();
+  if (query) normalized.query = query;
+
   return normalized;
 }
 

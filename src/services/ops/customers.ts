@@ -1,23 +1,18 @@
-import type { OpsServiceError } from '@/types/ops';
+import { fetchJson } from '@/lib/http/fetchJson';
+import type { HttpError } from '@/lib/http/errors';
+import type { OpsCustomersPage, OpsServiceError } from '@/types/ops';
 
-export type CustomerProfile = {
-  id: string;
+const OPS_CUSTOMERS_BASE = '/api/ops/customers';
+
+export type CustomerListParams = {
   restaurantId: string;
-  name: string;
-  email: string;
-  phone: string;
-  marketingOptIn: boolean;
-  createdAt: string;
-  updatedAt: string;
-  firstBookingAt: string | null;
-  lastBookingAt: string | null;
-  totalBookings: number;
-  totalCovers: number;
-  totalCancellations: number;
+  page?: number;
+  pageSize?: number;
+  sort?: 'asc' | 'desc';
 };
 
 export interface CustomerService {
-  list(restaurantId: string, params?: Record<string, unknown>): Promise<CustomerProfile[]>;
+  list(params: CustomerListParams): Promise<OpsCustomersPage>;
 }
 
 export class NotImplementedCustomerService implements CustomerService {
@@ -25,16 +20,38 @@ export class NotImplementedCustomerService implements CustomerService {
     throw new Error(`[ops][customerService] ${message}`);
   }
 
-  list(): Promise<CustomerProfile[]> {
+  list(): Promise<OpsCustomersPage> {
     this.error('list not implemented');
   }
 }
 
 export type CustomerServiceFactory = () => CustomerService;
 
+function buildSearch(params: CustomerListParams): string {
+  const searchParams = new URLSearchParams();
+  searchParams.set('restaurantId', params.restaurantId);
+  if (params.page) searchParams.set('page', String(params.page));
+  if (params.pageSize) searchParams.set('pageSize', String(params.pageSize));
+  if (params.sort) searchParams.set('sort', params.sort);
+  return searchParams.toString();
+}
+
+export function createBrowserCustomerService(): CustomerService {
+  return {
+    async list(params) {
+      if (!params.restaurantId) {
+        throw new Error('[ops][customerService] restaurantId is required');
+      }
+      const search = buildSearch(params);
+      const url = search ? `${OPS_CUSTOMERS_BASE}?${search}` : OPS_CUSTOMERS_BASE;
+      return fetchJson<OpsCustomersPage>(url);
+    },
+  };
+}
+
 export function createCustomerService(factory?: CustomerServiceFactory): CustomerService {
   try {
-    return factory ? factory() : new NotImplementedCustomerService();
+    return factory ? factory() : createBrowserCustomerService();
   } catch (error) {
     if (error instanceof Error) {
       console.error('[ops][customerService] failed to instantiate', error.message);
@@ -43,4 +60,4 @@ export function createCustomerService(factory?: CustomerServiceFactory): Custome
   }
 }
 
-export type CustomerServiceError = OpsServiceError | Error;
+export type CustomerServiceError = OpsServiceError | HttpError;

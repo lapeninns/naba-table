@@ -31,6 +31,7 @@ function createQueryStub(result: { data: unknown; count?: number | null; error?:
     gte: vi.fn().mockReturnThis(),
     lt: vi.fn().mockReturnThis(),
     order: vi.fn().mockReturnThis(),
+    or: vi.fn().mockReturnThis(),
     range: vi.fn().mockResolvedValue({
       data: result.data,
       count: result.count ?? null,
@@ -345,6 +346,29 @@ describe("GET /api/ops/bookings", () => {
       expect.objectContaining({
         eventType: "ops_bookings.rate_limited",
       }),
+    );
+  });
+
+  it("filters results using name or email search", async () => {
+    getUserMock.mockResolvedValue({ data: { user: { id: "user-1", email: "staff@example.com" } }, error: null });
+    fetchUserMembershipsMock.mockResolvedValue([{ restaurant_id: RESTAURANT_ID }]);
+
+    const queryStub = createQueryStub({ data: [], count: 0 });
+    const fromMock = vi.fn(() => queryStub);
+    getServiceSupabaseClientMock.mockReturnValue({ from: fromMock });
+
+    const rawSearch = "Alex%Smith_";
+    const request = new NextRequest(
+      `http://localhost/api/ops/bookings?restaurantId=${RESTAURANT_ID}&page=1&pageSize=5&query=${encodeURIComponent(rawSearch)}`,
+    );
+
+    const response = await GET(request);
+    expect(response.status).toBe(200);
+
+    expect(queryStub.or).toHaveBeenCalledTimes(1);
+    const [orArg] = queryStub.or.mock.calls[0] ?? [];
+    expect(orArg).toBe(
+      "customer_name.ilike.%Alex\\%Smith\\_%,customer_email.ilike.%Alex\\%Smith\\_%",
     );
   });
 });

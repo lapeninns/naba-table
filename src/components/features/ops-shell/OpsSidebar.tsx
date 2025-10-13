@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { LogOut, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -22,38 +22,10 @@ import {
 } from '@/components/ui/sidebar';
 import { signOutFromSupabase } from '@/lib/supabase/signOut';
 import { cn } from '@/lib/utils';
-import { useOpsAccountSnapshot, useOpsSession } from '@/contexts/ops-session';
+import { useOpsSession } from '@/contexts/ops-session';
 
+import { OpsRestaurantSwitch } from './OpsRestaurantSwitch';
 import { OPS_NAV_SECTIONS, OPS_SUPPORT_ITEM, isNavItemActive } from './navigation';
-
-const FALLBACK_INITIALS = 'SR';
-
-function computeInitials(name: string | null): string {
-  if (!name) {
-    return FALLBACK_INITIALS;
-  }
-
-  const trimmed = name.trim();
-  if (!trimmed) {
-    return FALLBACK_INITIALS;
-  }
-
-  const words = trimmed.split(/\s+/).filter(Boolean);
-  if (words.length >= 2) {
-    return `${words[0]![0] ?? ''}${words[1]![0] ?? ''}`.toUpperCase();
-  }
-
-  const capitals = trimmed.match(/[A-Z]/g);
-  if (capitals && capitals.length >= 2) {
-    return `${capitals[0]}${capitals[1]}`;
-  }
-
-  if (trimmed.length >= 2) {
-    return `${trimmed[0]}${trimmed[trimmed.length - 1]}`.toUpperCase();
-  }
-
-  return trimmed[0]?.toUpperCase() ?? FALLBACK_INITIALS;
-}
 
 type OpsSidebarProps = {
   collapsible?: 'icon' | 'none';
@@ -62,27 +34,9 @@ type OpsSidebarProps = {
 export function OpsSidebar({ collapsible = 'icon' }: OpsSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const account = useOpsAccountSnapshot();
   const { activeMembership } = useOpsSession();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const SupportIcon = OPS_SUPPORT_ITEM.icon;
-
-  const initials = useMemo(() => computeInitials(activeMembership?.restaurantName ?? account.restaurantName), [
-    activeMembership?.restaurantName,
-    account.restaurantName,
-  ]);
-
-  const metaLine = useMemo(() => {
-    const email = account.userEmail?.trim();
-    const role = account.role;
-    if (email && role) {
-      return `${email} (${role})`;
-    }
-    if (email) {
-      return email;
-    }
-    return role ?? 'Operations';
-  }, [account.role, account.userEmail]);
 
   const handleSignOut = useCallback(async () => {
     if (isSigningOut) return;
@@ -115,24 +69,10 @@ export function OpsSidebar({ collapsible = 'icon' }: OpsSidebarProps) {
     );
   }
 
-  const restaurantName = activeMembership?.restaurantName ?? account.restaurantName ?? 'SajiloReserveX';
-
   return (
     <Sidebar collapsible={collapsible}>
       <SidebarHeader className="px-3 pt-4">
-        <div className="flex items-center gap-3 rounded-lg border border-sidebar-border bg-sidebar p-3 text-sidebar-foreground shadow-sm">
-          <span className="inline-flex size-9 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground font-semibold">
-            {initials}
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold tracking-tight" title={restaurantName}>
-              {restaurantName}
-            </p>
-            <p className="truncate text-xs text-sidebar-foreground/70" title={metaLine ?? undefined}>
-              {metaLine}
-            </p>
-          </div>
-        </div>
+        <OpsRestaurantSwitch />
       </SidebarHeader>
 
       <SidebarContent>

@@ -31,7 +31,7 @@ describe("GET /api/auth/callback", () => {
 
     expect(exchangeCodeMock).toHaveBeenCalledWith("abc123");
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("http://localhost/my-bookings");
+    expect(response.headers.get("location")).toBe("http://localhost/dashboard");
   });
 
   it("falls back to default callback path when redirect is invalid", async () => {

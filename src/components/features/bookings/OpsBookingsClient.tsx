@@ -9,13 +9,12 @@ import { DASHBOARD_DEFAULT_PAGE_SIZE } from '@/components/dashboard/constants';
 import { CancelBookingDialog } from '@/components/dashboard/CancelBookingDialog';
 import { EditBookingDialog } from '@/components/dashboard/EditBookingDialog';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import type { BookingDTO } from '@/hooks/useBookings';
 import type { StatusFilter } from '@/hooks/useBookingsTableState';
 import { useOpsCancelBooking } from '@/hooks/useOpsCancelBooking';
 import { useOpsUpdateBooking } from '@/hooks/useOpsUpdateBooking';
 import { useOpsBookingsTableState, type OpsStatusFilter, useOpsBookingsList } from '@/hooks';
-import { useOpsSession } from '@/contexts/ops-session';
+import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import type { OpsBookingListItem } from '@/types/ops';
 
 const DEFAULT_FILTER: OpsStatusFilter = 'upcoming';
@@ -26,12 +25,14 @@ export type OpsBookingsClientProps = {
   initialFilter?: OpsStatusFilter | null;
   initialPage?: number | null;
   initialRestaurantId?: string | null;
+  initialQuery?: string | null;
 };
 
-export function OpsBookingsClient({ initialFilter, initialPage, initialRestaurantId }: OpsBookingsClientProps) {
+export function OpsBookingsClient({ initialFilter, initialPage, initialRestaurantId, initialQuery }: OpsBookingsClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { memberships, activeRestaurantId, setActiveRestaurantId, accountSnapshot } = useOpsSession();
+  const activeMembership = useOpsActiveMembership();
 
   const effectiveFilter = initialFilter ?? DEFAULT_FILTER;
   const effectivePage = initialPage ?? DEFAULT_PAGE;
@@ -40,20 +41,20 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
     initialStatus: effectiveFilter,
     initialPage: effectivePage,
     pageSize: DEFAULT_PAGE_SIZE,
+    initialQuery: initialQuery ?? '',
   });
 
-  const { statusFilter, page, pageSize, queryFilters, handleStatusFilterChange, handlePageChange } = tableState;
-
-  const restaurantOptions = useMemo(
-    () =>
-      memberships.map((membership) => ({
-        id: membership.restaurantId,
-        name: membership.restaurantName ?? 'Restaurant',
-      })),
-    [memberships],
-  );
-
-  const selectedRestaurantId = activeRestaurantId ?? restaurantOptions[0]?.id ?? null;
+  const {
+    statusFilter,
+    page,
+    pageSize,
+    queryFilters,
+    handleStatusFilterChange,
+    handlePageChange,
+    handleSearchChange,
+    setPage,
+    search,
+  } = tableState;
 
   useEffect(() => {
     if (initialRestaurantId && initialRestaurantId !== activeRestaurantId) {
@@ -64,18 +65,45 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
   }, [initialRestaurantId]);
 
   useEffect(() => {
-    if (!activeRestaurantId && restaurantOptions[0]) {
-      setActiveRestaurantId(restaurantOptions[0].id);
+    if (!router || !searchParams) {
+      return;
     }
-  }, [activeRestaurantId, restaurantOptions, setActiveRestaurantId]);
+
+    const currentParam = searchParams.get('restaurantId');
+    const target = activeRestaurantId ?? null;
+
+    if (currentParam === target || (!currentParam && !target)) {
+      return;
+    }
+
+    const params = new URLSearchParams(searchParams.toString());
+    if (target) {
+      params.set('restaurantId', target);
+      params.delete('page');
+    } else {
+      params.delete('restaurantId');
+      params.delete('page');
+    }
+
+    const query = params.toString();
+    router.replace(`/ops/bookings${query ? `?${query}` : ''}`, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeRestaurantId]);
+
+  useEffect(() => {
+    if (!activeRestaurantId) {
+      return;
+    }
+    setPage(1);
+  }, [activeRestaurantId, setPage]);
 
   const filters = useMemo(() => {
-    if (!selectedRestaurantId) return null;
+    if (!activeRestaurantId) return null;
     return {
-      restaurantId: selectedRestaurantId,
+      restaurantId: activeRestaurantId,
       ...queryFilters,
     };
-  }, [queryFilters, selectedRestaurantId]);
+  }, [activeRestaurantId, queryFilters]);
 
   const bookingsQuery = useOpsBookingsList(filters);
   const bookingsPage = bookingsQuery.data ?? {
@@ -104,15 +132,6 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
     [router, searchParams],
   );
 
-  const handleRestaurantChange = useCallback(
-    (nextRestaurantId: string) => {
-      setActiveRestaurantId(nextRestaurantId);
-      tableState.setPage(1);
-      updateSearchParams({ restaurantId: nextRestaurantId, page: null });
-    },
-    [setActiveRestaurantId, tableState, updateSearchParams],
-  );
-
   const handleStatusChange = useCallback(
     (nextStatus: OpsStatusFilter) => {
       handleStatusFilterChange(nextStatus);
@@ -129,6 +148,15 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
       updateSearchParams({ page: targetPage === String(DEFAULT_PAGE) ? null : targetPage });
     },
     [bookingsPage.pageInfo.total, handlePageChange, updateSearchParams],
+  );
+
+  const handleSearchInput = useCallback(
+    (value: string) => {
+      handleSearchChange(value);
+      const trimmed = value.trim();
+      updateSearchParams({ query: trimmed.length > 0 ? trimmed : null, page: null });
+    },
+    [handleSearchChange, updateSearchParams],
   );
 
   const mapToBookingDTO = useCallback((booking: OpsBookingListItem): BookingDTO => ({
@@ -171,12 +199,12 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
     return <NoRestaurantAccess />;
   }
 
-  if (!selectedRestaurantId) {
+  if (!activeRestaurantId) {
     return <SelectingRestaurantFallback />;
   }
 
-  const activeRestaurant = restaurantOptions.find((restaurant) => restaurant.id === selectedRestaurantId);
-  const currentRestaurantName = activeRestaurant?.name ?? accountSnapshot.restaurantName ?? 'This restaurant';
+  const currentRestaurantName =
+    activeMembership?.restaurantName ?? accountSnapshot.restaurantName ?? 'This restaurant';
 
   return (
     <section className="space-y-6">
@@ -187,26 +215,6 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
         </p>
       </header>
 
-      {restaurantOptions.length > 1 ? (
-        <div className="w-full max-w-xs space-y-2">
-          <Label htmlFor="ops-bookings-restaurant" className="text-sm font-medium text-foreground">
-            Restaurant
-          </Label>
-          <select
-            id="ops-bookings-restaurant"
-            value={selectedRestaurantId}
-            onChange={(event) => handleRestaurantChange(event.target.value)}
-            className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-          >
-            {restaurantOptions.map((restaurant) => (
-              <option key={restaurant.id} value={restaurant.id}>
-                {restaurant.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      ) : null}
-
       <BookingsTable
         bookings={bookings}
         page={bookingsPage.pageInfo.page}
@@ -216,6 +224,8 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
         isLoading={bookingsQuery.isLoading}
         isFetching={bookingsQuery.isFetching}
         error={bookingsQuery.error ?? null}
+        searchTerm={search}
+        onSearchChange={handleSearchInput}
         onStatusFilterChange={(next) => handleStatusChange(next as OpsStatusFilter)}
         onPageChange={handlePageRequest}
         onRetry={() => bookingsQuery.refetch()}

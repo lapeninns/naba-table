@@ -84,6 +84,7 @@ export type OpsBookingsFilters = {
   sort?: 'asc' | 'desc';
   from?: Date | string | null;
   to?: Date | string | null;
+  query?: string | null;
 };
 
 export type OpsWalkInBookingPayload = {
@@ -109,6 +110,8 @@ export type OpsBookingListItem = {
   endIso: string;
   status: OpsBookingStatus;
   notes?: string | null;
+  customerName?: string | null;
+  customerEmail?: string | null;
 };
 
 export type OpsBookingsPage = {
@@ -130,3 +133,28 @@ export type OpsRestaurantOption = {
 };
 
 export type OpsServiceError = HttpError | Error;
+
+export type OpsCustomer = {
+  id: string;
+  restaurantId: string;
+  name: string;
+  email: string;
+  phone: string;
+  marketingOptIn: boolean;
+  createdAt: string;
+  firstBookingAt: string | null;
+  lastBookingAt: string | null;
+  totalBookings: number;
+  totalCovers: number;
+  totalCancellations: number;
+};
+
+export type OpsCustomersPage = {
+  items: OpsCustomer[];
+  pageInfo: {
+    page: number;
+    pageSize: number;
+    total: number;
+    hasNext: boolean;
+  };
+};

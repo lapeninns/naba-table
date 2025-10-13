@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useMemo, useState } from 'react';
 
 import type { OpsBookingStatus } from '@/types/ops';
 
@@ -10,15 +10,18 @@ export type UseOpsBookingsTableStateOptions = {
   initialStatus?: OpsStatusFilter;
   initialPage?: number;
   pageSize?: number;
+  initialQuery?: string;
 };
 
 export function useOpsBookingsTableState({
   initialStatus = 'upcoming',
   initialPage = 1,
   pageSize = 10,
+  initialQuery = '',
 }: UseOpsBookingsTableStateOptions = {}) {
   const [statusFilter, setStatusFilter] = useState<OpsStatusFilter>(initialStatus);
   const [page, setPage] = useState(initialPage);
+  const [search, setSearch] = useState(initialQuery);
 
   const handleStatusFilterChange = useCallback((nextStatus: OpsStatusFilter) => {
     setStatusFilter(nextStatus);
@@ -35,6 +38,13 @@ export function useOpsBookingsTableState({
     [pageSize],
   );
 
+  const handleSearchChange = useCallback((nextSearch: string) => {
+    setSearch(nextSearch);
+    setPage(1);
+  }, []);
+
+  const deferredSearch = useDeferredValue(search.trim());
+
   const queryFilters = useMemo(() => {
     const now = new Date();
     const filters: {
@@ -44,6 +54,7 @@ export function useOpsBookingsTableState({
       sort?: 'asc' | 'desc';
       from?: Date;
       to?: Date;
+      query?: string;
     } = {
       page,
       pageSize,
@@ -71,8 +82,12 @@ export function useOpsBookingsTableState({
         break;
     }
 
+    if (deferredSearch) {
+      filters.query = deferredSearch;
+    }
+
     return filters;
-  }, [page, pageSize, statusFilter]);
+  }, [deferredSearch, page, pageSize, statusFilter]);
 
   return {
     statusFilter,
@@ -81,7 +96,10 @@ export function useOpsBookingsTableState({
     queryFilters,
     handleStatusFilterChange,
     handlePageChange,
+    handleSearchChange,
     setStatusFilter,
     setPage,
+    search,
+    setSearch,
   } as const;
 }

@@ -89,6 +89,10 @@ const OPS_BOOKING_STATUSES = [
   "no_show",
 ] as const;
 
+function sanitizeSearchTerm(input: string): string {
+  return input.replace(/([\\%_])/g, '\\$1');
+}
+
 const opsBookingsQuerySchema = z.object({
   restaurantId: z.string().uuid().optional(),
   status: z.enum(OPS_BOOKING_STATUSES).optional(),
@@ -97,11 +101,17 @@ const opsBookingsQuerySchema = z.object({
   sort: z.enum(["asc", "desc"]).default("asc"),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(50).default(10),
+  query: z
+    .string()
+    .trim()
+    .max(80)
+    .transform((value) => (value.length === 0 ? undefined : value))
+    .optional(),
 });
 
 type OpsBookingRow = Pick<
   Tables<"bookings">,
-  "id" | "start_at" | "end_at" | "booking_date" | "start_time" | "end_time" | "party_size" | "status" | "notes" | "restaurant_id"
+  "id" | "start_at" | "end_at" | "booking_date" | "start_time" | "end_time" | "party_size" | "status" | "notes" | "restaurant_id" | "customer_name" | "customer_email"
 > & {
   restaurants?: { name: string | null } | { name: string | null }[] | null;
 };
@@ -115,6 +125,8 @@ type BookingDTO = {
   endIso: string;
   status: OpsBookingRow["status"];
   notes?: string | null;
+  customerName: string | null;
+  customerEmail: string | null;
 };
 
 type PageInfo = {
@@ -209,6 +221,7 @@ export async function GET(req: NextRequest) {
     sort: req.nextUrl.searchParams.get("sort") ?? undefined,
     page: req.nextUrl.searchParams.get("page") ?? undefined,
     pageSize: req.nextUrl.searchParams.get("pageSize") ?? undefined,
+    query: req.nextUrl.searchParams.get("query") ?? undefined,
   };
 
   const parsed = opsBookingsQuerySchema.safeParse(rawParams);
@@ -276,7 +289,7 @@ export async function GET(req: NextRequest) {
   let query = serviceSupabase
     .from("bookings")
     .select(
-      "id, start_at, end_at, booking_date, start_time, end_time, party_size, status, notes, restaurant_id, restaurants(name)",
+      "id, start_at, end_at, booking_date, start_time, end_time, party_size, status, notes, restaurant_id, customer_name, customer_email, restaurants(name)",
       { count: "exact" },
     )
     .eq("restaurant_id", targetRestaurantId);
@@ -294,6 +307,12 @@ export async function GET(req: NextRequest) {
   }
 
   query = query.order("start_at", { ascending: params.sort === "asc" });
+
+  if (params.query) {
+    const escaped = sanitizeSearchTerm(params.query);
+    const pattern = `%${escaped}%`;
+    query = query.or(`customer_name.ilike.${pattern},customer_email.ilike.${pattern}`);
+  }
 
   const { data, error, count } = await query.range(offset, offset + params.pageSize - 1);
 
@@ -320,6 +339,8 @@ export async function GET(req: NextRequest) {
       endIso,
       status: row.status,
       notes: row.notes ?? null,
+      customerName: row.customer_name ?? null,
+      customerEmail: row.customer_email ?? null,
     };
   });
 

@@ -114,8 +114,16 @@ function createBookingServiceStub(): BookingService {
 
 function createCustomerServiceStub(): CustomerService {
   return {
-    list: vi.fn(),
-  };
+    list: vi.fn().mockResolvedValue({
+      items: [],
+      pageInfo: {
+        page: 1,
+        pageSize: 10,
+        total: 0,
+        hasNext: false,
+      },
+    }),
+  } as unknown as CustomerService;
 }
 
 function renderWithProviders(

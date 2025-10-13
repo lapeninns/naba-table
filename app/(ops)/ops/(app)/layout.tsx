@@ -1,13 +1,10 @@
 import type { ReactNode } from "react";
 import { cookies } from "next/headers";
 
-import config from "@/config";
 import { OpsShell } from "@/components/features/ops-shell";
-import { OpsAppShell } from "@/components/ops/OpsAppShell";
-import type { OpsSidebarAccount } from "@/components/ops/AppSidebar";
 import { OpsServicesProvider } from "@/contexts/ops-services";
 import { OpsSessionProvider } from "@/contexts/ops-session";
-import { isRestaurantRole, type RestaurantRole } from "@/lib/owner/auth/roles";
+import type { RestaurantRole } from "@/lib/owner/auth/roles";
 import { fetchUserMemberships, type RestaurantMembershipWithDetails } from "@/server/team/access";
 import { getServerComponentSupabaseClient } from "@/server/supabase";
 import type { OpsMembership, OpsUser } from "@/types/ops";
@@ -23,24 +20,6 @@ function mapMembershipToOps(membership: RestaurantMembershipWithDetails): OpsMem
     restaurantSlug: membership.restaurants?.slug ?? null,
     role: membership.role as RestaurantRole,
     createdAt: membership.created_at ?? null,
-  };
-}
-
-function buildLegacyAccount(
-  user: OpsUser | null,
-  memberships: RestaurantMembershipWithDetails[],
-): OpsSidebarAccount | null {
-  if (!user) {
-    return null;
-  }
-
-  const primaryMembership = memberships[0] ?? null;
-  const role = primaryMembership?.role && isRestaurantRole(primaryMembership.role) ? primaryMembership.role : null;
-
-  return {
-    restaurantName: primaryMembership?.restaurants?.name ?? null,
-    userEmail: user.email,
-    role,
   };
 }
 
@@ -78,17 +57,6 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
     }
   } catch (authError) {
     console.error("[ops/layout] unexpected error while resolving account", authError);
-  }
-
-  const useNewShell = config.flags?.opsV5 ?? false;
-
-  if (!useNewShell) {
-    const legacyAccount = buildLegacyAccount(supabaseUser, memberships);
-    return (
-      <OpsAppShell defaultOpen={defaultOpen} account={legacyAccount}>
-        {children}
-      </OpsAppShell>
-    );
   }
 
   const opsMemberships: OpsMembership[] = memberships

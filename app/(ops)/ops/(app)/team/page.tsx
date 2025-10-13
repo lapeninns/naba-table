@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import config from "@/config";
-import { TeamManagementClient as LegacyTeamManagementClient } from "@/components/ops/team/TeamManagementClient";
 import { OpsTeamManagementClient } from "@/components/features";
 import { getServerComponentSupabaseClient } from "@/server/supabase";
 
@@ -27,11 +26,9 @@ export default async function TeamManagementPage() {
     redirect(`${loginUrl}?redirectedFrom=/ops/team`);
   }
 
-  const useNewExperience = config.flags?.opsV5 ?? false;
-
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-10 py-6">
-      {useNewExperience ? <OpsTeamManagementClient /> : <LegacyTeamManagementClient />}
+      <OpsTeamManagementClient />
     </div>
   );
 }

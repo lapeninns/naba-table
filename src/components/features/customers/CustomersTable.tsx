@@ -1,13 +1,11 @@
 'use client';
 
-import { useMemo } from 'react';
-
+import type { OpsCustomer } from '@/types/ops';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { CustomerDTO } from '@/app/api/ops/customers/schema';
 
 type CustomersTableProps = {
-  customers: CustomerDTO[];
+  customers: OpsCustomer[];
   isLoading: boolean;
 };
 
@@ -26,15 +24,14 @@ function EmptyState() {
       <div className="max-w-md">
         <h3 className="text-lg font-semibold text-foreground">No customers yet</h3>
         <p className="mt-2 text-sm text-muted-foreground">
-          Customers who make bookings will appear here. Their booking history and preferences will be tracked
-          automatically.
+          Customers who make bookings will appear here. Their booking history and preferences will be tracked automatically.
         </p>
       </div>
     </div>
   );
 }
 
-function CustomerCard({ customer }: { customer: CustomerDTO }) {
+function CustomerCard({ customer }: { customer: OpsCustomer }) {
   return (
     <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
       <div className="space-y-3">
@@ -81,9 +78,9 @@ export function CustomersTable({ customers, isLoading }: CustomersTableProps) {
           <div className="space-y-3">
             {skeletonRows.map((row) => (
               <div key={`skeleton-mobile-${row}`} className="rounded-lg border border-border bg-card p-4">
-                <Skeleton className="h-5 w-32 mb-2" />
-                <Skeleton className="h-4 w-48 mb-1" />
-                <Skeleton className="h-4 w-40 mb-3" />
+                <Skeleton className="mb-2 h-5 w-32" />
+                <Skeleton className="mb-1 h-4 w-48" />
+                <Skeleton className="mb-3 h-4 w-40" />
                 <div className="grid grid-cols-2 gap-2">
                   <Skeleton className="h-4 w-20" />
                   <Skeleton className="h-4 w-20" />

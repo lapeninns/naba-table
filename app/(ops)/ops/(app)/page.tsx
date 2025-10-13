@@ -1,19 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import config from "@/config";
 import { OpsDashboardClient } from "@/components/features/dashboard";
-import { TodayBookingsCard } from "@/components/ops/dashboard/TodayBookingsCard";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { fetchUserMemberships } from "@/server/team/access";
-import {
-  getBookingsHeatmap,
-  getTodayBookingsSummary,
-  type BookingHeatmap,
-  type TodayBookingsSummary,
-} from "@/server/ops/bookings";
 import { getServerComponentSupabaseClient } from "@/server/supabase";
-import { sanitizeDateParam, computeCalendarRange } from "@/utils/ops/dashboard";
+import { sanitizeDateParam } from "@/utils/ops/dashboard";
 
 export const metadata: Metadata = {
   title: "Ops Dashboard · SajiloReserveX",
@@ -40,90 +30,9 @@ export default async function OpsDashboardPage({ searchParams }: { searchParams?
     redirect(`/signin?redirectedFrom=/ops`);
   }
 
-  const memberships = await fetchUserMemberships(user.id, supabase);
-
-  if (memberships.length === 0) {
-    return (
-      <section className="flex min-h-[60vh] items-center justify-center">
-        <div className="max-w-lg rounded-lg border border-dashed border-border/60 bg-muted/20 px-6 py-8 text-center">
-          <h2 className="text-xl font-semibold text-foreground">No restaurant access yet</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Ask an owner or manager to send you an invitation so you can manage bookings.
-          </p>
-        </div>
-      </section>
-    );
-  }
-
-  // MVP selects the first membership; future iterations will enable switching.
-  const primaryMembership = memberships[0];
-  const restaurantName = primaryMembership.restaurants?.name ?? "Restaurant";
-
-  const requestedDate = sanitizeDateParam(resolvedParams.date);
-  const useNewDashboard = config.flags?.opsV5 ?? false;
-
-  if (useNewDashboard) {
-    return (
-      <div className="mx-auto flex max-w-5xl flex-col gap-8 py-6">
-        <OpsDashboardClient initialDate={requestedDate} />
-      </div>
-    );
-  }
-
-  let summary: TodayBookingsSummary | null = null;
-  let heatmap: BookingHeatmap = {};
-  try {
-    summary = await getTodayBookingsSummary(primaryMembership.restaurant_id, {
-      client: supabase,
-      targetDate: requestedDate ?? undefined,
-    });
-  } catch (cause) {
-    console.error("[ops] failed to load today bookings summary", {
-      restaurantId: primaryMembership.restaurant_id,
-      cause,
-    });
-  }
-
-  if (summary) {
-    const { start, end } = computeCalendarRange(summary.date);
-    try {
-      heatmap = await getBookingsHeatmap(primaryMembership.restaurant_id, {
-        client: supabase,
-        startDate: start,
-        endDate: end,
-      });
-    } catch (cause) {
-      console.error("[ops] failed to load booking heatmap", {
-        restaurantId: primaryMembership.restaurant_id,
-        cause,
-      });
-    }
-  }
-
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-8 py-6">
-      <section className="flex flex-col gap-2">
-        <h2 className="text-2xl font-semibold tracking-tight text-foreground">Service snapshot</h2>
-        <p className="text-sm text-muted-foreground">
-          Stay on top of today’s reservations and spot issues before service begins.
-        </p>
-      </section>
-
-      {summary ? (
-        <TodayBookingsCard
-          summary={summary}
-          restaurantName={restaurantName}
-          selectedDate={summary.date}
-          heatmap={heatmap}
-        />
-      ) : (
-        <Alert variant="destructive" className="border-border/60 bg-destructive/10 text-destructive">
-          <AlertTitle>Bookings unavailable</AlertTitle>
-          <AlertDescription>
-            We couldn’t load today’s reservations right now. Please refresh the page or try again shortly.
-          </AlertDescription>
-        </Alert>
-      )}
+      <OpsDashboardClient initialDate={sanitizeDateParam(resolvedParams.date)} />
     </div>
   );
 }

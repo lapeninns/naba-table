@@ -3,7 +3,8 @@ import { headers, cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { HydrationBoundary, QueryClient, dehydrate } from "@tanstack/react-query";
 
-import { OpsCustomersClient, type OpsRestaurantOption } from "@/components/ops/customers/OpsCustomersClient";
+import { OpsCustomersClient } from "@/components/features/customers";
+import type { OpsRestaurantOption } from "@/types/ops";
 import { DASHBOARD_DEFAULT_PAGE_SIZE } from "@/components/dashboard/constants";
 import { queryKeys } from "@/lib/query/keys";
 import { fetchUserMemberships } from "@/server/team/access";
@@ -135,7 +136,7 @@ export default async function OpsCustomerDetailsPage() {
 
   return (
     <HydrationBoundary state={dehydratedState}>
-      <OpsCustomersClient restaurants={restaurants} defaultRestaurantId={defaultRestaurant?.id ?? null} />
+      <OpsCustomersClient defaultRestaurantId={defaultRestaurant?.id ?? null} />
     </HydrationBoundary>
   );
 }

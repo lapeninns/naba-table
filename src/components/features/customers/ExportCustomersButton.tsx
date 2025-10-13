@@ -100,7 +100,7 @@ export function ExportCustomersButton({ restaurantId, restaurantName, disabled, 
       size="sm"
       aria-label={isExporting ? 'Exporting customers...' : 'Export customers to CSV'}
     >
-      <Download className="h-4 w-4 mr-2" />
+      <Download className="mr-2 h-4 w-4" />
       {isExporting ? 'Exporting...' : 'Export CSV'}
     </Button>
   );

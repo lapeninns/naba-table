@@ -84,6 +84,8 @@ function buildSearch(filters: OpsBookingsFilters): string {
   if (fromIso) params.set('from', fromIso);
   const toIso = toIsoParam(filters.to ?? undefined);
   if (toIso) params.set('to', toIso);
+  const query = filters.query?.toString().trim();
+  if (query) params.set('query', query);
 
   return params.toString();
 }
