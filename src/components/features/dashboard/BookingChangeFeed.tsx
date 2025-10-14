@@ -62,11 +62,11 @@ export function BookingChangeFeed({ changes, loading, totalChanges }: BookingCha
   }
 
   return (
-    <Card className="border-border/60 bg-muted/10">
+    <Card className="border-border/60 bg-muted/10 overflow-hidden">
       <CardHeader>
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="flex w-full items-center justify-between text-left hover:opacity-80 transition-opacity"
+          className="flex w-full touch-manipulation items-center justify-between text-left transition-opacity hover:opacity-80"
           aria-expanded={isExpanded}
         >
           <CardTitle className="flex items-center gap-2 text-base md:text-lg font-semibold text-foreground">
@@ -80,8 +80,8 @@ export function BookingChangeFeed({ changes, loading, totalChanges }: BookingCha
         </button>
       </CardHeader>
       {isExpanded ? (
-        <CardContent>
-          <div className="space-y-3">
+        <CardContent className="px-3 sm:px-6">
+          <div className="space-y-2 sm:space-y-3">
             {changes.map((change) => (
               <ChangeItem key={change.versionId} change={change} />
             ))}
@@ -99,10 +99,10 @@ function ChangeItem({ change }: { change: BookingChange }) {
 
   return (
     <Card className="border-border/60 bg-background">
-      <CardContent className="py-3">
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex flex-1 flex-wrap items-center gap-2">
+      <CardContent className="px-3 py-3 sm:px-6">
+        <div className="space-y-2 sm:space-y-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+            <div className="flex flex-1 flex-wrap items-center gap-1.5 sm:gap-2">
               <span className="text-sm font-medium text-foreground">
                 {change.customerName ?? change.bookingReference ?? change.bookingId.slice(0, 8)}
               </span>
@@ -116,7 +116,7 @@ function ChangeItem({ change }: { change: BookingChange }) {
                 variant="ghost"
                 size="sm"
                 onClick={() => setIsDetailExpanded(!isDetailExpanded)}
-                className="h-9 md:h-7 text-xs"
+                className="h-9 touch-manipulation text-xs sm:h-8"
               >
                 {isDetailExpanded ? 'Hide' : 'Details'}
               </Button>

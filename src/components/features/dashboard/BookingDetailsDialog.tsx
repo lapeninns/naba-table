@@ -69,7 +69,7 @@ export function BookingDetailsDialog({ booking, summary, onStatusChange }: Booki
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="h-11 md:h-9">
+        <Button variant="outline" size="sm" className="h-11 min-w-[100px] touch-manipulation">
           Details
         </Button>
       </DialogTrigger>

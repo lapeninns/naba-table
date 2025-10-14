@@ -72,9 +72,9 @@ export function BookingsList({ bookings, filter, summary, onMarkStatus, pendingB
 
         return (
           <Card key={booking.id} className="border-border/60">
-            <CardContent className="flex flex-col gap-3 py-3 md:gap-4 md:py-4 md:flex-row md:items-center md:justify-between">
-              <div className="flex flex-1 flex-col gap-2">
-                <div className="flex flex-wrap items-center gap-3">
+            <CardContent className="flex flex-col gap-4 py-3 sm:py-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex flex-1 flex-col gap-2 sm:gap-3">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                   <h3 className="text-base font-semibold text-foreground">{booking.customerName}</h3>
                   {booking.loyaltyTier ? (
                     <Badge variant="outline" className={cn('text-xs font-semibold', TIER_COLORS[booking.loyaltyTier])}>
@@ -85,40 +85,40 @@ export function BookingsList({ bookings, filter, summary, onMarkStatus, pendingB
                     {booking.status.replace(/_/g, ' ')}
                   </Badge>
                 </div>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
-                  <span className="inline-flex items-center gap-1">
-                    <CalendarDays className="h-4 w-4" aria-hidden /> {serviceTime}
+                <div className="flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-2">
+                  <span className="inline-flex items-center gap-1.5">
+                    <CalendarDays className="h-4 w-4 shrink-0" aria-hidden /> {serviceTime}
                   </span>
-                  <span className="inline-flex items-center gap-1">
-                    <Users className="h-4 w-4" aria-hidden />
+                  <span className="inline-flex items-center gap-1.5">
+                    <Users className="h-4 w-4 shrink-0" aria-hidden />
                     {booking.partySize} guests
                   </span>
                   {booking.allergies && booking.allergies.length > 0 ? (
-                    <span className="inline-flex items-center gap-1 text-xs text-orange-600" title={`Allergies: ${booking.allergies.join(', ')}`}>
-                      <AlertTriangle className="h-4 w-4" aria-hidden />
+                    <span className="inline-flex items-center gap-1.5 text-xs text-orange-600" title={`Allergies: ${booking.allergies.join(', ')}`}>
+                      <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
                       Allergies
                     </span>
                   ) : null}
                   {booking.seatingPreference || booking.dietaryRestrictions ? (
-                    <span className="inline-flex items-center gap-1 text-xs text-primary" title="Guest preferences available">
-                      <Settings className="h-4 w-4" aria-hidden />
+                    <span className="inline-flex items-center gap-1.5 text-xs text-primary" title="Guest preferences available">
+                      <Settings className="h-4 w-4 shrink-0" aria-hidden />
                       Preferences
                     </span>
                   ) : null}
                   {booking.notes ? (
-                    <span className="inline-flex items-center gap-1 text-xs text-primary" title="Notes available">
-                      <FileText className="h-4 w-4" aria-hidden />
+                    <span className="inline-flex items-center gap-1.5 text-xs text-primary" title="Notes available">
+                      <FileText className="h-4 w-4 shrink-0" aria-hidden />
                       Notes
                     </span>
                   ) : null}
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-11 md:h-9"
+                  className="h-11 min-w-[120px] touch-manipulation"
                   onClick={() => {
                     if (booking.status === 'completed') {
                   if (pendingBookingId === booking.id) return;

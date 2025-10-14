@@ -59,9 +59,9 @@ export function VIPGuestsModule({ vips, loading, totalVipCovers }: VIPGuestsModu
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="flex items-center gap-2 text-base font-semibold text-foreground">
+        <h3 className="flex items-center gap-2 text-base font-semibold text-foreground sm:text-lg">
           <Award className="h-5 w-5 text-yellow-500" aria-hidden />
           Today's VIP Arrivals
         </h3>
@@ -69,7 +69,7 @@ export function VIPGuestsModule({ vips, loading, totalVipCovers }: VIPGuestsModu
           <span className="text-sm font-normal text-muted-foreground">{totalVipCovers} covers</span>
         ) : null}
       </div>
-      <div className="max-h-[400px] space-y-3 overflow-y-auto pr-2">
+      <div className="max-h-[400px] space-y-2 overflow-y-auto pr-2 sm:space-y-3">
         {vips.map((vip) => (
           <VIPCard key={vip.bookingId} vip={vip} />
         ))}
@@ -83,7 +83,7 @@ function VIPCard({ vip }: { vip: VIPGuest }) {
   const tierIcon = TIER_ICONS[vip.loyaltyTier] ?? '🏅';
 
   return (
-    <div className="rounded-xl border border-border/10 bg-background p-3 shadow-sm">
+    <div className="rounded-xl border border-border/10 bg-background p-3 shadow-sm sm:p-4">
       <div className="flex items-center justify-between">
         <div className="flex flex-1 items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-xl" aria-hidden>

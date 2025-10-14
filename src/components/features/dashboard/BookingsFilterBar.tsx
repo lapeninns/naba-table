@@ -24,13 +24,13 @@ export function BookingsFilterBar({ value, onChange }: BookingsFilterBarProps) {
         if (!next) return;
         onChange(next as BookingFilter);
       }}
-      className="w-full max-w-sm gap-2"
+      className="w-full max-w-md gap-2"
     >
       {FILTERS.map((filter) => (
         <ToggleGroupItem
           key={filter.value}
           value={filter.value}
-          className="flex-1 gap-2 rounded-full border border-border/60 bg-background text-sm text-muted-foreground data-[state=on]:border-primary/40 data-[state=on]:bg-primary/5 data-[state=on]:text-primary h-11 md:h-10"
+          className="h-11 flex-1 touch-manipulation gap-2 rounded-full border border-border/60 bg-background text-sm text-muted-foreground transition-colors data-[state=on]:border-primary/40 data-[state=on]:bg-primary/5 data-[state=on]:text-primary data-[state=on]:font-medium"
           aria-label={filter.description}
         >
           {filter.label}

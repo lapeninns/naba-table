@@ -184,15 +184,15 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-white">
-      <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
+      <div className="mx-auto max-w-7xl space-y-4 px-3 py-4 sm:space-y-6 sm:px-6 sm:py-6 lg:px-8 lg:py-10">
         <header className="space-y-1">
-          <h1 className="text-2xl font-semibold text-slate-900 md:text-3xl">Operations Dashboard</h1>
+          <h1 className="text-xl font-semibold leading-tight text-slate-900 sm:text-2xl sm:leading-normal lg:text-3xl">Operations Dashboard</h1>
           <p className="text-sm text-slate-600">{restaurantName}</p>
         </header>
 
         <section
           aria-label="Service date"
-          className="rounded-2xl border border-white/60 bg-white/80 p-4 shadow-sm backdrop-blur-sm sm:p-6"
+          className="rounded-2xl border border-white/60 bg-white/80 p-3 shadow-sm backdrop-blur-sm sm:p-4 lg:p-6"
         >
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
@@ -220,7 +220,7 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
 
         {statCards.length > 0 ? (
           <section aria-label="Key performance indicators">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {statCards.map((card) => (
                 <StatCard key={card.id} config={card} />
               ))}
@@ -231,7 +231,7 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
         {hasServiceCapacity ? (
           <section
             aria-label="Service capacity"
-            className="rounded-2xl border border-white/60 bg-white/80 p-4 shadow-sm backdrop-blur-sm sm:p-6"
+            className="rounded-2xl border border-white/60 bg-white/80 p-3 shadow-sm backdrop-blur-sm sm:p-4 lg:p-6"
           >
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-slate-900">Service Capacity</h2>
@@ -263,7 +263,7 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
           aria-label="Reservations"
           className="rounded-2xl border border-white/60 bg-white/90 shadow-sm backdrop-blur-sm"
         >
-          <div className="px-4 py-6 sm:px-6 lg:px-8">
+          <div className="px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">Reservations</h2>
@@ -291,7 +291,7 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
         {/* VIP Guests always visible with empty state */}
         <section
           aria-label="VIP guests"
-          className="rounded-2xl border border-white/60 bg-white/80 p-4 shadow-sm backdrop-blur-sm sm:p-6"
+          className="rounded-2xl border border-white/60 bg-white/80 p-3 shadow-sm backdrop-blur-sm sm:p-4 lg:p-6"
         >
           {showVipModule ? (
             <VIPGuestsModule
@@ -310,7 +310,7 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
         {/* Change feed always visible with empty state */}
         <section
           aria-label="Booking changes"
-          className="rounded-2xl border border-white/60 bg-white/80 p-4 shadow-sm backdrop-blur-sm sm:p-6"
+          className="rounded-2xl border border-white/60 bg-white/80 p-3 shadow-sm backdrop-blur-sm sm:p-4 lg:p-6"
         >
           {showChangeFeed ? (
             <BookingChangeFeed
@@ -343,13 +343,13 @@ function StatCard({ config }: { config: StatCardConfig }) {
   const Icon = config.icon;
 
   return (
-    <div className="rounded-2xl border border-white/60 bg-white/90 p-4 shadow-sm transition-shadow hover:shadow-md">
+    <div className="rounded-2xl border border-white/60 bg-white/90 p-4 shadow-sm transition-shadow hover:shadow-md sm:p-5">
       <div className="flex items-start justify-between">
         <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl', config.accentBg)}>
           <Icon className={cn('h-5 w-5', config.iconColor)} aria-hidden />
         </div>
       </div>
-      <p className="mt-5 text-3xl font-bold text-slate-900">{config.value}</p>
+      <p className="mt-4 text-2xl font-bold text-slate-900 sm:mt-5 sm:text-3xl">{config.value}</p>
       <p className="text-sm text-slate-600">{config.title}</p>
     </div>
   );
@@ -369,7 +369,7 @@ function ServicePeriodCard({ period, timezone }: ServicePeriodCardProps) {
   return (
     <div
       className={cn(
-        'flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-4 shadow-sm',
+        'flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3 shadow-sm sm:p-4',
         period.isOverbooked && 'border-rose-200 bg-rose-50'
       )}
     >
@@ -400,7 +400,7 @@ function DateNavigationButton({ direction, onClick }: DateNavigationButtonProps)
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+      className="inline-flex h-11 w-11 touch-manipulation items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 active:bg-slate-200"
       aria-label={label}
     >
       <Icon className="h-5 w-5" aria-hidden />

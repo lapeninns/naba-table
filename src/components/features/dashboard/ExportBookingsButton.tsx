@@ -99,10 +99,11 @@ export function ExportBookingsButton({ restaurantId, restaurantName, date, disab
       disabled={isDisabled}
       variant="outline"
       size="sm"
+      className="h-11 touch-manipulation"
       aria-label={isExporting ? 'Exporting bookings...' : `Download bookings for ${date}`}
     >
-      <Download className="mr-2 h-4 w-4" aria-hidden />
-      {isExporting ? 'Exporting…' : 'Download CSV'}
+      <Download className="mr-2 h-4 w-4 shrink-0" aria-hidden />
+      <span className="whitespace-nowrap">{isExporting ? 'Exporting…' : 'Download CSV'}</span>
     </Button>
   );
 }
