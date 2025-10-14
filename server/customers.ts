@@ -68,7 +68,7 @@ export async function upsertCustomer(
     restaurant_id: params.restaurantId,
     email,
     phone: phoneForStorage,
-    full_name: params.name ?? null,
+    full_name: params.name || '',
     marketing_opt_in: marketingOptIn,
   };
 

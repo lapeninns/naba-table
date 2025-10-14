@@ -1,4 +1,4 @@
-export * from './OpsShell';
-export * from './OpsSidebar';
-export * from './OpsRestaurantSwitch';
+export { OpsShell } from './OpsShell';
+export { OpsSidebar, OpsSidebarInset } from './OpsSidebar';
+export { OpsRestaurantSwitch } from './OpsRestaurantSwitch';
 export * from './navigation';

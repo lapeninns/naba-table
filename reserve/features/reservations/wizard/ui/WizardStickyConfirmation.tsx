@@ -114,7 +114,7 @@ export function WizardStickyConfirmation({
             {/* Right: Primary CTA */}
             <div className="order-1 flex w-full justify-end sm:order-3 sm:w-auto">
               <Button
-                variant="primary"
+                variant="default"
                 size="lg"
                 onClick={onStartNew}
                 className="h-12 rounded-full px-6 text-base"

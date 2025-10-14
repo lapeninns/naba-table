@@ -1,20 +1,21 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { BookingsTable } from '@/components/dashboard/BookingsTable';
-import { DASHBOARD_DEFAULT_PAGE_SIZE } from '@/components/dashboard/constants';
 import { CancelBookingDialog } from '@/components/dashboard/CancelBookingDialog';
+import { DASHBOARD_DEFAULT_PAGE_SIZE } from '@/components/dashboard/constants';
 import { EditBookingDialog } from '@/components/dashboard/EditBookingDialog';
 import { Button } from '@/components/ui/button';
-import type { BookingDTO } from '@/hooks/useBookings';
-import type { StatusFilter } from '@/hooks/useBookingsTableState';
+import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
+import { useOpsBookingsTableState, type OpsStatusFilter, useOpsBookingsList } from '@/hooks';
 import { useOpsCancelBooking } from '@/hooks/useOpsCancelBooking';
 import { useOpsUpdateBooking } from '@/hooks/useOpsUpdateBooking';
-import { useOpsBookingsTableState, type OpsStatusFilter, useOpsBookingsList } from '@/hooks';
-import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
+
+import type { BookingDTO } from '@/hooks/useBookings';
+import type { StatusFilter } from '@/hooks/useBookingsTableState';
 import type { OpsBookingListItem } from '@/types/ops';
 
 const DEFAULT_FILTER: OpsStatusFilter = 'upcoming';
@@ -118,7 +119,7 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
 
   const updateSearchParams = useCallback(
     (updates: Record<string, string | null>) => {
-      const params = new URLSearchParams(searchParams.toString());
+      const params = new URLSearchParams(searchParams?.toString() || '');
       Object.entries(updates).forEach(([key, value]) => {
         if (value === null || value === '') {
           params.delete(key);
@@ -167,6 +168,8 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
     endIso: booking.endIso,
     status: booking.status,
     notes: booking.notes ?? null,
+    customerName: booking.customerName ?? null,
+    customerEmail: booking.customerEmail ?? null,
   }), []);
 
   const bookings = useMemo(() => bookingsPage.items.map(mapToBookingDTO), [bookingsPage.items, mapToBookingDTO]);
@@ -209,7 +212,7 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
   return (
     <section className="space-y-6">
       <header className="space-y-2">
-        <h2 className="text-2xl font-semibold tracking-tight text-foreground">Manage bookings</h2>
+        <h2 className="text-lg md:text-xl lg:text-2xl font-semibold tracking-tight text-foreground">Manage bookings</h2>
         <p className="text-sm text-muted-foreground">
           Review reservations for {currentRestaurantName}. Adjust details or cancel on behalf of guests.
         </p>
@@ -231,6 +234,7 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
         onRetry={() => bookingsQuery.refetch()}
         onEdit={handleEdit}
         onCancel={handleCancel}
+        variant="ops"
       />
 
       <EditBookingDialog

@@ -1,10 +1,13 @@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import type { OpsBookingHeatmap, OpsTodayBookingsSummary } from '@/types/ops';
-import { SummaryMetrics } from './SummaryMetrics';
+
 import { BookingsFilterBar, type BookingFilter } from './BookingsFilterBar';
 import { BookingsList } from './BookingsList';
+import { ExportBookingsButton } from './ExportBookingsButton';
 import { HeatmapCalendar } from './HeatmapCalendar';
+import { SummaryMetrics } from './SummaryMetrics';
+
+import type { OpsBookingHeatmap, OpsTodayBookingsSummary } from '@/types/ops';
 
 const NO_BOOKINGS_TITLE = 'Bookings unavailable';
 const NO_BOOKINGS_BODY = 'We could not load today’s reservations. Refresh the page or try again shortly.';
@@ -12,6 +15,7 @@ const NO_BOOKINGS_BODY = 'We could not load today’s reservations. Refresh the 
 type DashboardSummaryCardProps = {
   summary: OpsTodayBookingsSummary;
   restaurantName: string;
+  restaurantId: string;
   selectedDate: string;
   onSelectDate: (date: string) => void;
   heatmap?: OpsBookingHeatmap;
@@ -21,11 +25,13 @@ type DashboardSummaryCardProps = {
   onFilterChange: (filter: BookingFilter) => void;
   onMarkStatus: (bookingId: string, status: 'completed' | 'no_show') => Promise<void>;
   pendingBookingId?: string | null;
+  exportDate: string;
 };
 
 export function DashboardSummaryCard({
   summary,
   restaurantName,
+  restaurantId,
   selectedDate,
   onSelectDate,
   heatmap,
@@ -35,6 +41,7 @@ export function DashboardSummaryCard({
   onFilterChange,
   onMarkStatus,
   pendingBookingId,
+  exportDate,
 }: DashboardSummaryCardProps) {
   if (!summary) {
     return (
@@ -47,13 +54,18 @@ export function DashboardSummaryCard({
 
   return (
     <Card className="border-border/60">
-      <CardHeader className="space-y-2">
-        <CardTitle className="text-xl font-semibold text-foreground">Today’s service snapshot</CardTitle>
-        <CardDescription className="text-sm text-muted-foreground">
-          Monitor reservations for {restaurantName}. Track arrivals, highlight no-shows, and stay ahead of service.
-        </CardDescription>
+      <CardHeader className="p-4 md:p-6">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-2">
+            <CardTitle className="text-xl font-semibold text-foreground">Today’s service snapshot</CardTitle>
+            <CardDescription className="text-sm text-muted-foreground">
+              Monitor reservations for {restaurantName}. Track arrivals, highlight no-shows, and stay ahead of service.
+            </CardDescription>
+          </div>
+          <ExportBookingsButton restaurantId={restaurantId} restaurantName={restaurantName} date={exportDate} />
+        </div>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-4 p-4 md:space-y-6 md:p-6">
         <SummaryMetrics totals={summary.totals} />
 
         <BookingsFilterBar value={filter} onChange={onFilterChange} />

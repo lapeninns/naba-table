@@ -32,6 +32,18 @@ const nextConfig = {
   webpack: (config) => {
     config.resolve.alias = {
       ...(config.resolve.alias ?? {}),
+      '@/app': path.resolve(__dirname, 'src/app'),
+      '@/components/features': path.resolve(__dirname, 'src/components/features'),
+      '@/components': path.resolve(__dirname, 'components'),
+      '@/contexts': path.resolve(__dirname, 'src/contexts'),
+      '@/hooks/ops': path.resolve(__dirname, 'hooks/ops'),
+      '@/hooks': path.resolve(__dirname, 'hooks'),
+      '@/lib': path.resolve(__dirname, 'lib'),
+      '@/utils': path.resolve(__dirname, 'src/utils'),
+      '@/services': path.resolve(__dirname, 'src/services'),
+      '@/types': path.resolve(__dirname, 'types'),
+      '@/server': path.resolve(__dirname, 'server'),
+      '@': path.resolve(__dirname),
       '@reserve': path.resolve(__dirname, 'reserve'),
       '@app': path.resolve(__dirname, 'reserve/app'),
       '@features': path.resolve(__dirname, 'reserve/features'),

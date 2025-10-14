@@ -23,6 +23,8 @@ export type BookingDTO = {
   endIso: string;
   status: BookingStatus;
   notes?: string | null;
+  customerName?: string | null;
+  customerEmail?: string | null;
 };
 
 export type PageInfo = {

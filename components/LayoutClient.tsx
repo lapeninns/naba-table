@@ -42,6 +42,7 @@ const CrispChat = (): null => {
       // Use <AppButtonSupport> instead to show it (user clicks on the button to show Crisp—it cleans the UI)
       if (
         config.crisp.onlyShowOnRoutes &&
+        pathname &&
         !config.crisp.onlyShowOnRoutes?.includes(pathname)
       ) {
         Crisp.chat.hide();

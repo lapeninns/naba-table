@@ -166,7 +166,7 @@ function DesktopActions({
       {!isLoading && !isAuthenticated ? (
         <Link
           href="/signin"
-          className={cn(buttonVariants({ variant: "primary", size: "sm" }), "touch-manipulation")}
+          className={cn(buttonVariants({ variant: "default", size: "sm" }), "touch-manipulation")}
         >
           Sign in
         </Link>
@@ -320,7 +320,7 @@ function MobileMenu({
             <button
               type="button"
               className={cn(
-                buttonVariants({ variant: "outline", size: "primary" }),
+                buttonVariants({ variant: "outline", size: "default" }),
                 "justify-center touch-manipulation",
               )}
               onClick={() => {

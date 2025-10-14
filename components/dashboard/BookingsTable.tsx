@@ -31,6 +31,7 @@ export type BookingsTableProps = {
   onRetry: () => void;
   onEdit: (booking: BookingDTO) => void;
   onCancel: (booking: BookingDTO) => void;
+  variant?: 'guest' | 'ops';
 };
 
 const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
@@ -58,11 +59,13 @@ export function BookingsTable({
   onRetry,
   onEdit,
   onCancel,
+  variant = 'guest',
 }: BookingsTableProps) {
   const showSkeleton = isLoading;
   const showEmpty = !isLoading && !error && bookings.length === 0;
   const isPastView = statusFilter === 'past';
   const trimmedSearch = searchTerm.trim();
+  const isOpsVariant = variant === 'ops';
 
   const emptyState = useMemo(() => {
     if (trimmedSearch) {
@@ -171,6 +174,7 @@ export function BookingsTable({
             onCancel={onCancel}
             emptyState={mobileEmptyState}
             isPastView={isPastView}
+            variant={variant}
           />
         </div>
 
@@ -188,9 +192,29 @@ export function BookingsTable({
                   <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Party
                   </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Restaurant
-                  </th>
+                  {isOpsVariant ? (
+                    <>
+                      <th
+                        scope="col"
+                        className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                      >
+                        Customer
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                      >
+                        Notes
+                      </th>
+                    </>
+                  ) : (
+                    <th
+                      scope="col"
+                      className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                    >
+                      Restaurant
+                    </th>
+                  )}
                   <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Status
                   </th>
@@ -212,9 +236,20 @@ export function BookingsTable({
                         <td className="px-4 py-4">
                           <Skeleton className="h-4 w-12" />
                         </td>
-                        <td className="px-4 py-4">
-                          <Skeleton className="h-4 w-40" />
-                        </td>
+                        {isOpsVariant ? (
+                          <>
+                            <td className="px-4 py-4">
+                              <Skeleton className="h-4 w-40" />
+                            </td>
+                            <td className="px-4 py-4">
+                              <Skeleton className="h-4 w-56" />
+                            </td>
+                          </>
+                        ) : (
+                          <td className="px-4 py-4">
+                            <Skeleton className="h-4 w-40" />
+                          </td>
+                        )}
                         <td className="px-4 py-4">
                           <Skeleton className="h-5 w-28" />
                         </td>
@@ -232,6 +267,7 @@ export function BookingsTable({
                         onEdit={onEdit}
                         onCancel={onCancel}
                         isPastView={isPastView}
+                        variant={variant}
                       />
                     ))}
               </tbody>

@@ -1,9 +1,3 @@
-export type RestaurantOption = {
-  id: string;
-  name: string;
-  role: string;
-};
-
 export type WeeklyRow = {
   dayOfWeek: number;
   opensAt: string;

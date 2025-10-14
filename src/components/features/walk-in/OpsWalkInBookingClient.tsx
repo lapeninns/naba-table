@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { useEffect, useMemo } from 'react';
 
 import BookingFlowPage from '@/components/reserve/booking-flow';
 import { Button } from '@/components/ui/button';
@@ -10,11 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsRestaurantsList } from '@/hooks';
 
-export type OpsWalkInBookingClientProps = {
-  initialRestaurantId?: string | null;
-};
-
-export function OpsWalkInBookingClient({ initialRestaurantId }: OpsWalkInBookingClientProps) {
+export function OpsWalkInBookingClient() {
   const { memberships, activeRestaurantId, setActiveRestaurantId } = useOpsSession();
   const { data: restaurants, isLoading, isError } = useOpsRestaurantsList({ enabled: memberships.length > 0 });
 
@@ -29,11 +25,8 @@ export function OpsWalkInBookingClient({ initialRestaurantId }: OpsWalkInBooking
     if (activeRestaurantId && accessibleRestaurantIds.has(activeRestaurantId)) {
       return activeRestaurantId;
     }
-    if (initialRestaurantId && accessibleRestaurantIds.has(initialRestaurantId)) {
-      return initialRestaurantId;
-    }
     return availableRestaurants[0]?.id ?? null;
-  }, [activeRestaurantId, accessibleRestaurantIds, availableRestaurants, initialRestaurantId]);
+  }, [activeRestaurantId, accessibleRestaurantIds, availableRestaurants]);
 
   useEffect(() => {
     if (selectedRestaurantId && selectedRestaurantId !== activeRestaurantId) {
@@ -72,7 +65,7 @@ export function OpsWalkInBookingClient({ initialRestaurantId }: OpsWalkInBooking
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Create walk-in booking</h1>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold tracking-tight text-foreground">Create walk-in booking</h1>
             <p className="text-sm text-muted-foreground">
               Log a guest who arrived without a reservation. Email confirmation is sent only when an address is provided.
             </p>
@@ -81,26 +74,6 @@ export function OpsWalkInBookingClient({ initialRestaurantId }: OpsWalkInBooking
             <Link href="/ops">← Back to dashboard</Link>
           </Button>
         </div>
-
-        {availableRestaurants.length > 1 ? (
-          <div className="flex w-full flex-col gap-2 sm:max-w-xs">
-            <label htmlFor="ops-walkin-restaurant" className="text-sm font-medium text-foreground">
-              Restaurant
-            </label>
-            <select
-              id="ops-walkin-restaurant"
-              value={selectedRestaurant.id}
-              onChange={(event) => setActiveRestaurantId(event.target.value)}
-              className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            >
-              {availableRestaurants.map((restaurant) => (
-                <option key={restaurant.id} value={restaurant.id}>
-                  {restaurant.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : null}
       </div>
 
       <div className="mx-auto w-full max-w-6xl">

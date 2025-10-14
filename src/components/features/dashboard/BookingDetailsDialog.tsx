@@ -1,6 +1,8 @@
 'use client';
 
+import { Mail, Phone, Clock, Users, Calendar as CalendarIcon, AlertTriangle, Award, CheckCircle2, XCircle } from 'lucide-react';
 import { useState, type ComponentType } from 'react';
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,12 +14,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import { formatDateReadable, formatTimeRange } from '@/lib/utils/datetime';
+
 import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
-import { Mail, Phone, Clock, Users, Calendar as CalendarIcon, AlertTriangle } from 'lucide-react';
+
 
 const STATUS_LABELS: Record<string, string> = {
   completed: 'Show',
@@ -26,6 +30,13 @@ const STATUS_LABELS: Record<string, string> = {
   pending_allocation: 'Pending allocation',
   no_show: 'No show',
   cancelled: 'Cancelled',
+};
+
+const TIER_COLORS: Record<string, string> = {
+  platinum: 'bg-purple-500 text-white border-purple-500',
+  gold: 'bg-yellow-500 text-black border-yellow-500',
+  silver: 'bg-gray-400 text-white border-gray-400',
+  bronze: 'bg-amber-700 text-white border-amber-700',
 };
 
 type BookingDetailsDialogProps = {
@@ -58,7 +69,7 @@ export function BookingDetailsDialog({ booking, summary, onStatusChange }: Booki
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" className="h-11 md:h-9">
           Details
         </Button>
       </DialogTrigger>
@@ -86,10 +97,94 @@ export function BookingDetailsDialog({ booking, summary, onStatusChange }: Booki
 
           {booking.notes ? (
             <section className="space-y-2">
-              <h3 className="text-sm font-semibold text-foreground">Notes</h3>
+              <h3 className="text-sm font-semibold text-foreground">Booking Notes</h3>
               <p className="rounded-2xl border border-border/60 bg-muted/10 px-4 py-3 text-sm text-foreground">
                 {booking.notes}
               </p>
+            </section>
+          ) : null}
+
+          {(booking.loyaltyTier || booking.allergies || booking.dietaryRestrictions || booking.seatingPreference || booking.profileNotes || booking.marketingOptIn !== null) ? (
+            <section className="space-y-3">
+              <h3 className="text-sm font-semibold text-foreground">Guest Profile</h3>
+              <div className="space-y-3 rounded-2xl border border-border/60 bg-muted/10 px-4 py-4">
+                {booking.loyaltyTier ? (
+                  <div className="flex items-center gap-3">
+                    <Award className="h-4 w-4 text-muted-foreground" aria-hidden />
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">Loyalty:</span>
+                      <Badge variant="outline" className={cn('text-xs font-semibold', TIER_COLORS[booking.loyaltyTier])}>
+                        {booking.loyaltyTier}
+                      </Badge>
+                      {booking.loyaltyPoints !== null && booking.loyaltyPoints !== undefined ? (
+                        <span className="text-xs text-muted-foreground">({booking.loyaltyPoints} points)</span>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+
+                {booking.allergies && booking.allergies.length > 0 ? (
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5" aria-hidden />
+                    <div className="flex-1">
+                      <span className="text-sm font-medium text-orange-600">Allergies:</span>
+                      <div className="mt-1 flex flex-wrap gap-2">
+                        {booking.allergies.map((allergy, idx) => (
+                          <Badge key={idx} variant="outline" className="border-orange-600 text-orange-600">
+                            {allergy}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {booking.dietaryRestrictions && booking.dietaryRestrictions.length > 0 ? (
+                  <div className="flex items-start gap-3">
+                    <Users className="h-4 w-4 text-muted-foreground mt-0.5" aria-hidden />
+                    <div className="flex-1">
+                      <span className="text-sm text-muted-foreground">Dietary Restrictions:</span>
+                      <div className="mt-1 flex flex-wrap gap-2">
+                        {booking.dietaryRestrictions.map((restriction, idx) => (
+                          <Badge key={idx} variant="secondary">
+                            {restriction}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {booking.seatingPreference ? (
+                  <div className="flex items-center gap-3">
+                    <CalendarIcon className="h-4 w-4 text-muted-foreground" aria-hidden />
+                    <div>
+                      <span className="text-sm text-muted-foreground">Seating Preference:</span>
+                      <span className="ml-2 text-sm text-foreground">{booking.seatingPreference}</span>
+                    </div>
+                  </div>
+                ) : null}
+
+                {booking.marketingOptIn !== null && booking.marketingOptIn !== undefined ? (
+                  <div className="flex items-center gap-3">
+                    {booking.marketingOptIn ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-600" aria-hidden />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-muted-foreground" aria-hidden />
+                    )}
+                    <span className="text-sm text-muted-foreground">
+                      Marketing: {booking.marketingOptIn ? 'Opted in' : 'Opted out'}
+                    </span>
+                  </div>
+                ) : null}
+
+                {booking.profileNotes ? (
+                  <div className="space-y-1">
+                    <span className="text-sm font-medium text-foreground">Profile Notes:</span>
+                    <p className="text-sm text-muted-foreground">{booking.profileNotes}</p>
+                  </div>
+                ) : null}
+              </div>
             </section>
           ) : null}
 
@@ -101,7 +196,7 @@ export function BookingDetailsDialog({ booking, summary, onStatusChange }: Booki
             <div className="flex flex-col gap-2">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button disabled={isCancelled || booking.status === 'completed'}>
+                  <Button disabled={isCancelled || booking.status === 'completed'} className="h-11">
                     Mark as show
                   </Button>
                 </AlertDialogTrigger>
@@ -128,7 +223,7 @@ export function BookingDetailsDialog({ booking, summary, onStatusChange }: Booki
 
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="destructive" disabled={isCancelled || booking.status === 'no_show'}>
+                  <Button variant="destructive" disabled={isCancelled || booking.status === 'no_show'} className="h-11">
                     Mark as no show
                   </Button>
                 </AlertDialogTrigger>

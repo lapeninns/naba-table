@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useState, type ReactNode } from 'react';
 import { LogOut, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useCallback, useState, type ReactNode } from 'react';
 
 import {
   Sidebar,
@@ -20,12 +20,12 @@ import {
   SidebarMenuSkeleton,
   SidebarSeparator,
 } from '@/components/ui/sidebar';
+import { useOpsSession } from '@/contexts/ops-session';
 import { signOutFromSupabase } from '@/lib/supabase/signOut';
 import { cn } from '@/lib/utils';
-import { useOpsSession } from '@/contexts/ops-session';
 
-import { OpsRestaurantSwitch } from './OpsRestaurantSwitch';
 import { OPS_NAV_SECTIONS, OPS_SUPPORT_ITEM, isNavItemActive } from './navigation';
+import { OpsRestaurantSwitch } from './OpsRestaurantSwitch';
 
 type OpsSidebarProps = {
   collapsible?: 'icon' | 'none';

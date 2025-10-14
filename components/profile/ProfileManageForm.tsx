@@ -543,7 +543,7 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
             <Button
               type="button"
               variant="outline"
-              size="primary"
+              size="default"
               onClick={() => {
                 form.reset();
                 setAvatarState((prev) => {

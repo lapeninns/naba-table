@@ -37,12 +37,12 @@ const defaultsByMode: Record<NonNullable<MarketingSessionActionsProps["mode"]>, 
   showSecondary: boolean;
 }> = {
   booking: {
-    primary: "primary",
+    primary: "default",
     secondary: "outline",
     showSecondary: true,
   },
   account: {
-    primary: "primary",
+    primary: "default",
     secondary: "outline",
     showSecondary: false,
   },

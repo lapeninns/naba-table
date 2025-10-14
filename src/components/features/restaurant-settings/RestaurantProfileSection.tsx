@@ -78,7 +78,7 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            Choose a restaurant from the selector above to view and update its name, slug, contact information, and booking policy.
+            Choose a restaurant using the sidebar switcher to view and update its name, slug, contact information, and booking policy.
           </p>
         </CardContent>
       </Card>

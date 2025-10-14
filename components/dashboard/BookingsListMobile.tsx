@@ -21,6 +21,7 @@ export type BookingsListMobileProps = {
   onCancel: (booking: BookingDTO) => void;
   emptyState?: EmptyStateProps;
   isPastView?: boolean;
+  variant?: 'guest' | 'ops';
 };
 
 const skeletonCards = Array.from({ length: 3 }, (_, index) => index);
@@ -33,6 +34,7 @@ function BookingCard({
   onCancel,
   isPastView,
   cardId,
+  variant,
 }: {
   booking: BookingDTO;
   formatDate: (iso: string) => string;
@@ -41,9 +43,13 @@ function BookingCard({
   onCancel: (booking: BookingDTO) => void;
   isPastView: boolean;
   cardId: string;
+  variant: 'guest' | 'ops';
 }) {
   const { displayStatus, isPast } = deriveBookingDisplayState(booking, { isPastView });
   const restaurantLabel = booking.restaurantName?.trim() || 'this restaurant';
+  const customerLabel = booking.customerName?.trim() || 'Guest name unavailable';
+  const emailLabel = booking.customerEmail?.trim() || null;
+  const headingLabel = variant === 'ops' ? customerLabel : restaurantLabel;
   const disableActions = booking.status === 'cancelled' || isPast;
   const headingId = `${cardId}-heading`;
   const detailsId = `${cardId}-details`;
@@ -62,15 +68,31 @@ function BookingCard({
         </div>
         <StatusChip status={displayStatus} />
       </div>
-      <div id={headingId} className="text-lg font-semibold text-foreground">
-        {restaurantLabel}
+      <div id={headingId} className="space-y-1 text-lg font-semibold text-foreground">
+        <div>{headingLabel}</div>
+        {variant === 'ops' && emailLabel ? (
+          <p className="text-sm font-normal text-muted-foreground" title={emailLabel}>
+            {emailLabel}
+          </p>
+        ) : null}
       </div>
       <dl id={detailsId} className="space-y-1 text-sm text-muted-foreground">
         <div className="flex items-center justify-between text-foreground">
           <dt className="font-medium">Party</dt>
           <dd>Party of {booking.partySize}</dd>
         </div>
-        {booking.notes ? (
+        {variant === 'ops' ? (
+          <>
+            <div className="flex items-center justify-between text-foreground">
+              <dt className="font-medium">Restaurant</dt>
+              <dd className="text-right text-muted-foreground">{restaurantLabel}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-foreground">Notes</dt>
+              <dd className="text-muted-foreground">{booking.notes?.trim() || '—'}</dd>
+            </div>
+          </>
+        ) : booking.notes ? (
           <div>
             <dt className="font-medium text-foreground">Notes</dt>
             <dd className="text-muted-foreground">{booking.notes}</dd>
@@ -85,7 +107,7 @@ function BookingCard({
           onClick={() => onEdit(booking)}
           disabled={disableActions}
           aria-disabled={disableActions}
-          aria-label={`Edit booking at ${restaurantLabel}`}
+          aria-label={`Edit booking ${variant === 'ops' ? `for ${customerLabel}` : `at ${restaurantLabel}`}`}
         >
           Edit booking
         </Button>
@@ -96,7 +118,7 @@ function BookingCard({
           onClick={() => onCancel(booking)}
           disabled={disableActions}
           aria-disabled={disableActions}
-          aria-label={`Cancel booking at ${restaurantLabel}`}
+          aria-label={`Cancel booking ${variant === 'ops' ? `for ${customerLabel}` : `at ${restaurantLabel}`}`}
         >
           Cancel booking
         </Button>
@@ -140,6 +162,7 @@ export function BookingsListMobile({
   onCancel,
   emptyState,
   isPastView = false,
+  variant = 'guest',
 }: BookingsListMobileProps) {
   const baseId = useId();
 
@@ -163,6 +186,7 @@ export function BookingsListMobile({
           onCancel={onCancel}
           isPastView={isPastView}
           cardId={`${baseId}-${booking.id}`}
+          variant={variant}
         />
       ))}
     </div>

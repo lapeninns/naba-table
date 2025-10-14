@@ -22,8 +22,8 @@ const DEFAULT_VARIANT_MAP: Record<
   destructive: 'destructive',
 };
 
-const ACTION_SIZE_MAP: Record<'primary' | 'secondary', 'primary' | 'default'> = {
-  primary: 'primary',
+const ACTION_SIZE_MAP: Record<'primary' | 'secondary', 'default' | 'sm' | 'lg'> = {
+  primary: 'default',
   secondary: 'default',
 };
 
@@ -115,7 +115,7 @@ function renderActionButton(action: StepAction, emphasis: 'primary' | 'secondary
   return (
     <Button
       key={action.id}
-      variant={variant === 'default' ? (emphasis === 'primary' ? 'primary' : 'default') : variant}
+      variant={variant === 'default' ? 'default' : variant}
       size={size}
       onClick={action.onClick}
       aria-label={action.ariaLabel ?? action.label}

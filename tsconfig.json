@@ -15,7 +15,22 @@
     "noImplicitAny": true,
     "jsx": "preserve",
     "paths": {
-      "@/*": ["./*", "./src/*"],
+      "@/app/*": ["./src/app/*"],
+      "@/components/features": ["./src/components/features/index.ts"],
+      "@/components/features/*": ["./src/components/features/*"],
+      "@/components/*": ["./components/*", "./src/components/*"],
+      "@/contexts/*": ["./src/contexts/*"],
+      "@/hooks/ops/*": ["./hooks/ops/*", "./src/hooks/ops/*"],
+      "@/hooks": ["./hooks/index.ts"],
+      "@/hooks/*": ["./hooks/*", "./src/hooks/*"],
+      "@/lib/*": ["./lib/*"],
+      "@/utils/*": ["./src/utils/*"],
+      "@/services": ["./src/services/index.ts"],
+      "@/services/*": ["./src/services/*"],
+      "@/types/*": ["./types/*", "./src/types/*"],
+      "@/server/*": ["./server/*"],
+      "@/*": ["./*"],
+      "@src/*": ["./src/*"],
       "@reserve/*": ["./reserve/*"],
       "@app/*": ["./reserve/app/*"],
       "@features/*": ["./reserve/features/*"],
@@ -29,7 +44,8 @@
         "name": "next"
       }
     ],
-    "target": "ES2017"
+    "target": "ES2017",
+    "strictNullChecks": true
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": [

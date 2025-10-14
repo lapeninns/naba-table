@@ -18,6 +18,18 @@ describe('BookingsListMobile', () => {
     notes: 'Birthday dinner',
   };
 
+  const opsBooking: BookingDTO = {
+    id: 'booking-ops',
+    restaurantName: 'Ops Bistro',
+    partySize: 2,
+    startIso: '2050-01-20T17:30:00.000Z',
+    endIso: '2050-01-20T19:00:00.000Z',
+    status: 'pending',
+    notes: null,
+    customerName: 'Priya Sharma',
+    customerEmail: 'priya@example.com',
+  };
+
   const formatDate = (iso: string) => `Date(${iso.slice(0, 10)})`;
   const formatTime = (iso: string) => `Time(${iso.slice(11, 16)})`;
 
@@ -78,5 +90,36 @@ describe('BookingsListMobile', () => {
     );
 
     expect(screen.getByText(/no bookings yet/i)).toBeInTheDocument();
+  });
+
+  it('renders ops variant with customer context and fallback notes', async () => {
+    const handleEdit = vi.fn();
+    const handleCancel = vi.fn();
+
+    render(
+      <BookingsListMobile
+        bookings={[opsBooking]}
+        isLoading={false}
+        formatDate={formatDate}
+        formatTime={formatTime}
+        onEdit={handleEdit}
+        onCancel={handleCancel}
+        variant="ops"
+      />,
+    );
+
+    expect(screen.getByText('Priya Sharma')).toBeInTheDocument();
+    expect(screen.getByText('priya@example.com')).toBeInTheDocument();
+    expect(screen.getByText('Ops Bistro')).toBeInTheDocument();
+    expect(screen.getByText('—')).toBeInTheDocument();
+
+    const editButton = screen.getByRole('button', { name: /edit booking for priya sharma/i });
+    const cancelButton = screen.getByRole('button', { name: /cancel booking for priya sharma/i });
+
+    await userEvent.click(editButton);
+    await userEvent.click(cancelButton);
+
+    expect(handleEdit).toHaveBeenCalledWith(opsBooking);
+    expect(handleCancel).toHaveBeenCalledWith(opsBooking);
   });
 });

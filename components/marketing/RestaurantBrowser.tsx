@@ -368,7 +368,7 @@ export function RestaurantBrowser({
                   <CardContent>
                     <a
                       href={`/reserve/r/${restaurant.slug}`}
-                      className={cn(buttonVariants({ variant: "primary", size: "lg" }), "w-full")}
+                      className={cn(buttonVariants({ variant: "default", size: "lg" }), "w-full")}
                       onClick={() => handleRestaurantClick(restaurant, index)}
                       aria-label={`Start booking at ${restaurant.name}`}
                       data-analytics="restaurant-select"

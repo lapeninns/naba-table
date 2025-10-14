@@ -1,4 +1,5 @@
-import { BarChart3, CalendarDays, CalendarPlus, CircleHelp, SlidersHorizontal, UsersRound } from 'lucide-react';
+import { BarChart3, CalendarDays, CalendarPlus, CircleHelp, SlidersHorizontal, Users, UsersRound } from 'lucide-react';
+
 import type { ComponentType, SVGProps } from 'react';
 
 export type OpsNavigationItem = {
@@ -31,6 +32,13 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         href: '/ops/bookings',
         icon: CalendarDays,
         match: (pathname) => pathname === '/ops/bookings',
+      },
+      {
+        title: 'Customers',
+        description: 'Review guest history and contact details',
+        href: '/ops/customer-details',
+        icon: Users,
+        match: (pathname) => pathname.startsWith('/ops/customer-details'),
       },
       {
         title: 'Walk-in booking',

@@ -30,7 +30,7 @@ export function BookingsFilterBar({ value, onChange }: BookingsFilterBarProps) {
         <ToggleGroupItem
           key={filter.value}
           value={filter.value}
-          className="flex-1 gap-2 rounded-full border border-border/60 bg-background text-sm text-muted-foreground data-[state=on]:border-primary/40 data-[state=on]:bg-primary/5 data-[state=on]:text-primary"
+          className="flex-1 gap-2 rounded-full border border-border/60 bg-background text-sm text-muted-foreground data-[state=on]:border-primary/40 data-[state=on]:bg-primary/5 data-[state=on]:text-primary h-11 md:h-10"
           aria-label={filter.description}
         >
           {filter.label}
