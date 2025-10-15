@@ -85,7 +85,7 @@ export function RestaurantBrowser({
   });
 
   const restaurants = data ?? [];
-  const supportEmail = config.mailgun?.supportEmail ?? "support@example.com";
+  const supportEmail = config.email?.supportEmail ?? "support@example.com";
 
   const errorTrackedRef = useRef(false);
   const emptyTrackedKeyRef = useRef<string | null>(null);

@@ -6,7 +6,7 @@ import { NextResponse, type NextRequest } from "next/server";
 const PROTECTED_MATCHERS = [
   /^\/my-bookings(\/.*)?$/,
   /^\/profile(\/.*)?$/,
-  /^\/thank-you(\/.*)?$/,
+  // Removed: /^\/thank-you(\/.*)?$/ - Now public (token-based confirmation)
 ];
 
 // Refresh the Supabase session and gate my-bookings/profile routes behind authentication.
@@ -46,5 +46,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/api/:path*", "/my-bookings/:path*", "/profile/:path*", "/thank-you/:path*"],
+  matcher: ["/api/:path*", "/my-bookings/:path*", "/profile/:path*"],
 };

@@ -82,7 +82,7 @@ export async function sendEmail({
       text,
       cc: normalize(cc),
       bcc: normalize(bcc),
-      replyTo: replyTo ?? config.mailgun.supportEmail ?? undefined,
+      replyTo: replyTo ?? config.email.supportEmail ?? undefined,
       attachments: normalizedAttachments,
     } satisfies Record<string, unknown>;
 

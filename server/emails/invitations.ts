@@ -67,6 +67,6 @@ export async function sendTeamInviteEmail(params: { invite: RestaurantInvite; to
     subject,
     html,
     text,
-    fromName: config.mailgun.fromAdmin ?? "SajiloReserveX",
+    fromName: config.email.fromSupport ?? "SajiloReserveX",
   });
 }

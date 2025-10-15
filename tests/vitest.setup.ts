@@ -19,5 +19,3 @@ if (!process.env.BASE_URL) {
   process.env.BASE_URL = "http://localhost:3000";
 }
 process.env.ENABLE_TEST_API = "true";
-process.env.USE_ASYNC_SIDE_EFFECTS = "false";
-process.env.QUEUE_PROVIDER = "inngest";

@@ -6,7 +6,7 @@ import { GET, PUT } from './route';
 const getOperatingHoursMock = vi.fn();
 const updateOperatingHoursMock = vi.fn();
 const getUserMock = vi.fn();
-const requireMembershipMock = vi.fn();
+const requireAdminMembershipMock = vi.fn();
 
 vi.mock('@/server/restaurants/operatingHours', () => ({
   getOperatingHours: (...args: unknown[]) => getOperatingHoursMock(...args),
@@ -22,7 +22,7 @@ vi.mock('@/server/supabase', () => ({
 }));
 
 vi.mock('@/server/team/access', () => ({
-  requireMembershipForRestaurant: (...args: unknown[]) => requireMembershipMock(...args),
+  requireAdminMembership: (...args: unknown[]) => requireAdminMembershipMock(...args),
 }));
 
 describe('/api/owner/restaurants/[id]/hours', () => {
@@ -42,7 +42,7 @@ describe('/api/owner/restaurants/[id]/hours', () => {
 
   it('returns operating hours on GET', async () => {
     getUserMock.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
-    requireMembershipMock.mockResolvedValue(undefined);
+    requireAdminMembershipMock.mockResolvedValue(undefined);
     getOperatingHoursMock.mockResolvedValue({
       restaurantId: 'rest-1',
       timezone: 'Europe/London',
@@ -62,7 +62,7 @@ describe('/api/owner/restaurants/[id]/hours', () => {
 
   it('validates payload on PUT', async () => {
     getUserMock.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
-    requireMembershipMock.mockResolvedValue(undefined);
+    requireAdminMembershipMock.mockResolvedValue(undefined);
 
     const request = new NextRequest('http://localhost', {
       method: 'PUT',
@@ -82,7 +82,7 @@ describe('/api/owner/restaurants/[id]/hours', () => {
 
   it('updates operating hours on PUT', async () => {
     getUserMock.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
-    requireMembershipMock.mockResolvedValue(undefined);
+    requireAdminMembershipMock.mockResolvedValue(undefined);
     updateOperatingHoursMock.mockResolvedValue({
       restaurantId: 'rest-1',
       timezone: 'Europe/London',

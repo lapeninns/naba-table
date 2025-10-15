@@ -7,7 +7,7 @@ import {
   type UpdateRestaurantDetailsInput,
 } from '@/server/restaurants/details';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
-import { requireMembershipForRestaurant } from '@/server/team/access';
+import { requireAdminMembership } from '@/server/team/access';
 
 const detailsSchema = z.object({
   name: z.string().min(1).max(120).optional(),
@@ -56,13 +56,13 @@ async function ensureAuthorized(restaurantId: string): Promise<NextResponse | nu
   }
 
   try {
-    await requireMembershipForRestaurant({
+    await requireAdminMembership({
       userId: user.id,
       restaurantId,
       client: supabase,
     });
   } catch (error) {
-    console.error('[owner][restaurants][details] membership validation failed', error);
+    console.error('[owner][restaurants][details] admin permission required', error);
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

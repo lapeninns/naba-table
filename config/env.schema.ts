@@ -29,7 +29,6 @@ const baseEnvSchema = z
     RESERVE_RESERVATION_UNAVAILABLE_TOOLTIP: z.string().optional(),
     BOOKING_DEFAULT_RESTAURANT_ID: z.string().uuid().optional(),
     NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG_FALLBACK: z.string().optional(),
-    MAILGUN_API_KEY: z.string().optional(),
     RESEND_API_KEY: z.string().optional(),
     RESEND_FROM: z.string().email().optional(),
     LOYALTY_PILOT_RESTAURANT_IDS: z.string().optional(),
@@ -64,11 +63,6 @@ const baseEnvSchema = z
     UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
     AVAILABILITY_CACHE_TTL_SECONDS: z.coerce.number().int().positive().optional(),
     ENABLE_AVAILABILITY_CACHE: booleanStringOptional,
-    USE_ASYNC_SIDE_EFFECTS: booleanStringOptional,
-    QUEUE_PROVIDER: z.enum(["inngest", "bullmq"]).optional(),
-    INNGEST_APP_ID: z.string().optional(),
-    INNGEST_EVENT_KEY: z.string().optional(),
-    INNGEST_SIGNING_KEY: z.string().optional(),
   })
   .passthrough();
 

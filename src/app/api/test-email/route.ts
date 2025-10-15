@@ -1,135 +1,12 @@
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { sendEmail } from "@/libs/resend";
-import { env } from "@/lib/env";
+import { guardTestEndpoint } from "@/server/security/test-endpoints";
 import { sendBookingConfirmationEmail } from "@/server/emails/bookings";
 import type { BookingRecord } from "@/server/bookings";
 
-const runtimeEnv = env.raw;
-const isProd = env.node.env === "production";
-const accessToken = runtimeEnv.TEST_EMAIL_ACCESS_TOKEN ?? "";
-const rateLimitWindowMs = 60_000;
-const rateLimitMax = runtimeEnv.TEST_EMAIL_RATE_LIMIT ?? 10;
-
-const defaultOrigins = [
-  env.app.url,
-  "http://localhost:3000",
-  "http://localhost:3001",
-].filter(Boolean) as string[];
-
-const configuredOrigins = (runtimeEnv.TEST_EMAIL_ALLOWED_ORIGINS ?? "")
-  .split(",")
-  .map((value) => value.trim())
-  .filter(Boolean);
-
-const allowedOrigins = Array.from(new Set([...defaultOrigins, ...configuredOrigins]))
-  .map((value) => {
-    try {
-      return new URL(value).origin;
-    } catch {
-      return value.replace(/\/+$/, "");
-    }
-  })
-  .filter(Boolean);
-
-type RateRecord = { count: number; expiresAt: number };
-const rateLimiter = new Map<string, RateRecord>();
-
-function normalizeOrigin(value: string | null): string | null {
-  if (!value) return null;
-  try {
-    return new URL(value).origin;
-  } catch {
-    return value.replace(/\/+$/, "");
-  }
-}
-
-function extractClientIp(req: NextRequest): string {
-  const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) {
-    return forwarded.split(",")[0]?.trim() || "unknown";
-  }
-  const realIp = req.headers.get("x-real-ip");
-  if (realIp) return realIp;
-  if ("ip" in req) {
-    const candidate = (req as NextRequest & { ip?: string | null }).ip;
-    if (candidate) {
-      return candidate;
-    }
-  }
-  return "unknown";
-}
-
-function isOriginAllowed(req: NextRequest): boolean {
-  if (!allowedOrigins.length) {
-    return !isProd;
-  }
-
-  const originCandidates = [
-    normalizeOrigin(req.headers.get("origin")),
-    normalizeOrigin(req.headers.get("referer")),
-  ].filter(Boolean) as string[];
-
-  if (!originCandidates.length) {
-    return !isProd;
-  }
-
-  return originCandidates.some((candidate) => allowedOrigins.includes(candidate));
-}
-
-function extractToken(req: NextRequest): string | null {
-  const authHeader = req.headers.get("authorization");
-  if (authHeader?.startsWith("Bearer ")) {
-    return authHeader.slice(7).trim();
-  }
-  const headerToken = req.headers.get("x-test-email-token");
-  return headerToken ? headerToken.trim() : null;
-}
-
-function hitRateLimit(key: string): boolean {
-  const now = Date.now();
-  const record = rateLimiter.get(key);
-
-  if (!record || record.expiresAt <= now) {
-    rateLimiter.set(key, { count: 1, expiresAt: now + rateLimitWindowMs });
-    return false;
-  }
-
-  if (record.count + 1 > rateLimitMax) {
-    return true;
-  }
-
-  record.count += 1;
-  rateLimiter.set(key, record);
-  return false;
-}
-
-function guardRequest(req: NextRequest): NextResponse | null {
-  if (!isOriginAllowed(req)) {
-    return NextResponse.json({ error: "Origin not permitted" }, { status: 403 });
-  }
-
-  if (accessToken) {
-    const token = extractToken(req);
-    if (!token || token !== accessToken) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  } else if (isProd) {
-    return NextResponse.json({ error: "Endpoint disabled" }, { status: 403 });
-  }
-
-  if (isProd) {
-    const ip = extractClientIp(req);
-    if (hitRateLimit(ip)) {
-      return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
-    }
-  }
-
-  return null;
-}
-
 export async function POST(req: NextRequest) {
-  const guard = guardRequest(req);
+  const guard = guardTestEndpoint();
   if (guard) return guard;
 
   try {
@@ -228,7 +105,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  const guard = guardRequest(req);
+  const guard = guardTestEndpoint();
   if (guard) return guard;
 
   return NextResponse.json({

@@ -8,8 +8,8 @@ export const dynamic = "force-dynamic";
 
 export default function NotFound() {
   const supportHref =
-    config.mailgun?.supportEmail != null && config.mailgun.supportEmail.length > 0
-      ? `mailto:${config.mailgun.supportEmail}`
+    config.email?.supportEmail != null && config.email.supportEmail.length > 0
+      ? `mailto:${config.email.supportEmail}`
       : "/support";
 
   return (

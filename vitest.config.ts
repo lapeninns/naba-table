@@ -11,28 +11,29 @@ Object.assign(process.env, {
   NEXT_PUBLIC_SITE_URL: "http://localhost:3000",
   BASE_URL: "http://localhost:3000",
   ENABLE_TEST_API: "true",
-  USE_ASYNC_SIDE_EFFECTS: "false",
-  QUEUE_PROVIDER: "inngest",
 });
 
 export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["tests/server/**/*.test.ts", "tests/emails/**/*.test.ts", "app/api/**/*.test.ts"],
+    include: ["tests/server/**/*.test.ts", "tests/emails/**/*.test.ts", "app/api/**/*.test.ts", "src/app/api/**/*.test.ts"],
     exclude: ["tests/e2e/**", "tests/component/**", "tests/visual/**"],
     setupFiles: ["./tests/vitest.setup.ts"],
   },
   resolve: {
-    alias: {
-      '@/': path.resolve(__dirname, './') + '/',
-      '@reserve/': path.resolve(__dirname, './reserve/') + '/',
-      '@app/': path.resolve(__dirname, './reserve/app/') + '/',
-      '@features/': path.resolve(__dirname, './reserve/features/') + '/',
-      '@entities/': path.resolve(__dirname, './reserve/entities/') + '/',
-      '@shared/': path.resolve(__dirname, './reserve/shared/') + '/',
-      '@pages/': path.resolve(__dirname, './reserve/pages/') + '/',
-      '@tests/': path.resolve(__dirname, './reserve/tests/') + '/',
-    },
+    alias: [
+      { find: '@/app', replacement: path.resolve(__dirname, './src/app') },
+      { find: '@/server', replacement: path.resolve(__dirname, './server') },
+      { find: '@/lib', replacement: path.resolve(__dirname, './lib') },
+      { find: '@/', replacement: path.resolve(__dirname, './') + '/' },
+      { find: '@reserve/', replacement: path.resolve(__dirname, './reserve/') + '/' },
+      { find: '@app/', replacement: path.resolve(__dirname, './reserve/app/') + '/' },
+      { find: '@features/', replacement: path.resolve(__dirname, './reserve/features/') + '/' },
+      { find: '@entities/', replacement: path.resolve(__dirname, './reserve/entities/') + '/' },
+      { find: '@shared/', replacement: path.resolve(__dirname, './reserve/shared/') + '/' },
+      { find: '@pages/', replacement: path.resolve(__dirname, './reserve/pages/') + '/' },
+      { find: '@tests/', replacement: path.resolve(__dirname, './reserve/tests/') + '/' },
+    ],
   },
 });

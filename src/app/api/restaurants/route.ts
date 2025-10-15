@@ -41,7 +41,10 @@ export async function GET(request: Request) {
 
   try {
     const restaurants = await listRestaurants(filters);
-    return NextResponse.json({ data: restaurants });
+    const response = NextResponse.json({ data: restaurants });
+    response.headers.set("Deprecation", "true");
+    response.headers.set("Link", "</api/v1/restaurants>; rel=\"successor-version\"");
+    return response;
   } catch (error) {
     if (error instanceof ListRestaurantsError) {
       return NextResponse.json({ error: error.message }, { status: 502 });

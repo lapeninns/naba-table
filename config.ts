@@ -12,7 +12,7 @@ const config = {
   // REQUIRED — primary locale used for metadata and document language
   locale: "en-GB",
   crisp: {
-    // Crisp website ID. IF YOU DON'T USE CRISP: just remove this => Then add a support email in this config file (mailgun.supportEmail) otherwise customer support won't work.
+    // Crisp website ID. IF YOU DON'T USE CRISP: leave this empty and make sure `email.supportEmail` is set so customers can reach you.
     id: "",
     // Hide Crisp by default, except on route "/". Crisp is toggled with <ButtonSupport/>. If you want to show Crisp on every routes, just remove this below
     onlyShowOnRoutes: ["/"],
@@ -23,16 +23,14 @@ const config = {
     bucketUrl: `https://bucket-name.s3.amazonaws.com/`,
     cdn: "https://cdn-id.cloudfront.net/",
   },
-  mailgun: {
-    // subdomain to use when sending emails, if you don't have a subdomain, just remove it. Highly recommended to have one (i.e. mg.yourdomain.com or mail.yourdomain.com)
-    subdomain: "mg",
+  email: {
     // REQUIRED — Email 'From' field to be used when sending magic login links
     fromNoReply: `SajiloReserveX <noreply@example.com>`,
-    // REQUIRED — Email 'From' field to be used when sending other emails, like abandoned carts, updates etc..
-    fromAdmin: `SajiloReserveX Support <support@example.com>`,
-    // Email shown to customer if need support. Leave empty if not needed => if empty, set up Crisp above, otherwise you won't be able to offer customer support."
+    // REQUIRED — Email 'From' field to be used when sending other emails, like booking confirmations and updates.
+    fromSupport: `SajiloReserveX Support <support@example.com>`,
+    // Email shown to customers if they need support. Leave empty if not needed.
     supportEmail: "support@example.com",
-    // When someone replies to supportEmail sent by the app, forward it to the email below (otherwise it's lost). If you set supportEmail to empty, this will be ignored.
+    // When someone replies to supportEmail sent by the app, forward it to the email below (optional).
     forwardRepliesTo: "admin@example.com",
   },
   colors: {

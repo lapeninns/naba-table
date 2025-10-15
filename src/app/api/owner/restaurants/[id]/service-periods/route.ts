@@ -8,7 +8,7 @@ import {
 } from '@/server/restaurants/servicePeriods';
 import { TIME_REGEX, canonicalTime } from '@/server/restaurants/timeNormalization';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
-import { requireMembershipForRestaurant } from '@/server/team/access';
+import { requireAdminMembership } from '@/server/team/access';
 
 const timeSchema = z
   .string()
@@ -57,13 +57,13 @@ async function ensureAuthorized(restaurantId: string): Promise<NextResponse | nu
   }
 
   try {
-    await requireMembershipForRestaurant({
+    await requireAdminMembership({
       userId: user.id,
       restaurantId,
       client: supabase,
     });
   } catch (error) {
-    console.error('[owner][restaurants][service-periods] membership validation failed', error);
+    console.error('[owner][restaurants][service-periods] admin permission required', error);
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

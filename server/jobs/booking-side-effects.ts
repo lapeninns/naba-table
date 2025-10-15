@@ -5,7 +5,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { recordBookingCancelledEvent, recordBookingCreatedEvent } from "@/server/analytics";
 import type { BookingRecord } from "@/server/bookings";
 import { sendBookingCancellationEmail, sendBookingConfirmationEmail, sendBookingUpdateEmail } from "@/server/emails/bookings";
-import { inngest, isAsyncQueueEnabled } from "@/server/queue/inngest";
 import { getServiceSupabaseClient } from "@/server/supabase";
 import type { Tables } from "@/types/supabase";
 
@@ -66,10 +65,6 @@ export type BookingUpdatedSideEffectsPayload = z.infer<typeof bookingUpdatedSide
 export type BookingCancelledSideEffectsPayload = z.infer<typeof bookingCancelledSideEffectsSchema>;
 
 type SupabaseLike = SupabaseClient<any, any, any>;
-
-function serializePayload<T>(payload: T): T {
-  return JSON.parse(JSON.stringify(payload)) as T;
-}
 
 function resolveSupabase(client?: SupabaseLike): SupabaseLike {
   return client ?? getServiceSupabaseClient();
@@ -162,106 +157,25 @@ export async function enqueueBookingCreatedSideEffects(
   payload: BookingCreatedSideEffectsPayload,
   options?: { supabase?: SupabaseLike },
 ) {
-  if (!isAsyncQueueEnabled()) {
-    await processBookingCreatedSideEffects(payload, options?.supabase);
-    return { queued: false } as const;
-  }
-
-  try {
-    await inngest.send({
-      name: BOOKING_CREATED_EVENT,
-      data: serializePayload(payload),
-      id: `booking.created:${payload.booking.id}:${payload.booking.updated_at}`,
-    });
-    return { queued: true } as const;
-  } catch (error) {
-    console.error("[jobs][booking.created][enqueue]", error);
-    await processBookingCreatedSideEffects(payload, options?.supabase);
-    return { queued: false, fallback: true } as const;
-  }
+  await processBookingCreatedSideEffects(payload, options?.supabase);
+  return { queued: false } as const;
 }
 
 export async function enqueueBookingUpdatedSideEffects(
   payload: BookingUpdatedSideEffectsPayload,
   options?: { supabase?: SupabaseLike },
 ) {
-  if (!isAsyncQueueEnabled()) {
-    await processBookingUpdatedSideEffects(payload, options?.supabase);
-    return { queued: false } as const;
-  }
-
-  try {
-    await inngest.send({
-      name: BOOKING_UPDATED_EVENT,
-      data: serializePayload(payload),
-      id: `booking.updated:${payload.current.id}:${payload.current.updated_at}`,
-    });
-    return { queued: true } as const;
-  } catch (error) {
-    console.error("[jobs][booking.updated][enqueue]", error);
-    await processBookingUpdatedSideEffects(payload, options?.supabase);
-    return { queued: false, fallback: true } as const;
-  }
+  await processBookingUpdatedSideEffects(payload, options?.supabase);
+  return { queued: false } as const;
 }
 
 export async function enqueueBookingCancelledSideEffects(
   payload: BookingCancelledSideEffectsPayload,
   options?: { supabase?: SupabaseLike },
 ) {
-  if (!isAsyncQueueEnabled()) {
-    await processBookingCancelledSideEffects(payload, options?.supabase);
-    return { queued: false } as const;
-  }
-
-  try {
-    await inngest.send({
-      name: BOOKING_CANCELLED_EVENT,
-      data: serializePayload(payload),
-      id: `booking.cancelled:${payload.cancelled.id}:${payload.cancelled.updated_at}`,
-    });
-    return { queued: true } as const;
-  } catch (error) {
-    console.error("[jobs][booking.cancelled][enqueue]", error);
-    await processBookingCancelledSideEffects(payload, options?.supabase);
-    return { queued: false, fallback: true } as const;
-  }
+  await processBookingCancelledSideEffects(payload, options?.supabase);
+  return { queued: false } as const;
 }
-
-export const bookingCreatedSideEffectsFunction = inngest.createFunction(
-  { id: "booking-created-side-effects" },
-  { event: BOOKING_CREATED_EVENT },
-  async ({ event }) => {
-    const payload = bookingCreatedSideEffectsSchema.parse(event.data);
-    await processBookingCreatedSideEffects(payload);
-    return { success: true } as const;
-  },
-);
-
-export const bookingUpdatedSideEffectsFunction = inngest.createFunction(
-  { id: "booking-updated-side-effects" },
-  { event: BOOKING_UPDATED_EVENT },
-  async ({ event }) => {
-    const payload = bookingUpdatedSideEffectsSchema.parse(event.data);
-    await processBookingUpdatedSideEffects(payload);
-    return { success: true } as const;
-  },
-);
-
-export const bookingCancelledSideEffectsFunction = inngest.createFunction(
-  { id: "booking-cancelled-side-effects" },
-  { event: BOOKING_CANCELLED_EVENT },
-  async ({ event }) => {
-    const payload = bookingCancelledSideEffectsSchema.parse(event.data);
-    await processBookingCancelledSideEffects(payload);
-    return { success: true } as const;
-  },
-);
-
-export const bookingSideEffectFunctions = [
-  bookingCreatedSideEffectsFunction,
-  bookingUpdatedSideEffectsFunction,
-  bookingCancelledSideEffectsFunction,
-];
 
 export {
   processBookingCreatedSideEffects,

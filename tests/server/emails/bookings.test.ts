@@ -40,7 +40,7 @@ vi.mock("@/server/supabase", () => ({
 
 vi.mock("@/config", () => ({
   default: {
-    mailgun: { supportEmail: "support@sajiloreservex.com" },
+    email: { supportEmail: "support@sajiloreservex.com" },
   },
 }));
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { guardTestRoute } from '@/server/test-api';
+import { guardTestEndpoint } from '@/server/security/test-endpoints';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 export const dynamic = 'force-dynamic';
@@ -11,7 +11,7 @@ const payloadSchema = z.object({
 });
 
 export async function DELETE(req: NextRequest) {
-  const guard = guardTestRoute(req);
+  const guard = guardTestEndpoint();
   if (guard) return guard;
 
   const parsed = payloadSchema.safeParse(await req.json());

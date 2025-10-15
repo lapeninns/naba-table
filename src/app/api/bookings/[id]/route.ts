@@ -26,6 +26,7 @@ import { formatDateForInput } from "@reserve/shared/formatting/booking";
 import { fromMinutes } from "@reserve/shared/time";
 import { getRestaurantSchedule } from "@/server/restaurants/schedule";
 import { OperatingHoursError, assertBookingWithinOperatingWindow } from "@/server/bookings/timeValidation";
+import { recordObservabilityEvent } from "@/server/observability";
 
 const bookingTypeEnum = z.enum(BOOKING_TYPES);
 
@@ -296,9 +297,23 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "Missing booking id" }, { status: 400 });
   }
 
+  // Require authentication to view booking details
+  const tenantSupabase = await getRouteHandlerSupabaseClient();
+  const { data: { user }, error: authError } = await tenantSupabase.auth.getUser();
+
+  if (authError || !user?.email) {
+    return NextResponse.json(
+      { error: "Authentication required", code: "UNAUTHENTICATED" },
+      { status: 401 }
+    );
+  }
+
+  const normalizedUserEmail = normalizeEmail(user.email);
+
   try {
-    const supabase = await getRouteHandlerSupabaseClient();
-    const { data, error } = await supabase
+    // Use service client to bypass RLS and check ownership manually
+    const serviceSupabase = getServiceSupabaseClient();
+    const { data, error } = await serviceSupabase
       .from("bookings")
       .select(
         "id,restaurant_id,booking_date,start_time,end_time,start_at,end_at,slot,reference,party_size,booking_type,seating_preference,status,customer_name,customer_email,customer_phone,notes,marketing_opt_in,loyalty_points_awarded,client_request_id,pending_ref,idempotency_key,details,created_at,updated_at",
@@ -312,6 +327,26 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
     if (!data) {
       return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+    }
+
+    // Verify ownership: user email must match booking email
+    if (data.customer_email !== normalizedUserEmail) {
+      // Log unauthorized access attempt
+      void recordObservabilityEvent({
+        source: "api.bookings",
+        eventType: "booking_details.access_denied",
+        severity: "warning",
+        context: {
+          booking_id: bookingId,
+          user_email: normalizedUserEmail,
+          booking_email: data.customer_email,
+        },
+      });
+
+      return NextResponse.json(
+        { error: "You can only view your own bookings", code: "FORBIDDEN" },
+        { status: 403 }
+      );
     }
 
     return NextResponse.json({ booking: data });

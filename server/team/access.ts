@@ -72,11 +72,24 @@ export async function requireMembershipForRestaurant(params: {
   }
 
   if (!data) {
+    console.warn('[auth:membership] Access denied - membership not found', {
+      userId,
+      restaurantId,
+      requiredRoles: allowedRoles,
+      timestamp: new Date().toISOString(),
+    });
     throw Object.assign(new Error("Membership not found"), { code: "MEMBERSHIP_NOT_FOUND" as const });
   }
 
   const casted = normalizeMembership(data as RawMembershipRow);
   if (!allowedRoles.includes(casted.role as RestaurantRole)) {
+    console.warn('[auth:role] Insufficient permissions', {
+      userId,
+      restaurantId,
+      requiredRoles: allowedRoles,
+      actualRole: casted.role,
+      timestamp: new Date().toISOString(),
+    });
     throw Object.assign(new Error("Insufficient permissions for restaurant"), {
       code: "MEMBERSHIP_ROLE_DENIED" as const,
       role: casted.role,

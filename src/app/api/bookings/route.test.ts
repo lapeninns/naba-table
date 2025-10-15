@@ -112,10 +112,70 @@ describe('/api/bookings POST', () => {
   beforeEach(() => {
     getDefaultRestaurantIdMock.mockResolvedValue('rest-default');
     getServiceSupabaseClientMock.mockReturnValue({});
+    consumeRateLimitMock.mockResolvedValue({
+      ok: true,
+      limit: 60,
+      remaining: 59,
+      resetAt: Date.now() + 60_000,
+      source: 'memory',
+    });
   });
 
   afterEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('returns 429 when rate limit exceeded for booking creation', async () => {
+    const payload = {
+      restaurantId: RESTAURANT_ID,
+      date: '2025-10-10',
+      time: '19:00',
+      party: 2,
+      bookingType: 'dinner',
+      seating: 'any',
+      notes: null,
+      name: 'Test User',
+      email: 'test@example.com',
+      phone: '1234567890',
+    };
+
+    const request = createRequest(payload);
+    const retryReset = Date.now() + 45_000;
+
+    consumeRateLimitMock.mockResolvedValueOnce({
+      ok: false,
+      limit: 60,
+      remaining: 0,
+      resetAt: retryReset,
+      source: 'redis',
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(429);
+    const json = await response.json();
+    expect(json.error).toBe('Too many booking requests. Please try again in a moment.');
+    expect(json.code).toBe('RATE_LIMITED');
+    expect(json.retryAfter).toBeGreaterThan(0);
+    
+    // Verify rate limit headers are present
+    expect(response.headers.get('Retry-After')).toBeTruthy();
+    expect(response.headers.get('X-RateLimit-Limit')).toBe('60');
+    expect(response.headers.get('X-RateLimit-Remaining')).toBe('0');
+    expect(response.headers.get('X-RateLimit-Reset')).toBeTruthy();
+
+    // Verify observability event was logged
+    expect(recordObservabilityEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'api.bookings',
+        eventType: 'booking_creation.rate_limited',
+        severity: 'warning',
+      }),
+    );
+
+    // Verify booking was not created
+    expect(upsertCustomerMock).not.toHaveBeenCalled();
+    expect(insertBookingRecordMock).not.toHaveBeenCalled();
   });
 
   it('returns 400 when selected time is outside operating hours', async () => {

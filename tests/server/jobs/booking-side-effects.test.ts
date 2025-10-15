@@ -13,13 +13,6 @@ const emailMocks = {
 };
 vi.mock("@/server/emails/bookings", () => emailMocks);
 
-const inngestSendMock = vi.fn();
-const isAsyncQueueEnabledMock = vi.fn();
-vi.mock("@/server/queue/inngest", () => ({
-  inngest: { send: inngestSendMock, createFunction: vi.fn(() => ({})) },
-  isAsyncQueueEnabled: isAsyncQueueEnabledMock,
-}));
-
 vi.mock("@/server/supabase", () => ({
   getServiceSupabaseClient: vi.fn(() => ({})),
 }));
@@ -48,7 +41,6 @@ function bookingPayload() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  isAsyncQueueEnabledMock.mockReturnValue(false);
 });
 
 describe("booking side-effects processing", () => {
@@ -110,52 +102,24 @@ describe("enqueue booking side-effects", () => {
     restaurantId: RESTAURANT_ID,
   } as const;
 
-  beforeEach(() => {
-    isAsyncQueueEnabledMock.mockReturnValue(false);
-  });
-
   it("executes synchronously when async queue disabled", async () => {
-    isAsyncQueueEnabledMock.mockReturnValue(false);
-
     const result = await enqueueBookingCreatedSideEffects(payload, { supabase: {} as any });
 
     expect(result).toMatchObject({ queued: false });
-    expect(inngestSendMock).not.toHaveBeenCalled();
     expect(analyticsMocks.recordBookingCreatedEvent).toHaveBeenCalled();
   });
 
-  it("enqueues events when async queue enabled", async () => {
-    isAsyncQueueEnabledMock.mockReturnValue(true);
-
-    const outcome = await enqueueBookingCreatedSideEffects(payload, { supabase: {} as any });
-
-    expect(outcome).toMatchObject({ queued: true });
-    expect(inngestSendMock).toHaveBeenCalledWith(expect.objectContaining({
-      name: expect.stringContaining("booking.created"),
-      data: expect.objectContaining({ restaurantId: RESTAURANT_ID }),
-    }));
-    expect(analyticsMocks.recordBookingCreatedEvent).not.toHaveBeenCalled();
-  });
-
-  it("falls back to synchronous processing if enqueue throws", async () => {
-    isAsyncQueueEnabledMock.mockReturnValue(true);
-    inngestSendMock.mockRejectedValueOnce(new Error("network"));
-
-    const outcome = await enqueueBookingCreatedSideEffects(payload, { supabase: {} as any });
-
-    expect(outcome).toMatchObject({ queued: false, fallback: true });
-    expect(analyticsMocks.recordBookingCreatedEvent).toHaveBeenCalled();
-  });
-
-  it("enqueues cancellation and update events via inngest when enabled", async () => {
-    isAsyncQueueEnabledMock.mockReturnValue(true);
-
+  it("processes updates synchronously", async () => {
     await enqueueBookingUpdatedSideEffects({
       previous: bookingPayload(),
       current: bookingPayload(),
       restaurantId: RESTAURANT_ID,
     });
 
+    expect(emailMocks.sendBookingUpdateEmail).toHaveBeenCalled();
+  });
+
+  it("processes cancellations synchronously", async () => {
     await enqueueBookingCancelledSideEffects({
       previous: bookingPayload(),
       cancelled: bookingPayload(),
@@ -163,6 +127,6 @@ describe("enqueue booking side-effects", () => {
       cancelledBy: "system",
     });
 
-    expect(inngestSendMock).toHaveBeenCalledTimes(2);
+    expect(emailMocks.sendBookingCancellationEmail).toHaveBeenCalled();
   });
 });

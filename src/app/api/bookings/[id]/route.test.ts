@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { PUT } from './route';
+import { GET, PUT } from './route';
 import { GuardError } from '@/server/auth/guards';
 import { OperatingHoursError } from '@/server/bookings/timeValidation';
 
@@ -17,6 +17,7 @@ const logAuditEventMock = vi.hoisted(() => vi.fn());
 const enqueueBookingUpdatedSideEffectsMock = vi.hoisted(() => vi.fn());
 const requireSessionMock = vi.hoisted(() => vi.fn());
 const listUserRestaurantMembershipsMock = vi.hoisted(() => vi.fn());
+const recordObservabilityEventMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/bookings/timeValidation', async () => {
   const actual = await vi.importActual<typeof import('@/server/bookings/timeValidation')>(
@@ -67,6 +68,10 @@ vi.mock('@/server/jobs/booking-side-effects', () => ({
 
 vi.mock('@/server/customers', () => ({
   normalizeEmail: (email: string) => email.trim().toLowerCase(),
+}));
+
+vi.mock('@/server/observability', () => ({
+  recordObservabilityEvent: (...args: unknown[]) => recordObservabilityEventMock(...args),
 }));
 
 const RESTAURANT_ID = '11111111-1111-4111-8111-111111111111';
@@ -122,7 +127,7 @@ function createTenantSupabase(booking: typeof existingBooking | null = existingB
 }
 
 function createServiceSupabase(options: { booking?: typeof existingBooking | null } = {}) {
-  const booking = options.booking ?? existingBooking;
+  const booking = 'booking' in options ? options.booking : existingBooking;
   const maybeSingleMock = vi.fn().mockResolvedValue({ data: booking, error: null });
   const eqMock = vi.fn(() => ({ maybeSingle: maybeSingleMock }));
   const selectMock = vi.fn(() => ({ eq: eqMock }));
@@ -147,6 +152,176 @@ function createRequest(body: unknown) {
     body: JSON.stringify(body),
   });
 }
+
+describe('/api/bookings/[id] GET', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('returns 401 when user is not authenticated', async () => {
+    const request = new NextRequest('http://localhost/api/bookings/booking-1', { method: 'GET' });
+    const params = { params: Promise.resolve({ id: 'booking-1' }) } as const;
+
+    const tenantSupabase = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: null },
+          error: null,
+        }),
+      },
+    };
+
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(tenantSupabase);
+
+    const response = await GET(request, params);
+
+    expect(response.status).toBe(401);
+    const json = await response.json();
+    expect(json.error).toBe('Authentication required');
+    expect(json.code).toBe('UNAUTHENTICATED');
+  });
+
+  it('returns 401 when user email is missing', async () => {
+    const request = new NextRequest('http://localhost/api/bookings/booking-1', { method: 'GET' });
+    const params = { params: Promise.resolve({ id: 'booking-1' }) } as const;
+
+    const tenantSupabase = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: 'user-1', email: null } },
+          error: null,
+        }),
+      },
+    };
+
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(tenantSupabase);
+
+    const response = await GET(request, params);
+
+    expect(response.status).toBe(401);
+    const json = await response.json();
+    expect(json.code).toBe('UNAUTHENTICATED');
+  });
+
+  it('returns 403 when user does not own the booking', async () => {
+    const request = new NextRequest('http://localhost/api/bookings/booking-1', { method: 'GET' });
+    const params = { params: Promise.resolve({ id: 'booking-1' }) } as const;
+
+    const tenantSupabase = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: 'user-1', email: 'other@example.com' } },
+          error: null,
+        }),
+      },
+    };
+
+    const serviceSupabase = createServiceSupabase({ booking: existingBooking });
+
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(tenantSupabase);
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+
+    const response = await GET(request, params);
+
+    expect(response.status).toBe(403);
+    const json = await response.json();
+    expect(json.error).toBe('You can only view your own bookings');
+    expect(json.code).toBe('FORBIDDEN');
+
+    // Verify observability event was logged
+    expect(recordObservabilityEventMock).toHaveBeenCalledWith({
+      source: 'api.bookings',
+      eventType: 'booking_details.access_denied',
+      severity: 'warning',
+      context: {
+        booking_id: 'booking-1',
+        user_email: 'other@example.com',
+        booking_email: 'test@example.com',
+      },
+    });
+  });
+
+  it('returns 200 with booking data when user owns the booking', async () => {
+    const request = new NextRequest('http://localhost/api/bookings/booking-1', { method: 'GET' });
+    const params = { params: Promise.resolve({ id: 'booking-1' }) } as const;
+
+    const tenantSupabase = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: 'user-1', email: 'test@example.com' } },
+          error: null,
+        }),
+      },
+    };
+
+    const serviceSupabase = createServiceSupabase({ booking: existingBooking });
+
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(tenantSupabase);
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+
+    const response = await GET(request, params);
+
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.booking).toBeDefined();
+    expect(json.booking.id).toBe('booking-1');
+    expect(json.booking.customer_email).toBe('test@example.com');
+
+    // Verify no access denied event was logged
+    expect(recordObservabilityEventMock).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when booking is not found', async () => {
+    const request = new NextRequest('http://localhost/api/bookings/nonexistent', { method: 'GET' });
+    const params = { params: Promise.resolve({ id: 'nonexistent' }) } as const;
+
+    const tenantSupabase = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: 'user-1', email: 'test@example.com' } },
+          error: null,
+        }),
+      },
+    };
+
+    const serviceSupabase = createServiceSupabase({ booking: null });
+
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(tenantSupabase);
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+
+    const response = await GET(request, params);
+
+    expect(response.status).toBe(404);
+    const json = await response.json();
+    expect(json.error).toBe('Booking not found');
+  });
+
+  it('normalizes email for comparison (case-insensitive)', async () => {
+    const request = new NextRequest('http://localhost/api/bookings/booking-1', { method: 'GET' });
+    const params = { params: Promise.resolve({ id: 'booking-1' }) } as const;
+
+    const tenantSupabase = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: 'user-1', email: 'TEST@EXAMPLE.COM' } },
+          error: null,
+        }),
+      },
+    };
+
+    const serviceSupabase = createServiceSupabase({ booking: existingBooking });
+
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(tenantSupabase);
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+
+    const response = await GET(request, params);
+
+    // Should succeed because normalizeEmail makes comparison case-insensitive
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.booking.id).toBe('booking-1');
+  });
+});
 
 describe('/api/bookings/[id] PUT', () => {
   afterEach(() => {

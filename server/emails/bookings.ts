@@ -310,7 +310,7 @@ function renderHtml({
 
   const primaryButton = ctaLabel && ctaUrl ? renderActionButton(ctaLabel, ctaUrl, { variant: 'primary', icon: '➡️' }) : '';
 
-  const supportEmail = venue.email?.trim() || config.mailgun.supportEmail || '';
+  const supportEmail = venue.email?.trim() || config.email.supportEmail || '';
   const supportPhone = venue.phone?.trim() || '';
   const supportLine = [
     supportEmail ? `Email <a href="mailto:${escapeHtml(supportEmail)}" style="color:#4338ca;text-decoration:none;">${escapeHtml(supportEmail)}</a>` : '',
@@ -600,7 +600,7 @@ async function dispatchEmail(
       walletActionUrl,
       calendarAttachmentName,
     }),
-    replyTo: config.mailgun.supportEmail,
+      replyTo: config.email.supportEmail,
     fromName: venue.name, // Use restaurant name as the sender name
     attachments: attachments.length ? attachments : undefined,
   });

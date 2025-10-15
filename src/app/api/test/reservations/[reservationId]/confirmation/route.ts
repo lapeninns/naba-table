@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { guardTestRoute } from '@/server/test-api';
+import { guardTestEndpoint } from '@/server/security/test-endpoints';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 export const dynamic = 'force-dynamic';
@@ -13,7 +13,7 @@ type RouteParams = {
 };
 
 export async function GET(req: NextRequest, context: RouteParams) {
-  const guard = guardTestRoute(req);
+  const guard = guardTestEndpoint();
   if (guard) return guard;
 
   const { reservationId } = await context.params;

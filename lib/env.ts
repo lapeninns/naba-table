@@ -85,13 +85,6 @@ export const env = {
     } as const;
   },
 
-  get mailgun() {
-    const parsed = parseEnv();
-    return {
-      apiKey: parsed.MAILGUN_API_KEY,
-    } as const;
-  },
-
   get featureFlags() {
     const parsed = parseEnv();
     return {
@@ -157,19 +150,6 @@ export const env = {
       upstash: {
         restUrl: parsed.UPSTASH_REDIS_REST_URL,
         restToken: parsed.UPSTASH_REDIS_REST_TOKEN,
-      },
-    } as const;
-  },
-
-  get queue() {
-    const parsed = parseEnv();
-    return {
-      provider: parsed.QUEUE_PROVIDER ?? "inngest",
-      useAsyncSideEffects: parsed.USE_ASYNC_SIDE_EFFECTS ?? false,
-      inngest: {
-        appId: parsed.INNGEST_APP_ID,
-        eventKey: parsed.INNGEST_EVENT_KEY,
-        signingKey: parsed.INNGEST_SIGNING_KEY,
       },
     } as const;
   },

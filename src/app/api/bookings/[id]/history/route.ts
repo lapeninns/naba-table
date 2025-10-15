@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { getBookingHistory } from '@/server/bookingHistory';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 import { normalizeEmail } from '@/server/customers';
+import { recordObservabilityEvent } from '@/server/observability';
 
 const querySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).optional(),
@@ -79,7 +80,22 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   }
 
   if (bookingRow.customer_email !== normalizedEmail) {
-    return NextResponse.json({ error: 'You can only view history for your own reservation' }, { status: 403 });
+    // Log unauthorized access attempt
+    void recordObservabilityEvent({
+      source: 'api.bookings',
+      eventType: 'booking_history.access_denied',
+      severity: 'warning',
+      context: {
+        booking_id: bookingId,
+        user_email: normalizedEmail,
+        booking_email: bookingRow.customer_email,
+      },
+    });
+
+    return NextResponse.json(
+      { error: 'You can only view history for your own reservation', code: 'FORBIDDEN' },
+      { status: 403 }
+    );
   }
 
   try {

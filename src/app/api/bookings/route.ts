@@ -15,6 +15,11 @@ import {
   logAuditEvent,
   generateUniqueBookingReference,
 } from "@/server/bookings";
+import {
+  generateConfirmationToken,
+  computeTokenExpiry,
+  attachTokenToBooking,
+} from "@/server/bookings/confirmation-token";
 import type { BookingRecord } from "@/server/bookings";
 import type { Json } from "@/types/supabase";
 import {
@@ -345,6 +350,51 @@ export async function POST(req: NextRequest) {
 
   const data = parsed.data;
   const restaurantId = data.restaurantId ?? await getDefaultRestaurantId();
+  const clientIp = extractClientIp(req);
+
+  // Rate limiting for booking creation
+  const rateResult = await consumeRateLimit({
+    identifier: `bookings:create:${restaurantId}:${clientIp}`,
+    limit: 60,
+    windowMs: 60_000,
+  });
+
+  if (!rateResult.ok) {
+    const retryAfterSeconds = Math.max(1, Math.ceil((rateResult.resetAt - Date.now()) / 1000));
+
+    // Log rate limit event
+    void recordObservabilityEvent({
+      source: "api.bookings",
+      eventType: "booking_creation.rate_limited",
+      severity: "warning",
+      context: {
+        restaurant_id: restaurantId,
+        ip_scope: anonymizeIp(clientIp),
+        reset_at: new Date(rateResult.resetAt).toISOString(),
+        limit: rateResult.limit,
+        window_ms: 60_000,
+        rate_source: rateResult.source,
+      },
+    });
+
+    return NextResponse.json(
+      {
+        error: "Too many booking requests. Please try again in a moment.",
+        code: "RATE_LIMITED",
+        retryAfter: retryAfterSeconds,
+      },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": retryAfterSeconds.toString(),
+          "X-RateLimit-Limit": rateResult.limit.toString(),
+          "X-RateLimit-Remaining": rateResult.remaining.toString(),
+          "X-RateLimit-Reset": rateResult.resetAt.toString(),
+        },
+      },
+    );
+  }
+
   const idempotencyKey = normalizeIdempotencyKey(req.headers.get("Idempotency-Key"));
   const clientRequestId = coerceUuid(idempotencyKey) ?? randomUUID();
   const userAgent = req.headers.get("user-agent");
@@ -575,9 +625,25 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Generate confirmation token for guest access to confirmation page
+    let confirmationToken: string | null = null;
+    if (!reusedExisting) {
+      try {
+        confirmationToken = generateConfirmationToken();
+        const tokenExpiry = computeTokenExpiry(1); // 1 hour expiry
+
+        await attachTokenToBooking(finalBooking.id, confirmationToken, tokenExpiry);
+      } catch (tokenError: unknown) {
+        console.error("[bookings][POST][confirmation-token]", stringifyError(tokenError));
+        // Non-fatal: booking still succeeded, just no token for guest confirmation
+        confirmationToken = null;
+      }
+    }
+
     return NextResponse.json(
       {
         booking: finalBooking,
+        confirmationToken,
         loyaltyPointsAwarded: loyaltyAward,
         bookings,
         clientRequestId: finalBooking.client_request_id,
