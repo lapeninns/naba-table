@@ -25,6 +25,7 @@ export type BookingDTO = {
   notes?: string | null;
   customerName?: string | null;
   customerEmail?: string | null;
+  customerPhone?: string | null;
 };
 
 export type PageInfo = {

@@ -37,7 +37,10 @@ export function useUpdateBooking() {
     },
     onError: (error, variables) => {
       emit('booking_edit_failed', { bookingId: variables.id, code: (error as HttpError)?.code });
-      toast.error(error.message);
+      const message = error.code === 'BOOKING_IN_PAST'
+        ? 'Bookings must start in the future. Please pick a later date or contact the venue to backfill.'
+        : error.message;
+      toast.error(message);
     },
   });
 }

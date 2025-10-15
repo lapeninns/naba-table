@@ -119,6 +119,7 @@ export type OpsBookingListItem = {
   notes?: string | null;
   customerName?: string | null;
   customerEmail?: string | null;
+  customerPhone: string | null;
 };
 
 export type OpsBookingsPage = {

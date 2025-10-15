@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import { env } from "@/lib/env";
 import { GuardError, listUserRestaurantMemberships, requireSession } from "@/server/auth/guards";
 import type { BookingRecord } from "@/server/bookings";
 import {
@@ -26,6 +27,7 @@ import { formatDateForInput } from "@reserve/shared/formatting/booking";
 import { fromMinutes } from "@reserve/shared/time";
 import { getRestaurantSchedule } from "@/server/restaurants/schedule";
 import { OperatingHoursError, assertBookingWithinOperatingWindow } from "@/server/bookings/timeValidation";
+import { PastBookingError, assertBookingNotInPast } from "@/server/bookings/pastTimeValidation";
 import { recordObservabilityEvent } from "@/server/observability";
 
 const bookingTypeEnum = z.enum(BOOKING_TYPES);
@@ -128,6 +130,59 @@ async function handleDashboardUpdate(params: {
     const bookingDate = formatDateForInput(startDate);
     const startTime = fromMinutes(startDate.getHours() * 60 + startDate.getMinutes());
     const endTime = fromMinutes(endDate.getHours() * 60 + endDate.getMinutes());
+
+    // Check if time fields are being changed (only validate if time is changing)
+    const isTimeChanged = 
+      bookingDate !== existingBooking.booking_date ||
+      startTime !== existingBooking.start_time;
+
+    // Validate past time if feature enabled and time is changing
+    if (isTimeChanged && env.featureFlags.bookingPastTimeBlocking) {
+      const restaurantId = existingBooking.restaurant_id ?? (await getDefaultRestaurantId());
+      
+      try {
+        const schedule = await getRestaurantSchedule(restaurantId, {
+          date: bookingDate,
+          client: serviceSupabase,
+        });
+
+        assertBookingNotInPast(
+          schedule.timezone,
+          bookingDate,
+          startTime,
+          {
+            graceMinutes: env.featureFlags.bookingPastTimeGraceMinutes,
+          }
+        );
+      } catch (pastTimeError) {
+        if (pastTimeError instanceof PastBookingError) {
+          // Log blocked attempt
+          void recordObservabilityEvent({
+            source: "api.bookings",
+            eventType: "booking.past_time.blocked",
+            severity: "warning",
+            context: {
+              bookingId,
+              restaurantId: existingBooking.restaurant_id,
+              endpoint: "bookings.update.dashboard",
+              actorId: actor.id,
+              actorEmail: actor.email,
+              ...pastTimeError.details,
+            },
+          });
+
+          return NextResponse.json(
+            {
+              error: pastTimeError.message,
+              code: pastTimeError.code,
+              details: pastTimeError.details,
+            },
+            { status: 422 }
+          );
+        }
+        throw pastTimeError;
+      }
+    }
 
     const updated = await updateBookingRecord(serviceSupabase, bookingId, {
       booking_date: bookingDate,

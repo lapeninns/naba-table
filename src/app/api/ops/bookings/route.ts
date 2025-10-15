@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import { env } from "@/lib/env";
 import { deriveEndTime, fetchBookingsForContact, generateUniqueBookingReference, inferMealTypeFromTime, insertBookingRecord } from "@/server/bookings";
 import { normalizeEmail, upsertCustomer } from "@/server/customers";
 import { enqueueBookingCreatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
@@ -10,8 +11,11 @@ import { consumeRateLimit } from "@/server/security/rate-limit";
 import { anonymizeIp, extractClientIp } from "@/server/security/request";
 import { fetchUserMemberships, requireMembershipForRestaurant } from "@/server/team/access";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
+import { PastBookingError, assertBookingNotInPast, canOverridePastBooking } from "@/server/bookings/pastTimeValidation";
+import { getRestaurantSchedule } from "@/server/restaurants/schedule";
 import type { BookingRecord } from "@/server/bookings";
 import type { Json, Tables } from "@/types/supabase";
+import type { RestaurantRole } from "@/lib/owner/auth/roles";
 import { opsWalkInBookingSchema, type OpsWalkInBookingPayload } from "./schema";
 
 const OPS_CHANNEL = "ops.walkin";
@@ -111,7 +115,7 @@ const opsBookingsQuerySchema = z.object({
 
 type OpsBookingRow = Pick<
   Tables<"bookings">,
-  "id" | "start_at" | "end_at" | "booking_date" | "start_time" | "end_time" | "party_size" | "status" | "notes" | "restaurant_id" | "customer_name" | "customer_email"
+  "id" | "start_at" | "end_at" | "booking_date" | "start_time" | "end_time" | "party_size" | "status" | "notes" | "restaurant_id" | "customer_name" | "customer_email" | "customer_phone"
 > & {
   restaurants?: { name: string | null } | { name: string | null }[] | null;
 };
@@ -127,6 +131,7 @@ type BookingDTO = {
   notes?: string | null;
   customerName: string | null;
   customerEmail: string | null;
+  customerPhone: string | null;
 };
 
 type PageInfo = {
@@ -289,7 +294,7 @@ export async function GET(req: NextRequest) {
   let query = serviceSupabase
     .from("bookings")
     .select(
-      "id, start_at, end_at, booking_date, start_time, end_time, party_size, status, notes, restaurant_id, customer_name, customer_email, restaurants(name)",
+      "id, start_at, end_at, booking_date, start_time, end_time, party_size, status, notes, restaurant_id, customer_name, customer_email, customer_phone, restaurants(name)",
       { count: "exact" },
     )
     .eq("restaurant_id", targetRestaurantId);
@@ -329,6 +334,8 @@ export async function GET(req: NextRequest) {
       : row.restaurants ?? null;
     const startIso = toIsoString(row.start_at) || deriveFallbackIso(row.booking_date, row.start_time);
     const endIso = toIsoString(row.end_at) || deriveFallbackIso(row.booking_date, row.end_time);
+    const rawPhone = typeof row.customer_phone === "string" ? row.customer_phone.trim() : "";
+    const customerPhone = rawPhone.length > 0 ? rawPhone : null;
 
     return {
       id: row.id,
@@ -341,6 +348,7 @@ export async function GET(req: NextRequest) {
       notes: row.notes ?? null,
       customerName: row.customer_name ?? null,
       customerEmail: row.customer_email ?? null,
+      customerPhone,
     };
   });
 
@@ -451,6 +459,83 @@ export async function POST(req: NextRequest) {
   const startTime = payload.time;
   const bookingType = payload.bookingType === "drinks" ? "drinks" : inferMealTypeFromTime(startTime);
   const endTime = deriveEndTime(startTime, bookingType);
+
+  // Validate booking is not in the past (if feature flag enabled)
+  if (env.featureFlags.bookingPastTimeBlocking) {
+    const allowPastParam = req.nextUrl.searchParams.get("allow_past");
+    const allowOverride = allowPastParam === "true";
+
+    // Get user's role for the restaurant
+    const memberships = await fetchUserMemberships(user.id, service);
+    const membership = memberships.find(m => m.restaurant_id === payload.restaurantId);
+    const userRole = membership?.role as RestaurantRole | null;
+
+    try {
+      const schedule = await getRestaurantSchedule(payload.restaurantId, {
+        date: payload.date,
+        client: service,
+      });
+
+      assertBookingNotInPast(
+        schedule.timezone,
+        payload.date,
+        startTime,
+        {
+          graceMinutes: env.featureFlags.bookingPastTimeGraceMinutes,
+          allowOverride,
+          actorRole: userRole,
+        }
+      );
+
+      // Log successful override if admin used it
+      if (allowOverride && canOverridePastBooking(userRole)) {
+        void recordObservabilityEvent({
+          source: "api.ops.bookings",
+          eventType: "booking.past_time.override",
+          severity: "info",
+          context: {
+            restaurantId: payload.restaurantId,
+            endpoint: "ops.bookings.create",
+            actorId: user.id,
+            actorEmail: user.email,
+            actorRole: userRole,
+            timezone: schedule.timezone,
+            bookingDate: payload.date,
+            bookingTime: startTime,
+          },
+        });
+      }
+    } catch (pastTimeError) {
+      if (pastTimeError instanceof PastBookingError) {
+        // Log blocked attempt
+        void recordObservabilityEvent({
+          source: "api.ops.bookings",
+          eventType: "booking.past_time.blocked",
+          severity: "warning",
+          context: {
+            restaurantId: payload.restaurantId,
+            endpoint: "ops.bookings.create",
+            actorId: user.id,
+            actorEmail: user.email,
+            actorRole: userRole,
+            ipScope: anonymizeIp(clientIp),
+            overrideAttempted: allowOverride,
+            ...pastTimeError.details,
+          },
+        });
+
+        return NextResponse.json(
+          {
+            error: pastTimeError.message,
+            code: pastTimeError.code,
+            details: pastTimeError.details,
+          },
+          { status: 422 }
+        );
+      }
+      throw pastTimeError;
+    }
+  }
 
   const customerEmailForRecord = (payload.email ?? "").trim();
   const customerPhoneForRecord = (payload.phone ?? "").trim();

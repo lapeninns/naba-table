@@ -45,6 +45,9 @@ export function OpsBookingDetailsDialog({ booking, formatDate, formatTime }: Ops
   const timeLabel = hasEndTime ? `${startTime} – ${endTime}` : startTime;
   const customerLabel = booking.customerName?.trim() || 'Guest name unavailable';
   const emailLabel = booking.customerEmail?.trim() || null;
+  const phoneLabel = booking.customerPhone?.trim() || null;
+  const sanitizedPhone = phoneLabel ? phoneLabel.replace(/[^+\d]/g, '') : '';
+  const phoneHref = sanitizedPhone.length > 0 ? `tel:${sanitizedPhone}` : null;
   const restaurantLabel = booking.restaurantName?.trim() || '—';
 
   return (
@@ -69,6 +72,7 @@ export function OpsBookingDetailsDialog({ booking, formatDate, formatTime }: Ops
           <InfoItem label="Restaurant" value={restaurantLabel} />
           <InfoItem label="Party size" value={`${booking.partySize}`} />
           <InfoItem label="Customer email" value={emailLabel} href={emailLabel ? `mailto:${emailLabel}` : null} />
+          <InfoItem label="Customer phone" value={phoneLabel} href={phoneHref} />
           <InfoItem label="Status" value={booking.status.replace(/_/g, ' ')} />
         </dl>
 

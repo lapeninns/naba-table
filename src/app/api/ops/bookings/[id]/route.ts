@@ -12,9 +12,13 @@ import {
 } from "@/server/bookings";
 import { enqueueBookingCancelledSideEffects, enqueueBookingUpdatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
-import { requireMembershipForRestaurant } from "@/server/team/access";
+import { requireMembershipForRestaurant, fetchUserMemberships } from "@/server/team/access";
+import { PastBookingError, assertBookingNotInPast, canOverridePastBooking } from "@/server/bookings/pastTimeValidation";
+import { getRestaurantSchedule } from "@/server/restaurants/schedule";
+import { env } from "@/lib/env";
 import type { BookingRecord } from "@/server/bookings";
 import type { Json, Tables } from "@/types/supabase";
+import type { RestaurantRole } from "@/lib/owner/auth/roles";
 
 const dashboardUpdateSchema = z.object({
   startIso: z.string().datetime(),
@@ -134,6 +138,93 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   const startTime = fromMinutes(startDate.getHours() * 60 + startDate.getMinutes());
   const endTime = fromMinutes(endDate.getHours() * 60 + endDate.getMinutes());
 
+  // Check if time fields are being changed (only validate if time is changing)
+  const isTimeChanged = 
+    bookingDate !== existingBooking.booking_date ||
+    startTime !== existingBooking.start_time;
+
+  // Validate past time if feature enabled and time is changing
+  if (isTimeChanged && env.featureFlags.bookingPastTimeBlocking) {
+    const allowPastParam = req.nextUrl.searchParams.get("allow_past");
+    const allowOverride = allowPastParam === "true";
+
+    // Get user's role for the restaurant
+    const memberships = await fetchUserMemberships(user.id, serviceSupabase);
+    const membership = memberships.find(m => m.restaurant_id === existingBooking.restaurant_id);
+    const userRole = membership?.role as RestaurantRole | null;
+
+    try {
+      const schedule = await getRestaurantSchedule(existingBooking.restaurant_id ?? "", {
+        date: bookingDate,
+        client: serviceSupabase,
+      });
+
+      assertBookingNotInPast(
+        schedule.timezone,
+        bookingDate,
+        startTime,
+        {
+          graceMinutes: env.featureFlags.bookingPastTimeGraceMinutes,
+          allowOverride,
+          actorRole: userRole,
+        }
+      );
+
+      // Log successful override if admin used it
+      if (allowOverride && canOverridePastBooking(userRole)) {
+        void import("@/server/observability").then(({ recordObservabilityEvent }) => {
+          void recordObservabilityEvent({
+            source: "api.ops.bookings",
+            eventType: "booking.past_time.override",
+            severity: "info",
+            context: {
+              bookingId,
+              restaurantId: existingBooking.restaurant_id,
+              endpoint: "ops.bookings.update",
+              actorId: user.id,
+              actorEmail: user.email,
+              actorRole: userRole,
+              timezone: schedule.timezone,
+              bookingDate,
+              bookingTime: startTime,
+            },
+          });
+        });
+      }
+    } catch (pastTimeError) {
+      if (pastTimeError instanceof PastBookingError) {
+        // Log blocked attempt
+        void import("@/server/observability").then(({ recordObservabilityEvent }) => {
+          void recordObservabilityEvent({
+            source: "api.ops.bookings",
+            eventType: "booking.past_time.blocked",
+            severity: "warning",
+            context: {
+              bookingId,
+              restaurantId: existingBooking.restaurant_id,
+              endpoint: "ops.bookings.update",
+              actorId: user.id,
+              actorEmail: user.email,
+              actorRole: userRole,
+              overrideAttempted: allowOverride,
+              ...pastTimeError.details,
+            },
+          });
+        });
+
+        return NextResponse.json(
+          {
+            error: pastTimeError.message,
+            code: pastTimeError.code,
+            details: pastTimeError.details,
+          },
+          { status: 422 }
+        );
+      }
+      throw pastTimeError;
+    }
+  }
+
   try {
     const updated = await updateBookingRecord(serviceSupabase, bookingId, {
       booking_date: bookingDate,
@@ -181,6 +272,9 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       endIso: toIsoString(updated.end_at),
       status: updated.status,
       notes: updated.notes ?? null,
+      customerName: typeof updated.customer_name === "string" && updated.customer_name.trim().length > 0 ? updated.customer_name.trim() : null,
+      customerEmail: typeof updated.customer_email === "string" && updated.customer_email.trim().length > 0 ? updated.customer_email.trim() : null,
+      customerPhone: typeof updated.customer_phone === "string" && updated.customer_phone.trim().length > 0 ? updated.customer_phone.trim() : null,
     };
 
     return NextResponse.json(response);

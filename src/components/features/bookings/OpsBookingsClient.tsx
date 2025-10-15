@@ -170,6 +170,7 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
     notes: booking.notes ?? null,
     customerName: booking.customerName ?? null,
     customerEmail: booking.customerEmail ?? null,
+    customerPhone: booking.customerPhone ?? null,
   }), []);
 
   const bookings = useMemo(() => bookingsPage.items.map(mapToBookingDTO), [bookingsPage.items, mapToBookingDTO]);

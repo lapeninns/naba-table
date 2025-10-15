@@ -92,6 +92,8 @@ export const env = {
       enableTestApi: parsed.ENABLE_TEST_API ?? false,
       guestLookupPolicy: parsed.FEATURE_GUEST_LOOKUP_POLICY ?? false,
       opsGuardV2: parsed.FEATURE_OPS_GUARD_V2 ?? false,
+      bookingPastTimeBlocking: parsed.FEATURE_BOOKING_PAST_TIME_BLOCKING ?? false,
+      bookingPastTimeGraceMinutes: parsed.BOOKING_PAST_TIME_GRACE_MINUTES ?? 5,
     } as const;
   },
 

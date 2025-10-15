@@ -244,6 +244,7 @@ describe('Ops feature clients', () => {
           endIso: new Date().toISOString(),
           status: 'confirmed',
           notes: null,
+          customerPhone: null,
         },
       ],
       pageInfo: { page: 1, pageSize: 10, total: 1, hasNext: false },

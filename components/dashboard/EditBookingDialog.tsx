@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,6 +35,7 @@ const errorCopy: Record<string, string> = {
   SESSION_RESOLUTION_FAILED: 'We couldn’t confirm your session. Refresh the page and try again.',
   MEMBERSHIP_VALIDATION_FAILED: 'We hit a problem checking your access. Try again or contact an admin.',
   INVALID_INPUT: 'Please check the fields and try again.',
+  BOOKING_IN_PAST: 'Bookings must start in the future. Pick a later date or ask an admin to override if this is intentional.',
   UNKNOWN: 'Something went wrong on our side. Please try again.',
 };
 
@@ -93,7 +95,7 @@ export function EditBookingDialog({ booking, open, onOpenChange, mutationHook }:
 
   const useMutationHook = mutationHook ?? useUpdateBooking;
   const mutation = useMutationHook();
-  const [formError, setFormError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<{ message: string; code?: string } | null>(null);
 
   useEffect(() => {
     if (open && booking) {
@@ -125,21 +127,24 @@ export function EditBookingDialog({ booking, open, onOpenChange, mutationHook }:
       onOpenChange(false);
     } catch (error) {
       const err = error as HttpError;
-      if (err?.code) {
-        const preset = errorCopy[err.code];
-        if (preset) {
-          setFormError(preset);
-          return;
-        }
+      const code = err?.code;
+      const preset = code ? errorCopy[code] : null;
+      const message = preset ?? err?.message ?? 'Something went wrong. Please try again.';
+
+      if (message) {
+        setFormError({ message, code });
+        return;
       }
-      if (err?.message) {
-        setFormError(err.message);
-      }
+
+      setFormError({ message: 'Something went wrong. Please try again.', code });
     }
   };
 
   const mutationError = mutation.error as HttpError | null;
-  const serverMessage = formError ?? (mutationError?.code ? errorCopy[mutationError.code] ?? mutationError.message : mutationError?.message);
+  const fallbackMessage = mutationError?.code ? errorCopy[mutationError.code] ?? mutationError.message : mutationError?.message;
+  const activeError = formError ?? (fallbackMessage ? { message: fallbackMessage, code: mutationError?.code } : null);
+  const isPastTimeError = activeError?.code === 'BOOKING_IN_PAST';
+  const alertTitle = isPastTimeError ? 'Booking time is in the past' : 'Unable to save changes';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -199,7 +204,12 @@ export function EditBookingDialog({ booking, open, onOpenChange, mutationHook }:
               {errors.notes ? <p className="text-sm text-destructive">{errors.notes.message}</p> : null}
             </div>
 
-            {serverMessage ? <p className="text-sm text-destructive" role="alert">{serverMessage}</p> : null}
+            {activeError ? (
+              <Alert variant="destructive" role="alert">
+                <AlertTitle>{alertTitle}</AlertTitle>
+                <AlertDescription>{activeError.message}</AlertDescription>
+              </Alert>
+            ) : null}
           </div>
 
           <DialogFooter>

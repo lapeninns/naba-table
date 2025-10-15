@@ -36,6 +36,7 @@ import { consumeRateLimit } from "@/server/security/rate-limit";
 import { anonymizeIp, extractClientIp } from "@/server/security/request";
 import { getRestaurantSchedule } from "@/server/restaurants/schedule";
 import { OperatingHoursError, assertBookingWithinOperatingWindow } from "@/server/bookings/timeValidation";
+import { PastBookingError, assertBookingNotInPast } from "@/server/bookings/pastTimeValidation";
 
 const baseQuerySchema = z.object({
   restaurantId: z.string().uuid().optional(),
@@ -418,6 +419,46 @@ export async function POST(req: NextRequest) {
       });
 
       startTime = time;
+
+      // Validate booking is not in the past (if feature flag enabled)
+      if (env.featureFlags.bookingPastTimeBlocking) {
+        try {
+          assertBookingNotInPast(
+            schedule.timezone,
+            data.date,
+            startTime,
+            {
+              graceMinutes: env.featureFlags.bookingPastTimeGraceMinutes,
+            }
+          );
+        } catch (pastTimeError) {
+          if (pastTimeError instanceof PastBookingError) {
+            // Log blocked attempt
+            void recordObservabilityEvent({
+              source: "api.bookings",
+              eventType: "booking.past_time.blocked",
+              severity: "warning",
+              context: {
+                restaurantId,
+                endpoint: "bookings.create",
+                actorRole: null,
+                ipScope: anonymizeIp(clientIp),
+                ...pastTimeError.details,
+              },
+            });
+
+            return NextResponse.json(
+              {
+                error: pastTimeError.message,
+                code: pastTimeError.code,
+                details: pastTimeError.details,
+              },
+              { status: 422 }
+            );
+          }
+          throw pastTimeError;
+        }
+      }
     } catch (validationError) {
       if (validationError instanceof OperatingHoursError) {
         return NextResponse.json({ error: validationError.message }, { status: 400 });

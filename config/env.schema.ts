@@ -35,6 +35,8 @@ const baseEnvSchema = z
     ENABLE_TEST_API: booleanStringOptional,
     FEATURE_GUEST_LOOKUP_POLICY: booleanStringOptional,
     FEATURE_OPS_GUARD_V2: booleanStringOptional,
+    FEATURE_BOOKING_PAST_TIME_BLOCKING: booleanStringOptional,
+    BOOKING_PAST_TIME_GRACE_MINUTES: z.coerce.number().int().min(0).max(60).optional(),
     GUEST_LOOKUP_PEPPER: z.string().min(1).optional(),
     TEST_ROUTE_API_KEY: z.string().optional(),
     TEST_EMAIL_ACCESS_TOKEN: z.string().optional(),

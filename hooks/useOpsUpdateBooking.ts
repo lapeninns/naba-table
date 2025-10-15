@@ -32,7 +32,10 @@ export function useOpsUpdateBooking() {
       queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(booking.id) });
     },
     onError: (error) => {
-      toast.error(error.message);
+      const message = error.code === 'BOOKING_IN_PAST'
+        ? 'Bookings must start in the future. Pick a later date or request an admin override to proceed.'
+        : error.message;
+      toast.error(message);
     },
   });
 }
