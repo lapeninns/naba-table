@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { BOOKING_IN_PAST_CUSTOMER_MESSAGE } from '@/lib/bookings/messages';
 import { mapErrorToMessage } from '@reserve/shared/error';
 import { useStickyProgress } from '@reserve/shared/hooks/useStickyProgress';
 import { runtime } from '@shared/config/runtime';
@@ -18,11 +19,22 @@ import type { BookingDetails, BookingWizardMode, StepAction } from '../model/red
 
 const EMPTY_ACTIONS: StepAction[] = [];
 
+type BookingError = { code?: string | number | null | undefined };
+
+function isBookingInPastError(error: unknown): error is BookingError {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const code = (error as BookingError).code;
+  return code === 'BOOKING_IN_PAST';
+}
+
 export function useReservationWizard(
   initialDetails?: Partial<BookingDetails>,
   mode: BookingWizardMode = 'customer',
 ) {
   const { state, actions } = useWizardStore(initialDetails);
+  const [planAlert, setPlanAlert] = useState<string | null>(null);
   const heroRef = useRef<HTMLSpanElement | null>(null);
   const [stickyActions, setStickyActions] = useState<StepAction[]>(EMPTY_ACTIONS);
   const [stickyHeight, setStickyHeight] = useState(0);
@@ -122,6 +134,7 @@ export function useReservationWizard(
     const originStep = state.step;
 
     actions.clearError();
+    setPlanAlert(null);
     actions.setLoading(true);
     actions.setSubmitting(true);
     actions.goToStep(4);
@@ -152,11 +165,20 @@ export function useReservationWizard(
         scope: 'wizard.submitReservation',
         bookingId: state.editingId ?? undefined,
       });
-      const message = mapErrorToMessage(error, 'Unable to process booking');
-      actions.goToStep(originStep);
+      const fallbackMessage = mapErrorToMessage(error, 'Unable to process booking');
+      const isPastBooking = isBookingInPastError(error);
+      const message = isPastBooking ? BOOKING_IN_PAST_CUSTOMER_MESSAGE : fallbackMessage;
       actions.setLoading(false);
       actions.setSubmitting(false);
-      actions.setError(message);
+      if (isPastBooking) {
+        actions.goToStep(1);
+        setPlanAlert(message);
+        actions.setError(null);
+      } else {
+        actions.goToStep(originStep);
+        actions.setError(message);
+        setPlanAlert(null);
+      }
     }
   }, [
     actions,
@@ -171,9 +193,16 @@ export function useReservationWizard(
     submitting,
   ]);
 
+  useEffect(() => {
+    if (state.step !== 1 && planAlert) {
+      setPlanAlert(null);
+    }
+  }, [planAlert, state.step]);
+
   const handleNewBooking = useCallback(() => {
     actions.clearError();
     actions.resetForm();
+    setPlanAlert(null);
   }, [actions]);
 
   const handleClose = useCallback(() => {
@@ -182,6 +211,7 @@ export function useReservationWizard(
       return;
     }
     navigator.push('/thank-you');
+    setPlanAlert(null);
   }, [mode, navigator]);
 
   return {
@@ -200,5 +230,6 @@ export function useReservationWizard(
     handleClose,
     isSubmitting: submitting,
     mode,
+    planAlert,
   };
 }

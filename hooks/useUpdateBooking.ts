@@ -3,6 +3,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
 
+import { BOOKING_IN_PAST_CUSTOMER_MESSAGE } from '@/lib/bookings/messages';
 import { fetchJson } from '@/lib/http/fetchJson';
 import type { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
@@ -37,9 +38,10 @@ export function useUpdateBooking() {
     },
     onError: (error, variables) => {
       emit('booking_edit_failed', { bookingId: variables.id, code: (error as HttpError)?.code });
-      const message = error.code === 'BOOKING_IN_PAST'
-        ? 'Bookings must start in the future. Please pick a later date or contact the venue to backfill.'
-        : error.message;
+      const message =
+        error.code === 'BOOKING_IN_PAST'
+          ? BOOKING_IN_PAST_CUSTOMER_MESSAGE
+          : error.message;
       toast.error(message);
     },
   });

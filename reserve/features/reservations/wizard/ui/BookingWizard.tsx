@@ -65,6 +65,7 @@ function BookingWizardContent({
     handleConfirm,
     handleNewBooking,
     handleClose,
+    planAlert,
   } = useReservationWizard(initialDetails, mode);
   const { analytics } = useWizardDependencies();
   const { user, status: sessionStatus } = useSupabaseSession();
@@ -248,6 +249,7 @@ function BookingWizardContent({
             actions={actions}
             onActionsChange={handleActionsChange}
             onTrack={analytics.track}
+            planAlert={planAlert}
           />
         );
       case 2:

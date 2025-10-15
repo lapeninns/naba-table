@@ -21,6 +21,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { BookingDTO } from '@/hooks/useBookings';
 import { useUpdateBooking } from '@/hooks/useUpdateBooking';
+import { BOOKING_IN_PAST_DASHBOARD_MESSAGE } from '@/lib/bookings/messages';
 import { isoToLocalInput, localInputToIso } from '@/lib/utils/datetime';
 import type { HttpError } from '@/lib/http/errors';
 import { emit } from '@/lib/analytics/emit';
@@ -35,7 +36,7 @@ const errorCopy: Record<string, string> = {
   SESSION_RESOLUTION_FAILED: 'We couldn’t confirm your session. Refresh the page and try again.',
   MEMBERSHIP_VALIDATION_FAILED: 'We hit a problem checking your access. Try again or contact an admin.',
   INVALID_INPUT: 'Please check the fields and try again.',
-  BOOKING_IN_PAST: 'Bookings must start in the future. Pick a later date or ask an admin to override if this is intentional.',
+  BOOKING_IN_PAST: BOOKING_IN_PAST_DASHBOARD_MESSAGE,
   UNKNOWN: 'Something went wrong on our side. Please try again.',
 };
 

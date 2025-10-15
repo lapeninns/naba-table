@@ -92,9 +92,12 @@ export function usePlanStepForm({
 
   const updateField = useCallback(
     <K extends keyof BookingDetails>(key: K, value: BookingDetails[K]) => {
+      if (state.details[key] === value) {
+        return;
+      }
       actions.updateDetails(key, value);
     },
-    [actions],
+    [actions, state.details],
   );
 
   useEffect(() => {

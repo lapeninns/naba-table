@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { BOOKING_IN_PAST_CUSTOMER_MESSAGE } from '@/lib/bookings/messages';
 import { wizardDetailsFixture, apiBookingFixture } from '@/tests/fixtures/wizard';
 import { WizardDependenciesProvider } from '@features/reservations/wizard/di';
 import { BookingWizard } from '@features/reservations/wizard/ui/BookingWizard';
@@ -248,6 +249,64 @@ describe('BookingWizard plan to review flow', () => {
     await screen.findByText('Review and confirm');
     const alertMessage = await screen.findByText(/Unable to .* booking/i);
     expect(alertMessage).toBeVisible();
+    expect(analytics.track).not.toHaveBeenCalledWith('booking_created', expect.anything());
+  });
+
+  it('shows booking-in-past guidance when API rejects due to past start time', async () => {
+    const analytics = { track: vi.fn() };
+    mutateAsync.mockRejectedValueOnce({
+      code: 'BOOKING_IN_PAST',
+      message: 'Booking time is in the past. Please select a future date and time.',
+      status: 422,
+    });
+
+    const initialDetails = wizardDetailsFixture({
+      date: '2025-05-20',
+      time: '17:00',
+      party: 2,
+      bookingType: 'dinner',
+      name: '',
+      email: '',
+      phone: '',
+    });
+
+    renderWithProviders(
+      <WizardDependenciesProvider value={{ analytics }}>
+        <BookingWizard initialDetails={initialDetails} />
+      </WizardDependenciesProvider>,
+    );
+
+    const planForm = document.querySelector('form');
+    expect(planForm).toBeTruthy();
+    await act(async () => {
+      if (planForm) {
+        fireEvent.submit(planForm);
+      }
+    });
+
+    await screen.findByText('Tell us how to reach you');
+
+    await userEvent.clear(screen.getByLabelText('Full name'));
+    await userEvent.type(screen.getByLabelText('Full name'), 'Ada Lovelace');
+    await userEvent.clear(screen.getByLabelText('Email address'));
+    await userEvent.type(screen.getByLabelText('Email address'), 'ada@example.com');
+    await userEvent.clear(screen.getByLabelText('UK phone number'));
+    await userEvent.type(screen.getByLabelText('UK phone number'), '07123 456789');
+
+    const reviewButton = await screen.findByRole('button', { name: /Review booking/i });
+    await userEvent.click(reviewButton);
+
+    await screen.findByText('Review and confirm');
+    await userEvent.click(screen.getByRole('button', { name: /Confirm booking/i }));
+
+    await waitFor(() => {
+      expect(mutateAsync).toHaveBeenCalledTimes(1);
+    });
+
+    const planHeading = await screen.findByText(/Plan your visit/i);
+    expect(planHeading).toBeVisible();
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(BOOKING_IN_PAST_CUSTOMER_MESSAGE);
     expect(analytics.track).not.toHaveBeenCalledWith('booking_created', expect.anything());
   });
 });

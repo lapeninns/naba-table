@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
 
 import type { BookingDTO } from '@/hooks/useBookings';
+import { BOOKING_IN_PAST_OPS_MESSAGE } from '@/lib/bookings/messages';
 import { fetchJson } from '@/lib/http/fetchJson';
 import type { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
@@ -32,9 +33,8 @@ export function useOpsUpdateBooking() {
       queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(booking.id) });
     },
     onError: (error) => {
-      const message = error.code === 'BOOKING_IN_PAST'
-        ? 'Bookings must start in the future. Pick a later date or request an admin override to proceed.'
-        : error.message;
+      const message =
+        error.code === 'BOOKING_IN_PAST' ? BOOKING_IN_PAST_OPS_MESSAGE : error.message;
       toast.error(message);
     },
   });
