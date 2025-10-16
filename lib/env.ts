@@ -94,7 +94,7 @@ export const env = {
       opsGuardV2: parsed.FEATURE_OPS_GUARD_V2 ?? false,
       bookingPastTimeBlocking: parsed.FEATURE_BOOKING_PAST_TIME_BLOCKING ?? false,
       bookingPastTimeGraceMinutes: parsed.BOOKING_PAST_TIME_GRACE_MINUTES ?? 5,
-      capacityAdminDashboard: parsed.FEATURE_CAPACITY_ADMIN_DASHBOARD ?? false,
+      capacityAdminDashboard: parsed.FEATURE_CAPACITY_ADMIN_DASHBOARD ?? true,
     } as const;
   },
 
