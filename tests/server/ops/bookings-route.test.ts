@@ -1,4 +1,52 @@
+process.env.BASE_URL ??= "http://localhost:3000";
+
 import { describe, expect, beforeAll, beforeEach, vi, it } from "vitest";
+
+vi.mock("@/lib/env", () => {
+  return {
+    env: {
+      get featureFlags() {
+        return {
+          loyaltyPilotRestaurantIds: undefined,
+          enableTestApi: true,
+          guestLookupPolicy: false,
+          opsGuardV2: false,
+          bookingPastTimeBlocking: false,
+          bookingPastTimeGraceMinutes: 5,
+          capacityAdminDashboard: true,
+        } as const;
+      },
+      get supabase() {
+        return {
+          url: "http://localhost:54321",
+          anonKey: "test-anon-key",
+          serviceKey: "test-service-role-key",
+        } as const;
+      },
+      get app() {
+        return {
+          url: "http://localhost:3000",
+          version: "test",
+          commitSha: null,
+        } as const;
+      },
+      get misc() {
+        return {
+          siteUrl: "http://localhost:3000",
+          baseUrl: "http://localhost:3000",
+          openAiKey: null,
+          analyzeBuild: false,
+          bookingDefaultRestaurantId: null,
+        } as const;
+      },
+      get security() {
+        return {
+          guestLookupPepper: null,
+        } as const;
+      },
+    },
+  };
+});
 
 import { makeBookingRecord, makeRestaurantMembership } from "@/tests/helpers/opsFactories";
 

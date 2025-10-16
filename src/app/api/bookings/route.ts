@@ -8,12 +8,10 @@ import {
   SEATING_OPTIONS,
   deriveEndTime,
   fetchBookingsForContact,
-  insertBookingRecord,
   buildBookingAuditSnapshot,
   updateBookingRecord,
   inferMealTypeFromTime,
   logAuditEvent,
-  generateUniqueBookingReference,
 } from "@/server/bookings";
 import {
   generateConfirmationToken,
@@ -37,6 +35,11 @@ import { anonymizeIp, extractClientIp } from "@/server/security/request";
 import { getRestaurantSchedule } from "@/server/restaurants/schedule";
 import { OperatingHoursError, assertBookingWithinOperatingWindow } from "@/server/bookings/timeValidation";
 import { PastBookingError, assertBookingNotInPast } from "@/server/bookings/pastTimeValidation";
+import {
+  checkSlotAvailability,
+  createBookingWithCapacityCheck,
+  findAlternativeSlots,
+} from "@/server/capacity";
 
 const baseQuerySchema = z.object({
   restaurantId: z.string().uuid().optional(),
@@ -89,21 +92,6 @@ function normalizeIdempotencyKey(value: string | null): string | null {
 function coerceUuid(value: string | null): string | null {
   if (!value) return null;
   return UUID_REGEX.test(value) ? value : null;
-}
-
-function buildBookingDetails(params: {
-  idempotencyKey: string | null;
-  clientRequestId: string;
-  userAgent: string | null;
-}): Json {
-  return {
-    channel: "api.bookings",
-    request: {
-      idempotency_key: params.idempotencyKey,
-      client_request_id: params.clientRequestId,
-      user_agent: params.userAgent ?? null,
-    },
-  } as Json;
 }
 
 type PostgrestErrorLike = {
@@ -468,6 +456,72 @@ export async function POST(req: NextRequest) {
 
     const endTime = deriveEndTime(startTime, normalizedBookingType);
 
+    const availabilityCheck = await checkSlotAvailability({
+      restaurantId,
+      date: data.date,
+      time: startTime,
+      partySize: data.party,
+      seatingPreference: data.seating,
+    });
+
+    if (!availabilityCheck.available) {
+      const alternatives = await findAlternativeSlots({
+        restaurantId,
+        date: data.date,
+        partySize: data.party,
+        preferredTime: startTime,
+        maxAlternatives: 5,
+        searchWindowMinutes: 120,
+      });
+
+      void recordObservabilityEvent({
+        source: "api.bookings",
+        eventType: "booking.capacity_exceeded.precheck",
+        severity: "warning",
+        context: {
+          restaurantId,
+          date: data.date,
+          time: startTime,
+          partySize: data.party,
+          reason: availabilityCheck.reason,
+          bookedCovers: availabilityCheck.metadata.bookedCovers,
+          maxCovers: availabilityCheck.metadata.maxCovers,
+          utilizationPercent: availabilityCheck.metadata.utilizationPercent,
+          alternativesFound: alternatives.length,
+        },
+      });
+
+      return NextResponse.json(
+        {
+          error: "CAPACITY_EXCEEDED",
+          message: availabilityCheck.reason ?? "No capacity available for this time slot",
+          details: {
+            requestedTime: startTime,
+            partySize: data.party,
+            maxCovers: availabilityCheck.metadata.maxCovers,
+            bookedCovers: availabilityCheck.metadata.bookedCovers,
+            availableCovers: availabilityCheck.metadata.availableCovers,
+            utilizationPercent: availabilityCheck.metadata.utilizationPercent,
+            maxParties: availabilityCheck.metadata.maxParties,
+            bookedParties: availabilityCheck.metadata.bookedParties,
+            servicePeriod: availabilityCheck.metadata.servicePeriod ?? null,
+          },
+          alternatives: alternatives.map((slot) => ({
+            time: slot.time,
+            available: slot.available,
+            utilizationPercent: slot.utilizationPercent,
+          })),
+        },
+        {
+          status: 409,
+          headers: {
+            "X-Capacity-Exceeded": "true",
+            "X-Utilization-Percent": (availabilityCheck.metadata.utilizationPercent ?? 0).toString(),
+          },
+        },
+      );
+    }
+
     const customer = await upsertCustomer(supabase, {
       restaurantId,
       email: data.email,
@@ -476,132 +530,113 @@ export async function POST(req: NextRequest) {
       marketingOptIn: data.marketingOptIn ?? false,
     });
 
-    if (idempotencyKey) {
-      const { data: existing, error: existingError } = await supabase
-        .from("bookings")
-        .select("*")
-        .eq("restaurant_id", restaurantId)
-        .eq("idempotency_key", idempotencyKey)
-        .maybeSingle();
-
-      if (existingError && existingError.code !== "PGRST116") {
-        throw existingError;
-      }
-
-      if (existing) {
-        const existingBooking = existing as BookingRecord;
-        const bookings = await fetchBookingsForContact(supabase, restaurantId, data.email, data.phone);
-
-        return NextResponse.json({
-          booking: existingBooking,
-          bookings,
-          idempotencyKey,
-          clientRequestId: existingBooking.client_request_id,
-          duplicate: true,
-        });
-      }
-    }
-
     const loyaltyProgram = await getActiveLoyaltyProgram(supabase, restaurantId);
+    const estimatedLoyaltyAward = loyaltyProgram
+      ? calculateLoyaltyAward(loyaltyProgram, { partySize: data.party })
+      : 0;
 
-    const bookingDetails = buildBookingDetails({
+    const bookingResult = await createBookingWithCapacityCheck({
+      restaurantId,
+      customerId: customer.id,
+      bookingDate: data.date,
+      startTime,
+      endTime,
+      partySize: data.party,
+      bookingType: normalizedBookingType,
+      customerName: data.name,
+      customerEmail: normalizeEmail(data.email),
+      customerPhone: data.phone.trim(),
+      seatingPreference: data.seating,
+      notes: data.notes ?? null,
+      marketingOptIn: data.marketingOptIn ?? false,
       idempotencyKey,
+      source: "api",
+      authUserId: null,
       clientRequestId,
-      userAgent,
     });
 
-    let booking: BookingRecord | null = null;
-    let reference = "";
-    let reusedExisting = false;
-
-    for (let attempt = 0; attempt < 5 && !booking; attempt += 1) {
-      reference = await generateUniqueBookingReference(supabase);
-
-      try {
-        booking = await insertBookingRecord(supabase, {
-          restaurant_id: restaurantId,
-          customer_id: customer.id,
-          booking_date: data.date,
-          start_time: startTime,
-          end_time: endTime,
-          reference,
-          party_size: data.party,
-          booking_type: normalizedBookingType,
-          seating_preference: data.seating,
-          status: "confirmed",
-          customer_name: data.name,
-          customer_email: normalizeEmail(data.email),
-          customer_phone: data.phone.trim(),
-          notes: data.notes ?? null,
-          marketing_opt_in: data.marketingOptIn ?? false,
-          source: "api",
-          client_request_id: clientRequestId,
-          idempotency_key: idempotencyKey ?? null,
-          details: bookingDetails,
+    if (!bookingResult.success) {
+      if (bookingResult.error === "CAPACITY_EXCEEDED") {
+        const alternatives = await findAlternativeSlots({
+          restaurantId,
+          date: data.date,
+          partySize: data.party,
+          preferredTime: startTime,
+          maxAlternatives: 5,
+          searchWindowMinutes: 120,
         });
-      } catch (error: unknown) {
-        const { code, message } = extractPostgrestError(error);
-        const isUniqueViolation = code === "23505" || (message ? /duplicate key value/i.test(message) : false);
 
-        if (!isUniqueViolation) {
-          throw error;
-        }
+        void recordObservabilityEvent({
+          source: "api.bookings",
+          eventType: "booking.capacity_exceeded.transaction",
+          severity: "warning",
+          context: {
+            restaurantId,
+            date: data.date,
+            time: startTime,
+            partySize: data.party,
+            message: bookingResult.message,
+            details: bookingResult.details,
+            alternativesFound: alternatives.length,
+          },
+        });
 
-        const constraintMessage = message ?? "";
-        const duplicateReference = /bookings_reference/i.test(constraintMessage);
-        const idempotencyConflict =
-          /bookings_idem_unique_per_restaurant/i.test(constraintMessage) ||
-          /bookings_client_request_unique/i.test(constraintMessage);
-
-        if (idempotencyConflict) {
-          let existing: BookingRecord | null = null;
-
-          if (idempotencyKey) {
-            const { data: byKey } = await supabase
-              .from("bookings")
-              .select("*")
-              .eq("restaurant_id", restaurantId)
-              .eq("idempotency_key", idempotencyKey)
-              .maybeSingle();
-            existing = (byKey as BookingRecord | null) ?? null;
-          }
-
-          if (!existing) {
-            const { data: byRequest } = await supabase
-              .from("bookings")
-              .select("*")
-              .eq("restaurant_id", restaurantId)
-              .eq("client_request_id", clientRequestId)
-              .maybeSingle();
-            existing = (byRequest as BookingRecord | null) ?? null;
-          }
-
-          if (existing) {
-            booking = existing;
-            reusedExisting = true;
-            break;
-          }
-
-          throw error;
-        }
-
-        if (!duplicateReference) {
-          throw error;
-        }
-
-        booking = null;
+        return NextResponse.json(
+          {
+            error: "CAPACITY_EXCEEDED",
+            message: bookingResult.message ?? "Capacity exceeded during booking creation",
+            details: bookingResult.details,
+            alternatives: alternatives.map((slot) => ({
+              time: slot.time,
+              available: slot.available,
+              utilizationPercent: slot.utilizationPercent,
+            })),
+          },
+          { status: 409 },
+        );
       }
+
+      if (bookingResult.error === "BOOKING_CONFLICT") {
+        void recordObservabilityEvent({
+          source: "api.bookings",
+          eventType: "booking.conflict",
+          severity: "warning",
+          context: {
+            restaurantId,
+            date: data.date,
+            time: startTime,
+            partySize: data.party,
+            retryable: bookingResult.retryable ?? true,
+          },
+        });
+
+        return NextResponse.json(
+          {
+            error: "BOOKING_CONFLICT",
+            message: bookingResult.message ?? "This slot was just booked. Please try again.",
+            details: bookingResult.details,
+            retryable: bookingResult.retryable ?? true,
+          },
+          { status: 409 },
+        );
+      }
+
+      throw new Error(bookingResult.message ?? "Unable to create booking");
     }
+
+    const booking = bookingResult.booking as BookingRecord | undefined;
 
     if (!booking) {
-      throw new Error("Unable to allocate a booking reference. Please try again.");
+      throw new Error("Booking creation succeeded but no booking data was returned.");
     }
+
+    const reusedExisting = bookingResult.duplicate === true;
 
     let finalBooking = booking;
     let loyaltyAward = 0;
 
     if (!reusedExisting && loyaltyProgram) {
-      loyaltyAward = calculateLoyaltyAward(loyaltyProgram, { partySize: data.party });
+      loyaltyAward = estimatedLoyaltyAward;
 
       if (loyaltyAward > 0) {
         try {
@@ -616,20 +651,27 @@ export async function POST(req: NextRequest) {
             },
             occurredAt: booking.created_at,
           });
+
+          finalBooking = await updateBookingRecord(supabase, booking.id, {
+            loyalty_points_awarded: loyaltyAward,
+          });
         } catch (error) {
           console.error("[bookings][POST][loyalty] Failed to record loyalty award", {
             bookingId: booking.id,
             error: stringifyError(error),
           });
           loyaltyAward = 0;
+
+          finalBooking = await updateBookingRecord(supabase, booking.id, {
+            loyalty_points_awarded: 0,
+          });
         }
       }
-
-      if (loyaltyAward > 0) {
-        finalBooking = await updateBookingRecord(supabase, booking.id, {
-          loyalty_points_awarded: loyaltyAward,
-        });
-      }
+    } else {
+      const awardedFromRecord = "loyalty_points_awarded" in finalBooking && typeof finalBooking.loyalty_points_awarded === "number"
+        ? finalBooking.loyalty_points_awarded
+        : (finalBooking as Record<string, unknown>).loyalty_points_awarded;
+      loyaltyAward = typeof awardedFromRecord === "number" ? awardedFromRecord : 0;
     }
 
     if (!reusedExisting) {
@@ -690,6 +732,13 @@ export async function POST(req: NextRequest) {
         clientRequestId: finalBooking.client_request_id,
         idempotencyKey,
         duplicate: reusedExisting,
+        capacity: bookingResult.capacity ?? {
+          servicePeriod: availabilityCheck.metadata.servicePeriod ?? null,
+          maxCovers: availabilityCheck.metadata.maxCovers,
+          bookedCovers: availabilityCheck.metadata.bookedCovers,
+          availableCovers: availabilityCheck.metadata.availableCovers,
+          utilizationPercent: availabilityCheck.metadata.utilizationPercent,
+        },
       },
       { status: reusedExisting ? 200 : 201 },
     );

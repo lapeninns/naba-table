@@ -281,15 +281,21 @@ describe("pastTimeValidation", () => {
         ).toThrow("Invalid booking date format");
       });
 
-      it("should throw on invalid time format", () => {
+      it("should allow HH:MM:SS format", () => {
         expect(() =>
           assertBookingNotInPast("America/New_York", "2025-01-15", "14:00:00")
-        ).toThrow("Invalid start time format");
+        ).not.toThrow();
       });
 
       it("should throw on invalid time format (single digit hour)", () => {
         expect(() =>
           assertBookingNotInPast("America/New_York", "2025-01-15", "9:00")
+        ).toThrow("Invalid start time format");
+      });
+
+      it("should throw on invalid time format (extra segment)", () => {
+        expect(() =>
+          assertBookingNotInPast("America/New_York", "2025-01-15", "14:00:00:00")
         ).toThrow("Invalid start time format");
       });
     });
