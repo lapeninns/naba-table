@@ -1,4 +1,14 @@
-import { BarChart3, CalendarDays, CalendarPlus, CircleHelp, SlidersHorizontal, Users, UsersRound } from 'lucide-react';
+import {
+  BarChart3,
+  CalendarDays,
+  CalendarPlus,
+  CircleHelp,
+  Gauge,
+  LayoutGrid,
+  SlidersHorizontal,
+  Users,
+  UsersRound,
+} from 'lucide-react';
 
 import type { ComponentType, SVGProps } from 'react';
 
@@ -58,6 +68,20 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         href: '/ops/team',
         icon: UsersRound,
         match: (pathname) => pathname.startsWith('/ops/team'),
+      },
+      {
+        title: 'Tables',
+        description: 'Manage table inventory',
+        href: '/ops/tables',
+        icon: LayoutGrid,
+        match: (pathname) => pathname.startsWith('/ops/tables'),
+      },
+      {
+        title: 'Capacity',
+        description: 'Configure availability limits',
+        href: '/ops/capacity',
+        icon: Gauge,
+        match: (pathname) => pathname.startsWith('/ops/capacity'),
       },
       {
         title: 'Restaurant settings',

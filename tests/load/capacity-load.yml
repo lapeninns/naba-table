@@ -1,0 +1,24 @@
+config:
+  target: "${LOAD_TEST_BASE_URL}"
+  phases:
+    - duration: 60
+      arrivalRate: 10
+      rampTo: 50
+      name: Warm up
+    - duration: 120
+      arrivalRate: 50
+      name: Sustained load
+  processor: "./run-capacity-load.js"
+  defaults:
+    headers:
+      Content-Type: application/json
+scenarios:
+  - name: concurrent booking creation
+    flow:
+      - function: "prepareBookingPayload"
+      - post:
+          url: "/api/bookings"
+          json: "{{ bookingPayload }}"
+          headers:
+            Idempotency-Key: "{{ idempotencyKey }}"
+      - think: 1

@@ -94,6 +94,7 @@ export const env = {
       opsGuardV2: parsed.FEATURE_OPS_GUARD_V2 ?? false,
       bookingPastTimeBlocking: parsed.FEATURE_BOOKING_PAST_TIME_BLOCKING ?? false,
       bookingPastTimeGraceMinutes: parsed.BOOKING_PAST_TIME_GRACE_MINUTES ?? 5,
+      capacityAdminDashboard: parsed.FEATURE_CAPACITY_ADMIN_DASHBOARD ?? false,
     } as const;
   },
 
@@ -141,6 +142,15 @@ export const env = {
       openAiKey: parsed.OPENAI_API_KEY,
       analyzeBuild: parsed.ANALYZE ?? false,
       bookingDefaultRestaurantId: parsed.BOOKING_DEFAULT_RESTAURANT_ID,
+    } as const;
+  },
+
+  get alerts() {
+    const parsed = parseEnv();
+    return {
+      webhookUrl: parsed.CAPACITY_ALERT_WEBHOOK_URL ?? null,
+      email: parsed.CAPACITY_ALERT_EMAIL ?? null,
+      internalKey: parsed.TEST_ROUTE_API_KEY ?? null,
     } as const;
   },
 

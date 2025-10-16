@@ -11,3 +11,7 @@ export function isLoyaltyPilotRestaurant(restaurantId: string): boolean {
   if (!restaurantId) return false;
   return loyaltyPilotIds.has(restaurantId);
 }
+
+export function isCapacityAdminDashboardEnabled(): boolean {
+  return env.featureFlags.capacityAdminDashboard ?? false;
+}

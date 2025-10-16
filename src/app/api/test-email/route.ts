@@ -54,6 +54,7 @@ export async function POST(req: NextRequest) {
         id: "test-booking-id",
         customer_id: "test-customer-id",
         reference: "TEST123",
+        auth_user_id: null,
         restaurant_id: testRestaurantId,
         booking_date: bookingDate,
         start_time: startTime,
@@ -74,6 +75,9 @@ export async function POST(req: NextRequest) {
         pending_ref: pendingRef,
         idempotency_key: "test-email",
         details: null,
+        confirmation_token: null,
+        confirmation_token_expires_at: null,
+        confirmation_token_used_at: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };

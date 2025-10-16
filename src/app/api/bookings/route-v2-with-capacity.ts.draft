@@ -1,0 +1,399 @@
+/**
+ * DRAFT: Enhanced Booking Endpoint with Capacity Enforcement
+ * Story 3: API Integration
+ * 
+ * This is a draft showing the key changes needed to integrate capacity checking.
+ * Key changes from current route.ts:
+ * 1. Add capacity check before booking creation
+ * 2. Replace insertBookingRecord with createBookingWithCapacityCheck RPC
+ * 3. Return alternatives when capacity exceeded
+ * 4. Handle booking conflicts with retry guidance
+ */
+
+// Add these imports at the top of route.ts
+import {
+  checkSlotAvailability,
+  createBookingWithCapacityCheck,
+  findAlternativeSlots,
+  type BookingResult,
+} from "@/server/capacity";
+
+// ... existing imports remain the same ...
+
+/**
+ * POST /api/bookings - Create a new booking with capacity enforcement
+ * 
+ * Changes from current implementation:
+ * 1. Check capacity BEFORE attempting to create booking
+ * 2. Use RPC function instead of direct INSERT
+ * 3. Return 409 with alternatives when capacity exceeded
+ * 4. Handle race conflicts with retry guidance
+ */
+export async function POST(req: NextRequest) {
+  try {
+    // ... existing rate limiting code remains the same ...
+    // ... existing validation code remains the same ...
+    // ... existing operating hours check remains the same ...
+    // ... existing past time validation remains the same ...
+
+    const parsed = bookingSchema.safeParse(await req.json());
+    if (!parsed.success) {
+      return handleZodError(parsed.error);
+    }
+
+    const data = parsed.data;
+    const restaurantId = data.restaurantId ?? await getDefaultRestaurantId();
+    const supabase = getServiceSupabaseClient();
+    
+    // ... existing time/schedule validation ...
+    
+    const normalizedBookingType = data.bookingType === "drinks" ? "drinks" : inferMealTypeFromTime(data.time);
+    const endTime = deriveEndTime(startTime, normalizedBookingType);
+
+    // =====================================================
+    // NEW: Step 1 - Check Capacity Before Proceeding
+    // =====================================================
+    
+    const availabilityCheck = await checkSlotAvailability({
+      restaurantId,
+      date: data.date,
+      time: startTime,
+      partySize: data.party,
+      seatingPreference: data.seating,
+    });
+
+    if (!availabilityCheck.available) {
+      // Find alternative times
+      const alternatives = await findAlternativeSlots({
+        restaurantId,
+        date: data.date,
+        partySize: data.party,
+        preferredTime: startTime,
+        maxAlternatives: 5,
+        searchWindowMinutes: 120,
+      });
+
+      // Log capacity exceeded event
+      void recordObservabilityEvent({
+        source: "api.bookings",
+        eventType: "booking.capacity_exceeded",
+        severity: "warning",
+        context: {
+          restaurantId,
+          date: data.date,
+          time: startTime,
+          partySize: data.party,
+          reason: availabilityCheck.reason,
+          bookedCovers: availabilityCheck.metadata.bookedCovers,
+          maxCovers: availabilityCheck.metadata.maxCovers,
+          utilizationPercent: availabilityCheck.metadata.utilizationPercent,
+          alternativesFound: alternatives.length,
+        },
+      });
+
+      return NextResponse.json(
+        {
+          error: "CAPACITY_EXCEEDED",
+          message: availabilityCheck.reason ?? "No capacity available for this time slot",
+          details: {
+            requestedTime: startTime,
+            partySize: data.party,
+            maxCovers: availabilityCheck.metadata.maxCovers,
+            bookedCovers: availabilityCheck.metadata.bookedCovers,
+            availableCovers: availabilityCheck.metadata.availableCovers,
+            utilizationPercent: availabilityCheck.metadata.utilizationPercent,
+            servicePeriod: availabilityCheck.metadata.servicePeriod,
+          },
+          alternatives: alternatives.map(slot => ({
+            time: slot.time,
+            available: slot.available,
+            utilizationPercent: slot.utilizationPercent,
+          })),
+        },
+        { 
+          status: 409,
+          headers: {
+            "X-Capacity-Exceeded": "true",
+            "X-Utilization-Percent": availabilityCheck.metadata.utilizationPercent.toString(),
+          },
+        }
+      );
+    }
+
+    // =====================================================
+    // Step 2 - Upsert Customer (existing logic)
+    // =====================================================
+    
+    const customer = await upsertCustomer(supabase, {
+      restaurantId,
+      email: data.email,
+      phone: data.phone,
+      name: data.name,
+      marketingOptIn: data.marketingOptIn ?? false,
+    });
+
+    // =====================================================
+    // Step 3 - Get Loyalty Program (existing logic)
+    // =====================================================
+    
+    const loyaltyProgram = await getActiveLoyaltyProgram(supabase, restaurantId);
+    const loyaltyAward = loyaltyProgram 
+      ? calculateLoyaltyAward(loyaltyProgram, { partySize: data.party })
+      : 0;
+
+    // =====================================================
+    // NEW: Step 4 - Create Booking with Capacity Check (RPC)
+    // =====================================================
+    
+    const idempotencyKey = normalizeIdempotencyKey(req.headers.get("Idempotency-Key"));
+    const clientRequestId = coerceUuid(idempotencyKey) ?? randomUUID();
+
+    const bookingResult: BookingResult = await createBookingWithCapacityCheck({
+      restaurantId,
+      customerId: customer.id,
+      bookingDate: data.date,
+      startTime,
+      endTime,
+      partySize: data.party,
+      bookingType: normalizedBookingType,
+      customerName: data.name,
+      customerEmail: normalizeEmail(data.email),
+      customerPhone: data.phone.trim(),
+      seatingPreference: data.seating,
+      notes: data.notes ?? null,
+      marketingOptIn: data.marketingOptIn ?? false,
+      idempotencyKey,
+      source: "api",
+      authUserId: null,
+      clientRequestId,
+      loyaltyPointsAwarded: loyaltyAward,
+    });
+
+    // =====================================================
+    // NEW: Step 5 - Handle Booking Result
+    // =====================================================
+
+    if (!bookingResult.success) {
+      // Handle capacity exceeded (should be rare after pre-check, but possible due to race)
+      if (bookingResult.error === "CAPACITY_EXCEEDED") {
+        const alternatives = await findAlternativeSlots({
+          restaurantId,
+          date: data.date,
+          partySize: data.party,
+          preferredTime: startTime,
+          maxAlternatives: 5,
+        });
+
+        return NextResponse.json(
+          {
+            error: "CAPACITY_EXCEEDED",
+            message: bookingResult.message ?? "Capacity exceeded during booking creation",
+            details: bookingResult.details,
+            alternatives: alternatives.map(slot => ({
+              time: slot.time,
+              available: slot.available,
+              utilizationPercent: slot.utilizationPercent,
+            })),
+          },
+          { status: 409 }
+        );
+      }
+
+      // Handle race conflict (serialization failure, deadlock)
+      if (bookingResult.error === "BOOKING_CONFLICT") {
+        return NextResponse.json(
+          {
+            error: "BOOKING_CONFLICT",
+            message: bookingResult.message ?? "This time slot was just booked. Please try again.",
+            retryable: true,
+            retryAfter: 1,
+          },
+          { 
+            status: 409,
+            headers: {
+              "Retry-After": "1",
+              "X-Conflict-Type": "race_condition",
+            },
+          }
+        );
+      }
+
+      // Handle other errors
+      void recordObservabilityEvent({
+        source: "api.bookings",
+        eventType: "booking.creation.failure",
+        severity: "error",
+        context: {
+          restaurantId,
+          error: bookingResult.error,
+          message: bookingResult.message,
+          details: bookingResult.details,
+        },
+      });
+
+      return NextResponse.json(
+        {
+          error: bookingResult.error ?? "INTERNAL_ERROR",
+          message: bookingResult.message ?? "Failed to create booking",
+        },
+        { status: 500 }
+      );
+    }
+
+    // =====================================================
+    // Step 6 - Success! Process booking
+    // =====================================================
+
+    const booking = bookingResult.booking!;
+    const isDuplicate = bookingResult.duplicate ?? false;
+
+    // Apply loyalty points if not already awarded by RPC
+    if (!isDuplicate && loyaltyAward > 0 && !booking.loyalty_points_awarded) {
+      try {
+        await applyLoyaltyAward(supabase, {
+          program: loyaltyProgram!,
+          customerId: customer.id,
+          bookingId: booking.id,
+          points: loyaltyAward,
+          metadata: {
+            reference: booking.reference,
+            source: "api",
+          },
+          occurredAt: booking.created_at,
+        });
+      } catch (error) {
+        console.error("[bookings][POST][loyalty] Failed to record loyalty award", {
+          bookingId: booking.id,
+          error: stringifyError(error),
+        });
+      }
+    }
+
+    // Generate confirmation token (existing logic)
+    const confirmationToken = generateConfirmationToken();
+    const confirmationExpiry = computeTokenExpiry();
+
+    try {
+      await attachTokenToBooking(supabase, {
+        bookingId: booking.id,
+        token: confirmationToken,
+        expiresAt: confirmationExpiry,
+      });
+    } catch (error) {
+      console.error("[bookings][POST][token] Failed to attach confirmation token", {
+        bookingId: booking.id,
+        error: stringifyError(error),
+      });
+    }
+
+    // Enqueue side effects (existing logic)
+    if (!isDuplicate) {
+      try {
+        await enqueueBookingCreatedSideEffects({
+          booking: safeBookingPayload(booking),
+          confirmationToken,
+          loyaltyPointsAwarded: loyaltyAward,
+        });
+      } catch (error) {
+        console.error("[bookings][POST][side-effects] Failed to enqueue", {
+          bookingId: booking.id,
+          error: stringifyError(error),
+        });
+      }
+
+      // Invalidate availability cache
+      void invalidateAvailabilitySnapshot(restaurantId, data.date);
+    }
+
+    // Fetch all bookings for this contact (existing logic)
+    const bookings = await fetchBookingsForContact(supabase, restaurantId, data.email, data.phone);
+
+    // =====================================================
+    // Return Success Response
+    // =====================================================
+
+    return NextResponse.json(
+      {
+        booking,
+        bookings,
+        confirmationToken,
+        confirmationExpiry: confirmationExpiry.toISOString(),
+        idempotencyKey,
+        clientRequestId: booking.client_request_id ?? clientRequestId,
+        duplicate: isDuplicate,
+        loyaltyPointsAwarded: loyaltyAward,
+        // NEW: Include capacity metadata
+        capacity: bookingResult.capacity ? {
+          servicePeriod: bookingResult.capacity.servicePeriod,
+          utilizationPercent: bookingResult.capacity.utilizationPercent,
+          bookedCovers: bookingResult.capacity.bookedCovers,
+          maxCovers: bookingResult.capacity.maxCovers,
+        } : undefined,
+      },
+      { 
+        status: isDuplicate ? 200 : 201,
+        headers: {
+          "X-Idempotency-Key": idempotencyKey ?? "",
+          "X-Client-Request-Id": booking.client_request_id ?? clientRequestId,
+          // NEW: Capacity headers
+          "X-Capacity-Utilization": bookingResult.capacity?.utilizationPercent.toString() ?? "0",
+        },
+      }
+    );
+
+  } catch (error: unknown) {
+    // ... existing error handling remains the same ...
+    
+    console.error("[bookings][POST] Unexpected error", {
+      error: stringifyError(error),
+    });
+
+    void recordObservabilityEvent({
+      source: "api.bookings",
+      eventType: "booking.create.failure",
+      severity: "error",
+      context: {
+        error: stringifyError(error),
+      },
+    });
+
+    return NextResponse.json(
+      {
+        error: "An unexpected error occurred while creating the booking",
+        code: "INTERNAL_ERROR",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * Implementation Notes:
+ * 
+ * Key Differences from Current Code:
+ * 1. Pre-check capacity before creating booking (prevent wasted work)
+ * 2. Use RPC function instead of INSERT (atomic capacity validation)
+ * 3. No retry loop for reference generation (RPC handles it)
+ * 4. Explicit handling of CAPACITY_EXCEEDED and BOOKING_CONFLICT errors
+ * 5. Return alternatives when capacity exceeded
+ * 6. Include capacity metadata in success response
+ * 
+ * Backward Compatibility:
+ * - Response structure unchanged (booking, bookings, confirmationToken)
+ * - New fields added (capacity, alternatives) are optional
+ * - Error codes are new but won't break existing clients
+ * 
+ * Performance Impact:
+ * - +1 query (pre-check availability): ~50-100ms
+ * - RPC function vs INSERT: ~50ms overhead (SERIALIZABLE transaction)
+ * - Alternative search (on failure): ~200-400ms
+ * - Total: 200-300ms for success path, 400-600ms for failure path
+ * 
+ * Feature Flag:
+ * To enable gradually, wrap capacity check in feature flag:
+ * 
+ * if (env.featureFlags.enableCapacityEnforcement) {
+ *   const availabilityCheck = await checkSlotAvailability(...);
+ *   if (!availabilityCheck.available) { ... }
+ * }
+ */

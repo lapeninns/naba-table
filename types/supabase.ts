@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "13.0.4"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       analytics_events: {
@@ -105,6 +130,118 @@ export type Database = {
         }
         Relationships: []
       }
+      booking_slots: {
+        Row: {
+          available_capacity: number
+          created_at: string
+          id: string
+          reserved_count: number
+          restaurant_id: string
+          service_period_id: string | null
+          slot_date: string
+          slot_time: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          available_capacity?: number
+          created_at?: string
+          id?: string
+          reserved_count?: number
+          restaurant_id: string
+          service_period_id?: string | null
+          slot_date: string
+          slot_time: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          available_capacity?: number
+          created_at?: string
+          id?: string
+          reserved_count?: number
+          restaurant_id?: string
+          service_period_id?: string | null
+          slot_date?: string
+          slot_time?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_slots_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_slots_service_period_id_fkey"
+            columns: ["service_period_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_service_periods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_table_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          booking_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          slot_id: string | null
+          table_id: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          booking_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          slot_id?: string | null
+          table_id: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          booking_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          slot_id?: string | null
+          table_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_table_assignments_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_table_assignments_slot_id_fkey"
+            columns: ["slot_id"]
+            isOneToOne: false
+            referencedRelation: "booking_slots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_table_assignments_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "table_inventory"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       booking_versions: {
         Row: {
           booking_id: string
@@ -158,9 +295,13 @@ export type Database = {
       }
       bookings: {
         Row: {
+          auth_user_id: string | null
           booking_date: string
           booking_type: Database["public"]["Enums"]["booking_type"]
           client_request_id: string
+          confirmation_token: string | null
+          confirmation_token_expires_at: string | null
+          confirmation_token_used_at: string | null
           created_at: string
           customer_email: string
           customer_id: string
@@ -185,9 +326,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          auth_user_id?: string | null
           booking_date: string
           booking_type?: Database["public"]["Enums"]["booking_type"]
           client_request_id?: string
+          confirmation_token?: string | null
+          confirmation_token_expires_at?: string | null
+          confirmation_token_used_at?: string | null
           created_at?: string
           customer_email: string
           customer_id: string
@@ -212,9 +357,13 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          auth_user_id?: string | null
           booking_date?: string
           booking_type?: Database["public"]["Enums"]["booking_type"]
           client_request_id?: string
+          confirmation_token?: string | null
+          confirmation_token_expires_at?: string | null
+          confirmation_token_used_at?: string | null
           created_at?: string
           customer_email?: string
           customer_id?: string
@@ -248,6 +397,44 @@ export type Database = {
           },
           {
             foreignKeyName: "bookings_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      capacity_metrics_hourly: {
+        Row: {
+          capacity_exceeded_count: number
+          conflict_count: number
+          created_at: string
+          restaurant_id: string
+          success_count: number
+          updated_at: string
+          window_start: string
+        }
+        Insert: {
+          capacity_exceeded_count?: number
+          conflict_count?: number
+          created_at?: string
+          restaurant_id: string
+          success_count?: number
+          updated_at?: string
+          window_start: string
+        }
+        Update: {
+          capacity_exceeded_count?: number
+          conflict_count?: number
+          created_at?: string
+          restaurant_id?: string
+          success_count?: number
+          updated_at?: string
+          window_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "capacity_metrics_hourly_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
             referencedRelation: "restaurants"
@@ -541,34 +728,163 @@ export type Database = {
         Row: {
           created_at: string
           email: string | null
+          has_access: boolean
           id: string
           image: string | null
           name: string | null
           phone: string | null
-          has_access: boolean
           updated_at: string
         }
         Insert: {
           created_at?: string
           email?: string | null
+          has_access?: boolean
           id: string
           image?: string | null
           name?: string | null
           phone?: string | null
-          has_access?: boolean
           updated_at?: string
         }
         Update: {
           created_at?: string
           email?: string | null
+          has_access?: boolean
           id?: string
           image?: string | null
           name?: string | null
           phone?: string | null
-          has_access?: boolean
           updated_at?: string
         }
         Relationships: []
+      }
+      restaurant_capacity_rules: {
+        Row: {
+          created_at: string
+          day_of_week: number | null
+          effective_date: string | null
+          id: string
+          label: string | null
+          max_covers: number | null
+          max_parties: number | null
+          notes: string | null
+          override_type:
+            | Database["public"]["Enums"]["capacity_override_type"]
+            | null
+          restaurant_id: string
+          service_period_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_week?: number | null
+          effective_date?: string | null
+          id?: string
+          label?: string | null
+          max_covers?: number | null
+          max_parties?: number | null
+          notes?: string | null
+          override_type?:
+            | Database["public"]["Enums"]["capacity_override_type"]
+            | null
+          restaurant_id: string
+          service_period_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: number | null
+          effective_date?: string | null
+          id?: string
+          label?: string | null
+          max_covers?: number | null
+          max_parties?: number | null
+          notes?: string | null
+          override_type?:
+            | Database["public"]["Enums"]["capacity_override_type"]
+            | null
+          restaurant_id?: string
+          service_period_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_capacity_rules_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "restaurant_capacity_rules_service_period_id_fkey"
+            columns: ["service_period_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_service_periods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      restaurant_invites: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          email: string
+          email_normalized: string | null
+          expires_at: string
+          id: string
+          invited_by: string | null
+          restaurant_id: string
+          revoked_at: string | null
+          role: string
+          status: string
+          token_hash: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          email: string
+          email_normalized?: string | null
+          expires_at: string
+          id?: string
+          invited_by?: string | null
+          restaurant_id: string
+          revoked_at?: string | null
+          role: string
+          status?: string
+          token_hash: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          email?: string
+          email_normalized?: string | null
+          expires_at?: string
+          id?: string
+          invited_by?: string | null
+          restaurant_id?: string
+          revoked_at?: string | null
+          role?: string
+          status?: string
+          token_hash?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_invites_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "restaurant_invites_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       restaurant_memberships: {
         Row: {
@@ -592,69 +908,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "restaurant_memberships_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: false
-            referencedRelation: "restaurants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      restaurant_invites: {
-        Row: {
-          accepted_at: string | null
-          created_at: string
-          email: string
-          email_normalized: string | null
-          expires_at: string
-          id: string
-          invited_by: string | null
-          restaurant_id: string
-          role: string
-          revoked_at: string | null
-          status: string
-          token_hash: string
-          updated_at: string
-        }
-        Insert: {
-          accepted_at?: string | null
-          created_at?: string
-          email: string
-          email_normalized?: never
-          expires_at: string
-          id?: string
-          invited_by?: string | null
-          restaurant_id: string
-          role: string
-          revoked_at?: string | null
-          status?: string
-          token_hash: string
-          updated_at?: string
-        }
-        Update: {
-          accepted_at?: string | null
-          created_at?: string
-          email?: string
-          email_normalized?: never
-          expires_at?: string
-          id?: string
-          invited_by?: string | null
-          restaurant_id?: string
-          role?: string
-          revoked_at?: string | null
-          status?: string
-          token_hash?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "restaurant_invites_invited_by_fkey"
-            columns: ["invited_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "restaurant_invites_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
             referencedRelation: "restaurants"
@@ -711,34 +964,34 @@ export type Database = {
       }
       restaurant_service_periods: {
         Row: {
+          booking_option: string
           created_at: string
           day_of_week: number | null
           end_time: string
           id: string
           name: string
-          booking_option: string
           restaurant_id: string
           start_time: string
           updated_at: string
         }
         Insert: {
+          booking_option?: string
           created_at?: string
           day_of_week?: number | null
           end_time: string
           id?: string
           name: string
-          booking_option?: string
           restaurant_id: string
           start_time: string
           updated_at?: string
         }
         Update: {
+          booking_option?: string
           created_at?: string
           day_of_week?: number | null
           end_time?: string
           id?: string
           name?: string
-          booking_option?: string
           restaurant_id?: string
           start_time?: string
           updated_at?: string
@@ -753,60 +1006,6 @@ export type Database = {
           },
         ]
       }
-      restaurant_capacity_rules: {
-        Row: {
-          created_at: string
-          day_of_week: number | null
-          effective_date: string | null
-          id: string
-          max_covers: number | null
-          max_parties: number | null
-          notes: string | null
-          restaurant_id: string
-          service_period_id: string | null
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          day_of_week?: number | null
-          effective_date?: string | null
-          id?: string
-          max_covers?: number | null
-          max_parties?: number | null
-          notes?: string | null
-          restaurant_id: string
-          service_period_id?: string | null
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          day_of_week?: number | null
-          effective_date?: string | null
-          id?: string
-          max_covers?: number | null
-          max_parties?: number | null
-          notes?: string | null
-          restaurant_id?: string
-          service_period_id?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "restaurant_capacity_rules_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: false
-            referencedRelation: "restaurants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "restaurant_capacity_rules_service_period_id_fkey"
-            columns: ["service_period_id"]
-            isOneToOne: false
-            referencedRelation: "restaurant_service_periods"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       restaurants: {
         Row: {
           address: string | null
@@ -816,11 +1015,12 @@ export type Database = {
           contact_phone: string | null
           created_at: string
           id: string
+          is_active: boolean
           name: string
+          reservation_default_duration_minutes: number
+          reservation_interval_minutes: number
           slug: string
           timezone: string
-          reservation_interval_minutes: number
-          reservation_default_duration_minutes: number
           updated_at: string
         }
         Insert: {
@@ -831,11 +1031,12 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           id?: string
+          is_active?: boolean
           name: string
+          reservation_default_duration_minutes?: number
+          reservation_interval_minutes?: number
           slug: string
           timezone?: string
-          reservation_interval_minutes?: number
-          reservation_default_duration_minutes?: number
           updated_at?: string
         }
         Update: {
@@ -846,11 +1047,12 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           id?: string
+          is_active?: boolean
           name?: string
+          reservation_default_duration_minutes?: number
+          reservation_interval_minutes?: number
           slug?: string
           timezone?: string
-          reservation_interval_minutes?: number
-          reservation_default_duration_minutes?: number
           updated_at?: string
         }
         Relationships: []
@@ -882,11 +1084,100 @@ export type Database = {
         }
         Relationships: []
       }
+      table_inventory: {
+        Row: {
+          capacity: number
+          created_at: string
+          id: string
+          max_party_size: number | null
+          min_party_size: number
+          notes: string | null
+          position: Json | null
+          restaurant_id: string
+          seating_type: Database["public"]["Enums"]["seating_type"]
+          section: string | null
+          status: Database["public"]["Enums"]["table_status"]
+          table_number: string
+          updated_at: string
+        }
+        Insert: {
+          capacity: number
+          created_at?: string
+          id?: string
+          max_party_size?: number | null
+          min_party_size?: number
+          notes?: string | null
+          position?: Json | null
+          restaurant_id: string
+          seating_type?: Database["public"]["Enums"]["seating_type"]
+          section?: string | null
+          status?: Database["public"]["Enums"]["table_status"]
+          table_number: string
+          updated_at?: string
+        }
+        Update: {
+          capacity?: number
+          created_at?: string
+          id?: string
+          max_party_size?: number | null
+          min_party_size?: number
+          notes?: string | null
+          position?: Json | null
+          restaurant_id?: string
+          seating_type?: Database["public"]["Enums"]["seating_type"]
+          section?: string | null
+          status?: Database["public"]["Enums"]["table_status"]
+          table_number?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "table_inventory_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      assign_table_to_booking: {
+        Args: {
+          p_assigned_by?: string
+          p_booking_id: string
+          p_notes?: string
+          p_table_id: string
+        }
+        Returns: string
+      }
+      create_booking_with_capacity_check: {
+        Args: {
+          p_auth_user_id?: string
+          p_booking_date: string
+          p_booking_type: string
+          p_client_request_id?: string
+          p_customer_email: string
+          p_customer_id: string
+          p_customer_name: string
+          p_customer_phone: string
+          p_details?: Json
+          p_end_time: string
+          p_idempotency_key?: string
+          p_loyalty_points_awarded?: number
+          p_marketing_opt_in?: boolean
+          p_notes?: string
+          p_party_size: number
+          p_restaurant_id: string
+          p_seating_preference: string
+          p_source?: string
+          p_start_time: string
+        }
+        Returns: Json
+      }
       gbt_bit_compress: {
         Args: { "": unknown }
         Returns: unknown
@@ -1115,7 +1406,34 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_or_create_booking_slot: {
+        Args: {
+          p_default_capacity?: number
+          p_restaurant_id: string
+          p_slot_date: string
+          p_slot_time: string
+        }
+        Returns: string
+      }
+      increment_capacity_metrics: {
+        Args: {
+          p_capacity_exceeded_delta?: number
+          p_conflict_delta?: number
+          p_restaurant_id: string
+          p_success_delta?: number
+          p_window_start: string
+        }
+        Returns: undefined
+      }
+      unassign_table_from_booking: {
+        Args: { p_booking_id: string; p_table_id: string }
+        Returns: boolean
+      }
       user_restaurants: {
+        Args: Record<PropertyKey, never>
+        Returns: string[]
+      }
+      user_restaurants_admin: {
         Args: Record<PropertyKey, never>
         Returns: string[]
       }
@@ -1125,6 +1443,7 @@ export type Database = {
         | "booking.created"
         | "booking.cancelled"
         | "booking.allocated"
+        | "booking.waitlisted"
       booking_change_type: "created" | "updated" | "cancelled" | "deleted"
       booking_status:
         | "confirmed"
@@ -1134,6 +1453,7 @@ export type Database = {
         | "no_show"
         | "pending_allocation"
       booking_type: "breakfast" | "lunch" | "dinner" | "drinks"
+      capacity_override_type: "holiday" | "event" | "manual" | "emergency"
       loyalty_tier: "bronze" | "silver" | "gold" | "platinum"
       seating_preference_type:
         | "any"
@@ -1144,6 +1464,7 @@ export type Database = {
         | "quiet"
         | "booth"
       seating_type: "indoor" | "outdoor" | "bar" | "patio" | "private_room"
+      table_status: "available" | "reserved" | "occupied" | "out_of_service"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1269,12 +1590,16 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       analytics_event_type: [
         "booking.created",
         "booking.cancelled",
         "booking.allocated",
+        "booking.waitlisted",
       ],
       booking_change_type: ["created", "updated", "cancelled", "deleted"],
       booking_status: [
@@ -1286,6 +1611,7 @@ export const Constants = {
         "pending_allocation",
       ],
       booking_type: ["breakfast", "lunch", "dinner", "drinks"],
+      capacity_override_type: ["holiday", "event", "manual", "emergency"],
       loyalty_tier: ["bronze", "silver", "gold", "platinum"],
       seating_preference_type: [
         "any",
@@ -1297,6 +1623,7 @@ export const Constants = {
         "booth",
       ],
       seating_type: ["indoor", "outdoor", "bar", "patio", "private_room"],
+      table_status: ["available", "reserved", "occupied", "out_of_service"],
     },
   },
 } as const

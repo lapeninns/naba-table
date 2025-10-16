@@ -28,6 +28,17 @@ export const queryKeys = {
     hours: (restaurantId: string) => ['ops', 'restaurants', restaurantId, 'hours'] as const,
     servicePeriods: (restaurantId: string) => ['ops', 'restaurants', restaurantId, 'service-periods'] as const,
   },
+  opsTables: {
+    list: (restaurantId: string, params: Record<string, unknown> = {}) =>
+      ['ops', 'tables', restaurantId, params] as const,
+  },
+  opsCapacity: {
+    rules: (restaurantId: string) => ['ops', 'capacity', restaurantId, 'rules'] as const,
+    overrides: (restaurantId: string, params: Record<string, unknown> = {}) =>
+      ['ops', 'capacity', restaurantId, 'overrides', params] as const,
+    reports: (restaurantId: string, params: Record<string, unknown> = {}) =>
+      ['ops', 'capacity', restaurantId, 'reports', params] as const,
+  },
   ownerRestaurants: {
     hours: (restaurantId: string) => ['owner', 'restaurants', restaurantId, 'hours'] as const,
     servicePeriods: (restaurantId: string) => ['owner', 'restaurants', restaurantId, 'service-periods'] as const,
@@ -60,6 +71,10 @@ export type QueryKey =
   | ReturnType<(typeof queryKeys)['opsRestaurants']['detail']>
   | ReturnType<(typeof queryKeys)['opsRestaurants']['hours']>
   | ReturnType<(typeof queryKeys)['opsRestaurants']['servicePeriods']>
+  | ReturnType<(typeof queryKeys)['opsTables']['list']>
+  | ReturnType<(typeof queryKeys)['opsCapacity']['rules']>
+  | ReturnType<(typeof queryKeys)['opsCapacity']['overrides']>
+  | ReturnType<(typeof queryKeys)['opsCapacity']['reports']>
   | ReturnType<(typeof queryKeys)['ownerRestaurants']['hours']>
   | ReturnType<(typeof queryKeys)['ownerRestaurants']['servicePeriods']>
   | ReturnType<(typeof queryKeys)['ownerRestaurants']['details']>

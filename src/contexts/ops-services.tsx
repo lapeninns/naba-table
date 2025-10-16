@@ -18,12 +18,20 @@ import {
   type CustomerService,
   type CustomerServiceFactory,
 } from '@/services/ops/customers';
+import {
+  createTableInventoryService,
+  type TableInventoryService,
+  type TableInventoryServiceFactory,
+} from '@/services/ops/tables';
+import { createCapacityService, type CapacityService, type CapacityServiceFactory } from '@/services/ops/capacity';
 
 export type OpsServices = {
   bookingService: BookingService;
   restaurantService: RestaurantService;
   teamService: TeamService;
   customerService: CustomerService;
+  tableInventoryService: TableInventoryService;
+  capacityService: CapacityService;
 };
 
 type OpsServiceFactories = {
@@ -31,6 +39,8 @@ type OpsServiceFactories = {
   restaurantService?: RestaurantServiceFactory;
   teamService?: TeamServiceFactory;
   customerService?: CustomerServiceFactory;
+  tableInventoryService?: TableInventoryServiceFactory;
+  capacityService?: CapacityServiceFactory;
 };
 
 type OpsServicesProviderProps = {
@@ -47,8 +57,17 @@ export function OpsServicesProvider({ factories, children }: OpsServicesProvider
       restaurantService: createRestaurantService(factories?.restaurantService),
       teamService: createTeamService(factories?.teamService),
       customerService: createCustomerService(factories?.customerService),
+      tableInventoryService: createTableInventoryService(factories?.tableInventoryService),
+      capacityService: createCapacityService(factories?.capacityService),
     }),
-    [factories?.bookingService, factories?.restaurantService, factories?.teamService, factories?.customerService],
+    [
+      factories?.bookingService,
+      factories?.restaurantService,
+      factories?.teamService,
+      factories?.customerService,
+      factories?.tableInventoryService,
+      factories?.capacityService,
+    ],
   );
 
   return <OpsServicesContext.Provider value={services}>{children}</OpsServicesContext.Provider>;
@@ -76,4 +95,12 @@ export function useTeamService(): TeamService {
 
 export function useCustomerService(): CustomerService {
   return useOpsServices().customerService;
+}
+
+export function useTableInventoryService(): TableInventoryService {
+  return useOpsServices().tableInventoryService;
+}
+
+export function useCapacityService(): CapacityService {
+  return useOpsServices().capacityService;
 }

@@ -5,11 +5,12 @@ import { useEffect, useState, ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { Crisp } from "crisp-sdk-web";
 import NextTopLoader from "nextjs-toploader";
-import { Toaster } from "react-hot-toast";
+import { Toaster as HotToaster } from "react-hot-toast";
 import { Tooltip } from "react-tooltip";
 import config from "@/config";
 import type { User } from "@supabase/supabase-js";
 import { CustomerNavbar } from "@/components/customer/navigation";
+import { Toaster as UiToaster } from "@/components/ui/toaster";
 
 // Crisp customer chat support:
 // This component is separated from ClientLayout because it needs to be wrapped with <SessionProvider> to use useSession() hook
@@ -82,12 +83,15 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
       {/* Content inside app/page.js files  */}
       {children}
 
-      {/* Show Success/Error messages anywhere from the app with toast() */}
-      <Toaster
+      {/* Legacy toast notifications (react-hot-toast) */}
+      <HotToaster
         toastOptions={{
           duration: 3000,
         }}
       />
+
+      {/* Shadcn toast stack for ops dashboards */}
+      <UiToaster />
 
       {/* Show tooltips if any JSX elements has these 2 attributes: data-tooltip-id="tooltip" data-tooltip-content="" */}
       <Tooltip
