@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition } from 'react';
-import { Calendar as CalendarIcon, Clock, ChevronLeft, ChevronRight, TrendingUp, Users, type LucideIcon } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, ChevronLeft, ChevronRight, TrendingUp, Users, Loader2, type LucideIcon } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -25,6 +25,7 @@ import { HeatmapCalendar } from './HeatmapCalendar';
 import type { PeriodUtilization } from './CapacityVisualization';
 
 import type { BookingFilter } from './BookingsFilterBar';
+import { useOpsTableAssignmentActions } from '@/hooks';
 
 
 const DEFAULT_FILTER: BookingFilter = 'all';
@@ -84,6 +85,8 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
   });
 
   const bookingStatusMutation = useOpsBookingStatusActions();
+  const assignmentDate = summary?.date ?? selectedDate ?? null;
+  const tableAssignmentActions = useOpsTableAssignmentActions({ restaurantId, date: assignmentDate });
 
   const handleSelectDate = (date: string) => {
     setSelectedDate(date);
@@ -153,6 +156,33 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
   const servicePeriods = capacityQuery.data?.periods ?? [];
   const hasServiceCapacity = capacityQuery.isLoading || servicePeriods.length > 0;
 
+  // All hooks must be called before any early returns
+  const tableActionState = useMemo(() => {
+    if (tableAssignmentActions.assignTable.isPending) {
+      const variables = tableAssignmentActions.assignTable.variables;
+      return {
+        type: 'assign' as const,
+        bookingId: variables?.bookingId ?? null,
+        tableId: variables?.tableId ?? null,
+      };
+    }
+    if (tableAssignmentActions.unassignTable.isPending) {
+      const variables = tableAssignmentActions.unassignTable.variables;
+      return {
+        type: 'unassign' as const,
+        bookingId: variables?.bookingId ?? null,
+        tableId: variables?.tableId ?? null,
+      };
+    }
+    return null;
+  }, [
+    tableAssignmentActions.assignTable.isPending,
+    tableAssignmentActions.assignTable.variables,
+    tableAssignmentActions.unassignTable.isPending,
+    tableAssignmentActions.unassignTable.variables,
+  ]);
+
+  // Handler functions (not hooks, but keeping them before early returns for consistency)
   const handleStatusChange = async (bookingId: string, status: 'completed' | 'no_show') => {
     if (!restaurantId) return;
     setPendingBookingId(bookingId);
@@ -163,6 +193,22 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
     }
   };
 
+  const handleAssignTable = async (bookingId: string, tableId: string) => {
+    const result = await tableAssignmentActions.assignTable.mutateAsync({ bookingId, tableId });
+    return result.tableAssignments;
+  };
+
+  const handleUnassignTable = async (bookingId: string, tableId: string) => {
+    const result = await tableAssignmentActions.unassignTable.mutateAsync({ bookingId, tableId });
+    return result.tableAssignments;
+  };
+
+  const handleAutoAssignTables = () => {
+    if (!summary || !restaurantId) return;
+    tableAssignmentActions.autoAssignTables.mutate({ restaurantId, date: summary.date });
+  };
+
+  // Early returns must come after all hooks
   if (!restaurantId) {
     return <NoAccessState />;
   }
@@ -175,6 +221,7 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
     return <DashboardErrorState onRetry={() => summaryQuery.refetch()} />;
   }
 
+  // Derived values after early returns
   const serviceDateLabel = formatDateReadable(summary.date, summary.timezone);
   const changeFeedData = changesQuery.data?.changes ?? [];
   const changeFeedTotal = changesQuery.data?.totalChanges ?? 0;
@@ -269,11 +316,29 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
                 <h2 className="text-lg font-semibold text-slate-900">Reservations</h2>
                 <p className="text-sm text-slate-600">Manage today&apos;s bookings for {restaurantName}</p>
               </div>
-              <ExportBookingsButton
-                restaurantId={restaurantId}
-                restaurantName={restaurantName}
-                date={summary.date}
-              />
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-11 min-w-[140px]"
+                  onClick={handleAutoAssignTables}
+                  disabled={tableAssignmentActions.autoAssignTables.isPending}
+                >
+                  {tableAssignmentActions.autoAssignTables.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                      Assigning…
+                    </>
+                  ) : (
+                    'Auto assign tables'
+                  )}
+                </Button>
+                <ExportBookingsButton
+                  restaurantId={restaurantId}
+                  restaurantName={restaurantName}
+                  date={summary.date}
+                />
+              </div>
             </div>
             <div className="mt-6 space-y-6">
               <BookingsFilterBar value={filter} onChange={setFilter} />
@@ -283,6 +348,9 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
                 summary={summary}
                 onMarkStatus={handleStatusChange}
                 pendingBookingId={pendingBookingId}
+                onAssignTable={handleAssignTable}
+                onUnassignTable={handleUnassignTable}
+                tableActionState={tableActionState}
               />
             </div>
           </div>

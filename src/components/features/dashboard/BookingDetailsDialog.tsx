@@ -1,7 +1,8 @@
 'use client';
 
-import { Mail, Phone, Clock, Users, Calendar as CalendarIcon, AlertTriangle, Award, CheckCircle2, XCircle } from 'lucide-react';
-import { useState, type ComponentType } from 'react';
+import { Mail, Phone, Clock, Users, Calendar as CalendarIcon, AlertTriangle, Award, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { useEffect, useMemo, useState, type ComponentType } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
 import {
   AlertDialog,
@@ -17,8 +18,19 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { formatDateReadable, formatTimeRange } from '@/lib/utils/datetime';
+import { queryKeys } from '@/lib/query/keys';
+import { useTableInventoryService } from '@/contexts/ops-services';
+import type { TableInventory } from '@/services/ops/tables';
 
 import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
 
@@ -43,16 +55,132 @@ type BookingDetailsDialogProps = {
   booking: OpsTodayBooking;
   summary: OpsTodayBookingsSummary;
   onStatusChange: (status: 'completed' | 'no_show') => Promise<void>;
+  onAssignTable?: (tableId: string) => Promise<OpsTodayBooking['tableAssignments']>;
+  onUnassignTable?: (tableId: string) => Promise<OpsTodayBooking['tableAssignments']>;
+  tableActionState?: {
+    type: 'assign' | 'unassign';
+    tableId?: string | null;
+  } | null;
 };
 
-export function BookingDetailsDialog({ booking, summary, onStatusChange }: BookingDetailsDialogProps) {
+const DEFAULT_DURATION_MINUTES = 90;
+
+export function BookingDetailsDialog({
+  booking,
+  summary,
+  onStatusChange,
+  onAssignTable,
+  onUnassignTable,
+  tableActionState,
+}: BookingDetailsDialogProps) {
   const [pendingStatus, setPendingStatus] = useState<'completed' | 'no_show' | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
+  const [assignments, setAssignments] = useState<OpsTodayBooking['tableAssignments']>(booking.tableAssignments);
 
   const mailHref = booking.customerEmail ? `mailto:${booking.customerEmail}` : null;
   const phoneHref = booking.customerPhone ? `tel:${booking.customerPhone.replace(/[^+\d]/g, '')}` : null;
 
   const serviceDateReadable = formatDateReadable(summary.date, summary.timezone);
   const serviceTime = formatTimeRange(booking.startTime, booking.endTime, summary.timezone);
+  const tableService = useTableInventoryService();
+  const supportsTableAssignment = Boolean(onAssignTable && onUnassignTable);
+
+  useEffect(() => {
+    setAssignments(booking.tableAssignments);
+  }, [booking.tableAssignments]);
+
+  const {
+    data: tablesResult,
+    isLoading: tablesLoading,
+    isError: tablesError,
+    error: tablesQueryError,
+    refetch: refetchTables,
+  } = useQuery({
+    queryKey: queryKeys.opsTables.list(summary.restaurantId, { scope: 'assignment' }),
+    queryFn: async () => tableService.list(summary.restaurantId),
+    enabled: supportsTableAssignment && isOpen,
+    staleTime: 60_000,
+  });
+
+  const bookingWindow = useMemo(() => computeDialogBookingWindow(booking.startTime, booking.endTime), [booking.startTime, booking.endTime]);
+
+  const conflictingTableIds = useMemo(
+    () => computeConflictingTableIds(summary.bookings, booking, bookingWindow),
+    [summary.bookings, booking, bookingWindow],
+  );
+
+  const assignedTableIds = useMemo(() => new Set(assignments.map((assignment) => assignment.tableId)), [assignments]);
+
+  const tableOptions = useMemo(() => {
+    const data = tablesResult?.tables ?? [];
+    return data
+      .filter((table) => !assignedTableIds.has(table.id))
+      .map((table) => {
+        const conflict = bookingWindow ? conflictingTableIds.has(table.id) : false;
+        const isOutOfService = table.status === 'out_of_service';
+        const disabled = conflict || isOutOfService;
+        const labelParts = [`Table ${table.tableNumber}`];
+        if (table.capacity) {
+          labelParts.push(`${table.capacity} seat${table.capacity === 1 ? '' : 's'}`);
+        }
+        if (table.section) {
+          labelParts.push(table.section);
+        }
+        const reason = conflict
+          ? 'Conflicts with another booking'
+          : isOutOfService
+            ? 'Out of service'
+            : null;
+        return {
+          table,
+          label: labelParts.join(' · '),
+          disabled,
+          reason,
+        };
+      });
+  }, [tablesResult?.tables, assignedTableIds, conflictingTableIds, bookingWindow]);
+
+  const hasAssignableTables = tableOptions.some((option) => !option.disabled);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedTableId(null);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (supportsTableAssignment && isOpen) {
+      void refetchTables();
+    }
+  }, [supportsTableAssignment, isOpen, refetchTables]);
+
+  const handleAssignTable = async () => {
+    if (!selectedTableId || !onAssignTable) {
+      return;
+    }
+    try {
+      const updated = await onAssignTable(selectedTableId);
+      setAssignments(updated);
+      setSelectedTableId(null);
+      void refetchTables();
+    } catch (error) {
+      // Toast handled by mutation hook
+    }
+  };
+
+  const handleUnassignTable = async (tableId: string) => {
+    if (!onUnassignTable) {
+      return;
+    }
+    try {
+      const updated = await onUnassignTable(tableId);
+      setAssignments(updated);
+      void refetchTables();
+    } catch (error) {
+      // Toast handled by mutation hook
+    }
+  };
 
   const handleStatus = async (next: 'completed' | 'no_show') => {
     if (pendingStatus) return;
@@ -67,7 +195,7 @@ export function BookingDetailsDialog({ booking, summary, onStatusChange }: Booki
   const isCancelled = booking.status === 'cancelled';
 
   return (
-    <Dialog>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="h-11 min-w-[100px] touch-manipulation">
           Details
@@ -188,6 +316,117 @@ export function BookingDetailsDialog({ booking, summary, onStatusChange }: Booki
             </section>
           ) : null}
 
+          {supportsTableAssignment ? (
+            <section className="space-y-4 rounded-2xl border border-border/60 bg-muted/10 px-4 py-4">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Table assignment</h3>
+                <p className="text-xs text-muted-foreground">Assign or adjust tables for this reservation.</p>
+              </div>
+
+            <div className="space-y-2">
+              {assignments.length > 0 ? (
+                assignments.map((assignment) => {
+                  const isUnassigning =
+                    tableActionState?.type === 'unassign' && tableActionState?.tableId === assignment.tableId;
+                  const capacityLabel =
+                    assignment.capacity && assignment.capacity > 0
+                      ? `${assignment.capacity} seat${assignment.capacity === 1 ? '' : 's'}`
+                      : null;
+                  const meta = [capacityLabel, assignment.section ? `Section ${assignment.section}` : null]
+                    .filter(Boolean)
+                    .join(' · ');
+
+                  return (
+                    <div
+                      key={assignment.tableId}
+                      className="flex items-center justify-between rounded-xl border border-border/60 bg-white px-3 py-2"
+                    >
+                      <div className="flex flex-col">
+                        <span className="text-sm font-semibold text-foreground">Table {assignment.tableNumber}</span>
+                        {meta ? <span className="text-xs text-muted-foreground">{meta}</span> : null}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8"
+                        onClick={() => handleUnassignTable(assignment.tableId)}
+                        disabled={isUnassigning || tableActionState?.type === 'assign'}
+                      >
+                        {isUnassigning ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                            Removing…
+                          </>
+                        ) : (
+                          'Remove'
+                        )}
+                      </Button>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="text-sm text-muted-foreground">No tables assigned yet.</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor={`table-select-${booking.id}`} className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Assign new table
+              </Label>
+              {tablesLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading tables…
+                </div>
+              ) : tablesError ? (
+                <p className="text-sm text-destructive">
+                  {tablesQueryError instanceof Error ? tablesQueryError.message : 'Unable to load tables'}
+                </p>
+              ) : (
+                <Select
+                  value={selectedTableId ?? ''}
+                  onValueChange={(value) => setSelectedTableId(value)}
+                  disabled={!hasAssignableTables || tableActionState?.type === 'assign'}
+                >
+                  <SelectTrigger id={`table-select-${booking.id}`} className="w-full">
+                    <SelectValue placeholder={hasAssignableTables ? 'Choose a table' : 'No tables available'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tableOptions.map((option) => (
+                      <SelectItem key={option.table.id} value={option.table.id} disabled={option.disabled}>
+                        {option.label}
+                        {option.reason ? ` — ${option.reason}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {!hasAssignableTables && !tablesLoading && !tablesError ? (
+                <p className="text-xs text-muted-foreground">No available tables match this booking window.</p>
+              ) : null}
+              {bookingWindow === null ? (
+                <p className="text-xs text-muted-foreground">Booking time is incomplete, so availability checks may be inaccurate.</p>
+              ) : null}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={handleAssignTable}
+                disabled={!selectedTableId || tableActionState?.type === 'assign'}
+                className="h-9"
+              >
+                {tableActionState?.type === 'assign' ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                    Assigning…
+                  </>
+                ) : (
+                  'Assign table'
+                )}
+              </Button>
+            </div>
+            </section>
+          ) : null}
+
           <aside className="space-y-3 rounded-2xl border border-border/60 bg-muted/10 px-4 py-4">
             <h3 className="text-sm font-semibold text-foreground">Status actions</h3>
             <p className="text-xs text-muted-foreground">
@@ -289,4 +528,74 @@ function InfoRow({ icon: Icon, label, value, href }: InfoRowProps) {
       )}
     </div>
   );
+}
+
+type DialogBookingWindow = {
+  start: number;
+  end: number;
+};
+
+function parseMinutes(value: string | null): number | null {
+  if (!value) {
+    return null;
+  }
+  const [hours, minutes] = value.split(':').map((part) => Number.parseInt(part, 10));
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+    return null;
+  }
+  return hours * 60 + minutes;
+}
+
+function computeDialogBookingWindow(startTime: string | null, endTime: string | null): DialogBookingWindow | null {
+  const start = parseMinutes(startTime);
+  if (start === null) {
+    return null;
+  }
+  const endCandidate = parseMinutes(endTime);
+  const end = endCandidate !== null && endCandidate > start ? endCandidate : start + DEFAULT_DURATION_MINUTES;
+  return { start, end };
+}
+
+function windowsOverlap(a: DialogBookingWindow, b: DialogBookingWindow): boolean {
+  return a.start < b.end && b.start < a.end;
+}
+
+function computeConflictingTableIds(
+  bookings: OpsTodayBooking[],
+  current: OpsTodayBooking,
+  window: DialogBookingWindow | null,
+): Set<string> {
+  const conflicts = new Set<string>();
+  if (!window) {
+    return conflicts;
+  }
+
+  for (const booking of bookings) {
+    if (booking.id === current.id) {
+      continue;
+    }
+
+    if (!booking.tableAssignments || booking.tableAssignments.length === 0) {
+      continue;
+    }
+
+    if (booking.status === 'cancelled' || booking.status === 'no_show') {
+      continue;
+    }
+
+    const otherWindow = computeDialogBookingWindow(booking.startTime, booking.endTime);
+    if (!otherWindow) {
+      continue;
+    }
+
+    if (!windowsOverlap(window, otherWindow)) {
+      continue;
+    }
+
+    for (const assignment of booking.tableAssignments) {
+      conflicts.add(assignment.tableId);
+    }
+  }
+
+  return conflicts;
 }

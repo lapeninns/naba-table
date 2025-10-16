@@ -28,6 +28,14 @@ type BookingRow = {
   reference: string | null;
   details: TodayBookingsSummary["bookings"][number]["details"];
   source?: string | null;
+  booking_table_assignments?: {
+    table_id: string | null;
+    table_inventory?: {
+      table_number: string | null;
+      capacity: number | null;
+      section: string | null;
+    } | null;
+  }[];
 };
 
 type MockClientOptions = {
@@ -143,6 +151,16 @@ describe("getTodayBookingsSummary", () => {
         reference: "REF-001",
         details: { source: "online" },
         source: "web",
+        booking_table_assignments: [
+          {
+            table_id: "table-1",
+            table_inventory: {
+              table_number: "A1",
+              capacity: 2,
+              section: "Window",
+            },
+          },
+        ],
       },
       {
         id: "b-2",
@@ -157,6 +175,16 @@ describe("getTodayBookingsSummary", () => {
         reference: "REF-002",
         details: null,
         source: "web",
+        booking_table_assignments: [
+          {
+            table_id: "table-2",
+            table_inventory: {
+              table_number: "B4",
+              capacity: 6,
+              section: "Main",
+            },
+          },
+        ],
       },
       {
         id: "b-3",
@@ -242,6 +270,21 @@ describe("getTodayBookingsSummary", () => {
     expect(summary.totals.noShow).toBe(1);
     expect(summary.totals.upcoming).toBe(3);
     expect(summary.totals.covers).toBe(14);
+
+    const firstBooking = summary.bookings.find((booking) => booking.id === 'b-1');
+    expect(firstBooking?.tableAssignments).toEqual([
+      {
+        tableId: 'table-1',
+        tableNumber: 'A1',
+        capacity: 2,
+        section: 'Window',
+      },
+    ]);
+    expect(firstBooking?.requiresTableAssignment).toBe(false);
+
+    const pendingAllocation = summary.bookings.find((booking) => booking.id === 'b-4');
+    expect(pendingAllocation?.tableAssignments).toEqual([]);
+    expect(pendingAllocation?.requiresTableAssignment).toBe(true);
   });
 
   it("falls back to UTC when restaurant timezone missing", async () => {

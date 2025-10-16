@@ -46,6 +46,7 @@ export {
   unassignTableFromBooking,
   getBookingTableAssignments,
   autoAssignTables,
+  autoAssignTablesForDate,
   isTableAvailable,
 } from "./tables";
 
@@ -82,6 +83,7 @@ export type {
   Table,
   TableMatchParams,
   TableAssignment,
+  AutoAssignResult,
 } from "./tables";
 
 export {

@@ -7,6 +7,7 @@ import type {
   OpsBookingsPage,
   OpsBookingStatus,
   OpsServiceError,
+  OpsTodayBooking,
   OpsTodayBookingsSummary,
   OpsWalkInBookingPayload,
 } from '@/types/ops';
@@ -53,6 +54,26 @@ type WalkInResponse = {
   clientRequestId: string;
 };
 
+type AssignTableInput = {
+  bookingId: string;
+  tableId: string;
+};
+
+type AutoAssignTablesInput = {
+  restaurantId: string;
+  date?: string | null;
+};
+
+type TableAssignmentsResponse = {
+  tableAssignments: OpsTodayBooking['tableAssignments'];
+};
+
+type AutoAssignTablesResponse = {
+  date: string;
+  assigned: { bookingId: string; tableIds: string[] }[];
+  skipped: { bookingId: string; reason: string }[];
+};
+
 export interface BookingService {
   getTodaySummary(params: SummaryParams): Promise<OpsTodayBookingsSummary>;
   getBookingHeatmap(params: HeatmapParams): Promise<OpsBookingHeatmap>;
@@ -61,6 +82,9 @@ export interface BookingService {
   updateBookingStatus(input: UpdateStatusInput): Promise<{ status: OpsBookingStatus }>;
   cancelBooking(input: CancelBookingInput): Promise<{ id: string; status: string }>;
   createWalkInBooking(input: WalkInInput): Promise<WalkInResponse>;
+  assignTable(input: AssignTableInput): Promise<TableAssignmentsResponse>;
+  unassignTable(input: AssignTableInput): Promise<TableAssignmentsResponse>;
+  autoAssignTables(input: AutoAssignTablesInput): Promise<AutoAssignTablesResponse>;
 }
 
 function toIsoParam(value: Date | string | null | undefined): string | undefined {
@@ -136,6 +160,30 @@ export function createBrowserBookingService(): BookingService {
         body: JSON.stringify(payload),
       });
     },
+    async assignTable({ bookingId, tableId }) {
+      return fetchJson<TableAssignmentsResponse>(`${OPS_BOOKINGS_BASE}/${bookingId}/tables`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tableId }),
+      });
+    },
+    async unassignTable({ bookingId, tableId }) {
+      return fetchJson<TableAssignmentsResponse>(`${OPS_BOOKINGS_BASE}/${bookingId}/tables/${tableId}`, {
+        method: 'DELETE',
+      });
+    },
+    async autoAssignTables({ restaurantId, date }) {
+      const payload: Record<string, unknown> = { restaurantId };
+      if (date) {
+        payload.date = date;
+      }
+
+      return fetchJson<AutoAssignTablesResponse>(`${OPS_DASHBOARD_BASE}/assign-tables`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    },
   } satisfies BookingService;
 }
 
@@ -170,6 +218,18 @@ export class NotImplementedBookingService implements BookingService {
 
   createWalkInBooking(): Promise<WalkInResponse> {
     this.error('createWalkInBooking not implemented');
+  }
+
+  assignTable(): Promise<TableAssignmentsResponse> {
+    this.error('assignTable not implemented');
+  }
+
+  unassignTable(): Promise<TableAssignmentsResponse> {
+    this.error('unassignTable not implemented');
+  }
+
+  autoAssignTables(): Promise<AutoAssignTablesResponse> {
+    this.error('autoAssignTables not implemented');
   }
 }
 

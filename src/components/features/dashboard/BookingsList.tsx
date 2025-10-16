@@ -20,6 +20,13 @@ type BookingsListProps = {
   summary: OpsTodayBookingsSummary;
   onMarkStatus: (bookingId: string, status: 'completed' | 'no_show') => Promise<void>;
   pendingBookingId?: string | null;
+  onAssignTable?: (bookingId: string, tableId: string) => Promise<OpsTodayBooking['tableAssignments']>;
+  onUnassignTable?: (bookingId: string, tableId: string) => Promise<OpsTodayBooking['tableAssignments']>;
+  tableActionState?: {
+    type: 'assign' | 'unassign';
+    bookingId: string | null;
+    tableId?: string | null;
+  } | null;
 };
 
 const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destructive'> = {
@@ -38,13 +45,52 @@ const TIER_COLORS: Record<string, string> = {
   bronze: 'bg-amber-700 text-white border-amber-700',
 };
 
+function formatTableAssignmentDisplay(assignments: OpsTodayBooking['tableAssignments']) {
+  if (!assignments || assignments.length === 0) {
+    return {
+      text: 'Table assignment required',
+      isAssigned: false,
+    } as const;
+  }
+
+  const tableNumbers = assignments.map((assignment) => assignment.tableNumber || '—');
+  const totalCapacity = assignments.reduce((sum, assignment) => sum + (assignment.capacity ?? 0), 0);
+  const seatsLabel = totalCapacity > 0 ? `${totalCapacity} seat${totalCapacity === 1 ? '' : 's'}` : null;
+
+  if (assignments.length === 1) {
+    const [assignment] = assignments;
+    const baseLabel = `Table ${assignment.tableNumber}`;
+    return {
+      text: seatsLabel ? `${baseLabel} · ${seatsLabel}` : baseLabel,
+      isAssigned: true,
+    } as const;
+  }
+
+  const joinedTables = tableNumbers.join(' + ');
+  const baseLabel = `Tables ${joinedTables}`;
+  return {
+    text: seatsLabel ? `${baseLabel} · ${seatsLabel}` : baseLabel,
+    isAssigned: true,
+  } as const;
+}
+
 function filterBookings(bookings: OpsTodayBooking[], filter: BookingFilter) {
   if (filter === 'all') return bookings;
   return bookings.filter((booking) => booking.status === filter);
 }
 
-export function BookingsList({ bookings, filter, summary, onMarkStatus, pendingBookingId }: BookingsListProps) {
+export function BookingsList({
+  bookings,
+  filter,
+  summary,
+  onMarkStatus,
+  pendingBookingId,
+  onAssignTable,
+  onUnassignTable,
+  tableActionState,
+}: BookingsListProps) {
   const filtered = useMemo(() => filterBookings(bookings, filter), [bookings, filter]);
+  const supportsTableAssignment = Boolean(onAssignTable && onUnassignTable);
 
   if (filtered.length === 0) {
     return (
@@ -69,6 +115,9 @@ export function BookingsList({ bookings, filter, summary, onMarkStatus, pendingB
       {filtered.map((booking) => {
         const statusVariant = STATUS_VARIANT[booking.status] ?? 'secondary';
         const serviceTime = formatTimeRange(booking.startTime, booking.endTime, summary.timezone);
+        const tableAssignmentDisplay = formatTableAssignmentDisplay(booking.tableAssignments);
+        const isTableActionPending =
+          supportsTableAssignment && tableActionState?.bookingId === booking.id ? tableActionState?.type : null;
 
         return (
           <Card key={booking.id} className="border-border/60">
@@ -83,6 +132,18 @@ export function BookingsList({ bookings, filter, summary, onMarkStatus, pendingB
                   ) : null}
                   <Badge variant={statusVariant} className="capitalize">
                     {booking.status.replace(/_/g, ' ')}
+                  </Badge>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      'text-xs font-semibold',
+                      tableAssignmentDisplay.isAssigned
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        : 'border-amber-200 bg-amber-100 text-amber-800'
+                    )}
+                    aria-label={tableAssignmentDisplay.text}
+                  >
+                    {tableAssignmentDisplay.text}
                   </Badge>
                 </div>
                 <div className="flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-2">
@@ -140,6 +201,13 @@ export function BookingsList({ bookings, filter, summary, onMarkStatus, pendingB
                   booking={booking}
                   summary={summary}
                   onStatusChange={(status) => onMarkStatus(booking.id, status)}
+                  onAssignTable={supportsTableAssignment && onAssignTable ? (tableId) => onAssignTable(booking.id, tableId) : undefined}
+                  onUnassignTable={supportsTableAssignment && onUnassignTable ? (tableId) => onUnassignTable(booking.id, tableId) : undefined}
+                  tableActionState={
+                    supportsTableAssignment && tableActionState?.bookingId === booking.id
+                      ? tableActionState
+                      : null
+                  }
                 />
               </div>
             </CardContent>

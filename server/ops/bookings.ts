@@ -65,6 +65,13 @@ export type TodayBooking = {
   dietaryRestrictions?: string[] | null;
   seatingPreference?: string | null;
   marketingOptIn?: boolean | null;
+  tableAssignments: {
+    tableId: string;
+    tableNumber: string;
+    capacity: number | null;
+    section: string | null;
+  }[];
+  requiresTableAssignment: boolean;
 };
 
 export type TodayBookingsSummary = {
@@ -82,6 +89,32 @@ export type TodayBookingsSummary = {
     covers: number;
   };
   bookings: TodayBooking[];
+};
+
+type BookingSummaryTableInventory = Pick<Tables<"table_inventory">, "table_number" | "capacity" | "section">;
+
+type BookingSummaryTableAssignment = {
+  table_id: string | null;
+  table_inventory: BookingSummaryTableInventory | BookingSummaryTableInventory[] | null;
+};
+
+type BookingSummaryQueryRow = Pick<
+  Tables<"bookings">,
+  | "id"
+  | "status"
+  | "start_time"
+  | "end_time"
+  | "party_size"
+  | "customer_name"
+  | "customer_email"
+  | "customer_phone"
+  | "notes"
+  | "reference"
+  | "details"
+  | "source"
+  | "customer_id"
+> & {
+  booking_table_assignments: BookingSummaryTableAssignment[] | null;
 };
 
 type SummaryOptions = {
@@ -123,7 +156,29 @@ export async function getTodayBookingsSummary(
   const { data, error } = await client
     .from("bookings")
     .select(
-      `id, status, start_time, end_time, party_size, customer_name, customer_email, customer_phone, notes, reference, details, source, customer_id`,
+      `
+        id,
+        status,
+        start_time,
+        end_time,
+        party_size,
+        customer_name,
+        customer_email,
+        customer_phone,
+        notes,
+        reference,
+        details,
+        source,
+        customer_id,
+        booking_table_assignments (
+          table_id,
+          table_inventory (
+            table_number,
+            capacity,
+            section
+          )
+        )
+      `,
     )
     .eq("restaurant_id", restaurantId)
     .eq("booking_date", reportDate)
@@ -133,7 +188,7 @@ export async function getTodayBookingsSummary(
     throw error;
   }
 
-  const bookings = (data ?? []) as Tables<"bookings">[];
+  const bookings = (data ?? []) as BookingSummaryQueryRow[];
 
   const customerIds = bookings
     .map((booking) => booking.customer_id)
@@ -156,6 +211,34 @@ export async function getTodayBookingsSummary(
     const profileData = booking.customer_id ? customerProfilesMap.get(booking.customer_id) ?? null : null;
     const parsedPreferences = parsePreferences(profileData?.preferences);
 
+    const rawAssignments = Array.isArray(booking.booking_table_assignments)
+      ? booking.booking_table_assignments
+      : [];
+
+    const tableAssignments = rawAssignments
+      .map((assignment) => {
+        if (!assignment?.table_id) {
+          return null;
+        }
+
+        const metaArray = Array.isArray(assignment.table_inventory)
+          ? assignment.table_inventory
+          : assignment.table_inventory
+            ? [assignment.table_inventory]
+            : [];
+        const meta = metaArray[0] ?? null;
+
+        return {
+          tableId: assignment.table_id,
+          tableNumber: meta?.table_number ?? 'Unknown',
+          capacity: typeof meta?.capacity === 'number' ? meta.capacity : null,
+          section: meta?.section ?? null,
+        };
+      })
+      .filter((assignment): assignment is TodayBooking['tableAssignments'][number] => Boolean(assignment));
+
+    const requiresTableAssignment = tableAssignments.length === 0;
+
     return {
       id: booking.id,
       status: booking.status,
@@ -176,6 +259,8 @@ export async function getTodayBookingsSummary(
       dietaryRestrictions: parsedPreferences.dietaryRestrictions,
       seatingPreference: parsedPreferences.seatingPreference,
       marketingOptIn: profileData?.marketingOptIn ?? null,
+      tableAssignments,
+      requiresTableAssignment,
     };
   });
 

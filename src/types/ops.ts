@@ -54,6 +54,13 @@ export type OpsTodayBooking = {
   dietaryRestrictions?: string[] | null;
   seatingPreference?: string | null;
   marketingOptIn?: boolean | null;
+  tableAssignments: {
+    tableId: string;
+    tableNumber: string;
+    capacity: number | null;
+    section: string | null;
+  }[];
+  requiresTableAssignment: boolean;
 };
 
 export type OpsTodayTotals = {

@@ -1,6 +1,7 @@
 export * from './ops/useOpsTodaySummary';
 export * from './ops/useOpsBookingHeatmap';
 export * from './ops/useOpsBookingStatusActions';
+export * from './ops/useOpsTableAssignments';
 export * from './ops/useOpsBookingsList';
 export * from './ops/useOpsBookingsTableState';
 export * from './ops/useOpsRestaurants';
