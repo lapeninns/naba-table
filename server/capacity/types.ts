@@ -110,6 +110,8 @@ export type BookingErrorDetails = {
   availableParties?: number;
   sqlstate?: string;
   sqlerrm?: string;
+  timezone?: string;
+  originalTimezone?: string;
 };
 
 export type CapacityInfo = {

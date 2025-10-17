@@ -65,6 +65,8 @@ export async function POST(req: NextRequest) {
         booking_type: "dinner",
         seating_preference: "any",
         status: "confirmed",
+        checked_in_at: null,
+        checked_out_at: null,
         customer_name: "Test Customer",
         customer_email: email,
         customer_phone: "+1234567890",

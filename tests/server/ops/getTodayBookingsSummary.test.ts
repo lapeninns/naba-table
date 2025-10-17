@@ -28,6 +28,8 @@ type BookingRow = {
   reference: string | null;
   details: TodayBookingsSummary["bookings"][number]["details"];
   source?: string | null;
+  checked_in_at?: string | null;
+  checked_out_at?: string | null;
   booking_table_assignments?: {
     table_id: string | null;
     table_inventory?: {
@@ -151,6 +153,8 @@ describe("getTodayBookingsSummary", () => {
         reference: "REF-001",
         details: { source: "online" },
         source: "web",
+        checked_in_at: null,
+        checked_out_at: null,
         booking_table_assignments: [
           {
             table_id: "table-1",
@@ -175,6 +179,8 @@ describe("getTodayBookingsSummary", () => {
         reference: "REF-002",
         details: null,
         source: "web",
+        checked_in_at: "2025-03-01T19:05:00.000Z",
+        checked_out_at: null,
         booking_table_assignments: [
           {
             table_id: "table-2",
@@ -199,6 +205,8 @@ describe("getTodayBookingsSummary", () => {
         reference: null,
         details: null,
         source: "api",
+        checked_in_at: null,
+        checked_out_at: null,
       },
       {
         id: "b-4",
@@ -213,6 +221,8 @@ describe("getTodayBookingsSummary", () => {
         reference: null,
         details: null,
         source: "api",
+        checked_in_at: null,
+        checked_out_at: null,
       },
       {
         id: "b-5",
@@ -227,6 +237,8 @@ describe("getTodayBookingsSummary", () => {
         reference: "REF-005",
         details: { reason: "personal" },
         source: "web",
+        checked_in_at: null,
+        checked_out_at: null,
       },
       {
         id: "b-6",
@@ -241,6 +253,8 @@ describe("getTodayBookingsSummary", () => {
         reference: "REF-006",
         details: null,
         source: "web",
+        checked_in_at: null,
+        checked_out_at: null,
       },
     ];
 
@@ -282,6 +296,10 @@ describe("getTodayBookingsSummary", () => {
     ]);
     expect(firstBooking?.requiresTableAssignment).toBe(false);
 
+    const completedBooking = summary.bookings.find((booking) => booking.id === 'b-2');
+    expect(completedBooking?.checkedInAt).toBe('2025-03-01T19:05:00.000Z');
+    expect(completedBooking?.checkedOutAt).toBeNull();
+
     const pendingAllocation = summary.bookings.find((booking) => booking.id === 'b-4');
     expect(pendingAllocation?.tableAssignments).toEqual([]);
     expect(pendingAllocation?.requiresTableAssignment).toBe(true);
@@ -304,6 +322,8 @@ describe("getTodayBookingsSummary", () => {
         customer_phone: null,
         reference: null,
         details: null,
+        checked_in_at: null,
+        checked_out_at: null,
       },
     ];
 

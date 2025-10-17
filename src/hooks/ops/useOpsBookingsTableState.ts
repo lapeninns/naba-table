@@ -11,6 +11,7 @@ export type UseOpsBookingsTableStateOptions = {
   initialPage?: number;
   pageSize?: number;
   initialQuery?: string;
+  initialSelectedStatuses?: OpsBookingStatus[];
 };
 
 export function useOpsBookingsTableState({
@@ -18,10 +19,12 @@ export function useOpsBookingsTableState({
   initialPage = 1,
   pageSize = 10,
   initialQuery = '',
+  initialSelectedStatuses = [],
 }: UseOpsBookingsTableStateOptions = {}) {
   const [statusFilter, setStatusFilter] = useState<OpsStatusFilter>(initialStatus);
   const [page, setPage] = useState(initialPage);
   const [search, setSearch] = useState(initialQuery);
+  const [selectedStatuses, setSelectedStatuses] = useState<OpsBookingStatus[]>(initialSelectedStatuses);
 
   const handleStatusFilterChange = useCallback((nextStatus: OpsStatusFilter) => {
     setStatusFilter(nextStatus);
@@ -43,6 +46,25 @@ export function useOpsBookingsTableState({
     setPage(1);
   }, []);
 
+  const toggleSelectedStatus = useCallback((status: OpsBookingStatus) => {
+    setSelectedStatuses((current) => {
+      const exists = current.includes(status);
+      const next = exists ? current.filter((value) => value !== status) : [...current, status];
+      return next;
+    });
+    setPage(1);
+  }, []);
+
+  const replaceSelectedStatuses = useCallback((statuses: OpsBookingStatus[]) => {
+    setSelectedStatuses(statuses);
+    setPage(1);
+  }, []);
+
+  const clearSelectedStatuses = useCallback(() => {
+    setSelectedStatuses([]);
+    setPage(1);
+  }, []);
+
   const deferredSearch = useDeferredValue(search.trim());
 
   const queryFilters = useMemo(() => {
@@ -55,6 +77,7 @@ export function useOpsBookingsTableState({
       from?: Date;
       to?: Date;
       query?: string;
+      statuses?: OpsBookingStatus[];
     } = {
       page,
       pageSize,
@@ -86,8 +109,12 @@ export function useOpsBookingsTableState({
       filters.query = deferredSearch;
     }
 
+    if (selectedStatuses.length > 0) {
+      filters.statuses = selectedStatuses;
+    }
+
     return filters;
-  }, [deferredSearch, page, pageSize, statusFilter]);
+  }, [deferredSearch, page, pageSize, selectedStatuses, statusFilter]);
 
   return {
     statusFilter,
@@ -101,5 +128,9 @@ export function useOpsBookingsTableState({
     setPage,
     search,
     setSearch,
+    selectedStatuses,
+    toggleSelectedStatus,
+    setSelectedStatuses: replaceSelectedStatuses,
+    clearSelectedStatuses,
   } as const;
 }

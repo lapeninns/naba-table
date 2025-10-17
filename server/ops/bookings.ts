@@ -72,6 +72,8 @@ export type TodayBooking = {
     section: string | null;
   }[];
   requiresTableAssignment: boolean;
+  checkedInAt: string | null;
+  checkedOutAt: string | null;
 };
 
 export type TodayBookingsSummary = {
@@ -112,6 +114,8 @@ type BookingSummaryQueryRow = Pick<
   | "reference"
   | "details"
   | "source"
+  | "checked_in_at"
+  | "checked_out_at"
   | "customer_id"
 > & {
   booking_table_assignments: BookingSummaryTableAssignment[] | null;
@@ -169,6 +173,8 @@ export async function getTodayBookingsSummary(
         reference,
         details,
         source,
+        checked_in_at,
+        checked_out_at,
         customer_id,
         booking_table_assignments (
           table_id,
@@ -261,6 +267,8 @@ export async function getTodayBookingsSummary(
       marketingOptIn: profileData?.marketingOptIn ?? null,
       tableAssignments,
       requiresTableAssignment,
+      checkedInAt: booking.checked_in_at ?? null,
+      checkedOutAt: booking.checked_out_at ?? null,
     };
   });
 
@@ -277,6 +285,10 @@ export async function getTodayBookingsSummary(
         case "confirmed":
           acc.confirmed += 1;
           acc.upcoming += 1;
+          break;
+        case "checked_in":
+          acc.confirmed += 1;
+          acc.completed += 1;
           break;
         case "completed":
           acc.confirmed += 1;

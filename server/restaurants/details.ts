@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getServiceSupabaseClient } from '@/server/supabase';
 import { updateRestaurant } from './update';
 import type { Database } from '@/types/supabase';
+import { assertValidTimezone } from '@/server/restaurants/timezone';
 
 type DbClient = SupabaseClient<Database, 'public', any>;
 
@@ -51,10 +52,7 @@ type NormalizedDetailsInput = {
 };
 
 function validateDetailsInput(input: NormalizedDetailsInput): NormalizedDetailsInput {
-  const timezone = input.timezone.trim();
-  if (!timezone) {
-    throw new Error('Timezone is required');
-  }
+  const timezone = assertValidTimezone(input.timezone);
 
   const name = input.name.trim();
   if (!name) {

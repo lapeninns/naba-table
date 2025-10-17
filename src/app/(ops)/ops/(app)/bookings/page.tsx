@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { OpsBookingsClient } from "@/components/features/bookings";
+import { BookingErrorBoundary } from "@/components/features/booking-state-machine";
+import { BookingOfflineQueueProvider } from "@/contexts/booking-offline-queue";
 import type { OpsStatusFilter } from "@/hooks";
+import type { OpsBookingStatus } from "@/types/ops";
 import { getServerComponentSupabaseClient } from "@/server/supabase";
 
 export const metadata: Metadata = {
@@ -17,6 +20,7 @@ type OpsBookingsSearchParams = {
   pageSize?: string;
   status?: string;
   query?: string;
+  statuses?: string;
 };
 
 const VALID_FILTERS: OpsStatusFilter[] = [
@@ -31,9 +35,31 @@ const VALID_FILTERS: OpsStatusFilter[] = [
   "no_show",
 ];
 
+const VALID_STATUSES: OpsBookingStatus[] = [
+  "pending",
+  "pending_allocation",
+  "confirmed",
+  "checked_in",
+  "completed",
+  "cancelled",
+  "no_show",
+];
+
 function parseStatusFilter(raw: string | undefined): OpsStatusFilter | null {
   if (!raw) return null;
   return VALID_FILTERS.includes(raw as OpsStatusFilter) ? (raw as OpsStatusFilter) : null;
+}
+
+function parseStatuses(raw: string | undefined): OpsBookingStatus[] {
+  if (!raw) return [];
+  const parts = raw.split(",").map((value) => value.trim()).filter((value) => value.length > 0);
+  const valid = new Set<OpsBookingStatus>();
+  parts.forEach((value) => {
+    if (VALID_STATUSES.includes(value as OpsBookingStatus)) {
+      valid.add(value as OpsBookingStatus);
+    }
+  });
+  return Array.from(valid);
 }
 
 export default async function OpsBookingsPage({
@@ -63,15 +89,21 @@ export default async function OpsBookingsPage({
   const initialRestaurantId = resolvedParams.restaurantId ?? null;
   const rawQuery = resolvedParams.query?.trim() ?? "";
   const initialQuery = rawQuery.length > 0 ? rawQuery : null;
+  const initialStatuses = parseStatuses(resolvedParams.statuses);
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-8 py-6">
-      <OpsBookingsClient
-        initialFilter={initialFilter}
-        initialPage={initialPage}
-        initialRestaurantId={initialRestaurantId}
-        initialQuery={initialQuery}
-      />
+      <BookingErrorBoundary>
+        <BookingOfflineQueueProvider>
+          <OpsBookingsClient
+            initialFilter={initialFilter}
+            initialPage={initialPage}
+            initialRestaurantId={initialRestaurantId}
+            initialQuery={initialQuery}
+            initialStatuses={initialStatuses}
+          />
+        </BookingOfflineQueueProvider>
+      </BookingErrorBoundary>
     </div>
   );
 }

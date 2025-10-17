@@ -7,6 +7,7 @@ import {
 } from '@/server/bookings/timeValidation';
 
 import type { ServiceAvailability } from '@/server/restaurants/schedule';
+import type { ReservationTime } from '@reserve/shared/time';
 
 const baseAvailability: ServiceAvailability = {
   services: {
@@ -23,6 +24,8 @@ const baseAvailability: ServiceAvailability = {
   },
 };
 
+const toReservationTime = (value: string): ReservationTime => value as ReservationTime;
+
 function buildSchedule(overrides: Partial<BookingOperatingWindow> = {}): BookingOperatingWindow {
   const defaultSchedule: BookingOperatingWindow = {
     isClosed: false,
@@ -32,7 +35,7 @@ function buildSchedule(overrides: Partial<BookingOperatingWindow> = {}): Booking
     },
     slots: [
       {
-        value: '19:00',
+        value: toReservationTime('19:00'),
         display: '7:00 PM',
         periodId: null,
         periodName: 'Dinner',
@@ -42,7 +45,7 @@ function buildSchedule(overrides: Partial<BookingOperatingWindow> = {}): Booking
         disabled: false,
       },
       {
-        value: '21:30',
+        value: toReservationTime('21:30'),
         display: '9:30 PM',
         periodId: null,
         periodName: 'Late Dinner',
@@ -134,7 +137,7 @@ describe('assertBookingWithinOperatingWindow', () => {
     const schedule = buildSchedule({
       slots: [
         {
-          value: '19:00',
+          value: toReservationTime('19:00'),
           display: '7:00 PM',
           periodId: null,
           periodName: 'Dinner',

@@ -1,7 +1,11 @@
 'use client';
 
+import { useMemo } from 'react';
+
+import { BookingActionButton, BookingStatusBadge, StatusTransitionAnimator, type BookingActionSubject, type BookingAction } from '@/components/features/booking-state-machine';
 import { Button } from '@/components/ui/button';
 import type { BookingDTO } from '@/hooks/useBookings';
+import type { OpsBookingStatus } from '@/types/ops';
 import { cn } from '@/lib/utils';
 
 import { OpsBookingDetailsDialog } from './OpsBookingDetailsDialog';
@@ -15,6 +19,14 @@ export type BookingRowProps = {
   onCancel: (booking: BookingDTO) => void;
   isPastView?: boolean;
   variant?: 'guest' | 'ops';
+  opsLifecycle?: {
+    pendingBookingId: string | null;
+    pendingAction: BookingAction | null;
+    onCheckIn: (booking: BookingDTO) => Promise<void>;
+    onCheckOut: (booking: BookingDTO) => Promise<void>;
+    onMarkNoShow: (booking: BookingDTO, options?: { performedAt?: string | null; reason?: string | null }) => Promise<void>;
+    onUndoNoShow: (booking: BookingDTO, reason?: string | null) => Promise<void>;
+  };
 };
 
 export function isBookingPast(booking: BookingDTO): boolean {
@@ -49,10 +61,18 @@ export function BookingRow({
   onCancel,
   isPastView = false,
   variant = 'guest',
+  opsLifecycle,
 }: BookingRowProps) {
   const isCancelled = booking.status === 'cancelled';
   const { displayStatus, isPast } = deriveBookingDisplayState(booking, { isPastView });
   const isOpsVariant = variant === 'ops';
+  const pendingAction = opsLifecycle && opsLifecycle.pendingBookingId === booking.id ? opsLifecycle.pendingAction : null;
+  const actionSubject = useMemo<BookingActionSubject>(() => ({
+    id: booking.id,
+    status: booking.status as OpsBookingStatus,
+    checkedInAt: null,
+    checkedOutAt: null,
+  }), [booking.id, booking.status]);
 
   const textClass = (extra?: string) =>
     cn('px-4 py-4 text-sm', extra, isPast ? 'text-muted-foreground' : 'text-foreground');
@@ -92,11 +112,34 @@ export function BookingRow({
         </td>
       )}
       <td className={textClass()}>
-        <StatusChip status={displayStatus} />
+        {isOpsVariant && opsLifecycle ? (
+          <StatusTransitionAnimator
+            status={booking.status as OpsBookingStatus}
+            className="inline-flex rounded-full"
+            overlayClassName="inline-flex"
+          >
+            <BookingStatusBadge status={booking.status as OpsBookingStatus} />
+          </StatusTransitionAnimator>
+        ) : (
+          <StatusChip status={displayStatus} />
+        )}
       </td>
       <td className={textClass('text-right')}>
         <div className="flex justify-end gap-2">
-          {isOpsVariant ? (
+          {isOpsVariant && opsLifecycle ? (
+            <>
+              <BookingActionButton
+                booking={actionSubject}
+                pendingAction={pendingAction}
+                onCheckIn={() => opsLifecycle.onCheckIn(booking)}
+                onCheckOut={() => opsLifecycle.onCheckOut(booking)}
+                onMarkNoShow={(options) => opsLifecycle.onMarkNoShow(booking, options)}
+                onUndoNoShow={(reason) => opsLifecycle.onUndoNoShow(booking, reason)}
+                showConfirmation
+              />
+              <OpsBookingDetailsDialog booking={booking} formatDate={formatDate} formatTime={formatTime} />
+            </>
+          ) : isOpsVariant ? (
             <OpsBookingDetailsDialog booking={booking} formatDate={formatDate} formatTime={formatTime} />
           ) : null}
           <Button

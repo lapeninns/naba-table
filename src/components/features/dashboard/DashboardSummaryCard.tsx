@@ -23,8 +23,14 @@ type DashboardSummaryCardProps = {
   heatmapError?: Error | null;
   filter: BookingFilter;
   onFilterChange: (filter: BookingFilter) => void;
-  onMarkStatus: (bookingId: string, status: 'completed' | 'no_show') => Promise<void>;
-  pendingBookingId?: string | null;
+  onMarkNoShow: (bookingId: string, options?: { performedAt?: string | null; reason?: string | null }) => Promise<void>;
+  onUndoNoShow: (bookingId: string, reason?: string | null) => Promise<void>;
+  onCheckIn: (bookingId: string) => Promise<void>;
+  onCheckOut: (bookingId: string) => Promise<void>;
+  pendingLifecycleAction?: {
+    bookingId: string | null;
+    action: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show';
+  } | null;
   exportDate: string;
 };
 
@@ -39,8 +45,11 @@ export function DashboardSummaryCard({
   heatmapError,
   filter,
   onFilterChange,
-  onMarkStatus,
-  pendingBookingId,
+  onMarkNoShow,
+  onUndoNoShow,
+  onCheckIn,
+  onCheckOut,
+  pendingLifecycleAction,
   exportDate,
 }: DashboardSummaryCardProps) {
   if (!summary) {
@@ -74,8 +83,11 @@ export function DashboardSummaryCard({
           bookings={summary.bookings}
           filter={filter}
           summary={summary}
-          onMarkStatus={onMarkStatus}
-          pendingBookingId={pendingBookingId}
+          onMarkNoShow={onMarkNoShow}
+          onUndoNoShow={onUndoNoShow}
+          onCheckIn={onCheckIn}
+          onCheckOut={onCheckOut}
+          pendingLifecycleAction={pendingLifecycleAction}
         />
 
         <section className="rounded-2xl border border-border/60 bg-muted/10 p-4">

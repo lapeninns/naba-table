@@ -30,6 +30,7 @@ export type OpsBookingStatus =
   | 'pending'
   | 'pending_allocation'
   | 'confirmed'
+  | 'checked_in'
   | 'cancelled'
   | 'completed'
   | 'no_show';
@@ -61,6 +62,8 @@ export type OpsTodayBooking = {
     section: string | null;
   }[];
   requiresTableAssignment: boolean;
+  checkedInAt: string | null;
+  checkedOutAt: string | null;
 };
 
 export type OpsTodayTotals = {
@@ -99,6 +102,7 @@ export type OpsBookingsFilters = {
   from?: Date | string | null;
   to?: Date | string | null;
   query?: string | null;
+  statuses?: OpsBookingStatus[] | null;
 };
 
 export type OpsWalkInBookingPayload = {

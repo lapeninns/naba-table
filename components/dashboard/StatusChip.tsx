@@ -6,6 +6,7 @@ import type { BookingStatus } from '@/hooks/useBookings';
 
 const STATUS_LABEL: Record<BookingStatus, string> = {
   confirmed: 'Confirmed',
+  checked_in: 'Checked in',
   pending: 'Pending',
   pending_allocation: 'Pending allocation',
   cancelled: 'Cancelled',
@@ -15,6 +16,7 @@ const STATUS_LABEL: Record<BookingStatus, string> = {
 
 const STATUS_ACCENT: Record<BookingStatus, string> = {
   confirmed: '#047857',
+  checked_in: '#047857',
   pending: '#b45309',
   pending_allocation: '#0369a1',
   cancelled: '#b91c1c',

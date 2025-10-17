@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { getServiceSupabaseClient } from '@/server/supabase';
 import type { Database } from '@/types/supabase';
+import { assertValidTimezone } from '@/server/restaurants/timezone';
 
 type DbClient = SupabaseClient<Database, 'public', any>;
 
@@ -65,7 +66,7 @@ export async function updateRestaurant(
   }
 
   if (input.timezone !== undefined) {
-    updateData.timezone = input.timezone;
+    updateData.timezone = assertValidTimezone(input.timezone);
   }
 
   if (input.capacity !== undefined) {

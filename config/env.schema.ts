@@ -36,6 +36,7 @@ const baseEnvSchema = z
     FEATURE_GUEST_LOOKUP_POLICY: booleanStringOptional,
     FEATURE_OPS_GUARD_V2: booleanStringOptional,
     FEATURE_BOOKING_PAST_TIME_BLOCKING: booleanStringOptional,
+    FEATURE_OPS_BOOKING_LIFECYCLE_V2: booleanStringOptional,
     FEATURE_CAPACITY_ADMIN_DASHBOARD: booleanStringOptional,
     BOOKING_PAST_TIME_GRACE_MINUTES: z.coerce.number().int().min(0).max(60).optional(),
     GUEST_LOOKUP_PEPPER: z.string().min(1).optional(),

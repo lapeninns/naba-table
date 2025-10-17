@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { BookingDTO, BookingStatus, BookingsPage } from '@/hooks/useBookings';
+import type { BookingAction } from '@/components/features/booking-state-machine';
 import type { StatusFilter } from '@/hooks/useBookingsTableState';
 import type { HttpError } from '@/lib/http/errors';
 
@@ -32,6 +33,14 @@ export type BookingsTableProps = {
   onEdit: (booking: BookingDTO) => void;
   onCancel: (booking: BookingDTO) => void;
   variant?: 'guest' | 'ops';
+  opsLifecycle?: {
+    pendingBookingId: string | null;
+    pendingAction: BookingAction | null;
+    onCheckIn: (booking: BookingDTO) => Promise<void>;
+    onCheckOut: (booking: BookingDTO) => Promise<void>;
+    onMarkNoShow: (booking: BookingDTO, options?: { performedAt?: string | null; reason?: string | null }) => Promise<void>;
+    onUndoNoShow: (booking: BookingDTO, reason?: string | null) => Promise<void>;
+  };
 };
 
 const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
@@ -60,6 +69,7 @@ export function BookingsTable({
   onEdit,
   onCancel,
   variant = 'guest',
+  opsLifecycle,
 }: BookingsTableProps) {
   const showSkeleton = isLoading;
   const showEmpty = !isLoading && !error && bookings.length === 0;
@@ -268,6 +278,7 @@ export function BookingsTable({
                         onCancel={onCancel}
                         isPastView={isPastView}
                         variant={variant}
+                        opsLifecycle={isOpsVariant ? opsLifecycle : undefined}
                       />
                     ))}
               </tbody>

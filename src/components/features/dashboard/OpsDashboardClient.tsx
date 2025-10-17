@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOpsActiveMembership, useOpsAccountSnapshot } from '@/contexts/ops-session';
-import { useOpsTodaySummary, useOpsBookingStatusActions, useOpsCapacityUtilization, useOpsTodayVIPs, useOpsBookingChanges, useOpsBookingHeatmap } from '@/hooks';
+import { useOpsTodaySummary, useOpsBookingLifecycleActions, useOpsCapacityUtilization, useOpsTodayVIPs, useOpsBookingChanges, useOpsBookingHeatmap } from '@/hooks';
 import { formatDateKey, formatDateReadable, formatTimeRange } from '@/lib/utils/datetime';
 import { cn } from '@/lib/utils';
 import { sanitizeDateParam, computeCalendarRange } from '@/utils/ops/dashboard';
@@ -26,6 +26,7 @@ import type { PeriodUtilization } from './CapacityVisualization';
 
 import type { BookingFilter } from './BookingsFilterBar';
 import { useOpsTableAssignmentActions } from '@/hooks';
+import { BookingOfflineBanner } from '@/components/features/booking-state-machine';
 
 
 const DEFAULT_FILTER: BookingFilter = 'all';
@@ -41,7 +42,7 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
   const searchParams = useSearchParams();
   const [filter, setFilter] = useState<BookingFilter>(DEFAULT_FILTER);
   const [selectedDate, setSelectedDate] = useState<string | null>(sanitizeDateParam(initialDate ?? undefined));
-  const [pendingBookingId, setPendingBookingId] = useState<string | null>(null);
+  const [pendingBookingAction, setPendingBookingAction] = useState<{ bookingId: string; action: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show' } | null>(null);
   const [, startTransition] = useTransition();
 
   const restaurantId = membership?.restaurantId ?? null;
@@ -84,7 +85,7 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
     enabled: Boolean(restaurantId && selectedDate),
   });
 
-  const bookingStatusMutation = useOpsBookingStatusActions();
+  const bookingLifecycleMutations = useOpsBookingLifecycleActions();
   const assignmentDate = summary?.date ?? selectedDate ?? null;
   const tableAssignmentActions = useOpsTableAssignmentActions({ restaurantId, date: assignmentDate });
 
@@ -183,13 +184,62 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
   ]);
 
   // Handler functions (not hooks, but keeping them before early returns for consistency)
-  const handleStatusChange = async (bookingId: string, status: 'completed' | 'no_show') => {
+  const handleMarkNoShow = async (bookingId: string, options?: { performedAt?: string | null; reason?: string | null }) => {
     if (!restaurantId) return;
-    setPendingBookingId(bookingId);
+    setPendingBookingAction({ bookingId, action: 'no-show' });
     try {
-      await bookingStatusMutation.mutateAsync({ restaurantId, bookingId, status, targetDate: summary?.date });
+      await bookingLifecycleMutations.markNoShow.mutateAsync({
+        restaurantId,
+        bookingId,
+        performedAt: options?.performedAt ?? null,
+        reason: options?.reason ?? null,
+        targetDate: summary?.date,
+      });
     } finally {
-      setPendingBookingId(null);
+      setPendingBookingAction(null);
+    }
+  };
+
+  const handleUndoNoShow = async (bookingId: string, reason?: string | null) => {
+    if (!restaurantId) return;
+    setPendingBookingAction({ bookingId, action: 'undo-no-show' });
+    try {
+      await bookingLifecycleMutations.undoNoShow.mutateAsync({
+        restaurantId,
+        bookingId,
+        reason: reason ?? null,
+        targetDate: summary?.date,
+      });
+    } finally {
+      setPendingBookingAction(null);
+    }
+  };
+
+  const handleCheckIn = async (bookingId: string) => {
+    if (!restaurantId) return;
+    setPendingBookingAction({ bookingId, action: 'check-in' });
+    try {
+      await bookingLifecycleMutations.checkIn.mutateAsync({
+        restaurantId,
+        bookingId,
+        targetDate: summary?.date,
+      });
+    } finally {
+      setPendingBookingAction(null);
+    }
+  };
+
+  const handleCheckOut = async (bookingId: string) => {
+    if (!restaurantId) return;
+    setPendingBookingAction({ bookingId, action: 'check-out' });
+    try {
+      await bookingLifecycleMutations.checkOut.mutateAsync({
+        restaurantId,
+        bookingId,
+        targetDate: summary?.date,
+      });
+    } finally {
+      setPendingBookingAction(null);
     }
   };
 
@@ -236,6 +286,8 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
           <h1 className="text-xl font-semibold leading-tight text-slate-900 sm:text-2xl sm:leading-normal lg:text-3xl">Operations Dashboard</h1>
           <p className="text-sm text-slate-600">{restaurantName}</p>
         </header>
+
+        <BookingOfflineBanner />
 
         <section
           aria-label="Service date"
@@ -346,8 +398,11 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
                 bookings={summary.bookings}
                 filter={filter}
                 summary={summary}
-                onMarkStatus={handleStatusChange}
-                pendingBookingId={pendingBookingId}
+                onMarkNoShow={handleMarkNoShow}
+                onUndoNoShow={handleUndoNoShow}
+                onCheckIn={handleCheckIn}
+                onCheckOut={handleCheckOut}
+                pendingLifecycleAction={pendingBookingAction}
                 onAssignTable={handleAssignTable}
                 onUnassignTable={handleUnassignTable}
                 tableActionState={tableActionState}

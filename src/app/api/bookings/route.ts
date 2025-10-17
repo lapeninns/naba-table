@@ -99,6 +99,11 @@ type PostgrestErrorLike = {
   message?: string;
 };
 
+type BookingCreationError = Error & {
+  code?: string;
+  details?: Json | null;
+};
+
 function extractPostgrestError(error: unknown): PostgrestErrorLike {
   if (typeof error === "object" && error !== null) {
     const record = error as Record<string, unknown>;
@@ -621,7 +626,19 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      throw new Error(bookingResult.message ?? "Unable to create booking");
+      if (bookingResult.error === "INTERNAL_ERROR") {
+        console.error("[bookings][POST][rpc]", {
+          restaurantId,
+          bookingDate: data.date,
+          startTime,
+          details: bookingResult.details ?? null,
+        });
+      }
+
+      const bookingError = new Error(bookingResult.message ?? "Unable to create booking") as BookingCreationError;
+      bookingError.code = bookingResult.error ?? "INTERNAL_ERROR";
+      bookingError.details = (bookingResult.details as Json | null) ?? null;
+      throw bookingError;
     }
 
     const booking = bookingResult.booking as BookingRecord | undefined;
@@ -744,6 +761,14 @@ export async function POST(req: NextRequest) {
     );
   } catch (error: unknown) {
     const message = stringifyError(error);
+    const enriched = error as BookingCreationError | undefined;
+    const errorCode = enriched?.code;
+    const errorDetails = enriched?.details ?? null;
+
+    if (errorDetails) {
+      console.error("[bookings][POST][details]", errorDetails);
+    }
+
     console.error("[bookings][POST]", message);
 
     const emailDomain = data.email.includes("@") ? data.email.split("@")[1] : null;
@@ -759,6 +784,8 @@ export async function POST(req: NextRequest) {
         bookingDate: data.date,
         emailDomain,
         phoneSuffix,
+        errorCode,
+        details: errorDetails,
       } as Json,
     });
 

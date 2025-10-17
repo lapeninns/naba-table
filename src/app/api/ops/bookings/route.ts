@@ -100,6 +100,18 @@ function sanitizeSearchTerm(input: string): string {
 const opsBookingsQuerySchema = z.object({
   restaurantId: z.string().uuid().optional(),
   status: z.enum(OPS_BOOKING_STATUSES).optional(),
+  statuses: z
+    .string()
+    .optional()
+    .transform((value) => {
+      if (!value) return [] as typeof OPS_BOOKING_STATUSES[number][];
+      return value
+        .split(',')
+        .map((entry) => entry.trim())
+        .filter((entry): entry is typeof OPS_BOOKING_STATUSES[number] =>
+          OPS_BOOKING_STATUSES.includes(entry as (typeof OPS_BOOKING_STATUSES)[number]),
+        );
+    }),
   from: z.string().datetime({ offset: true }).optional(),
   to: z.string().datetime({ offset: true }).optional(),
   sort: z.enum(["asc", "desc"]).default("asc"),
@@ -221,6 +233,7 @@ export async function GET(req: NextRequest) {
   const rawParams = {
     restaurantId: req.nextUrl.searchParams.get("restaurantId") ?? undefined,
     status: req.nextUrl.searchParams.get("status") ?? undefined,
+    statuses: req.nextUrl.searchParams.get("statuses") ?? undefined,
     from: req.nextUrl.searchParams.get("from") ?? undefined,
     to: req.nextUrl.searchParams.get("to") ?? undefined,
     sort: req.nextUrl.searchParams.get("sort") ?? undefined,
@@ -299,7 +312,9 @@ export async function GET(req: NextRequest) {
     )
     .eq("restaurant_id", targetRestaurantId);
 
-  if (params.status) {
+  if (params.statuses.length > 0) {
+    query = query.in("status", params.statuses);
+  } else if (params.status) {
     query = query.eq("status", params.status);
   }
 

@@ -128,6 +128,13 @@ const STATUS_PRESENTATION: Record<BookingRecord["status"], StatusPresentation> =
     border: "#f59e0b",
     note: "You're on the list and we are securing the best table for your party.",
   },
+  checked_in: {
+    label: "Checked in",
+    badgeBg: "#dcfce7",
+    badgeText: "#166534",
+    border: "#22c55e",
+    note: "Thanks for arriving on time. We hope you enjoy your experience.",
+  },
   cancelled: {
     label: "Cancelled",
     badgeBg: "#fee2e2",

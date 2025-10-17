@@ -130,6 +130,47 @@ export type Database = {
         }
         Relationships: []
       }
+      booking_state_history: {
+        Row: {
+          booking_id: string
+          changed_at: string
+          changed_by: string | null
+          from_status: Database["public"]["Enums"]["booking_status"] | null
+          id: number
+          metadata: Json
+          reason: string | null
+          to_status: Database["public"]["Enums"]["booking_status"]
+        }
+        Insert: {
+          booking_id: string
+          changed_at?: string
+          changed_by?: string | null
+          from_status?: Database["public"]["Enums"]["booking_status"] | null
+          id?: number
+          metadata?: Json
+          reason?: string | null
+          to_status: Database["public"]["Enums"]["booking_status"]
+        }
+        Update: {
+          booking_id?: string
+          changed_at?: string
+          changed_by?: string | null
+          from_status?: Database["public"]["Enums"]["booking_status"] | null
+          id?: number
+          metadata?: Json
+          reason?: string | null
+          to_status?: Database["public"]["Enums"]["booking_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_state_history_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       booking_slots: {
         Row: {
           available_capacity: number
@@ -299,6 +340,8 @@ export type Database = {
           booking_date: string
           booking_type: Database["public"]["Enums"]["booking_type"]
           client_request_id: string
+          checked_in_at: string | null
+          checked_out_at: string | null
           confirmation_token: string | null
           confirmation_token_expires_at: string | null
           confirmation_token_used_at: string | null
@@ -330,6 +373,8 @@ export type Database = {
           booking_date: string
           booking_type?: Database["public"]["Enums"]["booking_type"]
           client_request_id?: string
+          checked_in_at?: string | null
+          checked_out_at?: string | null
           confirmation_token?: string | null
           confirmation_token_expires_at?: string | null
           confirmation_token_used_at?: string | null
@@ -361,6 +406,8 @@ export type Database = {
           booking_date?: string
           booking_type?: Database["public"]["Enums"]["booking_type"]
           client_request_id?: string
+          checked_in_at?: string | null
+          checked_out_at?: string | null
           confirmation_token?: string | null
           confirmation_token_expires_at?: string | null
           confirmation_token_used_at?: string | null
@@ -1145,6 +1192,39 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_booking_state_transition: {
+        Args: {
+          p_booking_id: string
+          p_status: Database["public"]["Enums"]["booking_status"]
+          p_checked_in_at?: string | null
+          p_checked_out_at?: string | null
+          p_updated_at: string
+          p_history_from?: Database["public"]["Enums"]["booking_status"] | null
+          p_history_to: Database["public"]["Enums"]["booking_status"]
+          p_history_changed_by?: string | null
+          p_history_changed_at: string
+          p_history_reason?: string | null
+          p_history_metadata?: Json
+        }
+        Returns: {
+          status: Database["public"]["Enums"]["booking_status"]
+          checked_in_at: string | null
+          checked_out_at: string | null
+          updated_at: string
+        }[]
+      }
+      booking_status_summary: {
+        Args: {
+          p_restaurant_id: string
+          p_start_date?: string | null
+          p_end_date?: string | null
+          p_status_filter?: Database["public"]["Enums"]["booking_status"][] | null
+        }
+        Returns: {
+          status: Database["public"]["Enums"]["booking_status"]
+          total: number
+        }[]
+      }
       assign_table_to_booking: {
         Args: {
           p_assigned_by?: string
@@ -1447,6 +1527,7 @@ export type Database = {
       booking_change_type: "created" | "updated" | "cancelled" | "deleted"
       booking_status:
         | "confirmed"
+        | "checked_in"
         | "pending"
         | "cancelled"
         | "completed"
@@ -1604,6 +1685,7 @@ export const Constants = {
       booking_change_type: ["created", "updated", "cancelled", "deleted"],
       booking_status: [
         "confirmed",
+        "checked_in",
         "pending",
         "cancelled",
         "completed",

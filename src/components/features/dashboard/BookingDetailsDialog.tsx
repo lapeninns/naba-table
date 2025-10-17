@@ -1,48 +1,25 @@
 'use client';
 
-import { Mail, Phone, Clock, Users, Calendar as CalendarIcon, AlertTriangle, Award, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
-import { useEffect, useMemo, useState, type ComponentType } from 'react';
+import { Mail, Phone, Clock, Users, Calendar as CalendarIcon, AlertTriangle, Award, CheckCircle2, XCircle, Loader2, LogIn, LogOut, History, ArrowRight, Keyboard } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState, type ComponentType } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
+import { BookingActionButton, BookingStatusBadge, StatusTransitionAnimator } from '@/components/features/booking-state-machine';
+import type { BookingAction } from '@/components/features/booking-state-machine';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { formatDateReadable, formatTimeRange } from '@/lib/utils/datetime';
 import { queryKeys } from '@/lib/query/keys';
-import { useTableInventoryService } from '@/contexts/ops-services';
+import { useBookingState } from '@/contexts/booking-state-machine';
+import { useBookingService, useTableInventoryService } from '@/contexts/ops-services';
 import type { TableInventory } from '@/services/ops/tables';
 
 import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
-
-
-const STATUS_LABELS: Record<string, string> = {
-  completed: 'Show',
-  confirmed: 'Confirmed',
-  pending: 'Pending',
-  pending_allocation: 'Pending allocation',
-  no_show: 'No show',
-  cancelled: 'Cancelled',
-};
 
 const TIER_COLORS: Record<string, string> = {
   platinum: 'bg-purple-500 text-white border-purple-500',
@@ -54,7 +31,11 @@ const TIER_COLORS: Record<string, string> = {
 type BookingDetailsDialogProps = {
   booking: OpsTodayBooking;
   summary: OpsTodayBookingsSummary;
-  onStatusChange: (status: 'completed' | 'no_show') => Promise<void>;
+  onCheckIn?: () => Promise<void>;
+  onCheckOut?: () => Promise<void>;
+  onMarkNoShow?: (options?: { performedAt?: string | null; reason?: string | null }) => Promise<void>;
+  onUndoNoShow?: (reason?: string | null) => Promise<void>;
+  pendingLifecycleAction?: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show' | null;
   onAssignTable?: (tableId: string) => Promise<OpsTodayBooking['tableAssignments']>;
   onUnassignTable?: (tableId: string) => Promise<OpsTodayBooking['tableAssignments']>;
   tableActionState?: {
@@ -68,23 +49,84 @@ const DEFAULT_DURATION_MINUTES = 90;
 export function BookingDetailsDialog({
   booking,
   summary,
-  onStatusChange,
+  onCheckIn,
+  onCheckOut,
+  onMarkNoShow,
+  onUndoNoShow,
+  pendingLifecycleAction,
   onAssignTable,
   onUnassignTable,
   tableActionState,
 }: BookingDetailsDialogProps) {
-  const [pendingStatus, setPendingStatus] = useState<'completed' | 'no_show' | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [assignments, setAssignments] = useState<OpsTodayBooking['tableAssignments']>(booking.tableAssignments);
+  const [localPendingAction, setLocalPendingAction] = useState<BookingAction | null>(null);
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   const mailHref = booking.customerEmail ? `mailto:${booking.customerEmail}` : null;
   const phoneHref = booking.customerPhone ? `tel:${booking.customerPhone.replace(/[^+\d]/g, '')}` : null;
 
   const serviceDateReadable = formatDateReadable(summary.date, summary.timezone);
   const serviceTime = formatTimeRange(booking.startTime, booking.endTime, summary.timezone);
+  const bookingState = useBookingState(booking.id);
+  const effectiveStatus = bookingState.effectiveStatus ?? booking.status;
+  const lifecyclePending = pendingLifecycleAction ?? localPendingAction;
+  const hasCheckedIn = effectiveStatus === 'checked_in' || effectiveStatus === 'completed';
+  const hasCheckedOut = effectiveStatus === 'completed' || Boolean(booking.checkedOutAt);
+  const isCancelled = effectiveStatus === 'cancelled';
+  const showLifecycleBadges = effectiveStatus !== 'checked_in' && effectiveStatus !== 'completed';
   const tableService = useTableInventoryService();
+  const bookingService = useBookingService();
   const supportsTableAssignment = Boolean(onAssignTable && onUnassignTable);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
+  const {
+    data: historyData,
+    isLoading: historyLoading,
+    isError: historyError,
+    error: historyErrorObject,
+    refetch: refetchHistory,
+  } = useQuery({
+    queryKey: queryKeys.bookings.history(booking.id),
+    queryFn: async () => bookingService.getBookingHistory(booking.id),
+    enabled: false,
+    staleTime: 60_000,
+  });
+
+  const historyEntries = historyData?.entries ?? [];
+  const historyErrorMessage = historyErrorObject instanceof Error ? historyErrorObject.message : 'Unable to load history';
+
+  const handleOpenHistory = () => {
+    setIsHistoryOpen(true);
+    void refetchHistory();
+  };
+
+  const formatLifecycleTimestamp = (iso: string | null) => {
+    if (!iso) return 'Not yet';
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return 'Not yet';
+    const formatter = new Intl.DateTimeFormat('en-GB', {
+      timeZone: summary.timezone,
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    return formatter.format(date);
+  };
+
+  const formatHistoryDate = (iso: string | null | undefined) => {
+    if (!iso) return null;
+    const parsed = new Date(iso);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return format(parsed, 'dd MMM yyyy, HH:mm');
+  };
+
+  const getMetadataString = (metadata: Record<string, unknown>, key: string): string | null => {
+    const value = metadata?.[key as keyof typeof metadata];
+    return typeof value === 'string' && value.length > 0 ? value : null;
+  };
 
   useEffect(() => {
     setAssignments(booking.tableAssignments);
@@ -146,6 +188,7 @@ export function BookingDetailsDialog({
   useEffect(() => {
     if (!isOpen) {
       setSelectedTableId(null);
+      setLocalPendingAction(null);
     }
   }, [isOpen]);
 
@@ -182,36 +225,182 @@ export function BookingDetailsDialog({
     }
   };
 
-  const handleStatus = async (next: 'completed' | 'no_show') => {
-    if (pendingStatus) return;
-    setPendingStatus(next);
+  const handleCheckInAction = async () => {
+    if (!onCheckIn) return;
+    setLocalPendingAction('check-in');
     try {
-      await onStatusChange(next);
+      await onCheckIn();
     } finally {
-      setPendingStatus(null);
+      setLocalPendingAction(null);
     }
   };
 
-  const isCancelled = booking.status === 'cancelled';
+  const handleCheckOutAction = async () => {
+    if (!onCheckOut) return;
+    setLocalPendingAction('check-out');
+    try {
+      await onCheckOut();
+    } finally {
+      setLocalPendingAction(null);
+    }
+  };
+
+  const handleMarkNoShowAction = async (options?: { performedAt?: string | null; reason?: string | null }) => {
+    if (!onMarkNoShow) return;
+    setLocalPendingAction('no-show');
+    try {
+      await onMarkNoShow(options);
+    } finally {
+      setLocalPendingAction(null);
+    }
+  };
+
+  const handleUndoNoShowAction = async (reason?: string | null) => {
+    if (!onUndoNoShow) return;
+    setLocalPendingAction('undo-no-show');
+    try {
+      await onUndoNoShow(reason);
+    } finally {
+      setLocalPendingAction(null);
+    }
+  };
+
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent) => {
+      if (!isOpen) return;
+      if (event.defaultPrevented) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target) {
+        const tagName = target.tagName;
+        if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || target.isContentEditable) {
+          return;
+        }
+      }
+
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        if (showShortcuts) {
+          setShowShortcuts(false);
+        } else {
+          setIsOpen(false);
+        }
+        return;
+      }
+
+      if (event.key === '?' || (event.key === '/' && event.shiftKey)) {
+        event.preventDefault();
+        setShowShortcuts(true);
+        return;
+      }
+
+      if (lifecyclePending) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      if (key === 'i' && effectiveStatus === 'confirmed') {
+        event.preventDefault();
+        void handleCheckInAction();
+        return;
+      }
+      if (key === 'o' && effectiveStatus === 'checked_in') {
+        event.preventDefault();
+        void handleCheckOutAction();
+        return;
+      }
+      if (key === 'n' && effectiveStatus === 'confirmed') {
+        event.preventDefault();
+        void handleMarkNoShowAction();
+        return;
+      }
+      if (key === 'u' && effectiveStatus === 'no_show') {
+        event.preventDefault();
+        void handleUndoNoShowAction();
+      }
+    },
+    [effectiveStatus, handleCheckInAction, handleCheckOutAction, handleMarkNoShowAction, handleUndoNoShowAction, isOpen, lifecyclePending, showShortcuts],
+  );
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [handleKeyDown, isOpen]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="h-11 min-w-[100px] touch-manipulation">
-          Details
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+    <>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogTrigger asChild>
+          <Button variant="outline" size="sm" className="h-11 min-w-[100px] touch-manipulation">
+            Details
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between gap-3 text-xl font-semibold text-foreground">
             <span>{booking.customerName}</span>
-            <Badge variant="secondary" className="capitalize">
-              {STATUS_LABELS[booking.status] ?? booking.status}
-            </Badge>
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusTransitionAnimator
+                status={bookingState.status}
+                effectiveStatus={bookingState.effectiveStatus}
+                isTransitioning={bookingState.isTransitioning}
+                className="inline-flex rounded-full"
+                overlayClassName="inline-flex"
+              >
+                <BookingStatusBadge status={effectiveStatus} />
+              </StatusTransitionAnimator>
+              {showLifecycleBadges && booking.checkedInAt ? (
+                <Badge variant="outline" className="bg-emerald-50 text-emerald-700">
+                  Checked in
+                </Badge>
+              ) : null}
+              {showLifecycleBadges && booking.checkedOutAt ? (
+                <Badge variant="outline" className="bg-slate-100 text-slate-700">
+                  Checked out
+                </Badge>
+              ) : null}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 rounded-full px-3 text-xs font-semibold"
+                onClick={() => setShowShortcuts(true)}
+              >
+                <Keyboard className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                Shortcuts
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 rounded-full px-3 text-xs font-semibold"
+                onClick={handleOpenHistory}
+              >
+                <History className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                View history
+              </Button>
+            </div>
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
             {serviceDateReadable} · {serviceTime}
           </DialogDescription>
+          <div className="mt-4 space-y-3">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Status actions</h3>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <BookingActionButton
+                booking={booking}
+                pendingAction={lifecyclePending}
+                onCheckIn={handleCheckInAction}
+                onCheckOut={handleCheckOutAction}
+                onMarkNoShow={handleMarkNoShowAction}
+                onUndoNoShow={handleUndoNoShowAction}
+                showConfirmation
+              />
+            </div>
+          </div>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
@@ -221,6 +410,8 @@ export function BookingDetailsDialog({
             <InfoRow icon={CalendarIcon} label="Service date" value={serviceDateReadable} />
             <InfoRow icon={Mail} label="Email" value={booking.customerEmail ?? 'Not provided'} href={mailHref ?? undefined} />
             <InfoRow icon={Phone} label="Phone" value={booking.customerPhone ?? 'Not provided'} href={phoneHref ?? undefined} />
+            <InfoRow icon={LogIn} label="Checked in" value={formatLifecycleTimestamp(booking.checkedInAt)} />
+            <InfoRow icon={LogOut} label="Checked out" value={formatLifecycleTimestamp(booking.checkedOutAt)} />
           </section>
 
           {booking.notes ? (
@@ -432,61 +623,15 @@ export function BookingDetailsDialog({
             <p className="text-xs text-muted-foreground">
               Keep the team in sync by recording shows and no-shows as service progresses.
             </p>
-            <div className="flex flex-col gap-2">
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button disabled={isCancelled || booking.status === 'completed'} className="h-11">
-                    Mark as show
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Mark booking as show?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Confirm that {booking.customerName} has arrived for their reservation.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel disabled={pendingStatus !== null}>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() => {
-                        void handleStatus('completed');
-                      }}
-                      disabled={pendingStatus !== null}
-                    >
-                      {pendingStatus === 'completed' ? 'Updating…' : 'Confirm'}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" disabled={isCancelled || booking.status === 'no_show'} className="h-11">
-                    Mark as no show
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Mark booking as no show?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This flags the booking as unattended. You can update the status again if the guest arrives later.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel disabled={pendingStatus !== null}>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() => {
-                        void handleStatus('no_show');
-                      }}
-                      disabled={pendingStatus !== null}
-                    >
-                      {pendingStatus === 'no_show' ? 'Updating…' : 'Confirm'}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
+            <BookingActionButton
+              booking={booking}
+              pendingAction={lifecyclePending}
+              onCheckIn={handleCheckInAction}
+              onCheckOut={handleCheckOutAction}
+              onMarkNoShow={handleMarkNoShowAction}
+              onUndoNoShow={handleUndoNoShowAction}
+              showConfirmation
+            />
 
             {isCancelled ? (
               <p className="flex items-center gap-2 rounded-md border border-dashed border-border/80 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
@@ -497,7 +642,87 @@ export function BookingDetailsDialog({
           </aside>
         </div>
       </DialogContent>
-    </Dialog>
+      </Dialog>
+      <Dialog
+        open={isHistoryOpen}
+        onOpenChange={(open) => {
+          setIsHistoryOpen(open);
+          if (open) {
+            void refetchHistory();
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg max-h-[70vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Booking history</DialogTitle>
+            <DialogDescription>Lifecycle changes recorded for this reservation.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            {historyLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading history…
+              </div>
+            ) : historyError ? (
+              <p className="text-sm text-destructive">{historyErrorMessage}</p>
+            ) : historyEntries.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No lifecycle changes have been recorded yet.</p>
+            ) : (
+              historyEntries.map((entry) => {
+                const actorLabel = entry.actor?.name ?? entry.actor?.email ?? 'System';
+                const actionValue = getMetadataString(entry.metadata, 'action');
+                const actionLabel = actionValue ? actionValue.replace(/[-_]/g, ' ') : null;
+                const performedAtLabel = formatHistoryDate(getMetadataString(entry.metadata, 'performedAt'));
+                const changedAtLabel = formatHistoryDate(entry.changedAt) ?? entry.changedAt;
+
+                return (
+                  <div key={entry.id} className="rounded-xl border border-border/60 bg-muted/10 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        {entry.fromStatus ? (
+                          <BookingStatusBadge status={entry.fromStatus} size="sm" showTooltip />
+                        ) : (
+                          <Badge variant="outline" className="text-xs font-semibold uppercase tracking-wide">
+                            New
+                          </Badge>
+                        )}
+                        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                        <BookingStatusBadge status={entry.toStatus} size="sm" showTooltip />
+                      </div>
+                      <span className="text-xs text-muted-foreground">{changedAtLabel}</span>
+                    </div>
+                    <p className="mt-2 text-sm font-semibold text-foreground">{actorLabel}</p>
+                    {actionLabel ? (
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Action: {actionLabel}</p>
+                    ) : null}
+                    {entry.reason ? (
+                      <p className="mt-1 text-sm text-muted-foreground">Reason: {entry.reason}</p>
+                    ) : null}
+                    {performedAtLabel ? (
+                      <p className="mt-1 text-xs text-muted-foreground">Performed at: {performedAtLabel}</p>
+                    ) : null}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={showShortcuts} onOpenChange={setShowShortcuts}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Keyboard shortcuts</DialogTitle>
+            <DialogDescription>Use these keys to manage the booking without leaving the keyboard.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <ShortcutHint keys={['I']} description="Check in booking" />
+            <ShortcutHint keys={['O']} description="Check out booking" />
+            <ShortcutHint keys={['N']} description="Mark no-show" />
+            <ShortcutHint keys={['U']} description="Undo no-show" />
+            <ShortcutHint keys={['Esc']} description="Close this dialog" />
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -526,6 +751,29 @@ function InfoRow({ icon: Icon, label, value, href }: InfoRowProps) {
       ) : (
         content
       )}
+    </div>
+  );
+}
+
+type ShortcutHintProps = {
+  keys: string[];
+  description: string;
+};
+
+function ShortcutHint({ keys, description }: ShortcutHintProps) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/10 px-3 py-2">
+      <div className="flex items-center gap-1">
+        {keys.map((keyValue, index) => (
+          <span key={keyValue} className="flex items-center gap-1">
+            <kbd className="rounded-md border border-border bg-background px-2 py-1 text-xs font-semibold uppercase text-foreground">
+              {keyValue}
+            </kbd>
+            {index < keys.length - 1 ? <span className="text-xs text-muted-foreground">+</span> : null}
+          </span>
+        ))}
+      </div>
+      <span className="text-sm text-muted-foreground">{description}</span>
     </div>
   );
 }

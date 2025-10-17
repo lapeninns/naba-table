@@ -39,6 +39,70 @@ type UpdateStatusInput = {
   status: 'completed' | 'no_show';
 };
 
+type LifecycleInput = {
+  id: string;
+  performedAt?: string;
+};
+
+type NoShowInput = {
+  id: string;
+  performedAt?: string;
+  reason?: string | null;
+};
+
+type UndoNoShowInput = {
+  id: string;
+  reason?: string | null;
+};
+
+type LifecycleResponse = {
+  status: OpsBookingStatus;
+  checkedInAt: string | null;
+  checkedOutAt: string | null;
+};
+
+type StatusSummaryParams = {
+  restaurantId: string;
+  from?: string | null;
+  to?: string | null;
+  statuses?: OpsBookingStatus[] | null;
+};
+
+type StatusSummaryResponse = {
+  restaurantId: string;
+  range: {
+    from: string | null;
+    to: string | null;
+  };
+  filter: {
+    statuses: OpsBookingStatus[] | null;
+  };
+  totals: Record<OpsBookingStatus, number>;
+  generatedAt: string;
+};
+
+type BookingHistoryEntry = {
+  id: number;
+  bookingId: string;
+  fromStatus: OpsBookingStatus | null;
+  toStatus: OpsBookingStatus;
+  changedAt: string;
+  changedBy: string | null;
+  reason: string | null;
+  metadata: Record<string, unknown>;
+  actor: {
+    id: string;
+    name: string | null;
+    email: string | null;
+  } | null;
+};
+
+type BookingHistoryResponse = {
+  bookingId: string;
+  entries: BookingHistoryEntry[];
+  generatedAt: string;
+};
+
 type CancelBookingInput = {
   id: string;
 };
@@ -80,6 +144,12 @@ export interface BookingService {
   listBookings(filters: OpsBookingsFilters): Promise<OpsBookingsPage>;
   updateBooking(input: UpdateBookingInput): Promise<OpsBookingListItem>;
   updateBookingStatus(input: UpdateStatusInput): Promise<{ status: OpsBookingStatus }>;
+  checkInBooking(input: LifecycleInput): Promise<LifecycleResponse>;
+  checkOutBooking(input: LifecycleInput): Promise<LifecycleResponse>;
+  markNoShowBooking(input: NoShowInput): Promise<LifecycleResponse>;
+  undoNoShowBooking(input: UndoNoShowInput): Promise<LifecycleResponse>;
+  getStatusSummary(params: StatusSummaryParams): Promise<StatusSummaryResponse>;
+  getBookingHistory(bookingId: string): Promise<BookingHistoryResponse>;
   cancelBooking(input: CancelBookingInput): Promise<{ id: string; status: string }>;
   createWalkInBooking(input: WalkInInput): Promise<WalkInResponse>;
   assignTable(input: AssignTableInput): Promise<TableAssignmentsResponse>;
@@ -103,6 +173,7 @@ function buildSearch(filters: OpsBookingsFilters): string {
   if (filters.page) params.set('page', String(filters.page));
   if (filters.pageSize) params.set('pageSize', String(filters.pageSize));
   if (filters.status && filters.status !== 'all') params.set('status', filters.status);
+  if (filters.statuses && filters.statuses.length > 0) params.set('statuses', filters.statuses.join(','));
   if (filters.sort) params.set('sort', filters.sort);
   const fromIso = toIsoParam(filters.from ?? undefined);
   if (fromIso) params.set('from', fromIso);
@@ -112,6 +183,20 @@ function buildSearch(filters: OpsBookingsFilters): string {
   if (query) params.set('query', query);
 
   return params.toString();
+}
+
+function buildStatusSummarySearch(params: StatusSummaryParams): string {
+  const search = new URLSearchParams({ restaurantId: params.restaurantId });
+  if (params.from) {
+    search.set('from', params.from);
+  }
+  if (params.to) {
+    search.set('to', params.to);
+  }
+  if (params.statuses && params.statuses.length > 0) {
+    search.set('statuses', params.statuses.join(','));
+  }
+  return search.toString();
 }
 
 export function createBrowserBookingService(): BookingService {
@@ -124,6 +209,10 @@ export function createBrowserBookingService(): BookingService {
     async getBookingHeatmap({ restaurantId, startDate, endDate }) {
       const params = new URLSearchParams({ restaurantId, startDate, endDate });
       return fetchJson<OpsBookingHeatmap>(`${OPS_DASHBOARD_BASE}/heatmap?${params.toString()}`);
+    },
+    async getStatusSummary(params) {
+      const query = buildStatusSummarySearch(params);
+      return fetchJson<StatusSummaryResponse>(`${OPS_BOOKINGS_BASE}/status-summary?${query}`);
     },
     async listBookings(filters) {
       const search = buildSearch(filters);
@@ -142,6 +231,44 @@ export function createBrowserBookingService(): BookingService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       });
+    },
+    async checkInBooking({ id, performedAt }) {
+      const body = performedAt ? { performedAt } : undefined;
+      return fetchJson<LifecycleResponse>(`${OPS_BOOKINGS_BASE}/${id}/check-in`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+    },
+    async checkOutBooking({ id, performedAt }) {
+      const body = performedAt ? { performedAt } : undefined;
+      return fetchJson<LifecycleResponse>(`${OPS_BOOKINGS_BASE}/${id}/check-out`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+    },
+    async markNoShowBooking({ id, performedAt, reason }) {
+      const payload: Record<string, unknown> = {};
+      if (performedAt) payload.performedAt = performedAt;
+      if (reason) payload.reason = reason;
+      return fetchJson<LifecycleResponse>(`${OPS_BOOKINGS_BASE}/${id}/no-show`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: Object.keys(payload).length > 0 ? JSON.stringify(payload) : undefined,
+      });
+    },
+    async undoNoShowBooking({ id, reason }) {
+      const payload: Record<string, unknown> = {};
+      if (reason) payload.reason = reason;
+      return fetchJson<LifecycleResponse>(`${OPS_BOOKINGS_BASE}/${id}/undo-no-show`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: Object.keys(payload).length > 0 ? JSON.stringify(payload) : undefined,
+      });
+    },
+    async getBookingHistory(bookingId) {
+      return fetchJson<BookingHistoryResponse>(`${OPS_BOOKINGS_BASE}/${bookingId}/history`);
     },
     async cancelBooking({ id }) {
       return fetchJson<{ id: string; status: string }>(`${OPS_BOOKINGS_BASE}/${id}`, {
@@ -210,6 +337,30 @@ export class NotImplementedBookingService implements BookingService {
 
   updateBookingStatus(): Promise<{ status: OpsBookingStatus }> {
     this.error('updateBookingStatus not implemented');
+  }
+
+  checkInBooking(): Promise<LifecycleResponse> {
+    this.error('checkInBooking not implemented');
+  }
+
+  checkOutBooking(): Promise<LifecycleResponse> {
+    this.error('checkOutBooking not implemented');
+  }
+
+  markNoShowBooking(): Promise<LifecycleResponse> {
+    this.error('markNoShowBooking not implemented');
+  }
+
+  undoNoShowBooking(): Promise<LifecycleResponse> {
+    this.error('undoNoShowBooking not implemented');
+  }
+
+  getStatusSummary(): Promise<StatusSummaryResponse> {
+    this.error('getStatusSummary not implemented');
+  }
+
+  getBookingHistory(): Promise<BookingHistoryResponse> {
+    this.error('getBookingHistory not implemented');
   }
 
   cancelBooking(): Promise<{ id: string; status: string }> {

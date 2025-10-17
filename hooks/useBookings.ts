@@ -11,12 +11,14 @@ export type BookingStatus =
   | 'pending'
   | 'pending_allocation'
   | 'confirmed'
+  | 'checked_in'
   | 'cancelled'
   | 'completed'
   | 'no_show';
 
 export type BookingDTO = {
   id: string;
+  restaurantId?: string | null;
   restaurantName: string;
   partySize: number;
   startIso: string;

@@ -26,6 +26,7 @@ function normalizeFilters(filters: OpsBookingsFilters) {
   if (filters.page) normalized.page = filters.page;
   if (filters.pageSize) normalized.pageSize = filters.pageSize;
   if (filters.status && filters.status !== 'all') normalized.status = filters.status;
+  if (filters.statuses && filters.statuses.length > 0) normalized.statuses = filters.statuses.join(',');
   if (filters.sort) normalized.sort = filters.sort;
 
   const fromIso = toIsoString(filters.from ?? undefined);

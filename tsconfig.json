@@ -52,6 +52,10 @@
     "node_modules",
     "playwright.component.config.ts",
     "playwright.config.ts",
-    "tests/**/*"
+    "tests/**/*",
+    "reserve/tests/**/*",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/__tests__/**/*"
   ]
 }

@@ -11,61 +11,48 @@ type RouteClient = Awaited<ReturnType<typeof getRouteHandlerSupabaseClient>>;
 type ProfileRowInput = Parameters<typeof normalizeProfileRow>[0];
 
 vi.mock('@/server/supabase', () => {
-  type MockFn<TResult> = ReturnType<typeof vi.fn<[], TResult>>;
   type DefaultResult = { data: null; error: null };
-  type InsertSelect = { maybeSingle: MockFn<Promise<DefaultResult>> };
-  type UpsertSelect = {
-    single: MockFn<Promise<DefaultResult>>;
-    maybeSingle: MockFn<Promise<DefaultResult>>;
+  type InsertResponse = { maybeSingle: () => Promise<DefaultResult> };
+  type UpsertResponse = {
+    single: () => Promise<DefaultResult>;
+    maybeSingle: () => Promise<DefaultResult>;
   };
   type QueryBuilder = {
-    select: MockFn<QueryBuilder>;
-    eq: MockFn<QueryBuilder>;
-    order: MockFn<QueryBuilder>;
-    maybeSingle: MockFn<Promise<DefaultResult>>;
-    insert: MockFn<{ select: MockFn<InsertSelect> }>;
-    upsert: MockFn<{ select: MockFn<UpsertSelect> }>;
+    select: () => QueryBuilder;
+    eq: () => QueryBuilder;
+    order: () => QueryBuilder;
+    maybeSingle: () => Promise<DefaultResult>;
+    insert: () => { select: () => InsertResponse };
+    upsert: () => { select: () => UpsertResponse };
   };
 
-  const createQueryBuilder = () => {
-    const resolve = (): Promise<DefaultResult> => Promise.resolve({ data: null, error: null });
+  const resolve = async (): Promise<DefaultResult> => ({ data: null, error: null });
 
-    const select = vi.fn<[], QueryBuilder>();
-    const eq = vi.fn<[], QueryBuilder>();
-    const order = vi.fn<[], QueryBuilder>();
-    const maybeSingle = vi.fn<[], Promise<DefaultResult>>();
-    const insert = vi.fn<[], { select: MockFn<InsertSelect> }>();
-    const upsert = vi.fn<[], { select: MockFn<UpsertSelect> }>();
-
+  const createQueryBuilder = (): QueryBuilder => {
     const builder: QueryBuilder = {
-      select,
-      eq,
-      order,
-      maybeSingle,
-      insert,
-      upsert,
+      select: () => builder,
+      eq: () => builder,
+      order: () => builder,
+      maybeSingle: resolve,
+      insert: () => ({
+        select: () => ({
+          maybeSingle: resolve,
+        }),
+      }),
+      upsert: () => ({
+        select: () => ({
+          single: resolve,
+          maybeSingle: resolve,
+        }),
+      }),
     };
 
-    select.mockImplementation(() => builder);
-    eq.mockImplementation(() => builder);
-    order.mockImplementation(() => builder);
-    maybeSingle.mockImplementation(resolve);
-
-    insert.mockImplementation(() => {
-      const innerMaybeSingle = vi.fn<[], Promise<DefaultResult>>(resolve);
-      const insertSelect = vi.fn<[], InsertSelect>(() => ({ maybeSingle: innerMaybeSingle }));
-      return { select: insertSelect };
-    });
-
-    upsert.mockImplementation(() => {
-      const innerSingle = vi.fn<[], Promise<DefaultResult>>(resolve);
-      const innerMaybe = vi.fn<[], Promise<DefaultResult>>(resolve);
-      const upsertSelect = vi.fn<[], UpsertSelect>(() => ({
-        single: innerSingle,
-        maybeSingle: innerMaybe,
-      }));
-      return { select: upsertSelect };
-    });
+    builder.select = vi.fn(builder.select) as QueryBuilder['select'];
+    builder.eq = vi.fn(builder.eq) as QueryBuilder['eq'];
+    builder.order = vi.fn(builder.order) as QueryBuilder['order'];
+    builder.maybeSingle = vi.fn(builder.maybeSingle) as QueryBuilder['maybeSingle'];
+    builder.insert = vi.fn(builder.insert) as QueryBuilder['insert'];
+    builder.upsert = vi.fn(builder.upsert) as QueryBuilder['upsert'];
 
     return builder;
   };
@@ -97,26 +84,17 @@ function createSupabaseClientMock({
   const response = updateResult ?? { data: null, error: null };
 
   const auth = {
-    getUser: vi
-      .fn<
-        [],
-        Promise<{ data: { user: { id: string; email: string | null } | null }; error: null }>
-      >()
-      .mockResolvedValue({ data: { user }, error: null }),
+    getUser: vi.fn().mockResolvedValue({ data: { user }, error: null }),
   };
 
-  const updateSingle = vi.fn<[], Promise<UpdateResponse>>().mockResolvedValue(response);
-  const updateSelect = vi.fn<[], { single: typeof updateSingle }>().mockReturnValue({
+  const updateSingle = vi.fn(async () => response);
+  const updateSelect = vi.fn(() => ({
     single: updateSingle,
-  });
-  const updateEq = vi
-    .fn<[string, string], { select: typeof updateSelect }>()
-    .mockReturnValue({ select: updateSelect });
-  const update = vi
-    .fn<[Partial<ProfileRowInput>], { eq: typeof updateEq }>()
-    .mockReturnValue({ eq: updateEq });
+  }));
+  const updateEq = vi.fn(() => ({ select: updateSelect }));
+  const update = vi.fn(() => ({ eq: updateEq }));
 
-  const from = vi.fn<[string], { update: typeof update }>().mockReturnValue({ update });
+  const from = vi.fn(() => ({ update }));
 
   return { auth, from };
 }
@@ -136,6 +114,7 @@ function makeProfileRow(overrides: Partial<ProfileRowInput> = {}): ProfileRowInp
     image: null,
     created_at: now,
     updated_at: now,
+    has_access: true,
     ...overrides,
   };
 }
@@ -241,7 +220,9 @@ describe('app/api/profile/route', () => {
     const json = await readJson(response);
     expect(json).toMatchObject({ profile: updatedProfile });
     expect(client.from).toHaveBeenCalledWith('profiles');
-    const updateCallArgs = client.from.mock.results[0]?.value.update.mock.calls[0][0];
+    const fromMock = client.from as unknown as ReturnType<typeof vi.fn>;
+    const updateMock = fromMock.mock.results[0]?.value.update as ReturnType<typeof vi.fn>;
+    const updateCallArgs = updateMock.mock.calls[0][0];
     expect(updateCallArgs).toMatchObject({ name: 'Ada Lovelace', phone: '+1 415 555 0100' });
   });
 });

@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { getServiceSupabaseClient } from '@/server/supabase';
 import type { Database } from '@/types/supabase';
+import { assertValidTimezone } from '@/server/restaurants/timezone';
 
 type DbClient = SupabaseClient<Database, 'public', any>;
 
@@ -73,13 +74,14 @@ export async function createRestaurant(
 ): Promise<CreatedRestaurant> {
   const slug = input.slug || generateSlug(input.name);
   const uniqueSlug = await ensureUniqueSlug(slug, client);
+  const timezone = assertValidTimezone(input.timezone);
 
   const { data: restaurant, error: restaurantError } = await client
     .from('restaurants')
     .insert({
       name: input.name,
       slug: uniqueSlug,
-      timezone: input.timezone,
+      timezone,
       capacity: input.capacity ?? null,
       contact_email: input.contactEmail ?? null,
       contact_phone: input.contactPhone ?? null,

@@ -17,9 +17,27 @@
       "@entities/*": ["entities/*"],
       "@shared/*": ["shared/*"],
       "@pages/*": ["pages/*"],
-      "@tests/*": ["tests/*"]
+      "@tests/*": ["tests/*"],
+      "@reserve/*": ["./*"],
+      "@/*": ["../*"],
+      "@src/*": ["../src/*"],
+      "@/app/*": ["../src/app/*"],
+      "@/components/features": ["../src/components/features/index.ts"],
+      "@/components/features/*": ["../src/components/features/*"],
+      "@/components/*": ["../components/*", "../src/components/*"],
+      "@/contexts/*": ["../src/contexts/*"],
+      "@/hooks/ops/*": ["../hooks/ops/*", "../src/hooks/ops/*"],
+      "@/hooks": ["../hooks/index.ts"],
+      "@/hooks/*": ["../hooks/*", "../src/hooks/*"],
+      "@/lib/*": ["../lib/*"],
+      "@/utils/*": ["../src/utils/*"],
+      "@/services": ["../src/services/index.ts"],
+      "@/services/*": ["../src/services/*"],
+      "@/types/*": ["../types/*", "../src/types/*"],
+      "@/server/*": ["../server/*"]
     },
     "types": ["vitest", "jest"]
   },
-  "include": ["app", "features", "entities", "shared", "pages", "tests", "vite-env.d.ts"]
+  "include": ["app", "features", "entities", "shared", "pages", "tests", "vite-env.d.ts"],
+  "exclude": ["node_modules"]
 }

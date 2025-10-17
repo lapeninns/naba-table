@@ -5,22 +5,27 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CustomerNavbar } from '@/components/customer/navigation/CustomerNavbar';
 
+type SessionHookReturn = {
+  user: { id: string; email: string | null; user_metadata?: Record<string, unknown> } | null;
+  status: 'ready' | 'loading';
+};
+
 const mockUseSupabaseSession = vi.hoisted(() =>
-  vi.fn(() => ({ user: null, status: 'ready' as const })),
+  vi.fn<[], SessionHookReturn>(() => ({ user: null, status: 'ready' })),
 );
 const mockUseProfile = vi.hoisted(() => vi.fn(() => ({ data: null, isLoading: false })));
 const mockSignOut = vi.hoisted(() => vi.fn());
 
 vi.mock('@/hooks/useSupabaseSession', () => ({
-  useSupabaseSession: (...args: unknown[]) => mockUseSupabaseSession(...args),
+  useSupabaseSession: mockUseSupabaseSession,
 }));
 
 vi.mock('@/hooks/useProfile', () => ({
-  useProfile: (...args: unknown[]) => mockUseProfile(...args),
+  useProfile: mockUseProfile,
 }));
 
 vi.mock('@/lib/supabase/signOut', () => ({
-  signOutFromSupabase: (...args: unknown[]) => mockSignOut(...args),
+  signOutFromSupabase: mockSignOut,
 }));
 
 vi.mock('next/navigation', () => ({

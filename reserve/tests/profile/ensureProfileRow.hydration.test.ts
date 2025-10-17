@@ -27,31 +27,11 @@ function mockCustomerContact(contact: { full_name?: string | null; phone?: strin
     },
   ];
 
-  type MockFn<TResult, TArgs extends unknown[] = []> = ReturnType<typeof vi.fn<TArgs, TResult>>;
-  type CustomerQueryResult = { data: typeof records; error: null };
-  type CustomerQueryBuilder = {
-    select: MockFn<CustomerQueryBuilder>;
-    eq: MockFn<CustomerQueryBuilder>;
-    order: MockFn<CustomerQueryBuilder>;
-    limit: MockFn<Promise<CustomerQueryResult>, [number]>;
-  };
-
-  const select = vi.fn<[], CustomerQueryBuilder>();
-  const eq = vi.fn<[], CustomerQueryBuilder>();
-  const order = vi.fn<[], CustomerQueryBuilder>();
-  const limit = vi.fn<[number], Promise<CustomerQueryResult>>();
-
-  const queryBuilder: CustomerQueryBuilder = {
-    select,
-    eq,
-    order,
-    limit,
-  };
-
-  select.mockImplementation(() => queryBuilder);
-  eq.mockImplementation(() => queryBuilder);
-  order.mockImplementation(() => queryBuilder);
-  limit.mockResolvedValue({ data: records, error: null });
+  const queryBuilder: Record<string, unknown> = {};
+  queryBuilder.select = vi.fn(() => queryBuilder);
+  queryBuilder.eq = vi.fn(() => queryBuilder);
+  queryBuilder.order = vi.fn(() => queryBuilder);
+  queryBuilder.limit = vi.fn(async (_count: number) => ({ data: records, error: null }));
 
   serviceFrom.mockReturnValue(queryBuilder);
   return queryBuilder;
@@ -85,13 +65,15 @@ describe('ensureProfileRow', () => {
   it('hydrates new profiles with customer contact details when metadata is missing', async () => {
     mockCustomerContact({ full_name: 'Ada Example', phone: '+44 1234 567890' });
 
-    const maybeSingle = vi
-      .fn<[], Promise<{ data: null; error: null }>>()
-      .mockResolvedValue({ data: null, error: null });
-    const eq = vi.fn<[string, string], { maybeSingle: typeof maybeSingle }>().mockReturnValue({
-      maybeSingle,
-    });
-    const select = vi.fn<[], { eq: typeof eq }>().mockReturnValue({ eq });
+    const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null }) as () => Promise<{
+      data: null;
+      error: null;
+    }>;
+    const eq = vi.fn().mockReturnValue({ maybeSingle }) as (
+      column: string,
+      value: string,
+    ) => { maybeSingle: typeof maybeSingle };
+    const select = vi.fn().mockReturnValue({ eq }) as () => { eq: typeof eq };
 
     const insertedRow: ProfilesTableRow = {
       id: 'user-1',
@@ -101,26 +83,28 @@ describe('ensureProfileRow', () => {
       image: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      has_access: true,
     };
 
     const upsertSingle = vi
-      .fn<[], Promise<{ data: ProfilesTableRow | null; error: null }>>()
-      .mockResolvedValue({ data: insertedRow, error: null });
-    const upsertSelect = vi.fn<[], { single: typeof upsertSingle }>().mockReturnValue({
-      single: upsertSingle,
-    });
-    const upsert = vi.fn<[], { select: typeof upsertSelect }>().mockReturnValue({
-      select: upsertSelect,
-    });
+      .fn()
+      .mockResolvedValue({ data: insertedRow, error: null }) as () => Promise<{
+      data: ProfilesTableRow | null;
+      error: null;
+    }>;
+    const upsertSelect = vi.fn().mockReturnValue({ single: upsertSingle }) as () => {
+      single: typeof upsertSingle;
+    };
+    const upsert = vi.fn().mockReturnValue({ select: upsertSelect }) as () => {
+      select: typeof upsertSelect;
+    };
 
-    const from = vi.fn<[string], { select: typeof select; upsert: typeof upsert }>(
-      (table: string) => {
-        if (table !== 'profiles') {
-          throw new Error(`Unexpected table: ${table}`);
-        }
-        return { select, upsert };
-      },
-    );
+    const from = vi.fn((table: string) => {
+      if (table !== 'profiles') {
+        throw new Error(`Unexpected table: ${table}`);
+      }
+      return { select, upsert };
+    }) as (table: string) => { select: typeof select; upsert: typeof upsert };
 
     const client = { from } as unknown as SupabaseClient<Database, 'public'>;
     const user = createUser();
@@ -150,48 +134,52 @@ describe('ensureProfileRow', () => {
       image: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      has_access: true,
     };
 
     const maybeSingle = vi
-      .fn<[], Promise<{ data: ProfilesTableRow | null; error: null }>>()
-      .mockResolvedValue({ data: existingRow, error: null });
-    const eqSelect = vi
-      .fn<[string, string], { maybeSingle: typeof maybeSingle }>()
-      .mockReturnValue({
-        maybeSingle,
-      });
-    const select = vi.fn<[], { eq: typeof eqSelect }>().mockReturnValue({
-      eq: eqSelect,
-    });
+      .fn()
+      .mockResolvedValue({ data: existingRow, error: null }) as () => Promise<{
+      data: ProfilesTableRow | null;
+      error: null;
+    }>;
+    const eqSelect = vi.fn().mockReturnValue({ maybeSingle }) as (
+      column: string,
+      value: string,
+    ) => { maybeSingle: typeof maybeSingle };
+    const select = vi.fn().mockReturnValue({ eq: eqSelect }) as () => { eq: typeof eqSelect };
 
     const patchedRow: ProfilesTableRow = {
       ...existingRow,
       name: 'Ada Example',
       phone: '+44 7777 888999',
       updated_at: new Date().toISOString(),
+      has_access: true,
     };
 
     const updateSingle = vi
-      .fn<[], Promise<{ data: ProfilesTableRow | null; error: null }>>()
-      .mockResolvedValue({ data: patchedRow, error: null });
-    const updateSelect = vi.fn<[], { single: typeof updateSingle }>().mockReturnValue({
-      single: updateSingle,
-    });
-    const updateEq = vi.fn<[string, string], { select: typeof updateSelect }>().mockReturnValue({
-      select: updateSelect,
-    });
-    const update = vi.fn<[Partial<ProfilesTableRow>], { eq: typeof updateEq }>().mockReturnValue({
-      eq: updateEq,
-    });
+      .fn()
+      .mockResolvedValue({ data: patchedRow, error: null }) as () => Promise<{
+      data: ProfilesTableRow | null;
+      error: null;
+    }>;
+    const updateSelect = vi.fn().mockReturnValue({ single: updateSingle }) as () => {
+      single: typeof updateSingle;
+    };
+    const updateEq = vi.fn().mockReturnValue({ select: updateSelect }) as (
+      column: string,
+      value: string,
+    ) => { select: typeof updateSelect };
+    const update = vi.fn().mockReturnValue({ eq: updateEq }) as (
+      payload: Partial<ProfilesTableRow>,
+    ) => { eq: typeof updateEq };
 
-    const from = vi.fn<[string], { select: typeof select; update: typeof update }>(
-      (table: string) => {
-        if (table !== 'profiles') {
-          throw new Error(`Unexpected table: ${table}`);
-        }
-        return { select, update };
-      },
-    );
+    const from = vi.fn((table: string) => {
+      if (table !== 'profiles') {
+        throw new Error(`Unexpected table: ${table}`);
+      }
+      return { select, update };
+    }) as (table: string) => { select: typeof select; update: typeof update };
 
     const client = { from } as unknown as SupabaseClient<Database, 'public'>;
     const user = createUser();

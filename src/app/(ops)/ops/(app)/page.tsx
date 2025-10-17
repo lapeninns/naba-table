@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { OpsDashboardClient } from "@/components/features/dashboard";
+import { BookingErrorBoundary } from "@/components/features/booking-state-machine";
+import { BookingOfflineQueueProvider } from "@/contexts/booking-offline-queue";
 import { getServerComponentSupabaseClient } from "@/server/supabase";
 import { sanitizeDateParam } from "@/utils/ops/dashboard";
 
@@ -32,7 +34,11 @@ export default async function OpsDashboardPage({ searchParams }: { searchParams?
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-8 py-6">
-      <OpsDashboardClient initialDate={sanitizeDateParam(resolvedParams.date)} />
+      <BookingErrorBoundary>
+        <BookingOfflineQueueProvider>
+          <OpsDashboardClient initialDate={sanitizeDateParam(resolvedParams.date)} />
+        </BookingOfflineQueueProvider>
+      </BookingErrorBoundary>
     </div>
   );
 }

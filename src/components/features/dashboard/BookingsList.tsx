@@ -1,13 +1,23 @@
 'use client';
 
-import { AlertTriangle, CalendarDays, ClipboardList, FileText, Settings, Users } from 'lucide-react';
-import { useMemo } from 'react';
+import {
+  AlertTriangle,
+  CalendarDays,
+  ClipboardList,
+  FileText,
+  Settings,
+  Users,
+} from 'lucide-react';
+import { useEffect, useMemo } from 'react';
 
+import { BookingStatusBadge, StatusTransitionAnimator } from '@/components/features/booking-state-machine';
+import { BookingStateMachineProvider, useBookingState, useBookingStateMachine } from '@/contexts/booking-state-machine';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { BookingActionButton } from '@/components/features/booking-state-machine';
 import { cn } from '@/lib/utils';
 import { formatTimeRange } from '@/lib/utils/datetime';
+import { useBookingRealtime } from '@/hooks';
 
 import { BookingDetailsDialog } from './BookingDetailsDialog';
 
@@ -18,8 +28,14 @@ type BookingsListProps = {
   bookings: OpsTodayBooking[];
   filter: BookingFilter;
   summary: OpsTodayBookingsSummary;
-  onMarkStatus: (bookingId: string, status: 'completed' | 'no_show') => Promise<void>;
-  pendingBookingId?: string | null;
+  onMarkNoShow: (bookingId: string, options?: { performedAt?: string | null; reason?: string | null }) => Promise<void>;
+  onUndoNoShow: (bookingId: string, reason?: string | null) => Promise<void>;
+  onCheckIn: (bookingId: string) => Promise<void>;
+  onCheckOut: (bookingId: string) => Promise<void>;
+  pendingLifecycleAction?: {
+    bookingId: string | null;
+    action: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show';
+  } | null;
   onAssignTable?: (bookingId: string, tableId: string) => Promise<OpsTodayBooking['tableAssignments']>;
   onUnassignTable?: (bookingId: string, tableId: string) => Promise<OpsTodayBooking['tableAssignments']>;
   tableActionState?: {
@@ -27,15 +43,6 @@ type BookingsListProps = {
     bookingId: string | null;
     tableId?: string | null;
   } | null;
-};
-
-const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destructive'> = {
-  confirmed: 'default',
-  completed: 'default',
-  pending: 'secondary',
-  pending_allocation: 'secondary',
-  cancelled: 'outline',
-  no_show: 'destructive',
 };
 
 const TIER_COLORS: Record<string, string> = {
@@ -74,22 +81,76 @@ function formatTableAssignmentDisplay(assignments: OpsTodayBooking['tableAssignm
   } as const;
 }
 
+function renderList(values?: string[] | null): string {
+  if (!values || values.length === 0) {
+    return 'None';
+  }
+  return values.join(', ');
+}
+
 function filterBookings(bookings: OpsTodayBooking[], filter: BookingFilter) {
   if (filter === 'all') return bookings;
+  if (filter === 'completed') {
+    return bookings.filter((booking) => booking.status === 'checked_in' || booking.status === 'completed');
+  }
   return bookings.filter((booking) => booking.status === filter);
 }
 
-export function BookingsList({
+export function BookingsList(props: BookingsListProps) {
+  const initialSnapshots = useMemo(
+    () =>
+      props.bookings.map((booking) => ({
+        id: booking.id,
+        status: booking.status,
+        updatedAt: null,
+      })),
+    [props.bookings],
+  );
+
+  return (
+    <BookingStateMachineProvider initialBookings={initialSnapshots}>
+      <BookingsListContent {...props} />
+    </BookingStateMachineProvider>
+  );
+}
+
+function BookingsListContent({
   bookings,
   filter,
   summary,
-  onMarkStatus,
-  pendingBookingId,
+  onMarkNoShow,
+  onUndoNoShow,
+  onCheckIn,
+  onCheckOut,
+  pendingLifecycleAction,
   onAssignTable,
   onUnassignTable,
   tableActionState,
 }: BookingsListProps) {
+  const { registerBookings } = useBookingStateMachine();
+
+  useEffect(() => {
+    registerBookings(
+      bookings.map((booking) => ({
+        id: booking.id,
+        status: booking.status,
+        updatedAt: null,
+      })),
+    );
+  }, [bookings, registerBookings]);
+
   const filtered = useMemo(() => filterBookings(bookings, filter), [bookings, filter]);
+  const bookingIds = useMemo(() => bookings.map((booking) => booking.id), [bookings]);
+  const visibleBookingIds = useMemo(() => filtered.map((booking) => booking.id), [filtered]);
+
+  useBookingRealtime({
+    restaurantId: summary.restaurantId,
+    targetDate: summary.date,
+    bookingIds,
+    visibleBookingIds,
+    enabled: bookings.length > 0,
+  });
+
   const supportsTableAssignment = Boolean(onAssignTable && onUnassignTable);
 
   if (filtered.length === 0) {
@@ -112,108 +173,172 @@ export function BookingsList({
 
   return (
     <div className="flex flex-col gap-3">
-      {filtered.map((booking) => {
-        const statusVariant = STATUS_VARIANT[booking.status] ?? 'secondary';
-        const serviceTime = formatTimeRange(booking.startTime, booking.endTime, summary.timezone);
-        const tableAssignmentDisplay = formatTableAssignmentDisplay(booking.tableAssignments);
-        const isTableActionPending =
-          supportsTableAssignment && tableActionState?.bookingId === booking.id ? tableActionState?.type : null;
-
-        return (
-          <Card key={booking.id} className="border-border/60">
-            <CardContent className="flex flex-col gap-4 py-3 sm:py-4 md:flex-row md:items-center md:justify-between">
-              <div className="flex flex-1 flex-col gap-2 sm:gap-3">
-                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                  <h3 className="text-base font-semibold text-foreground">{booking.customerName}</h3>
-                  {booking.loyaltyTier ? (
-                    <Badge variant="outline" className={cn('text-xs font-semibold', TIER_COLORS[booking.loyaltyTier])}>
-                      {booking.loyaltyTier}
-                    </Badge>
-                  ) : null}
-                  <Badge variant={statusVariant} className="capitalize">
-                    {booking.status.replace(/_/g, ' ')}
-                  </Badge>
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      'text-xs font-semibold',
-                      tableAssignmentDisplay.isAssigned
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                        : 'border-amber-200 bg-amber-100 text-amber-800'
-                    )}
-                    aria-label={tableAssignmentDisplay.text}
-                  >
-                    {tableAssignmentDisplay.text}
-                  </Badge>
-                </div>
-                <div className="flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-2">
-                  <span className="inline-flex items-center gap-1.5">
-                    <CalendarDays className="h-4 w-4 shrink-0" aria-hidden /> {serviceTime}
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <Users className="h-4 w-4 shrink-0" aria-hidden />
-                    {booking.partySize} guests
-                  </span>
-                  {booking.allergies && booking.allergies.length > 0 ? (
-                    <span className="inline-flex items-center gap-1.5 text-xs text-orange-600" title={`Allergies: ${booking.allergies.join(', ')}`}>
-                      <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
-                      Allergies
-                    </span>
-                  ) : null}
-                  {booking.seatingPreference || booking.dietaryRestrictions ? (
-                    <span className="inline-flex items-center gap-1.5 text-xs text-primary" title="Guest preferences available">
-                      <Settings className="h-4 w-4 shrink-0" aria-hidden />
-                      Preferences
-                    </span>
-                  ) : null}
-                  {booking.notes ? (
-                    <span className="inline-flex items-center gap-1.5 text-xs text-primary" title="Notes available">
-                      <FileText className="h-4 w-4 shrink-0" aria-hidden />
-                      Notes
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-11 min-w-[120px] touch-manipulation"
-                  onClick={() => {
-                    if (booking.status === 'completed') {
-                  if (pendingBookingId === booking.id) return;
-                  void onMarkStatus(booking.id, 'no_show');
-                } else {
-                  if (pendingBookingId === booking.id) return;
-                  void onMarkStatus(booking.id, 'completed');
-                }
-              }}
-                  disabled={pendingBookingId === booking.id}
-                >
-                  {pendingBookingId === booking.id
-                    ? 'Updating…'
-                    : booking.status === 'completed'
-                      ? 'Mark no show'
-                      : 'Mark show'}
-                </Button>
-                <BookingDetailsDialog
-                  booking={booking}
-                  summary={summary}
-                  onStatusChange={(status) => onMarkStatus(booking.id, status)}
-                  onAssignTable={supportsTableAssignment && onAssignTable ? (tableId) => onAssignTable(booking.id, tableId) : undefined}
-                  onUnassignTable={supportsTableAssignment && onUnassignTable ? (tableId) => onUnassignTable(booking.id, tableId) : undefined}
-                  tableActionState={
-                    supportsTableAssignment && tableActionState?.bookingId === booking.id
-                      ? tableActionState
-                      : null
-                  }
-                />
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
+      {filtered.map((booking) => (
+        <BookingCard
+          key={booking.id}
+          booking={booking}
+          summary={summary}
+          pendingLifecycleAction={pendingLifecycleAction}
+          onCheckIn={onCheckIn}
+          onCheckOut={onCheckOut}
+          onMarkNoShow={onMarkNoShow}
+          onUndoNoShow={onUndoNoShow}
+          supportsTableAssignment={supportsTableAssignment}
+          onAssignTable={onAssignTable}
+          onUnassignTable={onUnassignTable}
+          tableActionState={tableActionState}
+        />
+      ))}
     </div>
+  );
+}
+
+type BookingCardProps = {
+  booking: OpsTodayBooking;
+  summary: OpsTodayBookingsSummary;
+  pendingLifecycleAction: BookingsListProps['pendingLifecycleAction'];
+  onCheckIn: BookingsListProps['onCheckIn'];
+  onCheckOut: BookingsListProps['onCheckOut'];
+  onMarkNoShow: BookingsListProps['onMarkNoShow'];
+  onUndoNoShow: BookingsListProps['onUndoNoShow'];
+  supportsTableAssignment: boolean;
+  onAssignTable: BookingsListProps['onAssignTable'];
+  onUnassignTable: BookingsListProps['onUnassignTable'];
+  tableActionState: BookingsListProps['tableActionState'];
+};
+
+function BookingCard({
+  booking,
+  summary,
+  pendingLifecycleAction,
+  onCheckIn,
+  onCheckOut,
+  onMarkNoShow,
+  onUndoNoShow,
+  supportsTableAssignment,
+  onAssignTable,
+  onUnassignTable,
+  tableActionState,
+}: BookingCardProps) {
+  const bookingState = useBookingState(booking.id);
+  const effectiveStatus = bookingState.effectiveStatus ?? booking.status;
+  const showLifecycleBadges = effectiveStatus !== 'checked_in' && effectiveStatus !== 'completed';
+
+  const serviceTime = formatTimeRange(booking.startTime, booking.endTime, summary.timezone);
+  const tableAssignmentDisplay = formatTableAssignmentDisplay(booking.tableAssignments);
+  const isTableActionPending =
+    supportsTableAssignment && tableActionState?.bookingId === booking.id ? tableActionState?.type : null;
+  const lifecyclePending = pendingLifecycleAction?.bookingId === booking.id ? pendingLifecycleAction.action : null;
+
+  return (
+    <Card className="border-border/60">
+      <CardContent className="flex flex-col gap-4 py-3 sm:py-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-1 flex-col gap-2 sm:gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <h3 className="text-base font-semibold text-foreground">{booking.customerName}</h3>
+            {booking.loyaltyTier ? (
+              <Badge variant="outline" className={cn('text-xs font-semibold', TIER_COLORS[booking.loyaltyTier])}>
+                {booking.loyaltyTier}
+              </Badge>
+            ) : null}
+            <StatusTransitionAnimator
+              status={bookingState.status}
+              effectiveStatus={bookingState.effectiveStatus}
+              isTransitioning={bookingState.isTransitioning}
+              className="inline-flex rounded-full"
+              overlayClassName="inline-flex"
+            >
+              <BookingStatusBadge status={effectiveStatus} />
+            </StatusTransitionAnimator>
+            {showLifecycleBadges && booking.checkedInAt ? (
+              <Badge variant="outline" className="bg-emerald-50 text-emerald-700">
+                Checked in
+              </Badge>
+            ) : null}
+            {showLifecycleBadges && booking.checkedOutAt ? (
+              <Badge variant="outline" className="bg-slate-100 text-slate-700">
+                Checked out
+              </Badge>
+            ) : null}
+            <Badge
+              variant="outline"
+              className={cn(
+                'text-xs font-semibold',
+                tableAssignmentDisplay.isAssigned
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                  : 'border-amber-200 bg-amber-100 text-amber-800',
+              )}
+              aria-label={tableAssignmentDisplay.text}
+            >
+              {tableAssignmentDisplay.text}
+            </Badge>
+          </div>
+
+          <div className="flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-2">
+            <span className="inline-flex items-center gap-1.5">
+              <CalendarDays className="h-4 w-4 shrink-0" aria-hidden /> {serviceTime}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Users className="h-4 w-4 shrink-0" aria-hidden />
+              {booking.partySize} guests
+            </span>
+            {booking.allergies && booking.allergies.length > 0 ? (
+              <span
+                className="inline-flex items-center gap-1.5 text-xs text-orange-600"
+                title={`Allergies: ${renderList(booking.allergies)}`}
+              >
+                <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+                Allergies
+              </span>
+            ) : null}
+            {booking.seatingPreference || booking.dietaryRestrictions ? (
+              <span className="inline-flex items-center gap-1.5 text-xs text-primary" title="Guest preferences available">
+                <Settings className="h-4 w-4 shrink-0" aria-hidden />
+                Preferences
+              </span>
+            ) : null}
+            {booking.notes ? (
+              <span className="inline-flex items-center gap-1.5 text-xs text-primary" title={booking.notes}>
+                <FileText className="h-4 w-4 shrink-0" aria-hidden />
+                Notes
+              </span>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <BookingActionButton
+            booking={booking}
+            pendingAction={lifecyclePending ?? null}
+            onCheckIn={() => onCheckIn(booking.id)}
+            onCheckOut={() => onCheckOut(booking.id)}
+            onMarkNoShow={(options) => onMarkNoShow(booking.id, options)}
+            onUndoNoShow={(reason) => onUndoNoShow(booking.id, reason)}
+            showConfirmation
+          />
+
+          <BookingDetailsDialog
+            booking={booking}
+            summary={summary}
+            onCheckIn={() => onCheckIn(booking.id)}
+            onCheckOut={() => onCheckOut(booking.id)}
+            onMarkNoShow={(options) => onMarkNoShow(booking.id, options)}
+            onUndoNoShow={(reason) => onUndoNoShow(booking.id, reason)}
+            pendingLifecycleAction={
+              lifecyclePending ? (lifecyclePending as 'check-in' | 'check-out' | 'no-show' | 'undo-no-show') : null
+            }
+            onAssignTable={
+              supportsTableAssignment && onAssignTable ? (tableId) => onAssignTable(booking.id, tableId) : undefined
+            }
+            onUnassignTable={
+              supportsTableAssignment && onUnassignTable ? (tableId) => onUnassignTable(booking.id, tableId) : undefined
+            }
+            tableActionState={
+              supportsTableAssignment && tableActionState?.bookingId === booking.id ? tableActionState : null
+            }
+          />
+        </div>
+      </CardContent>
+    </Card>
   );
 }

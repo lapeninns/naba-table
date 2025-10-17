@@ -18,7 +18,7 @@ export default [
       ecmaVersion: 2023,
       sourceType: "module",
       project: [
-        "./tsconfig.json",
+        "./tsconfig.eslint.json",
         "./reserve/tsconfig.reserve.json",
         "./reserve/.storybook/tsconfig.json",
       ],
@@ -39,7 +39,7 @@ export default [
       "import/resolver": {
        typescript: {
           project: [
-            "./tsconfig.json",
+            "./tsconfig.eslint.json",
             "./reserve/tsconfig.reserve.json",
             "./reserve/.storybook/tsconfig.json",
           ],
