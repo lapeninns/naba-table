@@ -133,8 +133,8 @@ export function BookingActionButton({
   const checkInRestricted = isLifecycleRestricted && primaryConfig.action === "check-in";
   const noShowRestricted = isLifecycleRestricted && secondaryConfig?.action === "no-show";
 
-  const primaryDisabled = basePrimaryDisabled || checkInRestricted;
-  const secondaryDisabled = baseSecondaryDisabled || noShowRestricted;
+  const primaryDisabled = basePrimaryDisabled;
+  const secondaryDisabled = baseSecondaryDisabled;
 
   const renderButton = (
     { label, variant, tooltip }: ButtonConfig,
@@ -196,21 +196,31 @@ export function BookingActionButton({
     }
   };
 
-  const primaryTooltip = checkInRestricted ? availabilityTooltip : primaryConfig.tooltip;
+  const primaryTooltip = primaryConfig.tooltip;
 
-  const primaryElement = primaryConfig.action !== "unavailable"
-    ? renderButton(
+  const primaryElement = (() => {
+    if (checkInRestricted && primaryConfig.action === "check-in") {
+      return null;
+    }
+
+    if (primaryConfig.action !== "unavailable") {
+      return renderButton(
         { ...primaryConfig, tooltip: primaryTooltip },
         primaryDisabled,
         () => void handlePrimary(),
         isPrimaryPending,
         primaryConfig.action,
-      )
-    : renderButton(primaryConfig, true, () => {}, false, "unavailable");
+      );
+    }
+
+    return renderButton(primaryConfig, true, () => {}, false, "unavailable");
+  })();
 
   let secondaryElement: ReactNode = null;
   if (secondaryConfig) {
-    if (!showConfirmation) {
+    if (noShowRestricted && secondaryConfig.action === "no-show") {
+      secondaryElement = null;
+    } else if (!showConfirmation) {
       const handler = secondaryConfig.action === "no-show"
         ? () => { void onMarkNoShow(); }
         : () => { void onUndoNoShow(); };
