@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { useBookingService } from '@/contexts/ops-services';
+import { HttpError } from '@/lib/http/errors';
 import type { OpsBookingStatus } from '@/types/ops';
 
 type UseOpsBookingStatusSummaryOptions = {
@@ -56,16 +57,44 @@ export function useOpsBookingStatusSummary({
         throw new Error('Restaurant is required');
       }
 
-      const response = await bookingService.getStatusSummary({
-        restaurantId,
-        from: toIso(from) ?? undefined,
-        to: toIso(to) ?? undefined,
-        statuses: statuses && statuses.length > 0 ? statuses : undefined,
-      });
+      const fromIso = toIso(from);
+      const toIsoValue = toIso(to);
+      const normalizedStatuses = statuses && statuses.length > 0 ? statuses : undefined;
 
-      return response;
+      try {
+        return await bookingService.getStatusSummary({
+          restaurantId,
+          from: fromIso ?? undefined,
+          to: toIsoValue ?? undefined,
+          statuses: normalizedStatuses,
+        });
+      } catch (error) {
+        if (error instanceof HttpError && error.status === 404) {
+          return {
+            restaurantId,
+            range: {
+              from: fromIso ?? null,
+              to: toIsoValue ?? null,
+            },
+            filter: {
+              statuses: normalizedStatuses ?? null,
+            },
+            totals: {
+              pending: 0,
+              pending_allocation: 0,
+              confirmed: 0,
+              checked_in: 0,
+              completed: 0,
+              cancelled: 0,
+              no_show: 0,
+            },
+            generatedAt: new Date().toISOString(),
+          };
+        }
+
+        throw error;
+      }
     },
     staleTime: 30_000,
   });
 }
-

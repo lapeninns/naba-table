@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { BookingActionButton } from '@/components/features/booking-state-machine';
 import { cn } from '@/lib/utils';
-import { formatTimeRange } from '@/lib/utils/datetime';
+import { formatTimeRange, getTodayInTimezone } from '@/lib/utils/datetime';
 import { useBookingRealtime } from '@/hooks';
 
 import { BookingDetailsDialog } from './BookingDetailsDialog';
@@ -229,6 +229,10 @@ function BookingCard({
   const isTableActionPending =
     supportsTableAssignment && tableActionState?.bookingId === booking.id ? tableActionState?.type : null;
   const lifecyclePending = pendingLifecycleAction?.bookingId === booking.id ? pendingLifecycleAction.action : null;
+  const lifecycleAvailability = useMemo(
+    () => ({ isToday: getTodayInTimezone(summary.timezone) === summary.date }),
+    [summary.date, summary.timezone],
+  );
 
   return (
     <Card className="border-border/60">
@@ -315,6 +319,7 @@ function BookingCard({
             onMarkNoShow={(options) => onMarkNoShow(booking.id, options)}
             onUndoNoShow={(reason) => onUndoNoShow(booking.id, reason)}
             showConfirmation
+            lifecycleAvailability={lifecycleAvailability}
           />
 
           <BookingDetailsDialog

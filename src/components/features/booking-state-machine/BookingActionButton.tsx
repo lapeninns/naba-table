@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ConfirmationDialog, type TriggerProps } from "./ConfirmationDialog";
-import { TimestampPicker } from "./TimestampPicker";
 import { cn } from "@/lib/utils";
 import { useOptionalBookingState } from "@/contexts/booking-state-machine";
 import { useBookingOfflineQueue } from "@/contexts/booking-offline-queue";
@@ -30,6 +29,10 @@ type BookingActionButtonProps = {
   onUndoNoShow: (reason?: string | null) => Promise<void>;
   showConfirmation?: boolean;
   className?: string;
+  lifecycleAvailability?: {
+    isToday: boolean;
+    reason?: string;
+  };
 };
 
 type ButtonConfig = {
@@ -55,6 +58,7 @@ export function BookingActionButton({
   onUndoNoShow,
   showConfirmation = true,
   className,
+  lifecycleAvailability,
 }: BookingActionButtonProps) {
   const bookingState = useOptionalBookingState(booking.id);
   const effectiveStatus = bookingState?.effectiveStatus ?? booking.status;
@@ -64,8 +68,11 @@ export function BookingActionButton({
   const isQueued = Boolean(queuedActionType);
 
   const [noShowReason, setNoShowReason] = useState("");
-  const [noShowTimestamp, setNoShowTimestamp] = useState<string | null>(null);
   const [undoReason, setUndoReason] = useState("");
+
+  const availability = lifecycleAvailability ?? { isToday: true };
+  const isLifecycleRestricted = !availability.isToday;
+  const availabilityTooltip = availability.reason ?? "Check-in and no-show actions are only available on the reservation date.";
 
   const primaryConfig: ButtonConfig = useMemo(() => {
     switch (effectiveStatus) {
@@ -99,7 +106,7 @@ export function BookingActionButton({
     ? pendingAction === secondaryConfig.action || queuedActionType === secondaryConfig.action
     : false;
 
-  const primaryDisabled = (() => {
+  const basePrimaryDisabled = (() => {
     if (isQueued) {
       return true;
     }
@@ -112,7 +119,7 @@ export function BookingActionButton({
     return false;
   })();
 
-  const secondaryDisabled = (() => {
+  const baseSecondaryDisabled = (() => {
     if (!secondaryConfig) return true;
     if (isQueued) {
       return true;
@@ -122,6 +129,12 @@ export function BookingActionButton({
     }
     return false;
   })();
+
+  const checkInRestricted = isLifecycleRestricted && primaryConfig.action === "check-in";
+  const noShowRestricted = isLifecycleRestricted && secondaryConfig?.action === "no-show";
+
+  const primaryDisabled = basePrimaryDisabled || checkInRestricted;
+  const secondaryDisabled = baseSecondaryDisabled || noShowRestricted;
 
   const renderButton = (
     { label, variant, tooltip }: ButtonConfig,
@@ -183,8 +196,16 @@ export function BookingActionButton({
     }
   };
 
+  const primaryTooltip = checkInRestricted ? availabilityTooltip : primaryConfig.tooltip;
+
   const primaryElement = primaryConfig.action !== "unavailable"
-    ? renderButton(primaryConfig, primaryDisabled, () => void handlePrimary(), isPrimaryPending, primaryConfig.action)
+    ? renderButton(
+        { ...primaryConfig, tooltip: primaryTooltip },
+        primaryDisabled,
+        () => void handlePrimary(),
+        isPrimaryPending,
+        primaryConfig.action,
+      )
     : renderButton(primaryConfig, true, () => {}, false, "unavailable");
 
   let secondaryElement: ReactNode = null;
@@ -193,16 +214,22 @@ export function BookingActionButton({
       const handler = secondaryConfig.action === "no-show"
         ? () => { void onMarkNoShow(); }
         : () => { void onUndoNoShow(); };
+      const tooltip = secondaryConfig.action === "no-show" && noShowRestricted
+        ? availabilityTooltip
+        : DISABLED_REASON[secondaryConfig.action as BookingAction];
       secondaryElement = renderButton(
-        { ...secondaryConfig, tooltip: DISABLED_REASON[secondaryConfig.action as BookingAction] },
+        { ...secondaryConfig, tooltip },
         secondaryDisabled,
         handler,
         isSecondaryPending,
         secondaryConfig.action,
       );
     } else if (secondaryDisabled) {
+      const tooltip = secondaryConfig.action === "no-show" && noShowRestricted
+        ? availabilityTooltip
+        : DISABLED_REASON[secondaryConfig.action as BookingAction];
       secondaryElement = renderButton(
-        { ...secondaryConfig, tooltip: DISABLED_REASON[secondaryConfig.action as BookingAction] },
+        { ...secondaryConfig, tooltip },
         true,
         () => {},
         isSecondaryPending,
@@ -210,7 +237,10 @@ export function BookingActionButton({
       );
     } else if (secondaryConfig.action === "no-show") {
       const trigger = renderButton(
-        { ...secondaryConfig, tooltip: DISABLED_REASON["no-show"] },
+        {
+          ...secondaryConfig,
+          tooltip: noShowRestricted ? availabilityTooltip : DISABLED_REASON["no-show"],
+        },
         false,
         () => {},
         isSecondaryPending,
@@ -226,31 +256,20 @@ export function BookingActionButton({
           pending={isSecondaryPending}
           onConfirm={async () => {
             await onMarkNoShow({
-              performedAt: noShowTimestamp,
               reason: noShowReason.trim().length > 0 ? noShowReason.trim() : null,
             });
             setNoShowReason("");
-            setNoShowTimestamp(null);
           }}
           onAfterClose={() => {
             setNoShowReason("");
-            setNoShowTimestamp(null);
           }}
         >
-          <div className="space-y-3">
-            <TimestampPicker
-              label="Effective time"
-              value={noShowTimestamp}
-              onChange={setNoShowTimestamp}
-              showRelativeTime
-            />
-            <Textarea
-              placeholder="Reason (optional)"
-              value={noShowReason}
-              onChange={(event) => setNoShowReason(event.target.value)}
-              className="min-h-[80px] resize-none"
-            />
-          </div>
+          <Textarea
+            placeholder="Reason (optional)"
+            value={noShowReason}
+            onChange={(event) => setNoShowReason(event.target.value)}
+            className="min-h-[80px] resize-none"
+          />
         </ConfirmationDialog>
       );
     } else if (secondaryConfig.action === "undo-no-show") {

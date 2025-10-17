@@ -50,6 +50,17 @@ export {
   isTableAvailable,
 } from "./tables";
 
+export {
+  defaultVenuePolicy,
+  getVenuePolicy,
+  whichService,
+  bandDuration,
+  serviceEnd,
+  ServiceNotFoundError,
+  ServiceOverrunError,
+  PolicyError,
+} from "./policy";
+
 // =====================================================
 // Types
 // =====================================================

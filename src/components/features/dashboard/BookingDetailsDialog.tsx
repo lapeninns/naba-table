@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { formatDateReadable, formatTimeRange } from '@/lib/utils/datetime';
+import { formatDateReadable, formatTimeRange, getTodayInTimezone } from '@/lib/utils/datetime';
 import { queryKeys } from '@/lib/query/keys';
 import { useBookingState } from '@/contexts/booking-state-machine';
 import { useBookingService, useTableInventoryService } from '@/contexts/ops-services';
@@ -63,6 +63,10 @@ export function BookingDetailsDialog({
   const [assignments, setAssignments] = useState<OpsTodayBooking['tableAssignments']>(booking.tableAssignments);
   const [localPendingAction, setLocalPendingAction] = useState<BookingAction | null>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const lifecycleAvailability = useMemo(
+    () => ({ isToday: getTodayInTimezone(summary.timezone) === summary.date }),
+    [summary.date, summary.timezone],
+  );
 
   const mailHref = booking.customerEmail ? `mailto:${booking.customerEmail}` : null;
   const phoneHref = booking.customerPhone ? `tel:${booking.customerPhone.replace(/[^+\d]/g, '')}` : null;
@@ -398,6 +402,7 @@ export function BookingDetailsDialog({
                 onMarkNoShow={handleMarkNoShowAction}
                 onUndoNoShow={handleUndoNoShowAction}
                 showConfirmation
+                lifecycleAvailability={lifecycleAvailability}
               />
             </div>
           </div>
@@ -631,6 +636,7 @@ export function BookingDetailsDialog({
               onMarkNoShow={handleMarkNoShowAction}
               onUndoNoShow={handleUndoNoShowAction}
               showConfirmation
+              lifecycleAvailability={lifecycleAvailability}
             />
 
             {isCancelled ? (

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import { getTodayInTimezone } from "@/lib/utils/datetime";
 import { prepareCheckInTransition } from "@/server/ops/booking-lifecycle/actions";
 import { BookingLifecycleError } from "@/server/ops/booking-lifecycle/stateMachine";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
@@ -91,6 +92,23 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   } catch (accessError) {
     console.error("[ops][booking-check-in] access denied", accessError);
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { data: restaurant, error: restaurantError } = await serviceSupabase
+    .from("restaurants")
+    .select("timezone")
+    .eq("id", bookingRow.restaurant_id)
+    .maybeSingle();
+
+  if (restaurantError) {
+    console.error("[ops][booking-check-in] failed to load restaurant", restaurantError.message);
+    return NextResponse.json({ error: "Unable to verify booking" }, { status: 500 });
+  }
+
+  const timezone = typeof restaurant?.timezone === "string" && restaurant.timezone.trim().length > 0 ? restaurant.timezone : "UTC";
+  const todayInVenueTz = getTodayInTimezone(timezone);
+  if (!bookingRow.booking_date || bookingRow.booking_date !== todayInVenueTz) {
+    return NextResponse.json({ error: "Lifecycle actions are only available on the reservation date" }, { status: 409 });
   }
 
   let transition;

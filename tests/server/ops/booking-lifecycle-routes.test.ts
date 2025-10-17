@@ -120,7 +120,7 @@ describe("booking lifecycle routes", () => {
     return { select, firstEq, secondEq, order, limit, maybeSingle };
   }
 
-  function buildServiceClient(options: {
+function buildServiceClient(options: {
     booking: BookingRow;
     historyRow?: Tables<"booking_state_history">["Row"] | null;
     rpcResult?: {
@@ -129,9 +129,19 @@ describe("booking lifecycle routes", () => {
       checked_out_at: string | null;
       updated_at: string;
     };
+    restaurantTimezone?: string;
   }) {
     const bookingChain = buildBookingSelectChain(options.booking);
     const historyChain = buildHistorySelectChain(options.historyRow ?? null);
+    const restaurantChain = (() => {
+      const maybeSingle = vi.fn().mockResolvedValue({
+        data: { timezone: options.restaurantTimezone ?? "UTC" },
+        error: null,
+      });
+      const eq = vi.fn().mockReturnValue({ maybeSingle });
+      const select = vi.fn().mockReturnValue({ eq });
+      return { select };
+    })();
 
     const rpcResult = options.rpcResult ?? {
       status: options.booking.status,
@@ -153,12 +163,17 @@ describe("booking lifecycle routes", () => {
           select: historyChain.select,
         };
       }
+      if (table === "restaurants") {
+        return {
+          select: restaurantChain.select,
+        };
+      }
       throw new Error(`Unexpected table ${table}`);
     });
 
     mockGetServiceSupabaseClient.mockReturnValue({ from, rpc });
 
-    return { from, rpc, bookingChain, historyChain };
+    return { from, rpc, bookingChain, historyChain, restaurantChain };
   }
 
   it("checks in a booking and marks it checked_in when lifecycle v2 enabled", async () => {
@@ -320,6 +335,10 @@ describe("booking lifecycle routes", () => {
       return { select };
     })();
 
+    const restaurantMaybeSingle = vi.fn().mockResolvedValue({ data: { timezone: "UTC" }, error: null });
+    const restaurantEq = vi.fn().mockReturnValue({ maybeSingle: restaurantMaybeSingle });
+    const restaurantSelect = vi.fn().mockReturnValue({ eq: restaurantEq });
+
     mockGetServiceSupabaseClient.mockReturnValue({
       from: (table: string) => {
         if (table === "bookings") {
@@ -330,6 +349,11 @@ describe("booking lifecycle routes", () => {
         if (table === "booking_state_history") {
           return {
             select: vi.fn(),
+          };
+        }
+        if (table === "restaurants") {
+          return {
+            select: restaurantSelect,
           };
         }
         throw new Error(`Unexpected table ${table}`);
@@ -352,6 +376,29 @@ describe("booking lifecycle routes", () => {
         p_status: "completed",
       }),
     );
+  });
+
+  it("rejects check-in when the booking is not on today's date", async () => {
+    const booking: BookingRow = {
+      id: "booking-out-of-range",
+      restaurant_id: RESTAURANT_ID,
+      status: "confirmed",
+      checked_in_at: null,
+      checked_out_at: null,
+      booking_date: "2025-10-17",
+      start_time: "18:00",
+    };
+
+    const mocks = buildServiceClient({ booking, restaurantTimezone: "UTC" });
+
+    const response = await postCheckIn(createEmptyRequest(), {
+      params: Promise.resolve({ id: booking.id }),
+    });
+
+    expect(response.status).toBe(409);
+    const payload = await response.json();
+    expect(payload.error).toContain("Lifecycle actions are only available on the reservation date");
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
   it("rejects check-in for cancelled bookings", async () => {
@@ -473,6 +520,29 @@ describe("booking lifecycle routes", () => {
         p_status: "no_show",
       }),
     );
+  });
+
+  it("rejects marking a no-show when the booking is not on today's date", async () => {
+    const booking: BookingRow = {
+      id: "booking-no-show-out-of-range",
+      restaurant_id: RESTAURANT_ID,
+      status: "confirmed",
+      checked_in_at: null,
+      checked_out_at: null,
+      booking_date: "2025-10-17",
+      start_time: "21:00",
+    };
+
+    const mocks = buildServiceClient({ booking, restaurantTimezone: "UTC" });
+
+    const response = await postNoShow(createEmptyRequest({ reason: "Guest no-show" }), {
+      params: Promise.resolve({ id: booking.id }),
+    });
+
+    expect(response.status).toBe(409);
+    const payload = await response.json();
+    expect(payload.error).toContain("Lifecycle actions are only available on the reservation date");
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
   it("restores a no-show booking back to confirmed using last history entry", async () => {

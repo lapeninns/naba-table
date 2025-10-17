@@ -73,6 +73,14 @@ export function BookingRow({
     checkedInAt: null,
     checkedOutAt: null,
   }), [booking.id, booking.status]);
+  const lifecycleAvailability = useMemo(() => {
+    const start = new Date(booking.startIso);
+    if (Number.isNaN(start.getTime())) {
+      return { isToday: false } as const;
+    }
+    const today = new Date();
+    return { isToday: start.toDateString() === today.toDateString() } as const;
+  }, [booking.startIso]);
 
   const textClass = (extra?: string) =>
     cn('px-4 py-4 text-sm', extra, isPast ? 'text-muted-foreground' : 'text-foreground');
@@ -136,6 +144,7 @@ export function BookingRow({
                 onMarkNoShow={(options) => opsLifecycle.onMarkNoShow(booking, options)}
                 onUndoNoShow={(reason) => opsLifecycle.onUndoNoShow(booking, reason)}
                 showConfirmation
+                lifecycleAvailability={lifecycleAvailability}
               />
               <OpsBookingDetailsDialog booking={booking} formatDate={formatDate} formatTime={formatTime} />
             </>

@@ -11,9 +11,23 @@
  * For v2: Implement auto-assignment here
  */
 
+import { DateTime } from "luxon";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Tables } from "@/types/supabase";
 import { getServiceSupabaseClient } from "@/server/supabase";
+import {
+  bandDuration,
+  defaultVenuePolicy,
+  getBufferConfig,
+  getVenuePolicy,
+  PolicyError,
+  ServiceKey,
+  ServiceNotFoundError,
+  ServiceOverrunError,
+  VenuePolicy,
+  whichService,
+  serviceWindowFor,
+} from "./policy";
 
 type DbClient = SupabaseClient<Database, "public", any>;
 
@@ -46,8 +60,6 @@ export type TableAssignment = {
   section: string | null;
 };
 
-const DEFAULT_BOOKING_DURATION_MINUTES = 90;
-
 const INACTIVE_BOOKING_STATUSES = new Set<Tables<"bookings">["status"]>(["cancelled", "no_show"]);
 const ASSIGNABLE_BOOKING_STATUSES = new Set<Tables<"bookings">["status"]>([
   "pending",
@@ -55,56 +67,128 @@ const ASSIGNABLE_BOOKING_STATUSES = new Set<Tables<"bookings">["status"]>([
   "confirmed",
 ]);
 
-type BookingWindow = {
+type IntervalMs = {
   start: number;
   end: number;
+};
+
+type BookingWindow = {
+  service: ServiceKey;
+  durationMinutes: number;
+  dining: {
+    start: DateTime;
+    end: DateTime;
+  };
+  block: {
+    start: DateTime;
+    end: DateTime;
+  };
 };
 
 type TableScheduleEntry = {
   bookingId: string;
-  start: number;
-  end: number;
+  start: number; // Block start (ms)
+  end: number; // Block end (ms) — stored as half-open interval [start, end)
   status: Tables<"bookings">["status"];
 };
 
-function parseTimeToMinutes(value: string | null): number | null {
-  if (!value) {
-    return null;
-  }
+type ComputeBookingWindowArgs = {
+  startISO: string | null | undefined;
+  bookingDate?: string | null;
+  startTime?: string | null;
+  partySize: number;
+  policy: VenuePolicy;
+  serviceHint?: ServiceKey | null;
+};
 
-  const [hours, minutes] = value.split(":").map((part) => Number.parseInt(part, 10));
-  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
-    return null;
-  }
-
-  return hours * 60 + minutes;
+function windowsOverlap(a: IntervalMs, b: IntervalMs): boolean {
+  return a.start < b.end && b.start < a.end;
 }
 
-function computeBookingWindow(startTime: string | null, endTime: string | null): BookingWindow | null {
-  const startMinutes = parseTimeToMinutes(startTime);
-  if (startMinutes === null || Number.isNaN(startMinutes)) {
-    return null;
-  }
-
-  const endMinutesRaw = parseTimeToMinutes(endTime);
-  const endMinutes =
-    endMinutesRaw !== null && endMinutesRaw > startMinutes
-      ? endMinutesRaw
-      : startMinutes + DEFAULT_BOOKING_DURATION_MINUTES;
-
+function toInterval(range: { start: DateTime; end: DateTime }): IntervalMs {
   return {
-    start: startMinutes,
-    end: endMinutes,
+    start: range.start.toMillis(),
+    end: range.end.toMillis(),
   };
 }
 
-function windowsOverlap(a: BookingWindow, b: BookingWindow): boolean {
-  return a.start < b.end && b.start < a.end;
+function resolveStartDateTime(args: {
+  startISO: string | null | undefined;
+  bookingDate?: string | null;
+  startTime?: string | null;
+  policy: VenuePolicy;
+}): DateTime | null {
+  const { startISO, bookingDate, startTime, policy } = args;
+
+  if (startISO) {
+    const start = DateTime.fromISO(startISO, { setZone: true });
+    if (start.isValid) {
+      return start.setZone(policy.timezone, { keepLocalTime: false });
+    }
+  }
+
+  if (bookingDate && startTime) {
+    const combined = DateTime.fromISO(`${bookingDate}T${startTime}`, {
+      zone: policy.timezone,
+    });
+    if (combined.isValid) {
+      return combined;
+    }
+  }
+
+  return null;
+}
+
+function computeBookingWindow(args: ComputeBookingWindowArgs): BookingWindow | null {
+  const { startISO, bookingDate, startTime, partySize, policy, serviceHint } = args;
+  if (!Number.isFinite(partySize) || partySize <= 0) {
+    return null;
+  }
+
+  const start = resolveStartDateTime({ startISO, bookingDate, startTime, policy });
+  if (!start) {
+    return null;
+  }
+
+  const service =
+    serviceHint ?? whichService(start, policy);
+
+  if (!service) {
+    throw new ServiceNotFoundError(start);
+  }
+
+  const window = serviceWindowFor(service, start, policy);
+  const duration = bandDuration(service, partySize, policy);
+
+  const diningEnd = start.plus({ minutes: duration });
+  if (diningEnd > window.end) {
+    throw new ServiceOverrunError(service, diningEnd, window.end);
+  }
+
+  const buffer = getBufferConfig(service, policy);
+  const blockStart = buffer.pre > 0 ? start.minus({ minutes: buffer.pre }) : start;
+  const blockEnd = buffer.post > 0 ? diningEnd.plus({ minutes: buffer.post }) : diningEnd;
+
+  if (blockEnd > window.end) {
+    throw new ServiceOverrunError(
+      service,
+      blockEnd,
+      window.end,
+      `Reservation plus buffer exceeds ${service} service end (${window.end.toFormat("HH:mm")}).`,
+    );
+  }
+
+  return {
+    service,
+    durationMinutes: duration,
+    dining: { start, end: diningEnd },
+    block: { start: blockStart, end: blockEnd },
+  };
 }
 
 function tableWindowIsFree(
   tableId: string,
-  window: BookingWindow,
+  targetInterval: IntervalMs,
   schedule: Map<string, TableScheduleEntry[]>,
   bookingId?: string,
 ): boolean {
@@ -122,7 +206,7 @@ function tableWindowIsFree(
       return true;
     }
 
-    return !windowsOverlap(window, { start: entry.start, end: entry.end });
+    return !windowsOverlap(targetInterval, { start: entry.start, end: entry.end });
   });
 }
 
@@ -134,6 +218,8 @@ function filterAvailableTables(
   preferences: TableMatchParams | undefined,
   bookingId?: string,
 ): Table[] {
+  const targetInterval = toInterval(window.block);
+
   return tables.filter((table) => {
     if (!table || !Number.isFinite(table.capacity) || table.capacity <= 0) {
       return false;
@@ -160,7 +246,7 @@ function filterAvailableTables(
       return false;
     }
 
-    return tableWindowIsFree(table.id, window, schedule, bookingId);
+    return tableWindowIsFree(table.id, targetInterval, schedule, bookingId);
   });
 }
 
@@ -265,6 +351,8 @@ type BookingRecordForAssignment = {
   start_time: string | null;
   end_time: string | null;
   seating_preference: string | null;
+  start_at: string | null;
+  booking_date: string | null;
 };
 
 async function assignTablesForBooking(params: {
@@ -274,18 +362,36 @@ async function assignTablesForBooking(params: {
   assignedBy?: string | null;
   client: DbClient;
   preferences?: TableMatchParams;
+  policy: VenuePolicy;
 }): Promise<{ tableIds: string[] } | { reason: string }> {
-  const { booking, tables, schedule, assignedBy, client, preferences } = params;
+  const { booking, tables, schedule, assignedBy, client, preferences, policy } = params;
   const partySize = booking.party_size ?? 0;
 
   if (!Number.isFinite(partySize) || partySize <= 0) {
     return { reason: "Party size is not set for this booking" };
   }
 
-  const window = computeBookingWindow(booking.start_time, booking.end_time);
+  let window: BookingWindow | null;
+  try {
+    window = computeBookingWindow({
+      startISO: booking.start_at,
+      bookingDate: booking.booking_date,
+      startTime: booking.start_time,
+      partySize,
+      policy,
+    });
+  } catch (error) {
+    if (error instanceof PolicyError) {
+      return { reason: error.message };
+    }
+    throw error;
+  }
+
   if (!window) {
     return { reason: "Booking time is incomplete; cannot determine seating window" };
   }
+
+  const targetInterval = toInterval(window.block);
 
   let effectivePreferences: TableMatchParams | undefined = preferences ? { ...preferences } : undefined;
 
@@ -327,8 +433,8 @@ async function assignTablesForBooking(params: {
         tableId: table.id,
         entry: {
           bookingId: booking.id,
-          start: window.start,
-          end: window.end,
+          start: targetInterval.start,
+          end: targetInterval.end,
           status: booking.status,
         },
       });
@@ -368,6 +474,7 @@ type AssignmentContext = {
   tables: Table[];
   bookings: BookingRowWithAssignments[];
   schedule: Map<string, TableScheduleEntry[]>;
+  policy: VenuePolicy;
 };
 
 async function loadAssignmentContext(params: {
@@ -377,7 +484,7 @@ async function loadAssignmentContext(params: {
 }): Promise<AssignmentContext> {
   const { restaurantId, date, client } = params;
 
-  const [tablesResult, bookingsResult] = await Promise.all([
+  const [tablesResult, bookingsResult, restaurantResult] = await Promise.all([
     client
       .from("table_inventory")
       .select(
@@ -404,6 +511,8 @@ async function loadAssignmentContext(params: {
           status,
           start_time,
           end_time,
+          start_at,
+          booking_date,
           seating_preference,
           booking_table_assignments (
             table_id
@@ -413,6 +522,11 @@ async function loadAssignmentContext(params: {
       .eq("restaurant_id", restaurantId)
       .eq("booking_date", date)
       .order("start_time", { ascending: true }),
+    client
+      .from("restaurants")
+      .select("timezone")
+      .eq("id", restaurantId)
+      .maybeSingle(),
   ]);
 
   if (tablesResult.error) {
@@ -422,6 +536,13 @@ async function loadAssignmentContext(params: {
   if (bookingsResult.error) {
     throw new Error(`Failed to load bookings for auto assignment: ${bookingsResult.error.message}`);
   }
+
+  if (restaurantResult.error) {
+    throw new Error(`Failed to load restaurant timezone: ${restaurantResult.error.message}`);
+  }
+
+  const timezone = restaurantResult.data?.timezone ?? defaultVenuePolicy.timezone;
+  const policy = getVenuePolicy({ timezone });
 
   const tables: Table[] = (tablesResult.data ?? []).map((row: any) => ({
     id: row.id,
@@ -451,10 +572,28 @@ async function loadAssignmentContext(params: {
       continue;
     }
 
-    const window = computeBookingWindow(booking.start_time, booking.end_time);
+    let window: BookingWindow | null;
+    try {
+      window = computeBookingWindow({
+        startISO: booking.start_at,
+        bookingDate: booking.booking_date,
+        startTime: booking.start_time,
+        partySize: booking.party_size ?? 0,
+        policy,
+      });
+    } catch (error) {
+      if (error instanceof PolicyError) {
+        // Skip invalid bookings from schedule; operations team should resolve.
+        continue;
+      }
+      throw error;
+    }
+
     if (!window) {
       continue;
     }
+
+    const blockInterval = toInterval(window.block);
 
     for (const assignment of assignments) {
       if (!assignment?.table_id) {
@@ -464,15 +603,15 @@ async function loadAssignmentContext(params: {
       const existing = schedule.get(assignment.table_id) ?? [];
       existing.push({
         bookingId: booking.id,
-        start: window.start,
-        end: window.end,
+        start: blockInterval.start,
+        end: blockInterval.end,
         status: booking.status,
       });
       schedule.set(assignment.table_id, existing);
     }
   }
 
-  return { tables, bookings, schedule };
+  return { tables, bookings, schedule, policy };
 }
 
 type AutoAssignInternalParams = {
@@ -492,7 +631,7 @@ export type AutoAssignResult = {
 async function autoAssignTablesInternal(params: AutoAssignInternalParams): Promise<AutoAssignResult> {
   const { restaurantId, date, client, assignedBy, targetBookingIds, preferenceOverrides } = params;
 
-  const { tables, bookings, schedule } = await loadAssignmentContext({ restaurantId, date, client });
+  const { tables, bookings, schedule, policy } = await loadAssignmentContext({ restaurantId, date, client });
 
   if (tables.length === 0) {
     return {
@@ -526,8 +665,20 @@ async function autoAssignTablesInternal(params: AutoAssignInternalParams): Promi
         return sizeB - sizeA; // larger parties first
       }
 
-      const startA = parseTimeToMinutes(a.start_time) ?? 0;
-      const startB = parseTimeToMinutes(b.start_time) ?? 0;
+      const startA =
+        resolveStartDateTime({
+          startISO: a.start_at,
+          bookingDate: a.booking_date,
+          startTime: a.start_time,
+          policy,
+        })?.toMillis() ?? 0;
+      const startB =
+        resolveStartDateTime({
+          startISO: b.start_at,
+          bookingDate: b.booking_date,
+          startTime: b.start_time,
+          policy,
+        })?.toMillis() ?? 0;
       return startA - startB;
     });
 
@@ -545,6 +696,7 @@ async function autoAssignTablesInternal(params: AutoAssignInternalParams): Promi
       assignedBy,
       client,
       preferences: override,
+      policy,
     });
 
     if ("tableIds" in assignment && assignment.tableIds.length > 0) {
@@ -865,3 +1017,9 @@ export async function isTableAvailable(
 
   return !hasConflict;
 }
+
+export const __internal = {
+  computeBookingWindow,
+  windowsOverlap,
+  resolveStartDateTime,
+};

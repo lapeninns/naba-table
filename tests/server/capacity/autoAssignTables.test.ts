@@ -31,6 +31,8 @@ type BookingRow = {
   status: Tables<'bookings'>['status'];
   start_time: string | null;
   end_time: string | null;
+  start_at: string | null;
+  booking_date: string | null;
   seating_preference: string | null;
   booking_table_assignments: { table_id: string | null }[] | null;
 };
@@ -78,6 +80,22 @@ function createMockSupabaseClient(options: MockClientOptions) {
                         return Promise.resolve({ data: options.bookings, error: null });
                       },
                     };
+                  },
+                };
+              },
+            };
+          },
+        };
+      }
+
+      if (table === 'restaurants') {
+        return {
+          select() {
+            return {
+              eq() {
+                return {
+                  maybeSingle() {
+                    return Promise.resolve({ data: { timezone: 'Europe/London' }, error: null });
                   },
                 };
               },
@@ -148,6 +166,8 @@ describe('autoAssignTablesForDate', () => {
         status: 'pending_allocation',
         start_time: '18:00',
         end_time: null,
+        start_at: '2025-11-01T18:00:00+00:00',
+        booking_date: '2025-11-01',
         seating_preference: 'any',
         booking_table_assignments: [],
       },
@@ -157,6 +177,8 @@ describe('autoAssignTablesForDate', () => {
         status: 'confirmed',
         start_time: '19:00',
         end_time: '20:30',
+        start_at: '2025-11-01T19:00:00+00:00',
+        booking_date: '2025-11-01',
         seating_preference: 'any',
         booking_table_assignments: [
           {
@@ -220,6 +242,8 @@ describe('autoAssignTablesForDate', () => {
         status: 'pending_allocation',
         start_time: '17:30',
         end_time: null,
+        start_at: '2025-11-02T17:30:00+00:00',
+        booking_date: '2025-11-02',
         seating_preference: 'any',
         booking_table_assignments: [],
       },
@@ -266,6 +290,8 @@ describe('autoAssignTablesForDate', () => {
         status: 'pending_allocation',
         start_time: '12:00',
         end_time: null,
+        start_at: '2025-11-03T12:00:00+00:00',
+        booking_date: '2025-11-03',
         seating_preference: 'any',
         booking_table_assignments: [],
       },

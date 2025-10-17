@@ -11,11 +11,44 @@ supabase/
 ├── .branches/          # Supabase CLI branch configuration
 ├── .temp/              # Temporary CLI files (auto-generated)
 ├── docs/               # Documentation and setup guides
+│   ├── SEED_DATA_GUIDE.md           # ✨ Comprehensive seed data documentation
+│   ├── SEED_ENHANCEMENT_SUMMARY.md  # ✨ v2.0 enhancement details
+│   ├── SEED_QUICK_REFERENCE.md      # ✨ Quick reference card
+│   ├── DATABASE_VERIFICATION.md     # Database verification guide
+│   └── README_SETUP.md              # Remote-only setup instructions
 ├── migrations/         # ✅ Database migration files (synced with remote)
-├── seeds/              # Seed data files
-├── manual-rollbacks/   # Manual rollback scripts for migrations
-└── utilities/          # Utility SQL scripts for maintenance
+├── utilities/          # Utility SQL scripts for maintenance
+│   ├── init-seeds.sql  # ✨ Enhanced seed script v2.0 (23 tables)
+│   └── wipe-public-schema.sql
+└── manual-rollbacks/   # Manual rollback scripts for migrations
 ```
+
+## 🌱 Seed Data (Enhanced v2.0)
+
+**New in v2.0**: Comprehensive demo data covering all 23 tables with realistic diversity
+
+### Quick Start
+
+```bash
+# Seed database with demo data
+pnpm run db:seed-only
+
+# Verify seed data
+pnpm run db:verify
+```
+
+### What's Included
+
+- ✅ 8 restaurants (multi-cuisine)
+- ✅ 530 customers with diverse profiles
+- ✅ 310 bookings (past/today/future)
+- ✅ 111 Stripe payment events ✨ NEW
+- ✅ Enhanced customer preferences (dietary, seating, occasions) ✨ NEW
+- ✅ Realistic booking status distribution ✨ NEW
+- ✅ Full table inventory, capacity rules, loyalty programs, and more
+
+📚 **See**: `docs/SEED_QUICK_REFERENCE.md` for quick reference  
+📖 **Full Guide**: `docs/SEED_DATA_GUIDE.md` for comprehensive documentation
 
 ## 🗄️ Migrations (21 files)
 
