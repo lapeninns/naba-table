@@ -106,7 +106,8 @@ export type {
   // Tables (v2)
   Table,
   TableMatchParams,
-  TableAssignment,
+  TableAssignmentMember,
+  TableAssignmentGroup,
   AutoAssignResult,
 } from "./tables";
 

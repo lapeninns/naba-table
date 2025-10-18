@@ -67,68 +67,52 @@ function formatTableAssignmentDisplay(assignments: OpsTodayBooking['tableAssignm
     };
   }
 
-  const tableNumbers = assignments.map((assignment) => assignment.tableNumber || '—');
-  const rawTotalCapacity = assignments.reduce((sum, assignment) => sum + (assignment.capacity ?? 0), 0);
+  const labels: string[] = [];
+  let hasMerge = false;
+  let mergeGroupId: string | null = null;
 
-  const mergeDetails = (() => {
-    if (assignments.length < 2) {
-      return null;
+  for (const group of assignments) {
+    const members = group.members ?? [];
+    if (!mergeGroupId && group.groupId) {
+      mergeGroupId = group.groupId;
     }
-    const explicit = assignments.find((assignment) => assignment.mergeGroupId);
-    if (explicit) {
-      return {
-        mergeGroupId: explicit.mergeGroupId ?? null,
-        displayName: explicit.mergeDisplayName ?? `M${explicit.mergeTotalCapacity ?? rawTotalCapacity}`,
-        patternLabel: explicit.mergePatternLabel ?? null,
-        totalCapacity: explicit.mergeTotalCapacity ?? rawTotalCapacity,
-      };
-    }
-    const inferred = inferMergeInfo(assignments);
-    if (!inferred) {
-      return null;
-    }
-    return {
-      mergeGroupId: inferred.mergeGroupId,
-      displayName: inferred.displayName,
-      patternLabel: inferred.patternLabel,
-      totalCapacity: inferred.totalCapacity,
-    };
-  })();
 
-  const effectiveTotalCapacity = mergeDetails?.totalCapacity ?? rawTotalCapacity;
-  const seatsLabel =
-    effectiveTotalCapacity > 0
-      ? `${effectiveTotalCapacity} seat${effectiveTotalCapacity === 1 ? '' : 's'}`
+    const memberLabels = members.map((member) => member.tableNumber || '—');
+    const baseLabel = memberLabels.length <= 1
+      ? `Table ${memberLabels[0] ?? '—'}`
+      : `Tables ${memberLabels.join(' + ')}`;
+
+    const seatsLabel = group.capacitySum
+      ? `${group.capacitySum} seat${group.capacitySum === 1 ? '' : 's'}`
       : null;
 
-  if (assignments.length === 1 && !mergeDetails) {
-    const [assignment] = assignments;
-    const baseLabel = `Table ${assignment.tableNumber}`;
-    return {
-      text: seatsLabel ? `${baseLabel} · ${seatsLabel}` : baseLabel,
-      state: 'single',
-    };
-  }
+    let label = seatsLabel ? `${baseLabel} · ${seatsLabel}` : baseLabel;
 
-  const joinedTables = tableNumbers.join(' + ');
-  const baseLabel = tableNumbers.length === 1 ? `Table ${joinedTables}` : `Tables ${joinedTables}`;
+    if (members.length > 1) {
+      hasMerge = true;
+      const inferred = inferMergeInfo(
+        members.map((member) => ({
+          tableNumber: member.tableNumber ?? '',
+          capacity: member.capacity ?? null,
+        })),
+      );
 
-  if (mergeDetails) {
-    const mergeLabelParts = [`Merge ${mergeDetails.displayName}`];
-    if (mergeDetails.patternLabel) {
-      mergeLabelParts.push(`(${mergeDetails.patternLabel})`);
+      if (inferred) {
+        const mergeParts = [`Merge ${inferred.displayName}`];
+        if (inferred.patternLabel) {
+          mergeParts.push(`(${inferred.patternLabel})`);
+        }
+        label = `${label} · ${mergeParts.join(' ')}`;
+      }
     }
-    const parts = [baseLabel, seatsLabel, mergeLabelParts.join(' ')].filter(Boolean);
-    return {
-      text: parts.join(' · '),
-      state: 'merge',
-      mergeGroupId: mergeDetails.mergeGroupId,
-    };
+
+    labels.push(label);
   }
 
   return {
-    text: seatsLabel ? `${baseLabel} · ${seatsLabel}` : baseLabel,
-    state: 'single',
+    text: labels.join('; '),
+    state: hasMerge ? 'merge' : 'single',
+    mergeGroupId,
   };
 }
 

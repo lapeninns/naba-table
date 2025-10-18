@@ -99,6 +99,9 @@ export const env = {
       allocationsDualWrite: parsed.FEATURE_ALLOCATIONS_DUAL_WRITE ?? false,
       rpcAssignAtomic: parsed.FEATURE_RPC_ASSIGN_ATOMIC ?? false,
       assignAtomic: parsed.FEATURE_ASSIGN_ATOMIC ?? false,
+      mergePersistence: parsed.FEATURE_MERGE_PERSISTENCE ?? false,
+      statusTriggers: parsed.FEATURE_STATUS_TRIGGERS ?? false,
+      realtimeFloorplan: parsed.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN ?? false,
     } as const;
   },
 

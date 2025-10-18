@@ -49,7 +49,8 @@ type MockClientOptions = {
 
 type AssignmentLogEntry = {
   bookingId: string;
-  tableId: string;
+  tableIds: string[];
+  window: string;
 };
 
 function createMockSupabaseClient(options: MockClientOptions) {
@@ -137,21 +138,28 @@ function createMockSupabaseClient(options: MockClientOptions) {
       throw new Error(`Unexpected table ${table}`);
     },
     rpc(name: string, args: Record<string, unknown>) {
-      if (name === 'assign_table_to_booking') {
+      if (name === 'assign_tables_atomic') {
         assignments.push({
           bookingId: args.p_booking_id as string,
-          tableId: args.p_table_id as string,
+          tableIds: Array.isArray(args.p_table_ids) ? [...(args.p_table_ids as string[])] : [],
+          window: args.p_window as string,
         });
-        return Promise.resolve({ data: args.p_table_id, error: null });
+        const data = (Array.isArray(args.p_table_ids) ? args.p_table_ids : []).map((tableId: string) => ({
+          table_id: tableId,
+          assignment_id: `${args.p_booking_id}-${tableId}`,
+          merge_group_id: null,
+        }));
+        return Promise.resolve({ data, error: null });
       }
 
-      if (name === 'unassign_table_from_booking') {
+      if (name === 'unassign_table_from_booking' || name === 'unassign_tables_atomic') {
         const target = args.p_table_id as string;
         const bookingId = args.p_booking_id as string;
-        const index = assignments.findIndex((entry) => entry.bookingId === bookingId && entry.tableId === target);
-        if (index >= 0) {
-          assignments.splice(index, 1);
-        }
+        assignments.forEach((entry) => {
+          if (entry.bookingId === bookingId) {
+            entry.tableIds = entry.tableIds.filter((tableId) => tableId !== target);
+          }
+        });
         return Promise.resolve({ data: true, error: null });
       }
 
@@ -235,7 +243,10 @@ describe('autoAssignTablesForDate', () => {
     ]);
     expect(result.skipped).toEqual([]);
     expect(assignments).toEqual([
-      { bookingId: 'booking-1', tableId: 'table-1' },
+      expect.objectContaining({
+        bookingId: 'booking-1',
+        tableIds: ['table-1'],
+      }),
     ]);
   });
 
@@ -408,8 +419,10 @@ describe('autoAssignTablesForDate', () => {
   ]);
 
   expect(assignments).toEqual([
-    { bookingId: 'booking-merge-6', tableId: 'table-2-1' },
-    { bookingId: 'booking-merge-6', tableId: 'table-4-1' },
+    expect.objectContaining({
+      bookingId: 'booking-merge-6',
+      tableIds: ['table-2-1', 'table-4-1'],
+    }),
   ]);
   });
 
@@ -477,8 +490,10 @@ describe('autoAssignTablesForDate', () => {
   ]);
 
   expect(assignments).toEqual([
-    { bookingId: 'booking-merge-8', tableId: 'table-4-1' },
-    { bookingId: 'booking-merge-8', tableId: 'table-4-2' },
+    expect.objectContaining({
+      bookingId: 'booking-merge-8',
+      tableIds: ['table-4-1', 'table-4-2'],
+    }),
   ]);
   });
 

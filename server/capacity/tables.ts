@@ -12,7 +12,7 @@
  */
 
 import { DateTime } from "luxon";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Tables } from "@/types/supabase";
 import { env } from "@/lib/env";
 import { getServiceSupabaseClient } from "@/server/supabase";
@@ -30,7 +30,6 @@ import {
   whichService,
   serviceWindowFor,
 } from "./policy";
-import { composeMergeGroupId } from "@/utils/ops/table-merges";
 
 type DbClient = SupabaseClient<Database, "public", any>;
 
@@ -61,13 +60,53 @@ export type TableMatchParams = {
   section?: string;
 };
 
-export type TableAssignment = {
+export type TableAssignmentMember = {
   tableId: string;
   tableNumber: string;
   capacity: number | null;
   section: string | null;
-  mergeGroupId: string | null;
 };
+
+export type TableAssignmentGroup = {
+  groupId: string | null;
+  capacitySum: number | null;
+  members: TableAssignmentMember[];
+};
+
+type TableInventoryRecord = {
+  table_number?: string | null;
+  capacity?: number | string | null;
+  section?: string | null;
+};
+type MergeGroupRecord = {
+  capacity?: number | string | null;
+};
+
+function normalizeRelationshipRecord<T>(
+  value: T | T[] | null | undefined,
+): T | null {
+  if (!value) {
+    return null;
+  }
+
+  return Array.isArray(value) ? value[0] ?? null : value;
+}
+
+function getNumericCapacity(value: unknown): number | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  const numericCapacity = Number(value);
+  return Number.isFinite(numericCapacity) ? numericCapacity : null;
+}
+
+function getMergeGroupCapacity(
+  mergeGroup: MergeGroupRecord | MergeGroupRecord[] | null | undefined,
+): number | null {
+  const record = normalizeRelationshipRecord(mergeGroup);
+  return getNumericCapacity(record?.capacity);
+}
 
 const INACTIVE_BOOKING_STATUSES = new Set<Tables<"bookings">["status"]>(["cancelled", "no_show"]);
 const ASSIGNABLE_BOOKING_STATUSES = new Set<Tables<"bookings">["status"]>([
@@ -75,6 +114,35 @@ const ASSIGNABLE_BOOKING_STATUSES = new Set<Tables<"bookings">["status"]>([
   "pending_allocation",
   "confirmed",
 ]);
+
+class AtomicAssignmentError extends Error {
+  code?: string;
+  details: string | null;
+  hint: string | null;
+
+  constructor(
+    message: string,
+    options: { code?: string; details?: string | null; hint?: string | null; cause?: unknown } = {},
+  ) {
+    super(message);
+    this.name = "AtomicAssignmentError";
+    this.code = options.code;
+    this.details = options.details ?? null;
+    this.hint = options.hint ?? null;
+    if (options.cause !== undefined) {
+      (this as any).cause = options.cause;
+    }
+  }
+
+  static fromPostgrest(error: PostgrestError): AtomicAssignmentError {
+    return new AtomicAssignmentError(error.message ?? "assign_tables_atomic failed", {
+      code: error.code,
+      details: error.details ?? null,
+      hint: error.hint ?? null,
+      cause: error,
+    });
+  }
+}
 
 type IntervalMs = {
   start: number;
@@ -140,6 +208,52 @@ function toInterval(range: { start: DateTime; end: DateTime }): IntervalMs {
   return {
     start: range.start.toMillis(),
     end: range.end.toMillis(),
+  };
+}
+
+function composeAtomicAssignmentIdempotencyKey(params: {
+  bookingId: string;
+  window: { start: string; end: string };
+  tableIds: string[];
+}): string {
+  const bookingSegment = params.bookingId.trim().toLowerCase();
+  const normalizedTables = [...params.tableIds]
+    .map((id) => id.trim().toLowerCase())
+    .filter((id) => id.length > 0)
+    .sort((a, b) => a.localeCompare(b));
+
+  if (normalizedTables.length === 0) {
+    throw new Error("Idempotency key requires at least one table id");
+  }
+
+  const windowStart = params.window.start;
+  const windowEnd = params.window.end;
+  if (!windowStart || !windowEnd) {
+    throw new Error("Idempotency key requires booking window boundaries");
+  }
+
+  return [bookingSegment, windowStart, windowEnd, normalizedTables.join("+")].join(":");
+}
+
+function serializeBookingBlockWindow(window: BookingWindow): { range: string; start: string; end: string } {
+  const blockStartUtc = window.block.start.setZone("UTC", { keepLocalTime: false });
+  const blockEndUtc = window.block.end.setZone("UTC", { keepLocalTime: false });
+
+  if (!blockStartUtc.isValid || !blockEndUtc.isValid || blockEndUtc <= blockStartUtc) {
+    throw new Error("Booking block window is invalid; cannot build atomic assignment range");
+  }
+
+  const startIso = blockStartUtc.toISO({ suppressMilliseconds: true });
+  const endIso = blockEndUtc.toISO({ suppressMilliseconds: true });
+
+  if (!startIso || !endIso) {
+    throw new Error("Unable to serialise booking block window");
+  }
+
+  return {
+    range: `[${startIso},${endIso})`,
+    start: startIso,
+    end: endIso,
   };
 }
 
@@ -363,57 +477,46 @@ function filterAvailableTables(
   });
 }
 
-type TableSelection =
-  | {
-      tables: Table[];
-      mergeType: "single" | "merge_2_4" | "merge_4_4";
-    }
-  | {
-      reason: string;
-    };
+type TablePlan = {
+  tables: Table[];
+  mergeType: "single" | "merge_2_4" | "merge_4_4";
+  slack: number;
+};
 
-function createMergeGroupId(
-  bookingId: string,
-  tables: Table[],
-  mergeType: "merge_2_4" | "merge_4_4" | "single",
-): string | undefined {
-  if (mergeType === "single") {
-    return undefined;
-  }
+type TablePlanResult = {
+  plans: TablePlan[];
+  fallbackReason?: string;
+};
 
-  const totalCapacity = tables.reduce((sum, table) => sum + (table.capacity ?? 0), 0);
-  const tableNumbers = tables
-    .map((table) => table.tableNumber)
-    .filter((tableNumber): tableNumber is string => typeof tableNumber === "string" && tableNumber.trim().length > 0);
-
-  return composeMergeGroupId({
-    bookingId,
-    totalCapacity,
-    tableNumbers,
-  });
-}
-
-function selectTablesForParty(
-  tables: Table[],
-  partySize: number,
-  adjacency: Map<string, Set<string>>,
-): TableSelection {
+function generateTablePlans(tables: Table[], partySize: number, adjacency: Map<string, Set<string>>): TablePlanResult {
   if (tables.length === 0) {
-    return { reason: "No tables available for the requested booking window" };
+    return { plans: [], fallbackReason: "No tables available for the requested booking window" };
   }
 
   const byCapacityAsc = [...tables].sort((a, b) => {
-    if (a.capacity === b.capacity) {
-      return a.tableNumber.localeCompare(b.tableNumber);
+    if ((a.capacity ?? 0) === (b.capacity ?? 0)) {
+      return (a.tableNumber ?? "").localeCompare(b.tableNumber ?? "");
     }
-    return a.capacity - b.capacity;
+    return (a.capacity ?? 0) - (b.capacity ?? 0);
   });
 
-  const singleTable = byCapacityAsc.find((table) => {
-    if (!Number.isFinite(table.capacity) || table.capacity <= 0) {
+  const plans: TablePlan[] = [];
+  const seen = new Set<string>();
+
+  const registerPlan = (plan: TablePlan) => {
+    const key = [...plan.tables].map((table) => table.id).sort((a, b) => a.localeCompare(b)).join("|");
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    plans.push(plan);
+  };
+
+  const eligibleSingles = byCapacityAsc.filter((table) => {
+    if (!Number.isFinite(table.capacity) || (table.capacity ?? 0) <= 0) {
       return false;
     }
-    if (table.capacity < partySize) {
+    if ((table.capacity ?? 0) < partySize) {
       return false;
     }
     if (typeof table.maxPartySize === "number" && table.maxPartySize > 0 && partySize > table.maxPartySize) {
@@ -422,16 +525,20 @@ function selectTablesForParty(
     return true;
   });
 
-  if (singleTable) {
-    return {
-      tables: [singleTable],
+  for (const table of eligibleSingles) {
+    registerPlan({
+      tables: [table],
       mergeType: "single",
-    };
+      slack: (table.capacity ?? 0) - partySize,
+    });
   }
+
+  let mergeFallbackReason: string | undefined;
 
   if (partySize >= 5 && partySize <= 6) {
     const twoTops = byCapacityAsc.filter((table) => table.capacity === 2 && table.mergeEligible);
     const fourTops = byCapacityAsc.filter((table) => table.capacity === 4 && table.mergeEligible);
+    let hasMergeCandidate = false;
 
     for (const twoTop of twoTops) {
       for (const fourTop of fourTops) {
@@ -442,20 +549,22 @@ function selectTablesForParty(
         if (!adjacentToTwo || !adjacentToTwo.has(fourTop.id)) {
           continue;
         }
-        return {
+        hasMergeCandidate = true;
+        registerPlan({
           tables: [twoTop, fourTop],
           mergeType: "merge_2_4",
-        };
+          slack: (twoTop.capacity ?? 0) + (fourTop.capacity ?? 0) - partySize,
+        });
       }
     }
 
-    return {
-      reason: "Merge (2+4) requires adjacent, merge-eligible tables in the same zone",
-    };
-  }
-
-  if (partySize >= 7 && partySize <= 8) {
+    if (!hasMergeCandidate) {
+      mergeFallbackReason = "Merge (2+4) requires adjacent, merge-eligible tables in the same zone";
+    }
+  } else if (partySize >= 7 && partySize <= 8) {
     const fourTops = byCapacityAsc.filter((table) => table.capacity === 4 && table.mergeEligible);
+    let hasMergeCandidate = false;
+
     for (let i = 0; i < fourTops.length; i += 1) {
       for (let j = i + 1; j < fourTops.length; j += 1) {
         const a = fourTops[i]!;
@@ -467,20 +576,45 @@ function selectTablesForParty(
         if (!adjacentToA || !adjacentToA.has(b.id)) {
           continue;
         }
-        return {
+        hasMergeCandidate = true;
+        registerPlan({
           tables: [a, b],
           mergeType: "merge_4_4",
-        };
+          slack: (a.capacity ?? 0) + (b.capacity ?? 0) - partySize,
+        });
       }
     }
 
-    return {
-      reason: "Merge (4+4) requires adjacent, merge-eligible 4-tops in the same zone",
-    };
+    if (!hasMergeCandidate) {
+      mergeFallbackReason = "Merge (4+4) requires adjacent, merge-eligible 4-tops in the same zone";
+    }
+  } else if (eligibleSingles.length === 0) {
+    mergeFallbackReason = "No merge strategy supports the requested party size";
   }
 
+  plans.sort((a, b) => {
+    if (a.mergeType === "single" && b.mergeType !== "single") {
+      return -1;
+    }
+    if (b.mergeType === "single" && a.mergeType !== "single") {
+      return 1;
+    }
+    if (a.slack !== b.slack) {
+      return a.slack - b.slack;
+    }
+    const capacityA = a.tables.reduce((sum, table) => sum + (table.capacity ?? 0), 0);
+    const capacityB = b.tables.reduce((sum, table) => sum + (table.capacity ?? 0), 0);
+    if (capacityA !== capacityB) {
+      return capacityA - capacityB;
+    }
+    const nameA = a.tables.map((table) => table.tableNumber ?? "").sort().join("+");
+    const nameB = b.tables.map((table) => table.tableNumber ?? "").sort().join("+");
+    return nameA.localeCompare(nameB);
+  });
+
   return {
-    reason: "No merge strategy supports the requested party size",
+    plans,
+    fallbackReason: plans.length === 0 ? mergeFallbackReason : undefined,
   };
 }
 
@@ -557,62 +691,93 @@ async function assignTablesForBooking(params: {
     return { reason: "No suitable tables are available for the booking window" };
   }
 
-  const selection = selectTablesForParty(availableTables, partySize, adjacency);
-  if ("reason" in selection) {
-    return { reason: selection.reason };
+  const { plans: candidatePlans, fallbackReason } = generateTablePlans(availableTables, partySize, adjacency);
+  if (candidatePlans.length === 0) {
+    return { reason: fallbackReason ?? "Unable to locate a compatible table combination" };
   }
 
-  const combination = selection.tables;
+  const serializedWindow = serializeBookingBlockWindow(window);
+  let overlapError: AtomicAssignmentError | null = null;
 
-  const assignedTableIds: string[] = [];
-  const scheduleUpdates: { tableId: string; entry: TableScheduleEntry }[] = [];
-  const mergeGroupId =
-    selection.mergeType === "single"
-      ? undefined
-      : createMergeGroupId(booking.id, combination, selection.mergeType);
+  for (const plan of candidatePlans) {
+    const tableIds = plan.tables.map((table) => table.id);
+    let idempotencyKey: string;
+    try {
+      idempotencyKey = composeAtomicAssignmentIdempotencyKey({
+        bookingId: booking.id,
+        window: { start: serializedWindow.start, end: serializedWindow.end },
+        tableIds,
+      });
+    } catch (idKeyError) {
+      console.error("[capacity][autoAssign] failed to compose idempotency key", {
+        bookingId: booking.id,
+        tableIds,
+        error: idKeyError,
+      });
+      return { reason: "Failed to build idempotency key for table assignment" };
+    }
 
-  try {
-    for (const table of combination) {
-      await assignTableToBooking(booking.id, table.id, assignedBy ?? undefined, client);
-      assignedTableIds.push(table.id);
+    try {
+      const assignments = await invokeAssignTablesAtomic({
+        bookingId: booking.id,
+        tableIds,
+        assignedBy: assignedBy ?? null,
+        idempotencyKey,
+        client,
+        window: serializedWindow,
+      });
 
-      scheduleUpdates.push({
-        tableId: table.id,
-        entry: {
+      if (assignments.length === 0) {
+        throw new Error("assign_tables_atomic returned no assignments");
+      }
+
+      const assignmentsByTable = new Map(assignments.map((entry) => [entry.tableId, entry]));
+      const mergedGroupId = assignments.find((entry) => entry.mergeGroupId)?.mergeGroupId ?? null;
+
+      for (const table of plan.tables) {
+        const rpcRow = assignmentsByTable.get(table.id);
+        const updateEntry: TableScheduleEntry = {
           bookingId: booking.id,
           start: targetInterval.start,
           end: targetInterval.end,
           status: booking.status,
-          mergeGroupId,
-          mergeType: selection.mergeType,
-        },
-      });
-    }
-
-    for (const update of scheduleUpdates) {
-      const existing = schedule.get(update.tableId) ?? [];
-      existing.push(update.entry);
-      schedule.set(update.tableId, existing);
-    }
-
-    return { tableIds: assignedTableIds };
-  } catch (error) {
-    for (const tableId of assignedTableIds) {
-      try {
-        await unassignTableFromBooking(booking.id, tableId, client);
-      } catch (rollbackError) {
-        console.error("[capacity][autoAssign] failed to rollback table assignment", {
-          bookingId: booking.id,
-          tableId,
-          error: rollbackError,
-        });
+          mergeGroupId: rpcRow?.mergeGroupId ?? mergedGroupId ?? undefined,
+          mergeType: plan.mergeType,
+        };
+        const existing = schedule.get(table.id) ?? [];
+        existing.push(updateEntry);
+        schedule.set(table.id, existing);
       }
-    }
 
+      return { tableIds };
+    } catch (error) {
+      if (error instanceof AtomicAssignmentError) {
+        const message = (error.message ?? "").toLowerCase();
+        if (error.code === "P0001" && message.includes("allocations_no_overlap")) {
+          overlapError = error;
+          continue;
+        }
+      }
+      console.error("[capacity][autoAssign] atomic assignment failed", {
+        bookingId: booking.id,
+        tableIds,
+        error,
+      });
+      return {
+        reason: error instanceof Error ? error.message : "Failed to assign tables",
+      };
+    }
+  }
+
+  if (overlapError) {
     return {
-      reason: error instanceof Error ? error.message : "Failed to assign tables",
+      reason: "All candidate table plans conflicted with existing allocations.",
     };
   }
+
+  return {
+    reason: fallbackReason ?? "Unable to assign tables for the requested booking.",
+  };
 }
 
 type BookingRowWithAssignments = BookingRecordForAssignment & {
@@ -1103,26 +1268,30 @@ async function invokeAssignTablesAtomic(params: {
   assignedBy?: string | null;
   idempotencyKey?: string | null;
   client: DbClient;
+  window?: { range: string; start: string; end: string };
 }): Promise<AtomicAssignmentResult[]> {
-  const { bookingId, tableIds, assignedBy, idempotencyKey, client } = params;
+  const { bookingId, tableIds, assignedBy, idempotencyKey, client, window } = params;
 
   if (!Array.isArray(tableIds) || tableIds.length === 0) {
     throw new Error("assign_tables_atomic requires at least one table id");
   }
 
-  const booking = await fetchBookingForAtomic(bookingId, client);
-  const window = buildAssignmentWindowRange(booking);
+  let resolvedWindow = window ?? null;
+  if (!resolvedWindow) {
+    const booking = await fetchBookingForAtomic(bookingId, client);
+    resolvedWindow = buildAssignmentWindowRange(booking);
+  }
 
   const { data, error } = await client.rpc("assign_tables_atomic", {
     p_booking_id: bookingId,
     p_table_ids: tableIds,
-    p_window: window.range,
+    p_window: resolvedWindow.range,
     p_assigned_by: assignedBy ?? null,
     p_idempotency_key: idempotencyKey ?? null,
   });
 
   if (error) {
-    throw new Error(`Failed to assign tables atomically: ${error.message}`);
+    throw AtomicAssignmentError.fromPostgrest(error);
   }
 
   const rows = Array.isArray(data) ? data : [];
@@ -1168,7 +1337,7 @@ async function invokeUnassignTablesAtomic(params: {
 export async function getBookingTableAssignments(
   bookingId: string,
   client?: DbClient
-): Promise<TableAssignment[]> {
+): Promise<TableAssignmentGroup[]> {
   const supabase = client ?? getServiceSupabaseClient();
 
   const { data, error } = await supabase
@@ -1180,6 +1349,10 @@ export async function getBookingTableAssignments(
         table_number,
         capacity,
         section
+      ),
+      merge_group:merge_group_id (
+        id,
+        capacity
       )
     `)
     .eq("booking_id", bookingId);
@@ -1188,13 +1361,52 @@ export async function getBookingTableAssignments(
     throw new Error(`Failed to get table assignments: ${error.message}`);
   }
 
-  return (data ?? []).map((assignment: any) => ({
-    tableId: assignment.table_id,
-    tableNumber: assignment.table_inventory?.table_number ?? "Unknown",
-    capacity: assignment.table_inventory?.capacity ?? null,
-    section: assignment.table_inventory?.section ?? null,
-    mergeGroupId: assignment.merge_group_id ?? null,
-  }));
+  const groups = new Map<string, TableAssignmentGroup>();
+
+  for (const assignment of data ?? []) {
+    const tableId: string = assignment.table_id;
+    const tableMeta = normalizeRelationshipRecord<TableInventoryRecord>(assignment.table_inventory);
+    const groupId: string | null = assignment.merge_group_id ?? null;
+    const groupKey = groupId ?? tableId;
+    const mergeGroupCapacity = getMergeGroupCapacity(assignment.merge_group ?? null);
+
+    let group = groups.get(groupKey);
+    if (!group) {
+      group = {
+        groupId,
+        capacitySum: null,
+        members: [],
+      };
+      if (groupId && mergeGroupCapacity !== null) {
+        group.capacitySum = mergeGroupCapacity;
+      } else if (!groupId) {
+        const tableCapacity = getNumericCapacity(tableMeta?.capacity);
+        if (tableCapacity !== null) {
+          group.capacitySum = tableCapacity;
+        }
+      }
+      groups.set(groupKey, group);
+    }
+
+    group.members.push({
+      tableId,
+      tableNumber: typeof tableMeta?.table_number === "string" ? tableMeta.table_number : "Unknown",
+      capacity: typeof tableMeta?.capacity === "number" ? tableMeta.capacity : null,
+      section: tableMeta?.section ?? null,
+    });
+  }
+
+  return Array.from(groups.values()).map((group) => {
+    if (group.capacitySum === null) {
+      const computed = group.members.reduce((sum, member) => sum + (member.capacity ?? 0), 0);
+      group.capacitySum = computed > 0 ? computed : null;
+    }
+    return {
+      groupId: group.groupId,
+      capacitySum: group.capacitySum,
+      members: group.members,
+    };
+  });
 }
 
 // =====================================================

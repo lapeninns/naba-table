@@ -29,6 +29,53 @@ const TIER_COLORS: Record<string, string> = {
   bronze: 'bg-amber-700 text-white border-amber-700',
 };
 
+function expandAssignmentGroups(groups: OpsTodayBooking['tableAssignments']) {
+  const expanded: Array<{
+    tableId: string;
+    tableNumber: string;
+    capacity: number | null;
+    section: string | null;
+    mergeGroupId: string | null;
+    mergeDisplayName: string | null;
+    mergePatternLabel: string | null;
+    mergeTotalCapacity: number | null;
+  }> = [];
+
+  for (const group of groups ?? []) {
+    const members = group?.members ?? [];
+    if (members.length === 0) {
+      continue;
+    }
+
+    const inferred = members.length > 1
+      ? inferMergeInfo(
+          members.map((member) => ({
+            tableNumber: member.tableNumber ?? '',
+            capacity: member.capacity ?? null,
+          })),
+        )
+      : null;
+
+    const capacitySum = group.capacitySum ?? inferred?.totalCapacity ?? members.reduce((sum, member) => sum + (member.capacity ?? 0), 0);
+    const displayName = inferred?.displayName ?? (capacitySum ? `M${capacitySum}` : null);
+
+    for (const member of members) {
+      expanded.push({
+        tableId: member.tableId,
+        tableNumber: member.tableNumber ?? '—',
+        capacity: member.capacity ?? null,
+        section: member.section ?? null,
+        mergeGroupId: group.groupId ?? inferred?.mergeGroupId ?? null,
+        mergeDisplayName: displayName,
+        mergePatternLabel: inferred?.patternLabel ?? null,
+        mergeTotalCapacity: capacitySum ?? null,
+      });
+    }
+  }
+
+  return expanded;
+}
+
 type BookingDetailsDialogProps = {
   booking: OpsTodayBooking;
   summary: OpsTodayBookingsSummary;
@@ -157,18 +204,23 @@ export function BookingDetailsDialog({
     [summary.bookings, booking, bookingWindow],
   );
 
-  const assignedTableIds = useMemo(() => new Set(assignments.map((assignment) => assignment.tableId)), [assignments]);
+  const normalizedAssignments = useMemo(() => expandAssignmentGroups(assignments), [assignments]);
+
+  const assignedTableIds = useMemo(
+    () => new Set(normalizedAssignments.map((assignment) => assignment.tableId)),
+    [normalizedAssignments],
+  );
 
   const mergeDetails = useMemo(() => {
-    if (!assignments || assignments.length < 2) {
+    if (!normalizedAssignments || normalizedAssignments.length < 2) {
       return null;
     }
-    const tableNumbers = assignments.map((assignment) => assignment.tableNumber || '—');
-    const explicit = assignments.find((assignment) => assignment.mergeGroupId);
+    const tableNumbers = normalizedAssignments.map((assignment) => assignment.tableNumber || '—');
+    const explicit = normalizedAssignments.find((assignment) => assignment.mergeGroupId);
     if (explicit && explicit.mergeGroupId) {
       const totalCapacity =
         explicit.mergeTotalCapacity ??
-        assignments.reduce((sum, assignment) => sum + (assignment.capacity ?? 0), 0);
+        normalizedAssignments.reduce((sum, assignment) => sum + (assignment.capacity ?? 0), 0);
       return {
         mergeGroupId: explicit.mergeGroupId,
         displayName: explicit.mergeDisplayName ?? `M${totalCapacity}`,
@@ -177,7 +229,12 @@ export function BookingDetailsDialog({
         tableNumbers,
       };
     }
-    const inferred = inferMergeInfo(assignments);
+    const inferred = inferMergeInfo(
+      normalizedAssignments.map((assignment) => ({
+        tableNumber: assignment.tableNumber,
+        capacity: assignment.capacity,
+      })),
+    );
     if (!inferred) {
       return null;
     }
@@ -188,7 +245,7 @@ export function BookingDetailsDialog({
       totalCapacity: inferred.totalCapacity,
       tableNumbers: inferred.tableNumbers,
     };
-  }, [assignments]);
+  }, [normalizedAssignments]);
 
   const tableOptions = useMemo(() => {
     const data = tablesResult?.tables ?? [];
@@ -556,7 +613,7 @@ export function BookingDetailsDialog({
               </div>
 
             <div className="space-y-2">
-              {assignments.length > 0 ? (
+              {normalizedAssignments.length > 0 ? (
                 <>
                   {mergeDetails ? (
                     <div className="flex flex-col gap-1 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sky-800">
@@ -570,7 +627,7 @@ export function BookingDetailsDialog({
                       </span>
                     </div>
                   ) : null}
-                  {assignments.map((assignment) => {
+                  {normalizedAssignments.map((assignment) => {
                   const isUnassigning =
                     tableActionState?.type === 'unassign' && tableActionState?.tableId === assignment.tableId;
                   const capacityLabel =
@@ -903,7 +960,8 @@ function computeConflictingTableIds(
       continue;
     }
 
-    for (const assignment of booking.tableAssignments) {
+    const expandedAssignments = expandAssignmentGroups(booking.tableAssignments);
+    for (const assignment of expandedAssignments) {
       conflicts.add(assignment.tableId);
     }
   }

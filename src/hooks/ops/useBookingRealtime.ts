@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useTransitionToast } from "@/components/features/booking-state-machine";
 import { useOptionalBookingStateMachine } from "@/contexts/booking-state-machine";
 import { useBookingService } from "@/contexts/ops-services";
+import { getRealtimeSupabaseClient } from "@/lib/supabase/realtime-client";
+import { queryKeys } from "@/lib/query/keys";
 import type { OpsBookingStatus } from "@/types/ops";
 
 type UseBookingRealtimeOptions = {
@@ -37,6 +39,7 @@ export function useBookingRealtime({
   const bookingService = useBookingService();
   const bookingStateMachine = useOptionalBookingStateMachine();
   const { showExternalUpdate } = useTransitionToast();
+  const queryClient = useQueryClient();
 
   const normalizedIds = useMemo(() => Array.from(new Set(bookingIds)).sort(), [bookingIds]);
   const idsKey = useMemo(() => normalizedIds.join(","), [normalizedIds]);
@@ -79,6 +82,8 @@ export function useBookingRealtime({
     }
   }, [bookingStateMachine, bookingStateMachine?.state]);
 
+  const realtimeEnabled = typeof window !== "undefined" && process.env.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN === "true";
+
   const query = useQuery({
     queryKey: ["ops", "bookings", "realtime", restaurantId, targetDate, idsKey],
     queryFn: async () => {
@@ -88,11 +93,61 @@ export function useBookingRealtime({
       return bookingService.getTodaySummary({ restaurantId, date: targetDate ?? undefined });
     },
     enabled: shouldEnable,
-    refetchInterval: shouldEnable ? intervalMs : false,
-    refetchIntervalInBackground: true,
+    refetchInterval: shouldEnable && !realtimeEnabled ? intervalMs : false,
+    refetchIntervalInBackground: !realtimeEnabled,
     refetchOnReconnect: shouldEnable,
     refetchOnWindowFocus: false,
   });
+
+  useEffect(() => {
+    if (!shouldEnable || !restaurantId || !realtimeEnabled) {
+      return;
+    }
+
+    const client = getRealtimeSupabaseClient();
+    const channelName = `ops-allocations:${restaurantId}:${targetDate ?? "all"}`;
+    const channel = client.channel(channelName, {
+      config: {
+        broadcast: { self: false },
+      },
+    });
+
+    const handleChange = () => {
+      void query.refetch();
+      queryClient.invalidateQueries({ queryKey: queryKeys.opsTables.list(restaurantId), exact: false });
+    };
+
+    channel.on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "allocations",
+        filter: `restaurant_id=eq.${restaurantId}`,
+      },
+      handleChange,
+    );
+
+    if (normalizedIds.length > 0) {
+      const bookingFilter = normalizedIds.map((id) => `"${id}"`).join(",");
+      channel.on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "booking_table_assignments",
+          filter: `booking_id=in.(${bookingFilter})`,
+        },
+        handleChange,
+      );
+    }
+
+    channel.subscribe();
+
+    return () => {
+      client.removeChannel(channel);
+    };
+  }, [normalizedIds, query, queryClient, realtimeEnabled, restaurantId, shouldEnable, targetDate]);
 
   useEffect(() => {
     if (!shouldEnable) return;

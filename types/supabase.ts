@@ -193,10 +193,11 @@ export type Database = {
       }
       allocations: {
         Row: {
-          booking_id: string
+          booking_id: string | null
           created_at: string
           created_by: string | null
           id: string
+          is_maintenance: boolean
           restaurant_id: string
           resource_id: string
           resource_type: string
@@ -205,10 +206,11 @@ export type Database = {
           window: string
         }
         Insert: {
-          booking_id: string
+          booking_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
+          is_maintenance?: boolean
           restaurant_id: string
           resource_id: string
           resource_type: string
@@ -217,10 +219,11 @@ export type Database = {
           window: string
         }
         Update: {
-          booking_id?: string
+          booking_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
+          is_maintenance?: boolean
           restaurant_id?: string
           resource_id?: string
           resource_type?: string

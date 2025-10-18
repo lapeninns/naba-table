@@ -74,7 +74,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to assign table";
     const normalized = message.toLowerCase();
-    const status = normalized.includes("not found") ? 404 : 409;
+    let status = 409;
+    if (normalized.includes("not found")) {
+      status = 404;
+    } else if (normalized.includes("allocations_no_overlap")) {
+      status = 409;
+    }
     return NextResponse.json({ error: message }, { status });
   }
 

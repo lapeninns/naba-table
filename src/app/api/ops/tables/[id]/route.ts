@@ -5,13 +5,27 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getRouteHandlerSupabaseClient } from "@/server/supabase";
+import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 
 // =====================================================
 // Request Validation
 // =====================================================
 
 const CAPACITY_OPTIONS = [2, 4, 5, 7] as const;
+
+const isoDateTimeString = z.string().refine((value) => {
+  return typeof value === "string" && !Number.isNaN(Date.parse(value));
+}, { message: "Invalid ISO datetime" });
+
+const maintenanceSchema = z
+  .object({
+    startIso: isoDateTimeString,
+    endIso: isoDateTimeString,
+    reason: z.string().max(200).optional().nullable(),
+  })
+  .refine((value) => new Date(value.endIso).getTime() > new Date(value.startIso).getTime(), {
+    message: "endIso must be after startIso",
+  });
 
 const updateTableSchema = z.object({
   tableNumber: z.string().min(1).max(50).optional(),
@@ -40,6 +54,7 @@ const updateTableSchema = z.object({
     .optional()
     .nullable(),
   notes: z.string().max(500).optional().nullable(),
+  maintenance: maintenanceSchema.optional(),
 });
 
 const mergeEligible = (input: {
@@ -82,7 +97,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     // Get table to verify access
     const { data: table, error: fetchError } = await supabase
       .from("table_inventory")
-      .select("restaurant_id, zone_id, min_party_size, max_party_size")
+      .select("restaurant_id, zone_id, min_party_size, max_party_size, status")
       .eq("id", tableId)
       .single();
 
@@ -120,6 +135,22 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     }
 
     const updates = parsed.data;
+    const maintenance = updates.maintenance ?? null;
+
+    let maintenanceRange: string | null = null;
+    if (updates.status === "out_of_service") {
+      if (!maintenance) {
+        return NextResponse.json({ error: "Maintenance window is required when setting out_of_service" }, { status: 400 });
+      }
+
+      const startIso = new Date(maintenance.startIso).toISOString();
+      const endIso = new Date(maintenance.endIso).toISOString();
+      if (new Date(endIso).getTime() <= new Date(startIso).getTime()) {
+        return NextResponse.json({ error: "Maintenance end must be after start" }, { status: 400 });
+      }
+
+      maintenanceRange = `[${startIso},${endIso})`;
+    }
 
     const effectiveMinPartySize = updates.minPartySize ?? table.min_party_size ?? 1;
     const effectiveMaxPartySize = updates.maxPartySize ?? table.max_party_size ?? null;
@@ -186,6 +217,65 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
         { error: "Failed to update table" },
         { status: 500 }
       );
+    }
+
+    const serviceClient = getServiceSupabaseClient();
+
+    if (updates.status === "out_of_service" && maintenanceRange) {
+      const removeExisting = await serviceClient
+        .from("allocations")
+        .delete()
+        .eq("resource_type", "table")
+        .eq("resource_id", tableId)
+        .eq("is_maintenance", true);
+
+      if (removeExisting.error) {
+        console.error("[ops/tables/[id]][PATCH] Failed to reset maintenance allocation", removeExisting.error);
+        return NextResponse.json({ error: "Failed to schedule maintenance" }, { status: 500 });
+      }
+
+      const maintenanceInsert = await serviceClient
+        .from("allocations")
+        .insert({
+          booking_id: null,
+          restaurant_id: table.restaurant_id,
+          resource_type: "table",
+          resource_id: tableId,
+          window: maintenanceRange,
+          created_by: user.id,
+          shadow: false,
+          is_maintenance: true,
+        });
+
+      if (maintenanceInsert.error) {
+        console.error("[ops/tables/[id]][PATCH] Failed to create maintenance allocation", maintenanceInsert.error);
+        // Attempt to revert status change if possible
+        if (updates.status !== table.status) {
+          await supabase
+            .from("table_inventory")
+            .update({ status: table.status })
+            .eq("id", tableId);
+        }
+        return NextResponse.json({ error: "Failed to schedule maintenance" }, { status: 500 });
+      }
+    } else if (typeof updates.status === "string" && updates.status !== "out_of_service") {
+      const removeExisting = await serviceClient
+        .from("allocations")
+        .delete()
+        .eq("resource_type", "table")
+        .eq("resource_id", tableId)
+        .eq("is_maintenance", true);
+
+      if (removeExisting.error) {
+        console.error("[ops/tables/[id]][PATCH] Failed to clear maintenance allocation", removeExisting.error);
+        if (updates.status !== table.status) {
+          await supabase
+            .from("table_inventory")
+            .update({ status: table.status })
+            .eq("id", tableId);
+        }
+        return NextResponse.json({ error: "Failed to clear maintenance window" }, { status: 500 });
+      }
     }
 
     return NextResponse.json({
