@@ -11,8 +11,14 @@ type TableInventoryDto = {
   min_party_size: number;
   max_party_size: number | null;
   section: string | null;
-  seating_type: 'indoor' | 'outdoor' | 'bar' | 'patio' | 'private_room';
+  category: 'bar' | 'dining' | 'lounge' | 'patio' | 'private';
+  seating_type: 'standard' | 'sofa' | 'booth' | 'high_top';
+  mobility: 'movable' | 'fixed';
+  zone_id: string;
+  active: boolean;
   status: 'available' | 'reserved' | 'occupied' | 'out_of_service';
+  merge_eligible?: boolean;
+  zone?: { id: string; name: string | null } | null;
   position: Record<string, unknown> | null;
   notes: string | null;
   created_at?: string;
@@ -23,7 +29,7 @@ type TableInventorySummaryDto = {
   totalTables: number;
   totalCapacity: number;
   availableTables: number;
-  sections: string[];
+  zones: { id: string; name: string }[];
 };
 
 type ListTablesResponseDto = {
@@ -39,7 +45,13 @@ export type TableInventory = {
   minPartySize: number;
   maxPartySize: number | null;
   section: string | null;
+  category: TableInventoryDto['category'];
   seatingType: TableInventoryDto['seating_type'];
+  mobility: TableInventoryDto['mobility'];
+  zoneId: string;
+  zoneName: string | null;
+  active: boolean;
+  mergeEligible: boolean;
   status: TableInventoryDto['status'];
   position: Record<string, unknown> | null;
   notes: string | null;
@@ -49,11 +61,12 @@ export type TableInventorySummary = {
   totalTables: number;
   totalCapacity: number;
   availableTables: number;
-  sections: string[];
+  zones: { id: string; name: string }[];
 };
 
 export type ListTablesParams = {
   section?: string | null;
+  zoneId?: string | null;
   status?: TableInventoryDto['status'] | null;
 };
 
@@ -61,10 +74,14 @@ export type CreateTablePayload = {
   tableNumber: string;
   capacity: number;
   minPartySize: number;
-  maxPartySize: number | null;
-  section: string | null;
+  maxPartySize?: number | null;
+  section?: string | null;
+  category: TableInventoryDto['category'];
   seatingType: TableInventoryDto['seating_type'];
+  mobility: TableInventoryDto['mobility'];
+  zoneId: string;
   status: TableInventoryDto['status'];
+  active: boolean;
   position?: Record<string, unknown> | null;
   notes?: string | null;
 };
@@ -83,6 +100,8 @@ export interface TableInventoryService {
   create(restaurantId: string, payload: CreateTablePayload): Promise<TableInventory>;
   update(tableId: string, payload: UpdateTablePayload): Promise<TableInventory>;
   remove(tableId: string): Promise<void>;
+  getAdjacency(tableId: string): Promise<string[]>;
+  updateAdjacency(tableId: string, adjacentIds: string[]): Promise<string[]>;
 }
 
 export type TableInventoryServiceFactory = () => TableInventoryService;
@@ -107,6 +126,14 @@ export class NotImplementedTableInventoryService implements TableInventoryServic
   remove(): Promise<void> {
     this.error('remove not implemented');
   }
+
+  getAdjacency(): Promise<string[]> {
+    this.error('get adjacency not implemented');
+  }
+
+  updateAdjacency(): Promise<string[]> {
+    this.error('update adjacency not implemented');
+  }
 }
 
 export function createTableInventoryService(factory?: TableInventoryServiceFactory): TableInventoryService {
@@ -122,6 +149,19 @@ export function createTableInventoryService(factory?: TableInventoryServiceFacto
 
 export type TableInventoryServiceError = OpsServiceError | Error;
 
+function deriveMergeEligible(dto: TableInventoryDto): boolean {
+  if (typeof dto.merge_eligible === 'boolean') {
+    return dto.merge_eligible;
+  }
+
+  return (
+    dto.category === 'dining' &&
+    dto.seating_type === 'standard' &&
+    dto.mobility === 'movable' &&
+    (dto.capacity === 2 || dto.capacity === 4)
+  );
+}
+
 function mapTableInventory(dto: TableInventoryDto): TableInventory {
   const position = normalizePosition(dto.position);
   return {
@@ -130,12 +170,18 @@ function mapTableInventory(dto: TableInventoryDto): TableInventory {
     tableNumber: dto.table_number,
     capacity: dto.capacity,
     minPartySize: dto.min_party_size,
-    maxPartySize: dto.max_party_size,
-    section: dto.section,
+    maxPartySize: dto.max_party_size ?? null,
+    section: dto.section ?? null,
+    category: dto.category,
     seatingType: dto.seating_type,
+    mobility: dto.mobility,
+    zoneId: dto.zone_id,
+    zoneName: dto.zone?.name ?? null,
+    active: dto.active,
+    mergeEligible: deriveMergeEligible(dto),
     status: dto.status,
     position,
-    notes: dto.notes,
+    notes: dto.notes ?? null,
   };
 }
 
@@ -169,7 +215,7 @@ function mapSummary(dto: TableInventorySummaryDto | undefined): TableInventorySu
     totalTables: dto.totalTables,
     totalCapacity: dto.totalCapacity,
     availableTables: dto.availableTables,
-    sections: dto.sections ?? [],
+    zones: dto.zones ?? [],
   };
 }
 
@@ -179,6 +225,9 @@ export function createBrowserTableInventoryService(): TableInventoryService {
       const searchParams = new URLSearchParams({ restaurantId });
       if (params.section) {
         searchParams.set('section', params.section);
+      }
+      if (params.zoneId) {
+        searchParams.set('zoneId', params.zoneId);
       }
       if (params.status) {
         searchParams.set('status', params.status);
@@ -200,10 +249,14 @@ export function createBrowserTableInventoryService(): TableInventoryService {
           tableNumber: payload.tableNumber,
           capacity: payload.capacity,
           minPartySize: payload.minPartySize,
-          maxPartySize: payload.maxPartySize,
-          section: payload.section,
+          maxPartySize: payload.maxPartySize ?? null,
+          section: payload.section ?? null,
+          category: payload.category,
           seatingType: payload.seatingType,
+          mobility: payload.mobility,
+          zoneId: payload.zoneId,
           status: payload.status,
+          active: payload.active,
           position: payload.position ?? null,
           notes: payload.notes ?? null,
         }),
@@ -221,8 +274,12 @@ export function createBrowserTableInventoryService(): TableInventoryService {
           minPartySize: payload.minPartySize,
           maxPartySize: payload.maxPartySize,
           section: payload.section,
+          category: payload.category,
           seatingType: payload.seatingType,
+          mobility: payload.mobility,
+          zoneId: payload.zoneId,
           status: payload.status,
+          active: payload.active,
           position: payload.position ?? null,
           notes: payload.notes ?? null,
         }),
@@ -234,6 +291,25 @@ export function createBrowserTableInventoryService(): TableInventoryService {
       await fetchJson<{ success: boolean }>(`${OPS_TABLES_BASE}/${tableId}`, {
         method: 'DELETE',
       });
+    },
+
+    async getAdjacency(tableId) {
+      const response = await fetchJson<{ tableId: string; adjacentIds: string[] }>(
+        `${OPS_TABLES_BASE}/${tableId}/adjacent`,
+      );
+      return response.adjacentIds ?? [];
+    },
+
+    async updateAdjacency(tableId, adjacentIds) {
+      const response = await fetchJson<{ tableId: string; adjacentIds: string[] }>(
+        `${OPS_TABLES_BASE}/${tableId}/adjacent`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ adjacentIds }),
+        },
+      );
+      return response.adjacentIds ?? [];
     },
   };
 }

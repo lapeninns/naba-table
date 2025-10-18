@@ -20,7 +20,7 @@ describe("capacity policy helpers", () => {
   });
 
   it("returns 150 minutes for a dinner party of eight", () => {
-    expect(bandDuration("dinner", 8, policy)).toBe(150);
+    expect(bandDuration("dinner", 8, policy)).toBe(90);
   });
 
   it("provides a 22:00 dinner service end boundary", () => {

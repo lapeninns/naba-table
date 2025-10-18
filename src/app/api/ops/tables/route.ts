@@ -15,22 +15,54 @@ import { getRouteHandlerSupabaseClient } from "@/server/supabase";
 // Request Validation
 // =====================================================
 
+const CAPACITY_OPTIONS = [2, 4, 5, 7] as const;
+
 const createTableSchema = z.object({
   restaurantId: z.string().uuid(),
   tableNumber: z.string().min(1).max(50),
-  capacity: z.number().int().min(1).max(20),
+  capacity: z
+    .number()
+    .int()
+    .refine((value) => CAPACITY_OPTIONS.includes(value as (typeof CAPACITY_OPTIONS)[number]), {
+      message: "capacity must be one of 2, 4, 5, or 7",
+    }),
   minPartySize: z.number().int().min(1).default(1),
   maxPartySize: z.number().int().min(1).max(20).optional().nullable(),
+  category: z.enum(["bar", "dining", "lounge", "patio", "private"]).default("dining"),
+  seatingType: z.enum(["standard", "sofa", "booth", "high_top"]).default("standard"),
+  mobility: z.enum(["movable", "fixed"]).default("movable"),
+  zoneId: z.string().uuid(),
+  active: z.boolean().default(true),
   section: z.string().max(100).optional().nullable(),
-  seatingType: z.enum(["indoor", "outdoor", "bar", "patio", "private_room"]).default("indoor"),
   status: z.enum(["available", "reserved", "occupied", "out_of_service"]).default("available"),
-  position: z.object({
-    x: z.number(),
-    y: z.number(),
-    rotation: z.number().optional(),
-  }).optional().nullable(),
+  position: z
+    .object({
+      x: z.number(),
+      y: z.number(),
+      rotation: z.number().optional(),
+    })
+    .optional()
+    .nullable(),
   notes: z.string().max(500).optional().nullable(),
 });
+
+const mergeEligible = (input: {
+  category: string | null | undefined;
+  seating_type: string | null | undefined;
+  mobility: string | null | undefined;
+  capacity: number | null | undefined;
+}): boolean => {
+  if (!input) {
+    return false;
+  }
+
+  return (
+    input.category === "dining" &&
+    input.seating_type === "standard" &&
+    input.mobility === "movable" &&
+    (input.capacity === 2 || input.capacity === 4)
+  );
+};
 
 // =====================================================
 // GET /api/ops/tables - List tables
@@ -59,43 +91,74 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Build query
-    let query = supabase
+    let tablesQuery = supabase
       .from("table_inventory")
       .select("*")
       .eq("restaurant_id", restaurantId)
       .order("table_number", { ascending: true });
 
     if (section) {
-      query = query.eq("section", section);
+      tablesQuery = tablesQuery.eq("section", section);
     }
 
     if (status) {
-      query = query.eq("status", status);
+      tablesQuery = tablesQuery.eq("status", status);
     }
 
-    const { data: tables, error } = await query;
+    const [tablesResult, zonesResult] = await Promise.all([
+      tablesQuery,
+      supabase
+        .from("zones")
+        .select("id, name")
+        .eq("restaurant_id", restaurantId)
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true }),
+    ]);
 
-    if (error) {
-      console.error("[ops/tables][GET] Database error", { error });
+    if (tablesResult.error) {
+      console.error("[ops/tables][GET] Database error", { error: tablesResult.error });
       return NextResponse.json(
         { error: "Failed to fetch tables" },
         { status: 500 }
       );
     }
 
-    // Get summary stats
-    const totalTables = tables?.length ?? 0;
-    const totalCapacity = tables?.reduce((sum, t) => sum + t.capacity, 0) ?? 0;
-    const availableTables = tables?.filter(t => t.status === "available").length ?? 0;
+    if (zonesResult.error) {
+      console.error("[ops/tables][GET] Zones error", { error: zonesResult.error });
+      return NextResponse.json(
+        { error: "Failed to fetch zones" },
+        { status: 500 }
+      );
+    }
+
+    const tables = tablesResult.data ?? [];
+    const zones = zonesResult.data ?? [];
+    const zoneMap = new Map(zones.map((zone) => [zone.id, zone.name] as const));
+
+    const tablesWithMetadata = tables.map((table) => ({
+      ...table,
+      merge_eligible: mergeEligible({
+        category: table.category,
+        seating_type: table.seating_type,
+        mobility: table.mobility,
+        capacity: table.capacity,
+      }),
+      zone: zoneMap.has(table.zone_id)
+        ? { id: table.zone_id, name: zoneMap.get(table.zone_id)! }
+        : null,
+    }));
+
+    const totalTables = tablesWithMetadata.length;
+    const totalCapacity = tablesWithMetadata.reduce((sum, t) => sum + (t.capacity ?? 0), 0);
+    const availableTables = tablesWithMetadata.filter((t) => t.status === "available").length;
 
     return NextResponse.json({
-      tables: tables ?? [],
+      tables: tablesWithMetadata,
       summary: {
         totalTables,
         totalCapacity,
         availableTables,
-        sections: [...new Set(tables?.map(t => t.section).filter(Boolean))],
+        zones: zones.map((zone) => ({ id: zone.id, name: zone.name })),
       },
     });
   } catch (error) {
@@ -160,6 +223,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Confirm zone belongs to restaurant
+    const { data: zone, error: zoneError } = await supabase
+      .from("zones")
+      .select("id, restaurant_id")
+      .eq("id", data.zoneId)
+      .maybeSingle();
+
+    if (zoneError || !zone) {
+      return NextResponse.json(
+        { error: "Zone not found" },
+        { status: 404 }
+      );
+    }
+
+    if (zone.restaurant_id !== data.restaurantId) {
+      return NextResponse.json(
+        { error: "Zone belongs to a different restaurant" },
+        { status: 400 }
+      );
+    }
+
     // Check for duplicate table number
     const { data: existing } = await supabase
       .from("table_inventory")
@@ -185,7 +269,11 @@ export async function POST(req: NextRequest) {
         min_party_size: data.minPartySize,
         max_party_size: data.maxPartySize,
         section: data.section,
+        category: data.category,
         seating_type: data.seatingType,
+        mobility: data.mobility,
+        zone_id: data.zoneId,
+        active: data.active,
         status: data.status,
         position: data.position,
         notes: data.notes,
@@ -201,7 +289,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ table }, { status: 201 });
+    return NextResponse.json({
+      table: {
+        ...table,
+        merge_eligible: mergeEligible({
+          category: table.category,
+          seating_type: table.seating_type,
+          mobility: table.mobility,
+          capacity: table.capacity,
+        }),
+      },
+    }, { status: 201 });
   } catch (error) {
     console.error("[ops/tables][POST] Unexpected error", { error });
     return NextResponse.json(

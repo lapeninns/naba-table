@@ -61,6 +61,19 @@ export {
   PolicyError,
 } from "./policy";
 
+export {
+  calculateRestaurantCapacityByService,
+  calculateCapacityForTables,
+  type ServiceCapacitySummary,
+  type TableRotationDetail,
+} from "./rotations";
+
+export {
+  validateBookingWindow,
+  type BookingValidationInput,
+  type BookingValidationResult,
+} from "./validation";
+
 // =====================================================
 // Types
 // =====================================================

@@ -1,5 +1,6 @@
 import type { RestaurantRole } from '@/lib/owner/auth/roles';
 import type { HttpError } from '@/lib/http/errors';
+import type { MergeType } from '@/utils/ops/table-merges';
 
 export type OpsUser = {
   id: string;
@@ -60,6 +61,11 @@ export type OpsTodayBooking = {
     tableNumber: string;
     capacity: number | null;
     section: string | null;
+    mergeGroupId?: string | null;
+    mergeType?: MergeType | null;
+    mergeDisplayName?: string | null;
+    mergePatternLabel?: string | null;
+    mergeTotalCapacity?: number | null;
   }[];
   requiresTableAssignment: boolean;
   checkedInAt: string | null;

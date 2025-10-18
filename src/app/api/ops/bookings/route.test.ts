@@ -49,9 +49,6 @@ vi.mock("@/lib/env", () => {
   };
 });
 
-import { GET, POST } from "./route";
-import { opsWalkInBookingSchema } from "./schema";
-
 const getUserMock = vi.fn();
 const getRouteHandlerSupabaseClientMock = vi.fn(async () => ({
   auth: {
@@ -59,6 +56,7 @@ const getRouteHandlerSupabaseClientMock = vi.fn(async () => ({
   },
 }));
 const getServiceSupabaseClientMock = vi.fn();
+const getRestaurantScheduleMock = vi.fn();
 
 const upsertCustomerMock = vi.fn();
 const fetchUserMembershipsMock = vi.fn();
@@ -71,6 +69,63 @@ const consumeRateLimitMock = vi.fn();
 const recordObservabilityEventMock = vi.fn();
 
 const RESTAURANT_ID = "123e4567-e89b-12d3-a456-426614174000";
+
+function createServiceClientStub() {
+  const client = {
+    from(table: string) {
+      switch (table) {
+        case "restaurants":
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: {
+                    id: RESTAURANT_ID,
+                    timezone: "Europe/London",
+                    reservation_interval_minutes: 15,
+                    reservation_default_duration_minutes: 90,
+                  },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        case "restaurant_operating_hours":
+          return {
+            select: () => ({
+              eq: () => ({
+                is: () => ({
+                  maybeSingle: async () => ({ data: null, error: null }),
+                }),
+                maybeSingle: async () => ({ data: null, error: null }),
+              }),
+            }),
+          };
+        case "restaurant_service_periods":
+          return {
+            select: () => ({
+              eq: () => ({
+                order: () => ({
+                  order: async () => ({ data: [], error: null }),
+                }),
+              }),
+            }),
+          };
+        default:
+          return {
+            select: () => ({
+              eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }),
+              range: async () => ({ data: [], count: 0, error: null }),
+              order: () => ({ order: async () => ({ data: [], error: null }) }),
+            }),
+            eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }),
+          };
+      }
+    },
+  } as const;
+
+  return { client };
+}
 
 function createQueryStub(result: { data: unknown; count?: number | null; error?: unknown }) {
   const stub = {
@@ -94,6 +149,9 @@ vi.mock("@/server/supabase", () => ({
   getServiceSupabaseClient: () => getServiceSupabaseClientMock(),
 }));
 
+vi.mock("@/server/restaurants/schedule", () => ({
+  getRestaurantSchedule: (...args: unknown[]) => getRestaurantScheduleMock(...args),
+}));
 vi.mock("@/server/team/access", () => ({
   fetchUserMemberships: (...args: unknown[]) => fetchUserMembershipsMock(...args),
   requireMembershipForRestaurant: (...args: unknown[]) => requireMembershipForRestaurantMock(...args),
@@ -125,8 +183,14 @@ vi.mock("@/server/observability", () => ({
   recordObservabilityEvent: (...args: unknown[]) => recordObservabilityEventMock(...args),
 }));
 
+import { GET, POST } from "./route";
+import { opsWalkInBookingSchema } from "./schema";
+
 describe("POST /api/ops/bookings", () => {
+  let serviceClientStub: ReturnType<typeof createServiceClientStub>;
+
   beforeEach(() => {
+    vi.clearAllMocks();
     consumeRateLimitMock.mockResolvedValue({
       ok: true,
       limit: 60,
@@ -134,10 +198,18 @@ describe("POST /api/ops/bookings", () => {
       resetAt: Date.now() + 60_000,
       source: "memory",
     });
-  });
-
-  afterEach(() => {
-    vi.clearAllMocks();
+    serviceClientStub = createServiceClientStub();
+    getServiceSupabaseClientMock.mockImplementation(() => serviceClientStub.client);
+    getRestaurantScheduleMock.mockResolvedValue({
+      restaurantId: RESTAURANT_ID,
+      date: "2025-05-01",
+      timezone: "Europe/London",
+      intervalMinutes: 15,
+      defaultDurationMinutes: 90,
+      window: { opensAt: "09:00", closesAt: "23:00" },
+      isClosed: false,
+      slots: [],
+    });
   });
 
   it("accepts optional contact fields in schema", () => {
@@ -215,7 +287,6 @@ describe("POST /api/ops/bookings", () => {
       .spyOn(opsWalkInBookingSchema, 'parse')
       .mockReturnValue(payload as any);
 
-    getServiceSupabaseClientMock.mockReturnValue({});
 
     const request = new NextRequest("http://localhost/api/ops/bookings", {
       method: "POST",
@@ -238,11 +309,15 @@ describe("POST /api/ops/bookings", () => {
       restaurantId: RESTAURANT_ID,
     });
     expect(upsertCustomerMock).toHaveBeenCalled();
-    expect(insertBookingRecordMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
-      source: "system",
-      customer_email: "",
-      customer_phone: "",
-    }));
+    expect(insertBookingRecordMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        source: "system",
+        customer_email: "",
+        customer_phone: "",
+        end_time: "19:00",
+      }),
+    );
     expect(fetchBookingsForContactMock).toHaveBeenCalled();
     expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalled();
     expect(json.booking).toEqual(bookingRecord);
@@ -303,6 +378,45 @@ describe("POST /api/ops/bookings", () => {
         eventType: "ops_bookings.rate_limited",
       }),
     );
+  });
+
+  it("rejects bookings outside service policy", async () => {
+    getUserMock.mockResolvedValue({ data: { user: { id: "user-1", email: "staff@example.com" } }, error: null });
+    getRestaurantScheduleMock.mockResolvedValue({
+      restaurantId: RESTAURANT_ID,
+      date: "2025-05-01",
+      timezone: "Europe/London",
+      intervalMinutes: 15,
+      defaultDurationMinutes: 90,
+      window: { opensAt: "09:00", closesAt: "23:00" },
+      isClosed: false,
+      slots: [],
+    });
+
+    const request = new NextRequest("http://localhost/api/ops/bookings", {
+      method: "POST",
+      body: JSON.stringify({
+        restaurantId: RESTAURANT_ID,
+        date: "2025-05-01",
+        time: "23:30",
+        party: 2,
+        bookingType: "dinner",
+        seating: "indoor",
+        notes: null,
+        name: "Late Guest",
+      }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      // @ts-expect-error duplex is required in Node fetch for request bodies
+      duplex: "half",
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(422);
+    const json = await response.json();
+    expect(json.reasons).toContain("outside_service_hours");
+    expect(insertBookingRecordMock).not.toHaveBeenCalled();
   });
 });
 

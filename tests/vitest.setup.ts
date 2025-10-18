@@ -25,3 +25,28 @@ if (!process.env.BASE_URL) {
   process.env.BASE_URL = "http://localhost:3000";
 }
 process.env.ENABLE_TEST_API = "true";
+
+if (typeof globalThis.ResizeObserver === "undefined") {
+  class ResizeObserver {
+    private readonly cb: ResizeObserverCallback;
+
+    constructor(callback: ResizeObserverCallback) {
+      this.cb = callback;
+    }
+
+    observe(): void {
+      // no-op in test environment
+    }
+
+    unobserve(): void {
+      // no-op in test environment
+    }
+
+    disconnect(): void {
+      // no-op in test environment
+    }
+  }
+
+  // @ts-expect-error assign mock to global scope for tests
+  globalThis.ResizeObserver = ResizeObserver;
+}

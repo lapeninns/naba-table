@@ -20,6 +20,7 @@ import { formatTimeRange, getTodayInTimezone } from '@/lib/utils/datetime';
 import { useBookingRealtime } from '@/hooks';
 
 import { BookingDetailsDialog } from './BookingDetailsDialog';
+import { inferMergeInfo } from '@/utils/ops/table-merges';
 
 import type { BookingFilter } from './BookingsFilterBar';
 import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
@@ -41,8 +42,14 @@ type BookingsListProps = {
   tableActionState?: {
     type: 'assign' | 'unassign';
     bookingId: string | null;
-    tableId?: string | null;
+  tableId?: string | null;
   } | null;
+};
+
+type TableAssignmentDisplay = {
+  text: string;
+  state: 'unassigned' | 'single' | 'merge';
+  mergeGroupId?: string | null;
 };
 
 const TIER_COLORS: Record<string, string> = {
@@ -52,33 +59,77 @@ const TIER_COLORS: Record<string, string> = {
   bronze: 'bg-amber-700 text-white border-amber-700',
 };
 
-function formatTableAssignmentDisplay(assignments: OpsTodayBooking['tableAssignments']) {
+function formatTableAssignmentDisplay(assignments: OpsTodayBooking['tableAssignments']): TableAssignmentDisplay {
   if (!assignments || assignments.length === 0) {
     return {
       text: 'Table assignment required',
-      isAssigned: false,
-    } as const;
+      state: 'unassigned',
+    };
   }
 
   const tableNumbers = assignments.map((assignment) => assignment.tableNumber || '—');
-  const totalCapacity = assignments.reduce((sum, assignment) => sum + (assignment.capacity ?? 0), 0);
-  const seatsLabel = totalCapacity > 0 ? `${totalCapacity} seat${totalCapacity === 1 ? '' : 's'}` : null;
+  const rawTotalCapacity = assignments.reduce((sum, assignment) => sum + (assignment.capacity ?? 0), 0);
 
-  if (assignments.length === 1) {
+  const mergeDetails = (() => {
+    if (assignments.length < 2) {
+      return null;
+    }
+    const explicit = assignments.find((assignment) => assignment.mergeGroupId);
+    if (explicit) {
+      return {
+        mergeGroupId: explicit.mergeGroupId ?? null,
+        displayName: explicit.mergeDisplayName ?? `M${explicit.mergeTotalCapacity ?? rawTotalCapacity}`,
+        patternLabel: explicit.mergePatternLabel ?? null,
+        totalCapacity: explicit.mergeTotalCapacity ?? rawTotalCapacity,
+      };
+    }
+    const inferred = inferMergeInfo(assignments);
+    if (!inferred) {
+      return null;
+    }
+    return {
+      mergeGroupId: inferred.mergeGroupId,
+      displayName: inferred.displayName,
+      patternLabel: inferred.patternLabel,
+      totalCapacity: inferred.totalCapacity,
+    };
+  })();
+
+  const effectiveTotalCapacity = mergeDetails?.totalCapacity ?? rawTotalCapacity;
+  const seatsLabel =
+    effectiveTotalCapacity > 0
+      ? `${effectiveTotalCapacity} seat${effectiveTotalCapacity === 1 ? '' : 's'}`
+      : null;
+
+  if (assignments.length === 1 && !mergeDetails) {
     const [assignment] = assignments;
     const baseLabel = `Table ${assignment.tableNumber}`;
     return {
       text: seatsLabel ? `${baseLabel} · ${seatsLabel}` : baseLabel,
-      isAssigned: true,
-    } as const;
+      state: 'single',
+    };
   }
 
   const joinedTables = tableNumbers.join(' + ');
-  const baseLabel = `Tables ${joinedTables}`;
+  const baseLabel = tableNumbers.length === 1 ? `Table ${joinedTables}` : `Tables ${joinedTables}`;
+
+  if (mergeDetails) {
+    const mergeLabelParts = [`Merge ${mergeDetails.displayName}`];
+    if (mergeDetails.patternLabel) {
+      mergeLabelParts.push(`(${mergeDetails.patternLabel})`);
+    }
+    const parts = [baseLabel, seatsLabel, mergeLabelParts.join(' ')].filter(Boolean);
+    return {
+      text: parts.join(' · '),
+      state: 'merge',
+      mergeGroupId: mergeDetails.mergeGroupId,
+    };
+  }
+
   return {
     text: seatsLabel ? `${baseLabel} · ${seatsLabel}` : baseLabel,
-    isAssigned: true,
-  } as const;
+    state: 'single',
+  };
 }
 
 function renderList(values?: string[] | null): string {
@@ -268,9 +319,11 @@ function BookingCard({
               variant="outline"
               className={cn(
                 'text-xs font-semibold',
-                tableAssignmentDisplay.isAssigned
-                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                  : 'border-amber-200 bg-amber-100 text-amber-800',
+                tableAssignmentDisplay.state === 'merge'
+                  ? 'border-sky-200 bg-sky-50 text-sky-800'
+                  : tableAssignmentDisplay.state === 'single'
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : 'border-amber-200 bg-amber-100 text-amber-800',
               )}
               aria-label={tableAssignmentDisplay.text}
             >

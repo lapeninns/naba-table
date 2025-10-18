@@ -287,12 +287,12 @@ describe("getTodayBookingsSummary", () => {
 
     const firstBooking = summary.bookings.find((booking) => booking.id === 'b-1');
     expect(firstBooking?.tableAssignments).toEqual([
-      {
+      expect.objectContaining({
         tableId: 'table-1',
         tableNumber: 'A1',
         capacity: 2,
         section: 'Window',
-      },
+      }),
     ]);
     expect(firstBooking?.requiresTableAssignment).toBe(false);
 

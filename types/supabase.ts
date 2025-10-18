@@ -29,6 +29,264 @@ export type Database = {
         }
         Returns: Json
       }
+      table_adjacencies: {
+        Row: {
+          created_at: string
+          table_a: string
+          table_b: string
+        }
+        Insert: {
+          created_at?: string
+          table_a: string
+          table_b: string
+        }
+        Update: {
+          created_at?: string
+          table_a?: string
+          table_b?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "table_adjacencies_table_a_fkey"
+            columns: ["table_a"]
+            isOneToOne: false
+            referencedRelation: "table_inventory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "table_adjacencies_table_b_fkey"
+            columns: ["table_b"]
+            isOneToOne: false
+            referencedRelation: "table_inventory"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      merge_group_members: {
+        Row: {
+          added_at: string
+          merge_group_id: string
+          table_id: string
+        }
+        Insert: {
+          added_at?: string
+          merge_group_id: string
+          table_id: string
+        }
+        Update: {
+          added_at?: string
+          merge_group_id?: string
+          table_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "merge_group_members_merge_group_id_fkey"
+            columns: ["merge_group_id"]
+            isOneToOne: false
+            referencedRelation: "merge_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "merge_group_members_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "table_inventory"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      merge_groups: {
+        Row: {
+          capacity: number
+          created_at: string
+          dissolved_at: string | null
+          id: string
+        }
+        Insert: {
+          capacity: number
+          created_at?: string
+          dissolved_at?: string | null
+          id?: string
+        }
+        Update: {
+          capacity?: number
+          created_at?: string
+          dissolved_at?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
+      merge_rules: {
+        Row: {
+          created_at: string
+          cross_category_merge: boolean
+          enabled: boolean
+          from_a: number
+          from_b: number
+          id: string
+          require_adjacency: boolean
+          require_same_zone: boolean
+          to_capacity: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          cross_category_merge?: boolean
+          enabled?: boolean
+          from_a: number
+          from_b: number
+          id?: string
+          require_adjacency?: boolean
+          require_same_zone?: boolean
+          to_capacity: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          cross_category_merge?: boolean
+          enabled?: boolean
+          from_a?: number
+          from_b?: number
+          id?: string
+          require_adjacency?: boolean
+          require_same_zone?: boolean
+          to_capacity?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      service_policy: {
+        Row: {
+          allow_after_hours: boolean
+          clean_buffer_minutes: number
+          created_at: string
+          dinner_end: string
+          dinner_start: string
+          id: string
+          lunch_end: string
+          lunch_start: string
+          updated_at: string
+        }
+        Insert: {
+          allow_after_hours?: boolean
+          clean_buffer_minutes?: number
+          created_at?: string
+          dinner_end?: string
+          dinner_start?: string
+          id?: string
+          lunch_end?: string
+          lunch_start?: string
+          updated_at?: string
+        }
+        Update: {
+          allow_after_hours?: boolean
+          clean_buffer_minutes?: number
+          created_at?: string
+          dinner_end?: string
+          dinner_start?: string
+          id?: string
+          lunch_end?: string
+          lunch_start?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      allocations: {
+        Row: {
+          booking_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          restaurant_id: string
+          resource_id: string
+          resource_type: string
+          shadow: boolean
+          updated_at: string
+          window: string
+        }
+        Insert: {
+          booking_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          restaurant_id: string
+          resource_id: string
+          resource_type: string
+          shadow?: boolean
+          updated_at?: string
+          window: string
+        }
+        Update: {
+          booking_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          restaurant_id?: string
+          resource_id?: string
+          resource_type?: string
+          shadow?: boolean
+          updated_at?: string
+          window?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "allocations_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "allocations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "allocations_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      zones: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          restaurant_id: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          restaurant_id: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          restaurant_id?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zones_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Enums: {
       [_ in never]: never
@@ -231,7 +489,9 @@ export type Database = {
           assigned_by: string | null
           booking_id: string
           created_at: string
+          idempotency_key: string | null
           id: string
+          merge_group_id: string | null
           notes: string | null
           slot_id: string | null
           table_id: string
@@ -242,7 +502,9 @@ export type Database = {
           assigned_by?: string | null
           booking_id: string
           created_at?: string
+          idempotency_key?: string | null
           id?: string
+          merge_group_id?: string | null
           notes?: string | null
           slot_id?: string | null
           table_id: string
@@ -253,7 +515,9 @@ export type Database = {
           assigned_by?: string | null
           booking_id?: string
           created_at?: string
+          idempotency_key?: string | null
           id?: string
+          merge_group_id?: string | null
           notes?: string | null
           slot_id?: string | null
           table_id?: string
@@ -272,6 +536,13 @@ export type Database = {
             columns: ["slot_id"]
             isOneToOne: false
             referencedRelation: "booking_slots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_table_assignments_merge_group_id_fkey"
+            columns: ["merge_group_id"]
+            isOneToOne: false
+            referencedRelation: "merge_groups"
             referencedColumns: ["id"]
           },
           {
@@ -1133,49 +1404,61 @@ export type Database = {
       }
       table_inventory: {
         Row: {
+          active: boolean
+          category: Database["public"]["Enums"]["table_category"]
           capacity: number
           created_at: string
           id: string
           max_party_size: number | null
           min_party_size: number
+          mobility: Database["public"]["Enums"]["table_mobility"]
           notes: string | null
           position: Json | null
           restaurant_id: string
-          seating_type: Database["public"]["Enums"]["seating_type"]
+          seating_type: Database["public"]["Enums"]["table_seating_type"]
           section: string | null
           status: Database["public"]["Enums"]["table_status"]
           table_number: string
           updated_at: string
+          zone_id: string
         }
         Insert: {
+          active?: boolean
+          category?: Database["public"]["Enums"]["table_category"]
           capacity: number
           created_at?: string
           id?: string
           max_party_size?: number | null
           min_party_size?: number
+          mobility?: Database["public"]["Enums"]["table_mobility"]
           notes?: string | null
           position?: Json | null
           restaurant_id: string
-          seating_type?: Database["public"]["Enums"]["seating_type"]
+          seating_type?: Database["public"]["Enums"]["table_seating_type"]
           section?: string | null
           status?: Database["public"]["Enums"]["table_status"]
           table_number: string
           updated_at?: string
+          zone_id: string
         }
         Update: {
+          active?: boolean
+          category?: Database["public"]["Enums"]["table_category"]
           capacity?: number
           created_at?: string
           id?: string
           max_party_size?: number | null
           min_party_size?: number
+          mobility?: Database["public"]["Enums"]["table_mobility"]
           notes?: string | null
           position?: Json | null
           restaurant_id?: string
-          seating_type?: Database["public"]["Enums"]["seating_type"]
+          seating_type?: Database["public"]["Enums"]["table_seating_type"]
           section?: string | null
           status?: Database["public"]["Enums"]["table_status"]
           table_number?: string
           updated_at?: string
+          zone_id?: string
         }
         Relationships: [
           {
@@ -1183,6 +1466,13 @@ export type Database = {
             columns: ["restaurant_id"]
             isOneToOne: false
             referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "table_inventory_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "zones"
             referencedColumns: ["id"]
           },
         ]
@@ -1233,6 +1523,27 @@ export type Database = {
           p_table_id: string
         }
         Returns: string
+      }
+      assign_tables_atomic: {
+        Args: {
+          p_booking_id: string
+          p_table_ids: string[]
+          p_window: string
+          p_assigned_by?: string | null
+          p_idempotency_key?: string | null
+        }
+        Returns: {
+          table_id: string
+          assignment_id: string | null
+          merge_group_id: string | null
+        }[]
+      }
+      allocations_overlap: {
+        Args: {
+          a: string
+          b: string
+        }
+        Returns: boolean
       }
       create_booking_with_capacity_check: {
         Args: {
@@ -1509,6 +1820,17 @@ export type Database = {
         Args: { p_booking_id: string; p_table_id: string }
         Returns: boolean
       }
+      unassign_tables_atomic: {
+        Args: {
+          p_booking_id: string
+          p_table_ids?: string[] | null
+          p_merge_group_id?: string | null
+        }
+        Returns: {
+          table_id: string
+          merge_group_id: string | null
+        }[]
+      }
       user_restaurants: {
         Args: Record<PropertyKey, never>
         Returns: string[]
@@ -1544,7 +1866,9 @@ export type Database = {
         | "window"
         | "quiet"
         | "booth"
-      seating_type: "indoor" | "outdoor" | "bar" | "patio" | "private_room"
+      table_category: "bar" | "dining" | "lounge" | "patio" | "private"
+      table_mobility: "movable" | "fixed"
+      table_seating_type: "standard" | "sofa" | "booth" | "high_top"
       table_status: "available" | "reserved" | "occupied" | "out_of_service"
     }
     CompositeTypes: {

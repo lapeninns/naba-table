@@ -65,9 +65,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   const serviceClient = getServiceSupabaseClient();
+  const idempotencyKey = request.headers.get("Idempotency-Key");
 
   try {
-    await assignTableToBooking(bookingId, parsedBody.data.tableId, user.id, serviceClient);
+    await assignTableToBooking(bookingId, parsedBody.data.tableId, user.id, serviceClient, {
+      idempotencyKey: idempotencyKey?.trim() || null,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to assign table";
     const normalized = message.toLowerCase();

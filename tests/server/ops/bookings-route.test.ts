@@ -52,10 +52,15 @@ import { makeBookingRecord, makeRestaurantMembership } from "@/tests/helpers/ops
 
 const mockGetRouteHandlerSupabaseClient = vi.fn();
 const mockGetServiceSupabaseClient = vi.fn();
+const mockGetRestaurantSchedule = vi.fn();
 
 vi.mock("@/server/supabase", () => ({
   getRouteHandlerSupabaseClient: mockGetRouteHandlerSupabaseClient,
   getServiceSupabaseClient: mockGetServiceSupabaseClient,
+}));
+
+vi.mock("@/server/restaurants/schedule", () => ({
+  getRestaurantSchedule: mockGetRestaurantSchedule,
 }));
 
 const mockRequireMembershipForRestaurant = vi.fn();
@@ -96,6 +101,54 @@ vi.mock("@/server/jobs/booking-side-effects", () => ({
 
 describe("POST /api/ops/bookings", () => {
   let POST: typeof import("@/app/api/ops/bookings/route").POST;
+  const serviceClientStub = {
+    from(table: string) {
+      switch (table) {
+        case "restaurants":
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: {
+                    id: RESTAURANT_ID,
+                    timezone: "Europe/London",
+                    reservation_interval_minutes: 15,
+                    reservation_default_duration_minutes: 90,
+                  },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        case "restaurant_operating_hours":
+          return {
+            select: () => ({
+              eq: () => ({
+                is: () => ({ maybeSingle: async () => ({ data: null, error: null }) }),
+                maybeSingle: async () => ({ data: null, error: null }),
+              }),
+            }),
+          };
+        case "restaurant_service_periods":
+          return {
+            select: () => ({
+              eq: () => ({
+                order: () => ({
+                  order: async () => ({ data: [], error: null }),
+                }),
+              }),
+            }),
+          };
+        default:
+          return {
+            select: () => ({
+              eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }),
+            }),
+            eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }),
+          };
+      }
+    },
+  } as const;
 
   beforeAll(async () => {
     ({ POST } = await import("@/app/api/ops/bookings/route"));
@@ -115,7 +168,17 @@ describe("POST /api/ops/bookings", () => {
       },
     });
 
-    mockGetServiceSupabaseClient.mockReturnValue({});
+    mockGetServiceSupabaseClient.mockReturnValue(serviceClientStub);
+    mockGetRestaurantSchedule.mockResolvedValue({
+      restaurantId: RESTAURANT_ID,
+      date: "2025-10-10",
+      timezone: "Europe/London",
+      intervalMinutes: 15,
+      defaultDurationMinutes: 90,
+      window: { opensAt: "09:00", closesAt: "23:00" },
+      isClosed: false,
+      slots: [],
+    });
     mockRequireMembershipForRestaurant.mockResolvedValue(
       makeRestaurantMembership({ restaurant_id: RESTAURANT_ID, user_id: "user-1" })
     );

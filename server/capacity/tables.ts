@@ -14,7 +14,9 @@
 import { DateTime } from "luxon";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Tables } from "@/types/supabase";
+import { env } from "@/lib/env";
 import { getServiceSupabaseClient } from "@/server/supabase";
+import { isAssignAtomicEnabled, isRpcAssignAtomicEnabled } from "@/server/feature-flags";
 import {
   bandDuration,
   defaultVenuePolicy,
@@ -28,6 +30,7 @@ import {
   whichService,
   serviceWindowFor,
 } from "./policy";
+import { composeMergeGroupId } from "@/utils/ops/table-merges";
 
 type DbClient = SupabaseClient<Database, "public", any>;
 
@@ -42,8 +45,13 @@ export type Table = {
   minPartySize: number;
   maxPartySize: number | null;
   section: string | null;
+  category: string;
   seatingType: string;
+  mobility: string;
+  zoneId: string;
   status: string;
+  active: boolean;
+  mergeEligible: boolean;
   position: Record<string, any> | null;
 };
 
@@ -58,6 +66,7 @@ export type TableAssignment = {
   tableNumber: string;
   capacity: number | null;
   section: string | null;
+  mergeGroupId: string | null;
 };
 
 const INACTIVE_BOOKING_STATUSES = new Set<Tables<"bookings">["status"]>(["cancelled", "no_show"]);
@@ -70,6 +79,26 @@ const ASSIGNABLE_BOOKING_STATUSES = new Set<Tables<"bookings">["status"]>([
 type IntervalMs = {
   start: number;
   end: number;
+};
+
+type BookingRowForAtomic = {
+  id: string;
+  restaurant_id: string;
+  booking_date: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  start_at: string | null;
+  end_at: string | null;
+  restaurants?: {
+    timezone: string | null;
+  } | null;
+};
+
+type BookingRowForAtomicSupabase = Pick<
+  Tables<"bookings">,
+  "id" | "restaurant_id" | "booking_date" | "start_time" | "end_time" | "start_at" | "end_at"
+> & {
+  restaurants?: { timezone: string | null }[] | { timezone: string | null } | null;
 };
 
 type BookingWindow = {
@@ -90,6 +119,8 @@ type TableScheduleEntry = {
   start: number; // Block start (ms)
   end: number; // Block end (ms) — stored as half-open interval [start, end)
   status: Tables<"bookings">["status"];
+  mergeGroupId?: string;
+  mergeType?: "single" | "merge_2_4" | "merge_4_4";
 };
 
 type ComputeBookingWindowArgs = {
@@ -137,6 +168,84 @@ function resolveStartDateTime(args: {
   }
 
   return null;
+}
+
+function parseIsoDateTime(value: string | null | undefined): DateTime | null {
+  if (!value) {
+    return null;
+  }
+  const parsed = DateTime.fromISO(value, { setZone: true });
+  return parsed.isValid ? parsed : null;
+}
+
+function buildAssignmentWindowRange(booking: BookingRowForAtomic): { range: string; start: string; end: string } {
+  const startFromIso = parseIsoDateTime(booking.start_at);
+  const endFromIso = parseIsoDateTime(booking.end_at);
+
+  if (startFromIso && endFromIso && endFromIso > startFromIso) {
+    const startIso = startFromIso.toUTC().toISO({ suppressMilliseconds: true });
+    const endIso = endFromIso.toUTC().toISO({ suppressMilliseconds: true });
+    if (!startIso || !endIso) {
+      throw new Error("Unable to serialize booking window timestamps");
+    }
+    return { range: `[${startIso},${endIso})`, start: startIso, end: endIso };
+  }
+
+  const restaurantData = Array.isArray(booking.restaurants) 
+    ? booking.restaurants[0] 
+    : booking.restaurants;
+  const timezone = restaurantData?.timezone ?? "UTC";
+
+  const baseDate =
+    booking.booking_date ??
+    (startFromIso ? startFromIso.setZone(timezone, { keepLocalTime: true }).toISODate() : null);
+  const startTime =
+    booking.start_time ??
+    (startFromIso ? startFromIso.setZone(timezone, { keepLocalTime: true }).toFormat("HH:mm") : null);
+
+  if (!baseDate || !startTime) {
+    throw new Error("Booking is missing scheduling information (date/time)");
+  }
+
+  let start = DateTime.fromISO(`${baseDate}T${startTime}`, { zone: timezone, setZone: true });
+  if (!start.isValid && startFromIso) {
+    start = startFromIso;
+  }
+
+  if (!start.isValid) {
+    throw new Error("Unable to determine booking start time");
+  }
+
+  let endCandidate: DateTime | null = null;
+  if (booking.end_time) {
+    const derived = DateTime.fromISO(`${baseDate}T${booking.end_time}`, { zone: timezone, setZone: true });
+    endCandidate = derived.isValid ? derived : null;
+  }
+
+  if ((!endCandidate || !endCandidate.isValid) && endFromIso) {
+    endCandidate = endFromIso;
+  }
+
+  if (!endCandidate || !endCandidate.isValid || endCandidate <= start) {
+    const defaultDurationMinutes = env.reserve.defaultDurationMinutes ?? 90;
+    endCandidate = start.plus({ minutes: defaultDurationMinutes });
+  }
+
+  const startUtc = start.setZone("UTC", { keepLocalTime: false });
+  const endUtc = endCandidate.setZone("UTC", { keepLocalTime: false });
+
+  if (!startUtc.isValid || !endUtc.isValid || endUtc <= startUtc) {
+    throw new Error("Resolved booking window is invalid");
+  }
+
+  const startIso = startUtc.toISO({ suppressMilliseconds: true });
+  const endIso = endUtc.toISO({ suppressMilliseconds: true });
+
+  if (!startIso || !endIso) {
+    throw new Error("Failed to serialize booking assignment window");
+  }
+
+  return { range: `[${startIso},${endIso})`, start: startIso, end: endIso };
 }
 
 function computeBookingWindow(args: ComputeBookingWindowArgs): BookingWindow | null {
@@ -225,6 +334,10 @@ function filterAvailableTables(
       return false;
     }
 
+    if (!table.active) {
+      return false;
+    }
+
     if (table.status === "out_of_service" || table.status === "occupied") {
       return false;
     }
@@ -250,98 +363,125 @@ function filterAvailableTables(
   });
 }
 
-type CombinationScore = {
-  tables: number;
-  waste: number;
-  maxCapacity: number;
-};
-
-function chooseTableCombination(tables: Table[], partySize: number): Table[] | null {
-  if (tables.length === 0) {
-    return null;
-  }
-
-  const ordered = [...tables].sort((a, b) => a.capacity - b.capacity);
-
-  let best: Table[] | null = null;
-  let bestScore: CombinationScore | null = null;
-
-  const consider = (combo: Table[]) => {
-    const totalCapacity = combo.reduce((sum, table) => sum + table.capacity, 0);
-    if (totalCapacity < partySize) {
-      return;
+type TableSelection =
+  | {
+      tables: Table[];
+      mergeType: "single" | "merge_2_4" | "merge_4_4";
     }
-
-    if (combo.length === 1) {
-      const [table] = combo;
-      if (table.maxPartySize !== null && partySize > table.maxPartySize) {
-        return;
-      }
-    }
-
-    const score: CombinationScore = {
-      tables: combo.length,
-      waste: totalCapacity - partySize,
-      maxCapacity: combo.reduce((max, table) => Math.max(max, table.capacity), 0),
+  | {
+      reason: string;
     };
 
-    if (!bestScore) {
-      best = combo.slice();
-      bestScore = score;
-      return;
+function createMergeGroupId(
+  bookingId: string,
+  tables: Table[],
+  mergeType: "merge_2_4" | "merge_4_4" | "single",
+): string | undefined {
+  if (mergeType === "single") {
+    return undefined;
+  }
+
+  const totalCapacity = tables.reduce((sum, table) => sum + (table.capacity ?? 0), 0);
+  const tableNumbers = tables
+    .map((table) => table.tableNumber)
+    .filter((tableNumber): tableNumber is string => typeof tableNumber === "string" && tableNumber.trim().length > 0);
+
+  return composeMergeGroupId({
+    bookingId,
+    totalCapacity,
+    tableNumbers,
+  });
+}
+
+function selectTablesForParty(
+  tables: Table[],
+  partySize: number,
+  adjacency: Map<string, Set<string>>,
+): TableSelection {
+  if (tables.length === 0) {
+    return { reason: "No tables available for the requested booking window" };
+  }
+
+  const byCapacityAsc = [...tables].sort((a, b) => {
+    if (a.capacity === b.capacity) {
+      return a.tableNumber.localeCompare(b.tableNumber);
     }
-
-    const isBetter =
-      score.tables < bestScore.tables ||
-      (score.tables === bestScore.tables && score.waste < bestScore.waste) ||
-      (score.tables === bestScore.tables &&
-        score.waste === bestScore.waste &&
-        score.maxCapacity < bestScore.maxCapacity);
-
-    if (isBetter) {
-      best = combo.slice();
-      bestScore = score;
-    }
-  };
-
-  // Single table
-  ordered.forEach((table) => {
-    consider([table]);
+    return a.capacity - b.capacity;
   });
 
-  // Pairs
-  for (let i = 0; i < ordered.length; i += 1) {
-    for (let j = i + 1; j < ordered.length; j += 1) {
-      consider([ordered[i], ordered[j]]);
+  const singleTable = byCapacityAsc.find((table) => {
+    if (!Number.isFinite(table.capacity) || table.capacity <= 0) {
+      return false;
     }
+    if (table.capacity < partySize) {
+      return false;
+    }
+    if (typeof table.maxPartySize === "number" && table.maxPartySize > 0 && partySize > table.maxPartySize) {
+      return false;
+    }
+    return true;
+  });
+
+  if (singleTable) {
+    return {
+      tables: [singleTable],
+      mergeType: "single",
+    };
   }
 
-  // Triples
-  for (let i = 0; i < ordered.length; i += 1) {
-    for (let j = i + 1; j < ordered.length; j += 1) {
-      for (let k = j + 1; k < ordered.length; k += 1) {
-        consider([ordered[i], ordered[j], ordered[k]]);
+  if (partySize >= 5 && partySize <= 6) {
+    const twoTops = byCapacityAsc.filter((table) => table.capacity === 2 && table.mergeEligible);
+    const fourTops = byCapacityAsc.filter((table) => table.capacity === 4 && table.mergeEligible);
+
+    for (const twoTop of twoTops) {
+      for (const fourTop of fourTops) {
+        if (twoTop.zoneId !== fourTop.zoneId) {
+          continue;
+        }
+        const adjacentToTwo = adjacency.get(twoTop.id);
+        if (!adjacentToTwo || !adjacentToTwo.has(fourTop.id)) {
+          continue;
+        }
+        return {
+          tables: [twoTop, fourTop],
+          mergeType: "merge_2_4",
+        };
       }
     }
+
+    return {
+      reason: "Merge (2+4) requires adjacent, merge-eligible tables in the same zone",
+    };
   }
 
-  if (best) {
-    return best;
-  }
-
-  // Greedy fallback (allow >3 tables if needed)
-  const greedy: Table[] = [];
-  let accumulated = 0;
-  const descending = [...ordered].sort((a, b) => b.capacity - a.capacity);
-  for (const table of descending) {
-    greedy.push(table);
-    accumulated += table.capacity;
-    if (accumulated >= partySize) {
-      return greedy;
+  if (partySize >= 7 && partySize <= 8) {
+    const fourTops = byCapacityAsc.filter((table) => table.capacity === 4 && table.mergeEligible);
+    for (let i = 0; i < fourTops.length; i += 1) {
+      for (let j = i + 1; j < fourTops.length; j += 1) {
+        const a = fourTops[i]!;
+        const b = fourTops[j]!;
+        if (a.zoneId !== b.zoneId) {
+          continue;
+        }
+        const adjacentToA = adjacency.get(a.id);
+        if (!adjacentToA || !adjacentToA.has(b.id)) {
+          continue;
+        }
+        return {
+          tables: [a, b],
+          mergeType: "merge_4_4",
+        };
+      }
     }
+
+    return {
+      reason: "Merge (4+4) requires adjacent, merge-eligible 4-tops in the same zone",
+    };
   }
 
-  return null;
+  return {
+    reason: "No merge strategy supports the requested party size",
+  };
 }
 
 type BookingRecordForAssignment = {
@@ -363,8 +503,9 @@ async function assignTablesForBooking(params: {
   client: DbClient;
   preferences?: TableMatchParams;
   policy: VenuePolicy;
+  adjacency: Map<string, Set<string>>;
 }): Promise<{ tableIds: string[] } | { reason: string }> {
-  const { booking, tables, schedule, assignedBy, client, preferences, policy } = params;
+  const { booking, tables, schedule, assignedBy, client, preferences, policy, adjacency } = params;
   const partySize = booking.party_size ?? 0;
 
   if (!Number.isFinite(partySize) || partySize <= 0) {
@@ -416,13 +557,19 @@ async function assignTablesForBooking(params: {
     return { reason: "No suitable tables are available for the booking window" };
   }
 
-  const combination = chooseTableCombination(availableTables, partySize);
-  if (!combination || combination.length === 0) {
-    return { reason: "Unable to find a table combination that fits the party size" };
+  const selection = selectTablesForParty(availableTables, partySize, adjacency);
+  if ("reason" in selection) {
+    return { reason: selection.reason };
   }
+
+  const combination = selection.tables;
 
   const assignedTableIds: string[] = [];
   const scheduleUpdates: { tableId: string; entry: TableScheduleEntry }[] = [];
+  const mergeGroupId =
+    selection.mergeType === "single"
+      ? undefined
+      : createMergeGroupId(booking.id, combination, selection.mergeType);
 
   try {
     for (const table of combination) {
@@ -436,6 +583,8 @@ async function assignTablesForBooking(params: {
           start: targetInterval.start,
           end: targetInterval.end,
           status: booking.status,
+          mergeGroupId,
+          mergeType: selection.mergeType,
         },
       });
     }
@@ -475,6 +624,7 @@ type AssignmentContext = {
   bookings: BookingRowWithAssignments[];
   schedule: Map<string, TableScheduleEntry[]>;
   policy: VenuePolicy;
+  adjacency: Map<string, Set<string>>;
 };
 
 async function loadAssignmentContext(params: {
@@ -495,8 +645,12 @@ async function loadAssignmentContext(params: {
           min_party_size,
           max_party_size,
           section,
+          category,
           seating_type,
+          mobility,
+          zone_id,
           status,
+          active,
           position
         `,
       )
@@ -544,17 +698,50 @@ async function loadAssignmentContext(params: {
   const timezone = restaurantResult.data?.timezone ?? defaultVenuePolicy.timezone;
   const policy = getVenuePolicy({ timezone });
 
-  const tables: Table[] = (tablesResult.data ?? []).map((row: any) => ({
-    id: row.id,
-    tableNumber: row.table_number,
-    capacity: row.capacity,
-    minPartySize: row.min_party_size,
-    maxPartySize: row.max_party_size,
-    section: row.section,
-    seatingType: row.seating_type,
-    status: row.status,
-    position: row.position ?? null,
-  }));
+  const tables: Table[] = (tablesResult.data ?? []).map((row: any) => {
+    const mergeEligible =
+      row?.category === "dining" &&
+      row?.seating_type === "standard" &&
+      row?.mobility === "movable" &&
+      (row?.capacity === 2 || row?.capacity === 4);
+
+    return {
+      id: row.id,
+      tableNumber: row.table_number,
+      capacity: row.capacity,
+      minPartySize: row.min_party_size,
+      maxPartySize: row.max_party_size,
+      section: row.section,
+      category: row.category,
+      seatingType: row.seating_type,
+      mobility: row.mobility,
+      zoneId: row.zone_id,
+      status: row.status,
+      active: row.active ?? true,
+      mergeEligible,
+      position: row.position ?? null,
+    };
+  });
+
+  const adjacency = new Map<string, Set<string>>();
+  const tableIds = tables.map((table) => table.id);
+
+  if (tableIds.length > 0) {
+    const adjacencyResult = await client
+      .from("table_adjacencies")
+      .select("table_a, table_b")
+      .in("table_a", tableIds);
+
+    if (adjacencyResult.error) {
+      throw new Error(`Failed to load table adjacency: ${adjacencyResult.error.message}`);
+    }
+
+    for (const row of adjacencyResult.data ?? []) {
+      const entries = adjacency.get(row.table_a) ?? new Set<string>();
+      entries.add(row.table_b);
+      adjacency.set(row.table_a, entries);
+    }
+  }
 
   const bookings: BookingRowWithAssignments[] = (bookingsResult.data ?? []) as BookingRowWithAssignments[];
   const schedule = new Map<string, TableScheduleEntry[]>();
@@ -611,7 +798,7 @@ async function loadAssignmentContext(params: {
     }
   }
 
-  return { tables, bookings, schedule, policy };
+  return { tables, bookings, schedule, policy, adjacency };
 }
 
 type AutoAssignInternalParams = {
@@ -631,7 +818,7 @@ export type AutoAssignResult = {
 async function autoAssignTablesInternal(params: AutoAssignInternalParams): Promise<AutoAssignResult> {
   const { restaurantId, date, client, assignedBy, targetBookingIds, preferenceOverrides } = params;
 
-  const { tables, bookings, schedule, policy } = await loadAssignmentContext({ restaurantId, date, client });
+  const { tables, bookings, schedule, policy, adjacency } = await loadAssignmentContext({ restaurantId, date, client });
 
   if (tables.length === 0) {
     return {
@@ -697,6 +884,7 @@ async function autoAssignTablesInternal(params: AutoAssignInternalParams): Promi
       client,
       preferences: override,
       policy,
+      adjacency,
     });
 
     if ("tableIds" in assignment && assignment.tableIds.length > 0) {
@@ -793,9 +981,27 @@ export async function assignTableToBooking(
   bookingId: string,
   tableId: string,
   assignedBy?: string,
-  client?: DbClient
+  client?: DbClient,
+  options?: { idempotencyKey?: string | null }
 ): Promise<string> {
   const supabase = client ?? getServiceSupabaseClient();
+  const useAtomic = isRpcAssignAtomicEnabled() && isAssignAtomicEnabled();
+
+  if (useAtomic) {
+    const assignments = await invokeAssignTablesAtomic({
+      bookingId,
+      tableIds: [tableId],
+      assignedBy: assignedBy ?? null,
+      idempotencyKey: options?.idempotencyKey ?? null,
+      client: supabase,
+    });
+
+    const first = assignments[0];
+    if (!first) {
+      throw new Error("assign_tables_atomic returned no assignments");
+    }
+    return first.assignmentId ?? tableId;
+  }
 
   // Call database RPC function
   const { data, error } = await supabase.rpc("assign_table_to_booking", {
@@ -829,6 +1035,16 @@ export async function unassignTableFromBooking(
   client?: DbClient
 ): Promise<boolean> {
   const supabase = client ?? getServiceSupabaseClient();
+  const useAtomic = isRpcAssignAtomicEnabled() && isAssignAtomicEnabled();
+
+  if (useAtomic) {
+    const result = await invokeUnassignTablesAtomic({
+      bookingId,
+      tableIds: [tableId],
+      client: supabase,
+    });
+    return result.length > 0;
+  }
 
   // Call database RPC function
   const { data, error } = await supabase.rpc("unassign_table_from_booking", {
@@ -841,6 +1057,105 @@ export async function unassignTableFromBooking(
   }
 
   return data as boolean;
+}
+
+type AtomicAssignmentResult = {
+  tableId: string;
+  assignmentId: string | null;
+  mergeGroupId: string | null;
+};
+
+async function fetchBookingForAtomic(bookingId: string, client: DbClient): Promise<BookingRowForAtomic> {
+  const { data, error } = await client
+    .from("bookings")
+    .select("id, restaurant_id, booking_date, start_time, end_time, start_at, end_at, restaurants(timezone)")
+    .eq("id", bookingId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load booking for atomic assignment: ${error.message}`);
+  }
+
+  if (!data) {
+    throw new Error(`Booking ${bookingId} not found`);
+  }
+
+  const bookingRow = data as BookingRowForAtomicSupabase;
+  const restaurant = Array.isArray(bookingRow.restaurants)
+    ? bookingRow.restaurants[0] ?? null
+    : bookingRow.restaurants ?? null;
+
+  return {
+    id: bookingRow.id,
+    restaurant_id: bookingRow.restaurant_id,
+    booking_date: bookingRow.booking_date,
+    start_time: bookingRow.start_time,
+    end_time: bookingRow.end_time,
+    start_at: bookingRow.start_at,
+    end_at: bookingRow.end_at,
+    restaurants: restaurant,
+  };
+}
+
+async function invokeAssignTablesAtomic(params: {
+  bookingId: string;
+  tableIds: string[];
+  assignedBy?: string | null;
+  idempotencyKey?: string | null;
+  client: DbClient;
+}): Promise<AtomicAssignmentResult[]> {
+  const { bookingId, tableIds, assignedBy, idempotencyKey, client } = params;
+
+  if (!Array.isArray(tableIds) || tableIds.length === 0) {
+    throw new Error("assign_tables_atomic requires at least one table id");
+  }
+
+  const booking = await fetchBookingForAtomic(bookingId, client);
+  const window = buildAssignmentWindowRange(booking);
+
+  const { data, error } = await client.rpc("assign_tables_atomic", {
+    p_booking_id: bookingId,
+    p_table_ids: tableIds,
+    p_window: window.range,
+    p_assigned_by: assignedBy ?? null,
+    p_idempotency_key: idempotencyKey ?? null,
+  });
+
+  if (error) {
+    throw new Error(`Failed to assign tables atomically: ${error.message}`);
+  }
+
+  const rows = Array.isArray(data) ? data : [];
+  return rows.map((row: any) => ({
+    tableId: row.table_id as string,
+    assignmentId: (row.assignment_id as string | null) ?? null,
+    mergeGroupId: (row.merge_group_id as string | null) ?? null,
+  }));
+}
+
+async function invokeUnassignTablesAtomic(params: {
+  bookingId: string;
+  tableIds?: string[];
+  mergeGroupId?: string | null;
+  client: DbClient;
+}): Promise<Array<{ tableId: string; mergeGroupId: string | null }>> {
+  const { bookingId, tableIds, mergeGroupId, client } = params;
+
+  const { data, error } = await client.rpc("unassign_tables_atomic", {
+    p_booking_id: bookingId,
+    p_table_ids: tableIds && tableIds.length > 0 ? tableIds : null,
+    p_merge_group_id: mergeGroupId ?? null,
+  });
+
+  if (error) {
+    throw new Error(`Failed to unassign tables atomically: ${error.message}`);
+  }
+
+  const rows = Array.isArray(data) ? data : [];
+  return rows.map((row: any) => ({
+    tableId: row.table_id as string,
+    mergeGroupId: (row.merge_group_id as string | null) ?? null,
+  }));
 }
 
 /**
@@ -860,6 +1175,7 @@ export async function getBookingTableAssignments(
     .from("booking_table_assignments")
     .select(`
       table_id,
+      merge_group_id,
       table_inventory (
         table_number,
         capacity,
@@ -877,6 +1193,7 @@ export async function getBookingTableAssignments(
     tableNumber: assignment.table_inventory?.table_number ?? "Unknown",
     capacity: assignment.table_inventory?.capacity ?? null,
     section: assignment.table_inventory?.section ?? null,
+    mergeGroupId: assignment.merge_group_id ?? null,
   }));
 }
 

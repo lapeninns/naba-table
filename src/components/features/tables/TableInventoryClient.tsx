@@ -7,7 +7,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Edit, Loader2, Plus, Trash2 } from 'lucide-react';
+import { AlertCircle, Edit, Link2, Loader2, Plus, Trash2 } from 'lucide-react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +32,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useTableInventoryService } from '@/contexts/ops-services';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import { queryKeys } from '@/lib/query/keys';
@@ -43,7 +44,34 @@ import type {
 } from '@/services/ops/tables';
 import { useToast } from '@/hooks/use-toast';
 
-const UNASSIGNED_SECTION_VALUE = '__unassigned__';
+const ALL_ZONES_VALUE = 'all-zones';
+
+const CATEGORY_OPTIONS: { value: TableInventory['category']; label: string }[] = [
+  { value: 'dining', label: 'Dining' },
+  { value: 'patio', label: 'Patio' },
+  { value: 'bar', label: 'Bar' },
+  { value: 'lounge', label: 'Lounge' },
+  { value: 'private', label: 'Private' },
+];
+
+const SEATING_TYPE_OPTIONS: { value: TableInventory['seatingType']; label: string }[] = [
+  { value: 'standard', label: 'Standard' },
+  { value: 'sofa', label: 'Sofa' },
+  { value: 'booth', label: 'Booth' },
+  { value: 'high_top', label: 'High-top' },
+];
+
+const MOBILITY_OPTIONS: { value: TableInventory['mobility']; label: string }[] = [
+  { value: 'movable', label: 'Movable' },
+  { value: 'fixed', label: 'Fixed' },
+];
+
+const STATUS_OPTIONS: { value: TableInventory['status']; label: string }[] = [
+  { value: 'available', label: 'Available' },
+  { value: 'reserved', label: 'Reserved' },
+  { value: 'occupied', label: 'Occupied' },
+  { value: 'out_of_service', label: 'Out of service' },
+];
 
 type TableFormState = CreateTablePayload;
 
@@ -56,14 +84,20 @@ export default function TableInventoryClient() {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTable, setEditingTable] = useState<TableInventory | null>(null);
-  const [filterSection, setFilterSection] = useState<string>('all');
+  const [filterZone, setFilterZone] = useState<string>(ALL_ZONES_VALUE);
+  const [isAdjacencyDialogOpen, setIsAdjacencyDialogOpen] = useState(false);
+  const [adjacencyTarget, setAdjacencyTarget] = useState<TableInventory | null>(null);
+  const [adjacencySelection, setAdjacencySelection] = useState<Set<string>>(new Set());
 
   const canDeleteTables = Boolean(activeMembership && isRestaurantAdminRole(activeMembership.role));
 
   useEffect(() => {
-    setFilterSection('all');
+    setFilterZone(ALL_ZONES_VALUE);
     setEditingTable(null);
     setIsDialogOpen(false);
+    setAdjacencyTarget(null);
+    setIsAdjacencyDialogOpen(false);
+    setAdjacencySelection(new Set());
   }, [activeRestaurantId]);
 
   const tablesQueryKey = activeRestaurantId
@@ -92,28 +126,60 @@ export default function TableInventoryClient() {
   const tables = tableQueryResult?.tables ?? [];
   const summary = tableQueryResult?.summary ?? null;
 
-  const sectionOptions = useMemo(() => {
-    const options = new Set<string>();
-    (summary?.sections ?? []).forEach((section) => {
-      if (section) {
-        options.add(section);
+  const zoneOptions = useMemo(() => {
+    if (summary?.zones && summary.zones.length > 0) {
+      return summary.zones;
+    }
+    const zones = new Map<string, string>();
+    tables.forEach((table) => {
+      if (!zones.has(table.zoneId)) {
+        zones.set(table.zoneId, table.zoneName ?? 'Zone');
       }
     });
-    if (tables.some((table) => !table.section)) {
-      options.add(UNASSIGNED_SECTION_VALUE);
-    }
-    return Array.from(options);
-  }, [summary?.sections, tables]);
+    return Array.from(zones.entries()).map(([id, name]) => ({ id, name }));
+  }, [summary?.zones, tables]);
 
   const filteredTables = useMemo(() => {
-    if (filterSection === 'all') {
+    if (filterZone === ALL_ZONES_VALUE) {
       return tables;
     }
-    if (filterSection === UNASSIGNED_SECTION_VALUE) {
-      return tables.filter((table) => !table.section);
+    return tables.filter((table) => table.zoneId === filterZone);
+  }, [filterZone, tables]);
+
+  const adjacencyCandidates = useMemo(() => {
+    if (!adjacencyTarget) {
+      return [] as TableInventory[];
     }
-    return tables.filter((table) => table.section === filterSection);
-  }, [filterSection, tables]);
+    return tables.filter((table) => table.id !== adjacencyTarget.id && table.zoneId === adjacencyTarget.zoneId);
+  }, [adjacencyTarget, tables]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAdjacency() {
+      if (!isAdjacencyDialogOpen || !adjacencyTarget) {
+        return;
+      }
+
+      try {
+        const ids = await tableService.getAdjacency(adjacencyTarget.id);
+        if (!cancelled) {
+          setAdjacencySelection(new Set(ids));
+        }
+      } catch (adjacencyError) {
+        if (!cancelled) {
+          const message = adjacencyError instanceof Error ? adjacencyError.message : 'Unable to load adjacency.';
+          toast({ title: 'Adjacency unavailable', description: message, variant: 'destructive' });
+        }
+      }
+    }
+
+    void loadAdjacency();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdjacencyDialogOpen, adjacencyTarget, tableService, toast]);
 
   const createMutation = useMutation({
     mutationFn: ({ restaurantId, payload }: { restaurantId: string; payload: CreateTablePayload }) =>
@@ -126,7 +192,7 @@ export default function TableInventoryClient() {
         description: 'The table has been added successfully.',
       });
       if (variables.restaurantId !== activeRestaurantId) {
-        setFilterSection('all');
+        setFilterZone(ALL_ZONES_VALUE);
       }
     },
     onError: (mutationError: unknown) => {
@@ -186,6 +252,53 @@ export default function TableInventoryClient() {
     },
   });
 
+  const adjacencyMutation = useMutation({
+    mutationFn: ({ tableId, adjacentIds }: { tableId: string; adjacentIds: string[] }) =>
+      tableService.updateAdjacency(tableId, adjacentIds),
+    onSuccess: (updatedIds, variables) => {
+      setAdjacencySelection(new Set(updatedIds));
+      queryClient.invalidateQueries({ queryKey: ['ops', 'tables'] });
+      toast({
+        title: 'Adjacency updated',
+        description: 'Table adjacency has been saved.',
+      });
+      if (adjacencyTarget && adjacencyTarget.id === variables.tableId) {
+        setAdjacencyTarget({ ...adjacencyTarget });
+      }
+      setIsAdjacencyDialogOpen(false);
+    },
+    onError: (mutationError: unknown) => {
+      const message = mutationError instanceof Error ? mutationError.message : 'Failed to update adjacency.';
+      toast({
+        title: 'Unable to update adjacency',
+        description: message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const toggleAdjacencySelection = (tableId: string) => {
+    setAdjacencySelection((current) => {
+      const next = new Set(current);
+      if (next.has(tableId)) {
+        next.delete(tableId);
+      } else {
+        next.add(tableId);
+      }
+      return next;
+    });
+  };
+
+  const handleAdjacencySave = () => {
+    if (!adjacencyTarget) {
+      return;
+    }
+    adjacencyMutation.mutate({
+      tableId: adjacencyTarget.id,
+      adjacentIds: Array.from(adjacencySelection),
+    });
+  };
+
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!activeRestaurantId) {
@@ -204,7 +317,7 @@ export default function TableInventoryClient() {
       return Number.isNaN(parsed) ? fallback : parsed;
     };
 
-    const payload: TableFormState = {
+    let payload: TableFormState = {
       tableNumber: String(formData.get('tableNumber') ?? '').trim(),
       capacity: toInteger(formData.get('capacity'), 0) ?? 0,
       minPartySize: toInteger(formData.get('minPartySize'), 1) ?? 1,
@@ -213,8 +326,12 @@ export default function TableInventoryClient() {
         const value = String(formData.get('section') ?? '').trim();
         return value.length > 0 ? value : null;
       })(),
-      seatingType: (formData.get('seatingType') as TableFormState['seatingType']) ?? 'indoor',
+      category: (formData.get('category') as TableFormState['category']) ?? 'dining',
+      seatingType: (formData.get('seatingType') as TableFormState['seatingType']) ?? 'standard',
+      mobility: (formData.get('mobility') as TableFormState['mobility']) ?? 'movable',
+      zoneId: String(formData.get('zoneId') ?? ''),
       status: (formData.get('status') as TableFormState['status']) ?? 'available',
+      active: formData.get('active') === 'on' ? true : editingTable?.active ?? true,
       position: null,
       notes: (() => {
         const value = String(formData.get('notes') ?? '').trim();
@@ -231,10 +348,31 @@ export default function TableInventoryClient() {
       return;
     }
 
-    if (payload.maxPartySize !== null && payload.maxPartySize < payload.minPartySize) {
+    if (![2, 4, 5, 7].includes(payload.capacity)) {
+      toast({
+        title: 'Unsupported capacity',
+        description: 'Capacity must be one of 2, 4, 5, or 7 seats to support merge rules.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const maxPartySize = payload.maxPartySize ?? null;
+    payload = { ...payload, maxPartySize };
+
+    if (maxPartySize !== null && maxPartySize < payload.minPartySize) {
       toast({
         title: 'Invalid party size range',
         description: 'Max party size must be greater than or equal to min party size.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!payload.zoneId) {
+      toast({
+        title: 'Select a zone',
+        description: 'Every table must belong to a zone to enable adjacency and merges.',
         variant: 'destructive',
       });
       return;
@@ -305,16 +443,16 @@ export default function TableInventoryClient() {
 
       <section className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
-          <Label htmlFor="table-section-filter" className="text-sm">Section</Label>
-          <Select value={filterSection} onValueChange={setFilterSection}>
-            <SelectTrigger id="table-section-filter" className="w-[200px]">
-              <SelectValue placeholder="All sections" />
+          <Label htmlFor="table-zone-filter" className="text-sm">Zone</Label>
+          <Select value={filterZone} onValueChange={setFilterZone}>
+            <SelectTrigger id="table-zone-filter" className="w-[220px]">
+              <SelectValue placeholder="All zones" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All sections</SelectItem>
-              {sectionOptions.map((section) => (
-                <SelectItem key={section} value={section}>
-                  {section === UNASSIGNED_SECTION_VALUE ? 'Unassigned' : section}
+              <SelectItem value={ALL_ZONES_VALUE}>All zones</SelectItem>
+              {zoneOptions.map((zone) => (
+                <SelectItem key={zone.id} value={zone.id}>
+                  {zone.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -336,12 +474,15 @@ export default function TableInventoryClient() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Table #</TableHead>
+              <TableHead>Table</TableHead>
+              <TableHead>Zone</TableHead>
               <TableHead>Capacity</TableHead>
               <TableHead>Party size</TableHead>
-              <TableHead>Section</TableHead>
-              <TableHead>Type</TableHead>
+              <TableHead>Category</TableHead>
+              <TableHead>Seating</TableHead>
+              <TableHead>Merge</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Active</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -366,21 +507,61 @@ export default function TableInventoryClient() {
             ) : (
               filteredTables.map((table) => (
                 <TableRow key={table.id}>
-                  <TableCell className="font-medium">{table.tableNumber}</TableCell>
-                  <TableCell>{table.capacity} seats</TableCell>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-2">
+                      <span>{table.tableNumber}</span>
+                      {table.mergeEligible ? (
+                        <Badge variant="secondary" className="text-xs uppercase tracking-wide">
+                          Merge ready
+                        </Badge>
+                      ) : null}
+                    </div>
+                  </TableCell>
+                  <TableCell>{table.zoneName ?? '—'}</TableCell>
+                  <TableCell>{table.capacity}</TableCell>
                   <TableCell>
                     {table.minPartySize}
                     {table.maxPartySize ? `–${table.maxPartySize}` : '+'}
                   </TableCell>
-                  <TableCell>{table.section ?? 'Unassigned'}</TableCell>
-                  <TableCell className="capitalize">{table.seatingType.replace('_', ' ')}</TableCell>
+                  <TableCell className="capitalize">{table.category}</TableCell>
+                  <TableCell className="capitalize">
+                    {table.seatingType.replace('_', ' ')}
+                    <span className="text-muted-foreground"> · {table.mobility}</span>
+                  </TableCell>
+                  <TableCell>
+                    {table.mergeEligible ? (
+                      <Badge variant="outline">Yes</Badge>
+                    ) : (
+                      <span className="text-muted-foreground">No</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Badge variant={table.status === 'available' ? 'default' : 'secondary'}>
                       {table.status.replace('_', ' ')}
                     </Badge>
                   </TableCell>
+                  <TableCell>
+                    {table.active ? (
+                      <Badge variant="outline">Active</Badge>
+                    ) : (
+                      <Badge variant="secondary">Inactive</Badge>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setAdjacencyTarget(table);
+                          setAdjacencySelection(new Set());
+                          setIsAdjacencyDialogOpen(true);
+                        }}
+                      >
+                        <Link2 className="h-4 w-4" />
+                        <span className="sr-only">Manage adjacency</span>
+                      </Button>
                       <Button
                         type="button"
                         variant="ghost"
@@ -491,25 +672,80 @@ export default function TableInventoryClient() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-4 md:grid-cols-2">
                 <div className="grid gap-2">
-                  <Label htmlFor="seatingType">Seating type</Label>
+                  <Label htmlFor="zoneId">Zone *</Label>
                   <Select
-                    name="seatingType"
-                    defaultValue={editingTable?.seatingType ?? 'indoor'}
+                    name="zoneId"
+                    defaultValue={editingTable?.zoneId ?? (zoneOptions[0]?.id ?? '')}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose seating type" />
+                    <SelectTrigger id="zoneId">
+                      <SelectValue placeholder="Select a zone" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="indoor">Indoor</SelectItem>
-                      <SelectItem value="outdoor">Outdoor</SelectItem>
-                      <SelectItem value="bar">Bar</SelectItem>
-                      <SelectItem value="patio">Patio</SelectItem>
-                      <SelectItem value="private_room">Private room</SelectItem>
+                      {zoneOptions.length === 0 ? (
+                        <SelectItem value="">No zones configured</SelectItem>
+                      ) : (
+                        zoneOptions.map((zone) => (
+                          <SelectItem key={zone.id} value={zone.id}>
+                            {zone.name}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="category">Category</Label>
+                  <Select name="category" defaultValue={editingTable?.category ?? 'dining'}>
+                    <SelectTrigger id="category">
+                      <SelectValue placeholder="Choose category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CATEGORY_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="seatingType">Seating</Label>
+                  <Select name="seatingType" defaultValue={editingTable?.seatingType ?? 'standard'}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose seating" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SEATING_TYPE_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="mobility">Mobility</Label>
+                  <Select name="mobility" defaultValue={editingTable?.mobility ?? 'movable'}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose mobility" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MOBILITY_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
                 <div className="grid gap-2">
                   <Label htmlFor="status">Status</Label>
                   <Select name="status" defaultValue={editingTable?.status ?? 'available'}>
@@ -517,12 +753,26 @@ export default function TableInventoryClient() {
                       <SelectValue placeholder="Set status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="available">Available</SelectItem>
-                      <SelectItem value="reserved">Reserved</SelectItem>
-                      <SelectItem value="occupied">Occupied</SelectItem>
-                      <SelectItem value="out_of_service">Out of service</SelectItem>
+                      {STATUS_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="active">Active</Label>
+                  <label className="flex items-center gap-3 rounded-md border p-3">
+                    <input
+                      id="active"
+                      name="active"
+                      type="checkbox"
+                      defaultChecked={editingTable?.active ?? true}
+                      className="h-4 w-4 accent-primary"
+                    />
+                    <span className="text-sm text-muted-foreground">Toggle off to remove table from allocation roster.</span>
+                  </label>
                 </div>
               </div>
 
@@ -557,6 +807,83 @@ export default function TableInventoryClient() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isAdjacencyDialogOpen}
+        onOpenChange={(open) => {
+          setIsAdjacencyDialogOpen(open);
+          if (!open) {
+            setAdjacencyTarget(null);
+            setAdjacencySelection(new Set());
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Set adjacency</DialogTitle>
+            <DialogDescription>
+              {adjacencyTarget
+                ? `Select tables that are physically adjacent to ${adjacencyTarget.tableNumber}.`
+                : 'Select tables that can merge or share walkways.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-64 space-y-3 overflow-y-auto pr-2">
+            {adjacencyTarget ? (
+              adjacencyCandidates.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  There are no other tables in the {adjacencyTarget.zoneName ?? 'selected'} zone yet.
+                </p>
+              ) : (
+                adjacencyCandidates.map((candidate) => (
+                  <label
+                    key={candidate.id}
+                    className="flex items-center justify-between gap-3 rounded-md border p-3 hover:bg-muted"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        checked={adjacencySelection.has(candidate.id)}
+                        onCheckedChange={() => toggleAdjacencySelection(candidate.id)}
+                      />
+                      <div>
+                        <p className="font-medium">{candidate.tableNumber}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {candidate.capacity}-seat · {candidate.category} · {candidate.seatingType.replace('_', ' ')}
+                        </p>
+                      </div>
+                    </div>
+                    {candidate.mergeEligible ? (
+                      <Badge variant="outline">Merge ready</Badge>
+                    ) : null}
+                  </label>
+                ))
+              )
+            ) : (
+              <p className="text-sm text-muted-foreground">Choose a table to manage adjacency.</p>
+            )}
+          </div>
+
+          <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsAdjacencyDialogOpen(false);
+                setAdjacencyTarget(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleAdjacencySave}
+              disabled={adjacencyMutation.isPending || !adjacencyTarget}
+            >
+              {adjacencyMutation.isPending ? 'Saving…' : 'Save adjacency'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

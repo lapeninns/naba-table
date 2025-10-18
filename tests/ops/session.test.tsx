@@ -1,3 +1,5 @@
+import '@testing-library/jest-dom/vitest';
+
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 

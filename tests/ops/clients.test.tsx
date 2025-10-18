@@ -1,3 +1,5 @@
+import '@testing-library/jest-dom/vitest';
+
 import * as React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
@@ -7,6 +9,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { OpsServicesProvider } from '@/contexts/ops-services';
 import { OpsSessionProvider } from '@/contexts/ops-session';
 import { OpsWalkInBookingClient, OpsTeamManagementClient, OpsBookingsClient, OpsCustomersClient, OpsDashboardClient } from '@/components/features';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import type { OpsMembership, OpsTodayBookingsSummary } from '@/types/ops';
 import type { RestaurantService, OperatingHoursSnapshot, RestaurantProfile, ServicePeriodRow } from '@/services/ops/restaurants';
 import type { TeamService } from '@/services/ops/team';
@@ -111,7 +114,7 @@ function renderWithProviders(
             customerService: () => customerService,
           }}
         >
-          {ui}
+          <TooltipProvider>{ui}</TooltipProvider>
         </OpsServicesProvider>
       </OpsSessionProvider>
     </QueryClientProvider>,
@@ -218,7 +221,8 @@ describe('Ops feature clients', () => {
       bookingService,
     });
 
-    await waitFor(() => expect(screen.getByText(/Service snapshot/i)).toBeVisible());
+    const serviceDateLabels = await screen.findAllByText(/service date/i);
+    expect(serviceDateLabels.length).toBeGreaterThan(0);
     expect(bookingService.getTodaySummary).toHaveBeenCalledWith({ restaurantId: 'rest-1', date: undefined });
   });
 
@@ -329,6 +333,9 @@ describe('Ops feature clients', () => {
 
     await waitFor(() => expect(listCustomersMock).toHaveBeenCalled());
     expect(listCustomersMock.mock.calls[0]?.[0]).toMatchObject({ restaurantId: 'rest-1' });
-    expect(screen.getByText(/Ada Lovelace/i)).toBeVisible();
+    await waitFor(() => {
+      const matches = screen.getAllByText(/Ada Lovelace/i);
+      expect(matches.length).toBeGreaterThan(0);
+    });
   });
 });

@@ -96,6 +96,9 @@ export const env = {
       bookingPastTimeGraceMinutes: parsed.BOOKING_PAST_TIME_GRACE_MINUTES ?? 5,
       bookingLifecycleV2: parsed.FEATURE_OPS_BOOKING_LIFECYCLE_V2 ?? false,
       capacityAdminDashboard: parsed.FEATURE_CAPACITY_ADMIN_DASHBOARD ?? true,
+      allocationsDualWrite: parsed.FEATURE_ALLOCATIONS_DUAL_WRITE ?? false,
+      rpcAssignAtomic: parsed.FEATURE_RPC_ASSIGN_ATOMIC ?? false,
+      assignAtomic: parsed.FEATURE_ASSIGN_ATOMIC ?? false,
     } as const;
   },
 

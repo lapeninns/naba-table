@@ -22,7 +22,7 @@ describe("computeBookingWindow & overlap handling", () => {
   it("throws when dinner reservation for eight would exceed service close", () => {
     expect(() =>
       computeBookingWindow({
-        startISO: "2025-05-10T20:00:00+01:00",
+        startISO: "2025-05-10T21:00:00+01:00",
         partySize: 8,
         policy,
       }),
@@ -36,7 +36,7 @@ describe("computeBookingWindow & overlap handling", () => {
       policy,
     });
     const second = computeBookingWindow({
-      startISO: "2025-05-10T13:30:00+01:00",
+      startISO: "2025-05-10T13:04:00+01:00",
       partySize: 2,
       policy,
     });
@@ -63,7 +63,7 @@ describe("computeBookingWindow & overlap handling", () => {
       policy,
     });
     const second = computeBookingWindow({
-      startISO: "2025-05-10T13:45:00+01:00",
+      startISO: "2025-05-10T13:10:00+01:00",
       partySize: 2,
       policy,
     });
@@ -94,6 +94,6 @@ describe("computeBookingWindow & overlap handling", () => {
 
     expect(window).not.toBeNull();
     expect(window!.dining.start.toFormat("HH:mm")).toBe("12:30");
-    expect(window!.dining.end.toFormat("HH:mm")).toBe("14:00");
+    expect(window!.dining.end.toFormat("HH:mm")).toBe("13:30");
   });
 });

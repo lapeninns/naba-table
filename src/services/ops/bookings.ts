@@ -199,6 +199,17 @@ function buildStatusSummarySearch(params: StatusSummaryParams): string {
   return search.toString();
 }
 
+function createIdempotencyKey(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    try {
+      return crypto.randomUUID();
+    } catch {
+      // fall through
+    }
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export function createBrowserBookingService(): BookingService {
   return {
     async getTodaySummary({ restaurantId, date }) {
@@ -288,9 +299,14 @@ export function createBrowserBookingService(): BookingService {
       });
     },
     async assignTable({ bookingId, tableId }) {
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': createIdempotencyKey(),
+      };
+
       return fetchJson<TableAssignmentsResponse>(`${OPS_BOOKINGS_BASE}/${bookingId}/tables`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ tableId }),
       });
     },

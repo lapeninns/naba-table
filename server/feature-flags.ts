@@ -15,3 +15,15 @@ export function isLoyaltyPilotRestaurant(restaurantId: string): boolean {
 export function isCapacityAdminDashboardEnabled(): boolean {
   return env.featureFlags.capacityAdminDashboard ?? false;
 }
+
+export function isRpcAssignAtomicEnabled(): boolean {
+  return env.featureFlags.rpcAssignAtomic ?? false;
+}
+
+export function isAssignAtomicEnabled(): boolean {
+  return env.featureFlags.assignAtomic ?? false;
+}
+
+export function isAllocationsDualWriteEnabled(): boolean {
+  return env.featureFlags.allocationsDualWrite ?? false;
+}

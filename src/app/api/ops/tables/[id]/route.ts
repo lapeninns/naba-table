@@ -11,21 +11,54 @@ import { getRouteHandlerSupabaseClient } from "@/server/supabase";
 // Request Validation
 // =====================================================
 
+const CAPACITY_OPTIONS = [2, 4, 5, 7] as const;
+
 const updateTableSchema = z.object({
   tableNumber: z.string().min(1).max(50).optional(),
-  capacity: z.number().int().min(1).max(20).optional(),
+  capacity: z
+    .number()
+    .int()
+    .refine((value) => CAPACITY_OPTIONS.includes(value as (typeof CAPACITY_OPTIONS)[number]), {
+      message: "capacity must be one of 2, 4, 5, or 7",
+    })
+    .optional(),
   minPartySize: z.number().int().min(1).optional(),
   maxPartySize: z.number().int().min(1).max(20).optional().nullable(),
+  category: z.enum(["bar", "dining", "lounge", "patio", "private"]).optional(),
+  seatingType: z.enum(["standard", "sofa", "booth", "high_top"]).optional(),
+  mobility: z.enum(["movable", "fixed"]).optional(),
+  zoneId: z.string().uuid().optional(),
+  active: z.boolean().optional(),
   section: z.string().max(100).optional().nullable(),
-  seatingType: z.enum(["indoor", "outdoor", "bar", "patio", "private_room"]).optional(),
   status: z.enum(["available", "reserved", "occupied", "out_of_service"]).optional(),
-  position: z.object({
-    x: z.number(),
-    y: z.number(),
-    rotation: z.number().optional(),
-  }).optional().nullable(),
+  position: z
+    .object({
+      x: z.number(),
+      y: z.number(),
+      rotation: z.number().optional(),
+    })
+    .optional()
+    .nullable(),
   notes: z.string().max(500).optional().nullable(),
 });
+
+const mergeEligible = (input: {
+  category: string | null | undefined;
+  seating_type: string | null | undefined;
+  mobility: string | null | undefined;
+  capacity: number | null | undefined;
+}): boolean => {
+  if (!input) {
+    return false;
+  }
+
+  return (
+    input.category === "dining" &&
+    input.seating_type === "standard" &&
+    input.mobility === "movable" &&
+    (input.capacity === 2 || input.capacity === 4)
+  );
+};
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -49,7 +82,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     // Get table to verify access
     const { data: table, error: fetchError } = await supabase
       .from("table_inventory")
-      .select("restaurant_id")
+      .select("restaurant_id, zone_id, min_party_size, max_party_size")
       .eq("id", tableId)
       .single();
 
@@ -88,20 +121,61 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 
     const updates = parsed.data;
 
-    // Update table
+    const effectiveMinPartySize = updates.minPartySize ?? table.min_party_size ?? 1;
+    const effectiveMaxPartySize = updates.maxPartySize ?? table.max_party_size ?? null;
+
+    if (typeof effectiveMaxPartySize === "number" && effectiveMaxPartySize < effectiveMinPartySize) {
+      return NextResponse.json(
+        { error: "maxPartySize must be >= minPartySize" },
+        { status: 400 }
+      );
+    }
+
+    if (updates.zoneId) {
+      const { data: zone, error: zoneError } = await supabase
+        .from("zones")
+        .select("id, restaurant_id")
+        .eq("id", updates.zoneId)
+        .maybeSingle();
+
+      if (zoneError || !zone) {
+        return NextResponse.json(
+          { error: "Zone not found" },
+          { status: 404 }
+        );
+      }
+
+      if (zone.restaurant_id !== table.restaurant_id) {
+        return NextResponse.json(
+          { error: "Zone belongs to a different restaurant" },
+          { status: 400 }
+        );
+      }
+    }
+
+    const updatePayload: Record<string, unknown> = {};
+
+    if (updates.tableNumber !== undefined) updatePayload.table_number = updates.tableNumber;
+    if (updates.capacity !== undefined) updatePayload.capacity = updates.capacity;
+    if (updates.minPartySize !== undefined) updatePayload.min_party_size = updates.minPartySize;
+    if (updates.maxPartySize !== undefined) updatePayload.max_party_size = updates.maxPartySize;
+    if (updates.section !== undefined) updatePayload.section = updates.section;
+    if (updates.category !== undefined) updatePayload.category = updates.category;
+    if (updates.seatingType !== undefined) updatePayload.seating_type = updates.seatingType;
+    if (updates.mobility !== undefined) updatePayload.mobility = updates.mobility;
+    if (updates.zoneId !== undefined) updatePayload.zone_id = updates.zoneId;
+    if (updates.active !== undefined) updatePayload.active = updates.active;
+    if (updates.status !== undefined) updatePayload.status = updates.status;
+    if (updates.position !== undefined) updatePayload.position = updates.position;
+    if (updates.notes !== undefined) updatePayload.notes = updates.notes;
+
+    if (Object.keys(updatePayload).length === 0) {
+      return NextResponse.json({ message: "No changes supplied" });
+    }
+
     const { data: updatedTable, error: updateError } = await supabase
       .from("table_inventory")
-      .update({
-        table_number: updates.tableNumber,
-        capacity: updates.capacity,
-        min_party_size: updates.minPartySize,
-        max_party_size: updates.maxPartySize,
-        section: updates.section,
-        seating_type: updates.seatingType,
-        status: updates.status,
-        position: updates.position,
-        notes: updates.notes,
-      })
+      .update(updatePayload)
       .eq("id", tableId)
       .select()
       .single();
@@ -114,7 +188,17 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       );
     }
 
-    return NextResponse.json({ table: updatedTable });
+    return NextResponse.json({
+      table: {
+        ...updatedTable,
+        merge_eligible: mergeEligible({
+          category: updatedTable.category,
+          seating_type: updatedTable.seating_type,
+          mobility: updatedTable.mobility,
+          capacity: updatedTable.capacity,
+        }),
+      },
+    });
   } catch (error) {
     console.error("[ops/tables/[id]][PATCH] Unexpected error", { error });
     return NextResponse.json(

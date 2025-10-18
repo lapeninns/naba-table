@@ -20,8 +20,12 @@ type TableRow = {
   min_party_size: number;
   max_party_size: number | null;
   section: string | null;
-  seating_type: string;
+  category?: 'bar' | 'dining' | 'lounge' | 'patio' | 'private';
+  seating_type?: 'standard' | 'sofa' | 'booth' | 'high_top';
+  mobility?: 'movable' | 'fixed';
+  zone_id?: string;
   status: string;
+  active?: boolean;
   position?: Record<string, unknown> | null;
 };
 
@@ -40,6 +44,7 @@ type BookingRow = {
 type MockClientOptions = {
   tables: TableRow[];
   bookings: BookingRow[];
+  adjacency?: { table_a: string; table_b: string }[];
 };
 
 type AssignmentLogEntry = {
@@ -49,6 +54,15 @@ type AssignmentLogEntry = {
 
 function createMockSupabaseClient(options: MockClientOptions) {
   const assignments: AssignmentLogEntry[] = [];
+  const adjacencyRows = options.adjacency ?? [];
+  const tableRows = options.tables.map((table) => ({
+    category: 'dining' as const,
+    seating_type: 'standard' as const,
+    mobility: 'movable' as const,
+    zone_id: 'zone-main',
+    active: true,
+    ...table,
+  }));
 
   const client = {
     from(table: string) {
@@ -59,9 +73,25 @@ function createMockSupabaseClient(options: MockClientOptions) {
               eq() {
                 return {
                   order() {
-                    return Promise.resolve({ data: options.tables, error: null });
+                    return Promise.resolve({ data: tableRows, error: null });
                   },
                 };
+              },
+            };
+          },
+        };
+      }
+
+      if (table === 'table_adjacencies') {
+        return {
+          select() {
+            return {
+              in(column: string, ids: string[]) {
+                if (column !== 'table_a') {
+                  return Promise.resolve({ data: [], error: null });
+                }
+                const data = adjacencyRows.filter((row) => ids.includes(row.table_a));
+                return Promise.resolve({ data, error: null });
               },
             };
           },
@@ -142,7 +172,7 @@ describe('autoAssignTablesForDate', () => {
         min_party_size: 1,
         max_party_size: 2,
         section: 'Window',
-        seating_type: 'indoor',
+        seating_type: 'standard',
         status: 'available',
         position: null,
       },
@@ -153,7 +183,7 @@ describe('autoAssignTablesForDate', () => {
         min_party_size: 2,
         max_party_size: null,
         section: 'Main',
-        seating_type: 'indoor',
+        seating_type: 'standard',
         status: 'available',
         position: null,
       },
@@ -209,7 +239,7 @@ describe('autoAssignTablesForDate', () => {
     ]);
   });
 
-  it('combines tables when no single table can satisfy the party size', async () => {
+  it('skips combining tables when the available mix does not match allowed merges', async () => {
     const tables: TableRow[] = [
       {
         id: 'table-1',
@@ -218,7 +248,7 @@ describe('autoAssignTablesForDate', () => {
         min_party_size: 1,
         max_party_size: null,
         section: null,
-        seating_type: 'indoor',
+        seating_type: 'standard',
         status: 'available',
         position: null,
       },
@@ -229,7 +259,7 @@ describe('autoAssignTablesForDate', () => {
         min_party_size: 1,
         max_party_size: null,
         section: null,
-        seating_type: 'indoor',
+        seating_type: 'standard',
         status: 'available',
         position: null,
       },
@@ -258,14 +288,14 @@ describe('autoAssignTablesForDate', () => {
       assignedBy: 'user-2',
     });
 
-    expect(result.assigned).toEqual([
+    expect(result.assigned).toEqual([]);
+    expect(result.skipped).toEqual([
       {
         bookingId: 'booking-10',
-        tableIds: expect.arrayContaining(['table-1', 'table-2']),
+        reason: expect.stringContaining('2+4'),
       },
     ]);
-    expect(assignments).toHaveLength(2);
-    expect(assignments.map((entry) => entry.tableId).sort()).toEqual(['table-1', 'table-2']);
+    expect(assignments).toHaveLength(0);
   });
 
   it('returns skipped entry when no tables are available', async () => {
@@ -277,7 +307,7 @@ describe('autoAssignTablesForDate', () => {
         min_party_size: 1,
         max_party_size: null,
         section: null,
-        seating_type: 'indoor',
+        seating_type: 'standard',
         status: 'out_of_service',
         position: null,
       },
@@ -313,5 +343,188 @@ describe('autoAssignTablesForDate', () => {
         reason: expect.stringContaining('No suitable tables'),
       },
     ]);
+  });
+  it('merges a 2-top and 4-top for a party of six when no single table fits', async () => {
+  const tables: TableRow[] = [
+    {
+      id: 'table-2-1',
+      table_number: 'T2-1',
+      capacity: 2,
+      min_party_size: 1,
+      max_party_size: 2,
+      section: 'Main',
+      seating_type: 'standard',
+      status: 'available',
+      position: null,
+    },
+    {
+      id: 'table-4-1',
+      table_number: 'T4-1',
+      capacity: 4,
+      min_party_size: 2,
+      max_party_size: 4,
+      section: 'Main',
+      seating_type: 'standard',
+      status: 'available',
+      position: null,
+    },
+  ];
+
+  const bookings: BookingRow[] = [
+    {
+      id: 'booking-merge-6',
+      party_size: 6,
+      status: 'pending_allocation',
+      start_time: '12:30',
+      end_time: null,
+      start_at: '2025-11-01T12:30:00+00:00',
+      booking_date: '2025-11-01',
+      seating_preference: 'any',
+      booking_table_assignments: [],
+    },
+  ];
+
+  const { client, assignments } = createMockSupabaseClient({
+    tables,
+    bookings,
+    adjacency: [
+      { table_a: 'table-2-1', table_b: 'table-4-1' },
+      { table_a: 'table-4-1', table_b: 'table-2-1' },
+    ],
+  });
+
+  const result = await autoAssignTablesForDate({
+    restaurantId: 'rest-merge',
+    date: '2025-11-01',
+    client,
+    assignedBy: 'user-merge',
+  });
+
+  expect(result.assigned).toEqual([
+    {
+      bookingId: 'booking-merge-6',
+      tableIds: ['table-2-1', 'table-4-1'],
+    },
+  ]);
+
+  expect(assignments).toEqual([
+    { bookingId: 'booking-merge-6', tableId: 'table-2-1' },
+    { bookingId: 'booking-merge-6', tableId: 'table-4-1' },
+  ]);
+  });
+
+  it('merges two 4-top tables for a party of eight when available', async () => {
+  const tables: TableRow[] = [
+    {
+      id: 'table-4-1',
+      table_number: 'T4-1',
+      capacity: 4,
+      min_party_size: 2,
+      max_party_size: 4,
+      section: 'Main',
+      seating_type: 'standard',
+      status: 'available',
+      position: null,
+    },
+    {
+      id: 'table-4-2',
+      table_number: 'T4-2',
+      capacity: 4,
+      min_party_size: 2,
+      max_party_size: 4,
+      section: 'Main',
+      seating_type: 'standard',
+      status: 'available',
+      position: null,
+    },
+  ];
+
+  const bookings: BookingRow[] = [
+    {
+      id: 'booking-merge-8',
+      party_size: 8,
+      status: 'pending_allocation',
+      start_time: '19:00',
+      end_time: null,
+      start_at: '2025-11-01T19:00:00+00:00',
+      booking_date: '2025-11-01',
+      seating_preference: 'any',
+      booking_table_assignments: [],
+    },
+  ];
+
+  const { client, assignments } = createMockSupabaseClient({
+    tables,
+    bookings,
+    adjacency: [
+      { table_a: 'table-4-1', table_b: 'table-4-2' },
+      { table_a: 'table-4-2', table_b: 'table-4-1' },
+    ],
+  });
+
+  const result = await autoAssignTablesForDate({
+    restaurantId: 'rest-merge',
+    date: '2025-11-01',
+    client,
+    assignedBy: 'user-merge',
+  });
+
+  expect(result.assigned).toEqual([
+    {
+      bookingId: 'booking-merge-8',
+      tableIds: ['table-4-1', 'table-4-2'],
+    },
+  ]);
+
+  expect(assignments).toEqual([
+    { bookingId: 'booking-merge-8', tableId: 'table-4-1' },
+    { bookingId: 'booking-merge-8', tableId: 'table-4-2' },
+  ]);
+  });
+
+  it('skips assignment when merge requirements cannot be met', async () => {
+  const tables: TableRow[] = [
+    {
+      id: 'table-4-1',
+      table_number: 'T4-1',
+      capacity: 4,
+      min_party_size: 2,
+      max_party_size: 4,
+      section: 'Main',
+      seating_type: 'standard',
+      status: 'available',
+      position: null,
+    },
+  ];
+
+  const bookings: BookingRow[] = [
+    {
+      id: 'booking-merge-fail',
+      party_size: 7,
+      status: 'pending_allocation',
+      start_time: '17:30',
+      end_time: null,
+      start_at: '2025-11-01T17:30:00+00:00',
+      booking_date: '2025-11-01',
+      seating_preference: 'any',
+      booking_table_assignments: [],
+    },
+  ];
+
+  const { client } = createMockSupabaseClient({ tables, bookings });
+
+  const result = await autoAssignTablesForDate({
+    restaurantId: 'rest-merge',
+    date: '2025-11-01',
+    client,
+    assignedBy: 'user-merge',
+  });
+
+  expect(result.assigned).toEqual([]);
+  expect(result.skipped).toHaveLength(1);
+  expect(result.skipped[0]).toMatchObject({
+    bookingId: 'booking-merge-fail',
+  });
+  expect(result.skipped[0]?.reason ?? '').toContain('4-top');
   });
 });

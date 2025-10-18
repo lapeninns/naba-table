@@ -455,7 +455,9 @@ inserted_bookings AS (
     source,
     booking_type,
     details,
-    marketing_opt_in
+    marketing_opt_in,
+    checked_in_at,
+    checked_out_at
   )
   SELECT
     bp.restaurant_id,
@@ -482,7 +484,15 @@ inserted_bookings AS (
       'sequence', bp.booking_index,
       'restaurant_slug', bp.slug
     ) AS details,
-    bp.marketing_opt_in
+    bp.marketing_opt_in,
+    CASE 
+      WHEN bp.status = 'completed' THEN (bp.local_start_at AT TIME ZONE 'Europe/London')
+      ELSE NULL
+    END AS checked_in_at,
+    CASE 
+      WHEN bp.status = 'completed' THEN ((bp.local_start_at + interval '90 minutes') AT TIME ZONE 'Europe/London')
+      ELSE NULL
+    END AS checked_out_at
   FROM booking_payload bp
   ORDER BY bp.restaurant_id, bp.booking_index
   RETURNING id, restaurant_id, customer_id, start_at, status, party_size
@@ -521,6 +531,34 @@ GROUP BY c.id, c.marketing_opt_in;
 -- FROM public.bookings;
 
 -- ============================================================================
+-- SECTION: Zones Seed
+-- Purpose: Create default zones for all restaurants
+-- ============================================================================
+
+WITH restaurants_to_seed AS (
+    SELECT r.id
+    FROM public.restaurants r
+),
+zone_data AS (
+    SELECT
+        r.id AS restaurant_id,
+        zone_name,
+        sort_order
+    FROM restaurants_to_seed r
+    CROSS JOIN (
+        VALUES
+            ('Main Dining', 1),
+            ('Bar Area', 2),
+            ('Patio', 3),
+            ('Private Room', 4)
+    ) AS z(zone_name, sort_order)
+)
+INSERT INTO public.zones (restaurant_id, name, sort_order)
+SELECT restaurant_id, zone_name, sort_order
+FROM zone_data
+ON CONFLICT DO NOTHING;
+
+-- ============================================================================
 -- SECTION: Table Inventory Seed
 -- Source: supabase/seed-table-inventory.sql
 -- Purpose: Create table inventory for all restaurants
@@ -530,6 +568,14 @@ WITH restaurants_to_seed AS (
     SELECT r.id
     FROM public.restaurants r
 ),
+zone_lookup AS (
+    SELECT
+        z.restaurant_id,
+        z.id AS zone_id,
+        z.name AS zone_name
+    FROM public.zones z
+    WHERE z.name = 'Main Dining'
+),
 table_blueprint AS (
     SELECT
         r.id AS restaurant_id,
@@ -537,20 +583,20 @@ table_blueprint AS (
         CASE
             WHEN gs BETWEEN 1 AND 4 THEN 2
             WHEN gs BETWEEN 5 AND 10 THEN 4
-            WHEN gs BETWEEN 11 AND 14 THEN 6
-            ELSE 8
+            WHEN gs BETWEEN 11 AND 14 THEN 5
+            ELSE 7
         END AS capacity,
         CASE
             WHEN gs BETWEEN 1 AND 4 THEN 1
             WHEN gs BETWEEN 5 AND 10 THEN 2
             WHEN gs BETWEEN 11 AND 14 THEN 4
-            ELSE 6
+            ELSE 5
         END AS min_party_size,
         CASE
             WHEN gs BETWEEN 1 AND 4 THEN 2
             WHEN gs BETWEEN 5 AND 10 THEN 4
-            WHEN gs BETWEEN 11 AND 14 THEN 6
-            ELSE 8
+            WHEN gs BETWEEN 11 AND 14 THEN 5
+            ELSE 7
         END AS max_party_size,
         CASE
             WHEN gs BETWEEN 1 AND 8 THEN 'Main Floor'
@@ -558,19 +604,18 @@ table_blueprint AS (
             WHEN gs BETWEEN 13 AND 14 THEN 'Bar High-Tops'
             ELSE 'Private Room'
         END AS section,
-        CASE
-            WHEN gs BETWEEN 1 AND 8 THEN 'indoor'::public.seating_type
-            WHEN gs BETWEEN 9 AND 12 THEN 'outdoor'::public.seating_type
-            WHEN gs BETWEEN 13 AND 14 THEN 'bar'::public.seating_type
-            ELSE 'private_room'::public.seating_type
-        END AS seating_type,
         'available'::public.table_status AS status,
         jsonb_build_object(
             'x', ((gs - 1) % 4) * 150,
             'y', ((gs - 1) / 4) * 150
-        ) AS position
+        ) AS position,
+        zl.zone_id,
+        'dining'::public.table_category AS category,
+        'standard'::public.table_seating_type AS seating_type,
+        'movable'::public.table_mobility AS mobility
     FROM restaurants_to_seed r
     CROSS JOIN generate_series(1, 16) AS gs
+    LEFT JOIN zone_lookup zl ON zl.restaurant_id = r.id
 ),
 upserted_tables AS (
     INSERT INTO public.table_inventory (
@@ -580,9 +625,12 @@ upserted_tables AS (
         min_party_size,
         max_party_size,
         section,
-        seating_type,
         status,
-        position
+        position,
+        zone_id,
+        category,
+        seating_type,
+        mobility
     )
     SELECT
         restaurant_id,
@@ -591,9 +639,12 @@ upserted_tables AS (
         min_party_size,
         max_party_size,
         section,
-        seating_type,
         status,
-        position
+        position,
+        zone_id,
+        category,
+        seating_type,
+        mobility
     FROM table_blueprint
     ON CONFLICT (restaurant_id, table_number) DO UPDATE
     SET
@@ -601,7 +652,10 @@ upserted_tables AS (
         min_party_size = EXCLUDED.min_party_size,
         max_party_size = EXCLUDED.max_party_size,
         section = EXCLUDED.section,
+        zone_id = EXCLUDED.zone_id,
+        category = EXCLUDED.category,
         seating_type = EXCLUDED.seating_type,
+        mobility = EXCLUDED.mobility,
         updated_at = now()
     RETURNING 1
 )
@@ -745,7 +799,9 @@ inserted_today_bookings AS (
     source,
     booking_type,
     details,
-    marketing_opt_in
+    marketing_opt_in,
+    checked_in_at,
+    checked_out_at
   )
   SELECT
     restaurant_id,
@@ -771,7 +827,16 @@ inserted_today_bookings AS (
       'sequence', booking_idx,
       'created_date', CURRENT_DATE
     ),
-    marketing_opt_in
+    marketing_opt_in,
+    CASE 
+      WHEN status = 'completed' THEN start_at
+      WHEN status = 'checked_in' THEN start_at
+      ELSE NULL
+    END AS checked_in_at,
+    CASE 
+      WHEN status = 'completed' THEN end_at
+      ELSE NULL
+    END AS checked_out_at
   FROM booking_with_customers
   RETURNING id, restaurant_id, customer_id, start_at, status, party_size, reference
 )

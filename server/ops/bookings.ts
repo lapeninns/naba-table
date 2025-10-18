@@ -2,9 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { getDateInTimezone } from "@/lib/utils/datetime";
 import type { Database, Tables } from "@/types/supabase";
-import { getServiceSupabaseClient } from "@/server/supabase";
 import { getLoyaltyPointsForCustomers } from "@/server/ops/loyalty";
 import { getCustomerProfilesForCustomers } from "@/server/ops/customer-profiles";
+import { getServiceSupabaseClient } from "@/server/supabase";
+import { inferMergeInfo, type MergeType } from "@/utils/ops/table-merges";
 
 type DbClient = SupabaseClient<Database, "public", any>;
 
@@ -70,6 +71,11 @@ export type TodayBooking = {
     tableNumber: string;
     capacity: number | null;
     section: string | null;
+    mergeGroupId?: string | null;
+    mergeType?: MergeType | null;
+    mergeDisplayName?: string | null;
+    mergePatternLabel?: string | null;
+    mergeTotalCapacity?: number | null;
   }[];
   requiresTableAssignment: boolean;
   checkedInAt: string | null;
@@ -243,7 +249,17 @@ export async function getTodayBookingsSummary(
       })
       .filter((assignment): assignment is TodayBooking['tableAssignments'][number] => Boolean(assignment));
 
-    const requiresTableAssignment = tableAssignments.length === 0;
+    const mergeInfo = inferMergeInfo(tableAssignments, { bookingId: booking.id });
+    const enrichedAssignments = tableAssignments.map((assignment) => ({
+      ...assignment,
+      mergeGroupId: mergeInfo?.mergeGroupId ?? null,
+      mergeType: mergeInfo?.mergeType ?? null,
+      mergeDisplayName: mergeInfo?.displayName ?? null,
+      mergePatternLabel: mergeInfo?.patternLabel ?? null,
+      mergeTotalCapacity: mergeInfo?.totalCapacity ?? null,
+    }));
+
+    const requiresTableAssignment = enrichedAssignments.length === 0;
 
     return {
       id: booking.id,
@@ -265,7 +281,7 @@ export async function getTodayBookingsSummary(
       dietaryRestrictions: parsedPreferences.dietaryRestrictions,
       seatingPreference: parsedPreferences.seatingPreference,
       marketingOptIn: profileData?.marketingOptIn ?? null,
-      tableAssignments,
+      tableAssignments: enrichedAssignments,
       requiresTableAssignment,
       checkedInAt: booking.checked_in_at ?? null,
       checkedOutAt: booking.checked_out_at ?? null,

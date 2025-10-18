@@ -116,4 +116,58 @@ describe("BookingsList lifecycle badges", () => {
     const checkInBadges = within(activeChipsRow).getAllByText("Checked in");
     expect(checkInBadges).toHaveLength(1);
   });
+
+  it("renders merge metadata in table assignment badge", () => {
+    const merged = buildBooking({
+      id: "booking-merge",
+      customerName: "Merge Guest",
+      partySize: 6,
+      tableAssignments: [
+        {
+          tableId: "t2",
+          tableNumber: "T2-1",
+          capacity: 2,
+          section: "Main",
+          mergeGroupId: "merge-6-booking-merge-T2-1+T4-1",
+          mergeDisplayName: "M6",
+          mergePatternLabel: "2+4",
+          mergeTotalCapacity: 6,
+          mergeType: "merge_2_4",
+        },
+        {
+          tableId: "t4",
+          tableNumber: "T4-1",
+          capacity: 4,
+          section: "Main",
+          mergeGroupId: "merge-6-booking-merge-T2-1+T4-1",
+          mergeDisplayName: "M6",
+          mergePatternLabel: "2+4",
+          mergeTotalCapacity: 6,
+          mergeType: "merge_2_4",
+        },
+      ],
+    });
+
+    render(
+      <TooltipProvider>
+        <BookingsList
+          bookings={[merged]}
+          filter="all"
+          summary={{ ...summary, bookings: [merged] }}
+          onMarkNoShow={asyncNoop}
+          onUndoNoShow={asyncNoop}
+          onCheckIn={asyncNoop}
+          onCheckOut={asyncNoop}
+          pendingLifecycleAction={null}
+          onAssignTable={undefined}
+          onUnassignTable={undefined}
+          tableActionState={null}
+        />
+      </TooltipProvider>,
+    );
+
+    expect(
+      screen.getByText("Tables T2-1 + T4-1 · 6 seats · Merge M6 (2+4)"),
+    ).toBeInTheDocument();
+  });
 });

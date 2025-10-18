@@ -20,6 +20,7 @@ import { useBookingService, useTableInventoryService } from '@/contexts/ops-serv
 import type { TableInventory } from '@/services/ops/tables';
 
 import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
+import { inferMergeInfo } from '@/utils/ops/table-merges';
 
 const TIER_COLORS: Record<string, string> = {
   platinum: 'bg-purple-500 text-white border-purple-500',
@@ -158,6 +159,37 @@ export function BookingDetailsDialog({
 
   const assignedTableIds = useMemo(() => new Set(assignments.map((assignment) => assignment.tableId)), [assignments]);
 
+  const mergeDetails = useMemo(() => {
+    if (!assignments || assignments.length < 2) {
+      return null;
+    }
+    const tableNumbers = assignments.map((assignment) => assignment.tableNumber || '—');
+    const explicit = assignments.find((assignment) => assignment.mergeGroupId);
+    if (explicit && explicit.mergeGroupId) {
+      const totalCapacity =
+        explicit.mergeTotalCapacity ??
+        assignments.reduce((sum, assignment) => sum + (assignment.capacity ?? 0), 0);
+      return {
+        mergeGroupId: explicit.mergeGroupId,
+        displayName: explicit.mergeDisplayName ?? `M${totalCapacity}`,
+        patternLabel: explicit.mergePatternLabel ?? null,
+        totalCapacity,
+        tableNumbers,
+      };
+    }
+    const inferred = inferMergeInfo(assignments);
+    if (!inferred) {
+      return null;
+    }
+    return {
+      mergeGroupId: inferred.mergeGroupId,
+      displayName: inferred.displayName,
+      patternLabel: inferred.patternLabel,
+      totalCapacity: inferred.totalCapacity,
+      tableNumbers: inferred.tableNumbers,
+    };
+  }, [assignments]);
+
   const tableOptions = useMemo(() => {
     const data = tablesResult?.tables ?? [];
     return data
@@ -165,7 +197,7 @@ export function BookingDetailsDialog({
       .map((table) => {
         const conflict = bookingWindow ? conflictingTableIds.has(table.id) : false;
         const isOutOfService = table.status === 'out_of_service';
-        const disabled = conflict || isOutOfService;
+        const disabled = isOutOfService;
         const labelParts = [`Table ${table.tableNumber}`];
         if (table.capacity) {
           labelParts.push(`${table.capacity} seat${table.capacity === 1 ? '' : 's'}`);
@@ -173,21 +205,25 @@ export function BookingDetailsDialog({
         if (table.section) {
           labelParts.push(table.section);
         }
-        const reason = conflict
-          ? 'Conflicts with another booking'
-          : isOutOfService
-            ? 'Out of service'
+        const reason = isOutOfService
+          ? 'Out of service'
+          : conflict
+            ? 'Potential conflict (local cache)'
             : null;
         return {
           table,
           label: labelParts.join(' · '),
           disabled,
           reason,
+          conflict,
         };
       });
   }, [tablesResult?.tables, assignedTableIds, conflictingTableIds, bookingWindow]);
 
   const hasAssignableTables = tableOptions.some((option) => !option.disabled);
+  const selectedOption = selectedTableId
+    ? tableOptions.find((option) => option.table.id === selectedTableId) ?? null
+    : null;
 
   useEffect(() => {
     if (!isOpen) {
@@ -521,14 +557,28 @@ export function BookingDetailsDialog({
 
             <div className="space-y-2">
               {assignments.length > 0 ? (
-                assignments.map((assignment) => {
+                <>
+                  {mergeDetails ? (
+                    <div className="flex flex-col gap-1 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sky-800">
+                      <span className="text-sm font-semibold">
+                        Merge {mergeDetails.displayName}
+                        {mergeDetails.patternLabel ? ` · Pattern ${mergeDetails.patternLabel}` : ''}
+                      </span>
+                      <span className="text-xs text-sky-700">
+                        {mergeDetails.totalCapacity} seat{mergeDetails.totalCapacity === 1 ? '' : 's'} total · Tables{' '}
+                        {mergeDetails.tableNumbers.join(' + ')}
+                      </span>
+                    </div>
+                  ) : null}
+                  {assignments.map((assignment) => {
                   const isUnassigning =
                     tableActionState?.type === 'unassign' && tableActionState?.tableId === assignment.tableId;
                   const capacityLabel =
                     assignment.capacity && assignment.capacity > 0
                       ? `${assignment.capacity} seat${assignment.capacity === 1 ? '' : 's'}`
                       : null;
-                  const meta = [capacityLabel, assignment.section ? `Section ${assignment.section}` : null]
+                  const mergeTag = mergeDetails ? `Merge ${mergeDetails.displayName}` : null;
+                  const meta = [capacityLabel, assignment.section ? `Section ${assignment.section}` : null, mergeTag]
                     .filter(Boolean)
                     .join(' · ');
 
@@ -559,7 +609,8 @@ export function BookingDetailsDialog({
                       </Button>
                     </div>
                   );
-                })
+                })}
+                </>
               ) : (
                 <p className="text-sm text-muted-foreground">No tables assigned yet.</p>
               )}
@@ -601,6 +652,12 @@ export function BookingDetailsDialog({
               ) : null}
               {bookingWindow === null ? (
                 <p className="text-xs text-muted-foreground">Booking time is incomplete, so availability checks may be inaccurate.</p>
+              ) : null}
+              {selectedOption?.conflict ? (
+                <p className="flex items-center gap-2 text-xs text-amber-600" role="status" aria-live="polite">
+                  <AlertTriangle className="h-4 w-4" aria-hidden />
+                  Local data suggests a potential overlap—you can still submit and the system will confirm availability.
+                </p>
               ) : null}
             </div>
 

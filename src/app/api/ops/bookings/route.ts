@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { DateTime } from "luxon";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -16,6 +17,7 @@ import { getRestaurantSchedule } from "@/server/restaurants/schedule";
 import type { BookingRecord } from "@/server/bookings";
 import type { Json, Tables } from "@/types/supabase";
 import type { RestaurantRole } from "@/lib/owner/auth/roles";
+import { validateBookingWindow } from "@/server/capacity";
 import { opsWalkInBookingSchema, type OpsWalkInBookingPayload } from "./schema";
 
 const OPS_CHANNEL = "ops.walkin";
@@ -464,6 +466,11 @@ export async function POST(req: NextRequest) {
   }
 
   const service = getServiceSupabaseClient();
+  const schedule = await getRestaurantSchedule(payload.restaurantId, {
+    date: payload.date,
+    client: service,
+  });
+  const timezone = schedule.timezone;
   const idempotencyKey = req.headers.get("Idempotency-Key");
   const normalizedIdempotencyKey = typeof idempotencyKey === "string" && idempotencyKey.trim().length > 0 ? idempotencyKey.trim() : null;
   const clientRequestId = normalizedIdempotencyKey && /^[0-9a-f-]{36}$/i.test(normalizedIdempotencyKey)
@@ -472,8 +479,33 @@ export async function POST(req: NextRequest) {
   const userAgent = req.headers.get("user-agent");
 
   const startTime = payload.time;
+  const startDateTime = DateTime.fromISO(`${payload.date}T${startTime}`, {
+    zone: timezone ?? undefined,
+  });
+
+  if (!startDateTime.isValid) {
+    return NextResponse.json({ error: "Invalid booking time" }, { status: 400 });
+  }
+
   const bookingType = payload.bookingType === "drinks" ? "drinks" : inferMealTypeFromTime(startTime);
-  const endTime = deriveEndTime(startTime, bookingType);
+  const validation = validateBookingWindow({
+    startISO: startDateTime.toISO(),
+    bookingDate: payload.date,
+    startTime,
+    partySize: payload.party,
+    allowAfterHours: false,
+    timezone,
+  });
+
+  if (!validation.ok) {
+    return NextResponse.json(
+      { error: "Booking outside service policy", reasons: validation.reasons },
+      { status: 422 },
+    );
+  }
+
+  const diningEnd = validation.dining ? DateTime.fromISO(validation.dining.end).setZone(timezone ?? undefined) : null;
+  const endTime = diningEnd?.isValid ? diningEnd.toFormat("HH:mm") : deriveEndTime(startTime, bookingType);
 
   // Validate booking is not in the past (if feature flag enabled)
   if (env.featureFlags.bookingPastTimeBlocking) {
@@ -486,11 +518,6 @@ export async function POST(req: NextRequest) {
     const userRole = membership?.role as RestaurantRole | null;
 
     try {
-      const schedule = await getRestaurantSchedule(payload.restaurantId, {
-        date: payload.date,
-        client: service,
-      });
-
       assertBookingNotInPast(
         schedule.timezone,
         payload.date,
