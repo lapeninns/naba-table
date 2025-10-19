@@ -275,6 +275,12 @@ describe("pastTimeValidation", () => {
         ).toThrow("Restaurant timezone is required");
       });
 
+      it("should wrap invalid timezone errors with descriptive message", () => {
+        expect(() =>
+          assertBookingNotInPast("Invalid/Timezone", "2025-01-15", "14:00")
+        ).toThrow(/Failed to validate booking time/);
+      });
+
       it("should throw on invalid date format", () => {
         expect(() =>
           assertBookingNotInPast("America/New_York", "2025/01/15", "14:00")
