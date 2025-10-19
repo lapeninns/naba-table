@@ -59,6 +59,7 @@ export {
   ServiceNotFoundError,
   ServiceOverrunError,
   PolicyError,
+  getSelectorScoringConfig,
 } from "./policy";
 
 export {
@@ -97,6 +98,8 @@ export type {
   // Service Periods
   ServicePeriodWithCapacity,
   PeriodUtilization,
+  SelectorScoringConfig,
+  SelectorScoringWeights,
   
   // Retry
   RetryConfig,

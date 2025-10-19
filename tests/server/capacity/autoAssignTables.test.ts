@@ -6,6 +6,7 @@ process.env.BASE_URL = 'http://localhost:3000';
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co';
 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-key';
+process.env.FEATURE_SELECTOR_SCORING = 'true';
 
 let autoAssignTablesForDate: typeof import('@/server/capacity')['autoAssignTablesForDate'];
 
@@ -303,7 +304,7 @@ describe('autoAssignTablesForDate', () => {
     expect(result.skipped).toEqual([
       {
         bookingId: 'booking-10',
-        reason: expect.stringContaining('2+4'),
+        reason: expect.stringContaining('capacity requirements'),
       },
     ]);
     expect(assignments).toHaveLength(0);
@@ -540,6 +541,6 @@ describe('autoAssignTablesForDate', () => {
   expect(result.skipped[0]).toMatchObject({
     bookingId: 'booking-merge-fail',
   });
-  expect(result.skipped[0]?.reason ?? '').toContain('4-top');
+  expect(result.skipped[0]?.reason ?? '').toContain('capacity requirements');
   });
 });

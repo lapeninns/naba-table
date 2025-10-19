@@ -15,17 +15,10 @@ import { getRouteHandlerSupabaseClient } from "@/server/supabase";
 // Request Validation
 // =====================================================
 
-const CAPACITY_OPTIONS = [2, 4, 5, 7] as const;
-
 const createTableSchema = z.object({
   restaurantId: z.string().uuid(),
   tableNumber: z.string().min(1).max(50),
-  capacity: z
-    .number()
-    .int()
-    .refine((value) => CAPACITY_OPTIONS.includes(value as (typeof CAPACITY_OPTIONS)[number]), {
-      message: "capacity must be one of 2, 4, 5, or 7",
-    }),
+  capacity: z.number().int().min(1).max(20),
   minPartySize: z.number().int().min(1).default(1),
   maxPartySize: z.number().int().min(1).max(20).optional().nullable(),
   category: z.enum(["bar", "dining", "lounge", "patio", "private"]).default("dining"),
@@ -45,6 +38,21 @@ const createTableSchema = z.object({
     .nullable(),
   notes: z.string().max(500).optional().nullable(),
 });
+
+type RouteSupabaseClient = Awaited<ReturnType<typeof getRouteHandlerSupabaseClient>>;
+
+async function loadAllowedCapacities(client: RouteSupabaseClient, restaurantId: string): Promise<number[]> {
+  const { data, error } = await client
+    .from("allowed_capacities")
+    .select("capacity")
+    .eq("restaurant_id", restaurantId);
+
+  if (error) {
+    throw new Error(`Failed to load allowed capacities: ${error.message}`);
+  }
+
+  return (data ?? []).map((row) => Number(row.capacity)).filter((value) => Number.isFinite(value));
+}
 
 const mergeEligible = (input: {
   category: string | null | undefined;
@@ -241,6 +249,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Zone belongs to a different restaurant" },
         { status: 400 }
+      );
+    }
+
+    let allowedCapacities: number[] = [];
+    try {
+      allowedCapacities = await loadAllowedCapacities(supabase, data.restaurantId);
+    } catch (error) {
+      console.error("[ops/tables][POST] Allowed capacities lookup failed", { error, restaurantId: data.restaurantId });
+      return NextResponse.json(
+        { error: "Unable to verify allowed capacities for this restaurant" },
+        { status: 500 },
+      );
+    }
+
+    if (allowedCapacities.length === 0) {
+      return NextResponse.json(
+        { error: "No allowed capacities configured for this restaurant" },
+        { status: 422 },
+      );
+    }
+
+    if (!allowedCapacities.includes(data.capacity)) {
+      return NextResponse.json(
+        {
+          error: `Capacity ${data.capacity} is not permitted for this restaurant`,
+          allowed: allowedCapacities,
+        },
+        { status: 422 },
       );
     }
 

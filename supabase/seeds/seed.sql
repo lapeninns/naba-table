@@ -212,6 +212,16 @@ inserted_restaurants AS (
   FROM restaurant_input r
   RETURNING id, slug, name
 ),
+seeded_allowed_capacities AS (
+  INSERT INTO public.allowed_capacities (restaurant_id, capacity)
+  SELECT
+    r.id,
+    caps.capacity
+  FROM inserted_restaurants r
+  CROSS JOIN LATERAL (VALUES (2), (4), (5), (7)) AS caps(capacity)
+  ON CONFLICT DO NOTHING
+  RETURNING restaurant_id
+),
 restaurants_ranked AS (
   SELECT
     id,

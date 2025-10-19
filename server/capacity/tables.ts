@@ -16,7 +16,12 @@ import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Tables } from "@/types/supabase";
 import { env } from "@/lib/env";
 import { getServiceSupabaseClient } from "@/server/supabase";
-import { isAssignAtomicEnabled, isRpcAssignAtomicEnabled } from "@/server/feature-flags";
+import {
+  isAssignAtomicEnabled,
+  isRpcAssignAtomicEnabled,
+  isSelectorScoringEnabled,
+  isOpsMetricsEnabled,
+} from "@/server/feature-flags";
 import {
   bandDuration,
   defaultVenuePolicy,
@@ -29,7 +34,10 @@ import {
   VenuePolicy,
   whichService,
   serviceWindowFor,
+  getSelectorScoringConfig,
 } from "./policy";
+import { buildScoredTablePlans, type RankedTablePlan, type CandidateMetrics, type CandidateDiagnostics } from "./selector";
+import { emitSelectorDecision, summarizeCandidate } from "./telemetry";
 
 type DbClient = SupabaseClient<Database, "public", any>;
 
@@ -188,7 +196,7 @@ type TableScheduleEntry = {
   end: number; // Block end (ms) — stored as half-open interval [start, end)
   status: Tables<"bookings">["status"];
   mergeGroupId?: string;
-  mergeType?: "single" | "merge_2_4" | "merge_4_4";
+  mergeType?: "single" | "merge" | "merge_2_4" | "merge_4_4";
 };
 
 type ComputeBookingWindowArgs = {
@@ -479,16 +487,36 @@ function filterAvailableTables(
 
 type TablePlan = {
   tables: Table[];
-  mergeType: "single" | "merge_2_4" | "merge_4_4";
+  mergeType: "single" | "merge" | "merge_2_4" | "merge_4_4";
   slack: number;
+  score?: number;
+  metrics?: CandidateMetrics;
+  tableKey?: string;
 };
 
 type TablePlanResult = {
   plans: TablePlan[];
   fallbackReason?: string;
+  diagnostics?: CandidateDiagnostics;
 };
 
-function generateTablePlans(tables: Table[], partySize: number, adjacency: Map<string, Set<string>>): TablePlanResult {
+function mapPlanToCandidateSummary(plan: TablePlan) {
+  const tableIds = plan.tables.map((table) => table.id);
+  const tableNumbers = plan.tables.map((table) => table.tableNumber ?? null);
+  const totalCapacity = plan.tables.reduce((sum, table) => sum + (table.capacity ?? 0), 0);
+
+  return summarizeCandidate({
+    tableIds,
+    tableNumbers,
+    totalCapacity,
+    tableCount: plan.tables.length,
+    slack: plan.slack,
+    score: plan.score,
+    mergeType: plan.mergeType,
+  });
+}
+
+function generateLegacyTablePlans(tables: Table[], partySize: number, adjacency: Map<string, Set<string>>): TablePlanResult {
   if (tables.length === 0) {
     return { plans: [], fallbackReason: "No tables available for the requested booking window" };
   }
@@ -618,6 +646,66 @@ function generateTablePlans(tables: Table[], partySize: number, adjacency: Map<s
   };
 }
 
+function deriveMergeTypeFromPlan(plan: RankedTablePlan): TablePlan["mergeType"] {
+  if (plan.mergeType === "single") {
+    return "single";
+  }
+
+  const capacities = plan.tables
+    .map((table) => table.capacity ?? 0)
+    .filter((capacity) => Number.isFinite(capacity) && capacity > 0)
+    .sort((a, b) => a - b);
+
+  if (capacities.length === 2) {
+    if (capacities[0] === 2 && capacities[1] === 4) {
+      return "merge_2_4";
+    }
+    if (capacities[0] === 4 && capacities[1] === 4) {
+      return "merge_4_4";
+    }
+  }
+
+  return "merge";
+}
+
+function mapRankedPlan(plan: RankedTablePlan): TablePlan {
+  return {
+    tables: plan.tables,
+    mergeType: deriveMergeTypeFromPlan(plan),
+    slack: plan.slack,
+    score: plan.score,
+    metrics: plan.metrics,
+    tableKey: plan.tableKey,
+  };
+}
+
+function generateScoringTablePlans(
+  tables: Table[],
+  partySize: number,
+  adjacency: Map<string, Set<string>>,
+  config = getSelectorScoringConfig(),
+): TablePlanResult {
+  const { plans, fallbackReason, diagnostics } = buildScoredTablePlans({
+    tables,
+    partySize,
+    adjacency,
+    config,
+  });
+
+  return {
+    plans: plans.map(mapRankedPlan),
+    fallbackReason,
+    diagnostics,
+  };
+}
+
+function generateTablePlans(tables: Table[], partySize: number, adjacency: Map<string, Set<string>>): TablePlanResult {
+  if (isSelectorScoringEnabled()) {
+    return generateScoringTablePlans(tables, partySize, adjacency);
+  }
+  return generateLegacyTablePlans(tables, partySize, adjacency);
+}
+
 type BookingRecordForAssignment = {
   id: string;
   party_size: number | null;
@@ -638,12 +726,48 @@ async function assignTablesForBooking(params: {
   preferences?: TableMatchParams;
   policy: VenuePolicy;
   adjacency: Map<string, Set<string>>;
+  restaurantId: string;
 }): Promise<{ tableIds: string[] } | { reason: string }> {
-  const { booking, tables, schedule, assignedBy, client, preferences, policy, adjacency } = params;
+  const { booking, tables, schedule, assignedBy, client, preferences, policy, adjacency, restaurantId } = params;
+  const decisionStart = Date.now();
+  const selectorScoringEnabled = isSelectorScoringEnabled();
+  const opsMetricsEnabled = isOpsMetricsEnabled();
   const partySize = booking.party_size ?? 0;
 
+  const logDecision = (
+    selectedPlan: TablePlan | null,
+    skipReason: string | null,
+    candidatePlans: TablePlan[],
+    bookingWindow?: { start: string | null; end: string | null },
+  ) => {
+    const durationMs = Date.now() - decisionStart;
+    const candidates = candidatePlans.slice(0, 3).map(mapPlanToCandidateSummary);
+    const selected = selectedPlan ? mapPlanToCandidateSummary(selectedPlan) : null;
+    const windowPayload = bookingWindow ?? {
+      start: booking.start_at ?? null,
+      end: booking.end_time ?? null,
+    };
+
+    void emitSelectorDecision({
+      restaurantId,
+      bookingId: booking.id,
+      partySize,
+      window: windowPayload,
+      candidates,
+      selected,
+      skipReason,
+      durationMs,
+      featureFlags: {
+        selectorScoring: selectorScoringEnabled,
+        opsMetrics: opsMetricsEnabled,
+      },
+    });
+  };
+
   if (!Number.isFinite(partySize) || partySize <= 0) {
-    return { reason: "Party size is not set for this booking" };
+    const reason = "Party size is not set for this booking";
+    logDecision(null, reason, []);
+    return { reason };
   }
 
   let window: BookingWindow | null;
@@ -657,13 +781,16 @@ async function assignTablesForBooking(params: {
     });
   } catch (error) {
     if (error instanceof PolicyError) {
+      logDecision(null, error.message, []);
       return { reason: error.message };
     }
     throw error;
   }
 
   if (!window) {
-    return { reason: "Booking time is incomplete; cannot determine seating window" };
+    const reason = "Booking time is incomplete; cannot determine seating window";
+    logDecision(null, reason, []);
+    return { reason };
   }
 
   const targetInterval = toInterval(window.block);
@@ -688,12 +815,16 @@ async function assignTablesForBooking(params: {
   );
 
   if (availableTables.length === 0) {
-    return { reason: "No suitable tables are available for the booking window" };
+    const reason = "No suitable tables are available for the booking window";
+    logDecision(null, reason, [], serializeBookingBlockWindow(window));
+    return { reason };
   }
 
   const { plans: candidatePlans, fallbackReason } = generateTablePlans(availableTables, partySize, adjacency);
   if (candidatePlans.length === 0) {
-    return { reason: fallbackReason ?? "Unable to locate a compatible table combination" };
+    const reason = fallbackReason ?? "Unable to locate a compatible table combination";
+    logDecision(null, reason, [], serializeBookingBlockWindow(window));
+    return { reason };
   }
 
   const serializedWindow = serializeBookingBlockWindow(window);
@@ -714,7 +845,9 @@ async function assignTablesForBooking(params: {
         tableIds,
         error: idKeyError,
       });
-      return { reason: "Failed to build idempotency key for table assignment" };
+      const reason = "Failed to build idempotency key for table assignment";
+      logDecision(plan, reason, candidatePlans, serializedWindow);
+      return { reason };
     }
 
     try {
@@ -749,6 +882,7 @@ async function assignTablesForBooking(params: {
         schedule.set(table.id, existing);
       }
 
+      logDecision(plan, null, candidatePlans, serializedWindow);
       return { tableIds };
     } catch (error) {
       if (error instanceof AtomicAssignmentError) {
@@ -763,21 +897,21 @@ async function assignTablesForBooking(params: {
         tableIds,
         error,
       });
-      return {
-        reason: error instanceof Error ? error.message : "Failed to assign tables",
-      };
+      const reason = error instanceof Error ? error.message : "Failed to assign tables";
+      logDecision(plan, reason, candidatePlans, serializedWindow);
+      return { reason };
     }
   }
 
   if (overlapError) {
-    return {
-      reason: "All candidate table plans conflicted with existing allocations.",
-    };
+    const reason = "All candidate table plans conflicted with existing allocations.";
+    logDecision(null, reason, candidatePlans, serializedWindow);
+    return { reason };
   }
 
-  return {
-    reason: fallbackReason ?? "Unable to assign tables for the requested booking.",
-  };
+  const reason = fallbackReason ?? "Unable to assign tables for the requested booking.";
+  logDecision(null, reason, candidatePlans, serializedWindow);
+  return { reason };
 }
 
 type BookingRowWithAssignments = BookingRecordForAssignment & {
@@ -1050,6 +1184,7 @@ async function autoAssignTablesInternal(params: AutoAssignInternalParams): Promi
       preferences: override,
       policy,
       adjacency,
+      restaurantId,
     });
 
     if ("tableIds" in assignment && assignment.tableIds.length > 0) {

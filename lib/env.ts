@@ -101,6 +101,10 @@ export const env = {
       assignAtomic: parsed.FEATURE_ASSIGN_ATOMIC ?? false,
       mergePersistence: parsed.FEATURE_MERGE_PERSISTENCE ?? false,
       statusTriggers: parsed.FEATURE_STATUS_TRIGGERS ?? false,
+      selectorScoring: parsed.FEATURE_SELECTOR_SCORING ?? false,
+      capacityConfig: parsed.FEATURE_CAPACITY_CONFIG ?? false,
+      adjacencyValidation: parsed.FEATURE_ADJACENCY_VALIDATION ?? false,
+      opsMetrics: parsed.FEATURE_OPS_METRICS ?? false,
       realtimeFloorplan: parsed.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN ?? false,
     } as const;
   },

@@ -27,3 +27,19 @@ export function isAssignAtomicEnabled(): boolean {
 export function isAllocationsDualWriteEnabled(): boolean {
   return env.featureFlags.allocationsDualWrite ?? false;
 }
+
+export function isSelectorScoringEnabled(): boolean {
+  return env.featureFlags.selectorScoring ?? false;
+}
+
+export function isCapacityConfigEnabled(): boolean {
+  return env.featureFlags.capacityConfig ?? false;
+}
+
+export function isAdjacencyValidationEnabled(): boolean {
+  return env.featureFlags.adjacencyValidation ?? false;
+}
+
+export function isOpsMetricsEnabled(): boolean {
+  return env.featureFlags.opsMetrics ?? false;
+}

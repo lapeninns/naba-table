@@ -122,6 +122,8 @@ export type CapacityInfo = {
   utilizationPercent: number;
 };
 
+export type { SelectorScoringConfig, SelectorScoringWeights } from "./policy";
+
 // =====================================================
 // Database RPC Response Types
 // =====================================================

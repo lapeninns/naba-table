@@ -42,6 +42,7 @@ import type {
   TableInventory,
   UpdateTablePayload,
 } from '@/services/ops/tables';
+import { getAllowedCapacities } from '@/services/ops/allowedCapacities';
 import { useToast } from '@/hooks/use-toast';
 
 const ALL_ZONES_VALUE = 'all-zones';
@@ -104,6 +105,10 @@ export default function TableInventoryClient() {
     ? queryKeys.opsTables.list(activeRestaurantId)
     : ['ops', 'tables', 'no-restaurant'] as const;
 
+  const allowedCapacitiesQueryKey = activeRestaurantId
+    ? queryKeys.opsCapacity.allowedCapacities(activeRestaurantId)
+    : ['ops', 'capacity', 'no-restaurant', 'allowed'] as const;
+
   const {
     data: tableQueryResult,
     isLoading,
@@ -125,6 +130,24 @@ export default function TableInventoryClient() {
 
   const tables = tableQueryResult?.tables ?? [];
   const summary = tableQueryResult?.summary ?? null;
+
+  const {
+    data: allowedCapacitiesResult,
+    isLoading: isLoadingAllowedCapacities,
+    isError: isAllowedCapacitiesError,
+  } = useQuery({
+    queryKey: allowedCapacitiesQueryKey,
+    queryFn: async () => {
+      if (!activeRestaurantId) {
+        throw new Error('Restaurant id is required to load capacities');
+      }
+      return getAllowedCapacities(activeRestaurantId);
+    },
+    enabled: Boolean(activeRestaurantId),
+    staleTime: 60_000,
+  });
+
+  const allowedCapacities = allowedCapacitiesResult?.capacities ?? [];
 
   const zoneOptions = useMemo(() => {
     if (summary?.zones && summary.zones.length > 0) {
@@ -339,6 +362,24 @@ export default function TableInventoryClient() {
       })(),
     };
 
+    if (isLoadingAllowedCapacities) {
+      toast({
+        title: 'Please wait',
+        description: 'Allowed capacities are still loading. Try again in a moment.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (isAllowedCapacitiesError) {
+      toast({
+        title: 'Allowed capacities unavailable',
+        description: 'Unable to verify permitted capacities. Refresh and try again.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (!payload.tableNumber || payload.capacity < 1) {
       toast({
         title: 'Check the table details',
@@ -348,10 +389,19 @@ export default function TableInventoryClient() {
       return;
     }
 
-    if (![2, 4, 5, 7].includes(payload.capacity)) {
+    if (allowedCapacities.length === 0) {
+      toast({
+        title: 'Configure allowed capacities first',
+        description: 'Add at least one permitted table size in capacity settings before creating tables.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!allowedCapacities.includes(payload.capacity)) {
       toast({
         title: 'Unsupported capacity',
-        description: 'Capacity must be one of 2, 4, 5, or 7 seats to support merge rules.',
+        description: `Capacity must match one of the configured values: ${allowedCapacities.join(', ')}.`,
         variant: 'destructive',
       });
       return;

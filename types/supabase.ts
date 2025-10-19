@@ -1404,7 +1404,36 @@ export type Database = {
           processed?: boolean
         }
         Relationships: []
-      }
+      },
+      allowed_capacities: {
+        Row: {
+          capacity: number
+          created_at: string
+          restaurant_id: string
+          updated_at: string
+        }
+        Insert: {
+          capacity: number
+          created_at?: string
+          restaurant_id: string
+          updated_at?: string
+        }
+        Update: {
+          capacity?: number
+          created_at?: string
+          restaurant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "allowed_capacities_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          }
+        ]
+      },
       table_inventory: {
         Row: {
           active: boolean
@@ -1505,6 +1534,12 @@ export type Database = {
           checked_out_at: string | null
           updated_at: string
         }[]
+      }
+      are_tables_connected: {
+        Args: {
+          table_ids: string[] | null
+        }
+        Returns: boolean
       }
       booking_status_summary: {
         Args: {

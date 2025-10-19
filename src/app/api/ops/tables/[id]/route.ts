@@ -11,8 +11,6 @@ import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/serve
 // Request Validation
 // =====================================================
 
-const CAPACITY_OPTIONS = [2, 4, 5, 7] as const;
-
 const isoDateTimeString = z.string().refine((value) => {
   return typeof value === "string" && !Number.isNaN(Date.parse(value));
 }, { message: "Invalid ISO datetime" });
@@ -29,13 +27,7 @@ const maintenanceSchema = z
 
 const updateTableSchema = z.object({
   tableNumber: z.string().min(1).max(50).optional(),
-  capacity: z
-    .number()
-    .int()
-    .refine((value) => CAPACITY_OPTIONS.includes(value as (typeof CAPACITY_OPTIONS)[number]), {
-      message: "capacity must be one of 2, 4, 5, or 7",
-    })
-    .optional(),
+  capacity: z.number().int().min(1).max(20).optional(),
   minPartySize: z.number().int().min(1).optional(),
   maxPartySize: z.number().int().min(1).max(20).optional().nullable(),
   category: z.enum(["bar", "dining", "lounge", "patio", "private"]).optional(),
@@ -78,6 +70,21 @@ const mergeEligible = (input: {
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
+
+type RouteSupabaseClient = Awaited<ReturnType<typeof getRouteHandlerSupabaseClient>>;
+
+async function loadAllowedCapacities(client: RouteSupabaseClient, restaurantId: string): Promise<number[]> {
+  const { data, error } = await client
+    .from("allowed_capacities")
+    .select("capacity")
+    .eq("restaurant_id", restaurantId);
+
+  if (error) {
+    throw new Error(`Failed to load allowed capacities: ${error.message}`);
+  }
+
+  return (data ?? []).map((row) => Number(row.capacity)).filter((value) => Number.isFinite(value));
+}
 // =====================================================
 // PATCH /api/ops/tables/[id] - Update table
 // =====================================================
@@ -176,48 +183,82 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
         );
       }
 
-      if (zone.restaurant_id !== table.restaurant_id) {
-        return NextResponse.json(
-          { error: "Zone belongs to a different restaurant" },
-          { status: 400 }
-        );
-      }
-    }
-
-    const updatePayload: Record<string, unknown> = {};
-
-    if (updates.tableNumber !== undefined) updatePayload.table_number = updates.tableNumber;
-    if (updates.capacity !== undefined) updatePayload.capacity = updates.capacity;
-    if (updates.minPartySize !== undefined) updatePayload.min_party_size = updates.minPartySize;
-    if (updates.maxPartySize !== undefined) updatePayload.max_party_size = updates.maxPartySize;
-    if (updates.section !== undefined) updatePayload.section = updates.section;
-    if (updates.category !== undefined) updatePayload.category = updates.category;
-    if (updates.seatingType !== undefined) updatePayload.seating_type = updates.seatingType;
-    if (updates.mobility !== undefined) updatePayload.mobility = updates.mobility;
-    if (updates.zoneId !== undefined) updatePayload.zone_id = updates.zoneId;
-    if (updates.active !== undefined) updatePayload.active = updates.active;
-    if (updates.status !== undefined) updatePayload.status = updates.status;
-    if (updates.position !== undefined) updatePayload.position = updates.position;
-    if (updates.notes !== undefined) updatePayload.notes = updates.notes;
-
-    if (Object.keys(updatePayload).length === 0) {
-      return NextResponse.json({ message: "No changes supplied" });
-    }
-
-    const { data: updatedTable, error: updateError } = await supabase
-      .from("table_inventory")
-      .update(updatePayload)
-      .eq("id", tableId)
-      .select()
-      .single();
-
-    if (updateError) {
-      console.error("[ops/tables/[id]][PATCH] Update error", { error: updateError });
+    if (zone.restaurant_id !== table.restaurant_id) {
       return NextResponse.json(
-        { error: "Failed to update table" },
-        { status: 500 }
+        { error: "Zone belongs to a different restaurant" },
+        { status: 400 }
       );
     }
+  }
+
+  if (updates.capacity !== undefined) {
+    let allowedCapacities: number[] = [];
+    try {
+      allowedCapacities = await loadAllowedCapacities(supabase, table.restaurant_id);
+    } catch (error) {
+      console.error("[ops/tables][PATCH] Allowed capacities lookup failed", {
+        error,
+        restaurantId: table.restaurant_id,
+        tableId,
+      });
+      return NextResponse.json(
+        { error: "Unable to verify allowed capacities for this restaurant" },
+        { status: 500 },
+      );
+    }
+
+    if (allowedCapacities.length === 0) {
+      return NextResponse.json(
+        { error: "No allowed capacities configured for this restaurant" },
+        { status: 422 },
+      );
+    }
+
+    if (!allowedCapacities.includes(updates.capacity)) {
+      return NextResponse.json(
+        {
+          error: `Capacity ${updates.capacity} is not permitted for this restaurant`,
+          allowed: allowedCapacities,
+        },
+        { status: 422 },
+      );
+    }
+  }
+
+  const updatePayload: Record<string, unknown> = {};
+
+  if (updates.tableNumber !== undefined) updatePayload.table_number = updates.tableNumber;
+  if (updates.capacity !== undefined) updatePayload.capacity = updates.capacity;
+  if (updates.minPartySize !== undefined) updatePayload.min_party_size = updates.minPartySize;
+  if (updates.maxPartySize !== undefined) updatePayload.max_party_size = updates.maxPartySize;
+  if (updates.section !== undefined) updatePayload.section = updates.section;
+  if (updates.category !== undefined) updatePayload.category = updates.category;
+  if (updates.seatingType !== undefined) updatePayload.seating_type = updates.seatingType;
+  if (updates.mobility !== undefined) updatePayload.mobility = updates.mobility;
+  if (updates.zoneId !== undefined) updatePayload.zone_id = updates.zoneId;
+  if (updates.active !== undefined) updatePayload.active = updates.active;
+  if (updates.status !== undefined) updatePayload.status = updates.status;
+  if (updates.position !== undefined) updatePayload.position = updates.position;
+  if (updates.notes !== undefined) updatePayload.notes = updates.notes;
+
+  if (Object.keys(updatePayload).length === 0) {
+    return NextResponse.json({ message: "No changes supplied" });
+  }
+
+  const { data: updatedTable, error: updateError } = await supabase
+    .from("table_inventory")
+    .update(updatePayload)
+    .eq("id", tableId)
+    .select()
+    .single();
+
+  if (updateError) {
+    console.error("[ops/tables/[id]][PATCH] Update error", { error: updateError });
+    return NextResponse.json(
+      { error: "Failed to update table" },
+      { status: 500 }
+    );
+  }
 
     const serviceClient = getServiceSupabaseClient();
 

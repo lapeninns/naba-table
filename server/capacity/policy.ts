@@ -35,6 +35,20 @@ export type VenuePolicy = {
   serviceOrder: ServiceKey[];
 };
 
+export type SelectorScoringWeights = {
+  overage: number;
+  tableCount: number;
+  fragmentation: number;
+  zoneBalance: number;
+  adjacencyCost: number;
+};
+
+export type SelectorScoringConfig = {
+  weights: SelectorScoringWeights;
+  maxOverage: number;
+  maxTables: number;
+};
+
 export type ServiceWindow = {
   start: DateTime;
   end: DateTime;
@@ -86,6 +100,26 @@ export const defaultVenuePolicy: VenuePolicy = {
     },
   },
 };
+
+const defaultSelectorScoringConfig: SelectorScoringConfig = {
+  weights: {
+    overage: 5,
+    tableCount: 3,
+    fragmentation: 2,
+    zoneBalance: 4,
+    adjacencyCost: 1,
+  },
+  maxOverage: 2,
+  maxTables: 3,
+};
+
+export function getSelectorScoringConfig(): SelectorScoringConfig {
+  return {
+    weights: { ...defaultSelectorScoringConfig.weights },
+    maxOverage: defaultSelectorScoringConfig.maxOverage,
+    maxTables: defaultSelectorScoringConfig.maxTables,
+  };
+}
 
 export class PolicyError extends Error {
   constructor(message: string) {
