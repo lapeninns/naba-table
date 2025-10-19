@@ -1,1 +1,0 @@
--- moved from supabase/seed-table-inventory.sql

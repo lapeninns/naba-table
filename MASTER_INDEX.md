@@ -68,6 +68,11 @@ That's it. Database setup in 60 seconds.
    - How to customize
    - Seed statistics
 
+8. **`SUPABASE_SCHEMA_EXPORT_GUIDE.md`**
+   - Remote-safe schema dump workflow
+   - Organized output directories
+   - Troubleshooting tips
+
 ---
 
 ## 🚀 The Core Files (What You Actually Use)
