@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useMemo, useState } from 'react';
+import { FormEvent, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
@@ -14,11 +14,13 @@ import {
   Gauge,
   Layers,
   LineChart,
+  Loader2,
   Map,
   Plus,
   RefreshCw,
   Save,
   Trash2,
+  X,
 } from 'lucide-react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -32,6 +34,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
 import { useTableInventoryService } from '@/contexts/ops-services';
 import { useCapacityService } from '@/contexts/ops-services';
@@ -40,6 +43,7 @@ import { useOpsServicePeriods } from '@/hooks/ops/useOpsServicePeriods';
 import { useToast } from '@/hooks/use-toast';
 import type { CapacityRule, CapacityOverride, SaveCapacityRulePayload } from '@/services/ops/capacity';
 import type { TableInventory } from '@/services/ops/tables';
+import { getAllowedCapacities, updateAllowedCapacities } from '@/services/ops/allowedCapacities';
 
 import UtilizationHeatmap from './UtilizationHeatmap';
 
@@ -103,6 +107,7 @@ export default function CapacityConfigClient() {
 
   const [liveDate, setLiveDate] = useState<string>(today);
   const [livePartySize, setLivePartySize] = useState<number>(2);
+  const [newCapacityInput, setNewCapacityInput] = useState<string>('');
 
   const canManageCapacity =
     Boolean(activeMembership) && ['owner', 'admin'].includes(activeMembership!.role ?? '');
@@ -113,6 +118,10 @@ export default function CapacityConfigClient() {
   const rulesQueryKey = activeRestaurantId
     ? queryKeys.opsCapacity.rules(activeRestaurantId)
     : ['ops', 'capacity', 'rules', 'none'] as const;
+
+  const allowedCapacitiesQueryKey = activeRestaurantId
+    ? queryKeys.opsCapacity.allowedCapacities(activeRestaurantId)
+    : ['ops', 'capacity', 'allowed', 'none'] as const;
 
   const rulesQuery = useQuery({
     queryKey: rulesQueryKey,
@@ -149,6 +158,19 @@ export default function CapacityConfigClient() {
     ? queryKeys.opsTables.list(activeRestaurantId, { includePosition: true })
     : ['ops', 'tables', 'no-restaurant'] as const;
 
+  const allowedCapacitiesQuery = useQuery({
+    queryKey: allowedCapacitiesQueryKey,
+    queryFn: async () => {
+      if (!activeRestaurantId) {
+        throw new Error('Restaurant id is required');
+      }
+      return getAllowedCapacities(activeRestaurantId);
+    },
+    enabled: Boolean(activeRestaurantId),
+    retry: false,
+    staleTime: 60_000,
+  });
+
   const floorPlanQuery = useQuery({
     queryKey: tablesQueryKey,
     queryFn: async () => {
@@ -161,6 +183,11 @@ export default function CapacityConfigClient() {
     enabled: Boolean(activeRestaurantId && activeTab === 'floor'),
     staleTime: 60_000,
   });
+
+  const allowedCapacities = allowedCapacitiesQuery.data?.capacities ?? [];
+  const allowedCapacitiesError = allowedCapacitiesQuery.error as unknown;
+  const allowedCapacitiesFeatureDisabled =
+    allowedCapacitiesError instanceof HttpError && allowedCapacitiesError.status === 404;
 
   const updateRuleMutation = useMutation({
     mutationFn: async (payload: { restaurantId: string; rule: SaveCapacityRulePayload }) =>
@@ -237,8 +264,119 @@ export default function CapacityConfigClient() {
     },
   });
 
+  const updateAllowedCapacitiesMutation = useMutation({
+    mutationFn: async (nextCapacities: number[]) => {
+      if (!activeRestaurantId) {
+        throw new Error('Restaurant id is required');
+      }
+      return updateAllowedCapacities(activeRestaurantId, nextCapacities);
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(allowedCapacitiesQueryKey, data);
+      queryClient.invalidateQueries({ queryKey: allowedCapacitiesQueryKey });
+      toast({
+        title: 'Allowed capacities updated',
+        description: 'New table sizes are now available to your team.',
+      });
+      setNewCapacityInput('');
+    },
+    onError: (error: unknown) => {
+      toast({
+        title: 'Unable to update allowed capacities',
+        description: error instanceof Error ? error.message : 'Unexpected error occurred.',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const isInitialLoading =
     (servicePeriodsQuery.isLoading || rulesQuery.isLoading) && baseRules.length === 0 && servicePeriods.length === 0;
+
+  const handleAddCapacity = (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
+    if (!canManageCapacity) {
+      toast({
+        title: 'Read-only access',
+        description: 'Only owners or admins can update allowed capacities.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (allowedCapacitiesFeatureDisabled || allowedCapacitiesQuery.isLoading) {
+      return;
+    }
+
+    const trimmed = newCapacityInput.trim();
+    const parsed = Number.parseInt(trimmed, 10);
+
+    if (!trimmed || Number.isNaN(parsed)) {
+      toast({
+        title: 'Enter a capacity value',
+        description: 'Provide a whole number between 1 and 20.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (parsed < 1 || parsed > 20) {
+      toast({
+        title: 'Unsupported capacity',
+        description: 'Capacity must be between 1 and 20 seats.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (allowedCapacities.includes(parsed)) {
+      toast({
+        title: 'Capacity already enabled',
+        description: `A ${parsed}-top is already available.`,
+      });
+      return;
+    }
+
+    if (allowedCapacities.length >= 12) {
+      toast({
+        title: 'Too many capacities',
+        description: 'Reduce the list before adding new table sizes (limit of 12).',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const next = [...allowedCapacities, parsed].sort((a, b) => a - b);
+    updateAllowedCapacitiesMutation.mutate(next);
+  };
+
+  const handleRemoveCapacity = (capacity: number) => {
+    if (!canManageCapacity) {
+      toast({
+        title: 'Read-only access',
+        description: 'Only owners or admins can update allowed capacities.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (allowedCapacitiesFeatureDisabled || allowedCapacitiesQuery.isLoading) {
+      return;
+    }
+
+    if (allowedCapacities.length <= 1) {
+      toast({
+        title: 'Keep at least one capacity',
+        description: 'Your venue must support at least one table size.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const next = allowedCapacities.filter((value) => value !== capacity);
+    updateAllowedCapacitiesMutation.mutate(next);
+  };
+
+  const isUpdatingAllowedCapacities = updateAllowedCapacitiesMutation.isPending;
 
   if (memberships.length === 0) {
     return (
@@ -275,6 +413,86 @@ export default function CapacityConfigClient() {
             You have read-only access. Contact an owner or admin to adjust capacity limits or download reports.
           </AlertDescription>
         </Alert>
+      ) : null}
+
+      {!allowedCapacitiesFeatureDisabled ? (
+        <Card className="border border-white/60 bg-white/80 shadow-sm">
+          <CardHeader>
+            <CardTitle>Allowed table capacities</CardTitle>
+            <CardDescription>
+              Manage which table sizes your team can create and assign. Changes apply immediately across the ops tools.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {allowedCapacitiesQuery.isLoading ? (
+              <Skeleton className="h-10 w-full" />
+            ) : allowedCapacitiesQuery.isError ? (
+              <Alert variant="destructive">
+                <AlertTitle>Unable to load capacities</AlertTitle>
+                <AlertDescription>
+                  {allowedCapacitiesError instanceof Error ? allowedCapacitiesError.message : 'Please try again later.'}
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  {allowedCapacities.length > 0 ? (
+                    allowedCapacities.map((capacity) => (
+                      <Badge
+                        key={capacity}
+                        variant="secondary"
+                        className="flex items-center gap-1 rounded-full px-3 py-1 text-sm"
+                      >
+                        <span>{capacity}-top</span>
+                        {canManageCapacity ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 text-slate-500 hover:text-slate-900"
+                            onClick={() => handleRemoveCapacity(capacity)}
+                            disabled={isUpdatingAllowedCapacities}
+                          >
+                            <X className="h-3 w-3" aria-hidden />
+                            <span className="sr-only">Remove {capacity}-top</span>
+                          </Button>
+                        ) : null}
+                      </Badge>
+                    ))
+                  ) : (
+                    <p className="text-sm text-slate-500">No capacities configured yet.</p>
+                  )}
+                </div>
+
+                {canManageCapacity ? (
+                  <form onSubmit={handleAddCapacity} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={20}
+                      value={newCapacityInput}
+                      onChange={(event) => setNewCapacityInput(event.target.value)}
+                      placeholder="Add capacity (e.g. 3)"
+                      className="w-full sm:w-48"
+                    />
+                    <Button type="submit" size="sm" disabled={isUpdatingAllowedCapacities}>
+                      {isUpdatingAllowedCapacities ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                          Saving…
+                        </>
+                      ) : (
+                        'Add capacity'
+                      )}
+                    </Button>
+                  </form>
+                ) : (
+                  <p className="text-xs text-slate-500">You need edit access to update allowed capacities.</p>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
       ) : null}
 
       <nav className="flex flex-wrap gap-2">
