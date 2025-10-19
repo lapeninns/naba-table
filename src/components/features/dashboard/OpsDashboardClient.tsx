@@ -10,7 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useOpsActiveMembership, useOpsAccountSnapshot } from '@/contexts/ops-session';
+import { useOpsActiveMembership, useOpsAccountSnapshot, useOpsFeatureFlags } from '@/contexts/ops-session';
 import { useOpsTodaySummary, useOpsBookingLifecycleActions, useOpsCapacityUtilization, useOpsTodayVIPs, useOpsBookingChanges, useOpsBookingHeatmap } from '@/hooks';
 import { formatDateKey, formatDateReadable, formatTimeRange } from '@/lib/utils/datetime';
 import { HttpError } from '@/lib/http/errors';
@@ -52,6 +52,7 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
 
   const restaurantId = membership?.restaurantId ?? null;
   const restaurantName = membership?.restaurantName ?? account.restaurantName ?? 'Restaurant';
+  const { opsMetrics: isOpsMetricsEnabled } = useOpsFeatureFlags();
 
   const summaryQuery = useOpsTodaySummary({ restaurantId, targetDate: selectedDate });
   const summary = summaryQuery.data ?? null;
@@ -68,7 +69,7 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
       }
       return getSelectorMetrics(restaurantId, summary.date);
     },
-    enabled: Boolean(restaurantId && summary),
+    enabled: Boolean(restaurantId && summary && isOpsMetricsEnabled),
     staleTime: 60_000,
     retry: false,
   });
@@ -76,8 +77,9 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
   const selectorMetrics = selectorMetricsQuery.data ?? null;
   const selectorMetricsError = selectorMetricsQuery.error as unknown;
   const selectorMetricsUnavailable =
-    selectorMetricsError instanceof HttpError && selectorMetricsError.status === 404;
-  const showSelectorMetrics = Boolean(selectorMetrics) && !selectorMetricsUnavailable;
+    isOpsMetricsEnabled && selectorMetricsError instanceof HttpError && selectorMetricsError.status === 404;
+  const showSelectorMetrics =
+    isOpsMetricsEnabled && Boolean(selectorMetrics) && !selectorMetricsUnavailable;
 
   useEffect(() => {
     if (!summary) return;
@@ -450,7 +452,7 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
             </Card>
           </div>
         </section>
-      ) : selectorMetricsQuery.isError && !selectorMetricsUnavailable ? (
+      ) : isOpsMetricsEnabled && selectorMetricsQuery.isError && !selectorMetricsUnavailable ? (
         <Alert variant="destructive">
           <AlertTitle>Metrics unavailable</AlertTitle>
           <AlertDescription>

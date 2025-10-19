@@ -10,7 +10,7 @@ import { OpsServicesProvider } from '@/contexts/ops-services';
 import { OpsSessionProvider } from '@/contexts/ops-session';
 import { OpsWalkInBookingClient, OpsTeamManagementClient, OpsBookingsClient, OpsCustomersClient, OpsDashboardClient } from '@/components/features';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import type { OpsMembership, OpsTodayBookingsSummary } from '@/types/ops';
+import type { OpsFeatureFlags, OpsMembership, OpsTodayBookingsSummary } from '@/types/ops';
 import type { RestaurantService, OperatingHoursSnapshot, RestaurantProfile, ServicePeriodRow } from '@/services/ops/restaurants';
 import type { TeamService } from '@/services/ops/team';
 import type { BookingService } from '@/services/ops/bookings';
@@ -87,6 +87,12 @@ function createCustomerServiceStub(): CustomerService {
   } as unknown as CustomerService;
 }
 
+const defaultFeatureFlags: OpsFeatureFlags = {
+  capacityConfig: false,
+  opsMetrics: false,
+  selectorScoring: false,
+};
+
 function renderWithProviders(
   ui: React.ReactElement,
   options: {
@@ -95,6 +101,7 @@ function renderWithProviders(
     teamService?: TeamService;
     bookingService?: BookingService;
     customerService?: CustomerService;
+    featureFlags?: OpsFeatureFlags;
   },
 ) {
   const queryClient = createQueryClient();
@@ -105,7 +112,12 @@ function renderWithProviders(
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <OpsSessionProvider user={{ id: 'user-1', email: 'ops@example.com' }} memberships={options.memberships} initialRestaurantId={options.memberships[0]?.restaurantId ?? null}>
+      <OpsSessionProvider
+        user={{ id: 'user-1', email: 'ops@example.com' }}
+        memberships={options.memberships}
+        initialRestaurantId={options.memberships[0]?.restaurantId ?? null}
+        featureFlags={options.featureFlags ?? defaultFeatureFlags}
+      >
         <OpsServicesProvider
           factories={{
             restaurantService: () => restaurantService,

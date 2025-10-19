@@ -673,15 +673,79 @@ GROUP BY c.id, c.marketing_opt_in;
 
 \echo '✅ Restaurants, customers, and bookings seeded'
 \echo ''
-\echo '🍽️  Seeding table inventory...'
+\echo '�️  Seeding zones...'
 
 -- ============================================================================
--- SECTION 2: TABLE INVENTORY
+-- SECTION 2: ZONES
 -- ============================================================================
 
 WITH restaurants_to_seed AS (
     SELECT r.id
     FROM public.restaurants r
+),
+zone_templates AS (
+    SELECT *
+    FROM (VALUES
+        ('Main Dining', 1),
+        ('Patio', 2),
+        ('Bar Area', 3),
+        ('Private Room', 4)
+    ) AS t(name, sort_order)
+),
+inserted_zones AS (
+    INSERT INTO public.zones (restaurant_id, name, sort_order)
+    SELECT
+        r.id,
+        t.name,
+        t.sort_order
+    FROM restaurants_to_seed r
+    CROSS JOIN zone_templates t
+    RETURNING id, restaurant_id, name
+)
+SELECT count(*) AS zones_seeded FROM inserted_zones;
+
+\echo '✅ Zones seeded'
+\echo '🔢 Seeding allowed capacities...'
+
+-- ============================================================================
+-- SECTION 2.5: ALLOWED CAPACITIES
+-- ============================================================================
+
+WITH restaurants_to_seed AS (
+    SELECT r.id
+    FROM public.restaurants r
+),
+capacity_values AS (
+    SELECT unnest(ARRAY[2, 4, 6, 8, 10, 12]) AS capacity
+),
+inserted_capacities AS (
+    INSERT INTO public.allowed_capacities (restaurant_id, capacity)
+    SELECT
+        r.id,
+        c.capacity
+    FROM restaurants_to_seed r
+    CROSS JOIN capacity_values c
+    ON CONFLICT (restaurant_id, capacity) DO NOTHING
+    RETURNING restaurant_id, capacity
+)
+SELECT count(*) AS capacities_seeded FROM inserted_capacities;
+
+\echo '✅ Allowed capacities seeded'
+\echo ''
+\echo ''
+\echo '�🍽️  Seeding table inventory...'
+
+-- ============================================================================
+-- SECTION 3: TABLE INVENTORY
+-- ============================================================================
+
+WITH restaurants_to_seed AS (
+    SELECT r.id
+    FROM public.restaurants r
+),
+restaurant_zones AS (
+    SELECT z.id AS zone_id, z.restaurant_id, z.name AS zone_name
+    FROM public.zones z
 ),
 table_blueprint AS (
     SELECT
@@ -712,16 +776,34 @@ table_blueprint AS (
             ELSE 'Private Room'
         END AS section,
         CASE
-            WHEN gs BETWEEN 1 AND 8 THEN 'indoor'::public.seating_type
-            WHEN gs BETWEEN 9 AND 12 THEN 'outdoor'::public.seating_type
-            WHEN gs BETWEEN 13 AND 14 THEN 'bar'::public.seating_type
-            ELSE 'private_room'::public.seating_type
+            WHEN gs BETWEEN 1 AND 8 THEN 'standard'::public.table_seating_type
+            WHEN gs BETWEEN 9 AND 12 THEN 'sofa'::public.table_seating_type
+            WHEN gs BETWEEN 13 AND 14 THEN 'high_top'::public.table_seating_type
+            ELSE 'booth'::public.table_seating_type
         END AS seating_type,
+        -- Add category based on section
+        CASE
+            WHEN gs BETWEEN 1 AND 8 THEN 'dining'::public.table_category
+            WHEN gs BETWEEN 9 AND 12 THEN 'patio'::public.table_category
+            WHEN gs BETWEEN 13 AND 14 THEN 'bar'::public.table_category
+            ELSE 'private'::public.table_category
+        END AS category,
         'available'::public.table_status AS status,
         jsonb_build_object(
             'x', ((gs - 1) % 4) * 150,
             'y', ((gs - 1) / 4) * 150
-        ) AS position
+        ) AS position,
+        -- Assign zone_id based on section
+        (SELECT z.zone_id FROM restaurant_zones z 
+         WHERE z.restaurant_id = r.id 
+         AND z.zone_name = CASE
+            WHEN gs BETWEEN 1 AND 8 THEN 'Main Dining'
+            WHEN gs BETWEEN 9 AND 12 THEN 'Patio'
+            WHEN gs BETWEEN 13 AND 14 THEN 'Bar Area'
+            ELSE 'Private Room'
+         END
+         LIMIT 1
+        ) AS zone_id
     FROM restaurants_to_seed r
     CROSS JOIN generate_series(1, 16) AS gs
 ),
@@ -734,8 +816,10 @@ upserted_tables AS (
         max_party_size,
         section,
         seating_type,
+        category,
         status,
-        position
+        position,
+        zone_id
     )
     SELECT
         restaurant_id,
@@ -745,8 +829,10 @@ upserted_tables AS (
         max_party_size,
         section,
         seating_type,
+        category,
         status,
-        position
+        position,
+        zone_id
     FROM table_blueprint
     ON CONFLICT (restaurant_id, table_number) DO UPDATE
     SET
@@ -755,6 +841,8 @@ upserted_tables AS (
         max_party_size = EXCLUDED.max_party_size,
         section = EXCLUDED.section,
         seating_type = EXCLUDED.seating_type,
+        category = EXCLUDED.category,
+        zone_id = EXCLUDED.zone_id,
         updated_at = now()
     RETURNING 1
 )

@@ -26,6 +26,12 @@ export type OpsPermissionSet = {
   canManageSettings: boolean;
 };
 
+export type OpsFeatureFlags = {
+  capacityConfig: boolean;
+  opsMetrics: boolean;
+  selectorScoring: boolean;
+};
+
 export type OpsBookingStatus =
   | 'pending'
   | 'pending_allocation'

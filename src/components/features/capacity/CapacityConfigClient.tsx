@@ -38,7 +38,7 @@ import { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
 import { useTableInventoryService } from '@/contexts/ops-services';
 import { useCapacityService } from '@/contexts/ops-services';
-import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
+import { useOpsActiveMembership, useOpsFeatureFlags, useOpsSession } from '@/contexts/ops-session';
 import { useOpsServicePeriods } from '@/hooks/ops/useOpsServicePeriods';
 import { useToast } from '@/hooks/use-toast';
 import type { CapacityRule, CapacityOverride, SaveCapacityRulePayload } from '@/services/ops/capacity';
@@ -88,6 +88,7 @@ export default function CapacityConfigClient() {
 
   const { memberships, activeRestaurantId } = useOpsSession();
   const activeMembership = useOpsActiveMembership();
+  const { capacityConfig: isCapacityConfigEnabled } = useOpsFeatureFlags();
 
   const [activeTab, setActiveTab] = useState<CapacityTab>('rules');
   const [editingPeriodId, setEditingPeriodId] = useState<string | null>(null);
@@ -166,7 +167,7 @@ export default function CapacityConfigClient() {
       }
       return getAllowedCapacities(activeRestaurantId);
     },
-    enabled: Boolean(activeRestaurantId),
+    enabled: Boolean(activeRestaurantId && isCapacityConfigEnabled),
     retry: false,
     staleTime: 60_000,
   });
@@ -184,9 +185,9 @@ export default function CapacityConfigClient() {
     staleTime: 60_000,
   });
 
-  const allowedCapacities = allowedCapacitiesQuery.data?.capacities ?? [];
+  const allowedCapacities = isCapacityConfigEnabled ? allowedCapacitiesQuery.data?.capacities ?? [] : [];
   const allowedCapacitiesError = allowedCapacitiesQuery.error as unknown;
-  const allowedCapacitiesFeatureDisabled =
+  const allowedCapacitiesEndpointUnavailable =
     allowedCapacitiesError instanceof HttpError && allowedCapacitiesError.status === 404;
 
   const updateRuleMutation = useMutation({
@@ -303,7 +304,7 @@ export default function CapacityConfigClient() {
       return;
     }
 
-    if (allowedCapacitiesFeatureDisabled || allowedCapacitiesQuery.isLoading) {
+    if (!isCapacityConfigEnabled || allowedCapacitiesQuery.isLoading) {
       return;
     }
 
@@ -359,7 +360,7 @@ export default function CapacityConfigClient() {
       return;
     }
 
-    if (allowedCapacitiesFeatureDisabled || allowedCapacitiesQuery.isLoading) {
+    if (!isCapacityConfigEnabled || allowedCapacitiesQuery.isLoading) {
       return;
     }
 
@@ -376,7 +377,7 @@ export default function CapacityConfigClient() {
     updateAllowedCapacitiesMutation.mutate(next);
   };
 
-  const isUpdatingAllowedCapacities = updateAllowedCapacitiesMutation.isPending;
+  const isUpdatingAllowedCapacities = isCapacityConfigEnabled && updateAllowedCapacitiesMutation.isPending;
 
   if (memberships.length === 0) {
     return (
@@ -415,7 +416,7 @@ export default function CapacityConfigClient() {
         </Alert>
       ) : null}
 
-      {!allowedCapacitiesFeatureDisabled ? (
+      {isCapacityConfigEnabled ? (
         <Card className="border border-white/60 bg-white/80 shadow-sm">
           <CardHeader>
             <CardTitle>Allowed table capacities</CardTitle>
@@ -427,10 +428,14 @@ export default function CapacityConfigClient() {
             {allowedCapacitiesQuery.isLoading ? (
               <Skeleton className="h-10 w-full" />
             ) : allowedCapacitiesQuery.isError ? (
-              <Alert variant="destructive">
+              <Alert variant={allowedCapacitiesEndpointUnavailable ? 'warning' : 'destructive'}>
                 <AlertTitle>Unable to load capacities</AlertTitle>
                 <AlertDescription>
-                  {allowedCapacitiesError instanceof Error ? allowedCapacitiesError.message : 'Please try again later.'}
+                  {allowedCapacitiesEndpointUnavailable
+                    ? 'Allowed capacity management is temporarily unavailable. Try again soon.'
+                    : allowedCapacitiesError instanceof Error
+                      ? allowedCapacitiesError.message
+                      : 'Please try again later.'}
                 </AlertDescription>
               </Alert>
             ) : (
@@ -493,7 +498,14 @@ export default function CapacityConfigClient() {
             )}
           </CardContent>
         </Card>
-      ) : null}
+      ) : (
+        <Alert>
+          <AlertTitle>Allowed capacities hidden</AlertTitle>
+          <AlertDescription>
+            Enable the <code>feature.capacity.config</code> flag to let staff manage allowable table sizes.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <nav className="flex flex-wrap gap-2">
         {TAB_DEFINITIONS.map((tab) => {

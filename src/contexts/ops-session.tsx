@@ -5,6 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
 import type {
   OpsAccountSnapshot,
+  OpsFeatureFlags,
   OpsMembership,
   OpsPermissionSet,
   OpsUser,
@@ -19,6 +20,7 @@ export type OpsSessionContextValue = {
   activeMembership: OpsMembership | null;
   accountSnapshot: OpsAccountSnapshot;
   permissions: OpsPermissionSet;
+  featureFlags: OpsFeatureFlags;
   setActiveRestaurantId: (restaurantId: string | null) => void;
   resetRestaurantSelection: () => void;
 };
@@ -59,13 +61,21 @@ export type OpsSessionProviderProps = {
   user: OpsUser | null;
   memberships: OpsMembership[];
   initialRestaurantId?: string | null;
+  featureFlags?: OpsFeatureFlags;
   children: ReactNode;
+};
+
+const DEFAULT_FEATURE_FLAGS: OpsFeatureFlags = {
+  capacityConfig: false,
+  opsMetrics: false,
+  selectorScoring: false,
 };
 
 export function OpsSessionProvider({
   user,
   memberships,
   initialRestaurantId = null,
+  featureFlags = DEFAULT_FEATURE_FLAGS,
   children,
 }: OpsSessionProviderProps) {
   const membershipIds = useMemo(() => new Set(memberships.map((membership) => membership.restaurantId)), [memberships]);
@@ -199,6 +209,15 @@ export function OpsSessionProvider({
     setActiveRestaurantIdState(fallbackRestaurantId ?? null);
   }, [fallbackRestaurantId]);
 
+  const resolvedFeatureFlags = useMemo<OpsFeatureFlags>(
+    () => ({
+      capacityConfig: featureFlags.capacityConfig ?? false,
+      opsMetrics: featureFlags.opsMetrics ?? false,
+      selectorScoring: featureFlags.selectorScoring ?? false,
+    }),
+    [featureFlags.capacityConfig, featureFlags.opsMetrics, featureFlags.selectorScoring],
+  );
+
   const value = useMemo<OpsSessionContextValue>(
     () => ({
       user,
@@ -207,10 +226,21 @@ export function OpsSessionProvider({
       activeMembership,
       accountSnapshot,
       permissions,
+      featureFlags: resolvedFeatureFlags,
       setActiveRestaurantId,
       resetRestaurantSelection,
     }),
-    [user, memberships, activeRestaurantId, activeMembership, accountSnapshot, permissions, setActiveRestaurantId, resetRestaurantSelection],
+    [
+      user,
+      memberships,
+      activeRestaurantId,
+      activeMembership,
+      accountSnapshot,
+      permissions,
+      resolvedFeatureFlags,
+      setActiveRestaurantId,
+      resetRestaurantSelection,
+    ],
   );
 
   return <OpsSessionContext.Provider value={value}>{children}</OpsSessionContext.Provider>;
@@ -232,6 +262,11 @@ export function useOpsActiveMembership(): OpsMembership | null {
 export function useOpsAccountSnapshot(): OpsAccountSnapshot {
   const context = useOpsSession();
   return context.accountSnapshot;
+}
+
+export function useOpsFeatureFlags(): OpsFeatureFlags {
+  const context = useOpsSession();
+  return context.featureFlags;
 }
 
 export function useOpsActiveRestaurantId(): string | null {

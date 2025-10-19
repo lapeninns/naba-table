@@ -8,6 +8,7 @@ import type { RestaurantRole } from "@/lib/owner/auth/roles";
 import { fetchUserMemberships, type RestaurantMembershipWithDetails } from "@/server/team/access";
 import { getServerComponentSupabaseClient } from "@/server/supabase";
 import type { OpsMembership, OpsUser } from "@/types/ops";
+import { env } from "@/lib/env";
 
 type OpsAppLayoutProps = {
   children: ReactNode;
@@ -64,9 +65,19 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
     .map(mapMembershipToOps);
 
   const initialRestaurantId = opsMemberships[0]?.restaurantId ?? null;
+  const featureFlags = {
+    capacityConfig: env.featureFlags.capacityConfig ?? false,
+    opsMetrics: env.featureFlags.opsMetrics ?? false,
+    selectorScoring: env.featureFlags.selectorScoring ?? false,
+  } as const;
 
   return (
-    <OpsSessionProvider user={supabaseUser} memberships={opsMemberships} initialRestaurantId={initialRestaurantId}>
+    <OpsSessionProvider
+      user={supabaseUser}
+      memberships={opsMemberships}
+      initialRestaurantId={initialRestaurantId}
+      featureFlags={featureFlags}
+    >
       <OpsServicesProvider>
         <OpsShell defaultSidebarOpen={defaultOpen}>{children}</OpsShell>
       </OpsServicesProvider>

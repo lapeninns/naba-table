@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Tables } from '@/types/supabase';
 
@@ -7,11 +7,28 @@ process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co';
 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-key';
 process.env.FEATURE_SELECTOR_SCORING = 'true';
+process.env.FEATURE_OPS_METRICS = 'true';
+process.env.RESEND_FROM = 'ops@example.com';
+process.env.RESEND_API_KEY = 'test-resend-key';
+
+const emitSelectorDecision = vi.fn();
+
+vi.mock('@/server/capacity/telemetry', async () => {
+  const actual = await vi.importActual<typeof import('@/server/capacity/telemetry')>('@/server/capacity/telemetry');
+  return {
+    ...actual,
+    emitSelectorDecision,
+  };
+});
 
 let autoAssignTablesForDate: typeof import('@/server/capacity')['autoAssignTablesForDate'];
 
 beforeAll(async () => {
   ({ autoAssignTablesForDate } = await import('@/server/capacity'));
+});
+
+beforeEach(() => {
+  emitSelectorDecision.mockClear();
 });
 
 type TableRow = {
@@ -542,5 +559,187 @@ describe('autoAssignTablesForDate', () => {
     bookingId: 'booking-merge-fail',
   });
   expect(result.skipped[0]?.reason ?? '').toContain('capacity requirements');
+  });
+
+  it('prefers the best scoring single table and emits telemetry details', async () => {
+    const tables: TableRow[] = [
+      {
+        id: 'table-2',
+        table_number: 'T2',
+        capacity: 2,
+        min_party_size: 1,
+        max_party_size: 2,
+        section: 'Main',
+        seating_type: 'standard',
+        status: 'available',
+        position: null,
+      },
+      {
+        id: 'table-4',
+        table_number: 'T4',
+        capacity: 4,
+        min_party_size: 2,
+        max_party_size: 4,
+        section: 'Main',
+        seating_type: 'standard',
+        status: 'available',
+        position: null,
+      },
+      {
+        id: 'table-6',
+        table_number: 'T6',
+        capacity: 6,
+        min_party_size: 2,
+        max_party_size: null,
+        section: 'Main',
+        seating_type: 'standard',
+        status: 'available',
+        position: null,
+      },
+      {
+        id: 'table-merge-a',
+        table_number: 'M1',
+        capacity: 2,
+        min_party_size: 1,
+        max_party_size: null,
+        section: 'Main',
+        seating_type: 'standard',
+        status: 'available',
+        position: null,
+        category: 'dining',
+        mergeEligible: true,
+      },
+      {
+        id: 'table-merge-b',
+        table_number: 'M2',
+        capacity: 2,
+        min_party_size: 1,
+        max_party_size: null,
+        section: 'Main',
+        seating_type: 'standard',
+        status: 'available',
+        position: null,
+        category: 'dining',
+        mergeEligible: true,
+      },
+    ];
+
+    const bookings: BookingRow[] = [
+      {
+        id: 'booking-score-1',
+        party_size: 4,
+        status: 'pending_allocation',
+        start_time: '19:00',
+        end_time: null,
+        start_at: '2025-11-05T19:00:00+00:00',
+        booking_date: '2025-11-05',
+        seating_preference: 'any',
+        booking_table_assignments: [],
+      },
+    ];
+
+    const { client, assignments } = createMockSupabaseClient({
+      tables: tables.map((table) => ({ ...table, mergeEligible: table.mergeEligible ?? false })),
+      bookings,
+      adjacency: [
+        { table_a: 'table-merge-a', table_b: 'table-merge-b' },
+        { table_a: 'table-merge-b', table_b: 'table-merge-a' },
+      ],
+    });
+
+    const result = await autoAssignTablesForDate({
+      restaurantId: 'rest-score',
+      date: '2025-11-05',
+      client,
+      assignedBy: 'user-score',
+    });
+
+    expect(result.assigned).toEqual([
+      {
+        bookingId: 'booking-score-1',
+        tableIds: ['table-4'],
+      },
+    ]);
+    expect(assignments).toEqual([
+      expect.objectContaining({ bookingId: 'booking-score-1', tableIds: ['table-4'] }),
+    ]);
+
+    expect(emitSelectorDecision).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookingId: 'booking-score-1',
+        selected: expect.objectContaining({ tableIds: ['table-4'] }),
+        candidates: expect.arrayContaining([
+          expect.objectContaining({ tableIds: ['table-4'] }),
+        ]),
+        featureFlags: expect.objectContaining({ selectorScoring: true, opsMetrics: true }),
+      }),
+    );
+  });
+
+  it('emits skip telemetry with reason when no assignment is possible', async () => {
+    const tables: TableRow[] = [
+      {
+        id: 'table-merge-a',
+        table_number: 'M1',
+        capacity: 3,
+        min_party_size: 1,
+        max_party_size: null,
+        section: 'Main',
+        seating_type: 'standard',
+        status: 'available',
+        position: null,
+        category: 'dining',
+        mergeEligible: true,
+      },
+      {
+        id: 'table-merge-b',
+        table_number: 'M2',
+        capacity: 3,
+        min_party_size: 1,
+        max_party_size: null,
+        section: 'Main',
+        seating_type: 'standard',
+        status: 'available',
+        position: null,
+        category: 'dining',
+        mergeEligible: true,
+      },
+    ];
+
+    const bookings: BookingRow[] = [
+      {
+        id: 'booking-skip-1',
+        party_size: 6,
+        status: 'pending_allocation',
+        start_time: '20:00',
+        end_time: null,
+        start_at: '2025-11-06T20:00:00+00:00',
+        booking_date: '2025-11-06',
+        seating_preference: 'any',
+        booking_table_assignments: [],
+      },
+    ];
+
+    const { client } = createMockSupabaseClient({ tables, bookings });
+
+    const result = await autoAssignTablesForDate({
+      restaurantId: 'rest-skip',
+      date: '2025-11-06',
+      client,
+      assignedBy: 'user-skip',
+    });
+
+    expect(result.assigned).toEqual([]);
+    expect(result.skipped).toHaveLength(1);
+    const skipReason = result.skipped[0]?.reason ?? '';
+    expect(skipReason).toContain('capacity');
+
+    expect(emitSelectorDecision).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookingId: 'booking-skip-1',
+        selected: null,
+        skipReason,
+      }),
+    );
   });
 });
