@@ -2,8 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 
 import { normalizeTime } from '@reserve/shared/time';
-import { apiClient } from '@shared/api/client';
 
+import { fetchReservationSchedule, scheduleQueryKey } from './schedule';
 import {
   EMPTY_AVAILABILITY,
   toTimeSlotDescriptor,
@@ -31,37 +31,19 @@ export type UseTimeSlotsResult = {
 
 const DEFAULT_BOOKING_OPTION: BookingOption = 'drinks';
 
-async function fetchSchedule(
-  restaurantSlug: string,
-  date: string | null | undefined,
-  signal: AbortSignal | undefined,
-): Promise<ReservationSchedule> {
-  const params = new URLSearchParams();
-  if (date) {
-    params.set('date', date);
-  }
-
-  const path =
-    params.size > 0
-      ? `/restaurants/${encodeURIComponent(restaurantSlug)}/schedule?${params.toString()}`
-      : `/restaurants/${encodeURIComponent(restaurantSlug)}/schedule`;
-
-  return apiClient.get<ReservationSchedule>(path, { signal });
-}
-
 export function useTimeSlots({
   restaurantSlug,
   date,
   selectedTime,
 }: UseTimeSlotsOptions): UseTimeSlotsResult {
   const scheduleQuery = useQuery<ReservationSchedule>({
-    queryKey: ['reservations', 'schedule', restaurantSlug, date ?? ''],
+    queryKey: scheduleQueryKey(restaurantSlug, date ?? null),
     enabled: Boolean(restaurantSlug),
     queryFn: ({ signal }) => {
       if (!restaurantSlug) {
         throw new Error('Missing restaurant slug');
       }
-      return fetchSchedule(restaurantSlug, date ?? undefined, signal);
+      return fetchReservationSchedule(restaurantSlug, date ?? undefined, signal);
     },
     staleTime: 60_000,
     refetchOnWindowFocus: false,

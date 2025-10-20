@@ -1,7 +1,7 @@
 'use client';
 
 import { ChevronDownIcon } from 'lucide-react';
-import React, { useCallback, useId, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
 
 import { reservationConfigResult } from '@reserve/shared/config/reservations';
 import { formatReservationDate } from '@reserve/shared/formatting/booking';
@@ -35,6 +35,7 @@ export type Calendar24FieldProps = {
   isDateUnavailable?: (date: Date) => boolean;
   isTimeDisabled?: boolean;
   unavailableMessage?: string;
+  onMonthChange?: (month: Date) => void;
 };
 
 export function Calendar24Field({
@@ -45,6 +46,7 @@ export function Calendar24Field({
   isDateUnavailable,
   isTimeDisabled = false,
   unavailableMessage,
+  onMonthChange,
 }: Calendar24FieldProps) {
   const resolvedIntervalMinutes =
     typeof intervalMinutes === 'number' && intervalMinutes > 0
@@ -66,6 +68,18 @@ export function Calendar24Field({
     [date.value],
   );
   const selectedDate = useMemo(() => (date.value ? new Date(date.value) : undefined), [date.value]);
+  const initialMonth = useMemo(() => {
+    const base = selectedDate ?? date.minDate;
+    return new Date(base.getFullYear(), base.getMonth(), 1);
+  }, [date.minDate, selectedDate]);
+  const initialMonthTime = initialMonth.getTime();
+
+  useEffect(() => {
+    if (!onMonthChange) {
+      return;
+    }
+    onMonthChange(new Date(initialMonthTime));
+  }, [initialMonthTime, onMonthChange]);
 
   const enabledSuggestions = useMemo(
     () => suggestions.filter((slot) => !slot.disabled),
@@ -119,10 +133,15 @@ export function Calendar24Field({
             <Calendar
               mode="single"
               selected={selectedDate}
+              defaultMonth={initialMonth}
+              fromDate={date.minDate}
               onSelect={(next) => {
                 date.onSelect(next);
                 date.onBlur?.();
                 setOpen(false);
+              }}
+              onMonthChange={(month) => {
+                onMonthChange?.(month);
               }}
               disabled={disabledMatcher}
               initialFocus

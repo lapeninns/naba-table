@@ -23,6 +23,7 @@ export type PlanStepFormHandlers = {
   changeParty: (direction: 'decrement' | 'increment') => void;
   changeOccasion: (value: PlanFormValues['bookingType']) => void;
   changeNotes: (value: string) => void;
+  prefetchMonth: (month: Date) => void;
 };
 
 export type PlanStepUnavailableReason = 'closed' | 'no-slots';

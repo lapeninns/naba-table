@@ -135,4 +135,30 @@ describe('<Calendar24Field />', () => {
     expect(timeInput).toBeDisabled();
     expect(screen.getByText('Closed for private event.')).toBeInTheDocument();
   });
+
+  it('notifies visible month changes', async () => {
+    const user = userEvent.setup();
+    const handleMonthChange = vi.fn();
+
+    render(
+      <Calendar24Field
+        date={{
+          value: '',
+          minDate: new Date('2025-05-01T00:00:00Z'),
+          onSelect: vi.fn(),
+        }}
+        time={{ value: '18:00', onChange: vi.fn() }}
+        onMonthChange={handleMonthChange}
+      />,
+    );
+
+    expect(handleMonthChange).toHaveBeenCalledTimes(1);
+    expect(handleMonthChange.mock.calls[0]?.[0]).toBeInstanceOf(Date);
+
+    await user.click(screen.getByRole('button', { name: 'Date' }));
+    const nextMonthButton = await screen.findByRole('button', { name: /next month/i });
+    await user.click(nextMonthButton);
+
+    expect(handleMonthChange).toHaveBeenCalledTimes(2);
+  });
 });

@@ -176,11 +176,16 @@ describe('<PlanStepForm />', () => {
 
   it('disables time selection and surfaces an alert when the schedule is closed', async () => {
     getMock.mockReset();
-    getMock.mockResolvedValueOnce({
-      ...scheduleFixture,
-      date: '2025-05-11',
-      isClosed: true,
-      slots: [],
+    getMock.mockImplementation((path: string) => {
+      if (path.includes('date=2025-05-11')) {
+        return Promise.resolve({
+          ...scheduleFixture,
+          date: '2025-05-11',
+          isClosed: true,
+          slots: [],
+        });
+      }
+      return Promise.resolve(scheduleFixture);
     });
 
     const state = wizardStateFixture({
@@ -228,11 +233,16 @@ describe('<PlanStepForm />', () => {
 
   it('disables time selection when all returned slots are unavailable', async () => {
     getMock.mockReset();
-    getMock.mockResolvedValueOnce({
-      ...scheduleFixture,
-      date: '2025-05-12',
-      isClosed: false,
-      slots: scheduleFixture.slots.map((slot) => ({ ...slot, disabled: true })),
+    getMock.mockImplementation((path: string) => {
+      if (path.includes('date=2025-05-12')) {
+        return Promise.resolve({
+          ...scheduleFixture,
+          date: '2025-05-12',
+          isClosed: false,
+          slots: scheduleFixture.slots.map((slot) => ({ ...slot, disabled: true })),
+        });
+      }
+      return Promise.resolve(scheduleFixture);
     });
 
     const state = wizardStateFixture({
@@ -263,5 +273,35 @@ describe('<PlanStepForm />', () => {
 
     expect(screen.getByLabelText('Time')).toBeDisabled();
     expect(updateDetails).toHaveBeenCalledWith('time', '');
+  });
+
+  it('does not re-emit sticky actions when props stay the same', async () => {
+    const state = wizardStateFixture({
+      date: '2025-05-15',
+      time: '18:00',
+      bookingType: 'lunch',
+      party: 2,
+    });
+    const updateDetails = vi.fn();
+    const goToStep = vi.fn();
+    const onActionsChange = vi.fn();
+    const wrapper = createWrapper();
+
+    const props = {
+      state,
+      actions: { updateDetails, goToStep },
+      onActionsChange,
+      minDate: MIN_DATE,
+    };
+
+    const { rerender } = render(<PlanStepForm {...props} />, { wrapper });
+
+    await act(async () => {});
+    const initialCalls = onActionsChange.mock.calls.length;
+
+    rerender(<PlanStepForm {...props} />);
+    await act(async () => {});
+
+    expect(onActionsChange.mock.calls.length).toBe(initialCalls);
   });
 });

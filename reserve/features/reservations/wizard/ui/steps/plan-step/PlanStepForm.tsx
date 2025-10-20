@@ -126,6 +126,7 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
           isDateUnavailable={isDateUnavailable}
           isTimeDisabled={timeDisabled}
           unavailableMessage={unavailableCopy ?? undefined}
+          onMonthChange={state.handlers.prefetchMonth}
         />
 
         <FormField

@@ -1,17 +1,22 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { useTimeSlots } from '@reserve/features/reservations/wizard/services';
+import {
+  fetchReservationSchedule,
+  scheduleQueryKey,
+} from '@reserve/features/reservations/wizard/services/schedule';
 import { reservationConfigResult } from '@reserve/shared/config/reservations';
 import { formatDateForInput } from '@reserve/shared/formatting/booking';
 import { toMinutes } from '@reserve/shared/time';
 
 import { planFormSchema, type PlanFormValues } from '../model/schemas';
 
-import type { BookingDetails } from '../model/reducer';
+import type { BookingDetails, StepAction } from '../model/reducer';
 import type {
   PlanStepFormProps,
   PlanStepFormState,
@@ -22,6 +27,57 @@ const DEFAULT_TIME = reservationConfigResult.config.opening.open;
 const DEFAULT_INTERVAL_MINUTES = reservationConfigResult.config.opening.intervalMinutes;
 const DEFAULT_CLOSING_MINUTES = toMinutes(reservationConfigResult.config.opening.close);
 
+const MONTH_KEY_FORMATTER = (value: Date) =>
+  `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}`;
+
+const toMonthStart = (value: Date) => new Date(value.getFullYear(), value.getMonth(), 1);
+
+const deriveUnavailableReason = (
+  nextSchedule: { isClosed: boolean; slots: { disabled: boolean }[] } | null,
+): PlanStepUnavailableReason | null => {
+  if (!nextSchedule) {
+    return null;
+  }
+  if (nextSchedule.isClosed) {
+    return 'closed';
+  }
+  const hasEnabledSlot = nextSchedule.slots.some((slot) => !slot.disabled);
+  return hasEnabledSlot ? null : 'no-slots';
+};
+
+const buildMonthDateKeys = (monthStart: Date, minSelectableDate: Date): string[] => {
+  const start = toMonthStart(monthStart);
+  const end = new Date(start.getFullYear(), start.getMonth() + 1, 0);
+  const keys: string[] = [];
+
+  const normalizedMin = new Date(minSelectableDate);
+  normalizedMin.setHours(0, 0, 0, 0);
+
+  for (let cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
+    if (cursor < normalizedMin) {
+      continue;
+    }
+    keys.push(formatDateForInput(new Date(cursor)));
+  }
+
+  return keys;
+};
+
+const parseDateKey = (value: string | null | undefined): Date | null => {
+  if (!value) {
+    return null;
+  }
+  const [yearPart, monthPart, dayPart] = value.split('-');
+  const year = Number.parseInt(yearPart ?? '', 10);
+  const month = Number.parseInt(monthPart ?? '', 10);
+  const day = Number.parseInt(dayPart ?? '', 10);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return null;
+  }
+  const next = new Date(year, month - 1, day);
+  return Number.isNaN(next.getTime()) ? null : next;
+};
+
 export function usePlanStepForm({
   state,
   actions,
@@ -29,6 +85,8 @@ export function usePlanStepForm({
   onTrack,
   minDate,
 }: PlanStepFormProps): PlanStepFormState {
+  const queryClient = useQueryClient();
+  const prefetchedMonthsRef = useRef<Set<string>>(new Set());
   const form = useForm<PlanFormValues>({
     resolver: zodResolver(planFormSchema),
     mode: 'onChange',
@@ -46,6 +104,73 @@ export function usePlanStepForm({
     () => new Map(),
   );
   const lastValidDateRef = useRef<string | null>(state.details.date ?? null);
+  const normalizedMinDate = useMemo(() => {
+    const next = new Date(minDate);
+    next.setHours(0, 0, 0, 0);
+    return next;
+  }, [minDate]);
+
+  const updateUnavailableDate = useCallback(
+    (dateKey: string, reason: PlanStepUnavailableReason | null) => {
+      setUnavailableDates((prev) => {
+        const existing = prev.get(dateKey) ?? null;
+        if (existing === reason) {
+          return prev;
+        }
+        const nextMap = new Map(prev);
+        if (reason) {
+          nextMap.set(dateKey, reason);
+        } else {
+          nextMap.delete(dateKey);
+        }
+        return nextMap;
+      });
+    },
+    [],
+  );
+
+  const prefetchVisibleMonth = useCallback(
+    (value: Date | null | undefined) => {
+      if (!value) {
+        return;
+      }
+      const slug = state.details.restaurantSlug;
+      if (!slug) {
+        return;
+      }
+
+      const monthStart = toMonthStart(value);
+      const monthKey = MONTH_KEY_FORMATTER(monthStart);
+      if (prefetchedMonthsRef.current.has(monthKey)) {
+        return;
+      }
+      prefetchedMonthsRef.current.add(monthKey);
+
+      const dateKeys = buildMonthDateKeys(monthStart, normalizedMinDate);
+      if (dateKeys.length === 0) {
+        return;
+      }
+
+      void Promise.all(
+        dateKeys.map(async (dateKey) => {
+          try {
+            const scheduleResult = await queryClient.fetchQuery({
+              queryKey: scheduleQueryKey(slug, dateKey),
+              queryFn: ({ signal }) => fetchReservationSchedule(slug, dateKey, signal),
+              staleTime: 60_000,
+            });
+            const reason = deriveUnavailableReason(scheduleResult);
+            updateUnavailableDate(dateKey, reason);
+          } catch (error) {
+            if (process.env.NODE_ENV !== 'production') {
+              console.error('[plan-step] failed to prefetch schedule', { date: dateKey, error });
+            }
+          }
+        }),
+      );
+    },
+    [normalizedMinDate, queryClient, state.details.restaurantSlug, updateUnavailableDate],
+  );
 
   const {
     slots,
@@ -68,6 +193,15 @@ export function usePlanStepForm({
     : DEFAULT_CLOSING_MINUTES;
   const latestSelectableMinutes = Math.max(0, closingMinutes - intervalMinutes);
   const fallbackTime = enabledSlots[0]?.value ?? '';
+
+  useEffect(() => {
+    const initialMonthCandidate = parseDateKey(state.details.date) ?? normalizedMinDate;
+    prefetchVisibleMonth(initialMonthCandidate);
+  }, [normalizedMinDate, prefetchVisibleMonth, state.details.date]);
+
+  useEffect(() => {
+    prefetchedMonthsRef.current.clear();
+  }, [state.details.restaurantSlug]);
 
   useEffect(() => {
     form.reset(
@@ -232,26 +366,10 @@ export function usePlanStepForm({
     }
 
     const scheduleDate = schedule.date;
-    const reason: PlanStepUnavailableReason = schedule.isClosed ? 'closed' : 'no-slots';
-    const shouldBlockDate = schedule.isClosed || !hasAvailableSlots;
+    const derivedReason = deriveUnavailableReason(schedule);
+    const shouldBlockDate = Boolean(derivedReason);
 
-    setUnavailableDates((prev) => {
-      const existing = prev.get(scheduleDate);
-      if (shouldBlockDate) {
-        if (existing === reason) {
-          return prev;
-        }
-        const next = new Map(prev);
-        next.set(scheduleDate, reason);
-        return next;
-      }
-      if (!existing) {
-        return prev;
-      }
-      const next = new Map(prev);
-      next.delete(scheduleDate);
-      return next;
-    });
+    updateUnavailableDate(scheduleDate, derivedReason);
 
     const isCurrentDate = scheduleDate === state.details.date;
 
@@ -272,7 +390,7 @@ export function usePlanStepForm({
         }
 
         const dateMessage =
-          reason === 'closed'
+          derivedReason === 'closed'
             ? 'We’re closed on the selected date. Please choose a different day.'
             : 'No reservation times are available for the selected date. Please choose another day.';
         form.setError('date', { type: 'manual', message: dateMessage });
@@ -319,6 +437,7 @@ export function usePlanStepForm({
     schedule,
     state.details.date,
     updateField,
+    updateUnavailableDate,
   ]);
 
   const { isSubmitting, isValid } = form.formState;
@@ -341,9 +460,12 @@ export function usePlanStepForm({
     updateField('reservationDurationMinutes', duration);
   }, [schedule?.defaultDurationMinutes, state.details.reservationDurationMinutes, updateField]);
 
-  useEffect(() => {
-    const submit = () => form.handleSubmit(submitForm, handleError)();
-    onActionsChange([
+  const handleContinue = useCallback(() => {
+    form.handleSubmit(submitForm, handleError)();
+  }, [form, handleError, submitForm]);
+
+  const planStepActions = useMemo<StepAction[]>(
+    () => [
       {
         id: 'plan-continue',
         label: 'Continue',
@@ -351,10 +473,15 @@ export function usePlanStepForm({
         variant: 'default',
         disabled: isSubmitting || !isValid,
         loading: isSubmitting,
-        onClick: submit,
+        onClick: handleContinue,
       },
-    ]);
-  }, [form, handleError, isSubmitting, isValid, onActionsChange, submitForm]);
+    ],
+    [handleContinue, isSubmitting, isValid],
+  );
+
+  useEffect(() => {
+    onActionsChange(planStepActions);
+  }, [onActionsChange, planStepActions]);
 
   return {
     form,
@@ -366,6 +493,9 @@ export function usePlanStepForm({
       changeParty,
       changeOccasion,
       changeNotes,
+      prefetchMonth: (month: Date) => {
+        prefetchVisibleMonth(month);
+      },
     },
     minDate,
     intervalMinutes,

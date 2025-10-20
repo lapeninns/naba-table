@@ -12,7 +12,7 @@ import {
   type DetailsFormValues,
 } from '../model/schemas';
 
-import type { BookingDetails } from '../model/reducer';
+import type { BookingDetails, StepAction } from '../model/reducer';
 import type { DetailsStepProps, DetailsStepController } from '../ui/steps/details-step/types';
 
 export function useDetailsStepForm({
@@ -126,9 +126,12 @@ export function useDetailsStepForm({
 
   const { isSubmitting, isValid } = form.formState;
 
-  useEffect(() => {
-    const submit = () => form.handleSubmit(handleSubmit, handleError)();
-    onActionsChange([
+  const handleReview = useCallback(() => {
+    form.handleSubmit(handleSubmit, handleError)();
+  }, [form, handleError, handleSubmit]);
+
+  const detailsActions = useMemo<StepAction[]>(
+    () => [
       {
         id: 'details-back',
         label: 'Back',
@@ -144,10 +147,15 @@ export function useDetailsStepForm({
         variant: 'default',
         disabled: isSubmitting || !isValid,
         loading: isSubmitting,
-        onClick: submit,
+        onClick: handleReview,
       },
-    ]);
-  }, [form, handleBack, handleError, handleSubmit, isSubmitting, isValid, onActionsChange]);
+    ],
+    [handleBack, handleReview, isSubmitting, isValid],
+  );
+
+  useEffect(() => {
+    onActionsChange(detailsActions);
+  }, [detailsActions, onActionsChange]);
 
   return {
     form,

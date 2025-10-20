@@ -1,25 +1,31 @@
-import { HydrationBoundary, QueryClient, dehydrate } from "@tanstack/react-query";
+import {
+  HydrationBoundary,
+  QueryClient,
+  dehydrate,
+} from "@tanstack/react-query";
 import { Clock3, Sparkles, UsersRound, type LucideIcon } from "lucide-react";
 import type { Metadata } from "next";
 
 import { MarketingSessionActions } from "@/components/marketing/MarketingSessionActions";
 import { RestaurantBrowser } from "@/components/marketing/RestaurantBrowser";
-import type { RestaurantSummary } from "@/lib/restaurants/types";
 import { queryKeys } from "@/lib/query/keys";
-import { listRestaurants, ListRestaurantsError } from "@/server/restaurants";
+import type { RestaurantFilters } from "@/lib/restaurants/types";
+import { listRestaurants } from "@/server/restaurants";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Reserve a table · SajiloReserveX",
-  description: "Explore partner restaurants and book your next outing in seconds.",
+  description:
+    "Explore partner restaurants and book your next outing in seconds.",
 };
 
-type Highlight = {
+// --- Configuration & Constants ---
+interface Highlight {
   title: string;
   description: string;
   icon: LucideIcon;
-};
+}
 
 const HIGHLIGHTS: Highlight[] = [
   {
@@ -39,125 +45,127 @@ const HIGHLIGHTS: Highlight[] = [
   },
 ];
 
-function HeroSection() {
-  return (
-    <section
-      aria-labelledby="hero-title"
-      className="grid items-center gap-[var(--sr-space-7)] md:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]"
-    >
-      <div className="space-y-[var(--sr-space-5)]">
-        <p className="text-sm font-semibold uppercase tracking-[0.25em] text-primary/80">
-          SajiloReserveX
-        </p>
-        <div className="space-y-[var(--sr-space-4)]">
-          <h1
-            id="hero-title"
-            className="text-4xl font-semibold tracking-tight text-foreground md:text-5xl lg:text-6xl"
-          >
-            Book unforgettable nights in just a few taps
-          </h1>
-          <p className="max-w-xl text-base text-muted-foreground md:text-lg">
-            Discover the most loved tables across the city and confirm your reservation instantly.
-            Everything syncs to your profile so group plans stay organised.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-[var(--sr-space-3)]">
-          <MarketingSessionActions
-            size="lg"
-            className="flex w-full flex-col items-stretch gap-[var(--sr-space-3)] sm:w-auto sm:flex-row [&>a]:w-full sm:[&>a]:w-auto"
-          />
-          <span className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-            No fees. No phone calls.
-          </span>
-        </div>
-      </div>
+// --- Sub-components ---
 
-      <HighlightGrid />
-    </section>
+function HeroHeader() {
+  return (
+    <div className="space-y-6">
+      <p className="text-primary/80 text-sm font-semibold uppercase tracking-[0.25em]">
+        SajiloReserveX
+      </p>
+      <div className="space-y-4">
+        <h1 className="text-foreground text-balance text-4xl font-semibold tracking-tight md:text-5xl lg:text-6xl">
+          Book unforgettable nights in just a few taps
+        </h1>
+        <p className="text-muted-foreground max-w-xl text-base md:text-lg">
+          Discover the most loved tables across the city and confirm your reservation instantly. Everything syncs to your profile so group plans stay organised.
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-4">
+        <MarketingSessionActions
+          size="lg"
+          className="flex w-full flex-col items-stretch gap-3 sm:w-auto sm:flex-row [&>a]:w-full sm:[&>a]:w-auto"
+        />
+        <span className="text-muted-foreground text-xs uppercase tracking-[0.3em]">
+          No fees. No phone calls.
+        </span>
+      </div>
+    </div>
   );
 }
 
-function HighlightGrid() {
+function HighlightCards() {
   return (
-    <div className="grid gap-[var(--sr-space-4)] rounded-3xl border border-[var(--sr-color-border)] bg-[var(--sr-color-surface)] p-[var(--sr-space-6)] shadow-[var(--sr-shadow-md)] sm:grid-cols-2">
+    <div className="bg-card/50 border-border shadow-sm grid gap-4 rounded-3xl border p-6 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
       {HIGHLIGHTS.map(({ title, description, icon: Icon }) => (
         <div
           key={title}
-          className="flex flex-col gap-[var(--sr-space-2)] rounded-2xl border border-[var(--sr-color-border)] bg-[var(--sr-color-surface)] p-[var(--sr-space-5)] shadow-[var(--sr-shadow-sm)]"
+          className="bg-card border-border shadow-xs flex flex-col gap-2 rounded-2xl border p-5"
         >
-          <div className="flex items-center gap-[var(--sr-space-3)]">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <Icon className="h-5 w-5" aria-hidden />
+          <div className="flex items-center gap-3">
+            <span className="bg-primary/10 text-primary inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
+              <Icon className="h-5 w-5" aria-hidden="true" />
             </span>
-            <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
+            <h3 className="text-muted-foreground text-sm font-semibold uppercase tracking-wide">
+              {title}
+            </h3>
           </div>
-          <p className="text-sm text-muted-foreground">{description}</p>
+          <p className="text-muted-foreground text-sm leading-relaxed">
+            {description}
+          </p>
         </div>
       ))}
     </div>
   );
 }
 
-type RestaurantSectionProps = {
-  restaurants: RestaurantSummary[];
-  hasError: boolean;
-};
-
-function RestaurantSection({ restaurants, hasError }: RestaurantSectionProps) {
+function HeroSection() {
   return (
     <section
-      id="restaurants"
-      aria-labelledby="restaurants-heading"
-      className="space-y-[var(--sr-space-6)]"
+      aria-label="Introduction"
+      className="grid items-center gap-12 md:grid-cols-[1.2fr_0.8fr]"
     >
-      <div className="space-y-[var(--sr-space-3)]">
-        <h2
-          id="restaurants-heading"
-          className="scroll-m-28 text-3xl font-semibold text-foreground md:text-4xl"
-        >
-          Partner restaurants
-        </h2>
-        <p className="max-w-2xl text-sm text-muted-foreground md:text-base">
-          Browse availability below to jump straight into the reservation flow. We keep timeslots in sync so
-          you never double-book.
-        </p>
-      </div>
-
-      <RestaurantBrowser initialData={restaurants} initialError={hasError} />
+      <HeroHeader />
+      <HighlightCards />
     </section>
   );
 }
 
+function RestaurantsSection() {
+  return (
+    <section
+      id="restaurants"
+      aria-labelledby="restaurants-heading"
+      className="space-y-8"
+    >
+      <header className="space-y-3">
+        <h2
+          id="restaurants-heading"
+          className="text-foreground scroll-m-28 text-3xl font-semibold md:text-4xl"
+        >
+          Partner restaurants
+        </h2>
+        <p className="text-muted-foreground max-w-2xl text-sm md:text-base">
+          Browse availability below to jump straight into the reservation flow. We keep timeslots in sync so you never double-book.
+        </p>
+      </header>
+
+      {/* RestaurantBrowser will now use useQuery to pick up dehydrated state */}
+      <RestaurantBrowser />
+    </section>
+  );
+}
+
+// --- Main Page Component ---
+
 export default async function HomePage() {
-  let restaurants: RestaurantSummary[] = [];
-  let loadError = false;
-
-  try {
-    restaurants = await listRestaurants();
-  } catch (error) {
-    loadError = true;
-    if (error instanceof ListRestaurantsError) {
-      console.error(error);
-    } else {
-      console.error("[home-reserve] unexpected error", error);
-    }
-  }
-
   const queryClient = new QueryClient();
-  if (!loadError) {
-    queryClient.setQueryData(queryKeys.restaurants.list({}), restaurants);
+
+  // Prefetch data on the server.
+  // We use fetchQuery with a try/catch so a data error doesn't crash the entire landing page.
+  // The client component will handle the error state if hydration fails.
+  try {
+    await queryClient.fetchQuery({
+      queryKey: queryKeys.restaurants.list({}),
+      queryFn: ({ queryKey }) => {
+        const filters = (queryKey[2] ?? {}) as RestaurantFilters;
+        return listRestaurants(filters);
+      },
+    });
+  } catch (error) {
+    console.error("Failed to prefetch restaurants on server:", error);
+    // Intentionally swallowing error here to allow Hero section to render.
   }
-  const dehydratedState = dehydrate(queryClient);
 
   return (
-    <HydrationBoundary state={dehydratedState}>
-      <div className="relative min-h-screen bg-gradient-to-b from-background via-background/98 to-background">
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <div className="bg-background relative min-h-screen bg-gradient-to-b from-background via-background/98 to-background">
         <main
           id="main-content"
-          className="mx-auto flex w-full max-w-6xl flex-col gap-[var(--sr-space-10)] px-[var(--sr-space-6)] pb-[var(--sr-space-10)] pt-[var(--sr-space-9)] md:gap-[var(--sr-space-11)] md:pb-[var(--sr-space-12)]"
+          className="mx-auto flex w-full max-w-6xl flex-col gap-16 px-6 pb-20 pt-12 md:gap-24 md:pb-24"
         >
           <HeroSection />
-          <RestaurantSection restaurants={restaurants} hasError={loadError} />
+          <RestaurantsSection />
         </main>
       </div>
     </HydrationBoundary>

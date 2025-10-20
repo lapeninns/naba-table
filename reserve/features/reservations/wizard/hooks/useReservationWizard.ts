@@ -76,8 +76,9 @@ export function useReservationWizard(
 
   const handleActionsChange = useCallback((actions: StepAction[]) => {
     setStickyActions((prev) => {
+      const isSameLength = prev.length === actions.length;
       if (
-        prev.length === actions.length &&
+        isSameLength &&
         prev.every((action, index) => {
           const next = actions[index];
           if (!next) {
@@ -88,7 +89,10 @@ export function useReservationWizard(
             action.label === next.label &&
             action.variant === next.variant &&
             action.disabled === next.disabled &&
-            action.loading === next.loading
+            action.loading === next.loading &&
+            action.icon === next.icon &&
+            action.ariaLabel === next.ariaLabel &&
+            action.onClick === next.onClick
           );
         })
       ) {
