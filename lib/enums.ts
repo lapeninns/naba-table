@@ -1,7 +1,9 @@
-export const BOOKING_TYPES = ["breakfast", "lunch", "dinner", "drinks"] as const;
-export type BookingType = (typeof BOOKING_TYPES)[number];
+import type { OccasionKey } from '@reserve/shared/occasions';
 
-export const BOOKING_TYPES_UI = ["lunch", "dinner", "drinks"] as const satisfies readonly BookingType[];
+export const BOOKING_TYPES = ["breakfast", "lunch", "dinner", "drinks"] as const;
+export type BookingType = OccasionKey;
+
+export const BOOKING_TYPES_UI = ["lunch", "dinner", "drinks"] as const satisfies readonly OccasionKey[];
 
 export const BOOKING_STATUSES = ["pending", "pending_allocation", "confirmed", "cancelled"] as const;
 export type BookingStatus = (typeof BOOKING_STATUSES)[number];

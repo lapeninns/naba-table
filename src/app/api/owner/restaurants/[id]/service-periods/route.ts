@@ -6,6 +6,7 @@ import {
   updateServicePeriods,
   type UpdateServicePeriod,
 } from '@/server/restaurants/servicePeriods';
+import { getOccasionCatalog } from '@/server/occasions/catalog';
 import { TIME_REGEX, canonicalTime } from '@/server/restaurants/timeNormalization';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 import { requireAdminMembership } from '@/server/team/access';
@@ -16,15 +17,6 @@ const timeSchema = z
   .regex(TIME_REGEX)
   .transform((value) => canonicalTime(value));
 const nameSchema = z.string().min(1).max(80);
-
-const servicePeriodSchema = z.object({
-  id: z.string().uuid().optional(),
-  name: nameSchema,
-  dayOfWeek: z.number().int().min(0).max(6).nullable().optional(),
-  startTime: timeSchema,
-  endTime: timeSchema,
-  bookingOption: z.enum(['lunch', 'dinner', 'drinks']),
-});
 
 type RouteParams = {
   params: Promise<{
@@ -108,12 +100,33 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
   let payload: UpdateServicePeriod[];
   try {
     const json = await req.json();
-    payload = z.array(servicePeriodSchema).parse(json) as UpdateServicePeriod[];
+    const baseSchema = z.object({
+      id: z.string().uuid().optional(),
+      name: nameSchema,
+      dayOfWeek: z.number().int().min(0).max(6).nullable().optional(),
+      startTime: timeSchema,
+      endTime: timeSchema,
+      bookingOption: z.string().trim().min(1),
+    });
+    payload = z.array(baseSchema).parse(json) as UpdateServicePeriod[];
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Invalid payload', details: error.flatten() }, { status: 400 });
     }
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+  }
+
+  const catalog = await getOccasionCatalog();
+  const validKeys = new Set(catalog.definitions.map((definition) => definition.key.toLowerCase()));
+
+  const sanitizedPayload = payload.map((entry) => ({
+    ...entry,
+    bookingOption: entry.bookingOption.trim().toLowerCase(),
+  })) as UpdateServicePeriod[];
+
+  const invalidEntry = sanitizedPayload.find((entry) => !validKeys.has(entry.bookingOption));
+  if (invalidEntry) {
+    return NextResponse.json({ error: `Unknown occasion "${invalidEntry.bookingOption}"` }, { status: 400 });
   }
 
   try {
@@ -122,7 +135,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       return authResponse;
     }
 
-    const periods = await updateServicePeriods(restaurantId, payload);
+    const periods = await updateServicePeriods(restaurantId, sanitizedPayload);
     return NextResponse.json({ restaurantId, periods });
   } catch (error) {
     return handleUnexpectedError(error, '[owner][restaurants][service-periods][PUT]');

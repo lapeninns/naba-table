@@ -15,6 +15,8 @@ export type CreateRestaurantInput = {
   contactPhone?: string | null;
   address?: string | null;
   bookingPolicy?: string | null;
+  reservationIntervalMinutes?: number;
+  reservationDefaultDurationMinutes?: number;
 };
 
 export type CreatedRestaurant = {
@@ -27,6 +29,8 @@ export type CreatedRestaurant = {
   contactPhone: string | null;
   address: string | null;
   bookingPolicy: string | null;
+  reservationIntervalMinutes: number;
+  reservationDefaultDurationMinutes: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -75,6 +79,20 @@ export async function createRestaurant(
   const slug = input.slug || generateSlug(input.name);
   const uniqueSlug = await ensureUniqueSlug(slug, client);
   const timezone = assertValidTimezone(input.timezone);
+  const intervalMinutes =
+    input.reservationIntervalMinutes !== undefined ? input.reservationIntervalMinutes : 15;
+  const defaultDurationMinutes =
+    input.reservationDefaultDurationMinutes !== undefined
+      ? input.reservationDefaultDurationMinutes
+      : 90;
+
+  if (!Number.isInteger(intervalMinutes) || intervalMinutes < 1 || intervalMinutes > 180) {
+    throw new Error('Reservation interval must be an integer between 1 and 180 minutes.');
+  }
+
+  if (!Number.isInteger(defaultDurationMinutes) || defaultDurationMinutes < 15 || defaultDurationMinutes > 300) {
+    throw new Error('Reservation duration must be an integer between 15 and 300 minutes.');
+  }
 
   const { data: restaurant, error: restaurantError } = await client
     .from('restaurants')
@@ -87,9 +105,11 @@ export async function createRestaurant(
       contact_phone: input.contactPhone ?? null,
       address: input.address ?? null,
       booking_policy: input.bookingPolicy ?? null,
+      reservation_interval_minutes: intervalMinutes,
+      reservation_default_duration_minutes: defaultDurationMinutes,
     })
     .select(
-      'id, name, slug, timezone, capacity, contact_email, contact_phone, address, booking_policy, created_at, updated_at',
+      'id, name, slug, timezone, capacity, contact_email, contact_phone, address, booking_policy, reservation_interval_minutes, reservation_default_duration_minutes, created_at, updated_at',
     )
     .single();
 
@@ -124,6 +144,8 @@ export async function createRestaurant(
     contactPhone: restaurant.contact_phone,
     address: restaurant.address,
     bookingPolicy: restaurant.booking_policy,
+    reservationIntervalMinutes: restaurant.reservation_interval_minutes,
+    reservationDefaultDurationMinutes: restaurant.reservation_default_duration_minutes,
     createdAt: restaurant.created_at,
     updatedAt: restaurant.updated_at,
   };

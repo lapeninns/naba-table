@@ -9,6 +9,7 @@ export * from './ops/useOpsRestaurants';
 export * from './ops/useOpsRestaurantDetails';
 export * from './ops/useOpsOperatingHours';
 export * from './ops/useOpsServicePeriods';
+export * from './ops/useOccasions';
 export * from './ops/useOpsTeamInvitations';
 export * from './ops/useOpsCapacityUtilization';
 export * from './ops/useOpsTodayVIPs';

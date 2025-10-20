@@ -128,13 +128,11 @@ export type ReservationDraft = {
   marketingOptIn: boolean;
 };
 
-const BOOKING_OPTIONS_SET = new Set<BookingOption>(BOOKING_TYPES_UI);
 const SEATING_OPTIONS_SET = new Set<SeatingOption>(SEATING_PREFERENCES_UI);
 
 export function toBookingOption(value: BookingType): BookingOption {
-  return BOOKING_OPTIONS_SET.has(value as BookingOption)
-    ? (value as BookingOption)
-    : BOOKING_TYPES_UI[0];
+  const normalized = (value ?? '').toString().trim();
+  return (normalized.length > 0 ? normalized : BOOKING_TYPES_UI[0]) as BookingOption;
 }
 
 export function toSeatingOption(value: SeatingPreference): SeatingOption {

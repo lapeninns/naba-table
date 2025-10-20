@@ -6,6 +6,8 @@ import {
   type ReservationMetadata,
 } from './reservation.schema';
 
+import type { BookingOption } from '@reserve/shared/booking';
+
 const apiReservationSchema = z
   .object({
     id: z.string(),
@@ -154,7 +156,7 @@ const normalizeReservation = (input: z.infer<typeof apiReservationSchema>) => {
     endTime: input.end_time ?? undefined,
     startAt,
     endAt: endAtRaw,
-    bookingType: input.booking_type as 'lunch' | 'dinner' | 'drinks',
+    bookingType: input.booking_type as BookingOption,
     seatingPreference: input.seating_preference,
     status: input.status,
     partySize: input.party_size,

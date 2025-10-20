@@ -15,6 +15,8 @@ export type RestaurantListItem = {
   contactPhone: string | null;
   address: string | null;
   bookingPolicy: string | null;
+  reservationIntervalMinutes: number;
+  reservationDefaultDurationMinutes: number;
   createdAt: string;
   updatedAt: string;
   role: 'owner' | 'admin' | 'staff' | 'viewer';
@@ -61,6 +63,8 @@ export async function listRestaurantsForOps(
       contact_phone,
       address,
       booking_policy,
+      reservation_interval_minutes,
+      reservation_default_duration_minutes,
       created_at,
       updated_at,
       restaurant_memberships!inner(
@@ -103,6 +107,8 @@ export async function listRestaurantsForOps(
     contactPhone: row.contact_phone,
     address: row.address,
     bookingPolicy: row.booking_policy,
+    reservationIntervalMinutes: row.reservation_interval_minutes,
+    reservationDefaultDurationMinutes: row.reservation_default_duration_minutes,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     role: row.restaurant_memberships[0]?.role ?? 'viewer',

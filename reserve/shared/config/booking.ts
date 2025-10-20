@@ -1,11 +1,13 @@
+import type { OccasionKey } from '@reserve/shared/occasions';
+
 export const BOOKING_TYPES = ['breakfast', 'lunch', 'dinner', 'drinks'] as const;
-export type BookingType = (typeof BOOKING_TYPES)[number];
+export type BookingType = OccasionKey;
 
 export const BOOKING_TYPES_UI = [
   'lunch',
   'dinner',
   'drinks',
-] as const satisfies readonly BookingType[];
+] as const satisfies readonly OccasionKey[];
 
 export const BOOKING_STATUSES = [
   'pending',

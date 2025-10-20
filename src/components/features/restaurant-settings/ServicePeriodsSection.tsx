@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -13,9 +13,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { normalizeTime } from '@reserve/shared/time';
 
-import { useOpsServicePeriods, useOpsUpdateServicePeriods } from '@/hooks';
+import { useOpsOccasions, useOpsServicePeriods, useOpsUpdateServicePeriods } from '@/hooks';
 import type { ServicePeriodRow, ServicePeriodErrors } from './types';
-import { BOOKING_OPTION_CHOICES, DAY_OPTIONS } from './types';
+import { DAY_OPTIONS } from './types';
 
 type ServicePeriodsSectionProps = {
   restaurantId: string | null;
@@ -55,6 +55,11 @@ function toComparableTime(value: string | null | undefined): string | null {
 export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionProps) {
   const { data, error, isLoading } = useOpsServicePeriods(restaurantId);
   const updateMutation = useOpsUpdateServicePeriods(restaurantId);
+  const occasionQuery = useOpsOccasions();
+
+  const occasionOptions = useMemo(() => occasionQuery.data ?? [], [occasionQuery.data]);
+  const occasionKeySet = useMemo(() => new Set(occasionOptions.map((option) => option.key)), [occasionOptions]);
+  const defaultOccasionKey = occasionOptions[0]?.key ?? '';
 
   const [periodRows, setPeriodRows] = useState<ServicePeriodRow[]>([]);
   const [errors, setErrors] = useState<ServicePeriodErrors>([]);
@@ -88,6 +93,7 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
   }, []);
 
   const addPeriod = () => {
+    const fallbackOption = defaultOccasionKey;
     setPeriodRows((current) => [
       ...current,
       {
@@ -95,7 +101,7 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
         dayOfWeek: null,
         startTime: '17:00',
         endTime: '21:00',
-        bookingOption: 'dinner',
+        bookingOption: fallbackOption,
       },
     ]);
     setErrors((current) => [...current, {}]);
@@ -132,6 +138,8 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
       }
       if (!row.bookingOption) {
         err.bookingOption = 'Required';
+      } else if (!occasionKeySet.has(row.bookingOption)) {
+        err.bookingOption = 'Invalid';
       }
       if (!err.startTime && !err.endTime && startComparable && endComparable && startComparable >= endComparable) {
         err.endTime = 'Must be after start';
@@ -180,7 +188,7 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
       dayOfWeek: row.dayOfWeek,
       startTime: canonicalizeRequiredTime(row.startTime),
       endTime: canonicalizeRequiredTime(row.endTime),
-      bookingOption: row.bookingOption,
+      bookingOption: row.bookingOption?.trim() ?? '',
     }));
 
     try {
@@ -218,7 +226,10 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
     );
   }
 
-  if (error) {
+  const loadError = error ?? (occasionQuery.error ?? null);
+
+  if (loadError) {
+    const message = loadError instanceof Error ? loadError.message : 'Unable to load service periods';
     return (
       <Card>
         <CardHeader>
@@ -227,14 +238,15 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
         <CardContent>
           <Alert variant="destructive">
             <AlertTitle>Unable to load service periods</AlertTitle>
-            <AlertDescription>{error.message}</AlertDescription>
+            <AlertDescription>{message}</AlertDescription>
           </Alert>
         </CardContent>
       </Card>
     );
   }
 
-  if (isLoading && !data) {
+  const isCatalogueLoading = occasionQuery.isLoading && occasionOptions.length === 0;
+  if ((isLoading && !data) || isCatalogueLoading) {
     return (
       <Card>
         <CardHeader>
@@ -249,6 +261,7 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
   }
 
   const isDisabled = updateMutation.isPending;
+  const disableOccasionSelect = occasionQuery.isLoading || occasionOptions.length === 0;
 
   return (
     <Card>
@@ -260,7 +273,12 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
         {periodRows.length === 0 ? (
           <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border/60 bg-muted/20 px-6 py-10 text-center">
             <p className="text-sm text-muted-foreground">No service periods configured yet.</p>
-            <Button type="button" variant="outline" onClick={addPeriod} disabled={isDisabled}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={addPeriod}
+              disabled={isDisabled || occasionOptions.length === 0}
+            >
               <Plus className="mr-2 h-4 w-4" aria-hidden /> Add service period
             </Button>
           </div>
@@ -322,20 +340,29 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
                     {err.endTime && <p className="mt-1 text-xs text-destructive">{err.endTime}</p>}
                   </div>
                   <div>
-                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">Booking option</Label>
+                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">Occasion</Label>
                     <select
-                      value={row.bookingOption}
+                      value={row.bookingOption ?? ''}
                       onChange={(event) => handleChange(index, { bookingOption: event.target.value as ServicePeriodRow['bookingOption'] })}
-                      disabled={isDisabled}
+                      disabled={isDisabled || disableOccasionSelect}
                       className={cn('mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40', err.bookingOption && 'border-destructive')}
                     >
-                      {BOOKING_OPTION_CHOICES.map((choice) => (
-                        <option key={choice.value} value={choice.value}>
-                          {choice.label}
-                        </option>
-                      ))}
+                      {occasionOptions.length === 0 ? (
+                        <option value="">No occasions configured</option>
+                      ) : (
+                        occasionOptions.map((option) => (
+                          <option key={option.key} value={option.key}>
+                            {option.shortLabel ?? option.label}
+                          </option>
+                        ))
+                      )}
                     </select>
                     {err.bookingOption && <p className="mt-1 text-xs text-destructive">{err.bookingOption}</p>}
+                    {occasionOptions.length === 0 && !occasionQuery.isLoading ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Configure booking occasions in Ops to populate this list.
+                      </p>
+                    ) : null}
                   </div>
                   <div className="flex items-center justify-end">
                     <Button type="button" variant="ghost" size="icon" onClick={() => removePeriod(index)} disabled={isDisabled}>

@@ -59,6 +59,8 @@ describe('/api/restaurants/[slug]/schedule', () => {
       defaultDurationMinutes: 90,
       window: { opensAt: '12:00', closesAt: '22:00' },
       isClosed: false,
+      availableBookingOptions: ['lunch', 'dinner', 'drinks'],
+      occasionCatalog: [],
       slots: [],
     });
 
@@ -70,6 +72,7 @@ describe('/api/restaurants/[slug]/schedule', () => {
     expect(response.status).toBe(200);
     const json = await response.json();
     expect(json.restaurantId).toBe('rest-1');
+    expect(json.availableBookingOptions).toEqual(['lunch', 'dinner', 'drinks']);
     expect(getRestaurantScheduleMock).toHaveBeenCalledWith('rest-1', { date: '2025-05-08' });
   });
 });

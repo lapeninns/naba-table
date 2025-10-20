@@ -525,8 +525,15 @@ describe('/api/bookings/[id] PUT', () => {
     getRouteHandlerSupabaseClientMock.mockResolvedValue(createTenantSupabase());
     getServiceSupabaseClientMock.mockReturnValue(createServiceSupabase());
     getRestaurantScheduleMock.mockResolvedValue({
+      restaurantId: RESTAURANT_ID,
+      date: '2025-10-10',
+      timezone: 'UTC',
+      intervalMinutes: 15,
+      defaultDurationMinutes: 90,
       isClosed: false,
       window: { opensAt: '10:00', closesAt: '22:00' },
+      availableBookingOptions: [],
+      occasionCatalog: [],
       slots: [],
     });
     assertBookingWithinOperatingWindowMock.mockImplementation(() => {
@@ -565,8 +572,26 @@ describe('/api/bookings/[id] PUT', () => {
     getRouteHandlerSupabaseClientMock.mockResolvedValue(tenantSupabase);
     getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
     getRestaurantScheduleMock.mockResolvedValue({
+      restaurantId: RESTAURANT_ID,
+      date: '2025-10-10',
+      timezone: 'UTC',
+      intervalMinutes: 15,
+      defaultDurationMinutes: 90,
       isClosed: false,
       window: { opensAt: '10:00', closesAt: '22:00' },
+      occasionCatalog: [
+        {
+          key: 'dinner',
+          label: 'Dinner',
+          shortLabel: 'Dinner',
+          description: null,
+          availability: [],
+          defaultDurationMinutes: 120,
+          displayOrder: 20,
+          isActive: true,
+        },
+      ],
+      availableBookingOptions: ['dinner'],
       slots: [
         {
           value: '20:00',
@@ -576,7 +601,7 @@ describe('/api/bookings/[id] PUT', () => {
           bookingOption: 'dinner',
           defaultBookingOption: 'dinner',
           availability: {
-            services: { lunch: 'disabled', dinner: 'enabled', drinks: 'enabled' },
+            services: { lunch: 'disabled', dinner: 'enabled', drinks: 'disabled' },
             labels: {
               happyHour: false,
               drinksOnly: false,

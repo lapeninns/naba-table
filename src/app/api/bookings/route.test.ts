@@ -301,8 +301,15 @@ describe('/api/bookings POST', () => {
     getDefaultRestaurantIdMock.mockResolvedValue('rest-closed');
 
     getRestaurantScheduleMock.mockResolvedValue({
+      restaurantId: RESTAURANT_ID,
+      date: '2025-10-10',
+      timezone: 'UTC',
+      intervalMinutes: 15,
+      defaultDurationMinutes: 90,
       isClosed: false,
       window: { opensAt: '10:00', closesAt: '22:00' },
+      availableBookingOptions: [],
+      occasionCatalog: [],
       slots: [],
     });
     assertBookingWithinOperatingWindowMock.mockImplementation(() => {
@@ -367,8 +374,26 @@ describe('/api/bookings POST', () => {
     } as const;
 
     getRestaurantScheduleMock.mockResolvedValue({
+      restaurantId: RESTAURANT_ID,
+      date: '2025-10-10',
+      timezone: 'UTC',
+      intervalMinutes: 15,
+      defaultDurationMinutes: 90,
       isClosed: false,
       window: { opensAt: '10:00', closesAt: '22:00' },
+      availableBookingOptions: ['dinner'],
+      occasionCatalog: [
+        {
+          key: 'dinner',
+          label: 'Dinner',
+          shortLabel: 'Dinner',
+          description: null,
+          availability: [],
+          defaultDurationMinutes: 120,
+          displayOrder: 20,
+          isActive: true,
+        },
+      ],
       slots: [
         {
           value: '19:00',
@@ -378,7 +403,7 @@ describe('/api/bookings POST', () => {
           bookingOption: 'dinner',
           defaultBookingOption: 'dinner',
           availability: {
-            services: { lunch: 'disabled', dinner: 'enabled', drinks: 'enabled' },
+            services: { lunch: 'disabled', dinner: 'enabled', drinks: 'disabled' },
             labels: {
               happyHour: false,
               drinksOnly: false,

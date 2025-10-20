@@ -6,10 +6,19 @@ import { Form, FormField } from '@/components/ui/form';
 
 import { OccasionPicker } from '../OccasionPicker';
 
-function WrappedOccasionPicker() {
-  const form = useForm<{ bookingType: 'lunch' | 'dinner' | 'drinks' }>({
+import type { OccasionPickerOption } from '../OccasionPicker';
+import type { BookingOption } from '@reserve/shared/booking';
+
+function WrappedOccasionPicker({ availableOptions }: { availableOptions: BookingOption[] }) {
+  const form = useForm<{ bookingType: BookingOption }>({
     defaultValues: { bookingType: 'lunch' },
   });
+
+  const options: OccasionPickerOption[] = [
+    { key: 'lunch', label: 'Lunch' },
+    { key: 'dinner', label: 'Dinner' },
+    { key: 'drinks', label: 'Drinks & Cocktails' },
+  ];
 
   return (
     <Form {...form}>
@@ -19,7 +28,7 @@ function WrappedOccasionPicker() {
         render={({ field }) => (
           <OccasionPicker
             value={field.value}
-            order={['lunch', 'dinner', 'drinks']}
+            options={options}
             availability={{
               services: { lunch: 'enabled', dinner: 'enabled', drinks: 'enabled' },
               labels: {
@@ -30,6 +39,7 @@ function WrappedOccasionPicker() {
                 dinnerWindow: true,
               },
             }}
+            availableOptions={availableOptions}
             onChange={field.onChange}
           />
         )}
@@ -40,7 +50,7 @@ function WrappedOccasionPicker() {
 
 describe('OccasionPicker responsive layout', () => {
   it('uses responsive grid classes and 44px targets', () => {
-    render(<WrappedOccasionPicker />);
+    render(<WrappedOccasionPicker availableOptions={['lunch', 'dinner', 'drinks']} />);
 
     // Group uses grid-cols-2 on base and sm:grid-cols-3 on small+. We assert presence of className.
     const group = screen.getByRole('group');
@@ -50,5 +60,16 @@ describe('OccasionPicker responsive layout', () => {
     // Each item has h-11 (44px) height
     const item = screen.getByText('Lunch').closest('[data-state]');
     expect(item?.className).toMatch(/h-11/);
+  });
+
+  it('disables options that are not available for the selected date', () => {
+    render(<WrappedOccasionPicker availableOptions={['dinner']} />);
+    const lunchButton = screen.getByRole('radio', { name: 'Lunch' });
+    const drinksButton = screen.getByRole('radio', { name: /Drinks & Cocktails/i });
+    const dinnerButton = screen.getByRole('radio', { name: 'Dinner' });
+
+    expect(lunchButton).toBeDisabled();
+    expect(drinksButton).toBeDisabled();
+    expect(dinnerButton).toBeEnabled();
   });
 });

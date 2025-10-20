@@ -13,6 +13,7 @@ import {
 } from './timeSlots';
 
 import type { BookingOption } from '@reserve/shared/booking';
+import type { OccasionDefinition } from '@reserve/shared/occasions';
 
 export type UseTimeSlotsOptions = {
   restaurantSlug: string | null | undefined;
@@ -25,6 +26,8 @@ export type UseTimeSlotsResult = {
   serviceAvailability: ServiceAvailability;
   inferBookingOption: (time: string | null | undefined) => BookingOption;
   schedule: ReservationSchedule | null;
+  availableBookingOptions: BookingOption[];
+  occasionCatalog: OccasionDefinition[];
   isLoading: boolean;
   isError: boolean;
 };
@@ -72,20 +75,24 @@ export function useTimeSlots({
   }, [slots, normalizedSelectedTime]);
 
   const serviceAvailability = activeSlot?.availability ?? EMPTY_AVAILABILITY;
+  const fallbackBookingOption =
+    scheduleQuery.data?.availableBookingOptions[0] ??
+    activeSlot?.defaultBookingOption ??
+    DEFAULT_BOOKING_OPTION;
 
   const inferBookingOption = useCallback(
     (time: string | null | undefined): BookingOption => {
       const normalized = normalizeTime(time);
       if (!normalized) {
-        return activeSlot?.defaultBookingOption ?? DEFAULT_BOOKING_OPTION;
+        return activeSlot?.defaultBookingOption ?? fallbackBookingOption;
       }
       const slot = slots.find((entry) => entry.value === normalized);
       if (slot) {
         return slot.defaultBookingOption ?? slot.bookingOption;
       }
-      return activeSlot?.defaultBookingOption ?? DEFAULT_BOOKING_OPTION;
+      return activeSlot?.defaultBookingOption ?? fallbackBookingOption;
     },
-    [activeSlot, slots],
+    [activeSlot, slots, fallbackBookingOption],
   );
 
   return {
@@ -93,6 +100,8 @@ export function useTimeSlots({
     serviceAvailability,
     inferBookingOption,
     schedule: scheduleQuery.data ?? null,
+    availableBookingOptions: scheduleQuery.data?.availableBookingOptions ?? [],
+    occasionCatalog: scheduleQuery.data?.occasionCatalog ?? [],
     isLoading: scheduleQuery.isLoading,
     isError: scheduleQuery.isError,
   };

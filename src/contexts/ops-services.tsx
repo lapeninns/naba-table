@@ -24,6 +24,11 @@ import {
   type TableInventoryServiceFactory,
 } from '@/services/ops/tables';
 import { createCapacityService, type CapacityService, type CapacityServiceFactory } from '@/services/ops/capacity';
+import {
+  createOccasionService,
+  type OccasionService,
+  type OccasionServiceFactory,
+} from '@/services/ops/occasions';
 
 export type OpsServices = {
   bookingService: BookingService;
@@ -32,6 +37,7 @@ export type OpsServices = {
   customerService: CustomerService;
   tableInventoryService: TableInventoryService;
   capacityService: CapacityService;
+  occasionService: OccasionService;
 };
 
 type OpsServiceFactories = {
@@ -41,6 +47,7 @@ type OpsServiceFactories = {
   customerService?: CustomerServiceFactory;
   tableInventoryService?: TableInventoryServiceFactory;
   capacityService?: CapacityServiceFactory;
+  occasionService?: OccasionServiceFactory;
 };
 
 type OpsServicesProviderProps = {
@@ -59,6 +66,7 @@ export function OpsServicesProvider({ factories, children }: OpsServicesProvider
       customerService: createCustomerService(factories?.customerService),
       tableInventoryService: createTableInventoryService(factories?.tableInventoryService),
       capacityService: createCapacityService(factories?.capacityService),
+      occasionService: createOccasionService(factories?.occasionService),
     }),
     [
       factories?.bookingService,
@@ -67,6 +75,7 @@ export function OpsServicesProvider({ factories, children }: OpsServicesProvider
       factories?.customerService,
       factories?.tableInventoryService,
       factories?.capacityService,
+      factories?.occasionService,
     ],
   );
 
@@ -103,4 +112,8 @@ export function useTableInventoryService(): TableInventoryService {
 
 export function useCapacityService(): CapacityService {
   return useOpsServices().capacityService;
+}
+
+export function useOccasionService(): OccasionService {
+  return useOpsServices().occasionService;
 }

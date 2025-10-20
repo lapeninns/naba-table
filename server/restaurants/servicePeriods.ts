@@ -5,10 +5,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { canonicalTime, canonicalizeFromDb } from '@/server/restaurants/timeNormalization';
 import { getServiceSupabaseClient } from '@/server/supabase';
 import type { Database } from '@/types/supabase';
+import { getOccasionCatalog } from '@/server/occasions/catalog';
 
 type DbClient = SupabaseClient<Database, 'public', any>;
 
-export type BookingOption = 'lunch' | 'dinner' | 'drinks';
+export type BookingOption = string;
 
 export type ServicePeriod = {
   id: string;
@@ -28,8 +29,6 @@ export type UpdateServicePeriod = {
   bookingOption: BookingOption;
 };
 
-const BOOKING_OPTIONS = new Set<BookingOption>(['lunch', 'dinner', 'drinks']);
-
 function normalizeDayOfWeek(value: number | null | undefined): number | null {
   if (value === null || value === undefined) {
     return null;
@@ -44,14 +43,10 @@ function normalizeBookingOption(value: BookingOption | string | null | undefined
   if (!value) {
     throw new Error('bookingOption is required');
   }
-  const normalized = value.toLowerCase() as BookingOption;
-  if (!BOOKING_OPTIONS.has(normalized)) {
-    throw new Error(`Invalid booking option "${value}"`);
-  }
-  return normalized;
+  return value.toString().trim().toLowerCase();
 }
 
-function validateServicePeriod(entry: UpdateServicePeriod): ServicePeriod {
+function validateServicePeriod(entry: UpdateServicePeriod, validOptions: Set<string>): ServicePeriod {
   const name = entry.name.trim();
   if (!name) {
     throw new Error('Service period name is required');
@@ -61,6 +56,10 @@ function validateServicePeriod(entry: UpdateServicePeriod): ServicePeriod {
   const startTime = canonicalTime(entry.startTime, `Service period "${name}" startTime`);
   const endTime = canonicalTime(entry.endTime, `Service period "${name}" endTime`);
   const bookingOption = normalizeBookingOption(entry.bookingOption);
+
+  if (validOptions.size > 0 && !validOptions.has(bookingOption)) {
+    throw new Error(`Invalid booking option "${entry.bookingOption}"`);
+  }
 
   if (startTime >= endTime) {
     throw new Error(`Service period "${name}" must end after it starts`);
@@ -113,7 +112,10 @@ export async function updateServicePeriods(
   periods: UpdateServicePeriod[],
   client: DbClient = getServiceSupabaseClient(),
 ): Promise<ServicePeriod[]> {
-  const validated = periods.map((entry) => validateServicePeriod(entry));
+  const catalog = await getOccasionCatalog({ client });
+  const validOptions = new Set(catalog.definitions.map((definition) => definition.key.toLowerCase()));
+
+  const validated = periods.map((entry) => validateServicePeriod(entry, validOptions));
 
   // Prevent overlapping periods for the same day (including null day)
   const byDay = new Map<number | null, ServicePeriod[]>();

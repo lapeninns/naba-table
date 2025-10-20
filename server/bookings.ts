@@ -11,6 +11,7 @@ import {
   type BookingType,
   type SeatingPreference,
 } from "@/lib/enums";
+import { getCachedOccasionCatalog } from '@/server/occasions/catalog';
 import type { Database, Json, Tables, TablesInsert } from "@/types/supabase";
 import { generateBookingReference, generateUniqueBookingReference } from "./booking-reference";
 import {
@@ -178,7 +179,16 @@ export function minutesToTime(totalMinutes: number): string {
 }
 
 export function calculateDurationMinutes(bookingType: BookingType): number {
-  switch (bookingType) {
+  const normalized = bookingType?.toString().trim().toLowerCase();
+  if (normalized) {
+    const catalog = getCachedOccasionCatalog();
+    const definition = catalog.byKey.get(normalized);
+    if (definition) {
+      return definition.defaultDurationMinutes;
+    }
+  }
+
+  switch (normalized) {
     case "drinks":
       return 75;
     case "breakfast":

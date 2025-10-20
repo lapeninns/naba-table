@@ -1,9 +1,10 @@
 import type { BookingOption } from '@reserve/shared/booking';
+import type { OccasionDefinition, OccasionKey } from '@reserve/shared/occasions';
 
 export type ServiceState = 'enabled' | 'disabled';
 
 export type ServiceAvailability = {
-  services: Record<BookingOption, ServiceState>;
+  services: Record<OccasionKey, ServiceState>;
   labels: {
     happyHour: boolean;
     drinksOnly: boolean;
@@ -14,11 +15,7 @@ export type ServiceAvailability = {
 };
 
 export const EMPTY_AVAILABILITY: ServiceAvailability = {
-  services: {
-    lunch: 'disabled',
-    dinner: 'disabled',
-    drinks: 'disabled',
-  },
+  services: {},
   labels: {
     happyHour: false,
     drinksOnly: false,
@@ -50,13 +47,9 @@ export type ReservationSchedule = {
     closesAt: string | null;
   };
   isClosed: boolean;
+  availableBookingOptions: BookingOption[];
   slots: RawScheduleSlot[];
-};
-
-const DEFAULT_LABELS: Record<BookingOption, string> = {
-  lunch: 'Lunch',
-  dinner: 'Dinner',
-  drinks: 'Drinks & cocktails',
+  occasionCatalog: OccasionDefinition[];
 };
 
 export type TimeSlotDescriptor = {
@@ -71,10 +64,11 @@ export type TimeSlotDescriptor = {
 };
 
 export function toTimeSlotDescriptor(slot: RawScheduleSlot): TimeSlotDescriptor {
+  const trimmedPeriodName = slot.periodName?.trim() ?? '';
   const label =
-    slot.periodName?.trim() && slot.periodName.length > 0
-      ? slot.periodName
-      : (DEFAULT_LABELS[slot.bookingOption] ?? slot.bookingOption);
+    trimmedPeriodName.length > 0
+      ? trimmedPeriodName
+      : slot.bookingOption.replace(/\b\w/g, (char) => char.toUpperCase());
 
   return {
     value: slot.value,

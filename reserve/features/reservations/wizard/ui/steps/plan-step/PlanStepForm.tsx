@@ -19,14 +19,6 @@ import {
 import { usePlanStepForm } from '../../../hooks/usePlanStepForm';
 
 import type { PlanStepFormProps, PlanStepFormState } from './types';
-import type { PlanFormValues } from '../../../model/schemas';
-
-const SERVICE_ORDER: PlanFormValues['bookingType'][] = ['lunch', 'dinner', 'drinks'];
-const SERVICE_LABELS: Record<PlanFormValues['bookingType'], string> = {
-  lunch: 'Lunch',
-  dinner: 'Dinner',
-  drinks: 'Drinks & cocktails',
-};
 
 type PlanStepFormContentProps = {
   state: PlanStepFormState;
@@ -44,6 +36,27 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
   } = useController({ name: 'time', control });
   const bookingTypeValue = useWatch({ name: 'bookingType', control });
   const notesValue = useWatch({ name: 'notes', control });
+
+  const occasionOptions = React.useMemo(
+    () =>
+      state.occasionCatalog.map((definition) => ({
+        key: definition.key,
+        label: definition.shortLabel ?? definition.label,
+        description: definition.description ?? null,
+      })),
+    [state.occasionCatalog],
+  );
+
+  const selectedOccasionLabel = React.useMemo(() => {
+    const match = occasionOptions.find((option) => option.key === bookingTypeValue);
+    if (match) {
+      return match.label;
+    }
+    if (bookingTypeValue) {
+      return bookingTypeValue.replace(/\b\w/g, (char) => char.toUpperCase());
+    }
+    return undefined;
+  }, [bookingTypeValue, occasionOptions]);
 
   const isDateUnavailable = useCallback(
     (day: Date) => {
@@ -72,7 +85,7 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
       ? `Time: ${selectedSlot?.display ?? timeField.value}`
       : 'Time not selected';
 
-    const label = bookingTypeValue ? SERVICE_LABELS[bookingTypeValue] : undefined;
+    const label = selectedOccasionLabel;
     const hasNotes = Boolean(notesValue?.trim()?.length);
 
     const parts = [timeSummary];
@@ -90,7 +103,7 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
     }
 
     return parts.join(' • ');
-  }, [bookingTypeValue, notesValue, state.slots, timeField.value]);
+  }, [notesValue, selectedOccasionLabel, state.slots, timeField.value]);
 
   return (
     <form
@@ -122,7 +135,7 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
             error: timeFieldError?.message ?? formState.errors.time?.message,
           }}
           suggestions={state.slots}
-          intervalMinutes={state.intervalMinutes}
+          intervalMinutes={state.intervalMinutes ?? undefined}
           isDateUnavailable={isDateUnavailable}
           isTimeDisabled={timeDisabled}
           unavailableMessage={unavailableCopy ?? undefined}
@@ -181,9 +194,10 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
                 render={({ field }) => (
                   <OccasionPicker
                     value={field.value}
-                    order={SERVICE_ORDER}
+                    options={occasionOptions}
                     onChange={state.handlers.changeOccasion}
                     availability={state.availability}
+                    availableOptions={state.availableBookingOptions}
                     error={formState.errors.bookingType?.message}
                   />
                 )}
@@ -197,7 +211,10 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
                     value={field.value ?? ''}
                     onChange={(next) => {
                       field.onChange(next);
-                      state.handlers.changeNotes(next);
+                    }}
+                    onBlur={(next) => {
+                      field.onBlur();
+                      state.handlers.commitNotes(next);
                     }}
                     error={formState.errors.notes?.message}
                   />

@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tan
 import { fetchJson } from '@/lib/http/fetchJson';
 import { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
+import type { OccasionKey } from '@reserve/shared/occasions';
 
 export type ServicePeriod = {
   id: string;
@@ -12,7 +13,7 @@ export type ServicePeriod = {
   dayOfWeek: number | null;
   startTime: string;
   endTime: string;
-  bookingOption: 'lunch' | 'dinner' | 'drinks';
+  bookingOption: OccasionKey;
 };
 
 export type UpdateServicePeriodInput = {
@@ -21,7 +22,7 @@ export type UpdateServicePeriodInput = {
   dayOfWeek?: number | null;
   startTime: string;
   endTime: string;
-  bookingOption: 'lunch' | 'dinner' | 'drinks';
+  bookingOption: OccasionKey;
 };
 
 const DISABLED_KEY = ['owner', 'restaurants', 'disabled', 'service-periods'] as const;

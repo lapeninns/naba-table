@@ -39,6 +39,7 @@
     "test:e2e:update-snapshots": "PLAYWRIGHT_UPDATE_SNAPSHOTS=1 playwright test",
     "test:component": "playwright test -c playwright.component.config.ts",
     "test:report": "playwright show-report",
+    "email:check": "tsx scripts/email/check-resend-status.ts",
     "db:reset": "echo '🔄 Resetting remote database...' && source .env.local && psql \"$SUPABASE_DB_URL\" -v ON_ERROR_STOP=1 -f supabase/utilities/init-database.sql && psql \"$SUPABASE_DB_URL\" -v ON_ERROR_STOP=1 -f supabase/utilities/init-seeds.sql && echo '✅ Reset complete!'",
     "db:migrate": "echo '📊 Applying migrations to remote...' && source .env.local && psql \"$SUPABASE_DB_URL\" -v ON_ERROR_STOP=1 -f supabase/utilities/init-database.sql && echo '✅ Migrations applied!'",
     "db:seed-only": "echo '🌱 Seeding remote database...' && source .env.local && psql \"$SUPABASE_DB_URL\" -v ON_ERROR_STOP=1 -f supabase/utilities/init-seeds.sql && echo '✅ Seeds applied!'",

@@ -19,6 +19,8 @@ export type RestaurantDetailsFormValues = {
   contactPhone: string | null;
   address: string | null;
   bookingPolicy: string | null;
+  reservationIntervalMinutes: number;
+  reservationDefaultDurationMinutes: number;
 };
 
 export type RestaurantDetailsFormProps = PropsWithChildren<{
@@ -39,6 +41,8 @@ type FormState = {
   contactPhone: string;
   address: string;
   bookingPolicy: string;
+  reservationIntervalMinutes: string;
+  reservationDefaultDurationMinutes: string;
 };
 
 type FormErrors = Partial<Record<keyof FormState, string>>;
@@ -68,6 +72,14 @@ function mapInitialValues(values: RestaurantDetailsFormValues): FormState {
     contactPhone: values.contactPhone ?? '',
     address: values.address ?? '',
     bookingPolicy: values.bookingPolicy ?? '',
+    reservationIntervalMinutes:
+      values.reservationIntervalMinutes !== undefined && values.reservationIntervalMinutes !== null
+        ? String(values.reservationIntervalMinutes)
+        : '',
+    reservationDefaultDurationMinutes:
+      values.reservationDefaultDurationMinutes !== undefined && values.reservationDefaultDurationMinutes !== null
+        ? String(values.reservationDefaultDurationMinutes)
+        : '',
   };
 }
 
@@ -80,6 +92,8 @@ function sanitizePayload(state: FormState): UpdateRestaurantInput {
   const trimmedPhone = trim(state.contactPhone);
   const trimmedAddress = trim(state.address);
   const trimmedPolicy = trim(state.bookingPolicy);
+  const intervalMinutes = Number.parseInt(state.reservationIntervalMinutes, 10);
+  const defaultDurationMinutes = Number.parseInt(state.reservationDefaultDurationMinutes, 10);
 
   return {
     name: trimmedName,
@@ -90,6 +104,8 @@ function sanitizePayload(state: FormState): UpdateRestaurantInput {
     contactPhone: trimmedPhone.length > 0 ? trimmedPhone : null,
     address: trimmedAddress.length > 0 ? trimmedAddress : null,
     bookingPolicy: trimmedPolicy.length > 0 ? trimmedPolicy : null,
+    reservationIntervalMinutes: intervalMinutes,
+    reservationDefaultDurationMinutes: defaultDurationMinutes,
   };
 }
 
@@ -117,6 +133,30 @@ function validate(state: FormState): FormErrors {
       errors.capacity = 'Capacity must be a number';
     } else if (numericCapacity <= 0) {
       errors.capacity = 'Capacity must be positive';
+    }
+  }
+
+  const intervalRaw = state.reservationIntervalMinutes.trim();
+  if (!intervalRaw) {
+    errors.reservationIntervalMinutes = 'Reservation interval is required';
+  } else {
+    const intervalValue = Number(intervalRaw);
+    if (!Number.isInteger(intervalValue)) {
+      errors.reservationIntervalMinutes = 'Must be a whole number';
+    } else if (intervalValue < 1 || intervalValue > 180) {
+      errors.reservationIntervalMinutes = 'Must be between 1 and 180 minutes';
+    }
+  }
+
+  const durationRaw = state.reservationDefaultDurationMinutes.trim();
+  if (!durationRaw) {
+    errors.reservationDefaultDurationMinutes = 'Reservation duration is required';
+  } else {
+    const durationValue = Number(durationRaw);
+    if (!Number.isInteger(durationValue)) {
+      errors.reservationDefaultDurationMinutes = 'Must be a whole number';
+    } else if (durationValue < 15 || durationValue > 300) {
+      errors.reservationDefaultDurationMinutes = 'Must be between 15 and 300 minutes';
     }
   }
 
@@ -266,6 +306,73 @@ export function RestaurantDetailsForm({
         </div>
 
         <div className="space-y-1.5">
+          <Label htmlFor="restaurant-interval">
+            Reservation Interval (minutes) <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id="restaurant-interval"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={180}
+            step={1}
+            value={state.reservationIntervalMinutes}
+            onChange={(event) => handleChange('reservationIntervalMinutes', event.target.value)}
+            aria-invalid={Boolean(errors.reservationIntervalMinutes)}
+            aria-describedby={
+              errors.reservationIntervalMinutes
+                ? 'restaurant-interval-error'
+                : 'restaurant-interval-help'
+            }
+            className={cn(
+              errors.reservationIntervalMinutes && 'border-destructive focus-visible:ring-destructive/60',
+            )}
+          />
+          <p id="restaurant-interval-help" className="text-xs text-muted-foreground">
+            Controls slot spacing; must be between 1 and 180 minutes.
+          </p>
+          {errors.reservationIntervalMinutes && (
+            <p id="restaurant-interval-error" className="text-xs text-destructive" role="alert">
+              {errors.reservationIntervalMinutes}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="restaurant-duration">
+            Default Reservation Duration (minutes) <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id="restaurant-duration"
+            type="number"
+            inputMode="numeric"
+            min={15}
+            max={300}
+            step={1}
+            value={state.reservationDefaultDurationMinutes}
+            onChange={(event) => handleChange('reservationDefaultDurationMinutes', event.target.value)}
+            aria-invalid={Boolean(errors.reservationDefaultDurationMinutes)}
+            aria-describedby={
+              errors.reservationDefaultDurationMinutes
+                ? 'restaurant-duration-error'
+                : 'restaurant-duration-help'
+            }
+            className={cn(
+              errors.reservationDefaultDurationMinutes &&
+                'border-destructive focus-visible:ring-destructive/60',
+            )}
+          />
+          <p id="restaurant-duration-help" className="text-xs text-muted-foreground">
+            Default booking length; must be between 15 and 300 minutes.
+          </p>
+          {errors.reservationDefaultDurationMinutes && (
+            <p id="restaurant-duration-error" className="text-xs text-destructive" role="alert">
+              {errors.reservationDefaultDurationMinutes}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-1.5">
           <Label htmlFor="restaurant-email">Contact Email</Label>
           <Input
             id="restaurant-email"
@@ -336,4 +443,3 @@ export function RestaurantDetailsForm({
     </form>
   );
 }
-

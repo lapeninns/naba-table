@@ -3,6 +3,7 @@
  * Story 2: Service Layer Types
  */
 
+import type { BookingType } from "@/lib/enums";
 import type { Database } from "@/types/supabase";
 
 // =====================================================
@@ -66,7 +67,7 @@ export type CreateBookingParams = {
   startTime: string; // HH:MM
   endTime: string; // HH:MM
   partySize: number;
-  bookingType: Database["public"]["Enums"]["booking_type"];
+  bookingType: BookingType;
   customerName: string;
   customerEmail: string;
   customerPhone: string;

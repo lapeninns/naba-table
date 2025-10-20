@@ -21,6 +21,39 @@ const scheduleFixture = {
   defaultDurationMinutes: 90,
   window: { opensAt: '12:00', closesAt: '22:00' },
   isClosed: false,
+  availableBookingOptions: ['lunch', 'dinner', 'drinks'],
+  occasionCatalog: [
+    {
+      key: 'lunch',
+      label: 'Lunch',
+      shortLabel: 'Lunch',
+      description: null,
+      availability: [],
+      defaultDurationMinutes: 90,
+      displayOrder: 10,
+      isActive: true,
+    },
+    {
+      key: 'dinner',
+      label: 'Dinner',
+      shortLabel: 'Dinner',
+      description: null,
+      availability: [],
+      defaultDurationMinutes: 120,
+      displayOrder: 20,
+      isActive: true,
+    },
+    {
+      key: 'drinks',
+      label: 'Drinks & Cocktails',
+      shortLabel: 'Drinks',
+      description: 'Cocktail-focused service.',
+      availability: [],
+      defaultDurationMinutes: 75,
+      displayOrder: 30,
+      isActive: true,
+    },
+  ],
   slots: [
     {
       value: '12:00',
@@ -30,7 +63,7 @@ const scheduleFixture = {
       bookingOption: 'lunch',
       defaultBookingOption: 'lunch',
       availability: {
-        services: { lunch: 'enabled', dinner: 'disabled', drinks: 'enabled' },
+        services: { lunch: 'enabled', dinner: 'disabled', drinks: 'disabled' },
         labels: {
           happyHour: false,
           drinksOnly: false,
@@ -104,8 +137,11 @@ describe('useTimeSlots hook', () => {
     });
 
     expect(result.current.slots[0]?.label).toBe('Lunch');
+    expect(result.current.availableBookingOptions).toEqual(['lunch', 'dinner', 'drinks']);
     expect(result.current.serviceAvailability.services.lunch).toBe('enabled');
+    expect(result.current.serviceAvailability.services.drinks).toBe('disabled');
     expect(result.current.inferBookingOption('21:00')).toBe('drinks');
+    expect(result.current.occasionCatalog).toHaveLength(3);
 
     rerender({ selectedTime: '21:00' });
 
@@ -127,7 +163,7 @@ describe('useTimeSlots hook', () => {
     );
 
     expect(result.current.slots).toHaveLength(0);
-    expect(result.current.serviceAvailability.services.lunch).toBe('disabled');
+    expect(result.current.serviceAvailability.services.lunch).toBeUndefined();
     expect(getMock).not.toHaveBeenCalled();
   });
 });

@@ -23,6 +23,8 @@ const EMPTY_VALUES: RestaurantDetailsFormValues = {
   contactPhone: null,
   address: null,
   bookingPolicy: null,
+  reservationIntervalMinutes: 15,
+  reservationDefaultDurationMinutes: 90,
 };
 
 type RestaurantProfileSectionProps = {
@@ -47,6 +49,8 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
       contactPhone: data.contactPhone,
       address: data.address,
       bookingPolicy: data.bookingPolicy,
+      reservationIntervalMinutes: data.reservationIntervalMinutes,
+      reservationDefaultDurationMinutes: data.reservationDefaultDurationMinutes,
     };
   }, [data]);
 
@@ -61,6 +65,8 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
         contactPhone: values.contactPhone ?? null,
         address: values.address ?? null,
         bookingPolicy: values.bookingPolicy ?? null,
+        reservationIntervalMinutes: values.reservationIntervalMinutes,
+        reservationDefaultDurationMinutes: values.reservationDefaultDurationMinutes,
       });
       toast.success('Restaurant details updated');
     } catch (submitError) {

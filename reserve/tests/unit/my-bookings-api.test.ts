@@ -150,6 +150,8 @@ describe('GET /api/bookings?me=1', () => {
           endIso: '2025-01-15T20:00:00.000Z',
           status: 'confirmed',
           notes: 'Anniversary dinner',
+          customerName: null,
+          customerEmail: null,
         },
         {
           id: 'booking-2',
@@ -159,6 +161,8 @@ describe('GET /api/bookings?me=1', () => {
           endIso: '2025-01-20T13:30:00.000Z',
           status: 'pending',
           notes: 'Lunch meeting',
+          customerName: null,
+          customerEmail: null,
         },
       ],
       pageInfo: {

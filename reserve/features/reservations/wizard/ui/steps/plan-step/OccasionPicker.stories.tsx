@@ -2,8 +2,8 @@ import { expect, fn, userEvent, within } from '@storybook/test';
 
 import { OccasionPicker } from './components/OccasionPicker';
 
+import type { OccasionPickerOption } from './components/OccasionPicker';
 import type { ServiceAvailability } from '@reserve/features/reservations/wizard/services';
-import type { BookingOption } from '@reserve/shared/booking';
 import type { Meta, StoryObj } from '@storybook/react';
 
 const availability: ServiceAvailability = {
@@ -20,7 +20,11 @@ const availability: ServiceAvailability = {
     dinnerWindow: false,
   },
 };
-const ORDER: BookingOption[] = ['lunch', 'dinner', 'drinks'];
+const OPTIONS: OccasionPickerOption[] = [
+  { key: 'lunch', label: 'Lunch' },
+  { key: 'dinner', label: 'Dinner' },
+  { key: 'drinks', label: 'Drinks' },
+];
 
 const meta = {
   title: 'Reserve/Wizard/PlanStep/OccasionPicker',
@@ -28,8 +32,9 @@ const meta = {
   parameters: { layout: 'centered' },
   args: {
     value: 'dinner',
-    order: ORDER,
+    options: OPTIONS,
     availability,
+    availableOptions: OPTIONS.map((option) => option.key),
     onChange: fn(),
   },
 } satisfies Meta<typeof OccasionPicker>;
@@ -41,7 +46,7 @@ type Story = StoryObj<typeof OccasionPicker>;
 export const Default: Story = {
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    const drinksToggle = await canvas.findByRole('button', { name: /Drinks & cocktails/i });
+    const drinksToggle = await canvas.findByRole('button', { name: /Drinks/i });
     await userEvent.click(drinksToggle);
     expect(args.onChange).toHaveBeenCalled();
   },

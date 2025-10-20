@@ -13,7 +13,7 @@ const baseAvailability: ServiceAvailability = {
   services: {
     lunch: 'disabled',
     dinner: 'enabled',
-    drinks: 'enabled',
+    drinks: 'disabled',
   },
   labels: {
     happyHour: false,

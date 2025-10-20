@@ -1,6 +1,7 @@
 import { fetchJson } from '@/lib/http/fetchJson';
 import type { RestaurantRole } from '@/lib/owner/auth/roles';
 import type { OpsRestaurantOption, OpsServiceError } from '@/types/ops';
+import type { OccasionKey } from '@reserve/shared/occasions';
 
 const OPS_RESTAURANTS_BASE = '/api/ops/restaurants';
 const OWNER_RESTAURANTS_BASE = '/api/owner/restaurants';
@@ -39,6 +40,8 @@ type RestaurantResponse = {
     contactPhone: string | null;
     address: string | null;
     bookingPolicy: string | null;
+    reservationIntervalMinutes: number | null;
+    reservationDefaultDurationMinutes: number | null;
     createdAt: string;
     updatedAt: string;
     role: RestaurantRole;
@@ -60,6 +63,8 @@ export type RestaurantProfile = {
   contactPhone: string | null;
   address: string | null;
   bookingPolicy: string | null;
+  reservationIntervalMinutes: number;
+  reservationDefaultDurationMinutes: number;
 };
 
 export type OperatingHoursRow = {
@@ -90,7 +95,7 @@ export type ServicePeriodRow = {
   dayOfWeek: number | null;
   startTime: string;
   endTime: string;
-  bookingOption: 'lunch' | 'dinner' | 'drinks';
+  bookingOption: OccasionKey;
 };
 
 export interface RestaurantService {
@@ -163,6 +168,8 @@ function mapRestaurant(dto: RestaurantResponse['restaurant']): RestaurantProfile
     contactPhone: dto.contactPhone ?? null,
     address: dto.address ?? null,
     bookingPolicy: dto.bookingPolicy ?? null,
+    reservationIntervalMinutes: dto.reservationIntervalMinutes ?? 15,
+    reservationDefaultDurationMinutes: dto.reservationDefaultDurationMinutes ?? 90,
   };
 }
 

@@ -21,6 +21,7 @@ export default defineConfig({
       "tests/server/**/*.test.ts",
       "tests/emails/**/*.test.ts",
       "tests/ops/**/*.test.tsx",
+      "tests/scripts/**/*.test.ts",
       "app/api/**/*.test.ts",
       "src/app/api/**/*.test.ts",
     ],

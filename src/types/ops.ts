@@ -1,5 +1,6 @@
 import type { RestaurantRole } from '@/lib/owner/auth/roles';
 import type { HttpError } from '@/lib/http/errors';
+import type { OccasionKey } from '@reserve/shared/occasions';
 
 export type OpsUser = {
   id: string;
@@ -120,7 +121,7 @@ export type OpsWalkInBookingPayload = {
   date: string;
   time: string;
   party: number;
-  bookingType: 'breakfast' | 'lunch' | 'dinner' | 'drinks';
+  bookingType: OccasionKey;
   seating: string;
   notes?: string | null;
   name: string;

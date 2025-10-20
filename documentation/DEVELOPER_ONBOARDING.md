@@ -111,6 +111,12 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 
 # Email (Resend) - Optional for local dev
 RESEND_API_KEY=your-resend-key
+RESEND_FROM=noreply@your-domain.com
+NEXT_PUBLIC_SUPPORT_EMAIL=support@your-domain.com
+SUPPORT_FORWARD_EMAIL=ops@your-domain.com
+
+# Email diagnostics
+# pnpm email:check --to you@example.com
 
 # Rate Limiting (Upstash Redis) - Optional for local dev
 UPSTASH_REDIS_REST_URL=your-redis-url
@@ -120,6 +126,8 @@ UPSTASH_REDIS_REST_TOKEN=your-redis-token
 NEXT_PUBLIC_FEATURE_PAST_TIME_BLOCKING=true
 NEXT_PUBLIC_FEATURE_PAST_TIME_GRACE_MINUTES=15
 ```
+
+After configuring Resend, run `pnpm email:check --to <your inbox>` to confirm the domain shows as verified and that recent booking emails appear as delivered.
 
 **Getting Supabase Credentials:**
 

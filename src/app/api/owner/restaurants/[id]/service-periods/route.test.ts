@@ -7,6 +7,7 @@ const getServicePeriodsMock = vi.fn();
 const updateServicePeriodsMock = vi.fn();
 const getUserMock = vi.fn();
 const requireAdminMembershipMock = vi.fn();
+const getOccasionCatalogMock = vi.fn();
 
 vi.mock('@/server/restaurants/servicePeriods', () => ({
   getServicePeriods: (...args: unknown[]) => getServicePeriodsMock(...args),
@@ -25,7 +26,93 @@ vi.mock('@/server/team/access', () => ({
   requireAdminMembership: (...args: unknown[]) => requireAdminMembershipMock(...args),
 }));
 
+vi.mock('@/server/occasions/catalog', () => ({
+  getOccasionCatalog: (...args: unknown[]) => getOccasionCatalogMock(...args),
+}));
+
+const defaultCatalog = {
+  definitions: [
+    {
+      key: 'lunch',
+      label: 'Lunch',
+      shortLabel: 'Lunch',
+      description: null,
+      availability: [],
+      defaultDurationMinutes: 90,
+      displayOrder: 10,
+      isActive: true,
+    },
+    {
+      key: 'dinner',
+      label: 'Dinner',
+      shortLabel: 'Dinner',
+      description: null,
+      availability: [],
+      defaultDurationMinutes: 120,
+      displayOrder: 20,
+      isActive: true,
+    },
+    {
+      key: 'drinks',
+      label: 'Drinks',
+      shortLabel: 'Drinks',
+      description: null,
+      availability: [],
+      defaultDurationMinutes: 75,
+      displayOrder: 30,
+      isActive: true,
+    },
+  ],
+  orderedKeys: ['lunch', 'dinner', 'drinks'],
+  byKey: new Map([
+    [
+      'lunch',
+      {
+        key: 'lunch',
+        label: 'Lunch',
+        shortLabel: 'Lunch',
+        description: null,
+        availability: [],
+        defaultDurationMinutes: 90,
+        displayOrder: 10,
+        isActive: true,
+      },
+    ],
+    [
+      'dinner',
+      {
+        key: 'dinner',
+        label: 'Dinner',
+        shortLabel: 'Dinner',
+        description: null,
+        availability: [],
+        defaultDurationMinutes: 120,
+        displayOrder: 20,
+        isActive: true,
+      },
+    ],
+    [
+      'drinks',
+      {
+        key: 'drinks',
+        label: 'Drinks',
+        shortLabel: 'Drinks',
+        description: null,
+        availability: [],
+        defaultDurationMinutes: 75,
+        displayOrder: 30,
+        isActive: true,
+      },
+    ],
+  ]),
+};
+
 describe('/api/owner/restaurants/[id]/service-periods', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getOccasionCatalogMock.mockResolvedValue(defaultCatalog);
+  });
+
   afterEach(() => {
     vi.clearAllMocks();
   });
@@ -41,6 +128,83 @@ describe('/api/owner/restaurants/[id]/service-periods', () => {
   });
 
   it('returns service periods on GET', async () => {
+      definitions: [
+        {
+          key: 'lunch',
+          label: 'Lunch',
+          shortLabel: 'Lunch',
+          description: null,
+          availability: [],
+          defaultDurationMinutes: 90,
+          displayOrder: 10,
+          isActive: true,
+        },
+        {
+          key: 'dinner',
+          label: 'Dinner',
+          shortLabel: 'Dinner',
+          description: null,
+          availability: [],
+          defaultDurationMinutes: 120,
+          displayOrder: 20,
+          isActive: true,
+        },
+        {
+          key: 'drinks',
+          label: 'Drinks',
+          shortLabel: 'Drinks',
+          description: null,
+          availability: [],
+          defaultDurationMinutes: 75,
+          displayOrder: 30,
+          isActive: true,
+        },
+      ],
+      orderedKeys: ['lunch', 'dinner', 'drinks'],
+      byKey: new Map([
+        [
+          'lunch',
+          {
+            key: 'lunch',
+            label: 'Lunch',
+            shortLabel: 'Lunch',
+            description: null,
+            availability: [],
+            defaultDurationMinutes: 90,
+            displayOrder: 10,
+            isActive: true,
+          },
+        ],
+        [
+          'dinner',
+          {
+            key: 'dinner',
+            label: 'Dinner',
+            shortLabel: 'Dinner',
+            description: null,
+            availability: [],
+            defaultDurationMinutes: 120,
+            displayOrder: 20,
+            isActive: true,
+          },
+        ],
+        [
+          'drinks',
+          {
+            key: 'drinks',
+            label: 'Drinks',
+            shortLabel: 'Drinks',
+            description: null,
+            availability: [],
+            defaultDurationMinutes: 75,
+            displayOrder: 30,
+            isActive: true,
+          },
+        ],
+      ]),
+    });
+  });
+
     getUserMock.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
     requireAdminMembershipMock.mockResolvedValue(undefined);
     getServicePeriodsMock.mockResolvedValue([
@@ -132,3 +296,32 @@ describe('/api/owner/restaurants/[id]/service-periods', () => {
     ]);
   });
 });
+  it('rejects unknown occasions on PUT', async () => {
+    getUserMock.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
+    requireAdminMembershipMock.mockResolvedValue(undefined);
+
+    const request = new NextRequest('http://localhost', {
+      method: 'PUT',
+      body: JSON.stringify([
+        {
+          name: 'Festive Night',
+          dayOfWeek: 5,
+          startTime: '18:00:00',
+          endTime: '22:00:00',
+          bookingOption: 'holiday_bash',
+        },
+      ]),
+      headers: { 'Content-Type': 'application/json' },
+      // @ts-expect-error Node fetch requires duplex for request bodies
+      duplex: 'half',
+    });
+
+    const response = await PUT(request, {
+      params: Promise.resolve({ id: 'rest-1' }),
+    });
+
+    expect(response.status).toBe(400);
+    const json = await response.json();
+    expect(json.error).toContain('holiday_bash');
+    expect(updateServicePeriodsMock).not.toHaveBeenCalled();
+  });

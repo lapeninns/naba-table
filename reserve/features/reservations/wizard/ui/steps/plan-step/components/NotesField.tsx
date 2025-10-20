@@ -11,10 +11,11 @@ const MAX_LENGTH = 500;
 export type NotesFieldProps = {
   value: string;
   onChange: (value: string) => void;
+  onBlur?: (value: string) => void;
   error?: string;
 };
 
-export function NotesField({ value, onChange, error }: NotesFieldProps) {
+export function NotesField({ value, onChange, onBlur, error }: NotesFieldProps) {
   const lengthLabel = useMemo(() => `${value.length} / ${MAX_LENGTH}`, [value.length]);
 
   return (
@@ -26,6 +27,9 @@ export function NotesField({ value, onChange, error }: NotesFieldProps) {
           placeholder="Birthday, accessibility needs, allergies…"
           value={value}
           onChange={(event) => onChange(event.target.value)}
+          onBlur={(event) => {
+            onBlur?.(event.target.value);
+          }}
           rows={4}
           spellCheck
         />

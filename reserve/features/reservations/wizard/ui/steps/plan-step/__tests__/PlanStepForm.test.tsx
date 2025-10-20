@@ -25,6 +25,39 @@ const scheduleFixture = {
   defaultDurationMinutes: 90,
   window: { opensAt: '12:00', closesAt: '22:00' },
   isClosed: false,
+  availableBookingOptions: ['lunch', 'dinner', 'drinks'],
+  occasionCatalog: [
+    {
+      key: 'lunch',
+      label: 'Lunch',
+      shortLabel: 'Lunch',
+      description: null,
+      availability: [],
+      defaultDurationMinutes: 90,
+      displayOrder: 10,
+      isActive: true,
+    },
+    {
+      key: 'dinner',
+      label: 'Dinner',
+      shortLabel: 'Dinner',
+      description: null,
+      availability: [],
+      defaultDurationMinutes: 120,
+      displayOrder: 20,
+      isActive: true,
+    },
+    {
+      key: 'drinks',
+      label: 'Drinks & Cocktails',
+      shortLabel: 'Drinks',
+      description: 'Signature cocktails and bar snacks.',
+      availability: [],
+      defaultDurationMinutes: 75,
+      displayOrder: 30,
+      isActive: true,
+    },
+  ],
   slots: [
     {
       value: '12:00',
@@ -34,7 +67,7 @@ const scheduleFixture = {
       bookingOption: 'lunch',
       defaultBookingOption: 'lunch',
       availability: {
-        services: { lunch: 'enabled', dinner: 'disabled', drinks: 'enabled' },
+        services: { lunch: 'enabled', dinner: 'disabled', drinks: 'disabled' },
         labels: {
           happyHour: false,
           drinksOnly: false,
@@ -60,6 +93,25 @@ const scheduleFixture = {
           kitchenClosed: false,
           lunchWindow: false,
           dinnerWindow: true,
+        },
+      },
+      disabled: false,
+    },
+    {
+      value: '21:00',
+      display: '21:00',
+      periodId: 'sp-drinks',
+      periodName: 'Late drinks',
+      bookingOption: 'drinks',
+      defaultBookingOption: 'drinks',
+      availability: {
+        services: { lunch: 'disabled', dinner: 'disabled', drinks: 'enabled' },
+        labels: {
+          happyHour: false,
+          drinksOnly: true,
+          kitchenClosed: true,
+          lunchWindow: false,
+          dinnerWindow: false,
         },
       },
       disabled: false,
@@ -128,7 +180,7 @@ describe('<PlanStepForm />', () => {
     // The button click updates bookingType based on the time slot selected
     expect(updateDetails).toHaveBeenCalledWith('bookingType', 'dinner');
 
-    const drinksButton = await screen.findByText('Drinks & cocktails');
+    const drinksButton = await screen.findByText('Drinks');
     await user.click(drinksButton);
 
     expect(updateDetails).toHaveBeenCalledWith('bookingType', 'drinks');
@@ -182,6 +234,8 @@ describe('<PlanStepForm />', () => {
           ...scheduleFixture,
           date: '2025-05-11',
           isClosed: true,
+          availableBookingOptions: [],
+          occasionCatalog: [],
           slots: [],
         });
       }

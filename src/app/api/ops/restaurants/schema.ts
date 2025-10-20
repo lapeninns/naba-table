@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SLUG_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+const INTERVAL_SCHEMA = z.number().int().min(1).max(180);
+const DURATION_SCHEMA = z.number().int().min(15).max(300);
 
 export const listRestaurantsQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -48,6 +50,8 @@ export const createRestaurantSchema = z.object({
     .nullable()
     .optional()
     .transform((val) => val || null),
+  reservationIntervalMinutes: INTERVAL_SCHEMA.optional(),
+  reservationDefaultDurationMinutes: DURATION_SCHEMA.optional(),
 });
 
 export type CreateRestaurantInput = z.infer<typeof createRestaurantSchema>;
@@ -88,6 +92,8 @@ export const updateRestaurantSchema = z.object({
     .nullable()
     .optional()
     .transform((val) => val || null),
+  reservationIntervalMinutes: INTERVAL_SCHEMA.optional(),
+  reservationDefaultDurationMinutes: DURATION_SCHEMA.optional(),
 });
 
 export type UpdateRestaurantInput = z.infer<typeof updateRestaurantSchema>;
@@ -102,6 +108,8 @@ export type RestaurantDTO = {
   contactPhone: string | null;
   address: string | null;
   bookingPolicy: string | null;
+  reservationIntervalMinutes: number;
+  reservationDefaultDurationMinutes: number;
   createdAt: string;
   updatedAt: string;
   role: 'owner' | 'admin' | 'staff' | 'viewer';

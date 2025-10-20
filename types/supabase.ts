@@ -608,11 +608,50 @@ export type Database = {
           },
         ]
       }
+      booking_occasions: {
+        Row: {
+          availability: Json
+          created_at: string
+          default_duration_minutes: number
+          description: string | null
+          display_order: number
+          is_active: boolean
+          key: string
+          label: string
+          short_label: string
+          updated_at: string
+        }
+        Insert: {
+          availability?: Json
+          created_at?: string
+          default_duration_minutes?: number
+          description?: string | null
+          display_order?: number
+          is_active?: boolean
+          key: string
+          label: string
+          short_label: string
+          updated_at?: string
+        }
+        Update: {
+          availability?: Json
+          created_at?: string
+          default_duration_minutes?: number
+          description?: string | null
+          display_order?: number
+          is_active?: boolean
+          key?: string
+          label?: string
+          short_label?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       bookings: {
         Row: {
           auth_user_id: string | null
           booking_date: string
-          booking_type: Database["public"]["Enums"]["booking_type"]
+          booking_type: string
           client_request_id: string
           checked_in_at: string | null
           checked_out_at: string | null
@@ -645,7 +684,7 @@ export type Database = {
         Insert: {
           auth_user_id?: string | null
           booking_date: string
-          booking_type?: Database["public"]["Enums"]["booking_type"]
+          booking_type?: string
           client_request_id?: string
           checked_in_at?: string | null
           checked_out_at?: string | null
@@ -678,7 +717,7 @@ export type Database = {
         Update: {
           auth_user_id?: string | null
           booking_date?: string
-          booking_type?: Database["public"]["Enums"]["booking_type"]
+          booking_type?: string
           client_request_id?: string
           checked_in_at?: string | null
           checked_out_at?: string | null
@@ -1325,6 +1364,13 @@ export type Database = {
             referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "restaurant_service_periods_booking_option_fkey"
+            columns: ["booking_option"]
+            isOneToOne: false
+            referencedRelation: "booking_occasions"
+            referencedColumns: ["key"]
+          },
         ]
       }
       restaurants: {
@@ -1893,7 +1939,6 @@ export type Database = {
         | "completed"
         | "no_show"
         | "pending_allocation"
-      booking_type: "breakfast" | "lunch" | "dinner" | "drinks"
       capacity_override_type: "holiday" | "event" | "manual" | "emergency"
       loyalty_tier: "bronze" | "silver" | "gold" | "platinum"
       seating_preference_type:
@@ -2054,7 +2099,6 @@ export const Constants = {
         "no_show",
         "pending_allocation",
       ],
-      booking_type: ["breakfast", "lunch", "dinner", "drinks"],
       capacity_override_type: ["holiday", "event", "manual", "emergency"],
       loyalty_tier: ["bronze", "silver", "gold", "platinum"],
       seating_preference_type: [

@@ -1,7 +1,6 @@
 import { z } from 'zod';
 
 import { isEmail, isUKPhone } from '@reserve/shared/validation';
-import { BOOKING_TYPES_UI } from '@shared/config/booking';
 
 import type { BookingWizardMode } from './reducer';
 import type { BookingOption } from '@reserve/shared/booking';
@@ -23,7 +22,7 @@ export const planFormSchema = z.object({
     .number()
     .min(1, { message: 'Minimum of one guest required.' })
     .max(12, { message: 'We can accommodate up to 12 guests online.' }),
-  bookingType: z.enum(BOOKING_TYPES_UI),
+  bookingType: z.string().min(1, { message: 'Please select an occasion.' }),
   notes: z.string().max(500, { message: 'Notes must be 500 characters or fewer.' }).optional(),
 });
 

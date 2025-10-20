@@ -14,7 +14,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase";
 import { getServiceSupabaseClient } from "@/server/supabase";
 import { recordObservabilityEvent } from "@/server/observability";
-import type { CreateBookingParams, BookingResult, RpcBookingResponse, RetryConfig } from "./types";
+import type { CreateBookingParams, BookingResult, BookingErrorDetails, RpcBookingResponse, RetryConfig } from "./types";
 import { CapacityError, CapacityExceededError, BookingConflictError, DEFAULT_RETRY_CONFIG } from "./types";
 import { recordCapacityMetric } from "./metrics";
 
@@ -131,6 +131,34 @@ function isRetryableError(error: any): boolean {
   ];
 
   return retryablePatterns.some((pattern) => message.includes(pattern));
+}
+
+function normalizeRpcDetails(response: RpcBookingResponse): BookingErrorDetails | undefined {
+  const existing = response.details as BookingErrorDetails | undefined;
+  if (existing && Object.keys(existing).length > 0) {
+    return existing;
+  }
+
+  const legacySource = response as Record<string, unknown>;
+  const legacy: BookingErrorDetails = {};
+
+  if (typeof legacySource["sqlstate"] === "string" && legacySource["sqlstate"]) {
+    legacy.sqlstate = legacySource["sqlstate"] as string;
+  }
+
+  if (typeof legacySource["sqlerrm"] === "string" && legacySource["sqlerrm"]) {
+    legacy.sqlerrm = legacySource["sqlerrm"] as string;
+  }
+
+  if (typeof legacySource["timezone"] === "string" && legacySource["timezone"]) {
+    legacy.timezone = legacySource["timezone"] as string;
+  }
+
+  if (typeof legacySource["original_timezone"] === "string" && legacySource["original_timezone"]) {
+    legacy.originalTimezone = legacySource["original_timezone"] as string;
+  }
+
+  return Object.keys(legacy).length > 0 ? legacy : undefined;
 }
 
 // =====================================================
@@ -305,6 +333,7 @@ export async function createBookingWithCapacityCheck(
   // Handle errors
   const errorCode = response.error ?? "INTERNAL_ERROR";
   const errorMessage = response.message ?? "Unknown error";
+  const errorDetails = normalizeRpcDetails(response);
 
   // Log specific error type
   recordObservabilityEvent({
@@ -314,7 +343,7 @@ export async function createBookingWithCapacityCheck(
     context: {
       restaurantId: params.restaurantId,
       errorCode,
-      details: response.details,
+      details: errorDetails,
     },
   });
 
@@ -339,7 +368,7 @@ export async function createBookingWithCapacityCheck(
     success: false,
     error: errorCode,
     message: errorMessage,
-    details: response.details,
+    details: errorDetails,
     retryable: response.retryable ?? false,
   };
 }

@@ -74,6 +74,19 @@ describe('BookingWizard offline banner', () => {
       defaultDurationMinutes: 90,
       window: { opensAt: '12:00', closesAt: '22:00' },
       isClosed: false,
+      availableBookingOptions: ['dinner'],
+      occasionCatalog: [
+        {
+          key: 'dinner',
+          label: 'Dinner',
+          shortLabel: 'Dinner',
+          description: null,
+          availability: [],
+          defaultDurationMinutes: 120,
+          displayOrder: 20,
+          isActive: true,
+        },
+      ],
       slots: [
         {
           value: '18:15',
@@ -83,7 +96,7 @@ describe('BookingWizard offline banner', () => {
           bookingOption: 'dinner',
           defaultBookingOption: 'dinner',
           availability: {
-            services: { lunch: 'disabled', dinner: 'enabled', drinks: 'enabled' },
+            services: { lunch: 'disabled', dinner: 'enabled', drinks: 'disabled' },
             labels: {
               happyHour: false,
               drinksOnly: false,

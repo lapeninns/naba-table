@@ -51,12 +51,12 @@ describe('time slot helpers', () => {
       disabled: false,
     });
 
-    expect(descriptor.label).toBe('Drinks & cocktails');
+    expect(descriptor.label).toBe('Drinks');
     expect(descriptor.bookingOption).toBe('drinks');
   });
 
   it('exposes an immutable empty availability template', () => {
-    expect(EMPTY_AVAILABILITY.services.lunch).toBe('disabled');
+    expect(EMPTY_AVAILABILITY.services.lunch).toBeUndefined();
     expect(EMPTY_AVAILABILITY.labels.happyHour).toBe(false);
   });
 });

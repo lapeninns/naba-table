@@ -91,8 +91,9 @@ export function useReservationWizard(
             action.disabled === next.disabled &&
             action.loading === next.loading &&
             action.icon === next.icon &&
-            action.ariaLabel === next.ariaLabel &&
-            action.onClick === next.onClick
+            action.ariaLabel === next.ariaLabel
+            // `onClick` handlers are intentionally excluded because they are often
+            // recreated between renders and would cause unnecessary state churn.
           );
         })
       ) {

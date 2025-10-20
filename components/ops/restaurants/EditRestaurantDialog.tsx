@@ -52,6 +52,8 @@ export function EditRestaurantDialog({ open, onOpenChange, restaurant }: EditRes
             contactPhone: restaurant.contactPhone,
             address: restaurant.address,
             bookingPolicy: restaurant.bookingPolicy,
+            reservationIntervalMinutes: restaurant.reservationIntervalMinutes,
+            reservationDefaultDurationMinutes: restaurant.reservationDefaultDurationMinutes,
           }}
           onSubmit={handleSubmit}
           onCancel={() => onOpenChange(false)}

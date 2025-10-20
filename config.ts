@@ -1,9 +1,17 @@
 // import themes from "daisyui/src/theming/themes"; // Removed: not supported in latest daisyUI
 import { ConfigProps } from "./types/config";
 
+const APP_NAME = "ShipFast";
+const supportEmailEnv = process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim();
+const supportEmail = supportEmailEnv && supportEmailEnv.length > 0 ? supportEmailEnv : "support@example.com";
+const supportDomain = supportEmail.includes("@") ? supportEmail.split("@")[1] : "example.com";
+const forwardRepliesToEnv = process.env.SUPPORT_FORWARD_EMAIL?.trim();
+const forwardRepliesTo = forwardRepliesToEnv && forwardRepliesToEnv.length > 0 ? forwardRepliesToEnv : supportEmail;
+const noReplyAddress = `noreply@${supportDomain}`;
+
 const config = {
   // REQUIRED
-  appName: "ShipFast",
+  appName: APP_NAME,
   // REQUIRED: a short description of your app for SEO tags (can be overwritten)
   appDescription:
     "The NextJS boilerplate with all you need to build your SaaS, AI tool, or any other web app.",
@@ -25,13 +33,13 @@ const config = {
   },
   email: {
     // REQUIRED — Email 'From' field to be used when sending magic login links
-    fromNoReply: `SajiloReserveX <noreply@example.com>`,
+    fromNoReply: `${APP_NAME} <${noReplyAddress}>`,
     // REQUIRED — Email 'From' field to be used when sending other emails, like booking confirmations and updates.
-    fromSupport: `SajiloReserveX Support <support@example.com>`,
+    fromSupport: `${APP_NAME} Support <${supportEmail}>`,
     // Email shown to customers if they need support. Leave empty if not needed.
-    supportEmail: "support@example.com",
+    supportEmail,
     // When someone replies to supportEmail sent by the app, forward it to the email below (optional).
-    forwardRepliesTo: "admin@example.com",
+    forwardRepliesTo,
   },
   colors: {
     // REQUIRED — The DaisyUI theme to use (added to the main layout.js). Leave blank for default (light & dark mode). If you any other theme than light/dark, you need to add it in config.tailwind.js in daisyui.themes.

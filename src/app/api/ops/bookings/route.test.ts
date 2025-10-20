@@ -208,6 +208,8 @@ describe("POST /api/ops/bookings", () => {
       defaultDurationMinutes: 90,
       window: { opensAt: "09:00", closesAt: "23:00" },
       isClosed: false,
+      availableBookingOptions: [],
+      occasionCatalog: [],
       slots: [],
     });
   });
@@ -390,6 +392,8 @@ describe("POST /api/ops/bookings", () => {
       defaultDurationMinutes: 90,
       window: { opensAt: "09:00", closesAt: "23:00" },
       isClosed: false,
+      availableBookingOptions: [],
+      occasionCatalog: [],
       slots: [],
     });
 

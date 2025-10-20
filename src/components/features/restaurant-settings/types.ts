@@ -21,7 +21,7 @@ export type ServicePeriodRow = {
   dayOfWeek: number | null;
   startTime: string;
   endTime: string;
-  bookingOption: 'lunch' | 'dinner' | 'drinks';
+  bookingOption: OccasionKey;
 };
 
 export type WeeklyErrors = Record<number, { opensAt?: string; closesAt?: string }>;
@@ -46,8 +46,4 @@ export const DAY_OPTIONS: Array<{ value: number | null; label: string }> = [
   { value: 6, label: 'Saturday' },
 ];
 
-export const BOOKING_OPTION_CHOICES: Array<{ value: ServicePeriodRow['bookingOption']; label: string }> = [
-  { value: 'lunch', label: 'Lunch' },
-  { value: 'dinner', label: 'Dinner' },
-  { value: 'drinks', label: 'Drinks & Cocktails' },
-];
+import type { OccasionKey } from '@reserve/shared/occasions';

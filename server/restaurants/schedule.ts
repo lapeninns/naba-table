@@ -1,9 +1,10 @@
 import { getServiceSupabaseClient } from '@/server/supabase';
+import { getOccasionCatalog } from '@/server/occasions/catalog';
 import type { Database } from '@/types/supabase';
 import { getTodayInTimezone } from '@/lib/utils/datetime';
 
 import { formatReservationTime } from '@reserve/shared/formatting/booking';
-import type { BookingOption } from '@reserve/shared/booking';
+import { isOccasionAvailable, type OccasionCatalog, type OccasionDefinition, type OccasionKey } from '@reserve/shared/occasions';
 import { normalizeTime, slotsForRange, toMinutes } from '@reserve/shared/time';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -11,9 +12,11 @@ import type { ReservationTime } from '@reserve/shared/time';
 
 type DbClient = SupabaseClient<Database, 'public', any>;
 type ServiceState = 'enabled' | 'disabled';
+type CoverageRange = { start: number; end: number };
+type OptionCoverage = Map<OccasionKey, CoverageRange[]>;
 
 export type ServiceAvailability = {
-  services: Record<BookingOption, ServiceState>;
+  services: Record<OccasionKey, ServiceState>;
   labels: {
     happyHour: boolean;
     drinksOnly: boolean;
@@ -28,8 +31,8 @@ export type RestaurantScheduleSlot = {
   display: string;
   periodId: string | null;
   periodName: string | null;
-  bookingOption: BookingOption;
-  defaultBookingOption: BookingOption;
+  bookingOption: OccasionKey;
+  defaultBookingOption: OccasionKey;
   availability: ServiceAvailability;
   disabled: boolean;
 };
@@ -45,7 +48,9 @@ export type RestaurantSchedule = {
     closesAt: ReservationTime | null;
   };
   isClosed: boolean;
+  availableBookingOptions: OccasionKey[];
   slots: RestaurantScheduleSlot[];
+  occasionCatalog: OccasionDefinition[];
 };
 
 type ScheduleOptions = {
@@ -77,12 +82,6 @@ type RawOperatingHours = {
   opens_at: string | null;
   closes_at: string | null;
   is_closed: boolean | null;
-};
-
-const DEFAULT_OPTION_LABELS: Record<BookingOption, string> = {
-  lunch: 'Lunch',
-  dinner: 'Dinner',
-  drinks: 'Drinks & cocktails',
 };
 
 function sanitizeDate(input: string | undefined, timezone: string): string {
@@ -119,15 +118,78 @@ function isPeriodActiveForDay(period: RawServicePeriod, dayOfWeek: number): bool
   return period.day_of_week === null || period.day_of_week === dayOfWeek;
 }
 
-function buildAvailability(option: BookingOption, isOpen: boolean, periodName: string | null): ServiceAvailability {
-  const services: Record<BookingOption, ServiceState> = {
-    lunch: option === 'lunch' ? 'enabled' : 'disabled',
-    dinner: option === 'dinner' ? 'enabled' : 'disabled',
-    drinks: isOpen ? 'enabled' : 'disabled',
-  };
+function buildCoverage(periods: RawServicePeriod[]): OptionCoverage {
+  const coverage: OptionCoverage = new Map();
+  periods.forEach((period) => {
+    const start = normalizeMaybeTime(period.start_time);
+    const end = normalizeMaybeTime(period.end_time);
+    if (!start || !end) {
+      return;
+    }
+    const option = pickBookingOption(period);
+    const ranges = coverage.get(option) ?? [];
+    ranges.push({
+      start: toMinutes(start),
+      end: toMinutes(end),
+    });
+    coverage.set(option, ranges);
+  });
+  return coverage;
+}
 
-  const drinksOnly = services.drinks === 'enabled' && services.lunch === 'disabled' && services.dinner === 'disabled';
+function hasCoverage(coverage: OptionCoverage, option: OccasionKey, slot: ReservationTime): boolean {
+  const ranges = coverage.get(option);
+  if (!ranges || ranges.length === 0) {
+    return false;
+  }
+  const minutes = toMinutes(slot);
+  return ranges.some(({ start, end }) => minutes >= start && minutes < end);
+}
+
+type AvailabilityParams = {
+  primaryOption: OccasionKey;
+  periodName: string | null;
+  coverage: OptionCoverage;
+  slot: ReservationTime;
+  orderedKeys: OccasionKey[];
+  catalog: OccasionCatalog;
+  date: string;
+  timezone: string;
+};
+
+function buildAvailability({
+  primaryOption,
+  periodName,
+  coverage,
+  slot,
+  orderedKeys,
+  catalog,
+  date,
+  timezone,
+}: AvailabilityParams): ServiceAvailability {
+  const keys = Array.from(new Set<OccasionKey>([...orderedKeys, ...coverage.keys(), primaryOption]));
+  const services: Record<OccasionKey, ServiceState> = {};
+
+  keys.forEach((key) => {
+    let enabled = hasCoverage(coverage, key, slot);
+    if (enabled) {
+      const definition = catalog.byKey.get(key);
+      if (definition) {
+        enabled = isOccasionAvailable(definition, { date, time: slot, timezone });
+      }
+    }
+    services[key] = enabled ? 'enabled' : 'disabled';
+  });
+
+  if (Object.values(services).every((state) => state === 'disabled')) {
+    services[primaryOption] = 'enabled';
+  }
+
   const normalizedName = periodName?.toLowerCase() ?? '';
+  const lunchState = services['lunch'] ?? 'disabled';
+  const dinnerState = services['dinner'] ?? 'disabled';
+  const drinksState = services['drinks'] ?? 'disabled';
+  const drinksOnly = drinksState === 'enabled' && lunchState === 'disabled' && dinnerState === 'disabled';
 
   return {
     services,
@@ -135,18 +197,19 @@ function buildAvailability(option: BookingOption, isOpen: boolean, periodName: s
       happyHour: /happy\s*hour/.test(normalizedName),
       drinksOnly,
       kitchenClosed: drinksOnly,
-      lunchWindow: services.lunch === 'enabled',
-      dinnerWindow: services.dinner === 'enabled',
+      lunchWindow: lunchState === 'enabled',
+      dinnerWindow: dinnerState === 'enabled',
     },
   };
 }
 
-function pickBookingOption(period?: RawServicePeriod | null): BookingOption {
-  const raw = period?.booking_option?.toLowerCase();
-  if (raw === 'lunch' || raw === 'dinner' || raw === 'drinks') {
-    return raw;
+function pickBookingOption(period?: RawServicePeriod | null): OccasionKey {
+  const raw = period?.booking_option;
+  if (!raw) {
+    return 'drinks';
   }
-  return 'drinks';
+  const trimmed = raw.toString().trim().toLowerCase();
+  return trimmed.length > 0 ? trimmed : 'drinks';
 }
 
 function computeSlots(
@@ -155,6 +218,11 @@ function computeSlots(
   intervalMinutes: number,
   periods: RawServicePeriod[],
   dayOfWeek: number,
+  coverage: OptionCoverage,
+  orderedKeys: OccasionKey[],
+  catalog: OccasionCatalog,
+  date: string,
+  timezone: string,
 ): RestaurantScheduleSlot[] {
   if (!opensAt || !closesAt || toMinutes(closesAt) <= toMinutes(opensAt)) {
     return [];
@@ -177,12 +245,22 @@ function computeSlots(
   return baseSlots.map((slot) => {
     const period = findPeriodForTime(slot);
     const bookingOption = pickBookingOption(period);
-    const availability = buildAvailability(bookingOption, true, period?.name ?? null);
+    const availability = buildAvailability({
+      primaryOption: bookingOption,
+      periodName: period?.name ?? null,
+      coverage,
+      slot,
+      orderedKeys,
+      catalog,
+      date,
+      timezone,
+    });
     const defaultBookingOption = bookingOption;
     const disabled = availability.services[defaultBookingOption] === 'disabled';
+    const definition = catalog.byKey.get(bookingOption);
     const label =
       period?.name?.trim() ??
-      DEFAULT_OPTION_LABELS[bookingOption] ??
+      definition?.label ??
       bookingOption.replace(/\b\w/g, (char) => char.toUpperCase());
 
     return {
@@ -267,10 +345,39 @@ export async function getRestaurantSchedule(
   const relevantPeriods = (periods ?? []).filter((period): period is RawServicePeriod =>
     Boolean(period) && Boolean(period.start_time) && Boolean(period.end_time) && isPeriodActiveForDay(period, dayOfWeek),
   );
+  const coverage = buildCoverage(relevantPeriods);
+  const catalog = await getOccasionCatalog({ client });
+  const orderedKeys = Array.from(new Set<OccasionKey>([...catalog.orderedKeys, ...coverage.keys()]));
 
   const slots = isClosed
     ? []
-    : computeSlots(opensAt, closesAt, intervalMinutes, relevantPeriods, dayOfWeek);
+    : computeSlots(
+        opensAt,
+        closesAt,
+        intervalMinutes,
+        relevantPeriods,
+        dayOfWeek,
+        coverage,
+        orderedKeys,
+        catalog,
+        date,
+        restaurant.timezone,
+      );
+
+  const availableOptionsSet = new Set<OccasionKey>();
+  slots.forEach((slot) => {
+    Object.entries(slot.availability.services).forEach(([key, state]) => {
+      if (state === 'enabled') {
+        availableOptionsSet.add(key as OccasionKey);
+      }
+    });
+  });
+
+  let availableBookingOptions = orderedKeys.filter((key) => availableOptionsSet.has(key));
+  if (availableBookingOptions.length === 0 && slots.length > 0) {
+    slots.forEach((slot) => availableOptionsSet.add(slot.bookingOption));
+    availableBookingOptions = orderedKeys.filter((key) => availableOptionsSet.has(key));
+  }
 
   return {
     restaurantId: restaurant.id,
@@ -283,6 +390,8 @@ export async function getRestaurantSchedule(
       closesAt: closesAt,
     },
     isClosed,
+    availableBookingOptions,
     slots,
+    occasionCatalog: catalog.definitions,
   };
 }
