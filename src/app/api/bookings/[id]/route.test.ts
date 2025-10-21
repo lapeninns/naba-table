@@ -44,6 +44,11 @@ vi.mock('@/lib/env', () => {
           guestLookupPepper: null,
         } as const;
       },
+      get reserve() {
+        return {
+          defaultDurationMinutes: 90,
+        } as const;
+      },
     },
   };
 });
@@ -482,6 +487,10 @@ describe('/api/bookings/[id] PUT', () => {
     buildBookingAuditSnapshotMock.mockReturnValue({ diff: 'changed' });
     logAuditEventMock.mockResolvedValue(undefined);
     enqueueBookingUpdatedSideEffectsMock.mockResolvedValue(undefined);
+    getRestaurantScheduleMock.mockResolvedValue({
+      defaultDurationMinutes: 120,
+      timezone: 'Europe/London',
+    });
 
     const serviceSupabase = createServiceSupabase({ booking: existingBooking });
     getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);

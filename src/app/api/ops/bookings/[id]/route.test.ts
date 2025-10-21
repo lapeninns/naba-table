@@ -42,6 +42,11 @@ vi.mock("@/lib/env", () => {
           guestLookupPepper: null,
         } as const;
       },
+      get reserve() {
+        return {
+          defaultDurationMinutes: 90,
+        } as const;
+      },
     },
   };
 });
@@ -55,6 +60,7 @@ const getRouteHandlerSupabaseClientMock = vi.fn(async () => ({
   },
 }));
 const getServiceSupabaseClientMock = vi.fn();
+const getRestaurantScheduleMock = vi.fn();
 
 const requireMembershipForRestaurantMock = vi.fn();
 const updateBookingRecordMock = vi.fn();
@@ -66,6 +72,10 @@ const enqueueBookingCancelledSideEffectsMock = vi.fn();
 vi.mock("@/server/supabase", () => ({
   getRouteHandlerSupabaseClient: () => getRouteHandlerSupabaseClientMock(),
   getServiceSupabaseClient: () => getServiceSupabaseClientMock(),
+}));
+
+vi.mock("@/server/restaurants/schedule", () => ({
+  getRestaurantSchedule: (...args: unknown[]) => getRestaurantScheduleMock(...args),
 }));
 
 vi.mock("@/server/team/access", () => ({
@@ -132,6 +142,10 @@ describe("/api/ops/bookings/[id] PATCH", () => {
 
     updateBookingRecordMock.mockResolvedValue(updatedBooking);
     getServiceSupabaseClientMock.mockReturnValue(createServiceClient(existingBooking));
+    getRestaurantScheduleMock.mockResolvedValue({
+      defaultDurationMinutes: 120,
+      timezone: "Europe/London",
+    });
 
     const request = new NextRequest(`http://localhost/api/ops/bookings/${bookingId}`, {
       method: "PATCH",

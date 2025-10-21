@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { format, isAfter, isBefore, isValid, parseISO } from "date-fns";
+import { useEffect, useId, useMemo, useState } from "react";
+import { endOfDay, format, isAfter, isBefore, isValid, parseISO, startOfDay } from "date-fns";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -13,8 +13,11 @@ type TimestampValue = string | Date | null;
 
 export type TimestampPickerProps = {
   label?: string;
+  name?: string;
+  id?: string;
   value: TimestampValue;
   onChange: (value: string | null) => void;
+  onBlur?: () => void;
   minDate?: TimestampValue;
   maxDate?: TimestampValue;
   required?: boolean;
@@ -22,6 +25,12 @@ export type TimestampPickerProps = {
   timezone?: string;
   presets?: Array<{ label: string; getValue: () => Date }>;
   className?: string;
+  description?: string;
+  timeLabel?: string;
+  cancelLabel?: string;
+  applyLabel?: string;
+  errorMessage?: string | null;
+  disabled?: boolean;
 };
 
 function toDate(value?: TimestampValue): Date | null {
@@ -39,7 +48,7 @@ function formatDisplay(date: Date | null, timezone?: string): string {
       timeStyle: "short",
       timeZone: timezone,
     }).format(date);
-  } catch (error) {
+  } catch {
     return format(date, "PP p");
   }
 }
@@ -47,17 +56,23 @@ function formatDisplay(date: Date | null, timezone?: string): string {
 const DEFAULT_PRESETS: TimestampPickerProps["presets"] = [
   { label: "Now", getValue: () => new Date() },
   { label: "1 hour ago", getValue: () => new Date(Date.now() - 60 * 60 * 1000) },
-  { label: "Start of shift", getValue: () => {
-    const now = new Date();
-    now.setHours(9, 0, 0, 0);
-    return now;
-  }},
+  {
+    label: "Start of shift",
+    getValue: () => {
+      const now = new Date();
+      now.setHours(9, 0, 0, 0);
+      return now;
+    },
+  },
 ];
 
 export function TimestampPicker({
   label,
+  name,
+  id,
   value,
   onChange,
+  onBlur,
   minDate,
   maxDate,
   required = false,
@@ -65,12 +80,18 @@ export function TimestampPicker({
   timezone,
   presets = DEFAULT_PRESETS,
   className,
+  description,
+  timeLabel = "Time",
+  cancelLabel = "Cancel",
+  applyLabel = "Apply",
+  errorMessage,
+  disabled = false,
 }: TimestampPickerProps) {
   const [open, setOpen] = useState(false);
   const selected = useMemo(() => toDate(value), [value]);
   const [draftDate, setDraftDate] = useState<Date | undefined>(selected ?? undefined);
   const [timeInput, setTimeInput] = useState<string>(selected ? format(selected, "HH:mm") : "12:00");
-  const [error, setError] = useState<string | null>(null);
+  const [internalError, setInternalError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!selected) return;
@@ -98,15 +119,29 @@ export function TimestampPicker({
     return formatter.format(-days, "day");
   }, [selected, showRelativeTime]);
 
+  const generatedId = useId();
+  const controlId = id ?? generatedId;
+  const descriptionId = description ? `${controlId}-description` : undefined;
+  const errorId = `${controlId}-error`;
+  const activeError = internalError ?? errorMessage ?? null;
+
+  const handleClose = (next: boolean) => {
+    setOpen(next);
+    if (!next) {
+      onBlur?.();
+    }
+  };
+
   const applySelection = (date: Date | null) => {
     if (!date) {
       if (required) {
-        setError("Timestamp is required.");
+        setInternalError("Timestamp is required.");
+        onBlur?.();
         return;
       }
       onChange(null);
-      setOpen(false);
-      setError(null);
+      handleClose(false);
+      setInternalError(null);
       return;
     }
 
@@ -117,31 +152,44 @@ export function TimestampPicker({
     }
 
     if (min && isBefore(target, min)) {
-      setError(
-        `Time must be after ${formatDisplay(min, timezone)}.`,
-      );
+      setInternalError(`Time must be after ${formatDisplay(min, timezone)}.`);
+      onBlur?.();
       return;
     }
     if (max && isAfter(target, max)) {
-      setError(
-        `Time must be before ${formatDisplay(max, timezone)}.`,
-      );
+      setInternalError(`Time must be before ${formatDisplay(max, timezone)}.`);
+      onBlur?.();
       return;
     }
-    setError(null);
+    setInternalError(null);
     onChange(target.toISOString());
-    setOpen(false);
+    handleClose(false);
   };
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>
-      {label ? <span className="text-xs font-medium text-muted-foreground">{label}</span> : null}
-      <Popover open={open} onOpenChange={setOpen}>
+      {label ? (
+        <span className="text-xs font-medium text-muted-foreground" id={`${controlId}-label`}>
+          {label}
+        </span>
+      ) : null}
+      {description ? (
+        <p id={descriptionId} className="text-xs text-muted-foreground">
+          {description}
+        </p>
+      ) : null}
+      <Popover open={open} onOpenChange={handleClose}>
         <PopoverTrigger asChild>
           <Button
             type="button"
             variant="outline"
             className={cn("justify-between", !selected && "text-muted-foreground")}
+            id={`${controlId}-trigger`}
+            aria-labelledby={label ? `${controlId}-label` : undefined}
+            aria-describedby={descriptionId}
+            aria-invalid={Boolean(activeError)}
+            aria-errormessage={activeError ? errorId : undefined}
+            disabled={disabled}
           >
             <span>{formatDisplay(selected, timezone)}</span>
             {relativeLabel ? <span className="text-xs text-muted-foreground/80">{relativeLabel}</span> : null}
@@ -152,22 +200,31 @@ export function TimestampPicker({
             mode="single"
             selected={draftDate}
             onSelect={(date) => setDraftDate(date ?? undefined)}
-            disabled={(date) => {
-              if (min && isBefore(date, min)) return true;
-              if (max && isAfter(date, max)) return true;
+            disabled={(day) => {
+              if (!day) return false;
+              if (min && isBefore(endOfDay(day), min)) return true;
+              if (max && isAfter(startOfDay(day), max)) return true;
               return false;
             }}
           />
           <div className="flex items-center gap-2">
-            <label htmlFor="timestamp-picker-time" className="text-xs font-medium text-muted-foreground">
-              Time
+            <label htmlFor={`${controlId}-time`} className="text-xs font-medium text-muted-foreground">
+              {timeLabel}
             </label>
             <Input
-              id="timestamp-picker-time"
+              id={`${controlId}-time`}
+              name={name}
               type="time"
+              step={60}
               value={timeInput}
               onChange={(event) => setTimeInput(event.target.value)}
               className="h-9"
+              disabled={disabled}
+              aria-invalid={Boolean(activeError)}
+              aria-errormessage={activeError ? errorId : undefined}
+              onBlur={() => {
+                onBlur?.();
+              }}
             />
           </div>
           {presets && presets.length > 0 ? (
@@ -183,33 +240,41 @@ export function TimestampPicker({
                     setDraftDate(presetDate);
                     setTimeInput(format(presetDate, "HH:mm"));
                   }}
+                  disabled={disabled}
                 >
                   {preset.label}
                 </Button>
               ))}
             </div>
           ) : null}
-          {error ? <p className="text-xs text-destructive">{error}</p> : null}
+          {activeError ? <p className="text-xs text-destructive">{activeError}</p> : null}
           <div className="flex items-center justify-end gap-2">
             <Button
               type="button"
               variant="ghost"
               onClick={() => {
-                setOpen(false);
-                setError(null);
+                handleClose(false);
+                setInternalError(null);
               }}
+              disabled={disabled}
             >
-              Cancel
+              {cancelLabel}
             </Button>
             <Button
               type="button"
               onClick={() => applySelection(draftDate ?? null)}
+              disabled={disabled}
             >
-              Apply
+              {applyLabel}
             </Button>
           </div>
         </PopoverContent>
       </Popover>
+      {!open && activeError ? (
+        <p className="text-xs text-destructive" id={errorId}>
+          {activeError}
+        </p>
+      ) : null}
     </div>
   );
 }

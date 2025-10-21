@@ -12,7 +12,7 @@ import { queryKeys } from '@/lib/query/keys';
 export type OpsUpdateBookingInput = {
   id: string;
   startIso: string;
-  endIso: string;
+  endIso?: string;
   partySize: number;
   notes?: string | null;
 };

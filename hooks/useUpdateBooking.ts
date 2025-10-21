@@ -13,7 +13,7 @@ import type { BookingDTO } from './useBookings';
 export type UpdateBookingInput = {
   id: string;
   startIso: string;
-  endIso: string;
+  endIso?: string;
   partySize: number;
   notes?: string | null;
 };

@@ -1,5 +1,6 @@
 'use client';
 
+import { endOfDay } from 'date-fns';
 import { ChevronDownIcon } from 'lucide-react';
 import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
 
@@ -94,7 +95,7 @@ export function Calendar24Field({
       if (!day) {
         return false;
       }
-      if (day < date.minDate) {
+      if (endOfDay(day) < date.minDate) {
         return true;
       }
       if (typeof isDateUnavailable === 'function') {

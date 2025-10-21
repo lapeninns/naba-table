@@ -56,7 +56,7 @@ const updateSchema = z.object({
 // Dashboard update schema for minimal booking updates (used by EditBookingDialog)
 const dashboardUpdateSchema = z.object({
   startIso: z.string().datetime(),
-  endIso: z.string().datetime(),
+  endIso: z.string().datetime().optional(),
   partySize: z.number().int().min(1),
   notes: z.string().max(500).optional().nullable(),
 });
@@ -132,46 +132,49 @@ async function handleDashboardUpdate(params: {
 
   try {
     const startDate = new Date(data.startIso);
-    const endDate = new Date(data.endIso);
-
-    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    if (Number.isNaN(startDate.getTime())) {
       return NextResponse.json({ error: "Invalid date values" }, { status: 400 });
     }
 
-    if (endDate.getTime() <= startDate.getTime()) {
-      return NextResponse.json({ error: "End time must be after start time" }, { status: 400 });
-    }
-
+    const restaurantId = existingBooking.restaurant_id ?? (await getDefaultRestaurantId());
+    const existingStartAt = existingBooking.start_at ? new Date(existingBooking.start_at) : null;
+    const existingEndAt = existingBooking.end_at ? new Date(existingBooking.end_at) : null;
+    const existingDurationMinutes =
+      existingStartAt && existingEndAt
+        ? Math.max(1, Math.round((existingEndAt.getTime() - existingStartAt.getTime()) / 60000))
+        : null;
     const bookingDate = formatDateForInput(startDate);
     const startTime = fromMinutes(startDate.getHours() * 60 + startDate.getMinutes());
-    const endTime = fromMinutes(endDate.getHours() * 60 + endDate.getMinutes());
+
+    const explicitEndIso = typeof data.endIso === "string" ? data.endIso : null;
     let scheduleTimezone: string | null = null;
-    const durationMinutes = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / 60000));
+    let schedule: Awaited<ReturnType<typeof getRestaurantSchedule>> | null = null;
 
     // Check if time fields are being changed (only validate if time is changing)
-    const isTimeChanged = 
+    const isTimeChanged =
       bookingDate !== existingBooking.booking_date ||
       startTime !== existingBooking.start_time;
 
-    // Validate past time if feature enabled and time is changing
-    if (isTimeChanged && env.featureFlags.bookingPastTimeBlocking) {
-      const restaurantId = existingBooking.restaurant_id ?? (await getDefaultRestaurantId());
-      
+    const needsScheduleForDuration = isTimeChanged || !explicitEndIso;
+    const needsScheduleForPastCheck = env.featureFlags.bookingPastTimeBlocking && isTimeChanged;
+
+    if (needsScheduleForDuration || needsScheduleForPastCheck) {
+      schedule = await getRestaurantSchedule(restaurantId, {
+        date: bookingDate,
+        client: serviceSupabase,
+      });
+      scheduleTimezone = schedule?.timezone ?? null;
+    }
+
+    if (needsScheduleForPastCheck && schedule) {
       try {
-        const schedule = await getRestaurantSchedule(restaurantId, {
-          date: bookingDate,
-          client: serviceSupabase,
-        });
-
-        scheduleTimezone = schedule.timezone;
-
         assertBookingNotInPast(
           schedule.timezone,
           bookingDate,
           startTime,
           {
             graceMinutes: env.featureFlags.bookingPastTimeGraceMinutes,
-          }
+          },
         );
       } catch (pastTimeError) {
         if (pastTimeError instanceof PastBookingError) {
@@ -196,12 +199,55 @@ async function handleDashboardUpdate(params: {
               code: pastTimeError.code,
               details: pastTimeError.details,
             },
-            { status: 422 }
+            { status: 422 },
           );
         }
         throw pastTimeError;
       }
     }
+
+    let scheduleDuration: number | null = null;
+    if (schedule) {
+      const maybeDuration = (schedule as { defaultDurationMinutes?: unknown }).defaultDurationMinutes;
+      if (typeof maybeDuration === "number") {
+        scheduleDuration = maybeDuration;
+      }
+    }
+    const configuredDuration = scheduleDuration && scheduleDuration > 0 ? scheduleDuration : null;
+    const fallbackDuration =
+      existingDurationMinutes && existingDurationMinutes > 0
+        ? existingDurationMinutes
+        : env.reserve.defaultDurationMinutes ?? 90;
+
+    let durationMinutes: number;
+    let endDate: Date;
+
+    if (isTimeChanged) {
+      const enforcedDuration = configuredDuration ?? fallbackDuration;
+      durationMinutes = enforcedDuration > 0 ? enforcedDuration : 90;
+      endDate = new Date(startDate.getTime() + durationMinutes * 60_000);
+    } else if (explicitEndIso) {
+      const parsedEnd = new Date(explicitEndIso);
+      if (Number.isNaN(parsedEnd.getTime())) {
+        return NextResponse.json({ error: "Invalid date values" }, { status: 400 });
+      }
+      endDate = parsedEnd;
+      durationMinutes = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / 60000));
+    } else if (existingEndAt) {
+      endDate = existingEndAt;
+      durationMinutes = fallbackDuration > 0 ? fallbackDuration : 90;
+    } else {
+      const inferredDuration = configuredDuration ?? fallbackDuration;
+      durationMinutes = inferredDuration > 0 ? inferredDuration : 90;
+      endDate = new Date(startDate.getTime() + durationMinutes * 60_000);
+    }
+
+    if (endDate.getTime() <= startDate.getTime()) {
+      return NextResponse.json({ error: "End time must be after start time" }, { status: 400 });
+    }
+
+    const endTime = fromMinutes(endDate.getHours() * 60 + endDate.getMinutes());
+    const resolvedScheduleTz = scheduleTimezone ?? (schedule?.timezone ?? null);
 
     const useUnifiedValidation = env.featureFlags.bookingValidationUnified;
     let updated: Tables<"bookings">;
@@ -213,7 +259,7 @@ async function handleDashboardUpdate(params: {
         (existingBooking as { loyalty_points_awarded?: number | null }).loyalty_points_awarded ?? null;
 
       const bookingInput: BookingInput = {
-        restaurantId: existingBooking.restaurant_id ?? (await getDefaultRestaurantId()),
+        restaurantId,
         serviceId: existingBooking.booking_type ?? "dinner",
         bookingType: existingBooking.booking_type ?? undefined,
         bookingId,
@@ -236,7 +282,7 @@ async function handleDashboardUpdate(params: {
         actorId: actor.id,
         actorRoles: ["dashboard"],
         actorCapabilities: [],
-        tz: scheduleTimezone ?? "Europe/London",
+        tz: resolvedScheduleTz ?? "Europe/London",
         flags: {
           bookingPastTimeBlocking: env.featureFlags.bookingPastTimeBlocking ?? false,
           bookingPastTimeGraceMinutes: env.featureFlags.bookingPastTimeGraceMinutes ?? 5,

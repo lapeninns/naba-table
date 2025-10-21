@@ -25,10 +25,11 @@ const booking: BookingDTO = {
 };
 
 const mockUseUpdateBooking = vi.mocked(useUpdateBooking);
+let mutateAsync: ReturnType<typeof vi.fn>;
 
 describe('EditBookingDialog', () => {
   beforeEach(() => {
-    const mutateAsync = vi.fn().mockResolvedValue(booking);
+    mutateAsync = vi.fn().mockResolvedValue(booking);
     mockUseUpdateBooking.mockReturnValue({
       mutateAsync,
       isPending: false,
@@ -36,18 +37,28 @@ describe('EditBookingDialog', () => {
     } as unknown as UseMutationResult<BookingDTO, HttpError, UpdateBookingInput>);
   });
 
-  it('validates end time is after start time', async () => {
+  it('submits derived end time when editing details', async () => {
     const user = userEvent.setup();
 
     render(<EditBookingDialog booking={booking} open onOpenChange={() => {}} />);
 
-    const endInput = screen.getByLabelText('End');
-    fireEvent.change(endInput, { target: { value: '2025-01-15T17:00' } });
+    const partyInput = screen.getByLabelText('Party size');
+    fireEvent.change(partyInput, { target: { value: '3' } });
 
     const saveButton = screen.getByRole('button', { name: /save changes/i });
+    expect(saveButton).not.toBeDisabled();
     await user.click(saveButton);
 
-    expect(await screen.findByText('End time must be after start time')).toBeInTheDocument();
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalled());
+
+    expect(mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: booking.id,
+        startIso: booking.startIso,
+        endIso: booking.endIso,
+        partySize: 3,
+      }),
+    );
   });
 
   it('displays mapped server error message', async () => {

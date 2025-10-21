@@ -53,7 +53,7 @@ const overrideSchema = z
 
 const dashboardUpdateSchema = z.object({
   startIso: z.string().datetime(),
-  endIso: z.string().datetime(),
+  endIso: z.string().datetime().optional(),
   partySize: z.number().int().min(1),
   notes: z.string().max(500).optional().nullable(),
   override: overrideSchema.optional(),
@@ -184,20 +184,79 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   }
 
   const startDate = new Date(parsed.data.startIso);
-  const endDate = new Date(parsed.data.endIso);
-
-  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+  if (Number.isNaN(startDate.getTime())) {
     return NextResponse.json({ error: "Invalid date values" }, { status: 400 });
+  }
+
+  const restaurantId = existingBooking.restaurant_id ?? "";
+  const existingStartAt = existingBooking.start_at ? new Date(existingBooking.start_at) : null;
+  const existingEndAt = existingBooking.end_at ? new Date(existingBooking.end_at) : null;
+  const existingDurationMinutes =
+    existingStartAt && existingEndAt
+      ? Math.max(1, Math.round((existingEndAt.getTime() - existingStartAt.getTime()) / 60000))
+      : null;
+  const bookingDate = formatDateForInput(startDate);
+  const startTime = fromMinutes(startDate.getHours() * 60 + startDate.getMinutes());
+  const explicitEndIso = typeof parsed.data.endIso === "string" ? parsed.data.endIso : null;
+
+  // Determine whether we need schedule data.
+  // Time changes should respect restaurant-configured duration, and past-time checks may require schedule info.
+  const isTimeChanged =
+    bookingDate !== existingBooking.booking_date ||
+    startTime !== existingBooking.start_time;
+
+  const needsScheduleForDuration = isTimeChanged || !explicitEndIso;
+  const needsScheduleForPastCheck = env.featureFlags.bookingPastTimeBlocking && isTimeChanged;
+
+  let schedule: Awaited<ReturnType<typeof getRestaurantSchedule>> | null = null;
+  if (needsScheduleForDuration || needsScheduleForPastCheck) {
+    schedule = await getRestaurantSchedule(restaurantId, {
+      date: bookingDate,
+      client: serviceSupabase,
+    });
+  }
+
+  let scheduleDuration: number | null = null;
+  if (schedule) {
+    const maybeDuration = (schedule as { defaultDurationMinutes?: unknown }).defaultDurationMinutes;
+    if (typeof maybeDuration === "number") {
+      scheduleDuration = maybeDuration;
+    }
+  }
+  const configuredDuration = scheduleDuration && scheduleDuration > 0 ? scheduleDuration : null;
+  const fallbackDuration =
+    existingDurationMinutes && existingDurationMinutes > 0
+      ? existingDurationMinutes
+      : env.reserve.defaultDurationMinutes ?? 90;
+
+  let durationMinutes: number;
+  let endDate: Date;
+
+  if (isTimeChanged) {
+    const enforcedDuration = configuredDuration ?? fallbackDuration;
+    durationMinutes = enforcedDuration > 0 ? enforcedDuration : 90;
+    endDate = new Date(startDate.getTime() + durationMinutes * 60_000);
+  } else if (explicitEndIso) {
+    const parsedEnd = new Date(explicitEndIso);
+    if (Number.isNaN(parsedEnd.getTime())) {
+      return NextResponse.json({ error: "Invalid date values" }, { status: 400 });
+    }
+    endDate = parsedEnd;
+    durationMinutes = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / 60000));
+  } else if (existingEndAt) {
+    endDate = existingEndAt;
+    durationMinutes = fallbackDuration > 0 ? fallbackDuration : 90;
+  } else {
+    const inferredDuration = configuredDuration ?? fallbackDuration;
+    durationMinutes = inferredDuration > 0 ? inferredDuration : 90;
+    endDate = new Date(startDate.getTime() + durationMinutes * 60_000);
   }
 
   if (endDate.getTime() <= startDate.getTime()) {
     return NextResponse.json({ error: "End time must be after start time" }, { status: 400 });
   }
 
-  const bookingDate = formatDateForInput(startDate);
-  const startTime = fromMinutes(startDate.getHours() * 60 + startDate.getMinutes());
   const endTime = fromMinutes(endDate.getHours() * 60 + endDate.getMinutes());
-  const durationMinutes = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / 60000));
 
   const useUnifiedValidation = env.featureFlags.bookingValidationUnified;
 
@@ -216,11 +275,6 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     });
   }
 
-  // Check if time fields are being changed (only validate if time is changing)
-  const isTimeChanged = 
-    bookingDate !== existingBooking.booking_date ||
-    startTime !== existingBooking.start_time;
-
   // Validate past time if feature enabled and time is changing
   if (isTimeChanged && env.featureFlags.bookingPastTimeBlocking) {
     const allowPastParam = req.nextUrl.searchParams.get("allow_past");
@@ -232,13 +286,13 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     const userRole = membership?.role as RestaurantRole | null;
 
     try {
-      const schedule = await getRestaurantSchedule(existingBooking.restaurant_id ?? "", {
+      const scheduleForPast = schedule ?? await getRestaurantSchedule(existingBooking.restaurant_id ?? "", {
         date: bookingDate,
         client: serviceSupabase,
       });
 
       assertBookingNotInPast(
-        schedule.timezone,
+        scheduleForPast.timezone,
         bookingDate,
         startTime,
         {
@@ -262,7 +316,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
               actorId: user.id,
               actorEmail: user.email,
               actorRole: userRole,
-              timezone: schedule.timezone,
+              timezone: scheduleForPast.timezone,
               bookingDate,
               bookingTime: startTime,
             },
