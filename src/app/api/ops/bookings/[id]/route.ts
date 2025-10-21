@@ -18,14 +18,74 @@ import { getRestaurantSchedule } from "@/server/restaurants/schedule";
 import { env } from "@/lib/env";
 import type { BookingRecord } from "@/server/bookings";
 import type { Json, Tables } from "@/types/supabase";
-import type { RestaurantRole } from "@/lib/owner/auth/roles";
+import { isRestaurantAdminRole, type RestaurantRole } from "@/lib/owner/auth/roles";
+import {
+  createBookingValidationService,
+  BookingValidationError,
+  type BookingInput,
+  type ValidationContext,
+} from "@/server/booking";
+import { mapValidationFailure, withValidationHeaders } from "@/server/booking/http";
+import { recordObservabilityEvent } from "@/server/observability";
+
+const overrideSchema = z
+  .object({
+    apply: z.boolean(),
+    reason: z
+      .string()
+      .trim()
+      .max(500, { message: "Override reason must be 500 characters or fewer." })
+      .optional()
+      .nullable(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.apply) {
+      const reason = value.reason?.trim() ?? "";
+      if (reason.length < 3) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["reason"],
+          message: "Override reason must be at least 3 characters when applying override.",
+        });
+      }
+    }
+  });
 
 const dashboardUpdateSchema = z.object({
   startIso: z.string().datetime(),
   endIso: z.string().datetime(),
   partySize: z.number().int().min(1),
   notes: z.string().max(500).optional().nullable(),
+  override: overrideSchema.optional(),
 });
+
+type DashboardUpdatePayload = z.infer<typeof dashboardUpdateSchema>;
+
+type AuthenticatedUser = {
+  id: string;
+  email?: string | null;
+};
+
+type UnifiedOpsUpdateParams = {
+  bookingId: string;
+  bookingDate: string;
+  startTime: string;
+  endTime: string;
+  durationMinutes: number;
+  payload: DashboardUpdatePayload;
+  existingBooking: Tables<"bookings"> & { restaurants?: { name: string | null } | { name: string | null }[] | null };
+  user: AuthenticatedUser;
+  serviceSupabase: ReturnType<typeof getServiceSupabaseClient>;
+};
+
+const BOOKING_OVERRIDE_CAPABILITY = "booking.override";
+
+function resolveActorCapabilities(role: RestaurantRole | null | undefined): string[] {
+  if (isRestaurantAdminRole(role)) {
+    return [BOOKING_OVERRIDE_CAPABILITY];
+  }
+  return [];
+}
 
 type RouteParams = {
   params: Promise<{
@@ -137,6 +197,24 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   const bookingDate = formatDateForInput(startDate);
   const startTime = fromMinutes(startDate.getHours() * 60 + startDate.getMinutes());
   const endTime = fromMinutes(endDate.getHours() * 60 + endDate.getMinutes());
+  const durationMinutes = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / 60000));
+
+  const useUnifiedValidation = env.featureFlags.bookingValidationUnified;
+
+  if (useUnifiedValidation) {
+    const userForContext: AuthenticatedUser = { id: user.id, email: user.email ?? null };
+    return handleUnifiedOpsUpdate({
+      bookingId,
+      bookingDate,
+      startTime,
+      endTime,
+      durationMinutes,
+      payload: parsed.data,
+      existingBooking,
+      user: userForContext,
+      serviceSupabase,
+    });
+  }
 
   // Check if time fields are being changed (only validate if time is changing)
   const isTimeChanged = 
@@ -280,6 +358,166 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json(response);
   } catch (updateError) {
     console.error("[ops/bookings][PATCH] update failed", updateError);
+    return NextResponse.json({ error: "Unable to update booking" }, { status: 500 });
+  }
+}
+
+async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
+  const { bookingId, bookingDate, startTime, endTime, durationMinutes, payload, existingBooking, user, serviceSupabase } = params;
+
+  const schedule = await getRestaurantSchedule(existingBooking.restaurant_id ?? "", {
+    date: bookingDate,
+    client: serviceSupabase,
+  });
+
+  const memberships = await fetchUserMemberships(user.id, serviceSupabase);
+  const membership = memberships.find((entry) => entry.restaurant_id === existingBooking.restaurant_id) ?? null;
+  const userRole = (membership?.role as RestaurantRole | undefined) ?? null;
+  const actorCapabilities = resolveActorCapabilities(userRole);
+  const actorRoles = userRole ? [userRole] : ["staff"];
+
+  const overrideReason = payload.override?.reason?.trim() ?? null;
+  const overrideRequest = payload.override?.apply ? { apply: true, reason: overrideReason } : undefined;
+
+  const validationService = createBookingValidationService({ client: serviceSupabase });
+
+  const bookingInput: BookingInput = {
+    restaurantId: existingBooking.restaurant_id,
+    serviceId: existingBooking.booking_type ?? "dinner",
+    partySize: payload.partySize,
+    start: payload.startIso,
+    durationMinutes,
+    seatingPreference: existingBooking.seating_preference ?? null,
+    notes: payload.notes ?? existingBooking.notes ?? null,
+    customerId: existingBooking.customer_id ?? null,
+    customerName: existingBooking.customer_name ?? "",
+    customerEmail: existingBooking.customer_email ?? null,
+    customerPhone: existingBooking.customer_phone ?? null,
+    marketingOptIn: existingBooking.marketing_opt_in ?? false,
+    source: existingBooking.source ?? null,
+    idempotencyKey: existingBooking.idempotency_key ?? null,
+    bookingId,
+    override: overrideRequest,
+  };
+
+  const context: ValidationContext = {
+    actorId: user.id,
+    actorRoles,
+    actorCapabilities,
+    tz: schedule.timezone,
+    flags: {
+      bookingPastTimeBlocking: env.featureFlags.bookingPastTimeBlocking ?? false,
+      bookingPastTimeGraceMinutes: env.featureFlags.bookingPastTimeGraceMinutes ?? 5,
+      unified: true,
+    },
+    metadata: {
+      clientRequestId: existingBooking.client_request_id ?? undefined,
+    },
+  };
+
+  try {
+    const commit = await validationService.updateWithEnforcement(existingBooking as unknown as BookingRecord, bookingInput, context);
+    const updated = commit.booking as Tables<"bookings">;
+    const validationResponse = commit.response;
+
+    const auditMetadata: Json = {
+      restaurant_id: updated.restaurant_id ?? existingBooking.restaurant_id,
+      ...buildBookingAuditSnapshot(existingBooking, updated),
+    };
+
+    if (validationResponse.overridden) {
+      (auditMetadata as Record<string, unknown>).override_reason = overrideReason;
+      (auditMetadata as Record<string, unknown>).override_codes = validationResponse.overrideCodes ?? [];
+      (auditMetadata as Record<string, unknown>).override_applied = true;
+    }
+
+    await logAuditEvent(serviceSupabase, {
+      action: "booking.updated",
+      entity: "booking",
+      entityId: bookingId,
+      metadata: auditMetadata,
+      actor: user.email ?? user.id ?? "ops",
+    });
+
+    try {
+      await enqueueBookingUpdatedSideEffects(
+        {
+          previous: safeBookingPayload(existingBooking as unknown as BookingRecord),
+          current: safeBookingPayload(updated as unknown as BookingRecord),
+          restaurantId: updated.restaurant_id ?? existingBooking.restaurant_id,
+        },
+        { supabase: serviceSupabase },
+      );
+    } catch (jobError) {
+      console.error("[ops/bookings][PATCH][unified] side effects failed", jobError);
+    }
+
+    if (validationResponse.overridden) {
+      recordObservabilityEvent({
+        source: "api.ops.bookings",
+        eventType: "booking.override.applied",
+        severity: "info",
+        context: {
+          bookingId,
+          restaurantId: existingBooking.restaurant_id,
+          actorId: user.id,
+          actorEmail: user.email,
+          actorRole: userRole,
+          codes: validationResponse.overrideCodes ?? [],
+          reason: overrideReason,
+        },
+      });
+    }
+
+    const restaurantRelation = Array.isArray(existingBooking.restaurants)
+      ? existingBooking.restaurants[0] ?? null
+      : existingBooking.restaurants ?? null;
+
+    const responsePayload = {
+      id: updated.id,
+      restaurantName: restaurantRelation?.name ?? "",
+      partySize: updated.party_size,
+      startIso: toIsoString(updated.start_at),
+      endIso: toIsoString(updated.end_at),
+      status: updated.status,
+      notes: updated.notes ?? null,
+      customerName:
+        typeof updated.customer_name === "string" && updated.customer_name.trim().length > 0
+          ? updated.customer_name.trim()
+          : null,
+      customerEmail:
+        typeof updated.customer_email === "string" && updated.customer_email.trim().length > 0
+          ? updated.customer_email.trim()
+          : null,
+      customerPhone:
+        typeof updated.customer_phone === "string" && updated.customer_phone.trim().length > 0
+          ? updated.customer_phone.trim()
+          : null,
+      validation: validationResponse,
+    };
+
+    return NextResponse.json(responsePayload, withValidationHeaders({ status: 200 }));
+  } catch (error) {
+    if (error instanceof BookingValidationError) {
+      recordObservabilityEvent({
+        source: "api.ops.bookings",
+        eventType: "booking.validation_failed",
+        severity: "warning",
+        context: {
+          bookingId,
+          restaurantId: existingBooking.restaurant_id,
+          actorId: user.id,
+          actorEmail: user.email,
+          overrideAttempted: payload.override?.apply ?? false,
+          issues: error.response.issues.map((issue) => issue.code),
+        },
+      });
+
+      const mapped = mapValidationFailure(error.response);
+      return NextResponse.json(mapped.body, withValidationHeaders({ status: mapped.status }));
+    }
+
+    console.error("[ops/bookings][PATCH][unified] update failed", error);
     return NextResponse.json({ error: "Unable to update booking" }, { status: 500 });
   }
 }

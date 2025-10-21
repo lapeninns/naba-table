@@ -12,6 +12,7 @@ import {
   updateBookingRecord,
   inferMealTypeFromTime,
   logAuditEvent,
+  calculateDurationMinutes,
 } from "@/server/bookings";
 import {
   generateConfirmationToken,
@@ -36,6 +37,13 @@ import { getRestaurantSchedule } from "@/server/restaurants/schedule";
 import { OperatingHoursError, assertBookingWithinOperatingWindow } from "@/server/bookings/timeValidation";
 import { PastBookingError, assertBookingNotInPast } from "@/server/bookings/pastTimeValidation";
 import { createBookingWithCapacityCheck } from "@/server/capacity";
+import {
+  createBookingValidationService,
+  BookingValidationError,
+  type BookingInput,
+  type ValidationContext,
+} from "@/server/booking";
+import { mapValidationFailure, withValidationHeaders } from "@/server/booking/http";
 
 const baseQuerySchema = z.object({
   restaurantId: z.string().uuid().optional(),
@@ -394,12 +402,15 @@ export async function POST(req: NextRequest) {
     const normalizedBookingType = data.bookingType === "drinks" ? "drinks" : inferMealTypeFromTime(data.time);
 
     let startTime = data.time;
+    let scheduleTimezone: string | null = null;
 
     try {
       const schedule = await getRestaurantSchedule(restaurantId, {
         date: data.date,
         client: supabase,
       });
+
+      scheduleTimezone = schedule.timezone;
 
       const { time } = assertBookingWithinOperatingWindow({
         schedule,
@@ -470,33 +481,86 @@ export async function POST(req: NextRequest) {
       ? calculateLoyaltyAward(loyaltyProgram, { partySize: data.party })
       : 0;
 
-    const bookingResult = await createBookingWithCapacityCheck({
-      restaurantId,
-      customerId: customer.id,
-      bookingDate: data.date,
-      startTime,
-      endTime,
-      partySize: data.party,
-      bookingType: normalizedBookingType,
-      customerName: data.name,
-      customerEmail: normalizeEmail(data.email),
-      customerPhone: data.phone.trim(),
-      seatingPreference: data.seating,
-      notes: data.notes ?? null,
-      marketingOptIn: data.marketingOptIn ?? false,
-      idempotencyKey,
-      source: "api",
-      authUserId: null,
-      clientRequestId,
-    });
+    const useUnifiedValidation = env.featureFlags.bookingValidationUnified;
 
-    const booking = bookingResult.booking as BookingRecord | undefined;
+    let booking: BookingRecord | undefined;
+    let reusedExisting = false;
+    if (useUnifiedValidation) {
+      const validationService = createBookingValidationService({ client: supabase });
 
-    if (!booking) {
-      throw new Error("Booking creation succeeded but no booking data was returned.");
+      const bookingInput: BookingInput = {
+        restaurantId,
+        serviceId: normalizedBookingType,
+        bookingType: normalizedBookingType,
+        partySize: data.party,
+        start: `${data.date}T${startTime}:00`,
+        durationMinutes: calculateDurationMinutes(normalizedBookingType),
+        seatingPreference: data.seating,
+        notes: data.notes ?? null,
+        customerId: customer.id,
+        customerName: data.name,
+        customerEmail: normalizeEmail(data.email),
+        customerPhone: data.phone.trim(),
+        marketingOptIn: data.marketingOptIn ?? false,
+        source: "api",
+        idempotencyKey,
+      };
+
+      const context = {
+        actorId: clientRequestId,
+        actorRoles: ["customer"],
+        actorCapabilities: [],
+        tz: scheduleTimezone ?? "Europe/London",
+        flags: {
+          bookingPastTimeBlocking: env.featureFlags.bookingPastTimeBlocking ?? false,
+          bookingPastTimeGraceMinutes: env.featureFlags.bookingPastTimeGraceMinutes ?? 5,
+          unified: true,
+        },
+        metadata: {
+          clientRequestId,
+        },
+      } satisfies ValidationContext;
+
+      try {
+        const commit = await validationService.createWithEnforcement(bookingInput, context);
+        booking = commit.booking as BookingRecord;
+        reusedExisting = commit.duplicate === true;
+      } catch (error) {
+        if (error instanceof BookingValidationError) {
+          const mapped = mapValidationFailure(error.response);
+          return NextResponse.json(mapped.body, withValidationHeaders({ status: mapped.status }));
+        }
+        throw error;
+      }
+    } else {
+      const bookingResult = await createBookingWithCapacityCheck({
+        restaurantId,
+        customerId: customer.id,
+        bookingDate: data.date,
+        startTime,
+        endTime,
+        partySize: data.party,
+        bookingType: normalizedBookingType,
+        customerName: data.name,
+        customerEmail: normalizeEmail(data.email),
+        customerPhone: data.phone.trim(),
+        seatingPreference: data.seating,
+        notes: data.notes ?? null,
+        marketingOptIn: data.marketingOptIn ?? false,
+        idempotencyKey,
+        source: "api",
+        authUserId: null,
+        clientRequestId,
+      });
+
+      booking = bookingResult.booking as BookingRecord | undefined;
+
+      if (!booking) {
+        throw new Error("Booking creation succeeded but no booking data was returned.");
+      }
+
+      reusedExisting = bookingResult.duplicate === true;
     }
-
-    const reusedExisting = bookingResult.duplicate === true;
 
     let finalBooking = booking;
     let loyaltyAward = 0;
@@ -589,19 +653,22 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json(
-      {
-        booking: finalBooking,
-        confirmationToken,
-        loyaltyPointsAwarded: loyaltyAward,
-        bookings,
-        clientRequestId: finalBooking.client_request_id,
-        idempotencyKey,
-        duplicate: reusedExisting,
-        capacity: null,
-      },
-      { status: reusedExisting ? 200 : 201 },
-    );
+    const responsePayload = {
+      booking: finalBooking,
+      confirmationToken,
+      loyaltyPointsAwarded: loyaltyAward,
+      bookings,
+      clientRequestId: finalBooking.client_request_id,
+      idempotencyKey,
+      duplicate: reusedExisting,
+      capacity: null,
+    };
+
+    const responseInit = useUnifiedValidation
+      ? withValidationHeaders({ status: reusedExisting ? 200 : 201 })
+      : { status: reusedExisting ? 200 : 201 };
+
+    return NextResponse.json(responsePayload, responseInit);
   } catch (error: unknown) {
     const message = stringifyError(error);
     const enriched = error as BookingCreationError | undefined;

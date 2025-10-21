@@ -1,16 +1,15 @@
-import { randomUUID } from "crypto";
-
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { recordObservabilityEvent } from "@/server/observability";
 import { getServiceSupabaseClient } from "@/server/supabase";
-import { generateUniqueBookingReference, insertBookingRecord } from "@/server/bookings";
 import type { Database } from "@/types/supabase";
 import {
   CapacityError,
   type BookingResult,
   type CreateBookingParams,
+  type UpdateBookingParams,
   type BookingErrorDetails,
+  type CapacityInfo,
   DEFAULT_RETRY_CONFIG,
   type RetryConfig,
 } from "./types";
@@ -83,23 +82,50 @@ export async function retryWithBackoff<T>(
   throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
-async function findBookingByIdempotency(
-  supabase: DbClient,
-  restaurantId: string,
-  idempotencyKey: string,
-) {
-  const { data, error } = await supabase
-    .from("bookings")
-    .select("*")
-    .eq("restaurant_id", restaurantId)
-    .eq("idempotency_key", idempotencyKey)
-    .maybeSingle();
+type CapacityRpcPayload = {
+  success?: boolean | null;
+  duplicate?: boolean | null;
+  booking?: Record<string, unknown> | null;
+  capacity?: CapacityInfo | null;
+  error?: string | null;
+  message?: string | null;
+  details?: BookingErrorDetails | null;
+  retryable?: boolean | null;
+};
 
-  if (error) {
-    throw new CapacityError(`Failed to lookup existing booking: ${error.message}`, "INTERNAL_ERROR");
+function normalizeRpcResult(payload: CapacityRpcPayload | null | undefined): BookingResult {
+  if (!payload) {
+    return {
+      success: false,
+      error: "INTERNAL_ERROR",
+      message: "Capacity RPC returned no payload",
+    };
   }
 
-  return data;
+  const success = payload.success === true;
+  const booking = payload.booking ? (payload.booking as any) : undefined;
+  const capacity = payload.capacity ?? undefined;
+
+  if (success) {
+    return {
+      success: true,
+      duplicate: payload.duplicate ?? false,
+      booking,
+      capacity,
+      message: payload.message ?? undefined,
+    };
+  }
+
+  return {
+    success: false,
+    duplicate: payload.duplicate ?? false,
+    booking,
+    capacity,
+    error: (payload.error ?? "INTERNAL_ERROR") as BookingResult["error"],
+    message: payload.message ?? undefined,
+    details: payload.details ?? undefined,
+    retryable: payload.retryable ?? undefined,
+  };
 }
 
 export async function createBookingWithCapacityCheck(
@@ -108,87 +134,108 @@ export async function createBookingWithCapacityCheck(
 ): Promise<BookingResult> {
   const supabase = client ?? getServiceSupabaseClient();
 
-  recordObservabilityEvent({
-    source: "capacity.transaction",
-    eventType: "booking.creation.attempt",
-    severity: "info",
-    context: {
-      restaurantId: params.restaurantId,
-      bookingDate: params.bookingDate,
-      startTime: params.startTime,
-      partySize: params.partySize,
-      idempotencyKey: params.idempotencyKey ?? undefined,
-    },
-  });
-
-  if (params.idempotencyKey) {
-    const existing = await findBookingByIdempotency(supabase, params.restaurantId, params.idempotencyKey);
-    if (existing) {
-      recordObservabilityEvent({
-        source: "capacity.transaction",
-        eventType: "booking.creation.idempotent",
-        severity: "info",
-        context: {
-          restaurantId: params.restaurantId,
-          bookingId: existing.id,
-        },
-      });
-
-      return {
-        success: true,
-        duplicate: true,
-        booking: existing as any,
-        message: "Booking already exists (idempotency)",
-      };
-    }
-  }
-
   try {
-    const reference = await generateUniqueBookingReference(supabase);
-    const clientRequestId = params.clientRequestId ?? randomUUID();
-
-    const booking = await insertBookingRecord(supabase, {
-      restaurant_id: params.restaurantId,
-      booking_date: params.bookingDate,
-      start_time: params.startTime,
-      end_time: params.endTime,
-      party_size: params.partySize,
-      booking_type: params.bookingType,
-      seating_preference: params.seatingPreference,
-      status: "confirmed",
-      reference,
-      customer_name: params.customerName,
-      customer_email: params.customerEmail,
-      customer_phone: params.customerPhone,
-      notes: params.notes ?? null,
-      marketing_opt_in: params.marketingOptIn ?? false,
-      loyalty_points_awarded: params.loyaltyPointsAwarded ?? 0,
-      source: params.source ?? "api",
-      customer_id: params.customerId,
-      auth_user_id: params.authUserId ?? null,
-      client_request_id: clientRequestId,
-      idempotency_key: params.idempotencyKey ?? null,
-      details: null,
-    });
-
     recordObservabilityEvent({
       source: "capacity.transaction",
-      eventType: "booking.creation.success",
+      eventType: "booking.creation.attempt",
       severity: "info",
       context: {
         restaurantId: params.restaurantId,
-        bookingId: booking.id,
+        bookingDate: params.bookingDate,
+        startTime: params.startTime,
+        partySize: params.partySize,
+        idempotencyKey: params.idempotencyKey ?? undefined,
       },
     });
 
-    return {
-      success: true,
-      duplicate: false,
-      booking,
-      message: "Booking created successfully",
-    };
+    const { data, error } = await supabase.rpc("create_booking_with_capacity_check", {
+      p_restaurant_id: params.restaurantId,
+      p_customer_id: params.customerId,
+      p_booking_date: params.bookingDate,
+      p_start_time: params.startTime,
+      p_end_time: params.endTime,
+      p_party_size: params.partySize,
+      p_booking_type: params.bookingType,
+      p_customer_name: params.customerName,
+      p_customer_email: params.customerEmail,
+      p_customer_phone: params.customerPhone,
+      p_seating_preference: params.seatingPreference,
+      p_notes: params.notes ?? null,
+      p_marketing_opt_in: params.marketingOptIn ?? false,
+      p_idempotency_key: params.idempotencyKey ?? null,
+      p_source: params.source ?? "api",
+      p_auth_user_id: params.authUserId ?? null,
+      p_client_request_id: params.clientRequestId ?? null,
+      p_details: params.details ?? {},
+      p_loyalty_points_awarded: params.loyaltyPointsAwarded ?? 0,
+    });
+
+    if (error) {
+      recordObservabilityEvent({
+        source: "capacity.transaction",
+        eventType: "booking.creation.rpc_error",
+        severity: "error",
+        context: {
+          restaurantId: params.restaurantId,
+          bookingDate: params.bookingDate,
+          startTime: params.startTime,
+          partySize: params.partySize,
+          error: error.message,
+          details: error.details ?? undefined,
+        },
+      });
+
+      throw new CapacityError(
+        error.message ?? "Failed to execute capacity RPC",
+        "INTERNAL_ERROR",
+        {
+          sqlstate: error.code ?? undefined,
+          sqlerrm: error.details ?? undefined,
+        },
+      );
+    }
+
+    const result = normalizeRpcResult(data as CapacityRpcPayload);
+
+    if (result.success) {
+      recordObservabilityEvent({
+        source: "capacity.transaction",
+        eventType: "booking.creation.success",
+        severity: "info",
+        context: {
+          restaurantId: params.restaurantId,
+          bookingId: result.booking ? (result.booking as any).id : undefined,
+          duplicate: result.duplicate ?? false,
+          capacity: result.capacity ?? undefined,
+        },
+      });
+    } else {
+      recordObservabilityEvent({
+        source: "capacity.transaction",
+        eventType: "booking.creation.failure",
+        severity: result.error === "CAPACITY_EXCEEDED" ? "warning" : "error",
+        context: {
+          restaurantId: params.restaurantId,
+          bookingDate: params.bookingDate,
+          startTime: params.startTime,
+          partySize: params.partySize,
+          error: result.error ?? "UNKNOWN",
+          message: result.message ?? undefined,
+          details: result.details ?? undefined,
+        },
+      });
+    }
+
+    return result;
   } catch (error) {
-    const details: BookingErrorDetails | undefined = error instanceof CapacityError ? error.details : undefined;
+    if (error instanceof CapacityError) {
+      throw error;
+    }
+
+    const details: BookingErrorDetails | undefined =
+      error && typeof error === "object" && "details" in (error as Record<string, unknown>)
+        ? ((error as Record<string, unknown>).details as BookingErrorDetails | undefined)
+        : undefined;
 
     recordObservabilityEvent({
       source: "capacity.transaction",
@@ -202,6 +249,132 @@ export async function createBookingWithCapacityCheck(
 
     throw new CapacityError(
       error instanceof Error ? error.message : "Failed to create booking",
+      "INTERNAL_ERROR",
+      details,
+    );
+  }
+}
+
+export async function updateBookingWithCapacityCheck(
+  params: UpdateBookingParams,
+  client?: DbClient,
+): Promise<BookingResult> {
+  const supabase = client ?? getServiceSupabaseClient();
+
+  try {
+    recordObservabilityEvent({
+      source: "capacity.transaction",
+      eventType: "booking.update.attempt",
+      severity: "info",
+      context: {
+        restaurantId: params.restaurantId,
+        bookingId: params.bookingId,
+        bookingDate: params.bookingDate,
+        startTime: params.startTime,
+        partySize: params.partySize,
+      },
+    });
+
+    const { data, error } = await supabase.rpc("update_booking_with_capacity_check", {
+      p_booking_id: params.bookingId,
+      p_restaurant_id: params.restaurantId,
+      p_customer_id: params.customerId,
+      p_booking_date: params.bookingDate,
+      p_start_time: params.startTime,
+      p_end_time: params.endTime,
+      p_party_size: params.partySize,
+      p_booking_type: params.bookingType,
+      p_customer_name: params.customerName,
+      p_customer_email: params.customerEmail,
+      p_customer_phone: params.customerPhone,
+      p_seating_preference: params.seatingPreference,
+      p_notes: params.notes ?? null,
+      p_marketing_opt_in: params.marketingOptIn ?? false,
+      p_auth_user_id: params.authUserId ?? null,
+      p_client_request_id: params.clientRequestId ?? null,
+      p_details: params.details ?? {},
+      p_loyalty_points_awarded: params.loyaltyPointsAwarded ?? 0,
+      p_source: params.source ?? "api",
+    });
+
+    if (error) {
+      recordObservabilityEvent({
+        source: "capacity.transaction",
+        eventType: "booking.update.rpc_error",
+        severity: "error",
+        context: {
+          restaurantId: params.restaurantId,
+          bookingId: params.bookingId,
+          error: error.message,
+          details: error.details ?? undefined,
+        },
+      });
+
+      throw new CapacityError(
+        error.message ?? "Failed to execute capacity update RPC",
+        "INTERNAL_ERROR",
+        {
+          sqlstate: error.code ?? undefined,
+          sqlerrm: error.details ?? undefined,
+        },
+      );
+    }
+
+    const result = normalizeRpcResult(data as CapacityRpcPayload);
+
+    if (result.success) {
+      recordObservabilityEvent({
+        source: "capacity.transaction",
+        eventType: "booking.update.success",
+        severity: "info",
+        context: {
+          restaurantId: params.restaurantId,
+          bookingId: params.bookingId,
+          capacity: result.capacity ?? undefined,
+        },
+      });
+    } else {
+      recordObservabilityEvent({
+        source: "capacity.transaction",
+        eventType: "booking.update.failure",
+        severity: result.error === "CAPACITY_EXCEEDED" ? "warning" : "error",
+        context: {
+          restaurantId: params.restaurantId,
+          bookingId: params.bookingId,
+          bookingDate: params.bookingDate,
+          startTime: params.startTime,
+          partySize: params.partySize,
+          error: result.error ?? "UNKNOWN",
+          message: result.message ?? undefined,
+          details: result.details ?? undefined,
+        },
+      });
+    }
+
+    return result;
+  } catch (error) {
+    if (error instanceof CapacityError) {
+      throw error;
+    }
+
+    const details: BookingErrorDetails | undefined =
+      error && typeof error === "object" && "details" in (error as Record<string, unknown>)
+        ? ((error as Record<string, unknown>).details as BookingErrorDetails | undefined)
+        : undefined;
+
+    recordObservabilityEvent({
+      source: "capacity.transaction",
+      eventType: "booking.update.failure",
+      severity: "error",
+      context: {
+        restaurantId: params.restaurantId,
+        bookingId: params.bookingId,
+        error: error instanceof Error ? error.message : String(error),
+      },
+    });
+
+    throw new CapacityError(
+      error instanceof Error ? error.message : "Failed to update booking",
       "INTERNAL_ERROR",
       details,
     );
@@ -222,8 +395,8 @@ export async function createBookingOrThrow(
   throw new CapacityError(message, result.error ?? "INTERNAL_ERROR", result.details);
 }
 
-export function isRetryableBookingError(_result: BookingResult): boolean {
-  return false;
+export function isRetryableBookingError(result: BookingResult): boolean {
+  return result.retryable === true;
 }
 
 export function getBookingErrorMessage(result: BookingResult): string {

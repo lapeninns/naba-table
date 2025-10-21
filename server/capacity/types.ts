@@ -79,6 +79,29 @@ export type CreateBookingParams = {
   authUserId?: string | null;
   clientRequestId?: string | null;
   loyaltyPointsAwarded?: number;
+  details?: Json | null;
+};
+
+export type UpdateBookingParams = {
+  bookingId: string;
+  restaurantId: string;
+  customerId: string;
+  bookingDate: string; // YYYY-MM-DD
+  startTime: string; // HH:MM
+  endTime: string; // HH:MM
+  partySize: number;
+  bookingType: BookingType;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  seatingPreference: Database["public"]["Enums"]["seating_preference_type"];
+  notes?: string | null;
+  marketingOptIn?: boolean;
+  source?: string;
+  authUserId?: string | null;
+  clientRequestId?: string | null;
+  loyaltyPointsAwarded?: number;
+  details?: Json | null;
 };
 
 export type BookingResult = {

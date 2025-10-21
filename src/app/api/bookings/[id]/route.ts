@@ -15,6 +15,13 @@ import {
   softCancelBooking,
   updateBookingRecord,
 } from "@/server/bookings";
+import {
+  createBookingValidationService,
+  BookingValidationError,
+  type BookingInput,
+  type ValidationContext,
+} from "@/server/booking";
+import { mapValidationFailure, withValidationHeaders } from "@/server/booking/http";
 import { getDefaultRestaurantId, getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 import {
   enqueueBookingCancelledSideEffects,
@@ -127,9 +134,19 @@ async function handleDashboardUpdate(params: {
     const startDate = new Date(data.startIso);
     const endDate = new Date(data.endIso);
 
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      return NextResponse.json({ error: "Invalid date values" }, { status: 400 });
+    }
+
+    if (endDate.getTime() <= startDate.getTime()) {
+      return NextResponse.json({ error: "End time must be after start time" }, { status: 400 });
+    }
+
     const bookingDate = formatDateForInput(startDate);
     const startTime = fromMinutes(startDate.getHours() * 60 + startDate.getMinutes());
     const endTime = fromMinutes(endDate.getHours() * 60 + endDate.getMinutes());
+    let scheduleTimezone: string | null = null;
+    const durationMinutes = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / 60000));
 
     // Check if time fields are being changed (only validate if time is changing)
     const isTimeChanged = 
@@ -145,6 +162,8 @@ async function handleDashboardUpdate(params: {
           date: bookingDate,
           client: serviceSupabase,
         });
+
+        scheduleTimezone = schedule.timezone;
 
         assertBookingNotInPast(
           schedule.timezone,
@@ -184,19 +203,79 @@ async function handleDashboardUpdate(params: {
       }
     }
 
-    const updated = await updateBookingRecord(serviceSupabase, bookingId, {
-      booking_date: bookingDate,
-      start_time: startTime,
-      end_time: endTime,
-      party_size: data.partySize,
-      notes: data.notes ?? null,
-      booking_type: existingBooking.booking_type,
-      seating_preference: existingBooking.seating_preference,
-      customer_name: existingBooking.customer_name,
-      customer_email: existingBooking.customer_email,
-      customer_phone: existingBooking.customer_phone,
-      marketing_opt_in: existingBooking.marketing_opt_in,
-    });
+    const useUnifiedValidation = env.featureFlags.bookingValidationUnified;
+    let updated: Tables<"bookings">;
+
+    if (useUnifiedValidation) {
+      const validationService = createBookingValidationService({ client: serviceSupabase });
+
+      const loyaltyPointsAwarded =
+        (existingBooking as { loyalty_points_awarded?: number | null }).loyalty_points_awarded ?? null;
+
+      const bookingInput: BookingInput = {
+        restaurantId: existingBooking.restaurant_id ?? (await getDefaultRestaurantId()),
+        serviceId: existingBooking.booking_type ?? "dinner",
+        bookingType: existingBooking.booking_type ?? undefined,
+        bookingId,
+        partySize: data.partySize,
+        start: `${bookingDate}T${startTime}:00`,
+        durationMinutes,
+        seatingPreference: existingBooking.seating_preference ?? null,
+        notes: data.notes ?? existingBooking.notes ?? null,
+        customerId: existingBooking.customer_id ?? null,
+        customerName: existingBooking.customer_name ?? "",
+        customerEmail: existingBooking.customer_email ?? null,
+        customerPhone: existingBooking.customer_phone ?? null,
+        marketingOptIn: existingBooking.marketing_opt_in ?? false,
+        source: existingBooking.source ?? null,
+        idempotencyKey: existingBooking.idempotency_key ?? null,
+        loyaltyPointsAwarded,
+      };
+
+      const context = {
+        actorId: actor.id,
+        actorRoles: ["dashboard"],
+        actorCapabilities: [],
+        tz: scheduleTimezone ?? "Europe/London",
+        flags: {
+          bookingPastTimeBlocking: env.featureFlags.bookingPastTimeBlocking ?? false,
+          bookingPastTimeGraceMinutes: env.featureFlags.bookingPastTimeGraceMinutes ?? 5,
+          unified: true,
+        },
+        metadata: {
+          clientRequestId: existingBooking.client_request_id ?? undefined,
+        },
+      } satisfies ValidationContext;
+
+      try {
+        const commit = await validationService.updateWithEnforcement(
+          existingBooking as unknown as BookingRecord,
+          bookingInput,
+          context,
+        );
+        updated = commit.booking as unknown as Tables<"bookings">;
+      } catch (error) {
+        if (error instanceof BookingValidationError) {
+          const mapped = mapValidationFailure(error.response);
+          return NextResponse.json(mapped.body, withValidationHeaders({ status: mapped.status }));
+        }
+        throw error;
+      }
+    } else {
+      updated = await updateBookingRecord(serviceSupabase, bookingId, {
+        booking_date: bookingDate,
+        start_time: startTime,
+        end_time: endTime,
+        party_size: data.partySize,
+        notes: data.notes ?? null,
+        booking_type: existingBooking.booking_type,
+        seating_preference: existingBooking.seating_preference,
+        customer_name: existingBooking.customer_name,
+        customer_email: existingBooking.customer_email,
+        customer_phone: existingBooking.customer_phone,
+        marketing_opt_in: existingBooking.marketing_opt_in,
+      });
+    }
 
     const targetRestaurantId =
       updated.restaurant_id ?? existingBooking.restaurant_id ?? (await getDefaultRestaurantId());
@@ -239,7 +318,9 @@ async function handleDashboardUpdate(params: {
       notes: updated.notes,
     };
 
-    return NextResponse.json(bookingDTO);
+    const responseInit = useUnifiedValidation ? withValidationHeaders({ status: 200 }) : { status: 200 };
+
+    return NextResponse.json(bookingDTO, responseInit);
   } catch (error: unknown) {
     console.error("[bookings][PUT:dashboard]", stringifyError(error));
     return NextResponse.json({ error: stringifyError(error) || "Unable to update booking" }, { status: 500 });

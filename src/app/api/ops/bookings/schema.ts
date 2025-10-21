@@ -30,6 +30,29 @@ const optionalPhoneSchema = z
   .optional()
   .transform((value) => (value === undefined ? null : value));
 
+const overrideSchema = z
+  .object({
+    apply: z.boolean(),
+    reason: z
+      .string()
+      .trim()
+      .max(500, { message: "Override reason must be 500 characters or fewer." })
+      .optional()
+      .nullable(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.apply) {
+      const reason = value.reason?.trim() ?? "";
+      if (reason.length < 3) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["reason"],
+          message: "Override reason must be at least 3 characters when applying override.",
+        });
+      }
+    }
+  });
+
 export const opsWalkInBookingSchema = z.object({
   restaurantId: z.string().uuid(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -42,6 +65,7 @@ export const opsWalkInBookingSchema = z.object({
   email: optionalEmailSchema,
   phone: optionalPhoneSchema,
   marketingOptIn: z.coerce.boolean().optional().default(false),
+  override: overrideSchema.optional(),
 });
 
 export type OpsWalkInBookingPayload = z.infer<typeof opsWalkInBookingSchema>;

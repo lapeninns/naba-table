@@ -39,6 +39,7 @@ const baseEnvSchema = z
     FEATURE_GUEST_LOOKUP_POLICY: booleanStringOptional,
     FEATURE_OPS_GUARD_V2: booleanStringOptional,
     FEATURE_BOOKING_PAST_TIME_BLOCKING: booleanStringOptional,
+    FEATURE_BOOKING_VALIDATION_UNIFIED: booleanStringOptional,
     FEATURE_OPS_BOOKING_LIFECYCLE_V2: booleanStringOptional,
     FEATURE_ALLOCATIONS_DUAL_WRITE: booleanStringOptional,
     FEATURE_RPC_ASSIGN_ATOMIC: booleanStringOptional,

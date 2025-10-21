@@ -4,7 +4,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { env } from "@/lib/env";
-import { deriveEndTime, fetchBookingsForContact, generateUniqueBookingReference, inferMealTypeFromTime, insertBookingRecord } from "@/server/bookings";
+import {
+  calculateDurationMinutes,
+  deriveEndTime,
+  fetchBookingsForContact,
+  generateUniqueBookingReference,
+  inferMealTypeFromTime,
+  logAuditEvent,
+  insertBookingRecord,
+} from "@/server/bookings";
 import { normalizeEmail, upsertCustomer } from "@/server/customers";
 import { enqueueBookingCreatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
 import { recordObservabilityEvent } from "@/server/observability";
@@ -15,15 +23,39 @@ import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/serve
 import { PastBookingError, assertBookingNotInPast, canOverridePastBooking } from "@/server/bookings/pastTimeValidation";
 import { getRestaurantSchedule } from "@/server/restaurants/schedule";
 import type { BookingRecord } from "@/server/bookings";
+import type { BookingType } from "@/lib/enums";
 import type { Json, Tables } from "@/types/supabase";
-import type { RestaurantRole } from "@/lib/owner/auth/roles";
+import { isRestaurantAdminRole, type RestaurantRole } from "@/lib/owner/auth/roles";
 import { validateBookingWindow } from "@/server/capacity";
+import {
+  createBookingValidationService,
+  BookingValidationError,
+  type BookingInput,
+  type ValidationContext,
+} from "@/server/booking";
+import { mapValidationFailure, withValidationHeaders } from "@/server/booking/http";
 import { opsWalkInBookingSchema, type OpsWalkInBookingPayload } from "./schema";
 
 const OPS_CHANNEL = "ops.walkin";
 const SYSTEM_SOURCE = "system";
 
 type BookingPayload = OpsWalkInBookingPayload;
+
+type AuthenticatedUser = {
+  id: string;
+  email?: string | null;
+};
+
+type UnifiedCreateParams = {
+  req: NextRequest;
+  payload: BookingPayload;
+  user: AuthenticatedUser;
+  service: ReturnType<typeof getServiceSupabaseClient>;
+  normalizedIdempotencyKey: string | null;
+  clientRequestId: string;
+  userAgent: string | null;
+  clientIp: string | null;
+};
 
 type PostgrestErrorLike = {
   code?: string;
@@ -94,6 +126,15 @@ const OPS_BOOKING_STATUSES = [
   "completed",
   "no_show",
 ] as const;
+
+const BOOKING_OVERRIDE_CAPABILITY = "booking.override";
+
+function resolveActorCapabilities(role: RestaurantRole | null | undefined): string[] {
+  if (isRestaurantAdminRole(role)) {
+    return [BOOKING_OVERRIDE_CAPABILITY];
+  }
+  return [];
+}
 
 function sanitizeSearchTerm(input: string): string {
   return input.replace(/([\\%_])/g, '\\$1');
@@ -466,17 +507,34 @@ export async function POST(req: NextRequest) {
   }
 
   const service = getServiceSupabaseClient();
+  const useUnifiedValidation = env.featureFlags.bookingValidationUnified;
+  const idempotencyKey = req.headers.get("Idempotency-Key");
+  const normalizedIdempotencyKey =
+    typeof idempotencyKey === "string" && idempotencyKey.trim().length > 0 ? idempotencyKey.trim() : null;
+  const clientRequestId =
+    normalizedIdempotencyKey && /^[0-9a-f-]{36}$/i.test(normalizedIdempotencyKey)
+      ? normalizedIdempotencyKey
+      : randomUUID();
+  const userAgent = req.headers.get("user-agent");
+
+  if (useUnifiedValidation) {
+    return handleUnifiedWalkInCreate({
+      req,
+      payload,
+      user,
+      service,
+      normalizedIdempotencyKey,
+      clientRequestId,
+      userAgent,
+      clientIp,
+    });
+  }
+
   const schedule = await getRestaurantSchedule(payload.restaurantId, {
     date: payload.date,
     client: service,
   });
   const timezone = schedule.timezone;
-  const idempotencyKey = req.headers.get("Idempotency-Key");
-  const normalizedIdempotencyKey = typeof idempotencyKey === "string" && idempotencyKey.trim().length > 0 ? idempotencyKey.trim() : null;
-  const clientRequestId = normalizedIdempotencyKey && /^[0-9a-f-]{36}$/i.test(normalizedIdempotencyKey)
-    ? normalizedIdempotencyKey
-    : randomUUID();
-  const userAgent = req.headers.get("user-agent");
 
   const startTime = payload.time;
   const startDateTime = DateTime.fromISO(`${payload.date}T${startTime}`, {
@@ -729,4 +787,190 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json(responseBody, { status: 201 });
+}
+
+async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
+  const { req, payload, user, service, normalizedIdempotencyKey, clientRequestId, userAgent, clientIp } = params;
+
+  const schedule = await getRestaurantSchedule(payload.restaurantId, {
+    date: payload.date,
+    client: service,
+  });
+
+  const startDateTime = DateTime.fromISO(`${payload.date}T${payload.time}`, {
+    zone: schedule.timezone ?? undefined,
+  });
+
+  if (!startDateTime.isValid) {
+    return NextResponse.json({ error: "Invalid booking time" }, { status: 400 });
+  }
+
+  const bookingType = (payload.bookingType === "drinks" ? "drinks" : inferMealTypeFromTime(payload.time)) as BookingType;
+  const durationMinutes = calculateDurationMinutes(bookingType);
+
+  const rawCustomerEmail = (payload.email ?? "").trim();
+  const rawCustomerPhone = (payload.phone ?? "").trim();
+  const emailProvided = rawCustomerEmail.length > 0;
+  const phoneProvided = rawCustomerPhone.length > 0;
+
+  const fallbackEmail = ensureFallbackContact(payload.email, clientRequestId, "email");
+  const fallbackPhone = ensureFallbackContact(payload.phone, clientRequestId, "phone");
+  const customerEmailForStorage = emailProvided ? normalizeEmail(rawCustomerEmail) : fallbackEmail;
+  const customerPhoneForStorage = phoneProvided ? rawCustomerPhone : fallbackPhone;
+
+  const customer = await upsertCustomer(service, {
+    restaurantId: payload.restaurantId,
+    email: fallbackEmail,
+    phone: fallbackPhone,
+    name: payload.name,
+    marketingOptIn: payload.marketingOptIn ?? false,
+  });
+
+  const memberships = await fetchUserMemberships(user.id, service);
+  const membership = memberships.find((entry) => entry.restaurant_id === payload.restaurantId) ?? null;
+  const userRole = (membership?.role as RestaurantRole | undefined) ?? null;
+  const actorCapabilities = resolveActorCapabilities(userRole);
+  const actorRoles = userRole ? [userRole] : ["staff"];
+
+  const overrideReason = payload.override?.reason?.trim() ?? null;
+  const overrideRequest = payload.override?.apply
+    ? { apply: true, reason: overrideReason }
+    : undefined;
+
+  const validationService = createBookingValidationService({ client: service });
+
+  const startIso = startDateTime.toISO();
+  if (!startIso) {
+    return NextResponse.json({ error: "Unable to normalise booking start time" }, { status: 400 });
+  }
+
+  const bookingInput: BookingInput = {
+    restaurantId: payload.restaurantId,
+    serviceId: payload.bookingType,
+    bookingType,
+    partySize: payload.party,
+    start: startIso,
+    durationMinutes,
+    seatingPreference: payload.seating,
+    notes: payload.notes ?? null,
+    customerId: customer.id,
+    customerName: payload.name,
+    customerEmail: customerEmailForStorage,
+    customerPhone: customerPhoneForStorage,
+    marketingOptIn: payload.marketingOptIn ?? false,
+    source: SYSTEM_SOURCE,
+    idempotencyKey: normalizedIdempotencyKey ?? null,
+    override: overrideRequest,
+  };
+
+  const context: ValidationContext = {
+    actorId: user.id,
+    actorRoles,
+    actorCapabilities,
+    tz: schedule.timezone,
+    flags: {
+      bookingPastTimeBlocking: env.featureFlags.bookingPastTimeBlocking ?? false,
+      bookingPastTimeGraceMinutes: env.featureFlags.bookingPastTimeGraceMinutes ?? 5,
+      unified: true,
+    },
+    metadata: {
+      clientRequestId,
+      userAgent,
+    },
+  };
+
+  try {
+    const commit = await validationService.createWithEnforcement(bookingInput, context);
+    const booking = commit.booking as BookingRecord;
+    const reusedExisting = commit.duplicate === true;
+    const validationResponse = commit.response;
+
+    const bookings = await fetchBookingsForContact(service, payload.restaurantId, fallbackEmail, fallbackPhone);
+
+    if (!reusedExisting) {
+      await enqueueBookingCreatedSideEffects({
+        booking: safeBookingPayload(booking),
+        idempotencyKey: normalizedIdempotencyKey,
+        restaurantId: payload.restaurantId,
+      });
+    }
+
+    if (validationResponse.overridden) {
+      const overrideAuditMetadata: Json = {
+        override_reason: overrideReason,
+        override_codes: validationResponse.overrideCodes ?? [],
+        actor_role: userRole,
+        source: OPS_CHANNEL,
+        client_request_id: clientRequestId,
+      };
+
+      await logAuditEvent(service, {
+        action: "booking.override.applied",
+        entity: "booking",
+        entityId: booking.id,
+        metadata: overrideAuditMetadata,
+        actor: user.email ?? user.id,
+      });
+
+      void recordObservabilityEvent({
+        source: "api.ops.bookings",
+        eventType: "booking.override.applied",
+        severity: "info",
+        context: {
+          bookingId: booking.id,
+          restaurantId: payload.restaurantId,
+          actorId: user.id,
+          actorEmail: user.email,
+          actorRole: userRole,
+          codes: validationResponse.overrideCodes ?? [],
+          reason: overrideReason,
+        },
+      });
+    }
+
+    void recordObservabilityEvent({
+      source: "api.ops",
+      eventType: "ops_bookings.create",
+      context: {
+        staff_id: user.id,
+        restaurant_id: payload.restaurantId,
+        booking_id: booking.id,
+        override_applied: validationResponse.overridden ?? false,
+      },
+    });
+
+    return NextResponse.json(
+      {
+        booking,
+        bookings,
+        idempotencyKey: normalizedIdempotencyKey,
+        clientRequestId,
+        duplicate: reusedExisting,
+        validation: validationResponse,
+      },
+      withValidationHeaders({ status: reusedExisting ? 200 : 201 }),
+    );
+  } catch (error) {
+    if (error instanceof BookingValidationError) {
+      void recordObservabilityEvent({
+        source: "api.ops.bookings",
+        eventType: "booking.validation_failed",
+        severity: "warning",
+        context: {
+          restaurantId: payload.restaurantId,
+          actorId: user.id,
+          actorEmail: user.email,
+          overrideAttempted: payload.override?.apply ?? false,
+          issues: error.response.issues.map((issue) => issue.code),
+          ipScope: clientIp ? anonymizeIp(clientIp) : undefined,
+        },
+      });
+
+      const mapped = mapValidationFailure(error.response);
+      return NextResponse.json(mapped.body, withValidationHeaders({ status: mapped.status }));
+    }
+
+    console.error("[ops/bookings][POST][unified] unexpected", error);
+    return NextResponse.json({ error: "Unable to create booking" }, { status: 500 });
+  }
 }

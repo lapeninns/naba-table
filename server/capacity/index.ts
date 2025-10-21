@@ -34,6 +34,7 @@ export {
 
 export {
   createBookingWithCapacityCheck,
+  updateBookingWithCapacityCheck,
   createBookingOrThrow,
   retryWithBackoff,
   isRetryableBookingError,
@@ -89,6 +90,7 @@ export type {
   
   // Booking Transaction
   CreateBookingParams,
+  UpdateBookingParams,
   BookingResult,
   BookingRecord,
   BookingErrorCode,

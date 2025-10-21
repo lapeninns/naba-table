@@ -32,6 +32,10 @@ type UpdateBookingInput = {
   endIso: string;
   partySize: number;
   notes?: string | null;
+  override?: {
+    apply: boolean;
+    reason?: string | null;
+  } | null;
 };
 
 type UpdateStatusInput = {

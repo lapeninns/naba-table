@@ -127,6 +127,10 @@ export type OpsWalkInBookingPayload = {
   email?: string | null;
   phone?: string | null;
   marketingOptIn?: boolean;
+  override?: {
+    apply: boolean;
+    reason?: string | null;
+  } | null;
 };
 
 export type OpsBookingListItem = {

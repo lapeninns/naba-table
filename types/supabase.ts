@@ -1584,6 +1584,30 @@ export type Database = {
         }
         Returns: Json
       }
+      update_booking_with_capacity_check: {
+        Args: {
+          p_auth_user_id?: string | null
+          p_booking_date: string
+          p_booking_id: string
+          p_booking_type: string
+          p_client_request_id?: string | null
+          p_customer_email: string
+          p_customer_id: string
+          p_customer_name: string
+          p_customer_phone: string
+          p_details?: Json
+          p_end_time: string
+          p_loyalty_points_awarded?: number
+          p_marketing_opt_in?: boolean
+          p_notes?: string | null
+          p_party_size: number
+          p_restaurant_id: string
+          p_seating_preference: string
+          p_source?: string
+          p_start_time: string
+        }
+        Returns: Json
+      }
       gbt_bit_compress: {
         Args: { "": unknown }
         Returns: unknown
