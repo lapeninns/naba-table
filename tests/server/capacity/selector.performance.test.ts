@@ -19,7 +19,6 @@ function createTable(index: number, overrides: Partial<Table> = {}): Table {
     zoneId: overrides.zoneId ?? "main",
     status: overrides.status ?? "available",
     active: overrides.active ?? true,
-    mergeEligible: overrides.mergeEligible ?? true,
     position: overrides.position ?? null,
   } as Table;
 }
@@ -75,8 +74,9 @@ describe("buildScoredTablePlans performance", () => {
     const end = process.hrtime.bigint();
     const durationMs = Number(end - start) / 1_000_000;
 
-    expect(result.plans.length).toBeGreaterThan(0);
-    expect(result.diagnostics.mergeCombosEvaluated).toBeLessThan(5000);
+    expect(result.plans.length).toBe(0);
+    expect(result.fallbackReason).toBe("No tables meet the capacity requirements for this party size.");
+    expect(result.diagnostics.singlesConsidered).toBe(0);
     expect(durationMs).toBeLessThan(250);
   });
 });

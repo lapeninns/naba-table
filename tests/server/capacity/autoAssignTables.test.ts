@@ -165,20 +165,28 @@ function createMockSupabaseClient(options: MockClientOptions) {
         const data = (Array.isArray(args.p_table_ids) ? args.p_table_ids : []).map((tableId: string) => ({
           table_id: tableId,
           assignment_id: `${args.p_booking_id}-${tableId}`,
-          merge_group_id: null,
         }));
         return Promise.resolve({ data, error: null });
       }
 
       if (name === 'unassign_table_from_booking' || name === 'unassign_tables_atomic') {
-        const target = args.p_table_id as string;
         const bookingId = args.p_booking_id as string;
-        assignments.forEach((entry) => {
-          if (entry.bookingId === bookingId) {
-            entry.tableIds = entry.tableIds.filter((tableId) => tableId !== target);
-          }
+        const tableIdsParam = Array.isArray(args.p_table_ids)
+          ? (args.p_table_ids as string[])
+          : args.p_table_id
+            ? [args.p_table_id as string]
+            : [];
+
+        tableIdsParam.forEach((target) => {
+          assignments.forEach((entry) => {
+            if (entry.bookingId === bookingId) {
+              entry.tableIds = entry.tableIds.filter((tableId) => tableId !== target);
+            }
+          });
         });
-        return Promise.resolve({ data: true, error: null });
+
+        const data = tableIdsParam.map((tableId) => ({ table_id: tableId }));
+        return Promise.resolve({ data, error: null });
       }
 
       return Promise.resolve({ data: null, error: null });
@@ -268,65 +276,6 @@ describe('autoAssignTablesForDate', () => {
     ]);
   });
 
-  it('skips combining tables when the available mix does not match allowed merges', async () => {
-    const tables: TableRow[] = [
-      {
-        id: 'table-1',
-        table_number: 'C1',
-        capacity: 3,
-        min_party_size: 1,
-        max_party_size: null,
-        section: null,
-        seating_type: 'standard',
-        status: 'available',
-        position: null,
-      },
-      {
-        id: 'table-2',
-        table_number: 'C2',
-        capacity: 4,
-        min_party_size: 1,
-        max_party_size: null,
-        section: null,
-        seating_type: 'standard',
-        status: 'available',
-        position: null,
-      },
-    ];
-
-    const bookings: BookingRow[] = [
-      {
-        id: 'booking-10',
-        party_size: 6,
-        status: 'pending_allocation',
-        start_time: '17:30',
-        end_time: null,
-        start_at: '2025-11-02T17:30:00+00:00',
-        booking_date: '2025-11-02',
-        seating_preference: 'any',
-        booking_table_assignments: [],
-      },
-    ];
-
-    const { client, assignments } = createMockSupabaseClient({ tables, bookings });
-
-    const result = await autoAssignTablesForDate({
-      restaurantId: 'rest-2',
-      date: '2025-11-02',
-      client,
-      assignedBy: 'user-2',
-    });
-
-    expect(result.assigned).toEqual([]);
-    expect(result.skipped).toEqual([
-      {
-        bookingId: 'booking-10',
-        reason: expect.stringContaining('capacity requirements'),
-      },
-    ]);
-    expect(assignments).toHaveLength(0);
-  });
-
   it('returns skipped entry when no tables are available', async () => {
     const tables: TableRow[] = [
       {
@@ -373,194 +322,6 @@ describe('autoAssignTablesForDate', () => {
       },
     ]);
   });
-  it('merges a 2-top and 4-top for a party of six when no single table fits', async () => {
-  const tables: TableRow[] = [
-    {
-      id: 'table-2-1',
-      table_number: 'T2-1',
-      capacity: 2,
-      min_party_size: 1,
-      max_party_size: 2,
-      section: 'Main',
-      seating_type: 'standard',
-      status: 'available',
-      position: null,
-    },
-    {
-      id: 'table-4-1',
-      table_number: 'T4-1',
-      capacity: 4,
-      min_party_size: 2,
-      max_party_size: 4,
-      section: 'Main',
-      seating_type: 'standard',
-      status: 'available',
-      position: null,
-    },
-  ];
-
-  const bookings: BookingRow[] = [
-    {
-      id: 'booking-merge-6',
-      party_size: 6,
-      status: 'pending_allocation',
-      start_time: '12:30',
-      end_time: null,
-      start_at: '2025-11-01T12:30:00+00:00',
-      booking_date: '2025-11-01',
-      seating_preference: 'any',
-      booking_table_assignments: [],
-    },
-  ];
-
-  const { client, assignments } = createMockSupabaseClient({
-    tables,
-    bookings,
-    adjacency: [
-      { table_a: 'table-2-1', table_b: 'table-4-1' },
-      { table_a: 'table-4-1', table_b: 'table-2-1' },
-    ],
-  });
-
-  const result = await autoAssignTablesForDate({
-    restaurantId: 'rest-merge',
-    date: '2025-11-01',
-    client,
-    assignedBy: 'user-merge',
-  });
-
-  expect(result.assigned).toEqual([
-    {
-      bookingId: 'booking-merge-6',
-      tableIds: ['table-2-1', 'table-4-1'],
-    },
-  ]);
-
-  expect(assignments).toEqual([
-    expect.objectContaining({
-      bookingId: 'booking-merge-6',
-      tableIds: ['table-2-1', 'table-4-1'],
-    }),
-  ]);
-  });
-
-  it('merges two 4-top tables for a party of eight when available', async () => {
-  const tables: TableRow[] = [
-    {
-      id: 'table-4-1',
-      table_number: 'T4-1',
-      capacity: 4,
-      min_party_size: 2,
-      max_party_size: 4,
-      section: 'Main',
-      seating_type: 'standard',
-      status: 'available',
-      position: null,
-    },
-    {
-      id: 'table-4-2',
-      table_number: 'T4-2',
-      capacity: 4,
-      min_party_size: 2,
-      max_party_size: 4,
-      section: 'Main',
-      seating_type: 'standard',
-      status: 'available',
-      position: null,
-    },
-  ];
-
-  const bookings: BookingRow[] = [
-    {
-      id: 'booking-merge-8',
-      party_size: 8,
-      status: 'pending_allocation',
-      start_time: '19:00',
-      end_time: null,
-      start_at: '2025-11-01T19:00:00+00:00',
-      booking_date: '2025-11-01',
-      seating_preference: 'any',
-      booking_table_assignments: [],
-    },
-  ];
-
-  const { client, assignments } = createMockSupabaseClient({
-    tables,
-    bookings,
-    adjacency: [
-      { table_a: 'table-4-1', table_b: 'table-4-2' },
-      { table_a: 'table-4-2', table_b: 'table-4-1' },
-    ],
-  });
-
-  const result = await autoAssignTablesForDate({
-    restaurantId: 'rest-merge',
-    date: '2025-11-01',
-    client,
-    assignedBy: 'user-merge',
-  });
-
-  expect(result.assigned).toEqual([
-    {
-      bookingId: 'booking-merge-8',
-      tableIds: ['table-4-1', 'table-4-2'],
-    },
-  ]);
-
-  expect(assignments).toEqual([
-    expect.objectContaining({
-      bookingId: 'booking-merge-8',
-      tableIds: ['table-4-1', 'table-4-2'],
-    }),
-  ]);
-  });
-
-  it('skips assignment when merge requirements cannot be met', async () => {
-  const tables: TableRow[] = [
-    {
-      id: 'table-4-1',
-      table_number: 'T4-1',
-      capacity: 4,
-      min_party_size: 2,
-      max_party_size: 4,
-      section: 'Main',
-      seating_type: 'standard',
-      status: 'available',
-      position: null,
-    },
-  ];
-
-  const bookings: BookingRow[] = [
-    {
-      id: 'booking-merge-fail',
-      party_size: 7,
-      status: 'pending_allocation',
-      start_time: '17:30',
-      end_time: null,
-      start_at: '2025-11-01T17:30:00+00:00',
-      booking_date: '2025-11-01',
-      seating_preference: 'any',
-      booking_table_assignments: [],
-    },
-  ];
-
-  const { client } = createMockSupabaseClient({ tables, bookings });
-
-  const result = await autoAssignTablesForDate({
-    restaurantId: 'rest-merge',
-    date: '2025-11-01',
-    client,
-    assignedBy: 'user-merge',
-  });
-
-  expect(result.assigned).toEqual([]);
-  expect(result.skipped).toHaveLength(1);
-  expect(result.skipped[0]).toMatchObject({
-    bookingId: 'booking-merge-fail',
-  });
-  expect(result.skipped[0]?.reason ?? '').toContain('capacity requirements');
-  });
-
   it('prefers the best scoring single table and emits telemetry details', async () => {
     const tables: TableRow[] = [
       {
@@ -607,7 +368,6 @@ describe('autoAssignTablesForDate', () => {
         status: 'available',
         position: null,
         category: 'dining',
-        mergeEligible: true,
       },
       {
         id: 'table-merge-b',
@@ -620,7 +380,6 @@ describe('autoAssignTablesForDate', () => {
         status: 'available',
         position: null,
         category: 'dining',
-        mergeEligible: true,
       },
     ];
 
@@ -639,7 +398,7 @@ describe('autoAssignTablesForDate', () => {
     ];
 
     const { client, assignments } = createMockSupabaseClient({
-      tables: tables.map((table) => ({ ...table, mergeEligible: table.mergeEligible ?? false })),
+      tables,
       bookings,
       adjacency: [
         { table_a: 'table-merge-a', table_b: 'table-merge-b' },
@@ -689,7 +448,6 @@ describe('autoAssignTablesForDate', () => {
         status: 'available',
         position: null,
         category: 'dining',
-        mergeEligible: true,
       },
       {
         id: 'table-merge-b',
@@ -702,7 +460,6 @@ describe('autoAssignTablesForDate', () => {
         status: 'available',
         position: null,
         category: 'dining',
-        mergeEligible: true,
       },
     ];
 

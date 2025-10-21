@@ -18,7 +18,6 @@ function createTable(overrides: Partial<Table> & Pick<Table, "id">): Table {
     zoneId: overrides.zoneId ?? "zone-1",
     status: overrides.status ?? "available",
     active: overrides.active ?? true,
-    mergeEligible: overrides.mergeEligible ?? true,
     position: overrides.position ?? null,
   } as Table;
 }
@@ -39,7 +38,7 @@ describe("buildScoredTablePlans", () => {
 
   it("prefers a single table when capacity fits exactly", () => {
     const tables: Table[] = [
-      createTable({ id: "t-single", tableNumber: "S6", capacity: 6, mergeEligible: false }),
+      createTable({ id: "t-single", tableNumber: "S6", capacity: 6 }),
       createTable({ id: "t-a", tableNumber: "M1", capacity: 3 }),
       createTable({ id: "t-b", tableNumber: "M2", capacity: 3 }),
     ];
@@ -63,7 +62,7 @@ describe("buildScoredTablePlans", () => {
     const baseTables: Table[] = [
       createTable({ id: "a", tableNumber: "A", capacity: 2 }),
       createTable({ id: "b", tableNumber: "B", capacity: 4 }),
-      createTable({ id: "c", tableNumber: "C", capacity: 6, mergeEligible: false }),
+      createTable({ id: "c", tableNumber: "C", capacity: 6 }),
     ];
 
     const adjacency = buildAdjacency([
@@ -82,8 +81,8 @@ describe("buildScoredTablePlans", () => {
 
   it("penalises higher overage even when lexicographic order would differ", () => {
     const tables: Table[] = [
-      createTable({ id: "preferred", tableNumber: "Z4", capacity: 4, mergeEligible: false }),
-      createTable({ id: "fallback", tableNumber: "A5", capacity: 5, mergeEligible: false }),
+      createTable({ id: "preferred", tableNumber: "Z4", capacity: 4 }),
+      createTable({ id: "fallback", tableNumber: "A5", capacity: 5 }),
     ];
 
     const adjacency = new Map<string, Set<string>>();
@@ -95,28 +94,6 @@ describe("buildScoredTablePlans", () => {
     expect(plans[1]?.metrics?.overage).toBe(1);
   });
 
-  it("produces a three-table merge when adjacency allows and singles are insufficient", () => {
-    const tables: Table[] = [
-      createTable({ id: "t1", tableNumber: "T1", capacity: 2 }),
-      createTable({ id: "t2", tableNumber: "T2", capacity: 2 }),
-      createTable({ id: "t3", tableNumber: "T3", capacity: 2 }),
-    ];
-
-    const adjacency = buildAdjacency([
-      ["t1", "t2"],
-      ["t2", "t1"],
-      ["t2", "t3"],
-      ["t3", "t2"],
-      ["t1", "t3"],
-      ["t3", "t1"],
-    ]);
-
-    const { plans, fallbackReason } = buildScoredTablePlans({ tables, partySize: 6, adjacency, config });
-
-    expect(fallbackReason).toBeUndefined();
-    expect(plans[0]?.tables).toHaveLength(3);
-    expect(new Set(plans[0]?.tables.map((table) => table.id))).toEqual(new Set(["t1", "t2", "t3"]));
-  });
 });
 
 function permute<T>(items: T[]): T[][] {

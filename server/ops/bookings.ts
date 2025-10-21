@@ -61,18 +61,7 @@ type BookingSummaryTableInventory = Pick<Tables<"table_inventory">, "table_numbe
 
 type BookingSummaryTableAssignment = {
   table_id: string | null;
-  merge_group_id: string | null;
   table_inventory: BookingSummaryTableInventory | BookingSummaryTableInventory[] | null;
-  merge_group:
-    | {
-        id: string;
-        capacity: number | null;
-      }
-    | Array<{
-        id: string;
-        capacity: number | null;
-      }>
-    | null;
 };
 
 type BookingSummaryQueryRow = Pick<
@@ -153,15 +142,10 @@ export async function getTodayBookingsSummary(
         customer_id,
         booking_table_assignments (
           table_id,
-          merge_group_id,
           table_inventory (
             table_number,
             capacity,
             section
-          ),
-          merge_group:merge_group_id (
-            id,
-            capacity
           )
         )
       `,
@@ -214,29 +198,22 @@ export async function getTodayBookingsSummary(
           ? [assignment.table_inventory]
           : [];
       const tableMeta = tableMetaArray[0] ?? null;
-      const mergeGroupRaw = Array.isArray(assignment.merge_group)
-        ? assignment.merge_group[0] ?? null
-        : assignment.merge_group ?? null;
+    const groupKey = assignment.table_id;
+    let group = assignmentGroups.get(groupKey);
 
-      const groupId = assignment.merge_group_id ?? null;
-      const groupKey = groupId ?? assignment.table_id;
-      let group = assignmentGroups.get(groupKey);
+    if (!group) {
+      group = {
+        groupId: null,
+        capacitySum: null,
+        members: [],
+      };
 
-      if (!group) {
-        group = {
-          groupId,
-          capacitySum: null,
-          members: [],
-        };
-
-        if (groupId && typeof mergeGroupRaw?.capacity === 'number') {
-          group.capacitySum = mergeGroupRaw.capacity;
-        } else if (!groupId && typeof tableMeta?.capacity === 'number') {
-          group.capacitySum = tableMeta.capacity;
-        }
-
-        assignmentGroups.set(groupKey, group);
+      if (typeof tableMeta?.capacity === 'number') {
+        group.capacitySum = tableMeta.capacity;
       }
+
+      assignmentGroups.set(groupKey, group);
+    }
 
       group.members.push({
         tableId: assignment.table_id,

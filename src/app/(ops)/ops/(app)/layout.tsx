@@ -66,7 +66,6 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
 
   const initialRestaurantId = opsMemberships[0]?.restaurantId ?? null;
   const featureFlags = {
-    capacityConfig: env.featureFlags.capacityConfig ?? false,
     opsMetrics: env.featureFlags.opsMetrics ?? false,
     selectorScoring: env.featureFlags.selectorScoring ?? false,
   } as const;

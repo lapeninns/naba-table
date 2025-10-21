@@ -23,7 +23,7 @@ import {
   type TableInventoryService,
   type TableInventoryServiceFactory,
 } from '@/services/ops/tables';
-import { createCapacityService, type CapacityService, type CapacityServiceFactory } from '@/services/ops/capacity';
+import ZoneService from '@/services/ops/zones';
 import {
   createOccasionService,
   type OccasionService,
@@ -36,8 +36,8 @@ export type OpsServices = {
   teamService: TeamService;
   customerService: CustomerService;
   tableInventoryService: TableInventoryService;
-  capacityService: CapacityService;
   occasionService: OccasionService;
+  zoneService: ZoneService;
 };
 
 type OpsServiceFactories = {
@@ -46,8 +46,8 @@ type OpsServiceFactories = {
   teamService?: TeamServiceFactory;
   customerService?: CustomerServiceFactory;
   tableInventoryService?: TableInventoryServiceFactory;
-  capacityService?: CapacityServiceFactory;
   occasionService?: OccasionServiceFactory;
+  zoneService?: () => ZoneService;
 };
 
 type OpsServicesProviderProps = {
@@ -65,8 +65,8 @@ export function OpsServicesProvider({ factories, children }: OpsServicesProvider
       teamService: createTeamService(factories?.teamService),
       customerService: createCustomerService(factories?.customerService),
       tableInventoryService: createTableInventoryService(factories?.tableInventoryService),
-      capacityService: createCapacityService(factories?.capacityService),
       occasionService: createOccasionService(factories?.occasionService),
+      zoneService: factories?.zoneService ? factories.zoneService() : new ZoneService(),
     }),
     [
       factories?.bookingService,
@@ -74,8 +74,8 @@ export function OpsServicesProvider({ factories, children }: OpsServicesProvider
       factories?.teamService,
       factories?.customerService,
       factories?.tableInventoryService,
-      factories?.capacityService,
       factories?.occasionService,
+      factories?.zoneService,
     ],
   );
 
@@ -110,10 +110,10 @@ export function useTableInventoryService(): TableInventoryService {
   return useOpsServices().tableInventoryService;
 }
 
-export function useCapacityService(): CapacityService {
-  return useOpsServices().capacityService;
-}
-
 export function useOccasionService(): OccasionService {
   return useOpsServices().occasionService;
+}
+
+export function useZoneService(): ZoneService {
+  return useOpsServices().zoneService;
 }

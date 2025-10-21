@@ -4,6 +4,9 @@ const booleanString = z.enum(["true", "false"]).transform((value) => value === "
 
 const booleanStringOptional = booleanString.optional();
 
+const normalizeOptionalUrl = (value: unknown) =>
+  typeof value === "string" && value.trim().length === 0 ? undefined : value;
+
 const baseEnvSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -37,14 +40,11 @@ const baseEnvSchema = z
     FEATURE_OPS_GUARD_V2: booleanStringOptional,
     FEATURE_BOOKING_PAST_TIME_BLOCKING: booleanStringOptional,
     FEATURE_OPS_BOOKING_LIFECYCLE_V2: booleanStringOptional,
-    FEATURE_CAPACITY_ADMIN_DASHBOARD: booleanStringOptional,
     FEATURE_ALLOCATIONS_DUAL_WRITE: booleanStringOptional,
     FEATURE_RPC_ASSIGN_ATOMIC: booleanStringOptional,
     FEATURE_ASSIGN_ATOMIC: booleanStringOptional,
-    FEATURE_MERGE_PERSISTENCE: booleanStringOptional,
     FEATURE_STATUS_TRIGGERS: booleanStringOptional,
     FEATURE_SELECTOR_SCORING: booleanStringOptional,
-    FEATURE_CAPACITY_CONFIG: booleanStringOptional,
     FEATURE_ADJACENCY_VALIDATION: booleanStringOptional,
     FEATURE_OPS_METRICS: booleanStringOptional,
     NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN: booleanStringOptional,
@@ -56,11 +56,9 @@ const baseEnvSchema = z
     TEST_EMAIL_ALLOWED_ORIGINS: z.string().optional(),
     NEXT_PUBLIC_SITE_ANALYTICS_WRITE_KEY: z.string().optional(),
     OPENAI_API_KEY: z.string().optional(),
-    SITE_URL: z.string().url().optional(),
-    BASE_URL: z.string().url().optional(),
+    SITE_URL: z.preprocess(normalizeOptionalUrl, z.string().url().optional()),
+    BASE_URL: z.preprocess(normalizeOptionalUrl, z.string().url().optional()),
     ANALYZE: booleanStringOptional,
-    CAPACITY_ALERT_WEBHOOK_URL: z.string().url().optional(),
-    CAPACITY_ALERT_EMAIL: z.string().email().optional(),
     PLAYWRIGHT_TEST_API_KEY: z.string().optional(),
     PLAYWRIGHT_TEST_EMAIL: z.string().optional(),
     PLAYWRIGHT_TEST_PASSWORD: z.string().optional(),

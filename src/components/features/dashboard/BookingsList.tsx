@@ -20,7 +20,6 @@ import { formatTimeRange, getTodayInTimezone } from '@/lib/utils/datetime';
 import { useBookingRealtime } from '@/hooks';
 
 import { BookingDetailsDialog } from './BookingDetailsDialog';
-import { inferMergeInfo } from '@/utils/ops/table-merges';
 
 import type { BookingFilter } from './BookingsFilterBar';
 import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
@@ -48,8 +47,7 @@ type BookingsListProps = {
 
 type TableAssignmentDisplay = {
   text: string;
-  state: 'unassigned' | 'single' | 'merge';
-  mergeGroupId?: string | null;
+  state: 'unassigned' | 'assigned';
 };
 
 const TIER_COLORS: Record<string, string> = {
@@ -68,15 +66,9 @@ function formatTableAssignmentDisplay(assignments: OpsTodayBooking['tableAssignm
   }
 
   const labels: string[] = [];
-  let hasMerge = false;
-  let mergeGroupId: string | null = null;
 
   for (const group of assignments) {
     const members = group.members ?? [];
-    if (!mergeGroupId && group.groupId) {
-      mergeGroupId = group.groupId;
-    }
-
     const memberLabels = members.map((member) => member.tableNumber || '—');
     const baseLabel = memberLabels.length <= 1
       ? `Table ${memberLabels[0] ?? '—'}`
@@ -86,33 +78,12 @@ function formatTableAssignmentDisplay(assignments: OpsTodayBooking['tableAssignm
       ? `${group.capacitySum} seat${group.capacitySum === 1 ? '' : 's'}`
       : null;
 
-    let label = seatsLabel ? `${baseLabel} · ${seatsLabel}` : baseLabel;
-
-    if (members.length > 1) {
-      hasMerge = true;
-      const inferred = inferMergeInfo(
-        members.map((member) => ({
-          tableNumber: member.tableNumber ?? '',
-          capacity: member.capacity ?? null,
-        })),
-      );
-
-      if (inferred) {
-        const mergeParts = [`Merge ${inferred.displayName}`];
-        if (inferred.patternLabel) {
-          mergeParts.push(`(${inferred.patternLabel})`);
-        }
-        label = `${label} · ${mergeParts.join(' ')}`;
-      }
-    }
-
-    labels.push(label);
+    labels.push(seatsLabel ? `${baseLabel} · ${seatsLabel}` : baseLabel);
   }
 
   return {
     text: labels.join('; '),
-    state: hasMerge ? 'merge' : 'single',
-    mergeGroupId,
+    state: 'assigned',
   };
 }
 
@@ -303,11 +274,9 @@ function BookingCard({
               variant="outline"
               className={cn(
                 'text-xs font-semibold',
-                tableAssignmentDisplay.state === 'merge'
-                  ? 'border-sky-200 bg-sky-50 text-sky-800'
-                  : tableAssignmentDisplay.state === 'single'
-                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                    : 'border-amber-200 bg-amber-100 text-amber-800',
+                tableAssignmentDisplay.state === 'assigned'
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                  : 'border-amber-200 bg-amber-100 text-amber-800',
               )}
               aria-label={tableAssignmentDisplay.text}
             >

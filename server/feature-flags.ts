@@ -12,10 +12,6 @@ export function isLoyaltyPilotRestaurant(restaurantId: string): boolean {
   return loyaltyPilotIds.has(restaurantId);
 }
 
-export function isCapacityAdminDashboardEnabled(): boolean {
-  return env.featureFlags.capacityAdminDashboard ?? false;
-}
-
 export function isRpcAssignAtomicEnabled(): boolean {
   return env.featureFlags.rpcAssignAtomic ?? false;
 }
@@ -30,10 +26,6 @@ export function isAllocationsDualWriteEnabled(): boolean {
 
 export function isSelectorScoringEnabled(): boolean {
   return env.featureFlags.selectorScoring ?? false;
-}
-
-export function isCapacityConfigEnabled(): boolean {
-  return env.featureFlags.capacityConfig ?? false;
 }
 
 export function isAdjacencyValidationEnabled(): boolean {

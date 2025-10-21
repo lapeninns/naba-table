@@ -58,7 +58,6 @@ describe('assignTableToBooking (atomic wrapper)', () => {
         {
           table_id: 'table-1',
           assignment_id: 'assignment-1',
-          merge_group_id: null,
         },
       ],
       error: null,
@@ -134,7 +133,6 @@ describe('unassignTableFromBooking (atomic wrapper)', () => {
       data: [
         {
           table_id: 'table-1',
-          merge_group_id: null,
         },
       ],
       error: null,
@@ -149,7 +147,6 @@ describe('unassignTableFromBooking (atomic wrapper)', () => {
     expect(rpc).toHaveBeenCalledWith('unassign_tables_atomic', {
       p_booking_id: 'booking-1',
       p_table_ids: ['table-1'],
-      p_merge_group_id: null,
     });
     expect(result).toBe(true);
   });

@@ -35,11 +35,7 @@ import { anonymizeIp, extractClientIp } from "@/server/security/request";
 import { getRestaurantSchedule } from "@/server/restaurants/schedule";
 import { OperatingHoursError, assertBookingWithinOperatingWindow } from "@/server/bookings/timeValidation";
 import { PastBookingError, assertBookingNotInPast } from "@/server/bookings/pastTimeValidation";
-import {
-  checkSlotAvailability,
-  createBookingWithCapacityCheck,
-  findAlternativeSlots,
-} from "@/server/capacity";
+import { createBookingWithCapacityCheck } from "@/server/capacity";
 
 const baseQuerySchema = z.object({
   restaurantId: z.string().uuid().optional(),
@@ -461,72 +457,6 @@ export async function POST(req: NextRequest) {
 
     const endTime = deriveEndTime(startTime, normalizedBookingType);
 
-    const availabilityCheck = await checkSlotAvailability({
-      restaurantId,
-      date: data.date,
-      time: startTime,
-      partySize: data.party,
-      seatingPreference: data.seating,
-    });
-
-    if (!availabilityCheck.available) {
-      const alternatives = await findAlternativeSlots({
-        restaurantId,
-        date: data.date,
-        partySize: data.party,
-        preferredTime: startTime,
-        maxAlternatives: 5,
-        searchWindowMinutes: 120,
-      });
-
-      void recordObservabilityEvent({
-        source: "api.bookings",
-        eventType: "booking.capacity_exceeded.precheck",
-        severity: "warning",
-        context: {
-          restaurantId,
-          date: data.date,
-          time: startTime,
-          partySize: data.party,
-          reason: availabilityCheck.reason,
-          bookedCovers: availabilityCheck.metadata.bookedCovers,
-          maxCovers: availabilityCheck.metadata.maxCovers,
-          utilizationPercent: availabilityCheck.metadata.utilizationPercent,
-          alternativesFound: alternatives.length,
-        },
-      });
-
-      return NextResponse.json(
-        {
-          error: "CAPACITY_EXCEEDED",
-          message: availabilityCheck.reason ?? "No capacity available for this time slot",
-          details: {
-            requestedTime: startTime,
-            partySize: data.party,
-            maxCovers: availabilityCheck.metadata.maxCovers,
-            bookedCovers: availabilityCheck.metadata.bookedCovers,
-            availableCovers: availabilityCheck.metadata.availableCovers,
-            utilizationPercent: availabilityCheck.metadata.utilizationPercent,
-            maxParties: availabilityCheck.metadata.maxParties,
-            bookedParties: availabilityCheck.metadata.bookedParties,
-            servicePeriod: availabilityCheck.metadata.servicePeriod ?? null,
-          },
-          alternatives: alternatives.map((slot) => ({
-            time: slot.time,
-            available: slot.available,
-            utilizationPercent: slot.utilizationPercent,
-          })),
-        },
-        {
-          status: 409,
-          headers: {
-            "X-Capacity-Exceeded": "true",
-            "X-Utilization-Percent": (availabilityCheck.metadata.utilizationPercent ?? 0).toString(),
-          },
-        },
-      );
-    }
-
     const customer = await upsertCustomer(supabase, {
       restaurantId,
       email: data.email,
@@ -559,87 +489,6 @@ export async function POST(req: NextRequest) {
       authUserId: null,
       clientRequestId,
     });
-
-    if (!bookingResult.success) {
-      if (bookingResult.error === "CAPACITY_EXCEEDED") {
-        const alternatives = await findAlternativeSlots({
-          restaurantId,
-          date: data.date,
-          partySize: data.party,
-          preferredTime: startTime,
-          maxAlternatives: 5,
-          searchWindowMinutes: 120,
-        });
-
-        void recordObservabilityEvent({
-          source: "api.bookings",
-          eventType: "booking.capacity_exceeded.transaction",
-          severity: "warning",
-          context: {
-            restaurantId,
-            date: data.date,
-            time: startTime,
-            partySize: data.party,
-            message: bookingResult.message,
-            details: bookingResult.details,
-            alternativesFound: alternatives.length,
-          },
-        });
-
-        return NextResponse.json(
-          {
-            error: "CAPACITY_EXCEEDED",
-            message: bookingResult.message ?? "Capacity exceeded during booking creation",
-            details: bookingResult.details,
-            alternatives: alternatives.map((slot) => ({
-              time: slot.time,
-              available: slot.available,
-              utilizationPercent: slot.utilizationPercent,
-            })),
-          },
-          { status: 409 },
-        );
-      }
-
-      if (bookingResult.error === "BOOKING_CONFLICT") {
-        void recordObservabilityEvent({
-          source: "api.bookings",
-          eventType: "booking.conflict",
-          severity: "warning",
-          context: {
-            restaurantId,
-            date: data.date,
-            time: startTime,
-            partySize: data.party,
-            retryable: bookingResult.retryable ?? true,
-          },
-        });
-
-        return NextResponse.json(
-          {
-            error: "BOOKING_CONFLICT",
-            message: bookingResult.message ?? "This slot was just booked. Please try again.",
-            details: bookingResult.details,
-            retryable: bookingResult.retryable ?? true,
-          },
-          { status: 409 },
-        );
-      }
-
-      if (bookingResult.error === "INTERNAL_ERROR") {
-        console.error("[bookings][POST][rpc]", {
-          restaurantId,
-          bookingDate: data.date,
-          startTime,
-          details: bookingResult.details ?? null,
-        });
-      }
-
-      const bookingError = new Error(bookingResult.message ?? "Unable to create booking") as BookingCreationError;
-      bookingError.code = bookingResult.error ?? "INTERNAL_ERROR";
-      bookingError.details = (bookingResult.details as Json | null) ?? null;
-      throw bookingError;
-    }
 
     const booking = bookingResult.booking as BookingRecord | undefined;
 
@@ -749,13 +598,7 @@ export async function POST(req: NextRequest) {
         clientRequestId: finalBooking.client_request_id,
         idempotencyKey,
         duplicate: reusedExisting,
-        capacity: bookingResult.capacity ?? {
-          servicePeriod: availabilityCheck.metadata.servicePeriod ?? null,
-          maxCovers: availabilityCheck.metadata.maxCovers,
-          bookedCovers: availabilityCheck.metadata.bookedCovers,
-          availableCovers: availabilityCheck.metadata.availableCovers,
-          utilizationPercent: availabilityCheck.metadata.utilizationPercent,
-        },
+        capacity: null,
       },
       { status: reusedExisting ? 200 : 201 },
     );

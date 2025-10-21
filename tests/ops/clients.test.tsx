@@ -88,7 +88,6 @@ function createCustomerServiceStub(): CustomerService {
 }
 
 const defaultFeatureFlags: OpsFeatureFlags = {
-  capacityConfig: false,
   opsMetrics: false,
   selectorScoring: false,
 };

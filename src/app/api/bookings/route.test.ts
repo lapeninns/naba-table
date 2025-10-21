@@ -11,12 +11,11 @@ vi.mock('@/lib/env', () => {
         return {
           loyaltyPilotRestaurantIds: undefined,
           enableTestApi: true,
-          guestLookupPolicy: true,
-          opsGuardV2: false,
-          bookingPastTimeBlocking: false,
-          bookingPastTimeGraceMinutes: 5,
-          capacityAdminDashboard: true,
-        } as const;
+        guestLookupPolicy: true,
+        opsGuardV2: false,
+        bookingPastTimeBlocking: false,
+        bookingPastTimeGraceMinutes: 5,
+      } as const;
       },
       get supabase() {
         return {
@@ -71,9 +70,7 @@ const calculateLoyaltyAwardMock = vi.hoisted(() => vi.fn());
 const applyLoyaltyAwardMock = vi.hoisted(() => vi.fn());
 const consumeRateLimitMock = vi.hoisted(() => vi.fn());
 const computeGuestLookupHashMock = vi.hoisted(() => vi.fn());
-const checkSlotAvailabilityMock = vi.hoisted(() => vi.fn());
 const createBookingWithCapacityCheckMock = vi.hoisted(() => vi.fn());
-const findAlternativeSlotsMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/bookings/timeValidation', async () => {
   const actual = await vi.importActual<typeof import('@/server/bookings/timeValidation')>(
@@ -137,9 +134,7 @@ vi.mock('@/server/bookings', async () => {
 });
 
 vi.mock('@/server/capacity', () => ({
-  checkSlotAvailability: (...args: unknown[]) => checkSlotAvailabilityMock(...args),
   createBookingWithCapacityCheck: (...args: unknown[]) => createBookingWithCapacityCheckMock(...args),
-  findAlternativeSlots: (...args: unknown[]) => findAlternativeSlotsMock(...args),
 }));
 
 function createRequest(body: unknown) {
@@ -212,17 +207,12 @@ describe('/api/bookings POST', () => {
       resetAt: Date.now() + 60_000,
       source: 'memory',
     });
-    checkSlotAvailabilityMock.mockResolvedValue({
-      available: true,
-      metadata: DEFAULT_CAPACITY_METADATA,
-    });
     createBookingWithCapacityCheckMock.mockResolvedValue({
       success: true,
       duplicate: false,
       booking: DEFAULT_BOOKING,
       capacity: DEFAULT_CAPACITY_METADATA,
     });
-    findAlternativeSlotsMock.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -279,7 +269,6 @@ describe('/api/bookings POST', () => {
 
     // Verify booking was not created
     expect(upsertCustomerMock).not.toHaveBeenCalled();
-    expect(checkSlotAvailabilityMock).not.toHaveBeenCalled();
     expect(createBookingWithCapacityCheckMock).not.toHaveBeenCalled();
   });
 
@@ -322,7 +311,6 @@ describe('/api/bookings POST', () => {
     const json = await response.json();
     expect(json.error).toBe('Selected time is outside operating hours.');
     expect(upsertCustomerMock).not.toHaveBeenCalled();
-    expect(checkSlotAvailabilityMock).not.toHaveBeenCalled();
     expect(createBookingWithCapacityCheckMock).not.toHaveBeenCalled();
   });
 
@@ -428,11 +416,6 @@ describe('/api/bookings POST', () => {
       bookedParties: 6,
     } as const;
 
-    checkSlotAvailabilityMock.mockResolvedValueOnce({
-      available: true,
-      metadata: capacityMetadata,
-    });
-
     createBookingWithCapacityCheckMock.mockResolvedValueOnce({
       success: true,
       duplicate: false,
@@ -445,13 +428,6 @@ describe('/api/bookings POST', () => {
     const response = await POST(request);
     const json = await response.json();
     expect(response.status).toBe(201);
-    expect(checkSlotAvailabilityMock).toHaveBeenCalledWith({
-      restaurantId: RESTAURANT_ID,
-      date: payload.date,
-      time: '19:00',
-      partySize: payload.party,
-      seatingPreference: payload.seating,
-    });
     expect(assertBookingWithinOperatingWindowMock).toHaveBeenCalledWith({
       schedule: expect.any(Object),
       requestedTime: '19:00',
@@ -466,7 +442,7 @@ describe('/api/bookings POST', () => {
       seatingPreference: payload.seating,
     }));
     expect(json.booking.reference).toBe('REF123');
-    expect(json.capacity).toEqual(capacityMetadata);
+    expect(json.capacity).toBeNull();
   });
 });
 

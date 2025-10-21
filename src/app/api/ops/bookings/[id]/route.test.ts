@@ -8,12 +8,11 @@ vi.mock("@/lib/env", () => {
         return {
           loyaltyPilotRestaurantIds: undefined,
           enableTestApi: true,
-          guestLookupPolicy: false,
-          opsGuardV2: false,
-          bookingPastTimeBlocking: false,
-          bookingPastTimeGraceMinutes: 5,
-          capacityAdminDashboard: true,
-        } as const;
+        guestLookupPolicy: false,
+        opsGuardV2: false,
+        bookingPastTimeBlocking: false,
+        bookingPastTimeGraceMinutes: 5,
+      } as const;
       },
       get supabase() {
         return {

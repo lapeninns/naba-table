@@ -3,20 +3,15 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Calendar as CalendarIcon, Clock, ChevronLeft, ChevronRight, TrendingUp, Users, Loader2, type LucideIcon } from 'lucide-react';
 
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useOpsActiveMembership, useOpsAccountSnapshot, useOpsFeatureFlags } from '@/contexts/ops-session';
-import { useOpsTodaySummary, useOpsBookingLifecycleActions, useOpsCapacityUtilization, useOpsTodayVIPs, useOpsBookingChanges, useOpsBookingHeatmap } from '@/hooks';
-import { formatDateKey, formatDateReadable, formatTimeRange } from '@/lib/utils/datetime';
-import { HttpError } from '@/lib/http/errors';
+import { useOpsActiveMembership, useOpsAccountSnapshot } from '@/contexts/ops-session';
+import { useOpsTodaySummary, useOpsBookingLifecycleActions, useOpsTodayVIPs, useOpsBookingChanges, useOpsBookingHeatmap } from '@/hooks';
+import { formatDateKey } from '@/lib/utils/datetime';
 import { cn } from '@/lib/utils';
 import { sanitizeDateParam, computeCalendarRange } from '@/utils/ops/dashboard';
-import { queryKeys } from '@/lib/query/keys';
 
 import { BookingChangeFeed } from './BookingChangeFeed';
 import { BookingsFilterBar } from './BookingsFilterBar';
@@ -26,12 +21,10 @@ import { DashboardSkeleton } from './DashboardSkeleton';
 import { ExportBookingsButton } from './ExportBookingsButton';
 import { VIPGuestsModule } from './VIPGuestsModule';
 import { HeatmapCalendar } from './HeatmapCalendar';
-import type { PeriodUtilization } from './CapacityVisualization';
 
-import type { BookingFilter } from './BookingsFilterBar';
 import { useOpsTableAssignmentActions } from '@/hooks';
 import { BookingOfflineBanner } from '@/components/features/booking-state-machine';
-import { getSelectorMetrics } from '@/services/ops/selectorMetrics';
+import type { BookingFilter } from './BookingsFilterBar';
 
 
 const DEFAULT_FILTER: BookingFilter = 'all';
@@ -52,34 +45,9 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
 
   const restaurantId = membership?.restaurantId ?? null;
   const restaurantName = membership?.restaurantName ?? account.restaurantName ?? 'Restaurant';
-  const { opsMetrics: isOpsMetricsEnabled } = useOpsFeatureFlags();
 
   const summaryQuery = useOpsTodaySummary({ restaurantId, targetDate: selectedDate });
   const summary = summaryQuery.data ?? null;
-
-  const selectorMetricsQueryKey = restaurantId && summary
-    ? queryKeys.opsMetrics.selector(restaurantId, summary.date)
-    : ['ops', 'metrics', 'selector', 'disabled'] as const;
-
-  const selectorMetricsQuery = useQuery({
-    queryKey: selectorMetricsQueryKey,
-    queryFn: async () => {
-      if (!restaurantId || !summary?.date) {
-        throw new Error('Restaurant and date are required');
-      }
-      return getSelectorMetrics(restaurantId, summary.date);
-    },
-    enabled: Boolean(restaurantId && summary && isOpsMetricsEnabled),
-    staleTime: 60_000,
-    retry: false,
-  });
-
-  const selectorMetrics = selectorMetricsQuery.data ?? null;
-  const selectorMetricsError = selectorMetricsQuery.error as unknown;
-  const selectorMetricsUnavailable =
-    isOpsMetricsEnabled && selectorMetricsError instanceof HttpError && selectorMetricsError.status === 404;
-  const showSelectorMetrics =
-    isOpsMetricsEnabled && Boolean(selectorMetrics) && !selectorMetricsUnavailable;
 
   useEffect(() => {
     if (!summary) return;
@@ -95,12 +63,6 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
     startDate: heatmapRange?.start ?? null,
     endDate: heatmapRange?.end ?? null,
     enabled: Boolean(restaurantId && heatmapRange),
-  });
-
-  const capacityQuery = useOpsCapacityUtilization({
-    restaurantId,
-    targetDate: selectedDate,
-    enabled: Boolean(restaurantId && selectedDate),
   });
 
   const vipsQuery = useOpsTodayVIPs({
@@ -183,9 +145,6 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
       },
     ] as StatCardConfig[];
   }, [summary?.totals]);
-
-  const servicePeriods = capacityQuery.data?.periods ?? [];
-  const hasServiceCapacity = capacityQuery.isLoading || servicePeriods.length > 0;
 
   // All hooks must be called before any early returns
   const tableActionState = useMemo(() => {
@@ -302,7 +261,6 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
   }
 
   // Derived values after early returns
-  const serviceDateLabel = formatDateReadable(summary.date, summary.timezone);
   const changeFeedData = changesQuery.data?.changes ?? [];
   const changeFeedTotal = changesQuery.data?.totalChanges ?? 0;
   const showChangeFeed = changeFeedData.length > 0;
@@ -356,110 +314,6 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
             </div>
           </section>
         ) : null}
-
-        {hasServiceCapacity ? (
-          <section
-            aria-label="Service capacity"
-            className="rounded-2xl border border-white/60 bg-white/80 p-3 shadow-sm backdrop-blur-sm sm:p-4 lg:p-6"
-          >
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-900">Service Capacity</h2>
-              {capacityQuery.data?.hasOverbooking ? (
-                <span className="text-xs font-semibold text-rose-600">Overbooked</span>
-              ) : null}
-            </div>
-            {capacityQuery.isLoading ? (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                {[0, 1].map((key) => (
-                  <Skeleton key={key} className="h-24 rounded-xl bg-slate-100" />
-                ))}
-              </div>
-            ) : servicePeriods.length > 0 ? (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                {servicePeriods.map((period) => (
-                  <ServicePeriodCard key={period.periodId} period={period} timezone={summary.timezone} />
-                ))}
-              </div>
-            ) : (
-              <p className="mt-4 text-sm text-slate-500">
-                No service periods configured yet. Update restaurant settings to track utilization.
-              </p>
-            )}
-        </section>
-      ) : null}
-
-      {showSelectorMetrics ? (
-        <section
-          aria-label="Assignment insights"
-          className="rounded-2xl border border-white/60 bg-white/80 p-3 shadow-sm backdrop-blur-sm sm:p-4 lg:p-6"
-        >
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-900">Assignment Insights</h2>
-            {selectorMetricsQuery.isFetching ? <Loader2 className="h-4 w-4 animate-spin text-slate-500" aria-hidden /> : null}
-          </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <MetricsStat label="Assignments" value={selectorMetrics?.summary.assignmentsTotal.toString() ?? '0'} helper="Total auto-assignments" />
-            <MetricsStat
-              label="Merge rate"
-              value={`${Math.round((selectorMetrics?.summary.mergeRate ?? 0) * 100)}%`}
-              helper="Selected tables with merges"
-            />
-            <MetricsStat
-              label="Avg overage"
-              value={`${(selectorMetrics?.summary.avgOverage ?? 0).toFixed(1)} seats`}
-              helper="Average spare seats"
-            />
-          </div>
-          <div className="mt-6 grid gap-4 lg:grid-cols-2">
-            <Card className="p-4">
-              <h3 className="text-sm font-medium text-slate-900">Skip reasons</h3>
-              {selectorMetrics?.skipReasons.length ? (
-                <ul className="mt-3 space-y-2 text-sm text-slate-600">
-                  {selectorMetrics.skipReasons.map(({ reason, count }) => (
-                    <li key={reason} className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2">
-                      <span className="pr-3 text-slate-700">{reason}</span>
-                      <span className="font-semibold text-slate-900">{count}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-3 text-sm text-slate-500">No skips recorded for this day.</p>
-              )}
-            </Card>
-            <Card className="p-4">
-              <h3 className="text-sm font-medium text-slate-900">Recent samples</h3>
-              {selectorMetrics?.samples.length ? (
-                <ul className="mt-3 space-y-3 text-sm text-slate-600">
-                  {selectorMetrics.samples.slice(0, 5).map((sample) => (
-                    <li key={`${sample.createdAt}-${sample.bookingId ?? 'unknown'}`} className="rounded-md border border-slate-100 p-3">
-                      <div className="flex items-center justify-between text-xs text-slate-500">
-                        <span>{sample.bookingId ?? 'Unknown booking'}</span>
-                        <span>{formatSampleTime(sample.createdAt)}</span>
-                      </div>
-                      {sample.skipReason ? (
-                        <p className="mt-2 text-rose-600">Skipped: {sample.skipReason}</p>
-                      ) : (
-                        <p className="mt-2 text-emerald-600">
-                          Assigned {Array.isArray(sample.selected?.tableNumbers) ? sample.selected.tableNumbers.filter(Boolean).join(', ') : 'tables'}
-                        </p>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-3 text-sm text-slate-500">No telemetry events available yet.</p>
-              )}
-            </Card>
-          </div>
-        </section>
-      ) : isOpsMetricsEnabled && selectorMetricsQuery.isError && !selectorMetricsUnavailable ? (
-        <Alert variant="destructive">
-          <AlertTitle>Metrics unavailable</AlertTitle>
-          <AlertDescription>
-            {(selectorMetricsError as Error)?.message ?? 'Unable to load selector metrics.'}
-          </AlertDescription>
-        </Alert>
-      ) : null}
 
       <section
         aria-label="Reservations"
@@ -577,62 +431,6 @@ function StatCard({ config }: { config: StatCardConfig }) {
       </div>
       <p className="mt-4 text-2xl font-bold text-slate-900 sm:mt-5 sm:text-3xl">{config.value}</p>
       <p className="text-sm text-slate-600">{config.title}</p>
-    </div>
-  );
-}
-
-type MetricsStatProps = {
-  label: string;
-  value: string;
-  helper?: string;
-};
-
-function MetricsStat({ label, value, helper }: MetricsStatProps) {
-  return (
-    <Card className="p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-slate-900">{value}</p>
-      {helper ? <p className="mt-1 text-xs text-slate-500">{helper}</p> : null}
-    </Card>
-  );
-}
-
-function formatSampleTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return '—';
-  }
-  return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-}
-
-type ServicePeriodCardProps = {
-  period: PeriodUtilization;
-  timezone: string;
-};
-
-function ServicePeriodCard({ period, timezone }: ServicePeriodCardProps) {
-  const coverLabel =
-    period.maxCovers && period.maxCovers > 0 ? `${period.bookedCovers} / ${period.maxCovers}` : `${period.bookedCovers}`;
-  const bookingsLabel = `${period.bookedParties} ${period.bookedParties === 1 ? 'booking' : 'bookings'}`;
-  const timeLabel = formatTimeRange(period.startTime, period.endTime, timezone);
-
-  return (
-    <div
-      className={cn(
-        'flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3 shadow-sm sm:p-4',
-        period.isOverbooked && 'border-rose-200 bg-rose-50'
-      )}
-    >
-      <div>
-        <p className="text-sm font-semibold text-slate-900">{period.periodName}</p>
-        <p className="text-xs text-slate-500">{timeLabel}</p>
-      </div>
-      <div className="text-right">
-        <p className={cn('text-lg font-semibold text-slate-900', period.isOverbooked && 'text-rose-600')}>
-          {coverLabel}
-        </p>
-        <p className="text-xs text-slate-500">{bookingsLabel}</p>
-      </div>
     </div>
   );
 }

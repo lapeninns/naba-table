@@ -5,12 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GET, PUT } from "./route";
 
-const isCapacityConfigEnabledMock = vi.fn(() => true);
 const getRouteHandlerSupabaseClientMock = vi.fn();
-
-vi.mock("@/server/feature-flags", () => ({
-  isCapacityConfigEnabled: () => isCapacityConfigEnabledMock(),
-}));
 
 vi.mock("@/server/supabase", () => ({
   getRouteHandlerSupabaseClient: () => getRouteHandlerSupabaseClientMock(),
@@ -98,7 +93,6 @@ function createRequest(url: string, init?: RequestInit) {
 }
 
 beforeEach(() => {
-  isCapacityConfigEnabledMock.mockReturnValue(true);
   getRouteHandlerSupabaseClientMock.mockReset();
 });
 
@@ -118,16 +112,6 @@ describe("/api/ops/allowed-capacities", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body).toEqual({ capacities: [2, 3, 6] });
-  });
-
-  it("short-circuits when feature flag disabled", async () => {
-    isCapacityConfigEnabledMock.mockReturnValueOnce(false);
-
-    const response = await GET(
-      createRequest(`/api/ops/allowed-capacities?restaurantId=${RESTAURANT_ID}`),
-    );
-
-    expect(response.status).toBe(404);
   });
 
   it("adds a new capacity via PUT", async () => {

@@ -7,7 +7,6 @@ type CandidateSummary = {
   tableCount: number;
   slack?: number;
   score?: number;
-  mergeType?: string;
 };
 
 export type SelectorDecisionEvent = {
@@ -74,7 +73,6 @@ export function summarizeCandidate(input: {
   tableCount: number;
   slack?: number;
   score?: number;
-  mergeType?: string;
 }): CandidateSummary {
   return {
     tableIds: input.tableIds,
@@ -83,6 +81,5 @@ export function summarizeCandidate(input: {
     tableCount: input.tableCount,
     slack: input.slack,
     score: input.score,
-    mergeType: input.mergeType,
   };
 }

@@ -66,7 +66,6 @@ export type OpsSessionProviderProps = {
 };
 
 const DEFAULT_FEATURE_FLAGS: OpsFeatureFlags = {
-  capacityConfig: false,
   opsMetrics: false,
   selectorScoring: false,
 };
@@ -211,11 +210,10 @@ export function OpsSessionProvider({
 
   const resolvedFeatureFlags = useMemo<OpsFeatureFlags>(
     () => ({
-      capacityConfig: featureFlags.capacityConfig ?? false,
       opsMetrics: featureFlags.opsMetrics ?? false,
       selectorScoring: featureFlags.selectorScoring ?? false,
     }),
-    [featureFlags.capacityConfig, featureFlags.opsMetrics, featureFlags.selectorScoring],
+    [featureFlags.opsMetrics, featureFlags.selectorScoring],
   );
 
   const value = useMemo<OpsSessionContextValue>(

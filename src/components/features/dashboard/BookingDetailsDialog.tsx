@@ -20,7 +20,6 @@ import { useBookingService, useTableInventoryService } from '@/contexts/ops-serv
 import type { TableInventory } from '@/services/ops/tables';
 
 import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
-import { inferMergeInfo } from '@/utils/ops/table-merges';
 
 const TIER_COLORS: Record<string, string> = {
   platinum: 'bg-purple-500 text-white border-purple-500',
@@ -35,10 +34,6 @@ function expandAssignmentGroups(groups: OpsTodayBooking['tableAssignments']) {
     tableNumber: string;
     capacity: number | null;
     section: string | null;
-    mergeGroupId: string | null;
-    mergeDisplayName: string | null;
-    mergePatternLabel: string | null;
-    mergeTotalCapacity: number | null;
   }> = [];
 
   for (const group of groups ?? []) {
@@ -47,28 +42,12 @@ function expandAssignmentGroups(groups: OpsTodayBooking['tableAssignments']) {
       continue;
     }
 
-    const inferred = members.length > 1
-      ? inferMergeInfo(
-          members.map((member) => ({
-            tableNumber: member.tableNumber ?? '',
-            capacity: member.capacity ?? null,
-          })),
-        )
-      : null;
-
-    const capacitySum = group.capacitySum ?? inferred?.totalCapacity ?? members.reduce((sum, member) => sum + (member.capacity ?? 0), 0);
-    const displayName = inferred?.displayName ?? (capacitySum ? `M${capacitySum}` : null);
-
     for (const member of members) {
       expanded.push({
         tableId: member.tableId,
         tableNumber: member.tableNumber ?? '—',
         capacity: member.capacity ?? null,
         section: member.section ?? null,
-        mergeGroupId: group.groupId ?? inferred?.mergeGroupId ?? null,
-        mergeDisplayName: displayName,
-        mergePatternLabel: inferred?.patternLabel ?? null,
-        mergeTotalCapacity: capacitySum ?? null,
       });
     }
   }
@@ -210,42 +189,6 @@ export function BookingDetailsDialog({
     () => new Set(normalizedAssignments.map((assignment) => assignment.tableId)),
     [normalizedAssignments],
   );
-
-  const mergeDetails = useMemo(() => {
-    if (!normalizedAssignments || normalizedAssignments.length < 2) {
-      return null;
-    }
-    const tableNumbers = normalizedAssignments.map((assignment) => assignment.tableNumber || '—');
-    const explicit = normalizedAssignments.find((assignment) => assignment.mergeGroupId);
-    if (explicit && explicit.mergeGroupId) {
-      const totalCapacity =
-        explicit.mergeTotalCapacity ??
-        normalizedAssignments.reduce((sum, assignment) => sum + (assignment.capacity ?? 0), 0);
-      return {
-        mergeGroupId: explicit.mergeGroupId,
-        displayName: explicit.mergeDisplayName ?? `M${totalCapacity}`,
-        patternLabel: explicit.mergePatternLabel ?? null,
-        totalCapacity,
-        tableNumbers,
-      };
-    }
-    const inferred = inferMergeInfo(
-      normalizedAssignments.map((assignment) => ({
-        tableNumber: assignment.tableNumber,
-        capacity: assignment.capacity,
-      })),
-    );
-    if (!inferred) {
-      return null;
-    }
-    return {
-      mergeGroupId: inferred.mergeGroupId,
-      displayName: inferred.displayName,
-      patternLabel: inferred.patternLabel,
-      totalCapacity: inferred.totalCapacity,
-      tableNumbers: inferred.tableNumbers,
-    };
-  }, [normalizedAssignments]);
 
   const tableOptions = useMemo(() => {
     const data = tablesResult?.tables ?? [];
@@ -615,18 +558,6 @@ export function BookingDetailsDialog({
             <div className="space-y-2">
               {normalizedAssignments.length > 0 ? (
                 <>
-                  {mergeDetails ? (
-                    <div className="flex flex-col gap-1 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sky-800">
-                      <span className="text-sm font-semibold">
-                        Merge {mergeDetails.displayName}
-                        {mergeDetails.patternLabel ? ` · Pattern ${mergeDetails.patternLabel}` : ''}
-                      </span>
-                      <span className="text-xs text-sky-700">
-                        {mergeDetails.totalCapacity} seat{mergeDetails.totalCapacity === 1 ? '' : 's'} total · Tables{' '}
-                        {mergeDetails.tableNumbers.join(' + ')}
-                      </span>
-                    </div>
-                  ) : null}
                   {normalizedAssignments.map((assignment) => {
                   const isUnassigning =
                     tableActionState?.type === 'unassign' && tableActionState?.tableId === assignment.tableId;
@@ -634,8 +565,7 @@ export function BookingDetailsDialog({
                     assignment.capacity && assignment.capacity > 0
                       ? `${assignment.capacity} seat${assignment.capacity === 1 ? '' : 's'}`
                       : null;
-                  const mergeTag = mergeDetails ? `Merge ${mergeDetails.displayName}` : null;
-                  const meta = [capacityLabel, assignment.section ? `Section ${assignment.section}` : null, mergeTag]
+                  const meta = [capacityLabel, assignment.section ? `Section ${assignment.section}` : null]
                     .filter(Boolean)
                     .join(' · ');
 

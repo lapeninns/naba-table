@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getRouteHandlerSupabaseClient } from "@/server/supabase";
-import { isCapacityConfigEnabled } from "@/server/feature-flags";
 
 const querySchema = z.object({
   restaurantId: z.string().uuid(),
@@ -20,13 +19,6 @@ const updateSchema = z.object({
 
 type RouteSupabaseClient = Awaited<ReturnType<typeof getRouteHandlerSupabaseClient>>;
 
-async function ensureFeatureEnabled(): Promise<NextResponse | null> {
-  if (!isCapacityConfigEnabled()) {
-    return NextResponse.json({ error: "Capacity configuration feature is disabled" }, { status: 404 });
-  }
-  return null;
-}
-
 async function fetchAllowedCapacities(client: RouteSupabaseClient, restaurantId: string): Promise<number[]> {
   const { data, error } = await client
     .from("allowed_capacities")
@@ -42,11 +34,6 @@ async function fetchAllowedCapacities(client: RouteSupabaseClient, restaurantId:
 }
 
 export async function GET(req: NextRequest) {
-  const featureCheck = await ensureFeatureEnabled();
-  if (featureCheck) {
-    return featureCheck;
-  }
-
   const supabase = await getRouteHandlerSupabaseClient();
   const searchParams = Object.fromEntries(req.nextUrl.searchParams.entries());
   const parsed = querySchema.safeParse(searchParams);
@@ -87,11 +74,6 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const featureCheck = await ensureFeatureEnabled();
-  if (featureCheck) {
-    return featureCheck;
-  }
-
   const supabase = await getRouteHandlerSupabaseClient();
 
   const body = await req.json().catch(() => null);

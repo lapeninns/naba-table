@@ -3,7 +3,6 @@ import {
   CalendarDays,
   CalendarPlus,
   CircleHelp,
-  Gauge,
   LayoutGrid,
   SlidersHorizontal,
   Users,
@@ -75,13 +74,6 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         href: '/ops/tables',
         icon: LayoutGrid,
         match: (pathname) => pathname.startsWith('/ops/tables'),
-      },
-      {
-        title: 'Capacity',
-        description: 'Configure availability limits',
-        href: '/ops/capacity',
-        icon: Gauge,
-        match: (pathname) => pathname.startsWith('/ops/capacity'),
       },
       {
         title: 'Restaurant settings',

@@ -7,7 +7,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Edit, Link2, Loader2, Plus, Trash2 } from 'lucide-react';
+import { AlertCircle, Edit, Loader2, Plus, Trash2 } from 'lucide-react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -25,15 +25,16 @@ import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Checkbox } from '@/components/ui/checkbox';
-import { useTableInventoryService } from '@/contexts/ops-services';
+import { useTableInventoryService, useZoneService } from '@/contexts/ops-services';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import { queryKeys } from '@/lib/query/keys';
 import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
@@ -42,7 +43,7 @@ import type {
   TableInventory,
   UpdateTablePayload,
 } from '@/services/ops/tables';
-import { getAllowedCapacities } from '@/services/ops/allowedCapacities';
+import type { Zone } from '@/services/ops/zones';
 import { useToast } from '@/hooks/use-toast';
 
 const ALL_ZONES_VALUE = 'all-zones';
@@ -80,15 +81,15 @@ export default function TableInventoryClient() {
   const { memberships, activeRestaurantId } = useOpsSession();
   const activeMembership = useOpsActiveMembership();
   const tableService = useTableInventoryService();
+  const zoneService = useZoneService();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTable, setEditingTable] = useState<TableInventory | null>(null);
   const [filterZone, setFilterZone] = useState<string>(ALL_ZONES_VALUE);
-  const [isAdjacencyDialogOpen, setIsAdjacencyDialogOpen] = useState(false);
-  const [adjacencyTarget, setAdjacencyTarget] = useState<TableInventory | null>(null);
-  const [adjacencySelection, setAdjacencySelection] = useState<Set<string>>(new Set());
+  const [isZoneDialogOpen, setIsZoneDialogOpen] = useState(false);
+  const [editingZone, setEditingZone] = useState<Zone | null>(null);
 
   const canDeleteTables = Boolean(activeMembership && isRestaurantAdminRole(activeMembership.role));
 
@@ -96,18 +97,17 @@ export default function TableInventoryClient() {
     setFilterZone(ALL_ZONES_VALUE);
     setEditingTable(null);
     setIsDialogOpen(false);
-    setAdjacencyTarget(null);
-    setIsAdjacencyDialogOpen(false);
-    setAdjacencySelection(new Set());
+    setEditingZone(null);
+    setIsZoneDialogOpen(false);
   }, [activeRestaurantId]);
 
   const tablesQueryKey = activeRestaurantId
     ? queryKeys.opsTables.list(activeRestaurantId)
     : ['ops', 'tables', 'no-restaurant'] as const;
 
-  const allowedCapacitiesQueryKey = activeRestaurantId
-    ? queryKeys.opsCapacity.allowedCapacities(activeRestaurantId)
-    : ['ops', 'capacity', 'no-restaurant', 'allowed'] as const;
+  const zonesQueryKey = activeRestaurantId
+    ? queryKeys.opsTables.zones(activeRestaurantId)
+    : ['ops', 'tables', 'no-restaurant', 'zones'] as const;
 
   const {
     data: tableQueryResult,
@@ -132,35 +132,53 @@ export default function TableInventoryClient() {
   const summary = tableQueryResult?.summary ?? null;
 
   const {
-    data: allowedCapacitiesResult,
-    isLoading: isLoadingAllowedCapacities,
-    isError: isAllowedCapacitiesError,
+    data: zonesData,
+    isLoading: isLoadingZones,
+    isError: isZonesError,
+    error: zonesError,
   } = useQuery({
-    queryKey: allowedCapacitiesQueryKey,
+    queryKey: zonesQueryKey,
     queryFn: async () => {
       if (!activeRestaurantId) {
-        throw new Error('Restaurant id is required to load capacities');
+        throw new Error('Restaurant id is required to load zones');
       }
-      return getAllowedCapacities(activeRestaurantId);
+      return zoneService.list(activeRestaurantId);
     },
     enabled: Boolean(activeRestaurantId),
     staleTime: 60_000,
   });
 
-  const allowedCapacities = allowedCapacitiesResult?.capacities ?? [];
+  const zones = zonesData ?? [];
 
   const zoneOptions = useMemo(() => {
+    if (zones.length > 0) {
+      return zones.map((zone) => ({ id: zone.id, name: zone.name, sortOrder: zone.sortOrder }));
+    }
     if (summary?.zones && summary.zones.length > 0) {
       return summary.zones;
     }
-    const zones = new Map<string, string>();
+    const derived = new Map<string, string>();
     tables.forEach((table) => {
-      if (!zones.has(table.zoneId)) {
-        zones.set(table.zoneId, table.zoneName ?? 'Zone');
+      if (!derived.has(table.zoneId)) {
+        derived.set(table.zoneId, table.zoneName ?? 'Zone');
       }
     });
-    return Array.from(zones.entries()).map(([id, name]) => ({ id, name }));
-  }, [summary?.zones, tables]);
+    return Array.from(derived.entries()).map(([id, name]) => ({ id, name }));
+  }, [zones, summary?.zones, tables]);
+
+  const zoneDefaultValue = useMemo(() => {
+    if (zoneOptions.length === 0) {
+      return undefined;
+    }
+
+    if (editingTable?.zoneId && zoneOptions.some((zone) => zone.id === editingTable.zoneId)) {
+      return editingTable.zoneId;
+    }
+
+    return zoneOptions[0]?.id;
+  }, [editingTable?.zoneId, zoneOptions]);
+
+  const isZoneSelectDisabled = zoneOptions.length === 0;
 
   const filteredTables = useMemo(() => {
     if (filterZone === ALL_ZONES_VALUE) {
@@ -169,40 +187,65 @@ export default function TableInventoryClient() {
     return tables.filter((table) => table.zoneId === filterZone);
   }, [filterZone, tables]);
 
-  const adjacencyCandidates = useMemo(() => {
-    if (!adjacencyTarget) {
-      return [] as TableInventory[];
-    }
-    return tables.filter((table) => table.id !== adjacencyTarget.id && table.zoneId === adjacencyTarget.zoneId);
-  }, [adjacencyTarget, tables]);
-
   useEffect(() => {
-    let cancelled = false;
-
-    async function loadAdjacency() {
-      if (!isAdjacencyDialogOpen || !adjacencyTarget) {
-        return;
-      }
-
-      try {
-        const ids = await tableService.getAdjacency(adjacencyTarget.id);
-        if (!cancelled) {
-          setAdjacencySelection(new Set(ids));
-        }
-      } catch (adjacencyError) {
-        if (!cancelled) {
-          const message = adjacencyError instanceof Error ? adjacencyError.message : 'Unable to load adjacency.';
-          toast({ title: 'Adjacency unavailable', description: message, variant: 'destructive' });
-        }
-      }
+    if (filterZone === ALL_ZONES_VALUE) {
+      return;
     }
+    if (!zoneOptions.some((zone) => zone.id === filterZone)) {
+      setFilterZone(ALL_ZONES_VALUE);
+    }
+  }, [filterZone, zoneOptions]);
 
-    void loadAdjacency();
+  const zoneCreateMutation = useMutation({
+    mutationFn: ({ restaurantId, name, sortOrder }: { restaurantId: string; name: string; sortOrder?: number }) =>
+      zoneService.create(restaurantId, name, sortOrder),
+    onSuccess: (zone) => {
+      queryClient.invalidateQueries({ queryKey: zonesQueryKey });
+      queryClient.invalidateQueries({ queryKey: ['ops', 'tables'] });
+      setIsZoneDialogOpen(false);
+      setEditingZone(null);
+      setFilterZone(zone.id);
+      toast({ title: 'Zone created', description: `${zone.name} is ready for tables.` });
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : 'Failed to create zone.';
+      toast({ title: 'Unable to create zone', description: message, variant: 'destructive' });
+    },
+  });
 
-    return () => {
-      cancelled = true;
-    };
-  }, [isAdjacencyDialogOpen, adjacencyTarget, tableService, toast]);
+  const zoneUpdateMutation = useMutation({
+    mutationFn: ({ zoneId, name, sortOrder }: { zoneId: string; name?: string; sortOrder?: number }) =>
+      zoneService.update(zoneId, { name, sortOrder }),
+    onSuccess: (zone) => {
+      queryClient.invalidateQueries({ queryKey: zonesQueryKey });
+      queryClient.invalidateQueries({ queryKey: ['ops', 'tables'] });
+      setIsZoneDialogOpen(false);
+      setEditingZone(null);
+      toast({ title: 'Zone updated', description: 'Changes saved.' });
+      setFilterZone((current) => (current === zone.id ? zone.id : current));
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : 'Failed to update zone.';
+      toast({ title: 'Unable to update zone', description: message, variant: 'destructive' });
+    },
+  });
+
+  const zoneDeleteMutation = useMutation({
+    mutationFn: ({ zoneId }: { zoneId: string }) => zoneService.remove(zoneId),
+    onSuccess: (_result, variables) => {
+      queryClient.invalidateQueries({ queryKey: zonesQueryKey });
+      queryClient.invalidateQueries({ queryKey: ['ops', 'tables'] });
+      if (filterZone === variables.zoneId) {
+        setFilterZone(ALL_ZONES_VALUE);
+      }
+      toast({ title: 'Zone deleted', description: 'The zone has been removed.' });
+    },
+    onError: (error: unknown) => {
+      const message =
+        error instanceof Error ? error.message : 'Failed to delete zone. Make sure no tables use this zone.';
+      toast({ title: 'Unable to delete zone', description: message, variant: 'destructive' });
+    },
+  });
 
   const createMutation = useMutation({
     mutationFn: ({ restaurantId, payload }: { restaurantId: string; payload: CreateTablePayload }) =>
@@ -275,51 +318,43 @@ export default function TableInventoryClient() {
     },
   });
 
-  const adjacencyMutation = useMutation({
-    mutationFn: ({ tableId, adjacentIds }: { tableId: string; adjacentIds: string[] }) =>
-      tableService.updateAdjacency(tableId, adjacentIds),
-    onSuccess: (updatedIds, variables) => {
-      setAdjacencySelection(new Set(updatedIds));
-      queryClient.invalidateQueries({ queryKey: ['ops', 'tables'] });
+  const handleZoneSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!activeRestaurantId) {
       toast({
-        title: 'Adjacency updated',
-        description: 'Table adjacency has been saved.',
-      });
-      if (adjacencyTarget && adjacencyTarget.id === variables.tableId) {
-        setAdjacencyTarget({ ...adjacencyTarget });
-      }
-      setIsAdjacencyDialogOpen(false);
-    },
-    onError: (mutationError: unknown) => {
-      const message = mutationError instanceof Error ? mutationError.message : 'Failed to update adjacency.';
-      toast({
-        title: 'Unable to update adjacency',
-        description: message,
+        title: 'Select a restaurant first',
+        description: 'Choose a restaurant to manage its zones.',
         variant: 'destructive',
       });
-    },
-  });
-
-  const toggleAdjacencySelection = (tableId: string) => {
-    setAdjacencySelection((current) => {
-      const next = new Set(current);
-      if (next.has(tableId)) {
-        next.delete(tableId);
-      } else {
-        next.add(tableId);
-      }
-      return next;
-    });
-  };
-
-  const handleAdjacencySave = () => {
-    if (!adjacencyTarget) {
       return;
     }
-    adjacencyMutation.mutate({
-      tableId: adjacencyTarget.id,
-      adjacentIds: Array.from(adjacencySelection),
-    });
+
+    const formData = new FormData(event.currentTarget);
+    const name = String(formData.get('zoneName') ?? '').trim();
+    const sortOrderRaw = formData.get('sortOrder');
+    const sortOrder = (() => {
+      if (sortOrderRaw === null || sortOrderRaw === '') {
+        return undefined;
+      }
+      const parsed = Number.parseInt(String(sortOrderRaw), 10);
+      return Number.isNaN(parsed) ? undefined : parsed;
+    })();
+
+    if (name.length === 0) {
+      toast({
+        title: 'Zone name required',
+        description: 'Provide a short name for the zone.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (editingZone) {
+      zoneUpdateMutation.mutate({ zoneId: editingZone.id, name, sortOrder });
+      return;
+    }
+
+    zoneCreateMutation.mutate({ restaurantId: activeRestaurantId, name, sortOrder });
   };
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -362,46 +397,10 @@ export default function TableInventoryClient() {
       })(),
     };
 
-    if (isLoadingAllowedCapacities) {
-      toast({
-        title: 'Please wait',
-        description: 'Allowed capacities are still loading. Try again in a moment.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (isAllowedCapacitiesError) {
-      toast({
-        title: 'Allowed capacities unavailable',
-        description: 'Unable to verify permitted capacities. Refresh and try again.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     if (!payload.tableNumber || payload.capacity < 1) {
       toast({
         title: 'Check the table details',
         description: 'Provide a table number and a valid capacity.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (allowedCapacities.length === 0) {
-      toast({
-        title: 'Configure allowed capacities first',
-        description: 'Add at least one permitted table size in capacity settings before creating tables.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (!allowedCapacities.includes(payload.capacity)) {
-      toast({
-        title: 'Unsupported capacity',
-        description: `Capacity must match one of the configured values: ${allowedCapacities.join(', ')}.`,
         variant: 'destructive',
       });
       return;
@@ -422,7 +421,7 @@ export default function TableInventoryClient() {
     if (!payload.zoneId) {
       toast({
         title: 'Select a zone',
-        description: 'Every table must belong to a zone to enable adjacency and merges.',
+        description: 'Every table must belong to a zone before you can save it.',
         variant: 'destructive',
       });
       return;
@@ -491,6 +490,96 @@ export default function TableInventoryClient() {
         )}
       </section>
 
+      <section className="rounded-lg border p-4 space-y-4">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold">Zones</h2>
+            <p className="text-sm text-muted-foreground">
+              Group tables by areas of your floor plan. Add or rename zones as your layout changes.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setEditingZone(null);
+              setIsZoneDialogOpen(true);
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add zone
+          </Button>
+        </div>
+
+        {isLoadingZones ? (
+          <div className="flex flex-wrap gap-2">
+            <Skeleton className="h-9 w-32" />
+            <Skeleton className="h-9 w-28" />
+            <Skeleton className="h-9 w-24" />
+          </div>
+        ) : isZonesError ? (
+          <Alert variant="destructive">
+            <AlertTitle>Zones unavailable</AlertTitle>
+            <AlertDescription>
+              {zonesError instanceof Error ? zonesError.message : 'Unable to load zones right now.'}
+            </AlertDescription>
+          </Alert>
+        ) : zones.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No zones configured yet. Create your first zone to start organizing tables.
+          </p>
+        ) : (
+          <ul className="flex flex-wrap gap-2">
+            {zones.map((zone) => {
+              const isActive = filterZone === zone.id;
+              return (
+                <li key={zone.id}>
+                  <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={isActive ? 'default' : 'ghost'}
+                      onClick={() => setFilterZone(isActive ? ALL_ZONES_VALUE : zone.id)}
+                    >
+                      {zone.name}
+                    </Button>
+                    <span className="text-xs text-muted-foreground">#{zone.sortOrder ?? 0}</span>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setEditingZone(zone);
+                          setIsZoneDialogOpen(true);
+                        }}
+                        aria-label={`Edit zone ${zone.name}`}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        disabled={zoneDeleteMutation.isPending}
+                        onClick={() => {
+                          if (confirm(`Delete zone "${zone.name}"? Tables using this zone will need reassignment.`)) {
+                            zoneDeleteMutation.mutate({ zoneId: zone.id });
+                          }
+                        }}
+                        aria-label={`Delete zone ${zone.name}`}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
       <section className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
           <Label htmlFor="table-zone-filter" className="text-sm">Zone</Label>
@@ -514,6 +603,7 @@ export default function TableInventoryClient() {
             setEditingTable(null);
             setIsDialogOpen(true);
           }}
+          disabled={isZoneSelectDisabled}
         >
           <Plus className="mr-2 h-4 w-4" />
           Add table
@@ -530,7 +620,6 @@ export default function TableInventoryClient() {
               <TableHead>Party size</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Seating</TableHead>
-              <TableHead>Merge</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Active</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -539,7 +628,7 @@ export default function TableInventoryClient() {
           <TableBody>
             {isLoading || isFetching ? (
               <TableRow>
-                <TableCell colSpan={7} className="py-6 text-center text-muted-foreground">
+                <TableCell colSpan={9} className="py-6 text-center text-muted-foreground">
                   <div className="flex items-center justify-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     <span>Loading tables…</span>
@@ -548,7 +637,7 @@ export default function TableInventoryClient() {
               </TableRow>
             ) : filteredTables.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
                   {tables.length === 0
                     ? 'No tables configured yet. Add your first table to get started.'
                     : 'No tables in this section.'}
@@ -558,14 +647,7 @@ export default function TableInventoryClient() {
               filteredTables.map((table) => (
                 <TableRow key={table.id}>
                   <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      <span>{table.tableNumber}</span>
-                      {table.mergeEligible ? (
-                        <Badge variant="secondary" className="text-xs uppercase tracking-wide">
-                          Merge ready
-                        </Badge>
-                      ) : null}
-                    </div>
+                    <span>{table.tableNumber}</span>
                   </TableCell>
                   <TableCell>{table.zoneName ?? '—'}</TableCell>
                   <TableCell>{table.capacity}</TableCell>
@@ -577,13 +659,6 @@ export default function TableInventoryClient() {
                   <TableCell className="capitalize">
                     {table.seatingType.replace('_', ' ')}
                     <span className="text-muted-foreground"> · {table.mobility}</span>
-                  </TableCell>
-                  <TableCell>
-                    {table.mergeEligible ? (
-                      <Badge variant="outline">Yes</Badge>
-                    ) : (
-                      <span className="text-muted-foreground">No</span>
-                    )}
                   </TableCell>
                   <TableCell>
                     <Badge variant={table.status === 'available' ? 'default' : 'secondary'}>
@@ -599,19 +674,6 @@ export default function TableInventoryClient() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setAdjacencyTarget(table);
-                          setAdjacencySelection(new Set());
-                          setIsAdjacencyDialogOpen(true);
-                        }}
-                      >
-                        <Link2 className="h-4 w-4" />
-                        <span className="sr-only">Manage adjacency</span>
-                      </Button>
                       <Button
                         type="button"
                         variant="ghost"
@@ -727,14 +789,17 @@ export default function TableInventoryClient() {
                   <Label htmlFor="zoneId">Zone *</Label>
                   <Select
                     name="zoneId"
-                    defaultValue={editingTable?.zoneId ?? (zoneOptions[0]?.id ?? '')}
+                    defaultValue={zoneDefaultValue}
+                    disabled={isZoneSelectDisabled}
                   >
                     <SelectTrigger id="zoneId">
                       <SelectValue placeholder="Select a zone" />
                     </SelectTrigger>
                     <SelectContent>
-                      {zoneOptions.length === 0 ? (
-                        <SelectItem value="">No zones configured</SelectItem>
+                      {isZoneSelectDisabled ? (
+                        <SelectGroup>
+                          <SelectLabel className="text-muted-foreground">No zones configured</SelectLabel>
+                        </SelectGroup>
                       ) : (
                         zoneOptions.map((zone) => (
                           <SelectItem key={zone.id} value={zone.id}>
@@ -744,6 +809,11 @@ export default function TableInventoryClient() {
                       )}
                     </SelectContent>
                   </Select>
+                  {isZoneSelectDisabled ? (
+                    <p className="text-sm text-muted-foreground">
+                      Add a zone to assign tables. Head to Settings → Zones and create one first.
+                    </p>
+                  ) : null}
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="category">Category</Label>
@@ -851,7 +921,11 @@ export default function TableInventoryClient() {
               </Button>
               <Button
                 type="submit"
-                disabled={createMutation.isPending || updateMutation.isPending}
+                disabled={
+                  createMutation.isPending ||
+                  updateMutation.isPending ||
+                  isZoneSelectDisabled
+                }
               >
                 {createMutation.isPending || updateMutation.isPending ? 'Saving…' : 'Save table'}
               </Button>
@@ -861,81 +935,61 @@ export default function TableInventoryClient() {
       </Dialog>
 
       <Dialog
-        open={isAdjacencyDialogOpen}
+        open={isZoneDialogOpen}
         onOpenChange={(open) => {
-          setIsAdjacencyDialogOpen(open);
+          setIsZoneDialogOpen(open);
           if (!open) {
-            setAdjacencyTarget(null);
-            setAdjacencySelection(new Set());
+            setEditingZone(null);
           }
         }}
       >
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Set adjacency</DialogTitle>
-            <DialogDescription>
-              {adjacencyTarget
-                ? `Select tables that are physically adjacent to ${adjacencyTarget.tableNumber}.`
-                : 'Select tables that can merge or share walkways.'}
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-md">
+          <form onSubmit={handleZoneSubmit} className="space-y-5">
+            <DialogHeader>
+              <DialogTitle>{editingZone ? 'Edit zone' : 'Add zone'}</DialogTitle>
+              <DialogDescription>Zones help segment your dining room into manageable sections.</DialogDescription>
+            </DialogHeader>
 
-          <div className="max-h-64 space-y-3 overflow-y-auto pr-2">
-            {adjacencyTarget ? (
-              adjacencyCandidates.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  There are no other tables in the {adjacencyTarget.zoneName ?? 'selected'} zone yet.
+            <div className="grid gap-3">
+              <div className="grid gap-2">
+                <Label htmlFor="zoneName">Zone name *</Label>
+                <Input
+                  id="zoneName"
+                  name="zoneName"
+                  defaultValue={editingZone?.name ?? ''}
+                  placeholder="e.g. Main Dining"
+                  required
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="zoneSortOrder">Sort order</Label>
+                <Input
+                  id="zoneSortOrder"
+                  name="sortOrder"
+                  type="number"
+                  defaultValue={editingZone?.sortOrder ?? 0}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Lower numbers appear first in the list. Defaults to 0.
                 </p>
-              ) : (
-                adjacencyCandidates.map((candidate) => (
-                  <label
-                    key={candidate.id}
-                    className="flex items-center justify-between gap-3 rounded-md border p-3 hover:bg-muted"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Checkbox
-                        checked={adjacencySelection.has(candidate.id)}
-                        onCheckedChange={() => toggleAdjacencySelection(candidate.id)}
-                      />
-                      <div>
-                        <p className="font-medium">{candidate.tableNumber}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {candidate.capacity}-seat · {candidate.category} · {candidate.seatingType.replace('_', ' ')}
-                        </p>
-                      </div>
-                    </div>
-                    {candidate.mergeEligible ? (
-                      <Badge variant="outline">Merge ready</Badge>
-                    ) : null}
-                  </label>
-                ))
-              )
-            ) : (
-              <p className="text-sm text-muted-foreground">Choose a table to manage adjacency.</p>
-            )}
-          </div>
+              </div>
+            </div>
 
-          <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setIsAdjacencyDialogOpen(false);
-                setAdjacencyTarget(null);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={handleAdjacencySave}
-              disabled={adjacencyMutation.isPending || !adjacencyTarget}
-            >
-              {adjacencyMutation.isPending ? 'Saving…' : 'Save adjacency'}
-            </Button>
-          </DialogFooter>
+            <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <Button type="button" variant="outline" onClick={() => setIsZoneDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={zoneCreateMutation.isPending || zoneUpdateMutation.isPending}
+              >
+                {zoneCreateMutation.isPending || zoneUpdateMutation.isPending ? 'Saving…' : 'Save zone'}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
+
     </div>
   );
 }

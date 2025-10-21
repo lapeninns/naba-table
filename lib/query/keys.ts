@@ -31,18 +31,9 @@ export const queryKeys = {
   opsTables: {
     list: (restaurantId: string, params: Record<string, unknown> = {}) =>
       ['ops', 'tables', restaurantId, params] as const,
-  },
-  opsCapacity: {
-    rules: (restaurantId: string) => ['ops', 'capacity', restaurantId, 'rules'] as const,
-    overrides: (restaurantId: string, params: Record<string, unknown> = {}) =>
-      ['ops', 'capacity', restaurantId, 'overrides', params] as const,
-    reports: (restaurantId: string, params: Record<string, unknown> = {}) =>
-      ['ops', 'capacity', restaurantId, 'reports', params] as const,
-    allowedCapacities: (restaurantId: string) => ['ops', 'capacity', restaurantId, 'allowed'] as const,
-  },
-  opsMetrics: {
-    selector: (restaurantId: string, date?: string | null) =>
-      ['ops', 'metrics', 'selector', restaurantId, date ?? 'today'] as const,
+    allowedCapacities: (restaurantId: string) =>
+      ['ops', 'tables', restaurantId, 'allowed-capacities'] as const,
+    zones: (restaurantId: string) => ['ops', 'tables', restaurantId, 'zones'] as const,
   },
   opsOccasions: {
     list: () => ['ops', 'occasions', 'list'] as const,
@@ -80,11 +71,8 @@ export type QueryKey =
   | ReturnType<(typeof queryKeys)['opsRestaurants']['hours']>
   | ReturnType<(typeof queryKeys)['opsRestaurants']['servicePeriods']>
   | ReturnType<(typeof queryKeys)['opsTables']['list']>
-  | ReturnType<(typeof queryKeys)['opsCapacity']['rules']>
-  | ReturnType<(typeof queryKeys)['opsCapacity']['overrides']>
-  | ReturnType<(typeof queryKeys)['opsCapacity']['reports']>
-  | ReturnType<(typeof queryKeys)['opsCapacity']['allowedCapacities']>
-  | ReturnType<(typeof queryKeys)['opsMetrics']['selector']>
+  | ReturnType<(typeof queryKeys)['opsTables']['allowedCapacities']>
+  | ReturnType<(typeof queryKeys)['opsTables']['zones']>
   | ReturnType<(typeof queryKeys)['opsOccasions']['list']>
   | ReturnType<(typeof queryKeys)['ownerRestaurants']['hours']>
   | ReturnType<(typeof queryKeys)['ownerRestaurants']['servicePeriods']>

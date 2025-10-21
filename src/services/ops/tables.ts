@@ -1,28 +1,13 @@
 import { fetchJson } from '@/lib/http/fetchJson';
 import type { OpsServiceError } from '@/types/ops';
+import type { Tables } from '@/types/supabase';
 
 const OPS_TABLES_BASE = '/api/ops/tables';
 
-type TableInventoryDto = {
-  id: string;
-  restaurant_id: string;
-  table_number: string;
-  capacity: number;
-  min_party_size: number;
-  max_party_size: number | null;
-  section: string | null;
-  category: 'bar' | 'dining' | 'lounge' | 'patio' | 'private';
-  seating_type: 'standard' | 'sofa' | 'booth' | 'high_top';
-  mobility: 'movable' | 'fixed';
-  zone_id: string;
-  active: boolean;
-  status: 'available' | 'reserved' | 'occupied' | 'out_of_service';
-  merge_eligible?: boolean;
+type TableInventoryRow = Tables<'table_inventory'>;
+
+type TableInventoryDto = TableInventoryRow & {
   zone?: { id: string; name: string | null } | null;
-  position: Record<string, unknown> | null;
-  notes: string | null;
-  created_at?: string;
-  updated_at?: string;
 };
 
 type TableInventorySummaryDto = {
@@ -51,7 +36,6 @@ export type TableInventory = {
   zoneId: string;
   zoneName: string | null;
   active: boolean;
-  mergeEligible: boolean;
   status: TableInventoryDto['status'];
   position: Record<string, unknown> | null;
   notes: string | null;
@@ -100,8 +84,6 @@ export interface TableInventoryService {
   create(restaurantId: string, payload: CreateTablePayload): Promise<TableInventory>;
   update(tableId: string, payload: UpdateTablePayload): Promise<TableInventory>;
   remove(tableId: string): Promise<void>;
-  getAdjacency(tableId: string): Promise<string[]>;
-  updateAdjacency(tableId: string, adjacentIds: string[]): Promise<string[]>;
 }
 
 export type TableInventoryServiceFactory = () => TableInventoryService;
@@ -126,14 +108,6 @@ export class NotImplementedTableInventoryService implements TableInventoryServic
   remove(): Promise<void> {
     this.error('remove not implemented');
   }
-
-  getAdjacency(): Promise<string[]> {
-    this.error('get adjacency not implemented');
-  }
-
-  updateAdjacency(): Promise<string[]> {
-    this.error('update adjacency not implemented');
-  }
 }
 
 export function createTableInventoryService(factory?: TableInventoryServiceFactory): TableInventoryService {
@@ -148,19 +122,6 @@ export function createTableInventoryService(factory?: TableInventoryServiceFacto
 }
 
 export type TableInventoryServiceError = OpsServiceError | Error;
-
-function deriveMergeEligible(dto: TableInventoryDto): boolean {
-  if (typeof dto.merge_eligible === 'boolean') {
-    return dto.merge_eligible;
-  }
-
-  return (
-    dto.category === 'dining' &&
-    dto.seating_type === 'standard' &&
-    dto.mobility === 'movable' &&
-    (dto.capacity === 2 || dto.capacity === 4)
-  );
-}
 
 function mapTableInventory(dto: TableInventoryDto): TableInventory {
   const position = normalizePosition(dto.position);
@@ -178,7 +139,6 @@ function mapTableInventory(dto: TableInventoryDto): TableInventory {
     zoneId: dto.zone_id,
     zoneName: dto.zone?.name ?? null,
     active: dto.active,
-    mergeEligible: deriveMergeEligible(dto),
     status: dto.status,
     position,
     notes: dto.notes ?? null,
@@ -293,23 +253,5 @@ export function createBrowserTableInventoryService(): TableInventoryService {
       });
     },
 
-    async getAdjacency(tableId) {
-      const response = await fetchJson<{ tableId: string; adjacentIds: string[] }>(
-        `${OPS_TABLES_BASE}/${tableId}/adjacent`,
-      );
-      return response.adjacentIds ?? [];
-    },
-
-    async updateAdjacency(tableId, adjacentIds) {
-      const response = await fetchJson<{ tableId: string; adjacentIds: string[] }>(
-        `${OPS_TABLES_BASE}/${tableId}/adjacent`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ adjacentIds }),
-        },
-      );
-      return response.adjacentIds ?? [];
-    },
   };
 }

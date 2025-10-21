@@ -4,7 +4,7 @@
  */
 
 import type { BookingType } from "@/lib/enums";
-import type { Database } from "@/types/supabase";
+import type { Database, Json } from "@/types/supabase";
 
 // =====================================================
 // Availability Check Types
@@ -151,8 +151,8 @@ export type BookingRecord = {
   booking_date: string;
   start_time: string;
   end_time: string;
-  start_at: string;
-  end_at: string;
+  start_at: string | null;
+  end_at: string | null;
   party_size: number;
   booking_type: string;
   seating_preference: string;
@@ -167,7 +167,7 @@ export type BookingRecord = {
   source?: string;
   auth_user_id?: string | null;
   idempotency_key?: string | null;
-  details?: Record<string, any>;
+  details: Json | null;
   created_at: string;
   updated_at: string;
 };

@@ -3,6 +3,26 @@ import { envSchemas, type Env } from "@/config/env.schema";
 let cachedEnv: Env | null = null;
 
 function parseEnv(): Env {
+  const sanitizeUrlEnv = (key: 'BASE_URL' | 'SITE_URL') => {
+    const value = process.env[key];
+    if (typeof value === 'string') {
+      const normalized = value.trim();
+      if (normalized.length === 0 || normalized.toLowerCase() === 'undefined') {
+        delete process.env[key];
+      } else {
+        process.env[key] = normalized;
+      }
+    }
+  };
+
+  sanitizeUrlEnv('BASE_URL');
+  sanitizeUrlEnv('SITE_URL');
+
+  if (!process.env.BASE_URL) {
+    const fallback = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+    process.env.BASE_URL = fallback;
+  }
+
   if (cachedEnv) {
     return cachedEnv;
   }
@@ -95,14 +115,11 @@ export const env = {
       bookingPastTimeBlocking: parsed.FEATURE_BOOKING_PAST_TIME_BLOCKING ?? false,
       bookingPastTimeGraceMinutes: parsed.BOOKING_PAST_TIME_GRACE_MINUTES ?? 5,
       bookingLifecycleV2: parsed.FEATURE_OPS_BOOKING_LIFECYCLE_V2 ?? false,
-      capacityAdminDashboard: parsed.FEATURE_CAPACITY_ADMIN_DASHBOARD ?? true,
       allocationsDualWrite: parsed.FEATURE_ALLOCATIONS_DUAL_WRITE ?? false,
       rpcAssignAtomic: parsed.FEATURE_RPC_ASSIGN_ATOMIC ?? false,
       assignAtomic: parsed.FEATURE_ASSIGN_ATOMIC ?? false,
-      mergePersistence: parsed.FEATURE_MERGE_PERSISTENCE ?? false,
       statusTriggers: parsed.FEATURE_STATUS_TRIGGERS ?? false,
-      selectorScoring: parsed.FEATURE_SELECTOR_SCORING ?? false,
-      capacityConfig: parsed.FEATURE_CAPACITY_CONFIG ?? false,
+      selectorScoring: parsed.FEATURE_SELECTOR_SCORING ?? true,
       adjacencyValidation: parsed.FEATURE_ADJACENCY_VALIDATION ?? false,
       opsMetrics: parsed.FEATURE_OPS_METRICS ?? false,
       realtimeFloorplan: parsed.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN ?? false,
@@ -153,15 +170,6 @@ export const env = {
       openAiKey: parsed.OPENAI_API_KEY,
       analyzeBuild: parsed.ANALYZE ?? false,
       bookingDefaultRestaurantId: parsed.BOOKING_DEFAULT_RESTAURANT_ID,
-    } as const;
-  },
-
-  get alerts() {
-    const parsed = parseEnv();
-    return {
-      webhookUrl: parsed.CAPACITY_ALERT_WEBHOOK_URL ?? null,
-      email: parsed.CAPACITY_ALERT_EMAIL ?? null,
-      internalKey: parsed.TEST_ROUTE_API_KEY ?? null,
     } as const;
   },
 

@@ -11,7 +11,6 @@ export * from './ops/useOpsOperatingHours';
 export * from './ops/useOpsServicePeriods';
 export * from './ops/useOccasions';
 export * from './ops/useOpsTeamInvitations';
-export * from './ops/useOpsCapacityUtilization';
 export * from './ops/useOpsTodayVIPs';
 export * from './ops/useOpsBookingChanges';
 export * from './ops/useBookingRealtime';

@@ -58,7 +58,6 @@ export type Table = {
   zoneId: string;
   status: string;
   active: boolean;
-  mergeEligible: boolean;
   position: Record<string, any> | null;
 };
 
@@ -86,10 +85,6 @@ type TableInventoryRecord = {
   capacity?: number | string | null;
   section?: string | null;
 };
-type MergeGroupRecord = {
-  capacity?: number | string | null;
-};
-
 function normalizeRelationshipRecord<T>(
   value: T | T[] | null | undefined,
 ): T | null {
@@ -107,13 +102,6 @@ function getNumericCapacity(value: unknown): number | null {
 
   const numericCapacity = Number(value);
   return Number.isFinite(numericCapacity) ? numericCapacity : null;
-}
-
-function getMergeGroupCapacity(
-  mergeGroup: MergeGroupRecord | MergeGroupRecord[] | null | undefined,
-): number | null {
-  const record = normalizeRelationshipRecord(mergeGroup);
-  return getNumericCapacity(record?.capacity);
 }
 
 const INACTIVE_BOOKING_STATUSES = new Set<Tables<"bookings">["status"]>(["cancelled", "no_show"]);
@@ -195,8 +183,6 @@ type TableScheduleEntry = {
   start: number; // Block start (ms)
   end: number; // Block end (ms) — stored as half-open interval [start, end)
   status: Tables<"bookings">["status"];
-  mergeGroupId?: string;
-  mergeType?: "single" | "merge" | "merge_2_4" | "merge_4_4";
 };
 
 type ComputeBookingWindowArgs = {
@@ -487,7 +473,6 @@ function filterAvailableTables(
 
 type TablePlan = {
   tables: Table[];
-  mergeType: "single" | "merge" | "merge_2_4" | "merge_4_4";
   slack: number;
   score?: number;
   metrics?: CandidateMetrics;
@@ -512,11 +497,10 @@ function mapPlanToCandidateSummary(plan: TablePlan) {
     tableCount: plan.tables.length,
     slack: plan.slack,
     score: plan.score,
-    mergeType: plan.mergeType,
   });
 }
 
-function generateLegacyTablePlans(tables: Table[], partySize: number, adjacency: Map<string, Set<string>>): TablePlanResult {
+function generateLegacyTablePlans(tables: Table[], partySize: number): TablePlanResult {
   if (tables.length === 0) {
     return { plans: [], fallbackReason: "No tables available for the requested booking window" };
   }
@@ -556,77 +540,11 @@ function generateLegacyTablePlans(tables: Table[], partySize: number, adjacency:
   for (const table of eligibleSingles) {
     registerPlan({
       tables: [table],
-      mergeType: "single",
       slack: (table.capacity ?? 0) - partySize,
     });
   }
 
-  let mergeFallbackReason: string | undefined;
-
-  if (partySize >= 5 && partySize <= 6) {
-    const twoTops = byCapacityAsc.filter((table) => table.capacity === 2 && table.mergeEligible);
-    const fourTops = byCapacityAsc.filter((table) => table.capacity === 4 && table.mergeEligible);
-    let hasMergeCandidate = false;
-
-    for (const twoTop of twoTops) {
-      for (const fourTop of fourTops) {
-        if (twoTop.zoneId !== fourTop.zoneId) {
-          continue;
-        }
-        const adjacentToTwo = adjacency.get(twoTop.id);
-        if (!adjacentToTwo || !adjacentToTwo.has(fourTop.id)) {
-          continue;
-        }
-        hasMergeCandidate = true;
-        registerPlan({
-          tables: [twoTop, fourTop],
-          mergeType: "merge_2_4",
-          slack: (twoTop.capacity ?? 0) + (fourTop.capacity ?? 0) - partySize,
-        });
-      }
-    }
-
-    if (!hasMergeCandidate) {
-      mergeFallbackReason = "Merge (2+4) requires adjacent, merge-eligible tables in the same zone";
-    }
-  } else if (partySize >= 7 && partySize <= 8) {
-    const fourTops = byCapacityAsc.filter((table) => table.capacity === 4 && table.mergeEligible);
-    let hasMergeCandidate = false;
-
-    for (let i = 0; i < fourTops.length; i += 1) {
-      for (let j = i + 1; j < fourTops.length; j += 1) {
-        const a = fourTops[i]!;
-        const b = fourTops[j]!;
-        if (a.zoneId !== b.zoneId) {
-          continue;
-        }
-        const adjacentToA = adjacency.get(a.id);
-        if (!adjacentToA || !adjacentToA.has(b.id)) {
-          continue;
-        }
-        hasMergeCandidate = true;
-        registerPlan({
-          tables: [a, b],
-          mergeType: "merge_4_4",
-          slack: (a.capacity ?? 0) + (b.capacity ?? 0) - partySize,
-        });
-      }
-    }
-
-    if (!hasMergeCandidate) {
-      mergeFallbackReason = "Merge (4+4) requires adjacent, merge-eligible 4-tops in the same zone";
-    }
-  } else if (eligibleSingles.length === 0) {
-    mergeFallbackReason = "No merge strategy supports the requested party size";
-  }
-
   plans.sort((a, b) => {
-    if (a.mergeType === "single" && b.mergeType !== "single") {
-      return -1;
-    }
-    if (b.mergeType === "single" && a.mergeType !== "single") {
-      return 1;
-    }
     if (a.slack !== b.slack) {
       return a.slack - b.slack;
     }
@@ -642,36 +560,13 @@ function generateLegacyTablePlans(tables: Table[], partySize: number, adjacency:
 
   return {
     plans,
-    fallbackReason: plans.length === 0 ? mergeFallbackReason : undefined,
+    fallbackReason: plans.length === 0 ? "No tables available that satisfy the party size" : undefined,
   };
-}
-
-function deriveMergeTypeFromPlan(plan: RankedTablePlan): TablePlan["mergeType"] {
-  if (plan.mergeType === "single") {
-    return "single";
-  }
-
-  const capacities = plan.tables
-    .map((table) => table.capacity ?? 0)
-    .filter((capacity) => Number.isFinite(capacity) && capacity > 0)
-    .sort((a, b) => a - b);
-
-  if (capacities.length === 2) {
-    if (capacities[0] === 2 && capacities[1] === 4) {
-      return "merge_2_4";
-    }
-    if (capacities[0] === 4 && capacities[1] === 4) {
-      return "merge_4_4";
-    }
-  }
-
-  return "merge";
 }
 
 function mapRankedPlan(plan: RankedTablePlan): TablePlan {
   return {
     tables: plan.tables,
-    mergeType: deriveMergeTypeFromPlan(plan),
     slack: plan.slack,
     score: plan.score,
     metrics: plan.metrics,
@@ -703,7 +598,7 @@ function generateTablePlans(tables: Table[], partySize: number, adjacency: Map<s
   if (isSelectorScoringEnabled()) {
     return generateScoringTablePlans(tables, partySize, adjacency);
   }
-  return generateLegacyTablePlans(tables, partySize, adjacency);
+  return generateLegacyTablePlans(tables, partySize);
 }
 
 type BookingRecordForAssignment = {
@@ -865,7 +760,6 @@ async function assignTablesForBooking(params: {
       }
 
       const assignmentsByTable = new Map(assignments.map((entry) => [entry.tableId, entry]));
-      const mergedGroupId = assignments.find((entry) => entry.mergeGroupId)?.mergeGroupId ?? null;
 
       for (const table of plan.tables) {
         const rpcRow = assignmentsByTable.get(table.id);
@@ -874,8 +768,6 @@ async function assignTablesForBooking(params: {
           start: targetInterval.start,
           end: targetInterval.end,
           status: booking.status,
-          mergeGroupId: rpcRow?.mergeGroupId ?? mergedGroupId ?? undefined,
-          mergeType: plan.mergeType,
         };
         const existing = schedule.get(table.id) ?? [];
         existing.push(updateEntry);
@@ -997,30 +889,21 @@ async function loadAssignmentContext(params: {
   const timezone = restaurantResult.data?.timezone ?? defaultVenuePolicy.timezone;
   const policy = getVenuePolicy({ timezone });
 
-  const tables: Table[] = (tablesResult.data ?? []).map((row: any) => {
-    const mergeEligible =
-      row?.category === "dining" &&
-      row?.seating_type === "standard" &&
-      row?.mobility === "movable" &&
-      (row?.capacity === 2 || row?.capacity === 4);
-
-    return {
-      id: row.id,
-      tableNumber: row.table_number,
-      capacity: row.capacity,
-      minPartySize: row.min_party_size,
-      maxPartySize: row.max_party_size,
-      section: row.section,
-      category: row.category,
-      seatingType: row.seating_type,
-      mobility: row.mobility,
-      zoneId: row.zone_id,
-      status: row.status,
-      active: row.active ?? true,
-      mergeEligible,
-      position: row.position ?? null,
-    };
-  });
+  const tables: Table[] = (tablesResult.data ?? []).map((row: any) => ({
+    id: row.id,
+    tableNumber: row.table_number,
+    capacity: row.capacity,
+    minPartySize: row.min_party_size,
+    maxPartySize: row.max_party_size,
+    section: row.section,
+    category: row.category,
+    seatingType: row.seating_type,
+    mobility: row.mobility,
+    zoneId: row.zone_id,
+    status: row.status,
+    active: row.active ?? true,
+    position: row.position ?? null,
+  }));
 
   const adjacency = new Map<string, Set<string>>();
   const tableIds = tables.map((table) => table.id);
@@ -1297,10 +1180,10 @@ export async function assignTableToBooking(
     });
 
     const first = assignments[0];
-    if (!first) {
-      throw new Error("assign_tables_atomic returned no assignments");
-    }
-    return first.assignmentId ?? tableId;
+   if (!first) {
+     throw new Error("assign_tables_atomic returned no assignments");
+   }
+    return first.assignmentId;
   }
 
   // Call database RPC function
@@ -1361,8 +1244,7 @@ export async function unassignTableFromBooking(
 
 type AtomicAssignmentResult = {
   tableId: string;
-  assignmentId: string | null;
-  mergeGroupId: string | null;
+  assignmentId: string;
 };
 
 async function fetchBookingForAtomic(bookingId: string, client: DbClient): Promise<BookingRowForAtomic> {
@@ -1432,23 +1314,20 @@ async function invokeAssignTablesAtomic(params: {
   const rows = Array.isArray(data) ? data : [];
   return rows.map((row: any) => ({
     tableId: row.table_id as string,
-    assignmentId: (row.assignment_id as string | null) ?? null,
-    mergeGroupId: (row.merge_group_id as string | null) ?? null,
+    assignmentId: row.assignment_id as string,
   }));
 }
 
 async function invokeUnassignTablesAtomic(params: {
   bookingId: string;
   tableIds?: string[];
-  mergeGroupId?: string | null;
   client: DbClient;
-}): Promise<Array<{ tableId: string; mergeGroupId: string | null }>> {
-  const { bookingId, tableIds, mergeGroupId, client } = params;
+}): Promise<string[]> {
+  const { bookingId, tableIds, client } = params;
 
   const { data, error } = await client.rpc("unassign_tables_atomic", {
     p_booking_id: bookingId,
     p_table_ids: tableIds && tableIds.length > 0 ? tableIds : null,
-    p_merge_group_id: mergeGroupId ?? null,
   });
 
   if (error) {
@@ -1456,10 +1335,7 @@ async function invokeUnassignTablesAtomic(params: {
   }
 
   const rows = Array.isArray(data) ? data : [];
-  return rows.map((row: any) => ({
-    tableId: row.table_id as string,
-    mergeGroupId: (row.merge_group_id as string | null) ?? null,
-  }));
+  return rows.map((row: any) => row.table_id as string);
 }
 
 /**
@@ -1479,15 +1355,10 @@ export async function getBookingTableAssignments(
     .from("booking_table_assignments")
     .select(`
       table_id,
-      merge_group_id,
       table_inventory (
         table_number,
         capacity,
         section
-      ),
-      merge_group:merge_group_id (
-        id,
-        capacity
       )
     `)
     .eq("booking_id", bookingId);
@@ -1501,24 +1372,18 @@ export async function getBookingTableAssignments(
   for (const assignment of data ?? []) {
     const tableId: string = assignment.table_id;
     const tableMeta = normalizeRelationshipRecord<TableInventoryRecord>(assignment.table_inventory);
-    const groupId: string | null = assignment.merge_group_id ?? null;
-    const groupKey = groupId ?? tableId;
-    const mergeGroupCapacity = getMergeGroupCapacity(assignment.merge_group ?? null);
+    const groupKey = tableId;
 
     let group = groups.get(groupKey);
     if (!group) {
       group = {
-        groupId,
+        groupId: null,
         capacitySum: null,
         members: [],
       };
-      if (groupId && mergeGroupCapacity !== null) {
-        group.capacitySum = mergeGroupCapacity;
-      } else if (!groupId) {
-        const tableCapacity = getNumericCapacity(tableMeta?.capacity);
-        if (tableCapacity !== null) {
-          group.capacitySum = tableCapacity;
-        }
+      const tableCapacity = getNumericCapacity(tableMeta?.capacity);
+      if (tableCapacity !== null) {
+        group.capacitySum = tableCapacity;
       }
       groups.set(groupKey, group);
     }

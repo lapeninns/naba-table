@@ -28,7 +28,6 @@ export type OpsPermissionSet = {
 };
 
 export type OpsFeatureFlags = {
-  capacityConfig: boolean;
   opsMetrics: boolean;
   selectorScoring: boolean;
 };

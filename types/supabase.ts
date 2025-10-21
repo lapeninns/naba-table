@@ -62,99 +62,6 @@ export type Database = {
           },
         ]
       }
-      merge_group_members: {
-        Row: {
-          added_at: string
-          merge_group_id: string
-          table_id: string
-        }
-        Insert: {
-          added_at?: string
-          merge_group_id: string
-          table_id: string
-        }
-        Update: {
-          added_at?: string
-          merge_group_id?: string
-          table_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "merge_group_members_merge_group_id_fkey"
-            columns: ["merge_group_id"]
-            isOneToOne: false
-            referencedRelation: "merge_groups"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "merge_group_members_table_id_fkey"
-            columns: ["table_id"]
-            isOneToOne: false
-            referencedRelation: "table_inventory"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      merge_groups: {
-        Row: {
-          capacity: number
-          created_at: string
-          dissolved_at: string | null
-          id: string
-        }
-        Insert: {
-          capacity: number
-          created_at?: string
-          dissolved_at?: string | null
-          id?: string
-        }
-        Update: {
-          capacity?: number
-          created_at?: string
-          dissolved_at?: string | null
-          id?: string
-        }
-        Relationships: []
-      }
-      merge_rules: {
-        Row: {
-          created_at: string
-          cross_category_merge: boolean
-          enabled: boolean
-          from_a: number
-          from_b: number
-          id: string
-          require_adjacency: boolean
-          require_same_zone: boolean
-          to_capacity: number
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          cross_category_merge?: boolean
-          enabled?: boolean
-          from_a: number
-          from_b: number
-          id?: string
-          require_adjacency?: boolean
-          require_same_zone?: boolean
-          to_capacity: number
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          cross_category_merge?: boolean
-          enabled?: boolean
-          from_a?: number
-          from_b?: number
-          id?: string
-          require_adjacency?: boolean
-          require_same_zone?: boolean
-          to_capacity?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
       service_policy: {
         Row: {
           allow_after_hours: boolean
@@ -494,7 +401,6 @@ export type Database = {
           created_at: string
           idempotency_key: string | null
           id: string
-          merge_group_id: string | null
           notes: string | null
           slot_id: string | null
           table_id: string
@@ -507,7 +413,6 @@ export type Database = {
           created_at?: string
           idempotency_key?: string | null
           id?: string
-          merge_group_id?: string | null
           notes?: string | null
           slot_id?: string | null
           table_id: string
@@ -520,7 +425,6 @@ export type Database = {
           created_at?: string
           idempotency_key?: string | null
           id?: string
-          merge_group_id?: string | null
           notes?: string | null
           slot_id?: string | null
           table_id?: string
@@ -539,13 +443,6 @@ export type Database = {
             columns: ["slot_id"]
             isOneToOne: false
             referencedRelation: "booking_slots"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "booking_table_assignments_merge_group_id_fkey"
-            columns: ["merge_group_id"]
-            isOneToOne: false
-            referencedRelation: "merge_groups"
             referencedColumns: ["id"]
           },
           {
@@ -1554,6 +1451,41 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      },
+      zones: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          restaurant_id: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          restaurant_id: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          restaurant_id?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zones_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -1618,8 +1550,7 @@ export type Database = {
         }
         Returns: {
           table_id: string
-          assignment_id: string | null
-          merge_group_id: string | null
+          assignment_id: string
         }[]
       }
       allocations_overlap: {
@@ -1908,11 +1839,9 @@ export type Database = {
         Args: {
           p_booking_id: string
           p_table_ids?: string[] | null
-          p_merge_group_id?: string | null
         }
         Returns: {
           table_id: string
-          merge_group_id: string | null
         }[]
       }
       user_restaurants: {
