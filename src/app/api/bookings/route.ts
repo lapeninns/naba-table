@@ -153,6 +153,7 @@ type BookingDTO = {
   notes?: string | null;
   customerName?: string | null;
   customerEmail?: string | null;
+  reservationIntervalMinutes?: number | null;
 };
 
 type PageInfo = {
@@ -754,7 +755,7 @@ async function handleMyBookings(req: NextRequest) {
 
   let query = client
     .from(relation)
-    .select("id, start_at, end_at, party_size, status, notes, restaurants(name)", { count: "exact" })
+    .select("id, start_at, end_at, party_size, status, notes, restaurants(name, reservation_interval_minutes)", { count: "exact" })
     .eq("customer_email", email);
 
   if (params.restaurantId) {
@@ -782,7 +783,7 @@ async function handleMyBookings(req: NextRequest) {
     party_size: number;
     status: BookingDTO['status'];
     notes: string | null;
-    restaurants: { name: string } | { name: string }[] | null;
+    restaurants: { name: string; reservation_interval_minutes?: number | null } | { name: string; reservation_interval_minutes?: number | null }[] | null;
   };
 
   const { data, error, count } = await query.range(offset, offset + pageSize - 1);
@@ -798,6 +799,10 @@ async function handleMyBookings(req: NextRequest) {
     const restaurant = Array.isArray(booking.restaurants)
       ? booking.restaurants[0] ?? null
       : booking.restaurants;
+    const interval =
+      restaurant && typeof restaurant.reservation_interval_minutes === "number"
+        ? restaurant.reservation_interval_minutes
+        : null;
 
     return {
       id: booking.id,
@@ -809,6 +814,7 @@ async function handleMyBookings(req: NextRequest) {
       notes: booking.notes,
       customerName: null as BookingDTO["customerName"],
       customerEmail: null as BookingDTO["customerEmail"],
+      reservationIntervalMinutes: interval,
     };
   });
 

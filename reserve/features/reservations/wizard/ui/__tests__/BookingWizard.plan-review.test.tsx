@@ -9,6 +9,8 @@ import { wizardDetailsFixture, apiBookingFixture } from '@/tests/fixtures/wizard
 import { WizardDependenciesProvider } from '@features/reservations/wizard/di';
 import { BookingWizard } from '@features/reservations/wizard/ui/BookingWizard';
 
+import type { ErrorReporter } from '@reserve/shared/error';
+
 const mutateAsync = vi.fn();
 const getScheduleMock = vi.fn();
 
@@ -139,6 +141,7 @@ describe('BookingWizard plan to review flow', () => {
 
   it('persists selections through review and triggers confirmation mutation', async () => {
     const analytics = { track: vi.fn() };
+    const errorReporter: ErrorReporter = { capture: vi.fn() };
     const initialDetails = wizardDetailsFixture({
       date: '2025-05-20',
       time: '18:15',
@@ -150,7 +153,7 @@ describe('BookingWizard plan to review flow', () => {
     });
 
     renderWithProviders(
-      <WizardDependenciesProvider value={{ analytics }}>
+      <WizardDependenciesProvider value={{ analytics, errorReporter }}>
         <BookingWizard initialDetails={initialDetails} />
       </WizardDependenciesProvider>,
     );
@@ -205,10 +208,12 @@ describe('BookingWizard plan to review flow', () => {
         start_time: '18:15',
       }),
     );
+    expect(errorReporter.capture).not.toHaveBeenCalled();
   });
 
   it('returns to review step and surfaces error when booking submission fails', async () => {
     const analytics = { track: vi.fn() };
+    const errorReporter: ErrorReporter = { capture: vi.fn() };
     mutateAsync.mockRejectedValueOnce({
       code: 'SERVER_ERROR',
       message: 'Unable to save booking',
@@ -226,7 +231,7 @@ describe('BookingWizard plan to review flow', () => {
     });
 
     renderWithProviders(
-      <WizardDependenciesProvider value={{ analytics }}>
+      <WizardDependenciesProvider value={{ analytics, errorReporter }}>
         <BookingWizard initialDetails={initialDetails} />
       </WizardDependenciesProvider>,
     );
@@ -263,10 +268,12 @@ describe('BookingWizard plan to review flow', () => {
     const alertMessage = await screen.findByText(/Unable to .* booking/i);
     expect(alertMessage).toBeVisible();
     expect(analytics.track).not.toHaveBeenCalledWith('booking_created', expect.anything());
+    expect(errorReporter.capture).toHaveBeenCalledTimes(1);
   });
 
   it('shows booking-in-past guidance when API rejects due to past start time', async () => {
     const analytics = { track: vi.fn() };
+    const errorReporter: ErrorReporter = { capture: vi.fn() };
     mutateAsync.mockRejectedValueOnce({
       code: 'BOOKING_IN_PAST',
       message: 'Booking time is in the past. Please select a future date and time.',
@@ -284,7 +291,7 @@ describe('BookingWizard plan to review flow', () => {
     });
 
     renderWithProviders(
-      <WizardDependenciesProvider value={{ analytics }}>
+      <WizardDependenciesProvider value={{ analytics, errorReporter }}>
         <BookingWizard initialDetails={initialDetails} />
       </WizardDependenciesProvider>,
     );
@@ -321,5 +328,6 @@ describe('BookingWizard plan to review flow', () => {
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(BOOKING_IN_PAST_CUSTOMER_MESSAGE);
     expect(analytics.track).not.toHaveBeenCalledWith('booking_created', expect.anything());
+    expect(errorReporter.capture).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,6 @@
 # Ops Rate Limiter Configuration
 
-The Ops console throttles high-volume endpoints (e.g., bookings list, walk-in creation) using the shared rate limiter in `server/security/rate-limit.ts`. For multi-instance safety, we rely on Upstash Redis. When credentials are missing, the limiter falls back to an in-memory store and now surfaces a development-only warning.
+The Ops console throttles high-volume endpoints (e.g., bookings list, walk-in creation) using the shared rate limiter in `server/security/rate-limit.ts`. For multi-instance safety, we rely on Upstash Redis. When credentials are missing, the limiter falls back to an in-memory store; in development we now bypass rate limiting entirely (no warnings) unless you opt in via `ENABLE_RATE_LIMIT_IN_DEV=true`.
 
 ## Required Environment Variables
 
@@ -9,7 +9,7 @@ Set these variables for every deployment target (staging and production):
 - `UPSTASH_REDIS_REST_URL`
 - `UPSTASH_REDIS_REST_TOKEN`
 
-Both values are available from the Upstash console. Missing credentials trigger a warning in development/test (`[rate-limit] Upstash Redis credentials ... are missing`) and force the memory fallback.
+Both values are available from the Upstash console. Missing credentials trigger a warning in test/production and force the memory fallback. In development the limiter is disabled by default, but setting `ENABLE_RATE_LIMIT_IN_DEV=true` restores the previous behaviour for local smoke testing.
 
 ## Deployment Checklist
 
@@ -20,6 +20,6 @@ Both values are available from the Upstash console. Missing credentials trigger 
 
 ## Local Development Notes
 
-- When credentials are absent locally, the in-memory fallback keeps the app usable but **does not** protect multi-instance deployments.
-- The warning only appears once per session to reduce noise; clear the console or reload to verify after changes.
+- When credentials are absent locally, the limiter defaults to **disabled**; set `ENABLE_RATE_LIMIT_IN_DEV=true` if you need to exercise throttling logic against the in-memory store.
+- When the limiter is enabled without credentials (dev override or test/prod), the warning only appears once per session to reduce noise; clear the console or reload to verify after changes.
 - The fallback still enforces limits per process, so adjust tests that exercise rate limiting accordingly.

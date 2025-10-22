@@ -5,6 +5,9 @@ const ORIGINAL_ENV = { ...process.env };
 function mockEnv(upstash?: { restUrl?: string | null; restToken?: string | null }) {
   vi.doMock("@/lib/env", () => ({
     env: {
+      node: {
+        env: process.env.NODE_ENV ?? "test",
+      },
       cache: {
         enableAvailabilityCache: false,
         availabilityTtlSeconds: 300,

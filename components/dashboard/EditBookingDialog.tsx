@@ -73,6 +73,14 @@ export function EditBookingDialog({ booking, open, onOpenChange, mutationHook }:
     [booking?.notes, booking?.partySize, booking?.startIso],
   );
 
+  const intervalMinutes = useMemo(() => {
+    const raw = booking?.reservationIntervalMinutes;
+    if (typeof raw === 'number' && Number.isFinite(raw) && raw >= 1 && raw <= 180) {
+      return Math.floor(raw);
+    }
+    return 15;
+  }, [booking?.reservationIntervalMinutes]);
+
   const resolver = zodResolver(schema) as Resolver<FormValues>;
 
   const {
@@ -219,6 +227,7 @@ export function EditBookingDialog({ booking, open, onOpenChange, mutationHook }:
                     required
                     errorMessage={fieldState.error?.message}
                     disabled={mutation.isPending}
+                    minuteStep={intervalMinutes}
                   />
                 )}
               />

@@ -72,6 +72,7 @@ export async function POST(req: NextRequest) {
         customer_phone: "+1234567890",
         notes: "Test booking for email verification",
         marketing_opt_in: false,
+        loyalty_points_awarded: 0,
         source: "test",
         client_request_id: clientRequestId,
         pending_ref: pendingRef,

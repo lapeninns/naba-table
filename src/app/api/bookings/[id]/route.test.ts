@@ -490,7 +490,33 @@ describe('/api/bookings/[id] PUT', () => {
     getRestaurantScheduleMock.mockResolvedValue({
       defaultDurationMinutes: 120,
       timezone: 'Europe/London',
+      intervalMinutes: 15,
+      isClosed: false,
+      window: { opensAt: '09:00', closesAt: '23:00' },
+      availableBookingOptions: ['dinner'],
+      occasionCatalog: [],
+      slots: [
+        {
+          value: '19:00',
+          disabled: false,
+          periodId: null,
+          periodName: null,
+          bookingOption: 'dinner',
+          defaultBookingOption: 'dinner',
+          availability: {
+            services: { dinner: 'enabled' },
+            labels: {
+              happyHour: false,
+              drinksOnly: false,
+              kitchenClosed: false,
+              lunchWindow: false,
+              dinnerWindow: true,
+            },
+          },
+        },
+      ],
     });
+    assertBookingWithinOperatingWindowMock.mockReturnValue({ time: '19:00' });
 
     const serviceSupabase = createServiceSupabase({ booking: existingBooking });
     getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);

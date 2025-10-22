@@ -1,3 +1,5 @@
+process.env.BASE_URL ??= 'http://localhost:3000';
+
 import { describe, expect, it } from 'vitest';
 
 import {

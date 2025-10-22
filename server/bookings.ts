@@ -476,6 +476,7 @@ export async function insertBookingRecord(
     customer_phone: payload.customer_phone,
     notes: payload.notes ?? null,
     marketing_opt_in: payload.marketing_opt_in ?? false,
+    loyalty_points_awarded: payload.loyalty_points_awarded ?? 0,
     source: payload.source ?? "web",
     customer_id: payload.customer_id,
     client_request_id: payload.client_request_id,

@@ -25,8 +25,22 @@ let redisClient: Redis | null | undefined;
 const memoryStore = new Map<string, MemoryBucket>();
 let warnedAboutMemoryStore = false;
 let warnedAboutMissingUpstash = false;
+const devMode = env.node.env === "development";
+
+const parseBooleanEnv = (value: string | undefined): boolean | undefined => {
+  if (!value) return undefined;
+  if (/^(true|1|yes)$/i.test(value.trim())) return true;
+  if (/^(false|0|no)$/i.test(value.trim())) return false;
+  return undefined;
+};
+
+const enableRateLimitInDev = parseBooleanEnv(process.env.ENABLE_RATE_LIMIT_IN_DEV);
+const shouldBypassRateLimit = devMode && enableRateLimitInDev !== true;
 
 function logMissingUpstashWarning() {
+  if (shouldBypassRateLimit) {
+    return;
+  }
   if (warnedAboutMissingUpstash) {
     return;
   }
@@ -70,6 +84,17 @@ function now(): number {
 }
 
 function useMemoryStore(params: RateLimitParams): RateLimitResult {
+  if (shouldBypassRateLimit) {
+    const resetAt = now() + params.windowMs;
+    return {
+      ok: true,
+      limit: params.limit,
+      remaining: params.limit,
+      resetAt,
+      source: "none",
+    };
+  }
+
   if (!warnedAboutMemoryStore) {
     console.warn("[rate-limit] Falling back to in-memory rate limiter. Configure Upstash Redis for multi-instance safety.");
     warnedAboutMemoryStore = true;
@@ -104,6 +129,17 @@ function useMemoryStore(params: RateLimitParams): RateLimitResult {
 }
 
 export async function consumeRateLimit(params: RateLimitParams): Promise<RateLimitResult> {
+  if (shouldBypassRateLimit) {
+    const resetAt = now() + params.windowMs;
+    return {
+      ok: true,
+      limit: params.limit,
+      remaining: params.limit,
+      resetAt,
+      source: "none",
+    };
+  }
+
   const redis = getRedisClient();
   if (!redis) {
     return useMemoryStore(params);

@@ -28,6 +28,7 @@ export type BookingDTO = {
   customerName?: string | null;
   customerEmail?: string | null;
   customerPhone?: string | null;
+  reservationIntervalMinutes?: number | null;
 };
 
 export type PageInfo = {

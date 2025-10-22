@@ -569,6 +569,7 @@ export type Database = {
           notes: string | null
           party_size: number
           pending_ref: string | null
+          loyalty_points_awarded: number
           reference: string
           restaurant_id: string
           seating_preference: Database["public"]["Enums"]["seating_preference_type"]
@@ -602,6 +603,7 @@ export type Database = {
           notes?: string | null
           party_size: number
           pending_ref?: string | null
+          loyalty_points_awarded?: number
           reference: string
           restaurant_id: string
           seating_preference?: Database["public"]["Enums"]["seating_preference_type"]
@@ -635,6 +637,7 @@ export type Database = {
           notes?: string | null
           party_size?: number
           pending_ref?: string | null
+          loyalty_points_awarded?: number
           reference?: string
           restaurant_id?: string
           seating_preference?: Database["public"]["Enums"]["seating_preference_type"]

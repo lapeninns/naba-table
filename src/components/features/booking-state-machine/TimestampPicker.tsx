@@ -31,6 +31,7 @@ export type TimestampPickerProps = {
   applyLabel?: string;
   errorMessage?: string | null;
   disabled?: boolean;
+  minuteStep?: number;
 };
 
 function toDate(value?: TimestampValue): Date | null {
@@ -86,12 +87,17 @@ export function TimestampPicker({
   applyLabel = "Apply",
   errorMessage,
   disabled = false,
+  minuteStep = 1,
 }: TimestampPickerProps) {
   const [open, setOpen] = useState(false);
   const selected = useMemo(() => toDate(value), [value]);
   const [draftDate, setDraftDate] = useState<Date | undefined>(selected ?? undefined);
   const [timeInput, setTimeInput] = useState<string>(selected ? format(selected, "HH:mm") : "12:00");
   const [internalError, setInternalError] = useState<string | null>(null);
+  const effectiveMinuteStep = useMemo(() => {
+    const numeric = Number.isFinite(minuteStep) ? Math.floor(minuteStep) : 1;
+    return numeric > 0 ? numeric : 1;
+  }, [minuteStep]);
 
   useEffect(() => {
     if (!selected) return;
@@ -161,6 +167,14 @@ export function TimestampPicker({
       onBlur?.();
       return;
     }
+    if (effectiveMinuteStep > 1) {
+      const totalMinutes = target.getHours() * 60 + target.getMinutes();
+      if (totalMinutes % effectiveMinuteStep !== 0) {
+        setInternalError(`Time must align to ${effectiveMinuteStep}-minute intervals.`);
+        onBlur?.();
+        return;
+      }
+    }
     setInternalError(null);
     onChange(target.toISOString());
     handleClose(false);
@@ -215,7 +229,7 @@ export function TimestampPicker({
               id={`${controlId}-time`}
               name={name}
               type="time"
-              step={60}
+              step={effectiveMinuteStep * 60}
               value={timeInput}
               onChange={(event) => setTimeInput(event.target.value)}
               className="h-9"

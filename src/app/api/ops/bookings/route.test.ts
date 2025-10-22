@@ -474,7 +474,7 @@ describe("GET /api/ops/bookings", () => {
           start_time: "18:00",
           end_time: "19:30",
           notes: null,
-          restaurants: { name: "Sajilo Reserve" },
+          restaurants: { name: "Sajilo Reserve", reservation_interval_minutes: 15 },
         },
       ],
       count: 1,
@@ -491,6 +491,7 @@ describe("GET /api/ops/bookings", () => {
     expect(json.items[0].id).toBe("booking-1");
     expect(json.items[0].restaurantId).toBe(RESTAURANT_ID);
     expect(json.items[0].restaurantName).toBe("Sajilo Reserve");
+    expect(json.items[0].reservationIntervalMinutes).toBe(15);
     expect(queryStub.range).toHaveBeenCalledWith(0, 9);
   });
 

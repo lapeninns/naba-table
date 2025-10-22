@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { env } from "@/lib/env";
+import type { BookingType } from "@/lib/enums";
 import { GuardError, listUserRestaurantMemberships, requireSession } from "@/server/auth/guards";
 import type { BookingRecord } from "@/server/bookings";
 import {
@@ -31,11 +32,14 @@ import {
 import type { Json, Tables } from "@/types/supabase";
 import { normalizeEmail } from "@/server/customers";
 import { formatDateForInput } from "@reserve/shared/formatting/booking";
-import { fromMinutes } from "@reserve/shared/time";
 import { getRestaurantSchedule } from "@/server/restaurants/schedule";
 import { OperatingHoursError, assertBookingWithinOperatingWindow } from "@/server/bookings/timeValidation";
 import { PastBookingError, assertBookingNotInPast } from "@/server/bookings/pastTimeValidation";
 import { recordObservabilityEvent } from "@/server/observability";
+import {
+  convertIsoToVenueDateTime,
+  convertOptionalIsoToVenueDateTime,
+} from "@/server/bookings/timezoneConversion";
 
 const bookingTypeEnum = z.enum(BOOKING_TYPES);
 
@@ -131,45 +135,86 @@ async function handleDashboardUpdate(params: {
   const { bookingId, data, existingBooking, actor, serviceSupabase } = params;
 
   try {
-    const startDate = new Date(data.startIso);
-    if (Number.isNaN(startDate.getTime())) {
+    const startInstant = new Date(data.startIso);
+    if (Number.isNaN(startInstant.getTime())) {
       return NextResponse.json({ error: "Invalid date values" }, { status: 400 });
     }
 
     const restaurantId = existingBooking.restaurant_id ?? (await getDefaultRestaurantId());
-    const existingStartAt = existingBooking.start_at ? new Date(existingBooking.start_at) : null;
-    const existingEndAt = existingBooking.end_at ? new Date(existingBooking.end_at) : null;
+    const initialSchedule = await getRestaurantSchedule(restaurantId, {
+      date: formatDateForInput(startInstant),
+      client: serviceSupabase,
+    });
+    const initialScheduleTimezone = initialSchedule.timezone ?? "Europe/London";
+
+    let startVenue;
+    try {
+      startVenue = convertIsoToVenueDateTime(data.startIso, initialScheduleTimezone);
+    } catch (conversionError) {
+      const message = conversionError instanceof Error ? conversionError.message : "Invalid date values";
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+
+    let schedule = startVenue.date === initialSchedule.date
+      ? initialSchedule
+      : await getRestaurantSchedule(restaurantId, {
+          date: startVenue.date,
+          client: serviceSupabase,
+        });
+    const scheduleTimezone = schedule.timezone ?? initialScheduleTimezone;
+
+    const explicitEndVenue = convertOptionalIsoToVenueDateTime(data.endIso, scheduleTimezone);
+    const existingStartVenue = convertOptionalIsoToVenueDateTime(existingBooking.start_at, scheduleTimezone);
+    const existingEndVenue = convertOptionalIsoToVenueDateTime(existingBooking.end_at, scheduleTimezone);
+
     const existingDurationMinutes =
-      existingStartAt && existingEndAt
-        ? Math.max(1, Math.round((existingEndAt.getTime() - existingStartAt.getTime()) / 60000))
+      existingStartVenue && existingEndVenue
+        ? Math.max(1, Math.round(existingEndVenue.dateTime.diff(existingStartVenue.dateTime, "minutes").minutes ?? 0))
         : null;
-    const bookingDate = formatDateForInput(startDate);
-    const startTime = fromMinutes(startDate.getHours() * 60 + startDate.getMinutes());
 
-    const explicitEndIso = typeof data.endIso === "string" ? data.endIso : null;
-    let scheduleTimezone: string | null = null;
-    let schedule: Awaited<ReturnType<typeof getRestaurantSchedule>> | null = null;
+    let bookingDate = startVenue.date;
+    let startTime = startVenue.time;
 
-    // Check if time fields are being changed (only validate if time is changing)
-    const isTimeChanged =
-      bookingDate !== existingBooking.booking_date ||
-      startTime !== existingBooking.start_time;
+    const previousBookingDate = existingBooking.booking_date ?? null;
+    const previousStartTime = existingBooking.start_time ?? null;
+    const isTimeChanged = bookingDate !== previousBookingDate || startTime !== previousStartTime;
 
-    const needsScheduleForDuration = isTimeChanged || !explicitEndIso;
+    const needsScheduleForDuration = isTimeChanged || !explicitEndVenue;
     const needsScheduleForPastCheck = env.featureFlags.bookingPastTimeBlocking && isTimeChanged;
 
-    if (needsScheduleForDuration || needsScheduleForPastCheck) {
+    let normalizedStartDateTime = startVenue.dateTime.set({ second: 0, millisecond: 0 });
+
+    try {
+      const bookingType = (existingBooking.booking_type ?? "dinner") as BookingType;
+      const { time } = assertBookingWithinOperatingWindow({
+        schedule,
+        requestedTime: startTime,
+        bookingType,
+      });
+      startTime = time;
+      normalizedStartDateTime = normalizedStartDateTime.set({
+        hour: Number.parseInt(time.slice(0, 2), 10),
+        minute: Number.parseInt(time.slice(3, 5), 10),
+      });
+      bookingDate = normalizedStartDateTime.toISODate() ?? bookingDate;
+    } catch (validationError) {
+      if (validationError instanceof OperatingHoursError) {
+        return NextResponse.json({ error: validationError.message }, { status: 400 });
+      }
+      throw validationError;
+    }
+
+    if ((needsScheduleForDuration || needsScheduleForPastCheck) && schedule.date !== bookingDate) {
       schedule = await getRestaurantSchedule(restaurantId, {
         date: bookingDate,
         client: serviceSupabase,
       });
-      scheduleTimezone = schedule?.timezone ?? null;
     }
 
-    if (needsScheduleForPastCheck && schedule) {
+    if (needsScheduleForPastCheck) {
       try {
         assertBookingNotInPast(
-          schedule.timezone,
+          schedule.timezone ?? scheduleTimezone,
           bookingDate,
           startTime,
           {
@@ -178,7 +223,6 @@ async function handleDashboardUpdate(params: {
         );
       } catch (pastTimeError) {
         if (pastTimeError instanceof PastBookingError) {
-          // Log blocked attempt
           void recordObservabilityEvent({
             source: "api.bookings",
             eventType: "booking.past_time.blocked",
@@ -206,48 +250,44 @@ async function handleDashboardUpdate(params: {
       }
     }
 
-    let scheduleDuration: number | null = null;
-    if (schedule) {
-      const maybeDuration = (schedule as { defaultDurationMinutes?: unknown }).defaultDurationMinutes;
-      if (typeof maybeDuration === "number") {
-        scheduleDuration = maybeDuration;
-      }
-    }
-    const configuredDuration = scheduleDuration && scheduleDuration > 0 ? scheduleDuration : null;
+    const scheduleDuration =
+      typeof schedule.defaultDurationMinutes === "number" && schedule.defaultDurationMinutes > 0
+        ? schedule.defaultDurationMinutes
+        : null;
+    const configuredDuration = scheduleDuration ?? null;
     const fallbackDuration =
       existingDurationMinutes && existingDurationMinutes > 0
         ? existingDurationMinutes
         : env.reserve.defaultDurationMinutes ?? 90;
 
     let durationMinutes: number;
-    let endDate: Date;
+    let endDateTime = normalizedStartDateTime;
 
     if (isTimeChanged) {
       const enforcedDuration = configuredDuration ?? fallbackDuration;
       durationMinutes = enforcedDuration > 0 ? enforcedDuration : 90;
-      endDate = new Date(startDate.getTime() + durationMinutes * 60_000);
-    } else if (explicitEndIso) {
-      const parsedEnd = new Date(explicitEndIso);
-      if (Number.isNaN(parsedEnd.getTime())) {
-        return NextResponse.json({ error: "Invalid date values" }, { status: 400 });
-      }
-      endDate = parsedEnd;
-      durationMinutes = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / 60000));
-    } else if (existingEndAt) {
-      endDate = existingEndAt;
+      endDateTime = normalizedStartDateTime.plus({ minutes: durationMinutes });
+    } else if (explicitEndVenue) {
+      endDateTime = explicitEndVenue.dateTime;
+      durationMinutes = Math.max(
+        1,
+        Math.round(explicitEndVenue.dateTime.diff(normalizedStartDateTime, "minutes").minutes ?? 0),
+      );
+    } else if (existingEndVenue) {
+      endDateTime = existingEndVenue.dateTime;
       durationMinutes = fallbackDuration > 0 ? fallbackDuration : 90;
     } else {
       const inferredDuration = configuredDuration ?? fallbackDuration;
       durationMinutes = inferredDuration > 0 ? inferredDuration : 90;
-      endDate = new Date(startDate.getTime() + durationMinutes * 60_000);
+      endDateTime = normalizedStartDateTime.plus({ minutes: durationMinutes });
     }
 
-    if (endDate.getTime() <= startDate.getTime()) {
+    if (endDateTime.toMillis() <= normalizedStartDateTime.toMillis()) {
       return NextResponse.json({ error: "End time must be after start time" }, { status: 400 });
     }
 
-    const endTime = fromMinutes(endDate.getHours() * 60 + endDate.getMinutes());
-    const resolvedScheduleTz = scheduleTimezone ?? (schedule?.timezone ?? null);
+    const endTime = endDateTime.set({ second: 0, millisecond: 0 }).toFormat("HH:mm");
+    const resolvedScheduleTz = schedule.timezone ?? scheduleTimezone;
 
     const useUnifiedValidation = env.featureFlags.bookingValidationUnified;
     let updated: Tables<"bookings">;
@@ -354,6 +394,11 @@ async function handleDashboardUpdate(params: {
       console.error("[bookings][PUT:dashboard][side-effects]", stringifyError(jobError));
     }
 
+    const responseIntervalMinutes =
+      schedule && typeof schedule.intervalMinutes === "number"
+        ? schedule.intervalMinutes
+        : null;
+
     const bookingDTO = {
       id: updated.id,
       restaurantName: "Unknown",
@@ -362,6 +407,7 @@ async function handleDashboardUpdate(params: {
       endIso: updated.end_at,
       status: updated.status as "pending" | "pending_allocation" | "confirmed" | "cancelled",
       notes: updated.notes,
+      reservationIntervalMinutes: responseIntervalMinutes,
     };
 
     const responseInit = useUnifiedValidation ? withValidationHeaders({ status: 200 }) : { status: 200 };

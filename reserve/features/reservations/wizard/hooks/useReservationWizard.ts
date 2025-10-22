@@ -166,12 +166,14 @@ export function useReservationWizard(
         context: mode,
       });
     } catch (error) {
-      errorReporter.capture(error, {
-        scope: 'wizard.submitReservation',
-        bookingId: state.editingId ?? undefined,
-      });
-      const fallbackMessage = mapErrorToMessage(error, 'Unable to process booking');
       const isPastBooking = isBookingInPastError(error);
+      if (!isPastBooking) {
+        errorReporter.capture(error, {
+          scope: 'wizard.submitReservation',
+          bookingId: state.editingId ?? undefined,
+        });
+      }
+      const fallbackMessage = mapErrorToMessage(error, 'Unable to process booking');
       const message = isPastBooking ? BOOKING_IN_PAST_CUSTOMER_MESSAGE : fallbackMessage;
       actions.setLoading(false);
       actions.setSubmitting(false);

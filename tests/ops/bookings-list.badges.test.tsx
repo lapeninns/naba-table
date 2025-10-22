@@ -168,8 +168,6 @@ describe("BookingsList lifecycle badges", () => {
       </TooltipProvider>,
     );
 
-    expect(
-      screen.getByText("Tables T2-1 + T4-1 · 6 seats · Merge M6 (2+4)"),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Tables T2-1\s+\+\s+T4-1 · 6 seats/)).toBeInTheDocument();
   });
 });

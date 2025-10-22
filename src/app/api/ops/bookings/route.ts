@@ -172,7 +172,7 @@ type OpsBookingRow = Pick<
   Tables<"bookings">,
   "id" | "start_at" | "end_at" | "booking_date" | "start_time" | "end_time" | "party_size" | "status" | "notes" | "restaurant_id" | "customer_name" | "customer_email" | "customer_phone"
 > & {
-  restaurants?: { name: string | null } | { name: string | null }[] | null;
+  restaurants?: { name: string | null; reservation_interval_minutes?: number | null } | { name: string | null; reservation_interval_minutes?: number | null }[] | null;
 };
 
 type BookingDTO = {
@@ -187,6 +187,7 @@ type BookingDTO = {
   customerName: string | null;
   customerEmail: string | null;
   customerPhone: string | null;
+  reservationIntervalMinutes: number | null;
 };
 
 type PageInfo = {
@@ -350,7 +351,7 @@ export async function GET(req: NextRequest) {
   let query = serviceSupabase
     .from("bookings")
     .select(
-      "id, start_at, end_at, booking_date, start_time, end_time, party_size, status, notes, restaurant_id, customer_name, customer_email, customer_phone, restaurants(name)",
+      "id, start_at, end_at, booking_date, start_time, end_time, party_size, status, notes, restaurant_id, customer_name, customer_email, customer_phone, restaurants(name, reservation_interval_minutes)",
       { count: "exact" },
     )
     .eq("restaurant_id", targetRestaurantId);
@@ -394,6 +395,10 @@ export async function GET(req: NextRequest) {
     const endIso = toIsoString(row.end_at) || deriveFallbackIso(row.booking_date, row.end_time);
     const rawPhone = typeof row.customer_phone === "string" ? row.customer_phone.trim() : "";
     const customerPhone = rawPhone.length > 0 ? rawPhone : null;
+    const interval =
+      restaurantRelation && typeof restaurantRelation.reservation_interval_minutes === "number"
+        ? restaurantRelation.reservation_interval_minutes
+        : null;
 
     return {
       id: row.id,
@@ -407,6 +412,7 @@ export async function GET(req: NextRequest) {
       customerName: row.customer_name ?? null,
       customerEmail: row.customer_email ?? null,
       customerPhone,
+      reservationIntervalMinutes: interval,
     };
   });
 
