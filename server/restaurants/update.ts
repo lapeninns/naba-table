@@ -17,6 +17,7 @@ export type UpdateRestaurantInput = {
   bookingPolicy?: string | null;
   reservationIntervalMinutes?: number;
   reservationDefaultDurationMinutes?: number;
+  reservationLastSeatingBufferMinutes?: number;
 };
 
 export type UpdatedRestaurant = {
@@ -31,6 +32,7 @@ export type UpdatedRestaurant = {
   bookingPolicy: string | null;
   reservationIntervalMinutes: number;
   reservationDefaultDurationMinutes: number;
+  reservationLastSeatingBufferMinutes: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -109,12 +111,20 @@ export async function updateRestaurant(
     updateData.reservation_default_duration_minutes = value;
   }
 
+  if (input.reservationLastSeatingBufferMinutes !== undefined) {
+    const value = input.reservationLastSeatingBufferMinutes;
+    if (!Number.isInteger(value) || value < 15 || value > 300) {
+      throw new Error('Last seating buffer must be an integer between 15 and 300 minutes.');
+    }
+    updateData.reservation_last_seating_buffer_minutes = value;
+  }
+
   const { data, error } = await client
     .from('restaurants')
     .update(updateData)
     .eq('id', restaurantId)
     .select(
-      'id, name, slug, timezone, capacity, contact_email, contact_phone, address, booking_policy, reservation_interval_minutes, reservation_default_duration_minutes, created_at, updated_at',
+      'id, name, slug, timezone, capacity, contact_email, contact_phone, address, booking_policy, reservation_interval_minutes, reservation_default_duration_minutes, reservation_last_seating_buffer_minutes, created_at, updated_at',
     )
     .single();
 
@@ -139,6 +149,7 @@ export async function updateRestaurant(
     bookingPolicy: data.booking_policy,
     reservationIntervalMinutes: data.reservation_interval_minutes,
     reservationDefaultDurationMinutes: data.reservation_default_duration_minutes,
+    reservationLastSeatingBufferMinutes: data.reservation_last_seating_buffer_minutes,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
   };

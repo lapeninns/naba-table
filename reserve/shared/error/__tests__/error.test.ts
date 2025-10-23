@@ -21,6 +21,33 @@ describe('mapErrorToMessage', () => {
     expect(mapErrorToMessage({ message: 'Plain error' }, 'fallback')).toBe('Plain error');
     expect(mapErrorToMessage({ message: '   ' }, 'fallback')).toBe('fallback');
   });
+
+  it('returns error field when present', () => {
+    expect(mapErrorToMessage({ error: 'API exploded' }, 'fallback')).toBe('API exploded');
+  });
+
+  it('returns first validation issue message', () => {
+    expect(
+      mapErrorToMessage(
+        {
+          issues: [
+            { code: 'CAPACITY_EXCEEDED', message: 'Too many covers' },
+            { code: 'OTHER', message: 'Another issue' },
+          ],
+        },
+        'fallback',
+      ),
+    ).toBe('Too many covers');
+  });
+
+  it('maps known error codes to friendly copy', () => {
+    expect(mapErrorToMessage({ code: 'CAPACITY_EXCEEDED' }, 'fallback')).toBe(
+      'No tables are available at that time. Please choose another slot.',
+    );
+    expect(mapErrorToMessage({ errorCode: 'RATE_LIMITED' }, 'fallback')).toBe(
+      'Too many booking attempts right now. Please wait a moment and try again.',
+    );
+  });
 });
 
 describe('defaultErrorReporter', () => {

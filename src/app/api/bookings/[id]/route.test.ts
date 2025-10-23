@@ -489,6 +489,7 @@ describe('/api/bookings/[id] PUT', () => {
     enqueueBookingUpdatedSideEffectsMock.mockResolvedValue(undefined);
     getRestaurantScheduleMock.mockResolvedValue({
       defaultDurationMinutes: 120,
+      lastSeatingBufferMinutes: 120,
       timezone: 'Europe/London',
       intervalMinutes: 15,
       isClosed: false,
@@ -564,6 +565,7 @@ describe('/api/bookings/[id] PUT', () => {
       timezone: 'UTC',
       intervalMinutes: 15,
       defaultDurationMinutes: 90,
+      lastSeatingBufferMinutes: 120,
       isClosed: false,
       window: { opensAt: '10:00', closesAt: '22:00' },
       availableBookingOptions: [],
@@ -611,6 +613,7 @@ describe('/api/bookings/[id] PUT', () => {
       timezone: 'UTC',
       intervalMinutes: 15,
       defaultDurationMinutes: 90,
+      lastSeatingBufferMinutes: 120,
       isClosed: false,
       window: { opensAt: '10:00', closesAt: '22:00' },
       occasionCatalog: [

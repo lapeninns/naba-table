@@ -43,6 +43,7 @@ export type RestaurantSchedule = {
   timezone: string;
   intervalMinutes: number;
   defaultDurationMinutes: number;
+  lastSeatingBufferMinutes: number;
   window: {
     opensAt: ReservationTime | null;
     closesAt: ReservationTime | null;
@@ -223,6 +224,8 @@ function computeSlots(
   catalog: OccasionCatalog,
   date: string,
   timezone: string,
+  defaultDurationMinutes: number,
+  lastSeatingBufferMinutes: number,
 ): RestaurantScheduleSlot[] {
   if (!opensAt || !closesAt || toMinutes(closesAt) <= toMinutes(opensAt)) {
     return [];
@@ -242,7 +245,9 @@ function computeSlots(
   };
 
   const baseSlots = slotsForRange(opensAt, closesAt, intervalMinutes);
-  return baseSlots.map((slot) => {
+  const closingMinutes = closesAt ? toMinutes(closesAt) : null;
+
+  return baseSlots.reduce<RestaurantScheduleSlot[]>((acc, slot) => {
     const period = findPeriodForTime(slot);
     const bookingOption = pickBookingOption(period);
     const availability = buildAvailability({
@@ -256,14 +261,24 @@ function computeSlots(
       timezone,
     });
     const defaultBookingOption = bookingOption;
+    const optionDefinition = catalog.byKey.get(bookingOption);
+    const optionDuration = optionDefinition?.defaultDurationMinutes ?? defaultDurationMinutes;
+    const guardMinutes = Math.max(lastSeatingBufferMinutes, optionDuration);
+    const slotMinutes = toMinutes(slot);
+    const exceedsClosing =
+      closingMinutes !== null ? slotMinutes + guardMinutes > closingMinutes : false;
+
+    if (exceedsClosing) {
+      return acc;
+    }
+
     const disabled = availability.services[defaultBookingOption] === 'disabled';
-    const definition = catalog.byKey.get(bookingOption);
     const label =
       period?.name?.trim() ??
-      definition?.label ??
+      optionDefinition?.label ??
       bookingOption.replace(/\b\w/g, (char) => char.toUpperCase());
 
-    return {
+    acc.push({
       value: slot,
       display: formatReservationTime(slot),
       periodId: period?.id ?? null,
@@ -272,8 +287,10 @@ function computeSlots(
       defaultBookingOption,
       availability,
       disabled,
-    };
-  });
+    });
+
+    return acc;
+  }, []);
 }
 
 export async function getRestaurantSchedule(
@@ -285,7 +302,7 @@ export async function getRestaurantSchedule(
   const { data: restaurant, error: restaurantError } = await client
     .from('restaurants')
     .select(
-      'id, timezone, reservation_interval_minutes, reservation_default_duration_minutes',
+      'id, timezone, reservation_interval_minutes, reservation_default_duration_minutes, reservation_last_seating_buffer_minutes',
     )
     .eq('id', restaurantId)
     .maybeSingle();
@@ -300,6 +317,8 @@ export async function getRestaurantSchedule(
 
   const intervalMinutes = restaurant.reservation_interval_minutes ?? 15;
   const defaultDurationMinutes = restaurant.reservation_default_duration_minutes ?? 90;
+  const lastSeatingBufferMinutes =
+    restaurant.reservation_last_seating_buffer_minutes ?? defaultDurationMinutes;
   const date = sanitizeDate(options.date, restaurant.timezone);
   const dayOfWeek = resolveDayOfWeek(date, restaurant.timezone);
 
@@ -362,6 +381,8 @@ export async function getRestaurantSchedule(
         catalog,
         date,
         restaurant.timezone,
+        defaultDurationMinutes,
+        lastSeatingBufferMinutes,
       );
 
   const availableOptionsSet = new Set<OccasionKey>();
@@ -393,5 +414,6 @@ export async function getRestaurantSchedule(
     availableBookingOptions,
     slots,
     occasionCatalog: catalog.definitions,
+    lastSeatingBufferMinutes,
   };
 }

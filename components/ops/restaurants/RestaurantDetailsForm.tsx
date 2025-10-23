@@ -21,6 +21,7 @@ export type RestaurantDetailsFormValues = {
   bookingPolicy: string | null;
   reservationIntervalMinutes: number;
   reservationDefaultDurationMinutes: number;
+  reservationLastSeatingBufferMinutes: number;
 };
 
 export type RestaurantDetailsFormProps = PropsWithChildren<{
@@ -43,6 +44,7 @@ type FormState = {
   bookingPolicy: string;
   reservationIntervalMinutes: string;
   reservationDefaultDurationMinutes: string;
+  reservationLastSeatingBufferMinutes: string;
 };
 
 type FormErrors = Partial<Record<keyof FormState, string>>;
@@ -80,6 +82,10 @@ function mapInitialValues(values: RestaurantDetailsFormValues): FormState {
       values.reservationDefaultDurationMinutes !== undefined && values.reservationDefaultDurationMinutes !== null
         ? String(values.reservationDefaultDurationMinutes)
         : '',
+    reservationLastSeatingBufferMinutes:
+      values.reservationLastSeatingBufferMinutes !== undefined && values.reservationLastSeatingBufferMinutes !== null
+        ? String(values.reservationLastSeatingBufferMinutes)
+        : '',
   };
 }
 
@@ -94,6 +100,7 @@ function sanitizePayload(state: FormState): UpdateRestaurantInput {
   const trimmedPolicy = trim(state.bookingPolicy);
   const intervalMinutes = Number.parseInt(state.reservationIntervalMinutes, 10);
   const defaultDurationMinutes = Number.parseInt(state.reservationDefaultDurationMinutes, 10);
+  const lastSeatingBufferMinutes = Number.parseInt(state.reservationLastSeatingBufferMinutes, 10);
 
   return {
     name: trimmedName,
@@ -106,6 +113,7 @@ function sanitizePayload(state: FormState): UpdateRestaurantInput {
     bookingPolicy: trimmedPolicy.length > 0 ? trimmedPolicy : null,
     reservationIntervalMinutes: intervalMinutes,
     reservationDefaultDurationMinutes: defaultDurationMinutes,
+    reservationLastSeatingBufferMinutes: lastSeatingBufferMinutes,
   };
 }
 
@@ -149,14 +157,29 @@ function validate(state: FormState): FormErrors {
   }
 
   const durationRaw = state.reservationDefaultDurationMinutes.trim();
+  let durationValue: number | null = null;
   if (!durationRaw) {
     errors.reservationDefaultDurationMinutes = 'Reservation duration is required';
   } else {
-    const durationValue = Number(durationRaw);
+    durationValue = Number(durationRaw);
     if (!Number.isInteger(durationValue)) {
       errors.reservationDefaultDurationMinutes = 'Must be a whole number';
     } else if (durationValue < 15 || durationValue > 300) {
       errors.reservationDefaultDurationMinutes = 'Must be between 15 and 300 minutes';
+    }
+  }
+
+  const bufferRaw = state.reservationLastSeatingBufferMinutes.trim();
+  if (!bufferRaw) {
+    errors.reservationLastSeatingBufferMinutes = 'Last seating buffer is required';
+  } else {
+    const bufferValue = Number(bufferRaw);
+    if (!Number.isInteger(bufferValue)) {
+      errors.reservationLastSeatingBufferMinutes = 'Must be a whole number';
+    } else if (bufferValue < 15 || bufferValue > 300) {
+      errors.reservationLastSeatingBufferMinutes = 'Must be between 15 and 300 minutes';
+    } else if (durationValue !== null && bufferValue < durationValue) {
+      errors.reservationLastSeatingBufferMinutes = `Must be at least the default duration (${durationValue} minutes)`;
     }
   }
 
@@ -368,6 +391,40 @@ export function RestaurantDetailsForm({
           {errors.reservationDefaultDurationMinutes && (
             <p id="restaurant-duration-error" className="text-xs text-destructive" role="alert">
               {errors.reservationDefaultDurationMinutes}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="restaurant-last-seating">
+            Last Seating Buffer (minutes) <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id="restaurant-last-seating"
+            type="number"
+            inputMode="numeric"
+            min={15}
+            max={300}
+            step={1}
+            value={state.reservationLastSeatingBufferMinutes}
+            onChange={(event) => handleChange('reservationLastSeatingBufferMinutes', event.target.value)}
+            aria-invalid={Boolean(errors.reservationLastSeatingBufferMinutes)}
+            aria-describedby={
+              errors.reservationLastSeatingBufferMinutes
+                ? 'restaurant-last-seating-error'
+                : 'restaurant-last-seating-help'
+            }
+            className={cn(
+              errors.reservationLastSeatingBufferMinutes &&
+                'border-destructive focus-visible:ring-destructive/60',
+            )}
+          />
+          <p id="restaurant-last-seating-help" className="text-xs text-muted-foreground">
+            Controls the latest start time relative to closing; must be at least as long as the default reservation duration.
+          </p>
+          {errors.reservationLastSeatingBufferMinutes && (
+            <p id="restaurant-last-seating-error" className="text-xs text-destructive" role="alert">
+              {errors.reservationLastSeatingBufferMinutes}
             </p>
           )}
         </div>

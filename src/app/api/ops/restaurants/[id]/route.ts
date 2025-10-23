@@ -73,7 +73,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
     const { data, error } = await serviceSupabase
       .from('restaurants')
       .select(
-        'id, name, slug, timezone, capacity, contact_email, contact_phone, address, booking_policy, reservation_interval_minutes, reservation_default_duration_minutes, created_at, updated_at',
+        'id, name, slug, timezone, capacity, contact_email, contact_phone, address, booking_policy, reservation_interval_minutes, reservation_default_duration_minutes, reservation_last_seating_buffer_minutes, created_at, updated_at',
       )
       .eq('id', restaurantId)
       .single();
@@ -98,6 +98,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
       bookingPolicy: data.booking_policy,
       reservationIntervalMinutes: data.reservation_interval_minutes,
       reservationDefaultDurationMinutes: data.reservation_default_duration_minutes,
+      reservationLastSeatingBufferMinutes: data.reservation_last_seating_buffer_minutes,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
       role: (access.role as RestaurantDTO['role']) ?? 'viewer',
@@ -163,12 +164,13 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
         contactEmail: input.contactEmail,
         contactPhone: input.contactPhone,
         address: input.address,
-      bookingPolicy: input.bookingPolicy,
-      reservationIntervalMinutes: input.reservationIntervalMinutes,
-      reservationDefaultDurationMinutes: input.reservationDefaultDurationMinutes,
-    },
-    serviceSupabase,
-  );
+        bookingPolicy: input.bookingPolicy,
+        reservationIntervalMinutes: input.reservationIntervalMinutes,
+        reservationDefaultDurationMinutes: input.reservationDefaultDurationMinutes,
+        reservationLastSeatingBufferMinutes: input.reservationLastSeatingBufferMinutes,
+      },
+      serviceSupabase,
+    );
 
     const response: RestaurantResponse = {
       restaurant: {
@@ -183,6 +185,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
         bookingPolicy: restaurant.bookingPolicy,
         reservationIntervalMinutes: restaurant.reservationIntervalMinutes,
         reservationDefaultDurationMinutes: restaurant.reservationDefaultDurationMinutes,
+        reservationLastSeatingBufferMinutes: restaurant.reservationLastSeatingBufferMinutes,
         createdAt: restaurant.createdAt,
         updatedAt: restaurant.updatedAt,
         role: (access.role as RestaurantDTO['role']) ?? 'viewer',

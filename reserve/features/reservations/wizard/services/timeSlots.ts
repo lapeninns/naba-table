@@ -42,6 +42,7 @@ export type ReservationSchedule = {
   timezone: string;
   intervalMinutes: number;
   defaultDurationMinutes: number;
+  lastSeatingBufferMinutes: number;
   window: {
     opensAt: string | null;
     closesAt: string | null;

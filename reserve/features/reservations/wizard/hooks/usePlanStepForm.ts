@@ -242,9 +242,25 @@ function usePlanSlotData({ restaurantSlug, date, time }: PlanSlotDataArgs): Plan
       ? schedule.intervalMinutes
       : null;
   const closingMinutes = schedule?.window?.closesAt ? toMinutes(schedule.window.closesAt) : null;
+  const configuredBufferMinutes =
+    typeof schedule?.lastSeatingBufferMinutes === 'number' && schedule.lastSeatingBufferMinutes > 0
+      ? schedule.lastSeatingBufferMinutes
+      : null;
+  const guardMinutes =
+    closingMinutes !== null
+      ? Math.max(
+          0,
+          Math.max(
+            configuredBufferMinutes ?? 0,
+            typeof schedule?.defaultDurationMinutes === 'number'
+              ? schedule.defaultDurationMinutes
+              : 0,
+          ),
+        )
+      : null;
   const latestSelectableMinutes =
-    closingMinutes !== null && intervalMinutes !== null
-      ? Math.max(0, closingMinutes - intervalMinutes)
+    closingMinutes !== null && guardMinutes !== null
+      ? Math.max(0, closingMinutes - guardMinutes)
       : null;
 
   return {

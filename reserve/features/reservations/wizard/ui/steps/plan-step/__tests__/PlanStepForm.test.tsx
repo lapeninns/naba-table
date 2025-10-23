@@ -23,6 +23,7 @@ const scheduleFixture = {
   timezone: 'Europe/London',
   intervalMinutes: 15,
   defaultDurationMinutes: 90,
+  lastSeatingBufferMinutes: 120,
   window: { opensAt: '12:00', closesAt: '22:00' },
   isClosed: false,
   availableBookingOptions: ['lunch', 'dinner', 'drinks'],
@@ -74,6 +75,25 @@ const scheduleFixture = {
           kitchenClosed: false,
           lunchWindow: true,
           dinnerWindow: false,
+        },
+      },
+      disabled: false,
+    },
+    {
+      value: '20:00',
+      display: '20:00',
+      periodId: 'sp-dinner-late',
+      periodName: 'Dinner',
+      bookingOption: 'dinner',
+      defaultBookingOption: 'dinner',
+      availability: {
+        services: { lunch: 'disabled', dinner: 'enabled', drinks: 'disabled' },
+        labels: {
+          happyHour: false,
+          drinksOnly: false,
+          kitchenClosed: false,
+          lunchWindow: false,
+          dinnerWindow: true,
         },
       },
       disabled: false,
@@ -196,6 +216,24 @@ describe('<PlanStepForm />', () => {
     expect(timeInput).toHaveValue('18:00');
     // Time input updates the local state but doesn't trigger updateDetails
     // The update happens when clicking time slot buttons or submitting the form
+  });
+
+  it('normalizes manual times beyond the last seating buffer', async () => {
+    setup();
+    const user = userEvent.setup();
+    const timeInput = screen.getByLabelText('Time');
+    await waitFor(() => {
+      const currentListId = timeInput.getAttribute('list');
+      expect(currentListId).toBeTruthy();
+      const dataList = document.getElementById(currentListId!);
+      expect(dataList?.querySelector('option[value="20:00"]')).not.toBeNull();
+    });
+
+    await user.clear(timeInput);
+    await user.type(timeInput, '21:30');
+    await user.tab();
+
+    expect(timeInput).toHaveValue('20:00');
   });
 
   it('submits and advances to the review step when continue action is invoked', async () => {

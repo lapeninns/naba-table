@@ -17,6 +17,7 @@ export type CreateRestaurantInput = {
   bookingPolicy?: string | null;
   reservationIntervalMinutes?: number;
   reservationDefaultDurationMinutes?: number;
+  reservationLastSeatingBufferMinutes?: number;
 };
 
 export type CreatedRestaurant = {
@@ -31,6 +32,7 @@ export type CreatedRestaurant = {
   bookingPolicy: string | null;
   reservationIntervalMinutes: number;
   reservationDefaultDurationMinutes: number;
+  reservationLastSeatingBufferMinutes: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -85,6 +87,7 @@ export async function createRestaurant(
     input.reservationDefaultDurationMinutes !== undefined
       ? input.reservationDefaultDurationMinutes
       : 90;
+  const lastSeatingBufferMinutes = input.reservationLastSeatingBufferMinutes;
 
   if (!Number.isInteger(intervalMinutes) || intervalMinutes < 1 || intervalMinutes > 180) {
     throw new Error('Reservation interval must be an integer between 1 and 180 minutes.');
@@ -94,22 +97,36 @@ export async function createRestaurant(
     throw new Error('Reservation duration must be an integer between 15 and 300 minutes.');
   }
 
+  if (
+    lastSeatingBufferMinutes !== undefined &&
+    (!Number.isInteger(lastSeatingBufferMinutes) ||
+      lastSeatingBufferMinutes < 15 ||
+      lastSeatingBufferMinutes > 300)
+  ) {
+    throw new Error('Last seating buffer must be an integer between 15 and 300 minutes.');
+  }
+
+  const insertPayload: Database['public']['Tables']['restaurants']['Insert'] = {
+    name: input.name,
+    slug: uniqueSlug,
+    timezone,
+    capacity: input.capacity ?? null,
+    contact_email: input.contactEmail ?? null,
+    contact_phone: input.contactPhone ?? null,
+    address: input.address ?? null,
+    booking_policy: input.bookingPolicy ?? null,
+    reservation_interval_minutes: intervalMinutes,
+    reservation_default_duration_minutes: defaultDurationMinutes,
+    ...(lastSeatingBufferMinutes !== undefined
+      ? { reservation_last_seating_buffer_minutes: lastSeatingBufferMinutes }
+      : {}),
+  };
+
   const { data: restaurant, error: restaurantError } = await client
     .from('restaurants')
-    .insert({
-      name: input.name,
-      slug: uniqueSlug,
-      timezone,
-      capacity: input.capacity ?? null,
-      contact_email: input.contactEmail ?? null,
-      contact_phone: input.contactPhone ?? null,
-      address: input.address ?? null,
-      booking_policy: input.bookingPolicy ?? null,
-      reservation_interval_minutes: intervalMinutes,
-      reservation_default_duration_minutes: defaultDurationMinutes,
-    })
+    .insert(insertPayload)
     .select(
-      'id, name, slug, timezone, capacity, contact_email, contact_phone, address, booking_policy, reservation_interval_minutes, reservation_default_duration_minutes, created_at, updated_at',
+      'id, name, slug, timezone, capacity, contact_email, contact_phone, address, booking_policy, reservation_interval_minutes, reservation_default_duration_minutes, reservation_last_seating_buffer_minutes, created_at, updated_at',
     )
     .single();
 
@@ -146,6 +163,7 @@ export async function createRestaurant(
     bookingPolicy: restaurant.booking_policy,
     reservationIntervalMinutes: restaurant.reservation_interval_minutes,
     reservationDefaultDurationMinutes: restaurant.reservation_default_duration_minutes,
+    reservationLastSeatingBufferMinutes: restaurant.reservation_last_seating_buffer_minutes,
     createdAt: restaurant.created_at,
     updatedAt: restaurant.updated_at,
   };

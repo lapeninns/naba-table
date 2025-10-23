@@ -17,6 +17,7 @@ export type RestaurantListItem = {
   bookingPolicy: string | null;
   reservationIntervalMinutes: number;
   reservationDefaultDurationMinutes: number;
+  reservationLastSeatingBufferMinutes: number;
   createdAt: string;
   updatedAt: string;
   role: 'owner' | 'admin' | 'staff' | 'viewer';
@@ -65,6 +66,7 @@ export async function listRestaurantsForOps(
       booking_policy,
       reservation_interval_minutes,
       reservation_default_duration_minutes,
+      reservation_last_seating_buffer_minutes,
       created_at,
       updated_at,
       restaurant_memberships!inner(
@@ -109,6 +111,7 @@ export async function listRestaurantsForOps(
     bookingPolicy: row.booking_policy,
     reservationIntervalMinutes: row.reservation_interval_minutes,
     reservationDefaultDurationMinutes: row.reservation_default_duration_minutes,
+    reservationLastSeatingBufferMinutes: row.reservation_last_seating_buffer_minutes,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     role: row.restaurant_memberships[0]?.role ?? 'viewer',

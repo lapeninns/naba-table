@@ -144,6 +144,7 @@ describe("/api/ops/bookings/[id] PATCH", () => {
     getServiceSupabaseClientMock.mockReturnValue(createServiceClient(existingBooking));
     getRestaurantScheduleMock.mockResolvedValue({
       defaultDurationMinutes: 120,
+      lastSeatingBufferMinutes: 120,
       timezone: "Europe/London",
     });
 

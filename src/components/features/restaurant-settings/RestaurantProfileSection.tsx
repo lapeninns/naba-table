@@ -25,6 +25,7 @@ const EMPTY_VALUES: RestaurantDetailsFormValues = {
   bookingPolicy: null,
   reservationIntervalMinutes: 15,
   reservationDefaultDurationMinutes: 90,
+  reservationLastSeatingBufferMinutes: 120,
 };
 
 type RestaurantProfileSectionProps = {
@@ -51,6 +52,7 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
       bookingPolicy: data.bookingPolicy,
       reservationIntervalMinutes: data.reservationIntervalMinutes,
       reservationDefaultDurationMinutes: data.reservationDefaultDurationMinutes,
+      reservationLastSeatingBufferMinutes: data.reservationLastSeatingBufferMinutes,
     };
   }, [data]);
 
@@ -67,6 +69,7 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
         bookingPolicy: values.bookingPolicy ?? null,
         reservationIntervalMinutes: values.reservationIntervalMinutes,
         reservationDefaultDurationMinutes: values.reservationDefaultDurationMinutes,
+        reservationLastSeatingBufferMinutes: values.reservationLastSeatingBufferMinutes,
       });
       toast.success('Restaurant details updated');
     } catch (submitError) {

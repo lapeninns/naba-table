@@ -1,4 +1,4 @@
-\echo 'Seeding SajiloReserveX sample data for La Pen Inns pubs...'
+-- Seeding SajiloReserveX sample data for La Pen Inns pubs...
 
 BEGIN;
 
@@ -154,6 +154,7 @@ inserted_restaurants AS (
         booking_policy,
         reservation_interval_minutes,
         reservation_default_duration_minutes,
+        reservation_last_seating_buffer_minutes,
         is_active,
         created_at,
         updated_at
@@ -177,6 +178,7 @@ inserted_restaurants AS (
         ),
         15,
         90,
+        120,
         true,
         now(),
         now()
@@ -217,9 +219,9 @@ service_periods AS (
         now()
     FROM inserted_restaurants ir
     CROSS JOIN (VALUES
-        ('Weekday Lunch', '12:00:00', '15:00:00', 'lunch'),
-        ('Happy Hour',    '15:00:00', '17:00:00', 'drinks'),
-        ('Dinner Service','17:00:00', '22:00:00', 'dinner')
+        ('Weekday Lunch', '12:00:00'::time, '15:00:00'::time, 'lunch'),
+        ('Happy Hour',    '15:00:00'::time, '17:00:00'::time, 'drinks'),
+        ('Dinner Service','17:00:00'::time, '22:00:00'::time, 'dinner')
     ) AS sp(name, start_time, end_time, booking_option)
     CROSS JOIN generate_series(1, 5) AS dow
     RETURNING 1
@@ -247,10 +249,8 @@ insert_customers AS (
         id,
         restaurant_id,
         email,
-        email_normalized,
         full_name,
         phone,
-        phone_normalized,
         marketing_opt_in,
         notes,
         created_at,
@@ -260,9 +260,7 @@ insert_customers AS (
         id,
         restaurant_id,
         email,
-        email,
         full_name,
-        phone,
         phone,
         true,
         NULL,
@@ -273,7 +271,7 @@ insert_customers AS (
 )
 SELECT 1;
 
--- Generate booking records for today, an earlier date this month, and a future date this month.
+-- Generate booking records for today.
 WITH date_ctx AS (
     SELECT
         current_date AS today,
@@ -291,241 +289,306 @@ WITH date_ctx AS (
         END::date AS future_day
 ),
 restaurant_list AS (
-    SELECT id, slug FROM public.restaurants
+    SELECT id FROM public.restaurants
 ),
 customer_counts AS (
     SELECT restaurant_id, COUNT(*) AS cnt
     FROM public.customers
     GROUP BY restaurant_id
 ),
-bookings_today AS (
+customers_ranked AS (
     SELECT
-        gen_random_uuid() AS id,
-        r.id AS restaurant_id,
-        cust.id AS customer_id,
-        cust.email AS customer_email,
-        cust.full_name AS customer_name,
-        cust.phone AS customer_phone,
-        d.today AS booking_date,
-        to_char(seg.start_time, 'HH24:MI') AS start_time,
-        to_char(seg.end_time, 'HH24:MI') AS end_time,
-        seg.booking_option AS booking_type,
+        c.id,
+        c.restaurant_id,
+        c.email,
+        c.full_name,
+        c.phone,
+        ROW_NUMBER() OVER (PARTITION BY c.restaurant_id ORDER BY c.id) AS rn
+    FROM public.customers c
+),
+series AS (
+    SELECT
+        g.n,
         CASE
-            WHEN seg.booking_option = 'drinks' THEN 2
+            WHEN g.n <= 25 THEN 'lunch'
+            WHEN g.n <= 40 THEN 'drinks'
+            ELSE 'dinner'
+        END AS booking_option,
+        CASE
+            WHEN g.n <= 25 THEN time '12:00' + ((g.n - 1) % 25) * interval '15 minutes'
+            WHEN g.n <= 40 THEN time '15:00' + ((g.n - 26) % 12) * interval '15 minutes'
+            ELSE time '17:00' + ((g.n - 41) % 20) * interval '15 minutes'
+        END AS start_time,
+        CASE
+            WHEN g.n <= 25 THEN time '12:00' + ((g.n - 1) % 25) * interval '15 minutes' + interval '90 minutes'
+            WHEN g.n <= 40 THEN time '15:00' + ((g.n - 26) % 12) * interval '15 minutes' + interval '60 minutes'
+            ELSE time '17:00' + ((g.n - 41) % 20) * interval '15 minutes' + interval '105 minutes'
+        END AS end_time,
+        CASE
+            WHEN g.n > 25 AND g.n <= 40 THEN 2
             ELSE 2 + ((g.n + 1) % 4)
-        END AS party_size,
-        'indoor'::text AS seating_preference,
-        'confirmed'::text AS status,
-        'web'::text AS source,
-        CONCAT('LP-', upper(substring(md5(gen_random_uuid()::text), 1, 6))) AS reference,
-        (d.today::timestamp + seg.start_time) AS created_at
-    FROM restaurant_list r
-    CROSS JOIN date_ctx d
-    CROSS JOIN generate_series(1, 55) AS g(n)
-    JOIN customer_counts cc ON cc.restaurant_id = r.id
-    JOIN LATERAL (
-        SELECT c.id, c.full_name, c.email, c.phone
-        FROM public.customers c
-        WHERE c.restaurant_id = r.id
-        ORDER BY c.id
-        OFFSET ((g.n - 1) % cc.cnt)
-        LIMIT 1
-    ) cust ON TRUE
-    CROSS JOIN LATERAL (
-        SELECT
-            CASE
-                WHEN g.n <= 25 THEN 'lunch'
-                WHEN g.n <= 40 THEN 'drinks'
-                ELSE 'dinner'
-            END AS booking_option,
-            CASE
-                WHEN g.n <= 25 THEN time '12:00' + ((g.n - 1) % 25) * interval '15 minutes'
-                WHEN g.n <= 40 THEN time '15:00' + ((g.n - 26) % 12) * interval '15 minutes'
-                ELSE time '17:00' + ((g.n - 41) % 20) * interval '15 minutes'
-            END AS start_time,
-            CASE
-                WHEN g.n <= 25 THEN time '12:00' + ((g.n - 1) % 25) * interval '15 minutes' + interval '90 minutes'
-                WHEN g.n <= 40 THEN time '15:00' + ((g.n - 26) % 12) * interval '15 minutes' + interval '60 minutes'
-                ELSE time '17:00' + ((g.n - 41) % 20) * interval '15 minutes' + interval '105 minutes'
-            END AS end_time
-    ) seg ON TRUE
-),
-bookings_past AS (
-    SELECT
-        gen_random_uuid() AS id,
-        r.id AS restaurant_id,
-        cust.id AS customer_id,
-        cust.email AS customer_email,
-        cust.full_name AS customer_name,
-        cust.phone AS customer_phone,
-        d.past_day AS booking_date,
-        to_char(seg.start_time, 'HH24:MI') AS start_time,
-        to_char(seg.end_time, 'HH24:MI') AS end_time,
-        seg.booking_option AS booking_type,
-        CASE
-            WHEN seg.booking_option = 'drinks' THEN 2
-            ELSE 2 + ((g.n + 2) % 5)
-        END AS party_size,
-        'indoor'::text AS seating_preference,
-        'confirmed'::text AS status,
-        'web'::text AS source,
-        CONCAT('LP-', upper(substring(md5(gen_random_uuid()::text), 1, 6))) AS reference,
-        (d.past_day::timestamp + seg.start_time) AS created_at
-    FROM restaurant_list r
-    CROSS JOIN date_ctx d
-    CROSS JOIN generate_series(1, 150) AS g(n)
-    JOIN customer_counts cc ON cc.restaurant_id = r.id
-    JOIN LATERAL (
-        SELECT c.id, c.full_name, c.email, c.phone
-        FROM public.customers c
-        WHERE c.restaurant_id = r.id
-        ORDER BY c.id
-        OFFSET ((g.n - 1) % cc.cnt)
-        LIMIT 1
-    ) cust ON TRUE
-    CROSS JOIN LATERAL (
-        SELECT
-            CASE
-                WHEN g.n <= 60 THEN 'lunch'
-                WHEN g.n <= 90 THEN 'drinks'
-                ELSE 'dinner'
-            END AS booking_option,
-            CASE
-                WHEN g.n <= 60 THEN time '12:00' + ((g.n - 1) % 20) * interval '15 minutes'
-                WHEN g.n <= 90 THEN time '15:00' + ((g.n - 61) % 12) * interval '15 minutes'
-                ELSE time '17:00' + ((g.n - 91) % 24) * interval '15 minutes'
-            END AS start_time,
-            CASE
-                WHEN g.n <= 60 THEN time '12:00' + ((g.n - 1) % 20) * interval '15 minutes' + interval '90 minutes'
-                WHEN g.n <= 90 THEN time '15:00' + ((g.n - 61) % 12) * interval '15 minutes' + interval '60 minutes'
-                ELSE time '17:00' + ((g.n - 91) % 24) * interval '15 minutes' + interval '120 minutes'
-            END AS end_time
-    ) seg ON TRUE
-),
-bookings_future AS (
-    SELECT
-        gen_random_uuid() AS id,
-        r.id AS restaurant_id,
-        cust.id AS customer_id,
-        cust.email AS customer_email,
-        cust.full_name AS customer_name,
-        cust.phone AS customer_phone,
-        d.future_day AS booking_date,
-        to_char(seg.start_time, 'HH24:MI') AS start_time,
-        to_char(seg.end_time, 'HH24:MI') AS end_time,
-        seg.booking_option AS booking_type,
-        CASE
-            WHEN seg.booking_option = 'drinks' THEN 2
-            ELSE 2 + ((g.n + 3) % 5)
-        END AS party_size,
-        'indoor'::text AS seating_preference,
-        'confirmed'::text AS status,
-        'web'::text AS source,
-        CONCAT('LP-', upper(substring(md5(gen_random_uuid()::text), 1, 6))) AS reference,
-        (d.future_day::timestamp + seg.start_time) AS created_at
-    FROM restaurant_list r
-    CROSS JOIN date_ctx d
-    CROSS JOIN generate_series(1, 150) AS g(n)
-    JOIN customer_counts cc ON cc.restaurant_id = r.id
-    JOIN LATERAL (
-        SELECT c.id, c.full_name, c.email, c.phone
-        FROM public.customers c
-        WHERE c.restaurant_id = r.id
-        ORDER BY c.id
-        OFFSET ((g.n - 1) % cc.cnt)
-        LIMIT 1
-    ) cust ON TRUE
-    CROSS JOIN LATERAL (
-        SELECT
-            CASE
-                WHEN g.n <= 60 THEN 'lunch'
-                WHEN g.n <= 90 THEN 'drinks'
-                ELSE 'dinner'
-            END AS booking_option,
-            CASE
-                WHEN g.n <= 60 THEN time '12:00' + ((g.n - 1) % 20) * interval '15 minutes'
-                WHEN g.n <= 90 THEN time '15:00' + ((g.n - 61) % 12) * interval '15 minutes'
-                ELSE time '17:00' + ((g.n - 91) % 24) * interval '15 minutes'
-            END AS start_time,
-            CASE
-                WHEN g.n <= 60 THEN time '12:00' + ((g.n - 1) % 20) * interval '15 minutes' + interval '90 minutes'
-                WHEN g.n <= 90 THEN time '15:00' + ((g.n - 61) % 12) * interval '15 minutes' + interval '60 minutes'
-                ELSE time '17:00' + ((g.n - 91) % 24) * interval '15 minutes' + interval '120 minutes'
-            END AS end_time
-    ) seg ON TRUE
-),
-all_bookings AS (
-    SELECT * FROM bookings_today
-    UNION ALL
-    SELECT * FROM bookings_past
-    UNION ALL
-    SELECT * FROM bookings_future
+        END AS party_size
+    FROM generate_series(1, 55) AS g(n)
 )
 INSERT INTO public.bookings (
     id,
     restaurant_id,
     customer_id,
-    customer_email,
-    customer_name,
-    customer_phone,
     booking_date,
     start_time,
     end_time,
-    start_at,
-    end_at,
-    booking_type,
     party_size,
     seating_preference,
     status,
-    source,
+    customer_name,
+    customer_email,
+    customer_phone,
     reference,
+    source,
     created_at,
     updated_at,
-    checked_in_at,
-    checked_out_at,
-    confirmation_token,
-    confirmation_token_expires_at,
-    confirmation_token_used_at,
-    client_request_id,
-    idempotency_key,
-    pending_ref,
-    details,
-    auth_user_id,
+    booking_type,
     marketing_opt_in
 )
 SELECT
-    b.id,
-    b.restaurant_id,
-    b.customer_id,
-    b.customer_email,
-    b.customer_name,
-    b.customer_phone,
-    b.booking_date,
-    b.start_time,
-    b.end_time,
-    NULL::timestamp,
-    NULL::timestamp,
-    b.booking_type,
-    b.party_size,
-    b.seating_preference,
-    b.status,
-    b.source,
-    b.reference,
-    b.created_at,
-    b.created_at,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
+    gen_random_uuid(),
+    r.id,
+    cust.id,
+    d.today,
+    s.start_time,
+    s.end_time,
+    s.party_size,
+    'indoor'::public.seating_preference_type,
+    'confirmed'::public.booking_status,
+    cust.full_name,
+    cust.email,
+    cust.phone,
+    CONCAT('LP-', upper(substring(md5(gen_random_uuid()::text), 1, 6))),
+    'web',
+    d.today::timestamp + s.start_time,
+    d.today::timestamp + s.start_time,
+    s.booking_option::public.booking_type,
     true
-FROM all_bookings b;
+FROM restaurant_list r
+CROSS JOIN date_ctx d
+JOIN customer_counts cc ON cc.restaurant_id = r.id
+JOIN series s ON TRUE
+JOIN customers_ranked cust
+  ON cust.restaurant_id = r.id
+ AND cust.rn = ((s.n - 1) % cc.cnt) + 1;
+
+-- Generate booking records for a recent past day.
+WITH date_ctx AS (
+    SELECT
+        current_date AS today,
+        CASE
+            WHEN current_date - INTERVAL '5 days' < date_trunc('month', current_date) THEN
+                GREATEST(current_date - INTERVAL '1 day', date_trunc('month', current_date))
+            ELSE
+                current_date - INTERVAL '5 days'
+        END::date AS past_day,
+        CASE
+            WHEN current_date + INTERVAL '5 days' > date_trunc('month', current_date) + INTERVAL '1 month' - INTERVAL '1 day' THEN
+                LEAST(current_date + INTERVAL '1 day', (date_trunc('month', current_date) + INTERVAL '1 month' - INTERVAL '1 day')::date)
+            ELSE
+                current_date + INTERVAL '5 days'
+        END::date AS future_day
+),
+restaurant_list AS (
+    SELECT id FROM public.restaurants
+),
+customer_counts AS (
+    SELECT restaurant_id, COUNT(*) AS cnt
+    FROM public.customers
+    GROUP BY restaurant_id
+),
+customers_ranked AS (
+    SELECT
+        c.id,
+        c.restaurant_id,
+        c.email,
+        c.full_name,
+        c.phone,
+        ROW_NUMBER() OVER (PARTITION BY c.restaurant_id ORDER BY c.id) AS rn
+    FROM public.customers c
+),
+series AS (
+    SELECT
+        g.n,
+        CASE
+            WHEN g.n <= 60 THEN 'lunch'
+            WHEN g.n <= 90 THEN 'drinks'
+            ELSE 'dinner'
+        END AS booking_option,
+        CASE
+            WHEN g.n <= 60 THEN time '12:00' + ((g.n - 1) % 20) * interval '15 minutes'
+            WHEN g.n <= 90 THEN time '15:00' + ((g.n - 61) % 12) * interval '15 minutes'
+            ELSE time '17:00' + ((g.n - 91) % 24) * interval '15 minutes'
+        END AS start_time,
+        CASE
+            WHEN g.n <= 60 THEN time '12:00' + ((g.n - 1) % 20) * interval '15 minutes' + interval '90 minutes'
+            WHEN g.n <= 90 THEN time '15:00' + ((g.n - 61) % 12) * interval '15 minutes' + interval '60 minutes'
+            ELSE time '17:00' + ((g.n - 91) % 24) * interval '15 minutes' + interval '120 minutes'
+        END AS end_time,
+        CASE
+            WHEN g.n > 60 AND g.n <= 90 THEN 2
+            ELSE 2 + ((g.n + 2) % 5)
+        END AS party_size
+    FROM generate_series(1, 150) AS g(n)
+)
+INSERT INTO public.bookings (
+    id,
+    restaurant_id,
+    customer_id,
+    booking_date,
+    start_time,
+    end_time,
+    party_size,
+    seating_preference,
+    status,
+    customer_name,
+    customer_email,
+    customer_phone,
+    reference,
+    source,
+    created_at,
+    updated_at,
+    booking_type,
+    marketing_opt_in
+)
+SELECT
+    gen_random_uuid(),
+    r.id,
+    cust.id,
+    d.past_day,
+    s.start_time,
+    s.end_time,
+    s.party_size,
+    'indoor'::public.seating_preference_type,
+    'confirmed'::public.booking_status,
+    cust.full_name,
+    cust.email,
+    cust.phone,
+    CONCAT('LP-', upper(substring(md5(gen_random_uuid()::text), 1, 6))),
+    'web',
+    d.past_day::timestamp + s.start_time,
+    d.past_day::timestamp + s.start_time,
+    s.booking_option::public.booking_type,
+    true
+FROM restaurant_list r
+CROSS JOIN date_ctx d
+JOIN customer_counts cc ON cc.restaurant_id = r.id
+JOIN series s ON TRUE
+JOIN customers_ranked cust
+  ON cust.restaurant_id = r.id
+ AND cust.rn = ((s.n - 1) % cc.cnt) + 1;
+
+-- Generate booking records for a near-future day.
+WITH date_ctx AS (
+    SELECT
+        current_date AS today,
+        CASE
+            WHEN current_date - INTERVAL '5 days' < date_trunc('month', current_date) THEN
+                GREATEST(current_date - INTERVAL '1 day', date_trunc('month', current_date))
+            ELSE
+                current_date - INTERVAL '5 days'
+        END::date AS past_day,
+        CASE
+            WHEN current_date + INTERVAL '5 days' > date_trunc('month', current_date) + INTERVAL '1 month' - INTERVAL '1 day' THEN
+                LEAST(current_date + INTERVAL '1 day', (date_trunc('month', current_date) + INTERVAL '1 month' - INTERVAL '1 day')::date)
+            ELSE
+                current_date + INTERVAL '5 days'
+        END::date AS future_day
+),
+restaurant_list AS (
+    SELECT id FROM public.restaurants
+),
+customer_counts AS (
+    SELECT restaurant_id, COUNT(*) AS cnt
+    FROM public.customers
+    GROUP BY restaurant_id
+),
+customers_ranked AS (
+    SELECT
+        c.id,
+        c.restaurant_id,
+        c.email,
+        c.full_name,
+        c.phone,
+        ROW_NUMBER() OVER (PARTITION BY c.restaurant_id ORDER BY c.id) AS rn
+    FROM public.customers c
+),
+series AS (
+    SELECT
+        g.n,
+        CASE
+            WHEN g.n <= 60 THEN 'lunch'
+            WHEN g.n <= 90 THEN 'drinks'
+            ELSE 'dinner'
+        END AS booking_option,
+        CASE
+            WHEN g.n <= 60 THEN time '12:00' + ((g.n - 1) % 20) * interval '15 minutes'
+            WHEN g.n <= 90 THEN time '15:00' + ((g.n - 61) % 12) * interval '15 minutes'
+            ELSE time '17:00' + ((g.n - 91) % 24) * interval '15 minutes'
+        END AS start_time,
+        CASE
+            WHEN g.n <= 60 THEN time '12:00' + ((g.n - 1) % 20) * interval '15 minutes' + interval '90 minutes'
+            WHEN g.n <= 90 THEN time '15:00' + ((g.n - 61) % 12) * interval '15 minutes' + interval '60 minutes'
+            ELSE time '17:00' + ((g.n - 91) % 24) * interval '15 minutes' + interval '120 minutes'
+        END AS end_time,
+        CASE
+            WHEN g.n > 60 AND g.n <= 90 THEN 2
+            ELSE 2 + ((g.n + 3) % 5)
+        END AS party_size
+    FROM generate_series(1, 150) AS g(n)
+)
+INSERT INTO public.bookings (
+    id,
+    restaurant_id,
+    customer_id,
+    booking_date,
+    start_time,
+    end_time,
+    party_size,
+    seating_preference,
+    status,
+    customer_name,
+    customer_email,
+    customer_phone,
+    reference,
+    source,
+    created_at,
+    updated_at,
+    booking_type,
+    marketing_opt_in
+)
+SELECT
+    gen_random_uuid(),
+    r.id,
+    cust.id,
+    d.future_day,
+    s.start_time,
+    s.end_time,
+    s.party_size,
+    'indoor'::public.seating_preference_type,
+    'confirmed'::public.booking_status,
+    cust.full_name,
+    cust.email,
+    cust.phone,
+    CONCAT('LP-', upper(substring(md5(gen_random_uuid()::text), 1, 6))),
+    'web',
+    d.future_day::timestamp + s.start_time,
+    d.future_day::timestamp + s.start_time,
+    s.booking_option::public.booking_type,
+    true
+FROM restaurant_list r
+CROSS JOIN date_ctx d
+JOIN customer_counts cc ON cc.restaurant_id = r.id
+JOIN series s ON TRUE
+JOIN customers_ranked cust
+  ON cust.restaurant_id = r.id
+ AND cust.rn = ((s.n - 1) % cc.cnt) + 1;
 
 COMMIT;
 
-\echo 'Seed complete.'
+-- Seed complete.

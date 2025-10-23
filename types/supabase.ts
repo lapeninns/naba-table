@@ -1285,6 +1285,7 @@ export type Database = {
           is_active: boolean
           name: string
           reservation_default_duration_minutes: number
+          reservation_last_seating_buffer_minutes: number
           reservation_interval_minutes: number
           slug: string
           timezone: string
@@ -1301,6 +1302,7 @@ export type Database = {
           is_active?: boolean
           name: string
           reservation_default_duration_minutes?: number
+          reservation_last_seating_buffer_minutes?: number
           reservation_interval_minutes?: number
           slug: string
           timezone?: string
@@ -1317,6 +1319,7 @@ export type Database = {
           is_active?: boolean
           name?: string
           reservation_default_duration_minutes?: number
+          reservation_last_seating_buffer_minutes?: number
           reservation_interval_minutes?: number
           slug?: string
           timezone?: string

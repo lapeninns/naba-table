@@ -2255,9 +2255,11 @@ CREATE TABLE IF NOT EXISTS "public"."restaurants" (
     "booking_policy" "text",
     "reservation_interval_minutes" integer DEFAULT 15 NOT NULL,
     "reservation_default_duration_minutes" integer DEFAULT 90 NOT NULL,
+    "reservation_last_seating_buffer_minutes" integer DEFAULT 120 NOT NULL,
     "is_active" boolean DEFAULT true NOT NULL,
     CONSTRAINT "restaurants_capacity_check" CHECK ((("capacity" IS NULL) OR ("capacity" > 0))),
     CONSTRAINT "restaurants_reservation_default_duration_minutes_check" CHECK ((("reservation_default_duration_minutes" >= 15) AND ("reservation_default_duration_minutes" <= 300))),
+    CONSTRAINT "restaurants_reservation_last_seating_buffer_minutes_check" CHECK ((("reservation_last_seating_buffer_minutes" >= 15) AND ("reservation_last_seating_buffer_minutes" <= 300))),
     CONSTRAINT "restaurants_reservation_interval_minutes_check" CHECK ((("reservation_interval_minutes" > 0) AND ("reservation_interval_minutes" <= 180))),
     CONSTRAINT "restaurants_slug_check" CHECK (("slug" ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::"text"))
 );

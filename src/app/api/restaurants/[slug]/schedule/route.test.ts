@@ -57,6 +57,7 @@ describe('/api/restaurants/[slug]/schedule', () => {
       timezone: 'Europe/London',
       intervalMinutes: 15,
       defaultDurationMinutes: 90,
+      lastSeatingBufferMinutes: 120,
       window: { opensAt: '12:00', closesAt: '22:00' },
       isClosed: false,
       availableBookingOptions: ['lunch', 'dinner', 'drinks'],

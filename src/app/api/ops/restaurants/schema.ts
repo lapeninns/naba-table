@@ -52,6 +52,7 @@ export const createRestaurantSchema = z.object({
     .transform((val) => val || null),
   reservationIntervalMinutes: INTERVAL_SCHEMA.optional(),
   reservationDefaultDurationMinutes: DURATION_SCHEMA.optional(),
+  reservationLastSeatingBufferMinutes: DURATION_SCHEMA.optional(),
 });
 
 export type CreateRestaurantInput = z.infer<typeof createRestaurantSchema>;
@@ -94,6 +95,7 @@ export const updateRestaurantSchema = z.object({
     .transform((val) => val || null),
   reservationIntervalMinutes: INTERVAL_SCHEMA.optional(),
   reservationDefaultDurationMinutes: DURATION_SCHEMA.optional(),
+  reservationLastSeatingBufferMinutes: DURATION_SCHEMA.optional(),
 });
 
 export type UpdateRestaurantInput = z.infer<typeof updateRestaurantSchema>;
@@ -110,6 +112,7 @@ export type RestaurantDTO = {
   bookingPolicy: string | null;
   reservationIntervalMinutes: number;
   reservationDefaultDurationMinutes: number;
+  reservationLastSeatingBufferMinutes: number;
   createdAt: string;
   updatedAt: string;
   role: 'owner' | 'admin' | 'staff' | 'viewer';

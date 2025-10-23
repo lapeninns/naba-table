@@ -72,6 +72,7 @@ describe('BookingWizard offline banner', () => {
       timezone: 'Europe/London',
       intervalMinutes: 15,
       defaultDurationMinutes: 90,
+      lastSeatingBufferMinutes: 120,
       window: { opensAt: '12:00', closesAt: '22:00' },
       isClosed: false,
       availableBookingOptions: ['dinner'],
