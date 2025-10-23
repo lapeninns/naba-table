@@ -354,7 +354,7 @@ SO THAT I can access protected features
 - **Pages:** `src/app/signin/page.tsx`
 - **Components:** `src/components/auth/SignInForm.tsx`
 - **API:** `src/app/api/auth/callback/route.ts`
-- **Middleware:** `middleware.ts` (token refresh)
+- **Proxy:** `proxy.ts` (token refresh)
 - **Service:** `server/supabase.ts` (client factories)
 
 ---

@@ -212,19 +212,24 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
     syncStatusesToQuery([]);
   }, [clearSelectedStatuses, syncStatusesToQuery]);
 
-  const mapToBookingDTO = useCallback((booking: OpsBookingListItem): BookingDTO => ({
-    id: booking.id,
-    restaurantId: booking.restaurantId ?? null,
-    restaurantName: booking.restaurantName,
-    partySize: booking.partySize,
-    startIso: booking.startIso,
-    endIso: booking.endIso,
-    status: booking.status,
-    notes: booking.notes ?? null,
-    customerName: booking.customerName ?? null,
-    customerEmail: booking.customerEmail ?? null,
-    customerPhone: booking.customerPhone ?? null,
-  }), []);
+  const mapToBookingDTO = useCallback(
+    (booking: OpsBookingListItem): BookingDTO => ({
+      id: booking.id,
+      restaurantId: booking.restaurantId ?? null,
+      restaurantName: booking.restaurantName,
+      restaurantSlug: activeMembership?.restaurantSlug ?? null,
+      restaurantTimezone: null,
+      partySize: booking.partySize,
+      startIso: booking.startIso,
+      endIso: booking.endIso,
+      status: booking.status,
+      notes: booking.notes ?? null,
+      customerName: booking.customerName ?? null,
+      customerEmail: booking.customerEmail ?? null,
+      customerPhone: booking.customerPhone ?? null,
+    }),
+    [activeMembership?.restaurantSlug],
+  );
 
   const bookings = useMemo(() => bookingsPage.items.map(mapToBookingDTO), [bookingsPage.items, mapToBookingDTO]);
 
@@ -390,6 +395,7 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
         open={isEditOpen}
         onOpenChange={handleEditOpenChange}
         mutationHook={useOpsUpdateBooking}
+        restaurantSlug={activeMembership?.restaurantSlug ?? null}
       />
 
       <CancelBookingDialog

@@ -120,6 +120,7 @@ export const env = {
       rpcAssignAtomic: parsed.FEATURE_RPC_ASSIGN_ATOMIC ?? false,
       assignAtomic: parsed.FEATURE_ASSIGN_ATOMIC ?? false,
       statusTriggers: parsed.FEATURE_STATUS_TRIGGERS ?? false,
+      editScheduleParity: parsed.FEATURE_EDIT_SCHEDULE_PARITY ?? false,
       selectorScoring: parsed.FEATURE_SELECTOR_SCORING ?? true,
       adjacencyValidation: parsed.FEATURE_ADJACENCY_VALIDATION ?? false,
       opsMetrics: parsed.FEATURE_OPS_METRICS ?? false,

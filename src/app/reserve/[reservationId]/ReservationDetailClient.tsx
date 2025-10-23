@@ -27,6 +27,7 @@ export type ReservationVenue = {
   name: string;
   address: string;
   timezone: string;
+  slug?: string | null;
 };
 
 const sanitizeJsonLd = (value: string | null | undefined) => {
@@ -64,11 +65,18 @@ const formatTimeRange = (startIso: string | null | undefined, endIso: string | n
   return `${startLabel} – ${timeFormatter.format(end)}`;
 };
 
-const buildBookingDto = (reservation: Reservation | undefined, restaurantName: string | null): BookingDTO | null => {
+const buildBookingDto = (
+  reservation: Reservation | undefined,
+  restaurantName: string | null,
+  venue: ReservationVenue,
+): BookingDTO | null => {
   if (!reservation) return null;
   return {
     id: reservation.id,
+    restaurantId: reservation.restaurantId,
     restaurantName: restaurantName ?? 'Reservation',
+    restaurantSlug: venue.slug ?? DEFAULT_VENUE.slug,
+    restaurantTimezone: venue.timezone,
     partySize: reservation.partySize,
     startIso: reservation.startAt,
     endIso: reservation.endAt ?? reservation.startAt,
@@ -131,8 +139,6 @@ export function ReservationDetailClient({
   const { data: reservation, error, isError, isLoading, refetch, isFetching } = useReservation(reservationId);
   const testUiEnabled = process.env.NEXT_PUBLIC_ENABLE_TEST_UI === 'true';
 
-  const bookingDto = useMemo(() => buildBookingDto(reservation, restaurantName), [reservation, restaurantName]);
-
   // Calculate venue info before any early returns
   const venue = useMemo<ReservationVenue>(() => {
     if (providedVenue) {
@@ -140,14 +146,21 @@ export function ReservationDetailClient({
         name: providedVenue.name ?? DEFAULT_VENUE.name,
         address: providedVenue.address ?? DEFAULT_VENUE.address,
         timezone: providedVenue.timezone ?? DEFAULT_VENUE.timezone,
+        slug: providedVenue.slug ?? DEFAULT_VENUE.slug,
       };
     }
     return {
       name: restaurantName ?? reservation?.restaurantName ?? DEFAULT_VENUE.name,
       address: DEFAULT_VENUE.address,
       timezone: DEFAULT_VENUE.timezone,
+      slug: DEFAULT_VENUE.slug,
     };
   }, [providedVenue, reservation?.restaurantName, restaurantName]);
+
+  const bookingDto = useMemo(
+    () => buildBookingDto(reservation, restaurantName, venue),
+    [reservation, restaurantName, venue],
+  );
 
   // Calculate share payload before any early returns
   const sharePayload = useMemo(() => {
@@ -523,7 +536,13 @@ export function ReservationDetailClient({
 
       {bookingDto ? (
         <>
-          <EditBookingDialog booking={bookingDto} open={isEditOpen} onOpenChange={closeEditDialog} />
+          <EditBookingDialog
+            booking={bookingDto}
+            open={isEditOpen}
+            onOpenChange={closeEditDialog}
+            restaurantSlug={venue.slug ?? DEFAULT_VENUE.slug}
+            restaurantTimezone={venue.timezone}
+          />
           <CancelBookingDialog booking={bookingDto} open={isCancelOpen} onOpenChange={closeCancelDialog} />
         </>
       ) : null}

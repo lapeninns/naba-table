@@ -16,6 +16,7 @@ export type ReservationVenue = {
   name: string;
   address: string;
   timezone: string;
+  slug?: string | null;
 };
 
 function normaliseDate(value: string | null | undefined): Date | null {
@@ -30,6 +31,7 @@ export function ensureReservationVenue(payload: ReservationCalendarPayload): Res
     name: payload.venueName || DEFAULT_VENUE.name,
     address: payload.venueAddress || DEFAULT_VENUE.address,
     timezone: payload.venueTimezone || DEFAULT_VENUE.timezone,
+    slug: DEFAULT_VENUE.slug,
   };
 }
 

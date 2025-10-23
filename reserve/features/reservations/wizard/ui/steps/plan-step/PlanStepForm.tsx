@@ -24,6 +24,8 @@ type PlanStepFormContentProps = {
   state: PlanStepFormState;
 };
 
+const UNKNOWN_AVAILABILITY_COPY = 'Schedule not loaded yet—scroll to load month.';
+
 function PlanStepFormContent({ state }: PlanStepFormContentProps) {
   const { control, formState, handleSubmit, getValues } = state.form;
   const {
@@ -74,6 +76,8 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
         return 'We’re closed on this date. Please choose a different day.';
       case 'no-slots':
         return 'All reservation times are taken on this date. Please choose a different day.';
+      case 'unknown':
+        return UNKNOWN_AVAILABILITY_COPY;
       default:
         return null;
     }

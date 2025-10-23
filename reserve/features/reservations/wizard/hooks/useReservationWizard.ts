@@ -2,12 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { emit } from '@/lib/analytics/emit';
 import { BOOKING_IN_PAST_CUSTOMER_MESSAGE } from '@/lib/bookings/messages';
 import { mapErrorToMessage } from '@reserve/shared/error';
 import { useStickyProgress } from '@reserve/shared/hooks/useStickyProgress';
+import { BOOKING_TYPES_UI, SEATING_PREFERENCES_UI } from '@shared/config/booking';
 import { runtime } from '@shared/config/runtime';
 
 import { useRememberedContacts } from './useRememberedContacts';
+import { clearWizardDraft, loadWizardDraft, saveWizardDraft } from './useWizardDraftStorage';
 import { useCreateOpsReservation } from '../api/useCreateOpsReservation';
 import { useCreateReservation } from '../api/useCreateReservation';
 import { useWizardDependencies } from '../di';
@@ -18,6 +21,24 @@ import { buildReservationDraft, reservationToApiBooking } from '../model/transfo
 import type { BookingDetails, BookingWizardMode, StepAction } from '../model/reducer';
 
 const EMPTY_ACTIONS: StepAction[] = [];
+
+const DEFAULT_BOOKING_OPTION = BOOKING_TYPES_UI[0];
+const DEFAULT_SEATING_OPTION = SEATING_PREFERENCES_UI[0];
+
+const hasMeaningfulDraft = (details: BookingDetails): boolean => {
+  return (
+    Boolean(details.time?.trim()?.length) ||
+    Boolean(details.notes?.trim()?.length) ||
+    details.party > 1 ||
+    details.bookingType !== DEFAULT_BOOKING_OPTION ||
+    details.seating !== DEFAULT_SEATING_OPTION ||
+    Boolean(details.name.trim().length) ||
+    Boolean(details.email.trim().length) ||
+    Boolean(details.phone.trim().length)
+  );
+};
+
+const OFFLINE_QUEUE_MESSAGE = 'You’re offline. We’ll submit this booking as soon as you reconnect.';
 
 type BookingError = { code?: string | number | null | undefined };
 
@@ -34,6 +55,8 @@ export function useReservationWizard(
   mode: BookingWizardMode = 'customer',
 ) {
   const { state, actions } = useWizardStore(initialDetails);
+  const draftHydratedRef = useRef(false);
+  const offlineEventRef = useRef(false);
   const [planAlert, setPlanAlert] = useState<string | null>(null);
   const heroRef = useRef<HTMLSpanElement | null>(null);
   const [stickyActions, setStickyActions] = useState<StepAction[]>(EMPTY_ACTIONS);
@@ -41,6 +64,33 @@ export function useReservationWizard(
   const { analytics, haptics, navigator, errorReporter } = useWizardDependencies();
 
   useRememberedContacts({ details: state.details, actions, enabled: mode === 'customer' });
+
+  useEffect(() => {
+    if (draftHydratedRef.current || mode !== 'customer') {
+      return;
+    }
+    if (initialDetails?.bookingId) {
+      draftHydratedRef.current = true;
+      return;
+    }
+    const stored = loadWizardDraft();
+    draftHydratedRef.current = true;
+    if (!stored) {
+      return;
+    }
+    if (!hasMeaningfulDraft(stored.details)) {
+      clearWizardDraft();
+      return;
+    }
+    if (stored.expired) {
+      clearWizardDraft();
+      setPlanAlert('Draft expired—let’s refresh availability.');
+      emit('wizard.reset.triggered', { reason: 'draft-expired' });
+      actions.resetForm();
+      return;
+    }
+    actions.hydrateDetails(stored.details);
+  }, [actions, initialDetails?.bookingId, mode]);
 
   const stepsMeta = useMemo(
     () => [
@@ -112,10 +162,45 @@ export function useReservationWizard(
 
   const selectionSummary = useMemo(() => createSelectionSummary(state.details), [state.details]);
 
+  // effects depending on mutation are registered after mutation creation
+
   const customerMutation = useCreateReservation();
   const opsMutation = useCreateOpsReservation();
   const mutation = mode === 'ops' ? opsMutation : customerMutation;
-  const submitting = state.submitting || mutation.isPending;
+  const submitting = state.submitting || mutation.isPending || mutation.isPaused;
+
+  useEffect(() => {
+    if (mode !== 'customer') {
+      return;
+    }
+    if (mutation.isSuccess) {
+      clearWizardDraft();
+      return;
+    }
+    if (!hasMeaningfulDraft(state.details)) {
+      clearWizardDraft();
+      return;
+    }
+    saveWizardDraft(state.details);
+  }, [mode, mutation.isSuccess, state.details]);
+
+  useEffect(() => {
+    if (mode !== 'customer') {
+      return;
+    }
+    if (mutation.isPaused) {
+      if (!offlineEventRef.current) {
+        emit('mutation.retry.offline', {
+          bookingId: state.details.bookingId,
+        });
+        offlineEventRef.current = true;
+      }
+      setPlanAlert((prev) => prev ?? OFFLINE_QUEUE_MESSAGE);
+    } else {
+      offlineEventRef.current = false;
+      setPlanAlert((prev) => (prev === OFFLINE_QUEUE_MESSAGE ? null : prev));
+    }
+  }, [mode, mutation.isPaused, state.details.bookingId]);
 
   const handleConfirm = useCallback(async () => {
     if (submitting || state.loading) {

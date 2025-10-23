@@ -24,6 +24,7 @@ type ReservationVenue = {
   name: string;
   address: string;
   timezone: string;
+  slug?: string | null;
 };
 
 function deriveVenue(reservation: Reservation, restaurantName: string | null): ReservationVenue {
@@ -31,6 +32,7 @@ function deriveVenue(reservation: Reservation, restaurantName: string | null): R
     name: restaurantName ?? reservation.restaurantName ?? DEFAULT_VENUE.name,
     address: DEFAULT_VENUE.address,
     timezone: DEFAULT_VENUE.timezone,
+    slug: DEFAULT_VENUE.slug,
   };
 }
 

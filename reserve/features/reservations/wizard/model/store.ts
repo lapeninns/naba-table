@@ -32,6 +32,7 @@ export type WizardActions = {
   hydrateContacts: (
     payload: Pick<BookingDetails, 'name' | 'email' | 'phone'> & { rememberDetails?: boolean },
   ) => void;
+  hydrateDetails: (details: BookingDetails) => void;
 };
 
 const createActions = (
@@ -57,6 +58,7 @@ const createActions = (
   startEdit: (bookingId) => dispatch({ type: 'START_EDIT', bookingId }),
   resetForm: () => dispatch({ type: 'RESET_FORM', initialDetails: resolveInitialDetails() }),
   hydrateContacts: (payload) => dispatch({ type: 'HYDRATE_CONTACTS', payload }),
+  hydrateDetails: (details) => dispatch({ type: 'HYDRATE_DETAILS', details }),
 });
 
 export const useWizardStore = (initialDetails?: Partial<BookingDetails>) => {

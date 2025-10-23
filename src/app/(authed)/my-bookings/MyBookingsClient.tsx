@@ -9,6 +9,7 @@ import { EditBookingDialog } from '@/components/dashboard/EditBookingDialog';
 import { useBookings, type BookingDTO } from '@/hooks/useBookings';
 import { useBookingsTableState } from '@/hooks/useBookingsTableState';
 import { track } from '@/lib/analytics';
+import { DEFAULT_VENUE } from '@shared/config/venue';
 
 export function MyBookingsClient() {
   const tableState = useBookingsTableState({ pageSize: DASHBOARD_DEFAULT_PAGE_SIZE });
@@ -95,7 +96,13 @@ export function MyBookingsClient() {
         onCancel={handleCancel}
       />
 
-      <EditBookingDialog booking={editBooking} open={isEditOpen} onOpenChange={handleEditOpenChange} />
+      <EditBookingDialog
+        booking={editBooking}
+        open={isEditOpen}
+        onOpenChange={handleEditOpenChange}
+        restaurantSlug={DEFAULT_VENUE.slug}
+        restaurantTimezone={DEFAULT_VENUE.timezone}
+      />
       <CancelBookingDialog booking={cancelBooking} open={isCancelOpen} onOpenChange={handleCancelOpenChange} />
     </section>
   );

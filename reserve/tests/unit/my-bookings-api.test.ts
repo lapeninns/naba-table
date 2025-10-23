@@ -81,7 +81,7 @@ describe('GET /api/bookings?me=1', () => {
           party_size: 4,
           status: 'confirmed',
           notes: 'Anniversary dinner',
-          restaurants: { name: 'The Corner House Pub' },
+          restaurants: { name: 'The Corner House Pub', reservation_interval_minutes: 30 },
         },
         {
           id: 'booking-2',
@@ -130,7 +130,7 @@ describe('GET /api/bookings?me=1', () => {
     expect(response.status).toBe(200);
     expect(serviceMock.from).toHaveBeenCalledWith('bookings');
     expect(selectMock).toHaveBeenCalledWith(
-      'id, start_at, end_at, party_size, status, notes, restaurants(name)',
+      'id, start_at, end_at, party_size, status, notes, restaurants(name, reservation_interval_minutes)',
       { count: 'exact' },
     );
     expect(queryBuilder.eq).toHaveBeenCalledWith('customer_email', 'user@example.com');
@@ -152,6 +152,7 @@ describe('GET /api/bookings?me=1', () => {
           notes: 'Anniversary dinner',
           customerName: null,
           customerEmail: null,
+          reservationIntervalMinutes: 30,
         },
         {
           id: 'booking-2',
@@ -163,6 +164,7 @@ describe('GET /api/bookings?me=1', () => {
           notes: 'Lunch meeting',
           customerName: null,
           customerEmail: null,
+          reservationIntervalMinutes: null,
         },
       ],
       pageInfo: {

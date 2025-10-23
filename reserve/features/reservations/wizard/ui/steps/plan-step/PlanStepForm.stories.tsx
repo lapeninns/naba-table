@@ -58,6 +58,7 @@ const PlanStepFormPreview: React.FC<StoryArgs> = ({ initialState, minDate, onTra
     const startEditMock = fn();
     const resetFormMock = fn();
     const hydrateContactsMock = fn();
+    const hydrateDetailsMock = fn();
     return {
       goToStep: (step) => goToStepMock(step),
       updateDetails,
@@ -70,6 +71,7 @@ const PlanStepFormPreview: React.FC<StoryArgs> = ({ initialState, minDate, onTra
       startEdit: startEditMock,
       resetForm: resetFormMock,
       hydrateContacts: hydrateContactsMock,
+      hydrateDetails: hydrateDetailsMock,
     } satisfies WizardActions;
   }, []);
 

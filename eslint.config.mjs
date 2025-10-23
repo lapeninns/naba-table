@@ -2,6 +2,7 @@ import js from "@eslint/js";
 import path from "node:path";
 import url from "node:url";
 import { FlatCompat } from "@eslint/eslintrc";
+import nextConfig from "eslint-config-next";
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 
@@ -10,7 +11,11 @@ const compat = new FlatCompat({
   recommendedConfig: js.configs.recommended,
 });
 
+const [nextBaseConfig, , nextIgnoreConfig] = nextConfig;
+
 export default [
+  nextBaseConfig,
+  nextIgnoreConfig,
   ...compat.config({
     root: true,
     parser: "@typescript-eslint/parser",
@@ -24,17 +29,7 @@ export default [
       ],
       tsconfigRootDir: __dirname,
     },
-    extends: [
-      "plugin:@next/next/core-web-vitals",
-      "eslint:recommended",
-      "plugin:@typescript-eslint/recommended",
-      "plugin:react-hooks/recommended",
-      "plugin:jsx-a11y/recommended",
-      "plugin:import/recommended",
-      "plugin:import/typescript",
-      "prettier",
-    ],
-    plugins: ["@typescript-eslint", "jsx-a11y", "import"],
+    extends: ["eslint:recommended", "plugin:@typescript-eslint/recommended", "plugin:import/typescript", "prettier"],
     settings: {
       "import/resolver": {
        typescript: {
@@ -50,6 +45,10 @@ export default [
       "@typescript-eslint/consistent-type-imports": "error",
       "@typescript-eslint/explicit-module-boundary-types": "off",
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
+      "react/display-name": "off",
+      "react-hooks/refs": "off",
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/purity": "off",
       "import/order": [
         "error",
         {

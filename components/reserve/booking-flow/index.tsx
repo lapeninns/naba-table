@@ -2,11 +2,12 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, type PropsWithChildren } from "react";
+import { useEffect, useMemo, useState, type PropsWithChildren } from "react";
 
 import { WizardDependenciesProvider } from "@features/reservations/wizard/di";
 import { BookingWizard } from "@features/reservations/wizard/ui/BookingWizard";
 import { track } from "@/lib/analytics";
+import { configureQueryPersistence } from "@/lib/query/persist";
 import type { BookingDetails, BookingWizardMode } from "@features/reservations/wizard/model/reducer";
 
 const defaultQueryOptions = {
@@ -19,6 +20,7 @@ const defaultQueryOptions = {
 
 function BookingFlowProviders({ children }: PropsWithChildren) {
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: defaultQueryOptions }));
+  useEffect(() => configureQueryPersistence(queryClient, { storageKey: "reserve.booking-flow.cache" }), [queryClient]);
 
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }

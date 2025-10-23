@@ -31,6 +31,6 @@ export function useReservation(reservationId: string | undefined) {
       return reservationAdapter(response.booking);
     },
     staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
   });
 }

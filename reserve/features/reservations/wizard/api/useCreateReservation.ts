@@ -21,6 +21,8 @@ export function useCreateReservation() {
     ApiError,
     { draft: ReservationDraft; bookingId?: string }
   >({
+    networkMode: 'offlineFirst',
+    meta: { persist: true },
     mutationFn: async ({ draft, bookingId }) => {
       const payload = {
         restaurantId: draft.restaurantId,

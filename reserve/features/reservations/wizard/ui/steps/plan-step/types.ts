@@ -28,7 +28,7 @@ export type PlanStepFormHandlers = {
   prefetchMonth: (month: Date) => void;
 };
 
-export type PlanStepUnavailableReason = 'closed' | 'no-slots';
+export type PlanStepUnavailableReason = 'closed' | 'no-slots' | 'unknown';
 
 export type PlanStepFormState = {
   form: UseFormReturn<PlanFormValues>;

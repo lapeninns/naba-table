@@ -3408,45 +3408,52 @@ export function getServiceSupabaseClient() {
 **Auth Middleware:**
 
 ```typescript
-// File: middleware.ts
+// File: proxy.ts
 // Purpose: Refresh auth tokens on request
 
-import { createServerClient } from '@supabase/ssr';
-import { NextRequest, NextResponse } from 'next/server';
+import appConfig from '@/config';
+import { env } from '@/lib/env';
+import { getMiddlewareSupabaseClient } from '@/server/supabase';
+import { NextResponse, type NextRequest } from 'next/server';
 
-export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  });
+const PROTECTED_MATCHERS = [/^\/my-bookings(\/.*)?$/, /^\/profile(\/.*)?$/];
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            request.cookies.set(name, value);
-            response.cookies.set(name, value, options);
-          });
-        },
-      },
-    },
-  );
+export default async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
 
-  // Refresh session if needed
-  await supabase.auth.getUser();
+  if (pathname.startsWith('/api/')) {
+    const isVersioned = /^\/api\/v\d+\//.test(pathname);
+    const response = NextResponse.next();
+    if (!isVersioned) {
+      const days = env.testing.routeCompatWindowDays ?? 30;
+      const sunset = new Date(Date.now() + Math.max(1, days) * 24 * 60 * 60 * 1000).toISOString();
+      const successor = pathname.replace(/^\/api\//, '/api/v1/');
+      response.headers.set('Deprecation', 'true');
+      response.headers.set('Sunset', sunset);
+      response.headers.set('Link', `<${successor}>; rel=\"successor-version\"`);
+    }
+    return response;
+  }
+
+  const response = NextResponse.next();
+  const supabase = getMiddlewareSupabaseClient(request, response);
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session && PROTECTED_MATCHERS.some((matcher) => matcher.test(pathname))) {
+    const redirectUrl = request.nextUrl.clone();
+    const loginPath = appConfig.auth?.loginUrl ?? '/signin';
+    redirectUrl.pathname = loginPath.startsWith('/') ? loginPath : `/${loginPath}`;
+    redirectUrl.searchParams.set('redirectedFrom', pathname);
+    return NextResponse.redirect(redirectUrl);
+  }
 
   return response;
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  matcher: ['/api/:path*', '/my-bookings/:path*', '/profile/:path*'],
 };
 ```
 

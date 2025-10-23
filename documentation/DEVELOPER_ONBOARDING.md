@@ -824,11 +824,11 @@ export function RandomNumber() {
 
 ```typescript
 // Cause: Middleware not refreshing token
-// Solution: Ensure middleware.ts is configured correctly
+// Solution: Ensure proxy.ts is configured correctly
 
 // Check that middleware is running:
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/api/:path*', '/my-bookings/:path*', '/profile/:path*'],
 };
 ```
 

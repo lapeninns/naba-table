@@ -20,6 +20,8 @@ export type BookingDTO = {
   id: string;
   restaurantId?: string | null;
   restaurantName: string;
+  restaurantSlug?: string | null;
+  restaurantTimezone?: string | null;
   partySize: number;
   startIso: string;
   endIso: string;

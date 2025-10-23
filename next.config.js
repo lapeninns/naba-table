@@ -21,36 +21,50 @@ if (SUPABASE_HOSTNAME && !imageDomains.includes(SUPABASE_HOSTNAME)) {
   imageDomains.push(SUPABASE_HOSTNAME);
 }
 
+const imageRemotePatterns = imageDomains.map((hostname) => ({
+  protocol: "https",
+  hostname,
+  pathname: "/**",
+}));
+
+const aliasEntries = {
+  '@/app': './src/app',
+  '@/components/features': './src/components/features',
+  '@/components': './components',
+  '@/contexts': './src/contexts',
+  '@/hooks/ops': './hooks/ops',
+  '@/hooks': './hooks',
+  '@/lib': './lib',
+  '@/utils': './src/utils',
+  '@/services': './src/services',
+  '@/types': './types',
+  '@/server': './server',
+  '@': './',
+  '@reserve': './reserve',
+  '@app': './reserve/app',
+  '@features': './reserve/features',
+  '@entities': './reserve/entities',
+  '@shared': './reserve/shared',
+  '@pages': './reserve/pages',
+  '@tests': './reserve/tests',
+};
+
+const webpackAliasMap = Object.fromEntries(
+  Object.entries(aliasEntries).map(([key, relativePath]) => [key, path.resolve(__dirname, relativePath)]),
+);
+
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    domains: imageDomains,
+    remotePatterns: imageRemotePatterns,
   },
-  eslint: {
-    dirs: ['app/reserve', 'reserve'],
+  turbopack: {
+    resolveAlias: aliasEntries,
   },
   webpack: (config) => {
     config.resolve.alias = {
       ...(config.resolve.alias ?? {}),
-      '@/app': path.resolve(__dirname, 'src/app'),
-      '@/components/features': path.resolve(__dirname, 'src/components/features'),
-      '@/components': path.resolve(__dirname, 'components'),
-      '@/contexts': path.resolve(__dirname, 'src/contexts'),
-      '@/hooks/ops': path.resolve(__dirname, 'hooks/ops'),
-      '@/hooks': path.resolve(__dirname, 'hooks'),
-      '@/lib': path.resolve(__dirname, 'lib'),
-      '@/utils': path.resolve(__dirname, 'src/utils'),
-      '@/services': path.resolve(__dirname, 'src/services'),
-      '@/types': path.resolve(__dirname, 'types'),
-      '@/server': path.resolve(__dirname, 'server'),
-      '@': path.resolve(__dirname),
-      '@reserve': path.resolve(__dirname, 'reserve'),
-      '@app': path.resolve(__dirname, 'reserve/app'),
-      '@features': path.resolve(__dirname, 'reserve/features'),
-      '@entities': path.resolve(__dirname, 'reserve/entities'),
-      '@shared': path.resolve(__dirname, 'reserve/shared'),
-      '@pages': path.resolve(__dirname, 'reserve/pages'),
-      '@tests': path.resolve(__dirname, 'reserve/tests'),
+      ...webpackAliasMap,
     };
 
     return config;

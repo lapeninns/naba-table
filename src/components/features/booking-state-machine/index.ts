@@ -3,6 +3,7 @@ export * from "./BookingActionButton";
 export type { BookingAction } from "./BookingActionButton";
 export * from "./ConfirmationDialog";
 export * from "./TimestampPicker";
+export * from "./ScheduleAwareTimestampPicker";
 export * from "./StatusTransitionAnimator";
 export * from "./TransitionToast";
 export * from "./BookingErrorBoundary";

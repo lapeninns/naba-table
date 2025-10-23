@@ -112,6 +112,10 @@ export type Action =
   | {
       type: 'HYDRATE_CONTACTS';
       payload: Pick<BookingDetails, 'name' | 'email' | 'phone'> & { rememberDetails?: boolean };
+    }
+  | {
+      type: 'HYDRATE_DETAILS';
+      details: BookingDetails;
     };
 
 export type ReservationDraft = {
@@ -310,6 +314,17 @@ export function reducer(state: State, action: Action): State {
           email: action.payload.email,
           phone: action.payload.phone,
           rememberDetails: action.payload.rememberDetails ?? true,
+        },
+      };
+    case 'HYDRATE_DETAILS':
+      return {
+        ...state,
+        step: 1,
+        editingId: null,
+        error: null,
+        details: {
+          ...state.details,
+          ...action.details,
         },
       };
     default:

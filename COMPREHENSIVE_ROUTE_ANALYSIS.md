@@ -69,7 +69,7 @@
 ├── types/                     # Global type definitions
 ├── tests/                     # Test files
 │   └── e2e/                  # End-to-end tests
-├── middleware.ts              # Next.js middleware
+├── proxy.ts              # Next.js middleware
 ├── config.ts                  # App configuration
 └── next.config.js            # Next.js configuration
 ```
@@ -77,7 +77,7 @@
 ### Entry Points
 
 1. **Application Entry**: `src/app/layout.tsx` - Root layout with providers
-2. **Middleware**: `middleware.ts` - Request interception for auth & API versioning
+2. **Middleware**: `proxy.ts` - Request interception for auth & API versioning
 3. **API Entry**: `src/app/api/**` - REST API endpoints
 
 ### Configuration Files Affecting Routing
@@ -89,7 +89,7 @@
 - **Image Domains**: Whitelisted domains for Next.js Image component
 - **ESLint**: Configured for app/reserve directories
 
-#### `middleware.ts`
+#### `proxy.ts`
 
 - **Protected Routes**: `/my-bookings/*`, `/profile/*`, `/thank-you/*`
 - **API Versioning**: Adds deprecation headers to unversioned API routes
@@ -466,7 +466,7 @@ getMiddlewareSupabaseClient(req, res): SupabaseClient
        ▼
 ┌──────────────────────┐
 │    Middleware        │
-│  (middleware.ts)     │
+│  (proxy.ts)     │
 ├──────────────────────┤
 │ 1. Check if route    │
 │    matches protected │
@@ -493,7 +493,7 @@ getMiddlewareSupabaseClient(req, res): SupabaseClient
 
 ### Protected Route Patterns
 
-Defined in `middleware.ts`:
+Defined in `proxy.ts`:
 
 ```typescript
 const PROTECTED_MATCHERS = [/^\/my-bookings(\/.*)?$/, /^\/profile(\/.*)?$/, /^\/thank-you(\/.*)?$/];
@@ -600,7 +600,7 @@ User now authenticated, accessing /my-bookings
 Request
    ↓
 ┌──────────────────────────────────────────────┐
-│ 1. Next.js Middleware (middleware.ts)        │
+│ 1. Next.js Middleware (proxy.ts)        │
 │    Order of operations:                      │
 │    ├─ A. API Versioning (for /api/* routes) │
 │    ├─ B. Auth Check (protected routes)      │
@@ -816,7 +816,7 @@ try {
 Client
   ↓ HTTP Request
 ┌─────────────────────────────────────────────┐
-│ Middleware (middleware.ts)                  │
+│ Middleware (proxy.ts)                  │
 │ • API versioning headers                    │
 │ • Auth session refresh                      │
 └─────────────────────────────────────────────┘

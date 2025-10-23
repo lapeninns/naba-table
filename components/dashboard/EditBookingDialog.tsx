@@ -19,12 +19,14 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { TimestampPicker } from '@/components/features/booking-state-machine';
+import { ScheduleAwareTimestampPicker, TimestampPicker } from '@/components/features/booking-state-machine';
 import type { BookingDTO } from '@/hooks/useBookings';
 import { useUpdateBooking } from '@/hooks/useUpdateBooking';
 import { BOOKING_IN_PAST_DASHBOARD_MESSAGE } from '@/lib/bookings/messages';
 import type { HttpError } from '@/lib/http/errors';
 import { emit } from '@/lib/analytics/emit';
+import { env } from '@/lib/env';
+import { DEFAULT_VENUE } from '@shared/config/venue';
 
 const errorCopy: Record<string, string> = {
   OVERLAP_DETECTED: 'That time overlaps an existing booking. Please choose another slot.',
@@ -61,9 +63,18 @@ export type EditBookingDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   mutationHook?: UseUpdateBookingHook;
+  restaurantSlug?: string | null;
+  restaurantTimezone?: string | null;
 };
 
-export function EditBookingDialog({ booking, open, onOpenChange, mutationHook }: EditBookingDialogProps) {
+export function EditBookingDialog({
+  booking,
+  open,
+  onOpenChange,
+  mutationHook,
+  restaurantSlug: restaurantSlugOverride,
+  restaurantTimezone: restaurantTimezoneOverride,
+}: EditBookingDialogProps) {
   const defaultValues = useMemo<FormValues>(
     () => ({
       start: booking?.startIso ?? '',
@@ -97,6 +108,26 @@ export function EditBookingDialog({ booking, open, onOpenChange, mutationHook }:
   const mutation = useMutationHook();
   const [formError, setFormError] = useState<{ message: string; code?: string } | null>(null);
   const startValue = watch('start');
+  const scheduleParityEnabled = env.featureFlags.editScheduleParity;
+
+  const effectiveRestaurantSlug = useMemo(() => {
+    return (
+      restaurantSlugOverride ??
+      booking?.restaurantSlug ??
+      DEFAULT_VENUE.slug
+    );
+  }, [booking?.restaurantSlug, restaurantSlugOverride]);
+
+  const effectiveRestaurantTimezone = useMemo(() => {
+    return (
+      restaurantTimezoneOverride ??
+      booking?.restaurantTimezone ??
+      DEFAULT_VENUE.timezone
+    );
+  }, [booking?.restaurantTimezone, restaurantTimezoneOverride]);
+
+  const shouldUseSchedulePicker =
+    scheduleParityEnabled && Boolean(effectiveRestaurantSlug);
 
   const fallbackDurationMinutes = useMemo(() => {
     if (!booking?.startIso || !booking?.endIso) {
@@ -217,18 +248,31 @@ export function EditBookingDialog({ booking, open, onOpenChange, mutationHook }:
                 name="start"
                 control={control}
                 render={({ field, fieldState }) => (
-                  <TimestampPicker
-                    label="Start time"
-                    name={field.name}
-                    value={field.value}
-                    onChange={(next) => field.onChange(next ?? '')}
-                    onBlur={field.onBlur}
-                    presets={[]}
-                    required
-                    errorMessage={fieldState.error?.message}
-                    disabled={mutation.isPending}
-                    minuteStep={intervalMinutes}
-                  />
+                  shouldUseSchedulePicker ? (
+                    <ScheduleAwareTimestampPicker
+                      restaurantSlug={effectiveRestaurantSlug}
+                      restaurantTimezone={effectiveRestaurantTimezone}
+                      value={field.value || null}
+                      onChange={(next) => field.onChange(next ?? '')}
+                      onBlur={field.onBlur}
+                      label="Start time"
+                      errorMessage={fieldState.error?.message ?? null}
+                      disabled={mutation.isPending}
+                    />
+                  ) : (
+                    <TimestampPicker
+                      label="Start time"
+                      name={field.name}
+                      value={field.value}
+                      onChange={(next) => field.onChange(next ?? '')}
+                      onBlur={field.onBlur}
+                      presets={[]}
+                      required
+                      errorMessage={fieldState.error?.message}
+                      disabled={mutation.isPending}
+                      minuteStep={intervalMinutes}
+                    />
+                  )
                 )}
               />
             </div>

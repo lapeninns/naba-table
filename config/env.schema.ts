@@ -45,6 +45,7 @@ const baseEnvSchema = z
     FEATURE_RPC_ASSIGN_ATOMIC: booleanStringOptional,
     FEATURE_ASSIGN_ATOMIC: booleanStringOptional,
     FEATURE_STATUS_TRIGGERS: booleanStringOptional,
+    FEATURE_EDIT_SCHEDULE_PARITY: booleanStringOptional,
     FEATURE_SELECTOR_SCORING: booleanStringOptional,
     FEATURE_ADJACENCY_VALIDATION: booleanStringOptional,
     FEATURE_OPS_METRICS: booleanStringOptional,

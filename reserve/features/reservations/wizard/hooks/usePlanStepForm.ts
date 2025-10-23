@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
+import { emit } from '@/lib/analytics/emit';
 import { useTimeSlots } from '@reserve/features/reservations/wizard/services';
 import {
   fetchReservationSchedule,
@@ -23,8 +24,6 @@ import type {
 } from '../ui/steps/plan-step/types';
 import type { BookingOption } from '@reserve/shared/booking';
 
-const PREFETCH_WINDOW_DAYS = 14;
-
 const MONTH_KEY_FORMATTER = (value: Date) =>
   `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}`;
 
@@ -34,7 +33,7 @@ const deriveUnavailableReason = (
   nextSchedule: { isClosed: boolean; slots: { disabled: boolean }[] } | null,
 ): PlanStepUnavailableReason | null => {
   if (!nextSchedule) {
-    return null;
+    return 'unknown';
   }
   if (nextSchedule.isClosed) {
     return 'closed';
@@ -46,7 +45,7 @@ const deriveUnavailableReason = (
 const buildMonthDateKeys = (
   monthStart: Date,
   minSelectableDate: Date,
-  limit: number = PREFETCH_WINDOW_DAYS,
+  limit?: number,
 ): string[] => {
   const start = toMonthStart(monthStart);
   const end = new Date(start.getFullYear(), start.getMonth() + 1, 0);
@@ -54,7 +53,10 @@ const buildMonthDateKeys = (
 
   const normalizedMin = new Date(minSelectableDate);
   normalizedMin.setHours(0, 0, 0, 0);
-  const maxEntries = Math.max(0, Math.floor(limit));
+  const maxEntries =
+    typeof limit === 'number' && Number.isFinite(limit) && limit > 0
+      ? Math.floor(limit)
+      : Number.POSITIVE_INFINITY;
 
   for (let cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
     if (cursor < normalizedMin) {
@@ -145,34 +147,48 @@ function useUnavailableDateTracking({
       }
 
       const monthStart = toMonthStart(value);
-      const monthKey = MONTH_KEY_FORMATTER(monthStart);
-      if (prefetchedMonthsRef.current.has(monthKey)) {
-        return;
-      }
-      prefetchedMonthsRef.current.add(monthKey);
+      const monthStarts: Date[] = [monthStart];
 
-      const dateKeys = buildMonthDateKeys(monthStart, normalizedMinDate, PREFETCH_WINDOW_DAYS);
-      if (dateKeys.length === 0) {
-        return;
+      const previousMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() - 1, 1);
+      if (previousMonth >= normalizedMinDate) {
+        monthStarts.push(previousMonth);
       }
 
-      void Promise.all(
-        dateKeys.map(async (dateKey) => {
-          try {
-            const scheduleResult = await queryClient.fetchQuery({
-              queryKey: scheduleQueryKey(slug, dateKey),
-              queryFn: ({ signal }) => fetchReservationSchedule(slug, dateKey, signal),
-              staleTime: 60_000,
-            });
-            const reason = deriveUnavailableReason(scheduleResult);
-            updateUnavailableDate(dateKey, reason);
-          } catch (error) {
-            if (process.env.NODE_ENV !== 'production') {
-              console.error('[plan-step] failed to prefetch schedule', { date: dateKey, error });
+      const nextMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1);
+      monthStarts.push(nextMonth);
+
+      monthStarts.forEach((month) => {
+        const monthKey = MONTH_KEY_FORMATTER(month);
+        if (prefetchedMonthsRef.current.has(monthKey)) {
+          return;
+        }
+        prefetchedMonthsRef.current.add(monthKey);
+
+        const dateKeys = buildMonthDateKeys(month, normalizedMinDate);
+        if (dateKeys.length === 0) {
+          return;
+        }
+
+        void Promise.all(
+          dateKeys.map(async (dateKey) => {
+            try {
+              const scheduleResult = await queryClient.fetchQuery({
+                queryKey: scheduleQueryKey(slug, dateKey),
+                queryFn: ({ signal }) => fetchReservationSchedule(slug, dateKey, signal),
+                staleTime: 60_000,
+              });
+              const reason = deriveUnavailableReason(scheduleResult);
+              updateUnavailableDate(dateKey, reason);
+            } catch (error) {
+              if (process.env.NODE_ENV !== 'production') {
+                console.error('[plan-step] failed to prefetch schedule', { date: dateKey, error });
+              }
+              emit('schedule.fetch.miss', { restaurantSlug: slug, date: dateKey });
+              updateUnavailableDate(dateKey, 'unknown');
             }
-          }
-        }),
-      );
+          }),
+        );
+      });
     },
     [normalizedMinDate, queryClient, restaurantSlug, updateUnavailableDate],
   );
@@ -507,6 +523,12 @@ export function usePlanStepForm({
     const isCurrentDate = scheduleDate === state.details.date;
 
     if (derivedReason) {
+      if (derivedReason === 'closed') {
+        emit('selection.blocked.closed', {
+          restaurantSlug: state.details.restaurantSlug,
+          date: scheduleDate,
+        });
+      }
       if (isCurrentDate) {
         const fallbackDate = lastValidDateRef.current;
         if (fallbackDate && fallbackDate !== scheduleDate) {
@@ -525,7 +547,9 @@ export function usePlanStepForm({
         const dateMessage =
           derivedReason === 'closed'
             ? 'We’re closed on the selected date. Please choose a different day.'
-            : 'No reservation times are available for the selected date. Please choose another day.';
+            : derivedReason === 'no-slots'
+              ? 'No reservation times are available for the selected date. Please choose another day.'
+              : 'Schedule not loaded yet—scroll to load month.';
         form.setError('date', { type: 'manual', message: dateMessage });
         form.setError('time', {
           type: 'manual',
@@ -568,6 +592,7 @@ export function usePlanStepForm({
     inferBookingOption,
     schedule,
     state.details.date,
+    state.details.restaurantSlug,
     updateField,
     updateUnavailableDate,
   ]);

@@ -221,7 +221,7 @@ function BookingWizardContent({
     hasHydrated && isOffline ? (
       <WizardOfflineBanner
         ref={offlineBannerRef}
-        description="Reconnecting will re-enable confirmation and sharing actions."
+        description="You’re offline. We’ll keep your progress and send requests automatically when you reconnect."
       />
     ) : null;
 

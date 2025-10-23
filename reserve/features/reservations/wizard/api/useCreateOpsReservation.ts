@@ -21,6 +21,8 @@ export function useCreateOpsReservation() {
     ApiError,
     { draft: ReservationDraft; bookingId?: string }
   >({
+    networkMode: 'offlineFirst',
+    meta: { persist: true },
     mutationFn: async ({ draft, bookingId }) => {
       if (bookingId) {
         throw Object.assign(new Error('Editing bookings is not supported in ops wizard'), {
