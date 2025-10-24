@@ -5,7 +5,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { BookingsTable } from '@/components/dashboard/BookingsTable';
 import { DASHBOARD_DEFAULT_PAGE_SIZE } from '@/components/dashboard/constants';
 import { CancelBookingDialog } from '@/components/dashboard/CancelBookingDialog';
-import { EditBookingDialog } from '@/components/dashboard/EditBookingDialog';
 import { useBookings, type BookingDTO } from '@/hooks/useBookings';
 import { useBookingsTableState } from '@/hooks/useBookingsTableState';
 import { track } from '@/lib/analytics';
@@ -19,7 +18,6 @@ export function MyBookingsClient({ scheduleParityEnabled }: MyBookingsClientProp
   const tableState = useBookingsTableState({ pageSize: DASHBOARD_DEFAULT_PAGE_SIZE });
   const { statusFilter, page, pageSize, queryFilters, handleStatusFilterChange } = tableState;
   const [editBooking, setEditBooking] = useState<BookingDTO | null>(null);
-  const [isEditOpen, setIsEditOpen] = useState(false);
   const [cancelBooking, setCancelBooking] = useState<BookingDTO | null>(null);
   const [isCancelOpen, setIsCancelOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -49,15 +47,8 @@ export function MyBookingsClient({ scheduleParityEnabled }: MyBookingsClientProp
   );
 
   const handleEdit = useCallback((booking: BookingDTO) => {
-    setEditBooking(booking);
-    setIsEditOpen(true);
-  }, []);
-
-  const handleEditOpenChange = useCallback((open: boolean) => {
-    setIsEditOpen(open);
-    if (!open) {
-      setEditBooking(null);
-    }
+    // No-op: edit disabled for customer My Bookings while refactoring.
+    setEditBooking(null);
   }, []);
 
   const handleCancel = useCallback((booking: BookingDTO) => {
@@ -98,16 +89,9 @@ export function MyBookingsClient({ scheduleParityEnabled }: MyBookingsClientProp
         onRetry={refetch}
         onEdit={handleEdit}
         onCancel={handleCancel}
+        allowEdit={false}
       />
 
-      <EditBookingDialog
-        booking={editBooking}
-        open={isEditOpen}
-        onOpenChange={handleEditOpenChange}
-        restaurantSlug={DEFAULT_VENUE.slug}
-        restaurantTimezone={DEFAULT_VENUE.timezone}
-        scheduleParityEnabled={scheduleParityEnabled}
-      />
       <CancelBookingDialog booking={cancelBooking} open={isCancelOpen} onOpenChange={handleCancelOpenChange} />
     </section>
   );

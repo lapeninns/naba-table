@@ -3,7 +3,9 @@ import { envSchemas, type Env } from "@/config/env.schema";
 let cachedEnv: Env | null = null;
 
 function parseEnv(): Env {
-  const sanitizeUrlEnv = (key: 'BASE_URL' | 'SITE_URL') => {
+  const sanitizeUrlEnv = (
+    key: 'BASE_URL' | 'SITE_URL' | 'NEXT_PUBLIC_APP_URL' | 'NEXT_PUBLIC_SITE_URL',
+  ) => {
     const value = process.env[key];
     if (typeof value === 'string') {
       const normalized = value.trim();
@@ -15,11 +17,28 @@ function parseEnv(): Env {
     }
   };
 
+  // Normalize potentially provided URL-like envs
   sanitizeUrlEnv('BASE_URL');
   sanitizeUrlEnv('SITE_URL');
+  sanitizeUrlEnv('NEXT_PUBLIC_APP_URL');
+  sanitizeUrlEnv('NEXT_PUBLIC_SITE_URL');
 
+  // Derive public URLs from Vercel-provided hostname when not explicitly set
+  // VERCEL_URL is the deployment hostname without protocol, e.g. my-app.vercel.app
+  const vercelUrl = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL;
+  if (vercelUrl) {
+    const withProtocol = vercelUrl.startsWith('http') ? vercelUrl : `https://${vercelUrl}`;
+    process.env.NEXT_PUBLIC_APP_URL ??= withProtocol;
+    process.env.NEXT_PUBLIC_SITE_URL ??= withProtocol;
+    process.env.SITE_URL ??= withProtocol;
+  }
+
+  // Ensure BASE_URL always resolves to a usable origin
   if (!process.env.BASE_URL) {
-    const fallback = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+    const fallback =
+      process.env.NEXT_PUBLIC_SITE_URL ??
+      process.env.NEXT_PUBLIC_APP_URL ??
+      'http://localhost:3000';
     process.env.BASE_URL = fallback;
   }
 

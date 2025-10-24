@@ -82,12 +82,37 @@ const baseEnvSchema = z
   })
   .passthrough();
 
-const productionEnvSchema = baseEnvSchema.extend({
-    NEXT_PUBLIC_APP_URL: z.string().url(),
-    NEXT_PUBLIC_SITE_URL: z.string().url(),
-    RESEND_API_KEY: z.string().min(1),
-    RESEND_FROM: z.string().email(),
-  });
+// In production we require public URLs to be present (they may be derived from VERCEL_URL
+// upstream in lib/env.ts). Email (Resend) is conditionally required: if either
+// RESEND_API_KEY or RESEND_FROM is provided, both must be set.
+const productionEnvSchema = baseEnvSchema.superRefine((env, ctx) => {
+  if (!env.NEXT_PUBLIC_APP_URL) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['NEXT_PUBLIC_APP_URL'],
+      message: 'NEXT_PUBLIC_APP_URL must be set in production (or derivable).',
+    });
+  }
+
+  if (!env.NEXT_PUBLIC_SITE_URL) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['NEXT_PUBLIC_SITE_URL'],
+      message: 'NEXT_PUBLIC_SITE_URL must be set in production (or derivable).',
+    });
+  }
+
+  const hasResendKey = typeof env.RESEND_API_KEY === 'string' && env.RESEND_API_KEY.length > 0;
+  const hasResendFrom = typeof env.RESEND_FROM === 'string' && env.RESEND_FROM.length > 0;
+
+  if (hasResendKey !== hasResendFrom) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: hasResendKey ? ['RESEND_FROM'] : ['RESEND_API_KEY'],
+      message: 'RESEND_API_KEY and RESEND_FROM must both be set together in production.',
+    });
+  }
+});
 
 const developmentEnvSchema = baseEnvSchema;
 const testEnvSchema = baseEnvSchema;

@@ -19,6 +19,7 @@ export type BookingsListMobileProps = {
   formatTime: (iso: string) => string;
   onEdit: (booking: BookingDTO) => void;
   onCancel: (booking: BookingDTO) => void;
+  allowEdit?: boolean;
   emptyState?: EmptyStateProps;
   isPastView?: boolean;
   variant?: 'guest' | 'ops';
@@ -32,6 +33,7 @@ function BookingCard({
   formatTime,
   onEdit,
   onCancel,
+  allowEdit = true,
   isPastView,
   cardId,
   variant,
@@ -41,6 +43,7 @@ function BookingCard({
   formatTime: (iso: string) => string;
   onEdit: (booking: BookingDTO) => void;
   onCancel: (booking: BookingDTO) => void;
+  allowEdit?: boolean;
   isPastView: boolean;
   cardId: string;
   variant: 'guest' | 'ops';
@@ -100,17 +103,19 @@ function BookingCard({
         ) : null}
       </dl>
       <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-        <Button
-          type="button"
-          variant="outline"
-          className={cn('h-11 w-full sm:w-auto')}
-          onClick={() => onEdit(booking)}
-          disabled={disableActions}
-          aria-disabled={disableActions}
-          aria-label={`Edit booking ${variant === 'ops' ? `for ${customerLabel}` : `at ${restaurantLabel}`}`}
-        >
-          Edit booking
-        </Button>
+        {allowEdit ? (
+          <Button
+            type="button"
+            variant="outline"
+            className={cn('h-11 w-full sm:w-auto')}
+            onClick={() => onEdit(booking)}
+            disabled={disableActions}
+            aria-disabled={disableActions}
+            aria-label={`Edit booking ${variant === 'ops' ? `for ${customerLabel}` : `at ${restaurantLabel}`}`}
+          >
+            Edit booking
+          </Button>
+        ) : null}
         <Button
           type="button"
           variant="ghost"
@@ -160,6 +165,7 @@ export function BookingsListMobile({
   formatTime,
   onEdit,
   onCancel,
+  allowEdit,
   emptyState,
   isPastView = false,
   variant = 'guest',
@@ -184,6 +190,7 @@ export function BookingsListMobile({
           formatTime={formatTime}
           onEdit={onEdit}
           onCancel={onCancel}
+          allowEdit={allowEdit}
           isPastView={isPastView}
           cardId={`${baseId}-${booking.id}`}
           variant={variant}

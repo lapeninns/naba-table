@@ -33,6 +33,7 @@ export type BookingsTableProps = {
   onEdit: (booking: BookingDTO) => void;
   onCancel: (booking: BookingDTO) => void;
   variant?: 'guest' | 'ops';
+  allowEdit?: boolean;
   opsLifecycle?: {
     pendingBookingId: string | null;
     pendingAction: BookingAction | null;
@@ -69,6 +70,7 @@ export function BookingsTable({
   onEdit,
   onCancel,
   variant = 'guest',
+  allowEdit = true,
   opsLifecycle,
 }: BookingsTableProps) {
   const showSkeleton = isLoading;
@@ -182,6 +184,7 @@ export function BookingsTable({
             formatTime={formatTime}
             onEdit={onEdit}
             onCancel={onCancel}
+            allowEdit={allowEdit}
             emptyState={mobileEmptyState}
             isPastView={isPastView}
             variant={variant}
@@ -276,6 +279,7 @@ export function BookingsTable({
                         formatTime={formatTime}
                         onEdit={onEdit}
                         onCancel={onCancel}
+                        allowEdit={allowEdit}
                         isPastView={isPastView}
                         variant={variant}
                         opsLifecycle={isOpsVariant ? opsLifecycle : undefined}

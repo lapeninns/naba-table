@@ -17,6 +17,7 @@ export type BookingRowProps = {
   formatTime: (iso: string) => string;
   onEdit: (booking: BookingDTO) => void;
   onCancel: (booking: BookingDTO) => void;
+  allowEdit?: boolean;
   isPastView?: boolean;
   variant?: 'guest' | 'ops';
   opsLifecycle?: {
@@ -59,6 +60,7 @@ export function BookingRow({
   formatTime,
   onEdit,
   onCancel,
+  allowEdit = true,
   isPastView = false,
   variant = 'guest',
   opsLifecycle,
@@ -151,17 +153,19 @@ export function BookingRow({
           ) : isOpsVariant ? (
             <OpsBookingDetailsDialog booking={booking} formatDate={formatDate} formatTime={formatTime} />
           ) : null}
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="text-primary"
-            disabled={disableActions}
-            onClick={() => onEdit(booking)}
-            aria-disabled={disableActions}
-          >
-            Edit
-          </Button>
+          {allowEdit ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="text-primary"
+              disabled={disableActions}
+              onClick={() => onEdit(booking)}
+              aria-disabled={disableActions}
+            >
+              Edit
+            </Button>
+          ) : null}
           <Button
             type="button"
             size="sm"
