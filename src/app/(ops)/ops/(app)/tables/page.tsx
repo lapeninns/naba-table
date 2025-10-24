@@ -17,9 +17,9 @@ export default function TablesPage() {
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Table Inventory</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Table Settings</h1>
           <p className="text-muted-foreground">
-            Manage your restaurant's table configuration and floor plan
+            Configure seating resources, capacity assumptions, and service zones for your restaurant.
           </p>
         </div>
       </div>

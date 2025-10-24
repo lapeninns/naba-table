@@ -10,11 +10,27 @@ type TableInventoryDto = TableInventoryRow & {
   zone?: { id: string; name: string | null } | null;
 };
 
+type ServiceCapacitySummaryDto = {
+  key: 'lunch' | 'dinner';
+  label: string;
+  capacity: number;
+  tablesConsidered: number;
+  turnsPerTable: number;
+  seatsPerTurn: number;
+  assumptions: {
+    windowMinutes: number;
+    turnMinutes: number;
+    bufferMinutes: number;
+    intervalMinutes: number | null;
+  };
+};
+
 type TableInventorySummaryDto = {
   totalTables: number;
   totalCapacity: number;
   availableTables: number;
   zones: { id: string; name: string }[];
+  serviceCapacities?: ServiceCapacitySummaryDto[];
 };
 
 type ListTablesResponseDto = {
@@ -46,6 +62,7 @@ export type TableInventorySummary = {
   totalCapacity: number;
   availableTables: number;
   zones: { id: string; name: string }[];
+  serviceCapacities: ServiceCapacitySummaryDto[];
 };
 
 export type ListTablesParams = {
@@ -176,6 +193,7 @@ function mapSummary(dto: TableInventorySummaryDto | undefined): TableInventorySu
     totalCapacity: dto.totalCapacity,
     availableTables: dto.availableTables,
     zones: dto.zones ?? [],
+    serviceCapacities: dto.serviceCapacities ?? [],
   };
 }
 

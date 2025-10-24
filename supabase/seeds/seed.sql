@@ -204,3 +204,153 @@ JOIN customers_ranked cust
  AND cust.rn = ((bs.n - 1) % cc.cnt) + 1;
 
 COMMIT;
+
+
+-- Seed baseline table inventory for every restaurant.
+-- Generates allowed capacities, a default zone, and four tables (capacities 2, 4, 7, 9).
+
+BEGIN;
+
+-- Step 1: Gather restaurant records
+WITH restaurant_rows AS (
+    SELECT id, slug
+    FROM public.restaurants
+),
+
+-- Step 2: Define baseline table capacities
+capacity_rows AS (
+    SELECT r.id AS restaurant_id, caps.capacity
+    FROM restaurant_rows r
+    CROSS JOIN (VALUES (2), (4), (7), (9)) AS caps(capacity)
+),
+
+-- Step 3: Insert or update allowed capacities
+allowed_caps AS (
+    INSERT INTO public.allowed_capacities (restaurant_id, capacity)
+    SELECT restaurant_id, capacity
+    FROM capacity_rows
+    ON CONFLICT (restaurant_id, capacity) DO UPDATE
+    SET updated_at = timezone('utc', now())
+    RETURNING restaurant_id, capacity
+),
+
+-- Step 4: Insert or update default "Main Dining" zone
+zone_rows AS (
+    INSERT INTO public.zones (id, restaurant_id, name, sort_order, created_at, updated_at)
+    SELECT
+        gen_random_uuid(),
+        r.id,
+        'Main Dining',
+        1,
+        now(),
+        now()
+    FROM restaurant_rows r
+    ON CONFLICT (restaurant_id, lower(name)) DO UPDATE
+    SET updated_at = EXCLUDED.updated_at
+    RETURNING id, restaurant_id
+),
+
+-- Step 5: Prepare data for table inventory seeding
+table_source AS (
+    SELECT
+        ac.restaurant_id,
+        z.id AS zone_id,
+        ac.capacity,
+        ROW_NUMBER() OVER (PARTITION BY ac.restaurant_id ORDER BY ac.capacity) AS ordinal
+    FROM allowed_caps ac
+    JOIN zone_rows z ON z.restaurant_id = ac.restaurant_id
+)
+
+-- Step 6: Insert or update table inventory
+INSERT INTO public.table_inventory (
+    id,
+    restaurant_id,
+    table_number,
+    capacity,
+    min_party_size,
+    max_party_size,
+    section,
+    zone_id,
+    category,
+    seating_type,
+    status,
+    mobility,
+    active
+)
+SELECT
+    gen_random_uuid(),
+    ts.restaurant_id,
+    'T' || to_char(ts.capacity, 'FM00') || '-' || to_char(ts.ordinal, 'FM00') AS table_number,
+    ts.capacity,
+    CASE
+        WHEN ts.capacity <= 2 THEN 1
+        WHEN ts.capacity <= 4 THEN 2
+        ELSE 4
+    END AS min_party_size,
+    ts.capacity AS max_party_size,
+    'Main Dining' AS section,
+    ts.zone_id,
+    'dining'::public.table_category,
+    'standard'::public.table_seating_type,
+    'available'::public.table_status,
+    'movable'::public.table_mobility,
+    true AS active
+FROM table_source ts
+ON CONFLICT (restaurant_id, table_number) DO UPDATE
+SET
+    capacity = EXCLUDED.capacity,
+    min_party_size = EXCLUDED.min_party_size,
+    max_party_size = EXCLUDED.max_party_size,
+    section = EXCLUDED.section,
+    zone_id = EXCLUDED.zone_id,
+    category = EXCLUDED.category,
+    seating_type = EXCLUDED.seating_type,
+    status = EXCLUDED.status,
+    mobility = EXCLUDED.mobility,
+    active = EXCLUDED.active,
+    updated_at = now();
+
+COMMIT;
+
+
+-- Grants access to every restaurant for amanshresthaaaaa@gmail.com.
+-- Run against the target Supabase project (staging/prod) using a service-role connection.
+
+-- Optional: invite the user if an auth record does not yet exist.
+-- COMMENT OUT if the user already exists to avoid resending an invite.
+-- select auth.invite_user_by_email('amanshresthaaaaa@gmail.com');
+
+DO $$
+DECLARE
+    _user_id uuid;
+BEGIN
+    SELECT id INTO _user_id
+    FROM auth.users
+    WHERE email = lower('amanshresthaaaaa@gmail.com');
+
+    IF _user_id IS NULL THEN
+        RAISE EXCEPTION 'auth.users entry for % not found. Run auth.invite_user_by_email first.', 'amanshresthaaaaa@gmail.com';
+    END IF;
+
+    -- Ensure profile row exists and has access enabled.
+    INSERT INTO public.profiles (id, email, name, phone, has_access)
+    VALUES (_user_id, lower('amanshresthaaaaa@gmail.com'), 'Aman Shrestha', NULL, true)
+    ON CONFLICT (id) DO UPDATE
+        SET email = EXCLUDED.email,
+            name = EXCLUDED.name,
+            has_access = true,
+            updated_at = timezone('utc', now());
+
+    -- Grant manager-level membership to every restaurant.
+    INSERT INTO public.restaurant_memberships (user_id, restaurant_id, role)
+    SELECT _user_id, r.id, 'manager'
+    FROM public.restaurants r
+    ON CONFLICT (user_id, restaurant_id) DO UPDATE
+        SET role = EXCLUDED.role;
+END
+$$;
+
+-- Verification query (optional)
+-- select restaurant_id, role from public.restaurant_memberships
+-- where user_id = (select id from auth.users where email = 'amanshresthaaaaa@gmail.com')
+-- order by restaurant_id;

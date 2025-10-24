@@ -196,6 +196,66 @@ export default function TableInventoryClient() {
     }
   }, [filterZone, zoneOptions]);
 
+  const summaryCards = useMemo(() => {
+    if (!summary) {
+      return null;
+    }
+
+    type SummaryCardDescriptor = {
+      key: string;
+      label: string;
+      value: string;
+      description?: string;
+    };
+
+    const activeTables = tables.filter((table) => table.active).length;
+    const inactiveTables = Math.max(summary.totalTables - activeTables, 0);
+
+    const cards: SummaryCardDescriptor[] = [
+      {
+        key: 'total-tables',
+        label: 'Total tables configured',
+        value: summary.totalTables.toLocaleString(),
+        description: summary.totalTables === 1 ? 'Single seating resource' : `${summary.totalTables.toLocaleString()} entries in inventory`,
+      },
+      {
+        key: 'total-capacity',
+        label: 'Total seats planned',
+        value: `${summary.totalCapacity.toLocaleString()} seats`,
+      },
+      {
+        key: 'active-tables',
+        label: 'Active for service',
+        value: `${activeTables.toLocaleString()} tables`,
+        description: inactiveTables > 0 ? `${inactiveTables.toLocaleString()} inactive` : undefined,
+      },
+      {
+        key: 'zones-configured',
+        label: 'Zones configured',
+        value: summary.zones.length.toLocaleString(),
+      },
+    ];
+
+    if (summary.serviceCapacities && summary.serviceCapacities.length > 0) {
+      summary.serviceCapacities.forEach((service) => {
+        const capacityValue = `${service.capacity.toLocaleString()} covers`;
+        const turns = service.turnsPerTable;
+        const description = turns > 0
+          ? `≈${turns} turns across ${service.tablesConsidered} tables`
+          : 'Insufficient window for additional turns';
+
+        cards.push({
+          key: `service-${service.key}`,
+          label: service.label,
+          value: capacityValue,
+          description,
+        });
+      });
+    }
+
+    return cards;
+  }, [summary, tables]);
+
   const zoneCreateMutation = useMutation({
     mutationFn: ({ restaurantId, name, sortOrder }: { restaurantId: string; name: string; sortOrder?: number }) =>
       zoneService.create(restaurantId, name, sortOrder),
@@ -474,15 +534,19 @@ export default function TableInventoryClient() {
 
   return (
     <div className="space-y-6">
-      <section className="grid gap-4 md:grid-cols-3">
-        {summary ? (
-          <>
-            <SummaryCard label="Total tables" value={summary.totalTables} />
-            <SummaryCard label="Total capacity" value={`${summary.totalCapacity} seats`} />
-            <SummaryCard label="Available now" value={`${summary.availableTables} tables`} />
-          </>
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {summaryCards ? (
+          summaryCards.map((card) => (
+            <SummaryCard
+              key={card.key}
+              label={card.label}
+              value={card.value}
+              description={card.description}
+            />
+          ))
         ) : (
           <>
+            <Skeleton className="h-24 w-full rounded-lg" />
             <Skeleton className="h-24 w-full rounded-lg" />
             <Skeleton className="h-24 w-full rounded-lg" />
             <Skeleton className="h-24 w-full rounded-lg" />
@@ -994,11 +1058,22 @@ export default function TableInventoryClient() {
   );
 }
 
-function SummaryCard({ label, value }: { label: string; value: string | number }) {
+function SummaryCard({
+  label,
+  value,
+  description,
+}: {
+  label: string;
+  value: string | number;
+  description?: string;
+}) {
   return (
     <div className="rounded-lg border bg-card p-4 shadow-sm">
       <p className="text-sm text-muted-foreground">{label}</p>
       <p className="mt-2 text-2xl font-semibold text-foreground">{value}</p>
+      {description ? (
+        <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+      ) : null}
     </div>
   );
 }
