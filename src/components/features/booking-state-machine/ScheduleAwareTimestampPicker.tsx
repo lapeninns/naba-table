@@ -48,6 +48,8 @@ const CLOSED_COPY =
 const NO_SLOTS_COPY =
   'All reservation times are taken on this date. Please choose a different day.';
 const UNKNOWN_COPY = 'Schedule not loaded yet—scroll to load month.';
+const UNAVAILABLE_SELECTION_COPY =
+  'Selected time is no longer available. Please choose another slot.';
 
 const toStartOfDay = (value: Date): Date => {
   const next = new Date(value);
@@ -109,6 +111,7 @@ export function ScheduleAwareTimestampPicker({
   const [currentSchedule, setCurrentSchedule] = useState<ReservationSchedule | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [timeValidationError, setTimeValidationError] = useState<string | null>(null);
 
   const scheduleTimezone = currentSchedule?.timezone ?? restaurantTimezone ?? DEFAULT_TIMEZONE;
 
@@ -143,6 +146,7 @@ export function ScheduleAwareTimestampPicker({
     setDisabledDays(new Map());
     setCurrentSchedule(null);
     setLoadError(null);
+    setTimeValidationError(null);
   }, [restaurantSlug]);
 
   const updateDisabledDays = useCallback(() => {
@@ -227,6 +231,7 @@ export function ScheduleAwareTimestampPicker({
       setSelectedTime('');
       setDraftTime('');
       commitChange(activeDate, null);
+      setTimeValidationError(null);
       return;
     }
     const fallback = enabledSlots[0]?.value ?? '';
@@ -234,8 +239,15 @@ export function ScheduleAwareTimestampPicker({
       setSelectedTime(fallback);
       setDraftTime(fallback);
       commitChange(activeDate, fallback);
+      setTimeValidationError(null);
     }
   }, [activeDate, enabledSlots, commitChange, currentSchedule, selectedTime]);
+
+  useEffect(() => {
+    if (selectedTime && enabledSlots.some((slot) => slot.value === selectedTime)) {
+      setTimeValidationError(null);
+    }
+  }, [enabledSlots, selectedTime]);
 
   const handleDateSelect = useCallback(
     (date: Date | undefined | null) => {
@@ -244,31 +256,60 @@ export function ScheduleAwareTimestampPicker({
         setSelectedTime('');
         setDraftTime('');
         commitChange(null, null);
+        setTimeValidationError(null);
         return;
       }
       const formatted = formatDateForInput(date);
       setActiveDate(formatted);
+      setTimeValidationError(null);
     },
     [commitChange],
   );
 
   const handleTimeChange = useCallback(
     (next: string, options?: { commit?: boolean }) => {
-      setDraftTime(next);
       if (options?.commit === false) {
+        setDraftTime(next);
+        setTimeValidationError(null);
         return;
       }
-      setSelectedTime(next);
-      commitChange(activeDate, next);
+
+      const normalized = normalizeTime(next);
+      if (!normalized) {
+        setDraftTime(selectedTime);
+        setTimeValidationError('Enter a valid time.');
+        onBlur?.();
+        if (!selectedTime) {
+          commitChange(activeDate, null);
+        }
+        return;
+      }
+
+      const isAvailable = enabledSlots.some((slot) => slot.value === normalized);
+      if (!isAvailable) {
+        setDraftTime(selectedTime);
+        setTimeValidationError(UNAVAILABLE_SELECTION_COPY);
+        onBlur?.();
+        if (!selectedTime) {
+          commitChange(activeDate, null);
+        }
+        return;
+      }
+
+      setTimeValidationError(null);
+      setDraftTime(normalized);
+      setSelectedTime(normalized);
+      commitChange(activeDate, normalized);
       onBlur?.();
     },
-    [activeDate, commitChange, onBlur],
+    [activeDate, commitChange, enabledSlots, onBlur, selectedTime],
   );
 
   const handleSlotSelect = useCallback(
     (value: string) => {
       setDraftTime(value);
       setSelectedTime(value);
+      setTimeValidationError(null);
       commitChange(activeDate, value);
       onBlur?.();
     },
@@ -312,7 +353,14 @@ export function ScheduleAwareTimestampPicker({
     [currentSchedule],
   );
 
+  useEffect(() => {
+    if (isTimeDisabled) {
+      setTimeValidationError(null);
+    }
+  }, [isTimeDisabled]);
+
   const inlineWarning = loadError ?? null;
+  const resolvedTimeErrorMessage = errorMessage ?? timeValidationError ?? undefined;
 
   return (
     <div className={cn('space-y-6', className)}>
@@ -331,7 +379,7 @@ export function ScheduleAwareTimestampPicker({
             value: draftTime,
             onChange: handleTimeChange,
             onBlur,
-            error: errorMessage ?? undefined,
+            error: resolvedTimeErrorMessage,
           }}
           suggestions={enabledSlots}
           intervalMinutes={intervalMinutes}

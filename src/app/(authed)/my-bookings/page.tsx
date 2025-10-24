@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 
 import { DASHBOARD_DEFAULT_PAGE_SIZE } from '@/components/dashboard/constants';
 import type { BookingsPage } from '@/hooks/useBookings';
+import { env } from '@/lib/env';
 import { queryKeys } from '@/lib/query/keys';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
 
@@ -93,10 +94,11 @@ export default async function MyBookingsPage() {
   const queryClient = new QueryClient();
   await prefetchUpcomingBookings(queryClient);
   const dehydratedState = dehydrate(queryClient);
+  const scheduleParityEnabled = env.featureFlags.editScheduleParity ?? false;
 
   return (
     <HydrationBoundary state={dehydratedState}>
-      <MyBookingsClient />
+      <MyBookingsClient scheduleParityEnabled={scheduleParityEnabled} />
     </HydrationBoundary>
   );
 }

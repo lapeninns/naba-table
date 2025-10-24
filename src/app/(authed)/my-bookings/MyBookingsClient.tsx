@@ -11,7 +11,11 @@ import { useBookingsTableState } from '@/hooks/useBookingsTableState';
 import { track } from '@/lib/analytics';
 import { DEFAULT_VENUE } from '@shared/config/venue';
 
-export function MyBookingsClient() {
+type MyBookingsClientProps = {
+  scheduleParityEnabled: boolean;
+};
+
+export function MyBookingsClient({ scheduleParityEnabled }: MyBookingsClientProps) {
   const tableState = useBookingsTableState({ pageSize: DASHBOARD_DEFAULT_PAGE_SIZE });
   const { statusFilter, page, pageSize, queryFilters, handleStatusFilterChange } = tableState;
   const [editBooking, setEditBooking] = useState<BookingDTO | null>(null);
@@ -102,6 +106,7 @@ export function MyBookingsClient() {
         onOpenChange={handleEditOpenChange}
         restaurantSlug={DEFAULT_VENUE.slug}
         restaurantTimezone={DEFAULT_VENUE.timezone}
+        scheduleParityEnabled={scheduleParityEnabled}
       />
       <CancelBookingDialog booking={cancelBooking} open={isCancelOpen} onOpenChange={handleCancelOpenChange} />
     </section>

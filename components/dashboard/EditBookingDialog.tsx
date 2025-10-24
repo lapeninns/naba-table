@@ -25,7 +25,6 @@ import { useUpdateBooking } from '@/hooks/useUpdateBooking';
 import { BOOKING_IN_PAST_DASHBOARD_MESSAGE } from '@/lib/bookings/messages';
 import type { HttpError } from '@/lib/http/errors';
 import { emit } from '@/lib/analytics/emit';
-import { env } from '@/lib/env';
 import { DEFAULT_VENUE } from '@shared/config/venue';
 
 const errorCopy: Record<string, string> = {
@@ -65,6 +64,7 @@ export type EditBookingDialogProps = {
   mutationHook?: UseUpdateBookingHook;
   restaurantSlug?: string | null;
   restaurantTimezone?: string | null;
+  scheduleParityEnabled?: boolean;
 };
 
 export function EditBookingDialog({
@@ -74,6 +74,7 @@ export function EditBookingDialog({
   mutationHook,
   restaurantSlug: restaurantSlugOverride,
   restaurantTimezone: restaurantTimezoneOverride,
+  scheduleParityEnabled = false,
 }: EditBookingDialogProps) {
   const defaultValues = useMemo<FormValues>(
     () => ({
@@ -108,7 +109,6 @@ export function EditBookingDialog({
   const mutation = useMutationHook();
   const [formError, setFormError] = useState<{ message: string; code?: string } | null>(null);
   const startValue = watch('start');
-  const scheduleParityEnabled = env.featureFlags.editScheduleParity;
 
   const effectiveRestaurantSlug = useMemo(() => {
     return (
