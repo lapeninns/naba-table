@@ -108,7 +108,6 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
 # Application
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
-NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 # Email (Resend) - Optional for local dev
 RESEND_API_KEY=your-resend-key
@@ -129,12 +128,6 @@ NEXT_PUBLIC_FEATURE_PAST_TIME_GRACE_MINUTES=15
 ```
 
 After configuring Resend, run `pnpm email:check --to <your inbox>` to confirm the domain shows as verified and that recent booking emails appear as delivered.
-
-> Production on Vercel
->
-> - If `NEXT_PUBLIC_SITE_URL`/`NEXT_PUBLIC_APP_URL` are not explicitly set, they will be derived from Vercel's `VERCEL_URL` during build (e.g., `https://<deployment>.vercel.app`).
-> - In production, email settings are conditionally required: if either `RESEND_API_KEY` or `RESEND_FROM` is set, both must be provided. The app will not attempt to send emails when they are missing.
-> - Prefer configuring the final canonical URLs and Resend settings in Vercel Project → Settings → Environment Variables.
 
 **Getting Supabase Credentials:**
 

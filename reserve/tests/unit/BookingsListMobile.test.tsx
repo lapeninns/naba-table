@@ -33,7 +33,7 @@ describe('BookingsListMobile', () => {
   const formatDate = (iso: string) => `Date(${iso.slice(0, 10)})`;
   const formatTime = (iso: string) => `Time(${iso.slice(11, 16)})`;
 
-  it('renders booking summary (guest) and triggers cancel only (edit hidden)', async () => {
+  it('renders booking summary and triggers actions', async () => {
     const user = userEvent.setup();
     const handleEdit = vi.fn();
     const handleCancel = vi.fn();
@@ -46,7 +46,6 @@ describe('BookingsListMobile', () => {
         formatTime={formatTime}
         onEdit={handleEdit}
         onCancel={handleCancel}
-        allowEdit={false}
       />,
     );
 
@@ -56,10 +55,10 @@ describe('BookingsListMobile', () => {
     expect(screen.getByText(/party of 4/i)).toBeInTheDocument();
     expect(screen.getByText('Confirmed')).toBeInTheDocument();
 
-    // Edit button should not be rendered for guest variant
-    expect(screen.queryByRole('button', { name: /edit booking at test bistro/i })).toBeNull();
+    await user.click(screen.getByRole('button', { name: /edit booking at test bistro/i }));
     await user.click(screen.getByRole('button', { name: /cancel booking at test bistro/i }));
-    expect(handleEdit).not.toHaveBeenCalled();
+
+    expect(handleEdit).toHaveBeenCalledWith(booking);
     expect(handleCancel).toHaveBeenCalledWith(booking);
   });
 

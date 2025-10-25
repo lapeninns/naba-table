@@ -17,7 +17,6 @@ import {
 } from '@reserve/shared/schedule/availability';
 import { fetchReservationSchedule, scheduleQueryKey } from '@reserve/features/reservations/wizard/services/schedule';
 import { toTimeSlotDescriptor, type ReservationSchedule, type TimeSlotDescriptor } from '@reserve/features/reservations/wizard/services/timeSlots';
-import { closedDaysQueryKey, fetchClosedDaysForRange } from '@reserve/features/reservations/wizard/services/closedDays';
 import { cn } from '@/lib/utils';
 
 type DisabledReasonState = Map<string, UnavailabilityReason>;
@@ -101,7 +100,6 @@ export function ScheduleAwareTimestampPicker({
   const queryClient = useQueryClient();
 
   const scheduleCacheRef = useRef<Map<string, ReservationSchedule | null>>(new Map());
-  const closedDaysRef = useRef<Set<string>>(new Set());
   const [disabledDays, setDisabledDays] = useState<DisabledReasonState>(new Map());
 
   const fallbackMinDate = useMemo(() => toStartOfDay(minDate ?? new Date()), [minDate]);
@@ -145,7 +143,6 @@ export function ScheduleAwareTimestampPicker({
 
   useEffect(() => {
     scheduleCacheRef.current.clear();
-    closedDaysRef.current.clear();
     setDisabledDays(new Map());
     setCurrentSchedule(null);
     setLoadError(null);
@@ -154,8 +151,6 @@ export function ScheduleAwareTimestampPicker({
 
   const updateDisabledDays = useCallback(() => {
     const next = buildDisabledDayMap(scheduleCacheRef.current);
-    // Merge in pre-fetched closed days so they appear instantly
-    closedDaysRef.current.forEach((dateKey) => next.set(dateKey, 'closed'));
     setDisabledDays(next);
   }, []);
 
@@ -211,9 +206,6 @@ export function ScheduleAwareTimestampPicker({
   const unavailabilityReason = useMemo<UnavailabilityReason | null>(() => {
     if (!activeDate) {
       return null;
-    }
-    if (closedDaysRef.current.has(activeDate)) {
-      return 'closed';
     }
     return resolveDateUnavailability(activeDate, scheduleCacheRef.current);
   }, [activeDate]);
@@ -326,40 +318,11 @@ export function ScheduleAwareTimestampPicker({
 
   const handleMonthPrefetch = useCallback(
     (month: Date) => {
-      // Compute full grid (Sunday -> Saturday) for visible month
-      const firstOfMonth = new Date(month.getFullYear(), month.getMonth(), 1);
-      const lastOfMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0);
-      const startDow = firstOfMonth.getDay(); // 0=Sun
-      const endDow = lastOfMonth.getDay();
-      const gridStart = new Date(firstOfMonth);
-      gridStart.setDate(gridStart.getDate() - startDow);
-      const gridEnd = new Date(lastOfMonth);
-      gridEnd.setDate(gridEnd.getDate() + (6 - endDow));
-
-      const formatted = formatDateForInput(firstOfMonth);
-      // Prefetch schedule for the first day (retains existing behavior)
+      const firstDay = new Date(month.getFullYear(), month.getMonth(), 1);
+      const formatted = formatDateForInput(firstDay);
       void fetchSchedule(formatted, { force: false });
-      // Prefetch closed days for the grid so disabled days are instant, with query caching
-      if (restaurantSlug) {
-        const key = closedDaysQueryKey(restaurantSlug, gridStart, gridEnd);
-        void queryClient
-          .fetchQuery({
-            queryKey: key,
-            queryFn: ({ signal }) => fetchClosedDaysForRange(restaurantSlug, gridStart, gridEnd, signal),
-            staleTime: 5 * 60_000,
-          })
-          .then((closed) => {
-            const merged = new Set(closedDaysRef.current);
-            closed.forEach((d) => merged.add(d));
-            closedDaysRef.current = merged;
-            updateDisabledDays();
-          })
-          .catch((error) => {
-            console.warn('[schedule-picker] closed-days prefetch failed', error);
-          });
-      }
     },
-    [fetchSchedule, restaurantSlug, updateDisabledDays, queryClient],
+    [fetchSchedule],
   );
 
   const isDateDisabled = useCallback(

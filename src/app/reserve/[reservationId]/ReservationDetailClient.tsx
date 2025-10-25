@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { CancelBookingDialog } from '@/components/dashboard/CancelBookingDialog';
+import { EditBookingDialog } from '@/components/dashboard/EditBookingDialog';
 import { StatusChip } from '@/components/dashboard/StatusChip';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -113,7 +114,7 @@ export function ReservationDetailClient({
 }: ReservationDetailClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  // Edit flow removed for customer-facing reservation detail.
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [isCancelOpen, setIsCancelOpen] = useState(false);
   const viewTrackedRef = useRef(false);
   const isOnline = useOnlineStatus();
@@ -265,7 +266,11 @@ export function ReservationDetailClient({
     }
   }, [searchParams]);
 
-  // Edit handler removed.
+  const handleEdit = useCallback(() => {
+    if (!reservation) return;
+    void emit('reservation_detail_edit_clicked', { reservationId });
+    setIsEditOpen(true);
+  }, [reservation, reservationId]);
 
   const handleCancel = useCallback(() => {
     if (!reservation) return;
@@ -282,7 +287,9 @@ export function ReservationDetailClient({
     router.push(`/?source=rebook&reservationId=${reservation.id}`);
   }, [reservation, reservationId, router]);
 
-  // Edit dialog state removed.
+  const closeEditDialog = useCallback((open: boolean) => {
+    setIsEditOpen(open);
+  }, []);
 
   const closeCancelDialog = useCallback((open: boolean) => {
     setIsCancelOpen(open);
@@ -437,7 +444,9 @@ export function ReservationDetailClient({
             <Button variant="default" onClick={handleRebook} disabled={isFetching}>
               Rebook
             </Button>
-            {/* Edit action removed for customer-facing UI */}
+            <Button variant="outline" onClick={handleEdit} disabled={actionDisabled}>
+              Edit
+            </Button>
             <Button variant="destructive" onClick={handleCancel} disabled={actionDisabled}>
               Cancel
             </Button>
@@ -527,7 +536,13 @@ export function ReservationDetailClient({
 
       {bookingDto ? (
         <>
-          {/* Edit dialog removed */}
+          <EditBookingDialog
+            booking={bookingDto}
+            open={isEditOpen}
+            onOpenChange={closeEditDialog}
+            restaurantSlug={venue.slug ?? DEFAULT_VENUE.slug}
+            restaurantTimezone={venue.timezone}
+          />
           <CancelBookingDialog booking={bookingDto} open={isCancelOpen} onOpenChange={closeCancelDialog} />
         </>
       ) : null}
