@@ -9,6 +9,8 @@ export async function recordObservabilityEvent(params: {
   eventType: string;
   severity?: ObservabilitySeverity;
   context?: Json | null;
+  restaurantId?: string | null;
+  bookingId?: string | null;
 }): Promise<void> {
   try {
     const supabase = getServiceSupabaseClient();
@@ -17,6 +19,8 @@ export async function recordObservabilityEvent(params: {
       event_type: params.eventType,
       severity: params.severity ?? "info",
       context: params.context ?? null,
+      restaurant_id: params.restaurantId ?? null,
+      booking_id: params.bookingId ?? null,
     });
   } catch (error) {
     console.error("[observability] failed to record event", {

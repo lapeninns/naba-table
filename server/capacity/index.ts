@@ -49,6 +49,9 @@ export {
   autoAssignTables,
   autoAssignTablesForDate,
   isTableAvailable,
+  evaluateManualSelection,
+  createManualHold,
+  ManualSelectionInputError,
 } from "./tables";
 
 export {
@@ -114,6 +117,12 @@ export type {
   TableAssignmentMember,
   TableAssignmentGroup,
   AutoAssignResult,
+  ManualSelectionCheck,
+  ManualSelectionSummary,
+  ManualValidationResult,
+  ManualHoldResult,
+  ManualSelectionOptions,
+  ManualHoldOptions,
 } from "./tables";
 
 export {

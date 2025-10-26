@@ -153,23 +153,46 @@ function createMockSupabaseClient(options: MockClientOptions) {
         };
       }
 
+      if (table === 'booking_table_assignments') {
+        return {
+          select() {
+            return {
+              eq() {
+                return {
+                  in(_: string, tableIds: string[]) {
+                    const active = assignments[assignments.length - 1];
+                    const rows = tableIds.map((tableId) => ({
+                      table_id: tableId,
+                      id: `${active?.bookingId ?? 'booking'}-${tableId}`,
+                    }));
+                    return Promise.resolve({ data: rows, error: null });
+                  },
+                };
+              },
+            };
+          },
+        };
+      }
+
       throw new Error(`Unexpected table ${table}`);
     },
     rpc(name: string, args: Record<string, unknown>) {
-      if (name === 'assign_tables_atomic') {
+      if (name === 'assign_tables_atomic_v2') {
         assignments.push({
           bookingId: args.p_booking_id as string,
           tableIds: Array.isArray(args.p_table_ids) ? [...(args.p_table_ids as string[])] : [],
-          window: args.p_window as string,
+          window: '',
         });
         const data = (Array.isArray(args.p_table_ids) ? args.p_table_ids : []).map((tableId: string) => ({
           table_id: tableId,
-          assignment_id: `${args.p_booking_id}-${tableId}`,
+          start_at: '2025-01-01T18:00:00.000Z',
+          end_at: '2025-01-01T20:00:00.000Z',
+          merge_group_id: null,
         }));
         return Promise.resolve({ data, error: null });
       }
 
-      if (name === 'unassign_table_from_booking' || name === 'unassign_tables_atomic') {
+      if (name === 'unassign_tables_atomic') {
         const bookingId = args.p_booking_id as string;
         const tableIdsParam = Array.isArray(args.p_table_ids)
           ? (args.p_table_ids as string[])

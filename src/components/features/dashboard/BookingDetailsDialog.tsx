@@ -1,24 +1,31 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { Mail, Phone, Clock, Users, Calendar as CalendarIcon, AlertTriangle, Award, CheckCircle2, XCircle, Loader2, LogIn, LogOut, History, ArrowRight, Keyboard } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState, type ComponentType } from 'react';
 
 import { BookingActionButton, BookingStatusBadge, StatusTransitionAnimator } from '@/components/features/booking-state-machine';
+import { TableFloorPlan } from '@/components/features/dashboard/TableFloorPlan';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useBookingState } from '@/contexts/booking-state-machine';
-import { useBookingService, useTableInventoryService } from '@/contexts/ops-services';
+import { useBookingService } from '@/contexts/ops-services';
+import { useManualAssignmentContext } from '@/hooks/ops/useManualAssignmentContext';
+import { useToast } from '@/hooks/use-toast';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
 import { formatDateReadable, formatTimeRange, getTodayInTimezone } from '@/lib/utils/datetime';
 
 import type { BookingAction } from '@/components/features/booking-state-machine';
-import type { TableInventory } from '@/services/ops/tables';
+import type {
+  ManualSelectionPayload,
+  ManualHoldPayload,
+  ManualSelectionCheck,
+  ManualValidationResult,
+} from '@/services/ops/bookings';
 import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
 
 const TIER_COLORS: Record<string, string> = {
@@ -55,6 +62,34 @@ function expandAssignmentGroups(groups: OpsTodayBooking['tableAssignments']) {
   return expanded;
 }
 
+function formatSlack(slack: number): string {
+  if (slack === 0) {
+    return 'exact fit';
+  }
+  if (slack > 0) {
+    return `+${slack} over`;
+  }
+  return `${slack} short`;
+}
+
+function formatCountdownFromIso(expiresAt: string | null, nowTs: number): string | null {
+  if (!expiresAt) {
+    return null;
+  }
+  const target = Date.parse(expiresAt);
+  if (Number.isNaN(target)) {
+    return null;
+  }
+  const diffSeconds = Math.max(0, Math.floor((target - nowTs) / 1000));
+  const minutes = Math.floor(diffSeconds / 60)
+    .toString()
+    .padStart(2, '0');
+  const seconds = Math.floor(diffSeconds % 60)
+    .toString()
+    .padStart(2, '0');
+  return `${minutes}:${seconds}`;
+}
+
 type BookingDetailsDialogProps = {
   booking: OpsTodayBooking;
   summary: OpsTodayBookingsSummary;
@@ -72,6 +107,7 @@ type BookingDetailsDialogProps = {
 };
 
 const DEFAULT_DURATION_MINUTES = 90;
+const MANUAL_HOLD_TTL_SECONDS = 180;
 
 export function BookingDetailsDialog({
   booking,
@@ -86,7 +122,12 @@ export function BookingDetailsDialog({
   tableActionState,
 }: BookingDetailsDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
+  const [selectedTables, setSelectedTables] = useState<string[]>([]);
+  const [userModifiedSelection, setUserModifiedSelection] = useState(false);
+  const [validationResult, setValidationResult] = useState<ManualValidationResult | null>(null);
+  const [requireAdjacency, setRequireAdjacency] = useState(true);
+  const [lastHoldKey, setLastHoldKey] = useState<string | null>(null);
+  const [currentTimestamp, setCurrentTimestamp] = useState(() => Date.now());
   const [assignments, setAssignments] = useState<OpsTodayBooking['tableAssignments']>(booking.tableAssignments);
   const [localPendingAction, setLocalPendingAction] = useState<BookingAction | null>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -107,10 +148,179 @@ export function BookingDetailsDialog({
   const hasCheckedOut = effectiveStatus === 'completed' || Boolean(booking.checkedOutAt);
   const isCancelled = effectiveStatus === 'cancelled';
   const showLifecycleBadges = effectiveStatus !== 'checked_in' && effectiveStatus !== 'completed';
-  const tableService = useTableInventoryService();
   const bookingService = useBookingService();
-  const supportsTableAssignment = Boolean(onAssignTable && onUnassignTable);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const supportsTableAssignment = true;
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
+  const manualContextQuery = useManualAssignmentContext({
+    bookingId: isOpen ? booking.id : null,
+    restaurantId: summary.restaurantId,
+    targetDate: summary.date,
+    enabled: isOpen,
+  });
+
+  const {
+    data: manualContextData,
+    isLoading: manualContextLoading,
+    isFetching: manualContextFetching,
+    isError: manualContextIsError,
+    error: manualContextError,
+    refetch: refetchManualContext,
+  } = manualContextQuery;
+  const manualContext = manualContextData ?? null;
+
+  const holdMutation = useMutation({
+    mutationFn: (payload: ManualHoldPayload) => bookingService.manualHoldSelection(payload),
+    onSuccess: (result) => {
+      setValidationResult(result.validation);
+      const holdKey = result.hold ? result.hold.tableIds.slice().sort().join(',') : null;
+      setLastHoldKey(holdKey);
+      setUserModifiedSelection(false);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.manualAssign.context(booking.id) });
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : 'Unable to place hold';
+      toast({ title: 'Hold failed', description: message, variant: 'destructive' });
+    },
+  });
+
+  const validateMutation = useMutation({
+    mutationFn: (payload: ManualSelectionPayload) => bookingService.manualValidateSelection(payload),
+    onSuccess: (result) => {
+      setValidationResult(result);
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : 'Validation failed';
+      toast({ title: 'Validation failed', description: message, variant: 'destructive' });
+    },
+  });
+
+  const confirmMutation = useMutation({
+    mutationFn: async (holdId: string) => {
+      const key =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      return bookingService.manualConfirmHold({
+        holdId,
+        bookingId: booking.id,
+        idempotencyKey: key,
+        requireAdjacency,
+      });
+    },
+    onSuccess: (result) => {
+      const tableMap = new Map(manualContext?.tables.map((table) => [table.id, table]) ?? []);
+      const nextAssignments = result.assignments.map((assignment) => {
+        const meta = tableMap.get(assignment.tableId);
+        return {
+          groupId: null,
+          capacitySum: meta?.capacity ?? null,
+          members: [
+            {
+              tableId: assignment.tableId,
+              tableNumber: meta?.tableNumber ?? assignment.tableId,
+              capacity: meta?.capacity ?? null,
+              section: meta?.section ?? null,
+            },
+          ],
+        };
+      });
+      setAssignments(nextAssignments);
+      setSelectedTables([]);
+      setValidationResult(null);
+      setUserModifiedSelection(false);
+      setLastHoldKey(null);
+      toast({ title: 'Tables assigned', description: 'Manual assignment confirmed successfully.' });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.manualAssign.context(booking.id) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.opsDashboard.summary(summary.restaurantId, summary.date ?? null) });
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : 'Assignment failed';
+      toast({ title: 'Assignment failed', description: message, variant: 'destructive' });
+    },
+  });
+
+  const handleToggleTable = useCallback((tableId: string) => {
+    setSelectedTables((prev) => {
+      if (prev.includes(tableId)) {
+        return prev.filter((id) => id !== tableId);
+      }
+      return [...prev, tableId];
+    });
+    setUserModifiedSelection(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedTables([]);
+      setValidationResult(null);
+      setUserModifiedSelection(false);
+      setLastHoldKey(null);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    const interval = setInterval(() => setCurrentTimestamp(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!manualContext) {
+      return;
+    }
+    const defaultSelection = manualContext.activeHold?.tableIds?.length
+      ? manualContext.activeHold.tableIds
+      : manualContext.bookingAssignments;
+    if (!userModifiedSelection) {
+      const normalized = Array.from(new Set(defaultSelection));
+      const nextKey = normalized.slice().sort().join(',');
+      const currentKey = selectedTables.slice().sort().join(',');
+      if (nextKey !== currentKey) {
+        setSelectedTables(normalized);
+      }
+    }
+    if (manualContext.activeHold) {
+      setLastHoldKey(manualContext.activeHold.tableIds.slice().sort().join(','));
+      if (!validationResult) {
+        const metadata = manualContext.activeHold.metadata;
+        const selectionMeta = metadata && typeof metadata === 'object' ? (metadata as Record<string, unknown>).selection : null;
+        if (selectionMeta && typeof selectionMeta === 'object') {
+          const summary = (selectionMeta as { summary?: ManualValidationResult['summary'] }).summary;
+          if (summary) {
+            setValidationResult({ ok: true, summary, checks: [] });
+          }
+        }
+      }
+    }
+  }, [manualContext, selectedTables, userModifiedSelection, validationResult]);
+
+  useEffect(() => {
+    if (!isOpen || !manualContext) {
+      return;
+    }
+    if (selectedTables.length === 0) {
+      setValidationResult(null);
+      return;
+    }
+    const selectionKey = [...selectedTables].sort().join(',');
+    if (selectionKey === lastHoldKey || holdMutation.isPending) {
+      return;
+    }
+    const timeout = setTimeout(() => {
+      holdMutation.mutate({
+        bookingId: booking.id,
+        tableIds: selectedTables,
+        holdTtlSeconds: MANUAL_HOLD_TTL_SECONDS,
+        requireAdjacency,
+      });
+    }, 250);
+    return () => clearTimeout(timeout);
+  }, [booking.id, holdMutation, isOpen, lastHoldKey, manualContext, requireAdjacency, selectedTables]);
 
   const {
     data: historyData,
@@ -163,94 +373,121 @@ export function BookingDetailsDialog({
     setAssignments(booking.tableAssignments);
   }, [booking.tableAssignments]);
 
-  const {
-    data: tablesResult,
-    isLoading: tablesLoading,
-    isError: tablesError,
-    error: tablesQueryError,
-    refetch: refetchTables,
-  } = useQuery({
-    queryKey: queryKeys.opsTables.list(summary.restaurantId, { scope: 'assignment' }),
-    queryFn: async () => tableService.list(summary.restaurantId),
-    enabled: supportsTableAssignment && isOpen,
-    staleTime: 60_000,
-  });
-
-  const bookingWindow = useMemo(() => computeDialogBookingWindow(booking.startTime, booking.endTime), [booking.startTime, booking.endTime]);
-
-  const conflictingTableIds = useMemo(
-    () => computeConflictingTableIds(summary.bookings, booking, bookingWindow),
-    [summary.bookings, booking, bookingWindow],
-  );
-
   const normalizedAssignments = useMemo(() => expandAssignmentGroups(assignments), [assignments]);
 
-  const assignedTableIds = useMemo(
-    () => new Set(normalizedAssignments.map((assignment) => assignment.tableId)),
-    [normalizedAssignments],
+  const selectionSummary = useMemo(() => {
+    if (validationResult) {
+      return validationResult.summary;
+    }
+    if (!manualContext) {
+      return null;
+    }
+    if (selectedTables.length === 0) {
+      return null;
+    }
+    const tableMap = new Map(manualContext.tables.map((table) => [table.id, table]));
+    let totalCapacity = 0;
+    const tableNumbers: string[] = [];
+    let zoneId: string | null = null;
+    let zoneMismatch = false;
+    for (const tableId of selectedTables) {
+      const meta = tableMap.get(tableId);
+      if (!meta) {
+        continue;
+      }
+      totalCapacity += meta.capacity ?? 0;
+      tableNumbers.push(meta.tableNumber ?? meta.id);
+      if (zoneId === null) {
+        zoneId = meta.zoneId ?? null;
+      } else if (zoneId !== meta.zoneId) {
+        zoneMismatch = true;
+      }
+    }
+    if (tableNumbers.length === 0) {
+      return null;
+    }
+    if (zoneMismatch) {
+      zoneId = null;
+    }
+    const partySize = manualContext.booking.partySize ?? 0;
+    return {
+      tableCount: tableNumbers.length,
+      totalCapacity,
+      slack: totalCapacity - partySize,
+      zoneId,
+      tableNumbers,
+      partySize,
+    };
+  }, [manualContext, selectedTables, validationResult]);
+
+  const validationChecks = validationResult?.checks ?? [];
+  const hasBlockingErrors = validationChecks.some((check) => check.status === 'error');
+  const activeHold = manualContext?.activeHold ?? null;
+  const otherHolds = useMemo(
+    () => (manualContext ? manualContext.holds.filter((hold) => hold.bookingId && hold.bookingId !== booking.id) : []),
+    [manualContext, booking.id],
   );
 
-  const tableOptions = useMemo(() => {
-    const data = tablesResult?.tables ?? [];
-    return data
-      .filter((table) => !assignedTableIds.has(table.id))
-      .map((table) => {
-        const conflict = bookingWindow ? conflictingTableIds.has(table.id) : false;
-        const isOutOfService = table.status === 'out_of_service';
-        const disabled = isOutOfService;
-        const labelParts = [`Table ${table.tableNumber}`];
-        if (table.capacity) {
-          labelParts.push(`${table.capacity} seat${table.capacity === 1 ? '' : 's'}`);
-        }
-        if (table.section) {
-          labelParts.push(table.section);
-        }
-        const reason = isOutOfService
-          ? 'Out of service'
-          : conflict
-            ? 'Potential conflict (local cache)'
-            : null;
-        return {
-          table,
-          label: labelParts.join(' · '),
-          disabled,
-          reason,
-          conflict,
-        };
-      });
-  }, [tablesResult?.tables, assignedTableIds, conflictingTableIds, bookingWindow]);
+  const selectionMeterLabel = selectionSummary
+    ? `${selectionSummary.tableCount} table${selectionSummary.tableCount === 1 ? '' : 's'} · ${selectionSummary.totalCapacity} seat${selectionSummary.totalCapacity === 1 ? '' : 's'} · ${formatSlack(selectionSummary.slack)}`
+    : 'Select tables to begin';
 
-  const hasAssignableTables = tableOptions.some((option) => !option.disabled);
-  const selectedOption = selectedTableId
-    ? tableOptions.find((option) => option.table.id === selectedTableId) ?? null
-    : null;
+  const selectionPartySize = selectionSummary?.partySize ?? manualContext?.booking.partySize ?? booking.partySize;
+  const holdCountdownLabel = activeHold ? formatCountdownFromIso(activeHold.expiresAt, currentTimestamp) : null;
+  const selectionDisabled = manualContextLoading || manualContextFetching || holdMutation.isPending || confirmMutation.isPending;
+  const manualContextErrorMessage = manualContextError instanceof Error ? manualContextError.message : 'Unable to load manual assignment context.';
+
+  const handleValidateSelection = useCallback(() => {
+    if (selectedTables.length === 0) {
+      toast({ title: 'Select tables', description: 'Choose one or more tables before validating.', variant: 'destructive' });
+      return;
+    }
+    validateMutation.mutate({
+      bookingId: booking.id,
+      tableIds: selectedTables,
+      requireAdjacency,
+      excludeHoldId: manualContext?.activeHold?.id,
+    });
+  }, [booking.id, manualContext?.activeHold?.id, requireAdjacency, selectedTables, toast, validateMutation]);
+
+  const handleConfirmSelection = useCallback(() => {
+    if (!manualContext?.activeHold) {
+      toast({ title: 'No active hold', description: 'Create a hold before confirming assignment.', variant: 'destructive' });
+      return;
+    }
+    if (selectedTables.length === 0) {
+      toast({ title: 'Select tables', description: 'Choose tables to assign before confirming.', variant: 'destructive' });
+      return;
+    }
+    if (hasBlockingErrors) {
+      toast({ title: 'Resolve validation errors', description: 'Fix blocking checks before assigning tables.', variant: 'destructive' });
+      return;
+    }
+    confirmMutation.mutate(manualContext.activeHold.id);
+  }, [confirmMutation, hasBlockingErrors, manualContext?.activeHold, selectedTables.length, toast]);
+
+  const handleClearSelection = useCallback(async () => {
+    if (manualContext?.activeHold) {
+      try {
+        await bookingService.manualReleaseHold({ holdId: manualContext.activeHold.id, bookingId: booking.id });
+        await refetchManualContext();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unable to release hold';
+        toast({ title: 'Release failed', description: message, variant: 'destructive' });
+      }
+    }
+    setSelectedTables([]);
+    setValidationResult(null);
+    setUserModifiedSelection(true);
+    setLastHoldKey(null);
+  }, [booking.id, bookingService, manualContext?.activeHold, refetchManualContext, toast]);
+
 
   useEffect(() => {
     if (!isOpen) {
-      setSelectedTableId(null);
       setLocalPendingAction(null);
     }
   }, [isOpen]);
-
-  useEffect(() => {
-    if (supportsTableAssignment && isOpen) {
-      void refetchTables();
-    }
-  }, [supportsTableAssignment, isOpen, refetchTables]);
-
-  const handleAssignTable = async () => {
-    if (!selectedTableId || !onAssignTable) {
-      return;
-    }
-    try {
-      const updated = await onAssignTable(selectedTableId);
-      setAssignments(updated);
-      setSelectedTableId(null);
-      void refetchTables();
-    } catch (error) {
-      // Toast handled by mutation hook
-    }
-  };
 
   const handleUnassignTable = async (tableId: string) => {
     if (!onUnassignTable) {
@@ -259,7 +496,7 @@ export function BookingDetailsDialog({
     try {
       const updated = await onUnassignTable(tableId);
       setAssignments(updated);
-      void refetchTables();
+      await manualContextQuery.refetch();
     } catch (error) {
       // Toast handled by mutation hook
     }
@@ -549,121 +786,217 @@ export function BookingDetailsDialog({
           ) : null}
 
           {supportsTableAssignment ? (
-            <section className="space-y-4 rounded-2xl border border-border/60 bg-muted/10 px-4 py-4">
-              <div>
-                <h3 className="text-sm font-semibold text-foreground">Table assignment</h3>
-                <p className="text-xs text-muted-foreground">Assign or adjust tables for this reservation.</p>
+            <section className="space-y-5 rounded-2xl border border-border/60 bg-muted/10 px-4 py-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Manual assignment</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Select tables on the floor plan and validate before confirming.
+                  </p>
+                </div>
+                <Button
+                  variant={requireAdjacency ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-8"
+                  onClick={() => setRequireAdjacency((prev) => !prev)}
+                >
+                  {requireAdjacency ? 'Adjacency: On' : 'Adjacency: Off'}
+                </Button>
               </div>
 
-            <div className="space-y-2">
-              {normalizedAssignments.length > 0 ? (
-                <>
-                  {normalizedAssignments.map((assignment) => {
-                  const isUnassigning =
-                    tableActionState?.type === 'unassign' && tableActionState?.tableId === assignment.tableId;
-                  const capacityLabel =
-                    assignment.capacity && assignment.capacity > 0
-                      ? `${assignment.capacity} seat${assignment.capacity === 1 ? '' : 's'}`
-                      : null;
-                  const meta = [capacityLabel, assignment.section ? `Section ${assignment.section}` : null]
-                    .filter(Boolean)
-                    .join(' · ');
-
-                  return (
-                    <div
-                      key={assignment.tableId}
-                      className="flex items-center justify-between rounded-xl border border-border/60 bg-white px-3 py-2"
-                    >
-                      <div className="flex flex-col">
-                        <span className="text-sm font-semibold text-foreground">Table {assignment.tableNumber}</span>
-                        {meta ? <span className="text-xs text-muted-foreground">{meta}</span> : null}
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8"
-                        onClick={() => handleUnassignTable(assignment.tableId)}
-                        disabled={isUnassigning || tableActionState?.type === 'assign'}
-                      >
-                        {isUnassigning ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-                            Removing…
-                          </>
-                        ) : (
-                          'Remove'
-                        )}
-                      </Button>
-                    </div>
-                  );
-                })}
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground">No tables assigned yet.</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor={`table-select-${booking.id}`} className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Assign new table
-              </Label>
-              {tablesLoading ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading tables…
+              {manualContextIsError ? (
+                <div className="rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                  {manualContextErrorMessage}
                 </div>
-              ) : tablesError ? (
-                <p className="text-sm text-destructive">
-                  {tablesQueryError instanceof Error ? tablesQueryError.message : 'Unable to load tables'}
-                </p>
               ) : (
-                <Select
-                  value={selectedTableId ?? ''}
-                  onValueChange={(value) => setSelectedTableId(value)}
-                  disabled={!hasAssignableTables || tableActionState?.type === 'assign'}
-                >
-                  <SelectTrigger id={`table-select-${booking.id}`} className="w-full">
-                    <SelectValue placeholder={hasAssignableTables ? 'Choose a table' : 'No tables available'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tableOptions.map((option) => (
-                      <SelectItem key={option.table.id} value={option.table.id} disabled={option.disabled}>
-                        {option.label}
-                        {option.reason ? ` — ${option.reason}` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              {!hasAssignableTables && !tablesLoading && !tablesError ? (
-                <p className="text-xs text-muted-foreground">No available tables match this booking window.</p>
-              ) : null}
-              {bookingWindow === null ? (
-                <p className="text-xs text-muted-foreground">Booking time is incomplete, so availability checks may be inaccurate.</p>
-              ) : null}
-              {selectedOption?.conflict ? (
-                <p className="flex items-center gap-2 text-xs text-amber-600" role="status" aria-live="polite">
-                  <AlertTriangle className="h-4 w-4" aria-hidden />
-                  Local data suggests a potential overlap—you can still submit and the system will confirm availability.
-                </p>
-              ) : null}
-            </div>
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr),minmax(0,1fr)]">
+                  <div className="relative">
+                    <TableFloorPlan
+                      bookingId={booking.id}
+                      tables={manualContext?.tables ?? []}
+                      holds={manualContext?.holds ?? []}
+                      conflicts={manualContext?.conflicts ?? []}
+                      bookingAssignments={manualContext?.bookingAssignments ?? []}
+                      selectedTableIds={selectedTables}
+                      onToggle={handleToggleTable}
+                      disabled={selectionDisabled}
+                    />
+                    {manualContextLoading ? (
+                      <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-background/70 backdrop-blur-sm">
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
+                      </div>
+                    ) : null}
+                  </div>
 
-            <div className="flex items-center gap-3">
-              <Button
-                onClick={handleAssignTable}
-                disabled={!selectedTableId || tableActionState?.type === 'assign'}
-                className="h-9"
-              >
-                {tableActionState?.type === 'assign' ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-                    Assigning…
-                  </>
+                  <aside className="space-y-4">
+                    <div className="rounded-xl border border-border/60 bg-white px-3 py-3">
+                      <p className="text-sm font-semibold text-foreground">{selectionMeterLabel}</p>
+                      <p className="text-xs text-muted-foreground">Party size: {selectionPartySize}</p>
+                    </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase text-muted-foreground">Validation checks</p>
+                    {validationChecks.length > 0 ? (
+                      <div className="space-y-2">
+                        {validationChecks.map((check) => (
+                          <div
+                            key={check.id}
+                            className={cn(
+                              'flex items-start gap-2 rounded-lg border px-3 py-2 text-xs',
+                              check.status === 'error'
+                                ? 'border-destructive/40 bg-destructive/10 text-destructive'
+                                : check.status === 'warn'
+                                  ? 'border-amber-300 bg-amber-50 text-amber-900'
+                                  : 'border-emerald-200 bg-emerald-50 text-emerald-900',
+                            )}
+                          >
+                            {check.status === 'error' ? (
+                              <XCircle className="h-4 w-4 shrink-0" aria-hidden />
+                            ) : check.status === 'warn' ? (
+                              <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+                            ) : (
+                              <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden />
+                            )}
+                            <div>
+                              <p className="text-sm font-semibold">{check.message}</p>
+                              {check.details ? (
+                                <pre className="mt-1 whitespace-pre-wrap text-[11px] text-muted-foreground">
+                                  {JSON.stringify(check.details, null, 2)}
+                                </pre>
+                              ) : null}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Holds run validation automatically. You can also click validate to refresh results.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="rounded-xl border border-border/60 bg-white px-3 py-3 space-y-1">
+                    <p className="text-xs font-semibold uppercase text-muted-foreground">Active hold</p>
+                    {activeHold ? (
+                      <>
+                        <p className="text-sm font-semibold text-foreground">
+                          Expires {holdCountdownLabel ? `in ${holdCountdownLabel}` : 'soon'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Held by {activeHold.createdByName ?? 'you'} · {activeHold.tableIds.length} table
+                          {activeHold.tableIds.length === 1 ? '' : 's'}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Select tables to create a hold.</p>
+                    )}
+                  </div>
+
+                  {otherHolds.length > 0 ? (
+                    <div className="rounded-xl border border-border/60 bg-white px-3 py-3 space-y-2">
+                      <p className="text-xs font-semibold uppercase text-muted-foreground">Other holds</p>
+                      <div className="space-y-1">
+                        {otherHolds.map((hold) => (
+                          <p key={hold.id} className="text-xs text-muted-foreground">
+                            {hold.tableIds.length} table{hold.tableIds.length === 1 ? '' : 's'} held by{' '}
+                            {hold.createdByName ?? 'unknown'} (expires{' '}
+                            {formatCountdownFromIso(hold.expiresAt, currentTimestamp) ?? 'soon'})
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8"
+                      onClick={handleValidateSelection}
+                      disabled={selectedTables.length === 0 || validateMutation.isPending || selectionDisabled}
+                    >
+                      {validateMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> Validating…
+                        </>
+                      ) : (
+                        'Validate'
+                      )}
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="h-8"
+                      onClick={handleConfirmSelection}
+                      disabled={!activeHold || hasBlockingErrors || confirmMutation.isPending || selectedTables.length === 0}
+                    >
+                      {confirmMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> Assigning…
+                        </>
+                      ) : (
+                        'Assign'
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8"
+                      onClick={handleClearSelection}
+                      disabled={selectedTables.length === 0 || confirmMutation.isPending}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                </aside>
+              </div>
+              )}
+
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold text-foreground">Assigned tables</h4>
+                {normalizedAssignments.length > 0 ? (
+                  normalizedAssignments.map((assignment) => {
+                    const isUnassigning =
+                      tableActionState?.type === 'unassign' && tableActionState?.tableId === assignment.tableId;
+                    const capacityLabel =
+                      assignment.capacity && assignment.capacity > 0
+                        ? `${assignment.capacity} seat${assignment.capacity === 1 ? '' : 's'}`
+                        : null;
+                    const meta = [capacityLabel, assignment.section ? `Section ${assignment.section}` : null]
+                      .filter(Boolean)
+                      .join(' · ');
+
+                    return (
+                      <div
+                        key={assignment.tableId}
+                        className="flex items-center justify-between rounded-xl border border-border/60 bg-white px-3 py-2"
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-sm font-semibold text-foreground">Table {assignment.tableNumber}</span>
+                          {meta ? <span className="text-xs text-muted-foreground">{meta}</span> : null}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8"
+                          onClick={() => handleUnassignTable(assignment.tableId)}
+                          disabled={isUnassigning || confirmMutation.isPending}
+                        >
+                          {isUnassigning ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                              Removing…
+                            </>
+                          ) : (
+                            'Remove'
+                          )}
+                        </Button>
+                      </div>
+                    );
+                  })
                 ) : (
-                  'Assign table'
+                  <p className="text-sm text-muted-foreground">No tables assigned yet.</p>
                 )}
-              </Button>
-            </div>
+              </div>
             </section>
           ) : null}
 
@@ -826,75 +1159,4 @@ function ShortcutHint({ keys, description }: ShortcutHintProps) {
       <span className="text-sm text-muted-foreground">{description}</span>
     </div>
   );
-}
-
-type DialogBookingWindow = {
-  start: number;
-  end: number;
-};
-
-function parseMinutes(value: string | null): number | null {
-  if (!value) {
-    return null;
-  }
-  const [hours, minutes] = value.split(':').map((part) => Number.parseInt(part, 10));
-  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
-    return null;
-  }
-  return hours * 60 + minutes;
-}
-
-function computeDialogBookingWindow(startTime: string | null, endTime: string | null): DialogBookingWindow | null {
-  const start = parseMinutes(startTime);
-  if (start === null) {
-    return null;
-  }
-  const endCandidate = parseMinutes(endTime);
-  const end = endCandidate !== null && endCandidate > start ? endCandidate : start + DEFAULT_DURATION_MINUTES;
-  return { start, end };
-}
-
-function windowsOverlap(a: DialogBookingWindow, b: DialogBookingWindow): boolean {
-  return a.start < b.end && b.start < a.end;
-}
-
-function computeConflictingTableIds(
-  bookings: OpsTodayBooking[],
-  current: OpsTodayBooking,
-  window: DialogBookingWindow | null,
-): Set<string> {
-  const conflicts = new Set<string>();
-  if (!window) {
-    return conflicts;
-  }
-
-  for (const booking of bookings) {
-    if (booking.id === current.id) {
-      continue;
-    }
-
-    if (!booking.tableAssignments || booking.tableAssignments.length === 0) {
-      continue;
-    }
-
-    if (booking.status === 'cancelled' || booking.status === 'no_show') {
-      continue;
-    }
-
-    const otherWindow = computeDialogBookingWindow(booking.startTime, booking.endTime);
-    if (!otherWindow) {
-      continue;
-    }
-
-    if (!windowsOverlap(window, otherWindow)) {
-      continue;
-    }
-
-    const expandedAssignments = expandAssignmentGroups(booking.tableAssignments);
-    for (const assignment of expandedAssignments) {
-      conflicts.add(assignment.tableId);
-    }
-  }
-
-  return conflicts;
 }

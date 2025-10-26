@@ -15,12 +15,23 @@ import { DateTime } from "luxon";
 
 import { env } from "@/lib/env";
 import {
-  isAssignAtomicEnabled,
-  isRpcAssignAtomicEnabled,
   isSelectorScoringEnabled,
   isOpsMetricsEnabled,
+  isAllocatorAdjacencyRequired,
+  getAllocatorKMax,
+  isHoldsEnabled,
 } from "@/server/feature-flags";
 import { getServiceSupabaseClient } from "@/server/supabase";
+import {
+  createTableHold,
+  confirmTableHold,
+  releaseTableHold,
+  listActiveHoldsForBooking,
+  findHoldConflicts,
+  HoldNotFoundError,
+  AssignTablesRpcError,
+} from "./holds";
+import type { TableHoldSummary, ConfirmHoldResult, HoldConflictInfo } from "./holds";
 
 import {
   bandDuration,
@@ -35,7 +46,15 @@ import {
   getSelectorScoringConfig,
 } from "./policy";
 import { buildScoredTablePlans, type RankedTablePlan, type CandidateMetrics, type CandidateDiagnostics } from "./selector";
-import { emitSelectorDecision, summarizeCandidate } from "./telemetry";
+import {
+  emitSelectorDecision,
+  summarizeCandidate,
+  emitSelectorQuote,
+  emitHoldCreated,
+  emitHoldConfirmed,
+  emitRpcConflict,
+  type CandidateSummary,
+} from "./telemetry";
 
 import type {
   ServiceKey,
@@ -44,6 +63,74 @@ import type { Database, Tables } from "@/types/supabase";
 import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 
 type DbClient = SupabaseClient<Database, "public", any>;
+
+const MISSING_TABLE_ERROR_CODES = new Set(["42P01", "PGRST202"]);
+const PERMISSION_DENIED_ERROR_CODES = new Set(["42501", "PGRST301"]);
+
+function isMissingSupabaseTableError(
+  error: PostgrestError | null | undefined,
+  table: string,
+): boolean {
+  if (!error) {
+    return false;
+  }
+
+  const code = typeof error.code === "string" ? error.code.toUpperCase() : "";
+  if (code && MISSING_TABLE_ERROR_CODES.has(code)) {
+    return true;
+  }
+
+  const normalizedTable = table.toLowerCase();
+  const schemaQualified = `public.${normalizedTable}`;
+
+  const toText = (value: unknown): string => {
+    return typeof value === "string" ? value.toLowerCase() : "";
+  };
+
+  const haystacks = [toText(error.message), toText(error.details), toText((error as { hint?: unknown })?.hint)];
+
+  return haystacks.some((text) => {
+    if (!text) {
+      return false;
+    }
+
+    const referencesTable =
+      text.includes(schemaQualified) ||
+      text.includes(`"${schemaQualified}"`) ||
+      text.includes(`'${schemaQualified}'`) ||
+      text.includes(normalizedTable);
+
+    if (!referencesTable) {
+      return false;
+    }
+
+    return (
+      text.includes("schema cache") ||
+      text.includes("does not exist") ||
+      text.includes("missing sql table") ||
+      text.includes("could not find the table")
+    );
+  });
+}
+
+function isPermissionDeniedError(
+  error: PostgrestError | null | undefined,
+  table: string,
+): boolean {
+  if (!error) {
+    return false;
+  }
+
+  const code = typeof error.code === "string" ? error.code.toUpperCase() : "";
+  if (code && PERMISSION_DENIED_ERROR_CODES.has(code)) {
+    return true;
+  }
+
+  const normalizedTable = table.toLowerCase();
+  const message = typeof error.message === "string" ? error.message.toLowerCase() : "";
+
+  return message.includes("permission denied") && message.includes(normalizedTable);
+}
 
 // =====================================================
 // Types
@@ -169,6 +256,11 @@ type BookingRowForAtomicSupabase = Pick<
   restaurants?: { timezone: string | null }[] | { timezone: string | null } | null;
 };
 
+type BookingRowForManual = Pick<
+  Tables<"bookings">,
+  "id" | "restaurant_id" | "booking_date" | "start_time" | "end_time" | "start_at" | "end_at" | "party_size" | "status"
+>;
+
 type BookingWindow = {
   service: ServiceKey;
   durationMinutes: number;
@@ -197,6 +289,114 @@ type ComputeBookingWindowArgs = {
   policy: VenuePolicy;
   serviceHint?: ServiceKey | null;
 };
+
+export type ManualSelectionCheckId = "sameZone" | "movable" | "adjacency" | "conflict" | "capacity";
+export type ManualSelectionCheckStatus = "ok" | "warn" | "error";
+
+export type ManualSelectionCheck = {
+  id: ManualSelectionCheckId;
+  status: ManualSelectionCheckStatus;
+  message: string;
+  details?: Record<string, unknown>;
+};
+
+export type ManualSelectionSummary = {
+  tableCount: number;
+  totalCapacity: number;
+  slack: number;
+  zoneId: string | null;
+  tableNumbers: string[];
+  partySize: number;
+};
+
+export type ManualValidationResult = {
+  ok: boolean;
+  checks: ManualSelectionCheck[];
+  summary: ManualSelectionSummary;
+};
+
+export type ManualSelectionOptions = {
+  bookingId: string;
+  tableIds: string[];
+  requireAdjacency?: boolean;
+  excludeHoldId?: string | null;
+  client?: DbClient;
+};
+
+export type ManualHoldOptions = ManualSelectionOptions & {
+  holdTtlSeconds?: number;
+  createdBy?: string | null;
+};
+
+export type ManualAssignmentHoldState = {
+  id: string;
+  bookingId: string | null;
+  restaurantId: string;
+  zoneId: string;
+  startAt: string;
+  endAt: string;
+  expiresAt: string;
+  tableIds: string[];
+  createdBy: string | null;
+  createdByName: string | null;
+  createdByEmail: string | null;
+  metadata: Record<string, unknown> | null;
+  countdownSeconds: number | null;
+};
+
+export type ManualAssignmentConflict = {
+  tableId: string;
+  bookingId: string;
+  startAt: string;
+  endAt: string;
+  status: Tables<"bookings">["status"];
+};
+
+export type ManualAssignmentContext = {
+  booking: {
+    id: string;
+    restaurantId: string;
+    bookingDate: string | null;
+    startAt: string | null;
+    endAt: string | null;
+    partySize: number;
+    status: Tables<"bookings">["status"];
+  };
+  tables: Table[];
+  bookingAssignments: string[];
+  holds: ManualAssignmentHoldState[];
+  activeHold: ManualAssignmentHoldState | null;
+  conflicts: ManualAssignmentConflict[];
+  window: {
+    startAt: string | null;
+    endAt: string | null;
+  };
+};
+
+export type ManualHoldResult = {
+  hold: TableHoldSummary | null;
+  validation: ManualValidationResult;
+};
+
+type ManualSelectionContext = {
+  booking: BookingRowForManual;
+  restaurantId: string;
+  selectedTables: Table[];
+  zoneId: string | null;
+  window: BookingWindow | null;
+};
+
+export class ManualSelectionInputError extends Error {
+  status: number;
+  code: string;
+
+  constructor(message: string, options: { status?: number; code?: string } = {}) {
+    super(message);
+    this.name = "ManualSelectionInputError";
+    this.status = options.status ?? 400;
+    this.code = options.code ?? "INVALID_SELECTION";
+  }
+}
 
 function windowsOverlap(a: IntervalMs, b: IntervalMs): boolean {
   return a.start < b.end && b.start < a.end;
@@ -757,6 +957,7 @@ async function assignTablesForBooking(params: {
         idempotencyKey,
         client,
         window: serializedWindow,
+        requireAdjacency: plan.tables.length > 1 && isAllocatorAdjacencyRequired(),
       });
 
       if (assignments.length === 0) {
@@ -1156,7 +1357,7 @@ export async function findSuitableTables(
  * Assign a table to a booking
  * 
  * v1: Throws error (use RPC function assign_table_to_booking directly)
- * v2: Will wrap RPC and add business logic
+ * v2: Wraps assign_tables_atomic_v2 with additional logic
  * 
  * @param bookingId - Booking ID
  * @param tableId - Table ID
@@ -1172,37 +1373,1136 @@ export async function assignTableToBooking(
   options?: { idempotencyKey?: string | null }
 ): Promise<string> {
   const supabase = client ?? getServiceSupabaseClient();
-  const useAtomic = isRpcAssignAtomicEnabled() && isAssignAtomicEnabled();
+  const assignments = await invokeAssignTablesAtomic({
+    bookingId,
+    tableIds: [tableId],
+    assignedBy: assignedBy ?? null,
+    idempotencyKey: options?.idempotencyKey ?? null,
+    client: supabase,
+    requireAdjacency: false,
+  });
 
-  if (useAtomic) {
-    const assignments = await invokeAssignTablesAtomic({
+  const first = assignments[0];
+  if (!first) {
+    throw new Error("assign_tables_atomic_v2 returned no assignments");
+  }
+  if (!first.assignmentId) {
+    throw new Error("assign_tables_atomic_v2 did not return assignment id");
+  }
+  return first.assignmentId;
+}
+
+export type QuoteTablesOptions = {
+  bookingId: string;
+  zoneId?: string | null;
+  maxTables?: number;
+  requireAdjacency?: boolean;
+  avoidTables?: string[];
+  holdTtlSeconds?: number;
+  createdBy?: string | null;
+  client?: DbClient;
+};
+
+export type QuoteTablesResult = {
+  hold?: TableHoldSummary;
+  candidate?: CandidateSummary;
+  alternates: CandidateSummary[];
+  nextTimes: string[];
+  reason?: string;
+};
+
+export async function quoteTablesForBooking(options: QuoteTablesOptions): Promise<QuoteTablesResult> {
+  const {
+    bookingId,
+    zoneId,
+    maxTables,
+    requireAdjacency,
+    avoidTables,
+    holdTtlSeconds = 120,
+    createdBy,
+    client,
+  } = options;
+
+  const supabase = client ?? getServiceSupabaseClient();
+  const quoteStart = Date.now();
+
+  const bookingQuery = await supabase
+    .from("bookings")
+    .select(
+      `
+        id,
+        restaurant_id,
+        party_size,
+        status,
+        start_time,
+        end_time,
+        start_at,
+        end_at,
+        booking_date,
+        seating_preference
+      `,
+    )
+    .eq("id", bookingId)
+    .maybeSingle();
+
+  if (bookingQuery.error) {
+    throw new Error(`Failed to load booking ${bookingId}: ${bookingQuery.error.message}`);
+  }
+
+  const bookingRow = bookingQuery.data;
+  if (!bookingRow) {
+    throw new Error(`Booking ${bookingId} not found`);
+  }
+
+  if (!ASSIGNABLE_BOOKING_STATUSES.has(bookingRow.status as Tables<"bookings">["status"])) {
+    return {
+      alternates: [],
+      nextTimes: [],
+      reason: `Booking status ${bookingRow.status} is not eligible for auto assignment`,
+    };
+  }
+
+  const restaurantId = bookingRow.restaurant_id;
+  if (!restaurantId) {
+    throw new Error("Booking is missing restaurant_id");
+  }
+
+  const partySize = bookingRow.party_size ?? 0;
+  if (!Number.isFinite(partySize) || partySize <= 0) {
+    return {
+      alternates: [],
+      nextTimes: [],
+      reason: "Booking has no party size configured",
+    };
+  }
+
+  const assignmentDate = bookingRow.booking_date;
+  if (!assignmentDate) {
+    return {
+      alternates: [],
+      nextTimes: [],
+      reason: "Booking date is not set; unable to compute availability",
+    };
+  }
+
+  const { tables, bookings, schedule, policy, adjacency } = await loadAssignmentContext({
+    restaurantId,
+    date: assignmentDate,
+    client: supabase,
+  });
+
+  const bookingRecord = bookings.find((entry) => entry.id === bookingId);
+  const selectorScoringEnabled = isSelectorScoringEnabled();
+  const opsMetricsEnabled = isOpsMetricsEnabled();
+
+  let window: BookingWindow | null;
+  try {
+    window = computeBookingWindow({
+      startISO: bookingRow.start_at,
+      bookingDate: bookingRow.booking_date,
+      startTime: bookingRow.start_time,
+      partySize,
+      policy,
+    });
+  } catch (error) {
+    const message = error instanceof PolicyError ? error.message : "Unable to compute booking window";
+    await emitSelectorQuote({
+      restaurantId,
       bookingId,
-      tableIds: [tableId],
-      assignedBy: assignedBy ?? null,
-      idempotencyKey: options?.idempotencyKey ?? null,
+      partySize,
+      window: { start: bookingRow.start_at, end: bookingRow.end_at },
+      candidates: [],
+      selected: null,
+      skipReason: message,
+      durationMs: Date.now() - quoteStart,
+      featureFlags: {
+        selectorScoring: selectorScoringEnabled,
+        opsMetrics: opsMetricsEnabled,
+      },
+    });
+    return { alternates: [], nextTimes: [], reason: message };
+  }
+
+  if (!window) {
+    const reason = "Booking time is incomplete; cannot determine seating window";
+    await emitSelectorQuote({
+      restaurantId,
+      bookingId,
+      partySize,
+      window: { start: bookingRow.start_at, end: bookingRow.end_at },
+      candidates: [],
+      selected: null,
+      skipReason: reason,
+      durationMs: Date.now() - quoteStart,
+      featureFlags: {
+        selectorScoring: selectorScoringEnabled,
+        opsMetrics: opsMetricsEnabled,
+      },
+    });
+    return { alternates: [], nextTimes: [], reason };
+  }
+
+  const targetZoneFilter = zoneId ?? null;
+  const avoidSet = new Set((avoidTables ?? []).filter(Boolean));
+  const candidateTables = tables.filter((table) => {
+    if (targetZoneFilter && table.zoneId !== targetZoneFilter) {
+      return false;
+    }
+    if (avoidSet.has(table.id)) {
+      return false;
+    }
+    return true;
+  });
+
+  const availableTables = filterAvailableTables(
+    candidateTables,
+    partySize,
+    window,
+    schedule,
+    bookingRecord?.seating_preference
+      ? { partySize, seatingPreference: bookingRecord.seating_preference }
+      : undefined,
+    bookingId,
+  );
+
+  if (availableTables.length === 0) {
+    const reason = "No suitable tables are available for the booking window";
+    await emitSelectorQuote({
+      restaurantId,
+      bookingId,
+      partySize,
+      window: serializeBookingBlockWindow(window),
+      candidates: [],
+      selected: null,
+      skipReason: reason,
+      durationMs: Date.now() - quoteStart,
+      featureFlags: {
+        selectorScoring: selectorScoringEnabled,
+        opsMetrics: opsMetricsEnabled,
+      },
+    });
+    return { alternates: [], nextTimes: [], reason };
+  }
+
+  const { plans: candidatePlans, fallbackReason } = generateTablePlans(availableTables, partySize, adjacency);
+
+  const maxCombinationSize = Math.max(1, Math.min(maxTables ?? getAllocatorKMax(), getAllocatorKMax()));
+  const filteredPlans = candidatePlans.filter((plan) => plan.tables.length <= maxCombinationSize);
+
+  if (filteredPlans.length === 0) {
+    const reason = fallbackReason ?? "Unable to locate a compatible table combination";
+    await emitSelectorQuote({
+      restaurantId,
+      bookingId,
+      partySize,
+      window: serializeBookingBlockWindow(window),
+      candidates: [],
+      selected: null,
+      skipReason: reason,
+      durationMs: Date.now() - quoteStart,
+      featureFlags: {
+        selectorScoring: selectorScoringEnabled,
+        opsMetrics: opsMetricsEnabled,
+      },
+    });
+    return { alternates: [], nextTimes: [], reason };
+  }
+
+  const candidatePlan = filteredPlans[0];
+  const alternatePlans = filteredPlans.slice(1, 3);
+  const candidateSummary = mapPlanToCandidateSummary(candidatePlan);
+  const alternateSummaries = alternatePlans.map(mapPlanToCandidateSummary);
+
+  const quoteDuration = Date.now() - quoteStart;
+  await emitSelectorQuote({
+    restaurantId,
+    bookingId,
+    partySize,
+    window: serializeBookingBlockWindow(window),
+    candidates: [candidateSummary, ...alternateSummaries],
+    selected: candidateSummary,
+    skipReason: null,
+    durationMs: quoteDuration,
+    featureFlags: {
+      selectorScoring: selectorScoringEnabled,
+      opsMetrics: opsMetricsEnabled,
+    },
+  });
+
+  const holdZoneId = candidatePlan.tables[0]?.zoneId;
+  if (!holdZoneId) {
+    throw new Error("Selected candidate is missing zone information");
+  }
+
+  const expiresAt = DateTime.utc().plus({ seconds: holdTtlSeconds }).toISO();
+  if (!expiresAt) {
+    throw new Error("Failed to compute hold expiry timestamp");
+  }
+
+  const holdMetadata = {
+    source: "auto-quote",
+    candidate: candidateSummary,
+    alternates: alternateSummaries,
+    requireAdjacency: requireAdjacency ?? null,
+  } as const;
+
+  const blockStartIso = window.block.start.toISO();
+  const blockEndIso = window.block.end.toISO();
+  if (!blockStartIso || !blockEndIso) {
+    throw new Error("Failed to serialize booking window for hold creation");
+  }
+
+  const hold = await createTableHold({
+    bookingId,
+    restaurantId,
+    zoneId: holdZoneId,
+    tableIds: candidatePlan.tables.map((table) => table.id),
+    startAt: blockStartIso,
+    endAt: blockEndIso,
+    expiresAt,
+    createdBy: createdBy ?? null,
+    metadata: holdMetadata,
+    client: supabase,
+  });
+
+  await emitHoldCreated({
+    holdId: hold.id,
+    bookingId: hold.bookingId,
+    restaurantId: hold.restaurantId,
+    zoneId: hold.zoneId,
+    tableIds: hold.tableIds,
+    startAt: hold.startAt,
+    endAt: hold.endAt,
+    expiresAt: hold.expiresAt,
+    actorId: createdBy ?? null,
+    metadata: holdMetadata,
+  });
+
+  return {
+    hold,
+    candidate: candidateSummary,
+    alternates: alternateSummaries,
+    nextTimes: [],
+  };
+}
+
+export async function confirmHoldAssignment(options: {
+  holdId: string;
+  bookingId: string;
+  idempotencyKey: string;
+  requireAdjacency?: boolean;
+  assignedBy?: string | null;
+  client?: DbClient;
+}): Promise<ConfirmHoldResult[]> {
+  const { holdId, bookingId, idempotencyKey, requireAdjacency, assignedBy, client } = options;
+  const supabase = client ?? getServiceSupabaseClient();
+
+  const holdLookup = await supabase
+    .from("table_holds")
+    .select("id, booking_id, restaurant_id, zone_id, start_at, end_at, expires_at, table_hold_members(table_id)")
+    .eq("id", holdId)
+    .maybeSingle();
+
+  if (holdLookup.error) {
+    throw new Error(`Failed to load hold ${holdId}: ${holdLookup.error.message}`);
+  }
+
+  const holdRow = holdLookup.data;
+  if (!holdRow) {
+    throw new HoldNotFoundError(`Hold ${holdId} not found`);
+  }
+
+  const tableIds =
+    holdRow.table_hold_members?.map((member) => member.table_id).filter((value): value is string => !!value) ?? [];
+
+  try {
+    const assignments = await confirmTableHold({
+      holdId,
+      bookingId,
+      idempotencyKey,
+      requireAdjacency,
+      assignedBy,
       client: supabase,
     });
 
-    const first = assignments[0];
-   if (!first) {
-     throw new Error("assign_tables_atomic returned no assignments");
-   }
-    return first.assignmentId;
+    await emitHoldConfirmed({
+      holdId,
+      bookingId: holdRow.booking_id ?? null,
+      restaurantId: holdRow.restaurant_id,
+      zoneId: holdRow.zone_id,
+      tableIds,
+      startAt: holdRow.start_at,
+      endAt: holdRow.end_at,
+      expiresAt: holdRow.expires_at ?? null,
+      actorId: assignedBy ?? null,
+    });
+
+    return assignments;
+  } catch (error) {
+    if (error instanceof AssignTablesRpcError) {
+      await emitRpcConflict({
+        source: "assign_tables_atomic_v2",
+        bookingId,
+        restaurantId: holdRow.restaurant_id,
+        tableIds,
+        idempotencyKey,
+        holdId,
+        error: {
+          code: error.code ?? null,
+          message: error.message,
+          details: error.details ?? null,
+          hint: error.hint ?? null,
+        },
+      });
+    }
+
+    throw error;
+  }
+}
+
+const MANUAL_HOLD_DEFAULT_TTL_SECONDS = 120;
+const MANUAL_HOLD_MIN_TTL_SECONDS = 30;
+const MANUAL_HOLD_MAX_TTL_SECONDS = 600;
+const MANUAL_HOLD_METADATA_SOURCE = "manual-selection";
+
+function clampManualHoldTtlSeconds(value: number | undefined): number {
+  if (typeof value !== "number" || Number.isNaN(value) || !Number.isFinite(value)) {
+    return MANUAL_HOLD_DEFAULT_TTL_SECONDS;
+  }
+  const normalized = Math.trunc(value);
+  return Math.min(MANUAL_HOLD_MAX_TTL_SECONDS, Math.max(MANUAL_HOLD_MIN_TTL_SECONDS, normalized));
+}
+
+type ManualSelectionComputation = {
+  context: ManualSelectionContext;
+  validation: ManualValidationResult;
+};
+
+function evaluateAdjacencyConnectivity(
+  tables: Table[],
+  adjacency: Map<string, Set<string>>,
+): { connected: boolean; disconnected: string[] } {
+  if (tables.length <= 1) {
+    return { connected: true, disconnected: [] };
   }
 
-  // Call database RPC function
-  const { data, error } = await supabase.rpc("assign_table_to_booking", {
-    p_booking_id: bookingId,
-    p_table_id: tableId,
-    p_assigned_by: assignedBy ?? null,
-    p_notes: null,
+  const tableSet = new Set(tables.map((table) => table.id));
+  const graph = new Map<string, Set<string>>();
+
+  for (const tableId of tableSet) {
+    graph.set(tableId, new Set<string>());
+  }
+
+  for (const [source, neighbors] of adjacency.entries()) {
+    if (!tableSet.has(source)) {
+      continue;
+    }
+    for (const neighbor of neighbors ?? []) {
+      if (!tableSet.has(neighbor)) {
+        continue;
+      }
+      graph.get(source)!.add(neighbor);
+      if (!graph.has(neighbor)) {
+        graph.set(neighbor, new Set<string>());
+      }
+      graph.get(neighbor)!.add(source);
+    }
+  }
+
+  const start = tables[0]?.id;
+  if (!start) {
+    return { connected: true, disconnected: [] };
+  }
+
+  const visited = new Set<string>([start]);
+  const queue: string[] = [start];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    const neighbors = graph.get(current);
+    if (!neighbors) {
+      continue;
+    }
+    for (const neighbor of neighbors) {
+      if (!visited.has(neighbor)) {
+        visited.add(neighbor);
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  const disconnected: string[] = [];
+  for (const tableId of tableSet) {
+    if (!visited.has(tableId)) {
+      disconnected.push(tableId);
+    }
+  }
+
+  return { connected: disconnected.length === 0, disconnected };
+}
+
+async function computeManualSelection(
+  supabase: DbClient,
+  options: ManualSelectionOptions,
+): Promise<ManualSelectionComputation> {
+  const { bookingId, requireAdjacency, excludeHoldId } = options;
+  const normalizedTableIds = Array.from(
+    new Set(
+      (options.tableIds ?? []).filter((value): value is string => typeof value === "string" && value.length > 0),
+    ),
+  );
+
+  if (normalizedTableIds.length === 0) {
+    throw new ManualSelectionInputError("At least one table must be selected", {
+      status: 400,
+      code: "NO_TABLES",
+    });
+  }
+
+  const bookingQuery = await supabase
+    .from("bookings")
+    .select("id, restaurant_id, booking_date, start_time, end_time, start_at, end_at, party_size, status")
+    .eq("id", bookingId)
+    .maybeSingle();
+
+  if (bookingQuery.error) {
+    throw new Error(`Failed to load booking ${bookingId}: ${bookingQuery.error.message}`);
+  }
+
+  const bookingRow = bookingQuery.data as BookingRowForManual | null;
+  if (!bookingRow) {
+    throw new ManualSelectionInputError("Booking not found", { status: 404, code: "BOOKING_NOT_FOUND" });
+  }
+
+  const restaurantId = bookingRow.restaurant_id;
+  if (!restaurantId) {
+    throw new Error("Booking is missing restaurant_id");
+  }
+
+  let assignmentDate = bookingRow.booking_date ?? null;
+  if (!assignmentDate && bookingRow.start_at) {
+    const parsed = DateTime.fromISO(bookingRow.start_at);
+    if (parsed.isValid) {
+      assignmentDate = parsed.toISODate();
+    }
+  }
+
+  if (!assignmentDate) {
+    throw new ManualSelectionInputError("Booking date is not set; unable to compute availability window", {
+      status: 409,
+      code: "BOOKING_DATE_MISSING",
+    });
+  }
+
+  const { tables, schedule, policy, adjacency } = await loadAssignmentContext({
+    restaurantId,
+    date: assignmentDate,
+    client: supabase,
   });
 
-  if (error) {
-    throw new Error(`Failed to assign table: ${error.message}`);
+  const tableMap = new Map<string, Table>(tables.map((table) => [table.id, table]));
+  const selectedTables: Table[] = [];
+  const missingTableIds: string[] = [];
+
+  for (const tableId of normalizedTableIds) {
+    const table = tableMap.get(tableId);
+    if (!table) {
+      missingTableIds.push(tableId);
+    } else {
+      selectedTables.push(table);
+    }
   }
 
-  return data as string;
+  if (missingTableIds.length > 0) {
+    throw new ManualSelectionInputError("One or more selected tables were not found for this restaurant", {
+      status: 404,
+      code: "TABLE_NOT_FOUND",
+    });
+  }
+
+  const zoneIds = new Set(selectedTables.map((table) => table.zoneId).filter((value): value is string => !!value));
+  const zoneId = zoneIds.size === 1 ? selectedTables[0]?.zoneId ?? null : null;
+
+  let window: BookingWindow | null = null;
+  let windowError: string | null = null;
+
+  try {
+    window = computeBookingWindow({
+      startISO: bookingRow.start_at,
+      bookingDate: bookingRow.booking_date,
+      startTime: bookingRow.start_time,
+      partySize: bookingRow.party_size ?? 0,
+      policy,
+    });
+  } catch (error) {
+    windowError = error instanceof Error ? error.message : "Unable to compute booking window";
+    window = null;
+  }
+
+  const partySize = bookingRow.party_size ?? 0;
+  const summary: ManualSelectionSummary = {
+    tableCount: selectedTables.length,
+    totalCapacity: selectedTables.reduce((sum, table) => sum + (table.capacity ?? 0), 0),
+    slack: 0,
+    zoneId,
+    tableNumbers: selectedTables.map((table) => table.tableNumber ?? table.id),
+    partySize,
+  };
+  summary.slack = summary.totalCapacity - partySize;
+
+  const checks: ManualSelectionCheck[] = [];
+
+  if (selectedTables.length <= 1) {
+    checks.push({
+      id: "sameZone",
+      status: "ok",
+      message: "Single table selection",
+    });
+  } else if (!zoneId) {
+    checks.push({
+      id: "sameZone",
+      status: "error",
+      message: "Selected tables do not share a zone",
+      details: { zones: Array.from(zoneIds) },
+    });
+  } else {
+    checks.push({
+      id: "sameZone",
+      status: "ok",
+      message: "All tables share the same zone",
+      details: { zoneId },
+    });
+  }
+
+  const immobileTables = selectedTables.filter((table) => table.mobility !== "movable");
+  checks.push(
+    immobileTables.length === 0 || selectedTables.length <= 1
+      ? {
+          id: "movable",
+          status: "ok",
+          message: "Tables meet merge mobility requirements",
+        }
+      : {
+          id: "movable",
+          status: "error",
+          message: "Merged selections require movable tables",
+          details: {
+            tableIds: immobileTables.map((table) => table.id),
+            tableNumbers: immobileTables.map((table) => table.tableNumber ?? table.id),
+          },
+        },
+  );
+
+  const adjacencyRequired = typeof requireAdjacency === "boolean" ? requireAdjacency : isAllocatorAdjacencyRequired();
+  const adjacencyResult = evaluateAdjacencyConnectivity(selectedTables, adjacency);
+
+  if (selectedTables.length <= 1) {
+    checks.push({
+      id: "adjacency",
+      status: "ok",
+      message: "Single table selection",
+    });
+  } else {
+    const adjacencyStatus: ManualSelectionCheckStatus = adjacencyResult.connected
+      ? "ok"
+      : adjacencyRequired
+      ? "error"
+      : "warn";
+
+    checks.push({
+      id: "adjacency",
+      status: adjacencyStatus,
+      message: adjacencyResult.connected
+        ? "Tables form a connected cluster"
+        : adjacencyRequired
+        ? "Selected tables are not adjacent; adjacency is required"
+        : "Selected tables are not adjacent",
+      details: adjacencyResult.connected ? undefined : { disconnected: adjacencyResult.disconnected },
+    });
+  }
+
+  const windowRange = window ? toInterval(window.block) : null;
+  const windowStartIso = window?.block.start.toISO() ?? null;
+  const windowEndIso = window?.block.end.toISO() ?? null;
+
+  const tableStatusIssues: { tableId: string; status: string; active: boolean }[] = [];
+  const assignmentConflicts: { tableId: string; bookingId: string; startAt: string; endAt: string }[] = [];
+
+  for (const table of selectedTables) {
+    if (!table.active) {
+      tableStatusIssues.push({ tableId: table.id, status: "inactive", active: false });
+    }
+    if (table.status && table.status !== "available") {
+      tableStatusIssues.push({ tableId: table.id, status: table.status, active: table.active });
+    }
+
+    if (!windowRange) {
+      continue;
+    }
+
+    const entries = schedule.get(table.id) ?? [];
+    for (const entry of entries) {
+      if (entry.bookingId === bookingId) {
+        continue;
+      }
+      if (INACTIVE_BOOKING_STATUSES.has(entry.status)) {
+        continue;
+      }
+      if (!windowsOverlap(windowRange, { start: entry.start, end: entry.end })) {
+        continue;
+      }
+
+      const startIso = DateTime.fromMillis(entry.start).toISO();
+      const endIso = DateTime.fromMillis(entry.end).toISO();
+      assignmentConflicts.push({
+        tableId: table.id,
+        bookingId: entry.bookingId,
+        startAt: startIso ?? "",
+        endAt: endIso ?? "",
+      });
+    }
+  }
+
+  let holdConflicts: HoldConflictInfo[] = [];
+  if (windowStartIso && windowEndIso && zoneId) {
+    holdConflicts = await findHoldConflicts({
+      restaurantId,
+      zoneId,
+      tableIds: normalizedTableIds,
+      startAt: windowStartIso,
+      endAt: windowEndIso,
+      excludeHoldId: excludeHoldId ?? null,
+      ignoreBookingId: bookingId,
+      client: supabase,
+    });
+  }
+
+  const conflictDetails: Record<string, unknown> = {};
+  if (tableStatusIssues.length > 0) {
+    conflictDetails.tableStatus = tableStatusIssues;
+  }
+  if (assignmentConflicts.length > 0) {
+    conflictDetails.assignments = assignmentConflicts;
+  }
+  if (holdConflicts.length > 0) {
+    conflictDetails.holds = holdConflicts.map((conflict) => ({
+      holdId: conflict.holdId,
+      bookingId: conflict.bookingId,
+      tableIds: conflict.tableIds,
+      startAt: conflict.startAt,
+      endAt: conflict.endAt,
+      expiresAt: conflict.expiresAt,
+    }));
+  }
+  if (windowError) {
+    conflictDetails.window = { message: windowError };
+  }
+
+  const bookingStatusIssue = ASSIGNABLE_BOOKING_STATUSES.has(bookingRow.status) ? null : bookingRow.status;
+  if (bookingStatusIssue) {
+    conflictDetails.bookingStatus = { status: bookingRow.status };
+  }
+
+  const hasHardConflicts =
+    tableStatusIssues.length > 0 || assignmentConflicts.length > 0 || holdConflicts.length > 0 || !!windowError;
+
+  let conflictStatus: ManualSelectionCheckStatus = "ok";
+  let conflictMessage = "No conflicts detected";
+
+  if (hasHardConflicts) {
+    conflictStatus = "error";
+    conflictMessage = "Conflicts detected with existing assignments or holds";
+  } else if (bookingStatusIssue) {
+    conflictStatus = "warn";
+    conflictMessage = `Booking status ${bookingRow.status} may not be assignable`;
+  }
+
+  checks.push({
+    id: "conflict",
+    status: conflictStatus,
+    message: conflictMessage,
+    details: Object.keys(conflictDetails).length > 0 ? conflictDetails : undefined,
+  });
+
+  const maxPartyBreaches = selectedTables
+    .filter((table) => typeof table.maxPartySize === "number" && partySize > (table.maxPartySize ?? 0))
+    .map((table) => ({
+      tableId: table.id,
+      tableNumber: table.tableNumber ?? table.id,
+      maxPartySize: table.maxPartySize,
+    }));
+
+  let capacityStatus: ManualSelectionCheckStatus = "ok";
+  let capacityMessage = "Capacity requirements satisfied";
+
+  if (!Number.isFinite(partySize) || partySize <= 0) {
+    capacityStatus = "warn";
+    capacityMessage = "Booking party size is missing or invalid";
+  } else if (summary.totalCapacity < partySize) {
+    capacityStatus = "error";
+    capacityMessage = "Selected tables do not meet the requested party size";
+  } else if (maxPartyBreaches.length > 0) {
+    capacityStatus = "error";
+    capacityMessage = "Party size exceeds maximum for one or more tables";
+  }
+
+  checks.push({
+    id: "capacity",
+    status: capacityStatus,
+    message: capacityMessage,
+    details: {
+      partySize,
+      totalCapacity: summary.totalCapacity,
+      slack: summary.slack,
+      maxPartyBreaches,
+    },
+  });
+
+  const validationOk = checks.every((check) => check.status !== "error");
+
+  return {
+    context: {
+      booking: bookingRow,
+      restaurantId,
+      selectedTables,
+      zoneId,
+      window,
+    },
+    validation: {
+      ok: validationOk,
+      checks,
+      summary,
+    },
+  };
+}
+
+export async function evaluateManualSelection(options: ManualSelectionOptions): Promise<ManualValidationResult> {
+  const supabase = options.client ?? getServiceSupabaseClient();
+  const { validation } = await computeManualSelection(supabase, options);
+  return validation;
+}
+
+export async function createManualHold(options: ManualHoldOptions): Promise<ManualHoldResult> {
+  const supabase = options.client ?? getServiceSupabaseClient();
+  const computation = await computeManualSelection(supabase, options);
+  const { context, validation } = computation;
+
+  if (!validation.ok || !context.window || !context.zoneId) {
+    return { hold: null, validation };
+  }
+
+  const holdStartIso = context.window.block.start.toISO();
+  const holdEndIso = context.window.block.end.toISO();
+  if (!holdStartIso || !holdEndIso) {
+    throw new Error("Computed booking window is invalid");
+  }
+
+  const ttlSeconds = clampManualHoldTtlSeconds(options.holdTtlSeconds);
+  const expiry = DateTime.utc().plus({ seconds: ttlSeconds });
+  const expiresAt = expiry.toISO();
+  if (!expiresAt) {
+    throw new Error("Failed to compute hold expiry timestamp");
+  }
+
+  const existingHolds = await listActiveHoldsForBooking({ bookingId: context.booking.id, client: supabase });
+
+  for (const hold of existingHolds) {
+    try {
+      await releaseTableHold({ holdId: hold.id, client: supabase });
+    } catch (error) {
+      console.error("[capacity][manual][hold] failed to release existing hold", {
+        bookingId: context.booking.id,
+        holdId: hold.id,
+        error,
+      });
+    }
+  }
+
+  const metadata = {
+    source: MANUAL_HOLD_METADATA_SOURCE,
+    selection: {
+      tableIds: context.selectedTables.map((table) => table.id),
+      summary: validation.summary,
+    },
+    requireAdjacency: typeof options.requireAdjacency === "boolean" ? options.requireAdjacency : null,
+  };
+
+  const hold = await createTableHold({
+    bookingId: context.booking.id,
+    restaurantId: context.restaurantId,
+    zoneId: context.zoneId,
+    tableIds: context.selectedTables.map((table) => table.id),
+    startAt: holdStartIso,
+    endAt: holdEndIso,
+    expiresAt,
+    createdBy: options.createdBy ?? null,
+    metadata,
+    client: supabase,
+  });
+
+  await emitHoldCreated({
+    holdId: hold.id,
+    bookingId: hold.bookingId,
+    restaurantId: hold.restaurantId,
+    zoneId: hold.zoneId,
+    tableIds: hold.tableIds,
+    startAt: hold.startAt,
+    endAt: hold.endAt,
+    expiresAt: hold.expiresAt,
+    actorId: options.createdBy ?? null,
+    metadata,
+  });
+
+  return {
+    hold,
+    validation,
+  };
+}
+
+export async function getManualAssignmentContext(options: {
+  bookingId: string;
+  client?: DbClient;
+}): Promise<ManualAssignmentContext> {
+  const { bookingId, client } = options;
+  const supabase = client ?? getServiceSupabaseClient();
+
+  const bookingQuery = await supabase
+    .from("bookings")
+    .select(
+      "id, restaurant_id, booking_date, start_time, end_time, start_at, end_at, party_size, status",
+    )
+    .eq("id", bookingId)
+    .maybeSingle();
+
+  if (bookingQuery.error) {
+    throw new Error(`Failed to load booking ${bookingId}: ${bookingQuery.error.message}`);
+  }
+
+  const bookingRow = bookingQuery.data as BookingRowForManual | null;
+  if (!bookingRow) {
+    throw new ManualSelectionInputError("Booking not found", { status: 404, code: "BOOKING_NOT_FOUND" });
+  }
+
+  const restaurantId = bookingRow.restaurant_id;
+  if (!restaurantId) {
+    throw new ManualSelectionInputError("Booking is missing restaurant_id", {
+      status: 422,
+      code: "BOOKING_RESTAURANT_MISSING",
+    });
+  }
+
+  let assignmentDate = bookingRow.booking_date ?? null;
+  if (!assignmentDate && bookingRow.start_at) {
+    const parsed = DateTime.fromISO(bookingRow.start_at);
+    if (parsed.isValid) {
+      assignmentDate = parsed.toISODate();
+    }
+  }
+
+  if (!assignmentDate) {
+    throw new ManualSelectionInputError("Booking date is not set; unable to load manual assignment context", {
+      status: 409,
+      code: "BOOKING_DATE_MISSING",
+    });
+  }
+
+  const { tables, schedule, policy } = await loadAssignmentContext({
+    restaurantId,
+    date: assignmentDate,
+    client: supabase,
+  });
+
+  let bookingWindow: BookingWindow | null = null;
+  try {
+    bookingWindow = computeBookingWindow({
+      startISO: bookingRow.start_at,
+      bookingDate: bookingRow.booking_date,
+      startTime: bookingRow.start_time,
+      partySize: bookingRow.party_size ?? 0,
+      policy,
+    });
+  } catch (error) {
+    console.warn("[capacity][manual][context] failed to compute booking window", {
+      bookingId,
+      error,
+    });
+  }
+
+  const windowStartIso = bookingWindow?.block.start.toISO() ?? null;
+  const windowEndIso = bookingWindow?.block.end.toISO() ?? null;
+  const windowRange = bookingWindow ? toInterval(bookingWindow.block) : null;
+
+  const { data: assignmentRows, error: assignmentError } = await supabase
+    .from("booking_table_assignments")
+    .select("table_id")
+    .eq("booking_id", bookingId);
+
+  if (assignmentError) {
+    throw new Error(`Failed to load booking assignments for ${bookingId}: ${assignmentError.message}`);
+  }
+
+  const bookingAssignments = new Set<string>(
+    (assignmentRows ?? [])
+      .map((row) => (typeof row?.table_id === "string" ? row.table_id : null))
+      .filter((value): value is string => !!value),
+  );
+
+  const now = DateTime.utc();
+  const nowIso = now.toISO();
+  const holdsFeatureEnabled = isHoldsEnabled();
+
+  type HoldRowWithMembers = Tables<"table_holds"> & {
+    table_hold_members: { table_id: string }[] | null;
+  };
+
+  let holdRows: HoldRowWithMembers[] = [];
+
+  if (holdsFeatureEnabled) {
+    let holdQuery = supabase
+      .from("table_holds")
+      .select(
+        "id, booking_id, restaurant_id, zone_id, start_at, end_at, expires_at, created_by, metadata, table_hold_members(table_id)",
+      )
+      .eq("restaurant_id", restaurantId)
+      .gt("expires_at", nowIso);
+
+    if (windowStartIso && windowEndIso) {
+      holdQuery = holdQuery.lt("start_at", windowEndIso).gt("end_at", windowStartIso);
+    }
+
+    const { data, error } = await holdQuery;
+
+    if (error) {
+      if (isMissingSupabaseTableError(error, "table_holds") || isPermissionDeniedError(error, "table_holds")) {
+        console.warn("[capacity][manual][context] holds table unavailable or access denied; skipping hold hydration", {
+          bookingId,
+          restaurantId,
+          error,
+        });
+      } else {
+        throw new Error(`Failed to load active holds for manual assignment context: ${error.message}`);
+      }
+    } else if (Array.isArray(data) && data.length > 0) {
+      holdRows = (data as HoldRowWithMembers[]).filter(
+        (value): value is HoldRowWithMembers => Boolean(value),
+      );
+    }
+  }
+
+  const creatorIds = new Set<string>();
+  for (const hold of holdRows) {
+    if (hold?.created_by && typeof hold.created_by === "string") {
+      creatorIds.add(hold.created_by);
+    }
+  }
+
+  const creatorProfiles = new Map<string, { name: string | null; email: string | null }>();
+  if (creatorIds.size > 0) {
+    const { data: profileRows, error: profileError } = await supabase
+      .from("profiles")
+      .select("id, name, email")
+      .in("id", Array.from(creatorIds));
+
+    if (profileError) {
+      console.warn("[capacity][manual][context] failed to load hold owner profiles", {
+        error: profileError,
+      });
+    } else {
+      for (const profile of profileRows ?? []) {
+        if (profile?.id && typeof profile.id === "string") {
+          creatorProfiles.set(profile.id, {
+            name: typeof profile.name === "string" ? profile.name : null,
+            email: typeof profile.email === "string" ? profile.email : null,
+          });
+        }
+      }
+    }
+  }
+
+  const holds: ManualAssignmentHoldState[] = holdRows.map((hold) => {
+    const tableIds =
+      hold.table_hold_members
+        ?.map((member) => (typeof member?.table_id === "string" ? member.table_id : null))
+        .filter((value): value is string => !!value) ?? [];
+
+    const profile = hold.created_by ? creatorProfiles.get(hold.created_by) ?? null : null;
+    const expires = typeof hold.expires_at === "string" ? DateTime.fromISO(hold.expires_at) : null;
+    const countdownSeconds =
+      expires && expires.isValid ? Math.max(0, Math.trunc(expires.diff(now, "seconds").seconds ?? 0)) : null;
+
+    const metadata =
+      hold.metadata && typeof hold.metadata === "object" && !Array.isArray(hold.metadata)
+        ? (hold.metadata as Record<string, unknown>)
+        : null;
+
+    return {
+      id: hold.id,
+      bookingId: hold.booking_id ?? null,
+      restaurantId: hold.restaurant_id,
+      zoneId: hold.zone_id,
+      startAt: hold.start_at,
+      endAt: hold.end_at,
+      expiresAt: hold.expires_at,
+      tableIds,
+      createdBy: hold.created_by ?? null,
+      createdByName: profile?.name ?? null,
+      createdByEmail: profile?.email ?? null,
+      metadata,
+      countdownSeconds,
+    };
+  });
+
+  const activeHold = holds.find((hold) => hold.bookingId === bookingId) ?? null;
+
+  const conflicts: ManualAssignmentConflict[] = [];
+  if (windowRange) {
+    for (const [tableId, entries] of schedule.entries()) {
+      for (const entry of entries) {
+        if (entry.bookingId === bookingId) {
+          continue;
+        }
+        if (!windowsOverlap(windowRange, { start: entry.start, end: entry.end })) {
+          continue;
+        }
+
+        const startIso = DateTime.fromMillis(entry.start).toISO();
+        const endIso = DateTime.fromMillis(entry.end).toISO();
+
+        if (!startIso || !endIso) {
+          continue;
+        }
+
+        conflicts.push({
+          tableId,
+          bookingId: entry.bookingId,
+          startAt: startIso,
+          endAt: endIso,
+          status: entry.status,
+        });
+      }
+    }
+  }
+
+  return {
+    booking: {
+      id: bookingRow.id,
+      restaurantId,
+      bookingDate: bookingRow.booking_date ?? null,
+      startAt: bookingRow.start_at ?? null,
+      endAt: bookingRow.end_at ?? null,
+      partySize: bookingRow.party_size ?? 0,
+      status: bookingRow.status,
+    },
+    tables,
+    bookingAssignments: Array.from(bookingAssignments),
+    holds,
+    activeHold,
+    conflicts,
+    window: {
+      startAt: windowStartIso,
+      endAt: windowEndIso,
+    },
+  };
 }
 
 /**
@@ -1222,33 +2522,20 @@ export async function unassignTableFromBooking(
   client?: DbClient
 ): Promise<boolean> {
   const supabase = client ?? getServiceSupabaseClient();
-  const useAtomic = isRpcAssignAtomicEnabled() && isAssignAtomicEnabled();
-
-  if (useAtomic) {
-    const result = await invokeUnassignTablesAtomic({
-      bookingId,
-      tableIds: [tableId],
-      client: supabase,
-    });
-    return result.length > 0;
-  }
-
-  // Call database RPC function
-  const { data, error } = await supabase.rpc("unassign_table_from_booking", {
-    p_booking_id: bookingId,
-    p_table_id: tableId,
+  const result = await invokeUnassignTablesAtomic({
+    bookingId,
+    tableIds: [tableId],
+    client: supabase,
   });
-
-  if (error) {
-    throw new Error(`Failed to unassign table: ${error.message}`);
-  }
-
-  return data as boolean;
+  return result.length > 0;
 }
 
 type AtomicAssignmentResult = {
   tableId: string;
-  assignmentId: string;
+  assignmentId?: string;
+  startAt?: string;
+  endAt?: string;
+  mergeGroupId?: string | null;
 };
 
 async function fetchBookingForAtomic(bookingId: string, client: DbClient): Promise<BookingRowForAtomic> {
@@ -1290,35 +2577,69 @@ async function invokeAssignTablesAtomic(params: {
   idempotencyKey?: string | null;
   client: DbClient;
   window?: { range: string; start: string; end: string };
+  requireAdjacency?: boolean;
 }): Promise<AtomicAssignmentResult[]> {
-  const { bookingId, tableIds, assignedBy, idempotencyKey, client, window } = params;
+  const { bookingId, tableIds, assignedBy, idempotencyKey, client, window, requireAdjacency } = params;
 
   if (!Array.isArray(tableIds) || tableIds.length === 0) {
     throw new Error("assign_tables_atomic requires at least one table id");
   }
 
-  let resolvedWindow = window ?? null;
-  if (!resolvedWindow) {
-    const booking = await fetchBookingForAtomic(bookingId, client);
-    resolvedWindow = buildAssignmentWindowRange(booking);
-  }
+  const adjacencyRequired =
+    typeof requireAdjacency === "boolean" ? requireAdjacency : isAllocatorAdjacencyRequired();
 
-  const { data, error } = await client.rpc("assign_tables_atomic", {
+  const { data, error } = await client.rpc("assign_tables_atomic_v2", {
     p_booking_id: bookingId,
     p_table_ids: tableIds,
-    p_window: resolvedWindow.range,
-    p_assigned_by: assignedBy ?? null,
     p_idempotency_key: idempotencyKey ?? null,
+    p_require_adjacency: adjacencyRequired,
+    p_assigned_by: assignedBy ?? null,
   });
 
   if (error) {
-    throw AtomicAssignmentError.fromPostgrest(error);
+    const wrapped = AtomicAssignmentError.fromPostgrest(error);
+    if (wrapped.code === "42883") {
+      throw new AtomicAssignmentError(
+        "assign_tables_atomic_v2 RPC is not available; run the latest Supabase migrations.",
+        {
+          code: wrapped.code,
+          details: wrapped.details ?? null,
+          hint: "Apply migration 20251026105000_assign_tables_atomic_v2.sql and confirm service role grants.",
+          cause: wrapped,
+        },
+      );
+    }
+    throw wrapped;
   }
 
   const rows = Array.isArray(data) ? data : [];
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const { data: assignmentRows, error: assignmentError } = await client
+    .from("booking_table_assignments")
+    .select("table_id, id")
+    .eq("booking_id", bookingId)
+    .in("table_id", tableIds);
+
+  if (assignmentError) {
+    throw new Error(`assign_tables_atomic_v2 succeeded but fetching assignments failed: ${assignmentError.message}`);
+  }
+
+  const assignmentByTable = new Map<string, string>();
+  for (const row of assignmentRows ?? []) {
+    if (row && typeof row.table_id === "string" && typeof row.id === "string") {
+      assignmentByTable.set(row.table_id, row.id);
+    }
+  }
+
   return rows.map((row: any) => ({
     tableId: row.table_id as string,
-    assignmentId: row.assignment_id as string,
+    assignmentId: assignmentByTable.get(row.table_id as string),
+    startAt: row.start_at ?? null,
+    endAt: row.end_at ?? null,
+    mergeGroupId: row.merge_group_id ?? null,
   }));
 }
 

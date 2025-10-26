@@ -313,12 +313,12 @@ SET
 COMMIT;
 
 
--- Grants access to every restaurant for amanshresthaaaaa@gmail.com.
+-- Grants access to every restaurant for amanshresthaaaaa@gmail.com (if user exists).
 -- Run against the target Supabase project (staging/prod) using a service-role connection.
 
--- Optional: invite the user if an auth record does not yet exist.
--- COMMENT OUT if the user already exists to avoid resending an invite.
--- select auth.invite_user_by_email('amanshresthaaaaa@gmail.com');
+-- ℹ️  If this user doesn't exist yet, create it manually in Supabase Auth Dashboard:
+--    https://supabase.com/dashboard/project/mqtchcaavsucsdjskptc/auth/users
+--    Email: amanshresthaaaaa@gmail.com | Auto Confirm: YES
 
 DO $$
 DECLARE
@@ -329,8 +329,12 @@ BEGIN
     WHERE email = lower('amanshresthaaaaa@gmail.com');
 
     IF _user_id IS NULL THEN
-        RAISE EXCEPTION 'auth.users entry for % not found. Run auth.invite_user_by_email first.', 'amanshresthaaaaa@gmail.com';
+        RAISE NOTICE 'User amanshresthaaaaa@gmail.com not found in auth.users - skipping restaurant access grants';
+        RAISE NOTICE 'Create this user in Supabase Auth Dashboard if needed';
+        RETURN;
     END IF;
+
+    RAISE NOTICE 'Found user amanshresthaaaaa@gmail.com (%), granting restaurant access', _user_id;
 
     -- Ensure profile row exists and has access enabled.
     INSERT INTO public.profiles (id, email, name, phone, has_access)

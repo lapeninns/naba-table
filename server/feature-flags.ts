@@ -7,17 +7,13 @@ const loyaltyPilotIds = new Set(
     .filter((value) => value.length > 0),
 );
 
+function isProductionEnv(): boolean {
+  return env.node.env === "production";
+}
+
 export function isLoyaltyPilotRestaurant(restaurantId: string): boolean {
   if (!restaurantId) return false;
   return loyaltyPilotIds.has(restaurantId);
-}
-
-export function isRpcAssignAtomicEnabled(): boolean {
-  return env.featureFlags.rpcAssignAtomic ?? false;
-}
-
-export function isAssignAtomicEnabled(): boolean {
-  return env.featureFlags.assignAtomic ?? false;
 }
 
 export function isAllocationsDualWriteEnabled(): boolean {
@@ -34,4 +30,21 @@ export function isAdjacencyValidationEnabled(): boolean {
 
 export function isOpsMetricsEnabled(): boolean {
   return env.featureFlags.opsMetrics ?? false;
+}
+
+export function isHoldsEnabled(): boolean {
+  return env.featureFlags.holds.enabled ?? true;
+}
+
+export function isAllocatorMergesEnabled(): boolean {
+  return env.featureFlags.allocator.mergesEnabled ?? !isProductionEnv();
+}
+
+export function isAllocatorAdjacencyRequired(): boolean {
+  return env.featureFlags.allocator.requireAdjacency ?? true;
+}
+
+export function getAllocatorKMax(): number {
+  const configured = env.featureFlags.allocator.kMax ?? 3;
+  return Math.max(1, Math.min(configured, 5));
 }

@@ -107,6 +107,8 @@ export const env = {
 
   get featureFlags() {
     const parsed = parseEnv();
+    const isProduction = parsed.NODE_ENV === "production";
+    const allocatorKMax = Math.max(1, Math.min(parsed.FEATURE_ALLOCATOR_K_MAX ?? 3, 5));
     return {
       loyaltyPilotRestaurantIds: parsed.LOYALTY_PILOT_RESTAURANT_IDS,
       enableTestApi: parsed.ENABLE_TEST_API ?? false,
@@ -117,14 +119,20 @@ export const env = {
       bookingValidationUnified: parsed.FEATURE_BOOKING_VALIDATION_UNIFIED ?? false,
       bookingLifecycleV2: parsed.FEATURE_OPS_BOOKING_LIFECYCLE_V2 ?? false,
       allocationsDualWrite: parsed.FEATURE_ALLOCATIONS_DUAL_WRITE ?? false,
-      rpcAssignAtomic: parsed.FEATURE_RPC_ASSIGN_ATOMIC ?? false,
-      assignAtomic: parsed.FEATURE_ASSIGN_ATOMIC ?? false,
       statusTriggers: parsed.FEATURE_STATUS_TRIGGERS ?? false,
       editScheduleParity: parsed.FEATURE_EDIT_SCHEDULE_PARITY ?? true,
       selectorScoring: parsed.FEATURE_SELECTOR_SCORING ?? true,
       adjacencyValidation: parsed.FEATURE_ADJACENCY_VALIDATION ?? false,
       opsMetrics: parsed.FEATURE_OPS_METRICS ?? false,
       realtimeFloorplan: parsed.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN ?? false,
+      allocator: {
+        mergesEnabled: parsed.FEATURE_ALLOCATOR_MERGES_ENABLED ?? !isProduction,
+        requireAdjacency: parsed.FEATURE_ALLOCATOR_REQUIRE_ADJACENCY ?? true,
+        kMax: allocatorKMax,
+      },
+      holds: {
+        enabled: parsed.FEATURE_HOLDS_ENABLED ?? true,
+      },
     } as const;
   },
 

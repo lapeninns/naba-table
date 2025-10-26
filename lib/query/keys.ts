@@ -38,6 +38,9 @@ export const queryKeys = {
   opsOccasions: {
     list: () => ['ops', 'occasions', 'list'] as const,
   },
+  manualAssign: {
+    context: (bookingId: string) => ['ops', 'manual-assign', 'context', bookingId] as const,
+  },
   ownerRestaurants: {
     hours: (restaurantId: string) => ['owner', 'restaurants', restaurantId, 'hours'] as const,
     servicePeriods: (restaurantId: string) => ['owner', 'restaurants', restaurantId, 'service-periods'] as const,
@@ -80,4 +83,5 @@ export type QueryKey =
   | ReturnType<(typeof queryKeys)['profile']['self']>
   | ReturnType<(typeof queryKeys)['restaurants']['list']>
   | ReturnType<(typeof queryKeys)['team']['memberships']>
-  | ReturnType<(typeof queryKeys)['team']['invitations']>;
+  | ReturnType<(typeof queryKeys)['team']['invitations']>
+  | ReturnType<(typeof queryKeys)['manualAssign']['context']>;

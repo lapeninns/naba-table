@@ -26,38 +26,19 @@ import { createBookingWithCapacityCheck } from "@/server/capacity/transaction";
 
 import type { BookingRecord } from "@/server/capacity/types";
 
+import { createBookingRecordFixture } from "../../fixtures/bookings";
+
 type SupabaseLike = {
   rpc: ReturnType<typeof vi.fn>;
   from: ReturnType<typeof vi.fn>;
 };
 
-const baseBooking: BookingRecord = {
+const baseBooking: BookingRecord = createBookingRecordFixture({
   id: "booking-1",
-  restaurant_id: "restaurant-1",
-  customer_id: "customer-1",
-  booking_date: "2025-10-21",
-  start_time: "19:00",
-  end_time: "21:00",
-  start_at: "2025-10-21T19:00:00Z",
-  end_at: "2025-10-21T21:00:00Z",
-  party_size: 2,
-  booking_type: "dinner",
-  seating_preference: "any",
-  status: "confirmed",
-  reference: "REF123456",
-  customer_name: "Ada Lovelace",
-  customer_email: "ada@example.com",
-  customer_phone: "0123456789",
-  notes: null,
-  marketing_opt_in: false,
-  loyalty_points_awarded: 0,
-  source: "api",
-  auth_user_id: null,
   idempotency_key: "idem-1",
+  source: "api",
   details: null,
-  created_at: "2025-10-21T18:30:00Z",
-  updated_at: "2025-10-21T18:30:00Z",
-};
+});
 
 function createSupabaseStub(options: { existing?: BookingRecord | null }): SupabaseLike {
   const query: any = {
@@ -139,15 +120,20 @@ describe("createBookingWithCapacityCheck (fallback)", () => {
   });
 
   it("reuses an existing booking when the idempotency key already exists", async () => {
-    const supabase = createSupabaseStub({ existing: baseBooking });
+    const existing = createBookingRecordFixture({
+      id: "booking-1",
+      idempotency_key: "idem-1",
+      details: null,
+    });
+    const supabase = createSupabaseStub({ existing });
     generateUniqueBookingReferenceMock.mockResolvedValueOnce("REF999999");
-    insertBookingRecordMock.mockResolvedValueOnce(baseBooking);
+    insertBookingRecordMock.mockResolvedValueOnce(existing);
 
     const result = await createBookingWithCapacityCheck(params, supabase as unknown as any);
 
     expect(result.success).toBe(true);
     expect(result.duplicate).toBe(true);
-    expect(result.booking).toEqual(baseBooking);
+    expect(result.booking).toEqual(existing);
     expect(insertBookingRecordMock).not.toHaveBeenCalled();
   });
 });

@@ -226,127 +226,6 @@ service_periods AS (
     ) AS sp(name, start_time, end_time, booking_option)
     CROSS JOIN generate_series(1, 5) AS dow
     RETURNING 1
-),
--- Generate 5 zones per restaurant (40 zones total)
-inserted_zones AS (
-    INSERT INTO public.zones (id, restaurant_id, name, sort_order, created_at, updated_at)
-    SELECT
-        gen_random_uuid(),
-        ir.id,
-        z.name,
-        z.sort_order,
-        now(),
-        now()
-    FROM inserted_restaurants ir
-    CROSS JOIN (VALUES
-        ('Main Dining', 1),
-        ('Bar Area', 2),
-        ('Patio', 3),
-        ('Private Room', 4),
-        ('Outdoor Garden', 5)
-    ) AS z(name, sort_order)
-    RETURNING id, restaurant_id, name
-),
--- Add allowed capacities for each restaurant
-inserted_capacities AS (
-    INSERT INTO public.allowed_capacities (restaurant_id, capacity, created_at, updated_at)
-    SELECT
-        ir.id,
-        cap.capacity,
-        now(),
-        now()
-    FROM inserted_restaurants ir
-    CROSS JOIN (VALUES (2), (4), (7), (9)) AS cap(capacity)
-    ON CONFLICT (restaurant_id, capacity) DO NOTHING
-    RETURNING 1
-),
--- Generate 40 tables per restaurant (320 tables total)
--- Distributed across zones: 12 in Main Dining, 8 in Bar Area, 8 in Patio, 6 in Private Room, 6 in Outdoor Garden
-inserted_tables AS (
-    INSERT INTO public.table_inventory (
-        id,
-        restaurant_id,
-        zone_id,
-        table_number,
-        capacity,
-        category,
-        seating_type,
-        mobility,
-        active,
-        created_at,
-        updated_at
-    )
-    SELECT
-        gen_random_uuid(),
-        z.restaurant_id,
-        z.id,
-        t.table_number,
-        t.capacity,
-        t.category::public.table_category,
-        t.seating_type::public.table_seating_type,
-        'movable'::public.table_mobility,
-        true,
-        now(),
-        now()
-    FROM inserted_zones z
-    CROSS JOIN LATERAL (
-        SELECT *
-        FROM (
-            VALUES
-                -- Main Dining: 12 tables (table_number format: zone_initial + number)
-                ('MD-01', 2, 'dining', 'standard'),
-                ('MD-02', 2, 'dining', 'standard'),
-                ('MD-03', 4, 'dining', 'standard'),
-                ('MD-04', 4, 'dining', 'standard'),
-                ('MD-05', 4, 'dining', 'standard'),
-                ('MD-06', 4, 'dining', 'booth'),
-                ('MD-07', 4, 'dining', 'booth'),
-                ('MD-08', 7, 'dining', 'standard'),
-                ('MD-09', 7, 'dining', 'standard'),
-                ('MD-10', 7, 'dining', 'booth'),
-                ('MD-11', 9, 'dining', 'standard'),
-                ('MD-12', 9, 'dining', 'standard'),
-                -- Bar Area: 8 tables
-                ('BA-01', 2, 'bar', 'high_top'),
-                ('BA-02', 2, 'bar', 'high_top'),
-                ('BA-03', 2, 'bar', 'high_top'),
-                ('BA-04', 4, 'bar', 'high_top'),
-                ('BA-05', 4, 'bar', 'high_top'),
-                ('BA-06', 4, 'lounge', 'sofa'),
-                ('BA-07', 4, 'lounge', 'sofa'),
-                ('BA-08', 7, 'bar', 'high_top'),
-                -- Patio: 8 tables
-                ('PT-01', 2, 'patio', 'standard'),
-                ('PT-02', 2, 'patio', 'standard'),
-                ('PT-03', 4, 'patio', 'standard'),
-                ('PT-04', 4, 'patio', 'standard'),
-                ('PT-05', 4, 'patio', 'standard'),
-                ('PT-06', 7, 'patio', 'standard'),
-                ('PT-07', 7, 'patio', 'standard'),
-                ('PT-08', 9, 'patio', 'standard'),
-                -- Private Room: 6 tables
-                ('PR-01', 4, 'private', 'standard'),
-                ('PR-02', 4, 'private', 'standard'),
-                ('PR-03', 7, 'private', 'standard'),
-                ('PR-04', 7, 'private', 'standard'),
-                ('PR-05', 9, 'private', 'standard'),
-                ('PR-06', 9, 'private', 'standard'),
-                -- Outdoor Garden: 6 tables
-                ('OG-01', 2, 'patio', 'standard'),
-                ('OG-02', 4, 'patio', 'standard'),
-                ('OG-03', 4, 'patio', 'standard'),
-                ('OG-04', 7, 'patio', 'standard'),
-                ('OG-05', 7, 'patio', 'standard'),
-                ('OG-06', 9, 'patio', 'standard')
-        ) AS t_data(table_number, capacity, category, seating_type)
-        WHERE
-            (z.name = 'Main Dining' AND t_data.table_number LIKE 'MD-%') OR
-            (z.name = 'Bar Area' AND t_data.table_number LIKE 'BA-%') OR
-            (z.name = 'Patio' AND t_data.table_number LIKE 'PT-%') OR
-            (z.name = 'Private Room' AND t_data.table_number LIKE 'PR-%') OR
-            (z.name = 'Outdoor Garden' AND t_data.table_number LIKE 'OG-%')
-    ) AS t(table_number, capacity, category, seating_type)
-    RETURNING 1
 )
 SELECT 1;
 
@@ -432,25 +311,25 @@ series AS (
     SELECT
         g.n,
         CASE
-            WHEN g.n <= 100 THEN 'lunch'
-            WHEN g.n <= 150 THEN 'drinks'
+            WHEN g.n <= 25 THEN 'lunch'
+            WHEN g.n <= 40 THEN 'drinks'
             ELSE 'dinner'
         END AS booking_option,
         CASE
-            WHEN g.n <= 100 THEN time '12:00' + ((g.n - 1) % 12) * interval '15 minutes'
-            WHEN g.n <= 150 THEN time '15:00' + ((g.n - 101) % 8) * interval '15 minutes'
-            ELSE time '17:00' + ((g.n - 151) % 16) * interval '15 minutes'
+            WHEN g.n <= 25 THEN time '12:00' + ((g.n - 1) % 25) * interval '15 minutes'
+            WHEN g.n <= 40 THEN time '15:00' + ((g.n - 26) % 12) * interval '15 minutes'
+            ELSE time '17:00' + ((g.n - 41) % 20) * interval '15 minutes'
         END AS start_time,
         CASE
-            WHEN g.n <= 100 THEN time '12:00' + ((g.n - 1) % 12) * interval '15 minutes' + interval '90 minutes'
-            WHEN g.n <= 150 THEN time '15:00' + ((g.n - 101) % 8) * interval '15 minutes' + interval '60 minutes'
-            ELSE time '17:00' + ((g.n - 151) % 16) * interval '15 minutes' + interval '105 minutes'
+            WHEN g.n <= 25 THEN time '12:00' + ((g.n - 1) % 25) * interval '15 minutes' + interval '90 minutes'
+            WHEN g.n <= 40 THEN time '15:00' + ((g.n - 26) % 12) * interval '15 minutes' + interval '60 minutes'
+            ELSE time '17:00' + ((g.n - 41) % 20) * interval '15 minutes' + interval '105 minutes'
         END AS end_time,
         CASE
-            WHEN g.n > 100 AND g.n <= 150 THEN 2
+            WHEN g.n > 25 AND g.n <= 40 THEN 2
             ELSE 2 + ((g.n + 1) % 4)
         END AS party_size
-    FROM generate_series(1, 250) AS g(n)
+    FROM generate_series(1, 55) AS g(n)
 )
 INSERT INTO public.bookings (
     id,
@@ -485,11 +364,11 @@ SELECT
     cust.full_name,
     cust.email,
     cust.phone,
-    CONCAT('LP-T-', upper(substring(md5(gen_random_uuid()::text || s.n::text || r.id::text), 1, 6))),
+    CONCAT('LP-', upper(substring(md5(gen_random_uuid()::text), 1, 6))),
     'web',
     d.today::timestamp + s.start_time,
     d.today::timestamp + s.start_time,
-    s.booking_option::text,
+    s.booking_option::public.booking_type,
     true
 FROM restaurant_list r
 CROSS JOIN date_ctx d
@@ -538,25 +417,25 @@ series AS (
     SELECT
         g.n,
         CASE
-            WHEN g.n <= 100 THEN 'lunch'
-            WHEN g.n <= 150 THEN 'drinks'
+            WHEN g.n <= 60 THEN 'lunch'
+            WHEN g.n <= 90 THEN 'drinks'
             ELSE 'dinner'
         END AS booking_option,
         CASE
-            WHEN g.n <= 100 THEN time '12:00' + ((g.n - 1) % 12) * interval '15 minutes'
-            WHEN g.n <= 150 THEN time '15:00' + ((g.n - 101) % 8) * interval '15 minutes'
-            ELSE time '17:00' + ((g.n - 151) % 16) * interval '15 minutes'
+            WHEN g.n <= 60 THEN time '12:00' + ((g.n - 1) % 20) * interval '15 minutes'
+            WHEN g.n <= 90 THEN time '15:00' + ((g.n - 61) % 12) * interval '15 minutes'
+            ELSE time '17:00' + ((g.n - 91) % 24) * interval '15 minutes'
         END AS start_time,
         CASE
-            WHEN g.n <= 100 THEN time '12:00' + ((g.n - 1) % 12) * interval '15 minutes' + interval '90 minutes'
-            WHEN g.n <= 150 THEN time '15:00' + ((g.n - 101) % 8) * interval '15 minutes' + interval '60 minutes'
-            ELSE time '17:00' + ((g.n - 151) % 16) * interval '15 minutes' + interval '120 minutes'
+            WHEN g.n <= 60 THEN time '12:00' + ((g.n - 1) % 20) * interval '15 minutes' + interval '90 minutes'
+            WHEN g.n <= 90 THEN time '15:00' + ((g.n - 61) % 12) * interval '15 minutes' + interval '60 minutes'
+            ELSE time '17:00' + ((g.n - 91) % 24) * interval '15 minutes' + interval '120 minutes'
         END AS end_time,
         CASE
-            WHEN g.n > 100 AND g.n <= 150 THEN 2
+            WHEN g.n > 60 AND g.n <= 90 THEN 2
             ELSE 2 + ((g.n + 2) % 5)
         END AS party_size
-    FROM generate_series(1, 250) AS g(n)
+    FROM generate_series(1, 150) AS g(n)
 )
 INSERT INTO public.bookings (
     id,
@@ -591,11 +470,11 @@ SELECT
     cust.full_name,
     cust.email,
     cust.phone,
-    CONCAT('LP-P-', upper(substring(md5(gen_random_uuid()::text || s.n::text || r.id::text), 1, 6))),
+    CONCAT('LP-', upper(substring(md5(gen_random_uuid()::text), 1, 6))),
     'web',
     d.past_day::timestamp + s.start_time,
     d.past_day::timestamp + s.start_time,
-    s.booking_option::text,
+    s.booking_option::public.booking_type,
     true
 FROM restaurant_list r
 CROSS JOIN date_ctx d
@@ -644,25 +523,25 @@ series AS (
     SELECT
         g.n,
         CASE
-            WHEN g.n <= 100 THEN 'lunch'
-            WHEN g.n <= 150 THEN 'drinks'
+            WHEN g.n <= 60 THEN 'lunch'
+            WHEN g.n <= 90 THEN 'drinks'
             ELSE 'dinner'
         END AS booking_option,
         CASE
-            WHEN g.n <= 100 THEN time '12:00' + ((g.n - 1) % 12) * interval '15 minutes'
-            WHEN g.n <= 150 THEN time '15:00' + ((g.n - 101) % 8) * interval '15 minutes'
-            ELSE time '17:00' + ((g.n - 151) % 16) * interval '15 minutes'
+            WHEN g.n <= 60 THEN time '12:00' + ((g.n - 1) % 20) * interval '15 minutes'
+            WHEN g.n <= 90 THEN time '15:00' + ((g.n - 61) % 12) * interval '15 minutes'
+            ELSE time '17:00' + ((g.n - 91) % 24) * interval '15 minutes'
         END AS start_time,
         CASE
-            WHEN g.n <= 100 THEN time '12:00' + ((g.n - 1) % 12) * interval '15 minutes' + interval '90 minutes'
-            WHEN g.n <= 150 THEN time '15:00' + ((g.n - 101) % 8) * interval '15 minutes' + interval '60 minutes'
-            ELSE time '17:00' + ((g.n - 151) % 16) * interval '15 minutes' + interval '120 minutes'
+            WHEN g.n <= 60 THEN time '12:00' + ((g.n - 1) % 20) * interval '15 minutes' + interval '90 minutes'
+            WHEN g.n <= 90 THEN time '15:00' + ((g.n - 61) % 12) * interval '15 minutes' + interval '60 minutes'
+            ELSE time '17:00' + ((g.n - 91) % 24) * interval '15 minutes' + interval '120 minutes'
         END AS end_time,
         CASE
-            WHEN g.n > 100 AND g.n <= 150 THEN 2
+            WHEN g.n > 60 AND g.n <= 90 THEN 2
             ELSE 2 + ((g.n + 3) % 5)
         END AS party_size
-    FROM generate_series(1, 250) AS g(n)
+    FROM generate_series(1, 150) AS g(n)
 )
 INSERT INTO public.bookings (
     id,
@@ -697,11 +576,11 @@ SELECT
     cust.full_name,
     cust.email,
     cust.phone,
-    CONCAT('LP-F-', upper(substring(md5(gen_random_uuid()::text || s.n::text || r.id::text), 1, 6))),
+    CONCAT('LP-', upper(substring(md5(gen_random_uuid()::text), 1, 6))),
     'web',
     d.future_day::timestamp + s.start_time,
     d.future_day::timestamp + s.start_time,
-    s.booking_option::text,
+    s.booking_option::public.booking_type,
     true
 FROM restaurant_list r
 CROSS JOIN date_ctx d
