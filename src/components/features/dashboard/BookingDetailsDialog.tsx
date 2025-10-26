@@ -16,6 +16,7 @@ import { useBookingService } from '@/contexts/ops-services';
 import { useManualAssignmentContext } from '@/hooks/ops/useManualAssignmentContext';
 import { useToast } from '@/hooks/use-toast';
 import { queryKeys } from '@/lib/query/keys';
+import { extractManualHoldValidation, isManualHoldValidationError } from './manualHoldHelpers';
 import { cn } from '@/lib/utils';
 import { formatDateReadable, formatTimeRange, getTodayInTimezone } from '@/lib/utils/datetime';
 
@@ -177,10 +178,41 @@ export function BookingDetailsDialog({
       setValidationResult(result.validation);
       const holdKey = result.hold ? result.hold.tableIds.slice().sort().join(',') : null;
       setLastHoldKey(holdKey);
-      setUserModifiedSelection(false);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.manualAssign.context(booking.id) });
+      if (result.hold) {
+        setUserModifiedSelection(false);
+        void queryClient.invalidateQueries({ queryKey: queryKeys.manualAssign.context(booking.id) });
+      } else {
+        setUserModifiedSelection(true);
+      }
     },
-    onError: (error) => {
+    onError: async (error, variables) => {
+      if (isManualHoldValidationError(error)) {
+        const validation = extractManualHoldValidation(error);
+        if (validation) {
+          setValidationResult(validation);
+        } else if (variables) {
+          try {
+            const result = await bookingService.manualValidateSelection({
+              bookingId: variables.bookingId,
+              tableIds: variables.tableIds,
+              requireAdjacency: variables.requireAdjacency,
+              excludeHoldId: variables.excludeHoldId,
+            });
+            setValidationResult(result);
+          } catch (validationError) {
+            const message =
+              validationError instanceof Error ? validationError.message : 'Unable to validate selection';
+            toast({ title: 'Validation failed', description: message, variant: 'destructive' });
+          }
+        }
+        setUserModifiedSelection(true);
+        const selectionKey = Array.isArray(variables?.tableIds)
+          ? [...variables.tableIds].sort().join(',')
+          : null;
+        setLastHoldKey(selectionKey);
+        return;
+      }
+
       const message = error instanceof Error ? error.message : 'Unable to place hold';
       toast({ title: 'Hold failed', description: message, variant: 'destructive' });
     },

@@ -90,11 +90,17 @@ export async function POST(req: NextRequest) {
     });
 
     if (!result.hold) {
+      const summary = result.validation.summary;
       return NextResponse.json(
         {
           error: "Validation failed",
           code: "VALIDATION_FAILED",
           validation: result.validation,
+          summary,
+          details: {
+            validation: result.validation,
+            summary,
+          },
         },
         { status: 409 },
       );
