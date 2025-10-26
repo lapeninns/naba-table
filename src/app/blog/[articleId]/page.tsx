@@ -1,11 +1,14 @@
 import Link from "next/link";
-import Script from "next/script";
 import { notFound } from "next/navigation";
-import { articles, requireArticle } from "../_assets/content";
-import BadgeCategory from "../_assets/components/BadgeCategory";
-import Avatar from "../_assets/components/Avatar";
-import { getSEOTags } from "@/libs/seo";
+import Script from "next/script";
+
 import config from "@/config";
+import { getSEOTags } from "@/libs/seo";
+
+import Avatar from "../_assets/components/Avatar";
+import BadgeCategory from "../_assets/components/BadgeCategory";
+import { articles, requireArticle } from "../_assets/content";
+
 
 export async function generateMetadata({
   params,

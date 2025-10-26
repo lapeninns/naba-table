@@ -1,4 +1,5 @@
 import { fetchJson } from '@/lib/http/fetchJson';
+
 import type { HttpError } from '@/lib/http/errors';
 import type {
   OpsBookingHeatmap,

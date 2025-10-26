@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { generateCSV } from "@/lib/export/csv";
+
 import type { CustomerWithProfile } from "@/server/ops/customers";
 
 const SAMPLE: CustomerWithProfile[] = [

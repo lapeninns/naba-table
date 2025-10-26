@@ -1,11 +1,12 @@
 import { randomUUID } from 'crypto';
 
-import type { SupabaseClient } from '@supabase/supabase-js';
-
+import { getOccasionCatalog } from '@/server/occasions/catalog';
 import { canonicalTime, canonicalizeFromDb } from '@/server/restaurants/timeNormalization';
 import { getServiceSupabaseClient } from '@/server/supabase';
+
 import type { Database } from '@/types/supabase';
-import { getOccasionCatalog } from '@/server/occasions/catalog';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
 
 type DbClient = SupabaseClient<Database, 'public', any>;
 

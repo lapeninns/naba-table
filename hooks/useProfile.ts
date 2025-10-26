@@ -1,6 +1,5 @@
 'use client';
 
-import { useRef } from 'react';
 import {
   useMutation,
   useQuery,
@@ -8,12 +7,13 @@ import {
   type UseMutationResult,
   type UseQueryResult,
 } from '@tanstack/react-query';
+import { useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { z } from 'zod';
 
+import { track } from '@/lib/analytics';
+import { emit } from '@/lib/analytics/emit';
 import { fetchJson } from '@/lib/http/fetchJson';
-import type { HttpError } from '@/lib/http/errors';
-import { queryKeys } from '@/lib/query/keys';
 import {
   profileResponseSchema,
   profileUpdateSchema,
@@ -22,8 +22,10 @@ import {
   type ProfileUpdatePayload,
   type ProfileUploadResponse,
 } from '@/lib/profile/schema';
-import { track } from '@/lib/analytics';
-import { emit } from '@/lib/analytics/emit';
+import { queryKeys } from '@/lib/query/keys';
+
+import type { HttpError } from '@/lib/http/errors';
+
 
 const profileApiResponseSchema = z.object({
   profile: profileResponseSchema,

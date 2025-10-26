@@ -76,21 +76,29 @@ describe('GET /api/bookings?me=1', () => {
       data: [
         {
           id: 'booking-1',
+          restaurant_id: 'restaurant-1',
           start_at: '2025-01-15T18:00:00.000Z',
           end_at: '2025-01-15T20:00:00.000Z',
           party_size: 4,
           status: 'confirmed',
           notes: 'Anniversary dinner',
-          restaurants: { name: 'The Corner House Pub', reservation_interval_minutes: 30 },
+          restaurants: {
+            id: 'restaurant-1',
+            name: 'The Corner House Pub',
+            slug: 'corner-house',
+            timezone: 'America/New_York',
+            reservation_interval_minutes: 30,
+          },
         },
         {
           id: 'booking-2',
+          restaurant_id: null,
           start_at: '2025-01-20T12:00:00.000Z',
           end_at: '2025-01-20T13:30:00.000Z',
           party_size: 2,
           status: 'pending',
           notes: 'Lunch meeting',
-          restaurants: { name: 'Sajilo Kitchen' },
+          restaurants: { name: 'Sajilo Kitchen', slug: null, timezone: null },
         },
       ],
       count: 12,
@@ -130,7 +138,7 @@ describe('GET /api/bookings?me=1', () => {
     expect(response.status).toBe(200);
     expect(serviceMock.from).toHaveBeenCalledWith('bookings');
     expect(selectMock).toHaveBeenCalledWith(
-      'id, start_at, end_at, party_size, status, notes, restaurants(name, reservation_interval_minutes)',
+      'id, restaurant_id, start_at, end_at, party_size, status, notes, restaurants(id, name, slug, timezone, reservation_interval_minutes)',
       { count: 'exact' },
     );
     expect(queryBuilder.eq).toHaveBeenCalledWith('customer_email', 'user@example.com');
@@ -144,7 +152,10 @@ describe('GET /api/bookings?me=1', () => {
       items: [
         {
           id: 'booking-1',
+          restaurantId: 'restaurant-1',
           restaurantName: 'The Corner House Pub',
+          restaurantSlug: 'corner-house',
+          restaurantTimezone: 'America/New_York',
           partySize: 4,
           startIso: '2025-01-15T18:00:00.000Z',
           endIso: '2025-01-15T20:00:00.000Z',
@@ -156,7 +167,10 @@ describe('GET /api/bookings?me=1', () => {
         },
         {
           id: 'booking-2',
+          restaurantId: null,
           restaurantName: 'Sajilo Kitchen',
+          restaurantSlug: null,
+          restaurantTimezone: null,
           partySize: 2,
           startIso: '2025-01-20T12:00:00.000Z',
           endIso: '2025-01-20T13:30:00.000Z',

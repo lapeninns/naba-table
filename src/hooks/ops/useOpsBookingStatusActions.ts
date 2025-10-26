@@ -3,11 +3,12 @@
 import { useMutation, useQueryClient, type UseMutationResult } from '@tanstack/react-query';
 
 import { useTransitionToast, useBookingErrorBoundary } from '@/components/features/booking-state-machine';
-import { useOptionalBookingStateMachine } from '@/contexts/booking-state-machine';
 import { useBookingOfflineQueue } from '@/contexts/booking-offline-queue';
+import { useOptionalBookingStateMachine } from '@/contexts/booking-state-machine';
 import { useBookingService } from '@/contexts/ops-services';
-import { queryKeys } from '@/lib/query/keys';
 import { HttpError } from '@/lib/http/errors';
+import { queryKeys } from '@/lib/query/keys';
+
 import type { OpsBookingStatus, OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
 
 export type UpdateBookingStatusVariables = {

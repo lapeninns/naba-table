@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { buildScoredTablePlans } from "@/server/capacity/selector";
 import { getSelectorScoringConfig } from "@/server/capacity/policy";
+import { buildScoredTablePlans } from "@/server/capacity/selector";
+
 import type { Table } from "@/server/capacity/tables";
 
 function createTable(overrides: Partial<Table> & Pick<Table, "id">): Table {

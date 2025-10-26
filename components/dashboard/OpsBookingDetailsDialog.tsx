@@ -2,9 +2,11 @@
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import type { BookingDTO } from '@/hooks/useBookings';
 
 import { StatusChip } from './StatusChip';
+
+import type { BookingDTO } from '@/hooks/useBookings';
+
 
 type OpsBookingDetailsDialogProps = {
   booking: BookingDTO;

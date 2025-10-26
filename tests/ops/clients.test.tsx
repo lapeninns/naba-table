@@ -1,20 +1,21 @@
 import '@testing-library/jest-dom/vitest';
 
-import * as React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import * as React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { OpsServicesProvider } from '@/contexts/ops-services';
-import { OpsSessionProvider } from '@/contexts/ops-session';
 import { OpsWalkInBookingClient, OpsTeamManagementClient, OpsBookingsClient, OpsCustomersClient, OpsDashboardClient } from '@/components/features';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import type { OpsFeatureFlags, OpsMembership, OpsTodayBookingsSummary } from '@/types/ops';
-import type { RestaurantService, OperatingHoursSnapshot, RestaurantProfile, ServicePeriodRow } from '@/services/ops/restaurants';
-import type { TeamService } from '@/services/ops/team';
+import { OpsServicesProvider } from '@/contexts/ops-services';
+import { OpsSessionProvider } from '@/contexts/ops-session';
+
 import type { BookingService } from '@/services/ops/bookings';
 import type { CustomerService } from '@/services/ops/customers';
+import type { RestaurantService, OperatingHoursSnapshot, RestaurantProfile, ServicePeriodRow } from '@/services/ops/restaurants';
+import type { TeamService } from '@/services/ops/team';
+import type { OpsFeatureFlags, OpsMembership, OpsTodayBookingsSummary } from '@/types/ops';
 
 const replaceMock = vi.fn();
 const refreshMock = vi.fn();

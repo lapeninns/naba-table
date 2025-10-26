@@ -7,12 +7,14 @@
  * - POST /api/ops/tables - Create new table
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { ensureAllowedCapacity, findTableByNumber, insertTable, listTablesWithSummary } from "@/server/ops/tables";
 import { getRouteHandlerSupabaseClient } from "@/server/supabase";
+
 import type { TablesInsert } from "@/types/supabase";
+import type { NextRequest} from "next/server";
 
 // =====================================================
 // Request Validation

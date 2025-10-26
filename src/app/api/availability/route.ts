@@ -9,13 +9,16 @@
  * - Alternative time suggestions
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
+
 import { checkSlotAvailability, findAlternativeSlots } from "@/server/capacity";
-import { getDefaultRestaurantId } from "@/server/supabase";
+import { recordObservabilityEvent } from "@/server/observability";
 import { consumeRateLimit } from "@/server/security/rate-limit";
 import { extractClientIp, anonymizeIp } from "@/server/security/request";
-import { recordObservabilityEvent } from "@/server/observability";
+import { getDefaultRestaurantId } from "@/server/supabase";
+
+import type { NextRequest} from "next/server";
 
 // =====================================================
 // Request Validation

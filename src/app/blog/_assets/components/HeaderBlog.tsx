@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
 import { Popover, Transition } from "@headlessui/react";
-import Link from "next/link";
 import Image from "next/image";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useState, useEffect } from "react";
+
 import logo from "@/app/icon.png";
-import config from "@/config";
-import { categories } from "../content";
 import { MarketingSessionActions } from "@/components/marketing/MarketingSessionActions";
+import config from "@/config";
+
+import { categories } from "../content";
 
 const links: {
   href: string;

@@ -5,6 +5,7 @@ import { ChevronDownIcon } from 'lucide-react';
 import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
 
 import { formatReservationDate } from '@reserve/shared/formatting/booking';
+import { cn } from '@shared/lib/cn';
 import { Button } from '@shared/ui/button';
 import { Calendar } from '@shared/ui/calendar';
 import { Input } from '@shared/ui/input';
@@ -86,7 +87,7 @@ export function Calendar24Field({
     [suggestions],
   );
   const showSuggestions = !isTimeDisabled && enabledSuggestions.length > 0;
-  const inputValue = isTimeDisabled ? '' : (time.value ?? '');
+  const inputValue = time.value ?? '';
   const resolvedUnavailableMessage =
     unavailableMessage ?? 'No available times for the selected date.';
 
@@ -163,34 +164,51 @@ export function Calendar24Field({
           Time
         </Label>
         <div className="flex flex-col gap-2">
-          <Input
-            id={timeInputId}
-            type="time"
-            value={inputValue}
-            step={timeStepSeconds}
-            onChange={(event) => {
-              if (isTimeDisabled) {
-                return;
-              }
-              const value = event.target.value;
-              time.onChange(value, { commit: false });
-            }}
-            onBlur={(event) => {
-              if (isTimeDisabled) {
+          <div className="relative">
+            <Input
+              id={timeInputId}
+              type="time"
+              value={inputValue}
+              step={timeStepSeconds}
+              onChange={(event) => {
+                if (isTimeDisabled) {
+                  return;
+                }
+                const value = event.target.value;
+                time.onChange(value, { commit: false });
+              }}
+              onBlur={(event) => {
+                if (isTimeDisabled) {
+                  time.onBlur?.();
+                  return;
+                }
                 time.onBlur?.();
-                return;
+                time.onChange(event.target.value, { commit: true });
+              }}
+              aria-invalid={Boolean(time.error)}
+              aria-describedby={
+                [timeDescriptionId, timeErrorId].filter(Boolean).join(' ') || undefined
               }
-              time.onBlur?.();
-              time.onChange(event.target.value, { commit: true });
-            }}
-            aria-invalid={Boolean(time.error)}
-            aria-describedby={
-              [timeDescriptionId, timeErrorId].filter(Boolean).join(' ') || undefined
-            }
-            list={showSuggestions ? timeListId : undefined}
-            className="bg-background text-base font-normal appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
-            disabled={isTimeDisabled}
-          />
+              list={showSuggestions ? timeListId : undefined}
+              placeholder="--:--"
+              className={cn(
+                'bg-background text-base font-normal appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none',
+                !inputValue ? 'text-foreground' : undefined,
+              )}
+              disabled={isTimeDisabled}
+            />
+            {!inputValue ? (
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-base text-muted-foreground transition-opacity',
+                  isTimeDisabled ? 'opacity-70' : 'opacity-100',
+                )}
+              >
+                --:--
+              </span>
+            ) : null}
+          </div>
           {showSuggestions ? (
             <datalist id={timeListId}>
               {enabledSuggestions.map((slot) => (

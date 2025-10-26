@@ -1,6 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
+
 import { getRouteHandlerSupabaseClient } from "@/server/supabase";
+
+import type { NextRequest} from "next/server";
 
 const querySchema = z.object({
   restaurantId: z.string().uuid(),

@@ -1,5 +1,6 @@
-import type { RestaurantFilters, RestaurantSummary } from '@/lib/restaurants/types';
 import { getServiceSupabaseClient } from '@/server/supabase';
+
+import type { RestaurantFilters, RestaurantSummary } from '@/lib/restaurants/types';
 
 export class ListRestaurantsError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {

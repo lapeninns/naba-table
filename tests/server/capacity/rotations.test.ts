@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { getVenuePolicy } from "@/server/capacity/policy";
 import {
   calculateCapacityForTables,
   calculateRestaurantCapacityByService,
 } from "@/server/capacity/rotations";
-import { getVenuePolicy } from "@/server/capacity/policy";
+
 import type { Tables } from "@/types/supabase";
 
 vi.mock("@/server/supabase", () => ({

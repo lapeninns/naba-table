@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 
-import type { RestaurantsListResponse } from '@/app/api/ops/restaurants/schema';
 import { fetchJson } from '@/lib/http/fetchJson';
 import { queryKeys } from '@/lib/query/keys';
+
+import type { RestaurantsListResponse } from '@/app/api/ops/restaurants/schema';
 
 export type RestaurantsFilters = {
   page?: number;

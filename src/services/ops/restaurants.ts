@@ -1,4 +1,5 @@
 import { fetchJson } from '@/lib/http/fetchJson';
+
 import type { RestaurantRole } from '@/lib/owner/auth/roles';
 import type { OpsRestaurantOption, OpsServiceError } from '@/types/ops';
 import type { OccasionKey } from '@reserve/shared/occasions';

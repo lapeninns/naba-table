@@ -1,5 +1,5 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { NextResponse } from "next/server";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 import { guardTestEndpoint } from "@/server/security/test-endpoints";
 

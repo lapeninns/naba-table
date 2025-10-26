@@ -3,10 +3,11 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
 import { useRestaurantService } from '@/contexts/ops-services';
-import type { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
-import type { OpsRestaurantOption } from '@/types/ops';
+
+import type { HttpError } from '@/lib/http/errors';
 import type { RestaurantRole } from '@/lib/owner/auth/roles';
+import type { OpsRestaurantOption } from '@/types/ops';
 
 export function useOpsRestaurantsList(options: { enabled?: boolean } = {}): UseQueryResult<
   Array<OpsRestaurantOption & { role: RestaurantRole }>,

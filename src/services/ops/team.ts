@@ -1,11 +1,12 @@
 import { fetchJson } from '@/lib/http/fetchJson';
-import type { RestaurantRole } from '@/lib/owner/auth/roles';
 import {
   invitationCreateResponseSchema,
   invitationListResponseSchema,
   restaurantInviteSchema,
   type RestaurantInvite,
 } from '@/lib/owner/team/schema';
+
+import type { RestaurantRole } from '@/lib/owner/auth/roles';
 import type { OpsServiceError } from '@/types/ops';
 
 const TEAM_INVITES_BASE = '/api/owner/team/invitations';

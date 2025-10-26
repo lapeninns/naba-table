@@ -1,4 +1,5 @@
 import { BOOKING_STATE_TRANSITIONS } from '@/config/booking-state-machine';
+
 import type { OpsBookingStatus } from '@/types/ops';
 
 export type BookingTransitionMap = typeof BOOKING_STATE_TRANSITIONS;

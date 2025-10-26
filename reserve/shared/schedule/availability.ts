@@ -66,7 +66,7 @@ export function getDisabledDays(collection: ScheduleDictionary): Map<string, Una
   const disabled = new Map<string, UnavailabilityReason>();
   for (const [dateKey, schedule] of entries) {
     const reason = deriveUnavailability(schedule);
-    if (reason) {
+    if (reason && reason !== 'unknown') {
       disabled.set(dateKey, reason);
     }
   }

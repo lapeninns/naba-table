@@ -3,13 +3,14 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
 
+import { emit } from '@/lib/analytics/emit';
 import { BOOKING_IN_PAST_CUSTOMER_MESSAGE } from '@/lib/bookings/messages';
 import { fetchJson } from '@/lib/http/fetchJson';
-import type { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
 import { reservationKeys } from '@shared/api/queryKeys';
-import { emit } from '@/lib/analytics/emit';
+
 import type { BookingDTO } from './useBookings';
+import type { HttpError } from '@/lib/http/errors';
 
 export type UpdateBookingInput = {
   id: string;

@@ -1,14 +1,15 @@
-import type { Metadata } from "next";
+import { HydrationBoundary, QueryClient, dehydrate } from "@tanstack/react-query";
 import { headers, cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { HydrationBoundary, QueryClient, dehydrate } from "@tanstack/react-query";
 
-import { OpsCustomersClient } from "@/components/features/customers";
-import type { OpsRestaurantOption } from "@/types/ops";
 import { DASHBOARD_DEFAULT_PAGE_SIZE } from "@/components/dashboard/constants";
+import { OpsCustomersClient } from "@/components/features/customers";
 import { queryKeys } from "@/lib/query/keys";
-import { fetchUserMemberships } from "@/server/team/access";
 import { getServerComponentSupabaseClient } from "@/server/supabase";
+import { fetchUserMemberships } from "@/server/team/access";
+
+import type { OpsRestaurantOption } from "@/types/ops";
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Customers · SajiloReserveX Ops",

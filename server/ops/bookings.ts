@@ -1,11 +1,12 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { getDateInTimezone } from "@/lib/utils/datetime";
-import type { Database, Tables } from "@/types/supabase";
-import { getLoyaltyPointsForCustomers } from "@/server/ops/loyalty";
 import { getCustomerProfilesForCustomers } from "@/server/ops/customer-profiles";
+import { getLoyaltyPointsForCustomers } from "@/server/ops/loyalty";
 import { getServiceSupabaseClient } from "@/server/supabase";
+
 import type { OpsTodayBooking, OpsTodayBookingsSummary } from "@/types/ops";
+import type { Database, Tables } from "@/types/supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type DbClient = SupabaseClient<Database, "public", any>;
 

@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import type { RestaurantFilters } from "@/lib/restaurants/types";
 import { listRestaurants, ListRestaurantsError } from "@/server/restaurants";
+
+import type { RestaurantFilters } from "@/lib/restaurants/types";
 
 const querySchema = z.object({
   search: z.string().optional(),

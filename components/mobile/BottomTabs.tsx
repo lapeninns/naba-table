@@ -1,7 +1,8 @@
 "use client";
+import { Compass, Heart, CalendarDays, MessageSquare, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Compass, Heart, CalendarDays, MessageSquare, User } from "lucide-react";
+
 import { cn } from "@/lib/utils";
 
 const tabs = [

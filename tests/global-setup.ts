@@ -1,6 +1,8 @@
-import { FullConfig, request } from '@playwright/test';
+import { request } from '@playwright/test';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+
+import type { FullConfig} from '@playwright/test';
 
 const AUTH_STATE_ENV_PATH = 'PLAYWRIGHT_AUTH_STATE_PATH';
 const AUTH_STATE_ENV_JSON = 'PLAYWRIGHT_AUTH_STATE_JSON';

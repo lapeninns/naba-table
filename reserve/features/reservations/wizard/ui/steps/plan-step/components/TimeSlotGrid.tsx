@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 
 import { cn } from '@shared/lib/cn';
 import { Badge } from '@shared/ui/badge';
@@ -11,6 +11,7 @@ type TimeSlotGridProps = {
   slots: TimeSlotDescriptor[];
   value: string;
   onSelect: (value: string) => void;
+  scrollToValue?: string | null;
 };
 
 function buildGroups(slots: TimeSlotDescriptor[]) {
@@ -26,9 +27,30 @@ function buildGroups(slots: TimeSlotDescriptor[]) {
   return groups;
 }
 
-export function TimeSlotGrid({ slots, value, onSelect }: TimeSlotGridProps) {
+export function TimeSlotGrid({ slots, value, onSelect, scrollToValue }: TimeSlotGridProps) {
   const groupedSlots = useMemo(() => buildGroups(slots), [slots]);
   const activeValue = value;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const lastScrolledValueRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!scrollToValue) {
+      return;
+    }
+    if (lastScrolledValueRef.current === scrollToValue) {
+      return;
+    }
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+    const target = container.querySelector<HTMLElement>(`[data-slot-value="${scrollToValue}"]`);
+    if (!target) {
+      return;
+    }
+    lastScrolledValueRef.current = scrollToValue;
+    target.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
+  }, [scrollToValue, slots]);
 
   if (slots.length === 0) {
     return null;
@@ -38,6 +60,7 @@ export function TimeSlotGrid({ slots, value, onSelect }: TimeSlotGridProps) {
     <section
       aria-label="Available times"
       className="flex flex-col gap-3 rounded-xl border border-border bg-card/80 p-4 shadow-sm"
+      ref={containerRef}
     >
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground">Pick a time</h3>

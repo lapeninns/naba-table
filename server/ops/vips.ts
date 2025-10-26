@@ -1,10 +1,11 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { getServiceSupabaseClient } from "@/server/supabase";
 import { isLoyaltyPilotRestaurant } from "@/server/feature-flags";
-import type { Database, Tables } from "@/types/supabase";
-import { getLoyaltyPointsForCustomers } from "@/server/ops/loyalty";
 import { getCustomerProfilesForCustomers } from "@/server/ops/customer-profiles";
+import { getLoyaltyPointsForCustomers } from "@/server/ops/loyalty";
+import { getServiceSupabaseClient } from "@/server/supabase";
+
+import type { Database, Tables } from "@/types/supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type DbClient = SupabaseClient<Database, "public", any>;
 

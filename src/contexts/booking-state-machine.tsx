@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useMemo, useReducer, type ReactNode } from 'react';
 
-import type { OpsBookingStatus } from '@/types/ops';
 import { getAllowedTargets, validateTransition, type TransitionValidationOptions } from '../lib/booking/state-machine';
+
+import type { OpsBookingStatus } from '@/types/ops';
 
 type BookingIdentifier = string;
 

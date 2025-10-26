@@ -1,13 +1,14 @@
 import { createHash, randomBytes } from "node:crypto";
 
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { isRestaurantRole, type RestaurantRole } from "@/lib/owner/auth/roles";
 import { buildInviteUrl } from "@/lib/owner/team/invite-links";
-import { sendTeamInviteEmail } from "@/server/emails/invitations";
 import { normalizeEmail } from "@/server/customers";
+import { sendTeamInviteEmail } from "@/server/emails/invitations";
 import { getServiceSupabaseClient } from "@/server/supabase";
+
 import type { Database, Tables } from "@/types/supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type DbClient = SupabaseClient<Database, "public", any>;
 

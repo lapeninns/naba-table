@@ -1,4 +1,5 @@
 import { expect } from '@playwright/test';
+
 import { test } from '../../fixtures/auth';
 
 const ALLOWED_PROJECTS = new Set(['chromium', 'mobile-chrome']);
@@ -274,7 +275,7 @@ test.describe('Ops Walk-In Booking - Booking Flow', () => {
     }
 
     // Continue to contact
-    let continueButton = authedPage.getByRole('button', { name: /Continue|Next/i });
+    const continueButton = authedPage.getByRole('button', { name: /Continue|Next/i });
     if (await continueButton.first().isVisible().catch(() => false)) {
       await continueButton.first().click();
       await authedPage.waitForTimeout(1000);
@@ -443,7 +444,7 @@ test.describe('Ops Walk-In Booking - Error States', () => {
       await authedPage.waitForTimeout(500);
     }
 
-    let continueButton = authedPage.getByRole('button', { name: /Continue|Next/i });
+    const continueButton = authedPage.getByRole('button', { name: /Continue|Next/i });
     if (await continueButton.first().isVisible().catch(() => false)) {
       await continueButton.first().click();
       await authedPage.waitForTimeout(1000);

@@ -1,10 +1,11 @@
-import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import config from "@/config";
 import { ProfileManageForm } from "@/components/profile/ProfileManageForm";
+import config from "@/config";
 import { getOrCreateProfile } from "@/lib/profile/server";
 import { getServerComponentSupabaseClient } from "@/server/supabase";
+
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Manage profile · SajiloReserveX",

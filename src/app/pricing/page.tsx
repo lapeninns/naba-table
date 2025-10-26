@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 
-import config from '@/config';
 import { buttonVariants } from '@/components/ui/button';
+import config from '@/config';
 import { cn } from '@/lib/utils';
 
 const plans = [

@@ -1,8 +1,5 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import type { OpsBookingStatus } from "@/types/ops";
-import { Badge } from "@/components/ui/badge";
 import {
   AlertTriangle,
   Ban,
@@ -13,7 +10,12 @@ import {
   Square,
   type LucideIcon,
 } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+
+import type { OpsBookingStatus } from "@/types/ops";
 import type { CSSProperties, ReactElement } from "react";
 
 type BadgeSize = "sm" | "md" | "lg";

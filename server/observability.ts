@@ -1,4 +1,5 @@
 import { getServiceSupabaseClient } from "@/server/supabase";
+
 import type { Json } from "@/types/supabase";
 
 export type ObservabilitySeverity = "info" | "warning" | "error" | "critical";

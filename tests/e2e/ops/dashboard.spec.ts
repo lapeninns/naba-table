@@ -1,4 +1,5 @@
 import { expect } from '@playwright/test';
+
 import { test } from '../../fixtures/auth';
 
 const BASE_DATE = '2025-10-10';

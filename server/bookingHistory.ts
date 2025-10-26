@@ -1,7 +1,7 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { BookingHistoryChange, BookingHistoryEvent, BookingHistoryOptions } from '@/types/bookingHistory';
 import type { Database } from '@/types/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 const CHANGE_TYPE_SUMMARY: Record<BookingHistoryEvent['changeType'], string> = {
   created: 'Reservation created',

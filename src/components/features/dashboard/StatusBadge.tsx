@@ -1,10 +1,11 @@
-import type { ComponentType } from 'react';
 
 import { Circle, Clock, CheckCircle2, LogIn, LogOut, XCircle, AlertTriangle } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+
 import type { OpsBookingStatus } from '@/types/ops';
+import type { ComponentType } from 'react';
 
 type StatusConfig = {
   label: string;

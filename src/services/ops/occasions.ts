@@ -1,4 +1,5 @@
 import { fetchJson } from '@/lib/http/fetchJson';
+
 import type { OccasionDefinition } from '@reserve/shared/occasions';
 
 type OccasionListResponse = {

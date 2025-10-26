@@ -1,9 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getTodayVIPs } from "@/server/ops/vips";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 import { requireMembershipForRestaurant } from "@/server/team/access";
+
+import type { NextRequest} from "next/server";
 
 const vipsQuerySchema = z.object({
   restaurantId: z.string().uuid(),

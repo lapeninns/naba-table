@@ -1,8 +1,9 @@
-import { useMemo } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 
 import { useCustomerService } from "@/contexts/ops-services";
 import { queryKeys } from "@/lib/query/keys";
+
 import type { CustomerListParams } from "@/services/ops/customers";
 import type { OpsCustomersPage } from "@/types/ops";
 

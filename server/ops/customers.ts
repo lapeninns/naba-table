@@ -1,7 +1,8 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { getServiceSupabaseClient } from "@/server/supabase";
 
 import type { Database, Tables } from "@/types/supabase";
-import { getServiceSupabaseClient } from "@/server/supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 
 type DbClient = SupabaseClient<Database, "public", any>;
 
@@ -85,7 +86,7 @@ export async function getCustomersWithProfiles(
   const offset = (page - 1) * pageSize;
 
   // Query customers with their profiles
-  let query = client
+  const query = client
     .from("customers")
     .select(
       `

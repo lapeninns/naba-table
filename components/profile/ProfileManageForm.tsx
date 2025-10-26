@@ -1,10 +1,11 @@
 'use client';
 
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
+import { Loader2, Upload, X } from 'lucide-react';
+import Image from 'next/image';
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import React from 'react';
-import Image from 'next/image';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2, Upload, X } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -12,14 +13,16 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useProfile, useUpdateProfile, useUploadProfileAvatar, coerceProfileUpdatePayload } from '@/hooks/useProfile';
-import { HttpError } from '@/lib/http/errors';
-import { profilePhoneSchema } from '@/lib/profile/schema';
-import type { ProfileResponse } from '@/lib/profile/schema';
-import { cn } from '@/lib/utils';
-import { queryKeys } from '@/lib/query/keys';
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
-import { useQueryClient } from '@tanstack/react-query';
+import { HttpError } from '@/lib/http/errors';
+import { profilePhoneSchema } from '@/lib/profile/schema';
+import { queryKeys } from '@/lib/query/keys';
+import { cn } from '@/lib/utils';
+
+import type { ProfileResponse } from '@/lib/profile/schema';
+
+
 
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024; // 2 MB
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']);

@@ -1,9 +1,12 @@
-import { type CSSProperties, type ReactNode } from "react";
-import { Viewport } from "next";
+import type { Viewport } from "next";
+
 import PlausibleProvider from "next-plausible";
-import { getSEOTags } from "@/libs/seo";
+import { type CSSProperties, type ReactNode } from "react";
+
 import ClientLayout from "@/components/LayoutClient";
 import config from "@/config";
+import { getSEOTags } from "@/libs/seo";
+
 import "./globals.css";
 import { AppProviders } from "./providers";
 

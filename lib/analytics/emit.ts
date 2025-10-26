@@ -231,7 +231,7 @@ async function flushQueue(trigger: 'timer' | 'visibility' | 'manual'): Promise<v
   queue = [];
 
   if (DEBUG_ENABLED) {
-    // eslint-disable-next-line no-console
+     
     console.debug('[analytics] flushing events', trigger, batch);
   }
 
@@ -270,7 +270,7 @@ export async function emit(eventName: string, payload?: Record<string, unknown>)
     const event = await buildEvent(eventName, payload);
 
     if (DEBUG_ENABLED) {
-      // eslint-disable-next-line no-console
+       
       console.debug('[analytics]', eventName, event.props);
     }
 

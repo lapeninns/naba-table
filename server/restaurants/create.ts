@@ -1,8 +1,10 @@
+import { assertValidTimezone } from '@/server/restaurants/timezone';
+import { getServiceSupabaseClient } from '@/server/supabase';
+
+import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { getServiceSupabaseClient } from '@/server/supabase';
-import type { Database } from '@/types/supabase';
-import { assertValidTimezone } from '@/server/restaurants/timezone';
+
 
 type DbClient = SupabaseClient<Database, 'public', any>;
 

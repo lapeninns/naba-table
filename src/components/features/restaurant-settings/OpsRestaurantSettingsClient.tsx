@@ -4,8 +4,8 @@ import { useEffect } from 'react';
 
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 
-import { RestaurantProfileSection } from './RestaurantProfileSection';
 import { OperatingHoursSection } from './OperatingHoursSection';
+import { RestaurantProfileSection } from './RestaurantProfileSection';
 import { ServicePeriodsSection } from './ServicePeriodsSection';
 
 export type OpsRestaurantSettingsClientProps = {

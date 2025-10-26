@@ -1,14 +1,15 @@
-import type { ReactNode } from "react";
 import { cookies } from "next/headers";
 
 import { OpsShell } from "@/components/features/ops-shell";
 import { OpsServicesProvider } from "@/contexts/ops-services";
 import { OpsSessionProvider } from "@/contexts/ops-session";
-import type { RestaurantRole } from "@/lib/owner/auth/roles";
-import { fetchUserMemberships, type RestaurantMembershipWithDetails } from "@/server/team/access";
-import { getServerComponentSupabaseClient } from "@/server/supabase";
-import type { OpsMembership, OpsUser } from "@/types/ops";
 import { env } from "@/lib/env";
+import { getServerComponentSupabaseClient } from "@/server/supabase";
+import { fetchUserMemberships, type RestaurantMembershipWithDetails } from "@/server/team/access";
+
+import type { RestaurantRole } from "@/lib/owner/auth/roles";
+import type { OpsMembership, OpsUser } from "@/types/ops";
+import type { ReactNode } from "react";
 
 type OpsAppLayoutProps = {
   children: ReactNode;

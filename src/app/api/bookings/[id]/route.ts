@@ -1,10 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { env } from "@/lib/env";
-import type { BookingType } from "@/lib/enums";
+import { HttpError } from "@/lib/http/errors";
 import { GuardError, listUserRestaurantMemberships, requireSession } from "@/server/auth/guards";
-import type { BookingRecord } from "@/server/bookings";
+import {
+  createBookingValidationService,
+  BookingValidationError,
+  type BookingInput,
+  type ValidationContext,
+} from "@/server/booking";
+import { mapValidationFailure, withValidationHeaders } from "@/server/booking/http";
 import {
   BOOKING_TYPES,
   SEATING_OPTIONS,
@@ -16,30 +22,31 @@ import {
   softCancelBooking,
   updateBookingRecord,
 } from "@/server/bookings";
+import { PastBookingError, assertBookingNotInPast } from "@/server/bookings/pastTimeValidation";
 import {
-  createBookingValidationService,
-  BookingValidationError,
-  type BookingInput,
-  type ValidationContext,
-} from "@/server/booking";
-import { mapValidationFailure, withValidationHeaders } from "@/server/booking/http";
-import { getDefaultRestaurantId, getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
+  OperatingHoursError,
+  type OperatingHoursErrorReason,
+  assertBookingWithinOperatingWindow,
+} from "@/server/bookings/timeValidation";
+import {
+  convertIsoToVenueDateTime,
+  convertOptionalIsoToVenueDateTime,
+} from "@/server/bookings/timezoneConversion";
+import { normalizeEmail } from "@/server/customers";
 import {
   enqueueBookingCancelledSideEffects,
   enqueueBookingUpdatedSideEffects,
   safeBookingPayload,
 } from "@/server/jobs/booking-side-effects";
-import type { Json, Tables } from "@/types/supabase";
-import { normalizeEmail } from "@/server/customers";
-import { formatDateForInput } from "@reserve/shared/formatting/booking";
-import { getRestaurantSchedule } from "@/server/restaurants/schedule";
-import { OperatingHoursError, assertBookingWithinOperatingWindow } from "@/server/bookings/timeValidation";
-import { PastBookingError, assertBookingNotInPast } from "@/server/bookings/pastTimeValidation";
 import { recordObservabilityEvent } from "@/server/observability";
-import {
-  convertIsoToVenueDateTime,
-  convertOptionalIsoToVenueDateTime,
-} from "@/server/bookings/timezoneConversion";
+import { getRestaurantSchedule } from "@/server/restaurants/schedule";
+import { getDefaultRestaurantId, getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
+import { formatDateForInput } from "@reserve/shared/formatting/booking";
+
+import type { BookingType } from "@/lib/enums";
+import type { BookingRecord } from "@/server/bookings";
+import type { Json, Tables } from "@/types/supabase";
+import type { NextRequest} from "next/server";
 
 const bookingTypeEnum = z.enum(BOOKING_TYPES);
 
@@ -64,6 +71,18 @@ const dashboardUpdateSchema = z.object({
   partySize: z.number().int().min(1),
   notes: z.string().max(500).optional().nullable(),
 });
+
+
+const OPERATING_HOURS_REASON_TO_CODE: Record<OperatingHoursErrorReason, string> = {
+  CLOSED: "CLOSED_DATE",
+  OUTSIDE_WINDOW: "OUTSIDE_HOURS",
+  AFTER_CLOSE: "OUTSIDE_HOURS",
+  INVALID_TIME: "INVALID_TIME",
+};
+
+function mapOperatingHoursReason(reason: OperatingHoursErrorReason): string {
+  return OPERATING_HOURS_REASON_TO_CODE[reason] ?? "OUTSIDE_HOURS";
+}
 
 
 
@@ -113,6 +132,7 @@ function handleZodError(error: z.ZodError) {
     {
       error: "Invalid payload",
       details: error.flatten(),
+      code: "INVALID_PAYLOAD",
     },
     { status: 400 },
   );
@@ -137,7 +157,7 @@ async function handleDashboardUpdate(params: {
   try {
     const startInstant = new Date(data.startIso);
     if (Number.isNaN(startInstant.getTime())) {
-      return NextResponse.json({ error: "Invalid date values" }, { status: 400 });
+      return NextResponse.json({ error: "Invalid date values", code: "INVALID_DATE" }, { status: 400 });
     }
 
     const restaurantId = existingBooking.restaurant_id ?? (await getDefaultRestaurantId());
@@ -152,7 +172,7 @@ async function handleDashboardUpdate(params: {
       startVenue = convertIsoToVenueDateTime(data.startIso, initialScheduleTimezone);
     } catch (conversionError) {
       const message = conversionError instanceof Error ? conversionError.message : "Invalid date values";
-      return NextResponse.json({ error: message }, { status: 400 });
+      return NextResponse.json({ error: message, code: "INVALID_DATE" }, { status: 400 });
     }
 
     let schedule = startVenue.date === initialSchedule.date
@@ -199,7 +219,10 @@ async function handleDashboardUpdate(params: {
       bookingDate = normalizedStartDateTime.toISODate() ?? bookingDate;
     } catch (validationError) {
       if (validationError instanceof OperatingHoursError) {
-        return NextResponse.json({ error: validationError.message }, { status: 400 });
+        return NextResponse.json(
+          { error: validationError.message, code: mapOperatingHoursReason(validationError.reason) },
+          { status: 400 },
+        );
       }
       throw validationError;
     }
@@ -283,7 +306,7 @@ async function handleDashboardUpdate(params: {
     }
 
     if (endDateTime.toMillis() <= normalizedStartDateTime.toMillis()) {
-      return NextResponse.json({ error: "End time must be after start time" }, { status: 400 });
+    return NextResponse.json({ error: "End time must be after start time", code: "INVALID_TIME_RANGE" }, { status: 400 });
     }
 
     const endTime = endDateTime.set({ second: 0, millisecond: 0 }).toFormat("HH:mm");
@@ -415,7 +438,7 @@ async function handleDashboardUpdate(params: {
     return NextResponse.json(bookingDTO, responseInit);
   } catch (error: unknown) {
     console.error("[bookings][PUT:dashboard]", stringifyError(error));
-    return NextResponse.json({ error: stringifyError(error) || "Unable to update booking" }, { status: 500 });
+    return NextResponse.json({ error: stringifyError(error) || "Unable to update booking", code: "UNKNOWN" }, { status: 500 });
   }
 }
 
@@ -494,7 +517,7 @@ async function processDashboardUpdate(bookingId: string, data: DashboardUpdateIn
   }
 
   if (!serviceBooking) {
-    return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+    return NextResponse.json({ error: "Booking not found", code: "BOOKING_NOT_FOUND" }, { status: 404 });
   }
 
   const bookingRecord = serviceBooking as Tables<"bookings">;
@@ -522,7 +545,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   const bookingId = await resolveBookingId(params);
 
   if (!bookingId) {
-    return NextResponse.json({ error: "Missing booking id" }, { status: 400 });
+    return NextResponse.json({ error: "Missing booking id", code: "MISSING_BOOKING_ID" }, { status: 400 });
   }
 
   // Require authentication to view booking details
@@ -554,7 +577,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     }
 
     if (!data) {
-      return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+    return NextResponse.json({ error: "Booking not found", code: "BOOKING_NOT_FOUND" }, { status: 404 });
     }
 
     // Verify ownership: user email must match booking email
@@ -580,7 +603,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ booking: data });
   } catch (error: unknown) {
     console.error("[bookings][GET:id]", stringifyError(error));
-    return NextResponse.json({ error: stringifyError(error) || "Unable to load booking" }, { status: 500 });
+    return NextResponse.json({ error: stringifyError(error) || "Unable to load booking", code: "UNKNOWN" }, { status: 500 });
   }
 }
 
@@ -588,14 +611,14 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
   const bookingId = await resolveBookingId(params);
 
   if (!bookingId) {
-    return NextResponse.json({ error: "Missing booking id" }, { status: 400 });
+    return NextResponse.json({ error: "Missing booking id", code: "MISSING_BOOKING_ID" }, { status: 400 });
   }
   let payload: unknown;
 
   try {
     payload = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid JSON payload", code: "INVALID_JSON" }, { status: 400 });
   }
 
   const body = (payload ?? {}) as Record<string, unknown>;
@@ -611,7 +634,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
         return respondWithGuardError(error);
       }
       console.error("[bookings][PUT:dashboard] unexpected failure", stringifyError(error));
-      return NextResponse.json({ error: "Unable to update booking" }, { status: 500 });
+      return NextResponse.json({ error: "Unable to update booking", code: "UNKNOWN" }, { status: 500 });
     }
   }
 
@@ -643,7 +666,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     const existingBooking = existing as Tables<"bookings"> | null;
 
     if (!existingBooking) {
-      return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+      return NextResponse.json({ error: "Booking not found", code: "BOOKING_NOT_FOUND" }, { status: 404 });
     }
 
     const {
@@ -659,7 +682,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     const normalizedPhone = data.phone.trim();
 
     if (existingBooking.customer_email !== normalizedEmail || existingBooking.customer_phone !== normalizedPhone) {
-      return NextResponse.json({ error: "You can only update your own reservation" }, { status: 403 });
+      return NextResponse.json({ error: "You can only update your own reservation", code: "FORBIDDEN" }, { status: 403 });
     }
 
     const restaurantId = data.restaurantId ?? existingBooking.restaurant_id ?? await getDefaultRestaurantId();
@@ -682,7 +705,10 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       startTime = time;
     } catch (validationError) {
       if (validationError instanceof OperatingHoursError) {
-        return NextResponse.json({ error: validationError.message }, { status: 400 });
+        return NextResponse.json(
+          { error: validationError.message, code: mapOperatingHoursReason(validationError.reason) },
+          { status: 400 },
+        );
       }
       throw validationError;
     }
@@ -736,7 +762,17 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ booking: updated, bookings });
   } catch (error: unknown) {
     console.error("[bookings][PUT:id]", stringifyError(error));
-    return NextResponse.json({ error: stringifyError(error) || "Unable to update booking" }, { status: 500 });
+    if (error instanceof HttpError) {
+      return NextResponse.json(
+        { error: error.message, code: error.code, details: error.details ?? null },
+        { status: error.status },
+      );
+    }
+
+    return NextResponse.json(
+      { error: stringifyError(error) || "Unable to update booking", code: "UNKNOWN" },
+      { status: 500 },
+    );
   }
 }
 
@@ -744,7 +780,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
   const bookingId = await resolveBookingId(params);
 
   if (!bookingId) {
-    return NextResponse.json({ error: "Missing booking id" }, { status: 400 });
+    return NextResponse.json({ error: "Missing booking id", code: "MISSING_BOOKING_ID" }, { status: 400 });
   }
 
   const tenantSupabase = await getRouteHandlerSupabaseClient();
@@ -757,7 +793,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
   } = await tenantSupabase.auth.getUser();
 
   if (authError || !user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 });
   }
 
   const userEmail = user.email.toLowerCase();
@@ -777,14 +813,14 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     const existingBooking = existing as Tables<"bookings"> | null;
 
     if (!existingBooking) {
-      return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+      return NextResponse.json({ error: "Booking not found", code: "BOOKING_NOT_FOUND" }, { status: 404 });
     }
 
     const normalizedEmail = normalizeEmail(userEmail);
 
     // Verify the booking belongs to the authenticated user
     if (existingBooking.customer_email !== normalizedEmail) {
-      return NextResponse.json({ error: "You can only cancel your own reservation" }, { status: 403 });
+      return NextResponse.json({ error: "You can only cancel your own reservation", code: "FORBIDDEN" }, { status: 403 });
     }
 
     const cancelledRecord = await softCancelBooking(serviceSupabase, bookingId);
@@ -836,6 +872,6 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       }
     }
 
-    return NextResponse.json({ error: stringifyError(error) || "Unable to cancel booking" }, { status: 500 });
+    return NextResponse.json({ error: stringifyError(error) || "Unable to cancel booking", code: "UNKNOWN" }, { status: 500 });
   }
 }

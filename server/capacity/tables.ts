@@ -12,32 +12,36 @@
  */
 
 import { DateTime } from "luxon";
-import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
-import type { Database, Tables } from "@/types/supabase";
+
 import { env } from "@/lib/env";
-import { getServiceSupabaseClient } from "@/server/supabase";
 import {
   isAssignAtomicEnabled,
   isRpcAssignAtomicEnabled,
   isSelectorScoringEnabled,
   isOpsMetricsEnabled,
 } from "@/server/feature-flags";
+import { getServiceSupabaseClient } from "@/server/supabase";
+
 import {
   bandDuration,
   defaultVenuePolicy,
   getBufferConfig,
   getVenuePolicy,
   PolicyError,
-  ServiceKey,
   ServiceNotFoundError,
   ServiceOverrunError,
-  VenuePolicy,
   whichService,
   serviceWindowFor,
   getSelectorScoringConfig,
 } from "./policy";
 import { buildScoredTablePlans, type RankedTablePlan, type CandidateMetrics, type CandidateDiagnostics } from "./selector";
 import { emitSelectorDecision, summarizeCandidate } from "./telemetry";
+
+import type {
+  ServiceKey,
+  VenuePolicy} from "./policy";
+import type { Database, Tables } from "@/types/supabase";
+import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 
 type DbClient = SupabaseClient<Database, "public", any>;
 

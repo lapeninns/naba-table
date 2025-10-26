@@ -1,8 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { deleteZone, updateZone } from "@/server/ops/zones";
 import { getRouteHandlerSupabaseClient } from "@/server/supabase";
+
+import type { NextRequest} from "next/server";
 
 const routeParamsSchema = z.object({
   id: z.string().uuid(),

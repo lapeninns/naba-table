@@ -1,9 +1,12 @@
 import { randomUUID } from "crypto";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+
 import { sendEmail } from "@/libs/resend";
-import { guardTestEndpoint } from "@/server/security/test-endpoints";
 import { sendBookingConfirmationEmail } from "@/server/emails/bookings";
+import { guardTestEndpoint } from "@/server/security/test-endpoints";
+
 import type { BookingRecord } from "@/server/bookings";
+import type { NextRequest} from "next/server";
 
 export async function POST(req: NextRequest) {
   const guard = guardTestEndpoint();

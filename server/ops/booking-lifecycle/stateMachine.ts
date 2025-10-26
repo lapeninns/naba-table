@@ -1,4 +1,5 @@
 import { BOOKING_STATE_TRANSITIONS } from "@/config/booking-state-machine";
+
 import type { Tables } from "@/types/supabase";
 
 export type BookingStatus = Tables<"bookings">["status"];

@@ -1,6 +1,6 @@
+import type { Database, Tables } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import type { Database, Tables } from "@/types/supabase";
 
 export const ANALYTICS_SCHEMA_VERSION = 1;
 

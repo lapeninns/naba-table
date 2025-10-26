@@ -1,6 +1,7 @@
+import { Resend } from "resend";
+
 import config from "@/config";
 import { env } from "@/lib/env";
-import { Resend } from "resend";
 
 const resendApiKey = env.resend.apiKey;
 const resendFrom = env.resend.from;

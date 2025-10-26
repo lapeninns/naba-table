@@ -5,16 +5,18 @@ import { useCallback, useMemo } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { BookingDTO, BookingStatus, BookingsPage } from '@/hooks/useBookings';
-import type { BookingAction } from '@/components/features/booking-state-machine';
-import type { StatusFilter } from '@/hooks/useBookingsTableState';
-import type { HttpError } from '@/lib/http/errors';
 
-import { BookingsHeader } from './BookingsHeader';
+
 import { BookingRow } from './BookingRow';
+import { BookingsHeader } from './BookingsHeader';
 import { BookingsListMobile } from './BookingsListMobile';
 import { EmptyState, type EmptyStateProps } from './EmptyState';
 import { Pagination } from './Pagination';
+
+import type { BookingAction } from '@/components/features/booking-state-machine';
+import type { BookingDTO, BookingStatus, BookingsPage } from '@/hooks/useBookings';
+import type { StatusFilter } from '@/hooks/useBookingsTableState';
+import type { HttpError } from '@/lib/http/errors';
 
 export type BookingsTableProps = {
   bookings: BookingDTO[];

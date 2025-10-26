@@ -1,14 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { DASHBOARD_DEFAULT_PAGE_SIZE } from '@/components/dashboard/constants';
+import { Pagination } from '@/components/dashboard/Pagination';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Pagination } from '@/components/dashboard/Pagination';
-import { DASHBOARD_DEFAULT_PAGE_SIZE } from '@/components/dashboard/constants';
-import { useOpsCustomers } from '@/hooks/useOpsCustomers';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
+import { useOpsCustomers } from '@/hooks/useOpsCustomers';
 
 import { CustomersTable } from './CustomersTable';
 import { ExportCustomersButton } from './ExportCustomersButton';

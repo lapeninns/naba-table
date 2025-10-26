@@ -1,7 +1,8 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { isLoyaltyPilotRestaurant } from "@/server/feature-flags";
+
 import type { Database, Json, Tables } from "@/types/supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 const LOYALTY_SCHEMA_VERSION = 1;
 

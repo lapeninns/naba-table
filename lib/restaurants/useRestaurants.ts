@@ -5,6 +5,7 @@ import { useQuery, type UseQueryOptions } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/keys";
 
 import { fetchRestaurants } from "./api";
+
 import type { RestaurantFilters, RestaurantSummary } from "./types";
 
 type UseRestaurantsOptions = {

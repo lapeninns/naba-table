@@ -1,9 +1,9 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { reservationAdapter } from '@entities/reservation/adapter';
 
 import type { Database } from '@/types/supabase';
 import type { Reservation } from '@entities/reservation/reservation.schema';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export class GetReservationError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {
@@ -11,7 +11,7 @@ export class GetReservationError extends Error {
     this.name = 'GetReservationError';
     if (options?.cause) {
       // Preserve original error for downstream logging / debugging.
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- opaque cause bubble-up
+       
       (this as { cause?: unknown }).cause = options.cause;
     }
   }

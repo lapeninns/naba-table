@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { fetchUserMemberships } from "@/server/team/access";
 import { getRouteHandlerSupabaseClient } from "@/server/supabase";
+import { fetchUserMemberships } from "@/server/team/access";
 
 export const dynamic = "force-dynamic";
 

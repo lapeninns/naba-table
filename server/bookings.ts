@@ -1,4 +1,3 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
   BOOKING_BLOCKING_STATUSES,
@@ -12,8 +11,9 @@ import {
   type SeatingPreference,
 } from "@/lib/enums";
 import { getCachedOccasionCatalog } from '@/server/occasions/catalog';
-import type { Database, Json, Tables, TablesInsert } from "@/types/supabase";
+
 import { generateBookingReference, generateUniqueBookingReference } from "./booking-reference";
+import { invalidateAvailabilitySnapshot } from "./cache/availability";
 import {
   findCustomerByContact,
   normalizeEmail,
@@ -22,7 +22,9 @@ import {
   recordCancellationForCustomerProfile,
   upsertCustomer,
 } from "./customers";
-import { invalidateAvailabilitySnapshot } from "./cache/availability";
+
+import type { Database, Json, Tables, TablesInsert } from "@/types/supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export { generateBookingReference, generateUniqueBookingReference } from "./booking-reference";
 

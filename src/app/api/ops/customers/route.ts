@@ -1,13 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 import { getCustomersWithProfiles } from "@/server/ops/customers";
-import { fetchUserMemberships } from "@/server/team/access";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
+import { fetchUserMemberships } from "@/server/team/access";
+
 import {
   opsCustomersQuerySchema,
   type CustomerDTO,
   type OpsCustomersResponse,
 } from "./schema";
+
+import type { NextRequest} from "next/server";
 
 export async function GET(req: NextRequest) {
   const supabase = await getRouteHandlerSupabaseClient();

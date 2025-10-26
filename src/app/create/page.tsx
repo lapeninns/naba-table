@@ -3,11 +3,11 @@ import { HydrationBoundary, QueryClient, dehydrate } from "@tanstack/react-query
 import { MarketingSessionActions } from "@/components/marketing/MarketingSessionActions";
 import { RestaurantBrowser } from "@/components/marketing/RestaurantBrowser";
 import { buttonVariants } from "@/components/ui/button";
-import type { RestaurantSummary } from "@/lib/restaurants/types";
 import { queryKeys } from "@/lib/query/keys";
-import { listRestaurants, ListRestaurantsError } from "@/server/restaurants";
 import { cn } from "@/lib/utils";
+import { listRestaurants, ListRestaurantsError } from "@/server/restaurants";
 
+import type { RestaurantSummary } from "@/lib/restaurants/types";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";

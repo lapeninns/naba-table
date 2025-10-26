@@ -1,4 +1,6 @@
-import { expect, test, APIRequestContext } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+
+import type { APIRequestContext } from '@playwright/test';
 
 const ALLOWED_PROJECTS = new Set(['chromium', 'mobile-chrome']);
 

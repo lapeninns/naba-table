@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -10,13 +10,15 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useOpsOperatingHours, useOpsUpdateOperatingHours } from '@/hooks';
 import { cn } from '@/lib/utils';
 import { normalizeTime } from '@reserve/shared/time';
 
-import { useOpsOperatingHours, useOpsUpdateOperatingHours } from '@/hooks';
-import type { OperatingHoursSnapshot } from '@/services/ops/restaurants';
-import type { OverrideErrors, OverrideRow, WeeklyErrors, WeeklyRow } from './types';
 import { DAYS_OF_WEEK } from './types';
+
+import type { OverrideErrors, OverrideRow, WeeklyErrors, WeeklyRow } from './types';
+import type { OperatingHoursSnapshot } from '@/services/ops/restaurants';
+
 
 type OperatingHoursSectionProps = {
   restaurantId: string | null;

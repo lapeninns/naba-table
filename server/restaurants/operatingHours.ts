@@ -1,10 +1,11 @@
 import { randomUUID } from 'crypto';
 
-import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { Database } from '@/types/supabase';
 import { canonicalOptionalTime, canonicalizeFromDb } from '@/server/restaurants/timeNormalization';
 import { getServiceSupabaseClient } from '@/server/supabase';
+
+import type { Database } from '@/types/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 type DbClient = SupabaseClient<Database, 'public', any>;
 type OperatingHoursInsert = Database['public']['Tables']['restaurant_operating_hours']['Insert'];

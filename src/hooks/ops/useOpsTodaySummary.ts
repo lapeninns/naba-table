@@ -3,8 +3,9 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { useBookingService } from '@/contexts/ops-services';
-import type { OpsTodayBookingsSummary } from '@/types/ops';
 import { queryKeys } from '@/lib/query/keys';
+
+import type { OpsTodayBookingsSummary } from '@/types/ops';
 
 export type UseOpsTodaySummaryOptions = {
   restaurantId?: string | null;

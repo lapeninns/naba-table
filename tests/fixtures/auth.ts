@@ -1,6 +1,8 @@
-import { Page, expect as baseExpect, test as base } from '@playwright/test';
+import { expect as baseExpect, test as base } from '@playwright/test';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+
+import type { Page} from '@playwright/test';
 
 const DEFAULT_STATE_PATH = path.resolve(__dirname, '../.auth/default.json');
 

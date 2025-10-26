@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (env.node.env !== "production") {
-      // eslint-disable-next-line no-console
+       
       console.debug("[events]", events);
     }
 

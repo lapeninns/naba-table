@@ -1,5 +1,5 @@
-import type { RestaurantRole } from '@/lib/owner/auth/roles';
 import type { HttpError } from '@/lib/http/errors';
+import type { RestaurantRole } from '@/lib/owner/auth/roles';
 import type { OccasionKey } from '@reserve/shared/occasions';
 
 export type OpsUser = {

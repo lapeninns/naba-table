@@ -1,10 +1,10 @@
+import { calculateDurationMinutes } from '@/server/bookings';
 import { normalizeTime, toMinutes } from '@reserve/shared/time';
 
+import type { BookingType } from '@/lib/enums';
+import type { RestaurantSchedule } from '@/server/restaurants/schedule';
 import type { ReservationTime } from '@reserve/shared/time';
 
-import { calculateDurationMinutes } from '@/server/bookings';
-import type { RestaurantSchedule } from '@/server/restaurants/schedule';
-import type { BookingType } from '@/lib/enums';
 
 export type OperatingHoursErrorReason = 'CLOSED' | 'INVALID_TIME' | 'OUTSIDE_WINDOW' | 'AFTER_CLOSE';
 

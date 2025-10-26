@@ -1,5 +1,5 @@
 // import themes from "daisyui/src/theming/themes"; // Removed: not supported in latest daisyUI
-import { ConfigProps } from "./types/config";
+import type { ConfigProps } from "./types/config";
 
 const APP_NAME = "ShipFast";
 const supportEmailEnv = process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim();

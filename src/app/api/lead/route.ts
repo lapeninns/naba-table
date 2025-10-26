@@ -1,5 +1,8 @@
-import { NextResponse, NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+
 import { getRouteHandlerSupabaseClient } from "@/server/supabase";
+
+import type { NextRequest } from "next/server";
 
 function stringifyError(error: unknown): string {
   if (error instanceof Error) return error.message;

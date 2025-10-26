@@ -4,10 +4,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type PropsWithChildren } from "react";
 
-import { WizardDependenciesProvider } from "@features/reservations/wizard/di";
-import { BookingWizard } from "@features/reservations/wizard/ui/BookingWizard";
 import { track } from "@/lib/analytics";
 import { configureQueryPersistence } from "@/lib/query/persist";
+import { WizardDependenciesProvider } from "@features/reservations/wizard/di";
+import { BookingWizard } from "@features/reservations/wizard/ui/BookingWizard";
+
 import type { BookingDetails, BookingWizardMode } from "@features/reservations/wizard/model/reducer";
 
 const defaultQueryOptions = {

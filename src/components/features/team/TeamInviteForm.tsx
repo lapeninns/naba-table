@@ -1,17 +1,18 @@
 'use client';
 
-import { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Copy, Loader2 } from 'lucide-react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { RESTAURANT_ROLE_OPTIONS } from '@/lib/owner/auth/roles';
-import type { RestaurantRole } from '@/lib/owner/auth/roles';
 import { useOpsCreateTeamInvite } from '@/hooks';
+import { RESTAURANT_ROLE_OPTIONS } from '@/lib/owner/auth/roles';
+
+import type { RestaurantRole } from '@/lib/owner/auth/roles';
 import type { TeamInvite } from '@/services/ops/team';
 
 type TeamInviteFormProps = {

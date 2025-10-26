@@ -8,8 +8,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useUpdateRestaurant } from '@/hooks/ops/useUpdateRestaurant';
-import type { RestaurantDTO, UpdateRestaurantInput } from '@/app/api/ops/restaurants/schema';
+
 import { RestaurantDetailsForm } from './RestaurantDetailsForm';
+
+import type { RestaurantDTO, UpdateRestaurantInput } from '@/app/api/ops/restaurants/schema';
 
 type EditRestaurantDialogProps = {
   open: boolean;

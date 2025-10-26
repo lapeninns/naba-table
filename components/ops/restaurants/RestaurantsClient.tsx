@@ -1,20 +1,22 @@
 'use client';
 
-import { useCallback, useState } from 'react';
 import { Plus, Search } from 'lucide-react';
+import { useCallback, useState } from 'react';
 
+import { DASHBOARD_DEFAULT_PAGE_SIZE } from '@/components/dashboard/constants';
+import { Pagination } from '@/components/dashboard/Pagination';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Pagination } from '@/components/dashboard/Pagination';
-import { DASHBOARD_DEFAULT_PAGE_SIZE } from '@/components/dashboard/constants';
 import { useRestaurants } from '@/hooks/ops/useRestaurants';
-import type { RestaurantDTO } from '@/app/api/ops/restaurants/schema';
-import { RestaurantsTable } from './RestaurantsTable';
+
 import { CreateRestaurantDialog } from './CreateRestaurantDialog';
-import { EditRestaurantDialog } from './EditRestaurantDialog';
 import { DeleteRestaurantDialog } from './DeleteRestaurantDialog';
+import { EditRestaurantDialog } from './EditRestaurantDialog';
+import { RestaurantsTable } from './RestaurantsTable';
+
+import type { RestaurantDTO } from '@/app/api/ops/restaurants/schema';
 
 export function RestaurantsClient() {
   const [page, setPage] = useState(1);

@@ -5,12 +5,13 @@ import React, { useId } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { BookingDTO } from '@/hooks/useBookings';
 import { cn } from '@/lib/utils';
 
 import { deriveBookingDisplayState } from './BookingRow';
 import { EmptyState, type EmptyStateProps } from './EmptyState';
 import { StatusChip } from './StatusChip';
+
+import type { BookingDTO } from '@/hooks/useBookings';
 
 export type BookingsListMobileProps = {
   bookings: BookingDTO[];

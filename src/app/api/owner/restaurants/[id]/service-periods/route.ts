@@ -1,15 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { getOccasionCatalog } from '@/server/occasions/catalog';
 import {
   getServicePeriods,
   updateServicePeriods,
   type UpdateServicePeriod,
 } from '@/server/restaurants/servicePeriods';
-import { getOccasionCatalog } from '@/server/occasions/catalog';
 import { TIME_REGEX, canonicalTime } from '@/server/restaurants/timeNormalization';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 import { requireAdminMembership } from '@/server/team/access';
+
+import type { NextRequest} from 'next/server';
 
 const timeSchema = z
   .string()

@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -15,8 +15,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useCreateRestaurant } from '@/hooks/ops/useCreateRestaurant';
-import type { CreateRestaurantInput } from '@/app/api/ops/restaurants/schema';
 import { cn } from '@/lib/utils';
+
+import type { CreateRestaurantInput } from '@/app/api/ops/restaurants/schema';
 
 type CreateRestaurantDialogProps = {
   open: boolean;

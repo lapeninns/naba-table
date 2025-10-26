@@ -3,12 +3,13 @@
 import { type QueryKey, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
 
-import { fetchJson } from '@/lib/http/fetchJson';
-import type { HttpError } from '@/lib/http/errors';
-import { queryKeys } from '@/lib/query/keys';
-import { emit } from '@/lib/analytics/emit';
 import { track } from '@/lib/analytics';
+import { emit } from '@/lib/analytics/emit';
+import { fetchJson } from '@/lib/http/fetchJson';
+import { queryKeys } from '@/lib/query/keys';
+
 import type { BookingDTO, BookingsPage } from './useBookings';
+import type { HttpError } from '@/lib/http/errors';
 
 export type CancelBookingInput = {
   id: string;

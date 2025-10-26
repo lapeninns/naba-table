@@ -1,11 +1,13 @@
 import { DateTime } from "luxon";
 
-import { inferMealTypeFromTime, calculateDurationMinutes } from "@/server/bookings";
-import { OperatingHoursError, assertBookingWithinOperatingWindow } from "@/server/bookings/timeValidation";
-import { PastBookingError, assertBookingNotInPast } from "@/server/bookings/pastTimeValidation";
-import type { BookingRecord as ExistingBookingRecord } from "@/server/capacity";
-import { recordObservabilityEvent } from "@/server/observability";
 import { isBookingType, type BookingType } from "@/lib/enums";
+import { inferMealTypeFromTime, calculateDurationMinutes } from "@/server/bookings";
+import { PastBookingError, assertBookingNotInPast } from "@/server/bookings/pastTimeValidation";
+import { OperatingHoursError, assertBookingWithinOperatingWindow } from "@/server/bookings/timeValidation";
+import { recordObservabilityEvent } from "@/server/observability";
+
+
+import { mapCapacityErrorCode } from "./types";
 
 import type {
   BookingError,
@@ -25,7 +27,7 @@ import type {
   BookingCommitSuccess,
   BookingErrorSeverity,
 } from "./types";
-import { mapCapacityErrorCode } from "./types";
+import type { BookingRecord as ExistingBookingRecord } from "@/server/capacity";
 
 export class BookingValidationError extends Error {
   readonly response: BookingValidationResponse & { ok: false };

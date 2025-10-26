@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+import { RESTAURANT_ROLES, RESTAURANT_ADMIN_ROLES } from '@/lib/owner/auth/roles';
 import {
   requireMembershipForRestaurant,
   requireAdminMembership,
 } from '@/server/team/access';
-import { RESTAURANT_ROLES, RESTAURANT_ADMIN_ROLES } from '@/lib/owner/auth/roles';
 
 vi.mock('@/server/supabase', () => ({
   getServiceSupabaseClient: vi.fn(() => ({

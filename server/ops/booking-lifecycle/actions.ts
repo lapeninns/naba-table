@@ -1,13 +1,14 @@
 import { differenceInMinutes } from "date-fns";
 
-import type { Json, Tables, TablesInsert } from "@/types/supabase";
-
 import {
   assertCanTransition,
   BookingLifecycleError,
   type BookingLifecycleErrorCode,
   type BookingStatus,
 } from "./stateMachine";
+
+import type { Json, Tables, TablesInsert } from "@/types/supabase";
+
 
 type BookingRow = Pick<
   Tables<"bookings">,

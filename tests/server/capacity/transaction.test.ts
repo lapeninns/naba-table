@@ -23,6 +23,7 @@ vi.mock("@/server/supabase", () => ({
 }));
 
 import { createBookingWithCapacityCheck } from "@/server/capacity/transaction";
+
 import type { BookingRecord } from "@/server/capacity/types";
 
 type SupabaseLike = {

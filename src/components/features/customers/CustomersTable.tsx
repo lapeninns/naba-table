@@ -1,8 +1,9 @@
 'use client';
 
-import type { OpsCustomer } from '@/types/ops';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+
+import type { OpsCustomer } from '@/types/ops';
 
 type CustomersTableProps = {
   customers: OpsCustomer[];

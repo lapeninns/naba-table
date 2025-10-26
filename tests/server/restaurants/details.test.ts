@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { updateRestaurantDetails } from "@/server/restaurants/details";
 import { updateRestaurant } from "@/server/restaurants/update";
 
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 vi.mock("@/server/restaurants/update", () => ({
   updateRestaurant: vi.fn(),

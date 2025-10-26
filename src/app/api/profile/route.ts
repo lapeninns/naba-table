@@ -1,13 +1,15 @@
+import { NextResponse } from "next/server";
 import { randomUUID, createHash } from "node:crypto";
-import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 
-import type { User } from "@supabase/supabase-js";
 
 import { profileUpdateSchema, type ProfileUpdatePayload } from "@/lib/profile/schema";
 import { normalizeProfileRow, ensureProfileRow, PROFILE_COLUMNS } from "@/lib/profile/server";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
+
 import type { Database } from "@/types/supabase";
+import type { User } from "@supabase/supabase-js";
+import type { NextRequest} from "next/server";
 
 function jsonError(status: number, code: string, message: string, details?: unknown) {
   return NextResponse.json({ code, message, details }, { status });

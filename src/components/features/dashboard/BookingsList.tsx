@@ -11,13 +11,13 @@ import {
 import { useEffect, useMemo } from 'react';
 
 import { BookingStatusBadge, StatusTransitionAnimator } from '@/components/features/booking-state-machine';
-import { BookingStateMachineProvider, useBookingState, useBookingStateMachine } from '@/contexts/booking-state-machine';
+import { BookingActionButton } from '@/components/features/booking-state-machine';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { BookingActionButton } from '@/components/features/booking-state-machine';
+import { BookingStateMachineProvider, useBookingState, useBookingStateMachine } from '@/contexts/booking-state-machine';
+import { useBookingRealtime } from '@/hooks';
 import { cn } from '@/lib/utils';
 import { formatTimeRange, getTodayInTimezone } from '@/lib/utils/datetime';
-import { useBookingRealtime } from '@/hooks';
 
 import { BookingDetailsDialog } from './BookingDetailsDialog';
 

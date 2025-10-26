@@ -3,15 +3,15 @@
 import { useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   RestaurantDetailsForm,
   type RestaurantDetailsFormValues,
   COMMON_TIMEZONES,
 } from '@/components/ops/restaurants/RestaurantDetailsForm';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useOpsRestaurantDetails, useOpsUpdateRestaurantDetails } from '@/hooks';
 
 const EMPTY_VALUES: RestaurantDetailsFormValues = {

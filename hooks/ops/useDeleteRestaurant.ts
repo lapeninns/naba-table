@@ -3,14 +3,16 @@
 import { useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
 
+import { fetchJson } from '@/lib/http/fetchJson';
+import { queryKeys } from '@/lib/query/keys';
+
 import type {
   DeleteRestaurantResponse,
   RestaurantDTO,
   RestaurantsListResponse,
 } from '@/app/api/ops/restaurants/schema';
-import { fetchJson } from '@/lib/http/fetchJson';
 import type { HttpError } from '@/lib/http/errors';
-import { queryKeys } from '@/lib/query/keys';
+
 
 export type DeleteRestaurantInput = {
   id: string;

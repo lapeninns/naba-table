@@ -1,10 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest } from "next/server";
 
 import { env, getEnv } from "@/lib/env";
-import { Database } from "@/types/supabase";
+
+import type { Database } from "@/types/supabase";
+import type { NextResponse} from "next/server";
 
 export { BOOKING_BLOCKING_STATUSES } from "@/lib/enums";
 

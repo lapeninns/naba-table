@@ -3,19 +3,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
 import { BookingsTable } from '@/components/dashboard/BookingsTable';
-import { DASHBOARD_DEFAULT_PAGE_SIZE } from '@/components/dashboard/constants';
 import { CancelBookingDialog } from '@/components/dashboard/CancelBookingDialog';
+import { DASHBOARD_DEFAULT_PAGE_SIZE } from '@/components/dashboard/constants';
 import { EditBookingDialog } from '@/components/dashboard/EditBookingDialog';
 import { useBookings, type BookingDTO } from '@/hooks/useBookings';
 import { useBookingsTableState } from '@/hooks/useBookingsTableState';
 import { track } from '@/lib/analytics';
-import { DEFAULT_VENUE } from '@shared/config/venue';
-
-type MyBookingsClientProps = {
-  scheduleParityEnabled: boolean;
-};
-
-export function MyBookingsClient({ scheduleParityEnabled }: MyBookingsClientProps) {
+export function MyBookingsClient() {
   const tableState = useBookingsTableState({ pageSize: DASHBOARD_DEFAULT_PAGE_SIZE });
   const { statusFilter, page, pageSize, queryFilters, handleStatusFilterChange } = tableState;
   const [editBooking, setEditBooking] = useState<BookingDTO | null>(null);
@@ -104,9 +98,8 @@ export function MyBookingsClient({ scheduleParityEnabled }: MyBookingsClientProp
         booking={editBooking}
         open={isEditOpen}
         onOpenChange={handleEditOpenChange}
-        restaurantSlug={DEFAULT_VENUE.slug}
-        restaurantTimezone={DEFAULT_VENUE.timezone}
-        scheduleParityEnabled={scheduleParityEnabled}
+        restaurantSlug={editBooking?.restaurantSlug ?? null}
+        restaurantTimezone={editBooking?.restaurantTimezone ?? null}
       />
       <CancelBookingDialog booking={cancelBooking} open={isCancelOpen} onOpenChange={handleCancelOpenChange} />
     </section>

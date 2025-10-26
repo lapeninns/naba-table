@@ -3,12 +3,14 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
 import { fetchJson } from '@/lib/http/fetchJson';
-import type { HttpError } from '@/lib/http/errors';
-import { queryKeys } from '@/lib/query/keys';
 import {
   restaurantMembershipResponseSchema,
   type RestaurantMembership,
 } from '@/lib/owner/team/schema';
+import { queryKeys } from '@/lib/query/keys';
+
+import type { HttpError } from '@/lib/http/errors';
+
 
 export function useRestaurantMemberships(): UseQueryResult<RestaurantMembership[], HttpError> {
   return useQuery<RestaurantMembership[], HttpError>({

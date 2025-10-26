@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { fetchJson } from '@/lib/http/fetchJson';
+
 import type { BookingChange } from '@/components/features/dashboard/BookingChangeFeed';
 
 export type BookingChangeFeedResponse = {

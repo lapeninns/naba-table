@@ -83,7 +83,7 @@ export function BookingOfflineQueueProvider({ children }: { children: ReactNode 
     }
     flushingRef.current = true;
     try {
-      // eslint-disable-next-line no-constant-condition
+       
       while (true) {
         if (!isOnline) {
           break;

@@ -1,14 +1,13 @@
-import { getServiceSupabaseClient } from '@/server/supabase';
-import { getOccasionCatalog } from '@/server/occasions/catalog';
-import type { Database } from '@/types/supabase';
 import { getTodayInTimezone } from '@/lib/utils/datetime';
-
+import { getOccasionCatalog } from '@/server/occasions/catalog';
+import { getServiceSupabaseClient } from '@/server/supabase';
 import { formatReservationTime } from '@reserve/shared/formatting/booking';
 import { isOccasionAvailable, type OccasionCatalog, type OccasionDefinition, type OccasionKey } from '@reserve/shared/occasions';
 import { normalizeTime, slotsForRange, toMinutes } from '@reserve/shared/time';
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@/types/supabase';
 import type { ReservationTime } from '@reserve/shared/time';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 type DbClient = SupabaseClient<Database, 'public', any>;
 type ServiceState = 'enabled' | 'disabled';

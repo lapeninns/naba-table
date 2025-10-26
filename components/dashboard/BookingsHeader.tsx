@@ -3,7 +3,9 @@
 import { Search, X } from 'lucide-react';
 
 import { Input } from '@/components/ui/input';
+
 import { StatusFilterGroup, type StatusOption } from './StatusFilterGroup';
+
 import type { StatusFilter } from '@/hooks/useBookingsTableState';
 
 export type BookingsHeaderProps = {

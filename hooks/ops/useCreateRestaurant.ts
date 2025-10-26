@@ -3,10 +3,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
 
-import type { CreateRestaurantInput, RestaurantResponse } from '@/app/api/ops/restaurants/schema';
 import { fetchJson } from '@/lib/http/fetchJson';
-import type { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
+
+import type { CreateRestaurantInput, RestaurantResponse } from '@/app/api/ops/restaurants/schema';
+import type { HttpError } from '@/lib/http/errors';
+
 
 export function useCreateRestaurant() {
   const queryClient = useQueryClient();

@@ -4,9 +4,11 @@ import { Component, type ErrorInfo, type ReactNode, createContext, useCallback, 
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import type { OpsBookingStatus } from "@/types/ops";
 
 import { ConflictResolver } from "./ConflictResolver";
+
+import type { OpsBookingStatus } from "@/types/ops";
+
 
 type ErrorKind = "network" | "permission" | "unknown";
 

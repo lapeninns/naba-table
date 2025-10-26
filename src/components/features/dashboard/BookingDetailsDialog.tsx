@@ -1,24 +1,24 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
+import { format } from 'date-fns';
 import { Mail, Phone, Clock, Users, Calendar as CalendarIcon, AlertTriangle, Award, CheckCircle2, XCircle, Loader2, LogIn, LogOut, History, ArrowRight, Keyboard } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState, type ComponentType } from 'react';
-import { useQuery } from '@tanstack/react-query';
 
-import { Badge } from '@/components/ui/badge';
 import { BookingActionButton, BookingStatusBadge, StatusTransitionAnimator } from '@/components/features/booking-state-machine';
-import type { BookingAction } from '@/components/features/booking-state-machine';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
-import { formatDateReadable, formatTimeRange, getTodayInTimezone } from '@/lib/utils/datetime';
-import { queryKeys } from '@/lib/query/keys';
 import { useBookingState } from '@/contexts/booking-state-machine';
 import { useBookingService, useTableInventoryService } from '@/contexts/ops-services';
-import type { TableInventory } from '@/services/ops/tables';
+import { queryKeys } from '@/lib/query/keys';
+import { cn } from '@/lib/utils';
+import { formatDateReadable, formatTimeRange, getTodayInTimezone } from '@/lib/utils/datetime';
 
+import type { BookingAction } from '@/components/features/booking-state-machine';
+import type { TableInventory } from '@/services/ops/tables';
 import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
 
 const TIER_COLORS: Record<string, string> = {

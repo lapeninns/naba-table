@@ -1,9 +1,17 @@
 import { randomUUID } from "crypto";
 import { DateTime } from "luxon";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { env } from "@/lib/env";
+import { isRestaurantAdminRole, type RestaurantRole } from "@/lib/owner/auth/roles";
+import {
+  createBookingValidationService,
+  BookingValidationError,
+  type BookingInput,
+  type ValidationContext,
+} from "@/server/booking";
+import { mapValidationFailure, withValidationHeaders } from "@/server/booking/http";
 import {
   calculateDurationMinutes,
   deriveEndTime,
@@ -13,28 +21,23 @@ import {
   logAuditEvent,
   insertBookingRecord,
 } from "@/server/bookings";
+import { PastBookingError, assertBookingNotInPast, canOverridePastBooking } from "@/server/bookings/pastTimeValidation";
+import { validateBookingWindow } from "@/server/capacity";
 import { normalizeEmail, upsertCustomer } from "@/server/customers";
 import { enqueueBookingCreatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
 import { recordObservabilityEvent } from "@/server/observability";
+import { getRestaurantSchedule } from "@/server/restaurants/schedule";
 import { consumeRateLimit } from "@/server/security/rate-limit";
 import { anonymizeIp, extractClientIp } from "@/server/security/request";
-import { fetchUserMemberships, requireMembershipForRestaurant } from "@/server/team/access";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
-import { PastBookingError, assertBookingNotInPast, canOverridePastBooking } from "@/server/bookings/pastTimeValidation";
-import { getRestaurantSchedule } from "@/server/restaurants/schedule";
-import type { BookingRecord } from "@/server/bookings";
-import type { BookingType } from "@/lib/enums";
-import type { Json, Tables } from "@/types/supabase";
-import { isRestaurantAdminRole, type RestaurantRole } from "@/lib/owner/auth/roles";
-import { validateBookingWindow } from "@/server/capacity";
-import {
-  createBookingValidationService,
-  BookingValidationError,
-  type BookingInput,
-  type ValidationContext,
-} from "@/server/booking";
-import { mapValidationFailure, withValidationHeaders } from "@/server/booking/http";
+import { fetchUserMemberships, requireMembershipForRestaurant } from "@/server/team/access";
+
 import { opsWalkInBookingSchema, type OpsWalkInBookingPayload } from "./schema";
+
+import type { BookingType } from "@/lib/enums";
+import type { BookingRecord } from "@/server/bookings";
+import type { Json, Tables } from "@/types/supabase";
+import type { NextRequest} from "next/server";
 
 const OPS_CHANNEL = "ops.walkin";
 const SYSTEM_SOURCE = "system";

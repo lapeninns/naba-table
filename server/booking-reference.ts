@@ -1,8 +1,8 @@
 import { randomInt } from "node:crypto";
 
+import type { Database } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import type { Database } from "@/types/supabase";
 
 const BOOKING_REFERENCE_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 

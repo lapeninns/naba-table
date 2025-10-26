@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { User } from "@supabase/supabase-js";
 
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+
+import type { User } from "@supabase/supabase-js";
+
 
 export type SupabaseSessionState = {
   user: User | null;

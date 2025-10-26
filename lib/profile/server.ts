@@ -1,4 +1,3 @@
-import type { SupabaseClient, User } from "@supabase/supabase-js";
 
 import {
   profileNameSchema,
@@ -7,7 +6,9 @@ import {
 } from "@/lib/profile/schema";
 import { normalizeEmail } from "@/server/customers";
 import { getServiceSupabaseClient } from "@/server/supabase";
+
 import type { Database } from "@/types/supabase";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 
 export const PROFILE_COLUMNS = "id,name,email,phone,image,created_at,updated_at" as const;
 

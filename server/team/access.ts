@@ -1,8 +1,9 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { RESTAURANT_ADMIN_ROLES, RESTAURANT_ROLES, type RestaurantRole } from "@/lib/owner/auth/roles";
 import { getServiceSupabaseClient } from "@/server/supabase";
+
 import type { Database, Tables } from "@/types/supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type DbClient = SupabaseClient<Database, "public", any>;
 

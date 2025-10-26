@@ -1,11 +1,11 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-
 import type {
   Database,
   Tables,
   TablesInsert,
   TablesUpdate,
 } from "@/types/supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 
 type PublicClient = SupabaseClient<Database, "public", any>;
 

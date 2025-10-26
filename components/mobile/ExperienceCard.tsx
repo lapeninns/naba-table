@@ -1,7 +1,8 @@
 "use client";
-import * as React from "react";
-import Image from "next/image";
 import { Heart } from "lucide-react";
+import Image from "next/image";
+import * as React from "react";
+
 import { cn } from "@/lib/utils";
 
 type Props = {

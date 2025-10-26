@@ -1,16 +1,18 @@
-import type { SupabaseClient, User } from "@supabase/supabase-js";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { ensureProfileRow } from "@/lib/profile/server";
 import { getServiceSupabaseClient } from "@/server/supabase";
-import type { Database } from "@/types/supabase";
 import {
   findInviteByToken,
   inviteHasExpired,
   markInviteAccepted,
   markInviteExpired,
 } from "@/server/team/invitations";
+
+import type { Database } from "@/types/supabase";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
+import type { NextRequest} from "next/server";
 
 type SupabaseAdminClient = SupabaseClient<Database, "public", any>;
 

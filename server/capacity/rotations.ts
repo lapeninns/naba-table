@@ -1,8 +1,8 @@
 import { DateTime } from "luxon";
-import type { SupabaseClient } from "@supabase/supabase-js";
+
 
 import { getServiceSupabaseClient } from "@/server/supabase";
-import type { Database, Tables } from "@/types/supabase";
+
 import {
   bandDuration,
   getBufferConfig,
@@ -12,6 +12,9 @@ import {
   type ServiceKey,
   type VenuePolicy,
 } from "./policy";
+
+import type { Database, Tables } from "@/types/supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type DbClient = SupabaseClient<Database, "public", any>;
 type TableInventoryRow = Pick<

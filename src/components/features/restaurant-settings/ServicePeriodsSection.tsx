@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -10,12 +10,14 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useOpsOccasions, useOpsServicePeriods, useOpsUpdateServicePeriods } from '@/hooks';
 import { cn } from '@/lib/utils';
 import { normalizeTime } from '@reserve/shared/time';
 
-import { useOpsOccasions, useOpsServicePeriods, useOpsUpdateServicePeriods } from '@/hooks';
-import type { ServicePeriodRow, ServicePeriodErrors } from './types';
 import { DAY_OPTIONS } from './types';
+
+import type { ServicePeriodRow, ServicePeriodErrors } from './types';
+
 
 type ServicePeriodsSectionProps = {
   restaurantId: string | null;

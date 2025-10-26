@@ -4,6 +4,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { OpsSessionProvider, useOpsActiveRestaurantId } from '@/contexts/ops-session';
+
 import type { OpsMembership, OpsUser } from '@/types/ops';
 
 function ActiveRestaurantProbe() {

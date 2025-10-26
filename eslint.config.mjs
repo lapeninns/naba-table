@@ -16,6 +16,26 @@ const [nextBaseConfig, , nextIgnoreConfig] = nextConfig;
 export default [
   nextBaseConfig,
   nextIgnoreConfig,
+  {
+    ignores: [
+      "**/.backup*/",
+      "**/.backup-*/",
+      "**/node_modules/",
+      "**/.next/",
+      "**/dist/",
+      "**/*-dist/",
+      ".reserve-dist/**",
+      "**/build/",
+      "*.config.js",
+      "*.config.mjs",
+      "test-email.mjs",
+      "tailwind.config.js",
+      "postcss.config.js",
+      "next.config.js",
+      "next-sitemap.config.js",
+      "tests/load/**/*.js",
+    ],
+  },
   ...compat.config({
     root: true,
     parser: "@typescript-eslint/parser",
@@ -45,10 +65,12 @@ export default [
       "@typescript-eslint/consistent-type-imports": "error",
       "@typescript-eslint/explicit-module-boundary-types": "off",
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
+      "@typescript-eslint/no-explicit-any": "warn",
       "react/display-name": "off",
       "react-hooks/refs": "off",
       "react-hooks/set-state-in-effect": "off",
       "react-hooks/purity": "off",
+      "react-hooks/preserve-manual-memoization": "warn",
       "import/order": [
         "error",
         {

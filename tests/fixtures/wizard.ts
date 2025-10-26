@@ -1,11 +1,11 @@
 import { getInitialDetails, getInitialState } from '@features/reservations/wizard/model/reducer';
 
+import type { Reservation } from '@entities/reservation/reservation.schema';
 import type {
   ApiBooking,
   BookingDetails,
   State,
 } from '@features/reservations/wizard/model/reducer';
-import type { Reservation } from '@entities/reservation/reservation.schema';
 
 export const wizardDetailsFixture = (overrides: Partial<BookingDetails> = {}): BookingDetails =>
   getInitialDetails(overrides);

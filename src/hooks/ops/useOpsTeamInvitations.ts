@@ -3,8 +3,9 @@
 import { useMutation, useQuery, useQueryClient, type UseMutationResult, type UseQueryResult } from '@tanstack/react-query';
 
 import { useTeamService } from '@/contexts/ops-services';
-import type { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
+
+import type { HttpError } from '@/lib/http/errors';
 import type { CreateInviteInput, TeamInvite, TeamInviteStatus } from '@/services/ops/team';
 
 export function useOpsTeamInvitations(params: {

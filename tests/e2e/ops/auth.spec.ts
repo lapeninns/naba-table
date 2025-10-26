@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+
 import { test as authedTest } from '../../fixtures/auth';
 
 const ALLOWED_PROJECTS = new Set(['chromium', 'mobile-chrome']);

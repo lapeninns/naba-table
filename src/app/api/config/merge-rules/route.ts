@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+
 import { getRouteHandlerSupabaseClient } from "@/server/supabase";
 
 export async function GET() {

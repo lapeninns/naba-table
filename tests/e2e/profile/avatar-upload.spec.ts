@@ -1,4 +1,5 @@
 import path from 'node:path';
+
 import { expect, test } from '../../fixtures/auth';
 import { profileSelectors } from '../../helpers/selectors';
 

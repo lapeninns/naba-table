@@ -1,9 +1,9 @@
 import '@testing-library/jest-dom/vitest';
 
-import * as React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { OpsServicesProvider } from '@/contexts/ops-services';
@@ -13,9 +13,10 @@ import {
   useOpsRestaurantsList,
   useOpsTeamInvitations,
 } from '@/hooks';
-import type { OpsMembership } from '@/types/ops';
+
 
 import type { BookingService } from '@/services/ops/bookings';
+import type { CustomerService } from '@/services/ops/customers';
 import type {
   OperatingHoursSnapshot,
   RestaurantProfile,
@@ -23,7 +24,7 @@ import type {
   ServicePeriodRow,
 } from '@/services/ops/restaurants';
 import type { TeamInvite, TeamService, TeamInviteStatus } from '@/services/ops/team';
-import type { CustomerService } from '@/services/ops/customers';
+import type { OpsMembership } from '@/types/ops';
 
 type ServiceOverrides = {
   restaurantService?: RestaurantService;

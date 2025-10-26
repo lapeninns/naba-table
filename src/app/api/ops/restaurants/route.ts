@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 import { createRestaurant, listRestaurantsForOps } from '@/server/restaurants';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
+
 import {
   createRestaurantSchema,
   listRestaurantsQuerySchema,
@@ -9,6 +10,8 @@ import {
   type RestaurantsListResponse,
   type RestaurantResponse,
 } from './schema';
+
+import type { NextRequest} from 'next/server';
 
 export async function GET(req: NextRequest) {
   const supabase = await getRouteHandlerSupabaseClient();

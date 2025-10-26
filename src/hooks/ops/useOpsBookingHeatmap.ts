@@ -3,8 +3,9 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { useBookingService } from '@/contexts/ops-services';
-import type { OpsBookingHeatmap } from '@/types/ops';
 import { queryKeys } from '@/lib/query/keys';
+
+import type { OpsBookingHeatmap } from '@/types/ops';
 
 export type UseOpsBookingHeatmapOptions = {
   restaurantId?: string | null;

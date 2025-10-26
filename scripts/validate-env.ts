@@ -1,6 +1,7 @@
 // Validates environment variables at build time using the shared schema.
 import { config } from "dotenv";
 import { resolve } from "path";
+
 import { getEnv } from "../lib/env";
 
 // Load environment variables before validation (in priority order)

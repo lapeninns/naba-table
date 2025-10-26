@@ -540,8 +540,8 @@ export function ReservationDetailClient({
             booking={bookingDto}
             open={isEditOpen}
             onOpenChange={closeEditDialog}
-            restaurantSlug={venue.slug ?? DEFAULT_VENUE.slug}
-            restaurantTimezone={venue.timezone}
+            restaurantSlug={venue.slug ?? bookingDto.restaurantSlug ?? null}
+            restaurantTimezone={venue.timezone ?? bookingDto.restaurantTimezone ?? null}
           />
           <CancelBookingDialog booking={bookingDto} open={isCancelOpen} onOpenChange={closeCancelDialog} />
         </>

@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 import { env } from '@/lib/env';
+
+import type { NextRequest} from 'next/server';
 
 const TEST_ROUTE_HEADER = 'x-test-route-key';
 const ENABLE_TEST_API = env.featureFlags.enableTestApi || env.node.env !== 'production';

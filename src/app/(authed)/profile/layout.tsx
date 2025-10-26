@@ -1,8 +1,9 @@
-import type { ReactNode } from "react";
 import Link from "next/link";
 
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+import type { ReactNode } from "react";
 
 export default function ProfileLayout({ children }: { children: ReactNode }) {
   return (

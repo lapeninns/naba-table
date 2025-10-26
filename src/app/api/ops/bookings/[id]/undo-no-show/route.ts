@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { env } from "@/lib/env";
@@ -6,7 +6,9 @@ import { prepareUndoNoShowTransition } from "@/server/ops/booking-lifecycle/acti
 import { BookingLifecycleError } from "@/server/ops/booking-lifecycle/stateMachine";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 import { requireMembershipForRestaurant } from "@/server/team/access";
+
 import type { Tables } from "@/types/supabase";
+import type { NextRequest} from "next/server";
 
 const bodySchema = z
   .object({

@@ -1,5 +1,5 @@
-import type { Table } from "./tables";
 import type { SelectorScoringConfig, SelectorScoringWeights } from "./policy";
+import type { Table } from "./tables";
 
 export type CandidateMetrics = {
   overage: number;

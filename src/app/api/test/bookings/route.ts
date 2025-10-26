@@ -1,9 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 
 import { guardTestEndpoint } from '@/server/security/test-endpoints';
 import { getDefaultRestaurantId, getServiceSupabaseClient } from '@/server/supabase';
+
+import type { NextRequest} from 'next/server';
 
 export const dynamic = 'force-dynamic';
 

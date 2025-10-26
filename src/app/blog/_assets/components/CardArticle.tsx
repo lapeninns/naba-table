@@ -1,9 +1,11 @@
-import type { JSX } from "react";
-import Link from "next/link";
 import Image from "next/image";
-import BadgeCategory from "./BadgeCategory";
+import Link from "next/link";
+
 import Avatar from "./Avatar";
-import { articleType } from "../content";
+import BadgeCategory from "./BadgeCategory";
+
+import type { articleType } from "../content";
+import type { JSX } from "react";
 
 // This is the article card that appears in the home page, in the category page, and in the author's page
 const CardArticle = ({

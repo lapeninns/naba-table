@@ -1,4 +1,5 @@
 import Image from "next/image";
+
 import config from "@/config";
 
 const CTA = () => {

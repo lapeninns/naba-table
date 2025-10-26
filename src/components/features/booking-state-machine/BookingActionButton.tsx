@@ -5,10 +5,13 @@ import { useMemo, useState, type ReactElement, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ConfirmationDialog, type TriggerProps } from "./ConfirmationDialog";
-import { cn } from "@/lib/utils";
-import { useOptionalBookingState } from "@/contexts/booking-state-machine";
 import { useBookingOfflineQueue } from "@/contexts/booking-offline-queue";
+import { useOptionalBookingState } from "@/contexts/booking-state-machine";
+import { cn } from "@/lib/utils";
+
+import { ConfirmationDialog, type TriggerProps } from "./ConfirmationDialog";
+
+
 import type { OpsBookingStatus } from "@/types/ops";
 
 export type BookingAction = "check-in" | "check-out" | "no-show" | "undo-no-show";

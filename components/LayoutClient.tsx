@@ -1,16 +1,19 @@
 "use client";
 
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { useEffect, useState, ReactNode } from "react";
-import { usePathname } from "next/navigation";
 import { Crisp } from "crisp-sdk-web";
+import { usePathname } from "next/navigation";
 import NextTopLoader from "nextjs-toploader";
+import { useEffect, useState } from "react";
 import { Toaster as HotToaster } from "react-hot-toast";
 import { Tooltip } from "react-tooltip";
-import config from "@/config";
-import type { User } from "@supabase/supabase-js";
+
 import { CustomerNavbar } from "@/components/customer/navigation";
 import { Toaster as UiToaster } from "@/components/ui/toaster";
+import config from "@/config";
+import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+
+import type { User } from "@supabase/supabase-js";
+import type { ReactNode } from "react";
 
 // Crisp customer chat support:
 // This component is separated from ClientLayout because it needs to be wrapped with <SessionProvider> to use useSession() hook

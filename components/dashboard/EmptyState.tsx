@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
 import Link from 'next/link';
+import React, { useEffect, useRef } from 'react';
 
-import { emit } from '@/lib/analytics/emit';
 import { buttonVariants } from '@/components/ui/button';
+import { emit } from '@/lib/analytics/emit';
 import { cn } from '@/lib/utils';
 
 export type EmptyStateProps = {

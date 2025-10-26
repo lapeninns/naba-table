@@ -1,9 +1,12 @@
 "use client";
 
-import { JSX, useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import { StaticImageData } from "next/image";
+import { useState, useEffect, useRef } from "react";
+
 import config from "@/config";
+
+import type { StaticImageData } from "next/image";
+import type { JSX} from "react";
 
 // Use this object to add an icon to the testimonial (optional) like the Product Hunt logo for instance.
 // Only change the values if you add more referrings sites (currently Twitter & Product Hunt)

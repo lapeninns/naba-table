@@ -1,5 +1,6 @@
 import { persistQueryClient, type PersistedClient, type Persister } from '@tanstack/query-persist-client-core';
 import { onlineManager } from '@tanstack/react-query';
+
 import type { QueryClient as ReactQueryClient } from '@tanstack/react-query';
 
 const STORAGE_KEY = 'reserve.query-cache';

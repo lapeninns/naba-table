@@ -1,7 +1,9 @@
 import { randomUUID } from "crypto";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
+
+import type { NextRequest} from "next/server";
 
 const BUCKET_ID = "profile-avatars";
 const MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024; // 2MB

@@ -1,9 +1,10 @@
-import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import config from "@/config";
 import { OpsTeamManagementClient } from "@/components/features";
+import config from "@/config";
 import { getServerComponentSupabaseClient } from "@/server/supabase";
+
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Team management · SajiloReserveX",

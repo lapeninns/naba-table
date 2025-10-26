@@ -1,6 +1,8 @@
 import { Suspense } from "react";
-import HeaderBlog from "./_assets/components/HeaderBlog";
+
 import Footer from "@/components/Footer";
+
+import HeaderBlog from "./_assets/components/HeaderBlog";
 
 export default async function LayoutBlog({ children }: { children: any }) {
   return (

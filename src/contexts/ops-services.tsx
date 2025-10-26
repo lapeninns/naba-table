@@ -8,27 +8,27 @@ import {
   type BookingServiceFactory,
 } from '@/services/ops/bookings';
 import {
-  createRestaurantService,
-  type RestaurantService,
-  type RestaurantServiceFactory,
-} from '@/services/ops/restaurants';
-import { createTeamService, type TeamService, type TeamServiceFactory } from '@/services/ops/team';
-import {
   createCustomerService,
   type CustomerService,
   type CustomerServiceFactory,
 } from '@/services/ops/customers';
 import {
-  createTableInventoryService,
-  type TableInventoryService,
-  type TableInventoryServiceFactory,
-} from '@/services/ops/tables';
-import ZoneService from '@/services/ops/zones';
-import {
   createOccasionService,
   type OccasionService,
   type OccasionServiceFactory,
 } from '@/services/ops/occasions';
+import {
+  createRestaurantService,
+  type RestaurantService,
+  type RestaurantServiceFactory,
+} from '@/services/ops/restaurants';
+import {
+  createTableInventoryService,
+  type TableInventoryService,
+  type TableInventoryServiceFactory,
+} from '@/services/ops/tables';
+import { createTeamService, type TeamService, type TeamServiceFactory } from '@/services/ops/team';
+import ZoneService from '@/services/ops/zones';
 
 export type OpsServices = {
   bookingService: BookingService;

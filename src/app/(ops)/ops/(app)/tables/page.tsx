@@ -4,8 +4,10 @@
  */
 
 import { Suspense } from "react";
-import { Metadata } from "next";
+
 import TableInventoryClient from "@/components/features/tables/TableInventoryClient";
+
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Table Inventory | Operations",

@@ -1,7 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { findInviteByToken, inviteHasExpired, markInviteExpired, resolveInviteContext } from "@/server/team/invitations";
+
+import type { NextRequest} from "next/server";
 
 const paramsSchema = z.object({
   token: z.string().min(10),

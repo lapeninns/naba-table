@@ -1,7 +1,8 @@
-import { DateTime } from "luxon";
 
 import { getVenuePolicy, ServiceNotFoundError, ServiceOverrunError, whichService, type ServiceKey, type VenuePolicy } from "./policy";
 import { __internal as tableInternals } from "./tables";
+
+import type { DateTime } from "luxon";
 
 type ComputeBookingWindow = (args: {
   startISO?: string | null;

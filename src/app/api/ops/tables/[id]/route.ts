@@ -3,12 +3,14 @@
  * Story 4: Ops Dashboard - Table CRUD (Update, Delete)
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { ensureAllowedCapacity, fetchTableById, updateTable as updateTableRecord, deleteTable as deleteTableRecord } from "@/server/ops/tables";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
+
 import type { TablesUpdate } from "@/types/supabase";
+import type { NextRequest} from "next/server";
 
 const tableStatusEnum = z.enum(["available", "reserved", "occupied", "out_of_service"]);
 const tableCategoryEnum = z.enum(["bar", "dining", "lounge", "patio", "private"]);

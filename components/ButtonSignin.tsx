@@ -1,10 +1,11 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { useState, useEffect } from "react";
+
 import config from "@/config";
+import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 // A simple button to sign in with our providers (Google & Magic Links).
 // It automatically redirects user to callbackUrl (config.auth.callbackUrl) after login, which is normally a private page for users to manage their accounts.

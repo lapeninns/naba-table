@@ -1,5 +1,8 @@
-import { expect, Page } from '@playwright/test';
+import { expect } from '@playwright/test';
+
 import { test } from '../../fixtures/auth';
+
+import type { Page } from '@playwright/test';
 
 const ALLOWED_PROJECTS = new Set(['chromium', 'mobile-chrome']);
 const SHOULD_RUN = process.env.PLAYWRIGHT_OPS_BOOKINGS === 'true';

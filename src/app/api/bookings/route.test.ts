@@ -2,6 +2,7 @@ process.env.BASE_URL ??= "http://localhost:3000";
 
 import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import type { SpyInstance } from 'vitest';
 
 vi.mock('@/lib/env', () => {
@@ -50,6 +51,7 @@ vi.mock('@/lib/env', () => {
 });
 
 import { GET, POST } from './route';
+
 import { OperatingHoursError } from '@/server/bookings/timeValidation';
 import { env } from '@/lib/env';
 

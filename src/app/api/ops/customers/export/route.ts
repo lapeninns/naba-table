@@ -1,10 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { fetchUserMemberships } from "@/server/team/access";
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
-import { getAllCustomersWithProfiles, type CustomerWithProfile } from "@/server/ops/customers";
 import { generateCSV } from "@/lib/export/csv";
+import { getAllCustomersWithProfiles, type CustomerWithProfile } from "@/server/ops/customers";
+import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
+import { fetchUserMemberships } from "@/server/team/access";
+
+import type { NextRequest} from "next/server";
 
 const exportQuerySchema = z.object({
   restaurantId: z.string().uuid(),

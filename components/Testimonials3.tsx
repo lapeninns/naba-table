@@ -1,6 +1,9 @@
 import Image from "next/image";
-import { StaticImageData } from "next/image";
+
 import config from "@/config";
+
+import type { StaticImageData } from "next/image";
+
 
 // The list of your testimonials. It needs 3 items to fill the row.
 const list: {

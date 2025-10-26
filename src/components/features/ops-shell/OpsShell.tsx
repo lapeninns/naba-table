@@ -1,10 +1,11 @@
 'use client';
 
-import type { ReactNode } from 'react';
 
 import { SidebarProvider, SidebarRail } from '@/components/ui/sidebar';
 
 import { OpsSidebar, OpsSidebarInset } from './OpsSidebar';
+
+import type { ReactNode } from 'react';
 
 type OpsShellProps = {
   children: ReactNode;

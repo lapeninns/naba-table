@@ -1,23 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { formatDateForInput } from "@reserve/shared/formatting/booking";
-import { fromMinutes } from "@reserve/shared/time";
 
-import {
-  buildBookingAuditSnapshot,
-  logAuditEvent,
-  softCancelBooking,
-  updateBookingRecord,
-} from "@/server/bookings";
-import { enqueueBookingCancelledSideEffects, enqueueBookingUpdatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
-import { requireMembershipForRestaurant, fetchUserMemberships } from "@/server/team/access";
-import { PastBookingError, assertBookingNotInPast, canOverridePastBooking } from "@/server/bookings/pastTimeValidation";
-import { getRestaurantSchedule } from "@/server/restaurants/schedule";
 import { env } from "@/lib/env";
-import type { BookingRecord } from "@/server/bookings";
-import type { Json, Tables } from "@/types/supabase";
 import { isRestaurantAdminRole, type RestaurantRole } from "@/lib/owner/auth/roles";
 import {
   createBookingValidationService,
@@ -26,7 +11,24 @@ import {
   type ValidationContext,
 } from "@/server/booking";
 import { mapValidationFailure, withValidationHeaders } from "@/server/booking/http";
+import {
+  buildBookingAuditSnapshot,
+  logAuditEvent,
+  softCancelBooking,
+  updateBookingRecord,
+} from "@/server/bookings";
+import { PastBookingError, assertBookingNotInPast, canOverridePastBooking } from "@/server/bookings/pastTimeValidation";
+import { enqueueBookingCancelledSideEffects, enqueueBookingUpdatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
 import { recordObservabilityEvent } from "@/server/observability";
+import { getRestaurantSchedule } from "@/server/restaurants/schedule";
+import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
+import { requireMembershipForRestaurant, fetchUserMemberships } from "@/server/team/access";
+import { formatDateForInput } from "@reserve/shared/formatting/booking";
+import { fromMinutes } from "@reserve/shared/time";
+
+import type { BookingRecord } from "@/server/bookings";
+import type { Json, Tables } from "@/types/supabase";
+import type { NextRequest} from "next/server";
 
 const overrideSchema = z
   .object({

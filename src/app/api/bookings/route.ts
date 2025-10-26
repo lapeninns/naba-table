@@ -1,8 +1,15 @@
 import { randomUUID } from "crypto";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { env } from "@/lib/env";
+import {
+  createBookingValidationService,
+  BookingValidationError,
+  type BookingInput,
+  type ValidationContext,
+} from "@/server/booking";
+import { mapValidationFailure, withValidationHeaders } from "@/server/booking/http";
 import {
   BOOKING_TYPES,
   SEATING_OPTIONS,
@@ -19,31 +26,26 @@ import {
   computeTokenExpiry,
   attachTokenToBooking,
 } from "@/server/bookings/confirmation-token";
-import type { BookingRecord } from "@/server/bookings";
-import type { Json } from "@/types/supabase";
+import { PastBookingError, assertBookingNotInPast } from "@/server/bookings/pastTimeValidation";
+import { OperatingHoursError, assertBookingWithinOperatingWindow } from "@/server/bookings/timeValidation";
+import { createBookingWithCapacityCheck } from "@/server/capacity";
+import { normalizeEmail, upsertCustomer } from "@/server/customers";
+import { enqueueBookingCreatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
+import { getActiveLoyaltyProgram, calculateLoyaltyAward, applyLoyaltyAward } from "@/server/loyalty";
+import { recordObservabilityEvent } from "@/server/observability";
+import { getRestaurantSchedule } from "@/server/restaurants/schedule";
+import { computeGuestLookupHash } from "@/server/security/guest-lookup";
+import { consumeRateLimit } from "@/server/security/rate-limit";
+import { anonymizeIp, extractClientIp } from "@/server/security/request";
 import {
   getDefaultRestaurantId,
   getRouteHandlerSupabaseClient,
   getServiceSupabaseClient,
 } from "@/server/supabase";
-import { normalizeEmail, upsertCustomer } from "@/server/customers";
-import { getActiveLoyaltyProgram, calculateLoyaltyAward, applyLoyaltyAward } from "@/server/loyalty";
-import { enqueueBookingCreatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
-import { recordObservabilityEvent } from "@/server/observability";
-import { computeGuestLookupHash } from "@/server/security/guest-lookup";
-import { consumeRateLimit } from "@/server/security/rate-limit";
-import { anonymizeIp, extractClientIp } from "@/server/security/request";
-import { getRestaurantSchedule } from "@/server/restaurants/schedule";
-import { OperatingHoursError, assertBookingWithinOperatingWindow } from "@/server/bookings/timeValidation";
-import { PastBookingError, assertBookingNotInPast } from "@/server/bookings/pastTimeValidation";
-import { createBookingWithCapacityCheck } from "@/server/capacity";
-import {
-  createBookingValidationService,
-  BookingValidationError,
-  type BookingInput,
-  type ValidationContext,
-} from "@/server/booking";
-import { mapValidationFailure, withValidationHeaders } from "@/server/booking/http";
+
+import type { BookingRecord } from "@/server/bookings";
+import type { Json } from "@/types/supabase";
+import type { NextRequest} from "next/server";
 
 const baseQuerySchema = z.object({
   restaurantId: z.string().uuid().optional(),
@@ -755,7 +757,10 @@ async function handleMyBookings(req: NextRequest) {
 
   let query = client
     .from(relation)
-    .select("id, start_at, end_at, party_size, status, notes, restaurants(name, reservation_interval_minutes)", { count: "exact" })
+    .select(
+      "id, restaurant_id, start_at, end_at, party_size, status, notes, restaurants(id, name, slug, timezone, reservation_interval_minutes)",
+      { count: "exact" },
+    )
     .eq("customer_email", email);
 
   if (params.restaurantId) {
@@ -778,12 +783,28 @@ async function handleMyBookings(req: NextRequest) {
 
   type BookingRow = {
     id: string;
+    restaurant_id: string | null;
     start_at: string | Date | null;
     end_at: string | Date | null;
     party_size: number;
-    status: BookingDTO['status'];
+    status: BookingDTO["status"];
     notes: string | null;
-    restaurants: { name: string; reservation_interval_minutes?: number | null } | { name: string; reservation_interval_minutes?: number | null }[] | null;
+    restaurants:
+      | {
+          id?: string | null;
+          name: string;
+          slug?: string | null;
+          timezone?: string | null;
+          reservation_interval_minutes?: number | null;
+        }
+      | {
+          id?: string | null;
+          name: string;
+          slug?: string | null;
+          timezone?: string | null;
+          reservation_interval_minutes?: number | null;
+        }[]
+      | null;
   };
 
   const { data, error, count } = await query.range(offset, offset + pageSize - 1);
@@ -806,7 +827,10 @@ async function handleMyBookings(req: NextRequest) {
 
     return {
       id: booking.id,
+      restaurantId: booking.restaurant_id ?? null,
       restaurantName: restaurant?.name ?? "",
+      restaurantSlug: restaurant?.slug ?? null,
+      restaurantTimezone: restaurant?.timezone ?? null,
       partySize: booking.party_size,
       startIso: toIsoString(booking.start_at),
       endIso: toIsoString(booking.end_at),

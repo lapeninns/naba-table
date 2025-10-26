@@ -1,6 +1,6 @@
+import type { Database, Tables, TablesInsert } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import type { Database, Tables, TablesInsert } from "@/types/supabase";
 
 const CUSTOMER_CONFLICT_KEY = "restaurant_id,email_normalized,phone_normalized";
 const CUSTOMER_CONFLICT_FALLBACK_KEYS = [

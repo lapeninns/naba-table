@@ -1,14 +1,18 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import type { JSX } from "react";
-import { useSearchParams } from "next/navigation";
-import Link from "next/link";
 import Image from "next/image";
-import ButtonSignin from "./ButtonSignin";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useState, useEffect, useMemo } from "react";
+
+
 import logo from "@/app/icon.png";
 import config from "@/config";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+
+import ButtonSignin from "./ButtonSignin";
+
+import type { JSX } from "react";
 
 const links: {
   href: string;

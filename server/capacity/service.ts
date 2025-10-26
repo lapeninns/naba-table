@@ -1,8 +1,7 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { getServiceSupabaseClient } from "@/server/supabase";
 import { getServicePeriods } from "@/server/restaurants/servicePeriods";
-import type { Database } from "@/types/supabase";
+import { getServiceSupabaseClient } from "@/server/supabase";
+
 import type {
   AvailabilityCheckParams,
   AvailabilityResult,
@@ -11,6 +10,8 @@ import type {
   ServicePeriodWithCapacity,
   PeriodUtilization,
 } from "./types";
+import type { Database } from "@/types/supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type DbClient = SupabaseClient<Database, "public", any>;
 

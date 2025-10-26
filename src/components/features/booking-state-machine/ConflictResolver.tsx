@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
+import { useMemo } from "react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,8 +13,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
+
 import { BOOKING_STATUS_CONFIG } from "./BookingStatusBadge";
+
 import type { ConflictPayload } from "./BookingErrorBoundary";
 import type { OpsBookingStatus } from "@/types/ops";
 

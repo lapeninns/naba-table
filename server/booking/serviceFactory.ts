@@ -1,13 +1,12 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { getServiceSupabaseClient } from "@/server/supabase";
-import { getRestaurantSchedule } from "@/server/restaurants/schedule";
 import {
   createBookingWithCapacityCheck,
   updateBookingWithCapacityCheck,
   type BookingResult as CapacityBookingResult,
 } from "@/server/capacity";
-import type { Database } from "@/types/supabase";
+import { getRestaurantSchedule } from "@/server/restaurants/schedule";
+import { getServiceSupabaseClient } from "@/server/supabase";
+
 
 import { BookingValidationService } from "./BookingValidationService";
 import {
@@ -21,6 +20,9 @@ import {
   type ScheduleRepository,
   type TimeProvider,
 } from "./types";
+
+import type { Database } from "@/types/supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type DbClient = SupabaseClient<Database, "public", any>;
 

@@ -1,10 +1,11 @@
 import { format } from "date-fns";
 
 import config from "@/config";
-import type { RestaurantInvite } from "@/server/team/invitations";
 import { buildInviteUrl } from "@/lib/owner/team/invite-links";
-import { resolveInviteContext } from "@/server/team/invitations";
 import { sendEmail } from "@/libs/resend";
+import { resolveInviteContext } from "@/server/team/invitations";
+
+import type { RestaurantInvite } from "@/server/team/invitations";
 
 function formatExpiry(timestamp: string): { date: string; time: string } {
   const date = new Date(timestamp);

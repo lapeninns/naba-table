@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 
 import { SignInForm } from "@/components/auth/SignInForm";
+
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Sign in · SajiloReserveX",

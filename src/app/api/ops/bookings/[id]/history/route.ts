@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { listBookingHistory } from "@/server/ops/booking-lifecycle/history";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 import { requireMembershipForRestaurant } from "@/server/team/access";
+
 import type { Tables } from "@/types/supabase";
 
 type RouteParams = {

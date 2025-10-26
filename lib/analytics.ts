@@ -29,7 +29,7 @@ export type AnalyticsEvent =
 type AnalyticsProps = Record<string, unknown>;
 
 type PlausibleWindow = Window & {
-  // eslint-disable-next-line no-unused-vars
+   
   plausible?: (event: any, options?: any) => void;
 };
 

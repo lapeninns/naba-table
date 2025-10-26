@@ -1,10 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { guardTestEndpoint } from '@/server/security/test-endpoints';
-import { generateInviteToken, hashInviteToken } from '@/server/team/invitations';
-import { getDefaultRestaurantId, getServiceSupabaseClient } from '@/server/supabase';
 import { RESTAURANT_ROLE_OPTIONS } from '@/lib/owner/auth/roles';
+import { guardTestEndpoint } from '@/server/security/test-endpoints';
+import { getDefaultRestaurantId, getServiceSupabaseClient } from '@/server/supabase';
+import { generateInviteToken, hashInviteToken } from '@/server/team/invitations';
+
+import type { NextRequest} from 'next/server';
 
 export const dynamic = 'force-dynamic';
 

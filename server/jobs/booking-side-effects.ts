@@ -1,12 +1,13 @@
 import { z } from "zod";
 
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { recordBookingCancelledEvent, recordBookingCreatedEvent } from "@/server/analytics";
-import type { BookingRecord } from "@/server/bookings";
 import { sendBookingCancellationEmail, sendBookingConfirmationEmail, sendBookingUpdateEmail } from "@/server/emails/bookings";
 import { getServiceSupabaseClient } from "@/server/supabase";
+
+import type { BookingRecord } from "@/server/bookings";
 import type { Tables } from "@/types/supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const BOOKING_CREATED_EVENT = "sajiloreservex/booking.created.side-effects" as const;
 export const BOOKING_UPDATED_EVENT = "sajiloreservex/booking.updated.side-effects" as const;

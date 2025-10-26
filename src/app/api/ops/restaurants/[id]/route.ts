@@ -1,14 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 import { deleteRestaurant, updateRestaurant } from '@/server/restaurants';
-import { fetchUserMemberships } from '@/server/team/access';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
+import { fetchUserMemberships } from '@/server/team/access';
+
 import {
   updateRestaurantSchema,
   type RestaurantResponse,
   type DeleteRestaurantResponse,
   type RestaurantDTO,
 } from '../schema';
+
+import type { NextRequest} from 'next/server';
 
 type RouteContext = {
   params: Promise<{ id: string }>;

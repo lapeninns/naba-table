@@ -1,8 +1,10 @@
 import React from 'react';
-import type { CSSProperties } from 'react';
+
 
 import { Badge } from '@/components/ui/badge';
+
 import type { BookingStatus } from '@/hooks/useBookings';
+import type { CSSProperties } from 'react';
 
 const STATUS_LABEL: Record<BookingStatus, string> = {
   confirmed: 'Confirmed',

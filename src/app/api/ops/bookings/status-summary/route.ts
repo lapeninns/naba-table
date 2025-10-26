@@ -2,9 +2,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
 import { getBookingStatusSummary } from "@/server/ops/booking-lifecycle/summary";
-import type { BookingStatus } from "@/server/ops/booking-lifecycle/stateMachine";
 import { getRouteHandlerSupabaseClient } from "@/server/supabase";
 import { fetchUserMemberships } from "@/server/team/access";
+
+import type { BookingStatus } from "@/server/ops/booking-lifecycle/stateMachine";
 
 const bookingStatusSchema = z.enum([
   "pending",

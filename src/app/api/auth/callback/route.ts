@@ -1,7 +1,9 @@
-import { NextResponse, NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
 import config from "@/config";
 import { getRouteHandlerSupabaseClient } from "@/server/supabase";
+
+import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
 

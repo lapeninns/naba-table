@@ -1,11 +1,14 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { Controller, useForm, type Resolver } from 'react-hook-form';
-import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Controller, useForm, type Resolver } from 'react-hook-form';
 import { toast } from 'react-hot-toast';
+import { z } from 'zod';
 
+import { ScheduleAwareTimestampPicker } from '@/components/features/booking-state-machine';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -14,22 +17,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ScheduleAwareTimestampPicker, TimestampPicker } from '@/components/features/booking-state-machine';
-import type { BookingDTO } from '@/hooks/useBookings';
+import { Textarea } from '@/components/ui/textarea';
 import { useUpdateBooking } from '@/hooks/useUpdateBooking';
-import { BOOKING_IN_PAST_DASHBOARD_MESSAGE } from '@/lib/bookings/messages';
-import type { HttpError } from '@/lib/http/errors';
 import { emit } from '@/lib/analytics/emit';
-import { DEFAULT_VENUE } from '@shared/config/venue';
+import { BOOKING_IN_PAST_DASHBOARD_MESSAGE } from '@/lib/bookings/messages';
+
+import type { BookingDTO } from '@/hooks/useBookings';
+import type { HttpError } from '@/lib/http/errors';
 
 const errorCopy: Record<string, string> = {
   OVERLAP_DETECTED: 'That time overlaps an existing booking. Please choose another slot.',
   CUTOFF_PASSED: 'This booking can no longer be changed online. Please contact the venue.',
+  CLOSED_DATE: 'The restaurant is closed on the selected date. Please choose another day.',
   BOOKING_NOT_FOUND: 'We couldn’t find that booking.',
   BOOKING_LOOKUP_FAILED: 'We couldn’t load this booking. Please refresh and try again.',
   FORBIDDEN: 'You don’t have permission to modify this booking.',
@@ -37,6 +38,11 @@ const errorCopy: Record<string, string> = {
   SESSION_RESOLUTION_FAILED: 'We couldn’t confirm your session. Refresh the page and try again.',
   MEMBERSHIP_VALIDATION_FAILED: 'We hit a problem checking your access. Try again or contact an admin.',
   INVALID_INPUT: 'Please check the fields and try again.',
+  INVALID_TIME: 'Enter a valid time and try again.',
+  OUTSIDE_HOURS: 'Selected time is outside operating hours. Pick a time between opening and closing.',
+  SERVICE_PERIOD: 'Selected time isn’t available for this service. Try another slot.',
+  CAPACITY_EXCEEDED: 'No availability at that time. Please choose a different time.',
+  PAST_TIME: 'That time has already passed. Choose an upcoming slot.',
   BOOKING_IN_PAST: BOOKING_IN_PAST_DASHBOARD_MESSAGE,
   UNKNOWN: 'Something went wrong on our side. Please try again.',
 };
@@ -64,7 +70,6 @@ export type EditBookingDialogProps = {
   mutationHook?: UseUpdateBookingHook;
   restaurantSlug?: string | null;
   restaurantTimezone?: string | null;
-  scheduleParityEnabled?: boolean;
 };
 
 export function EditBookingDialog({
@@ -74,7 +79,6 @@ export function EditBookingDialog({
   mutationHook,
   restaurantSlug: restaurantSlugOverride,
   restaurantTimezone: restaurantTimezoneOverride,
-  scheduleParityEnabled = false,
 }: EditBookingDialogProps) {
   const defaultValues = useMemo<FormValues>(
     () => ({
@@ -100,6 +104,8 @@ export function EditBookingDialog({
     handleSubmit,
     reset,
     watch,
+    setValue,
+    clearErrors,
     formState: { errors, isDirty },
   } = useForm<FormValues>({
     resolver,
@@ -109,25 +115,25 @@ export function EditBookingDialog({
   const mutation = useMutationHook();
   const [formError, setFormError] = useState<{ message: string; code?: string } | null>(null);
   const startValue = watch('start');
+  const hasCommittedStart = typeof startValue === 'string' ? startValue.trim().length > 0 : Boolean(startValue);
 
-  const effectiveRestaurantSlug = useMemo(() => {
-    return (
-      restaurantSlugOverride ??
-      booking?.restaurantSlug ??
-      DEFAULT_VENUE.slug
-    );
-  }, [booking?.restaurantSlug, restaurantSlugOverride]);
+  const effectiveRestaurantSlug = useMemo(
+    () => restaurantSlugOverride ?? booking?.restaurantSlug ?? null,
+    [booking?.restaurantSlug, restaurantSlugOverride],
+  );
 
-  const effectiveRestaurantTimezone = useMemo(() => {
-    return (
-      restaurantTimezoneOverride ??
-      booking?.restaurantTimezone ??
-      DEFAULT_VENUE.timezone
-    );
-  }, [booking?.restaurantTimezone, restaurantTimezoneOverride]);
+  const effectiveRestaurantTimezone = useMemo(
+    () => restaurantTimezoneOverride ?? booking?.restaurantTimezone ?? null,
+    [booking?.restaurantTimezone, restaurantTimezoneOverride],
+  );
 
-  const shouldUseSchedulePicker =
-    scheduleParityEnabled && Boolean(effectiveRestaurantSlug);
+  const missingScheduleMetadata = !effectiveRestaurantSlug;
+
+  const fallbackMinDate = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  }, []);
 
   const fallbackDurationMinutes = useMemo(() => {
     if (!booking?.startIso || !booking?.endIso) {
@@ -191,6 +197,29 @@ export function EditBookingDialog({
     }
   }, [booking, defaultValues, open, reset]);
 
+  const handleDateChange = useCallback(() => {
+    setValue('start', '', {
+      shouldValidate: true,
+      shouldDirty: true,
+      shouldTouch: true,
+    });
+  }, [setValue]);
+
+  const handleStartValueChange = useCallback(
+    (next: string | null) => {
+      const nextValue = next ?? '';
+      setValue('start', nextValue, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+      if (nextValue) {
+        clearErrors('start');
+      }
+    },
+    [clearErrors, setValue],
+  );
+
   const onSubmit = async (values: z.infer<typeof schema>) => {
     if (!booking) return;
     setFormError(null);
@@ -235,7 +264,10 @@ export function EditBookingDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent onInteractOutside={(event) => event.preventDefault()}>
+      <DialogContent
+        className="max-h-[85vh] overflow-y-auto sm:max-w-2xl"
+        onInteractOutside={(event) => event.preventDefault()}
+      >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <DialogHeader>
             <DialogTitle>Edit booking</DialogTitle>
@@ -243,36 +275,38 @@ export function EditBookingDialog({
           </DialogHeader>
 
           <div className="grid gap-4">
+            {missingScheduleMetadata ? (
+              <Alert variant="destructive" role="alert">
+                <AlertTitle>Unable to load availability</AlertTitle>
+                <AlertDescription>
+                  We&apos;re missing the restaurant information needed to load availability. Please refresh or
+                  contact support before trying again.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
             <div className="grid gap-2">
               <Controller
                 name="start"
                 control={control}
                 render={({ field, fieldState }) => (
-                  shouldUseSchedulePicker ? (
-                    <ScheduleAwareTimestampPicker
-                      restaurantSlug={effectiveRestaurantSlug}
-                      restaurantTimezone={effectiveRestaurantTimezone}
-                      value={field.value || null}
-                      onChange={(next) => field.onChange(next ?? '')}
-                      onBlur={field.onBlur}
-                      label="Start time"
-                      errorMessage={fieldState.error?.message ?? null}
-                      disabled={mutation.isPending}
-                    />
-                  ) : (
-                    <TimestampPicker
-                      label="Start time"
-                      name={field.name}
-                      value={field.value}
-                      onChange={(next) => field.onChange(next ?? '')}
-                      onBlur={field.onBlur}
-                      presets={[]}
-                      required
-                      errorMessage={fieldState.error?.message}
-                      disabled={mutation.isPending}
-                      minuteStep={intervalMinutes}
-                    />
-                  )
+                  <ScheduleAwareTimestampPicker
+                    restaurantSlug={effectiveRestaurantSlug}
+                    restaurantTimezone={effectiveRestaurantTimezone}
+                    value={field.value || null}
+                    onChange={(next) => {
+                      handleStartValueChange(next);
+                      field.onChange(next ?? '');
+                    }}
+                    onDateChange={handleDateChange}
+                    onBlur={field.onBlur}
+                    label="Start time"
+                    description="Select a future time during operating hours."
+                    errorMessage={fieldState.error?.message ?? null}
+                    disabled={mutation.isPending || missingScheduleMetadata}
+                    minDate={fallbackMinDate}
+                    timeScrollArea
+                  />
                 )}
               />
             </div>
@@ -287,7 +321,7 @@ export function EditBookingDialog({
                 {derivedEndDisplay}
               </div>
               <p className="text-xs text-muted-foreground">
-                Automatically set to {derivedDurationLabel} after the selected start time.
+                Duration: {derivedDurationLabel}. The end time updates automatically when you adjust the start.
               </p>
             </div>
 
@@ -331,8 +365,16 @@ export function EditBookingDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={mutation.isPending}>
               Cancel
             </Button>
-            <Button type="submit" disabled={mutation.isPending || !isDirty}>
-              {mutation.isPending ? 'Saving…' : 'Save changes'}
+            <Button
+              type="submit"
+              disabled={
+                mutation.isPending ||
+                !isDirty ||
+                missingScheduleMetadata ||
+                !hasCommittedStart
+              }
+            >
+              {mutation.isPending ? 'Saving…' : missingScheduleMetadata ? 'Unavailable' : 'Save changes'}
             </Button>
           </DialogFooter>
         </form>

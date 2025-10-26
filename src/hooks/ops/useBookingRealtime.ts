@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef } from "react";
 
 import { useTransitionToast } from "@/components/features/booking-state-machine";
 import { useOptionalBookingStateMachine } from "@/contexts/booking-state-machine";
 import { useBookingService } from "@/contexts/ops-services";
-import { getRealtimeSupabaseClient } from "@/lib/supabase/realtime-client";
 import { queryKeys } from "@/lib/query/keys";
+import { getRealtimeSupabaseClient } from "@/lib/supabase/realtime-client";
+
 import type { OpsBookingStatus } from "@/types/ops";
 
 type UseBookingRealtimeOptions = {

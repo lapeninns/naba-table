@@ -1,8 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { getRestaurantBySlug } from '@/server/restaurants/getRestaurantBySlug';
 import { getRestaurantSchedule } from '@/server/restaurants/schedule';
+
+import type { NextRequest} from 'next/server';
 
 const querySchema = z.object({
   date: z

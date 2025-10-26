@@ -4,12 +4,13 @@ import { useMemo } from 'react';
 
 import { BookingActionButton, BookingStatusBadge, StatusTransitionAnimator, type BookingActionSubject, type BookingAction } from '@/components/features/booking-state-machine';
 import { Button } from '@/components/ui/button';
-import type { BookingDTO } from '@/hooks/useBookings';
-import type { OpsBookingStatus } from '@/types/ops';
 import { cn } from '@/lib/utils';
 
 import { OpsBookingDetailsDialog } from './OpsBookingDetailsDialog';
 import { StatusChip } from './StatusChip';
+
+import type { BookingDTO } from '@/hooks/useBookings';
+import type { OpsBookingStatus } from '@/types/ops';
 
 export type BookingRowProps = {
   booking: BookingDTO;

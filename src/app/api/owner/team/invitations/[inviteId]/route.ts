@@ -1,9 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { revokeRestaurantInvite } from "@/server/team/invitations";
-import { requireAdminMembership } from "@/server/team/access";
 import { getRouteHandlerSupabaseClient } from "@/server/supabase";
+import { requireAdminMembership } from "@/server/team/access";
+import { revokeRestaurantInvite } from "@/server/team/invitations";
+
+import type { NextRequest} from "next/server";
 
 const paramsSchema = z.object({ inviteId: z.string().uuid() });
 

@@ -1,14 +1,15 @@
 "use client";
 
-import { useMemo, useRef } from "react";
 import { X } from "lucide-react";
+import { useMemo, useRef } from "react";
 
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { BOOKING_STATUS_CONFIG } from "@/components/features/booking-state-machine/BookingStatusBadge";
-import type { OpsBookingStatus } from "@/types/ops";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+
+import type { OpsBookingStatus } from "@/types/ops";
 
 type StatusOption = {
   status: OpsBookingStatus;

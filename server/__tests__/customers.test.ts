@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { CustomerRow } from "../customers";
 import { upsertCustomer } from "../customers";
+
+import type { CustomerRow } from "../customers";
 
 const createMockClient = (existingRow: CustomerRow) => {
   const upsertError = {

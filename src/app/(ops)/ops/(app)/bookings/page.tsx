@@ -1,12 +1,13 @@
-import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { OpsBookingsClient } from "@/components/features/bookings";
 import { BookingErrorBoundary } from "@/components/features/booking-state-machine";
+import { OpsBookingsClient } from "@/components/features/bookings";
 import { BookingOfflineQueueProvider } from "@/contexts/booking-offline-queue";
+import { getServerComponentSupabaseClient } from "@/server/supabase";
+
 import type { OpsStatusFilter } from "@/hooks";
 import type { OpsBookingStatus } from "@/types/ops";
-import { getServerComponentSupabaseClient } from "@/server/supabase";
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Manage bookings · SajiloReserveX Ops",

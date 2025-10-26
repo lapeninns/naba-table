@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import {
@@ -8,6 +8,8 @@ import {
 } from '@/server/restaurants/details';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 import { requireAdminMembership } from '@/server/team/access';
+
+import type { NextRequest} from 'next/server';
 
 const detailsSchema = z.object({
   name: z.string().min(1).max(120).optional(),

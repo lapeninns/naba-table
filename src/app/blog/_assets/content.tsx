@@ -1,7 +1,10 @@
-import type { JSX } from "react";
-import Image, { StaticImageData } from "next/image";
+import Image from "next/image";
+
 import marcImg from "@/app/blog/_assets/images/authors/marc.png";
 import introducingSupabaseImg from "@/public/blog/introducing-supabase/header.png";
+
+import type { StaticImageData } from "next/image";
+import type { JSX } from "react";
 
 // ==================================================================================================================================================================
 // BLOG CATEGORIES 🏷️

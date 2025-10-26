@@ -1,10 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { getBookingHistory } from '@/server/bookingHistory';
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 import { normalizeEmail } from '@/server/customers';
 import { recordObservabilityEvent } from '@/server/observability';
+import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
+
+import type { NextRequest} from 'next/server';
 
 const querySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).optional(),

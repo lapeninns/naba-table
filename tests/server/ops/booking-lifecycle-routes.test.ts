@@ -6,6 +6,7 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ??
 import { beforeAll, beforeEach, describe, expect, it, vi, afterEach } from "vitest";
 
 import { env } from "@/lib/env";
+
 import type { Tables } from "@/types/supabase";
 
 const mockGetRouteHandlerSupabaseClient = vi.fn();

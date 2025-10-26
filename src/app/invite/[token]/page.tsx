@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 
 import { InviteAcceptanceClient } from "@/components/invite/InviteAcceptanceClient";
 import { InviteInvalidState } from "@/components/invite/InviteInvalidState";
@@ -8,6 +7,8 @@ import {
   markInviteExpired,
   resolveInviteContext,
 } from "@/server/team/invitations";
+
+import type { Metadata } from "next";
 
 type PageProps = {
   params: Promise<{ token: string }>;

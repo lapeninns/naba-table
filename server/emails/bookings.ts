@@ -3,7 +3,6 @@ import { env } from "@/lib/env";
 import { buildCalendarEvent, type ReservationCalendarPayload } from "@/lib/reservations/calendar-event";
 import { DEFAULT_VENUE, type VenueDetails } from "@/lib/venue";
 import { sendEmail, type EmailAttachment } from "@/libs/resend";
-import type { BookingRecord } from "@/server/bookings";
 import { getServiceSupabaseClient } from "@/server/supabase";
 import {
   formatDateForInput,
@@ -12,6 +11,8 @@ import {
   formatReservationTimeFromDate,
 } from "@reserve/shared/formatting/booking";
 import { normalizeTime } from "@reserve/shared/time";
+
+import type { BookingRecord } from "@/server/bookings";
 
 const siteUrl = env.app.url;
 

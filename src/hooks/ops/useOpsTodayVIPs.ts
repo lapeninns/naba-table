@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { fetchJson } from '@/lib/http/fetchJson';
+
 import type { VIPGuest } from '@/components/features/dashboard/VIPGuestsModule';
 
 export type VIPGuestsResponse = {

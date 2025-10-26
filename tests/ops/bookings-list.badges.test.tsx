@@ -5,6 +5,7 @@ import { vi } from "vitest";
 
 import { BookingsList } from "@/components/features/dashboard/BookingsList";
 import { TooltipProvider } from "@/components/ui/tooltip";
+
 import type { OpsTodayBooking, OpsTodayBookingsSummary } from "@/types/ops";
 
 vi.mock("@/hooks", () => ({

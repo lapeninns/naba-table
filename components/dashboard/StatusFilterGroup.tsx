@@ -1,8 +1,9 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import type { StatusFilter } from '@/hooks/useBookingsTableState';
 import { cn } from '@/lib/utils';
+
+import type { StatusFilter } from '@/hooks/useBookingsTableState';
 
 export type StatusOption = {
   value: StatusFilter;

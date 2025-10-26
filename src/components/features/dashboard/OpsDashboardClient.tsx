@@ -1,16 +1,18 @@
 'use client';
 
+import { Calendar as CalendarIcon, Clock, ChevronLeft, ChevronRight, TrendingUp, Users, Loader2, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition } from 'react';
-import { Calendar as CalendarIcon, Clock, ChevronLeft, ChevronRight, TrendingUp, Users, Loader2, type LucideIcon } from 'lucide-react';
 
+import { BookingOfflineBanner } from '@/components/features/booking-state-machine';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useOpsActiveMembership, useOpsAccountSnapshot } from '@/contexts/ops-session';
 import { useOpsTodaySummary, useOpsBookingLifecycleActions, useOpsTodayVIPs, useOpsBookingChanges, useOpsBookingHeatmap } from '@/hooks';
-import { formatDateKey } from '@/lib/utils/datetime';
+import { useOpsTableAssignmentActions } from '@/hooks';
 import { cn } from '@/lib/utils';
+import { formatDateKey } from '@/lib/utils/datetime';
 import { sanitizeDateParam, computeCalendarRange } from '@/utils/ops/dashboard';
 
 import { BookingChangeFeed } from './BookingChangeFeed';
@@ -19,11 +21,10 @@ import { BookingsList } from './BookingsList';
 import { DashboardErrorState } from './DashboardErrorState';
 import { DashboardSkeleton } from './DashboardSkeleton';
 import { ExportBookingsButton } from './ExportBookingsButton';
-import { VIPGuestsModule } from './VIPGuestsModule';
 import { HeatmapCalendar } from './HeatmapCalendar';
+import { VIPGuestsModule } from './VIPGuestsModule';
 
-import { useOpsTableAssignmentActions } from '@/hooks';
-import { BookingOfflineBanner } from '@/components/features/booking-state-machine';
+
 import type { BookingFilter } from './BookingsFilterBar';
 
 

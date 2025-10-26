@@ -1,7 +1,8 @@
-import Link from "next/link";
 import Image from "next/image";
-import config from "@/config";
+import Link from "next/link";
+
 import logo from "@/app/icon.png";
+import config from "@/config";
 
 // Add the Footer to the bottom of your landing page and more.
 // The support link is connected to the config.js file. If there's no config.email.supportEmail, the link won't be displayed.

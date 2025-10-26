@@ -53,9 +53,10 @@ vi.mock('@/lib/env', () => {
   };
 });
 
-import { GET, PUT } from './route';
 import { GuardError } from '@/server/auth/guards';
 import { OperatingHoursError } from '@/server/bookings/timeValidation';
+
+import { GET, PUT } from './route';
 
 const assertBookingWithinOperatingWindowMock = vi.hoisted(() => vi.fn());
 const getRestaurantScheduleMock = vi.hoisted(() => vi.fn());

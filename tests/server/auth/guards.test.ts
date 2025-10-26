@@ -6,11 +6,11 @@ import {
   requireRestaurantMember,
   requireSession,
 } from "@/server/auth/guards";
-import { fetchUserMemberships, requireMembershipForRestaurant } from "@/server/team/access";
 import { getRouteHandlerSupabaseClient } from "@/server/supabase";
+import { fetchUserMemberships, requireMembershipForRestaurant } from "@/server/team/access";
 
-import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 
 vi.mock("@/server/supabase", () => ({
   getRouteHandlerSupabaseClient: vi.fn(),

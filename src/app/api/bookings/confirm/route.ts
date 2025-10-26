@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import {
@@ -10,6 +10,8 @@ import {
 import { consumeRateLimit } from '@/server/security/rate-limit';
 import { extractClientIp, anonymizeIp } from '@/server/security/request';
 import { getServiceSupabaseClient } from '@/server/supabase';
+
+import type { NextRequest} from 'next/server';
 
 const querySchema = z.object({
   token: z.string().min(64).max(64),

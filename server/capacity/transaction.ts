@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
-import type { SupabaseClient } from "@supabase/supabase-js";
+
 
 import { generateUniqueBookingReference, insertBookingRecord } from "@/server/bookings";
 import { recordObservabilityEvent } from "@/server/observability";
 import { getServiceSupabaseClient } from "@/server/supabase";
-import type { Database, Json } from "@/types/supabase";
+
 import {
   CapacityError,
   type BookingResult,
@@ -16,6 +16,9 @@ import {
   DEFAULT_RETRY_CONFIG,
   type RetryConfig,
 } from "./types";
+
+import type { Database, Json } from "@/types/supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type DbClient = SupabaseClient<Database, "public", any>;
 

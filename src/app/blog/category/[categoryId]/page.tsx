@@ -1,9 +1,12 @@
 import { notFound } from "next/navigation";
-import { categories, articles, requireCategory } from "../../_assets/content";
+
+import config from "@/config";
+import { getSEOTags } from "@/libs/seo";
+
 import CardArticle from "../../_assets/components/CardArticle";
 import CardCategory from "../../_assets/components/CardCategory";
-import { getSEOTags } from "@/libs/seo";
-import config from "@/config";
+import { categories, articles, requireCategory } from "../../_assets/content";
+
 
 export async function generateMetadata({
   params,

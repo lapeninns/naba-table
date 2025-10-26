@@ -1,8 +1,9 @@
-import { categories, articles } from "./_assets/content";
-import CardArticle from "./_assets/components/CardArticle";
-import CardCategory from "./_assets/components/CardCategory";
 import config from "@/config";
 import { getSEOTags } from "@/libs/seo";
+
+import CardArticle from "./_assets/components/CardArticle";
+import CardCategory from "./_assets/components/CardCategory";
+import { categories, articles } from "./_assets/content";
 
 export const metadata = getSEOTags({
   title: `${config.appName} Blog | Stripe Chargeback Protection`,

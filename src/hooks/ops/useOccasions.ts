@@ -4,8 +4,9 @@ import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
 import { useOccasionService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
-import type { OccasionDefinition } from '@reserve/shared/occasions';
+
 import type { HttpError } from '@/lib/http/errors';
+import type { OccasionDefinition } from '@reserve/shared/occasions';
 
 export function useOpsOccasions(): UseQueryResult<OccasionDefinition[], HttpError | Error> {
   const occasionService = useOccasionService();

@@ -1,9 +1,9 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
-
-import { getFallbackOccasionCatalog, toOccasionCatalog, toOccasionDefinition, type OccasionCatalog, type OccasionDefinition, type OccasionKey } from '@reserve/shared/occasions';
 
 import { getServiceSupabaseClient } from '@/server/supabase';
+import { getFallbackOccasionCatalog, toOccasionCatalog, toOccasionDefinition, type OccasionCatalog, type OccasionDefinition, type OccasionKey } from '@reserve/shared/occasions';
+
 import type { Database } from '@/types/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 const CACHE_TTL_MS = 60_000;
 

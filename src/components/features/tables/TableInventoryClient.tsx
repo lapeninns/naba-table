@@ -5,9 +5,9 @@
 
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Edit, Loader2, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -31,20 +31,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useTableInventoryService, useZoneService } from '@/contexts/ops-services';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
-import { queryKeys } from '@/lib/query/keys';
+import { useToast } from '@/hooks/use-toast';
 import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
+import { queryKeys } from '@/lib/query/keys';
+
 import type {
   CreateTablePayload,
   TableInventory,
   UpdateTablePayload,
 } from '@/services/ops/tables';
 import type { Zone } from '@/services/ops/zones';
-import { useToast } from '@/hooks/use-toast';
+
 
 const ALL_ZONES_VALUE = 'all-zones';
 
