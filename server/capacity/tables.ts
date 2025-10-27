@@ -790,6 +790,26 @@ function extractConflictsForTables(
   return conflicts;
 }
 
+function formatConflictSummary(conflicts: ManualAssignmentConflict[]): string {
+  if (conflicts.length === 0) {
+    return "conflicts";
+  }
+
+  const sources = new Set(conflicts.map((conflict) => conflict.source));
+  const tableIds = Array.from(new Set(conflicts.map((conflict) => conflict.tableId))).join(", ");
+  if (sources.size === 0) {
+    return tableIds ? `conflicts on tables ${tableIds}` : "conflicts";
+  }
+
+  if (sources.size > 1) {
+    return tableIds ? `holds and bookings on tables ${tableIds}` : "holds and bookings";
+  }
+
+  const [source] = sources;
+  const label = source === "hold" ? "holds" : "bookings";
+  return tableIds ? `${label} on tables ${tableIds}` : label;
+}
+
 function windowsOverlapMs(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
   const a = { start: Date.parse(aStart), end: Date.parse(aEnd) };
   const b = { start: Date.parse(bStart), end: Date.parse(bEnd) };
@@ -1129,7 +1149,7 @@ export async function getManualAssignmentContext(options: {
   let holds: ManualAssignmentContextHold[] = [];
   if (isHoldsEnabled()) {
     try {
-      const rawHolds = await fetchHoldsForWindow(booking, window, supabase);
+      const rawHolds = await fetchHoldsForWindow(booking.restaurant_id, window, supabase);
       holds = await hydrateHoldMetadata(rawHolds, supabase);
     } catch (error: any) {
       if (error?.code === "42P01") {
@@ -1213,17 +1233,66 @@ async function hydrateHoldMetadata(holds: TableHold[], client: DbClient): Promis
 }
 
 async function fetchHoldsForWindow(
-  booking: BookingRow,
+  restaurantId: string,
   window: ReturnType<typeof computeBookingWindow>,
   client: DbClient,
 ): Promise<TableHold[]> {
   const { data, error } = await client
     .from("table_holds")
     .select("*, table_hold_members(table_id)")
-    .eq("restaurant_id", booking.restaurant_id)
+    .eq("restaurant_id", restaurantId)
     .gt("expires_at", new Date().toISOString())
     .lt("start_at", toIsoUtc(window.block.end))
     .gt("end_at", toIsoUtc(window.block.start));
+
+  if (error || !data) {
+    throw error ?? new Error("Failed to load holds");
+  }
+
+  return data.map((row: any) => {
+    const members = (row.table_hold_members ?? []) as Array<{ table_id: string }>;
+    const tableIds = members.map((member) => member.table_id);
+    return {
+      id: row.id,
+      bookingId: row.booking_id,
+      restaurantId: row.restaurant_id,
+      zoneId: row.zone_id,
+      startAt: row.start_at,
+      endAt: row.end_at,
+      expiresAt: row.expires_at,
+      tableIds,
+      createdBy: row.created_by ?? null,
+      metadata: row.metadata ?? null,
+    } satisfies TableHold;
+  });
+}
+
+async function loadActiveHoldsForDate(
+  restaurantId: string,
+  bookingDate: string | null,
+  policy: VenuePolicy,
+  client: DbClient,
+): Promise<TableHold[]> {
+  if (!bookingDate) {
+    return [];
+  }
+
+  const day = DateTime.fromISO(bookingDate, { zone: policy.timezone ?? "UTC" });
+  if (!day.isValid) {
+    return [];
+  }
+
+  const dayStart = toIsoUtc(day.startOf("day"));
+  const dayEnd = toIsoUtc(day.plus({ days: 1 }).startOf("day"));
+  const now = toIsoUtc(DateTime.now());
+
+  const { data, error } = await client
+    .from("table_holds")
+    .select("*, table_hold_members(table_id)")
+    .eq("restaurant_id", restaurantId)
+    .gt("expires_at", now)
+    .lt("start_at", dayEnd)
+    .gt("end_at", dayStart);
 
   if (error || !data) {
     throw error ?? new Error("Failed to load holds");
@@ -1692,13 +1761,34 @@ export async function autoAssignTablesForDate(options: {
 }): Promise<AutoAssignResult> {
   const { restaurantId, date, client, assignedBy = null } = options;
   const supabase = ensureClient(client);
-  const bookings = await loadContextBookings(restaurantId, date, supabase);
-  const tables = await loadTablesForRestaurant(restaurantId, supabase);
+  const [bookings, tables, restaurantTimezone] = await Promise.all([
+    loadContextBookings(restaurantId, date, supabase),
+    loadTablesForRestaurant(restaurantId, supabase),
+    loadRestaurantTimezone(restaurantId, supabase),
+  ]);
   const adjacency = await loadAdjacency(
     tables.map((table) => table.id),
     supabase,
   );
-  const policy = getVenuePolicy();
+  const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
+  let activeHolds: TableHold[] = [];
+  if (isHoldsEnabled()) {
+    try {
+      activeHolds = await loadActiveHoldsForDate(restaurantId, date, policy, supabase);
+    } catch (error: any) {
+      if (error?.code === "42P01") {
+        console.warn("[ops][auto-assign] holds table unavailable; skipping hold hydration", {
+          restaurantId,
+        });
+      } else {
+        console.warn("[ops][auto-assign] failed to load active holds", {
+          restaurantId,
+          error,
+        });
+      }
+      activeHolds = [];
+    }
+  }
 
   const result: AutoAssignResult = {
     assigned: [],
@@ -1744,20 +1834,7 @@ export async function autoAssignTablesForDate(options: {
       opsMetrics: isOpsMetricsEnabled(),
     };
 
-    const candidateSummaries: CandidateSummary[] = plans.plans.map((plan) =>
-      summarizeCandidate({
-        tableIds: plan.tables.map((table) => table.id),
-        tableNumbers: plan.tables.map((table) => table.tableNumber),
-        totalCapacity: plan.totalCapacity,
-        tableCount: plan.tables.length,
-        slack: plan.slack,
-        score: plan.score,
-        adjacencyStatus: plan.adjacencyStatus,
-      }),
-    );
-
-    const topPlan = plans.plans[0];
-    if (!topPlan) {
+    if (plans.plans.length === 0) {
       const fallback = plans.fallbackReason ?? "No suitable tables available";
       const skipReason = `No suitable tables available (${fallback})`;
       result.skipped.push({ bookingId: booking.id, reason: skipReason });
@@ -1769,7 +1846,7 @@ export async function autoAssignTablesForDate(options: {
           start: toIsoUtc(window.block.start),
           end: toIsoUtc(window.block.end),
         },
-        candidates: candidateSummaries,
+        candidates: [],
         selected: null,
         skipReason,
         durationMs: 0,
@@ -1779,14 +1856,169 @@ export async function autoAssignTablesForDate(options: {
       continue;
     }
 
-    const candidate = summarizeCandidate({
+    const busy = buildBusyMaps({
+      targetBookingId: booking.id,
+      bookings,
+      holds: activeHolds,
+      policy,
+    });
+
+    const planEvaluations = plans.plans.map((plan) => ({
+      plan,
+      conflicts: extractConflictsForTables(
+        busy,
+        plan.tables.map((table) => table.id),
+        window,
+      ),
+    }));
+
+    const candidateSummariesAll: CandidateSummary[] = planEvaluations.map(({ plan }) =>
+      summarizeCandidate({
+        tableIds: plan.tables.map((table) => table.id),
+        tableNumbers: plan.tables.map((table) => table.tableNumber),
+        totalCapacity: plan.totalCapacity,
+        tableCount: plan.tables.length,
+        slack: plan.slack,
+        score: plan.score,
+        adjacencyStatus: plan.adjacencyStatus,
+      }),
+    );
+
+    const conflictFreeEntries = planEvaluations.filter(({ conflicts }) => conflicts.length === 0);
+    if (conflictFreeEntries.length === 0) {
+      const conflictEntry = planEvaluations.find(({ conflicts }) => conflicts.length > 0);
+      const conflictSummary = conflictEntry ? formatConflictSummary(conflictEntry.conflicts) : "conflicts";
+      const skipReason = `Conflicts with existing ${conflictSummary}`;
+
+      if (conflictEntry) {
+        await emitRpcConflict({
+          source: "auto_assign_conflict",
+          bookingId: booking.id,
+          restaurantId,
+          tableIds: conflictEntry.plan.tables.map((table) => table.id),
+          error: {
+            code: null,
+            message: skipReason,
+            details: JSON.stringify(conflictEntry.conflicts),
+            hint: null,
+          },
+        });
+      }
+
+      result.skipped.push({ bookingId: booking.id, reason: skipReason });
+      await emitSelectorDecision({
+        restaurantId,
+        bookingId: booking.id,
+        partySize: booking.party_size,
+        window: {
+          start: toIsoUtc(window.block.start),
+          end: toIsoUtc(window.block.end),
+        },
+        candidates: candidateSummariesAll,
+        selected: null,
+        skipReason,
+        durationMs: 0,
+        featureFlags,
+        diagnostics: plans.diagnostics,
+      });
+      continue;
+    }
+
+    const topEntry = conflictFreeEntries[0]!;
+    const topPlan = topEntry.plan;
+    const candidateSummaries: CandidateSummary[] = conflictFreeEntries.map(({ plan }) =>
+      summarizeCandidate({
+        tableIds: plan.tables.map((table) => table.id),
+        tableNumbers: plan.tables.map((table) => table.tableNumber),
+        totalCapacity: plan.totalCapacity,
+        tableCount: plan.tables.length,
+        slack: plan.slack,
+        score: plan.score,
+        adjacencyStatus: plan.adjacencyStatus,
+      }),
+    );
+    const candidate = candidateSummaries[0]!;
+
+    try {
+      await assignTableToBooking(
+        booking.id,
+        topPlan.tables.map((table) => table.id),
+        assignedBy,
+        supabase,
+        {
+          idempotencyKey: randomUUID(),
+          requireAdjacency: isAllocatorAdjacencyRequired(),
+          booking: {
+            ...(booking as any),
+            id: booking.id,
+            restaurant_id: restaurantId,
+            booking_date: booking.booking_date,
+            start_time: booking.start_time,
+            end_time: booking.end_time,
+            start_at: booking.start_at,
+            end_at: booking.end_at,
+            party_size: booking.party_size,
+            status: booking.status,
+            seating_preference: booking.seating_preference ?? null,
+            restaurants: { timezone: policy.timezone },
+          } as BookingRow,
+        },
+      );
+    } catch (error: any) {
+      const message = error?.message ? String(error.message) : String(error);
+      const normalized = message.toLowerCase();
+      const overlap =
+        normalized.includes("assignment overlap") || normalized.includes("allocations_no_overlap");
+
+      if (!overlap) {
+        throw error;
+      }
+
+      await emitRpcConflict({
+        source: "auto_assign_overlap",
+        bookingId: booking.id,
+        restaurantId,
+        tableIds: topPlan.tables.map((table) => table.id),
+        error: {
+          code: null,
+          message,
+          details: null,
+          hint: null,
+        },
+      });
+
+      const skipReason = "Auto assign skipped: Supabase reported an overlapping assignment";
+      result.skipped.push({ bookingId: booking.id, reason: skipReason });
+      await emitSelectorDecision({
+        restaurantId,
+        bookingId: booking.id,
+        partySize: booking.party_size,
+        window: {
+          start: toIsoUtc(window.block.start),
+          end: toIsoUtc(window.block.end),
+        },
+        candidates: candidateSummariesAll,
+        selected: null,
+        skipReason,
+        durationMs: 0,
+        featureFlags,
+        diagnostics: plans.diagnostics,
+      });
+      continue;
+    }
+
+    if (!booking.booking_table_assignments) {
+      booking.booking_table_assignments = [];
+    }
+    for (const table of topPlan.tables) {
+      if (!booking.booking_table_assignments.some((assignment) => assignment?.table_id === table.id)) {
+        booking.booking_table_assignments.push({ table_id: table.id });
+      }
+    }
+
+    result.assigned.push({
+      bookingId: booking.id,
       tableIds: topPlan.tables.map((table) => table.id),
-      tableNumbers: topPlan.tables.map((table) => table.tableNumber),
-      totalCapacity: topPlan.totalCapacity,
-      tableCount: topPlan.tables.length,
-      slack: topPlan.slack,
-      score: topPlan.score,
-      adjacencyStatus: topPlan.adjacencyStatus,
     });
 
     await emitSelectorDecision({
@@ -1804,37 +2036,6 @@ export async function autoAssignTablesForDate(options: {
       featureFlags,
       diagnostics: plans.diagnostics,
     });
-
-    await assignTableToBooking(
-      booking.id,
-      topPlan.tables.map((table) => table.id),
-      assignedBy,
-      supabase,
-      {
-        idempotencyKey: randomUUID(),
-        requireAdjacency: isAllocatorAdjacencyRequired(),
-        booking: {
-          ...(booking as any),
-          id: booking.id,
-          restaurant_id: restaurantId,
-          booking_date: booking.booking_date,
-          start_time: booking.start_time,
-          end_time: booking.end_time,
-          start_at: booking.start_at,
-          end_at: booking.end_at,
-          party_size: booking.party_size,
-          status: booking.status,
-          seating_preference: booking.seating_preference ?? null,
-          restaurants: { timezone: policy.timezone },
-        } as BookingRow,
-      },
-    );
-
-    result.assigned.push({
-      bookingId: booking.id,
-      tableIds: topPlan.tables.map((table) => table.id),
-    });
-
   }
 
   return result;

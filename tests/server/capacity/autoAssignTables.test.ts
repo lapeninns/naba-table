@@ -63,12 +63,24 @@ type MockClientOptions = {
   tables: TableRow[];
   bookings: BookingRow[];
   adjacency?: { table_a: string; table_b: string }[];
+  timezone?: string;
+  holds?: Array<{
+    id: string;
+    restaurantId: string;
+    tableIds: string[];
+    startAt: string;
+    endAt: string;
+    expiresAt: string;
+    zoneId?: string | null;
+    bookingId?: string | null;
+  }>;
 };
 
 type AssignmentLogEntry = {
   bookingId: string;
   tableIds: string[];
-  window: string;
+  startAt: string | null;
+  endAt: string | null;
 };
 
 function createMockSupabaseClient(options: MockClientOptions) {
@@ -82,6 +94,19 @@ function createMockSupabaseClient(options: MockClientOptions) {
     active: true,
     ...table,
   }));
+  const holdsRows =
+    options.holds?.map((hold) => ({
+      id: hold.id,
+      booking_id: hold.bookingId ?? null,
+      restaurant_id: hold.restaurantId,
+      zone_id: hold.zoneId ?? 'zone-main',
+      start_at: hold.startAt,
+      end_at: hold.endAt,
+      expires_at: hold.expiresAt,
+      created_by: null,
+      metadata: null,
+      table_hold_members: hold.tableIds.map((tableId) => ({ table_id: tableId })),
+    })) ?? [];
 
   const client = {
     from(table: string) {
@@ -117,6 +142,33 @@ function createMockSupabaseClient(options: MockClientOptions) {
         };
       }
 
+      if (table === 'table_holds') {
+        const builder = {
+          select() {
+            return builder;
+          },
+          eq() {
+            return builder;
+          },
+          gt() {
+            return builder;
+          },
+          lt() {
+            return builder;
+          },
+          then(onFulfilled: any, onRejected?: any) {
+            return Promise.resolve({ data: holdsRows, error: null }).then(onFulfilled, onRejected);
+          },
+          catch(onRejected: any) {
+            return Promise.resolve({ data: holdsRows, error: null }).catch(onRejected);
+          },
+          finally(onFinally: any) {
+            return Promise.resolve({ data: holdsRows, error: null }).finally(onFinally);
+          },
+        };
+        return builder;
+      }
+
       if (table === 'bookings') {
         return {
           select() {
@@ -144,7 +196,10 @@ function createMockSupabaseClient(options: MockClientOptions) {
               eq() {
                 return {
                   maybeSingle() {
-                    return Promise.resolve({ data: { timezone: 'Europe/London' }, error: null });
+                    return Promise.resolve({
+                      data: { timezone: options.timezone ?? 'Europe/London' },
+                      error: null,
+                    });
                   },
                 };
               },
@@ -181,7 +236,8 @@ function createMockSupabaseClient(options: MockClientOptions) {
         assignments.push({
           bookingId: args.p_booking_id as string,
           tableIds: Array.isArray(args.p_table_ids) ? [...(args.p_table_ids as string[])] : [],
-          window: '',
+          startAt: typeof args.p_start_at === 'string' ? args.p_start_at : null,
+          endAt: typeof args.p_end_at === 'string' ? args.p_end_at : null,
         });
         const data = (Array.isArray(args.p_table_ids) ? args.p_table_ids : []).map((tableId: string) => ({
           table_id: tableId,
@@ -343,6 +399,57 @@ describe('autoAssignTablesForDate', () => {
         bookingId: 'booking-20',
         reason: expect.stringContaining('No suitable tables'),
       },
+    ]);
+  });
+  it('uses the restaurant timezone when generating assignment window', async () => {
+    const tables: TableRow[] = [
+      {
+        id: 'table-nyc-1',
+        table_number: 'NYC-1',
+        capacity: 2,
+        min_party_size: 1,
+        max_party_size: 2,
+        section: 'Main',
+        seating_type: 'standard',
+        status: 'available',
+        position: null,
+      },
+    ];
+
+    const bookings: BookingRow[] = [
+      {
+        id: 'booking-nyc-1',
+        party_size: 2,
+        status: 'pending_allocation',
+        start_time: '18:00',
+        end_time: null,
+        start_at: '2025-07-05T22:00:00+00:00',
+        booking_date: '2025-07-05',
+        seating_preference: 'window',
+        booking_table_assignments: [],
+      },
+    ];
+
+    const { client, assignments } = createMockSupabaseClient({
+      tables,
+      bookings,
+      timezone: 'America/New_York',
+    });
+
+    await autoAssignTablesForDate({
+      restaurantId: 'rest-nyc-1',
+      date: '2025-07-05',
+      client,
+      assignedBy: 'user-nyc',
+    });
+
+    expect(assignments).toEqual([
+      expect.objectContaining({
+        bookingId: 'booking-nyc-1',
+        tableIds: ['table-nyc-1'],
+        startAt: '2025-07-05T22:00:00Z',
+        endAt: '2025-07-05T23:05:00Z',
+      }),
     ]);
   });
   it('prefers the best scoring single table and emits telemetry details', async () => {
@@ -521,5 +628,150 @@ describe('autoAssignTablesForDate', () => {
         skipReason,
       }),
     );
+  });
+
+  it('avoids tables with conflicting assignments and selects an alternative plan', async () => {
+    const tables: TableRow[] = [
+      {
+        id: 'table-conflict-1',
+        table_number: 'C1',
+        capacity: 2,
+        min_party_size: 1,
+        max_party_size: 2,
+        section: 'Main',
+        seating_type: 'standard',
+        status: 'available',
+        position: null,
+      },
+      {
+        id: 'table-conflict-2',
+        table_number: 'C2',
+        capacity: 4,
+        min_party_size: 2,
+        max_party_size: 4,
+        section: 'Main',
+        seating_type: 'standard',
+        status: 'available',
+        position: null,
+      },
+    ];
+
+    const bookings: BookingRow[] = [
+      {
+        id: 'booking-conflict-target',
+        party_size: 2,
+        status: 'pending_allocation',
+        start_time: '18:00',
+        end_time: null,
+        start_at: '2025-11-07T18:00:00+00:00',
+        booking_date: '2025-11-07',
+        seating_preference: 'any',
+        booking_table_assignments: [],
+      },
+      {
+        id: 'booking-conflict-existing',
+        party_size: 2,
+        status: 'confirmed',
+        start_time: '18:00',
+        end_time: '19:30',
+        start_at: '2025-11-07T18:00:00+00:00',
+        booking_date: '2025-11-07',
+        seating_preference: 'any',
+        booking_table_assignments: [
+          {
+            table_id: 'table-conflict-1',
+          },
+        ],
+      },
+    ];
+
+    const { client, assignments } = createMockSupabaseClient({
+      tables,
+      bookings,
+    });
+
+    const result = await autoAssignTablesForDate({
+      restaurantId: 'rest-conflict',
+      date: '2025-11-07',
+      client,
+      assignedBy: 'auto',
+    });
+
+    expect(result.assigned).toEqual([
+      {
+        bookingId: 'booking-conflict-target',
+        tableIds: ['table-conflict-2'],
+      },
+    ]);
+    expect(result.skipped).toEqual([]);
+    expect(assignments).toEqual([
+      expect.objectContaining({
+        bookingId: 'booking-conflict-target',
+        tableIds: ['table-conflict-2'],
+      }),
+    ]);
+  });
+
+  it('skips bookings when every plan conflicts with holds', async () => {
+    const tables: TableRow[] = [
+      {
+        id: 'table-hold-1',
+        table_number: 'H1',
+        capacity: 4,
+        min_party_size: 1,
+        max_party_size: 4,
+        section: 'Main',
+        seating_type: 'standard',
+        status: 'available',
+        position: null,
+      },
+    ];
+
+    const bookings: BookingRow[] = [
+      {
+        id: 'booking-hold-target',
+        party_size: 4,
+        status: 'pending_allocation',
+        start_time: '19:00',
+        end_time: null,
+        start_at: '2025-11-08T19:00:00+00:00',
+        booking_date: '2025-11-08',
+        seating_preference: 'any',
+        booking_table_assignments: [],
+      },
+    ];
+
+    const holds = [
+      {
+        id: 'hold-1',
+        restaurantId: 'rest-hold',
+        tableIds: ['table-hold-1'],
+        startAt: '2025-11-08T19:00:00Z',
+        endAt: '2025-11-08T20:30:00Z',
+        expiresAt: '2025-11-08T21:00:00Z',
+      },
+    ];
+
+    const { client, assignments } = createMockSupabaseClient({
+      tables,
+      bookings,
+      holds,
+    });
+
+    const result = await autoAssignTablesForDate({
+      restaurantId: 'rest-hold',
+      date: '2025-11-08',
+      client,
+      assignedBy: 'auto',
+    });
+
+    expect(result.assigned).toEqual([]);
+    expect(result.skipped).toEqual([
+      expect.objectContaining({
+        bookingId: 'booking-hold-target',
+        reason: expect.stringContaining('Conflicts with existing'),
+      }),
+    ]);
+    expect(assignments).toEqual([]);
   });
 });
