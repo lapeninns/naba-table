@@ -219,6 +219,27 @@ export const TableFloorPlan = memo(function TableFloorPlan({
     [bookingId, tables, holds, conflicts, bookingAssignmentSet, selectionSet],
   );
 
+  const groupedUnpositioned = useMemo(() => {
+    const groups = new Map<
+      string,
+      { zoneId: string | null; section: string | null; tables: ManualAssignmentTable[] }
+    >();
+    for (const table of unpositioned) {
+      const key = `${table.zoneId ?? 'unknown'}::${table.section ?? 'unassigned'}`;
+      const current = groups.get(key);
+      if (current) {
+        current.tables.push(table);
+      } else {
+        groups.set(key, {
+          zoneId: table.zoneId ?? null,
+          section: table.section ?? null,
+          tables: [table],
+        });
+      }
+    }
+    return Array.from(groups.values());
+  }, [unpositioned]);
+
   return (
     <div className={cn('flex flex-col gap-4', className)}>
       <div className="relative w-full overflow-hidden rounded-2xl border border-border bg-muted/20" style={{ minHeight: positioned.length > 0 ? 320 : 180 }}>
@@ -274,34 +295,55 @@ export const TableFloorPlan = memo(function TableFloorPlan({
         )}
       </div>
 
-      {unpositioned.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
-          {unpositioned.map((table) => {
-            const isSelected = selectionSet.has(table.id);
-            const tableHolds = holds.filter((hold) => hold.tableIds.includes(table.id));
-            const holdOther = tableHolds.find((hold) => hold.bookingId && hold.bookingId !== bookingId);
-            const isBlocked = disabled || !table.active || (table.status && table.status !== 'available') || Boolean(holdOther);
-
+      {groupedUnpositioned.length > 0 ? (
+        <div className="space-y-3">
+          <p className="text-xs font-semibold uppercase text-muted-foreground">Tables without coordinates</p>
+          {groupedUnpositioned.map((group) => {
+            const zoneLabel = group.zoneId ? `Zone ${group.zoneId.slice(0, 8)}` : 'Zone not set';
+            const sectionLabel = group.section ? `Section ${group.section}` : 'Section not set';
             return (
-              <button
-                key={table.id}
-                type="button"
-                className={cn(
-                  'flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition',
-                  isSelected ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-foreground border-border',
-                  isBlocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
-                )}
-                onClick={() => {
-                  if (isBlocked) {
-                    return;
-                  }
-                  onToggle(table.id);
-                }}
-                title={`Table ${table.tableNumber} · ${table.capacity} seats`}
+              <div
+                key={`${group.zoneId ?? 'unknown'}::${group.section ?? 'unassigned'}`}
+                className="space-y-2 rounded-xl border border-border/60 bg-background px-3 py-2"
               >
-                <span>{table.tableNumber}</span>
-                <span className="text-[11px] font-medium">{table.capacity}</span>
-              </button>
+                <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
+                  <span>{sectionLabel}</span>
+                  <span aria-hidden>•</span>
+                  <span>{zoneLabel}</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {group.tables.map((table) => {
+                    const isSelected = selectionSet.has(table.id);
+                    const tableHolds = holds.filter((hold) => hold.tableIds.includes(table.id));
+                    const holdOther = tableHolds.find((hold) => hold.bookingId && hold.bookingId !== bookingId);
+                    const isBlocked = disabled || !table.active || (table.status && table.status !== 'available') || Boolean(holdOther);
+
+                    return (
+                      <button
+                        key={table.id}
+                        type="button"
+                        className={cn(
+                          'flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition',
+                          isSelected
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'bg-background text-foreground border-border',
+                          isBlocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+                        )}
+                        onClick={() => {
+                          if (isBlocked) {
+                            return;
+                          }
+                          onToggle(table.id);
+                        }}
+                        title={`Table ${table.tableNumber} · ${table.capacity} seats`}
+                      >
+                        <span>{table.tableNumber}</span>
+                        <span className="text-[11px] font-medium">{table.capacity}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             );
           })}
         </div>

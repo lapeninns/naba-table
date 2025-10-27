@@ -253,6 +253,8 @@ function normalizeBookingRow(row: BookingRow): BookingRow {
   return row;
 }
 
+export type BookingWindow = ReturnType<typeof computeBookingWindow>;
+
 export function computeBookingWindow(args: {
   startISO?: string | null;
   bookingDate?: string | null;
@@ -300,6 +302,65 @@ export function computeBookingWindow(args: {
       end: blockEnd,
     },
   };
+}
+
+type ComputeWindowArgs = {
+  startISO?: string | null;
+  bookingDate?: string | null;
+  startTime?: string | null;
+  partySize: number;
+  policy?: VenuePolicy;
+  serviceHint?: ServiceKey | null;
+};
+
+function computeBookingWindowWithFallback(args: ComputeWindowArgs): BookingWindow {
+  const policy = args.policy ?? getVenuePolicy();
+  try {
+    return computeBookingWindow({ ...args, policy });
+  } catch (error) {
+    if (error instanceof ServiceNotFoundError) {
+      const serviceOrderCandidates = policy.serviceOrder.filter((key) => Boolean(policy.services[key]));
+      const servicesFallback = (Object.keys(policy.services) as ServiceKey[]).filter((key) =>
+        Boolean(policy.services[key]),
+      );
+      const fallbackService =
+        args.serviceHint && policy.services[args.serviceHint]
+          ? args.serviceHint
+          : serviceOrderCandidates[0] ?? servicesFallback[0];
+
+      if (!fallbackService || !policy.services[fallbackService]) {
+        throw error;
+      }
+
+      const baseStart = resolveStartDateTime(args, policy);
+      const durationMinutes = bandDuration(fallbackService, args.partySize, policy);
+      const buffer = getBufferConfig(fallbackService, policy);
+      const diningStart = baseStart;
+      const diningEnd = diningStart.plus({ minutes: durationMinutes });
+      const blockStart = diningStart.minus({ minutes: buffer.pre ?? 0 });
+      const blockEnd = diningEnd.plus({ minutes: buffer.post ?? 0 });
+
+      console.warn("[capacity][window][fallback] service not found, using fallback service", {
+        start: baseStart.toISO(),
+        fallbackService,
+      });
+
+      return {
+        service: fallbackService,
+        durationMinutes,
+        dining: {
+          start: diningStart,
+          end: diningEnd,
+        },
+        block: {
+          start: blockStart,
+          end: blockEnd,
+        },
+      };
+    }
+
+    throw error;
+  }
 }
 
 function resolveStartDateTime(
@@ -667,7 +728,7 @@ function buildBusyMaps(params: {
     const assignments = booking.booking_table_assignments ?? [];
     if (assignments.length === 0) continue;
 
-    const window = computeBookingWindow({
+    const window = computeBookingWindowWithFallback({
       startISO: booking.start_at,
       bookingDate: booking.booking_date,
       startTime: booking.start_time,
@@ -891,7 +952,7 @@ export async function evaluateManualSelection(options: ManualSelectionOptions): 
     getVenuePolicy().timezone;
   const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
 
-  const window = computeBookingWindow({
+  const window = computeBookingWindowWithFallback({
     startISO: booking.start_at,
     bookingDate: booking.booking_date,
     startTime: booking.start_time,
@@ -984,7 +1045,7 @@ export async function createManualHold(options: ManualHoldOptions): Promise<Manu
     getVenuePolicy().timezone;
   const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
 
-  const window = computeBookingWindow({
+  const window = computeBookingWindowWithFallback({
     startISO: booking.start_at,
     bookingDate: booking.booking_date,
     startTime: booking.start_time,
@@ -1054,7 +1115,7 @@ export async function getManualAssignmentContext(options: {
     getVenuePolicy().timezone;
   const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
 
-  const window = computeBookingWindow({
+  const window = computeBookingWindowWithFallback({
     startISO: booking.start_at,
     bookingDate: booking.booking_date,
     startTime: booking.start_time,
@@ -1209,7 +1270,7 @@ export async function confirmHoldAssignment(options: {
     (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
     getVenuePolicy().timezone;
   const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
-  const window = computeBookingWindow({
+  const window = computeBookingWindowWithFallback({
     startISO: booking.start_at,
     bookingDate: booking.booking_date,
     startTime: booking.start_time,
@@ -1332,7 +1393,7 @@ export async function assignTableToBooking(
     (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
     getVenuePolicy().timezone;
   const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
-  const window = computeBookingWindow({
+  const window = computeBookingWindowWithFallback({
     startISO: booking.start_at,
     bookingDate: booking.booking_date,
     startTime: booking.start_time,
@@ -1480,7 +1541,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
     getVenuePolicy().timezone;
   const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
-  const window = computeBookingWindow({
+  const window = computeBookingWindowWithFallback({
     startISO: booking.start_at,
     bookingDate: booking.booking_date,
     startTime: booking.start_time,
@@ -1650,7 +1711,7 @@ export async function autoAssignTablesForDate(options: {
       continue;
     }
 
-    const window = computeBookingWindow({
+    const window = computeBookingWindowWithFallback({
       startISO: booking.start_at,
       bookingDate: booking.booking_date,
       startTime: booking.start_time,
@@ -1801,7 +1862,7 @@ export async function findSuitableTables(options: {
     supabase,
   );
   const policy = getVenuePolicy();
-  const window = computeBookingWindow({
+  const window = computeBookingWindowWithFallback({
     startISO: booking.start_at,
     bookingDate: booking.booking_date,
     startTime: booking.start_time,
@@ -1844,7 +1905,7 @@ export async function isTableAvailableV2(
 ): Promise<boolean> {
   const supabase = ensureClient(options?.client);
   const policy = options?.policy ?? getVenuePolicy();
-  const window = computeBookingWindow({
+  const window = computeBookingWindowWithFallback({
     startISO,
     partySize,
     policy,

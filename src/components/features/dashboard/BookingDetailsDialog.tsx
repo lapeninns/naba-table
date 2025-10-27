@@ -7,6 +7,12 @@ import { useCallback, useEffect, useMemo, useState, type ComponentType } from 'r
 
 import { BookingActionButton, BookingStatusBadge, StatusTransitionAnimator } from '@/components/features/booking-state-machine';
 import { TableFloorPlan } from '@/components/features/dashboard/TableFloorPlan';
+import {
+  ManualAssignmentActions,
+  ManualAssignmentSummaryCard,
+  ManualAssignmentValidationPanel,
+} from '@/components/features/dashboard/manual-assignment';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -126,6 +132,7 @@ export function BookingDetailsDialog({
   const [selectedTables, setSelectedTables] = useState<string[]>([]);
   const [userModifiedSelection, setUserModifiedSelection] = useState(false);
   const [validationResult, setValidationResult] = useState<ManualValidationResult | null>(null);
+  const [lastValidatedAt, setLastValidatedAt] = useState<number | null>(null);
   const [requireAdjacency, setRequireAdjacency] = useState(true);
   const [lastHoldKey, setLastHoldKey] = useState<string | null>(null);
   const [currentTimestamp, setCurrentTimestamp] = useState(() => Date.now());
@@ -176,6 +183,7 @@ export function BookingDetailsDialog({
     mutationFn: (payload: ManualHoldPayload) => bookingService.manualHoldSelection(payload),
     onSuccess: (result) => {
       setValidationResult(result.validation);
+      setLastValidatedAt(Date.now());
       const holdKey = result.hold ? result.hold.tableIds.slice().sort().join(',') : null;
       setLastHoldKey(holdKey);
       if (result.hold) {
@@ -222,6 +230,7 @@ export function BookingDetailsDialog({
     mutationFn: (payload: ManualSelectionPayload) => bookingService.manualValidateSelection(payload),
     onSuccess: (result) => {
       setValidationResult(result);
+      setLastValidatedAt(Date.now());
     },
     onError: (error) => {
       const message = error instanceof Error ? error.message : 'Validation failed';
@@ -262,6 +271,7 @@ export function BookingDetailsDialog({
       setAssignments(nextAssignments);
       setSelectedTables([]);
       setValidationResult(null);
+      setLastValidatedAt(null);
       setUserModifiedSelection(false);
       setLastHoldKey(null);
       toast({ title: 'Tables assigned', description: 'Manual assignment confirmed successfully.' });
@@ -325,6 +335,7 @@ export function BookingDetailsDialog({
           const summary = (selectionMeta as { summary?: ManualValidationResult['summary'] }).summary;
           if (summary) {
             setValidationResult({ ok: true, summary, checks: [] });
+            setLastValidatedAt(Date.now());
           }
         }
       }
@@ -459,15 +470,33 @@ export function BookingDetailsDialog({
     () => (manualContext ? manualContext.holds.filter((hold) => hold.bookingId && hold.bookingId !== booking.id) : []),
     [manualContext, booking.id],
   );
+  const selectedTableNumbers = useMemo(() => {
+    if (!manualContext) {
+      return [] as string[];
+    }
+    const mapping = new Map(manualContext.tables.map((table) => [table.id, table.tableNumber ?? table.id]));
+    return selectedTables.map((tableId) => mapping.get(tableId) ?? tableId);
+  }, [manualContext, selectedTables]);
 
-  const selectionMeterLabel = selectionSummary
-    ? `${selectionSummary.tableCount} table${selectionSummary.tableCount === 1 ? '' : 's'} · ${selectionSummary.totalCapacity} seat${selectionSummary.totalCapacity === 1 ? '' : 's'} · ${formatSlack(selectionSummary.slack)}`
-    : 'Select tables to begin';
-
+  const slackLabel = selectionSummary ? formatSlack(selectionSummary.slack) : null;
+  const hasSelection = selectedTables.length > 0;
   const selectionPartySize = selectionSummary?.partySize ?? manualContext?.booking.partySize ?? booking.partySize;
   const holdCountdownLabel = activeHold ? formatCountdownFromIso(activeHold.expiresAt, currentTimestamp) : null;
   const selectionDisabled = manualContextLoading || manualContextFetching || holdMutation.isPending || confirmMutation.isPending;
   const manualContextErrorMessage = manualContextError instanceof Error ? manualContextError.message : 'Unable to load manual assignment context.';
+  const confirmDisabled = selectionDisabled || !hasSelection || !activeHold || hasBlockingErrors;
+  let confirmDisabledReason: string | null = null;
+  if (!hasSelection) {
+    confirmDisabledReason = 'Select at least one table before confirming the assignment.';
+  } else if (!activeHold) {
+    confirmDisabledReason = 'Validate the selection to create a hold before confirming.';
+  } else if (hasBlockingErrors) {
+    confirmDisabledReason = 'Resolve blocking validation errors before confirming.';
+  } else if (selectionDisabled && (manualContextLoading || manualContextFetching)) {
+    confirmDisabledReason = 'Loading the latest availability…';
+  }
+  const validateDisabled = !hasSelection || selectionDisabled;
+  const clearDisabled = !hasSelection || holdMutation.isPending || confirmMutation.isPending;
 
   const handleValidateSelection = useCallback(() => {
     if (selectedTables.length === 0) {
@@ -510,6 +539,7 @@ export function BookingDetailsDialog({
     }
     setSelectedTables([]);
     setValidationResult(null);
+    setLastValidatedAt(null);
     setUserModifiedSelection(true);
     setLastHoldKey(null);
   }, [booking.id, bookingService, manualContext?.activeHold, refetchManualContext, toast]);
@@ -818,31 +848,24 @@ export function BookingDetailsDialog({
           ) : null}
 
           {supportsTableAssignment ? (
-            <section className="space-y-5 rounded-2xl border border-border/60 bg-muted/10 px-4 py-4">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <section className="space-y-6 rounded-2xl border border-border/60 bg-muted/10 px-4 py-5">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-foreground">Manual assignment</h3>
                   <p className="text-xs text-muted-foreground">
-                    Select tables on the floor plan and validate before confirming.
+                    Choose tables on the floor plan, review checks, then confirm to lock them in.
                   </p>
                 </div>
-                <Button
-                  variant={requireAdjacency ? 'default' : 'outline'}
-                  size="sm"
-                  className="h-8"
-                  onClick={() => setRequireAdjacency((prev) => !prev)}
-                >
-                  {requireAdjacency ? 'Adjacency: On' : 'Adjacency: Off'}
-                </Button>
               </div>
 
               {manualContextIsError ? (
-                <div className="rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                  {manualContextErrorMessage}
-                </div>
+                <Alert variant="destructive" className="rounded-xl border border-destructive/40 bg-destructive/10">
+                  <AlertTitle>Unable to load manual assignment</AlertTitle>
+                  <AlertDescription>{manualContextErrorMessage}</AlertDescription>
+                </Alert>
               ) : (
-                <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr),minmax(0,1fr)]">
-                  <div className="relative">
+                <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr),minmax(0,1fr)]">
+                  <div className="relative space-y-3">
                     <TableFloorPlan
                       bookingId={booking.id}
                       tables={manualContext?.tables ?? []}
@@ -853,134 +876,44 @@ export function BookingDetailsDialog({
                       onToggle={handleToggleTable}
                       disabled={selectionDisabled}
                     />
-                    {manualContextLoading ? (
+                    {manualContextLoading || manualContextFetching ? (
                       <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-background/70 backdrop-blur-sm">
                         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
                       </div>
                     ) : null}
                   </div>
-
-                  <aside className="space-y-4">
-                    <div className="rounded-xl border border-border/60 bg-white px-3 py-3">
-                      <p className="text-sm font-semibold text-foreground">{selectionMeterLabel}</p>
-                      <p className="text-xs text-muted-foreground">Party size: {selectionPartySize}</p>
-                    </div>
-
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase text-muted-foreground">Validation checks</p>
-                    {validationChecks.length > 0 ? (
-                      <div className="space-y-2">
-                        {validationChecks.map((check) => (
-                          <div
-                            key={check.id}
-                            className={cn(
-                              'flex items-start gap-2 rounded-lg border px-3 py-2 text-xs',
-                              check.status === 'error'
-                                ? 'border-destructive/40 bg-destructive/10 text-destructive'
-                                : check.status === 'warn'
-                                  ? 'border-amber-300 bg-amber-50 text-amber-900'
-                                  : 'border-emerald-200 bg-emerald-50 text-emerald-900',
-                            )}
-                          >
-                            {check.status === 'error' ? (
-                              <XCircle className="h-4 w-4 shrink-0" aria-hidden />
-                            ) : check.status === 'warn' ? (
-                              <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
-                            ) : (
-                              <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden />
-                            )}
-                            <div>
-                              <p className="text-sm font-semibold">{check.message}</p>
-                              {check.details ? (
-                                <pre className="mt-1 whitespace-pre-wrap text-[11px] text-muted-foreground">
-                                  {JSON.stringify(check.details, null, 2)}
-                                </pre>
-                              ) : null}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        Holds run validation automatically. You can also click validate to refresh results.
-                      </p>
-                    )}
+                  <div className="space-y-4">
+                    <ManualAssignmentSummaryCard
+                      summary={selectionSummary}
+                      slackLabel={slackLabel}
+                      partySize={selectionPartySize}
+                      tableNumbers={selectedTableNumbers}
+                      requireAdjacency={requireAdjacency}
+                      onAdjacencyChange={setRequireAdjacency}
+                      isLoading={manualContextLoading && !manualContext}
+                      activeHold={activeHold}
+                      holdCountdownLabel={holdCountdownLabel}
+                      otherHolds={otherHolds}
+                    />
+                    <ManualAssignmentValidationPanel
+                      checks={validationChecks}
+                      lastValidatedAt={lastValidatedAt}
+                      isPending={holdMutation.isPending || validateMutation.isPending}
+                      hasSelection={hasSelection}
+                    />
+                    <ManualAssignmentActions
+                      onValidate={handleValidateSelection}
+                      onConfirm={handleConfirmSelection}
+                      onClear={handleClearSelection}
+                      disableValidate={validateDisabled}
+                      disableConfirm={confirmDisabled}
+                      disableClear={clearDisabled}
+                      validating={holdMutation.isPending || validateMutation.isPending}
+                      confirming={confirmMutation.isPending}
+                      confirmDisabledReason={confirmDisabledReason}
+                    />
                   </div>
-
-                  <div className="rounded-xl border border-border/60 bg-white px-3 py-3 space-y-1">
-                    <p className="text-xs font-semibold uppercase text-muted-foreground">Active hold</p>
-                    {activeHold ? (
-                      <>
-                        <p className="text-sm font-semibold text-foreground">
-                          Expires {holdCountdownLabel ? `in ${holdCountdownLabel}` : 'soon'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Held by {activeHold.createdByName ?? 'you'} · {activeHold.tableIds.length} table
-                          {activeHold.tableIds.length === 1 ? '' : 's'}
-                        </p>
-                      </>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">Select tables to create a hold.</p>
-                    )}
-                  </div>
-
-                  {otherHolds.length > 0 ? (
-                    <div className="rounded-xl border border-border/60 bg-white px-3 py-3 space-y-2">
-                      <p className="text-xs font-semibold uppercase text-muted-foreground">Other holds</p>
-                      <div className="space-y-1">
-                        {otherHolds.map((hold) => (
-                          <p key={hold.id} className="text-xs text-muted-foreground">
-                            {hold.tableIds.length} table{hold.tableIds.length === 1 ? '' : 's'} held by{' '}
-                            {hold.createdByName ?? 'unknown'} (expires{' '}
-                            {formatCountdownFromIso(hold.expiresAt, currentTimestamp) ?? 'soon'})
-                          </p>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8"
-                      onClick={handleValidateSelection}
-                      disabled={selectedTables.length === 0 || validateMutation.isPending || selectionDisabled}
-                    >
-                      {validateMutation.isPending ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> Validating…
-                        </>
-                      ) : (
-                        'Validate'
-                      )}
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="h-8"
-                      onClick={handleConfirmSelection}
-                      disabled={!activeHold || hasBlockingErrors || confirmMutation.isPending || selectedTables.length === 0}
-                    >
-                      {confirmMutation.isPending ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> Assigning…
-                        </>
-                      ) : (
-                        'Assign'
-                      )}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8"
-                      onClick={handleClearSelection}
-                      disabled={selectedTables.length === 0 || confirmMutation.isPending}
-                    >
-                      Clear
-                    </Button>
-                  </div>
-                </aside>
-              </div>
+                </div>
               )}
 
               <div className="space-y-2">
