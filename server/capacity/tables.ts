@@ -27,6 +27,7 @@ import {
   HoldNotFoundError,
   AssignTablesRpcError,
   HoldConflictError,
+  cleanupHoldArtifacts,
 } from "./holds";
 import type { TableHoldSummary, ConfirmHoldResult, HoldConflictInfo } from "./holds";
 
@@ -258,6 +259,7 @@ type BookingRowForAtomic = {
   end_time: string | null;
   start_at: string | null;
   end_at: string | null;
+  party_size: number | null;
   restaurants?: {
     timezone: string | null;
   } | null;
@@ -265,7 +267,7 @@ type BookingRowForAtomic = {
 
 type BookingRowForAtomicSupabase = Pick<
   Tables<"bookings">,
-  "id" | "restaurant_id" | "booking_date" | "start_time" | "end_time" | "start_at" | "end_at"
+  "id" | "restaurant_id" | "booking_date" | "start_time" | "end_time" | "start_at" | "end_at" | "party_size"
 > & {
   restaurants?: { timezone: string | null }[] | { timezone: string | null } | null;
 };
@@ -467,6 +469,197 @@ function serializeBookingBlockWindow(window: BookingWindow): { range: string; st
     start: startIso,
     end: endIso,
   };
+}
+
+type AssignmentWindowDecision = {
+  window: { range: string; start: string; end: string };
+  applyNormalization: boolean;
+  basis: "fallback" | "computed" | "clamped";
+  diagnostics: {
+    fallbackMinutes: number | null;
+    computedMinutes: number | null;
+  };
+};
+
+function diffMinutes(startIso: string | null, endIso: string | null): number | null {
+  if (!startIso || !endIso) {
+    return null;
+  }
+
+  const start = DateTime.fromISO(startIso, { setZone: true });
+  const end = DateTime.fromISO(endIso, { setZone: true });
+
+  if (!start.isValid || !end.isValid || end <= start) {
+    return null;
+  }
+
+  const diff = end.diff(start, "minutes").minutes;
+  return typeof diff === "number" && Number.isFinite(diff) ? diff : null;
+}
+
+function shouldClampToComputedWindow(fallbackMinutes: number | null, computedMinutes: number | null): boolean {
+  if (fallbackMinutes === null || computedMinutes === null) {
+    return false;
+  }
+
+  if (fallbackMinutes <= computedMinutes) {
+    return false;
+  }
+
+  const exceedsByAtLeastTwoX = fallbackMinutes >= computedMinutes * 2;
+  const exceedsByTwoHours = fallbackMinutes - computedMinutes >= 120;
+
+  return exceedsByAtLeastTwoX && exceedsByTwoHours;
+}
+
+function resolveAssignmentWindowDecision(booking: BookingRowForAtomic, policy: VenuePolicy): AssignmentWindowDecision | null {
+  let fallbackWindow: { range: string; start: string; end: string } | null = null;
+  let computedBookingWindow: BookingWindow | null = null;
+
+  try {
+    fallbackWindow = buildAssignmentWindowRange(booking);
+  } catch (error) {
+    console.warn("[capacity][window] Failed to build fallback assignment window", {
+      bookingId: booking.id,
+      error,
+    });
+    fallbackWindow = null;
+  }
+
+  try {
+    computedBookingWindow = computeBookingWindow({
+      startISO: booking.start_at,
+      bookingDate: booking.booking_date,
+      startTime: booking.start_time,
+      partySize: booking.party_size ?? 0,
+      policy,
+    });
+  } catch (error) {
+    console.warn("[capacity][window] Failed to compute policy-driven booking window", {
+      bookingId: booking.id,
+      error,
+    });
+    computedBookingWindow = null;
+  }
+
+  const computedWindowSerialized = computedBookingWindow ? serializeBookingBlockWindow(computedBookingWindow) : null;
+
+  if (!fallbackWindow && !computedWindowSerialized) {
+    return null;
+  }
+
+  const fallbackMinutes = fallbackWindow ? diffMinutes(fallbackWindow.start, fallbackWindow.end) : null;
+  const computedMinutes = computedWindowSerialized ? diffMinutes(computedWindowSerialized.start, computedWindowSerialized.end) : null;
+
+  if (computedWindowSerialized && shouldClampToComputedWindow(fallbackMinutes, computedMinutes)) {
+    return {
+      window: computedWindowSerialized,
+      applyNormalization: true,
+      basis: "clamped",
+      diagnostics: { fallbackMinutes, computedMinutes },
+    };
+  }
+
+  if (fallbackWindow) {
+    return {
+      window: fallbackWindow,
+      applyNormalization: false,
+      basis: "fallback",
+      diagnostics: { fallbackMinutes, computedMinutes },
+    };
+  }
+
+  return {
+    window: computedWindowSerialized!,
+    applyNormalization: false,
+    basis: "computed",
+    diagnostics: { fallbackMinutes, computedMinutes },
+  };
+}
+
+async function normalizeAssignmentArtifacts(params: {
+  client: DbClient;
+  bookingId: string;
+  tableIds: string[];
+  mergeGroupId?: string | null;
+  idempotencyKey?: string | null;
+  decision: AssignmentWindowDecision;
+}): Promise<void> {
+  const { client, bookingId, tableIds, mergeGroupId, idempotencyKey, decision } = params;
+
+  if (!decision.applyNormalization) {
+    return;
+  }
+
+  const uniqueTableIds = Array.from(new Set(tableIds.filter((id): id is string => typeof id === "string" && id.length > 0)));
+  if (uniqueTableIds.length === 0) {
+    return;
+  }
+
+  let normalizationSucceeded = true;
+
+  const allocationUpdate = await client
+    .from("allocations")
+    .update({ window: decision.window.range })
+    .eq("booking_id", bookingId)
+    .eq("resource_type", "table")
+    .in("resource_id", uniqueTableIds);
+
+  if (allocationUpdate.error) {
+    console.error("[capacity][window] Failed to normalize table allocation window", {
+      bookingId,
+      tableIds: uniqueTableIds,
+      error: allocationUpdate.error,
+    });
+    normalizationSucceeded = false;
+  }
+
+  if (mergeGroupId) {
+    const mergeUpdate = await client
+      .from("allocations")
+      .update({ window: decision.window.range })
+      .eq("booking_id", bookingId)
+      .eq("resource_type", "merge_group")
+      .eq("resource_id", mergeGroupId);
+
+    if (mergeUpdate.error) {
+      console.error("[capacity][window] Failed to normalize merge-group allocation window", {
+        bookingId,
+        mergeGroupId,
+        error: mergeUpdate.error,
+      });
+      normalizationSucceeded = false;
+    }
+  }
+
+  if (idempotencyKey) {
+    const ledgerUpdate = await client
+      .from("booking_assignment_idempotency")
+      .update({ assignment_window: decision.window.range, merge_group_allocation_id: mergeGroupId ?? null })
+      .eq("booking_id", bookingId)
+      .eq("idempotency_key", idempotencyKey);
+
+    if (ledgerUpdate.error) {
+      console.error("[capacity][window] Failed to normalize idempotency ledger window", {
+        bookingId,
+        idempotencyKey,
+        error: ledgerUpdate.error,
+      });
+      normalizationSucceeded = false;
+    }
+  }
+
+  if (normalizationSucceeded) {
+    console.warn("[capacity][window] Corrected excessive assignment window", {
+      bookingId,
+      tableIds: uniqueTableIds,
+      mergeGroupId,
+      basis: decision.basis,
+      diagnostics: decision.diagnostics,
+      start: decision.window.start,
+      end: decision.window.end,
+    });
+  }
 }
 
 function resolveStartDateTime(args: {
@@ -1761,6 +1954,16 @@ export async function confirmHoldAssignment(options: {
   const tableIds =
     holdRow.table_hold_members?.map((member) => member.table_id).filter((value): value is string => !!value) ?? [];
 
+  if (tableIds.length === 0) {
+    await cleanupHoldArtifacts(supabase, holdRow.id);
+    throw new Error("Hold has no table members");
+  }
+
+  const bookingForWindow = await fetchBookingForAtomic(bookingId, supabase);
+  const bookingTimezone = bookingForWindow.restaurants?.timezone ?? defaultVenuePolicy.timezone;
+  const bookingPolicy = getVenuePolicy({ timezone: bookingTimezone });
+  const windowDecision = resolveAssignmentWindowDecision(bookingForWindow, bookingPolicy);
+
   try {
     const assignments = await confirmTableHold({
       holdId,
@@ -1770,6 +1973,42 @@ export async function confirmHoldAssignment(options: {
       assignedBy,
       client: supabase,
     });
+
+    let normalizedAssignments = assignments;
+
+    if (windowDecision && windowDecision.applyNormalization) {
+      const mergeGroupId = assignments.find((assignment) => assignment.mergeGroupId)?.mergeGroupId ?? null;
+
+      await normalizeAssignmentArtifacts({
+        client: supabase,
+        bookingId,
+        tableIds,
+        mergeGroupId,
+        idempotencyKey,
+        decision: windowDecision,
+      });
+
+      normalizedAssignments = assignments.map((assignment) => ({
+        ...assignment,
+        startAt: windowDecision.window.start,
+        endAt: windowDecision.window.end,
+        mergeGroupId: assignment.mergeGroupId ?? mergeGroupId,
+      }));
+
+      await emitHoldConfirmed({
+        holdId,
+        bookingId: holdRow.booking_id ?? null,
+        restaurantId: holdRow.restaurant_id,
+        zoneId: holdRow.zone_id,
+        tableIds,
+        startAt: windowDecision.window.start,
+        endAt: windowDecision.window.end,
+        expiresAt: holdRow.expires_at ?? null,
+        actorId: assignedBy ?? null,
+      });
+
+      return normalizedAssignments;
+    }
 
     await emitHoldConfirmed({
       holdId,
@@ -1783,7 +2022,7 @@ export async function confirmHoldAssignment(options: {
       actorId: assignedBy ?? null,
     });
 
-    return assignments;
+    return normalizedAssignments;
   } catch (error) {
     if (error instanceof AssignTablesRpcError) {
       await emitRpcConflict({
@@ -2592,7 +2831,7 @@ type AtomicAssignmentResult = {
 async function fetchBookingForAtomic(bookingId: string, client: DbClient): Promise<BookingRowForAtomic> {
   const { data, error } = await client
     .from("bookings")
-    .select("id, restaurant_id, booking_date, start_time, end_time, start_at, end_at, restaurants(timezone)")
+    .select("id, restaurant_id, booking_date, start_time, end_time, start_at, end_at, party_size, restaurants(timezone)")
     .eq("id", bookingId)
     .maybeSingle();
 
@@ -2617,6 +2856,7 @@ async function fetchBookingForAtomic(bookingId: string, client: DbClient): Promi
     end_time: bookingRow.end_time,
     start_at: bookingRow.start_at,
     end_at: bookingRow.end_at,
+    party_size: bookingRow.party_size ?? null,
     restaurants: restaurant,
   };
 }
@@ -2635,6 +2875,11 @@ async function invokeAssignTablesAtomic(params: {
   if (!Array.isArray(tableIds) || tableIds.length === 0) {
     throw new Error("assign_tables_atomic requires at least one table id");
   }
+
+  const bookingForWindow = await fetchBookingForAtomic(bookingId, client);
+  const timezone = bookingForWindow.restaurants?.timezone ?? defaultVenuePolicy.timezone;
+  const policy = getVenuePolicy({ timezone });
+  const windowDecision = resolveAssignmentWindowDecision(bookingForWindow, policy);
 
   const adjacencyRequired =
     typeof requireAdjacency === "boolean" ? requireAdjacency : isAllocatorAdjacencyRequired();
@@ -2668,6 +2913,25 @@ async function invokeAssignTablesAtomic(params: {
     return [];
   }
 
+  let mergeGroupId: string | null = null;
+  for (const row of rows) {
+    if (row && row.merge_group_id) {
+      mergeGroupId = row.merge_group_id as string;
+      break;
+    }
+  }
+
+  if (windowDecision && windowDecision.applyNormalization) {
+    await normalizeAssignmentArtifacts({
+      client,
+      bookingId,
+      tableIds,
+      mergeGroupId,
+      idempotencyKey: idempotencyKey ?? null,
+      decision: windowDecision,
+    });
+  }
+
   const { data: assignmentRows, error: assignmentError } = await client
     .from("booking_table_assignments")
     .select("table_id, id")
@@ -2688,9 +2952,9 @@ async function invokeAssignTablesAtomic(params: {
   return rows.map((row: any) => ({
     tableId: row.table_id as string,
     assignmentId: assignmentByTable.get(row.table_id as string),
-    startAt: row.start_at ?? null,
-    endAt: row.end_at ?? null,
-    mergeGroupId: row.merge_group_id ?? null,
+    startAt: windowDecision?.applyNormalization ? windowDecision.window.start : row.start_at ?? null,
+    endAt: windowDecision?.applyNormalization ? windowDecision.window.end : row.end_at ?? null,
+    mergeGroupId: (row.merge_group_id ?? mergeGroupId) ?? null,
   }));
 }
 

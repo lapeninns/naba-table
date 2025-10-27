@@ -558,6 +558,7 @@ export type Database = {
           start_at: string | null
           start_time: string
           status: Database["public"]["Enums"]["booking_status"]
+          table_id: string | null
           updated_at: string
         }
         Insert: {
@@ -592,6 +593,7 @@ export type Database = {
           start_at?: string | null
           start_time: string
           status?: Database["public"]["Enums"]["booking_status"]
+          table_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -626,6 +628,7 @@ export type Database = {
           start_at?: string | null
           start_time?: string
           status?: Database["public"]["Enums"]["booking_status"]
+          table_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -648,6 +651,13 @@ export type Database = {
             columns: ["restaurant_id"]
             isOneToOne: false
             referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "table_inventory"
             referencedColumns: ["id"]
           },
         ]
@@ -1491,6 +1501,7 @@ export type Database = {
       }
       zones: {
         Row: {
+          area_type: Database["public"]["Enums"]["area_type"]
           created_at: string
           id: string
           name: string
@@ -1499,6 +1510,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          area_type?: Database["public"]["Enums"]["area_type"]
           created_at?: string
           id?: string
           name: string
@@ -1507,6 +1519,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          area_type?: Database["public"]["Enums"]["area_type"]
           created_at?: string
           id?: string
           name?: string
@@ -1649,6 +1662,7 @@ export type Database = {
         | "booking.cancelled"
         | "booking.allocated"
         | "booking.waitlisted"
+      area_type: "indoor" | "outdoor" | "covered"
       booking_change_type: "created" | "updated" | "cancelled" | "deleted"
       booking_status:
         | "confirmed"
@@ -1807,6 +1821,7 @@ export const Constants = {
         "booking.allocated",
         "booking.waitlisted",
       ],
+      area_type: ["indoor", "outdoor", "covered"],
       booking_change_type: ["created", "updated", "cancelled", "deleted"],
       booking_status: [
         "confirmed",

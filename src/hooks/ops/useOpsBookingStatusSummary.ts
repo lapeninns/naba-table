@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
 import { HttpError } from '@/lib/http/errors';
+import { toIsoDateParam } from '@/hooks/ops/utils/toIsoDateParam';
 
 import type { OpsBookingStatus } from '@/types/ops';
 
@@ -16,15 +17,6 @@ type UseOpsBookingStatusSummaryOptions = {
   enabled?: boolean;
 };
 
-function toIso(input?: Date | string | null): string | null {
-  if (!input) return null;
-  if (input instanceof Date) {
-    return Number.isNaN(input.getTime()) ? null : input.toISOString();
-  }
-  const parsed = new Date(input);
-  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
-}
-
 export function useOpsBookingStatusSummary({
   restaurantId,
   from,
@@ -35,8 +27,8 @@ export function useOpsBookingStatusSummary({
   const bookingService = useBookingService();
 
   const queryKey = useMemo(() => {
-    const fromIso = toIso(from);
-    const toIsoValue = toIso(to);
+    const fromIso = toIsoDateParam(from);
+    const toIsoValue = toIsoDateParam(to);
     const normalizedStatuses = statuses && statuses.length > 0 ? [...new Set(statuses)].sort() : [];
 
     return [
@@ -58,8 +50,8 @@ export function useOpsBookingStatusSummary({
         throw new Error('Restaurant is required');
       }
 
-      const fromIso = toIso(from);
-      const toIsoValue = toIso(to);
+      const fromIso = toIsoDateParam(from);
+      const toIsoValue = toIsoDateParam(to);
       const normalizedStatuses = statuses && statuses.length > 0 ? statuses : undefined;
 
       try {

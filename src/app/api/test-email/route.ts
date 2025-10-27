@@ -85,6 +85,7 @@ export async function POST(req: NextRequest) {
         confirmation_token_expires_at: null,
         confirmation_token_used_at: null,
         created_at: new Date().toISOString(),
+        table_id: null,
         updated_at: new Date().toISOString(),
       };
 

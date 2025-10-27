@@ -150,7 +150,7 @@ booking_series AS (
         END AS status,
         now() - (random() * interval '30 days') AS created_at
     FROM public.restaurants r
-    CROSS JOIN generate_series(1, 25) AS g(n)
+    CROSS JOIN generate_series(1, 250) AS g(n)
 )
 INSERT INTO public.bookings (
     id,

@@ -141,7 +141,7 @@ function toRange(startAt: string, endAt: string): string {
   return `[${startAt},${endAt})`;
 }
 
-async function cleanupHoldArtifacts(client: DbClient, holdId: string): Promise<void> {
+export async function cleanupHoldArtifacts(client: DbClient, holdId: string): Promise<void> {
   try {
     await client.from("allocations").delete().match({
       resource_type: "hold",
