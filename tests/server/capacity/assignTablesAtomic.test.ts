@@ -219,8 +219,6 @@ describe('assignTableToBooking (atomic wrapper)', () => {
     const ledgerUpdateCalls: UpdateCall<{ assignment_window: string; merge_group_allocation_id: string | null }>[] = [];
     const assignmentUpdateCalls: UpdateCall<{ start_at: string; end_at: string }>[] = [];
     const assignmentUpdateRecorder = createUpdateRecorder(assignmentUpdateCalls);
-    const assignmentUpdateCalls: UpdateCall<{ start_at: string; end_at: string }>[] = [];
-    const assignmentUpdateRecorder = createUpdateRecorder(assignmentUpdateCalls);
 
     const from = vi.fn((table: string) => {
       if (table === 'bookings') {
@@ -321,6 +319,8 @@ describe('assignTableToBooking (atomic wrapper)', () => {
 
     const allocationUpdateCalls: UpdateCall<{ window: string }>[] = [];
     const ledgerUpdateCalls: UpdateCall<{ assignment_window: string; merge_group_allocation_id: string | null }>[] = [];
+    const assignmentUpdateCalls: UpdateCall<{ start_at: string; end_at: string }>[] = [];
+    const assignmentUpdateRecorder = createUpdateRecorder(assignmentUpdateCalls);
 
     const client = {
       from(table: string) {
@@ -420,8 +420,8 @@ describe('assignTableToBooking (atomic wrapper)', () => {
     });
 
     expect(secondResult).toBe('assignment-late');
-    expect(allocationUpdateCalls).toHaveLength(1);
-    expect(ledgerUpdateCalls).toHaveLength(1);
+    expect(allocationUpdateCalls).toHaveLength(2);
+    expect(ledgerUpdateCalls).toHaveLength(2);
   });
 });
 
