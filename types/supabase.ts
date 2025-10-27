@@ -419,9 +419,11 @@ export type Database = {
           assigned_by: string | null
           booking_id: string
           created_at: string
+          end_at: string | null
           id: string
           idempotency_key: string | null
           notes: string | null
+          start_at: string | null
           slot_id: string | null
           table_id: string
           updated_at: string
@@ -431,9 +433,11 @@ export type Database = {
           assigned_by?: string | null
           booking_id: string
           created_at?: string
+          end_at?: string | null
           id?: string
           idempotency_key?: string | null
           notes?: string | null
+          start_at?: string | null
           slot_id?: string | null
           table_id: string
           updated_at?: string
@@ -443,9 +447,11 @@ export type Database = {
           assigned_by?: string | null
           booking_id?: string
           created_at?: string
+          end_at?: string | null
           id?: string
           idempotency_key?: string | null
           notes?: string | null
+          start_at?: string | null
           slot_id?: string | null
           table_id?: string
           updated_at?: string
@@ -1588,6 +1594,8 @@ export type Database = {
           p_idempotency_key?: string
           p_require_adjacency?: boolean
           p_table_ids: string[]
+          p_start_at?: string
+          p_end_at?: string
         }
         Returns: {
           end_at: string

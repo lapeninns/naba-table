@@ -7,12 +7,16 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-key';
 
 type AssignTableFn = typeof import('@/server/capacity/tables')['assignTableToBooking'];
 type UnassignTableFn = typeof import('@/server/capacity/tables')['unassignTableFromBooking'];
+type TablesInternal = typeof import('@/server/capacity/tables')['__internal'];
 
 let assignTableToBooking: AssignTableFn;
 let unassignTableFromBooking: UnassignTableFn;
+let tablesInternal: TablesInternal;
 
 beforeAll(async () => {
-  ({ assignTableToBooking, unassignTableFromBooking } = await import('@/server/capacity/tables'));
+  const tablesModule = await import('@/server/capacity/tables');
+  ({ assignTableToBooking, unassignTableFromBooking } = tablesModule);
+  tablesInternal = tablesModule.__internal;
 });
 
 type UpdateCall<TPayload> = {
@@ -55,6 +59,7 @@ describe('assignTableToBooking (atomic wrapper)', () => {
       booking_date: '2025-01-01',
       start_time: '18:00',
       end_time: '20:00',
+      party_size: 2,
       start_at: '2025-01-01T18:00:00.000Z',
       end_at: '2025-01-01T20:00:00.000Z',
       restaurants: { timezone: 'UTC' },
@@ -75,6 +80,8 @@ describe('assignTableToBooking (atomic wrapper)', () => {
     const inFn = vi.fn().mockResolvedValue(assignmentsResult);
     const eqAssignments = vi.fn().mockReturnValue({ in: inFn });
     const selectAssignments = vi.fn().mockReturnValue({ eq: eqAssignments });
+    const assignmentUpdateCalls: UpdateCall<{ start_at: string; end_at: string }>[] = [];
+    const assignmentUpdateRecorder = createUpdateRecorder(assignmentUpdateCalls);
 
     const selectBookings = vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue({ maybeSingle }) });
 
@@ -83,7 +90,10 @@ describe('assignTableToBooking (atomic wrapper)', () => {
         return { select: selectBookings };
       }
       if (table === 'booking_table_assignments') {
-        return { select: selectAssignments };
+        return {
+          select: selectAssignments,
+          update: assignmentUpdateRecorder.update,
+        };
       }
       throw new Error(`Unexpected table ${table}`);
     });
@@ -109,6 +119,15 @@ describe('assignTableToBooking (atomic wrapper)', () => {
       idempotencyKey: 'test-key',
     });
 
+    const expectedWindow = tablesInternal.computeBookingWindow({
+      startISO: bookingRow.start_at,
+      bookingDate: bookingRow.booking_date,
+      startTime: bookingRow.start_time,
+      partySize: bookingRow.party_size,
+    });
+    const expectedStart = expectedWindow.block.start.toUTC().toISO({ suppressMilliseconds: true });
+    const expectedEnd = expectedWindow.block.end.toUTC().toISO({ suppressMilliseconds: true });
+
     expect(from).toHaveBeenCalledWith('booking_table_assignments');
     expect(rpc).toHaveBeenCalledWith('assign_tables_atomic_v2', {
       p_booking_id: 'booking-1',
@@ -116,8 +135,12 @@ describe('assignTableToBooking (atomic wrapper)', () => {
       p_idempotency_key: 'test-key',
       p_require_adjacency: false,
       p_assigned_by: 'user-1',
+      p_start_at: expectedStart,
+      p_end_at: expectedEnd,
     });
     expect(result).toBe('assignment-1');
+    expect(assignmentUpdateCalls).toHaveLength(1);
+    expect(assignmentUpdateCalls[0]?.payload).toEqual({ start_at: expectedStart, end_at: expectedEnd });
     expect(selectAssignments).toHaveBeenCalledWith('table_id, id');
     expect(eqAssignments).toHaveBeenCalledWith('booking_id', 'booking-1');
     expect(inFn).toHaveBeenCalledWith('table_id', ['table-1']);
@@ -194,13 +217,20 @@ describe('assignTableToBooking (atomic wrapper)', () => {
 
     const allocationUpdateCalls: UpdateCall<{ window: string }>[] = [];
     const ledgerUpdateCalls: UpdateCall<{ assignment_window: string; merge_group_allocation_id: string | null }>[] = [];
+    const assignmentUpdateCalls: UpdateCall<{ start_at: string; end_at: string }>[] = [];
+    const assignmentUpdateRecorder = createUpdateRecorder(assignmentUpdateCalls);
+    const assignmentUpdateCalls: UpdateCall<{ start_at: string; end_at: string }>[] = [];
+    const assignmentUpdateRecorder = createUpdateRecorder(assignmentUpdateCalls);
 
     const from = vi.fn((table: string) => {
       if (table === 'bookings') {
         return { select: selectBookings };
       }
       if (table === 'booking_table_assignments') {
-        return { select: selectAssignments };
+        return {
+          select: selectAssignments,
+          update: assignmentUpdateRecorder.update,
+        };
       }
       if (table === 'allocations') {
         return createUpdateRecorder(allocationUpdateCalls);
@@ -233,6 +263,16 @@ describe('assignTableToBooking (atomic wrapper)', () => {
     });
 
     expect(result).toBe('assignment-1');
+    const clampWindow = tablesInternal.computeBookingWindow({
+      startISO: bookingRow.start_at,
+      bookingDate: bookingRow.booking_date,
+      startTime: bookingRow.start_time,
+      partySize: bookingRow.party_size,
+    });
+    const clampStart = clampWindow.block.start.toUTC().toISO({ suppressMilliseconds: true });
+    const clampEnd = clampWindow.block.end.toUTC().toISO({ suppressMilliseconds: true });
+    expect(assignmentUpdateCalls).toHaveLength(1);
+    expect(assignmentUpdateCalls[0]?.payload).toEqual({ start_at: clampStart, end_at: clampEnd });
     expect(allocationUpdateCalls).toHaveLength(1);
     expect(allocationUpdateCalls[0]?.payload).toEqual({ window: '[2025-01-01T18:00:00Z,2025-01-01T19:20:00Z)' });
     expect(ledgerUpdateCalls).toHaveLength(1);
@@ -317,6 +357,7 @@ describe('assignTableToBooking (atomic wrapper)', () => {
                   },
                 };
               },
+              update: assignmentUpdateRecorder.update,
             };
           case 'allocations':
             return createUpdateRecorder(allocationUpdateCalls);

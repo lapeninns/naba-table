@@ -7,7 +7,7 @@ function parseEnv(): Env {
     const value = process.env[key];
     if (typeof value === 'string') {
       const normalized = value.trim();
-      if (normalized.length === 0 || normalized.toLowerCase() === 'undefined') {
+      if (normalized.length === 0 || normalized === '/' || normalized.toLowerCase() === 'undefined') {
         delete process.env[key];
       } else {
         process.env[key] = normalized;

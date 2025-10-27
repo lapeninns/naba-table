@@ -91,6 +91,13 @@ function createSupabaseClient() {
     restaurants: [{ timezone: "Europe/London" }],
   };
 
+  const assignmentUpdateCalls: UpdateCall<{ start_at: string; end_at: string }>[] = [];
+  const allocationUpdateCalls: UpdateCall<{ window: string }>[] = [];
+  const ledgerUpdateCalls: UpdateCall<{ assignment_window: string; merge_group_allocation_id: string | null }>[] = [];
+  const assignmentUpdateRecorder = createUpdateRecorder(assignmentUpdateCalls);
+  const allocationUpdateRecorder = createUpdateRecorder(allocationUpdateCalls);
+  const ledgerUpdateRecorder = createUpdateRecorder(ledgerUpdateCalls);
+
   return {
     from(table: string) {
       switch (table) {
@@ -115,7 +122,12 @@ function createSupabaseClient() {
                 },
               };
             },
+            update: assignmentUpdateRecorder.update,
           };
+        case "allocations":
+          return allocationUpdateRecorder;
+        case "booking_assignment_idempotency":
+          return ledgerUpdateRecorder;
         case "bookings":
           return {
             select() {
