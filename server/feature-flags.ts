@@ -24,6 +24,10 @@ export function isSelectorScoringEnabled(): boolean {
   return env.featureFlags.selectorScoring ?? false;
 }
 
+export function isCombinationPlannerEnabled(): boolean {
+  return env.featureFlags.combinationPlanner ?? false;
+}
+
 export function isAdjacencyValidationEnabled(): boolean {
   return env.featureFlags.adjacencyValidation ?? false;
 }

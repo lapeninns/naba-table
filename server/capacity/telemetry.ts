@@ -1,5 +1,7 @@
 import { recordObservabilityEvent } from "@/server/observability";
 
+import type { CandidateDiagnostics } from "./selector";
+
 import type { Json } from "@/types/supabase";
 
 export type CandidateSummary = {
@@ -9,6 +11,7 @@ export type CandidateSummary = {
   tableCount: number;
   slack?: number;
   score?: number;
+  adjacencyStatus?: "single" | "connected" | "disconnected";
 };
 
 export type SelectorDecisionEvent = {
@@ -24,6 +27,7 @@ export type SelectorDecisionEvent = {
     selectorScoring: boolean;
     opsMetrics: boolean;
   };
+  diagnostics?: CandidateDiagnostics;
 };
 
 export async function emitSelectorDecision(event: SelectorDecisionEvent): Promise<void> {
@@ -40,6 +44,7 @@ export async function emitSelectorDecision(event: SelectorDecisionEvent): Promis
     skipReason: event.skipReason ?? null,
     durationMs: event.durationMs,
     featureFlags: event.featureFlags,
+    diagnostics: event.diagnostics ?? null,
   };
 
   try {
@@ -185,6 +190,7 @@ export function summarizeCandidate(input: {
   tableCount: number;
   slack?: number;
   score?: number;
+  adjacencyStatus?: "single" | "connected" | "disconnected";
 }): CandidateSummary {
   return {
     tableIds: input.tableIds,
@@ -193,5 +199,6 @@ export function summarizeCandidate(input: {
     tableCount: input.tableCount,
     slack: input.slack,
     score: input.score,
+    adjacencyStatus: input.adjacencyStatus,
   };
 }

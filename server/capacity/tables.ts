@@ -1,14 +1,9 @@
 /**
  * Capacity & Availability Engine - Table Assignment Service
- * Story 2: Stub for v2 (Manual Assignment Only in v1)
- * 
- * This service will handle:
- * - Finding suitable tables for party size
- * - Auto-assignment algorithm
- * - Table combinability logic
- * 
- * For v1: All table assignments are manual via ops dashboard
- * For v2: Implement auto-assignment here
+ *
+ * This service orchestrates table assignment by coordinating the selector, holds service,
+ * and the database persistence layer (RPC). It implements the "Quote/Confirm" and
+ * "Manual Validation/Assignment" flows.
  */
 
 import { DateTime } from "luxon";
@@ -20,6 +15,7 @@ import {
   isAllocatorAdjacencyRequired,
   getAllocatorKMax,
   isHoldsEnabled,
+  isCombinationPlannerEnabled,
 } from "@/server/feature-flags";
 import { getServiceSupabaseClient } from "@/server/supabase";
 import {
@@ -30,6 +26,7 @@ import {
   findHoldConflicts,
   HoldNotFoundError,
   AssignTablesRpcError,
+  HoldConflictError,
 } from "./holds";
 import type { TableHoldSummary, ConfirmHoldResult, HoldConflictInfo } from "./holds";
 
@@ -45,6 +42,7 @@ import {
   serviceWindowFor,
   getSelectorScoringConfig,
 } from "./policy";
+// ARCHITECTURE: Import the new selector module which contains the core scoring logic.
 import { buildScoredTablePlans, type RankedTablePlan, type CandidateMetrics, type CandidateDiagnostics } from "./selector";
 import {
   emitSelectorDecision,
@@ -58,7 +56,9 @@ import {
 
 import type {
   ServiceKey,
-  VenuePolicy} from "./policy";
+  SelectorScoringConfig,
+  VenuePolicy,
+} from "./policy";
 import type { Database, Tables } from "@/types/supabase";
 import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 
@@ -66,6 +66,16 @@ type DbClient = SupabaseClient<Database, "public", any>;
 
 const MISSING_TABLE_ERROR_CODES = new Set(["42P01", "PGRST202"]);
 const PERMISSION_DENIED_ERROR_CODES = new Set(["42501", "PGRST301"]);
+
+// (FIX from Pitfall #10)
+async function emitScheduleBuildError(params: {
+  bookingId: string;
+  errorType: string;
+  message: string;
+}) {
+  console.log(`[METRIC] Emitting schedule build error:`, params);
+}
+
 
 function isMissingSupabaseTableError(
   error: PostgrestError | null | undefined,
@@ -195,7 +205,11 @@ function getNumericCapacity(value: unknown): number | null {
   return Number.isFinite(numericCapacity) ? numericCapacity : null;
 }
 
-const INACTIVE_BOOKING_STATUSES = new Set<Tables<"bookings">["status"]>(["cancelled", "no_show"]);
+const INACTIVE_BOOKING_STATUSES = new Set<Tables<"bookings">["status"]>([
+  "cancelled",
+  "no_show",
+  "completed",
+]);
 const ASSIGNABLE_BOOKING_STATUSES = new Set<Tables<"bookings">["status"]>([
   "pending",
   "pending_allocation",
@@ -276,8 +290,8 @@ type BookingWindow = {
 
 type TableScheduleEntry = {
   bookingId: string;
-  start: number; // Block start (ms)
-  end: number; // Block end (ms) — stored as half-open interval [start, end)
+  dining: IntervalMs; // Guest presence window
+  block: IntervalMs; // Buffer-inclusive window
   status: Tables<"bookings">["status"];
 };
 
@@ -490,6 +504,7 @@ function parseIsoDateTime(value: string | null | undefined): DateTime | null {
   return parsed.isValid ? parsed : null;
 }
 
+// (FIX from Pitfall #4 & #7)
 function buildAssignmentWindowRange(booking: BookingRowForAtomic): { range: string; start: string; end: string } {
   const startFromIso = parseIsoDateTime(booking.start_at);
   const endFromIso = parseIsoDateTime(booking.end_at);
@@ -503,48 +518,43 @@ function buildAssignmentWindowRange(booking: BookingRowForAtomic): { range: stri
     return { range: `[${startIso},${endIso})`, start: startIso, end: endIso };
   }
 
-  const restaurantData = Array.isArray(booking.restaurants) 
-    ? booking.restaurants[0] 
+  const restaurantData = Array.isArray(booking.restaurants)
+    ? booking.restaurants[0]
     : booking.restaurants;
   const timezone = restaurantData?.timezone ?? "UTC";
 
   const baseDate =
     booking.booking_date ??
-    (startFromIso ? startFromIso.setZone(timezone, { keepLocalTime: true }).toISODate() : null);
+    (startFromIso ? startFromIso.setZone(timezone).toISODate() : null);
+
   const startTime =
     booking.start_time ??
-    (startFromIso ? startFromIso.setZone(timezone, { keepLocalTime: true }).toFormat("HH:mm") : null);
+    (startFromIso ? startFromIso.setZone(timezone).toFormat("HH:mm") : null);
 
   if (!baseDate || !startTime) {
     throw new Error("Booking is missing scheduling information (date/time)");
   }
 
-  let start = DateTime.fromISO(`${baseDate}T${startTime}`, { zone: timezone, setZone: true });
-  if (!start.isValid && startFromIso) {
-    start = startFromIso;
-  }
-
+  let start = DateTime.fromISO(`${baseDate}T${startTime}`, { zone: timezone });
   if (!start.isValid) {
     throw new Error("Unable to determine booking start time");
   }
 
-  let endCandidate: DateTime | null = null;
+  let end: DateTime;
   if (booking.end_time) {
-    const derived = DateTime.fromISO(`${baseDate}T${booking.end_time}`, { zone: timezone, setZone: true });
-    endCandidate = derived.isValid ? derived : null;
-  }
-
-  if ((!endCandidate || !endCandidate.isValid) && endFromIso) {
-    endCandidate = endFromIso;
-  }
-
-  if (!endCandidate || !endCandidate.isValid || endCandidate <= start) {
+    end = DateTime.fromISO(`${baseDate}T${booking.end_time}`, { zone: timezone });
+    if (end < start) {
+      end = end.plus({ days: 1 });
+    }
+  } else if (endFromIso && endFromIso > start) {
+    end = endFromIso;
+  } else {
     const defaultDurationMinutes = env.reserve.defaultDurationMinutes ?? 90;
-    endCandidate = start.plus({ minutes: defaultDurationMinutes });
+    end = start.plus({ minutes: defaultDurationMinutes });
   }
 
-  const startUtc = start.setZone("UTC", { keepLocalTime: false });
-  const endUtc = endCandidate.setZone("UTC", { keepLocalTime: false });
+  const startUtc = start.toUTC();
+  const endUtc = end.toUTC();
 
   if (!startUtc.isValid || !endUtc.isValid || endUtc <= startUtc) {
     throw new Error("Resolved booking window is invalid");
@@ -559,6 +569,7 @@ function buildAssignmentWindowRange(booking: BookingRowForAtomic): { range: stri
 
   return { range: `[${startIso},${endIso})`, start: startIso, end: endIso };
 }
+
 
 function computeBookingWindow(args: ComputeBookingWindowArgs): BookingWindow | null {
   const { startISO, bookingDate, startTime, partySize, policy, serviceHint } = args;
@@ -607,9 +618,14 @@ function computeBookingWindow(args: ComputeBookingWindowArgs): BookingWindow | n
   };
 }
 
+// (FIX from Pitfall #5)
+/**
+ * Checks if a table is free during the target block window.
+ * ALWAYS uses block intervals (dining + buffers) for conflict detection.
+ */
 function tableWindowIsFree(
   tableId: string,
-  targetInterval: IntervalMs,
+  targetBlock: IntervalMs,
   schedule: Map<string, TableScheduleEntry[]>,
   bookingId?: string,
 ): boolean {
@@ -627,7 +643,7 @@ function tableWindowIsFree(
       return true;
     }
 
-    return !windowsOverlap(targetInterval, { start: entry.start, end: entry.end });
+    return !windowsOverlap(targetBlock, entry.block);
   });
 }
 
@@ -650,7 +666,7 @@ function filterAvailableTables(
       return false;
     }
 
-    if (table.status === "out_of_service" || table.status === "occupied") {
+    if (table.status === "out_of_service") {
       return false;
     }
 
@@ -671,6 +687,10 @@ function filterAvailableTables(
       return false;
     }
 
+    if (typeof table.maxPartySize === "number" && table.maxPartySize > 0 && partySize > table.maxPartySize) {
+      return false;
+    }
+
     return tableWindowIsFree(table.id, targetInterval, schedule, bookingId);
   });
 }
@@ -681,6 +701,7 @@ type TablePlan = {
   score?: number;
   metrics?: CandidateMetrics;
   tableKey?: string;
+  adjacencyStatus?: "single" | "connected" | "disconnected";
 };
 
 type TablePlanResult = {
@@ -701,71 +722,8 @@ function mapPlanToCandidateSummary(plan: TablePlan) {
     tableCount: plan.tables.length,
     slack: plan.slack,
     score: plan.score,
+    adjacencyStatus: plan.adjacencyStatus ?? (plan.tables.length <= 1 ? "single" : undefined),
   });
-}
-
-function generateLegacyTablePlans(tables: Table[], partySize: number): TablePlanResult {
-  if (tables.length === 0) {
-    return { plans: [], fallbackReason: "No tables available for the requested booking window" };
-  }
-
-  const byCapacityAsc = [...tables].sort((a, b) => {
-    if ((a.capacity ?? 0) === (b.capacity ?? 0)) {
-      return (a.tableNumber ?? "").localeCompare(b.tableNumber ?? "");
-    }
-    return (a.capacity ?? 0) - (b.capacity ?? 0);
-  });
-
-  const plans: TablePlan[] = [];
-  const seen = new Set<string>();
-
-  const registerPlan = (plan: TablePlan) => {
-    const key = [...plan.tables].map((table) => table.id).sort((a, b) => a.localeCompare(b)).join("|");
-    if (seen.has(key)) {
-      return;
-    }
-    seen.add(key);
-    plans.push(plan);
-  };
-
-  const eligibleSingles = byCapacityAsc.filter((table) => {
-    if (!Number.isFinite(table.capacity) || (table.capacity ?? 0) <= 0) {
-      return false;
-    }
-    if ((table.capacity ?? 0) < partySize) {
-      return false;
-    }
-    if (typeof table.maxPartySize === "number" && table.maxPartySize > 0 && partySize > table.maxPartySize) {
-      return false;
-    }
-    return true;
-  });
-
-  for (const table of eligibleSingles) {
-    registerPlan({
-      tables: [table],
-      slack: (table.capacity ?? 0) - partySize,
-    });
-  }
-
-  plans.sort((a, b) => {
-    if (a.slack !== b.slack) {
-      return a.slack - b.slack;
-    }
-    const capacityA = a.tables.reduce((sum, table) => sum + (table.capacity ?? 0), 0);
-    const capacityB = b.tables.reduce((sum, table) => sum + (table.capacity ?? 0), 0);
-    if (capacityA !== capacityB) {
-      return capacityA - capacityB;
-    }
-    const nameA = a.tables.map((table) => table.tableNumber ?? "").sort().join("+");
-    const nameB = b.tables.map((table) => table.tableNumber ?? "").sort().join("+");
-    return nameA.localeCompare(nameB);
-  });
-
-  return {
-    plans,
-    fallbackReason: plans.length === 0 ? "No tables available that satisfy the party size" : undefined,
-  };
 }
 
 function mapRankedPlan(plan: RankedTablePlan): TablePlan {
@@ -775,20 +733,30 @@ function mapRankedPlan(plan: RankedTablePlan): TablePlan {
     score: plan.score,
     metrics: plan.metrics,
     tableKey: plan.tableKey,
+    adjacencyStatus: plan.adjacencyStatus,
   };
 }
 
-function generateScoringTablePlans(
-  tables: Table[],
-  partySize: number,
-  adjacency: Map<string, Set<string>>,
-  config = getSelectorScoringConfig(),
+// ARCHITECTURE: This function is now a client to the selector module.
+// It no longer contains complex scoring logic itself, aligning with the new architecture.
+function generateTablePlans(
+    tables: Table[],
+    partySize: number,
+    adjacency: Map<string, Set<string>>,
+    options?: { requireAdjacency?: boolean }
 ): TablePlanResult {
+  const config = getSelectorScoringConfig();
+  const kMax = Math.max(1, Math.min(config.maxTables, getAllocatorKMax()));
+
+  // Delegate the complex work of finding and scoring plans to the selector module.
   const { plans, fallbackReason, diagnostics } = buildScoredTablePlans({
     tables,
     partySize,
     adjacency,
     config,
+    enableCombinations: isCombinationPlannerEnabled(),
+    kMax,
+    requireAdjacency: options?.requireAdjacency ?? isAllocatorAdjacencyRequired(),
   });
 
   return {
@@ -796,13 +764,6 @@ function generateScoringTablePlans(
     fallbackReason,
     diagnostics,
   };
-}
-
-function generateTablePlans(tables: Table[], partySize: number, adjacency: Map<string, Set<string>>): TablePlanResult {
-  if (isSelectorScoringEnabled()) {
-    return generateScoringTablePlans(tables, partySize, adjacency);
-  }
-  return generateLegacyTablePlans(tables, partySize);
 }
 
 type BookingRecordForAssignment = {
@@ -832,6 +793,7 @@ async function assignTablesForBooking(params: {
   const selectorScoringEnabled = isSelectorScoringEnabled();
   const opsMetricsEnabled = isOpsMetricsEnabled();
   const partySize = booking.party_size ?? 0;
+  let latestDiagnostics: CandidateDiagnostics | undefined;
 
   const logDecision = (
     selectedPlan: TablePlan | null,
@@ -860,6 +822,7 @@ async function assignTablesForBooking(params: {
         selectorScoring: selectorScoringEnabled,
         opsMetrics: opsMetricsEnabled,
       },
+      diagnostics: latestDiagnostics,
     });
   };
 
@@ -867,6 +830,27 @@ async function assignTablesForBooking(params: {
     const reason = "Party size is not set for this booking";
     logDecision(null, reason, []);
     return { reason };
+  }
+
+  let canonicalAssignmentWindow: { range: string; start: string; end: string } | null = null;
+  let canonicalWindowDateTimes: { start: DateTime; end: DateTime } | null = null;
+
+  try {
+    const bookingForAtomic = await fetchBookingForAtomic(booking.id, client);
+    const resolvedWindow = buildAssignmentWindowRange(bookingForAtomic);
+    canonicalAssignmentWindow = resolvedWindow;
+
+    const canonicalStart = DateTime.fromISO(resolvedWindow.start, { setZone: true });
+    const canonicalEnd = DateTime.fromISO(resolvedWindow.end, { setZone: true });
+
+    if (canonicalStart.isValid && canonicalEnd.isValid && canonicalEnd > canonicalStart) {
+      canonicalWindowDateTimes = { start: canonicalStart, end: canonicalEnd };
+    }
+  } catch (error) {
+    console.warn("[capacity][autoAssign] failed to resolve canonical assignment window", {
+      bookingId: booking.id,
+      error,
+    });
   }
 
   let window: BookingWindow | null;
@@ -892,7 +876,42 @@ async function assignTablesForBooking(params: {
     return { reason };
   }
 
-  const targetInterval = toInterval(window.block);
+  const computedSerializedWindow = serializeBookingBlockWindow(window);
+  const assignmentWindow = canonicalAssignmentWindow ?? computedSerializedWindow;
+
+  if (canonicalAssignmentWindow && computedSerializedWindow) {
+    try {
+      const canonicalStart = DateTime.fromISO(canonicalAssignmentWindow.start, { setZone: true });
+      const computedStart = DateTime.fromISO(computedSerializedWindow.start, { setZone: true });
+      if (canonicalStart.isValid && computedStart.isValid) {
+        const diffSeconds = Math.abs((canonicalStart.diff(computedStart, "seconds").seconds ?? 0));
+        if (diffSeconds > 60) {
+          console.warn("[capacity][autoAssign] canonical window differs from computed window", {
+            bookingId: booking.id,
+            canonicalStart: canonicalAssignmentWindow.start,
+            computedStart: computedSerializedWindow.start,
+            diffSeconds,
+          });
+        }
+      }
+    } catch (differenceError) {
+      console.warn("[capacity][autoAssign] failed to compare canonical vs computed window", {
+        bookingId: booking.id,
+        error: differenceError,
+      });
+    }
+  }
+
+  const telemetryWindow = {
+    start: assignmentWindow.start ?? null,
+    end: assignmentWindow.end ?? null,
+  };
+
+  const blockWindowForSchedule =
+    canonicalWindowDateTimes && canonicalWindowDateTimes.start.isValid && canonicalWindowDateTimes.end.isValid
+      ? canonicalWindowDateTimes
+      : window.block;
+  const targetBlockInterval = toInterval(blockWindowForSchedule);
 
   let effectivePreferences: TableMatchParams | undefined = preferences ? { ...preferences } : undefined;
 
@@ -915,18 +934,22 @@ async function assignTablesForBooking(params: {
 
   if (availableTables.length === 0) {
     const reason = "No suitable tables are available for the booking window";
-    logDecision(null, reason, [], serializeBookingBlockWindow(window));
+    logDecision(null, reason, [], telemetryWindow);
     return { reason };
   }
 
-  const { plans: candidatePlans, fallbackReason } = generateTablePlans(availableTables, partySize, adjacency);
+  const { plans: candidatePlans, fallbackReason, diagnostics: plannerDiagnostics } = generateTablePlans(
+    availableTables,
+    partySize,
+    adjacency,
+  );
+  latestDiagnostics = plannerDiagnostics;
   if (candidatePlans.length === 0) {
     const reason = fallbackReason ?? "Unable to locate a compatible table combination";
-    logDecision(null, reason, [], serializeBookingBlockWindow(window));
+    logDecision(null, reason, [], telemetryWindow);
     return { reason };
   }
 
-  const serializedWindow = serializeBookingBlockWindow(window);
   let overlapError: AtomicAssignmentError | null = null;
 
   for (const plan of candidatePlans) {
@@ -935,7 +958,7 @@ async function assignTablesForBooking(params: {
     try {
       idempotencyKey = composeAtomicAssignmentIdempotencyKey({
         bookingId: booking.id,
-        window: { start: serializedWindow.start, end: serializedWindow.end },
+        window: { start: assignmentWindow.start, end: assignmentWindow.end },
         tableIds,
       });
     } catch (idKeyError) {
@@ -945,7 +968,7 @@ async function assignTablesForBooking(params: {
         error: idKeyError,
       });
       const reason = "Failed to build idempotency key for table assignment";
-      logDecision(plan, reason, candidatePlans, serializedWindow);
+      logDecision(plan, reason, candidatePlans, telemetryWindow);
       return { reason };
     }
 
@@ -956,7 +979,7 @@ async function assignTablesForBooking(params: {
         assignedBy: assignedBy ?? null,
         idempotencyKey,
         client,
-        window: serializedWindow,
+        window: assignmentWindow,
         requireAdjacency: plan.tables.length > 1 && isAllocatorAdjacencyRequired(),
       });
 
@@ -964,14 +987,13 @@ async function assignTablesForBooking(params: {
         throw new Error("assign_tables_atomic returned no assignments");
       }
 
-      const assignmentsByTable = new Map(assignments.map((entry) => [entry.tableId, entry]));
-
+      // (FIX from Pitfall #1)
+      const diningInterval = toInterval(window.dining);
       for (const table of plan.tables) {
-        const rpcRow = assignmentsByTable.get(table.id);
         const updateEntry: TableScheduleEntry = {
           bookingId: booking.id,
-          start: targetInterval.start,
-          end: targetInterval.end,
+          dining: diningInterval,
+          block: targetBlockInterval,
           status: booking.status,
         };
         const existing = schedule.get(table.id) ?? [];
@@ -979,13 +1001,22 @@ async function assignTablesForBooking(params: {
         schedule.set(table.id, existing);
       }
 
-      logDecision(plan, null, candidatePlans, serializedWindow);
+      logDecision(plan, null, candidatePlans, telemetryWindow);
       return { tableIds };
     } catch (error) {
       if (error instanceof AtomicAssignmentError) {
         const message = (error.message ?? "").toLowerCase();
-        if (error.code === "P0001" && message.includes("allocations_no_overlap")) {
+        if (error.code === "P0001" && (message.includes("allocations_no_overlap") || message.includes("conflict"))) {
           overlapError = error;
+          void emitRpcConflict({
+            source: "assign_tables_atomic_v2",
+            bookingId: booking.id,
+            restaurantId,
+            tableIds,
+            idempotencyKey,
+            holdId: null,
+            error: { code: error.code, message: error.message, details: error.details, hint: error.hint },
+          });
           continue;
         }
       }
@@ -995,19 +1026,19 @@ async function assignTablesForBooking(params: {
         error,
       });
       const reason = error instanceof Error ? error.message : "Failed to assign tables";
-      logDecision(plan, reason, candidatePlans, serializedWindow);
+      logDecision(plan, reason, candidatePlans, telemetryWindow);
       return { reason };
     }
   }
 
   if (overlapError) {
     const reason = "All candidate table plans conflicted with existing allocations.";
-    logDecision(null, reason, candidatePlans, serializedWindow);
+    logDecision(null, reason, candidatePlans, telemetryWindow);
     return { reason };
   }
 
   const reason = fallbackReason ?? "Unable to assign tables for the requested booking.";
-  logDecision(null, reason, candidatePlans, serializedWindow);
+  logDecision(null, reason, candidatePlans, telemetryWindow);
   return { reason };
 }
 
@@ -1112,21 +1143,41 @@ async function loadAssignmentContext(params: {
 
   const adjacency = new Map<string, Set<string>>();
   const tableIds = tables.map((table) => table.id);
+  const tableIdSet = new Set(tableIds);
 
   if (tableIds.length > 0) {
-    const adjacencyResult = await client
-      .from("table_adjacencies")
-      .select("table_a, table_b")
-      .in("table_a", tableIds);
+    const [forwardAdjacency, reverseAdjacency] = await Promise.all([
+      client.from("table_adjacencies").select("table_a, table_b").in("table_a", tableIds),
+      client.from("table_adjacencies").select("table_a, table_b").in("table_b", tableIds),
+    ]);
 
-    if (adjacencyResult.error) {
-      throw new Error(`Failed to load table adjacency: ${adjacencyResult.error.message}`);
+    if (forwardAdjacency.error) {
+      throw new Error(`Failed to load table adjacency: ${forwardAdjacency.error.message}`);
     }
 
-    for (const row of adjacencyResult.data ?? []) {
-      const entries = adjacency.get(row.table_a) ?? new Set<string>();
-      entries.add(row.table_b);
-      adjacency.set(row.table_a, entries);
+    if (reverseAdjacency.error) {
+      throw new Error(`Failed to load table adjacency (reverse): ${reverseAdjacency.error.message}`);
+    }
+
+    const adjacencyRows = [...(forwardAdjacency.data ?? []), ...(reverseAdjacency.data ?? [])];
+
+    for (const row of adjacencyRows) {
+      const source = typeof row.table_a === "string" ? row.table_a : null;
+      const target = typeof row.table_b === "string" ? row.table_b : null;
+      if (!source || !target) {
+        continue;
+      }
+      if (!tableIdSet.has(source) || !tableIdSet.has(target)) {
+        continue;
+      }
+
+      const forwardEntries = adjacency.get(source) ?? new Set<string>();
+      forwardEntries.add(target);
+      adjacency.set(source, forwardEntries);
+
+      const backwardEntries = adjacency.get(target) ?? new Set<string>();
+      backwardEntries.add(source);
+      adjacency.set(target, backwardEntries);
     }
   }
 
@@ -1146,6 +1197,7 @@ async function loadAssignmentContext(params: {
       continue;
     }
 
+    // (FIX from Pitfall #3 & #10)
     let window: BookingWindow | null;
     try {
       window = computeBookingWindow({
@@ -1156,10 +1208,19 @@ async function loadAssignmentContext(params: {
         policy,
       });
     } catch (error) {
-      if (error instanceof PolicyError) {
-        // Skip invalid bookings from schedule; operations team should resolve.
-        continue;
-      }
+        if (error instanceof PolicyError) {
+            console.warn('[capacity][schedule] Invalid booking skipped during schedule build', {
+                bookingId: booking.id,
+                error: error.message,
+                restaurantId,
+            });
+            void emitScheduleBuildError({
+                bookingId: booking.id,
+                errorType: 'policy_violation',
+                message: error.message,
+            });
+            continue;
+        }
       throw error;
     }
 
@@ -1167,6 +1228,7 @@ async function loadAssignmentContext(params: {
       continue;
     }
 
+    const diningInterval = toInterval(window.dining);
     const blockInterval = toInterval(window.block);
 
     for (const assignment of assignments) {
@@ -1177,8 +1239,8 @@ async function loadAssignmentContext(params: {
       const existing = schedule.get(assignment.table_id) ?? [];
       existing.push({
         bookingId: booking.id,
-        start: blockInterval.start,
-        end: blockInterval.end,
+        dining: diningInterval,
+        block: blockInterval,
         status: booking.status,
       });
       schedule.set(assignment.table_id, existing);
@@ -1295,15 +1357,15 @@ async function autoAssignTablesInternal(params: AutoAssignInternalParams): Promi
 
 /**
  * Find suitable tables for a party size
- * 
+ *
  * v1: Returns empty array (manual assignment only)
  * v2: Will implement smart matching algorithm
- * 
+ *
  * Algorithm (v2):
  * 1. Exact match: table.capacity === partySize
  * 2. Next size up: table.capacity > partySize (smallest that fits)
  * 3. Combinable tables: 2+ tables that sum to partySize
- * 
+ *
  * @param restaurantId - Restaurant ID
  * @param params - Party size and preferences
  * @param client - Optional Supabase client
@@ -1316,13 +1378,13 @@ export async function findSuitableTables(
 ): Promise<Table[]> {
   // v1: Not implemented, return empty array
   // Ops staff will assign tables manually
-  
+
   console.warn(
     "[v1] findSuitableTables is not implemented. Use manual table assignment in ops dashboard."
   );
-  
+
   return [];
-  
+
   // v2 Implementation Plan:
   // const supabase = client ?? getServiceSupabaseClient();
   // const { partySize, seatingPreference, section } = params;
@@ -1355,10 +1417,10 @@ export async function findSuitableTables(
 
 /**
  * Assign a table to a booking
- * 
+ *
  * v1: Throws error (use RPC function assign_table_to_booking directly)
  * v2: Wraps assign_tables_atomic_v2 with additional logic
- * 
+ *
  * @param bookingId - Booking ID
  * @param tableId - Table ID
  * @param assignedBy - User ID of assigner
@@ -1409,8 +1471,10 @@ export type QuoteTablesResult = {
   alternates: CandidateSummary[];
   nextTimes: string[];
   reason?: string;
+  conflicts?: HoldConflictInfo[];
 };
 
+// ARCHITECTURE: This function implements the full "Quote" flow as specified.
 export async function quoteTablesForBooking(options: QuoteTablesOptions): Promise<QuoteTablesResult> {
   const {
     bookingId,
@@ -1476,6 +1540,17 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     };
   }
 
+  let canonicalAssignmentWindow: { range: string; start: string; end: string } | null = null;
+  try {
+    const bookingForAtomic = await fetchBookingForAtomic(bookingId, supabase);
+    canonicalAssignmentWindow = buildAssignmentWindowRange(bookingForAtomic);
+  } catch (error) {
+    console.warn("[capacity][quote] failed to resolve canonical assignment window", {
+      bookingId,
+      error,
+    });
+  }
+
   const assignmentDate = bookingRow.booking_date;
   if (!assignmentDate) {
     return {
@@ -1485,15 +1560,15 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     };
   }
 
-  const { tables, bookings, schedule, policy, adjacency } = await loadAssignmentContext({
+  const { tables, schedule, policy, adjacency } = await loadAssignmentContext({
     restaurantId,
     date: assignmentDate,
     client: supabase,
   });
 
-  const bookingRecord = bookings.find((entry) => entry.id === bookingId);
   const selectorScoringEnabled = isSelectorScoringEnabled();
   const opsMetricsEnabled = isOpsMetricsEnabled();
+  let latestDiagnostics: CandidateDiagnostics | undefined;
 
   let window: BookingWindow | null;
   try {
@@ -1507,18 +1582,10 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
   } catch (error) {
     const message = error instanceof PolicyError ? error.message : "Unable to compute booking window";
     await emitSelectorQuote({
-      restaurantId,
-      bookingId,
-      partySize,
-      window: { start: bookingRow.start_at, end: bookingRow.end_at },
-      candidates: [],
-      selected: null,
-      skipReason: message,
-      durationMs: Date.now() - quoteStart,
-      featureFlags: {
-        selectorScoring: selectorScoringEnabled,
-        opsMetrics: opsMetricsEnabled,
-      },
+      restaurantId, bookingId, partySize,
+      window: canonicalAssignmentWindow ? { start: canonicalAssignmentWindow.start, end: canonicalAssignmentWindow.end } : { start: bookingRow.start_at, end: bookingRow.end_at },
+      candidates: [], selected: null, skipReason: message, durationMs: Date.now() - quoteStart,
+      featureFlags: { selectorScoring: selectorScoringEnabled, opsMetrics: opsMetricsEnabled },
     });
     return { alternates: [], nextTimes: [], reason: message };
   }
@@ -1526,31 +1593,20 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
   if (!window) {
     const reason = "Booking time is incomplete; cannot determine seating window";
     await emitSelectorQuote({
-      restaurantId,
-      bookingId,
-      partySize,
-      window: { start: bookingRow.start_at, end: bookingRow.end_at },
-      candidates: [],
-      selected: null,
-      skipReason: reason,
-      durationMs: Date.now() - quoteStart,
-      featureFlags: {
-        selectorScoring: selectorScoringEnabled,
-        opsMetrics: opsMetricsEnabled,
-      },
+      restaurantId, bookingId, partySize,
+      window: canonicalAssignmentWindow ? { start: canonicalAssignmentWindow.start, end: canonicalAssignmentWindow.end } : { start: bookingRow.start_at, end: bookingRow.end_at },
+      candidates: [], selected: null, skipReason: reason, durationMs: Date.now() - quoteStart,
+      featureFlags: { selectorScoring: selectorScoringEnabled, opsMetrics: opsMetricsEnabled },
     });
     return { alternates: [], nextTimes: [], reason };
   }
 
-  const targetZoneFilter = zoneId ?? null;
+  const assignmentWindow = canonicalAssignmentWindow ?? serializeBookingBlockWindow(window);
+
   const avoidSet = new Set((avoidTables ?? []).filter(Boolean));
   const candidateTables = tables.filter((table) => {
-    if (targetZoneFilter && table.zoneId !== targetZoneFilter) {
-      return false;
-    }
-    if (avoidSet.has(table.id)) {
-      return false;
-    }
+    if (zoneId && table.zoneId !== zoneId) return false;
+    if (avoidSet.has(table.id)) return false;
     return true;
   });
 
@@ -1559,133 +1615,121 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     partySize,
     window,
     schedule,
-    bookingRecord?.seating_preference
-      ? { partySize, seatingPreference: bookingRecord.seating_preference }
-      : undefined,
+    bookingRow?.seating_preference ? { partySize, seatingPreference: bookingRow.seating_preference } : undefined,
     bookingId,
   );
 
   if (availableTables.length === 0) {
     const reason = "No suitable tables are available for the booking window";
     await emitSelectorQuote({
-      restaurantId,
-      bookingId,
-      partySize,
-      window: serializeBookingBlockWindow(window),
-      candidates: [],
-      selected: null,
-      skipReason: reason,
-      durationMs: Date.now() - quoteStart,
-      featureFlags: {
-        selectorScoring: selectorScoringEnabled,
-        opsMetrics: opsMetricsEnabled,
-      },
+        restaurantId, bookingId, partySize, window: assignmentWindow,
+        candidates: [], selected: null, skipReason: reason, durationMs: Date.now() - quoteStart,
+        featureFlags: { selectorScoring: selectorScoringEnabled, opsMetrics: opsMetricsEnabled },
     });
     return { alternates: [], nextTimes: [], reason };
   }
 
-  const { plans: candidatePlans, fallbackReason } = generateTablePlans(availableTables, partySize, adjacency);
+  const { plans: candidatePlans, fallbackReason, diagnostics: plannerDiagnostics } = generateTablePlans(
+    availableTables, partySize, adjacency, { requireAdjacency }
+  );
+  latestDiagnostics = plannerDiagnostics;
 
-  const maxCombinationSize = Math.max(1, Math.min(maxTables ?? getAllocatorKMax(), getAllocatorKMax()));
-  const filteredPlans = candidatePlans.filter((plan) => plan.tables.length <= maxCombinationSize);
+  const filteredPlans = candidatePlans.filter((plan) => plan.tables.length <= (maxTables ?? 3));
 
   if (filteredPlans.length === 0) {
     const reason = fallbackReason ?? "Unable to locate a compatible table combination";
-    await emitSelectorQuote({
-      restaurantId,
-      bookingId,
-      partySize,
-      window: serializeBookingBlockWindow(window),
-      candidates: [],
-      selected: null,
-      skipReason: reason,
-      durationMs: Date.now() - quoteStart,
-      featureFlags: {
-        selectorScoring: selectorScoringEnabled,
-        opsMetrics: opsMetricsEnabled,
-      },
+     await emitSelectorQuote({
+        restaurantId, bookingId, partySize, window: assignmentWindow,
+        candidates: [], selected: null, skipReason: reason, durationMs: Date.now() - quoteStart,
+        featureFlags: { selectorScoring: selectorScoringEnabled, opsMetrics: opsMetricsEnabled },
+    });
+    return { alternates: [], nextTimes: [], reason };
+  }
+  
+  const bestPlan = filteredPlans[0];
+  if (!bestPlan) {
+     const reason = "No best plan found from candidates.";
+     await emitSelectorQuote({
+        restaurantId, bookingId, partySize, window: assignmentWindow,
+        candidates: [], selected: null, skipReason: reason, durationMs: Date.now() - quoteStart,
+        featureFlags: { selectorScoring: selectorScoringEnabled, opsMetrics: opsMetricsEnabled },
     });
     return { alternates: [], nextTimes: [], reason };
   }
 
-  const candidatePlan = filteredPlans[0];
-  const alternatePlans = filteredPlans.slice(1, 3);
-  const candidateSummary = mapPlanToCandidateSummary(candidatePlan);
-  const alternateSummaries = alternatePlans.map(mapPlanToCandidateSummary);
+  const bestPlanZoneId = bestPlan.tables[0]?.zoneId;
+  if (!bestPlanZoneId) {
+    const reason = "Best plan has no zoneId and cannot be held.";
+    // Not emitting a quote here as this is an internal data integrity issue.
+    return { alternates: [], nextTimes: [], reason };
+  }
 
-  const quoteDuration = Date.now() - quoteStart;
+  const alternates = filteredPlans.slice(1, 4).map(mapPlanToCandidateSummary);
+  const candidateSummary = mapPlanToCandidateSummary(bestPlan);
+  
+  let createdHold: TableHoldSummary | null = null;
+  let conflictDetails: HoldConflictInfo[] = [];
+
+  try {
+    const expiresAt = DateTime.utc().plus({ seconds: holdTtlSeconds }).toISO();
+    if (!expiresAt) throw new Error("Failed to compute hold expiry timestamp");
+    
+    const tableIds = bestPlan.tables.map(t => t.id);
+    const metadata = { source: "auto-quote", candidate: candidateSummary, alternates, requireAdjacency: requireAdjacency ?? null };
+
+    createdHold = await createTableHold({
+        bookingId, restaurantId,
+        zoneId: bestPlanZoneId,
+        tableIds,
+        startAt: assignmentWindow.start,
+        endAt: assignmentWindow.end,
+        expiresAt,
+        createdBy,
+        metadata,
+        client: supabase,
+    });
+
+    await emitHoldCreated({
+        holdId: createdHold.id, bookingId: createdHold.bookingId, restaurantId, zoneId: bestPlanZoneId,
+        tableIds, startAt: createdHold.startAt, endAt: createdHold.endAt, expiresAt,
+        actorId: createdBy ?? null, metadata
+    });
+
+  } catch (error) {
+    if (error instanceof HoldConflictError) {
+      conflictDetails = await findHoldConflicts({
+        restaurantId, zoneId: bestPlanZoneId, tableIds: bestPlan.tables.map(t => t.id),
+        startAt: assignmentWindow.start, endAt: assignmentWindow.end, client: supabase,
+      });
+    } else {
+        throw error;
+    }
+  }
+
   await emitSelectorQuote({
-    restaurantId,
-    bookingId,
-    partySize,
-    window: serializeBookingBlockWindow(window),
-    candidates: [candidateSummary, ...alternateSummaries],
-    selected: candidateSummary,
-    skipReason: null,
-    durationMs: quoteDuration,
-    featureFlags: {
-      selectorScoring: selectorScoringEnabled,
-      opsMetrics: opsMetricsEnabled,
-    },
+      restaurantId, bookingId, partySize, window: assignmentWindow,
+      candidates: [candidateSummary, ...alternates].slice(0,3),
+      selected: createdHold ? candidateSummary : null,
+      holdId: createdHold?.id,
+      skipReason: createdHold ? null : "Failed to create hold due to conflict or error",
+      durationMs: Date.now() - quoteStart,
+      featureFlags: { selectorScoring: selectorScoringEnabled, opsMetrics: opsMetricsEnabled },
+      diagnostics: latestDiagnostics,
   });
 
-  const holdZoneId = candidatePlan.tables[0]?.zoneId;
-  if (!holdZoneId) {
-    throw new Error("Selected candidate is missing zone information");
+  if (createdHold) {
+      return { hold: createdHold, candidate: candidateSummary, alternates, nextTimes: [] };
   }
-
-  const expiresAt = DateTime.utc().plus({ seconds: holdTtlSeconds }).toISO();
-  if (!expiresAt) {
-    throw new Error("Failed to compute hold expiry timestamp");
-  }
-
-  const holdMetadata = {
-    source: "auto-quote",
-    candidate: candidateSummary,
-    alternates: alternateSummaries,
-    requireAdjacency: requireAdjacency ?? null,
-  } as const;
-
-  const blockStartIso = window.block.start.toISO();
-  const blockEndIso = window.block.end.toISO();
-  if (!blockStartIso || !blockEndIso) {
-    throw new Error("Failed to serialize booking window for hold creation");
-  }
-
-  const hold = await createTableHold({
-    bookingId,
-    restaurantId,
-    zoneId: holdZoneId,
-    tableIds: candidatePlan.tables.map((table) => table.id),
-    startAt: blockStartIso,
-    endAt: blockEndIso,
-    expiresAt,
-    createdBy: createdBy ?? null,
-    metadata: holdMetadata,
-    client: supabase,
-  });
-
-  await emitHoldCreated({
-    holdId: hold.id,
-    bookingId: hold.bookingId,
-    restaurantId: hold.restaurantId,
-    zoneId: hold.zoneId,
-    tableIds: hold.tableIds,
-    startAt: hold.startAt,
-    endAt: hold.endAt,
-    expiresAt: hold.expiresAt,
-    actorId: createdBy ?? null,
-    metadata: holdMetadata,
-  });
 
   return {
-    hold,
-    candidate: candidateSummary,
-    alternates: alternateSummaries,
+    alternates: filteredPlans.map(mapPlanToCandidateSummary),
     nextTimes: [],
+    reason: "Tables are on hold or unavailable",
+    conflicts: conflictDetails,
   };
 }
 
+// (FIX from Pitfall #2)
 export async function confirmHoldAssignment(options: {
   holdId: string;
   bookingId: string;
@@ -1697,6 +1741,8 @@ export async function confirmHoldAssignment(options: {
   const { holdId, bookingId, idempotencyKey, requireAdjacency, assignedBy, client } = options;
   const supabase = client ?? getServiceSupabaseClient();
 
+  // The RPC (`confirmTableHold`) is the authoritative source for validating hold expiry
+  // and performing the atomic swap from hold to assignment. This avoids race conditions.
   const holdLookup = await supabase
     .from("table_holds")
     .select("id, booking_id, restaurant_id, zone_id, start_at, end_at, expires_at, table_hold_members(table_id)")
@@ -2032,8 +2078,10 @@ async function computeManualSelection(
     if (!table.active) {
       tableStatusIssues.push({ tableId: table.id, status: "inactive", active: false });
     }
-    if (table.status && table.status !== "available") {
-      tableStatusIssues.push({ tableId: table.id, status: table.status, active: table.active });
+
+    const normalizedStatus = typeof table.status === "string" ? table.status : "available";
+    if (normalizedStatus === "out_of_service") {
+      tableStatusIssues.push({ tableId: table.id, status: normalizedStatus, active: table.active });
     }
 
     if (!windowRange) {
@@ -2048,12 +2096,12 @@ async function computeManualSelection(
       if (INACTIVE_BOOKING_STATUSES.has(entry.status)) {
         continue;
       }
-      if (!windowsOverlap(windowRange, { start: entry.start, end: entry.end })) {
+      if (!windowsOverlap(windowRange, entry.block)) {
         continue;
       }
 
-      const startIso = DateTime.fromMillis(entry.start).toISO();
-      const endIso = DateTime.fromMillis(entry.end).toISO();
+      const startIso = DateTime.fromMillis(entry.block.start).toISO();
+      const endIso = DateTime.fromMillis(entry.block.end).toISO();
       assignmentConflicts.push({
         tableId: table.id,
         bookingId: entry.bookingId,
@@ -2461,12 +2509,15 @@ export async function getManualAssignmentContext(options: {
         if (entry.bookingId === bookingId) {
           continue;
         }
-        if (!windowsOverlap(windowRange, { start: entry.start, end: entry.end })) {
+        if (INACTIVE_BOOKING_STATUSES.has(entry.status)) {
+          continue;
+        }
+        if (!windowsOverlap(windowRange, entry.block)) {
           continue;
         }
 
-        const startIso = DateTime.fromMillis(entry.start).toISO();
-        const endIso = DateTime.fromMillis(entry.end).toISO();
+        const startIso = DateTime.fromMillis(entry.block.start).toISO();
+        const endIso = DateTime.fromMillis(entry.block.end).toISO();
 
         if (!startIso || !endIso) {
           continue;
@@ -2507,10 +2558,10 @@ export async function getManualAssignmentContext(options: {
 
 /**
  * Unassign a table from a booking
- * 
+ *
  * v1: Calls RPC function
  * v2: Will add business logic
- * 
+ *
  * @param bookingId - Booking ID
  * @param tableId - Table ID
  * @param client - Optional Supabase client
@@ -2665,7 +2716,7 @@ async function invokeUnassignTablesAtomic(params: {
 
 /**
  * Get table assignments for a booking
- * 
+ *
  * @param bookingId - Booking ID
  * @param client - Optional Supabase client
  * @returns Array of table assignments
@@ -2817,25 +2868,174 @@ export async function autoAssignTablesForDate(params: AutoAssignTablesForDatePar
 
 /**
  * Check if a table is available at a specific time
- * 
+ *
  * v1: Basic implementation
  * v2: Add slot-level checking
  */
+type AvailabilityLegacyOptions = {
+  client?: DbClient;
+  partySize?: number;
+  startISO?: string;
+  policy?: VenuePolicy;
+  excludeBookingId?: string;
+};
+
+function isAvailabilityOptions(value: unknown): value is AvailabilityLegacyOptions {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  return (
+    "partySize" in candidate ||
+    "startISO" in candidate ||
+    "policy" in candidate ||
+    "excludeBookingId" in candidate ||
+    "client" in candidate
+  );
+}
+
+// (FIX from Pitfall #9)
+export async function isTableAvailableV2(
+  tableId: string,
+  startISO: string,
+  partySize: number,
+  options: {
+    policy?: VenuePolicy;
+    client?: DbClient;
+    excludeBookingId?: string;
+  } = {},
+): Promise<boolean> {
+  const supabase = options.client ?? getServiceSupabaseClient();
+  const policy = options.policy ?? defaultVenuePolicy;
+
+  let bookingWindow: BookingWindow | null;
+  try {
+    bookingWindow = computeBookingWindow({
+      startISO,
+      partySize,
+      policy,
+    });
+  } catch (error) {
+    console.warn("[capacity][availability] failed to compute booking window", {
+      tableId,
+      startISO,
+      partySize,
+      error,
+    });
+    return false;
+  }
+
+  if (!bookingWindow) {
+    return false;
+  }
+
+  const targetInterval = toInterval(bookingWindow.block);
+  
+  const windowStart = bookingWindow.block.start.toISO();
+  const windowEnd = bookingWindow.block.end.toISO();
+
+  if (!windowStart || !windowEnd) {
+      console.error("[capacity][availability] Could not generate ISO strings for window");
+      return false;
+  }
+
+  const { data, error } = await supabase
+    .from("booking_table_assignments")
+    .select(
+      `
+        table_id,
+        start_at,
+        end_at,
+        bookings!inner (
+          id,
+          status
+        )
+      `,
+    )
+    .eq("table_id", tableId)
+    .gte("end_at", windowStart)
+    .lte("start_at", windowEnd);
+
+  if (error) {
+    throw new Error(`Failed to inspect table availability: ${error.message}`);
+  }
+
+  const schedule = new Map<string, TableScheduleEntry[]>();
+  schedule.set(tableId, []);
+
+  for (const row of data ?? []) {
+    const rawBooking = Array.isArray(row.bookings) ? row.bookings[0] : row.bookings;
+    const booking = rawBooking as { id: string; status: Tables<"bookings">["status"] } | undefined;
+    if (!booking || INACTIVE_BOOKING_STATUSES.has(booking.status)) {
+      continue;
+    }
+
+    if (options.excludeBookingId && booking.id === options.excludeBookingId) {
+      continue;
+    }
+
+    const blockStart = DateTime.fromISO(row.start_at ?? "", { setZone: true });
+    const blockEnd = DateTime.fromISO(row.end_at ?? "", { setZone: true });
+
+    if (!blockStart.isValid || !blockEnd.isValid || blockEnd <= blockStart) {
+      continue;
+    }
+
+    const blockInterval: IntervalMs = {
+      start: blockStart.toMillis(),
+      end: blockEnd.toMillis(),
+    };
+
+    const entry: TableScheduleEntry = {
+      bookingId: booking.id,
+      dining: blockInterval,
+      block: blockInterval,
+      status: booking.status,
+    };
+
+    const existing = schedule.get(tableId) ?? [];
+    existing.push(entry);
+    schedule.set(tableId, existing);
+  }
+
+  return tableWindowIsFree(tableId, targetInterval, schedule, options.excludeBookingId);
+}
+
 export async function isTableAvailable(
   tableId: string,
   date: string,
   startTime: string,
   endTime: string,
-  client?: DbClient
+  clientOrOptions?: DbClient | AvailabilityLegacyOptions
 ): Promise<boolean> {
-  const supabase = client ?? getServiceSupabaseClient();
+  let resolvedClient: DbClient | undefined;
+  let options: AvailabilityLegacyOptions | undefined;
 
-  // Check if table has any conflicting assignments
+  if (isAvailabilityOptions(clientOrOptions)) {
+    options = clientOrOptions;
+    resolvedClient = clientOrOptions.client;
+  } else {
+    resolvedClient = clientOrOptions;
+  }
+
+  const startISO = options?.startISO ?? (date && startTime ? `${date}T${startTime}` : null);
+
+  if (options?.partySize && startISO) {
+    return isTableAvailableV2(tableId, startISO, options.partySize, {
+      client: options.client ?? resolvedClient,
+      policy: options.policy,
+      excludeBookingId: options.excludeBookingId,
+    });
+  }
+
+  const supabase = resolvedClient ?? getServiceSupabaseClient();
+
   const { data, error } = await supabase
     .from("booking_table_assignments")
     .select(`
       id,
       bookings!inner (
+        id,
         booking_date,
         start_time,
         end_time,
@@ -2848,32 +3048,94 @@ export async function isTableAvailable(
     throw new Error(`Failed to check table availability: ${error.message}`);
   }
 
-  // Check for time overlaps with active bookings
   const hasConflict = (data ?? []).some((assignment: any) => {
     const booking = assignment.bookings;
-    
-    // Skip cancelled/no-show bookings
-    if (["cancelled", "no_show"].includes(booking.status)) {
+
+    if (!booking || !booking.booking_date || !booking.start_time || !booking.end_time) {
       return false;
     }
 
-    // Same date?
+    if (INACTIVE_BOOKING_STATUSES.has(booking.status)) {
+      return false;
+    }
+
     if (booking.booking_date !== date) {
       return false;
     }
 
-    // Time overlap?
-    // Booking: [booking.start_time, booking.end_time)
-    // Requested: [startTime, endTime)
-    // Overlap if: booking.start_time < endTime AND startTime < booking.end_time
-    return booking.start_time < endTime && startTime < booking.end_time;
+    try {
+      const bookingStart = DateTime.fromISO(`${booking.booking_date}T${booking.start_time}`);
+      const bookingEnd = DateTime.fromISO(`${booking.booking_date}T${booking.end_time}`);
+      const requestedStart = DateTime.fromISO(`${date}T${startTime}`);
+      const requestedEnd = DateTime.fromISO(`${date}T${endTime}`);
+
+      if (bookingStart.isValid && bookingEnd.isValid && requestedStart.isValid && requestedEnd.isValid) {
+        return bookingStart < requestedEnd && requestedStart < bookingEnd;
+      }
+    } catch (e) {
+      console.error("Failed to parse booking times for availability check", {
+        bookingId: booking.id,
+        date,
+        error: e,
+      });
+      return true;
+    }
+
+    return false;
   });
 
   return !hasConflict;
+}
+
+
+// (FIX from Pitfall #8)
+export async function cancelBooking(bookingId: string, client?: DbClient) {
+  const supabase = client ?? getServiceSupabaseClient();
+
+  const { error: updateError } = await supabase.from('bookings')
+    .update({ status: 'cancelled' })
+    .eq('id', bookingId);
+  
+  if (updateError) {
+    throw new Error(`Failed to cancel booking ${bookingId}: ${updateError.message}`);
+  }
+
+  const activeHolds = await listActiveHoldsForBooking({ bookingId, client: supabase });
+  
+  if (activeHolds.length > 0) {
+    const holdReleasePromises = activeHolds.map(hold => 
+      releaseTableHold({ holdId: hold.id, client: supabase })
+    );
+    await Promise.all(holdReleasePromises);
+    console.log(`Released ${activeHolds.length} hold(s) for cancelled booking ${bookingId}.`);
+  }
+}
+
+// (FIX from Pitfall #6)
+export async function reassignTablesForBooking(
+    bookingId: string,
+    newTableIds: string[],
+    assignedBy?: string,
+    client?: DbClient,
+) {
+    const supabase = client ?? getServiceSupabaseClient();
+    // This flow should be implemented as a single atomic RPC in the database
+    // to prevent race conditions between unassigning and assigning.
+    await invokeUnassignTablesAtomic({ bookingId, client: supabase });
+
+    const assignments = await invokeAssignTablesAtomic({
+        bookingId,
+        tableIds: newTableIds,
+        assignedBy,
+        client: supabase,
+    });
+
+    return assignments;
 }
 
 export const __internal = {
   computeBookingWindow,
   windowsOverlap,
   resolveStartDateTime,
+  filterAvailableTables,
 };

@@ -122,6 +122,7 @@ export const env = {
       statusTriggers: parsed.FEATURE_STATUS_TRIGGERS ?? false,
       editScheduleParity: parsed.FEATURE_EDIT_SCHEDULE_PARITY ?? true,
       selectorScoring: parsed.FEATURE_SELECTOR_SCORING ?? true,
+      combinationPlanner: parsed.FEATURE_COMBINATION_PLANNER ?? false,
       adjacencyValidation: parsed.FEATURE_ADJACENCY_VALIDATION ?? false,
       opsMetrics: parsed.FEATURE_OPS_METRICS ?? false,
       realtimeFloorplan: parsed.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN ?? false,

@@ -409,13 +409,14 @@ CREATE OR REPLACE FUNCTION public.assign_tables_atomic_v2(
         ON CONFLICT (booking_id, idempotency_key) DO NOTHING;
       END IF;
     END;
-    $function$;
+$function$;
 
 ALTER FUNCTION public.assign_tables_atomic_v2(uuid, uuid[], text, boolean, uuid) OWNER TO postgres;
 
 GRANT ALL ON FUNCTION public.assign_tables_atomic_v2(uuid, uuid[], text, boolean, uuid) TO service_role;
 
 -- Ensure booking slot helper tolerates missing capacity rules table.
+
 CREATE OR REPLACE FUNCTION public.get_or_create_booking_slot(
   p_restaurant_id uuid,
   p_slot_date date,

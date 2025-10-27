@@ -16,10 +16,13 @@ export type RankedTablePlan = {
   metrics: CandidateMetrics;
   score: number;
   tableKey: string;
+  adjacencyStatus: "single" | "connected" | "disconnected";
 };
 
 export type CandidateDiagnostics = {
   singlesConsidered: number;
+  combinationsEnumerated: number;
+  combinationsAccepted: number;
   skipped: Record<string, number>;
 };
 
@@ -28,6 +31,11 @@ export type BuildCandidatesOptions = {
   partySize: number;
   adjacency: Map<string, Set<string>>;
   config: SelectorScoringConfig;
+  enableCombinations?: boolean;
+  kMax?: number;
+  maxPlansPerSlack?: number;
+  maxCombinationEvaluations?: number;
+  requireAdjacency?: boolean;
 };
 
 export type BuildCandidatesResult = {
@@ -37,37 +45,75 @@ export type BuildCandidatesResult = {
 };
 
 const FALLBACK_NO_TABLES = "No tables meet the capacity requirements for this party size.";
+const DEFAULT_MAX_PLANS_PER_SLACK = 50;
+const DEFAULT_MAX_COMBINATION_EVALUATIONS = 500;
+
+function incrementCounter(target: Record<string, number>, key: string, amount = 1): void {
+  const current = target[key] ?? 0;
+  target[key] = current + amount;
+}
 
 export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCandidatesResult {
-  const { tables, partySize, config } = options;
+  const {
+    tables,
+    partySize,
+    adjacency,
+    config,
+    enableCombinations = false,
+    kMax,
+    maxPlansPerSlack,
+    maxCombinationEvaluations,
+    requireAdjacency = true,
+  } = options;
   const { maxOverage, weights } = config;
 
-  const plans: RankedTablePlan[] = [];
   const diagnostics: CandidateDiagnostics = {
     singlesConsidered: 0,
+    combinationsEnumerated: 0,
+    combinationsAccepted: 0,
     skipped: Object.create(null) as Record<string, number>,
   };
 
   const maxAllowedCapacity = partySize + Math.max(maxOverage, 0);
+  const combinationCap = Math.max(1, Math.min(kMax ?? config.maxTables ?? 1, tables.length || 1));
+  const perSlackLimit = Math.max(1, maxPlansPerSlack ?? DEFAULT_MAX_PLANS_PER_SLACK);
+  const combinationEvaluationLimit = Math.max(1, maxCombinationEvaluations ?? DEFAULT_MAX_COMBINATION_EVALUATIONS);
 
-  const singleTableCandidates = tables.filter((table) => {
+  const validTables: Table[] = [];
+  const singleTableCandidates: Table[] = [];
+
+  for (const table of tables) {
     const capacity = table.capacity ?? 0;
     if (!Number.isFinite(capacity) || capacity <= 0) {
-      return false;
+      incrementCounter(diagnostics.skipped, "capacity");
+      continue;
     }
-    if (capacity < partySize) {
-      return false;
+
+    if (typeof table.minPartySize === "number" && table.minPartySize > 0 && partySize < table.minPartySize) {
+      incrementCounter(diagnostics.skipped, "capacity");
+      continue;
     }
-    if (capacity > maxAllowedCapacity) {
-      return false;
-    }
+
     if (typeof table.maxPartySize === "number" && table.maxPartySize > 0 && partySize > table.maxPartySize) {
-      return false;
+      incrementCounter(diagnostics.skipped, "capacity");
+      continue;
     }
-    return true;
-  });
+
+    if (capacity > maxAllowedCapacity) {
+      incrementCounter(diagnostics.skipped, "overage");
+      continue;
+    }
+
+    validTables.push(table);
+
+    if (capacity >= partySize) {
+      singleTableCandidates.push(table);
+    }
+  }
 
   diagnostics.singlesConsidered = singleTableCandidates.length;
+
+  const plans: RankedTablePlan[] = [];
 
   for (const table of singleTableCandidates) {
     const adjacencyDepths = new Map<string, number>([[table.id, 0]]);
@@ -83,12 +129,36 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
       metrics,
       score,
       tableKey,
+      adjacencyStatus: "single",
     });
+  }
+
+  if (enableCombinations && combinationCap > 1 && validTables.length > 1) {
+    const combinationPlans = enumerateCombinationPlans({
+      candidates: validTables,
+      partySize,
+      weights,
+      adjacency,
+      maxAllowedCapacity,
+      kMax: combinationCap,
+      bucketLimit: perSlackLimit,
+      evaluationLimit: combinationEvaluationLimit,
+      diagnostics,
+      requireAdjacency,
+    });
+
+    plans.push(...combinationPlans);
   }
 
   plans.sort((a, b) => comparePlans(a, b, weights));
 
   const fallbackReason = plans.length > 0 ? undefined : FALLBACK_NO_TABLES;
+
+  for (const key of ["capacity", "overage", "adjacency", "kmax", "bucket", "limit", "zone"]) {
+    if (diagnostics.skipped[key] === undefined) {
+      diagnostics.skipped[key] = 0;
+    }
+  }
 
   return { plans, fallbackReason, diagnostics };
 }
@@ -101,7 +171,11 @@ function computeMetrics(tables: Table[], partySize: number, adjacencyDepths: Map
   const fragmentation = Math.max(totalCapacity - maxCapacity, 0);
   const zoneIds = new Set(tables.map((table) => table.zoneId ?? null));
   const zoneBalance = Math.max(zoneIds.size - 1, 0);
-  const adjacencyCost = Math.max(...(adjacencyDepths.size > 0 ? [...adjacencyDepths.values()] : [0]));
+  const depthValues = adjacencyDepths.size > 0 ? [...adjacencyDepths.values()] : [0];
+  let adjacencyCost = Math.max(...depthValues);
+  if (adjacencyDepths.size < tables.length) {
+    adjacencyCost = Math.max(adjacencyCost, tables.length);
+  }
 
   return {
     overage,
@@ -155,4 +229,231 @@ function buildTableKey(tables: Table[]): string {
     .map((table) => table.tableNumber ?? table.id)
     .sort((a, b) => a.localeCompare(b))
     .join("+");
+}
+
+type CombinationPlannerArgs = {
+  candidates: Table[];
+  partySize: number;
+  weights: SelectorScoringWeights;
+  adjacency: Map<string, Set<string>>;
+  maxAllowedCapacity: number;
+  kMax: number;
+  bucketLimit: number;
+  evaluationLimit: number;
+  diagnostics: CandidateDiagnostics;
+  requireAdjacency: boolean;
+};
+
+function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePlan[] {
+  const {
+    candidates,
+    partySize,
+    weights,
+    adjacency,
+    maxAllowedCapacity,
+    kMax,
+    bucketLimit,
+    evaluationLimit,
+    diagnostics,
+    requireAdjacency,
+  } = args;
+
+  if (kMax <= 1) {
+    return [];
+  }
+
+  const seenKeys = new Set<string>();
+  const buckets = new Map<number, RankedTablePlan[]>();
+  const sortedCandidates = [...candidates].sort((a, b) => {
+    const capacityDiff = (a.capacity ?? 0) - (b.capacity ?? 0);
+    if (capacityDiff !== 0) {
+      return capacityDiff;
+    }
+    const nameA = a.tableNumber ?? a.id;
+    const nameB = b.tableNumber ?? b.id;
+    return nameA.localeCompare(nameB);
+  });
+
+  let evaluations = 0;
+  let enumerated = diagnostics.combinationsEnumerated ?? 0;
+  let accepted = diagnostics.combinationsAccepted ?? 0;
+  let limitRecorded = false;
+  let stopSearch = false;
+
+  const registerPlan = (plan: RankedTablePlan) => {
+    const bucket = buckets.get(plan.slack) ?? [];
+    bucket.push(plan);
+    bucket.sort((a, b) => comparePlans(a, b, weights));
+    if (bucket.length > bucketLimit) {
+      bucket.length = bucketLimit;
+      incrementCounter(diagnostics.skipped, "bucket");
+    }
+    buckets.set(plan.slack, bucket);
+    accepted += 1;
+    diagnostics.combinationsAccepted = accepted;
+  };
+
+  const dfs = (startIndex: number, selection: Table[], runningCapacity: number, baseZoneId: string | null) => {
+    if (stopSearch) {
+      return;
+    }
+
+    if (selection.length >= 2 && runningCapacity >= partySize) {
+      enumerated += 1;
+      diagnostics.combinationsEnumerated = enumerated;
+
+      const key = buildTableKey(selection);
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        const adjacencyEvaluation = evaluateAdjacency(selection, adjacency);
+        if (!adjacencyEvaluation.connected && requireAdjacency) {
+          incrementCounter(diagnostics.skipped, "adjacency");
+        } else {
+          const metrics = computeMetrics(selection, partySize, adjacencyEvaluation.depths);
+          const score = computeScore(metrics, weights);
+          const totalCapacity = metrics.overage + partySize;
+          const adjacencyStatus: RankedTablePlan["adjacencyStatus"] =
+            selection.length <= 1
+              ? "single"
+              : adjacencyEvaluation.connected
+                ? "connected"
+                : "disconnected";
+          const plan: RankedTablePlan = {
+            tables: [...selection],
+            totalCapacity,
+            slack: metrics.overage,
+            metrics,
+            score,
+            tableKey: key,
+            adjacencyStatus,
+          };
+          registerPlan(plan);
+        }
+      }
+
+      evaluations += 1;
+      if (evaluations >= evaluationLimit) {
+        stopSearch = true;
+        if (!limitRecorded) {
+          incrementCounter(diagnostics.skipped, "limit");
+          limitRecorded = true;
+        }
+        return;
+      }
+    }
+
+    if (selection.length >= kMax) {
+      if (runningCapacity < partySize) {
+        incrementCounter(diagnostics.skipped, "capacity");
+      }
+      incrementCounter(diagnostics.skipped, "kmax");
+      return;
+    }
+
+    for (let index = startIndex; index < sortedCandidates.length; index += 1) {
+      if (stopSearch) {
+        break;
+      }
+
+      const candidate = sortedCandidates[index];
+
+      if (selection.some((existing) => existing.id === candidate.id)) {
+        continue;
+      }
+
+      if (selection.length > 0 && baseZoneId && candidate.zoneId && candidate.zoneId !== baseZoneId) {
+        incrementCounter(diagnostics.skipped, "zone");
+        continue;
+      }
+
+      if (selection.length + 1 > kMax) {
+        incrementCounter(diagnostics.skipped, "kmax");
+        continue;
+      }
+
+      const nextCapacity = runningCapacity + (candidate.capacity ?? 0);
+
+      if (nextCapacity > maxAllowedCapacity) {
+        incrementCounter(diagnostics.skipped, "overage");
+        // Capacities sorted ascending; further entries will exceed as well for this path.
+        break;
+      }
+
+      if (requireAdjacency && selection.length > 0 && !isAdjacentToSelection(candidate, selection, adjacency)) {
+        incrementCounter(diagnostics.skipped, "adjacency");
+        continue;
+      }
+
+      const nextZoneId = baseZoneId ?? candidate.zoneId ?? null;
+
+      dfs(index + 1, [...selection, candidate], nextCapacity, nextZoneId);
+    }
+  };
+
+  for (let i = 0; i < sortedCandidates.length && !stopSearch; i += 1) {
+    const base = sortedCandidates[i];
+    dfs(i + 1, [base], base.capacity ?? 0, base.zoneId ?? null);
+  }
+
+  return Array.from(buckets.values())
+    .flat()
+    .sort((a, b) => comparePlans(a, b, weights));
+}
+
+function isAdjacentToSelection(candidate: Table, selection: Table[], adjacency: Map<string, Set<string>>): boolean {
+  for (const table of selection) {
+    const forward = adjacency.get(table.id);
+    if (forward && forward.has(candidate.id)) {
+      return true;
+    }
+    const backward = adjacency.get(candidate.id);
+    if (backward && backward.has(table.id)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function evaluateAdjacency(
+  tables: Table[],
+  adjacency: Map<string, Set<string>>,
+): { connected: boolean; depths: Map<string, number> } {
+  if (tables.length === 0) {
+    return { connected: true, depths: new Map() };
+  }
+
+  if (tables.length === 1) {
+    return { connected: true, depths: new Map([[tables[0].id, 0]]) };
+  }
+
+  const tableIds = tables.map((table) => table.id);
+  const selection = new Set(tableIds);
+  const depths = new Map<string, number>();
+  const queue: string[] = [];
+
+  const [firstId] = tableIds;
+  queue.push(firstId);
+  depths.set(firstId, 0);
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current) {
+      continue;
+    }
+    const neighbors = adjacency.get(current);
+    if (!neighbors) {
+      continue;
+    }
+    for (const neighbor of neighbors) {
+      if (!selection.has(neighbor) || depths.has(neighbor)) {
+        continue;
+      }
+      const depth = (depths.get(current) ?? 0) + 1;
+      depths.set(neighbor, depth);
+      queue.push(neighbor);
+    }
+  }
+
+  const connected = depths.size === selection.size;
+  return { connected, depths };
 }

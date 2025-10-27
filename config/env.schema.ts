@@ -49,6 +49,7 @@ const baseEnvSchema = z
     FEATURE_STATUS_TRIGGERS: booleanStringOptional,
     FEATURE_EDIT_SCHEDULE_PARITY: booleanStringOptional,
     FEATURE_SELECTOR_SCORING: booleanStringOptional,
+    FEATURE_COMBINATION_PLANNER: booleanStringOptional,
     FEATURE_ADJACENCY_VALIDATION: booleanStringOptional,
     FEATURE_OPS_METRICS: booleanStringOptional,
     NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN: booleanStringOptional,
