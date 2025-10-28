@@ -579,7 +579,7 @@ describe('autoAssignTablesForDate', () => {
       {
         id: 'table-merge-a',
         table_number: 'M1',
-        capacity: 3,
+        capacity: 4,
         min_party_size: 1,
         max_party_size: null,
         section: 'Main',
@@ -605,7 +605,7 @@ describe('autoAssignTablesForDate', () => {
     const bookings: BookingRow[] = [
       {
         id: 'booking-skip-1',
-        party_size: 6,
+        party_size: 10,
         status: 'pending_allocation',
         start_time: '20:00',
         end_time: null,
@@ -628,13 +628,134 @@ describe('autoAssignTablesForDate', () => {
     expect(result.assigned).toEqual([]);
     expect(result.skipped).toHaveLength(1);
     const skipReason = result.skipped[0]?.reason ?? '';
-    expect(skipReason).toMatch(/capacity|Combination planner disabled/);
+    expect(skipReason).toMatch(/capacity/i);
 
     expect(emitSelectorDecision).toHaveBeenCalledWith(
       expect.objectContaining({
         bookingId: 'booking-skip-1',
         selected: null,
         skipReason,
+      }),
+    );
+  });
+
+  it('assigns merged tables when combination planner flag is disabled', async () => {
+    vi.spyOn(featureFlags, 'isCombinationPlannerEnabled').mockReturnValue(false);
+
+    const tables: TableRow[] = [
+      {
+        id: 'table-merge-1',
+        table_number: 'M1',
+        capacity: 3,
+        min_party_size: 1,
+        max_party_size: null,
+        section: 'Garden',
+        seating_type: 'standard',
+        status: 'available',
+        position: null,
+      },
+      {
+        id: 'table-merge-2',
+        table_number: 'M2',
+        capacity: 4,
+        min_party_size: 1,
+        max_party_size: null,
+        section: 'Garden',
+        seating_type: 'standard',
+        status: 'available',
+        position: null,
+      },
+    ];
+
+    const bookings: BookingRow[] = [
+      {
+        id: 'booking-merge-required',
+        party_size: 6,
+        status: 'pending_allocation',
+        start_time: '19:30',
+        end_time: null,
+        start_at: '2025-11-07T19:30:00+00:00',
+        booking_date: '2025-11-07',
+        seating_preference: 'any',
+        booking_table_assignments: [],
+      },
+    ];
+
+    const { client, assignments } = createMockSupabaseClient({ tables, bookings });
+
+    const result = await autoAssignTablesForDate({
+      restaurantId: 'rest-merge',
+      date: '2025-11-07',
+      client,
+      assignedBy: 'ops-user',
+    });
+
+    expect(result.assigned).toEqual([
+      {
+        bookingId: 'booking-merge-required',
+        tableIds: expect.arrayContaining(['table-merge-1', 'table-merge-2']),
+      },
+    ]);
+    expect(result.skipped).toEqual([]);
+    expect(assignments).toEqual([
+      expect.objectContaining({
+        bookingId: 'booking-merge-required',
+        tableIds: expect.arrayContaining(['table-merge-1', 'table-merge-2']),
+      }),
+    ]);
+  });
+
+  it('skips bookings whose buffered window overruns the service boundary', async () => {
+    const tables: TableRow[] = [
+      {
+        id: 'table-overrun-1',
+        table_number: 'L1',
+        capacity: 4,
+        min_party_size: 2,
+        max_party_size: 4,
+        section: 'Main',
+        seating_type: 'standard',
+        status: 'available',
+        position: null,
+      },
+    ];
+
+    const bookings: BookingRow[] = [
+      {
+        id: 'booking-overrun',
+        party_size: 4,
+        status: 'pending_allocation',
+        start_time: '14:00',
+        end_time: null,
+        start_at: '2025-11-07T14:00:00+00:00',
+        booking_date: '2025-11-07',
+        seating_preference: 'any',
+        booking_table_assignments: [],
+      },
+    ];
+
+    const { client } = createMockSupabaseClient({ tables, bookings });
+
+    const result = await autoAssignTablesForDate({
+      restaurantId: 'rest-overrun',
+      date: '2025-11-07',
+      client,
+      assignedBy: 'auto',
+    });
+
+    expect(result.assigned).toEqual([]);
+    expect(result.skipped).toEqual([
+      {
+        bookingId: 'booking-overrun',
+        reason: expect.stringContaining('overrun'),
+      },
+    ]);
+
+    expect(emitSelectorDecision).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookingId: 'booking-overrun',
+        selected: null,
+        skipReason: expect.stringContaining('overrun'),
       }),
     );
   });

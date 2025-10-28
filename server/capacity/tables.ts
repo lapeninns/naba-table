@@ -41,6 +41,7 @@ import {
   getAllocatorKMax,
   getAllocatorKMax as getAllocatorCombinationLimit,
   isAllocatorAdjacencyRequired,
+  isAllocatorMergesEnabled,
   isAllocatorV2Enabled,
   isCombinationPlannerEnabled,
   isHoldsEnabled,
@@ -610,6 +611,10 @@ async function loadAdjacency(tableIds: string[], client: DbClient): Promise<Map<
       map.set(row.table_a, new Set());
     }
     map.get(row.table_a)!.add(row.table_b);
+    if (!map.has(row.table_b)) {
+      map.set(row.table_b, new Set());
+    }
+    map.get(row.table_b)!.add(row.table_a);
   }
   return map;
 }
@@ -1985,6 +1990,10 @@ export async function autoAssignTablesForDate(options: {
     supabase,
   );
   const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
+  const adjacencyEdgeCount = Array.from(adjacency.values()).reduce((sum, neighbors) => sum + neighbors.size, 0);
+  const requireAdjacencyForMerge = adjacencyEdgeCount > 0 && isAllocatorAdjacencyRequired();
+  const combinationPlannerEnabled = isCombinationPlannerEnabled();
+  const mergesEnabled = isAllocatorMergesEnabled();
   let activeHolds: TableHold[] = [];
   if (isHoldsEnabled()) {
     try {
@@ -2015,13 +2024,45 @@ export async function autoAssignTablesForDate(options: {
       continue;
     }
 
-    const window = computeBookingWindowWithFallback({
-      startISO: booking.start_at,
-      bookingDate: booking.booking_date,
-      startTime: booking.start_time,
-      partySize: booking.party_size,
-      policy,
-    });
+    const featureFlags = {
+      selectorScoring: isSelectorScoringEnabled(),
+      opsMetrics: isOpsMetricsEnabled(),
+    };
+
+    let window: BookingWindow | null = null;
+    let overrunReason: string | null = null;
+    try {
+      window = computeBookingWindowWithFallback({
+        startISO: booking.start_at,
+        bookingDate: booking.booking_date,
+        startTime: booking.start_time,
+        partySize: booking.party_size,
+        policy,
+      });
+    } catch (error) {
+      if (error instanceof ServiceOverrunError) {
+        overrunReason = error.message ?? "Reservation window exceeds service boundary";
+      } else {
+        throw error;
+      }
+    }
+    if (!window) {
+      const reason = overrunReason ?? "Reservation window exceeds service boundary";
+      result.skipped.push({ bookingId: booking.id, reason });
+      await emitSelectorDecision({
+        restaurantId,
+        bookingId: booking.id,
+        partySize: booking.party_size,
+        window: undefined,
+        candidates: [],
+        selected: null,
+        skipReason: reason,
+        durationMs: 0,
+        featureFlags,
+        diagnostics: undefined,
+      });
+      continue;
+    }
 
     const availableTables = filterAvailableTables(
       tables,
@@ -2033,20 +2074,36 @@ export async function autoAssignTablesForDate(options: {
       { allowInsufficientCapacity: true },
     );
     const scoringConfig = getSelectorScoringConfig();
-    const plans = buildScoredTablePlans({
-      tables: availableTables,
-      partySize: booking.party_size,
-      adjacency,
-      config: scoringConfig,
-      enableCombinations: isCombinationPlannerEnabled(),
-      kMax: getAllocatorCombinationLimit(),
-      requireAdjacency: isAllocatorAdjacencyRequired(),
-    });
+    const runPlanner = (enableCombinations: boolean) =>
+      buildScoredTablePlans({
+        tables: availableTables,
+        partySize: booking.party_size,
+        adjacency,
+        config: scoringConfig,
+        enableCombinations,
+        kMax: getAllocatorCombinationLimit(),
+        requireAdjacency: requireAdjacencyForMerge,
+      });
+    let plans = runPlanner(combinationPlannerEnabled);
 
-    const featureFlags = {
-      selectorScoring: isSelectorScoringEnabled(),
-      opsMetrics: isOpsMetricsEnabled(),
-    };
+    if (plans.plans.length === 0 && !combinationPlannerEnabled) {
+      if (mergesEnabled) {
+        const mergeFallback = runPlanner(true);
+        if (mergeFallback.plans.length > 0) {
+          plans = mergeFallback;
+        } else {
+          plans = {
+            ...mergeFallback,
+            fallbackReason: mergeFallback.fallbackReason ?? "Combination planner disabled (requires merges)",
+          };
+        }
+      } else if (!plans.fallbackReason) {
+        plans = {
+          ...plans,
+          fallbackReason: "Combination planner disabled (requires merges)",
+        };
+      }
+    }
 
     if (plans.plans.length === 0) {
       const fallback = plans.fallbackReason ?? "No suitable tables available";
@@ -2161,7 +2218,7 @@ export async function autoAssignTablesForDate(options: {
         supabase,
         {
           idempotencyKey: randomUUID(),
-          requireAdjacency: isAllocatorAdjacencyRequired(),
+          requireAdjacency: requireAdjacencyForMerge,
           booking: {
             ...(booking as any),
             id: booking.id,
