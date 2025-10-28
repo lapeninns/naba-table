@@ -1,6 +1,12 @@
 import type { SelectorScoringConfig, SelectorScoringWeights } from "./policy";
 import type { Table } from "./tables";
 
+const DIAGNOSTIC_SKIP_KEYS = ["capacity", "overage", "adjacency", "kmax", "zone", "limit", "bucket"] as const;
+
+type DiagnosticSkipKey = (typeof DIAGNOSTIC_SKIP_KEYS)[number];
+
+type DiagnosticSkipCounts = Record<DiagnosticSkipKey, number> & Record<string, number>;
+
 export type CandidateMetrics = {
   overage: number;
   tableCount: number;
@@ -23,7 +29,16 @@ export type CandidateDiagnostics = {
   singlesConsidered: number;
   combinationsEnumerated: number;
   combinationsAccepted: number;
-  skipped: Record<string, number>;
+  skipped: DiagnosticSkipCounts;
+  limits: {
+    kMax: number;
+    maxPlansPerSlack: number;
+    maxCombinationEvaluations: number;
+  };
+  totals: {
+    enumerated: number;
+    accepted: number;
+  };
 };
 
 export type BuildCandidatesOptions = {
@@ -48,6 +63,13 @@ const FALLBACK_NO_TABLES = "No tables meet the capacity requirements for this pa
 const DEFAULT_MAX_PLANS_PER_SLACK = 50;
 const DEFAULT_MAX_COMBINATION_EVALUATIONS = 500;
 
+function createSkipCounts(): DiagnosticSkipCounts {
+  return DIAGNOSTIC_SKIP_KEYS.reduce((accumulator, key) => {
+    accumulator[key] = 0;
+    return accumulator;
+  }, Object.create(null) as DiagnosticSkipCounts);
+}
+
 function incrementCounter(target: Record<string, number>, key: string, amount = 1): void {
   const current = target[key] ?? 0;
   target[key] = current + amount;
@@ -67,17 +89,26 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
   } = options;
   const { maxOverage, weights } = config;
 
-  const diagnostics: CandidateDiagnostics = {
-    singlesConsidered: 0,
-    combinationsEnumerated: 0,
-    combinationsAccepted: 0,
-    skipped: Object.create(null) as Record<string, number>,
-  };
-
   const maxAllowedCapacity = partySize + Math.max(maxOverage, 0);
   const combinationCap = Math.max(1, Math.min(kMax ?? config.maxTables ?? 1, tables.length || 1));
   const perSlackLimit = Math.max(1, maxPlansPerSlack ?? DEFAULT_MAX_PLANS_PER_SLACK);
   const combinationEvaluationLimit = Math.max(1, maxCombinationEvaluations ?? DEFAULT_MAX_COMBINATION_EVALUATIONS);
+
+  const diagnostics: CandidateDiagnostics = {
+    singlesConsidered: 0,
+    combinationsEnumerated: 0,
+    combinationsAccepted: 0,
+    skipped: createSkipCounts(),
+    limits: {
+      kMax: combinationCap,
+      maxPlansPerSlack: perSlackLimit,
+      maxCombinationEvaluations: combinationEvaluationLimit,
+    },
+    totals: {
+      enumerated: 0,
+      accepted: 0,
+    },
+  };
 
   const validTables: Table[] = [];
   const singleTableCandidates: Table[] = [];
@@ -154,11 +185,8 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
 
   const fallbackReason = plans.length > 0 ? undefined : FALLBACK_NO_TABLES;
 
-  for (const key of ["capacity", "overage", "adjacency", "kmax", "bucket", "limit", "zone"]) {
-    if (diagnostics.skipped[key] === undefined) {
-      diagnostics.skipped[key] = 0;
-    }
-  }
+  diagnostics.totals.enumerated = diagnostics.combinationsEnumerated + diagnostics.singlesConsidered;
+  diagnostics.totals.accepted = plans.length;
 
   return { plans, fallbackReason, diagnostics };
 }
@@ -196,7 +224,7 @@ function computeScore(metrics: CandidateMetrics, weights: SelectorScoringWeights
   );
 }
 
-function comparePlans(a: RankedTablePlan, b: RankedTablePlan, weights: SelectorScoringWeights): number {
+function comparePlans(a: RankedTablePlan, b: RankedTablePlan, _weights: SelectorScoringWeights): number {
   if (a.score !== b.score) {
     return a.score - b.score;
   }
@@ -244,6 +272,14 @@ type CombinationPlannerArgs = {
   requireAdjacency: boolean;
 };
 
+/**
+ * Enumerates multi-table plans honoring adjacency, kMax, zone-locking, and per-slack limits.
+ *
+ * Tables are grouped by slack buckets and trimmed to the configured per-slack cap.
+ * The search short-circuits when either the evaluation limit, zone guard, or
+ * adjacency requirements disqualify further combinations, ensuring consistent
+ * diagnostics for skipped plans.
+ */
 function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePlan[] {
   const {
     candidates,

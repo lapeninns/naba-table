@@ -70,3 +70,23 @@ export function getAllocatorKMax(): number {
   const configured = env.featureFlags.allocator.kMax ?? 3;
   return Math.max(1, Math.min(configured, 5));
 }
+
+export function getAllocatorAdjacencyMinPartySize(): number | null {
+  const value = env.featureFlags.allocator.adjacencyMinPartySize;
+  return typeof value === "number" ? value : null;
+}
+
+export function getSelectorPlannerLimits(): {
+  maxPlansPerSlack?: number;
+  maxCombinationEvaluations?: number;
+} {
+  const { selector } = env.featureFlags;
+  const maxPlansPerSlack =
+    typeof selector?.maxPlansPerSlack === "number" ? selector.maxPlansPerSlack : undefined;
+  const maxCombinationEvaluations =
+    typeof selector?.maxCombinationEvaluations === "number" ? selector.maxCombinationEvaluations : undefined;
+  return {
+    ...(maxPlansPerSlack ? { maxPlansPerSlack } : {}),
+    ...(maxCombinationEvaluations ? { maxCombinationEvaluations } : {}),
+  };
+}

@@ -2,7 +2,9 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { getVenuePolicy, ServiceOverrunError } from "@/server/capacity/policy";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let computeBookingWindow: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, no-restricted-syntax
 let windowsOverlap: any;
 
 vi.stubEnv("BASE_URL", "http://localhost:3000");

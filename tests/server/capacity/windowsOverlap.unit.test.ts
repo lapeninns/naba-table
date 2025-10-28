@@ -1,24 +1,11 @@
-/**
- * Unit Tests: Table Window Conflict Detection
- * 
- * Tests for the core logic that determines if a table is available
- * during a specific time window.
- */
+import { describe, it, expect } from "vitest";
 
-import { describe, it, expect } from 'vitest';
+import { windowsOverlap } from "@/server/capacity/tables";
 
-/**
- * Mock implementation of the window overlap detection logic
- * (extracted from server/capacity/tables.ts)
- */
 type IntervalMs = {
   start: number;
   end: number;
 };
-
-function windowsOverlap(a: IntervalMs, b: IntervalMs): boolean {
-  return a.start < b.end && b.start < a.end;
-}
 
 describe('windowsOverlap', () => {
   it('should detect overlap when windows partially overlap', () => {
@@ -99,6 +86,7 @@ describe('Slot-based table availability (conceptual)', () => {
   it('should allow multiple bookings for the same table on different slots', () => {
     // Conceptual test: verify that the logic supports this scenario
     
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const tableId = 't1';
     const bookings = [
       { slot: 'slot-12:00', tableId: 't1', bookingId: 'b1' },

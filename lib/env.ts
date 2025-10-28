@@ -111,6 +111,18 @@ export const env = {
     const allocatorKMax = Math.max(1, Math.min(parsed.FEATURE_ALLOCATOR_K_MAX ?? 3, 5));
     const allocatorMergesDefault = parsed.FEATURE_ALLOCATOR_MERGES_ENABLED ?? !isProduction;
     const combinationPlannerDefault = parsed.FEATURE_COMBINATION_PLANNER ?? allocatorMergesDefault;
+    const adjacencyMinPartySize =
+      typeof parsed.FEATURE_ALLOCATOR_ADJACENCY_MIN_PARTY_SIZE === "number"
+        ? Math.max(1, Math.min(parsed.FEATURE_ALLOCATOR_ADJACENCY_MIN_PARTY_SIZE, 20))
+        : null;
+    const selectorMaxPlansPerSlack =
+      typeof parsed.FEATURE_SELECTOR_MAX_PLANS_PER_SLACK === "number"
+        ? Math.max(1, Math.min(parsed.FEATURE_SELECTOR_MAX_PLANS_PER_SLACK, 500))
+        : null;
+    const selectorMaxCombinationEvaluations =
+      typeof parsed.FEATURE_SELECTOR_MAX_COMBINATION_EVALUATIONS === "number"
+        ? Math.max(1, Math.min(parsed.FEATURE_SELECTOR_MAX_COMBINATION_EVALUATIONS, 5000))
+        : null;
     return {
       loyaltyPilotRestaurantIds: parsed.LOYALTY_PILOT_RESTAURANT_IDS,
       enableTestApi: parsed.ENABLE_TEST_API ?? false,
@@ -137,6 +149,11 @@ export const env = {
         mergesEnabled: allocatorMergesDefault,
         requireAdjacency: parsed.FEATURE_ALLOCATOR_REQUIRE_ADJACENCY ?? true,
         kMax: allocatorKMax,
+        adjacencyMinPartySize,
+      },
+      selector: {
+        maxPlansPerSlack: selectorMaxPlansPerSlack,
+        maxCombinationEvaluations: selectorMaxCombinationEvaluations,
       },
       holds: {
         enabled: parsed.FEATURE_HOLDS_ENABLED ?? true,

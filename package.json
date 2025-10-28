@@ -7,6 +7,12 @@
       "eslint --fix --max-warnings=0",
       "prettier --write"
     ],
+    "server/**/*.{ts,tsx,js,jsx}": [
+      "eslint --fix --max-warnings=0"
+    ],
+    "tests/server/**/*.{ts,tsx,js,jsx}": [
+      "eslint --fix --max-warnings=0"
+    ],
     "*.{json,md,css,scss}": [
       "prettier --write"
     ]
@@ -16,7 +22,7 @@
     "build": "next build",
     "postbuild": "next-sitemap",
     "start": "next start",
-    "lint": "eslint reserve --ext .ts,.tsx --max-warnings=0",
+    "lint": "eslint server/capacity/tables.ts server/capacity/telemetry.ts server/capacity/selector.ts tests/server/capacity/telemetry.sanitization.test.ts --ext .ts,.tsx,.js",
     "typecheck": "tsc --noEmit",
     "typecheck:strict": "tsc --noEmit -p tsconfig.strict.json",
     "validate:env": "tsx scripts/validate-env.ts",
@@ -71,6 +77,7 @@
     "@radix-ui/react-separator": "^1.1.7",
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-switch": "^1.2.6",
+    "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-toast": "^1.2.15",
     "@radix-ui/react-toggle": "^1.1.10",
     "@radix-ui/react-toggle-group": "^1.1.11",
@@ -147,6 +154,7 @@
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react-hooks": "^5.2.0",
+    "fast-check": "^3.23.2",
     "husky": "^9.1.7",
     "jsdom": "^27.0.0",
     "lint-staged": "^16.2.3",

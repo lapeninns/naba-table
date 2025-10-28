@@ -3,14 +3,15 @@ import { describe, expect, it } from "vitest";
 import { getSelectorScoringConfig } from "@/server/capacity/policy";
 import { buildScoredTablePlans } from "@/server/capacity/selector";
 
-import type { Table } from "@/server/capacity/tables";
-
 import {
   TABLE_IDS,
   createAllocatorLayoutFixture,
   pickTables,
   sliceAdjacency,
 } from "../../fixtures/layout";
+
+import type { Table } from "@/server/capacity/tables";
+
 
 describe("buildScoredTablePlans", () => {
   const config = getSelectorScoringConfig();
@@ -118,6 +119,11 @@ describe("buildScoredTablePlans", () => {
     expect(topPlan?.slack).toBe(1);
     expect(result.diagnostics.combinationsEnumerated).toBeGreaterThan(0);
     expect(result.diagnostics.combinationsAccepted).toBeGreaterThan(0);
+    expect(result.diagnostics.limits).toEqual({
+      kMax: 2,
+      maxPlansPerSlack: 50,
+      maxCombinationEvaluations: 500,
+    });
   });
 
   it("prunes combinations that violate adjacency or kMax", () => {

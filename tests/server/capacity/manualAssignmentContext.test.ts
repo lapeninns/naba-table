@@ -1,6 +1,8 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 let getManualAssignmentContext: typeof import("@/server/capacity/tables")["getManualAssignmentContext"];
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 let featureFlags: typeof import("@/server/feature-flags");
 
 const BOOKING_ID = "booking-1";
@@ -204,6 +206,7 @@ function createSupabaseClient() {
             select() {
               return {
                 in() {
+ 
                   return Promise.resolve({ data: [], error: null });
                 },
               };
@@ -259,6 +262,7 @@ function createSupabaseClient() {
           throw new Error(`Unexpected table ${table}`);
       }
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as unknown as any;
 }
 
@@ -326,6 +330,7 @@ describe('getManualAssignmentContext', () => {
           };
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return (baseClient as any).from(table);
       },
     } as typeof baseClient;

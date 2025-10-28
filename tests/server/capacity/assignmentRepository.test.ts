@@ -42,6 +42,7 @@ describe("SupabaseAssignmentRepository", () => {
   const fakeClient = {
     rpc: vi.fn(async (name: string, payload: RpcPayload) => {
       rpcCalls.push({ name, payload });
+ 
       return { data: [], error: null };
     }),
   };
@@ -65,6 +66,7 @@ describe("SupabaseAssignmentRepository", () => {
       error: null,
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const repository = new SupabaseAssignmentRepository(fakeClient as any);
     const response = await repository.commitAssignment({ ...baseRequest });
 
@@ -88,6 +90,7 @@ describe("SupabaseAssignmentRepository", () => {
       error: { code: "23505", message: "duplicate" },
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const repository = new SupabaseAssignmentRepository(fakeClient as any);
     await expect(repository.commitAssignment({ ...baseRequest })).rejects.toBeInstanceOf(AssignmentConflictError);
   });
@@ -98,6 +101,7 @@ describe("SupabaseAssignmentRepository", () => {
       error: { code: "23514", message: "Tables must be adjacent" },
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const repository = new SupabaseAssignmentRepository(fakeClient as any);
     await expect(repository.commitAssignment({ ...baseRequest })).rejects.toBeInstanceOf(AssignmentValidationError);
   });
@@ -108,6 +112,7 @@ describe("SupabaseAssignmentRepository", () => {
       error: { code: "XX000", message: "unexpected failure" },
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const repository = new SupabaseAssignmentRepository(fakeClient as any);
     await expect(repository.commitAssignment({ ...baseRequest })).rejects.toBeInstanceOf(AssignmentRepositoryError);
   });
@@ -136,6 +141,7 @@ describe("AssignmentOrchestrator", () => {
       mergeGroupId: null,
       shadow: false,
     });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const orchestrator = new AssignmentOrchestrator(mockRepository as any);
     await orchestrator.commitPlan(baseRequest.context, baseRequest.plan, {
       source: "manual",
@@ -153,6 +159,7 @@ describe("AssignmentOrchestrator", () => {
 
   it("wraps unexpected repository errors", async () => {
     mockRepository.commitAssignment.mockRejectedValueOnce(new Error("boom"));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const orchestrator = new AssignmentOrchestrator(mockRepository as any);
     await expect(
       orchestrator.commitPlan(baseRequest.context, baseRequest.plan, {

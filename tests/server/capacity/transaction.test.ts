@@ -24,9 +24,10 @@ vi.mock("@/server/supabase", () => ({
 
 import { createBookingWithCapacityCheck } from "@/server/capacity/transaction";
 
+import { createBookingRecordFixture } from "../../fixtures/bookings";
+
 import type { BookingRecord } from "@/server/capacity/types";
 
-import { createBookingRecordFixture } from "../../fixtures/bookings";
 
 type SupabaseLike = {
   rpc: ReturnType<typeof vi.fn>;
@@ -41,6 +42,7 @@ const baseBooking: BookingRecord = createBookingRecordFixture({
 });
 
 function createSupabaseStub(options: { existing?: BookingRecord | null }): SupabaseLike {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const query: any = {
     select: vi.fn().mockImplementation(() => query),
     eq: vi.fn().mockImplementation(() => query),
@@ -75,6 +77,7 @@ const params = {
   customerName: "Ada Lovelace",
   customerEmail: "ada@example.com",
   customerPhone: "0123456789",
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   seatingPreference: "any" as any,
   notes: null,
   marketingOptIn: false,
@@ -95,6 +98,7 @@ describe("createBookingWithCapacityCheck (fallback)", () => {
     generateUniqueBookingReferenceMock.mockResolvedValueOnce("REF999999");
     insertBookingRecordMock.mockResolvedValueOnce(baseBooking);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await createBookingWithCapacityCheck(params, supabase as unknown as any);
 
     expect(supabase.rpc).toHaveBeenCalledWith(
@@ -129,6 +133,7 @@ describe("createBookingWithCapacityCheck (fallback)", () => {
     generateUniqueBookingReferenceMock.mockResolvedValueOnce("REF999999");
     insertBookingRecordMock.mockResolvedValueOnce(existing);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await createBookingWithCapacityCheck(params, supabase as unknown as any);
 
     expect(result.success).toBe(true);

@@ -6,31 +6,32 @@ import { Mail, Phone, Clock, Users, Calendar as CalendarIcon, AlertTriangle, Awa
 import { useCallback, useEffect, useMemo, useState, type ComponentType } from 'react';
 
 import { BookingActionButton, BookingStatusBadge, StatusTransitionAnimator } from '@/components/features/booking-state-machine';
-import { TableFloorPlan } from '@/components/features/dashboard/TableFloorPlan';
 import {
   ManualAssignmentActions,
   ManualAssignmentSummaryCard,
   ManualAssignmentValidationPanel,
 } from '@/components/features/dashboard/manual-assignment';
+import { TableFloorPlan } from '@/components/features/dashboard/TableFloorPlan';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useBookingState } from '@/contexts/booking-state-machine';
 import { useBookingService } from '@/contexts/ops-services';
 import { useManualAssignmentContext } from '@/hooks/ops/useManualAssignmentContext';
 import { useToast } from '@/hooks/use-toast';
 import { queryKeys } from '@/lib/query/keys';
-import { extractManualHoldValidation, isManualHoldValidationError } from './manualHoldHelpers';
 import { cn } from '@/lib/utils';
 import { formatDateReadable, formatTimeRange, getTodayInTimezone } from '@/lib/utils/datetime';
+
+import { extractManualHoldValidation, isManualHoldValidationError } from './manualHoldHelpers';
 
 import type { BookingAction } from '@/components/features/booking-state-machine';
 import type {
   ManualSelectionPayload,
   ManualHoldPayload,
-  ManualSelectionCheck,
   ManualValidationResult,
 } from '@/services/ops/bookings';
 import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
@@ -113,7 +114,8 @@ type BookingDetailsDialogProps = {
   } | null;
 };
 
-const DEFAULT_DURATION_MINUTES = 90;
+type BookingDetailsTab = 'overview' | 'tables';
+
 const MANUAL_HOLD_TTL_SECONDS = 180;
 
 export function BookingDetailsDialog({
@@ -124,7 +126,7 @@ export function BookingDetailsDialog({
   onMarkNoShow,
   onUndoNoShow,
   pendingLifecycleAction,
-  onAssignTable,
+  onAssignTable: _onAssignTable,
   onUnassignTable,
   tableActionState,
 }: BookingDetailsDialogProps) {
@@ -139,6 +141,7 @@ export function BookingDetailsDialog({
   const [assignments, setAssignments] = useState<OpsTodayBooking['tableAssignments']>(booking.tableAssignments);
   const [localPendingAction, setLocalPendingAction] = useState<BookingAction | null>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [activeTab, setActiveTab] = useState<BookingDetailsTab>('overview');
   const lifecycleAvailability = useMemo(
     () => ({ isToday: getTodayInTimezone(summary.timezone) === summary.date }),
     [summary.date, summary.timezone],
@@ -152,8 +155,6 @@ export function BookingDetailsDialog({
   const bookingState = useBookingState(booking.id);
   const effectiveStatus = bookingState.effectiveStatus ?? booking.status;
   const lifecyclePending = pendingLifecycleAction ?? localPendingAction;
-  const hasCheckedIn = effectiveStatus === 'checked_in' || effectiveStatus === 'completed';
-  const hasCheckedOut = effectiveStatus === 'completed' || Boolean(booking.checkedOutAt);
   const isCancelled = effectiveStatus === 'cancelled';
   const showLifecycleBadges = effectiveStatus !== 'checked_in' && effectiveStatus !== 'completed';
   const bookingService = useBookingService();
@@ -300,6 +301,7 @@ export function BookingDetailsDialog({
       setValidationResult(null);
       setUserModifiedSelection(false);
       setLastHoldKey(null);
+      setActiveTab('overview');
     }
   }, [isOpen]);
 
@@ -559,12 +561,12 @@ export function BookingDetailsDialog({
       const updated = await onUnassignTable(tableId);
       setAssignments(updated);
       await manualContextQuery.refetch();
-    } catch (error) {
+    } catch {
       // Toast handled by mutation hook
     }
   };
 
-  const handleCheckInAction = async () => {
+  const handleCheckInAction = useCallback(async () => {
     if (!onCheckIn) return;
     setLocalPendingAction('check-in');
     try {
@@ -572,9 +574,9 @@ export function BookingDetailsDialog({
     } finally {
       setLocalPendingAction(null);
     }
-  };
+  }, [onCheckIn]);
 
-  const handleCheckOutAction = async () => {
+  const handleCheckOutAction = useCallback(async () => {
     if (!onCheckOut) return;
     setLocalPendingAction('check-out');
     try {
@@ -582,27 +584,33 @@ export function BookingDetailsDialog({
     } finally {
       setLocalPendingAction(null);
     }
-  };
+  }, [onCheckOut]);
 
-  const handleMarkNoShowAction = async (options?: { performedAt?: string | null; reason?: string | null }) => {
-    if (!onMarkNoShow) return;
-    setLocalPendingAction('no-show');
-    try {
-      await onMarkNoShow(options);
-    } finally {
-      setLocalPendingAction(null);
-    }
-  };
+  const handleMarkNoShowAction = useCallback(
+    async (options?: { performedAt?: string | null; reason?: string | null }) => {
+      if (!onMarkNoShow) return;
+      setLocalPendingAction('no-show');
+      try {
+        await onMarkNoShow(options);
+      } finally {
+        setLocalPendingAction(null);
+      }
+    },
+    [onMarkNoShow],
+  );
 
-  const handleUndoNoShowAction = async (reason?: string | null) => {
-    if (!onUndoNoShow) return;
-    setLocalPendingAction('undo-no-show');
-    try {
-      await onUndoNoShow(reason);
-    } finally {
-      setLocalPendingAction(null);
-    }
-  };
+  const handleUndoNoShowAction = useCallback(
+    async (reason?: string | null) => {
+      if (!onUndoNoShow) return;
+      setLocalPendingAction('undo-no-show');
+      try {
+        await onUndoNoShow(reason);
+      } finally {
+        setLocalPendingAction(null);
+      }
+    },
+    [onUndoNoShow],
+  );
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
@@ -680,316 +688,328 @@ export function BookingDetailsDialog({
           </Button>
         </DialogTrigger>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center justify-between gap-3 text-xl font-semibold text-foreground">
-            <span>{booking.customerName}</span>
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusTransitionAnimator
-                status={bookingState.status}
-                effectiveStatus={bookingState.effectiveStatus}
-                isTransitioning={bookingState.isTransitioning}
-                className="inline-flex rounded-full"
-                overlayClassName="inline-flex"
-              >
-                <BookingStatusBadge status={effectiveStatus} />
-              </StatusTransitionAnimator>
-              {showLifecycleBadges && booking.checkedInAt ? (
-                <Badge variant="outline" className="bg-emerald-50 text-emerald-700">
-                  Checked in
-                </Badge>
-              ) : null}
-              {showLifecycleBadges && booking.checkedOutAt ? (
-                <Badge variant="outline" className="bg-slate-100 text-slate-700">
-                  Checked out
-                </Badge>
-              ) : null}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 rounded-full px-3 text-xs font-semibold"
-                onClick={() => setShowShortcuts(true)}
-              >
-                <Keyboard className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                Shortcuts
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 rounded-full px-3 text-xs font-semibold"
-                onClick={handleOpenHistory}
-              >
-                <History className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                View history
-              </Button>
-            </div>
-          </DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
-            {serviceDateReadable} · {serviceTime}
-          </DialogDescription>
-          <div className="mt-4 space-y-3">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Status actions</h3>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <BookingActionButton
-                booking={booking}
-                pendingAction={lifecyclePending}
-                onCheckIn={handleCheckInAction}
-                onCheckOut={handleCheckOutAction}
-                onMarkNoShow={handleMarkNoShowAction}
-                onUndoNoShow={handleUndoNoShowAction}
-                showConfirmation
-                lifecycleAvailability={lifecycleAvailability}
-              />
-            </div>
-          </div>
-        </DialogHeader>
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between gap-3 text-xl font-semibold text-foreground">
+              <span>{booking.customerName}</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusTransitionAnimator
+                  status={bookingState.status}
+                  effectiveStatus={bookingState.effectiveStatus}
+                  isTransitioning={bookingState.isTransitioning}
+                  className="inline-flex rounded-full"
+                  overlayClassName="inline-flex"
+                >
+                  <BookingStatusBadge status={effectiveStatus} />
+                </StatusTransitionAnimator>
+                {showLifecycleBadges && booking.checkedInAt ? (
+                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700">
+                    Checked in
+                  </Badge>
+                ) : null}
+                {showLifecycleBadges && booking.checkedOutAt ? (
+                  <Badge variant="outline" className="bg-slate-100 text-slate-700">
+                    Checked out
+                  </Badge>
+                ) : null}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 rounded-full px-3 text-xs font-semibold"
+                  onClick={() => setShowShortcuts(true)}
+                >
+                  <Keyboard className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                  Shortcuts
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-full px-3 text-xs font-semibold"
+                  onClick={handleOpenHistory}
+                >
+                  <History className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                  View history
+                </Button>
+              </div>
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              {serviceDateReadable} · {serviceTime}
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          <section className="grid gap-3 sm:grid-cols-2">
-            <InfoRow icon={Clock} label="Time" value={serviceTime} />
-            <InfoRow icon={Users} label="Guests" value={`${booking.partySize}`} />
-            <InfoRow icon={CalendarIcon} label="Service date" value={serviceDateReadable} />
-            <InfoRow icon={Mail} label="Email" value={booking.customerEmail ?? 'Not provided'} href={mailHref ?? undefined} />
-            <InfoRow icon={Phone} label="Phone" value={booking.customerPhone ?? 'Not provided'} href={phoneHref ?? undefined} />
-            <InfoRow icon={LogIn} label="Checked in" value={formatLifecycleTimestamp(booking.checkedInAt)} />
-            <InfoRow icon={LogOut} label="Checked out" value={formatLifecycleTimestamp(booking.checkedOutAt)} />
-          </section>
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => setActiveTab(value as BookingDetailsTab)}
+            className="space-y-5 py-4"
+          >
+            <TabsList className="grid w-full grid-cols-2 gap-2">
+              <TabsTrigger value="overview" className="text-sm font-medium">
+                Overview
+              </TabsTrigger>
+              <TabsTrigger value="tables" className="text-sm font-medium">
+                Tables
+              </TabsTrigger>
+            </TabsList>
 
-          {booking.notes ? (
-            <section className="space-y-2">
-              <h3 className="text-sm font-semibold text-foreground">Booking Notes</h3>
-              <p className="rounded-2xl border border-border/60 bg-muted/10 px-4 py-3 text-sm text-foreground">
-                {booking.notes}
-              </p>
-            </section>
-          ) : null}
+            <TabsContent value="overview" className="focus-visible:outline-none">
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader className="space-y-1">
+                    <CardTitle className="text-base">Quick actions</CardTitle>
+                    <CardDescription>Record arrivals or no-shows to keep the team in sync.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <BookingActionButton
+                      booking={booking}
+                      pendingAction={lifecyclePending}
+                      onCheckIn={handleCheckInAction}
+                      onCheckOut={handleCheckOutAction}
+                      onMarkNoShow={handleMarkNoShowAction}
+                      onUndoNoShow={handleUndoNoShowAction}
+                      showConfirmation
+                      lifecycleAvailability={lifecycleAvailability}
+                    />
+                    {isCancelled ? (
+                      <Alert variant="destructive" className="rounded-xl border border-destructive/40">
+                        <AlertTitle>Booking cancelled</AlertTitle>
+                        <AlertDescription>Status changes are disabled for cancelled reservations.</AlertDescription>
+                      </Alert>
+                    ) : null}
+                  </CardContent>
+                </Card>
 
-          {(booking.loyaltyTier || booking.allergies || booking.dietaryRestrictions || booking.seatingPreference || booking.profileNotes || booking.marketingOptIn !== null) ? (
-            <section className="space-y-3">
-              <h3 className="text-sm font-semibold text-foreground">Guest Profile</h3>
-              <div className="space-y-3 rounded-2xl border border-border/60 bg-muted/10 px-4 py-4">
-                {booking.loyaltyTier ? (
-                  <div className="flex items-center gap-3">
-                    <Award className="h-4 w-4 text-muted-foreground" aria-hidden />
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">Loyalty:</span>
-                      <Badge variant="outline" className={cn('text-xs font-semibold', TIER_COLORS[booking.loyaltyTier])}>
-                        {booking.loyaltyTier}
-                      </Badge>
-                      {booking.loyaltyPoints !== null && booking.loyaltyPoints !== undefined ? (
-                        <span className="text-xs text-muted-foreground">({booking.loyaltyPoints} points)</span>
+                <section className="grid gap-3 sm:grid-cols-2">
+                  <InfoRow icon={Clock} label="Time" value={serviceTime} />
+                  <InfoRow icon={Users} label="Guests" value={`${booking.partySize}`} />
+                  <InfoRow icon={CalendarIcon} label="Service date" value={serviceDateReadable} />
+                  <InfoRow icon={Mail} label="Email" value={booking.customerEmail ?? 'Not provided'} href={mailHref ?? undefined} />
+                  <InfoRow icon={Phone} label="Phone" value={booking.customerPhone ?? 'Not provided'} href={phoneHref ?? undefined} />
+                  <InfoRow icon={LogIn} label="Checked in" value={formatLifecycleTimestamp(booking.checkedInAt)} />
+                  <InfoRow icon={LogOut} label="Checked out" value={formatLifecycleTimestamp(booking.checkedOutAt)} />
+                </section>
+
+                {booking.notes ? (
+                  <section className="space-y-2">
+                    <h3 className="text-sm font-semibold text-foreground">Booking notes</h3>
+                    <p className="rounded-2xl border border-border/60 bg-muted/10 px-4 py-3 text-sm text-foreground">
+                      {booking.notes}
+                    </p>
+                  </section>
+                ) : null}
+
+                {(booking.loyaltyTier ||
+                  booking.allergies ||
+                  booking.dietaryRestrictions ||
+                  booking.seatingPreference ||
+                  booking.profileNotes ||
+                  booking.marketingOptIn !== null) ? (
+                  <section className="space-y-3">
+                    <h3 className="text-sm font-semibold text-foreground">Guest profile</h3>
+                    <div className="space-y-3 rounded-2xl border border-border/60 bg-muted/10 px-4 py-4">
+                      {booking.loyaltyTier ? (
+                        <div className="flex items-center gap-3">
+                          <Award className="h-4 w-4 text-muted-foreground" aria-hidden />
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground">Loyalty:</span>
+                            <Badge variant="outline" className={cn('text-xs font-semibold', TIER_COLORS[booking.loyaltyTier])}>
+                              {booking.loyaltyTier}
+                            </Badge>
+                            {booking.loyaltyPoints !== null && booking.loyaltyPoints !== undefined ? (
+                              <span className="text-xs text-muted-foreground">({booking.loyaltyPoints} points)</span>
+                            ) : null}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {booking.allergies && booking.allergies.length > 0 ? (
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle className="mt-0.5 h-4 w-4 text-orange-600" aria-hidden />
+                          <div className="flex-1">
+                            <span className="text-sm font-medium text-orange-600">Allergies:</span>
+                            <div className="mt-1 flex flex-wrap gap-2">
+                              {booking.allergies.map((allergy, idx) => (
+                                <Badge key={idx} variant="outline" className="border-orange-600 text-orange-600">
+                                  {allergy}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {booking.dietaryRestrictions && booking.dietaryRestrictions.length > 0 ? (
+                        <div className="flex items-start gap-3">
+                          <Users className="mt-0.5 h-4 w-4 text-muted-foreground" aria-hidden />
+                          <div className="flex-1">
+                            <span className="text-sm text-muted-foreground">Dietary restrictions:</span>
+                            <div className="mt-1 flex flex-wrap gap-2">
+                              {booking.dietaryRestrictions.map((restriction, idx) => (
+                                <Badge key={idx} variant="secondary">
+                                  {restriction}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {booking.seatingPreference ? (
+                        <div className="flex items-center gap-3">
+                          <CalendarIcon className="h-4 w-4 text-muted-foreground" aria-hidden />
+                          <div>
+                            <span className="text-sm text-muted-foreground">Seating preference:</span>
+                            <span className="ml-2 text-sm text-foreground">{booking.seatingPreference}</span>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {booking.marketingOptIn !== null && booking.marketingOptIn !== undefined ? (
+                        <div className="flex items-center gap-3">
+                          {booking.marketingOptIn ? (
+                            <CheckCircle2 className="h-4 w-4 text-green-600" aria-hidden />
+                          ) : (
+                            <XCircle className="h-4 w-4 text-muted-foreground" aria-hidden />
+                          )}
+                          <span className="text-sm text-muted-foreground">
+                            Marketing: {booking.marketingOptIn ? 'Opted in' : 'Opted out'}
+                          </span>
+                        </div>
+                      ) : null}
+
+                      {booking.profileNotes ? (
+                        <div className="space-y-1">
+                          <span className="text-sm font-medium text-foreground">Profile notes:</span>
+                          <p className="text-sm text-muted-foreground">{booking.profileNotes}</p>
+                        </div>
                       ) : null}
                     </div>
-                  </div>
+                  </section>
                 ) : null}
+              </div>
+            </TabsContent>
 
-                {booking.allergies && booking.allergies.length > 0 ? (
-                  <div className="flex items-start gap-3">
-                    <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5" aria-hidden />
-                    <div className="flex-1">
-                      <span className="text-sm font-medium text-orange-600">Allergies:</span>
-                      <div className="mt-1 flex flex-wrap gap-2">
-                        {booking.allergies.map((allergy, idx) => (
-                          <Badge key={idx} variant="outline" className="border-orange-600 text-orange-600">
-                            {allergy}
-                          </Badge>
-                        ))}
+            <TabsContent value="tables" className="focus-visible:outline-none">
+              <div className="space-y-6">
+                {supportsTableAssignment ? (
+                  <section className="space-y-6 rounded-2xl border border-border/60 bg-muted/10 px-4 py-5">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <h3 className="text-sm font-semibold text-foreground">Manual assignment</h3>
+                        <p className="text-xs text-muted-foreground">
+                          Choose tables on the floor plan, review checks, then confirm to lock them in.
+                        </p>
                       </div>
                     </div>
-                  </div>
-                ) : null}
 
-                {booking.dietaryRestrictions && booking.dietaryRestrictions.length > 0 ? (
-                  <div className="flex items-start gap-3">
-                    <Users className="h-4 w-4 text-muted-foreground mt-0.5" aria-hidden />
-                    <div className="flex-1">
-                      <span className="text-sm text-muted-foreground">Dietary Restrictions:</span>
-                      <div className="mt-1 flex flex-wrap gap-2">
-                        {booking.dietaryRestrictions.map((restriction, idx) => (
-                          <Badge key={idx} variant="secondary">
-                            {restriction}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-
-                {booking.seatingPreference ? (
-                  <div className="flex items-center gap-3">
-                    <CalendarIcon className="h-4 w-4 text-muted-foreground" aria-hidden />
-                    <div>
-                      <span className="text-sm text-muted-foreground">Seating Preference:</span>
-                      <span className="ml-2 text-sm text-foreground">{booking.seatingPreference}</span>
-                    </div>
-                  </div>
-                ) : null}
-
-                {booking.marketingOptIn !== null && booking.marketingOptIn !== undefined ? (
-                  <div className="flex items-center gap-3">
-                    {booking.marketingOptIn ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-600" aria-hidden />
+                    {manualContextIsError ? (
+                      <Alert variant="destructive" className="rounded-xl border border-destructive/40 bg-destructive/10">
+                        <AlertTitle>Unable to load manual assignment</AlertTitle>
+                        <AlertDescription>{manualContextErrorMessage}</AlertDescription>
+                      </Alert>
                     ) : (
-                      <XCircle className="h-4 w-4 text-muted-foreground" aria-hidden />
-                    )}
-                    <span className="text-sm text-muted-foreground">
-                      Marketing: {booking.marketingOptIn ? 'Opted in' : 'Opted out'}
-                    </span>
-                  </div>
-                ) : null}
-
-                {booking.profileNotes ? (
-                  <div className="space-y-1">
-                    <span className="text-sm font-medium text-foreground">Profile Notes:</span>
-                    <p className="text-sm text-muted-foreground">{booking.profileNotes}</p>
-                  </div>
-                ) : null}
-              </div>
-            </section>
-          ) : null}
-
-          {supportsTableAssignment ? (
-            <section className="space-y-6 rounded-2xl border border-border/60 bg-muted/10 px-4 py-5">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-foreground">Manual assignment</h3>
-                  <p className="text-xs text-muted-foreground">
-                    Choose tables on the floor plan, review checks, then confirm to lock them in.
-                  </p>
-                </div>
-              </div>
-
-              {manualContextIsError ? (
-                <Alert variant="destructive" className="rounded-xl border border-destructive/40 bg-destructive/10">
-                  <AlertTitle>Unable to load manual assignment</AlertTitle>
-                  <AlertDescription>{manualContextErrorMessage}</AlertDescription>
-                </Alert>
-              ) : (
-                <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr),minmax(0,1fr)]">
-                  <div className="relative space-y-3">
-                    <TableFloorPlan
-                      bookingId={booking.id}
-                      tables={manualContext?.tables ?? []}
-                      holds={manualContext?.holds ?? []}
-                      conflicts={manualContext?.conflicts ?? []}
-                      bookingAssignments={manualContext?.bookingAssignments ?? []}
-                      selectedTableIds={selectedTables}
-                      onToggle={handleToggleTable}
-                      disabled={selectionDisabled}
-                    />
-                    {manualContextLoading || manualContextFetching ? (
-                      <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-background/70 backdrop-blur-sm">
-                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
-                      </div>
-                    ) : null}
-                  </div>
-                  <div className="space-y-4">
-                    <ManualAssignmentSummaryCard
-                      summary={selectionSummary}
-                      slackLabel={slackLabel}
-                      partySize={selectionPartySize}
-                      tableNumbers={selectedTableNumbers}
-                      requireAdjacency={requireAdjacency}
-                      onAdjacencyChange={setRequireAdjacency}
-                      isLoading={manualContextLoading && !manualContext}
-                      activeHold={activeHold}
-                      holdCountdownLabel={holdCountdownLabel}
-                      otherHolds={otherHolds}
-                    />
-                    <ManualAssignmentValidationPanel
-                      checks={validationChecks}
-                      lastValidatedAt={lastValidatedAt}
-                      isPending={holdMutation.isPending || validateMutation.isPending}
-                      hasSelection={hasSelection}
-                    />
-                    <ManualAssignmentActions
-                      onValidate={handleValidateSelection}
-                      onConfirm={handleConfirmSelection}
-                      onClear={handleClearSelection}
-                      disableValidate={validateDisabled}
-                      disableConfirm={confirmDisabled}
-                      disableClear={clearDisabled}
-                      validating={holdMutation.isPending || validateMutation.isPending}
-                      confirming={confirmMutation.isPending}
-                      confirmDisabledReason={confirmDisabledReason}
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-foreground">Assigned tables</h4>
-                {normalizedAssignments.length > 0 ? (
-                  normalizedAssignments.map((assignment) => {
-                    const isUnassigning =
-                      tableActionState?.type === 'unassign' && tableActionState?.tableId === assignment.tableId;
-                    const capacityLabel =
-                      assignment.capacity && assignment.capacity > 0
-                        ? `${assignment.capacity} seat${assignment.capacity === 1 ? '' : 's'}`
-                        : null;
-                    const meta = [capacityLabel, assignment.section ? `Section ${assignment.section}` : null]
-                      .filter(Boolean)
-                      .join(' · ');
-
-                    return (
-                      <div
-                        key={assignment.tableId}
-                        className="flex items-center justify-between rounded-xl border border-border/60 bg-white px-3 py-2"
-                      >
-                        <div className="flex flex-col">
-                          <span className="text-sm font-semibold text-foreground">Table {assignment.tableNumber}</span>
-                          {meta ? <span className="text-xs text-muted-foreground">{meta}</span> : null}
+                      <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr),minmax(0,1fr)]">
+                        <div className="relative space-y-3">
+                          <TableFloorPlan
+                            bookingId={booking.id}
+                            tables={manualContext?.tables ?? []}
+                            holds={manualContext?.holds ?? []}
+                            conflicts={manualContext?.conflicts ?? []}
+                            bookingAssignments={manualContext?.bookingAssignments ?? []}
+                            selectedTableIds={selectedTables}
+                            onToggle={handleToggleTable}
+                            disabled={selectionDisabled}
+                          />
+                          {manualContextLoading || manualContextFetching ? (
+                            <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-background/70 backdrop-blur-sm">
+                              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
+                            </div>
+                          ) : null}
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8"
-                          onClick={() => handleUnassignTable(assignment.tableId)}
-                          disabled={isUnassigning || confirmMutation.isPending}
-                        >
-                          {isUnassigning ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-                              Removing…
-                            </>
-                          ) : (
-                            'Remove'
-                          )}
-                        </Button>
+                        <div className="space-y-4">
+                          <ManualAssignmentSummaryCard
+                            summary={selectionSummary}
+                            slackLabel={slackLabel}
+                            partySize={selectionPartySize}
+                            tableNumbers={selectedTableNumbers}
+                            requireAdjacency={requireAdjacency}
+                            onAdjacencyChange={setRequireAdjacency}
+                            isLoading={manualContextLoading && !manualContext}
+                            activeHold={activeHold}
+                            holdCountdownLabel={holdCountdownLabel}
+                            otherHolds={otherHolds}
+                          />
+                          <ManualAssignmentValidationPanel
+                            checks={validationChecks}
+                            lastValidatedAt={lastValidatedAt}
+                            isPending={holdMutation.isPending || validateMutation.isPending}
+                            hasSelection={hasSelection}
+                          />
+                          <ManualAssignmentActions
+                            onValidate={handleValidateSelection}
+                            onConfirm={handleConfirmSelection}
+                            onClear={handleClearSelection}
+                            disableValidate={validateDisabled}
+                            disableConfirm={confirmDisabled}
+                            disableClear={clearDisabled}
+                            validating={holdMutation.isPending || validateMutation.isPending}
+                            confirming={confirmMutation.isPending}
+                            confirmDisabledReason={confirmDisabledReason}
+                          />
+                        </div>
                       </div>
-                    );
-                  })
-                ) : (
-                  <p className="text-sm text-muted-foreground">No tables assigned yet.</p>
-                )}
+                    )}
+
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold text-foreground">Assigned tables</h4>
+                      {normalizedAssignments.length > 0 ? (
+                        normalizedAssignments.map((assignment) => {
+                          const isUnassigning =
+                            tableActionState?.type === 'unassign' && tableActionState?.tableId === assignment.tableId;
+                          const capacityLabel =
+                            assignment.capacity && assignment.capacity > 0
+                              ? `${assignment.capacity} seat${assignment.capacity === 1 ? '' : 's'}`
+                              : null;
+                          const meta = [capacityLabel, assignment.section ? `Section ${assignment.section}` : null]
+                            .filter(Boolean)
+                            .join(' · ');
+
+                          return (
+                            <div
+                              key={assignment.tableId}
+                              className="flex items-center justify-between rounded-xl border border-border/60 bg-white px-3 py-2"
+                            >
+                              <div className="flex flex-col">
+                                <span className="text-sm font-semibold text-foreground">Table {assignment.tableNumber}</span>
+                                {meta ? <span className="text-xs text-muted-foreground">{meta}</span> : null}
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8"
+                                onClick={() => handleUnassignTable(assignment.tableId)}
+                                disabled={isUnassigning || confirmMutation.isPending}
+                              >
+                                {isUnassigning ? (
+                                  <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                                    Removing…
+                                  </>
+                                ) : (
+                                  'Remove'
+                                )}
+                              </Button>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No tables assigned yet.</p>
+                      )}
+                    </div>
+                  </section>
+                ) : null}
               </div>
-            </section>
-          ) : null}
-
-          <aside className="space-y-3 rounded-2xl border border-border/60 bg-muted/10 px-4 py-4">
-            <h3 className="text-sm font-semibold text-foreground">Status actions</h3>
-            <p className="text-xs text-muted-foreground">
-              Keep the team in sync by recording shows and no-shows as service progresses.
-            </p>
-            <BookingActionButton
-              booking={booking}
-              pendingAction={lifecyclePending}
-              onCheckIn={handleCheckInAction}
-              onCheckOut={handleCheckOutAction}
-              onMarkNoShow={handleMarkNoShowAction}
-              onUndoNoShow={handleUndoNoShowAction}
-              showConfirmation
-              lifecycleAvailability={lifecycleAvailability}
-            />
-
-            {isCancelled ? (
-              <p className="flex items-center gap-2 rounded-md border border-dashed border-border/80 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                <AlertTriangle className="h-4 w-4" aria-hidden />
-                This booking has been cancelled. Status changes are disabled.
-              </p>
-            ) : null}
-          </aside>
-        </div>
-      </DialogContent>
+            </TabsContent>
+          </Tabs>
+        </DialogContent>
       </Dialog>
       <Dialog
         open={isHistoryOpen}

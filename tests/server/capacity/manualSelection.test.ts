@@ -1,5 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { TableHold } from "@/server/capacity/holds";
 import type { ManualSelectionOptions, ManualHoldOptions } from "@/server/capacity/tables";
 
 const BASE_BOOKING = {
@@ -56,9 +57,17 @@ type ManualSupabaseFixture = {
   tableHoldMembers?: Record<string, unknown>[];
 };
 
-let evaluateManualSelection: typeof import("@/server/capacity/tables")['evaluateManualSelection'];
-let createManualHold: typeof import("@/server/capacity/tables")['createManualHold'];
-let holdsModule: typeof import("@/server/capacity/holds");
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+type TablesModule = typeof import("@/server/capacity/tables");
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+type HoldsModule = typeof import("@/server/capacity/holds");
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+type FeatureFlagsModule = typeof import("@/server/feature-flags");
+
+let evaluateManualSelection: TablesModule['evaluateManualSelection'];
+let createManualHold: TablesModule['createManualHold'];
+let holdsModule: HoldsModule;
+let featureFlagsModule: FeatureFlagsModule;
 
 beforeAll(async () => {
   process.env.BASE_URL = 'http://localhost:3000';
@@ -66,8 +75,9 @@ beforeAll(async () => {
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-key';
 
-  ({ evaluateManualSelection, createManualHold } = await import("@/server/capacity/tables"));
-  holdsModule = await import("@/server/capacity/holds");
+  ({ evaluateManualSelection, createManualHold } = (await import("@/server/capacity/tables")) as TablesModule);
+  holdsModule = (await import("@/server/capacity/holds")) as HoldsModule;
+  featureFlagsModule = (await import("@/server/feature-flags")) as FeatureFlagsModule;
 });
 
 function createMockSupabaseClient(fixtures: ManualSupabaseFixture) {
@@ -111,6 +121,9 @@ function createMockSupabaseClient(fixtures: ManualSupabaseFixture) {
                 eq() {
                   return {
                     order() {
+                      return Promise.resolve({ data: fixtures.tables ?? [TABLE_A], error: null });
+                    },
+                    in() {
                       return Promise.resolve({ data: fixtures.tables ?? [TABLE_A], error: null });
                     },
                   };
@@ -161,6 +174,7 @@ function createMockSupabaseClient(fixtures: ManualSupabaseFixture) {
                 },
               };
             },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             insert(payload: any) {
               const record = Array.isArray(payload) ? { ...payload[0] } : { ...payload };
               if (!record.id) {
@@ -180,6 +194,7 @@ function createMockSupabaseClient(fixtures: ManualSupabaseFixture) {
         case "table_hold_members": {
           const members = fixtures.tableHoldMembers ?? [];
           return {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             insert(payload: any) {
               const rows = Array.isArray(payload) ? payload : [payload];
               for (const row of rows) {
@@ -193,6 +208,7 @@ function createMockSupabaseClient(fixtures: ManualSupabaseFixture) {
           throw new Error(`Unexpected table ${table}`);
       }
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as unknown as any;
 }
 
@@ -310,6 +326,64 @@ describe("createManualHold", () => {
     expect(first.hold || second.hold).not.toBeNull();
     expect(first.validation.ok || second.validation.ok).toBe(true);
     expect(first.validation.ok && second.validation.ok).toBe(false);
+  });
+
+  it("releases the previous hold only after the replacement succeeds", async () => {
+    const client = createMockSupabaseClient({
+      booking: BASE_BOOKING,
+      tables: [TABLE_A],
+      contextBookings: [],
+      adjacency: [],
+    });
+
+    const existingHoldId = "hold-existing";
+
+    vi.spyOn(holdsModule, "listActiveHoldsForBooking").mockResolvedValue([]);
+    vi.spyOn(holdsModule, "findHoldConflicts").mockImplementation(async ({ excludeHoldId }) => {
+      if (excludeHoldId === existingHoldId) {
+        return [];
+      }
+      return [
+        {
+          holdId: existingHoldId,
+          bookingId: BASE_BOOKING.id,
+          tableIds: [TABLE_A.id],
+          startAt: "2025-01-01T18:00:00.000Z",
+          endAt: "2025-01-01T20:00:00.000Z",
+          expiresAt: "2025-01-01T18:03:00.000Z",
+        },
+      ];
+    });
+
+    const holdRecord: TableHold = {
+      id: "hold-new",
+      bookingId: BASE_BOOKING.id,
+      restaurantId: BASE_BOOKING.restaurant_id,
+      zoneId: TABLE_A.zone_id,
+      startAt: "2025-01-01T18:00:00.000Z",
+      endAt: "2025-01-01T20:00:00.000Z",
+      expiresAt: "2025-01-01T18:03:00.000Z",
+      tableIds: [TABLE_A.id],
+      createdBy: "user-1",
+      metadata: null,
+    };
+
+    const createSpy = vi.spyOn(holdsModule, "createTableHold").mockResolvedValue(holdRecord);
+    const releaseSpy = vi.spyOn(holdsModule, "releaseTableHold").mockResolvedValue();
+
+    const result = await createManualHold({
+      bookingId: BASE_BOOKING.id,
+      tableIds: [TABLE_A.id],
+      createdBy: "user-1",
+      excludeHoldId: existingHoldId,
+      client,
+    } satisfies ManualHoldOptions);
+
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    expect(releaseSpy).toHaveBeenCalledTimes(1);
+    expect(result.hold?.id).toBe("hold-new");
+    expect(result.validation.ok).toBe(true);
+    expect(createSpy.mock.invocationCallOrder[0]).toBeLessThan(releaseSpy.mock.invocationCallOrder[0]);
   });
 
   it("detects conflicts when existing assignments carry precise windows", async () => {
@@ -433,6 +507,30 @@ describe("evaluateManualSelection", () => {
     const adjacencyCheck = result.checks.find((check) => check.id === "adjacency");
     expect(adjacencyCheck?.status).toBe("error");
     expect(result.ok).toBe(false);
+  });
+
+  it("skips adjacency enforcement when party size is below the configured threshold", async () => {
+    const movableTable = { ...TABLE_A, id: "table-b", table_number: "T2" };
+    const client = createMockSupabaseClient({
+      booking: { ...BASE_BOOKING, party_size: 4 },
+      tables: [TABLE_A, movableTable],
+      contextBookings: [],
+      adjacency: [],
+    });
+
+    vi.spyOn(featureFlagsModule, "getAllocatorAdjacencyMinPartySize").mockReturnValue(6);
+    vi.spyOn(featureFlagsModule, "isAllocatorAdjacencyRequired").mockReturnValue(true);
+    vi.spyOn(holdsModule, "findHoldConflicts").mockResolvedValue([]);
+
+    const result = await evaluateManualSelection({
+      bookingId: BASE_BOOKING.id,
+      tableIds: [TABLE_A.id, movableTable.id],
+      client,
+    } satisfies ManualSelectionOptions);
+
+    const adjacencyCheck = result.checks.find((check) => check.id === "adjacency");
+    expect(adjacencyCheck?.status).toBe("ok");
+    expect(result.ok).toBe(true);
   });
 
   it("treats adjacency edges as undirected", async () => {

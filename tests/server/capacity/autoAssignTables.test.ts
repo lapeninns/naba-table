@@ -1,7 +1,8 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Tables } from '@/types/supabase';
 import * as featureFlags from '@/server/feature-flags';
+
+import type { Tables } from '@/types/supabase';
 
 process.env.BASE_URL = 'http://localhost:3000';
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co';
@@ -15,6 +16,7 @@ process.env.RESEND_API_KEY = 'test-resend-key';
 const emitSelectorDecision = vi.fn();
 
 vi.mock('@/server/capacity/telemetry', async () => {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
   const actual = await vi.importActual<typeof import('@/server/capacity/telemetry')>('@/server/capacity/telemetry');
   return {
     ...actual,
@@ -22,12 +24,14 @@ vi.mock('@/server/capacity/telemetry', async () => {
   };
 });
 
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 let autoAssignTablesForDate: typeof import('@/server/capacity')['autoAssignTablesForDate'];
 
 beforeAll(async () => {
   ({ autoAssignTablesForDate } = await import('@/server/capacity'));
 });
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 let allocatorFlagSpy: vi.SpyInstance<boolean, []>;
 
 beforeEach(() => {
@@ -141,6 +145,7 @@ function createMockSupabaseClient(options: MockClientOptions) {
             return {
               in(column: string, ids: string[]) {
                 if (column !== 'table_a') {
+ 
                   return Promise.resolve({ data: [], error: null });
                 }
                 const data = adjacencyRows.filter((row) => ids.includes(row.table_a));
@@ -165,12 +170,15 @@ function createMockSupabaseClient(options: MockClientOptions) {
           lt() {
             return builder;
           },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           then(onFulfilled: any, onRejected?: any) {
             return Promise.resolve({ data: holdsRows, error: null }).then(onFulfilled, onRejected);
           },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           catch(onRejected: any) {
             return Promise.resolve({ data: holdsRows, error: null }).catch(onRejected);
           },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           finally(onFinally: any) {
             return Promise.resolve({ data: holdsRows, error: null }).finally(onFinally);
           },

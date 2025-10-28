@@ -10,12 +10,14 @@ vi.mock("@/server/feature-flags", () => ({
   isCombinationPlannerEnabled: isCombinationPlannerEnabledMock,
   isOpsMetricsEnabled: () => true,
   isAllocatorAdjacencyRequired: () => true,
+  getAllocatorAdjacencyMinPartySize: () => null,
   getAllocatorKMax: () => 3,
+  getSelectorPlannerLimits: () => ({}),
   isHoldsEnabled: () => false,
 }));
 
 vi.mock("@/server/capacity/holds", async () => {
-  const actual = await vi.importActual<typeof import("@/server/capacity/holds")>("@/server/capacity/holds");
+  const actual = await vi.importActual("@/server/capacity/holds");
   return {
     ...actual,
     createTableHold: vi.fn(),
@@ -24,6 +26,7 @@ vi.mock("@/server/capacity/holds", async () => {
 });
 
 const holdsModule = await import("@/server/capacity/holds");
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const featureFlags = await import("@/server/feature-flags");
 const telemetry = await import("@/server/capacity/telemetry");
 const tablesModule = await import("@/server/capacity/tables");
@@ -35,10 +38,12 @@ const createTableHoldMock = createTableHold as unknown as ReturnType<typeof vi.f
 const findHoldConflictsMock = findHoldConflicts as unknown as ReturnType<typeof vi.fn>;
 
 let emitSelectorQuoteSpy: ReturnType<typeof vi.spyOn>;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 let emitHoldCreatedSpy: ReturnType<typeof vi.spyOn>;
 let emitRpcConflictSpy: ReturnType<typeof vi.spyOn>;
 
 function createStubClient() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const responses: Record<string, { list?: any[]; single?: any }> = {
     bookings: {
       single: {
@@ -156,9 +161,11 @@ function createStubClient() {
         maybeSingle() {
           return Promise.resolve({ data: dataset.single ?? null, error: null });
         },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any;
       return builder;
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any;
 }
 

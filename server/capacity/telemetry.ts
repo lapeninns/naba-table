@@ -1,8 +1,69 @@
 import { recordObservabilityEvent } from "@/server/observability";
 
 import type { CandidateDiagnostics } from "./selector";
-
 import type { Json } from "@/types/supabase";
+
+const EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+
+const SENSITIVE_NAME_KEYS = new Set([
+  "name",
+  "guestName",
+  "guest_name",
+  "customerName",
+  "customer_name",
+  "primaryGuestName",
+  "primary_guest_name",
+  "createdByName",
+  "created_by_name",
+  "assignedToName",
+  "assigned_to_name",
+]);
+
+function redactEmails(value: string): string {
+  if (!value) {
+    return value;
+  }
+  return value.replace(EMAIL_PATTERN, "[redacted-email]");
+}
+
+function sanitizeTelemetryValue(value: unknown, key?: string): Json {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value === "string") {
+    if (key && SENSITIVE_NAME_KEYS.has(key)) {
+      return "[redacted]";
+    }
+    return redactEmails(value) as Json;
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeTelemetryValue(item)) as Json[];
+  }
+
+  if (typeof value === "object") {
+    const result: Record<string, Json> = {};
+    for (const [entryKey, entryValue] of Object.entries(value as Record<string, unknown>)) {
+      if (SENSITIVE_NAME_KEYS.has(entryKey)) {
+        result[entryKey] = "[redacted]";
+        continue;
+      }
+      result[entryKey] = sanitizeTelemetryValue(entryValue, entryKey);
+    }
+    return result;
+  }
+
+  return null;
+}
+
+function sanitizeTelemetryContext<T extends Json>(input: T): T {
+  return sanitizeTelemetryValue(input) as T;
+}
 
 export type CandidateSummary = {
   tableIds: string[];
@@ -27,6 +88,23 @@ export type SelectorDecisionEvent = {
     selectorScoring: boolean;
     opsMetrics: boolean;
   };
+  timing?: {
+    totalMs: number;
+    plannerMs?: number;
+    assignmentMs?: number;
+    holdMs?: number;
+  };
+  plannerConfig?: {
+    combinationEnabled: boolean;
+    requireAdjacency: boolean;
+    adjacencyRequiredGlobally: boolean;
+    adjacencyMinPartySize: number | null;
+    kMax: number;
+    bucketLimit: number;
+    evaluationLimit: number;
+    maxOverage: number;
+    maxTables: number;
+  };
   diagnostics?: CandidateDiagnostics;
 };
 
@@ -44,11 +122,15 @@ export async function emitSelectorDecision(event: SelectorDecisionEvent): Promis
     skipReason: event.skipReason ?? null,
     durationMs: event.durationMs,
     featureFlags: event.featureFlags,
+    timing: event.timing ?? null,
+    plannerConfig: event.plannerConfig ?? null,
     diagnostics: event.diagnostics ?? null,
   };
 
+  const sanitizedPayload = sanitizeTelemetryContext(logPayload);
+
   try {
-    console.log(JSON.stringify(logPayload));
+    console.log(JSON.stringify(sanitizedPayload));
   } catch (error) {
     console.error("[capacity.selector] failed to serialize log payload", {
       error,
@@ -62,7 +144,7 @@ export async function emitSelectorDecision(event: SelectorDecisionEvent): Promis
       source: "capacity.selector",
       eventType: event.selected ? "capacity.selector.assignment" : "capacity.selector.skipped",
       severity: event.skipReason ? "warning" : "info",
-      context: logPayload,
+      context: sanitizedPayload,
       restaurantId: event.restaurantId,
       bookingId: event.bookingId,
     });
@@ -86,12 +168,14 @@ export async function emitSelectorQuote(event: SelectorQuoteEvent): Promise<void
     type: "capacity.selector.quote",
   };
 
+  const sanitizedPayload = sanitizeTelemetryContext(payload as Json);
+
   try {
     await recordObservabilityEvent({
       source: "capacity.selector",
       eventType: "capacity.selector.quote",
       severity: event.skipReason ? "warning" : "info",
-      context: payload,
+      context: sanitizedPayload,
       restaurantId: event.restaurantId,
       bookingId: event.bookingId,
     });
@@ -119,12 +203,13 @@ export type HoldTelemetryEvent = {
 };
 
 async function emitHoldEvent(eventType: string, payload: HoldTelemetryEvent): Promise<void> {
+  const sanitizedPayload = sanitizeTelemetryContext(payload as Json);
   try {
     await recordObservabilityEvent({
       source: "capacity.hold",
       eventType,
       severity: eventType.endsWith("expired") ? "warning" : "info",
-      context: payload,
+      context: sanitizedPayload,
       restaurantId: payload.restaurantId,
       bookingId: payload.bookingId ?? undefined,
     });
@@ -165,12 +250,13 @@ export type RpcConflictEvent = {
 };
 
 export async function emitRpcConflict(event: RpcConflictEvent): Promise<void> {
+  const sanitizedPayload = sanitizeTelemetryContext(event as Json);
   try {
     await recordObservabilityEvent({
       source: "capacity.rpc",
       eventType: "capacity.rpc.conflict",
       severity: "warning",
-      context: event,
+      context: sanitizedPayload,
       restaurantId: event.restaurantId,
       bookingId: event.bookingId,
     });

@@ -4,13 +4,16 @@ process.env.NEXT_PUBLIC_SITE_URL = "http://localhost:3000";
 import { describe, expect, it, vi } from "vitest";
 
 import { getVenuePolicy } from "@/server/capacity/policy";
+
 import type { Table } from "@/server/capacity/tables";
 
 vi.mock("@/server/feature-flags", () => ({
   isSelectorScoringEnabled: () => false,
   isOpsMetricsEnabled: () => false,
   isAllocatorAdjacencyRequired: () => true,
+  getAllocatorAdjacencyMinPartySize: () => null,
   getAllocatorKMax: () => 3,
+  getSelectorPlannerLimits: () => ({}),
   isHoldsEnabled: () => false,
   isCombinationPlannerEnabled: () => false,
 }));

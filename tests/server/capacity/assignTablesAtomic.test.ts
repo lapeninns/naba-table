@@ -9,8 +9,11 @@ process.env.FEATURE_ALLOCATOR_V2_ENABLED = 'true';
 import { AssignTablesRpcError } from '@/server/capacity/holds';
 import * as featureFlags from '@/server/feature-flags';
 
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 type AssignTableFn = typeof import('@/server/capacity/tables')['assignTableToBooking'];
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 type UnassignTableFn = typeof import('@/server/capacity/tables')['unassignTableFromBooking'];
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 type TablesInternal = typeof import('@/server/capacity/tables')['__internal'];
 
 type UpdateCall<TPayload> = {
@@ -148,7 +151,9 @@ describe('assignTableToBooking (allocator orchestrator)', () => {
       startTime: '18:00',
       partySize: 2,
     });
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const expectedStart = window.block.start.toUTC().toISO({ suppressMilliseconds: true })!;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const expectedEnd = window.block.end.toUTC().toISO({ suppressMilliseconds: true })!;
 
     const result = await assignTableToBooking('booking-1', 'table-1', 'user-1', client, {

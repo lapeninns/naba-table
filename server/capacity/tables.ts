@@ -1,28 +1,21 @@
-import { randomUUID } from "node:crypto";
-
 import { DateTime } from "luxon";
+import { randomUUID } from "node:crypto";
+import { performance } from "node:perf_hooks";
 
 import {
-  bandDuration,
-  getBufferConfig,
-  getSelectorScoringConfig,
-  getVenuePolicy,
-  serviceEnd,
-  whichService,
-  type ServiceKey,
-  type VenuePolicy,
-  ServiceNotFoundError,
-  ServiceOverrunError,
-} from "./policy";
-import { buildScoredTablePlans, type RankedTablePlan } from "./selector";
-import {
-  emitHoldConfirmed,
-  emitRpcConflict,
-  emitSelectorDecision,
-  emitSelectorQuote,
-  summarizeCandidate,
-  type CandidateSummary,
-} from "./telemetry";
+  getAllocatorAdjacencyMinPartySize,
+  getAllocatorKMax as getAllocatorCombinationLimit,
+  getSelectorPlannerLimits,
+  isAllocatorAdjacencyRequired,
+  isAllocatorMergesEnabled,
+  isAllocatorV2Enabled,
+  isCombinationPlannerEnabled,
+  isHoldsEnabled,
+  isOpsMetricsEnabled,
+  isSelectorScoringEnabled,
+} from "@/server/feature-flags";
+import { getServiceSupabaseClient } from "@/server/supabase";
+
 import {
   AssignTablesRpcError,
   HoldConflictError,
@@ -36,19 +29,29 @@ import {
   type TableHold,
 } from "./holds";
 import { createAvailabilityBitset, markWindow, isWindowFree } from "./planner/bitset";
-
 import {
-  getAllocatorKMax,
-  getAllocatorKMax as getAllocatorCombinationLimit,
-  isAllocatorAdjacencyRequired,
-  isAllocatorMergesEnabled,
-  isAllocatorV2Enabled,
-  isCombinationPlannerEnabled,
-  isHoldsEnabled,
-  isOpsMetricsEnabled,
-  isSelectorScoringEnabled,
-} from "@/server/feature-flags";
-import { getServiceSupabaseClient } from "@/server/supabase";
+  bandDuration,
+  getBufferConfig,
+  getSelectorScoringConfig,
+  getVenuePolicy,
+  serviceEnd,
+  whichService,
+  type SelectorScoringConfig,
+  type ServiceKey,
+  type VenuePolicy,
+  ServiceNotFoundError,
+  ServiceOverrunError,
+} from "./policy";
+import { buildScoredTablePlans, type RankedTablePlan, type CandidateDiagnostics } from "./selector";
+import {
+  emitHoldConfirmed,
+  emitRpcConflict,
+  emitSelectorDecision,
+  emitSelectorQuote,
+  summarizeCandidate,
+  type CandidateSummary,
+  type SelectorDecisionEvent,
+} from "./telemetry";
 import {
   AssignmentConflictError,
   AssignmentOrchestrator,
@@ -59,10 +62,26 @@ import {
   normalizeTableIds,
 } from "./v2";
 
-import type { Database, Json, Tables } from "@/types/supabase";
+import type { Database, Tables } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-type DbClient = SupabaseClient<Database, "public", any>;
+type DbClient = SupabaseClient<Database, "public">;
+
+type TableInventoryRow = Tables<"table_inventory">;
+
+const TABLE_INVENTORY_SELECT =
+  "id,table_number,capacity,min_party_size,max_party_size,section,category,seating_type,mobility,zone_id,status,active,position" as const;
+
+type TableHoldRow = Tables<"table_holds"> & {
+  table_hold_members: Array<{ table_id: string | null }> | null;
+};
+
+type AssignmentAvailabilityRow = {
+  table_id: string | null;
+  start_at: string | null;
+  end_at: string | null;
+  bookings: Pick<Tables<"bookings">, "id" | "status" | "start_at" | "end_at"> | null;
+};
 
 const DEFAULT_HOLD_TTL_SECONDS = 180;
 const TABLE_RESOURCE_TYPE = "table";
@@ -244,15 +263,12 @@ function ensureClient(client?: DbClient): DbClient {
   return client ?? getServiceSupabaseClient();
 }
 
-function toDateTime(iso: string | null | undefined, fallbackZone: string): DateTime | null {
-  if (!iso) {
-    return null;
+function extractErrorCode(error: unknown): string | undefined {
+  if (typeof error !== "object" || error === null) {
+    return undefined;
   }
-  const parsed = DateTime.fromISO(iso, { zone: fallbackZone });
-  if (parsed.isValid) {
-    return parsed;
-  }
-  return DateTime.fromISO(iso);
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" ? code : undefined;
 }
 
 function normalizeBookingRow(row: BookingRow): BookingRow {
@@ -348,6 +364,10 @@ function computeBookingWindowWithFallback(args: ComputeWindowArgs): BookingWindo
       const diningEnd = diningStart.plus({ minutes: durationMinutes });
       const blockStart = diningStart.minus({ minutes: buffer.pre ?? 0 });
       const blockEnd = diningEnd.plus({ minutes: buffer.post ?? 0 });
+      const serviceEndBoundary = serviceEnd(fallbackService, diningStart, policy);
+      if (blockEnd > serviceEndBoundary) {
+        throw new ServiceOverrunError(fallbackService, blockEnd, serviceEndBoundary);
+      }
 
       console.warn("[capacity][window][fallback] service not found, using fallback service", {
         start: baseStart.toISO(),
@@ -411,11 +431,119 @@ function resolveService(start: DateTime, hint: ServiceKey | null, policy: VenueP
   return found;
 }
 
-export function windowsOverlap(
-  a: { start: number; end: number },
-  b: { start: number; end: number },
-): boolean {
-  return a.start < b.end && b.start < a.end;
+type IntervalPoint = DateTime | string | number;
+type IntervalLike = {
+  start: IntervalPoint;
+  end: IntervalPoint;
+};
+
+function intervalPointToMillis(point: IntervalPoint): number | null {
+  if (DateTime.isDateTime(point)) {
+    const value = point.toMillis();
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof point === "number") {
+    return Number.isFinite(point) ? point : null;
+  }
+
+  if (typeof point === "string") {
+    const parsed = DateTime.fromISO(point, { setZone: true });
+    if (!parsed.isValid) {
+      return null;
+    }
+    const value = parsed.toMillis();
+    return Number.isFinite(value) ? value : null;
+  }
+
+  return null;
+}
+
+function normalizeInterval(interval: IntervalLike): { start: number; end: number } | null {
+  const start = intervalPointToMillis(interval.start);
+  const end = intervalPointToMillis(interval.end);
+  if (start === null || end === null) {
+    return null;
+  }
+  if (!(start < end)) {
+    return null;
+  }
+  return { start, end };
+}
+
+function highResNow(): number {
+  return typeof performance !== "undefined" ? performance.now() : Date.now();
+}
+
+function roundMilliseconds(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function buildTiming(params: {
+  totalMs: number;
+  plannerMs?: number;
+  assignmentMs?: number;
+  holdMs?: number;
+}): SelectorDecisionEvent["timing"] {
+  const timing: SelectorDecisionEvent["timing"] = {
+    totalMs: roundMilliseconds(params.totalMs),
+  };
+
+  if (typeof params.plannerMs === "number" && params.plannerMs > 0) {
+    timing.plannerMs = roundMilliseconds(params.plannerMs);
+  }
+  if (typeof params.assignmentMs === "number" && params.assignmentMs > 0) {
+    timing.assignmentMs = roundMilliseconds(params.assignmentMs);
+  }
+  if (typeof params.holdMs === "number" && params.holdMs > 0) {
+    timing.holdMs = roundMilliseconds(params.holdMs);
+  }
+
+  return timing;
+}
+
+/**
+ * Normalizes planner configuration details so telemetry consumers receive a
+ * consistent view of the limits and feature toggles that influenced a search.
+ */
+function composePlannerConfig(params: {
+  diagnostics: CandidateDiagnostics;
+  scoringConfig: SelectorScoringConfig;
+  combinationEnabled: boolean;
+  requireAdjacency: boolean;
+  adjacencyRequiredGlobally: boolean;
+  adjacencyMinPartySize: number | null;
+}): NonNullable<SelectorDecisionEvent["plannerConfig"]> {
+  const { diagnostics, scoringConfig } = params;
+  const { limits } = diagnostics;
+
+  return {
+    combinationEnabled: params.combinationEnabled,
+    requireAdjacency: params.requireAdjacency,
+    adjacencyRequiredGlobally: params.adjacencyRequiredGlobally,
+    adjacencyMinPartySize: params.adjacencyMinPartySize,
+    kMax: limits.kMax,
+    bucketLimit: limits.maxPlansPerSlack,
+    evaluationLimit: limits.maxCombinationEvaluations,
+    maxOverage: scoringConfig.maxOverage,
+    maxTables: scoringConfig.maxTables,
+  };
+}
+
+/**
+ * Returns whether the half-open interval `[a.start, a.end)` intersects with `[b.start, b.end)`.
+ *
+ * Accepts ISO strings, Luxon {@link DateTime} instances, or epoch millisecond numbers.
+ * Values are normalized to UTC and invalid intervals are treated as non-overlapping.
+ */
+export function windowsOverlap(a: IntervalLike, b: IntervalLike): boolean {
+  const first = normalizeInterval(a);
+  const second = normalizeInterval(b);
+  if (!first || !second) {
+    return false;
+  }
+
+  return first.start < second.end && second.start < first.end;
 }
 
 function toIsoUtc(dateTime: DateTime): string {
@@ -478,8 +606,34 @@ export function filterAvailableTables(
   });
 }
 
-function partiesRequireAdjacency(_partySize: number): boolean {
-  return false;
+/**
+ * Determines whether adjacency must be enforced for a given party size.
+ *
+ * The allocator-level `requireAdjacency` flag acts as a global gate, while
+ * `allocator.adjacencyMinPartySize` (when provided) raises the threshold so
+ * that only large parties mandate adjacency.
+ */
+function partiesRequireAdjacency(partySize: number): boolean {
+  if (!isAllocatorAdjacencyRequired()) {
+    return false;
+  }
+  const minPartySize = getAllocatorAdjacencyMinPartySize();
+  if (typeof minPartySize === "number") {
+    return partySize >= minPartySize;
+  }
+  return true;
+}
+
+/**
+ * Resolves the adjacency requirement for interactive flows, preferring the
+ * explicit override supplied by the caller but falling back to the allocator
+ * policy when no override is present.
+ */
+function resolveRequireAdjacency(partySize: number, override?: boolean): boolean {
+  if (typeof override === "boolean") {
+    return override;
+  }
+  return partiesRequireAdjacency(partySize);
 }
 
 async function loadBooking(bookingId: string, client: DbClient): Promise<BookingRow> {
@@ -531,23 +685,7 @@ async function loadRestaurantTimezone(restaurantId: string, client: DbClient): P
 async function loadTablesForRestaurant(restaurantId: string, client: DbClient): Promise<Table[]> {
   const { data, error } = await client
     .from("table_inventory")
-    .select(
-      [
-        "id",
-        "table_number",
-        "capacity",
-        "min_party_size",
-        "max_party_size",
-        "section",
-        "category",
-        "seating_type",
-        "mobility",
-        "zone_id",
-        "status",
-        "active",
-        "position",
-      ].join(","),
-    )
+    .select<typeof TABLE_INVENTORY_SELECT, TableInventoryRow>(TABLE_INVENTORY_SELECT)
     .eq("restaurant_id", restaurantId)
     .order("table_number", { ascending: true });
 
@@ -583,12 +721,47 @@ async function loadTablesByIds(
     return [];
   }
 
-  const allTables = await loadTablesForRestaurant(restaurantId, client);
-  const lookup = new Map(allTables.map((table) => [table.id, table]));
+  const uniqueIds = Array.from(new Set(tableIds));
+  const { data, error } = await client
+    .from("table_inventory")
+    .select<typeof TABLE_INVENTORY_SELECT, TableInventoryRow>(TABLE_INVENTORY_SELECT)
+    .eq("restaurant_id", restaurantId)
+    .in("id", uniqueIds);
 
-  return tableIds
-    .map((id) => lookup.get(id))
-    .filter((table): table is Table => Boolean(table));
+  if (error || !data) {
+    return [];
+  }
+
+  const rows = data as unknown as TableInventoryRow[];
+
+  const lookup = new Map(
+    rows.map((row) => [
+      row.id,
+      {
+        id: row.id,
+        tableNumber: row.table_number,
+        capacity: row.capacity ?? 0,
+        minPartySize: row.min_party_size ?? null,
+        maxPartySize: row.max_party_size ?? null,
+        section: row.section,
+        category: row.category,
+        seatingType: row.seating_type,
+        mobility: row.mobility,
+        zoneId: row.zone_id,
+        status: row.status,
+        active: row.active,
+        position: row.position,
+      } satisfies Table,
+    ]),
+  );
+
+  return tableIds.reduce<Table[]>((acc, id) => {
+    const table = lookup.get(id);
+    if (table) {
+      acc.push(table);
+    }
+    return acc;
+  }, []);
 }
 
 async function loadAdjacency(tableIds: string[], client: DbClient): Promise<Map<string, Set<string>>> {
@@ -654,25 +827,6 @@ async function loadContextBookings(
   return data as unknown as ContextBookingRow[];
 }
 
-async function loadBookingAssignments(bookingId: string, client: DbClient): Promise<TableAssignmentMember[]> {
-  const { data, error } = await client
-    .from("booking_table_assignments")
-    .select("table_id, id, assigned_at")
-    .eq("booking_id", bookingId);
-
-  if (error || !data) {
-    return [];
-  }
-
-  return data.map((row) => ({
-    tableId: row.table_id,
-    assignmentId: row.id,
-    startAt: row.assigned_at ?? "",
-    endAt: row.assigned_at ?? "",
-    mergeGroupId: null,
-  }));
-}
-
 type BookingAssignmentRow = {
   table_id: string;
   id: string;
@@ -686,33 +840,22 @@ async function loadTableAssignmentsForTables(
   tableIds: string[],
   client: DbClient,
 ): Promise<BookingAssignmentRow[]> {
-  const baseBuilder = client
+  if (tableIds.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await client
     .from("booking_table_assignments")
     .select("table_id, id, start_at, end_at, merge_group_id")
-    .eq("booking_id", bookingId);
-
-  let data: any;
-  let error: any;
-
-  const builder: any = baseBuilder;
-  if (builder && typeof builder.in === "function") {
-    const response = await builder.in(
-      "table_id",
-      tableIds,
-    );
-    data = response?.data ?? null;
-    error = response?.error ?? null;
-  } else {
-    const response = await builder;
-    data = response?.data ?? null;
-    error = response?.error ?? null;
-  }
+    .eq("booking_id", bookingId)
+    .in("table_id", Array.from(new Set(tableIds)));
 
   if (error || !data) {
     return [];
   }
 
-  return (data as BookingAssignmentRow[]).filter((row) => tableIds.includes(row.table_id));
+  const rows = data as unknown as BookingAssignmentRow[];
+  return rows.filter((row) => tableIds.includes(row.table_id));
 }
 
 function registerBusyWindow(
@@ -795,8 +938,9 @@ function extractConflictsForTables(
   for (const tableId of tableIds) {
     const entry = busy.get(tableId);
     if (!entry) continue;
+    if (isWindowFree(entry.bitset, targetStart, targetEnd)) continue;
     for (const other of entry.windows) {
-      if (windowsOverlapMs(targetStart, targetEnd, other.startAt, other.endAt)) {
+      if (windowsOverlap({ start: targetStart, end: targetEnd }, { start: other.startAt, end: other.endAt })) {
         conflicts.push({
           tableId,
           bookingId: other.bookingId,
@@ -829,15 +973,6 @@ function formatConflictSummary(conflicts: ManualAssignmentConflict[]): string {
   const [source] = sources;
   const label = source === "hold" ? "holds" : "bookings";
   return tableIds ? `${label} on tables ${tableIds}` : label;
-}
-
-function windowsOverlapMs(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
-  const a = { start: Date.parse(aStart), end: Date.parse(aEnd) };
-  const b = { start: Date.parse(bStart), end: Date.parse(bEnd) };
-  if (!Number.isFinite(a.start) || !Number.isFinite(a.end) || !Number.isFinite(b.start) || !Number.isFinite(b.end)) {
-    return false;
-  }
-  return a.start < b.end && b.start < a.end;
 }
 
 function evaluateAdjacency(
@@ -979,7 +1114,7 @@ function buildManualChecks(params: {
 }
 
 export async function evaluateManualSelection(options: ManualSelectionOptions): Promise<ManualValidationResult> {
-  const { bookingId, tableIds, requireAdjacency = isAllocatorAdjacencyRequired(), excludeHoldId = null, client } = options;
+  const { bookingId, tableIds, requireAdjacency: requireAdjacencyOverride, excludeHoldId = null, client } = options;
 
   if (!Array.isArray(tableIds) || tableIds.length === 0) {
     throw new ManualSelectionInputError("At least one table must be selected", "TABLES_REQUIRED");
@@ -1013,7 +1148,7 @@ export async function evaluateManualSelection(options: ManualSelectionOptions): 
   if (isHoldsEnabled()) {
     try {
       holds = await listActiveHoldsForBooking({ bookingId, client: supabase });
-    } catch (error) {
+    } catch {
       holds = [];
     }
   }
@@ -1037,10 +1172,11 @@ export async function evaluateManualSelection(options: ManualSelectionOptions): 
       excludeHoldId,
       client: supabase,
     });
-  } catch (error) {
+  } catch {
     holdConflicts = [];
   }
 
+  const requireAdjacency = resolveRequireAdjacency(booking.party_size, requireAdjacencyOverride);
   const summary = summarizeSelection(selectionTables, booking.party_size);
   const checks = buildManualChecks({
     summary,
@@ -1102,10 +1238,6 @@ export async function createManualHold(options: ManualHoldOptions): Promise<Manu
   const startAtIso = toIsoUtc(window.block.start);
   const endAtIso = toIsoUtc(window.block.end);
 
-  if (excludeHoldId) {
-    await releaseTableHold({ holdId: excludeHoldId, client: supabase });
-  }
-
   const expiresAt =
     options.holdExpiresAt ??
     toIsoUtc(DateTime.now().plus({ seconds: holdTtlSeconds })) ??
@@ -1135,6 +1267,19 @@ export async function createManualHold(options: ManualHoldOptions): Promise<Manu
   };
 
   const hold = await createTableHold(holdPayload);
+
+  if (excludeHoldId) {
+    try {
+      await releaseTableHold({ holdId: excludeHoldId, client: supabase });
+    } catch (error) {
+      console.warn("[capacity][manual][holds] failed to release replaced hold", {
+        bookingId,
+        newHoldId: hold.id,
+        previousHoldId: excludeHoldId,
+        error,
+      });
+    }
+  }
 
   return {
     hold,
@@ -1172,8 +1317,9 @@ export async function getManualAssignmentContext(options: {
     try {
       const rawHolds = await fetchHoldsForWindow(booking.restaurant_id, window, supabase);
       holds = await hydrateHoldMetadata(rawHolds, supabase);
-    } catch (error: any) {
-      if (error?.code === "42P01") {
+    } catch (error: unknown) {
+      const code = extractErrorCode(error);
+      if (code === "42P01") {
         console.warn("[capacity][manual][context] holds table unavailable; skipping hold hydration", {
           bookingId,
         });
@@ -1270,9 +1416,13 @@ async function fetchHoldsForWindow(
     throw error ?? new Error("Failed to load holds");
   }
 
-  return data.map((row: any) => {
-    const members = (row.table_hold_members ?? []) as Array<{ table_id: string }>;
-    const tableIds = members.map((member) => member.table_id);
+  const rows = data as TableHoldRow[];
+
+  return rows.map((row) => {
+    const members = row.table_hold_members ?? [];
+    const tableIds = members
+      .map((member) => member.table_id)
+      .filter((value): value is string => typeof value === "string");
     return {
       id: row.id,
       bookingId: row.booking_id,
@@ -1319,9 +1469,13 @@ async function loadActiveHoldsForDate(
     throw error ?? new Error("Failed to load holds");
   }
 
-  return data.map((row: any) => {
-    const members = (row.table_hold_members ?? []) as Array<{ table_id: string }>;
-    const tableIds = members.map((member) => member.table_id);
+  const rows = data as TableHoldRow[];
+
+  return rows.map((row) => {
+    const members = row.table_hold_members ?? [];
+    const tableIds = members
+      .map((member) => member.table_id)
+      .filter((value): value is string => typeof value === "string");
     return {
       id: row.id,
       bookingId: row.booking_id,
@@ -1444,16 +1598,19 @@ async function synchronizeAssignments(params: AssignmentSyncParams): Promise<Tab
   });
 
   if (holdContext) {
+    const zoneId = holdContext.zoneId ?? "";
+    const telemetryMetadata = holdContext.zoneId ? undefined : { unknownZone: true };
     await emitHoldConfirmed({
       holdId: holdContext.holdId,
       bookingId: booking.id,
       restaurantId: booking.restaurant_id,
-      zoneId: holdContext.zoneId ?? result[0]?.tableId ?? "",
+      zoneId,
       tableIds: result.map((assignment) => assignment.tableId),
       startAt: startIso,
       endAt: endIso,
       expiresAt: endIso,
       actorId: actorId ?? null,
+      metadata: telemetryMetadata,
     });
   }
 
@@ -1477,7 +1634,7 @@ export async function confirmHoldAssignment(options: {
     });
   }
 
-  const { holdId, bookingId, idempotencyKey, requireAdjacency = isAllocatorAdjacencyRequired(), assignedBy = null, client } = options;
+  const { holdId, bookingId, idempotencyKey, requireAdjacency: requireAdjacencyOverride, assignedBy = null, client } = options;
   const supabase = ensureClient(client);
 
   const {
@@ -1485,7 +1642,7 @@ export async function confirmHoldAssignment(options: {
     error: holdError,
   } = await supabase
     .from("table_holds")
-    .select("restaurant_id, zone_id, table_hold_members(table_id)")
+    .select("restaurant_id, zone_id, booking_id, table_hold_members(table_id)")
     .eq("id", holdId)
     .maybeSingle();
 
@@ -1500,6 +1657,30 @@ export async function confirmHoldAssignment(options: {
   const tableIds = Array.isArray(holdRow.table_hold_members)
     ? (holdRow.table_hold_members as Array<{ table_id: string }>).map((member) => member.table_id)
     : [];
+
+  const holdBookingId = (holdRow as { booking_id?: string | null }).booking_id ?? null;
+  if (holdBookingId && holdBookingId !== bookingId) {
+    await emitRpcConflict({
+      source: "confirm_hold_booking_mismatch",
+      bookingId,
+      restaurantId: holdRow.restaurant_id,
+      tableIds,
+      holdId,
+      error: {
+        code: "HOLD_BOOKING_MISMATCH",
+        message: "Hold is already linked to a different booking",
+        details: serializeDetails({ holdBookingId }),
+        hint: null,
+      },
+    });
+
+    throw new AssignTablesRpcError({
+      message: "Hold is already linked to a different booking",
+      code: "HOLD_BOOKING_MISMATCH",
+      details: serializeDetails({ holdBookingId }),
+      hint: null,
+    });
+  }
 
   if (tableIds.length === 0) {
     throw new AssignTablesRpcError({
@@ -1523,6 +1704,7 @@ export async function confirmHoldAssignment(options: {
     partySize: booking.party_size,
     policy,
   });
+  const requireAdjacency = resolveRequireAdjacency(booking.party_size, requireAdjacencyOverride);
 
   const startIso = toIsoUtc(window.block.start);
   const endIso = toIsoUtc(window.block.end);
@@ -1815,13 +1997,14 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     bookingId,
     zoneId,
     maxTables,
-    requireAdjacency = isAllocatorAdjacencyRequired(),
+    requireAdjacency: requireAdjacencyOverride,
     avoidTables = [],
     holdTtlSeconds = DEFAULT_HOLD_TTL_SECONDS,
     createdBy,
     client,
   } = options;
 
+  const operationStart = highResNow();
   const supabase = ensureClient(client);
   const booking = await loadBooking(bookingId, supabase);
   const restaurantTimezone =
@@ -1842,6 +2025,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     tables.map((table) => table.id),
     supabase,
   );
+  const requireAdjacency = resolveRequireAdjacency(booking.party_size, requireAdjacencyOverride);
 
   const filtered = filterAvailableTables(
     tables,
@@ -1854,14 +2038,31 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
   );
 
   const scoringConfig = getSelectorScoringConfig();
+  const selectorLimits = getSelectorPlannerLimits();
+  const combinationEnabled = isCombinationPlannerEnabled();
+  const combinationLimit = maxTables ?? getAllocatorCombinationLimit();
+  const plannerStart = highResNow();
   const plans = buildScoredTablePlans({
     tables: filtered,
     partySize: booking.party_size,
     adjacency,
     config: scoringConfig,
-    enableCombinations: isCombinationPlannerEnabled(),
-    kMax: maxTables ?? getAllocatorCombinationLimit(),
+    enableCombinations: combinationEnabled,
+    kMax: combinationLimit,
+    maxPlansPerSlack: selectorLimits.maxPlansPerSlack,
+    maxCombinationEvaluations: selectorLimits.maxCombinationEvaluations,
     requireAdjacency,
+  });
+  const plannerDurationMs = highResNow() - plannerStart;
+  const adjacencyRequiredGlobally = adjacency.size > 0 && isAllocatorAdjacencyRequired();
+  const adjacencyMinPartySize = getAllocatorAdjacencyMinPartySize();
+  const plannerConfigTelemetry = composePlannerConfig({
+    diagnostics: plans.diagnostics,
+    scoringConfig,
+    combinationEnabled,
+    requireAdjacency,
+    adjacencyRequiredGlobally,
+    adjacencyMinPartySize: adjacencyMinPartySize ?? null,
   });
 
   const alternates: CandidateSummary[] = [];
@@ -1889,6 +2090,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
         continue;
       }
 
+      const holdStart = highResNow();
       const hold = await createTableHold({
         bookingId,
         restaurantId: booking.restaurant_id,
@@ -1906,6 +2108,8 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
         },
         client: supabase,
       });
+      const holdDurationMs = highResNow() - holdStart;
+      const totalDurationMs = highResNow() - operationStart;
 
       await emitSelectorQuote({
         restaurantId: booking.restaurant_id,
@@ -1917,11 +2121,17 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
         },
         candidates: [candidateSummary, ...alternates],
         selected: candidateSummary,
-        durationMs: 0,
+        durationMs: roundMilliseconds(totalDurationMs),
         featureFlags: {
           selectorScoring: isSelectorScoringEnabled(),
           opsMetrics: isOpsMetricsEnabled(),
         },
+        timing: buildTiming({
+          totalMs: totalDurationMs,
+          plannerMs: plannerDurationMs,
+          holdMs: holdDurationMs,
+        }),
+        plannerConfig: plannerConfigTelemetry,
         diagnostics: plans.diagnostics,
         holdId: hold.id,
         expiresAt: hold.expiresAt,
@@ -1991,15 +2201,17 @@ export async function autoAssignTablesForDate(options: {
   );
   const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
   const adjacencyEdgeCount = Array.from(adjacency.values()).reduce((sum, neighbors) => sum + neighbors.size, 0);
-  const requireAdjacencyForMerge = adjacencyEdgeCount > 0 && isAllocatorAdjacencyRequired();
+  const adjacencyEnforced = adjacencyEdgeCount > 0 && isAllocatorAdjacencyRequired();
   const combinationPlannerEnabled = isCombinationPlannerEnabled();
   const mergesEnabled = isAllocatorMergesEnabled();
+  const selectorLimits = getSelectorPlannerLimits();
   let activeHolds: TableHold[] = [];
   if (isHoldsEnabled()) {
     try {
       activeHolds = await loadActiveHoldsForDate(restaurantId, date, policy, supabase);
-    } catch (error: any) {
-      if (error?.code === "42P01") {
+    } catch (error: unknown) {
+      const code = extractErrorCode(error);
+      if (code === "42P01") {
         console.warn("[ops][auto-assign] holds table unavailable; skipping hold hydration", {
           restaurantId,
         });
@@ -2018,6 +2230,8 @@ export async function autoAssignTablesForDate(options: {
     skipped: [],
   };
 
+  const adjacencyMinPartySizeFlag = getAllocatorAdjacencyMinPartySize();
+
   for (const booking of bookings) {
     const alreadyAssigned = (booking.booking_table_assignments ?? []).some((row) => Boolean(row.table_id));
     if (alreadyAssigned) {
@@ -2028,6 +2242,11 @@ export async function autoAssignTablesForDate(options: {
       selectorScoring: isSelectorScoringEnabled(),
       opsMetrics: isOpsMetricsEnabled(),
     };
+
+    const operationStart = highResNow();
+    let plannerDurationMs = 0;
+    let assignmentDurationMs = 0;
+    let combinationModeForTelemetry = combinationPlannerEnabled;
 
     let window: BookingWindow | null = null;
     let overrunReason: string | null = null;
@@ -2048,6 +2267,7 @@ export async function autoAssignTablesForDate(options: {
     }
     if (!window) {
       const reason = overrunReason ?? "Reservation window exceeds service boundary";
+      const totalDurationMs = highResNow() - operationStart;
       result.skipped.push({ bookingId: booking.id, reason });
       await emitSelectorDecision({
         restaurantId,
@@ -2057,12 +2277,16 @@ export async function autoAssignTablesForDate(options: {
         candidates: [],
         selected: null,
         skipReason: reason,
-        durationMs: 0,
+        durationMs: roundMilliseconds(totalDurationMs),
         featureFlags,
+        timing: buildTiming({ totalMs: totalDurationMs }),
+        plannerConfig: undefined,
         diagnostics: undefined,
       });
       continue;
     }
+
+    const requireAdjacency = adjacencyEnforced && partiesRequireAdjacency(booking.party_size);
 
     const availableTables = filterAvailableTables(
       tables,
@@ -2074,20 +2298,28 @@ export async function autoAssignTablesForDate(options: {
       { allowInsufficientCapacity: true },
     );
     const scoringConfig = getSelectorScoringConfig();
-    const runPlanner = (enableCombinations: boolean) =>
-      buildScoredTablePlans({
+    const combinationLimit = getAllocatorCombinationLimit();
+    const runPlanner = (enableCombinations: boolean) => {
+      const plannerStart = highResNow();
+      const result = buildScoredTablePlans({
         tables: availableTables,
         partySize: booking.party_size,
         adjacency,
         config: scoringConfig,
         enableCombinations,
-        kMax: getAllocatorCombinationLimit(),
-        requireAdjacency: requireAdjacencyForMerge,
+        kMax: combinationLimit,
+        maxPlansPerSlack: selectorLimits.maxPlansPerSlack,
+        maxCombinationEvaluations: selectorLimits.maxCombinationEvaluations,
+        requireAdjacency,
       });
+      plannerDurationMs += highResNow() - plannerStart;
+      return result;
+    };
     let plans = runPlanner(combinationPlannerEnabled);
 
     if (plans.plans.length === 0 && !combinationPlannerEnabled) {
       if (mergesEnabled) {
+        combinationModeForTelemetry = true;
         const mergeFallback = runPlanner(true);
         if (mergeFallback.plans.length > 0) {
           plans = mergeFallback;
@@ -2105,9 +2337,19 @@ export async function autoAssignTablesForDate(options: {
       }
     }
 
+    const plannerConfigTelemetry = composePlannerConfig({
+      diagnostics: plans.diagnostics,
+      scoringConfig,
+      combinationEnabled: combinationModeForTelemetry,
+      requireAdjacency,
+      adjacencyRequiredGlobally: adjacencyEnforced,
+      adjacencyMinPartySize: adjacencyMinPartySizeFlag ?? null,
+    });
+
     if (plans.plans.length === 0) {
       const fallback = plans.fallbackReason ?? "No suitable tables available";
       const skipReason = `No suitable tables available (${fallback})`;
+      const totalDurationMs = highResNow() - operationStart;
       result.skipped.push({ bookingId: booking.id, reason: skipReason });
       await emitSelectorDecision({
         restaurantId,
@@ -2120,8 +2362,10 @@ export async function autoAssignTablesForDate(options: {
         candidates: [],
         selected: null,
         skipReason,
-        durationMs: 0,
+        durationMs: roundMilliseconds(totalDurationMs),
         featureFlags,
+        timing: buildTiming({ totalMs: totalDurationMs, plannerMs: plannerDurationMs }),
+        plannerConfig: plannerConfigTelemetry,
         diagnostics: plans.diagnostics,
       });
       continue;
@@ -2177,6 +2421,7 @@ export async function autoAssignTablesForDate(options: {
       }
 
       result.skipped.push({ bookingId: booking.id, reason: skipReason });
+      const totalDurationMs = highResNow() - operationStart;
       await emitSelectorDecision({
         restaurantId,
         bookingId: booking.id,
@@ -2188,8 +2433,10 @@ export async function autoAssignTablesForDate(options: {
         candidates: candidateSummariesAll,
         selected: null,
         skipReason,
-        durationMs: 0,
+        durationMs: roundMilliseconds(totalDurationMs),
         featureFlags,
+        timing: buildTiming({ totalMs: totalDurationMs, plannerMs: plannerDurationMs }),
+        plannerConfig: plannerConfigTelemetry,
         diagnostics: plans.diagnostics,
       });
       continue;
@@ -2210,6 +2457,7 @@ export async function autoAssignTablesForDate(options: {
     );
     const candidate = candidateSummaries[0]!;
 
+    const assignmentStart = highResNow();
     try {
       await assignTableToBooking(
         booking.id,
@@ -2218,9 +2466,9 @@ export async function autoAssignTablesForDate(options: {
         supabase,
         {
           idempotencyKey: randomUUID(),
-          requireAdjacency: requireAdjacencyForMerge,
+          requireAdjacency,
           booking: {
-            ...(booking as any),
+            ...(booking as Partial<BookingRow>),
             id: booking.id,
             restaurant_id: restaurantId,
             booking_date: booking.booking_date,
@@ -2235,8 +2483,10 @@ export async function autoAssignTablesForDate(options: {
           } as BookingRow,
         },
       );
-    } catch (error: any) {
-      const message = error?.message ? String(error.message) : String(error);
+      assignmentDurationMs = highResNow() - assignmentStart;
+    } catch (error: unknown) {
+      assignmentDurationMs = highResNow() - assignmentStart;
+      const message = error instanceof Error ? error.message : String(error);
       const normalized = message.toLowerCase();
       const overlap =
         normalized.includes("assignment overlap") || normalized.includes("allocations_no_overlap");
@@ -2260,6 +2510,7 @@ export async function autoAssignTablesForDate(options: {
 
       const skipReason = "Auto assign skipped: Supabase reported an overlapping assignment";
       result.skipped.push({ bookingId: booking.id, reason: skipReason });
+      const totalDurationMs = highResNow() - operationStart;
       await emitSelectorDecision({
         restaurantId,
         bookingId: booking.id,
@@ -2271,8 +2522,14 @@ export async function autoAssignTablesForDate(options: {
         candidates: candidateSummariesAll,
         selected: null,
         skipReason,
-        durationMs: 0,
+        durationMs: roundMilliseconds(totalDurationMs),
         featureFlags,
+        timing: buildTiming({
+          totalMs: totalDurationMs,
+          plannerMs: plannerDurationMs,
+          assignmentMs: assignmentDurationMs,
+        }),
+        plannerConfig: plannerConfigTelemetry,
         diagnostics: plans.diagnostics,
       });
       continue;
@@ -2292,6 +2549,7 @@ export async function autoAssignTablesForDate(options: {
       tableIds: topPlan.tables.map((table) => table.id),
     });
 
+    const totalDurationMs = highResNow() - operationStart;
     await emitSelectorDecision({
       restaurantId,
       bookingId: booking.id,
@@ -2303,8 +2561,14 @@ export async function autoAssignTablesForDate(options: {
       candidates: candidateSummaries,
       selected: candidate,
       skipReason: null,
-      durationMs: 0,
+      durationMs: roundMilliseconds(totalDurationMs),
       featureFlags,
+      timing: buildTiming({
+        totalMs: totalDurationMs,
+        plannerMs: plannerDurationMs,
+        assignmentMs: assignmentDurationMs,
+      }),
+      plannerConfig: plannerConfigTelemetry,
       diagnostics: plans.diagnostics,
     });
   }
@@ -2333,7 +2597,15 @@ export async function findSuitableTables(options: {
     tables.map((table) => table.id),
     supabase,
   );
-  const policy = getVenuePolicy();
+  const defaultPolicy = getVenuePolicy();
+  const restaurantTimezone =
+    (booking.restaurants && !Array.isArray(booking.restaurants) ? booking.restaurants.timezone : null) ??
+    (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
+    defaultPolicy.timezone;
+  const policy =
+    restaurantTimezone === defaultPolicy.timezone
+      ? defaultPolicy
+      : getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
   const window = computeBookingWindowWithFallback({
     startISO: booking.start_at,
     bookingDate: booking.booking_date,
@@ -2352,6 +2624,8 @@ export async function findSuitableTables(options: {
     { allowInsufficientCapacity: true },
   );
   const scoringConfig = getSelectorScoringConfig();
+  const requireAdjacency = partiesRequireAdjacency(booking.party_size);
+  const selectorLimits = getSelectorPlannerLimits();
   const plans = buildScoredTablePlans({
     tables: filtered,
     partySize: booking.party_size,
@@ -2359,7 +2633,9 @@ export async function findSuitableTables(options: {
     config: scoringConfig,
     enableCombinations: isCombinationPlannerEnabled(),
     kMax: getAllocatorCombinationLimit(),
-    requireAdjacency: isAllocatorAdjacencyRequired(),
+    maxPlansPerSlack: selectorLimits.maxPlansPerSlack,
+    maxCombinationEvaluations: selectorLimits.maxCombinationEvaluations,
+    requireAdjacency,
   });
 
   return plans.plans;
@@ -2388,12 +2664,32 @@ export async function isTableAvailableV2(
     .select("table_id, start_at, end_at, bookings(id, status, start_at, end_at)")
     .eq("table_id", tableId);
 
-  if (error || !data) {
-    return true;
+  if (error) {
+    throw new AssignTablesRpcError({
+      message: error.message ?? "Failed to query table availability",
+      code: "TABLE_AVAILABILITY_QUERY_FAILED",
+      details: serializeDetails({
+        code: (error as { code?: string }).code ?? null,
+        details: error.details ?? null,
+        hint: error.hint ?? null,
+      }),
+      hint: null,
+    });
   }
 
-  for (const row of data) {
-    const booking = (row as any).bookings;
+  if (!data) {
+    throw new AssignTablesRpcError({
+      message: "No table assignment data returned for availability check",
+      code: "TABLE_AVAILABILITY_QUERY_FAILED",
+      details: null,
+      hint: null,
+    });
+  }
+
+  const rows = data as AssignmentAvailabilityRow[];
+
+  for (const row of rows) {
+    const booking = row.bookings;
     if (options?.excludeBookingId && booking?.id === options.excludeBookingId) {
       continue;
     }
@@ -2405,11 +2701,9 @@ export async function isTableAvailableV2(
     }
 
     if (
-      windowsOverlapMs(
-        toIsoUtc(window.block.start),
-        toIsoUtc(window.block.end),
-        otherStart,
-        otherEnd,
+      windowsOverlap(
+        { start: toIsoUtc(window.block.start), end: toIsoUtc(window.block.end) },
+        { start: otherStart, end: otherEnd },
       )
     ) {
       return false;
@@ -2429,11 +2723,24 @@ export async function isTableAvailable(
     client?: DbClient;
   },
 ): Promise<boolean> {
-  return isTableAvailableV2(tableId, startISO, partySize, options);
+  try {
+    return await isTableAvailableV2(tableId, startISO, partySize, options);
+  } catch (error) {
+    if (error instanceof AssignTablesRpcError) {
+      throw new AssignTablesRpcError({
+        message: "Failed to verify table availability",
+        code: error.code ?? "TABLE_AVAILABILITY_QUERY_FAILED",
+        details: error.details,
+        hint: error.hint ?? null,
+      });
+    }
+    throw error;
+  }
 }
 
 export const __internal = {
   computeBookingWindow,
   windowsOverlap,
   filterAvailableTables,
+  extractConflictsForTables,
 };

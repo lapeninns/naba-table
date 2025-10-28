@@ -82,4 +82,34 @@ export default [
       "jsx-a11y/no-autofocus": "off",
     },
   }),
+  {
+    files: ["server/**/*.{js,ts,jsx,tsx}", "tests/server/**/*.{js,ts,jsx,tsx}"],
+    rules: {
+      "no-restricted-properties": [
+        "error",
+        {
+          object: "Date",
+          property: "parse",
+          message: "Use Luxon DateTime.fromISO(..., { setZone: true }) or other timezone-safe parsing helpers.",
+        },
+      ],
+    },
+  },
+  {
+    files: ["server/**/*.{js,ts,jsx,tsx}", "tests/server/**/*.{js,ts,jsx,tsx}"],
+    ignores: ["server/capacity/tables.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "FunctionDeclaration[id.name='windowsOverlap']",
+          message: "Use the shared windowsOverlap helper from '@/server/capacity/tables'.",
+        },
+        {
+          selector: "VariableDeclarator[id.name='windowsOverlap']",
+          message: "Use the shared windowsOverlap helper from '@/server/capacity/tables'.",
+        },
+      ],
+    },
+  },
 ];

@@ -160,6 +160,7 @@ describe("table rotation capacity calculations", () => {
             }),
         }),
       }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any;
 
     const summaries = await calculateRestaurantCapacityByService({
