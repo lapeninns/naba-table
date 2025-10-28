@@ -215,6 +215,7 @@ Manual validate: selecting cross-zone or insufficient capacity returns ok=false 
 Where to put what (files)
 
 Selector: server/capacity/selector.ts (combos, scoring, alternates, nextTimes)
+Feature flags: enable `FEATURE_COMBINATION_PLANNER` whenever `FEATURE_ALLOCATOR_MERGES_ENABLED` is true; otherwise merges remain supported but no multi-table plan can be produced.
 
 Bitset: server/capacity/planner/bitset.ts (mask & free checks)
 

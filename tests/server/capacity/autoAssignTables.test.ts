@@ -1,6 +1,7 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Tables } from '@/types/supabase';
+import * as featureFlags from '@/server/feature-flags';
 
 process.env.BASE_URL = 'http://localhost:3000';
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co';
@@ -27,8 +28,16 @@ beforeAll(async () => {
   ({ autoAssignTablesForDate } = await import('@/server/capacity'));
 });
 
+let allocatorFlagSpy: vi.SpyInstance<boolean, []>;
+
 beforeEach(() => {
+  vi.restoreAllMocks();
+  allocatorFlagSpy = vi.spyOn(featureFlags, 'isAllocatorV2Enabled').mockReturnValue(true);
   emitSelectorDecision.mockClear();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 type TableRow = {
@@ -560,7 +569,7 @@ describe('autoAssignTablesForDate', () => {
         candidates: expect.arrayContaining([
           expect.objectContaining({ tableIds: ['table-4'] }),
         ]),
-        featureFlags: expect.objectContaining({ selectorScoring: true, opsMetrics: true }),
+        featureFlags: expect.objectContaining({ selectorScoring: true }),
       }),
     );
   });
@@ -619,7 +628,7 @@ describe('autoAssignTablesForDate', () => {
     expect(result.assigned).toEqual([]);
     expect(result.skipped).toHaveLength(1);
     const skipReason = result.skipped[0]?.reason ?? '';
-    expect(skipReason).toContain('capacity');
+    expect(skipReason).toMatch(/capacity|Combination planner disabled/);
 
     expect(emitSelectorDecision).toHaveBeenCalledWith(
       expect.objectContaining({

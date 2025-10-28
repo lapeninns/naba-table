@@ -44,6 +44,24 @@ export function isAllocatorMergesEnabled(): boolean {
   return env.featureFlags.allocator.mergesEnabled ?? !isProductionEnv();
 }
 
+export function isAllocatorV2ForceLegacy(): boolean {
+  return env.featureFlags.allocatorV2?.forceLegacy ?? false;
+}
+
+export function isAllocatorV2Enabled(): boolean {
+  if (isAllocatorV2ForceLegacy()) {
+    return false;
+  }
+  return env.featureFlags.allocatorV2?.enabled ?? false;
+}
+
+export function isAllocatorV2ShadowMode(): boolean {
+  if (isAllocatorV2ForceLegacy()) {
+    return false;
+  }
+  return env.featureFlags.allocatorV2?.shadow ?? false;
+}
+
 export function isAllocatorAdjacencyRequired(): boolean {
   return env.featureFlags.allocator.requireAdjacency ?? true;
 }

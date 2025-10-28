@@ -1,93 +1,123 @@
 # AGENTS.md
 
-**Operating handbook for AI coding agents and human contributors**
+**SDLC‑aligned operating handbook for AI coding agents and human contributors (with MCP tooling)**
 
-> A concise, end‑to‑end process for delivering reliable software changes with the same structure every time.
-
----
-
-## 1) Scope & Audience
-
-- **Who**: AI coding agents, human engineers, reviewers, and maintainers working in this repository.
-- **What**: The authoritative workflow, quality bars, file structure, and conventions for any change (feature, bug fix, refactor, experiment).
-- **Why**: Consistency, traceability, and safe iteration—especially across monorepos and multiple subprojects.
+> Deliver reliable software changes using the same structure every time—mapped to a clear SDLC and powered by MCP where it adds the most value.
 
 ---
 
-## 2) Non‑Negotiables (Read First)
+## 0) Scope & Audience
 
-1. **Follow the phases in order** (no coding before research & plan).
+- **Who**: AI coding agents, human engineers, reviewers, maintainers, and release managers in this repository.
+- **What**: The authoritative SDLC, workflow, quality bars, file structure, conventions, and MCP tool usage for any change (feature, fix, refactor, experiment).
+- **Why**: Consistency, traceability, safe iteration—especially in monorepos and multi‑app repos.
+
+---
+
+## 1) Non‑Negotiables (Read First)
+
+1. **Follow the SDLC phases in order.** No coding before requirements & plan are reviewed.
 2. **Everything is a Task** with its own time‑stamped directory and artifacts.
 3. **Manual UI QA via Chrome DevTools (MCP) is mandatory** for any UI change.
-4. **Supabase: remote only**—never run migrations or seeds against a local instance.
-5. **Prefer existing patterns** (DRY/KISS/YAGNI). Use **SHADCN UI (Utilizing Shadcn MCP is mandatory)** before building custom components.
-6. **Accessibility is required**, not optional (WCAG/WAI‑ARIA APG alignment).
-7. **Document assumptions & deviations** from the plan, inside the task folder.
+4. **Supabase: remote only.** Never run migrations or seeds against a local instance for this project.
+5. **Prefer existing patterns** (DRY/KISS/YAGNI). **Use SHADCN UI** (via **Shadcn MCP**) before building custom components.
+6. **Accessibility is required** (WCAG/WAI‑ARIA APG). No exceptions.
+7. **Document assumptions & deviations** from the plan inside the task folder.
+8. **Secrets never in source.** Use env vars / secret stores; never commit tokens.
+9. **Conventional Commits** and **PR templates** are enforced.
 
 ---
 
-## 3) Task Structure & Naming
+## 2) Task Structure & Naming
 
-- **Directory**: `tasks/<slug>-YYYYMMDD-HHMM/`
-  - Use a clear semantic **slug**: `user-auth-flow`, `payment-gateway-integration`, `fix-avatar-cropping`.
-  - **Timestamp**: `YYYYMMDD-HHMM` in **UTC** (e.g., `20250110-1430` → 2025‑01‑10 14:30 UTC).
+- **Directory**: `tasks/<slug>-YYYYMMDD-HHMM/` (UTC timestamp).
+  - Slug examples: `user-auth-flow`, `payment-gateway-integration`, `fix-avatar-cropping`.
+  - Timestamp format: `YYYYMMDD-HHMM` (e.g., `20250110-1430` → 2025‑01‑10 14:30 UTC).
 
-- **Required files** inside each task directory:
+**Required files**
 
-  ```
-  tasks/<slug>-YYYYMMDD-HHMM/
-  ├── research.md      # What exists, what to reuse, constraints, references
-  ├── plan.md          # Objective, design, API, states, tests, rollout
-  ├── todo.md          # Executable checklist (atomic steps)
-  └── verification.md  # Manual QA, test outcomes, performance, sign-offs
-  ```
+```
+tasks/<slug>-YYYYMMDD-HHMM/
+├── research.md      # Requirements & analysis: what exists, reuse, constraints, references
+├── plan.md          # Design/plan: objective, architecture, API, states, tests, rollout
+├── todo.md          # Implementation checklist (atomic steps)
+└── verification.md  # Verification: manual QA, test outcomes, performance, sign-offs
+```
 
 **Example**
 `tasks/user-authentication-flow-20250110-1430/`
 
 ---
 
-## 4) End‑to‑End Workflow (Phases)
+## 3) SDLC at a Glance (Map → Artifacts → MCP)
 
-> Move through phases 0 → 6 without skipping. Use the **exit criteria** as gates.
+| SDLC Phase                       | What happens                                            | Primary Artifacts            | Gate / Exit Criteria                                  | Required MCP(s)                                         |
+| -------------------------------- | ------------------------------------------------------- | ---------------------------- | ----------------------------------------------------- | ------------------------------------------------------- |
+| **0. Initiation**                | Create task, define scope stub                          | Task folder, stubs           | Folder exists; basic scope noted                      | —                                                       |
+| **1. Requirements & Analysis**   | Inventory current code, clarify requirements, risks     | `research.md`                | Clear, justified approach; constraints/risks explicit | **Context7 MCP**, **DeepWiki MCP**, **Atlassian MCP**   |
+| **2. Design & Planning**         | Architecture, contracts, UX states, test & rollout plan | `plan.md`                    | Reviewer can approve build without a meeting          | **Shadcn MCP**, **Supabase MCP**, **Next DevTools MCP** |
+| **3. Implementation**            | Code, migrations, components, unit tests                | `todo.md` (live)             | Core complete; local tests pass                       | **Shadcn MCP**, **Supabase MCP**, **Next DevTools MCP** |
+| **4. Verification & Validation** | Manual QA, a11y, perf, E2E, cross‑browser               | `verification.md`            | Meets success criteria; no P0/P1; sign‑offs           | **Chrome DevTools MCP**                                 |
+| **5. Review & Merge**            | PR, review, evidence, CI green                          | PR links to task             | Approvals obtained; CI green; merge per policy        | **GitHub tool** (if available), **Atlassian MCP**       |
+| **6. Release & Deployment**      | Gradual rollout; metrics & logs                         | Release notes, runbook notes | Stable at 100%; no regressions                        | **Supabase MCP** (if DB), Observability stack           |
+| **7. Operate & Improve**         | Monitor, hotfix, retrospective                          | Post‑release notes           | Learnings captured; tickets filed                     | **Atlassian MCP**                                       |
 
-### Phase 0 — **Task Setup**
-
-**Inputs**: Ticket or problem statement.
-**Activities**:
-
-- Create `tasks/<slug>-YYYYMMDD-HHMM/` (UTC).
-- Capture initial requirements + success criteria (brief).
-  **Outputs**:
-- Directory created.
-- Success criteria drafted in `plan.md` (placeholder is fine).
-  **Exit**:
-- Task folder exists, with at least a stubbed `research.md` and `plan.md`.
+> **Note**: MCP names refer to your configured servers (see §8). Use placeholders/env vars—never commit real tokens.
 
 ---
 
-### Phase 1 — **Research** (`research.md`)
+## 4) Detailed SDLC Phases (with MCP usage)
 
-**Goal**: Understand before building.
+### Phase 0 — **Initiation (Task Setup)**
+
+**Inputs**: Ticket, problem statement, or spike.
 **Activities**:
 
-- Search the codebase for existing patterns/utilities/components.
-- Identify reuse opportunities and anti‑patterns to avoid.
-- Review relevant external specs, RFCs, docs.
-- Record constraints, open questions, and recommended approach.
-  **Outputs** (`research.md`):
-- Existing patterns/components to reuse.
-- External references and links.
-- Constraints (tech, performance, security, product).
-- Open Q&A (resolved if possible).
-- Rationale for a recommended direction.
+- Create `tasks/<slug>-YYYYMMDD-HHMM/` (UTC).
+- Capture initial scope + success criteria (brief).
+  **Outputs**:
+- Folder + stubbed `research.md` & `plan.md`.
   **Exit**:
-- A reasoned recommendation exists; known constraints & risks are explicit.
+- Task folder exists with named objective stub.
 
-**Suggested Template** (use in `research.md`)
+---
+
+### Phase 1 — **Requirements & Analysis** (`research.md`)
+
+**Goal**: Understand before building.
+
+**Activities**:
+
+- Inventory codebase for reuse opportunities & anti‑patterns.
+- Gather requirements (functional + non‑functional: a11y, perf budgets, security, privacy).
+- Identify domain constraints, risks, and open questions.
+- Record a recommended approach with rationale.
+
+**Use MCP here**
+
+- **Context7 MCP**: semantic search across internal docs/specs/prior art.
+- **DeepWiki MCP**: external/domain references (summaries, RFCs).
+- **Atlassian MCP**: pull ticket description/ACs; update questions/notes back to the ticket if applicable.
+
+**Outputs (`research.md`)**
+
+- Existing patterns/components/utilities to reuse.
+- External references & why they matter.
+- Constraints (tech, performance, security, product).
+- Open Q&A (resolved/owner).
+- Recommended direction (with rationale).
+
+**Exit**: A reasoned recommendation; risks & constraints explicit.
+
+**Template**
 
 ```markdown
 # Research: <Feature/Change Name>
+
+## Requirements
+
+- Functional:
+- Non‑functional (a11y, perf, security, privacy, i18n):
 
 ## Existing Patterns & Reuse
 
@@ -95,13 +125,13 @@
 
 ## External Resources
 
-- [Spec/Doc](url) – note why it matters
+- [Spec/Doc](url) – why it matters
 
 ## Constraints & Risks
 
 - ...
 
-## Open Questions (and answers if resolved)
+## Open Questions (owner, due)
 
 - Q: ...
   A: ...
@@ -113,27 +143,35 @@
 
 ---
 
-### Phase 2 — **Planning** (`plan.md`)
+### Phase 2 — **Design & Planning** (`plan.md`)
 
-**Goal**: Turn research into an implementable blueprint.
+**Goal**: Turn analysis into an implementable blueprint.
+
 **Activities**:
 
-- Build mobile-first — design and develop for the smallest screens and core features first, then progressively enhance the layout, interactions, and visuals for larger screens. Responsive design ensures the site automatically adapts to different screen sizes.
-- Design with existing patterns and components.
-- Define data flow, API contracts, UI states, and error paths.
-- Plan tests and rollout.
-  **Outputs** (`plan.md`):
-- **Objective** + **Success Criteria** (measurable).
-- **Architecture** (diagrams optional), component breakdown, state mgmt.
-- **API contracts** (request/response, error shapes).
-- **UI/UX** flows (loading/empty/error/success).
-- **Testing strategy** (unit/integration/E2E/accessibility).
-- **Edge cases** and failure handling.
-- **Rollout plan** (flags, gradual exposure, metrics).
-  **Exit**:
-- Reviewer can say “yes, build this” without more meetings.
+- Mobile‑first, progressive enhancement; favor existing components.
+- Define architecture, data flow, API contracts, error paths.
+- Define UI states; plan tests and rollout (flags/metrics).
 
-**Suggested Template** (use in `plan.md`)
+**Use MCP here**
+
+- **Shadcn MCP**: discover existing components, scaffold variants, align tokens.
+- **Supabase MCP**: design migrations/seeds safely **against remote**; prepare rollback/backup plan.
+- **Next DevTools MCP**: inspect routing, bundle, server/client boundaries for Next.js apps.
+
+**Outputs (`plan.md`)**
+
+- Objective, success criteria (measurable).
+- Architecture & components (state ownership, URL state).
+- API contracts (request/response/errors).
+- UI/UX states (loading/empty/error/success).
+- Edge cases & failure handling.
+- Testing strategy (unit/integration/E2E/a11y).
+- Rollout plan (flags, exposure steps, metrics, kill‑switch).
+
+**Exit**: Reviewer can say “yes, build this.”
+
+**Template**
 
 ```markdown
 # Implementation Plan: <Feature/Change Name>
@@ -144,14 +182,14 @@ We will enable <user> to <goal> so that <outcome>.
 
 ## Success Criteria
 
-- [ ] <metric or condition>
-- [ ] <metric or condition>
+- [ ] <metric/condition>
+- [ ] <metric/condition>
 
 ## Architecture & Components
 
 - <ComponentA>: role
 - <ComponentB>: role
-  State: <where/why> | Routing/URL state: <...>
+  State: <where/why> | URL state: <...>
 
 ## Data Flow & API Contracts
 
@@ -182,7 +220,8 @@ Errors: { code, message }
 
 - Feature flag: <flag_name>
 - Exposure: 10% → 50% → 100%
-- Monitoring: <metric/logs>
+- Monitoring: <metrics/logs/dashboards>
+- Kill‑switch: <how to disable safely>
 ```
 
 ---
@@ -190,17 +229,23 @@ Errors: { code, message }
 ### Phase 3 — **Implementation** (`todo.md`)
 
 **Goal**: Execute with momentum and traceability.
+
 **Activities**:
 
-- Break work into atomic, checkable steps.
-- Work through them sequentially; batch questions in one block.
-- Log deviations from plan and assumptions.
-  **Outputs** (`todo.md`):
-- A living checklist with progress.
-  **Exit**:
-- Core functionality complete; tests passing locally.
+- Break work into atomic steps; keep the checklist living.
+- Implement code, components, migrations (remote), and tests.
+- Log deviations & assumptions.
 
-**Suggested Template** (use in `todo.md`)
+**Use MCP here**
+
+- **Shadcn MCP**: scaffold/extend UI components; adhere to design tokens.
+- **Supabase MCP**: run **remote** migrations/seeds with dry‑run and rollback plans.
+- **Next DevTools MCP**: diagnose routing/data‑fetch/bundle issues during dev.
+
+**Outputs**: Updated `todo.md`, working feature, local tests green.
+**Exit**: Core functionality complete; tests passing locally.
+
+**Template**
 
 ```markdown
 # Implementation Checklist
@@ -241,25 +286,29 @@ Errors: { code, message }
 
 ---
 
-### Phase 4 — **Verification** (`verification.md`)
+### Phase 4 — **Verification & Validation** (`verification.md`)
 
-**Goal**: Prove the change works, performs, and is accessible.
-**Activities (all required for UI)**:
+**Goal**: Prove it works, is accessible, and performs.
 
-- **Chrome DevTools (MCP) Manual QA**:
-  - Inspect DOM semantics, Console (no errors), Network waterfall.
+**Activities (UI required)**:
+
+- **Chrome DevTools MCP Manual QA**:
+  - DOM semantics; Console (no errors); Network waterfall shape.
   - Device emulation (mobile/tablet/desktop).
   - Performance profiling (CPU/network throttling).
-  - Lighthouse/Accessibility checks (labels, headings, contrast, focus).
+  - Lighthouse/a11y checks (labels, headings, contrast, focus).
 
-- Cross‑browser smoke (where feasible).
-- Validate edge cases and error paths.
-  **Outputs** (`verification.md`):
-- Checklists, metrics, known issues, sign‑offs.
-  **Exit**:
-- Meets success criteria; no P0/P1 defects; sign‑offs captured.
+- Cross‑browser smoke tests (where feasible).
+- Validate edge cases & error paths; perf budgets; basic security checks.
 
-**Suggested Template** (use in `verification.md`)
+**Use MCP here**
+
+- **Chrome DevTools MCP**: all the above checks & artifacts capture.
+
+**Outputs**: Checklists, metrics, issues, sign‑offs captured in `verification.md`.
+**Exit**: Meets success criteria; no P0/P1 defects; sign‑offs done.
+
+**Template**
 
 ```markdown
 # Verification Report
@@ -271,8 +320,8 @@ Tool: Chrome DevTools MCP
 ### Console & Network
 
 - [x] No Console errors
-- [x] Network requests shaped per contract
-- [ ] Performance warnings addressed (note if any)
+- [x] Network requests match contract
+- [ ] Performance warnings addressed (notes)
 
 ### DOM & Accessibility
 
@@ -298,13 +347,13 @@ Tool: Chrome DevTools MCP
 
 - [x] Happy paths
 - [x] Error handling
-- [ ] Non-critical performance issues (tracked as <ticket>)
+- [ ] Non‑critical perf issues (tracked as <ticket>)
 
 ## Known Issues
 
 - [ ] <issue> (owner, priority)
 
-## Sign-off
+## Sign‑off
 
 - [ ] Engineering
 - [ ] Design/PM
@@ -317,16 +366,21 @@ Tool: Chrome DevTools MCP
 **Activities**:
 
 - Open PR referencing the task directory.
-- Use **Conventional Commits** in the PR title (e.g., `feat: <...>`, `fix: <...>`).
-- Attach screenshots/clips for UI changes.
-  **Exit**:
-- Approvals obtained; CI green; PR merged via squash/rebase per repo policy.
+- Use **Conventional Commits** in PR title (`feat: ...`, `fix: ...`, etc.).
+- Attach screenshots/clips for UI; link to `verification.md`.
 
-**PR Checklist** (include in PR description)
+**Use MCP here**
+
+- **Atlassian MCP**: link PR to ticket; update status.
+- **GitHub tool (if configured)**: surface checks, requested reviewers.
+
+**Exit**: Approvals obtained; CI green; merged via squash/rebase per repo policy.
+
+**PR Checklist** _(include in PR description)_
 
 ```
 [ ] Links to task folder and ticket
-[ ] Screenshots/clips (UI)
+[ ] Screenshots/clips (UI) + verification.md
 [ ] Tests added/updated
 [ ] A11y verified (keyboard, SR cues)
 [ ] Perf checked (no regressions)
@@ -335,123 +389,130 @@ Tool: Chrome DevTools MCP
 
 ---
 
-### Phase 6 — **Release & Post‑Release**
+### Phase 6 — **Release & Deployment**
 
 **Activities**:
 
-- Gradual rollout per plan; monitor metrics/logs.
-- Hotfix if needed; capture learnings in the task folder.
-  **Exit**:
-- Stable at 100%; task folder updated with final notes.
+- Roll out per plan; monitor metrics/logs; keep flag guardrails.
+- Hotfix if needed; document in task folder.
+
+**Use MCP here**
+
+- **Supabase MCP**: apply DB changes to the correct **remote** environment; confirm backups/rollback steps recorded.
+- Observability stack (dashboards/alerts) per service.
+
+**Exit**: Stable at 100%; final notes added to task folder.
 
 ---
 
-## 5) Tooling & Integrations
+### Phase 7 — **Operate & Improve**
 
-### MCP Server (Model Context Protocol)
+**Activities**:
 
-Use MCP to:
+- Monitor SLOs; triage incidents; capture learnings.
+- File follow‑ups; schedule refactors/tech debt as tasks.
 
-- Navigate/inspect the codebase at scale.
-- Retrieve docs/specs and prior art.
-- Run **Chrome DevTools MCP** for Manual QA (UI).
+**Use MCP here**
 
-**Chrome DevTools MCP Authentication**
+- **Atlassian MCP**: create follow‑ups and post‑mortems; link evidence.
 
-- Obtain a **valid login session token for auth protected pages if required** (do not commit or hardcode).
-- Tokens **expire**; verify before each session.
-- **Do not proceed** with MCP‑based QA without a valid token.
-- If operating interactively with a human maintainer, request the token explicitly and wait to receive it before testing.
+**Exit**: Learnings captured; backlog updated.
 
 ---
 
-## 6) Frontend: Component & UX Standards
+## 5) Frontend: Component & UX Standards
 
 ### Components
 
-- **Use SHADCN UI (Utilizing Shadcn MCP is mandatory)** when available; extend rather than rebuild.
+- **Use SHADCN UI via Shadcn MCP**; extend rather than rebuild.
 - Search for existing patterns before introducing new ones.
 
 ### Mobile‑First & Progressive Enhancement
 
-- Build for small screens first; enhance for desktop.
-- Core flows must work without JS bells/whistles where reasonable.
+- Build for small screens first; enhance for larger screens.
+- Core flows should not depend on non‑essential JS where reasonable.
 
 ### Accessibility (must‑haves)
 
 - Full keyboard navigation; manage focus (trap in modals, restore on close).
 - Visible focus via `:focus-visible`.
 - Prefer semantic HTML; add ARIA only when necessary.
-- Provide accessible names/labels, not color‑only cues.
-- Hierarchical headings; proper titles per view.
-- Toasts/validation should use polite `aria-live`.
+- Provide accessible names/labels; avoid color‑only cues.
+- Hierarchical headings; per‑view titles.
+- Toasts/validation use polite `aria-live`.
 
 ### Forms
 
-- Inputs ≥16px font on mobile (prevent zoom).
-- Proper `type`, `inputmode`, and `autocomplete`.
-- Allow submission to surface inline validation errors; focus the first error.
+- Inputs ≥16px font on mobile.
+- Proper `type`, `inputmode`, `autocomplete`.
+- Submit surfaces inline validation; focus first error.
 - Keep submit enabled until request starts; show non‑blocking spinners.
 - Permit paste; trim values; warn before navigating away with unsaved changes.
-- `Enter` submits single‑line inputs; `Ctrl/⌘+Enter` submits textareas.
+- `Enter` submits single‑line; `Ctrl/⌘+Enter` submits textareas.
 
 ### Navigation & State
 
-- Reflect state in the **URL** (filters, tabs, pagination).
-- Restore **scroll position** on back/forward.
-- Use `<a>/<Link>` to support new‑tab and middle‑click.
+- Reflect state in URL (filters, tabs, pagination).
+- Restore scroll on back/forward.
+- Use `<a>/<Link>` for new‑tab & middle‑click.
 
 ### Touch & Targets
 
-- Hit area ≥24px (mobile ≥44px). Expand via padding if visuals are smaller.
+- Hit area ≥24px (mobile ≥44px). Increase padding if visuals are smaller.
 - `touch-action: manipulation` where appropriate.
 
 ### Motion & Layout
 
 - Respect `prefers-reduced-motion`.
 - Animate only `transform`/`opacity`; make animations interruptible.
-- Test layouts on mobile, laptop, and ultra‑wide; avoid unwanted scrollbars.
-- Respect safe areas via `env(safe-area-inset-*)`.
+- Test mobile, laptop, ultra‑wide; avoid accidental scrollbars.
+- Respect safe areas with `env(safe-area-inset-*)`.
 
 ### Performance
 
 - Minimize re‑renders; virtualize large lists.
 - Prevent image‑induced CLS (reserve space).
-- Target sub‑500ms user‑visible mutations for common paths.
+- Target <500ms for common user‑visible mutations.
 
 ---
 
-## 7) Back End & Data
+## 6) Back End & Data
 
 ### Supabase — **Remote Only**
 
 - **Never** run local Supabase for this project.
 - All migrations/seeds target the **remote** instance (staging/prod per plan).
 
-**Commands**
+**MCP‑first operations**
+
+- Use **Supabase MCP** to:
+  - Preview migrations (dry run), then apply to the _target remote_.
+  - Seed only when required and idempotent.
+  - Capture migration IDs and rollback steps in `verification.md`.
+
+**Commands (illustrative)**
 
 ```bash
-# Migrations (remote)
-supabase db push
+# Push migrations to remote (configure DB URL/token via env or MCP)
+supabase db push --db-url $SUPABASE_DB_URL
 
 # Seeds (remote; only if required and safe)
-supabase db seed
+supabase db seed --db-url $SUPABASE_DB_URL
 ```
 
 **Safety**
 
-- Review migrations carefully; coordinate with the team.
-- Document changes and rollout/rollback in `verification.md`.
-- Backups/restore plan for impactful schema changes.
-- Run seeds only when necessary and idempotent.
+- Review migrations carefully; coordinate with maintainers.
+- Document rollout/rollback in `verification.md`.
+- Ensure backups prior to impactful schema changes.
 
 ---
 
-## 8) Monorepos & Nested AGENTS.md
+## 7) Monorepos & Nested AGENTS.md
 
 ### When to Create Nested Files
 
-Create `AGENTS.md` **inside subprojects** that have:
+Create `AGENTS.md` inside subprojects that have:
 
 - Unique build/test commands
 - Different frameworks/patterns
@@ -507,9 +568,59 @@ Create `AGENTS.md` **inside subprojects** that have:
 
 ---
 
+## 8) MCP Tooling & Integrations (Catalog + Rules)
+
+> Use MCP when it provides **repeatability, safety, or scale**. Do _not_ hardcode tokens; configure via env/secrets.
+
+### MCP Inventory (examples reflect common setup)
+
+- **Chrome DevTools MCP**
+  _Use for_: Manual QA (console/network, device emulation, performance profiling, Lighthouse/a11y).
+  _Phases_: 4.
+  _Notes_: For auth‑protected pages, obtain a valid session token _out‑of‑band_. Never commit it.
+
+- **Shadcn MCP**
+  _Use for_: Discovering existing UI components, scaffolding variants, synchronizing tokens.
+  _Phases_: 2, 3.
+  _Rule_: Prefer SHADCN before building custom.
+
+- **Next DevTools MCP**
+  _Use for_: Next.js routing/data‑fetch debug, server/client boundary inspection, bundle hints.
+  _Phases_: 2, 3.
+
+- **Supabase MCP**
+  _Use for_: Remote migrations/seeds; verifying schema drift; generating rollback plans.
+  _Phases_: 2, 3, 6.
+  _Rule_: **Remote only**; pass connection strings/tokens via secrets. Never in code.
+
+- **Context7 MCP**
+  _Use for_: Semantic search over internal knowledge (docs, ADRs, past tasks).
+  _Phases_: 1.
+
+- **DeepWiki MCP**
+  _Use for_: External/domain research summaries (standards, RFCs).
+  _Phases_: 1.
+
+- **Atlassian MCP**
+  _Use for_: Fetch/update ticket details, link PRs, move states during Review/Release/Operate.
+  _Phases_: 1, 5, 7.
+
+- **GitHub tool** (if available)
+  _Use for_: PR metadata, checks, reviewers; linking evidence to task.
+  _Phases_: 5.
+
+**MCP Security Rules**
+
+- All tokens via env/secret store (e.g., `SUPABASE_DB_URL`, `ATLASSIAN_API_TOKEN`).
+- Rotate tokens regularly; expect expiry; verify before sessions.
+- Do not log secrets in artifacts (`research.md`, `plan.md`, etc.).
+- For auth QA, use short‑lived session cookies provided by a maintainer.
+
+---
+
 ## 9) Git & Branching
 
-- **Branch name**: `task/<slug>-YYYYMMDD-HHMM`
+- **Branch**: `task/<slug>-YYYYMMDD-HHMM`
 - **Commits**: Conventional Commits (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`).
 - **PR**: Reference the task folder; include checklists and evidence (screens, clips, metrics).
 
@@ -517,15 +628,16 @@ Create `AGENTS.md` **inside subprojects** that have:
 
 ## 10) Red Flags & Stop Signs
 
-Stop and escalate when you see:
+Escalate immediately if:
 
 - No reusable pattern exists for a risky area → **request design/arch review**.
-- Requirements are ambiguous → **clarify before coding**.
-- Scope is too large → **split into multiple tasks**.
-- Many assumptions accumulating → **document & validate with a maintainer**.
+- Requirements ambiguous → **clarify in Phase 1** before coding.
+- Scope too large → **split into multiple tasks**.
+- Assumptions stack up → **document & validate with maintainer**.
 - No verification plan → **define success criteria** first.
 - Skipping **DevTools MCP** QA for UI → **not allowed**.
 - Attempting **local** Supabase migrations/seeds → **not allowed**.
+- Secrets appear in diffs or artifacts → **block PR** until removed.
 
 ---
 
@@ -535,19 +647,19 @@ Stop and escalate when you see:
 
 ```
 [ ] Create task dir (UTC timestamp)
-[ ] Research complete → research.md
-[ ] Plan written → plan.md
+[ ] Requirements & analysis → research.md
+[ ] Design/plan written → plan.md
 [ ] Implementation executed → todo.md
-[ ] Verification recorded → verification.md
-[ ] UI changes: DevTools (MCP) QA done
+[ ] Verification recorded → verification.md (DevTools MCP for UI)
 [ ] Approvals & merge
-[ ] Rollout & monitor, notes added
+[ ] Release & monitor; notes added
+[ ] Post‑release learnings filed (tickets)
 ```
 
 **UI/A11y Essentials**
 
 ```
-[ ] Keyboard-only flows succeed
+[ ] Keyboard‑only flows succeed
 [ ] Visible focus management
 [ ] Semantic roles/labels
 [ ] URL reflects state
@@ -560,15 +672,23 @@ Stop and escalate when you see:
 ```
 [ ] No console errors/warnings
 [ ] Critical interactions < 500ms
-[ ] FCP/LCP reasonable; profile attached
+[ ] FCP/LCP reasonable; profiles attached
 ```
 
 **Data & Migrations**
 
 ```
-[ ] Remote Supabase only
+[ ] Remote Supabase only (via MCP)
 [ ] Migration reviewed & coordinated
 [ ] Rollback/backup plan noted
+```
+
+**Security & Privacy**
+
+```
+[ ] Secrets not committed; env only
+[ ] PII minimized/redacted in logs
+[ ] Auth & authorization paths tested
 ```
 
 ---
@@ -587,7 +707,7 @@ Stop and escalate when you see:
 
 ### A) Example Artifacts
 
-- See the templates embedded in phases above; copy into your task files.
+Use the templates embedded in phases above; copy into your task files.
 
 ### B) Style Principles
 
@@ -595,9 +715,16 @@ Stop and escalate when you see:
 - **KISS**: Prefer simple, obvious solutions.
 - **YAGNI**: Build only what’s needed now.
 
+### C) MCP Pre‑Flight (copy into `verification.md` when MCP is used)
+
+```
+[ ] Server reachable (version printed)
+[ ] Session token valid (if required)
+[ ] Secrets sourced via env (not logged)
+[ ] Target environment confirmed (staging/prod)
+```
+
 ---
 
-**Last Updated**: 2025‑10‑12
-**Version**: 4.0
-
----
+**Last Updated**: 2025‑10‑28
+**Version**: 5.0

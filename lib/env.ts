@@ -109,6 +109,8 @@ export const env = {
     const parsed = parseEnv();
     const isProduction = parsed.NODE_ENV === "production";
     const allocatorKMax = Math.max(1, Math.min(parsed.FEATURE_ALLOCATOR_K_MAX ?? 3, 5));
+    const allocatorMergesDefault = parsed.FEATURE_ALLOCATOR_MERGES_ENABLED ?? !isProduction;
+    const combinationPlannerDefault = parsed.FEATURE_COMBINATION_PLANNER ?? allocatorMergesDefault;
     return {
       loyaltyPilotRestaurantIds: parsed.LOYALTY_PILOT_RESTAURANT_IDS,
       enableTestApi: parsed.ENABLE_TEST_API ?? false,
@@ -122,12 +124,17 @@ export const env = {
       statusTriggers: parsed.FEATURE_STATUS_TRIGGERS ?? false,
       editScheduleParity: parsed.FEATURE_EDIT_SCHEDULE_PARITY ?? true,
       selectorScoring: parsed.FEATURE_SELECTOR_SCORING ?? true,
-      combinationPlanner: parsed.FEATURE_COMBINATION_PLANNER ?? false,
+      combinationPlanner: combinationPlannerDefault,
       adjacencyValidation: parsed.FEATURE_ADJACENCY_VALIDATION ?? false,
       opsMetrics: parsed.FEATURE_OPS_METRICS ?? false,
       realtimeFloorplan: parsed.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN ?? false,
+      allocatorV2: {
+        enabled: parsed.FEATURE_ALLOCATOR_V2_ENABLED ?? true,
+        shadow: parsed.FEATURE_ALLOCATOR_V2_SHADOW ?? false,
+        forceLegacy: parsed.FEATURE_ALLOCATOR_V2_FORCE_LEGACY ?? false,
+      },
       allocator: {
-        mergesEnabled: parsed.FEATURE_ALLOCATOR_MERGES_ENABLED ?? !isProduction,
+        mergesEnabled: allocatorMergesDefault,
         requireAdjacency: parsed.FEATURE_ALLOCATOR_REQUIRE_ADJACENCY ?? true,
         kMax: allocatorKMax,
       },

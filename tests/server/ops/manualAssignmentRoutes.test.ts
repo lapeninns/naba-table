@@ -255,6 +255,30 @@ describe("POST /api/staff/manual/confirm", () => {
     expect(payload.code).toBe("409");
     expect(payload.error).toBe("duplicate");
   });
+
+  it("returns 422 for allocator validation errors", async () => {
+    const { AssignTablesRpcError } = await import("@/server/capacity/holds");
+    mockConfirmHoldAssignment.mockRejectedValueOnce(
+      new AssignTablesRpcError({
+        code: "ASSIGNMENT_VALIDATION",
+        message: "Tables must be adjacent",
+        details: JSON.stringify({ tableIds: [TABLE_ID, TABLE_ID_B] }),
+        hint: "Select adjacent tables",
+      } as any),
+    );
+
+    const request = new Request("http://localhost/api/staff/manual/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bookingId: BOOKING_ID, holdId: HOLD_ID, idempotencyKey: "key-3" }),
+    }) as unknown as NextRequest;
+
+    const response = await confirmPost(request);
+    expect(response.status).toBe(422);
+    const payload = await response.json();
+    expect(payload.code).toBe("ASSIGNMENT_VALIDATION");
+    expect(payload.error).toBe("Tables must be adjacent");
+  });
 });
 
 describe("DELETE /api/staff/manual/hold", () => {

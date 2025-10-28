@@ -124,6 +124,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (error instanceof AssignTablesRpcError) {
+      const status =
+        error.code === "ASSIGNMENT_VALIDATION"
+          ? 422
+          : error.code === "ASSIGNMENT_REPOSITORY_ERROR"
+            ? 503
+            : error.code === "HOLD_LOOKUP_FAILED"
+              ? 500
+              : 409;
       return NextResponse.json(
         {
           message: error.message,
@@ -132,7 +140,7 @@ export async function POST(req: NextRequest) {
           details: error.details ?? null,
           hint: error.hint ?? null,
         },
-        { status: 409 },
+        { status },
       );
     }
 

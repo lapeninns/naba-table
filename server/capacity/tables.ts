@@ -27,12 +27,10 @@ import {
   AssignTablesRpcError,
   HoldConflictError,
   HoldNotFoundError,
-  confirmTableHold,
   createTableHold,
   findHoldConflicts,
   listActiveHoldsForBooking,
   releaseTableHold,
-  type ConfirmedAssignment,
   type CreateTableHoldInput,
   type HoldConflictInfo,
   type TableHold,
@@ -43,12 +41,22 @@ import {
   getAllocatorKMax,
   getAllocatorKMax as getAllocatorCombinationLimit,
   isAllocatorAdjacencyRequired,
+  isAllocatorV2Enabled,
   isCombinationPlannerEnabled,
   isHoldsEnabled,
   isOpsMetricsEnabled,
   isSelectorScoringEnabled,
 } from "@/server/feature-flags";
 import { getServiceSupabaseClient } from "@/server/supabase";
+import {
+  AssignmentConflictError,
+  AssignmentOrchestrator,
+  AssignmentRepositoryError,
+  AssignmentValidationError,
+  SupabaseAssignmentRepository,
+  createPlanSignature,
+  normalizeTableIds,
+} from "./v2";
 
 import type { Database, Json, Tables } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -660,14 +668,22 @@ async function loadBookingAssignments(bookingId: string, client: DbClient): Prom
   }));
 }
 
+type BookingAssignmentRow = {
+  table_id: string;
+  id: string;
+  start_at: string | null;
+  end_at: string | null;
+  merge_group_id: string | null;
+};
+
 async function loadTableAssignmentsForTables(
   bookingId: string,
   tableIds: string[],
   client: DbClient,
-): Promise<Array<{ table_id: string; id: string }>> {
+): Promise<BookingAssignmentRow[]> {
   const baseBuilder = client
     .from("booking_table_assignments")
-    .select("table_id, id")
+    .select("table_id, id, start_at, end_at, merge_group_id")
     .eq("booking_id", bookingId);
 
   let data: any;
@@ -691,7 +707,7 @@ async function loadTableAssignmentsForTables(
     return [];
   }
 
-  return (data as Array<{ table_id: string; id: string }>).filter((row) => tableIds.includes(row.table_id));
+  return (data as BookingAssignmentRow[]).filter((row) => tableIds.includes(row.table_id));
 }
 
 function registerBusyWindow(
@@ -1316,6 +1332,129 @@ async function loadActiveHoldsForDate(
   });
 }
 
+type RawAssignmentRecord = {
+  tableId: string;
+  startAt?: string | null;
+  endAt?: string | null;
+  mergeGroupId?: string | null;
+};
+
+type AssignmentSyncParams = {
+  supabase: DbClient;
+  booking: BookingRow;
+  tableIds: string[];
+  idempotencyKey: string | null;
+  assignments: RawAssignmentRecord[];
+  startIso: string;
+  endIso: string;
+  actorId?: string | null;
+  mergeGroupId?: string | null;
+  holdContext?: {
+    holdId: string;
+    zoneId?: string | null;
+  };
+};
+
+function serializeDetails(value: unknown): string | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return null;
+  }
+}
+
+async function synchronizeAssignments(params: AssignmentSyncParams): Promise<TableAssignmentMember[]> {
+  const { supabase, booking, tableIds, idempotencyKey, assignments, startIso, endIso, actorId, mergeGroupId, holdContext } = params;
+  const uniqueTableIds = Array.from(new Set(tableIds));
+  const assignmentRows = await loadTableAssignmentsForTables(booking.id, uniqueTableIds, supabase);
+  const windowRange = `[${startIso},${endIso})`;
+
+  const needsUpdate = assignments.some((assignment) => {
+    const normalizedStart = normalizeIsoString(assignment.startAt ?? null);
+    const normalizedEnd = normalizeIsoString(assignment.endAt ?? null);
+    return normalizedStart !== startIso || normalizedEnd !== endIso;
+  });
+
+  if (needsUpdate) {
+    try {
+      await supabase
+        .from("booking_table_assignments")
+        .update({ start_at: startIso, end_at: endIso })
+        .eq("booking_id", booking.id)
+        .in("table_id", uniqueTableIds);
+    } catch {
+      // Ignore in mocked environments.
+    }
+
+    try {
+      await supabase
+        .from("allocations")
+        .update({ window: windowRange })
+        .eq("booking_id", booking.id)
+        .eq("resource_type", TABLE_RESOURCE_TYPE)
+        .in("resource_id", uniqueTableIds);
+    } catch {
+      // Ignore missing allocation support in mocked environments.
+    }
+
+    if (idempotencyKey) {
+      try {
+        await supabase
+          .from("booking_assignment_idempotency")
+          .update({
+            assignment_window: windowRange,
+            merge_group_allocation_id: mergeGroupId ?? null,
+          })
+          .eq("booking_id", booking.id)
+          .eq("idempotency_key", idempotencyKey);
+      } catch {
+        // Ignore ledger updates in mocked environments.
+      }
+    }
+  }
+
+  const assignmentLookup = new Map<string, RawAssignmentRecord>();
+  for (const assignment of assignments) {
+    assignmentLookup.set(assignment.tableId, assignment);
+  }
+
+  const tableRowLookup = new Map(assignmentRows.map((row) => [row.table_id, row]));
+
+  const result: TableAssignmentMember[] = uniqueTableIds.map((tableId) => {
+    const row = tableRowLookup.get(tableId);
+    const assignment = assignmentLookup.get(tableId);
+    return {
+      tableId,
+      assignmentId: row?.id ?? randomUUID(),
+      startAt: startIso,
+      endAt: endIso,
+      mergeGroupId: assignment?.mergeGroupId ?? mergeGroupId ?? null,
+    };
+  });
+
+  if (holdContext) {
+    await emitHoldConfirmed({
+      holdId: holdContext.holdId,
+      bookingId: booking.id,
+      restaurantId: booking.restaurant_id,
+      zoneId: holdContext.zoneId ?? result[0]?.tableId ?? "",
+      tableIds: result.map((assignment) => assignment.tableId),
+      startAt: startIso,
+      endAt: endIso,
+      expiresAt: endIso,
+      actorId: actorId ?? null,
+    });
+  }
+
+  return result;
+}
+
 export async function confirmHoldAssignment(options: {
   holdId: string;
   bookingId: string;
@@ -1324,14 +1463,47 @@ export async function confirmHoldAssignment(options: {
   assignedBy?: string | null;
   client?: DbClient;
 }): Promise<TableAssignmentMember[]> {
+  if (!isAllocatorV2Enabled()) {
+    throw new AssignTablesRpcError({
+      message: "Allocator v2 must be enabled to confirm holds",
+      code: "ALLOCATOR_V2_DISABLED",
+      details: null,
+      hint: "Enable allocator.v2.enabled to use confirmHoldAssignment",
+    });
+  }
+
   const { holdId, bookingId, idempotencyKey, requireAdjacency = isAllocatorAdjacencyRequired(), assignedBy = null, client } = options;
   const supabase = ensureClient(client);
 
-  const { data: holdMeta } = await supabase
+  const {
+    data: holdRow,
+    error: holdError,
+  } = await supabase
     .from("table_holds")
-    .select("zone_id")
+    .select("restaurant_id, zone_id, table_hold_members(table_id)")
     .eq("id", holdId)
     .maybeSingle();
+
+  if (holdError) {
+    throw new HoldNotFoundError(holdError.message ?? "Failed to load table hold");
+  }
+
+  if (!holdRow) {
+    throw new HoldNotFoundError();
+  }
+
+  const tableIds = Array.isArray(holdRow.table_hold_members)
+    ? (holdRow.table_hold_members as Array<{ table_id: string }>).map((member) => member.table_id)
+    : [];
+
+  if (tableIds.length === 0) {
+    throw new AssignTablesRpcError({
+      message: "Hold has no tables",
+      code: "HOLD_EMPTY",
+      details: null,
+      hint: null,
+    });
+  }
 
   const booking = await loadBooking(bookingId, supabase);
   const restaurantTimezone =
@@ -1347,100 +1519,109 @@ export async function confirmHoldAssignment(options: {
     policy,
   });
 
-  const assignments = await confirmTableHold({
-    holdId,
+  const startIso = toIsoUtc(window.block.start);
+  const endIso = toIsoUtc(window.block.end);
+  const normalizedTableIds = normalizeTableIds(tableIds);
+  const planSignature = createPlanSignature({
     bookingId,
-    idempotencyKey,
-    requireAdjacency,
-    assignedBy,
-    startAt: toIsoUtc(window.block.start),
-    endAt: toIsoUtc(window.block.end),
-    client: supabase,
+    tableIds: normalizedTableIds,
+    startAt: startIso,
+    endAt: endIso,
   });
 
-  const assignmentRows = await loadTableAssignmentsForTables(
-    bookingId,
-    assignments.map((assignment) => assignment.tableId),
-    supabase,
-  );
-
-  const windowRange = `[${toIsoUtc(window.block.start)},${toIsoUtc(window.block.end)})`;
-
-  const targetStartIso = toIsoUtc(window.block.start);
-  const targetEndIso = toIsoUtc(window.block.end);
-  const tableIdList = assignments.map((assignment) => assignment.tableId);
-  const needsUpdate = assignments.some((assignment) => {
-    const normalizedStart = normalizeIsoString(assignment.startAt);
-    const normalizedEnd = normalizeIsoString(assignment.endAt);
-    if (normalizedStart !== targetStartIso) {
-      return true;
+  const orchestrator = new AssignmentOrchestrator(new SupabaseAssignmentRepository(supabase));
+  let response;
+  try {
+    response = await orchestrator.commitPlan(
+      {
+        bookingId,
+        restaurantId: booking.restaurant_id,
+        partySize: booking.party_size,
+        zoneId: holdRow.zone_id,
+        serviceDate: booking.booking_date ?? null,
+        window: {
+          startAt: startIso,
+          endAt: endIso,
+        },
+        holdId,
+      },
+      {
+        signature: planSignature,
+        tableIds: normalizedTableIds,
+        startAt: startIso,
+        endAt: endIso,
+        metadata: {
+          holdId,
+        },
+      },
+      {
+        source: "manual",
+        idempotencyKey,
+        actorId: assignedBy,
+        metadata: {
+          requireAdjacency,
+          holdId,
+        },
+        requireAdjacency,
+      },
+    );
+  } catch (error) {
+    if (error instanceof AssignmentConflictError) {
+      throw new AssignTablesRpcError({
+        message: error.message,
+        code: "ASSIGNMENT_CONFLICT",
+        details: serializeDetails(error.details),
+        hint: error.details?.hint ?? null,
+      });
     }
-    if (normalizedEnd !== targetEndIso) {
-      return true;
-    }
-    return false;
-  });
 
-  if (needsUpdate) {
-    try {
-      await supabase
-        .from("booking_table_assignments")
-        .update({ start_at: targetStartIso, end_at: targetEndIso })
-        .eq("booking_id", bookingId)
-        .in("table_id", tableIdList);
-    } catch (assignmentUpdateError) {
-      // Ignore in mocked environments.
+    if (error instanceof AssignmentValidationError) {
+      throw new AssignTablesRpcError({
+        message: error.message,
+        code: "ASSIGNMENT_VALIDATION",
+        details: serializeDetails(error.details),
+        hint: null,
+      });
     }
 
-    try {
-      await supabase
-        .from("allocations")
-        .update({ window: windowRange })
-        .eq("booking_id", bookingId)
-        .eq("resource_type", TABLE_RESOURCE_TYPE)
-        .in("resource_id", tableIdList);
-    } catch (allocationError) {
-      // Ignore missing table in mocked environments.
+    if (error instanceof AssignmentRepositoryError) {
+      throw new AssignTablesRpcError({
+        message: error.message,
+        code: "ASSIGNMENT_REPOSITORY_ERROR",
+        details: serializeDetails(error.cause ?? null),
+        hint: null,
+      });
     }
 
-    try {
-      await supabase
-        .from("booking_assignment_idempotency")
-        .update({
-          assignment_window: windowRange,
-          merge_group_allocation_id: null,
-        })
-        .eq("booking_id", bookingId)
-        .eq("idempotency_key", idempotencyKey);
-    } catch (ledgerError) {
-      // Ignore in mocked environments.
-    }
+    throw error;
   }
 
-  const result: TableAssignmentMember[] = assignments.map((assignment) => {
-    const lookup = assignmentRows.find((row) => row.table_id === assignment.tableId);
-    return {
+  try {
+    await supabase.from("table_holds").delete().eq("id", holdId);
+  } catch {
+    // Best-effort cleanup.
+  }
+
+  return synchronizeAssignments({
+    supabase,
+    booking,
+    tableIds: normalizedTableIds,
+    idempotencyKey,
+    assignments: response.assignments.map((assignment) => ({
       tableId: assignment.tableId,
-      assignmentId: lookup?.id ?? randomUUID(),
-      startAt: targetStartIso,
-      endAt: targetEndIso,
-      mergeGroupId: assignment.mergeGroupId ?? null,
-    };
-  });
-
-  await emitHoldConfirmed({
-    holdId,
-    bookingId,
-    restaurantId: booking.restaurant_id,
-    zoneId: holdMeta?.zone_id ?? result[0]?.tableId ?? "",
-    tableIds: result.map((assignment) => assignment.tableId),
-    startAt: targetStartIso,
-    endAt: targetEndIso,
-    expiresAt: targetEndIso,
+      startAt: assignment.startAt,
+      endAt: assignment.endAt,
+      mergeGroupId: assignment.mergeGroupId ?? response.mergeGroupId ?? null,
+    })),
+    startIso,
+    endIso,
     actorId: assignedBy,
+    mergeGroupId: response.mergeGroupId ?? null,
+    holdContext: {
+      holdId,
+      zoneId: holdRow.zone_id ?? null,
+    },
   });
-
-  return result;
 }
 
 export async function assignTableToBooking(
@@ -1450,6 +1631,15 @@ export async function assignTableToBooking(
   client?: DbClient,
   options?: { idempotencyKey?: string | null; requireAdjacency?: boolean; booking?: BookingRow },
 ): Promise<string> {
+  if (!isAllocatorV2Enabled()) {
+    throw new AssignTablesRpcError({
+      message: "Allocator v2 must be enabled to assign tables",
+      code: "ALLOCATOR_V2_DISABLED",
+      details: null,
+      hint: "Enable allocator.v2.enabled to call assignTableToBooking",
+    });
+  }
+
   const supabase = ensureClient(client);
   const tableIds = Array.isArray(tableIdOrIds) ? tableIdOrIds : [tableIdOrIds];
   if (tableIds.length === 0) {
@@ -1469,87 +1659,111 @@ export async function assignTableToBooking(
     partySize: booking.party_size,
     policy,
   });
-
-  const { data, error } = await supabase.rpc("assign_tables_atomic_v2", {
-    p_booking_id: bookingId,
-    p_table_ids: tableIds,
-    p_idempotency_key: options?.idempotencyKey ?? null,
-    p_require_adjacency: options?.requireAdjacency ?? false,
-    p_assigned_by: assignedBy,
-    p_start_at: toIsoUtc(window.block.start),
-    p_end_at: toIsoUtc(window.block.end),
+  const startIso = toIsoUtc(window.block.start);
+  const endIso = toIsoUtc(window.block.end);
+  const normalizedTableIds = normalizeTableIds(tableIds);
+  const planSignature = createPlanSignature({
+    bookingId,
+    tableIds: normalizedTableIds,
+    startAt: startIso,
+    endAt: endIso,
+    salt: options?.idempotencyKey ?? undefined,
   });
+  const idempotencyKey = options?.idempotencyKey ?? planSignature;
+  const requireAdjacency = options?.requireAdjacency ?? false;
 
-  if (error) {
-    const message = error.message ?? "";
-    const code = (error.code ?? "").toUpperCase();
-    const missing =
-      code === "42883" ||
-      message.toLowerCase().includes("does not exist") ||
-      message.toLowerCase().includes("missing");
-    if (missing) {
-      throw new Error("assign_tables_atomic_v2 RPC is not available");
+  const orchestrator = new AssignmentOrchestrator(new SupabaseAssignmentRepository(supabase));
+  let response;
+  try {
+    response = await orchestrator.commitPlan(
+      {
+        bookingId,
+        restaurantId: booking.restaurant_id,
+        partySize: booking.party_size,
+        serviceDate: booking.booking_date ?? null,
+        window: {
+          startAt: startIso,
+          endAt: endIso,
+        },
+      },
+      {
+        signature: planSignature,
+        tableIds: normalizedTableIds,
+        startAt: startIso,
+        endAt: endIso,
+        metadata: {
+          requestSource: "assignTableToBooking",
+        },
+      },
+      {
+        source: "manual",
+        idempotencyKey,
+        actorId: assignedBy,
+        metadata: {
+          requireAdjacency,
+        },
+        requireAdjacency,
+      },
+    );
+  } catch (error) {
+    if (error instanceof AssignmentConflictError) {
+      throw new AssignTablesRpcError({
+        message: error.message,
+        code: "ASSIGNMENT_CONFLICT",
+        details: serializeDetails(error.details),
+        hint: error.details?.hint ?? null,
+      });
     }
-    throw new Error(message || "Failed to assign tables");
+
+    if (error instanceof AssignmentValidationError) {
+      throw new AssignTablesRpcError({
+        message: error.message,
+        code: "ASSIGNMENT_VALIDATION",
+        details: serializeDetails(error.details),
+        hint: null,
+      });
+    }
+
+    if (error instanceof AssignmentRepositoryError) {
+      throw new AssignTablesRpcError({
+        message: error.message,
+        code: "ASSIGNMENT_REPOSITORY_ERROR",
+        details: serializeDetails(error.cause ?? null),
+        hint: null,
+      });
+    }
+
+    throw error;
   }
 
-  const assignmentRows = await loadTableAssignmentsForTables(bookingId, tableIds, supabase);
-  const assignmentId = assignmentRows[0]?.id ?? randomUUID();
-  const targetStartIso = toIsoUtc(window.block.start);
-  const targetEndIso = toIsoUtc(window.block.end);
-  const windowRange = `[${targetStartIso},${targetEndIso})`;
-  const rpcAssignments = (Array.isArray(data) ? data : []) as Array<{ start_at?: string | null; end_at?: string | null }>;
-  const needsUpdate = rpcAssignments.some((row) => {
-    const normalizedStart = normalizeIsoString(row.start_at ?? null);
-    if (normalizedStart !== targetStartIso) {
-      return true;
-    }
-    const normalizedEnd = normalizeIsoString(row.end_at ?? null);
-    if (normalizedEnd !== targetEndIso) {
-      return true;
-    }
-    return false;
+  const synchronized = await synchronizeAssignments({
+    supabase,
+    booking,
+    tableIds: normalizedTableIds,
+    idempotencyKey,
+    assignments: response.assignments.map((assignment) => ({
+      tableId: assignment.tableId,
+      startAt: assignment.startAt,
+      endAt: assignment.endAt,
+      mergeGroupId: assignment.mergeGroupId ?? response.mergeGroupId ?? null,
+    })),
+    startIso,
+    endIso,
+    actorId: assignedBy,
+    mergeGroupId: response.mergeGroupId ?? null,
   });
 
-  if (needsUpdate) {
-    try {
-      await supabase
-        .from("booking_table_assignments")
-        .update({ start_at: targetStartIso, end_at: targetEndIso })
-        .eq("booking_id", bookingId)
-        .in("table_id", tableIds);
-    } catch (assignmentUpdateError) {
-      // Ignore when assignment table is mocked or immutable in tests.
-    }
-
-    try {
-      await supabase
-        .from("allocations")
-        .update({ window: windowRange })
-        .eq("booking_id", bookingId)
-        .eq("resource_type", TABLE_RESOURCE_TYPE)
-        .in("resource_id", tableIds);
-    } catch (allocationError) {
-      // Ignore missing allocation support in mocked environments.
-    }
-
-    if (options?.idempotencyKey) {
-      try {
-        await supabase
-          .from("booking_assignment_idempotency")
-          .update({
-            assignment_window: windowRange,
-            merge_group_allocation_id: null,
-          })
-          .eq("booking_id", bookingId)
-          .eq("idempotency_key", options.idempotencyKey);
-      } catch (ledgerError) {
-        // Ignore when ledger table is not available in mocked client.
-      }
-    }
+  const firstAssignment = synchronized[0];
+  if (!firstAssignment) {
+    throw new AssignTablesRpcError({
+      message: "Assignment failed with no records returned",
+      code: "ASSIGNMENT_EMPTY",
+      details: null,
+      hint: null,
+    });
   }
 
-  return assignmentId;
+  return firstAssignment.assignmentId;
 }
 
 export async function unassignTableFromBooking(

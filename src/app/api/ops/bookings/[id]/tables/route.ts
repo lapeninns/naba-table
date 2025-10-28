@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { assignTableToBooking, getBookingTableAssignments } from "@/server/capacity";
+import { AssignTablesRpcError } from "@/server/capacity/holds";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 import { requireMembershipForRestaurant } from "@/server/team/access";
 
@@ -74,6 +75,26 @@ export async function POST(request: NextRequest, context: RouteContext) {
       idempotencyKey: idempotencyKey?.trim() || null,
     });
   } catch (error) {
+    if (error instanceof AssignTablesRpcError) {
+      const status =
+        error.code === "ASSIGNMENT_VALIDATION"
+          ? 422
+          : error.code === "ASSIGNMENT_REPOSITORY_ERROR"
+            ? 503
+            : error.code && error.code.toLowerCase().includes("not_found")
+              ? 404
+              : 409;
+      return NextResponse.json(
+        {
+          error: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+        },
+        { status },
+      );
+    }
+
     const message = error instanceof Error ? error.message : "Unable to assign table";
     const normalized = message.toLowerCase();
     let status = 409;

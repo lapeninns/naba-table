@@ -3,9 +3,11 @@ process.env.NEXT_PUBLIC_SITE_URL = "http://localhost:3000";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const isCombinationPlannerEnabledMock = vi.fn(() => true);
+
 vi.mock("@/server/feature-flags", () => ({
   isSelectorScoringEnabled: () => true,
-  isCombinationPlannerEnabled: () => true,
+  isCombinationPlannerEnabled: isCombinationPlannerEnabledMock,
   isOpsMetricsEnabled: () => true,
   isAllocatorAdjacencyRequired: () => true,
   getAllocatorKMax: () => 3,
@@ -167,6 +169,7 @@ describe("quoteTablesForBooking - hold conflicts", () => {
     emitSelectorQuoteSpy = vi.spyOn(telemetry, "emitSelectorQuote").mockResolvedValue();
     emitHoldCreatedSpy = vi.spyOn(telemetry, "emitHoldCreated").mockResolvedValue();
     emitRpcConflictSpy = vi.spyOn(telemetry, "emitRpcConflict").mockResolvedValue();
+    isCombinationPlannerEnabledMock.mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -215,5 +218,26 @@ describe("quoteTablesForBooking - hold conflicts", () => {
     expect(emitRpcConflictSpy).toHaveBeenCalledWith(
       expect.objectContaining({ source: "create_hold_conflict" }),
     );
+  });
+
+  it("reports skip reason when combination planner is disabled", async () => {
+    isCombinationPlannerEnabledMock.mockReturnValue(false);
+
+    createTableHoldMock.mockResolvedValue({
+      id: "hold-should-not-be-created",
+    });
+
+    const client = createStubClient();
+
+    const result = await quoteTablesForBooking({
+      bookingId: "booking-1",
+      createdBy: "user-1",
+      client,
+    });
+
+    expect(result.hold).toBeNull();
+    expect(result.reason).toContain("No tables meet the capacity requirements");
+    expect(emitSelectorQuoteSpy).not.toHaveBeenCalled();
+    expect(createTableHoldMock).not.toHaveBeenCalled();
   });
 });

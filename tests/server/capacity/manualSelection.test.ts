@@ -52,6 +52,8 @@ type ManualSupabaseFixture = {
   contextBookings?: Record<string, unknown>[];
   adjacency?: { table_a: string; table_b: string }[];
   restaurantTimezone?: string;
+  tableHolds?: Record<string, unknown>[];
+  tableHoldMembers?: Record<string, unknown>[];
 };
 
 let evaluateManualSelection: typeof import("@/server/capacity/tables")['evaluateManualSelection'];
@@ -137,10 +139,53 @@ function createMockSupabaseClient(fixtures: ManualSupabaseFixture) {
           return {
             select() {
               return {
+                or() {
+                  return Promise.resolve({ data: fixtures.adjacency ?? [], error: null });
+                },
                 in() {
                   return Promise.resolve({ data: fixtures.adjacency ?? [], error: null });
                 },
               };
+            },
+          };
+        }
+        case "table_holds": {
+          const holds = fixtures.tableHolds ?? [];
+          return {
+            select() {
+              return {
+                eq() {
+                  return {
+                    maybeSingle: async () => ({ data: fixtures.tableHolds?.[0] ?? null, error: null }),
+                  };
+                },
+              };
+            },
+            insert(payload: any) {
+              const record = Array.isArray(payload) ? { ...payload[0] } : { ...payload };
+              if (!record.id) {
+                record.id = `hold-${holds.length + 1}`;
+              }
+              holds.push(record);
+              return {
+                select() {
+                  return {
+                    maybeSingle: async () => ({ data: record, error: null }),
+                  };
+                },
+              };
+            },
+          };
+        }
+        case "table_hold_members": {
+          const members = fixtures.tableHoldMembers ?? [];
+          return {
+            insert(payload: any) {
+              const rows = Array.isArray(payload) ? payload : [payload];
+              for (const row of rows) {
+                members.push({ ...row });
+              }
+              return Promise.resolve({ data: rows, error: null });
             },
           };
         }
@@ -266,6 +311,59 @@ describe("createManualHold", () => {
     expect(first.validation.ok || second.validation.ok).toBe(true);
     expect(first.validation.ok && second.validation.ok).toBe(false);
   });
+
+  it("detects conflicts when existing assignments carry precise windows", async () => {
+    const conflictingAssignmentStart = "2025-01-01T18:45:00.000Z";
+    const conflictingAssignmentEnd = "2025-01-01T19:30:00.000Z";
+
+    const client = createMockSupabaseClient({
+      booking: BASE_BOOKING,
+      tables: [TABLE_A],
+      contextBookings: [
+        {
+          ...BASE_BOOKING,
+          id: "booking-2",
+          start_time: "18:45",
+          end_time: "19:30",
+          start_at: conflictingAssignmentStart,
+          end_at: conflictingAssignmentEnd,
+          booking_table_assignments: [
+            {
+              table_id: TABLE_A.id,
+              start_at: conflictingAssignmentStart,
+              end_at: conflictingAssignmentEnd,
+            },
+          ],
+        },
+      ],
+    });
+
+    vi.spyOn(holdsModule, "findHoldConflicts").mockResolvedValue([]);
+    vi.spyOn(holdsModule, "listActiveHoldsForBooking").mockResolvedValue([]);
+    const createSpy = vi.spyOn(holdsModule, "createTableHold");
+
+    const result = await createManualHold({
+      bookingId: BASE_BOOKING.id,
+      tableIds: [TABLE_A.id],
+      createdBy: "user-1",
+      client,
+    } satisfies ManualHoldOptions);
+
+    expect(result.hold).toBeNull();
+    expect(result.validation.ok).toBe(false);
+    const conflictCheck = result.validation.checks.find((check) => check.id === "conflict");
+    expect(conflictCheck?.status).toBe("error");
+    expect(conflictCheck?.details).toMatchObject({
+      conflicts: [
+        expect.objectContaining({
+          tableId: TABLE_A.id,
+          bookingId: 'booking-2',
+          source: 'booking',
+        }),
+      ],
+    });
+    expect(createSpy).not.toHaveBeenCalled();
+  });
 });
 
 describe("evaluateManualSelection", () => {
@@ -335,6 +433,31 @@ describe("evaluateManualSelection", () => {
     const adjacencyCheck = result.checks.find((check) => check.id === "adjacency");
     expect(adjacencyCheck?.status).toBe("error");
     expect(result.ok).toBe(false);
+  });
+
+  it("treats adjacency edges as undirected", async () => {
+    const movableTableB = { ...TABLE_B_FIXED, mobility: "movable" };
+    const client = createMockSupabaseClient({
+      booking: BASE_BOOKING,
+      tables: [TABLE_A, movableTableB],
+      contextBookings: [],
+      adjacency: [
+        { table_a: movableTableB.id, table_b: TABLE_A.id },
+      ],
+    });
+
+    vi.spyOn(holdsModule, "findHoldConflicts").mockResolvedValue([]);
+
+    const result = await evaluateManualSelection({
+      bookingId: BASE_BOOKING.id,
+      tableIds: [movableTableB.id, TABLE_A.id],
+      requireAdjacency: true,
+      client,
+    } satisfies ManualSelectionOptions);
+
+    const adjacencyCheck = result.checks.find((check) => check.id === "adjacency");
+    expect(adjacencyCheck?.status).toBe("ok");
+    expect(result.ok).toBe(true);
   });
 
   it("detects assignment conflict when schedule overlaps", async () => {

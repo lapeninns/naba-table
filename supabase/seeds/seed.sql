@@ -188,7 +188,7 @@ SELECT
     bs.seating_preference::seating_preference_type,
     bs.status::booking_status,
     'web',
-    'LP-' || upper(substring(md5(gen_random_uuid()::text), 1, 6)),
+    'LP-' || upper(substring(md5(bs.restaurant_id::text || ':' || bs.n::text), 1, 10)),
     bs.created_at,
     bs.created_at,
     true,
