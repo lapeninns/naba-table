@@ -2,15 +2,20 @@ import { DateTime } from "luxon";
 import { randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
 
+import { BOOKING_BLOCKING_STATUSES } from "@/lib/enums";
 import {
   getAllocatorAdjacencyMinPartySize,
   getAllocatorKMax as getAllocatorCombinationLimit,
   getSelectorPlannerLimits,
   isAllocatorAdjacencyRequired,
   isAllocatorMergesEnabled,
+  isAllocatorServiceFailHard,
   isAllocatorV2Enabled,
   isCombinationPlannerEnabled,
   isHoldsEnabled,
+  isHoldStrictConflictsEnabled,
+  isPlannerTimePruningEnabled,
+  isAdjacencyQueryUndirected,
   isOpsMetricsEnabled,
   isSelectorScoringEnabled,
 } from "@/server/feature-flags";
@@ -75,6 +80,7 @@ const TABLE_INVENTORY_SELECT =
 type TableHoldRow = Tables<"table_holds"> & {
   table_hold_members: Array<{ table_id: string | null }> | null;
 };
+
 
 type AssignmentAvailabilityRow = {
   table_id: string | null;
@@ -164,9 +170,28 @@ export type ManualHoldResult = {
   validation: ManualValidationResult;
 };
 
+function buildSelectorFeatureFlagsTelemetry(): {
+  selectorScoring: boolean;
+  opsMetrics: boolean;
+  plannerTimePruning: boolean;
+  adjacencyUndirected: boolean;
+  holdsStrictConflicts: boolean;
+  allocatorFailHard: boolean;
+} {
+  return {
+    selectorScoring: isSelectorScoringEnabled(),
+    opsMetrics: isOpsMetricsEnabled(),
+    plannerTimePruning: isPlannerTimePruningEnabled(),
+    adjacencyUndirected: isAdjacencyQueryUndirected(),
+    holdsStrictConflicts: isHoldStrictConflictsEnabled(),
+    allocatorFailHard: isAllocatorServiceFailHard(),
+  };
+}
+
 export type AutoAssignResult = {
   assigned: Array<{ bookingId: string; tableIds: string[] }>;
   skipped: Array<{ bookingId: string; reason: string }>;
+  serviceFallbacks: Array<{ bookingId: string; usedFallback: boolean; fallbackService: ServiceKey | null }>;
 };
 
 export type QuoteTablesOptions = {
@@ -186,6 +211,11 @@ export type QuoteTablesResult = {
   alternates: CandidateSummary[];
   nextTimes: string[];
   reason?: string;
+  skipped?: Array<{ candidate: CandidateSummary; reason: string; conflicts: HoldConflictInfo[] }>;
+  metadata?: {
+    usedFallback: boolean;
+    fallbackService: ServiceKey | null;
+  };
 };
 
 export type ManualAssignmentConflict = {
@@ -278,7 +308,30 @@ function normalizeBookingRow(row: BookingRow): BookingRow {
   return row;
 }
 
+async function releaseHoldWithRetry(params: { holdId: string; client: DbClient; attempts?: number; baseDelayMs?: number }): Promise<void> {
+  const { holdId, client, attempts = 3, baseDelayMs = 50 } = params;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await releaseTableHold({ holdId, client });
+      return;
+    } catch (error) {
+      if (attempt === attempts) {
+        throw error;
+      }
+      const jitter = Math.random() * baseDelayMs;
+      const delay = baseDelayMs * attempt + jitter;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+}
+
 export type BookingWindow = ReturnType<typeof computeBookingWindow>;
+
+type BookingWindowWithFallback = {
+  window: BookingWindow;
+  usedFallback: boolean;
+  fallbackService: ServiceKey | null;
+};
 
 export function computeBookingWindow(args: {
   startISO?: string | null;
@@ -338,10 +391,15 @@ type ComputeWindowArgs = {
   serviceHint?: ServiceKey | null;
 };
 
-function computeBookingWindowWithFallback(args: ComputeWindowArgs): BookingWindow {
+function computeBookingWindowWithFallback(args: ComputeWindowArgs): BookingWindowWithFallback {
   const policy = args.policy ?? getVenuePolicy();
   try {
-    return computeBookingWindow({ ...args, policy });
+    const window = computeBookingWindow({ ...args, policy });
+    return {
+      window,
+      usedFallback: false,
+      fallbackService: null,
+    };
   } catch (error) {
     if (error instanceof ServiceNotFoundError) {
       const serviceOrderCandidates = policy.serviceOrder.filter((key) => Boolean(policy.services[key]));
@@ -354,6 +412,10 @@ function computeBookingWindowWithFallback(args: ComputeWindowArgs): BookingWindo
           : serviceOrderCandidates[0] ?? servicesFallback[0];
 
       if (!fallbackService || !policy.services[fallbackService]) {
+        throw error;
+      }
+
+      if (isAllocatorServiceFailHard()) {
         throw error;
       }
 
@@ -374,7 +436,7 @@ function computeBookingWindowWithFallback(args: ComputeWindowArgs): BookingWindo
         fallbackService,
       });
 
-      return {
+      const window: BookingWindow = {
         service: fallbackService,
         durationMinutes,
         dining: {
@@ -385,6 +447,12 @@ function computeBookingWindowWithFallback(args: ComputeWindowArgs): BookingWindo
           start: blockStart,
           end: blockEnd,
         },
+      };
+
+      return {
+        window,
+        usedFallback: true,
+        fallbackService,
       };
     }
 
@@ -513,6 +581,11 @@ function composePlannerConfig(params: {
   requireAdjacency: boolean;
   adjacencyRequiredGlobally: boolean;
   adjacencyMinPartySize: number | null;
+  featureFlags: ReturnType<typeof buildSelectorFeatureFlagsTelemetry>;
+  serviceFallback: {
+    usedFallback: boolean;
+    fallbackService: ServiceKey | null;
+  };
 }): NonNullable<SelectorDecisionEvent["plannerConfig"]> {
   const { diagnostics, scoringConfig } = params;
   const { limits } = diagnostics;
@@ -527,6 +600,18 @@ function composePlannerConfig(params: {
     evaluationLimit: limits.maxCombinationEvaluations,
     maxOverage: scoringConfig.maxOverage,
     maxTables: scoringConfig.maxTables,
+    featureFlags: {
+      plannerTimePruning: params.featureFlags.plannerTimePruning,
+      adjacencyUndirected: params.featureFlags.adjacencyUndirected,
+      holdsStrictConflicts: params.featureFlags.holdsStrictConflicts,
+      allocatorFailHard: params.featureFlags.allocatorFailHard,
+      selectorScoring: params.featureFlags.selectorScoring,
+      opsMetrics: params.featureFlags.opsMetrics,
+    },
+    serviceFallback: {
+      used: params.serviceFallback.usedFallback,
+      service: params.serviceFallback.fallbackService,
+    },
   };
 }
 
@@ -554,6 +639,21 @@ function toIsoUtc(dateTime: DateTime): string {
   );
 }
 
+type TimeFilterMode = "strict" | "approx";
+
+type TimeFilterStats = {
+  prunedByTime: number;
+  candidatesAfterTimePrune: number;
+  pruned_by_time: number;
+  candidates_after_time_prune: number;
+};
+
+type TimeFilterOptions = {
+  busy: AvailabilityMap;
+  mode?: TimeFilterMode;
+  captureStats?: (stats: TimeFilterStats) => void;
+};
+
 function normalizeIsoString(value: string | null | undefined): string | null {
   if (!value) {
     return null;
@@ -565,6 +665,50 @@ function normalizeIsoString(value: string | null | undefined): string | null {
   return toIsoUtc(parsed);
 }
 
+function filterTimeAvailableTables(
+  tables: Table[],
+  window: BookingWindow,
+  busy: AvailabilityMap | undefined,
+  mode: TimeFilterMode,
+  captureStats?: (stats: TimeFilterStats) => void,
+): Table[] {
+  if (!busy || busy.size === 0 || mode === "approx") {
+    captureStats?.({
+      prunedByTime: 0,
+      candidatesAfterTimePrune: tables.length,
+      pruned_by_time: 0,
+      candidates_after_time_prune: tables.length,
+    });
+    return tables;
+  }
+
+  const targetStart = toIsoUtc(window.block.start);
+  const targetEnd = toIsoUtc(window.block.end);
+  let prunedByTime = 0;
+
+  const filtered = tables.filter((table) => {
+    const entry = busy.get(table.id);
+    if (!entry) {
+      return true;
+    }
+    const free = isWindowFree(entry.bitset, targetStart, targetEnd);
+    if (!free) {
+      prunedByTime += 1;
+      return false;
+    }
+    return true;
+  });
+
+  captureStats?.({
+    prunedByTime,
+    candidatesAfterTimePrune: filtered.length,
+    pruned_by_time: prunedByTime,
+    candidates_after_time_prune: filtered.length,
+  });
+
+  return filtered;
+}
+
 export function filterAvailableTables(
   tables: Table[],
   partySize: number,
@@ -572,7 +716,7 @@ export function filterAvailableTables(
   adjacency: Map<string, Set<string>>,
   avoidTables?: Set<string>,
   zoneId?: string | null,
-  options?: { allowInsufficientCapacity?: boolean },
+  options?: { allowInsufficientCapacity?: boolean; timeFilter?: TimeFilterOptions },
 ): Table[] {
   const allowPartial = options?.allowInsufficientCapacity ?? false;
   const avoid = avoidTables ?? new Set<string>();
@@ -599,7 +743,14 @@ export function filterAvailableTables(
     return true;
   });
 
-  return filtered.sort((a, b) => {
+  const timeFiltered =
+    options?.timeFilter && window
+      ? filterTimeAvailableTables(filtered, window, options.timeFilter.busy, options.timeFilter.mode ?? "strict", (stats) =>
+          options.timeFilter?.captureStats?.(stats),
+        )
+      : filtered;
+
+  return timeFiltered.sort((a, b) => {
     const capacityDiff = (a.capacity ?? 0) - (b.capacity ?? 0);
     if (capacityDiff !== 0) return capacityDiff;
     return a.tableNumber.localeCompare(b.tableNumber);
@@ -765,29 +916,51 @@ async function loadTablesByIds(
 }
 
 async function loadAdjacency(tableIds: string[], client: DbClient): Promise<Map<string, Set<string>>> {
-  if (tableIds.length === 0) {
+  const uniqueTableIds = Array.from(
+    new Set(
+      tableIds.filter((value): value is string => typeof value === "string" && value.length > 0),
+    ),
+  );
+
+  if (uniqueTableIds.length === 0) {
     return new Map();
   }
 
-  const { data, error } = await client
-    .from("table_adjacencies")
-    .select("table_a, table_b")
-    .in("table_a", tableIds);
+  type AdjacencyRow = { table_a: string | null; table_b: string | null };
+  const baseQuery = () => client.from("table_adjacencies").select("table_a, table_b");
 
-  if (error || !data) {
+  const [forward, reverse] = await Promise.all([
+    baseQuery().in("table_a", uniqueTableIds),
+    baseQuery().in("table_b", uniqueTableIds),
+  ]);
+
+  if (forward.error || reverse.error) {
+    return new Map();
+  }
+
+  const forwardRows = Array.isArray(forward.data) ? (forward.data as AdjacencyRow[]) : [];
+  const reverseRows = Array.isArray(reverse.data) ? (reverse.data as AdjacencyRow[]) : [];
+  const rows: AdjacencyRow[] = [...forwardRows, ...reverseRows];
+
+  if (rows.length === 0) {
     return new Map();
   }
 
   const map = new Map<string, Set<string>>();
-  for (const row of data) {
-    if (!map.has(row.table_a)) {
-      map.set(row.table_a, new Set());
+  for (const row of rows) {
+    const tableA = row.table_a;
+    const tableB = row.table_b;
+    if (!tableA || !tableB) {
+      continue;
     }
-    map.get(row.table_a)!.add(row.table_b);
-    if (!map.has(row.table_b)) {
-      map.set(row.table_b, new Set());
+    if (!map.has(tableA)) {
+      map.set(tableA, new Set());
     }
-    map.get(row.table_b)!.add(row.table_a);
+    map.get(tableA)!.add(tableB);
+    if (!map.has(tableB)) {
+      map.set(tableB, new Set());
+    }
+    map.get(tableB)!.add(tableA);
   }
   return map;
 }
@@ -818,6 +991,7 @@ async function loadContextBookings(
     )
     .eq("restaurant_id", restaurantId)
     .eq("booking_date", bookingDate)
+    .in("status", [...BOOKING_BLOCKING_STATUSES])
     .order("start_at", { ascending: true });
 
   if (error || !data) {
@@ -847,8 +1021,7 @@ async function loadTableAssignmentsForTables(
   const { data, error } = await client
     .from("booking_table_assignments")
     .select("table_id, id, start_at, end_at, merge_group_id")
-    .eq("booking_id", bookingId)
-    .in("table_id", Array.from(new Set(tableIds)));
+    .eq("booking_id", bookingId);
 
   if (error || !data) {
     return [];
@@ -883,16 +1056,25 @@ function buildBusyMaps(params: {
   holds: TableHold[];
   excludeHoldId?: string | null;
   policy: VenuePolicy;
+  targetWindow?: BookingWindow | null;
 }): AvailabilityMap {
-  const { targetBookingId, bookings, holds, excludeHoldId, policy } = params;
+  const { targetBookingId, bookings, holds, excludeHoldId, policy, targetWindow } = params;
   const map: AvailabilityMap = new Map();
+  const pruneToTargetWindow = isPlannerTimePruningEnabled();
+  const targetInterval =
+    pruneToTargetWindow && targetWindow
+      ? {
+          start: toIsoUtc(targetWindow.block.start),
+          end: toIsoUtc(targetWindow.block.end),
+        }
+      : null;
 
   for (const booking of bookings) {
     if (booking.id === targetBookingId) continue;
     const assignments = booking.booking_table_assignments ?? [];
     if (assignments.length === 0) continue;
 
-    const window = computeBookingWindowWithFallback({
+    const { window } = computeBookingWindowWithFallback({
       startISO: booking.start_at,
       bookingDate: booking.booking_date,
       startTime: booking.start_time,
@@ -900,11 +1082,20 @@ function buildBusyMaps(params: {
       policy,
     });
 
+    const bookingInterval = {
+      start: toIsoUtc(window.block.start),
+      end: toIsoUtc(window.block.end),
+    };
+
+    if (targetInterval && !windowsOverlap(bookingInterval, targetInterval)) {
+      continue;
+    }
+
     for (const assignment of assignments) {
       if (!assignment?.table_id) continue;
       registerBusyWindow(map, assignment.table_id, {
-        startAt: toIsoUtc(window.block.start),
-        endAt: toIsoUtc(window.block.end),
+        startAt: bookingInterval.start,
+        endAt: bookingInterval.end,
         bookingId: booking.id,
         source: "booking",
       });
@@ -913,6 +1104,15 @@ function buildBusyMaps(params: {
 
   for (const hold of holds) {
     if (excludeHoldId && hold.id === excludeHoldId) continue;
+    if (
+      targetInterval &&
+      !windowsOverlap(
+        { start: hold.startAt, end: hold.endAt },
+        targetInterval,
+      )
+    ) {
+      continue;
+    }
     for (const tableId of hold.tableIds) {
       registerBusyWindow(map, tableId, {
         startAt: hold.startAt,
@@ -973,6 +1173,49 @@ function formatConflictSummary(conflicts: ManualAssignmentConflict[]): string {
   const [source] = sources;
   const label = source === "hold" ? "holds" : "bookings";
   return tableIds ? `${label} on tables ${tableIds}` : label;
+}
+
+function formatHoldConflictReason(conflicts: HoldConflictInfo[], plan: RankedTablePlan): string {
+  if (conflicts.length === 0) {
+    return "Conflicts with existing holds";
+  }
+
+  const tableLookup = new Map<string, string>();
+  for (const table of plan.tables) {
+    tableLookup.set(table.id, table.tableNumber ?? table.id);
+  }
+
+  const tableLabels = new Set<string>();
+  for (const conflict of conflicts) {
+    for (const tableId of conflict.tableIds) {
+      const label = tableLookup.get(tableId) ?? tableId;
+      tableLabels.add(label);
+    }
+  }
+
+  const sortedLabels = Array.from(tableLabels).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  let message = sortedLabels.length > 0
+    ? `Conflicts with holds on tables ${sortedLabels.join(", ")}`
+    : "Conflicts with existing holds";
+
+  const latestEnd = conflicts.reduce<string | null>((latest, conflict) => {
+    if (!conflict.endAt) {
+      return latest;
+    }
+    if (!latest) {
+      return conflict.endAt;
+    }
+    return conflict.endAt > latest ? conflict.endAt : latest;
+  }, null);
+
+  if (latestEnd) {
+    const retry = DateTime.fromISO(latestEnd);
+    if (retry.isValid) {
+      message += `; retry after ${retry.toUTC().toISOTime({ suppressSeconds: false, suppressMilliseconds: true })}`;
+    }
+  }
+
+  return message;
 }
 
 function evaluateAdjacency(
@@ -1128,7 +1371,7 @@ export async function evaluateManualSelection(options: ManualSelectionOptions): 
     getVenuePolicy().timezone;
   const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
 
-  const window = computeBookingWindowWithFallback({
+  const { window } = computeBookingWindowWithFallback({
     startISO: booking.start_at,
     bookingDate: booking.booking_date,
     startTime: booking.start_time,
@@ -1159,6 +1402,7 @@ export async function evaluateManualSelection(options: ManualSelectionOptions): 
     holds,
     excludeHoldId,
     policy,
+    targetWindow: window,
   });
 
   const conflicts = extractConflictsForTables(busy, tableIds, window);
@@ -1222,7 +1466,7 @@ export async function createManualHold(options: ManualHoldOptions): Promise<Manu
     getVenuePolicy().timezone;
   const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
 
-  const window = computeBookingWindowWithFallback({
+  const { window } = computeBookingWindowWithFallback({
     startISO: booking.start_at,
     bookingDate: booking.booking_date,
     startTime: booking.start_time,
@@ -1270,7 +1514,7 @@ export async function createManualHold(options: ManualHoldOptions): Promise<Manu
 
   if (excludeHoldId) {
     try {
-      await releaseTableHold({ holdId: excludeHoldId, client: supabase });
+      await releaseHoldWithRetry({ holdId: excludeHoldId, client: supabase });
     } catch (error) {
       console.warn("[capacity][manual][holds] failed to release replaced hold", {
         bookingId,
@@ -1301,7 +1545,7 @@ export async function getManualAssignmentContext(options: {
     getVenuePolicy().timezone;
   const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
 
-  const window = computeBookingWindowWithFallback({
+  const { window } = computeBookingWindowWithFallback({
     startISO: booking.start_at,
     bookingDate: booking.booking_date,
     startTime: booking.start_time,
@@ -1335,6 +1579,7 @@ export async function getManualAssignmentContext(options: {
     bookings: contextBookings,
     holds,
     policy,
+    targetWindow: window,
   });
 
   const bookingAssignments = await loadTableAssignmentsForTables(
@@ -1697,7 +1942,7 @@ export async function confirmHoldAssignment(options: {
     (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
     getVenuePolicy().timezone;
   const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
-  const window = computeBookingWindowWithFallback({
+  const { window } = computeBookingWindowWithFallback({
     startISO: booking.start_at,
     bookingDate: booking.booking_date,
     startTime: booking.start_time,
@@ -1839,7 +2084,7 @@ export async function assignTableToBooking(
     (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
     getVenuePolicy().timezone;
   const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
-  const window = computeBookingWindowWithFallback({
+  const { window } = computeBookingWindowWithFallback({
     startISO: booking.start_at,
     bookingDate: booking.booking_date,
     startTime: booking.start_time,
@@ -2012,7 +2257,11 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
     getVenuePolicy().timezone;
   const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
-  const window = computeBookingWindowWithFallback({
+  const {
+    window,
+    usedFallback: bookingWindowUsedFallback,
+    fallbackService: bookingWindowFallbackService,
+  } = computeBookingWindowWithFallback({
     startISO: booking.start_at,
     bookingDate: booking.booking_date,
     startTime: booking.start_time,
@@ -2026,6 +2275,39 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     supabase,
   );
   const requireAdjacency = resolveRequireAdjacency(booking.party_size, requireAdjacencyOverride);
+  const timePruningEnabled = isPlannerTimePruningEnabled();
+  let timePruningStats: TimeFilterStats | null = null;
+  let busyForPlanner: AvailabilityMap | undefined;
+
+  if (timePruningEnabled) {
+    const contextBookings = await loadContextBookings(booking.restaurant_id, booking.booking_date ?? null, supabase);
+    let holdsForDay: TableHold[] = [];
+    if (isHoldsEnabled()) {
+      try {
+        holdsForDay = await loadActiveHoldsForDate(booking.restaurant_id, booking.booking_date ?? null, policy, supabase);
+      } catch (error: unknown) {
+        const code = extractErrorCode(error);
+        if (code === "42P01") {
+          console.warn("[capacity.quote] holds table unavailable; skipping hold hydration", {
+            restaurantId: booking.restaurant_id,
+          });
+        } else {
+          console.warn("[capacity.quote] failed to load active holds", {
+            restaurantId: booking.restaurant_id,
+            error,
+          });
+        }
+        holdsForDay = [];
+      }
+    }
+    busyForPlanner = buildBusyMaps({
+      targetBookingId: booking.id,
+      bookings: contextBookings,
+      holds: holdsForDay,
+      policy,
+      targetWindow: window,
+    });
+  }
 
   const filtered = filterAvailableTables(
     tables,
@@ -2034,7 +2316,19 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     adjacency,
     new Set(avoidTables),
     zoneId ?? null,
-    { allowInsufficientCapacity: true },
+    {
+      allowInsufficientCapacity: true,
+      timeFilter:
+        busyForPlanner && timePruningEnabled
+          ? {
+              busy: busyForPlanner,
+              mode: "strict",
+              captureStats: (stats) => {
+                timePruningStats = stats;
+              },
+            }
+          : undefined,
+    },
   );
 
   const scoringConfig = getSelectorScoringConfig();
@@ -2056,6 +2350,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
   const plannerDurationMs = highResNow() - plannerStart;
   const adjacencyRequiredGlobally = adjacency.size > 0 && isAllocatorAdjacencyRequired();
   const adjacencyMinPartySize = getAllocatorAdjacencyMinPartySize();
+  const featureFlags = buildSelectorFeatureFlagsTelemetry();
   const plannerConfigTelemetry = composePlannerConfig({
     diagnostics: plans.diagnostics,
     scoringConfig,
@@ -2063,9 +2358,54 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     requireAdjacency,
     adjacencyRequiredGlobally,
     adjacencyMinPartySize: adjacencyMinPartySize ?? null,
+    featureFlags,
+    serviceFallback: {
+      usedFallback: bookingWindowUsedFallback,
+      fallbackService: bookingWindowFallbackService,
+    },
   });
+  if (!timePruningStats) {
+    timePruningStats = {
+      prunedByTime: 0,
+      candidatesAfterTimePrune: filtered.length,
+      pruned_by_time: 0,
+      candidates_after_time_prune: filtered.length,
+    };
+  }
+  plans.diagnostics.timePruning = {
+    prunedByTime: timePruningStats.prunedByTime,
+    candidatesAfterTimePrune: timePruningStats.candidatesAfterTimePrune,
+    pruned_by_time: timePruningStats.pruned_by_time,
+    candidates_after_time_prune: timePruningStats.candidates_after_time_prune,
+  };
 
   const alternates: CandidateSummary[] = [];
+  const skippedCandidates: Array<{ candidate: CandidateSummary; reason: string; conflicts: HoldConflictInfo[] }> = [];
+  const holdConflictHoldIds = new Set<string>();
+  let holdConflictSkipCount = 0;
+
+  const applyQuoteSkipDiagnostics = () => {
+    plans.diagnostics.quoteSkips = {
+      holdConflicts: {
+        count: holdConflictSkipCount,
+        holdIds: Array.from(holdConflictHoldIds),
+      },
+    };
+  };
+
+  const recordHoldConflictSkip = (conflicts: HoldConflictInfo[], candidate: CandidateSummary, plan: RankedTablePlan) => {
+    holdConflictSkipCount += 1;
+    for (const conflict of conflicts) {
+      if (conflict.holdId) {
+        holdConflictHoldIds.add(conflict.holdId);
+      }
+    }
+    skippedCandidates.push({
+      candidate,
+      reason: formatHoldConflictReason(conflicts, plan),
+      conflicts,
+    });
+  };
 
   for (let index = 0; index < plans.plans.length; index += 1) {
     const plan = plans.plans[index]!;
@@ -2078,6 +2418,19 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
       score: plan.score,
       adjacencyStatus: plan.adjacencyStatus,
     });
+
+    const conflicts = await findHoldConflicts({
+      restaurantId: booking.restaurant_id,
+      tableIds: plan.tables.map((table) => table.id),
+      startAt: toIsoUtc(window.block.start),
+      endAt: toIsoUtc(window.block.end),
+      client: supabase,
+    });
+
+    if (conflicts.length > 0) {
+      recordHoldConflictSkip(conflicts, candidateSummary, plan);
+      continue;
+    }
 
     if (index > 0) {
       alternates.push(candidateSummary);
@@ -2111,6 +2464,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
       const holdDurationMs = highResNow() - holdStart;
       const totalDurationMs = highResNow() - operationStart;
 
+      applyQuoteSkipDiagnostics();
       await emitSelectorQuote({
         restaurantId: booking.restaurant_id,
         bookingId,
@@ -2122,10 +2476,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
         candidates: [candidateSummary, ...alternates],
         selected: candidateSummary,
         durationMs: roundMilliseconds(totalDurationMs),
-        featureFlags: {
-          selectorScoring: isSelectorScoringEnabled(),
-          opsMetrics: isOpsMetricsEnabled(),
-        },
+        featureFlags,
         timing: buildTiming({
           totalMs: totalDurationMs,
           plannerMs: plannerDurationMs,
@@ -2142,10 +2493,15 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
         candidate: candidateSummary,
         alternates,
         nextTimes: [],
+        skipped: skippedCandidates,
+        metadata: {
+          usedFallback: bookingWindowUsedFallback,
+          fallbackService: bookingWindowFallbackService,
+        },
       };
     } catch (error) {
       if (error instanceof HoldConflictError) {
-        const conflicts = await findHoldConflicts({
+        const refreshedConflicts = await findHoldConflicts({
           restaurantId: booking.restaurant_id,
           tableIds: plan.tables.map((table) => table.id),
           startAt: toIsoUtc(window.block.start),
@@ -2153,6 +2509,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
           client: supabase,
         });
 
+        recordHoldConflictSkip(refreshedConflicts, candidateSummary, plan);
         await emitRpcConflict({
           source: "create_hold_conflict",
           bookingId,
@@ -2162,16 +2519,18 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
           error: {
             code: null,
             message: error.message,
-            details: JSON.stringify(conflicts),
+            details: JSON.stringify(refreshedConflicts),
             hint: null,
           },
         });
 
+        applyQuoteSkipDiagnostics();
         continue;
       }
       throw error;
     }
   }
+  applyQuoteSkipDiagnostics();
 
   return {
     hold: null,
@@ -2179,6 +2538,11 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     alternates,
     nextTimes: [],
     reason: plans.fallbackReason ?? "No suitable tables available",
+    skipped: skippedCandidates,
+    metadata: {
+      usedFallback: bookingWindowUsedFallback,
+      fallbackService: bookingWindowFallbackService,
+    },
   };
 }
 
@@ -2205,6 +2569,7 @@ export async function autoAssignTablesForDate(options: {
   const combinationPlannerEnabled = isCombinationPlannerEnabled();
   const mergesEnabled = isAllocatorMergesEnabled();
   const selectorLimits = getSelectorPlannerLimits();
+  const plannerTimePruningEnabled = isPlannerTimePruningEnabled();
   let activeHolds: TableHold[] = [];
   if (isHoldsEnabled()) {
     try {
@@ -2228,6 +2593,7 @@ export async function autoAssignTablesForDate(options: {
   const result: AutoAssignResult = {
     assigned: [],
     skipped: [],
+    serviceFallbacks: [],
   };
 
   const adjacencyMinPartySizeFlag = getAllocatorAdjacencyMinPartySize();
@@ -2238,10 +2604,7 @@ export async function autoAssignTablesForDate(options: {
       continue;
     }
 
-    const featureFlags = {
-      selectorScoring: isSelectorScoringEnabled(),
-      opsMetrics: isOpsMetricsEnabled(),
-    };
+    const featureFlags = buildSelectorFeatureFlagsTelemetry();
 
     const operationStart = highResNow();
     let plannerDurationMs = 0;
@@ -2249,15 +2612,20 @@ export async function autoAssignTablesForDate(options: {
     let combinationModeForTelemetry = combinationPlannerEnabled;
 
     let window: BookingWindow | null = null;
+    let windowUsedFallback = false;
+    let windowFallbackService: ServiceKey | null = null;
     let overrunReason: string | null = null;
     try {
-      window = computeBookingWindowWithFallback({
+      const computed = computeBookingWindowWithFallback({
         startISO: booking.start_at,
         bookingDate: booking.booking_date,
         startTime: booking.start_time,
         partySize: booking.party_size,
         policy,
       });
+      window = computed.window;
+      windowUsedFallback = computed.usedFallback;
+      windowFallbackService = computed.fallbackService;
     } catch (error) {
       if (error instanceof ServiceOverrunError) {
         overrunReason = error.message ?? "Reservation window exceeds service boundary";
@@ -2269,6 +2637,11 @@ export async function autoAssignTablesForDate(options: {
       const reason = overrunReason ?? "Reservation window exceeds service boundary";
       const totalDurationMs = highResNow() - operationStart;
       result.skipped.push({ bookingId: booking.id, reason });
+      result.serviceFallbacks.push({
+        bookingId: booking.id,
+        usedFallback: windowUsedFallback,
+        fallbackService: windowFallbackService,
+      });
       await emitSelectorDecision({
         restaurantId,
         bookingId: booking.id,
@@ -2286,7 +2659,21 @@ export async function autoAssignTablesForDate(options: {
       continue;
     }
 
+    result.serviceFallbacks.push({
+      bookingId: booking.id,
+      usedFallback: windowUsedFallback,
+      fallbackService: windowFallbackService,
+    });
+
     const requireAdjacency = adjacencyEnforced && partiesRequireAdjacency(booking.party_size);
+    const busy = buildBusyMaps({
+      targetBookingId: booking.id,
+      bookings,
+      holds: activeHolds,
+      policy,
+      targetWindow: window,
+    });
+    let timePruningStats: TimeFilterStats | null = null;
 
     const availableTables = filterAvailableTables(
       tables,
@@ -2295,7 +2682,18 @@ export async function autoAssignTablesForDate(options: {
       adjacency,
       undefined,
       undefined,
-      { allowInsufficientCapacity: true },
+      {
+        allowInsufficientCapacity: true,
+        timeFilter: plannerTimePruningEnabled
+          ? {
+              busy,
+              mode: "strict",
+              captureStats: (stats) => {
+                timePruningStats = stats;
+              },
+            }
+          : undefined,
+      },
     );
     const scoringConfig = getSelectorScoringConfig();
     const combinationLimit = getAllocatorCombinationLimit();
@@ -2344,7 +2742,26 @@ export async function autoAssignTablesForDate(options: {
       requireAdjacency,
       adjacencyRequiredGlobally: adjacencyEnforced,
       adjacencyMinPartySize: adjacencyMinPartySizeFlag ?? null,
+      featureFlags,
+      serviceFallback: {
+        usedFallback: windowUsedFallback,
+        fallbackService: windowFallbackService,
+      },
     });
+    if (!timePruningStats) {
+      timePruningStats = {
+        prunedByTime: 0,
+        candidatesAfterTimePrune: availableTables.length,
+        pruned_by_time: 0,
+        candidates_after_time_prune: availableTables.length,
+      };
+    }
+    plans.diagnostics.timePruning = {
+      prunedByTime: timePruningStats.prunedByTime,
+      candidatesAfterTimePrune: timePruningStats.candidatesAfterTimePrune,
+      pruned_by_time: timePruningStats.pruned_by_time,
+      candidates_after_time_prune: timePruningStats.candidates_after_time_prune,
+    };
 
     if (plans.plans.length === 0) {
       const fallback = plans.fallbackReason ?? "No suitable tables available";
@@ -2370,13 +2787,6 @@ export async function autoAssignTablesForDate(options: {
       });
       continue;
     }
-
-    const busy = buildBusyMaps({
-      targetBookingId: booking.id,
-      bookings,
-      holds: activeHolds,
-      policy,
-    });
 
     const planEvaluations = plans.plans.map((plan) => ({
       plan,
@@ -2606,7 +3016,7 @@ export async function findSuitableTables(options: {
     restaurantTimezone === defaultPolicy.timezone
       ? defaultPolicy
       : getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
-  const window = computeBookingWindowWithFallback({
+  const { window } = computeBookingWindowWithFallback({
     startISO: booking.start_at,
     bookingDate: booking.booking_date,
     startTime: booking.start_time,
@@ -2653,59 +3063,129 @@ export async function isTableAvailableV2(
 ): Promise<boolean> {
   const supabase = ensureClient(options?.client);
   const policy = options?.policy ?? getVenuePolicy();
-  const window = computeBookingWindowWithFallback({
+  const { window } = computeBookingWindowWithFallback({
     startISO,
     partySize,
     policy,
   });
+
+  const startAt = toIsoUtc(window.block.start);
+  const endAt = toIsoUtc(window.block.end);
+
+  try {
+    const { data, error } = await (supabase as unknown as {
+      rpc: (
+        fn: string,
+        args: {
+          p_table_id: string;
+          p_start_at: string;
+          p_end_at: string;
+          p_exclude_booking_id: string | null;
+        },
+      ) => Promise<{ data: boolean | null; error: { message?: string; details?: string | null; hint?: string | null; code?: string | null } | null }>;
+    }).rpc("is_table_available_v2", {
+      p_table_id: tableId,
+      p_start_at: startAt,
+      p_end_at: endAt,
+      p_exclude_booking_id: options?.excludeBookingId ?? null,
+    });
+
+    if (error) {
+      const code = extractErrorCode(error);
+      if (code === "42883" || code === "42P01") {
+        return await legacyTableAvailabilityCheck({
+          supabase,
+          tableId,
+          startAt,
+          endAt,
+          excludeBookingId: options?.excludeBookingId ?? null,
+        });
+      }
+      throw new AssignTablesRpcError({
+        message: error.message ?? "Failed to query table availability",
+        code: "TABLE_AVAILABILITY_QUERY_FAILED",
+        details: serializeDetails({
+          code: code ?? null,
+          details: error.details ?? null,
+          hint: error.hint ?? null,
+        }),
+        hint: null,
+      });
+    }
+
+    if (typeof data === "boolean") {
+      return data;
+    }
+  } catch (error) {
+    const code = extractErrorCode(error);
+    if (code !== "42883" && code !== "42P01") {
+      throw new AssignTablesRpcError({
+        message: error instanceof Error ? error.message : "Failed to verify table availability",
+        code: "TABLE_AVAILABILITY_QUERY_FAILED",
+        details: error instanceof Error ? error.stack ?? null : null,
+        hint: null,
+      });
+    }
+    return await legacyTableAvailabilityCheck({
+      supabase,
+      tableId,
+      startAt,
+      endAt,
+      excludeBookingId: options?.excludeBookingId ?? null,
+    });
+  }
+
+  return await legacyTableAvailabilityCheck({
+    supabase,
+    tableId,
+    startAt,
+    endAt,
+    excludeBookingId: options?.excludeBookingId ?? null,
+  });
+}
+
+async function legacyTableAvailabilityCheck(params: {
+  supabase: DbClient;
+  tableId: string;
+  startAt: string;
+  endAt: string;
+  excludeBookingId?: string | null;
+}): Promise<boolean> {
+  const { supabase, tableId, startAt, endAt, excludeBookingId } = params;
 
   const { data, error } = await supabase
     .from("booking_table_assignments")
     .select("table_id, start_at, end_at, bookings(id, status, start_at, end_at)")
     .eq("table_id", tableId);
 
-  if (error) {
+  if (error || !data) {
     throw new AssignTablesRpcError({
-      message: error.message ?? "Failed to query table availability",
+      message: error?.message ?? "Failed to query table availability",
       code: "TABLE_AVAILABILITY_QUERY_FAILED",
       details: serializeDetails({
-        code: (error as { code?: string }).code ?? null,
-        details: error.details ?? null,
-        hint: error.hint ?? null,
+        code: (error as { code?: string })?.code ?? null,
+        details: error?.details ?? null,
+        hint: error?.hint ?? null,
       }),
       hint: null,
     });
   }
 
-  if (!data) {
-    throw new AssignTablesRpcError({
-      message: "No table assignment data returned for availability check",
-      code: "TABLE_AVAILABILITY_QUERY_FAILED",
-      details: null,
-      hint: null,
-    });
-  }
-
   const rows = data as AssignmentAvailabilityRow[];
-
   for (const row of rows) {
     const booking = row.bookings;
-    if (options?.excludeBookingId && booking?.id === options.excludeBookingId) {
+    if (excludeBookingId && booking?.id === excludeBookingId) {
       continue;
     }
-
+    if (booking && !["pending", "confirmed", "seated"].includes(booking.status ?? "")) {
+      continue;
+    }
     const otherStart = row.start_at ?? booking?.start_at;
     const otherEnd = row.end_at ?? booking?.end_at;
     if (!otherStart || !otherEnd) {
       continue;
     }
-
-    if (
-      windowsOverlap(
-        { start: toIsoUtc(window.block.start), end: toIsoUtc(window.block.end) },
-        { start: otherStart, end: otherEnd },
-      )
-    ) {
+    if (windowsOverlap({ start: startAt, end: endAt }, { start: otherStart, end: otherEnd })) {
       return false;
     }
   }
@@ -2742,5 +3222,6 @@ export const __internal = {
   computeBookingWindow,
   windowsOverlap,
   filterAvailableTables,
+  filterTimeAvailableTables,
   extractConflictsForTables,
 };

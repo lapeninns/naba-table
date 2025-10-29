@@ -144,6 +144,7 @@ type AutoAssignTablesResponse = {
   date: string;
   assigned: { bookingId: string; tableIds: string[] }[];
   skipped: { bookingId: string; reason: string }[];
+  serviceFallbacks: { bookingId: string; usedFallback: boolean; fallbackService: string | null }[];
 };
 
 type AutoQuoteCandidate = {
@@ -165,6 +166,10 @@ type AutoQuoteResponse = {
   reason?: string | null;
   zoneId?: string | null;
   requireAdjacency?: boolean | null;
+  serviceFallback?: {
+    usedFallback: boolean;
+    fallbackService: string | null;
+  };
 };
 
 type AutoQuoteInput = {

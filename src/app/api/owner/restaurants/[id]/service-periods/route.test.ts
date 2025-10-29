@@ -128,83 +128,6 @@ describe('/api/owner/restaurants/[id]/service-periods', () => {
   });
 
   it('returns service periods on GET', async () => {
-      definitions: [
-        {
-          key: 'lunch',
-          label: 'Lunch',
-          shortLabel: 'Lunch',
-          description: null,
-          availability: [],
-          defaultDurationMinutes: 90,
-          displayOrder: 10,
-          isActive: true,
-        },
-        {
-          key: 'dinner',
-          label: 'Dinner',
-          shortLabel: 'Dinner',
-          description: null,
-          availability: [],
-          defaultDurationMinutes: 120,
-          displayOrder: 20,
-          isActive: true,
-        },
-        {
-          key: 'drinks',
-          label: 'Drinks',
-          shortLabel: 'Drinks',
-          description: null,
-          availability: [],
-          defaultDurationMinutes: 75,
-          displayOrder: 30,
-          isActive: true,
-        },
-      ],
-      orderedKeys: ['lunch', 'dinner', 'drinks'],
-      byKey: new Map([
-        [
-          'lunch',
-          {
-            key: 'lunch',
-            label: 'Lunch',
-            shortLabel: 'Lunch',
-            description: null,
-            availability: [],
-            defaultDurationMinutes: 90,
-            displayOrder: 10,
-            isActive: true,
-          },
-        ],
-        [
-          'dinner',
-          {
-            key: 'dinner',
-            label: 'Dinner',
-            shortLabel: 'Dinner',
-            description: null,
-            availability: [],
-            defaultDurationMinutes: 120,
-            displayOrder: 20,
-            isActive: true,
-          },
-        ],
-        [
-          'drinks',
-          {
-            key: 'drinks',
-            label: 'Drinks',
-            shortLabel: 'Drinks',
-            description: null,
-            availability: [],
-            defaultDurationMinutes: 75,
-            displayOrder: 30,
-            isActive: true,
-          },
-        ],
-      ]),
-    });
-  });
-
     getUserMock.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
     requireAdminMembershipMock.mockResolvedValue(undefined);
     getServicePeriodsMock.mockResolvedValue([
@@ -224,7 +147,16 @@ describe('/api/owner/restaurants/[id]/service-periods', () => {
 
     expect(response.status).toBe(200);
     const json = await response.json();
-    expect(json.periods).toHaveLength(1);
+    expect(json.periods).toEqual([
+      {
+        id: 'sp-1',
+        name: 'Lunch',
+        dayOfWeek: 1,
+        startTime: '12:00',
+        endTime: '15:00',
+        bookingOption: 'lunch',
+      },
+    ]);
     expect(getServicePeriodsMock).toHaveBeenCalledWith('rest-1');
   });
 

@@ -2,6 +2,11 @@ process.env.BASE_URL ??= "http://localhost:3000";
 
 import { describe, expect, beforeAll, beforeEach, vi, it } from "vitest";
 
+import { makeBookingRecord, makeRestaurantMembership } from "@/tests/helpers/opsFactories";
+
+import type { POST as OpsBookingsRoutePost } from "@/app/api/ops/bookings/route";
+import type * as BookingsModule from "@/server/bookings";
+
 vi.mock("@/lib/env", () => {
   return {
     env: {
@@ -9,11 +14,11 @@ vi.mock("@/lib/env", () => {
         return {
           loyaltyPilotRestaurantIds: undefined,
           enableTestApi: true,
-        guestLookupPolicy: false,
-        opsGuardV2: false,
-        bookingPastTimeBlocking: false,
-        bookingPastTimeGraceMinutes: 5,
-      } as const;
+          guestLookupPolicy: false,
+          opsGuardV2: false,
+          bookingPastTimeBlocking: false,
+          bookingPastTimeGraceMinutes: 5,
+        } as const;
       },
       get supabase() {
         return {
@@ -43,11 +48,14 @@ vi.mock("@/lib/env", () => {
           guestLookupPepper: null,
         } as const;
       },
+      get node() {
+        return {
+          env: "test",
+        } as const;
+      },
     },
   };
 });
-
-import { makeBookingRecord, makeRestaurantMembership } from "@/tests/helpers/opsFactories";
 
 const mockGetRouteHandlerSupabaseClient = vi.fn();
 const mockGetServiceSupabaseClient = vi.fn();
@@ -78,7 +86,7 @@ const mockFindCustomerByContact = vi.fn();
 const RESTAURANT_ID = "4a89f4b1-55cb-4e4f-9e5a-123456789abc";
 
 vi.mock("@/server/bookings", async () => {
-  const actual = await vi.importActual<typeof import("@/server/bookings")>("@/server/bookings");
+  const actual = await vi.importActual<typeof BookingsModule>("@/server/bookings");
   return {
     ...actual,
     generateUniqueBookingReference: mockGenerateUniqueBookingReference,
@@ -99,7 +107,7 @@ vi.mock("@/server/jobs/booking-side-effects", () => ({
 }));
 
 describe("POST /api/ops/bookings", () => {
-  let POST: typeof import("@/app/api/ops/bookings/route").POST;
+  let POST: OpsBookingsRoutePost;
   const serviceClientStub = {
     from(table: string) {
       switch (table) {

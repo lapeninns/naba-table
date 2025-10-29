@@ -27,6 +27,9 @@ export default defineConfig({
     ],
     exclude: ["tests/e2e/**", "tests/component/**", "tests/visual/**"],
     setupFiles: ["./tests/vitest.setup.ts"],
+    benchmark: {
+      include: ["tests/benchmarks/**/*.bench.ts"],
+    },
   },
   resolve: {
     alias: [

@@ -3,18 +3,19 @@ process.env.NEXT_PUBLIC_SITE_URL = "http://localhost:3000";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { HoldConflictInfo } from "@/server/capacity/holds";
+import type * as FeatureFlags from "@/server/feature-flags";
+
 const isCombinationPlannerEnabledMock = vi.fn(() => true);
 
-vi.mock("@/server/feature-flags", () => ({
-  isSelectorScoringEnabled: () => true,
-  isCombinationPlannerEnabled: isCombinationPlannerEnabledMock,
-  isOpsMetricsEnabled: () => true,
-  isAllocatorAdjacencyRequired: () => true,
-  getAllocatorAdjacencyMinPartySize: () => null,
-  getAllocatorKMax: () => 3,
-  getSelectorPlannerLimits: () => ({}),
-  isHoldsEnabled: () => false,
-}));
+vi.mock("@/server/feature-flags", async () => {
+  const actual = await vi.importActual<typeof FeatureFlags>("@/server/feature-flags");
+  return {
+    ...actual,
+    isCombinationPlannerEnabled: isCombinationPlannerEnabledMock,
+    isHoldsEnabled: () => false,
+  };
+});
 
 vi.mock("@/server/capacity/holds", async () => {
   const actual = await vi.importActual("@/server/capacity/holds");
@@ -26,25 +27,39 @@ vi.mock("@/server/capacity/holds", async () => {
 });
 
 const holdsModule = await import("@/server/capacity/holds");
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const featureFlags = await import("@/server/feature-flags");
 const telemetry = await import("@/server/capacity/telemetry");
 const tablesModule = await import("@/server/capacity/tables");
 
-const { HoldConflictError, createTableHold, findHoldConflicts } = holdsModule;
+const { createTableHold, findHoldConflicts } = holdsModule;
 const { quoteTablesForBooking } = tablesModule;
 
-const createTableHoldMock = createTableHold as unknown as ReturnType<typeof vi.fn>;
-const findHoldConflictsMock = findHoldConflicts as unknown as ReturnType<typeof vi.fn>;
+const createTableHoldMock = vi.mocked(createTableHold);
+const findHoldConflictsMock = vi.mocked(findHoldConflicts);
 
 let emitSelectorQuoteSpy: ReturnType<typeof vi.spyOn>;
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 let emitHoldCreatedSpy: ReturnType<typeof vi.spyOn>;
 let emitRpcConflictSpy: ReturnType<typeof vi.spyOn>;
 
-function createStubClient() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const responses: Record<string, { list?: any[]; single?: any }> = {
+type Dataset = {
+  list?: unknown[];
+  single?: unknown;
+};
+
+type QueryBuilder<TList = unknown, TSingle = unknown> = {
+  select(): QueryBuilder<TList, TSingle>;
+  eq(): QueryBuilder<TList, TSingle>;
+  in(): Promise<{ data: TList[]; error: null }>;
+  order(): Promise<{ data: TList[]; error: null }>;
+  maybeSingle(): Promise<{ data: TSingle | null; error: null }>;
+};
+
+type SupabaseMock = {
+  from(table: string): QueryBuilder;
+};
+
+function createStubClient(): SupabaseMock {
+  const responses: Record<string, Dataset> = {
     bookings: {
       single: {
         id: "booking-1",
@@ -143,30 +158,18 @@ function createStubClient() {
   };
 
   return {
-    from(table: string) {
+    from(table: string): QueryBuilder {
       const dataset = responses[table] ?? { list: [], single: null };
-      const builder = {
-        select() {
-          return builder;
-        },
-        eq() {
-          return builder;
-        },
-        in() {
-          return Promise.resolve({ data: dataset.list ?? [], error: null });
-        },
-        order() {
-          return Promise.resolve({ data: dataset.list ?? [], error: null });
-        },
-        maybeSingle() {
-          return Promise.resolve({ data: dataset.single ?? null, error: null });
-        },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any;
+      const builder: QueryBuilder = {
+        select: () => builder,
+        eq: () => builder,
+        in: () => Promise.resolve({ data: (dataset.list ?? []) as unknown[], error: null }),
+        order: () => Promise.resolve({ data: (dataset.list ?? []) as unknown[], error: null }),
+        maybeSingle: () => Promise.resolve({ data: (dataset.single ?? null) as unknown, error: null }),
+      };
       return builder;
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } as any;
+  };
 }
 
 describe("quoteTablesForBooking - hold conflicts", () => {
@@ -193,38 +196,41 @@ describe("quoteTablesForBooking - hold conflicts", () => {
       expiresAt: "2025-10-26T18:10:00Z",
     } satisfies HoldConflictInfo;
 
-    createTableHoldMock
-      .mockImplementationOnce(() => {
-        throw new HoldConflictError("Tables already on hold", conflict.holdId ?? undefined);
-      })
-      .mockResolvedValueOnce({
-        id: "hold-new",
-        bookingId: "booking-1",
-        restaurantId: "restaurant-1",
-        zoneId: "zone-main",
-        tableIds: ["combo-c", "combo-d"],
-        startAt: "2025-10-26T18:00:00Z",
-        endAt: "2025-10-26T19:35:00Z",
-        expiresAt: "2025-10-26T18:10:00Z",
-      });
+    createTableHoldMock.mockResolvedValue({
+      id: "hold-new",
+      bookingId: "booking-1",
+      restaurantId: "restaurant-1",
+      zoneId: "zone-main",
+      tableIds: ["combo-c", "combo-d"],
+      startAt: "2025-10-26T18:00:00Z",
+      endAt: "2025-10-26T19:35:00Z",
+      expiresAt: "2025-10-26T18:10:00Z",
+    });
 
-    findHoldConflictsMock.mockResolvedValue([conflict]);
+    findHoldConflictsMock
+      .mockResolvedValueOnce([conflict])
+      .mockResolvedValue([]);
 
     const result = await quoteTablesForBooking({
       bookingId: "booking-1",
       client: createStubClient(),
     });
 
-    expect(createTableHoldMock).toHaveBeenCalledTimes(2);
-    expect(findHoldConflictsMock).toHaveBeenCalledTimes(1);
+    expect(createTableHoldMock).toHaveBeenCalledTimes(1);
+    expect(findHoldConflictsMock).toHaveBeenCalledTimes(2);
     expect(result.hold?.id).toBe("hold-new");
     expect(result.reason).toBeUndefined();
+    expect(result.skipped).toEqual([
+      expect.objectContaining({
+        candidate: expect.objectContaining({ tableIds: expect.arrayContaining(["combo-a", "combo-b"]) }),
+        reason: expect.stringContaining("Conflicts with holds"),
+      }),
+    ]);
+    expect(result.metadata).toEqual({ usedFallback: false, fallbackService: null });
     expect(emitSelectorQuoteSpy).toHaveBeenCalledWith(
       expect.objectContaining({ holdId: "hold-new" }),
     );
-    expect(emitRpcConflictSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ source: "create_hold_conflict" }),
-    );
+    expect(emitRpcConflictSpy).not.toHaveBeenCalled();
   });
 
   it("reports skip reason when combination planner is disabled", async () => {

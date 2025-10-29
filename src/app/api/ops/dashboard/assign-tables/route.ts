@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { autoAssignTablesForDate } from "@/server/capacity";
+import { ServiceNotFoundError } from "@/server/capacity/policy";
 import { getTodayBookingsSummary } from "@/server/ops/bookings";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 import { requireMembershipForRestaurant } from "@/server/team/access";
@@ -81,6 +82,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to auto-assign tables";
     console.error("[ops][dashboard][assign-tables] failure", message);
+    if (error instanceof ServiceNotFoundError) {
+      return NextResponse.json({ error: error.message }, { status: 422 });
+    }
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

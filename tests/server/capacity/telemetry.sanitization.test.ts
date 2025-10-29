@@ -35,6 +35,10 @@ describe("telemetry sanitization", () => {
       featureFlags: {
         selectorScoring: true,
         opsMetrics: false,
+        plannerTimePruning: false,
+        adjacencyUndirected: true,
+        holdsStrictConflicts: false,
+        allocatorFailHard: false,
       },
       timing: {
         totalMs: 128.75,
@@ -50,6 +54,18 @@ describe("telemetry sanitization", () => {
         evaluationLimit: 500,
         maxOverage: 2,
         maxTables: 3,
+        featureFlags: {
+          selectorScoring: true,
+          opsMetrics: false,
+          plannerTimePruning: false,
+          adjacencyUndirected: true,
+          holdsStrictConflicts: false,
+          allocatorFailHard: false,
+        },
+        serviceFallback: {
+          used: false,
+          service: null,
+        },
       },
       diagnostics: {
         singlesConsidered: 1,

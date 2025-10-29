@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 
 import { generateUniqueBookingReference, insertBookingRecord } from "@/server/bookings";
+import { isAllocatorServiceFailHard } from "@/server/feature-flags";
 import { recordObservabilityEvent } from "@/server/observability";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
@@ -20,7 +21,7 @@ import {
 import type { Database, Json } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-type DbClient = SupabaseClient<Database, "public", any>;
+type DbClient = SupabaseClient<Database, "public">;
 
 type RetryableError = {
   message?: string;
@@ -91,13 +92,22 @@ export async function retryWithBackoff<T>(
 type CapacityRpcPayload = {
   success?: boolean | null;
   duplicate?: boolean | null;
-  booking?: Record<string, unknown> | null;
+  booking?: unknown;
   capacity?: CapacityInfo | null;
   error?: string | null;
   message?: string | null;
   details?: BookingErrorDetails | null;
   retryable?: boolean | null;
 };
+
+function isBookingRecordPayload(value: unknown): value is BookingRecord {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  return typeof record.id === "string" && typeof record.restaurant_id === "string";
+}
 
 function normalizeRpcResult(payload: CapacityRpcPayload | null | undefined): BookingResult {
   if (!payload) {
@@ -109,7 +119,7 @@ function normalizeRpcResult(payload: CapacityRpcPayload | null | undefined): Boo
   }
 
   const success = payload.success === true;
-  const booking = payload.booking ? (payload.booking as any) : undefined;
+  const booking = isBookingRecordPayload(payload.booking) ? payload.booking : undefined;
   const capacity = payload.capacity ?? undefined;
 
   if (success) {
@@ -343,18 +353,40 @@ export async function createBookingWithCapacityCheck(
 
     if (error) {
       if (isMissingCapacityRpcError(error)) {
+        const failHardModeEnabled = isAllocatorServiceFailHard();
+        const baseContext = {
+          restaurantId: params.restaurantId,
+          bookingDate: params.bookingDate,
+          startTime: params.startTime,
+          partySize: params.partySize,
+          code: error.code ?? undefined,
+          fallbackStrategy: failHardModeEnabled ? "fail_hard" : "legacy_fallback",
+        };
+
         recordObservabilityEvent({
           source: "capacity.transaction",
           eventType: "booking.creation.rpc_missing",
-          severity: "warning",
-          context: {
-            restaurantId: params.restaurantId,
-            bookingDate: params.bookingDate,
-            startTime: params.startTime,
-            partySize: params.partySize,
-            code: error.code ?? undefined,
-          },
+          severity: failHardModeEnabled ? "error" : "warning",
+          context: baseContext,
         });
+
+        if (failHardModeEnabled) {
+          recordObservabilityEvent({
+            source: "capacity.transaction",
+            eventType: "booking.creation.fallback_skipped",
+            severity: "error",
+            context: baseContext,
+          });
+
+          throw new CapacityError(
+            "Capacity enforcement unavailable",
+            "INTERNAL_ERROR",
+            {
+              sqlstate: error.code ?? undefined,
+              sqlerrm: error.details ?? undefined,
+            },
+          );
+        }
 
         return createBookingWithoutCapacity(params, supabase);
       }
@@ -392,7 +424,7 @@ export async function createBookingWithCapacityCheck(
         severity: "info",
         context: {
           restaurantId: params.restaurantId,
-          bookingId: result.booking ? (result.booking as any).id : undefined,
+        bookingId: result.booking?.id,
           duplicate: result.duplicate ?? false,
           capacity: result.capacity ?? undefined,
         },

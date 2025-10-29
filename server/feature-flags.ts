@@ -1,4 +1,5 @@
 import { env } from "@/lib/env";
+import { getFeatureFlagOverride, type FeatureFlagKey } from "@/server/feature-flags-overrides";
 
 const loyaltyPilotIds = new Set(
   (env.featureFlags.loyaltyPilotRestaurantIds ?? "")
@@ -9,6 +10,14 @@ const loyaltyPilotIds = new Set(
 
 function isProductionEnv(): boolean {
   return env.node.env === "production";
+}
+
+function resolveFeatureFlag(flag: FeatureFlagKey, fallback: boolean): boolean {
+  const override = getFeatureFlagOverride(flag);
+  if (typeof override === "boolean") {
+    return override;
+  }
+  return fallback;
 }
 
 export function isLoyaltyPilotRestaurant(restaurantId: string): boolean {
@@ -44,6 +53,11 @@ export function isAllocatorMergesEnabled(): boolean {
   return env.featureFlags.allocator.mergesEnabled ?? !isProductionEnv();
 }
 
+export function isPlannerTimePruningEnabled(): boolean {
+  const defaultValue = env.featureFlags.planner?.timePruningEnabled ?? false;
+  return resolveFeatureFlag("planner.time_pruning.enabled", defaultValue);
+}
+
 export function isAllocatorV2ForceLegacy(): boolean {
   return env.featureFlags.allocatorV2?.forceLegacy ?? false;
 }
@@ -64,6 +78,11 @@ export function isAllocatorV2ShadowMode(): boolean {
 
 export function isAllocatorAdjacencyRequired(): boolean {
   return env.featureFlags.allocator.requireAdjacency ?? true;
+}
+
+export function isAllocatorServiceFailHard(): boolean {
+  const defaultValue = env.featureFlags.allocator?.service?.failHard ?? false;
+  return resolveFeatureFlag("allocator.service.fail_hard", defaultValue);
 }
 
 export function getAllocatorKMax(): number {
@@ -89,4 +108,14 @@ export function getSelectorPlannerLimits(): {
     ...(maxPlansPerSlack ? { maxPlansPerSlack } : {}),
     ...(maxCombinationEvaluations ? { maxCombinationEvaluations } : {}),
   };
+}
+
+export function isHoldStrictConflictsEnabled(): boolean {
+  const defaultValue = env.featureFlags.holds?.strictConflicts ?? false;
+  return resolveFeatureFlag("holds.strict_conflicts.enabled", defaultValue);
+}
+
+export function isAdjacencyQueryUndirected(): boolean {
+  const defaultValue = env.featureFlags.adjacency?.queryUndirected ?? true;
+  return resolveFeatureFlag("adjacency.query.undirected", defaultValue);
 }

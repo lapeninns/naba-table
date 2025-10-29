@@ -2,7 +2,11 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 
 import * as featureFlags from '@/server/feature-flags';
 
-import type { Tables } from '@/types/supabase';
+import {
+  createMockSupabaseClient,
+  type BookingRow,
+  type TableRow,
+} from './fixtures/mockSupabaseClient';
 
 process.env.BASE_URL = 'http://localhost:3000';
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co';
@@ -43,254 +47,6 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks();
 });
-
-type TableRow = {
-  id: string;
-  table_number: string;
-  capacity: number;
-  min_party_size: number;
-  max_party_size: number | null;
-  section: string | null;
-  category?: 'bar' | 'dining' | 'lounge' | 'patio' | 'private';
-  seating_type?: 'standard' | 'sofa' | 'booth' | 'high_top';
-  mobility?: 'movable' | 'fixed';
-  zone_id?: string;
-  status: string;
-  active?: boolean;
-  position?: Record<string, unknown> | null;
-};
-
-type BookingRow = {
-  id: string;
-  party_size: number;
-  status: Tables<'bookings'>['status'];
-  start_time: string | null;
-  end_time: string | null;
-  start_at: string | null;
-  booking_date: string | null;
-  seating_preference: string | null;
-  booking_table_assignments: { table_id: string | null }[] | null;
-};
-
-type MockClientOptions = {
-  tables: TableRow[];
-  bookings: BookingRow[];
-  adjacency?: { table_a: string; table_b: string }[];
-  timezone?: string;
-  holds?: Array<{
-    id: string;
-    restaurantId: string;
-    tableIds: string[];
-    startAt: string;
-    endAt: string;
-    expiresAt: string;
-    zoneId?: string | null;
-    bookingId?: string | null;
-  }>;
-};
-
-type AssignmentLogEntry = {
-  bookingId: string;
-  tableIds: string[];
-  startAt: string | null;
-  endAt: string | null;
-};
-
-function createMockSupabaseClient(options: MockClientOptions) {
-  const assignments: AssignmentLogEntry[] = [];
-  const adjacencyRows = options.adjacency ?? [];
-  const tableRows = options.tables.map((table) => ({
-    category: 'dining' as const,
-    seating_type: 'standard' as const,
-    mobility: 'movable' as const,
-    zone_id: 'zone-main',
-    active: true,
-    ...table,
-  }));
-  const holdsRows =
-    options.holds?.map((hold) => ({
-      id: hold.id,
-      booking_id: hold.bookingId ?? null,
-      restaurant_id: hold.restaurantId,
-      zone_id: hold.zoneId ?? 'zone-main',
-      start_at: hold.startAt,
-      end_at: hold.endAt,
-      expires_at: hold.expiresAt,
-      created_by: null,
-      metadata: null,
-      table_hold_members: hold.tableIds.map((tableId) => ({ table_id: tableId })),
-    })) ?? [];
-
-  const client = {
-    from(table: string) {
-      if (table === 'table_inventory') {
-        return {
-          select() {
-            return {
-              eq() {
-                return {
-                  order() {
-                    return Promise.resolve({ data: tableRows, error: null });
-                  },
-                };
-              },
-            };
-          },
-        };
-      }
-
-      if (table === 'table_adjacencies') {
-        return {
-          select() {
-            return {
-              in(column: string, ids: string[]) {
-                if (column !== 'table_a') {
- 
-                  return Promise.resolve({ data: [], error: null });
-                }
-                const data = adjacencyRows.filter((row) => ids.includes(row.table_a));
-                return Promise.resolve({ data, error: null });
-              },
-            };
-          },
-        };
-      }
-
-      if (table === 'table_holds') {
-        const builder = {
-          select() {
-            return builder;
-          },
-          eq() {
-            return builder;
-          },
-          gt() {
-            return builder;
-          },
-          lt() {
-            return builder;
-          },
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          then(onFulfilled: any, onRejected?: any) {
-            return Promise.resolve({ data: holdsRows, error: null }).then(onFulfilled, onRejected);
-          },
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          catch(onRejected: any) {
-            return Promise.resolve({ data: holdsRows, error: null }).catch(onRejected);
-          },
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          finally(onFinally: any) {
-            return Promise.resolve({ data: holdsRows, error: null }).finally(onFinally);
-          },
-        };
-        return builder;
-      }
-
-      if (table === 'bookings') {
-        return {
-          select() {
-            return {
-              eq() {
-                return {
-                  eq() {
-                    return {
-                      order() {
-                        return Promise.resolve({ data: options.bookings, error: null });
-                      },
-                    };
-                  },
-                };
-              },
-            };
-          },
-        };
-      }
-
-      if (table === 'restaurants') {
-        return {
-          select() {
-            return {
-              eq() {
-                return {
-                  maybeSingle() {
-                    return Promise.resolve({
-                      data: { timezone: options.timezone ?? 'Europe/London' },
-                      error: null,
-                    });
-                  },
-                };
-              },
-            };
-          },
-        };
-      }
-
-      if (table === 'booking_table_assignments') {
-        return {
-          select() {
-            return {
-              eq() {
-                return {
-                  in(_: string, tableIds: string[]) {
-                    const active = assignments[assignments.length - 1];
-                    const rows = tableIds.map((tableId) => ({
-                      table_id: tableId,
-                      id: `${active?.bookingId ?? 'booking'}-${tableId}`,
-                    }));
-                    return Promise.resolve({ data: rows, error: null });
-                  },
-                };
-              },
-            };
-          },
-        };
-      }
-
-      throw new Error(`Unexpected table ${table}`);
-    },
-    rpc(name: string, args: Record<string, unknown>) {
-      if (name === 'assign_tables_atomic_v2') {
-        assignments.push({
-          bookingId: args.p_booking_id as string,
-          tableIds: Array.isArray(args.p_table_ids) ? [...(args.p_table_ids as string[])] : [],
-          startAt: typeof args.p_start_at === 'string' ? args.p_start_at : null,
-          endAt: typeof args.p_end_at === 'string' ? args.p_end_at : null,
-        });
-        const data = (Array.isArray(args.p_table_ids) ? args.p_table_ids : []).map((tableId: string) => ({
-          table_id: tableId,
-          start_at: '2025-01-01T18:00:00.000Z',
-          end_at: '2025-01-01T20:00:00.000Z',
-          merge_group_id: null,
-        }));
-        return Promise.resolve({ data, error: null });
-      }
-
-      if (name === 'unassign_tables_atomic') {
-        const bookingId = args.p_booking_id as string;
-        const tableIdsParam = Array.isArray(args.p_table_ids)
-          ? (args.p_table_ids as string[])
-          : args.p_table_id
-            ? [args.p_table_id as string]
-            : [];
-
-        tableIdsParam.forEach((target) => {
-          assignments.forEach((entry) => {
-            if (entry.bookingId === bookingId) {
-              entry.tableIds = entry.tableIds.filter((tableId) => tableId !== target);
-            }
-          });
-        });
-
-        const data = tableIdsParam.map((tableId) => ({ table_id: tableId }));
-        return Promise.resolve({ data, error: null });
-      }
-
-      return Promise.resolve({ data: null, error: null });
-    },
-  } as const;
-
-  return { client, assignments };
-}
 
 describe('autoAssignTablesForDate', () => {
   it('assigns the smallest suitable table for a booking', async () => {
@@ -418,6 +174,82 @@ describe('autoAssignTablesForDate', () => {
       },
     ]);
   });
+
+  it('ignores bookings that are cancelled or completed', async () => {
+    const tables: TableRow[] = [
+      {
+        id: 'table-active-1',
+        table_number: 'A1',
+        capacity: 4,
+        min_party_size: 1,
+        max_party_size: 4,
+        section: 'Main',
+        seating_type: 'standard',
+        status: 'available',
+        position: null,
+      },
+    ];
+
+    const bookings: BookingRow[] = [
+      {
+        id: 'booking-cancelled',
+        party_size: 4,
+        status: 'cancelled',
+        start_time: '19:00',
+        end_time: null,
+        start_at: '2025-11-04T19:00:00+00:00',
+        booking_date: '2025-11-04',
+        seating_preference: 'any',
+        booking_table_assignments: [],
+      },
+      {
+        id: 'booking-completed',
+        party_size: 2,
+        status: 'completed',
+        start_time: '18:00',
+        end_time: null,
+        start_at: '2025-11-04T18:00:00+00:00',
+        booking_date: '2025-11-04',
+        seating_preference: 'window',
+        booking_table_assignments: [],
+      },
+      {
+        id: 'booking-active',
+        party_size: 3,
+        status: 'pending_allocation',
+        start_time: '20:00',
+        end_time: null,
+        start_at: '2025-11-04T20:00:00+00:00',
+        booking_date: '2025-11-04',
+        seating_preference: 'any',
+        booking_table_assignments: [],
+      },
+    ];
+
+    const { client, assignments } = createMockSupabaseClient({ tables, bookings });
+
+    const result = await autoAssignTablesForDate({
+      restaurantId: 'rest-filter',
+      date: '2025-11-04',
+      client,
+      assignedBy: 'ops-user',
+    });
+
+    expect(result.assigned).toEqual([
+      {
+        bookingId: 'booking-active',
+        tableIds: ['table-active-1'],
+      },
+    ]);
+    expect(result.skipped).toEqual([]);
+    expect(assignments).toEqual([
+      expect.objectContaining({
+        bookingId: 'booking-active',
+        tableIds: ['table-active-1'],
+      }),
+    ]);
+  });
+
   it('uses the restaurant timezone when generating assignment window', async () => {
     const tables: TableRow[] = [
       {

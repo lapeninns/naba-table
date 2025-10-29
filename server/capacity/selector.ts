@@ -1,7 +1,17 @@
 import type { SelectorScoringConfig, SelectorScoringWeights } from "./policy";
 import type { Table } from "./tables";
 
-const DIAGNOSTIC_SKIP_KEYS = ["capacity", "overage", "adjacency", "kmax", "zone", "limit", "bucket"] as const;
+const DIAGNOSTIC_SKIP_KEYS = [
+  "capacity",
+  "overage",
+  "adjacency",
+  "kmax",
+  "zone",
+  "limit",
+  "bucket",
+  "adjacency_frontier",
+  "capacity_upper_bound",
+] as const;
 
 type DiagnosticSkipKey = (typeof DIAGNOSTIC_SKIP_KEYS)[number];
 
@@ -38,6 +48,18 @@ export type CandidateDiagnostics = {
   totals: {
     enumerated: number;
     accepted: number;
+  };
+  timePruning?: {
+    prunedByTime: number;
+    candidatesAfterTimePrune: number;
+    pruned_by_time: number;
+    candidates_after_time_prune: number;
+  };
+  quoteSkips?: {
+    holdConflicts: {
+      count: number;
+      holdIds: string[];
+    };
   };
 };
 
@@ -309,6 +331,87 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
     const nameB = b.tableNumber ?? b.id;
     return nameA.localeCompare(nameB);
   });
+  const candidateLookup = new Map(sortedCandidates.map((table) => [table.id, table]));
+
+  const buildFrontier = (selectionIds: Set<string>): Set<string> => {
+    const frontierIds = new Set<string>();
+    for (const id of selectionIds) {
+      const neighbors = adjacency.get(id);
+      if (!neighbors) {
+        continue;
+      }
+      for (const neighbor of neighbors) {
+        if (!selectionIds.has(neighbor) && candidateLookup.has(neighbor)) {
+          frontierIds.add(neighbor);
+        }
+      }
+    }
+    return frontierIds;
+  };
+
+  const updateFrontierSet = (
+    currentFrontier: Set<string> | null,
+    selectionIds: Set<string>,
+    candidate: Table,
+  ): Set<string> => {
+    const next = new Set<string>();
+    if (currentFrontier) {
+      for (const id of currentFrontier) {
+        if (!selectionIds.has(id)) {
+          next.add(id);
+        }
+      }
+    }
+    const neighbors = adjacency.get(candidate.id);
+    if (neighbors) {
+      for (const neighbor of neighbors) {
+        if (!selectionIds.has(neighbor) && candidateLookup.has(neighbor)) {
+          next.add(neighbor);
+        }
+      }
+    }
+    next.delete(candidate.id);
+    return next;
+  };
+
+  const gatherCandidateIdsFromIndex = (startIndex: number, selectionIds: Set<string>): string[] => {
+    const ids: string[] = [];
+    for (let idx = startIndex; idx < sortedCandidates.length; idx += 1) {
+      const table = sortedCandidates[idx];
+      if (selectionIds.has(table.id)) {
+        continue;
+      }
+      ids.push(table.id);
+    }
+    return ids;
+  };
+
+  const computeCapacityUpperBound = (
+    candidateIds: string[],
+    remainingSlots: number,
+    baseZoneId: string | null,
+    selectionIds: Set<string>,
+  ): number => {
+    if (remainingSlots <= 0) {
+      return 0;
+    }
+    const capacities: number[] = [];
+    for (const id of candidateIds) {
+      if (selectionIds.has(id)) {
+        continue;
+      }
+      const table = candidateLookup.get(id);
+      if (!table) {
+        continue;
+      }
+      if (baseZoneId && table.zoneId && table.zoneId !== baseZoneId) {
+        continue;
+      }
+      capacities.push(table.capacity ?? 0);
+    }
+    capacities.sort((a, b) => b - a);
+    return capacities.slice(0, remainingSlots).reduce((sum, value) => sum + value, 0);
+  };
 
   let evaluations = 0;
   let enumerated = diagnostics.combinationsEnumerated ?? 0;
@@ -329,8 +432,20 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
     diagnostics.combinationsAccepted = accepted;
   };
 
-  const dfs = (startIndex: number, selection: Table[], runningCapacity: number, baseZoneId: string | null) => {
+  const dfs = (
+    startIndex: number,
+    selection: Table[],
+    selectionIds: Set<string>,
+    runningCapacity: number,
+    baseZoneId: string | null,
+    frontier: Set<string> | null,
+  ) => {
     if (stopSearch) {
+      return;
+    }
+
+    if (requireAdjacency && frontier && frontier.size === 0 && selection.length < kMax) {
+      incrementCounter(diagnostics.skipped, "adjacency_frontier");
       return;
     }
 
@@ -341,12 +456,12 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
       const key = buildTableKey(selection);
       if (!seenKeys.has(key)) {
         seenKeys.add(key);
-        const adjacencyEvaluation = evaluateAdjacency(selection, adjacency);
-        if (!adjacencyEvaluation.connected && requireAdjacency) {
-          incrementCounter(diagnostics.skipped, "adjacency");
-        } else {
-          const metrics = computeMetrics(selection, partySize, adjacencyEvaluation.depths);
-          const score = computeScore(metrics, weights);
+      const adjacencyEvaluation = evaluateAdjacency(selection, adjacency);
+      if (!adjacencyEvaluation.connected && requireAdjacency) {
+        incrementCounter(diagnostics.skipped, "adjacency");
+      } else {
+        const metrics = computeMetrics(selection, partySize, adjacencyEvaluation.depths);
+        const score = computeScore(metrics, weights);
           const totalCapacity = metrics.overage + partySize;
           const adjacencyStatus: RankedTablePlan["adjacencyStatus"] =
             selection.length <= 1
@@ -386,6 +501,21 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
       return;
     }
 
+    const remainingSlots = kMax - selection.length;
+    if (remainingSlots > 0) {
+      let candidateIdsForUpperBound: string[] = [];
+      if (requireAdjacency) {
+        candidateIdsForUpperBound = frontier ? Array.from(frontier) : [];
+      } else {
+        candidateIdsForUpperBound = gatherCandidateIdsFromIndex(startIndex, selectionIds);
+      }
+      const capacityUpperBound = computeCapacityUpperBound(candidateIdsForUpperBound, remainingSlots, baseZoneId, selectionIds);
+      if (runningCapacity + capacityUpperBound < partySize) {
+        incrementCounter(diagnostics.skipped, "capacity_upper_bound");
+        return;
+      }
+    }
+
     for (let index = startIndex; index < sortedCandidates.length; index += 1) {
       if (stopSearch) {
         break;
@@ -393,7 +523,11 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
 
       const candidate = sortedCandidates[index];
 
-      if (selection.some((existing) => existing.id === candidate.id)) {
+      if (selectionIds.has(candidate.id)) {
+        continue;
+      }
+
+      if (requireAdjacency && frontier && !frontier.has(candidate.id)) {
         continue;
       }
 
@@ -415,39 +549,27 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
         break;
       }
 
-      if (requireAdjacency && selection.length > 0 && !isAdjacentToSelection(candidate, selection, adjacency)) {
-        incrementCounter(diagnostics.skipped, "adjacency");
-        continue;
-      }
-
       const nextZoneId = baseZoneId ?? candidate.zoneId ?? null;
+      const nextSelection = [...selection, candidate];
+      const nextSelectionIds = new Set(selectionIds);
+      nextSelectionIds.add(candidate.id);
+      const nextFrontier = requireAdjacency ? updateFrontierSet(frontier, nextSelectionIds, candidate) : null;
 
-      dfs(index + 1, [...selection, candidate], nextCapacity, nextZoneId);
+      dfs(index + 1, nextSelection, nextSelectionIds, nextCapacity, nextZoneId, nextFrontier);
     }
   };
 
   for (let i = 0; i < sortedCandidates.length && !stopSearch; i += 1) {
     const base = sortedCandidates[i];
-    dfs(i + 1, [base], base.capacity ?? 0, base.zoneId ?? null);
+    const baseSelection = [base];
+    const baseSelectionIds = new Set<string>([base.id]);
+    const baseFrontier = requireAdjacency ? buildFrontier(baseSelectionIds) : null;
+    dfs(i + 1, baseSelection, baseSelectionIds, base.capacity ?? 0, base.zoneId ?? null, baseFrontier);
   }
 
   return Array.from(buckets.values())
     .flat()
     .sort((a, b) => comparePlans(a, b, weights));
-}
-
-function isAdjacentToSelection(candidate: Table, selection: Table[], adjacency: Map<string, Set<string>>): boolean {
-  for (const table of selection) {
-    const forward = adjacency.get(table.id);
-    if (forward && forward.has(candidate.id)) {
-      return true;
-    }
-    const backward = adjacency.get(candidate.id);
-    if (backward && backward.has(table.id)) {
-      return true;
-    }
-  }
-  return false;
 }
 
 function evaluateAdjacency(

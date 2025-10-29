@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { HoldConflictError } from "@/server/capacity/holds";
+import { ServiceNotFoundError } from "@/server/capacity/policy";
 import { quoteTablesForBooking } from "@/server/capacity/tables";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 
@@ -89,6 +90,11 @@ export async function POST(req: NextRequest) {
           alternates: result.alternates,
           nextTimes: result.nextTimes,
           reason: result.reason,
+          skipped: result.skipped ?? [],
+          serviceFallback: {
+            usedFallback: result.metadata?.usedFallback ?? false,
+            fallbackService: result.metadata?.fallbackService ?? null,
+          },
         },
         { status: 200 },
       );
@@ -116,6 +122,11 @@ export async function POST(req: NextRequest) {
       nextTimes: result.nextTimes,
       zoneId: result.hold.zoneId,
       requireAdjacency: requireAdjacency ?? null,
+      skipped: result.skipped ?? [],
+      serviceFallback: {
+        usedFallback: result.metadata?.usedFallback ?? false,
+        fallbackService: result.metadata?.fallbackService ?? null,
+      },
     });
   } catch (error) {
     if (error instanceof HoldConflictError) {
@@ -126,6 +137,12 @@ export async function POST(req: NextRequest) {
         },
         { status: 409 },
       );
+    }
+
+    if (error instanceof ServiceNotFoundError) {
+      return NextResponse.json({
+        error: error.message,
+      }, { status: 422 });
     }
 
     console.error("[staff/auto/quote] unexpected error", { error, bookingId });

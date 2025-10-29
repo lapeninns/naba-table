@@ -111,6 +111,7 @@ export const env = {
     const allocatorKMax = Math.max(1, Math.min(parsed.FEATURE_ALLOCATOR_K_MAX ?? 3, 5));
     const allocatorMergesDefault = parsed.FEATURE_ALLOCATOR_MERGES_ENABLED ?? !isProduction;
     const combinationPlannerDefault = parsed.FEATURE_COMBINATION_PLANNER ?? allocatorMergesDefault;
+    const plannerTimePruningDefault = parsed.FEATURE_PLANNER_TIME_PRUNING_ENABLED ?? false;
     const adjacencyMinPartySize =
       typeof parsed.FEATURE_ALLOCATOR_ADJACENCY_MIN_PARTY_SIZE === "number"
         ? Math.max(1, Math.min(parsed.FEATURE_ALLOCATOR_ADJACENCY_MIN_PARTY_SIZE, 20))
@@ -123,6 +124,7 @@ export const env = {
       typeof parsed.FEATURE_SELECTOR_MAX_COMBINATION_EVALUATIONS === "number"
         ? Math.max(1, Math.min(parsed.FEATURE_SELECTOR_MAX_COMBINATION_EVALUATIONS, 5000))
         : null;
+    const adjacencyQueryUndirectedDefault = parsed.FEATURE_ADJACENCY_QUERY_UNDIRECTED ?? true;
     return {
       loyaltyPilotRestaurantIds: parsed.LOYALTY_PILOT_RESTAURANT_IDS,
       enableTestApi: parsed.ENABLE_TEST_API ?? false,
@@ -140,6 +142,9 @@ export const env = {
       adjacencyValidation: parsed.FEATURE_ADJACENCY_VALIDATION ?? false,
       opsMetrics: parsed.FEATURE_OPS_METRICS ?? false,
       realtimeFloorplan: parsed.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN ?? false,
+      planner: {
+        timePruningEnabled: plannerTimePruningDefault,
+      },
       allocatorV2: {
         enabled: parsed.FEATURE_ALLOCATOR_V2_ENABLED ?? true,
         shadow: parsed.FEATURE_ALLOCATOR_V2_SHADOW ?? false,
@@ -150,6 +155,9 @@ export const env = {
         requireAdjacency: parsed.FEATURE_ALLOCATOR_REQUIRE_ADJACENCY ?? true,
         kMax: allocatorKMax,
         adjacencyMinPartySize,
+        service: {
+          failHard: parsed.FEATURE_ALLOCATOR_SERVICE_FAIL_HARD ?? false,
+        },
       },
       selector: {
         maxPlansPerSlack: selectorMaxPlansPerSlack,
@@ -157,6 +165,10 @@ export const env = {
       },
       holds: {
         enabled: parsed.FEATURE_HOLDS_ENABLED ?? true,
+        strictConflicts: parsed.FEATURE_HOLDS_STRICT_CONFLICTS_ENABLED ?? false,
+      },
+      adjacency: {
+        queryUndirected: adjacencyQueryUndirectedDefault,
       },
     } as const;
   },

@@ -1,5 +1,6 @@
 import { recordObservabilityEvent } from "@/server/observability";
 
+import type { ServiceKey } from "./policy";
 import type { CandidateDiagnostics } from "./selector";
 import type { Json } from "@/types/supabase";
 
@@ -87,6 +88,10 @@ export type SelectorDecisionEvent = {
   featureFlags: {
     selectorScoring: boolean;
     opsMetrics: boolean;
+    plannerTimePruning: boolean;
+    adjacencyUndirected: boolean;
+    holdsStrictConflicts: boolean;
+    allocatorFailHard: boolean;
   };
   timing?: {
     totalMs: number;
@@ -104,6 +109,18 @@ export type SelectorDecisionEvent = {
     evaluationLimit: number;
     maxOverage: number;
     maxTables: number;
+    featureFlags: {
+      selectorScoring: boolean;
+      opsMetrics: boolean;
+      plannerTimePruning: boolean;
+      adjacencyUndirected: boolean;
+      holdsStrictConflicts: boolean;
+      allocatorFailHard: boolean;
+    };
+    serviceFallback: {
+      used: boolean;
+      service: ServiceKey | null;
+    };
   };
   diagnostics?: CandidateDiagnostics;
 };
@@ -232,6 +249,42 @@ export async function emitHoldConfirmed(event: HoldTelemetryEvent): Promise<void
 
 export async function emitHoldExpired(event: HoldTelemetryEvent): Promise<void> {
   await emitHoldEvent("capacity.hold.expired", event);
+}
+
+export type HoldStrictConflictEvent = {
+  restaurantId: string;
+  bookingId: string | null;
+  tableIds: string[];
+  startAt: string;
+  endAt: string;
+  conflicts: Array<{
+    holdId: string;
+    bookingId: string | null;
+    tableIds: string[];
+    startAt: string;
+    endAt: string;
+    expiresAt: string;
+  }>;
+};
+
+export async function emitHoldStrictConflict(event: HoldStrictConflictEvent): Promise<void> {
+  const sanitizedPayload = sanitizeTelemetryContext(event as Json);
+  try {
+    await recordObservabilityEvent({
+      source: "capacity.hold",
+      eventType: "capacity.hold.strict_conflict",
+      severity: "warning",
+      context: sanitizedPayload,
+      restaurantId: event.restaurantId,
+      bookingId: event.bookingId ?? undefined,
+    });
+  } catch (error) {
+    console.error("[capacity.hold] failed to record strict conflict telemetry", {
+      error,
+      bookingId: event.bookingId,
+      restaurantId: event.restaurantId,
+    });
+  }
 }
 
 export type RpcConflictEvent = {

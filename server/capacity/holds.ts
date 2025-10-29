@@ -1,11 +1,12 @@
 import { DateTime } from "luxon";
 
+import { isHoldStrictConflictsEnabled } from "@/server/feature-flags";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
 import type { Database, Json, Tables, TablesInsert } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-type DbClient = SupabaseClient<Database, "public", any>;
+type DbClient = SupabaseClient<Database, "public">;
 
 export type TableHold = {
   id: string;
@@ -40,6 +41,16 @@ export type CreateTableHoldInput = {
   createdBy?: string | null;
   metadata?: Json | null;
   client?: DbClient;
+};
+
+type TableHoldWindowRow = {
+  hold_id: string;
+  booking_id: string | null;
+  restaurant_id: string;
+  table_id: string;
+  start_at: string;
+  end_at: string;
+  expires_at: string;
 };
 
 export type ReleaseTableHoldInput = {
@@ -122,6 +133,27 @@ function ensureClient(client?: DbClient): DbClient {
   return client ?? getServiceSupabaseClient();
 }
 
+async function configureHoldStrictConflictSession(client: DbClient): Promise<void> {
+  const enabled = isHoldStrictConflictsEnabled();
+  if (typeof client.rpc !== "function") {
+    return;
+  }
+  try {
+    const { error } = await client.rpc("set_hold_conflict_enforcement", { enabled });
+    if (error) {
+      console.warn("[capacity.hold] failed to configure strict conflict enforcement", {
+        enabled,
+        error: error.message ?? error,
+      });
+    }
+  } catch (error) {
+    console.warn("[capacity.hold] failed to configure strict conflict enforcement", {
+      enabled,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 function normalizeHold(row: Tables<"table_holds">, tableIds: string[]): TableHold {
   return {
     id: row.id,
@@ -135,6 +167,65 @@ function normalizeHold(row: Tables<"table_holds">, tableIds: string[]): TableHol
     createdBy: row.created_by,
     metadata: row.metadata ?? null,
   };
+}
+
+type HoldRowWithMembers = Tables<"table_holds"> & {
+  table_hold_members?: unknown;
+};
+
+type AssignTablesRowPayload = {
+  table_id?: unknown;
+  start_at?: unknown;
+  end_at?: unknown;
+  merge_group_id?: unknown;
+};
+
+function extractTableIdsFromMembers(members: unknown): string[] {
+  if (!Array.isArray(members)) {
+    return [];
+  }
+
+  return members
+    .map((member) => {
+      if (!member || typeof member !== "object") {
+        return null;
+      }
+
+      const tableId = (member as { table_id?: unknown }).table_id;
+      return typeof tableId === "string" ? tableId : null;
+    })
+    .filter((tableId): tableId is string => tableId !== null);
+}
+
+function mapAssignments(payload: unknown): ConfirmedAssignment[] {
+  if (!Array.isArray(payload)) {
+    return [];
+  }
+
+  return payload
+    .map((row) => {
+      if (!row || typeof row !== "object") {
+        return null;
+      }
+
+      const record = row as AssignTablesRowPayload;
+      if (
+        typeof record.table_id !== "string" ||
+        typeof record.start_at !== "string" ||
+        typeof record.end_at !== "string"
+      ) {
+        return null;
+      }
+
+      const mergeGroupId = record.merge_group_id;
+      return {
+        tableId: record.table_id,
+        startAt: record.start_at,
+        endAt: record.end_at,
+        mergeGroupId: typeof mergeGroupId === "string" ? mergeGroupId : null,
+      } satisfies ConfirmedAssignment;
+    })
+    .filter((assignment): assignment is ConfirmedAssignment => assignment !== null);
 }
 
 function intervalsOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
@@ -167,6 +258,47 @@ export async function createTableHold(input: CreateTableHoldInput): Promise<Tabl
   }
 
   const supabase = ensureClient(client);
+  await configureHoldStrictConflictSession(supabase);
+
+  if (isHoldStrictConflictsEnabled()) {
+    try {
+      const conflicts = await findHoldConflicts({
+        restaurantId,
+        tableIds,
+        startAt,
+        endAt,
+        client: supabase,
+      });
+      const blockingConflicts = conflicts.filter((conflict) => conflict.bookingId !== bookingId);
+      if (blockingConflicts.length > 0) {
+        const { emitHoldStrictConflict } = await import("./telemetry");
+        await emitHoldStrictConflict({
+          restaurantId,
+          bookingId,
+          tableIds,
+          startAt,
+          endAt,
+          conflicts: blockingConflicts.map((conflict) => ({
+            holdId: conflict.holdId,
+            bookingId: conflict.bookingId,
+            tableIds: conflict.tableIds,
+            startAt: conflict.startAt,
+            endAt: conflict.endAt,
+            expiresAt: conflict.expiresAt,
+          })),
+        });
+        throw new HoldConflictError("Existing holds conflict with requested tables", blockingConflicts[0]?.holdId);
+      }
+    } catch (error) {
+      if (error instanceof HoldConflictError) {
+        throw error;
+      }
+      console.warn("[capacity.hold] strict conflict evaluation failed; proceeding with relaxed checks", {
+        restaurantId,
+        error,
+      });
+    }
+  }
 
   const insertPayload: TablesInsert<"table_holds"> = {
     booking_id: bookingId,
@@ -223,6 +355,7 @@ export async function createTableHold(input: CreateTableHoldInput): Promise<Tabl
 export async function releaseTableHold(input: ReleaseTableHoldInput): Promise<void> {
   const { holdId, client } = input;
   const supabase = ensureClient(client);
+  await configureHoldStrictConflictSession(supabase);
   await supabase.from("table_hold_members").delete().eq("hold_id", holdId);
   await supabase.from("table_holds").delete().eq("id", holdId);
 }
@@ -241,9 +374,11 @@ export async function listActiveHoldsForBooking(input: ListActiveHoldsInput): Pr
     return [];
   }
 
-  return data.map((row) =>
-    normalizeHold(row as Tables<"table_holds">, (row.table_hold_members ?? []).map((member: any) => member.table_id)),
-  );
+  return data.map((row) => {
+    const holdRow = row as HoldRowWithMembers;
+    const memberTableIds = extractTableIdsFromMembers(holdRow.table_hold_members ?? null);
+    return normalizeHold(holdRow, memberTableIds);
+  });
 }
 
 export async function findHoldConflicts(input: FindHoldConflictsInput): Promise<HoldConflictInfo[]> {
@@ -254,8 +389,90 @@ export async function findHoldConflicts(input: FindHoldConflictsInput): Promise<
   }
 
   const supabase = ensureClient(client);
+  await configureHoldStrictConflictSession(supabase);
+  if (!isHoldStrictConflictsEnabled()) {
+    return await findHoldConflictsLegacy({ restaurantId, tableIds, startAt, endAt, excludeHoldId, client: supabase });
+  }
+  const nowIso = new Date().toISOString();
+  const rangeLiteral = `[${startAt},${endAt})`;
 
-  const query = supabase
+  try {
+    const { data, error } = await supabase
+      .from("table_hold_windows")
+      .select("hold_id, booking_id, restaurant_id, table_id, start_at, end_at, expires_at")
+      .eq("restaurant_id", restaurantId)
+      .gt("expires_at", nowIso)
+      .in("table_id", tableIds)
+      .filter("window", "ov", rangeLiteral);
+
+    if (error) {
+      const code = (error as { code?: string }).code;
+      if (code === "42P01") {
+        return await findHoldConflictsLegacy({ restaurantId, tableIds, startAt, endAt, excludeHoldId, client: supabase });
+      }
+      console.warn("[capacity.hold] window query failed; falling back to legacy conflict detection", {
+        restaurantId,
+        error,
+      });
+      return await findHoldConflictsLegacy({ restaurantId, tableIds, startAt, endAt, excludeHoldId, client: supabase });
+    }
+
+    const rows = Array.isArray(data) ? (data as TableHoldWindowRow[]) : [];
+    if (rows.length === 0) {
+      return [];
+    }
+
+    const grouped = new Map<string, HoldConflictInfo>();
+
+    for (const row of rows) {
+      if (!row || (excludeHoldId && row.hold_id === excludeHoldId)) {
+        continue;
+      }
+      if (!intervalsOverlap(row.start_at, row.end_at, startAt, endAt)) {
+        continue;
+      }
+      const key = row.hold_id;
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          holdId: row.hold_id,
+          bookingId: row.booking_id,
+          tableIds: [],
+          startAt: row.start_at,
+          endAt: row.end_at,
+          expiresAt: row.expires_at,
+        });
+      }
+      const entry = grouped.get(key)!;
+      if (!entry.tableIds.includes(row.table_id)) {
+        entry.tableIds.push(row.table_id);
+      }
+    }
+
+    return Array.from(grouped.values());
+  } catch (error) {
+    const code = (error as { code?: string }).code;
+    if (code === "42P01") {
+      return await findHoldConflictsLegacy({ restaurantId, tableIds, startAt, endAt, excludeHoldId, client: supabase });
+    }
+    console.warn("[capacity.hold] conflict evaluation failed; using legacy fallback", {
+      restaurantId,
+      error,
+    });
+    return await findHoldConflictsLegacy({ restaurantId, tableIds, startAt, endAt, excludeHoldId, client: supabase });
+  }
+}
+
+async function findHoldConflictsLegacy(params: {
+  restaurantId: string;
+  tableIds: string[];
+  startAt: string;
+  endAt: string;
+  excludeHoldId?: string | null;
+  client: DbClient;
+}): Promise<HoldConflictInfo[]> {
+  const { restaurantId, tableIds, startAt, endAt, excludeHoldId = null, client } = params;
+
+  const query = client
     .from("table_holds")
     .select("id, booking_id, start_at, end_at, expires_at, table_hold_members(table_id)")
     .eq("restaurant_id", restaurantId)
@@ -279,8 +496,7 @@ export async function findHoldConflicts(input: FindHoldConflictsInput): Promise<
     const members = (row.table_hold_members ?? []) as Array<{ table_id: string }>;
     const memberTableIds = members.map((member) => member.table_id);
 
-    const sharesTable = memberTableIds.some((id) => tableIds.includes(id));
-    if (!sharesTable) {
+    if (!memberTableIds.some((id) => tableIds.includes(id))) {
       continue;
     }
 
@@ -313,6 +529,7 @@ export async function confirmTableHold(input: ConfirmTableHoldInput): Promise<Co
     client,
   } = input;
   const supabase = ensureClient(client);
+  await configureHoldStrictConflictSession(supabase);
 
   const { data: holdRow, error: holdError } = await supabase
     .from("table_holds")
@@ -382,12 +599,7 @@ export async function confirmTableHold(input: ConfirmTableHoldInput): Promise<Co
     });
   }
 
-  const assignments: ConfirmedAssignment[] = (Array.isArray(data) ? data : []).map((row: any) => ({
-    tableId: row.table_id,
-    startAt: row.start_at,
-    endAt: row.end_at,
-    mergeGroupId: row.merge_group_id ?? null,
-  }));
+  const assignments = mapAssignments(data);
 
   await supabase.from("table_holds").delete().eq("id", holdId);
 
@@ -397,6 +609,7 @@ export async function confirmTableHold(input: ConfirmTableHoldInput): Promise<Co
 export async function sweepExpiredHolds(input?: SweepExpiredHoldsInput): Promise<SweepExpiredHoldsResult> {
   const { now, limit = 100, client } = input ?? {};
   const supabase = ensureClient(client);
+  await configureHoldStrictConflictSession(supabase);
   const cutoff = now ?? new Date().toISOString();
 
   const { data, error } = await supabase
@@ -406,7 +619,19 @@ export async function sweepExpiredHolds(input?: SweepExpiredHoldsInput): Promise
     .order("expires_at", { ascending: true })
     .limit(limit);
 
-  if (error || !data || data.length === 0) {
+  if (error) {
+    console.warn("[capacity.hold] sweepExpiredHolds failed", {
+      error,
+      cutoff,
+      limit,
+    });
+    return {
+      total: 0,
+      holdIds: [],
+    };
+  }
+
+  if (!data || data.length === 0) {
     return {
       total: 0,
       holdIds: [],

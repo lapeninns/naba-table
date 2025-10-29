@@ -55,4 +55,19 @@ describe("availability bitset", () => {
       { numRuns: 200 },
     );
   });
+
+  it("does not mark a zero-length interval as occupied", () => {
+    const start = "2025-03-10T18:00:00Z";
+    const bitset = createAvailabilityBitset();
+    markWindow(bitset, start, start);
+    expect(isWindowFree(bitset, start, start)).toBe(true);
+  });
+
+  it("treats back-to-back intervals as non-overlapping at the boundary", () => {
+    const bitset = createAvailabilityBitset();
+    const firstEnd = "2025-03-10T19:00:00Z";
+    markWindow(bitset, "2025-03-10T18:00:00Z", firstEnd);
+    expect(isWindowFree(bitset, firstEnd, "2025-03-10T19:30:00Z")).toBe(true);
+    expect(isWindowFree(bitset, "2025-03-10T17:30:00Z", "2025-03-10T18:30:00Z")).toBe(false);
+  });
 });
