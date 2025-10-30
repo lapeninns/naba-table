@@ -403,14 +403,14 @@ export async function findHoldConflicts(input: FindHoldConflictsInput): Promise<
       .eq("restaurant_id", restaurantId)
       .gt("expires_at", nowIso)
       .in("table_id", tableIds)
-      .filter("window", "ov", rangeLiteral);
+      .filter("hold_window", "ov", rangeLiteral);
 
     if (error) {
       const code = (error as { code?: string }).code;
       if (code === "42P01") {
         return await findHoldConflictsLegacy({ restaurantId, tableIds, startAt, endAt, excludeHoldId, client: supabase });
       }
-      console.warn("[capacity.hold] window query failed; falling back to legacy conflict detection", {
+      console.warn("[capacity.hold] hold_window query failed; falling back to legacy conflict detection", {
         restaurantId,
         error,
       });

@@ -112,10 +112,10 @@ export type Database = {
             foreignKeyName: "allocations_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
-            referencedRelation: "restaurants"
-            referencedColumns: ["id"]
-          },
-        ]
+          referencedRelation: "restaurants"
+          referencedColumns: ["id"]
+        },
+      ]
       }
       allowed_capacities: {
         Row: {
@@ -771,6 +771,36 @@ export type Database = {
           },
         ]
       }
+      feature_flag_overrides: {
+        Row: {
+          id: string
+          flag: string
+          environment: string
+          value: boolean
+          notes: Json | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          flag: string
+          environment: string
+          value: boolean
+          notes?: Json | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          flag?: string
+          environment?: string
+          value?: boolean
+          notes?: Json | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       loyalty_point_events: {
         Row: {
           booking_id: string | null
@@ -1423,6 +1453,54 @@ export type Database = {
           },
         ]
       }
+      table_hold_windows: {
+        Row: {
+          hold_id: string
+          table_id: string
+          restaurant_id: string
+          booking_id: string | null
+          start_at: string
+          end_at: string
+          expires_at: string
+          hold_window: unknown
+        }
+        Insert: {
+          hold_id: string
+          table_id: string
+          restaurant_id: string
+          booking_id?: string | null
+          start_at: string
+          end_at: string
+          expires_at: string
+          hold_window?: unknown
+        }
+        Update: {
+          hold_id?: string
+          table_id?: string
+          restaurant_id?: string
+          booking_id?: string | null
+          start_at?: string
+          end_at?: string
+          expires_at?: string
+          hold_window?: unknown
+        }
+        Relationships: [
+          {
+            foreignKeyName: "table_hold_windows_hold_id_fkey"
+            columns: ["hold_id"]
+            isOneToOne: false
+            referencedRelation: "table_holds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "table_hold_windows_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "table_inventory"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       table_inventory: {
         Row: {
           active: boolean
@@ -1576,9 +1654,9 @@ export type Database = {
       are_tables_connected: { Args: { table_ids: string[] }; Returns: boolean }
       assign_tables_atomic: {
         Args: {
-          p_assigned_by?: string
+          p_assigned_by?: string | null
           p_booking_id: string
-          p_idempotency_key?: string
+          p_idempotency_key?: string | null
           p_table_ids: string[]
           p_window: unknown
         }
@@ -1589,9 +1667,9 @@ export type Database = {
       }
       assign_tables_atomic_v2: {
         Args: {
-          p_assigned_by?: string
+          p_assigned_by?: string | null
           p_booking_id: string
-          p_idempotency_key?: string
+          p_idempotency_key?: string | null
           p_require_adjacency?: boolean
           p_table_ids: string[]
           p_start_at?: string
@@ -1627,6 +1705,10 @@ export type Database = {
         Returns: string
       }
       refresh_table_status: { Args: { p_table_id: string }; Returns: undefined }
+      set_hold_conflict_enforcement: {
+        Args: { enabled: boolean }
+        Returns: boolean
+      }
       unassign_table_from_booking: {
         Args: { p_booking_id: string; p_table_id: string }
         Returns: boolean

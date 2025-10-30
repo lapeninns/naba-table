@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS public.table_hold_windows (
   start_at timestamptz NOT NULL,
   end_at timestamptz NOT NULL,
   expires_at timestamptz NOT NULL,
-  window tstzrange GENERATED ALWAYS AS (tstzrange(start_at, end_at, '[)')) STORED,
+  hold_window tstzrange GENERATED ALWAYS AS (tstzrange(start_at, end_at, '[)')) STORED,
   CONSTRAINT table_hold_windows_pkey PRIMARY KEY (hold_id, table_id)
 );
 
@@ -32,7 +32,7 @@ ALTER TABLE public.table_hold_windows
   ADD CONSTRAINT table_hold_windows_no_overlap
   EXCLUDE USING gist (
     table_id WITH =,
-    window WITH &&
+    hold_window WITH &&
   );
 
 CREATE OR REPLACE FUNCTION public.is_holds_strict_conflicts_enabled()
@@ -157,6 +157,6 @@ SELECT NOT EXISTS (
   WHERE bta.table_id = p_table_id
     AND tstzrange(bta.start_at, bta.end_at, '[)') && tstzrange(p_start_at, p_end_at, '[)')
     AND (p_exclude_booking_id IS NULL OR b.id <> p_exclude_booking_id)
-    AND b.status IN ('pending', 'confirmed', 'seated')
+    AND b.status IN ('pending', 'confirmed', 'checked_in')
 );
 $$;
