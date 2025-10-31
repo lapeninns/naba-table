@@ -578,6 +578,32 @@ describe("evaluateManualSelection", () => {
     expect(result.ok).toBe(true);
   });
 
+  it("treats adjacency edges as directional when the feature flag is disabled", async () => {
+    const movableTableB = { ...TABLE_B_FIXED, mobility: "movable" };
+    const client = createMockSupabaseClient({
+      booking: BASE_BOOKING,
+      tables: [TABLE_A, movableTableB],
+      contextBookings: [],
+      adjacency: [
+        { table_a: movableTableB.id, table_b: TABLE_A.id },
+      ],
+    });
+
+    vi.spyOn(featureFlagsModule, "isAdjacencyQueryUndirected").mockReturnValue(false);
+    vi.spyOn(holdsModule, "findHoldConflicts").mockResolvedValue([]);
+
+    const result = await evaluateManualSelection({
+      bookingId: BASE_BOOKING.id,
+      tableIds: [TABLE_A.id, movableTableB.id],
+      requireAdjacency: true,
+      client,
+    } satisfies ManualSelectionOptions);
+
+    const adjacencyCheck = result.checks.find((check) => check.id === "adjacency");
+    expect(adjacencyCheck?.status).toBe("error");
+    expect(result.ok).toBe(false);
+  });
+
   it("detects assignment conflict when schedule overlaps", async () => {
     const contextBooking = {
       id: "booking-2",

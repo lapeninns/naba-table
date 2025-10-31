@@ -1443,40 +1443,50 @@ async function loadAdjacency(tableIds: string[], client: DbClient): Promise<Map<
 
   type AdjacencyRow = { table_a: string | null; table_b: string | null };
   const baseQuery = () => client.from("table_adjacencies").select("table_a, table_b");
+  const adjacencyUndirected = isAdjacencyQueryUndirected();
 
-  const [forward, reverse] = await Promise.all([
-    baseQuery().in("table_a", uniqueTableIds),
-    baseQuery().in("table_b", uniqueTableIds),
-  ]);
+  const forward = await baseQuery().in("table_a", uniqueTableIds);
+  if (forward.error) {
+    return new Map();
+  }
 
-  if (forward.error || reverse.error) {
+  const reverse =
+    adjacencyUndirected ? await baseQuery().in("table_b", uniqueTableIds) : null;
+  if (reverse?.error) {
     return new Map();
   }
 
   const forwardRows = Array.isArray(forward.data) ? (forward.data as AdjacencyRow[]) : [];
-  const reverseRows = Array.isArray(reverse.data) ? (reverse.data as AdjacencyRow[]) : [];
-  const rows: AdjacencyRow[] = [...forwardRows, ...reverseRows];
-
-  if (rows.length === 0) {
-    return new Map();
-  }
+  const reverseRows =
+    adjacencyUndirected && reverse && Array.isArray(reverse.data)
+      ? (reverse.data as AdjacencyRow[])
+      : [];
 
   const map = new Map<string, Set<string>>();
-  for (const row of rows) {
-    const tableA = row.table_a;
-    const tableB = row.table_b;
-    if (!tableA || !tableB) {
-      continue;
+  const addEdge = (from: string | null, to: string | null) => {
+    if (!from || !to) {
+      return;
     }
-    if (!map.has(tableA)) {
-      map.set(tableA, new Set());
+    if (!map.has(from)) {
+      map.set(from, new Set());
     }
-    map.get(tableA)!.add(tableB);
-    if (!map.has(tableB)) {
-      map.set(tableB, new Set());
+    map.get(from)!.add(to);
+  };
+
+  for (const row of forwardRows) {
+    addEdge(row.table_a, row.table_b);
+    if (adjacencyUndirected) {
+      addEdge(row.table_b, row.table_a);
     }
-    map.get(tableB)!.add(tableA);
   }
+
+  if (adjacencyUndirected) {
+    for (const row of reverseRows) {
+      addEdge(row.table_a, row.table_b);
+      addEdge(row.table_b, row.table_a);
+    }
+  }
+
   return map;
 }
 

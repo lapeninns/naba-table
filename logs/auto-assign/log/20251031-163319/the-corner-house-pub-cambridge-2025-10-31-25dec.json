@@ -1,0 +1,1347 @@
+{
+  "generatedAt": "2025-10-31T16:33:19.416Z",
+  "restaurantId": "913eb23b-fcec-4533-a61c-c9e30d06c8cd",
+  "restaurantSlug": "the-corner-house-pub-cambridge",
+  "date": "2025-10-31",
+  "decisionCount": 25,
+  "decisions": [
+    {
+      "type": "capacity.selector",
+      "timestamp": "2025-10-31T16:33:09.440Z",
+      "restaurantId": "913eb23b-fcec-4533-a61c-c9e30d06c8cd",
+      "bookingId": "e0b3fdc5-a414-40e5-ba28-ed814522d571",
+      "partySize": 7,
+      "window": {
+        "start": "2025-10-31T13:15:00Z",
+        "end": "2025-10-31T14:45:00Z"
+      },
+      "selected": null,
+      "topCandidates": [
+        {
+          "tableIds": ["8fa91c4a-48cc-46e8-ba4e-52c36353d84a"],
+          "tableNumbers": ["OG-06"],
+          "totalCapacity": 8,
+          "tableCount": 1,
+          "slack": 1,
+          "score": 14.8326,
+          "adjacencyStatus": "single",
+          "scoreBreakdown": {
+            "slack_penalty": 7.5,
+            "scarcity_penalty": 7.332599999999999,
+            "structural_penalty": 0,
+            "demand_multiplier": 1.5,
+            "combination_penalty": 0,
+            "future_conflict_penalty": 0,
+            "total_score": 14.8326
+          }
+        },
+        {
+          "tableIds": ["1a550618-0e84-43ce-b958-dae81a60ce0b"],
+          "tableNumbers": ["PT-07"],
+          "totalCapacity": 8,
+          "tableCount": 1,
+          "slack": 1,
+          "score": 14.8326,
+          "adjacencyStatus": "single",
+          "scoreBreakdown": {
+            "slack_penalty": 7.5,
+            "scarcity_penalty": 7.332599999999999,
+            "structural_penalty": 0,
+            "demand_multiplier": 1.5,
+            "combination_penalty": 0,
+            "future_conflict_penalty": 0,
+            "total_score": 14.8326
+          }
+        },
+        {
+          "tableIds": ["f8e3a2be-93e3-44a1-aa3d-4c1fccf119e7"],
+          "tableNumbers": ["PT-08"],
+          "totalCapacity": 8,
+          "tableCount": 1,
+          "slack": 1,
+          "score": 14.8326,
+          "adjacencyStatus": "single",
+          "scoreBreakdown": {
+            "slack_penalty": 7.5,
+            "scarcity_penalty": 7.332599999999999,
+            "structural_penalty": 0,
+            "demand_multiplier": 1.5,
+            "combination_penalty": 0,
+            "future_conflict_penalty": 0,
+            "total_score": 14.8326
+          }
+        },
+        {
+          "tableIds": ["fe7a9d47-3543-4bfe-a323-3b4c6f7f0b49"],
+          "tableNumbers": ["MD-09"],
+          "totalCapacity": 8,
+          "tableCount": 1,
+          "slack": 1,
+          "score": 29.5,
+          "adjacencyStatus": "single",
+          "scoreBreakdown": {
+            "slack_penalty": 7.5,
+            "scarcity_penalty": 22,
+            "structural_penalty": 0,
+            "demand_multiplier": 1.5,
+            "combination_penalty": 0,
+            "future_conflict_penalty": 0,
+            "total_score": 29.5
+          }
+        },
+        {
+          "tableIds": ["2cf3e51b-751e-44f4-9ec3-512f465fe0d0"],
+          "tableNumbers": ["MD-10"],
+          "totalCapacity": 8,
+          "tableCount": 1,
+          "slack": 1,
+          "score": 29.5,
+          "adjacencyStatus": "single",
+          "scoreBreakdown": {
+            "slack_penalty": 7.5,
+            "scarcity_penalty": 22,
+            "structural_penalty": 0,
+            "demand_multiplier": 1.5,
+            "combination_penalty": 0,
+            "future_conflict_penalty": 0,
+            "total_score": 29.5
+          }
+        }
+      ],
+      "candidates": [
+        {
+          "tableIds": ["8fa91c4a-48cc-46e8-ba4e-52c36353d84a"],
+          "tableNumbers": ["OG-06"],
+          "totalCapacity": 8,
+          "tableCount": 1,
+          "slack": 1,
+          "score": 14.8326,
+          "adjacencyStatus": "single",
+          "scoreBreakdown": {
+            "slack_penalty": 7.5,
+            "scarcity_penalty": 7.332599999999999,
+            "structural_penalty": 0,
+            "demand_multiplier": 1.5,
+            "combination_penalty": 0,
+            "future_conflict_penalty": 0,
+            "total_score": 14.8326
+          }
+        },
+        {
+          "tableIds": ["1a550618-0e84-43ce-b958-dae81a60ce0b"],
+          "tableNumbers": ["PT-07"],
+          "totalCapacity": 8,
+          "tableCount": 1,
+          "slack": 1,
+          "score": 14.8326,
+          "adjacencyStatus": "single",
+          "scoreBreakdown": {
+            "slack_penalty": 7.5,
+            "scarcity_penalty": 7.332599999999999,
+            "structural_penalty": 0,
+            "demand_multiplier": 1.5,
+            "combination_penalty": 0,
+            "future_conflict_penalty": 0,
+            "total_score": 14.8326
+          }
+        },
+        {
+          "tableIds": ["f8e3a2be-93e3-44a1-aa3d-4c1fccf119e7"],
+          "tableNumbers": ["PT-08"],
+          "totalCapacity": 8,
+          "tableCount": 1,
+          "slack": 1,
+          "score": 14.8326,
+          "adjacencyStatus": "single",
+          "scoreBreakdown": {
+            "slack_penalty": 7.5,
+            "scarcity_penalty": 7.332599999999999,
+            "structural_penalty": 0,
+            "demand_multiplier": 1.5,
+            "combination_penalty": 0,
+            "future_conflict_penalty": 0,
+            "total_score": 14.8326
+          }
+        },
+        {
+          "tableIds": ["fe7a9d47-3543-4bfe-a323-3b4c6f7f0b49"],
+          "tableNumbers": ["MD-09"],
+          "totalCapacity": 8,
+          "tableCount": 1,
+          "slack": 1,
+          "score": 29.5,
+          "adjacencyStatus": "single",
+          "scoreBreakdown": {
+            "slack_penalty": 7.5,
+            "scarcity_penalty": 22,
+            "structural_penalty": 0,
+            "demand_multiplier": 1.5,
+            "combination_penalty": 0,
+            "future_conflict_penalty": 0,
+            "total_score": 29.5
+          }
+        },
+        {
+          "tableIds": ["2cf3e51b-751e-44f4-9ec3-512f465fe0d0"],
+          "tableNumbers": ["MD-10"],
+          "totalCapacity": 8,
+          "tableCount": 1,
+          "slack": 1,
+          "score": 29.5,
+          "adjacencyStatus": "single",
+          "scoreBreakdown": {
+            "slack_penalty": 7.5,
+            "scarcity_penalty": 22,
+            "structural_penalty": 0,
+            "demand_multiplier": 1.5,
+            "combination_penalty": 0,
+            "future_conflict_penalty": 0,
+            "total_score": 29.5
+          }
+        }
+      ],
+      "skipReason": "Conflicts with existing bookings on tables 8fa91c4a-48cc-46e8-ba4e-52c36353d84a",
+      "rejectionClassification": "strategic",
+      "strategicPenalties": {
+        "dominant": "slack",
+        "slack": 7.5,
+        "scarcity": 7.332599999999999,
+        "futureConflict": 0
+      },
+      "durationMs": 2279.56,
+      "featureFlags": {
+        "selectorScoring": true,
+        "opsMetrics": true,
+        "plannerTimePruning": false,
+        "adjacencyUndirected": true,
+        "holdsStrictConflicts": false,
+        "allocatorFailHard": false,
+        "selectorLookahead": true
+      },
+      "timing": {
+        "totalMs": 2279.56,
+        "plannerMs": 2.85
+      },
+      "plannerConfig": {
+        "combinationEnabled": true,
+        "requireAdjacency": true,
+        "adjacencyRequiredGlobally": true,
+        "adjacencyMinPartySize": null,
+        "kMax": 3,
+        "bucketLimit": 50,
+        "evaluationLimit": 500,
+        "maxOverage": 2,
+        "maxTables": 3,
+        "weights": {
+          "overage": 5,
+          "tableCount": 3,
+          "fragmentation": 2,
+          "zoneBalance": 4,
+          "adjacencyCost": 1,
+          "scarcity": 22
+        },
+        "featureFlags": {
+          "plannerTimePruning": false,
+          "adjacencyUndirected": true,
+          "holdsStrictConflicts": false,
+          "allocatorFailHard": false,
+          "selectorScoring": true,
+          "opsMetrics": true,
+          "selectorLookahead": true
+        },
+        "serviceFallback": {
+          "used": false,
+          "service": null
+        },
+        "demandMultiplier": 1.5,
+        "demandRule": {
+          "label": "lunch",
+          "source": "restaurant",
+          "serviceWindow": "lunch",
+          "days": ["Friday"],
+          "start": null,
+          "end": null,
+          "priority": null
+        },
+        "lookahead": {
+          "enabled": true,
+          "windowMinutes": 120,
+          "penaltyWeight": 500
+        }
+      },
+      "diagnostics": {
+        "singlesConsidered": 5,
+        "combinationsEnumerated": 0,
+        "combinationsAccepted": 0,
+        "skipped": {
+          "capacity": 0,
+          "overage": 7,
+          "adjacency": 0,
+          "kmax": 0,
+          "zone": 0,
+          "limit": 0,
+          "bucket": 0,
+          "adjacency_frontier": 1,
+          "capacity_upper_bound": 0
+        },
+        "limits": {
+          "kMax": 3,
+          "maxPlansPerSlack": 50,
+          "maxCombinationEvaluations": 500
+        },
+        "totals": {
+          "enumerated": 5,
+          "accepted": 5
+        },
+        "performance": {
+          "totalDurationMs": 2.064791000004334,
+          "buildScoredTablePlansMs": 2.064791000004334,
+          "enumerateCombinationsMs": 1.296375000005355,
+          "sortingMs": 0.14824999999837019,
+          "inputSize": {
+            "tableCount": 11,
+            "partySize": 7,
+            "validTablesCount": 7,
+            "singleTableCandidatesCount": 5
+          },
+          "iterations": {
+            "totalEvaluations": 5,
+            "dfsIterations": null,
+            "earlyExit": false,
+            "earlyExitReason": null
+          }
+        },
+        "lookahead": {
+          "enabled": true,
+          "evaluationMs": 0,
+          "futureBookingsConsidered": 0,
+          "penalizedPlans": 0,
+          "totalPenalty": 0,
+          "windowMinutes": 120,
+          "conflicts": []
+        },
+        "timePruning": {
+          "prunedByTime": 0,
+          "candidatesAfterTimePrune": 11,
+          "pruned_by_time": 0,
+          "candidates_after_time_prune": 11
+        }
+      },
+      "availabilitySnapshot": null
+    },
+    {
+      "type": "capacity.selector",
+      "timestamp": "2025-10-31T16:33:10.321Z",
+      "restaurantId": "913eb23b-fcec-4533-a61c-c9e30d06c8cd",
+      "bookingId": "789ea1dc-7a57-41a9-a651-9ed551c9a16b",
+      "partySize": 7,
+      "window": {
+        "start": "2025-10-31T13:15:00Z",
+        "end": "2025-10-31T14:45:00Z"
+      },
+      "selected": null,
+      "topCandidates": [
+        {
+          "tableIds": ["8fa91c4a-48cc-46e8-ba4e-52c36353d84a"],
+          "tableNumbers": ["OG-06"],
+          "totalCapacity": 8,
+          "tableCount": 1,
+          "slack": 1,
+          "score": 14.8326,
+          "adjacencyStatus": "single",
+          "scoreBreakdown": {
+            "slack_penalty": 7.5,
+            "scarcity_penalty": 7.332599999999999,
+            "structural_penalty": 0,
+            "demand_multiplier": 1.5,
+            "combination_penalty": 0,
+            "future_conflict_penalty": 0,
+            "total_score": 14.8326
+          }
+        },
+        {
+          "tableIds": ["1a550618-0e84-43ce-b958-dae81a60ce0b"],
+          "tableNumbers": ["PT-07"],
+          "totalCapacity": 8,
+          "tableCount": 1,
+          "slack": 1,
+          "score": 14.8326,
+          "adjacencyStatus": "single",
+          "scoreBreakdown": {
+            "slack_penalty": 7.5,
+            "scarcity_penalty": 7.332599999999999,
+            "structural_penalty": 0,
+            "demand_multiplier": 1.5,
+            "combination_penalty": 0,
+            "future_conflict_penalty": 0,
+            "total_score": 14.8326
+          }
+        },
+        {
+          "tableIds": ["f8e3a2be-93e3-44a1-aa3d-4c1fccf119e7"],
+          "tableNumbers": ["PT-08"],
+          "totalCapacity": 8,
+          "tableCount": 1,
+          "slack": 1,
+          "score": 14.8326,
+          "adjacencyStatus": "single",
+          "scoreBreakdown": {
+            "slack_penalty": 7.5,
+            "scarcity_penalty": 7.332599999999999,
+            "structural_penalty": 0,
+            "demand_multiplier": 1.5,
+            "combination_penalty": 0,
+            "future_conflict_penalty": 0,
+            "total_score": 14.8326
+          }
+        },
+        {
+          "tableIds": ["fe7a9d47-3543-4bfe-a323-3b4c6f7f0b49"],
+          "tableNumbers": ["MD-09"],
+          "totalCapacity": 8,
+          "tableCount": 1,
+          "slack": 1,
+          "score": 29.5,
+          "adjacencyStatus": "single",
+          "scoreBreakdown": {
+            "slack_penalty": 7.5,
+            "scarcity_penalty": 22,
+            "structural_penalty": 0,
+            "demand_multiplier": 1.5,
+            "combination_penalty": 0,
+            "future_conflict_penalty": 0,
+            "total_score": 29.5
+          }
+        },
+        {
+          "tableIds": ["2cf3e51b-751e-44f4-9ec3-512f465fe0d0"],
+          "tableNumbers": ["MD-10"],
+          "totalCapacity": 8,
+          "tableCount": 1,
+          "slack": 1,
+          "score": 29.5,
+          "adjacencyStatus": "single",
+          "scoreBreakdown": {
+            "slack_penalty": 7.5,
+            "scarcity_penalty": 22,
+            "structural_penalty": 0,
+            "demand_multiplier": 1.5,
+            "combination_penalty": 0,
+            "future_conflict_penalty": 0,
+            "total_score": 29.5
+          }
+        }
+      ],
+      "candidates": [
+        {
+          "tableIds": ["8fa91c4a-48cc-46e8-ba4e-52c36353d84a"],
+          "tableNumbers": ["OG-06"],
+          "totalCapacity": 8,
+          "tableCount": 1,
+          "slack": 1,
+          "score": 14.8326,
+          "adjacencyStatus": "single",
+          "scoreBreakdown": {
+            "slack_penalty": 7.5,
+            "scarcity_penalty": 7.332599999999999,
+            "structural_penalty": 0,
+            "demand_multiplier": 1.5,
+            "combination_penalty": 0,
+            "future_conflict_penalty": 0,
+            "total_score": 14.8326
+          }
+        },
+        {
+          "tableIds": ["1a550618-0e84-43ce-b958-dae81a60ce0b"],
+          "tableNumbers": ["PT-07"],
+          "totalCapacity": 8,
+          "tableCount": 1,
+          "slack": 1,
+          "score": 14.8326,
+          "adjacencyStatus": "single",
+          "scoreBreakdown": {
+            "slack_penalty": 7.5,
+            "scarcity_penalty": 7.332599999999999,
+            "structural_penalty": 0,
+            "demand_multiplier": 1.5,
+            "combination_penalty": 0,
+            "future_conflict_penalty": 0,
+            "total_score": 14.8326
+          }
+        },
+        {
+          "tableIds": ["f8e3a2be-93e3-44a1-aa3d-4c1fccf119e7"],
+          "tableNumbers": ["PT-08"],
+          "totalCapacity": 8,
+          "tableCount": 1,
+          "slack": 1,
+          "score": 14.8326,
+          "adjacencyStatus": "single",
+          "scoreBreakdown": {
+            "slack_penalty": 7.5,
+            "scarcity_penalty": 7.332599999999999,
+            "structural_penalty": 0,
+            "demand_multiplier": 1.5,
+            "combination_penalty": 0,
+            "future_conflict_penalty": 0,
+            "total_score": 14.8326
+          }
+        },
+        {
+          "tableIds": ["fe7a9d47-3543-4bfe-a323-3b4c6f7f0b49"],
+          "tableNumbers": ["MD-09"],
+          "totalCapacity": 8,
+          "tableCount": 1,
+          "slack": 1,
+          "score": 29.5,
+          "adjacencyStatus": "single",
+          "scoreBreakdown": {
+            "slack_penalty": 7.5,
+            "scarcity_penalty": 22,
+            "structural_penalty": 0,
+            "demand_multiplier": 1.5,
+            "combination_penalty": 0,
+            "future_conflict_penalty": 0,
+            "total_score": 29.5
+          }
+        },
+        {
+          "tableIds": ["2cf3e51b-751e-44f4-9ec3-512f465fe0d0"],
+          "tableNumbers": ["MD-10"],
+          "totalCapacity": 8,
+          "tableCount": 1,
+          "slack": 1,
+          "score": 29.5,
+          "adjacencyStatus": "single",
+          "scoreBreakdown": {
+            "slack_penalty": 7.5,
+            "scarcity_penalty": 22,
+            "structural_penalty": 0,
+            "demand_multiplier": 1.5,
+            "combination_penalty": 0,
+            "future_conflict_penalty": 0,
+            "total_score": 29.5
+          }
+        }
+      ],
+      "skipReason": "Conflicts with existing bookings on tables 8fa91c4a-48cc-46e8-ba4e-52c36353d84a",
+      "rejectionClassification": "strategic",
+      "strategicPenalties": {
+        "dominant": "slack",
+        "slack": 7.5,
+        "scarcity": 7.332599999999999,
+        "futureConflict": 0
+      },
+      "durationMs": 350.19,
+      "featureFlags": {
+        "selectorScoring": true,
+        "opsMetrics": true,
+        "plannerTimePruning": false,
+        "adjacencyUndirected": true,
+        "holdsStrictConflicts": false,
+        "allocatorFailHard": false,
+        "selectorLookahead": true
+      },
+      "timing": {
+        "totalMs": 350.19,
+        "plannerMs": 0.56
+      },
+      "plannerConfig": {
+        "combinationEnabled": true,
+        "requireAdjacency": true,
+        "adjacencyRequiredGlobally": true,
+        "adjacencyMinPartySize": null,
+        "kMax": 3,
+        "bucketLimit": 50,
+        "evaluationLimit": 500,
+        "maxOverage": 2,
+        "maxTables": 3,
+        "weights": {
+          "overage": 5,
+          "tableCount": 3,
+          "fragmentation": 2,
+          "zoneBalance": 4,
+          "adjacencyCost": 1,
+          "scarcity": 22
+        },
+        "featureFlags": {
+          "plannerTimePruning": false,
+          "adjacencyUndirected": true,
+          "holdsStrictConflicts": false,
+          "allocatorFailHard": false,
+          "selectorScoring": true,
+          "opsMetrics": true,
+          "selectorLookahead": true
+        },
+        "serviceFallback": {
+          "used": false,
+          "service": null
+        },
+        "demandMultiplier": 1.5,
+        "demandRule": {
+          "label": "lunch",
+          "source": "restaurant",
+          "serviceWindow": "lunch",
+          "days": ["Friday"],
+          "start": null,
+          "end": null,
+          "priority": null
+        },
+        "lookahead": {
+          "enabled": true,
+          "windowMinutes": 120,
+          "penaltyWeight": 500
+        }
+      },
+      "diagnostics": {
+        "singlesConsidered": 5,
+        "combinationsEnumerated": 0,
+        "combinationsAccepted": 0,
+        "skipped": {
+          "capacity": 0,
+          "overage": 7,
+          "adjacency": 0,
+          "kmax": 0,
+          "zone": 0,
+          "limit": 0,
+          "bucket": 0,
+          "adjacency_frontier": 1,
+          "capacity_upper_bound": 0
+        },
+        "limits": {
+          "kMax": 3,
+          "maxPlansPerSlack": 50,
+          "maxCombinationEvaluations": 500
+        },
+        "totals": {
+          "enumerated": 5,
+          "accepted": 5
+        },
+        "performance": {
+          "totalDurationMs": 0.5081669999999576,
+          "buildScoredTablePlansMs": 0.5081669999999576,
+          "enumerateCombinationsMs": 0.10337499999877764,
+          "sortingMs": 0.046000000002095476,
+          "inputSize": {
+            "tableCount": 11,
+            "partySize": 7,
+            "validTablesCount": 7,
+            "singleTableCandidatesCount": 5
+          },
+          "iterations": {
+            "totalEvaluations": 5,
+            "dfsIterations": null,
+            "earlyExit": false,
+            "earlyExitReason": null
+          }
+        },
+        "lookahead": {
+          "enabled": true,
+          "evaluationMs": 0,
+          "futureBookingsConsidered": 0,
+          "penalizedPlans": 0,
+          "totalPenalty": 0,
+          "windowMinutes": 120,
+          "conflicts": []
+        },
+        "timePruning": {
+          "prunedByTime": 0,
+          "candidatesAfterTimePrune": 11,
+          "pruned_by_time": 0,
+          "candidates_after_time_prune": 11
+        }
+      },
+      "availabilitySnapshot": null
+    },
+    {
+      "type": "capacity.selector",
+      "timestamp": "2025-10-31T16:33:10.849Z",
+      "restaurantId": "913eb23b-fcec-4533-a61c-c9e30d06c8cd",
+      "bookingId": "38d9f38c-287e-498f-b9ed-533d398bf0bc",
+      "partySize": 7,
+      "window": null,
+      "selected": null,
+      "topCandidates": [],
+      "candidates": [],
+      "skipReason": "Reservation would overrun lunch service (end 15:00).",
+      "rejectionClassification": "hard",
+      "strategicPenalties": null,
+      "durationMs": 0.54,
+      "featureFlags": {
+        "selectorScoring": true,
+        "opsMetrics": true,
+        "plannerTimePruning": false,
+        "adjacencyUndirected": true,
+        "holdsStrictConflicts": false,
+        "allocatorFailHard": false,
+        "selectorLookahead": true
+      },
+      "timing": {
+        "totalMs": 0.54
+      },
+      "plannerConfig": null,
+      "diagnostics": null,
+      "availabilitySnapshot": null
+    },
+    {
+      "type": "capacity.selector",
+      "timestamp": "2025-10-31T16:33:11.178Z",
+      "restaurantId": "913eb23b-fcec-4533-a61c-c9e30d06c8cd",
+      "bookingId": "1280527f-1873-4cdc-b4cb-2f6c065581f2",
+      "partySize": 7,
+      "window": null,
+      "selected": null,
+      "topCandidates": [],
+      "candidates": [],
+      "skipReason": "Reservation would overrun lunch service (end 15:00).",
+      "rejectionClassification": "hard",
+      "strategicPenalties": null,
+      "durationMs": 1.29,
+      "featureFlags": {
+        "selectorScoring": true,
+        "opsMetrics": true,
+        "plannerTimePruning": false,
+        "adjacencyUndirected": true,
+        "holdsStrictConflicts": false,
+        "allocatorFailHard": false,
+        "selectorLookahead": true
+      },
+      "timing": {
+        "totalMs": 1.29
+      },
+      "plannerConfig": null,
+      "diagnostics": null,
+      "availabilitySnapshot": null
+    },
+    {
+      "type": "capacity.selector",
+      "timestamp": "2025-10-31T16:33:11.507Z",
+      "restaurantId": "913eb23b-fcec-4533-a61c-c9e30d06c8cd",
+      "bookingId": "b6975deb-67d8-4338-8c74-824e819e01ed",
+      "partySize": 7,
+      "window": null,
+      "selected": null,
+      "topCandidates": [],
+      "candidates": [],
+      "skipReason": "Reservation would overrun lunch service (end 15:00).",
+      "rejectionClassification": "hard",
+      "strategicPenalties": null,
+      "durationMs": 0.8,
+      "featureFlags": {
+        "selectorScoring": true,
+        "opsMetrics": true,
+        "plannerTimePruning": false,
+        "adjacencyUndirected": true,
+        "holdsStrictConflicts": false,
+        "allocatorFailHard": false,
+        "selectorLookahead": true
+      },
+      "timing": {
+        "totalMs": 0.8
+      },
+      "plannerConfig": null,
+      "diagnostics": null,
+      "availabilitySnapshot": null
+    },
+    {
+      "type": "capacity.selector",
+      "timestamp": "2025-10-31T16:33:11.851Z",
+      "restaurantId": "913eb23b-fcec-4533-a61c-c9e30d06c8cd",
+      "bookingId": "f67b06ba-9a42-4ae2-b1a7-a5a9644db4ce",
+      "partySize": 5,
+      "window": null,
+      "selected": null,
+      "topCandidates": [],
+      "candidates": [],
+      "skipReason": "Reservation would overrun lunch service (end 15:00).",
+      "rejectionClassification": "hard",
+      "strategicPenalties": null,
+      "durationMs": 0.83,
+      "featureFlags": {
+        "selectorScoring": true,
+        "opsMetrics": true,
+        "plannerTimePruning": false,
+        "adjacencyUndirected": true,
+        "holdsStrictConflicts": false,
+        "allocatorFailHard": false,
+        "selectorLookahead": true
+      },
+      "timing": {
+        "totalMs": 0.83
+      },
+      "plannerConfig": null,
+      "diagnostics": null,
+      "availabilitySnapshot": null
+    },
+    {
+      "type": "capacity.selector",
+      "timestamp": "2025-10-31T16:33:12.190Z",
+      "restaurantId": "913eb23b-fcec-4533-a61c-c9e30d06c8cd",
+      "bookingId": "c1f40e24-ce66-4c31-bd49-6f1ae3d38435",
+      "partySize": 5,
+      "window": null,
+      "selected": null,
+      "topCandidates": [],
+      "candidates": [],
+      "skipReason": "Reservation would overrun lunch service (end 15:00).",
+      "rejectionClassification": "hard",
+      "strategicPenalties": null,
+      "durationMs": 0.87,
+      "featureFlags": {
+        "selectorScoring": true,
+        "opsMetrics": true,
+        "plannerTimePruning": false,
+        "adjacencyUndirected": true,
+        "holdsStrictConflicts": false,
+        "allocatorFailHard": false,
+        "selectorLookahead": true
+      },
+      "timing": {
+        "totalMs": 0.87
+      },
+      "plannerConfig": null,
+      "diagnostics": null,
+      "availabilitySnapshot": null
+    },
+    {
+      "type": "capacity.selector",
+      "timestamp": "2025-10-31T16:33:12.490Z",
+      "restaurantId": "913eb23b-fcec-4533-a61c-c9e30d06c8cd",
+      "bookingId": "6c53c6cf-9d44-4299-955c-a0a3dc433192",
+      "partySize": 5,
+      "window": null,
+      "selected": null,
+      "topCandidates": [],
+      "candidates": [],
+      "skipReason": "Reservation would overrun lunch service (end 15:00).",
+      "rejectionClassification": "hard",
+      "strategicPenalties": null,
+      "durationMs": 1.01,
+      "featureFlags": {
+        "selectorScoring": true,
+        "opsMetrics": true,
+        "plannerTimePruning": false,
+        "adjacencyUndirected": true,
+        "holdsStrictConflicts": false,
+        "allocatorFailHard": false,
+        "selectorLookahead": true
+      },
+      "timing": {
+        "totalMs": 1.01
+      },
+      "plannerConfig": null,
+      "diagnostics": null,
+      "availabilitySnapshot": null
+    },
+    {
+      "type": "capacity.selector",
+      "timestamp": "2025-10-31T16:33:12.823Z",
+      "restaurantId": "913eb23b-fcec-4533-a61c-c9e30d06c8cd",
+      "bookingId": "9484ed7b-b7dc-494e-b5e3-4820699c819a",
+      "partySize": 5,
+      "window": null,
+      "selected": null,
+      "topCandidates": [],
+      "candidates": [],
+      "skipReason": "Reservation would overrun lunch service (end 15:00).",
+      "rejectionClassification": "hard",
+      "strategicPenalties": null,
+      "durationMs": 0.85,
+      "featureFlags": {
+        "selectorScoring": true,
+        "opsMetrics": true,
+        "plannerTimePruning": false,
+        "adjacencyUndirected": true,
+        "holdsStrictConflicts": false,
+        "allocatorFailHard": false,
+        "selectorLookahead": true
+      },
+      "timing": {
+        "totalMs": 0.85
+      },
+      "plannerConfig": null,
+      "diagnostics": null,
+      "availabilitySnapshot": null
+    },
+    {
+      "type": "capacity.selector",
+      "timestamp": "2025-10-31T16:33:13.151Z",
+      "restaurantId": "913eb23b-fcec-4533-a61c-c9e30d06c8cd",
+      "bookingId": "5f9f257f-eeed-44eb-abc1-8a5987b0aaa2",
+      "partySize": 5,
+      "window": null,
+      "selected": null,
+      "topCandidates": [],
+      "candidates": [],
+      "skipReason": "Reservation would overrun lunch service (end 15:00).",
+      "rejectionClassification": "hard",
+      "strategicPenalties": null,
+      "durationMs": 1.77,
+      "featureFlags": {
+        "selectorScoring": true,
+        "opsMetrics": true,
+        "plannerTimePruning": false,
+        "adjacencyUndirected": true,
+        "holdsStrictConflicts": false,
+        "allocatorFailHard": false,
+        "selectorLookahead": true
+      },
+      "timing": {
+        "totalMs": 1.77
+      },
+      "plannerConfig": null,
+      "diagnostics": null,
+      "availabilitySnapshot": null
+    },
+    {
+      "type": "capacity.selector",
+      "timestamp": "2025-10-31T16:33:13.477Z",
+      "restaurantId": "913eb23b-fcec-4533-a61c-c9e30d06c8cd",
+      "bookingId": "3f7ef788-b7bd-4f71-8e8f-4d745f2d7ce1",
+      "partySize": 5,
+      "window": null,
+      "selected": null,
+      "topCandidates": [],
+      "candidates": [],
+      "skipReason": "Reservation would overrun lunch service (end 15:00).",
+      "rejectionClassification": "hard",
+      "strategicPenalties": null,
+      "durationMs": 1.39,
+      "featureFlags": {
+        "selectorScoring": true,
+        "opsMetrics": true,
+        "plannerTimePruning": false,
+        "adjacencyUndirected": true,
+        "holdsStrictConflicts": false,
+        "allocatorFailHard": false,
+        "selectorLookahead": true
+      },
+      "timing": {
+        "totalMs": 1.39
+      },
+      "plannerConfig": null,
+      "diagnostics": null,
+      "availabilitySnapshot": null
+    },
+    {
+      "type": "capacity.selector",
+      "timestamp": "2025-10-31T16:33:13.796Z",
+      "restaurantId": "913eb23b-fcec-4533-a61c-c9e30d06c8cd",
+      "bookingId": "9f3f6a44-134d-49e3-86c1-5ece3c53ee35",
+      "partySize": 5,
+      "window": null,
+      "selected": null,
+      "topCandidates": [],
+      "candidates": [],
+      "skipReason": "Reservation would overrun lunch service (end 15:00).",
+      "rejectionClassification": "hard",
+      "strategicPenalties": null,
+      "durationMs": 1.97,
+      "featureFlags": {
+        "selectorScoring": true,
+        "opsMetrics": true,
+        "plannerTimePruning": false,
+        "adjacencyUndirected": true,
+        "holdsStrictConflicts": false,
+        "allocatorFailHard": false,
+        "selectorLookahead": true
+      },
+      "timing": {
+        "totalMs": 1.97
+      },
+      "plannerConfig": null,
+      "diagnostics": null,
+      "availabilitySnapshot": null
+    },
+    {
+      "type": "capacity.selector",
+      "timestamp": "2025-10-31T16:33:14.113Z",
+      "restaurantId": "913eb23b-fcec-4533-a61c-c9e30d06c8cd",
+      "bookingId": "2d33d61e-04ff-40f9-9c00-a820469978ce",
+      "partySize": 5,
+      "window": null,
+      "selected": null,
+      "topCandidates": [],
+      "candidates": [],
+      "skipReason": "Reservation would overrun lunch service (end 15:00).",
+      "rejectionClassification": "hard",
+      "strategicPenalties": null,
+      "durationMs": 0.41,
+      "featureFlags": {
+        "selectorScoring": true,
+        "opsMetrics": true,
+        "plannerTimePruning": false,
+        "adjacencyUndirected": true,
+        "holdsStrictConflicts": false,
+        "allocatorFailHard": false,
+        "selectorLookahead": true
+      },
+      "timing": {
+        "totalMs": 0.41
+      },
+      "plannerConfig": null,
+      "diagnostics": null,
+      "availabilitySnapshot": null
+    },
+    {
+      "type": "capacity.selector",
+      "timestamp": "2025-10-31T16:33:14.422Z",
+      "restaurantId": "913eb23b-fcec-4533-a61c-c9e30d06c8cd",
+      "bookingId": "4681451c-6394-42fa-a251-33bc399748ac",
+      "partySize": 5,
+      "window": null,
+      "selected": null,
+      "topCandidates": [],
+      "candidates": [],
+      "skipReason": "Reservation would overrun lunch service (end 15:00).",
+      "rejectionClassification": "hard",
+      "strategicPenalties": null,
+      "durationMs": 1.97,
+      "featureFlags": {
+        "selectorScoring": true,
+        "opsMetrics": true,
+        "plannerTimePruning": false,
+        "adjacencyUndirected": true,
+        "holdsStrictConflicts": false,
+        "allocatorFailHard": false,
+        "selectorLookahead": true
+      },
+      "timing": {
+        "totalMs": 1.97
+      },
+      "plannerConfig": null,
+      "diagnostics": null,
+      "availabilitySnapshot": null
+    },
+    {
+      "type": "capacity.selector",
+      "timestamp": "2025-10-31T16:33:14.756Z",
+      "restaurantId": "913eb23b-fcec-4533-a61c-c9e30d06c8cd",
+      "bookingId": "ebfb8f60-ba31-429e-ba5f-428ed401ce69",
+      "partySize": 5,
+      "window": null,
+      "selected": null,
+      "topCandidates": [],
+      "candidates": [],
+      "skipReason": "Reservation would overrun lunch service (end 15:00).",
+      "rejectionClassification": "hard",
+      "strategicPenalties": null,
+      "durationMs": 0.8,
+      "featureFlags": {
+        "selectorScoring": true,
+        "opsMetrics": true,
+        "plannerTimePruning": false,
+        "adjacencyUndirected": true,
+        "holdsStrictConflicts": false,
+        "allocatorFailHard": false,
+        "selectorLookahead": true
+      },
+      "timing": {
+        "totalMs": 0.8
+      },
+      "plannerConfig": null,
+      "diagnostics": null,
+      "availabilitySnapshot": null
+    },
+    {
+      "type": "capacity.selector",
+      "timestamp": "2025-10-31T16:33:15.065Z",
+      "restaurantId": "913eb23b-fcec-4533-a61c-c9e30d06c8cd",
+      "bookingId": "dbfde013-9bd0-4cf3-88f0-4d83b4b1a7b5",
+      "partySize": 2,
+      "window": null,
+      "selected": null,
+      "topCandidates": [],
+      "candidates": [],
+      "skipReason": "Reservation would overrun lunch service (end 15:00).",
+      "rejectionClassification": "hard",
+      "strategicPenalties": null,
+      "durationMs": 0.43,
+      "featureFlags": {
+        "selectorScoring": true,
+        "opsMetrics": true,
+        "plannerTimePruning": false,
+        "adjacencyUndirected": true,
+        "holdsStrictConflicts": false,
+        "allocatorFailHard": false,
+        "selectorLookahead": true
+      },
+      "timing": {
+        "totalMs": 0.43
+      },
+      "plannerConfig": null,
+      "diagnostics": null,
+      "availabilitySnapshot": null
+    },
+    {
+      "type": "capacity.selector",
+      "timestamp": "2025-10-31T16:33:15.397Z",
+      "restaurantId": "913eb23b-fcec-4533-a61c-c9e30d06c8cd",
+      "bookingId": "8fca4c47-4747-4a13-b212-b25f929c0122",
+      "partySize": 2,
+      "window": null,
+      "selected": null,
+      "topCandidates": [],
+      "candidates": [],
+      "skipReason": "Reservation would overrun lunch service (end 15:00).",
+      "rejectionClassification": "hard",
+      "strategicPenalties": null,
+      "durationMs": 1.51,
+      "featureFlags": {
+        "selectorScoring": true,
+        "opsMetrics": true,
+        "plannerTimePruning": false,
+        "adjacencyUndirected": true,
+        "holdsStrictConflicts": false,
+        "allocatorFailHard": false,
+        "selectorLookahead": true
+      },
+      "timing": {
+        "totalMs": 1.51
+      },
+      "plannerConfig": null,
+      "diagnostics": null,
+      "availabilitySnapshot": null
+    },
+    {
+      "type": "capacity.selector",
+      "timestamp": "2025-10-31T16:33:16.677Z",
+      "restaurantId": "913eb23b-fcec-4533-a61c-c9e30d06c8cd",
+      "bookingId": "e0442323-da44-4fed-9610-72a0e139fd30",
+      "partySize": 2,
+      "window": null,
+      "selected": null,
+      "topCandidates": [],
+      "candidates": [],
+      "skipReason": "Reservation would overrun lunch service (end 15:00).",
+      "rejectionClassification": "hard",
+      "strategicPenalties": null,
+      "durationMs": 1.1,
+      "featureFlags": {
+        "selectorScoring": true,
+        "opsMetrics": true,
+        "plannerTimePruning": false,
+        "adjacencyUndirected": true,
+        "holdsStrictConflicts": false,
+        "allocatorFailHard": false,
+        "selectorLookahead": true
+      },
+      "timing": {
+        "totalMs": 1.1
+      },
+      "plannerConfig": null,
+      "diagnostics": null,
+      "availabilitySnapshot": null
+    },
+    {
+      "type": "capacity.selector",
+      "timestamp": "2025-10-31T16:33:17.011Z",
+      "restaurantId": "913eb23b-fcec-4533-a61c-c9e30d06c8cd",
+      "bookingId": "d43bfb6d-252a-418f-8d63-3e04c4f64637",
+      "partySize": 2,
+      "window": null,
+      "selected": null,
+      "topCandidates": [],
+      "candidates": [],
+      "skipReason": "Reservation would overrun lunch service (end 15:00).",
+      "rejectionClassification": "hard",
+      "strategicPenalties": null,
+      "durationMs": 1.28,
+      "featureFlags": {
+        "selectorScoring": true,
+        "opsMetrics": true,
+        "plannerTimePruning": false,
+        "adjacencyUndirected": true,
+        "holdsStrictConflicts": false,
+        "allocatorFailHard": false,
+        "selectorLookahead": true
+      },
+      "timing": {
+        "totalMs": 1.28
+      },
+      "plannerConfig": null,
+      "diagnostics": null,
+      "availabilitySnapshot": null
+    },
+    {
+      "type": "capacity.selector",
+      "timestamp": "2025-10-31T16:33:17.354Z",
+      "restaurantId": "913eb23b-fcec-4533-a61c-c9e30d06c8cd",
+      "bookingId": "8711f247-d907-4eae-aa71-f0a425edd34f",
+      "partySize": 2,
+      "window": null,
+      "selected": null,
+      "topCandidates": [],
+      "candidates": [],
+      "skipReason": "Reservation would overrun lunch service (end 15:00).",
+      "rejectionClassification": "hard",
+      "strategicPenalties": null,
+      "durationMs": 1.37,
+      "featureFlags": {
+        "selectorScoring": true,
+        "opsMetrics": true,
+        "plannerTimePruning": false,
+        "adjacencyUndirected": true,
+        "holdsStrictConflicts": false,
+        "allocatorFailHard": false,
+        "selectorLookahead": true
+      },
+      "timing": {
+        "totalMs": 1.37
+      },
+      "plannerConfig": null,
+      "diagnostics": null,
+      "availabilitySnapshot": null
+    },
+    {
+      "type": "capacity.selector",
+      "timestamp": "2025-10-31T16:33:17.679Z",
+      "restaurantId": "913eb23b-fcec-4533-a61c-c9e30d06c8cd",
+      "bookingId": "39dbeccd-1608-464d-905d-7366b5da48a2",
+      "partySize": 2,
+      "window": null,
+      "selected": null,
+      "topCandidates": [],
+      "candidates": [],
+      "skipReason": "Reservation would overrun lunch service (end 15:00).",
+      "rejectionClassification": "hard",
+      "strategicPenalties": null,
+      "durationMs": 1.92,
+      "featureFlags": {
+        "selectorScoring": true,
+        "opsMetrics": true,
+        "plannerTimePruning": false,
+        "adjacencyUndirected": true,
+        "holdsStrictConflicts": false,
+        "allocatorFailHard": false,
+        "selectorLookahead": true
+      },
+      "timing": {
+        "totalMs": 1.92
+      },
+      "plannerConfig": null,
+      "diagnostics": null,
+      "availabilitySnapshot": null
+    },
+    {
+      "type": "capacity.selector",
+      "timestamp": "2025-10-31T16:33:18.026Z",
+      "restaurantId": "913eb23b-fcec-4533-a61c-c9e30d06c8cd",
+      "bookingId": "5fcc8661-f021-4520-b501-2d5becd415ac",
+      "partySize": 2,
+      "window": null,
+      "selected": null,
+      "topCandidates": [],
+      "candidates": [],
+      "skipReason": "Reservation would overrun lunch service (end 15:00).",
+      "rejectionClassification": "hard",
+      "strategicPenalties": null,
+      "durationMs": 2.1,
+      "featureFlags": {
+        "selectorScoring": true,
+        "opsMetrics": true,
+        "plannerTimePruning": false,
+        "adjacencyUndirected": true,
+        "holdsStrictConflicts": false,
+        "allocatorFailHard": false,
+        "selectorLookahead": true
+      },
+      "timing": {
+        "totalMs": 2.1
+      },
+      "plannerConfig": null,
+      "diagnostics": null,
+      "availabilitySnapshot": null
+    },
+    {
+      "type": "capacity.selector",
+      "timestamp": "2025-10-31T16:33:18.370Z",
+      "restaurantId": "913eb23b-fcec-4533-a61c-c9e30d06c8cd",
+      "bookingId": "38006a91-35ac-4e3a-8997-7dff65896592",
+      "partySize": 2,
+      "window": null,
+      "selected": null,
+      "topCandidates": [],
+      "candidates": [],
+      "skipReason": "Reservation would overrun lunch service (end 15:00).",
+      "rejectionClassification": "hard",
+      "strategicPenalties": null,
+      "durationMs": 1.16,
+      "featureFlags": {
+        "selectorScoring": true,
+        "opsMetrics": true,
+        "plannerTimePruning": false,
+        "adjacencyUndirected": true,
+        "holdsStrictConflicts": false,
+        "allocatorFailHard": false,
+        "selectorLookahead": true
+      },
+      "timing": {
+        "totalMs": 1.16
+      },
+      "plannerConfig": null,
+      "diagnostics": null,
+      "availabilitySnapshot": null
+    },
+    {
+      "type": "capacity.selector",
+      "timestamp": "2025-10-31T16:33:18.715Z",
+      "restaurantId": "913eb23b-fcec-4533-a61c-c9e30d06c8cd",
+      "bookingId": "53fe503e-b10e-44d0-bf8b-b266e60d1a8e",
+      "partySize": 2,
+      "window": null,
+      "selected": null,
+      "topCandidates": [],
+      "candidates": [],
+      "skipReason": "Reservation would overrun lunch service (end 15:00).",
+      "rejectionClassification": "hard",
+      "strategicPenalties": null,
+      "durationMs": 1.53,
+      "featureFlags": {
+        "selectorScoring": true,
+        "opsMetrics": true,
+        "plannerTimePruning": false,
+        "adjacencyUndirected": true,
+        "holdsStrictConflicts": false,
+        "allocatorFailHard": false,
+        "selectorLookahead": true
+      },
+      "timing": {
+        "totalMs": 1.53
+      },
+      "plannerConfig": null,
+      "diagnostics": null,
+      "availabilitySnapshot": null
+    },
+    {
+      "type": "capacity.selector",
+      "timestamp": "2025-10-31T16:33:19.076Z",
+      "restaurantId": "913eb23b-fcec-4533-a61c-c9e30d06c8cd",
+      "bookingId": "99eb8a1c-3608-4316-823f-33f438ae43d3",
+      "partySize": 2,
+      "window": null,
+      "selected": null,
+      "topCandidates": [],
+      "candidates": [],
+      "skipReason": "Reservation would overrun lunch service (end 15:00).",
+      "rejectionClassification": "hard",
+      "strategicPenalties": null,
+      "durationMs": 1.25,
+      "featureFlags": {
+        "selectorScoring": true,
+        "opsMetrics": true,
+        "plannerTimePruning": false,
+        "adjacencyUndirected": true,
+        "holdsStrictConflicts": false,
+        "allocatorFailHard": false,
+        "selectorLookahead": true
+      },
+      "timing": {
+        "totalMs": 1.25
+      },
+      "plannerConfig": null,
+      "diagnostics": null,
+      "availabilitySnapshot": null
+    }
+  ]
+}

@@ -2534,36 +2534,6 @@ $$;
 
 
 --
--- Name: sync_table_adjacency_symmetry(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.sync_table_adjacency_symmetry() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-  IF TG_OP = 'INSERT' THEN
-    IF NOT EXISTS (
-      SELECT 1 FROM public.table_adjacencies
-      WHERE table_a = NEW.table_b AND table_b = NEW.table_a
-    ) THEN
-      IF NEW.table_a::text < NEW.table_b::text THEN
-        INSERT INTO public.table_adjacencies(table_a, table_b)
-        VALUES (NEW.table_b, NEW.table_a)
-        ON CONFLICT DO NOTHING;
-      END IF;
-    END IF;
-    RETURN NEW;
-  ELSIF TG_OP = 'DELETE' THEN
-    DELETE FROM public.table_adjacencies
-    WHERE table_a = OLD.table_b AND table_b = OLD.table_a;
-    RETURN OLD;
-  END IF;
-  RETURN NULL;
-END;
-$$;
-
-
---
 -- Name: sync_table_hold_windows(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -8237,8 +8207,6 @@ CREATE TRIGGER set_restaurant_invites_updated_at BEFORE UPDATE ON public.restaur
 -- Name: table_adjacencies table_adjacencies_sync; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER table_adjacencies_sync AFTER INSERT OR DELETE ON public.table_adjacencies FOR EACH ROW EXECUTE FUNCTION public.sync_table_adjacency_symmetry();
-
 
 --
 -- Name: table_adjacencies table_adjacencies_validate; Type: TRIGGER; Schema: public; Owner: -
@@ -9821,4 +9789,3 @@ CREATE EVENT TRIGGER pgrst_drop_watch ON sql_drop
 --
 
 \unrestrict Mt0Jt4aIZPJ3GjqSDoPEqLBxg6pc5O6UMFz8IC1bdy13EjZ9c0wb6sWkG8MxtRM
-
