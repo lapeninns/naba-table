@@ -1,7 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 
 import { render, screen, within } from "@testing-library/react";
-import { vi } from "vitest";
+import { afterEach, vi } from "vitest";
 
 import { BookingsList } from "@/components/features/dashboard/BookingsList";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -17,6 +17,11 @@ vi.mock("@/components/features/dashboard/BookingDetailsDialog", () => ({
 }));
 
 const asyncNoop = vi.fn().mockResolvedValue(undefined);
+const createAssignmentStub = () => vi.fn().mockResolvedValue([] as OpsTodayBooking["tableAssignments"]);
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 function buildBooking(partial: Partial<OpsTodayBooking>): OpsTodayBooking {
   return {
@@ -89,19 +94,23 @@ describe("BookingsList lifecycle badges", () => {
       checkedOutAt: null,
     });
 
+    const assignMock = createAssignmentStub();
+    const unassignMock = createAssignmentStub();
+
     render(
       <TooltipProvider>
         <BookingsList
           bookings={[completed, checkedIn]}
           filter="all"
           summary={summary}
+          allowTableAssignments
           onMarkNoShow={asyncNoop}
           onUndoNoShow={asyncNoop}
           onCheckIn={asyncNoop}
           onCheckOut={asyncNoop}
           pendingLifecycleAction={null}
-          onAssignTable={undefined}
-          onUnassignTable={undefined}
+          onAssignTable={assignMock}
+          onUnassignTable={unassignMock}
           tableActionState={null}
         />
       </TooltipProvider>,
@@ -151,24 +160,151 @@ describe("BookingsList lifecycle badges", () => {
       ],
     });
 
+    const assignMock = createAssignmentStub();
+    const unassignMock = createAssignmentStub();
+
     render(
       <TooltipProvider>
         <BookingsList
           bookings={[merged]}
           filter="all"
           summary={{ ...summary, bookings: [merged] }}
+          allowTableAssignments
           onMarkNoShow={asyncNoop}
           onUndoNoShow={asyncNoop}
           onCheckIn={asyncNoop}
           onCheckOut={asyncNoop}
           pendingLifecycleAction={null}
-          onAssignTable={undefined}
-          onUnassignTable={undefined}
+          onAssignTable={assignMock}
+          onUnassignTable={unassignMock}
           tableActionState={null}
         />
       </TooltipProvider>,
     );
 
     expect(screen.getByText(/Tables T2-1\s+\+\s+T4-1 · 6 seats/)).toBeInTheDocument();
+  });
+
+  it("locks table assignment for bookings whose service time has passed", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2025-10-17T13:00:00Z"));
+
+    const pastBooking = buildBooking({
+      id: "booking-past",
+      customerName: "Late Arrival",
+      startTime: "2025-10-17T11:00:00Z",
+      tableAssignments: [],
+      requiresTableAssignment: true,
+    });
+
+    const assignMock = createAssignmentStub();
+    const unassignMock = createAssignmentStub();
+
+    render(
+      <TooltipProvider>
+        <BookingsList
+          bookings={[pastBooking]}
+          filter="all"
+          summary={{ ...summary, bookings: [pastBooking] }}
+          allowTableAssignments
+          onMarkNoShow={asyncNoop}
+          onUndoNoShow={asyncNoop}
+          onCheckIn={asyncNoop}
+          onCheckOut={asyncNoop}
+          pendingLifecycleAction={null}
+          onAssignTable={assignMock}
+          onUnassignTable={unassignMock}
+          tableActionState={null}
+        />
+      </TooltipProvider>,
+    );
+
+    expect(screen.getByText(/Table assignment locked/i)).toBeInTheDocument();
+    expect(screen.getByText(/Started/i)).toBeInTheDocument();
+    expect(screen.getByText(/Check-in required/i)).toBeInTheDocument();
+  });
+
+  it("highlights bookings starting within fifteen minutes", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2025-10-17T11:50:00Z"));
+
+    const imminentBooking = buildBooking({
+      id: "booking-imminent",
+      customerName: "Soon Guest",
+      startTime: "2025-10-17T12:00:00Z",
+      tableAssignments: [],
+      requiresTableAssignment: true,
+    });
+
+    const assignMock = createAssignmentStub();
+    const unassignMock = createAssignmentStub();
+
+    render(
+      <TooltipProvider>
+        <BookingsList
+          bookings={[imminentBooking]}
+          filter="all"
+          summary={{ ...summary, bookings: [imminentBooking] }}
+          allowTableAssignments
+          onMarkNoShow={asyncNoop}
+          onUndoNoShow={asyncNoop}
+          onCheckIn={asyncNoop}
+          onCheckOut={asyncNoop}
+          pendingLifecycleAction={null}
+          onAssignTable={assignMock}
+          onUnassignTable={unassignMock}
+          tableActionState={null}
+        />
+      </TooltipProvider>,
+    );
+
+    expect(screen.getAllByText(/Starts in 10 min/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Check-in required/i)).not.toBeInTheDocument();
+  });
+
+  it("flags check-out when service end time passes for checked-in guests", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2025-10-17T14:30:00Z"));
+
+    const checkedIn = buildBooking({
+      id: "booking-checkout",
+      customerName: "Needs Checkout",
+      startTime: "2025-10-17T12:00:00Z",
+      endTime: "2025-10-17T14:00:00Z",
+      status: "checked_in",
+      checkedInAt: "2025-10-17T12:05:00Z",
+      tableAssignments: [
+        {
+          groupId: null,
+          capacitySum: 2,
+          members: [{ tableId: "t1", tableNumber: "T01", capacity: 2, section: null }],
+        },
+      ],
+    });
+
+    const assignMock = createAssignmentStub();
+    const unassignMock = createAssignmentStub();
+
+    render(
+      <TooltipProvider>
+        <BookingsList
+          bookings={[checkedIn]}
+          filter="all"
+          summary={{ ...summary, bookings: [checkedIn] }}
+          allowTableAssignments
+          onMarkNoShow={asyncNoop}
+          onUndoNoShow={asyncNoop}
+          onCheckIn={asyncNoop}
+          onCheckOut={asyncNoop}
+          pendingLifecycleAction={null}
+          onAssignTable={assignMock}
+          onUnassignTable={unassignMock}
+          tableActionState={null}
+        />
+      </TooltipProvider>,
+    );
+
+    expect(screen.getByText(/Check-out required/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Check-in required/i)).not.toBeInTheDocument();
   });
 });

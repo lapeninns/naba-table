@@ -6,6 +6,7 @@ import { BookingsList } from './BookingsList';
 import { ExportBookingsButton } from './ExportBookingsButton';
 import { HeatmapCalendar } from './HeatmapCalendar';
 import { SummaryMetrics } from './SummaryMetrics';
+import { getTodayInTimezone } from '@/lib/utils/datetime';
 
 import type { OpsBookingHeatmap, OpsTodayBookingsSummary } from '@/types/ops';
 
@@ -52,6 +53,8 @@ export function DashboardSummaryCard({
   pendingLifecycleAction,
   exportDate,
 }: DashboardSummaryCardProps) {
+  const allowTableAssignments = summary.date >= getTodayInTimezone(summary.timezone);
+
   if (!summary) {
     return (
       <Alert variant="destructive" className="border-border/60 bg-destructive/10 text-destructive">
@@ -83,6 +86,7 @@ export function DashboardSummaryCard({
           bookings={summary.bookings}
           filter={filter}
           summary={summary}
+          allowTableAssignments={allowTableAssignments}
           onMarkNoShow={onMarkNoShow}
           onUndoNoShow={onUndoNoShow}
           onCheckIn={onCheckIn}

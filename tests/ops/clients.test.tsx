@@ -4,12 +4,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import * as React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { OpsWalkInBookingClient, OpsTeamManagementClient, OpsBookingsClient, OpsCustomersClient, OpsDashboardClient } from '@/components/features';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { OpsServicesProvider } from '@/contexts/ops-services';
 import { OpsSessionProvider } from '@/contexts/ops-session';
+import { getTodayInTimezone } from '@/lib/utils/datetime';
 
 import type { BookingService } from '@/services/ops/bookings';
 import type { CustomerService } from '@/services/ops/customers';
@@ -71,8 +72,15 @@ function createBookingServiceStub(): BookingService {
     updateBookingStatus: vi.fn(),
     cancelBooking: vi.fn(),
     createWalkInBooking: vi.fn(),
+    assignTable: vi.fn(),
+    unassignTable: vi.fn(),
+    autoAssignTables: vi.fn(),
   } as unknown as BookingService;
 }
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 function createCustomerServiceStub(): CustomerService {
   return {
@@ -201,8 +209,10 @@ describe('Ops feature clients', () => {
       },
     ];
 
+    const today = getTodayInTimezone('UTC');
+
     const summary: OpsTodayBookingsSummary = {
-      date: '2025-05-01',
+      date: today,
       timezone: 'UTC',
       restaurantId: 'rest-1',
       totals: {
@@ -240,7 +250,135 @@ describe('Ops feature clients', () => {
       await screen.findByText((content) => content.trim() === 'Guests'),
     ).toBeInTheDocument();
 
+    expect(screen.getByRole('button', { name: /auto assign tables/i })).toBeInTheDocument();
+
     expect(bookingService.getTodaySummary).toHaveBeenCalledWith({ restaurantId: 'rest-1', date: undefined });
+  });
+
+  it('hides table assignment actions for past service dates', async () => {
+    const memberships: OpsMembership[] = [
+      {
+        restaurantId: 'rest-1',
+        restaurantName: 'Alinea',
+        restaurantSlug: 'alinea',
+        role: 'owner',
+        createdAt: null,
+      },
+    ];
+
+    const summary: OpsTodayBookingsSummary = {
+      date: '2000-01-01',
+      timezone: 'UTC',
+      restaurantId: 'rest-1',
+      totals: {
+        total: 1,
+        confirmed: 1,
+        completed: 0,
+        pending: 0,
+        cancelled: 0,
+        noShow: 0,
+        upcoming: 0,
+        covers: 2,
+      },
+      bookings: [],
+    };
+
+    const bookingService = {
+      getTodaySummary: vi.fn().mockResolvedValue(summary),
+      getBookingHeatmap: vi.fn().mockResolvedValue({}),
+      listBookings: vi.fn(),
+      updateBooking: vi.fn(),
+      updateBookingStatus: vi.fn(),
+      cancelBooking: vi.fn(),
+      createWalkInBooking: vi.fn(),
+    } as unknown as BookingService;
+
+    renderWithProviders(<OpsDashboardClient initialDate={null} />, {
+      memberships,
+      bookingService,
+    });
+
+    await screen.findByText(/table assignments locked for past service dates/i);
+    expect(screen.queryByRole('button', { name: /auto assign tables/i })).not.toBeInTheDocument();
+  });
+
+  it('locks assignment controls for bookings whose service time has passed today', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-05-01T19:00:00Z'));
+
+    const memberships: OpsMembership[] = [
+      {
+        restaurantId: 'rest-1',
+        restaurantName: 'Alinea',
+        restaurantSlug: 'alinea',
+        role: 'owner',
+        createdAt: null,
+      },
+    ];
+
+    const summary: OpsTodayBookingsSummary = {
+      date: '2025-05-01',
+      timezone: 'UTC',
+      restaurantId: 'rest-1',
+      totals: {
+        total: 1,
+        confirmed: 1,
+        completed: 0,
+        pending: 0,
+        cancelled: 0,
+        noShow: 0,
+        upcoming: 0,
+        covers: 2,
+      },
+      bookings: [
+        {
+          id: 'booking-1',
+          status: 'confirmed',
+          startTime: '2025-05-01T17:30:00Z',
+          endTime: '2025-05-01T19:00:00Z',
+          partySize: 2,
+          customerName: 'Late Guest',
+          customerEmail: null,
+          customerPhone: null,
+          notes: null,
+          reference: null,
+          details: null,
+          source: null,
+          loyaltyTier: null,
+          loyaltyPoints: null,
+          profileNotes: null,
+          allergies: [],
+          dietaryRestrictions: [],
+          seatingPreference: null,
+          marketingOptIn: null,
+          tableAssignments: [],
+          requiresTableAssignment: true,
+          checkedInAt: null,
+          checkedOutAt: null,
+        },
+      ],
+    };
+
+    const bookingService = {
+      getTodaySummary: vi.fn().mockResolvedValue(summary),
+      getBookingHeatmap: vi.fn().mockResolvedValue({}),
+      listBookings: vi.fn(),
+      updateBooking: vi.fn(),
+      updateBookingStatus: vi.fn(),
+      cancelBooking: vi.fn(),
+      createWalkInBooking: vi.fn(),
+      assignTable: vi.fn(),
+      unassignTable: vi.fn(),
+      autoAssignTables: vi.fn(),
+    } as unknown as BookingService;
+
+    renderWithProviders(<OpsDashboardClient initialDate={null} />, {
+      memberships,
+      bookingService,
+    });
+
+    expect(await screen.findByText(/Table assignment locked/i)).toBeInTheDocument();
+    expect(screen.getByText(/Started/i)).toBeInTheDocument();
   });
 
   it('requests filtered results when searching bookings', async () => {

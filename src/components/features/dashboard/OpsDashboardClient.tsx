@@ -12,7 +12,7 @@ import { useOpsActiveMembership, useOpsAccountSnapshot } from '@/contexts/ops-se
 import { useOpsTodaySummary, useOpsBookingLifecycleActions, useOpsTodayVIPs, useOpsBookingChanges, useOpsBookingHeatmap } from '@/hooks';
 import { useOpsTableAssignmentActions } from '@/hooks';
 import { cn } from '@/lib/utils';
-import { formatDateKey } from '@/lib/utils/datetime';
+import { formatDateKey, getTodayInTimezone } from '@/lib/utils/datetime';
 import { sanitizeDateParam, computeCalendarRange } from '@/utils/ops/dashboard';
 
 import { BookingChangeFeed } from './BookingChangeFeed';
@@ -81,6 +81,13 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
   const bookingLifecycleMutations = useOpsBookingLifecycleActions();
   const assignmentDate = summary?.date ?? selectedDate ?? null;
   const tableAssignmentActions = useOpsTableAssignmentActions({ restaurantId, date: assignmentDate });
+  const allowTableAssignments = useMemo(() => {
+    if (!summary) {
+      return true;
+    }
+    const today = getTodayInTimezone(summary.timezone);
+    return summary.date >= today;
+  }, [summary]);
 
   const handleSelectDate = (date: string) => {
     setSelectedDate(date);
@@ -335,22 +342,26 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
                 <p className="text-sm text-slate-600">Manage today&apos;s bookings for {restaurantName}</p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-11 min-w-[140px]"
-                  onClick={handleAutoAssignTables}
-                  disabled={tableAssignmentActions.autoAssignTables.isPending}
-                >
-                  {tableAssignmentActions.autoAssignTables.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-                      Assigning…
-                    </>
-                  ) : (
-                    'Auto assign tables'
-                  )}
-                </Button>
+                {allowTableAssignments ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-11 min-w-[140px]"
+                    onClick={handleAutoAssignTables}
+                    disabled={tableAssignmentActions.autoAssignTables.isPending}
+                  >
+                    {tableAssignmentActions.autoAssignTables.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                        Assigning…
+                      </>
+                    ) : (
+                      'Auto assign tables'
+                    )}
+                  </Button>
+                ) : (
+                  <p className="text-xs text-slate-500">Table assignments locked for past service dates.</p>
+                )}
                 <ExportBookingsButton
                   restaurantId={restaurantId}
                   restaurantName={restaurantName}
@@ -364,6 +375,7 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
                 bookings={summary.bookings}
                 filter={filter}
                 summary={summary}
+                allowTableAssignments={allowTableAssignments}
                 onMarkNoShow={handleMarkNoShow}
                 onUndoNoShow={handleUndoNoShow}
                 onCheckIn={handleCheckIn}

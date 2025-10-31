@@ -101,6 +101,7 @@ function formatCountdownFromIso(expiresAt: string | null, nowTs: number): string
 type BookingDetailsDialogProps = {
   booking: OpsTodayBooking;
   summary: OpsTodayBookingsSummary;
+  allowTableAssignments: boolean;
   onCheckIn?: () => Promise<void>;
   onCheckOut?: () => Promise<void>;
   onMarkNoShow?: (options?: { performedAt?: string | null; reason?: string | null }) => Promise<void>;
@@ -121,6 +122,7 @@ const MANUAL_HOLD_TTL_SECONDS = 180;
 export function BookingDetailsDialog({
   booking,
   summary,
+  allowTableAssignments,
   onCheckIn,
   onCheckOut,
   onMarkNoShow,
@@ -160,14 +162,14 @@ export function BookingDetailsDialog({
   const bookingService = useBookingService();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const supportsTableAssignment = true;
+  const supportsTableAssignment = allowTableAssignments;
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   const manualContextQuery = useManualAssignmentContext({
     bookingId: isOpen ? booking.id : null,
     restaurantId: summary.restaurantId,
     targetDate: summary.date,
-    enabled: isOpen,
+    enabled: supportsTableAssignment && isOpen,
   });
 
   const {
@@ -312,6 +314,12 @@ export function BookingDetailsDialog({
     const interval = setInterval(() => setCurrentTimestamp(Date.now()), 1000);
     return () => clearInterval(interval);
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!supportsTableAssignment && activeTab !== 'overview') {
+      setActiveTab('overview');
+    }
+  }, [supportsTableAssignment, activeTab]);
 
   useEffect(() => {
     if (!manualContext) {
@@ -711,15 +719,17 @@ export function BookingDetailsDialog({
                     Checked out
                   </Badge>
                 ) : null}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 rounded-full px-3 text-xs font-semibold"
-                  onClick={() => setShowShortcuts(true)}
-                >
-                  <Keyboard className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                  Shortcuts
-                </Button>
+                {supportsTableAssignment ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 rounded-full px-3 text-xs font-semibold"
+                    onClick={() => setShowShortcuts(true)}
+                  >
+                    <Keyboard className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                    Shortcuts
+                  </Button>
+                ) : null}
                 <Button
                   variant="outline"
                   size="sm"
@@ -741,13 +751,17 @@ export function BookingDetailsDialog({
             onValueChange={(value) => setActiveTab(value as BookingDetailsTab)}
             className="space-y-5 py-4"
           >
-            <TabsList className="grid w-full grid-cols-2 gap-2">
+            <TabsList
+              className={cn('grid w-full gap-2', supportsTableAssignment ? 'grid-cols-2' : 'grid-cols-1')}
+            >
               <TabsTrigger value="overview" className="text-sm font-medium">
                 Overview
               </TabsTrigger>
-              <TabsTrigger value="tables" className="text-sm font-medium">
-                Tables
-              </TabsTrigger>
+              {supportsTableAssignment ? (
+                <TabsTrigger value="tables" className="text-sm font-medium">
+                  Tables
+                </TabsTrigger>
+              ) : null}
             </TabsList>
 
             <TabsContent value="overview" className="focus-visible:outline-none">
@@ -772,6 +786,12 @@ export function BookingDetailsDialog({
                       <Alert variant="destructive" className="rounded-xl border border-destructive/40">
                         <AlertTitle>Booking cancelled</AlertTitle>
                         <AlertDescription>Status changes are disabled for cancelled reservations.</AlertDescription>
+                      </Alert>
+                    ) : null}
+                    {!supportsTableAssignment ? (
+                      <Alert className="rounded-xl border border-slate-200 bg-slate-50">
+                        <AlertTitle>Past service date</AlertTitle>
+                        <AlertDescription>Table assignment changes are locked after the service has passed.</AlertDescription>
                       </Alert>
                     ) : null}
                   </CardContent>
@@ -887,9 +907,9 @@ export function BookingDetailsDialog({
               </div>
             </TabsContent>
 
-            <TabsContent value="tables" className="focus-visible:outline-none">
-              <div className="space-y-6">
-                {supportsTableAssignment ? (
+            {supportsTableAssignment ? (
+              <TabsContent value="tables" className="focus-visible:outline-none">
+                <div className="space-y-6">
                   <section className="space-y-6 rounded-2xl border border-border/60 bg-muted/10 px-4 py-5">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div>
@@ -1005,9 +1025,9 @@ export function BookingDetailsDialog({
                       )}
                     </div>
                   </section>
-                ) : null}
-              </div>
-            </TabsContent>
+                </div>
+              </TabsContent>
+            ) : null}
           </Tabs>
         </DialogContent>
       </Dialog>
