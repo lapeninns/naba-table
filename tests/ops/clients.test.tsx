@@ -235,6 +235,11 @@ describe('Ops feature clients', () => {
 
     const serviceDateLabels = await screen.findAllByText(/service date/i);
     expect(serviceDateLabels.length).toBeGreaterThan(0);
+
+    expect(
+      await screen.findByText((content) => content.trim() === 'Guests'),
+    ).toBeInTheDocument();
+
     expect(bookingService.getTodaySummary).toHaveBeenCalledWith({ restaurantId: 'rest-1', date: undefined });
   });
 

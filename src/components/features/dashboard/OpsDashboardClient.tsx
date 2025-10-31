@@ -1,6 +1,6 @@
 'use client';
 
-import { Calendar as CalendarIcon, Clock, ChevronLeft, ChevronRight, TrendingUp, Users, Loader2, type LucideIcon } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, ChevronLeft, ChevronRight, TrendingUp, UserRound, Users, Loader2, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition } from 'react';
@@ -119,6 +119,14 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
         icon: CalendarIcon,
         accentBg: 'bg-blue-50',
         iconColor: 'text-blue-600',
+      },
+      {
+        id: 'covers',
+        title: 'Guests',
+        value: totals.covers ?? 0,
+        icon: UserRound,
+        accentBg: 'bg-indigo-50',
+        iconColor: 'text-indigo-600',
       },
       {
         id: 'upcoming',
