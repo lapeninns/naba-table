@@ -8,11 +8,11 @@ const CUSTOMER_CONFLICT_FALLBACK_KEYS = [
   "restaurant_id,phone_normalized",
 ];
 const CUSTOMER_COLUMNS =
-  "id,restaurant_id,email,phone,full_name,marketing_opt_in,created_at,updated_at,email_normalized,phone_normalized";
+  "id,restaurant_id,email,phone,full_name,marketing_opt_in,created_at,updated_at,email_normalized,phone_normalized,auth_user_id,user_profile_id";
 
 export type CustomerRow = Tables<"customers">;
 
-type DbClient = SupabaseClient<Database, any, any>;
+type DbClient = SupabaseClient<Database>;
 
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -58,6 +58,8 @@ export async function upsertCustomer(
     phone: string;
     name?: string | null;
     marketingOptIn?: boolean;
+    authUserId?: string | null;
+    userProfileId?: string | null;
   },
 ): Promise<CustomerRow> {
   const email = normalizeEmail(params.email);
@@ -71,6 +73,13 @@ export async function upsertCustomer(
     full_name: params.name || '',
     marketing_opt_in: marketingOptIn,
   };
+
+  if (params.authUserId !== undefined) {
+    insertPayload.auth_user_id = params.authUserId;
+  }
+  if (params.userProfileId !== undefined) {
+    insertPayload.user_profile_id = params.userProfileId;
+  }
 
   const { data, error } = await client
     .from("customers")
@@ -176,7 +185,10 @@ export async function upsertCustomer(
   if (marketingOptIn && !customerData.marketing_opt_in) {
     const { data: patched, error: updateError } = await client
       .from("customers")
-      .update({ marketing_opt_in: true, full_name: customerData.full_name ?? params.name ?? null })
+      .update({
+        marketing_opt_in: true,
+        full_name: customerData.full_name ?? params.name ?? null,
+      })
       .eq("id", customerData.id)
       .select(CUSTOMER_COLUMNS)
       .single();

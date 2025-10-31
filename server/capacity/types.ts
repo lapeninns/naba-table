@@ -119,6 +119,7 @@ export type BookingErrorCode =
   | "CAPACITY_EXCEEDED"
   | "BOOKING_CONFLICT"
   | "INTERNAL_ERROR"
+  | "BOOKING_OUTSIDE_OPERATING_HOURS"
   | "OPERATING_HOURS_CLOSED"
   | "PAST_TIME_BLOCKED"
   | "INVALID_PARAMS";
@@ -155,7 +156,7 @@ export type { SelectorScoringConfig, SelectorScoringWeights } from "./policy";
 export type RpcBookingResponse = {
   success: boolean;
   duplicate?: boolean;
-  booking?: Record<string, any>; // Full booking record as JSONB
+  booking?: Record<string, unknown>; // Full booking record as JSONB
   capacity?: CapacityInfo;
   error?: BookingErrorCode;
   message?: string;

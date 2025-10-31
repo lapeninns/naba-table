@@ -17,6 +17,19 @@ export const queryKeys = {
       ['ops', 'dashboard', restaurantId, 'summary', date ?? 'today'] as const,
     heatmap: (restaurantId: string, start: string, end: string) =>
       ['ops', 'dashboard', restaurantId, 'heatmap', start, end] as const,
+    rejections: (restaurantId: string, params: { from?: string | null; to?: string | null; bucket?: string } = {}) =>
+      [
+        'ops',
+        'dashboard',
+        restaurantId,
+        'rejections',
+        params.from ?? null,
+        params.to ?? null,
+        params.bucket ?? 'day',
+      ] as const,
+  },
+  opsSettings: {
+    strategicConfig: (restaurantId: string) => ['ops', 'settings', 'strategic-config', restaurantId] as const,
   },
   opsCustomers: {
     list: (params: Record<string, unknown> = {}) => ['ops', 'customers', 'list', params] as const,
@@ -68,6 +81,8 @@ export type QueryKey =
   | ReturnType<(typeof queryKeys)['opsBookings']['detail']>
   | ReturnType<(typeof queryKeys)['opsDashboard']['summary']>
   | ReturnType<(typeof queryKeys)['opsDashboard']['heatmap']>
+  | ReturnType<(typeof queryKeys)['opsDashboard']['rejections']>
+  | ReturnType<(typeof queryKeys)['opsSettings']['strategicConfig']>
   | ReturnType<(typeof queryKeys)['opsCustomers']['list']>
   | ReturnType<(typeof queryKeys)['opsRestaurants']['list']>
   | ReturnType<(typeof queryKeys)['opsRestaurants']['detail']>

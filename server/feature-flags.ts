@@ -33,6 +33,18 @@ export function isSelectorScoringEnabled(): boolean {
   return env.featureFlags.selectorScoring ?? false;
 }
 
+export function isSelectorLookaheadEnabled(): boolean {
+  return env.featureFlags.selectorLookahead?.enabled ?? false;
+}
+
+export function getSelectorLookaheadWindowMinutes(): number {
+  return env.featureFlags.selectorLookahead?.windowMinutes ?? 120;
+}
+
+export function getSelectorLookaheadPenaltyWeight(): number {
+  return env.featureFlags.selectorLookahead?.penaltyWeight ?? 500;
+}
+
 export function isCombinationPlannerEnabled(): boolean {
   return env.featureFlags.combinationPlanner ?? false;
 }
@@ -43,6 +55,10 @@ export function isAdjacencyValidationEnabled(): boolean {
 
 export function isOpsMetricsEnabled(): boolean {
   return env.featureFlags.opsMetrics ?? false;
+}
+
+export function isOpsRejectionAnalyticsEnabled(): boolean {
+  return env.featureFlags.opsRejectionAnalytics ?? false;
 }
 
 export function isHoldsEnabled(): boolean {

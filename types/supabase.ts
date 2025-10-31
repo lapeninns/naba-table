@@ -731,6 +731,7 @@ export type Database = {
           phone: string
           phone_normalized: string | null
           restaurant_id: string
+          user_profile_id: string | null
           updated_at: string
         }
         Insert: {
@@ -745,6 +746,7 @@ export type Database = {
           phone: string
           phone_normalized?: string | null
           restaurant_id: string
+          user_profile_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -759,11 +761,69 @@ export type Database = {
           phone?: string
           phone_normalized?: string | null
           restaurant_id?: string
+          user_profile_id?: string | null
           updated_at?: string
         }
         Relationships: [
           {
             foreignKeyName: "customers_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customers_user_profile_id_fkey"
+            columns: ["user_profile_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      demand_profiles: {
+        Row: {
+          id: string
+          restaurant_id: string
+          day_of_week: number
+          service_window: string
+          multiplier: number
+          start_minute: number | null
+          end_minute: number | null
+          priority: number | null
+          label: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          restaurant_id: string
+          day_of_week: number
+          service_window: string
+          multiplier?: number
+          start_minute?: number | null
+          end_minute?: number | null
+          priority?: number | null
+          label?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          restaurant_id?: string
+          day_of_week?: number
+          service_window?: string
+          multiplier?: number
+          start_minute?: number | null
+          end_minute?: number | null
+          priority?: number | null
+          label?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demand_profiles_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
             referencedRelation: "restaurants"
@@ -1501,6 +1561,68 @@ export type Database = {
           },
         ]
       }
+      strategic_configs: {
+        Row: {
+          id: string
+          restaurant_id: string | null
+          scarcity_weight: number
+          demand_multiplier_override: number | null
+          future_conflict_penalty: number | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          restaurant_id?: string | null
+          scarcity_weight?: number
+          demand_multiplier_override?: number | null
+          future_conflict_penalty?: number | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          restaurant_id?: string | null
+          scarcity_weight?: number
+          demand_multiplier_override?: number | null
+          future_conflict_penalty?: number | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      table_scarcity_metrics: {
+        Row: {
+          id: string
+          restaurant_id: string
+          table_type: string
+          scarcity_score: number
+          computed_at: string
+        }
+        Insert: {
+          id?: string
+          restaurant_id: string
+          table_type: string
+          scarcity_score: number
+          computed_at?: string
+        }
+        Update: {
+          id?: string
+          restaurant_id?: string
+          table_type?: string
+          scarcity_score?: number
+          computed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "table_scarcity_metrics_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       table_inventory: {
         Row: {
           active: boolean
@@ -1583,6 +1705,36 @@ export type Database = {
           },
         ]
       }
+      user_profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          marketing_opt_in: boolean
+          name: string | null
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id: string
+          marketing_opt_in?: boolean
+          name?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          marketing_opt_in?: boolean
+          name?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       zones: {
         Row: {
           area_type: Database["public"]["Enums"]["area_type"]
@@ -1652,6 +1804,25 @@ export type Database = {
         }[]
       }
       are_tables_connected: { Args: { table_ids: string[] }; Returns: boolean }
+      assign_merged_tables: {
+        Args: {
+          p_booking_id: string
+          p_table_ids: string[]
+          p_require_adjacency?: boolean
+          p_assigned_by?: string | null
+          p_idempotency_key?: string | null
+        }
+        Returns: undefined
+      }
+      assign_single_table: {
+        Args: {
+          p_booking_id: string
+          p_table_id: string
+          p_assigned_by?: string | null
+          p_idempotency_key?: string | null
+        }
+        Returns: undefined
+      }
       assign_tables_atomic: {
         Args: {
           p_assigned_by?: string | null

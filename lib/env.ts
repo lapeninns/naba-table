@@ -138,9 +138,21 @@ export const env = {
       statusTriggers: parsed.FEATURE_STATUS_TRIGGERS ?? false,
       editScheduleParity: parsed.FEATURE_EDIT_SCHEDULE_PARITY ?? true,
       selectorScoring: parsed.FEATURE_SELECTOR_SCORING ?? true,
+      selectorLookahead: {
+        enabled: parsed.FEATURE_SELECTOR_LOOKAHEAD ?? true,
+        windowMinutes: Math.max(
+          5,
+          Math.min(parsed.FEATURE_SELECTOR_LOOKAHEAD_WINDOW_MINUTES ?? 120, 480),
+        ),
+        penaltyWeight: Math.max(
+          1,
+          Math.min(parsed.FEATURE_SELECTOR_LOOKAHEAD_PENALTY_WEIGHT ?? 500, 100_000),
+        ),
+      },
       combinationPlanner: combinationPlannerDefault,
       adjacencyValidation: parsed.FEATURE_ADJACENCY_VALIDATION ?? false,
       opsMetrics: parsed.FEATURE_OPS_METRICS ?? false,
+      opsRejectionAnalytics: parsed.FEATURE_OPS_REJECTION_ANALYTICS ?? false,
       realtimeFloorplan: parsed.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN ?? false,
       planner: {
         timePruningEnabled: plannerTimePruningDefault,
@@ -170,6 +182,24 @@ export const env = {
       adjacency: {
         queryUndirected: adjacencyQueryUndirectedDefault,
       },
+    } as const;
+  },
+
+  get strategic() {
+    const parsed = parseEnv();
+    const rawScarcityWeight = parsed.FEATURE_SELECTOR_SCARCITY_WEIGHT;
+    const scarcityWeight =
+      typeof rawScarcityWeight === "number" && Number.isFinite(rawScarcityWeight)
+        ? Math.max(0, Math.min(rawScarcityWeight, 1000))
+        : undefined;
+    const demandProfilePath =
+      typeof parsed.STRATEGIC_DEMAND_PROFILE_PATH === "string"
+        ? parsed.STRATEGIC_DEMAND_PROFILE_PATH.trim() || undefined
+        : undefined;
+
+    return {
+      scarcityWeight,
+      demandProfilePath,
     } as const;
   },
 

@@ -34,7 +34,7 @@ type OpsSidebarProps = {
 export function OpsSidebar({ collapsible = 'icon' }: OpsSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { activeMembership } = useOpsSession();
+  const { activeMembership, featureFlags } = useOpsSession();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const SupportIcon = OPS_SUPPORT_ITEM.icon;
 
@@ -76,39 +76,47 @@ export function OpsSidebar({ collapsible = 'icon' }: OpsSidebarProps) {
       </SidebarHeader>
 
       <SidebarContent>
-        {OPS_NAV_SECTIONS.map((section) => (
-          <SidebarGroup key={section.label}>
-            <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {section.items.map((item) => {
-                  const active = isNavItemActive(pathname, item);
-                  const Icon = item.icon;
-                  return (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton asChild isActive={active}>
-                        <Link
-                          href={item.href}
-                          aria-current={active ? 'page' : undefined}
-                          className="touch-manipulation"
-                        >
-                          <Icon
-                            className={cn(
-                              'size-4 transition-colors group-hover/menu-button:text-sidebar-accent-foreground group-focus-visible/menu-button:text-sidebar-accent-foreground',
-                              active ? 'text-sidebar-accent-foreground' : 'text-sidebar-foreground',
-                            )}
-                            aria-hidden
-                          />
-                          <span className="truncate">{item.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ))}
+        {OPS_NAV_SECTIONS.map((section) => {
+          const visibleItems = section.items.filter((item) =>
+            item.requiresFeatureFlag ? featureFlags[item.requiresFeatureFlag] : true,
+          );
+          if (visibleItems.length === 0) {
+            return null;
+          }
+          return (
+            <SidebarGroup key={section.label}>
+              <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {visibleItems.map((item) => {
+                    const active = isNavItemActive(pathname, item);
+                    const Icon = item.icon;
+                    return (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton asChild isActive={active}>
+                          <Link
+                            href={item.href}
+                            aria-current={active ? 'page' : undefined}
+                            className="touch-manipulation"
+                          >
+                            <Icon
+                              className={cn(
+                                'size-4 transition-colors group-hover/menu-button:text-sidebar-accent-foreground group-focus-visible/menu-button:text-sidebar-accent-foreground',
+                                active ? 'text-sidebar-accent-foreground' : 'text-sidebar-foreground',
+                              )}
+                              aria-hidden
+                            />
+                            <span className="truncate">{item.title}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          );
+        })}
       </SidebarContent>
 
       <SidebarSeparator className="mx-2" />

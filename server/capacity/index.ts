@@ -117,6 +117,7 @@ export type {
   TableAssignmentMember,
   TableAssignmentGroup,
   AutoAssignResult,
+  SelectorDecisionCapture,
   ManualSelectionCheck,
   ManualSelectionSummary,
   ManualValidationResult,

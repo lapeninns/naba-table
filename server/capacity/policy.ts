@@ -1,5 +1,11 @@
 import { DateTime } from "luxon";
 
+import {
+  DEFAULT_SCARCITY_WEIGHT,
+  getStrategicScarcityWeight,
+  type StrategicConfigSnapshotOptions,
+} from "./strategic-config";
+
 const DEFAULT_TIMEZONE = "Europe/London";
 
 export const SERVICE_KEYS = ["lunch", "dinner", "drinks"] as const;
@@ -41,7 +47,10 @@ export type SelectorScoringWeights = {
   fragmentation: number;
   zoneBalance: number;
   adjacencyCost: number;
+  scarcity: number;
 };
+
+export const YIELD_MANAGEMENT_SCARCITY_WEIGHT = DEFAULT_SCARCITY_WEIGHT;
 
 export type SelectorScoringConfig = {
   weights: SelectorScoringWeights;
@@ -108,17 +117,26 @@ const defaultSelectorScoringConfig: SelectorScoringConfig = {
     fragmentation: 2,
     zoneBalance: 4,
     adjacencyCost: 1,
+    scarcity: DEFAULT_SCARCITY_WEIGHT,
   },
   maxOverage: 2,
   maxTables: 3,
 };
 
-export function getSelectorScoringConfig(): SelectorScoringConfig {
+export function getSelectorScoringConfig(options?: StrategicConfigSnapshotOptions): SelectorScoringConfig {
+  const dynamicScarcityWeight = getStrategicScarcityWeight(options);
   return {
-    weights: { ...defaultSelectorScoringConfig.weights },
+    weights: {
+      ...defaultSelectorScoringConfig.weights,
+      scarcity: dynamicScarcityWeight,
+    },
     maxOverage: defaultSelectorScoringConfig.maxOverage,
     maxTables: defaultSelectorScoringConfig.maxTables,
   };
+}
+
+export function getYieldManagementScarcityWeight(options?: StrategicConfigSnapshotOptions): number {
+  return getStrategicScarcityWeight(options);
 }
 
 export class PolicyError extends Error {

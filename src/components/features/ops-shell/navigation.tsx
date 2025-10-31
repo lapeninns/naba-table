@@ -4,11 +4,13 @@ import {
   CalendarPlus,
   CircleHelp,
   LayoutGrid,
+  OctagonAlert,
   SlidersHorizontal,
   Users,
   UsersRound,
 } from 'lucide-react';
 
+import type { OpsFeatureFlags } from '@/types/ops';
 import type { ComponentType, SVGProps } from 'react';
 
 export type OpsNavigationItem = {
@@ -17,6 +19,7 @@ export type OpsNavigationItem = {
   href: string;
   icon: ComponentType<SVGProps<SVGSVGElement>>;
   match?: (pathname: string) => boolean;
+  requiresFeatureFlag?: keyof OpsFeatureFlags;
 };
 
 export type OpsNavigationSection = {
@@ -34,6 +37,14 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         href: '/ops',
         icon: BarChart3,
         match: (pathname) => pathname === '/ops',
+      },
+      {
+        title: 'Rejections',
+        description: 'Understand why bookings were skipped',
+        href: '/ops/rejections',
+        icon: OctagonAlert,
+        match: (pathname) => pathname.startsWith('/ops/rejections'),
+        requiresFeatureFlag: 'rejectionAnalytics',
       },
       {
         title: 'Bookings',

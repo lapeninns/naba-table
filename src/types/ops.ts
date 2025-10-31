@@ -30,6 +30,7 @@ export type OpsPermissionSet = {
 export type OpsFeatureFlags = {
   opsMetrics: boolean;
   selectorScoring: boolean;
+  rejectionAnalytics: boolean;
 };
 
 export type OpsBookingStatus =
@@ -190,4 +191,74 @@ export type OpsCustomersPage = {
     total: number;
     hasNext: boolean;
   };
+};
+
+export type OpsRejectionBucket = 'day' | 'hour';
+
+export type OpsStrategicPenaltyKey = 'slack' | 'scarcity' | 'future_conflict' | 'structural' | 'unknown';
+
+export type OpsRejectionSeriesPoint = {
+  bucket: string;
+  hard: number;
+  strategic: number;
+};
+
+export type OpsRejectionTopReason = {
+  label: string;
+  count: number;
+};
+
+export type OpsRejectionTopPenalty = {
+  penalty: OpsStrategicPenaltyKey;
+  count: number;
+};
+
+export type OpsStrategicSample = {
+  bookingId: string | null;
+  createdAt: string;
+  skipReason: string | null;
+  dominantPenalty: OpsStrategicPenaltyKey;
+  penalties: {
+    slack: number;
+    scarcity: number;
+    futureConflict: number;
+  };
+  plannerConfig: Record<string, unknown> | null;
+};
+
+export type OpsRejectionAnalytics = {
+  restaurantId: string;
+  range: {
+    from: string;
+    to: string;
+    bucket: OpsRejectionBucket;
+  };
+  summary: {
+    total: number;
+    hard: {
+      count: number;
+      percent: number;
+      topReasons: OpsRejectionTopReason[];
+    };
+    strategic: {
+      count: number;
+      percent: number;
+      topPenalties: OpsRejectionTopPenalty[];
+    };
+  };
+  series: OpsRejectionSeriesPoint[];
+  strategicSamples: OpsStrategicSample[];
+};
+
+export type OpsStrategicSettingsSource = 'env' | 'db';
+
+export type OpsStrategicSettings = {
+  restaurantId: string;
+  source: OpsStrategicSettingsSource;
+  weights: {
+    scarcity: number;
+    demandMultiplier: number | null;
+    futureConflictPenalty: number | null;
+  };
+  updatedAt: string | null;
 };

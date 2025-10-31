@@ -227,6 +227,62 @@ export function createMockSupabaseClient(options: MockClientOptions) {
         };
       }
 
+      if (table === "demand_profiles") {
+        const builder = {
+          select() {
+            return builder;
+          },
+          eq() {
+            return builder;
+          },
+          limit() {
+            return builder;
+          },
+          maybeSingle() {
+            return Promise.resolve({ data: null, error: null });
+          },
+        };
+
+        return builder;
+      }
+
+      if (table === "strategic_configs") {
+        const builder = {
+          select() {
+            return builder;
+          },
+          order() {
+            return builder;
+          },
+          limit() {
+            return builder;
+          },
+          eq() {
+            return builder;
+          },
+          is() {
+            return builder;
+          },
+          maybeSingle() {
+            return Promise.resolve({ data: null, error: null });
+          },
+        };
+
+        return builder;
+      }
+
+      if (table === "table_scarcity_metrics") {
+        return {
+          select() {
+            return {
+              eq() {
+                return Promise.resolve({ data: [], error: null });
+              },
+            };
+          },
+        };
+      }
+
       throw new Error(`Unexpected table ${table}`);
     },
     rpc(name: string, args: Record<string, unknown>) {

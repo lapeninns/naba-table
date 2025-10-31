@@ -51,6 +51,10 @@ const baseEnvSchema = z
     FEATURE_STATUS_TRIGGERS: booleanStringOptional,
     FEATURE_EDIT_SCHEDULE_PARITY: booleanStringOptional,
     FEATURE_SELECTOR_SCORING: booleanStringOptional,
+    FEATURE_SELECTOR_LOOKAHEAD: booleanStringOptional,
+    FEATURE_SELECTOR_LOOKAHEAD_WINDOW_MINUTES: z.coerce.number().int().min(5).max(480).optional(),
+    FEATURE_SELECTOR_LOOKAHEAD_PENALTY_WEIGHT: z.coerce.number().int().min(1).max(100000).optional(),
+    FEATURE_SELECTOR_SCARCITY_WEIGHT: z.coerce.number().min(0).max(1000).optional(),
     FEATURE_COMBINATION_PLANNER: booleanStringOptional,
     FEATURE_PLANNER_TIME_PRUNING_ENABLED: booleanStringOptional,
     FEATURE_ADJACENCY_QUERY_UNDIRECTED: booleanStringOptional,
@@ -58,6 +62,7 @@ const baseEnvSchema = z
     FEATURE_SELECTOR_MAX_COMBINATION_EVALUATIONS: z.coerce.number().int().min(1).max(5000).optional(),
     FEATURE_ADJACENCY_VALIDATION: booleanStringOptional,
     FEATURE_OPS_METRICS: booleanStringOptional,
+    FEATURE_OPS_REJECTION_ANALYTICS: booleanStringOptional,
     FEATURE_ALLOCATOR_V2_ENABLED: booleanStringOptional,
     FEATURE_ALLOCATOR_V2_SHADOW: booleanStringOptional,
     FEATURE_ALLOCATOR_V2_FORCE_LEGACY: booleanStringOptional,
@@ -92,6 +97,7 @@ const baseEnvSchema = z
     UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
     AVAILABILITY_CACHE_TTL_SECONDS: z.coerce.number().int().positive().optional(),
     ENABLE_AVAILABILITY_CACHE: booleanStringOptional,
+    STRATEGIC_DEMAND_PROFILE_PATH: z.string().optional(),
   })
   .passthrough();
 

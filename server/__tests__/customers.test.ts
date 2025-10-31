@@ -61,11 +61,13 @@ describe("upsertCustomer", () => {
       email_normalized: "guest@example.com",
       phone_normalized: "07123456789",
       auth_user_id: null,
+      user_profile_id: null,
       notes: null,
     } satisfies CustomerRow;
 
     const { client } = createMockClient(existingRow);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await upsertCustomer(client as any, {
       restaurantId: existingRow.restaurant_id,
       email: existingRow.email,

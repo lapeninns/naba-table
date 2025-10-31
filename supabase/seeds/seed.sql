@@ -938,4 +938,37 @@ BEGIN
     END IF;
 END $$;
 
+-- -----------------------------------------------------------------------------
+-- Stage 10: Seed yield management data
+-- -----------------------------------------------------------------------------
+-- Seed demand profiles: default multipliers for each restaurant, day, service
+INSERT INTO public.demand_profiles (restaurant_id, day_of_week, service_window, multiplier)
+SELECT
+    r.id,
+    dow,
+    sw.service_window,
+    CASE
+        WHEN dow IN (5, 6) THEN 1.5 -- Friday/Saturday higher demand
+        WHEN sw.service_window = 'dinner' THEN 1.3
+        WHEN sw.service_window = 'lunch' THEN 1.1
+        ELSE 1.0
+    END
+FROM public.restaurants r
+CROSS JOIN generate_series(0, 6) AS dow
+CROSS JOIN (VALUES ('lunch'), ('drinks'), ('dinner')) AS sw(service_window)
+ON CONFLICT DO NOTHING;
+
+-- Seed table scarcity metrics: compute based on table frequency per restaurant
+INSERT INTO public.table_scarcity_metrics (restaurant_id, table_type, scarcity_score)
+SELECT
+    r.id,
+    CONCAT(t.capacity, '-seater') AS table_type,
+    GREATEST(0.1, LEAST(1.0, 1.0 - (COUNT(*)::numeric / NULLIF((SELECT COUNT(*) FROM public.table_inventory ti WHERE ti.restaurant_id = r.id), 0))))
+FROM public.restaurants r
+JOIN public.table_inventory t ON t.restaurant_id = r.id
+GROUP BY r.id, t.capacity
+ON CONFLICT (restaurant_id, table_type) DO UPDATE
+SET scarcity_score = EXCLUDED.scarcity_score,
+    computed_at = timezone('utc', now());
+
 COMMIT;

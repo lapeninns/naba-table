@@ -16,6 +16,7 @@ const autoAssignSchema = z.object({
     .regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)
     .optional()
     .nullable(),
+  captureDecisions: z.boolean().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const { restaurantId } = parsed.data;
+  const { restaurantId, captureDecisions = true } = parsed.data;
   let targetDate = parsed.data.date ?? null;
 
   const supabase = await getRouteHandlerSupabaseClient();
@@ -76,12 +77,15 @@ export async function POST(request: NextRequest) {
       date: targetDate,
       assignedBy: user.id,
       client: serviceClient,
+      captureDecisions,
     });
 
     return NextResponse.json({ date: targetDate, ...result });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to auto-assign tables";
-    console.error("[ops][dashboard][assign-tables] failure", message);
+    console.error("[ops][dashboard][assign-tables] failure", message, {
+      error,
+    });
     if (error instanceof ServiceNotFoundError) {
       return NextResponse.json({ error: error.message }, { status: 422 });
     }

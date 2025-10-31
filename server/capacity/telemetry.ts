@@ -1,7 +1,7 @@
 import { recordObservabilityEvent } from "@/server/observability";
 
-import type { ServiceKey } from "./policy";
-import type { CandidateDiagnostics } from "./selector";
+import type { SelectorScoringWeights, ServiceKey } from "./policy";
+import type { CandidateDiagnostics, ScoreBreakdown } from "./selector";
 import type { Json } from "@/types/supabase";
 
 const EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
@@ -74,6 +74,34 @@ export type CandidateSummary = {
   slack?: number;
   score?: number;
   adjacencyStatus?: "single" | "connected" | "disconnected";
+  scoreBreakdown?: CandidateScoreBreakdown;
+};
+
+export type CandidateScoreBreakdown = {
+  slack_penalty: number;
+  scarcity_penalty: number;
+  structural_penalty: number;
+  demand_multiplier: number;
+  combination_penalty: number;
+  future_conflict_penalty: number;
+  total_score: number;
+};
+
+export type AvailabilitySnapshot = {
+  totalCandidates: number;
+  remainingAfterSelection: number;
+  remainingTables: Array<{
+    id: string;
+    tableNumber: string;
+    capacity: number;
+  }>;
+};
+
+export type StrategicPenaltyTelemetry = {
+  dominant: "slack" | "scarcity" | "future_conflict" | "structural" | "unknown";
+  slack: number;
+  scarcity: number;
+  futureConflict: number;
 };
 
 export type SelectorDecisionEvent = {
@@ -84,6 +112,8 @@ export type SelectorDecisionEvent = {
   candidates: CandidateSummary[];
   selected?: CandidateSummary | null;
   skipReason?: string | null;
+  rejectionClassification?: "hard" | "strategic" | null;
+  strategicPenalties?: StrategicPenaltyTelemetry | null;
   durationMs: number;
   featureFlags: {
     selectorScoring: boolean;
@@ -92,6 +122,7 @@ export type SelectorDecisionEvent = {
     adjacencyUndirected: boolean;
     holdsStrictConflicts: boolean;
     allocatorFailHard: boolean;
+    selectorLookahead: boolean;
   };
   timing?: {
     totalMs: number;
@@ -109,6 +140,7 @@ export type SelectorDecisionEvent = {
     evaluationLimit: number;
     maxOverage: number;
     maxTables: number;
+    weights: SelectorScoringWeights;
     featureFlags: {
       selectorScoring: boolean;
       opsMetrics: boolean;
@@ -116,17 +148,55 @@ export type SelectorDecisionEvent = {
       adjacencyUndirected: boolean;
       holdsStrictConflicts: boolean;
       allocatorFailHard: boolean;
+      selectorLookahead: boolean;
     };
     serviceFallback: {
       used: boolean;
       service: ServiceKey | null;
     };
+    demandMultiplier: number;
+    demandRule: {
+      label?: string | null;
+      source: string;
+      serviceWindow?: string | null;
+      days?: string[];
+      start?: string | null;
+      end?: string | null;
+      priority?: number | null;
+    } | null;
+    lookahead: {
+      enabled: boolean;
+      windowMinutes: number;
+      penaltyWeight: number;
+    };
   };
   diagnostics?: CandidateDiagnostics;
+  availabilitySnapshot?: AvailabilitySnapshot | null;
 };
 
-export async function emitSelectorDecision(event: SelectorDecisionEvent): Promise<void> {
-  const logPayload = {
+export type SelectorDecisionCapture = {
+  type: "capacity.selector";
+  timestamp: string;
+  restaurantId: string;
+  bookingId: string;
+  partySize: number;
+  window: { start: string | null; end: string | null } | null;
+  selected: CandidateSummary | null;
+  topCandidates: CandidateSummary[];
+  candidates: CandidateSummary[];
+  skipReason: string | null;
+  rejectionClassification: "hard" | "strategic" | null;
+  strategicPenalties: StrategicPenaltyTelemetry | null;
+  durationMs: number;
+  featureFlags: SelectorDecisionEvent["featureFlags"];
+  timing: SelectorDecisionEvent["timing"] | null;
+  plannerConfig: SelectorDecisionEvent["plannerConfig"] | null;
+  diagnostics: CandidateDiagnostics | null;
+  availabilitySnapshot: AvailabilitySnapshot | null;
+};
+
+export function buildSelectorDecisionPayload(event: SelectorDecisionEvent): SelectorDecisionCapture {
+  const payload: SelectorDecisionCapture = {
     type: "capacity.selector",
     timestamp: new Date().toISOString(),
     restaurantId: event.restaurantId,
@@ -137,14 +207,21 @@ export async function emitSelectorDecision(event: SelectorDecisionEvent): Promis
     topCandidates: event.candidates,
     candidates: event.candidates,
     skipReason: event.skipReason ?? null,
+    rejectionClassification: event.rejectionClassification ?? null,
+    strategicPenalties: event.strategicPenalties ?? null,
     durationMs: event.durationMs,
     featureFlags: event.featureFlags,
     timing: event.timing ?? null,
     plannerConfig: event.plannerConfig ?? null,
     diagnostics: event.diagnostics ?? null,
+    availabilitySnapshot: event.availabilitySnapshot ?? null,
   };
 
-  const sanitizedPayload = sanitizeTelemetryContext(logPayload);
+  return sanitizeTelemetryContext(payload) as SelectorDecisionCapture;
+}
+
+export async function emitSelectorDecision(event: SelectorDecisionEvent): Promise<void> {
+  const sanitizedPayload = buildSelectorDecisionPayload(event);
 
   try {
     console.log(JSON.stringify(sanitizedPayload));
@@ -330,7 +407,21 @@ export function summarizeCandidate(input: {
   slack?: number;
   score?: number;
   adjacencyStatus?: "single" | "connected" | "disconnected";
+  scoreBreakdown?: ScoreBreakdown;
 }): CandidateSummary {
+  let scoreBreakdown: CandidateScoreBreakdown | undefined;
+  if (input.scoreBreakdown) {
+    scoreBreakdown = {
+      slack_penalty: input.scoreBreakdown.slackPenalty,
+      scarcity_penalty: input.scoreBreakdown.scarcityPenalty,
+      structural_penalty: input.scoreBreakdown.structuralPenalty,
+      demand_multiplier: input.scoreBreakdown.demandMultiplier,
+      combination_penalty: input.scoreBreakdown.combinationPenalty,
+      future_conflict_penalty: input.scoreBreakdown.futureConflictPenalty,
+      total_score: input.scoreBreakdown.total,
+    };
+  }
+
   return {
     tableIds: input.tableIds,
     tableNumbers: input.tableNumbers.map((value) => value ?? ""),
@@ -339,5 +430,6 @@ export function summarizeCandidate(input: {
     slack: input.slack,
     score: input.score,
     adjacencyStatus: input.adjacencyStatus,
+    scoreBreakdown,
   };
 }

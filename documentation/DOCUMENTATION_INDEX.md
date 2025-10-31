@@ -24,11 +24,12 @@ This repository contains **comprehensive documentation** covering every aspect o
 3. **[DEVELOPER_ONBOARDING.md](./DEVELOPER_ONBOARDING.md)** - Get started guide
 4. **[SYSTEM_ARCHITECTURE.md](./SYSTEM_ARCHITECTURE.md)** - System design
 5. **[DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md)** - Database documentation
-6. **[API_INTEGRATION_GUIDE.md](./API_INTEGRATION_GUIDE.md)** - API reference
+6. **[YIELD_MANAGEMENT_CONFIG.md](./YIELD_MANAGEMENT_CONFIG.md)** - Yield management tuning guide
+7. **[API_INTEGRATION_GUIDE.md](./API_INTEGRATION_GUIDE.md)** - API reference
 
 ### For Detailed Analysis
 
-7. **[IMPLEMENTED_FEATURES.md](./IMPLEMENTED_FEATURES.md)** - In-depth feature specs
+8. **[IMPLEMENTED_FEATURES.md](./IMPLEMENTED_FEATURES.md)** - In-depth feature specs
 
 ---
 
@@ -43,6 +44,7 @@ This repository contains **comprehensive documentation** covering every aspect o
 | 5   | **DATABASE_SCHEMA.md**         | 80+   | Complete ERD, tables, indexes, RLS policies    | Database Engineers, Backend Devs |
 | 6   | **DEVELOPER_ONBOARDING.md**    | 50+   | Step-by-step setup and first contribution      | New Developers                   |
 | 7   | **API_INTEGRATION_GUIDE.md**   | 40+   | REST API documentation with examples           | API Consumers, Integrators       |
+| 8   | **YIELD_MANAGEMENT_CONFIG.md** | 8     | Planner weights, demand profiles, lookahead    | Operators, Backend Developers    |
 
 **Total Pages:** 425+  
 **Total Words:** ~150,000  

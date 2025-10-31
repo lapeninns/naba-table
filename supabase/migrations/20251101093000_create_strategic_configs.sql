@@ -1,0 +1,34 @@
+-- Placeholder migration for strategic configuration storage.
+-- NOTE: Per AGENTS.md, apply remotely via Supabase CLI; do not run locally.
+
+-- Strategic configs allow per-restaurant overrides for scarcity weights and related penalties.
+-- Schema:
+--   id UUID primary key (default gen_random_uuid())
+--   restaurant_id UUID nullable references public.restaurants(id) on delete cascade
+--   scarcity_weight NUMERIC(8,2) not null default 22
+--   demand_multiplier_override NUMERIC(8,3)
+--   future_conflict_penalty NUMERIC(10,2)
+--   updated_at TIMESTAMPTZ not null default timezone('utc', now())
+--   updated_by UUID null references auth.users(id)
+-- Constraints:
+--   UNIQUE partial index on restaurant_id when not null
+--   Optional global row (restaurant_id null)
+
+-- RLS policies should limit updates to restaurant admins via service role.
+
+-- Example DDL (apply remotely):
+-- CREATE TABLE public.strategic_configs (
+--   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+--   restaurant_id uuid REFERENCES public.restaurants(id) ON DELETE CASCADE,
+--   scarcity_weight numeric(8,2) NOT NULL DEFAULT 22,
+--   demand_multiplier_override numeric(8,3),
+--   future_conflict_penalty numeric(10,2),
+--   updated_at timestamptz NOT NULL DEFAULT timezone('utc', now()),
+--   updated_by uuid
+-- );
+--
+-- CREATE INDEX strategic_configs_restaurant_id_idx
+--   ON public.strategic_configs(restaurant_id)
+--   WHERE restaurant_id IS NOT NULL;
+--
+-- ALTER TABLE public.strategic_configs ENABLE ROW LEVEL SECURITY;

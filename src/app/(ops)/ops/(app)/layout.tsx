@@ -69,6 +69,7 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
   const featureFlags = {
     opsMetrics: env.featureFlags.opsMetrics ?? false,
     selectorScoring: env.featureFlags.selectorScoring ?? false,
+    rejectionAnalytics: env.featureFlags.opsRejectionAnalytics ?? false,
   } as const;
 
   return (

@@ -37,10 +37,16 @@ beforeAll(async () => {
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 let allocatorFlagSpy: vi.SpyInstance<boolean, []>;
+let lookaheadEnabledSpy: vi.SpyInstance<boolean, []>;
+let lookaheadWindowSpy: vi.SpyInstance<number, []>;
+let lookaheadPenaltySpy: vi.SpyInstance<number, []>;
 
 beforeEach(() => {
   vi.restoreAllMocks();
   allocatorFlagSpy = vi.spyOn(featureFlags, 'isAllocatorV2Enabled').mockReturnValue(true);
+  lookaheadEnabledSpy = vi.spyOn(featureFlags, 'isSelectorLookaheadEnabled').mockReturnValue(false);
+  lookaheadWindowSpy = vi.spyOn(featureFlags, 'getSelectorLookaheadWindowMinutes').mockReturnValue(120);
+  lookaheadPenaltySpy = vi.spyOn(featureFlags, 'getSelectorLookaheadPenaltyWeight').mockReturnValue(500);
   emitSelectorDecision.mockClear();
 });
 
@@ -126,6 +132,19 @@ describe('autoAssignTablesForDate', () => {
         tableIds: ['table-1'],
       }),
     ]);
+
+    const decisionPayload = emitSelectorDecision.mock.calls.at(-1)?.[0];
+    expect(decisionPayload?.availabilitySnapshot).toEqual({
+      totalCandidates: 2,
+      remainingAfterSelection: 1,
+      remainingTables: [
+        {
+          id: 'table-2',
+          tableNumber: 'B4',
+          capacity: 4,
+        },
+      ],
+    });
   });
 
   it('returns skipped entry when no tables are available', async () => {
@@ -173,6 +192,96 @@ describe('autoAssignTablesForDate', () => {
         reason: expect.stringContaining('No suitable tables'),
       },
     ]);
+  });
+
+  it('returns decision snapshots when captureDecisions is enabled', async () => {
+    const tables: TableRow[] = [
+      {
+        id: 'table-assign-1',
+        table_number: 'A1',
+        capacity: 4,
+        min_party_size: 1,
+        max_party_size: 4,
+        section: 'Main',
+        seating_type: 'standard',
+        status: 'available',
+        position: null,
+      },
+    ];
+
+    const bookings: BookingRow[] = [
+      {
+        id: 'booking-small',
+        party_size: 2,
+        status: 'pending_allocation',
+        start_time: '18:00',
+        end_time: null,
+        start_at: '2025-11-05T18:00:00+00:00',
+        booking_date: '2025-11-05',
+        seating_preference: 'any',
+        booking_table_assignments: [],
+      },
+      {
+        id: 'booking-large',
+        party_size: 6,
+        status: 'pending_allocation',
+        start_time: '19:30',
+        end_time: null,
+        start_at: '2025-11-05T19:30:00+00:00',
+        booking_date: '2025-11-05',
+        seating_preference: 'any',
+        booking_table_assignments: [],
+      },
+    ];
+
+    const { client } = createMockSupabaseClient({ tables, bookings });
+
+    const result = await autoAssignTablesForDate({
+      restaurantId: 'rest-capture',
+      date: '2025-11-05',
+      client,
+      assignedBy: 'user-capture',
+      captureDecisions: true,
+    });
+
+    expect(result.assigned).toEqual([
+      {
+        bookingId: 'booking-small',
+        tableIds: ['table-assign-1'],
+      },
+    ]);
+    expect(result.skipped).toEqual([
+      {
+        bookingId: 'booking-large',
+        reason: expect.stringContaining('No suitable tables'),
+      },
+    ]);
+    expect(result.decisions).toBeDefined();
+    expect(result.decisions).toHaveLength(2);
+
+    const [assignmentDecision, skippedDecision] = result.decisions ?? [];
+    expect(assignmentDecision).toMatchObject({
+      type: 'capacity.selector',
+      bookingId: 'booking-small',
+      skipReason: null,
+      selected: expect.objectContaining({
+        tableIds: ['table-assign-1'],
+      }),
+    });
+    expect(assignmentDecision?.availabilitySnapshot).toEqual({
+      totalCandidates: 1,
+      remainingAfterSelection: 0,
+      remainingTables: [],
+    });
+    expect(skippedDecision).toMatchObject({
+      type: 'capacity.selector',
+      bookingId: 'booking-large',
+      selected: null,
+      skipReason: expect.stringContaining('No suitable tables'),
+    });
+    expect(skippedDecision?.availabilitySnapshot).toBeNull();
+
+    expect(emitSelectorDecision).toHaveBeenCalledTimes(2);
   });
 
   it('ignores bookings that are cancelled or completed', async () => {
@@ -301,6 +410,122 @@ describe('autoAssignTablesForDate', () => {
       }),
     ]);
   });
+
+  it('prefers a combination when lookahead would block a future booking', async () => {
+    lookaheadEnabledSpy.mockReturnValue(true);
+    lookaheadWindowSpy.mockReturnValue(180);
+    lookaheadPenaltySpy.mockReturnValue(1_000);
+    vi.spyOn(featureFlags, 'isCombinationPlannerEnabled').mockReturnValue(true);
+    vi.spyOn(featureFlags, 'getAllocatorKMax').mockReturnValue(3);
+    vi.spyOn(featureFlags, 'isAllocatorAdjacencyRequired').mockReturnValue(false);
+
+    const tables: TableRow[] = [
+      {
+        id: 'table-eight',
+        table_number: 'T8',
+        capacity: 8,
+        min_party_size: 2,
+        max_party_size: 8,
+        section: 'Main',
+        seating_type: 'standard',
+        status: 'available',
+        position: null,
+      },
+      {
+        id: 'table-three-a',
+        table_number: 'C1',
+        capacity: 3,
+        min_party_size: 2,
+        max_party_size: null,
+        section: 'Main',
+        seating_type: 'standard',
+        status: 'available',
+        position: null,
+      },
+      {
+        id: 'table-three-b',
+        table_number: 'C2',
+        capacity: 3,
+        min_party_size: 2,
+        max_party_size: null,
+        section: 'Main',
+        seating_type: 'standard',
+        status: 'available',
+        position: null,
+      },
+    ];
+
+    const bookings: BookingRow[] = [
+      {
+        id: 'booking-now',
+        party_size: 6,
+        status: 'pending_allocation',
+        start_time: '18:00',
+        end_time: null,
+        start_at: '2025-11-06T18:00:00+00:00',
+        booking_date: '2025-11-06',
+        seating_preference: 'any',
+        booking_table_assignments: [],
+      },
+      {
+        id: 'booking-future',
+        party_size: 8,
+        status: 'confirmed',
+        start_time: '19:00',
+        end_time: null,
+        start_at: '2025-11-06T19:00:00+00:00',
+        booking_date: '2025-11-06',
+        seating_preference: 'any',
+        booking_table_assignments: [],
+      },
+    ];
+
+    const adjacency = [
+      { table_a: 'table-three-a', table_b: 'table-three-b' },
+      { table_a: 'table-three-b', table_b: 'table-three-a' },
+    ];
+
+    const { client, assignments } = createMockSupabaseClient({ tables, bookings, adjacency });
+
+    const result = await autoAssignTablesForDate({
+      restaurantId: 'rest-lookahead',
+      date: '2025-11-06',
+      client,
+      assignedBy: 'user-lookahead',
+      captureDecisions: true,
+    });
+
+    expect(result.skipped).toEqual([]);
+    const primaryAssignment = result.assigned.find((entry) => entry.bookingId === 'booking-now');
+    expect(primaryAssignment?.tableIds).toEqual(expect.arrayContaining(['table-three-a', 'table-three-b']));
+    expect(primaryAssignment?.tableIds).not.toContain('table-eight');
+    const futureAssignment = result.assigned.find((entry) => entry.bookingId === 'booking-future');
+    expect(futureAssignment?.tableIds).toEqual(['table-eight']);
+
+    const recordedNow = assignments.find((entry) => entry.bookingId === 'booking-now');
+    expect(recordedNow?.tableIds).toEqual(expect.arrayContaining(['table-three-a', 'table-three-b']));
+    expect(recordedNow?.tableIds).not.toContain('table-eight');
+    const recordedFuture = assignments.find((entry) => entry.bookingId === 'booking-future');
+    expect(recordedFuture?.tableIds).toEqual(['table-eight']);
+
+    expect(result.decisions).toBeDefined();
+    const nowDecision = result.decisions?.find((decision) => decision.bookingId === 'booking-now');
+    expect(nowDecision?.plannerConfig?.lookahead?.enabled).toBe(true);
+    expect(nowDecision?.plannerConfig?.weights).toMatchObject({
+      overage: expect.any(Number),
+      tableCount: expect.any(Number),
+      fragmentation: expect.any(Number),
+      zoneBalance: expect.any(Number),
+      adjacencyCost: expect.any(Number),
+      scarcity: expect.any(Number),
+    });
+
+    const penalizedCandidate = nowDecision?.candidates.find((candidate) =>
+      candidate.tableIds.includes('table-eight'),
+    );
+    expect(penalizedCandidate?.scoreBreakdown?.future_conflict_penalty ?? 0).toBeGreaterThan(0);
+  });
+
   it('prefers the best scoring single table and emits telemetry details', async () => {
     const tables: TableRow[] = [
       {
@@ -475,8 +700,12 @@ describe('autoAssignTablesForDate', () => {
         bookingId: 'booking-skip-1',
         selected: null,
         skipReason,
+        rejectionClassification: 'hard',
       }),
     );
+
+    const skipDecisionPayload = emitSelectorDecision.mock.calls.at(-1)?.[0];
+    expect(skipDecisionPayload?.availabilitySnapshot).toBeNull();
   });
 
   it('assigns merged tables when combination planner flag is disabled', async () => {
@@ -596,6 +825,7 @@ describe('autoAssignTablesForDate', () => {
         bookingId: 'booking-overrun',
         selected: null,
         skipReason: expect.stringContaining('overrun'),
+        rejectionClassification: 'hard',
       }),
     );
   });
@@ -743,5 +973,13 @@ describe('autoAssignTablesForDate', () => {
       }),
     ]);
     expect(assignments).toEqual([]);
+
+    expect(emitSelectorDecision).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookingId: 'booking-hold-target',
+        selected: null,
+        rejectionClassification: 'strategic',
+      }),
+    );
   });
 });

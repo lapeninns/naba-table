@@ -1,6 +1,7 @@
 import { buildScoredTablePlans, type BuildCandidatesResult } from "../selector";
-import type { Table } from "../tables";
+
 import type { SelectorScoringConfig } from "../policy";
+import type { Table } from "../tables";
 
 export type PlannerInput = {
   tables: Table[];
@@ -12,6 +13,8 @@ export type PlannerInput = {
   requireAdjacency: boolean;
   maxPlansPerSlack?: number;
   maxCombinationEvaluations?: number;
+  demandMultiplier?: number;
+  tableScarcityScores?: Map<string, number>;
 };
 
 export type PlannerResult = BuildCandidatesResult;
@@ -27,5 +30,7 @@ export function generateCandidatePlans(input: PlannerInput): PlannerResult {
     requireAdjacency: input.requireAdjacency,
     maxPlansPerSlack: input.maxPlansPerSlack,
     maxCombinationEvaluations: input.maxCombinationEvaluations,
+    demandMultiplier: input.demandMultiplier,
+    tableScarcityScores: input.tableScarcityScores,
   });
 }

@@ -7,7 +7,9 @@ import type {
   OpsBookingsFilters,
   OpsBookingsPage,
   OpsBookingStatus,
+  OpsRejectionAnalytics,
   OpsServiceError,
+  OpsStrategicSettings,
   OpsTodayBooking,
   OpsTodayBookingsSummary,
   OpsWalkInBookingPayload,
@@ -16,6 +18,7 @@ import type { Tables } from '@/types/supabase';
 
 const OPS_BOOKINGS_BASE = '/api/ops/bookings';
 const OPS_DASHBOARD_BASE = '/api/ops/dashboard';
+const OPS_SETTINGS_BASE = '/api/ops/settings';
 const STAFF_AUTO_BASE = '/api/staff/auto';
 const STAFF_MANUAL_BASE = '/api/staff/manual';
 
@@ -28,6 +31,26 @@ type HeatmapParams = {
   restaurantId: string;
   startDate: string;
   endDate: string;
+};
+
+type RejectionAnalyticsParams = {
+  restaurantId: string;
+  from?: string | null;
+  to?: string | null;
+  bucket?: 'day' | 'hour';
+};
+
+type StrategicSettingsParams = {
+  restaurantId: string;
+};
+
+type StrategicSettingsUpdate = {
+  restaurantId: string;
+  weights: {
+    scarcity: number;
+    demandMultiplier?: number | null;
+    futureConflictPenalty?: number | null;
+  };
 };
 
 type UpdateBookingInput = {
@@ -134,10 +157,138 @@ type AssignTableInput = {
 type AutoAssignTablesInput = {
   restaurantId: string;
   date?: string | null;
+  captureDecisions?: boolean;
 };
 
 type TableAssignmentsResponse = {
   tableAssignments: OpsTodayBooking['tableAssignments'];
+};
+
+type AutoAssignDecisionSnapshot = {
+  type: 'capacity.selector';
+  timestamp: string;
+  restaurantId: string;
+  bookingId: string;
+  partySize: number;
+  window: { start: string | null; end: string | null } | null;
+  selected: (AutoQuoteCandidate & { adjacencyStatus?: 'single' | 'connected' | 'disconnected' }) | null;
+  topCandidates: AutoQuoteCandidate[];
+  candidates: AutoQuoteCandidate[];
+  skipReason: string | null;
+  rejectionClassification?: 'hard' | 'strategic' | null;
+  strategicPenalties?: {
+    dominant: 'slack' | 'scarcity' | 'future_conflict' | 'structural' | 'unknown';
+    slack: number;
+    scarcity: number;
+    futureConflict: number;
+  } | null;
+  durationMs: number;
+  featureFlags: {
+    selectorScoring: boolean;
+    opsMetrics: boolean;
+    plannerTimePruning: boolean;
+    adjacencyUndirected: boolean;
+    holdsStrictConflicts: boolean;
+    allocatorFailHard: boolean;
+  };
+  timing: {
+    totalMs: number;
+    plannerMs?: number;
+    assignmentMs?: number;
+    holdMs?: number;
+  } | null;
+  plannerConfig: {
+    combinationEnabled: boolean;
+    requireAdjacency: boolean;
+    adjacencyRequiredGlobally: boolean;
+    adjacencyMinPartySize: number | null;
+    kMax: number;
+    bucketLimit: number;
+    evaluationLimit: number;
+    maxOverage: number;
+    maxTables: number;
+    weights: {
+      overage: number;
+      tableCount: number;
+      fragmentation: number;
+      zoneBalance: number;
+      adjacencyCost: number;
+      scarcity: number;
+    };
+    featureFlags: {
+      selectorScoring: boolean;
+      opsMetrics: boolean;
+      plannerTimePruning: boolean;
+      adjacencyUndirected: boolean;
+      holdsStrictConflicts: boolean;
+      allocatorFailHard: boolean;
+      selectorLookahead: boolean;
+    };
+    serviceFallback: {
+      used: boolean;
+      service: string | null;
+    };
+    demandMultiplier: number;
+    demandRule: {
+      label?: string | null;
+      source: string;
+      serviceWindow?: string | null;
+      days?: string[];
+      start?: string | null;
+      end?: string | null;
+      priority?: number | null;
+    } | null;
+    lookahead: {
+      enabled: boolean;
+      windowMinutes: number;
+      penaltyWeight: number;
+    };
+  } | null;
+  diagnostics: {
+    singlesConsidered: number;
+    combinationsEnumerated: number;
+    combinationsAccepted: number;
+    skipped: Record<string, number>;
+    limits: {
+      kMax: number;
+      maxPlansPerSlack: number;
+      maxCombinationEvaluations: number;
+    };
+    totals: {
+      enumerated: number;
+      accepted: number;
+    };
+    timePruning?: {
+      prunedByTime: number;
+      candidatesAfterTimePrune: number;
+      pruned_by_time: number;
+      candidates_after_time_prune: number;
+    };
+    quoteSkips?: {
+      holdConflicts: {
+        count: number;
+        holdIds: string[];
+      };
+    };
+    performance?: {
+      totalDurationMs: number;
+      buildScoredTablePlansMs: number;
+      enumerateCombinationsMs?: number;
+      sortingMs?: number;
+      inputSize: {
+        tableCount: number;
+        partySize: number;
+        validTablesCount: number;
+        singleTableCandidatesCount: number;
+      };
+      iterations: {
+        totalEvaluations: number;
+        dfsIterations?: number;
+        earlyExit: boolean;
+        earlyExitReason?: string;
+      };
+    };
+  } | null;
 };
 
 type AutoAssignTablesResponse = {
@@ -145,6 +296,7 @@ type AutoAssignTablesResponse = {
   assigned: { bookingId: string; tableIds: string[] }[];
   skipped: { bookingId: string; reason: string }[];
   serviceFallbacks: { bookingId: string; usedFallback: boolean; fallbackService: string | null }[];
+  decisions?: AutoAssignDecisionSnapshot[];
 };
 
 type AutoQuoteCandidate = {
@@ -154,6 +306,7 @@ type AutoQuoteCandidate = {
   tableCount: number;
   slack?: number;
   score?: number;
+  adjacencyStatus?: 'single' | 'connected' | 'disconnected';
 };
 
 type AutoQuoteResponse = {
@@ -322,6 +475,9 @@ export type ManualReleaseHoldPayload = {
 export interface BookingService {
   getTodaySummary(params: SummaryParams): Promise<OpsTodayBookingsSummary>;
   getBookingHeatmap(params: HeatmapParams): Promise<OpsBookingHeatmap>;
+  getRejectionAnalytics(params: RejectionAnalyticsParams): Promise<OpsRejectionAnalytics>;
+  getStrategicSettings(params: StrategicSettingsParams): Promise<OpsStrategicSettings>;
+  updateStrategicSettings(input: StrategicSettingsUpdate): Promise<OpsStrategicSettings>;
   listBookings(filters: OpsBookingsFilters): Promise<OpsBookingsPage>;
   updateBooking(input: UpdateBookingInput): Promise<OpsBookingListItem>;
   updateBookingStatus(input: UpdateStatusInput): Promise<{ status: OpsBookingStatus }>;
@@ -408,6 +564,24 @@ export function createBrowserBookingService(): BookingService {
     async getBookingHeatmap({ restaurantId, startDate, endDate }) {
       const params = new URLSearchParams({ restaurantId, startDate, endDate });
       return fetchJson<OpsBookingHeatmap>(`${OPS_DASHBOARD_BASE}/heatmap?${params.toString()}`);
+    },
+    async getRejectionAnalytics({ restaurantId, from, to, bucket }) {
+      const params = new URLSearchParams({ restaurantId });
+      if (from) params.set('from', from);
+      if (to) params.set('to', to);
+      if (bucket) params.set('bucket', bucket);
+      return fetchJson<OpsRejectionAnalytics>(`${OPS_DASHBOARD_BASE}/rejections?${params.toString()}`);
+    },
+    async getStrategicSettings({ restaurantId }) {
+      const params = new URLSearchParams({ restaurantId });
+      return fetchJson<OpsStrategicSettings>(`${OPS_SETTINGS_BASE}/strategic-config?${params.toString()}`);
+    },
+    async updateStrategicSettings({ restaurantId, weights }) {
+      return fetchJson<OpsStrategicSettings>(`${OPS_SETTINGS_BASE}/strategic-config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ restaurantId, weights }),
+      });
     },
     async getStatusSummary(params) {
       const query = buildStatusSummarySearch(params);
@@ -503,10 +677,13 @@ export function createBrowserBookingService(): BookingService {
         method: 'DELETE',
       });
     },
-    async autoAssignTables({ restaurantId, date }) {
+    async autoAssignTables({ restaurantId, date, captureDecisions }) {
       const payload: Record<string, unknown> = { restaurantId };
       if (date) {
         payload.date = date;
+      }
+      if (typeof captureDecisions === 'boolean') {
+        payload.captureDecisions = captureDecisions;
       }
 
       return fetchJson<AutoAssignTablesResponse>(`${OPS_DASHBOARD_BASE}/assign-tables`, {
@@ -613,6 +790,18 @@ export class NotImplementedBookingService implements BookingService {
     this.error('getBookingHeatmap not implemented');
   }
 
+  getRejectionAnalytics(): Promise<OpsRejectionAnalytics> {
+    this.error('getRejectionAnalytics not implemented');
+  }
+
+  getStrategicSettings(): Promise<OpsStrategicSettings> {
+    this.error('getStrategicSettings not implemented');
+  }
+
+  updateStrategicSettings(): Promise<OpsStrategicSettings> {
+    this.error('updateStrategicSettings not implemented');
+  }
+
   listBookings(): Promise<OpsBookingsPage> {
     this.error('listBookings not implemented');
   }
@@ -665,7 +854,7 @@ export class NotImplementedBookingService implements BookingService {
     this.error('unassignTable not implemented');
   }
 
-  autoAssignTables(): Promise<AutoAssignTablesResponse> {
+  autoAssignTables(_input?: AutoAssignTablesInput): Promise<AutoAssignTablesResponse> {
     this.error('autoAssignTables not implemented');
   }
 

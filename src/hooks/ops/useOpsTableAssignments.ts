@@ -14,6 +14,7 @@ export type TableAssignmentVariables = {
 export type AutoAssignTablesVariables = {
   restaurantId: string;
   date?: string | null;
+  captureDecisions?: boolean;
 };
 
 export function useOpsTableAssignmentActions(params: { restaurantId: string | null; date: string | null }) {
@@ -61,8 +62,12 @@ export function useOpsTableAssignmentActions(params: { restaurantId: string | nu
   });
 
   const autoAssignTables = useMutation({
-    mutationFn: ({ restaurantId: inputRestaurantId, date: targetDate }: AutoAssignTablesVariables) =>
-      bookingService.autoAssignTables({ restaurantId: inputRestaurantId, date: targetDate ?? date }),
+    mutationFn: ({ restaurantId: inputRestaurantId, date: targetDate, captureDecisions }: AutoAssignTablesVariables) =>
+      bookingService.autoAssignTables({
+        restaurantId: inputRestaurantId,
+        date: targetDate ?? date,
+        captureDecisions: captureDecisions ?? true,
+      }),
     onSuccess: (result) => {
       invalidateCaches();
       const assignedCount = result.assigned.length;

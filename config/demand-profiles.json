@@ -1,0 +1,37 @@
+{
+  "default": [
+    {
+      "label": "weekday-lunch",
+      "serviceWindow": "lunch",
+      "days": ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
+      "start": "11:30",
+      "end": "14:30",
+      "multiplier": 0.85
+    },
+    {
+      "label": "weekday-dinner",
+      "serviceWindow": "dinner",
+      "days": ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY"],
+      "start": "17:30",
+      "end": "21:30",
+      "multiplier": 1.15
+    },
+    {
+      "label": "weekend-dinner-peak",
+      "serviceWindow": "dinner",
+      "days": ["FRIDAY", "SATURDAY"],
+      "start": "18:00",
+      "end": "22:30",
+      "multiplier": 1.35
+    },
+    {
+      "label": "weekend-brunch",
+      "serviceWindow": "lunch",
+      "days": ["SATURDAY", "SUNDAY"],
+      "start": "10:00",
+      "end": "13:00",
+      "multiplier": 1.1
+    }
+  ],
+  "restaurants": {}
+}

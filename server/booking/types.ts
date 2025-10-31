@@ -178,6 +178,7 @@ export function mapCapacityErrorCode(code: CapacityErrorCode | undefined): Booki
     case "CAPACITY_EXCEEDED":
     case "BOOKING_CONFLICT":
       return "CAPACITY_EXCEEDED";
+    case "BOOKING_OUTSIDE_OPERATING_HOURS":
     case "OPERATING_HOURS_CLOSED":
       return "OUTSIDE_HOURS";
     case "PAST_TIME_BLOCKED":

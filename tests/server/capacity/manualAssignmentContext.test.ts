@@ -122,19 +122,39 @@ function createSupabaseClient() {
           return {
             select(columns: string) {
               if (columns.includes("booking_table_assignments")) {
-                return {
-                  eq() {
-                    return {
-                      eq() {
-                        return {
-                          order() {
-                            return Promise.resolve({ data: fixtures.contextBookings, error: null });
-                          },
-                        };
-                      },
-                    };
+                const filters: {
+                  eq: Record<string, unknown>;
+                  statusIn?: string[];
+                } = { eq: {} };
+
+                const builder = {
+                  eq(column: string, value: unknown) {
+                    filters.eq[column] = value;
+                    return builder;
+                  },
+                  in(column: string, values: unknown[]) {
+                    if (column === "status" && Array.isArray(values)) {
+                      filters.statusIn = values.map((entry) => String(entry));
+                    }
+                    return builder;
+                  },
+                  order() {
+                    const data = fixtures.contextBookings.filter((booking) => {
+                      const matchesEq = Object.entries(filters.eq).every(([key, value]) => {
+                        if (!(key in booking) || booking[key] === undefined || booking[key] === null) {
+                          return true;
+                        }
+                        return booking[key] === value;
+                      });
+                      const matchesStatus =
+                        !filters.statusIn || filters.statusIn.includes(String(booking.status ?? ""));
+                      return matchesEq && matchesStatus;
+                    });
+                    return Promise.resolve({ data, error: null });
                   },
                 };
+
+                return builder;
               }
               if (columns.includes("restaurant_id")) {
                 if (columns.includes("booking_date")) {

@@ -14,3 +14,5 @@ export * from './ops/useOpsTeamInvitations';
 export * from './ops/useOpsTodayVIPs';
 export * from './ops/useOpsBookingChanges';
 export * from './ops/useBookingRealtime';
+export * from './ops/useOpsRejectionAnalytics';
+export * from './ops/useOpsStrategicSettings';

@@ -1,5 +1,7 @@
 import { DateTime } from "luxon";
 import { randomUUID } from "node:crypto";
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import { performance } from "node:perf_hooks";
 
 import { BOOKING_BLOCKING_STATUSES } from "@/lib/enums";
@@ -18,9 +20,13 @@ import {
   isAdjacencyQueryUndirected,
   isOpsMetricsEnabled,
   isSelectorScoringEnabled,
+  isSelectorLookaheadEnabled,
+  getSelectorLookaheadWindowMinutes,
+  getSelectorLookaheadPenaltyWeight,
 } from "@/server/feature-flags";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
+import { resolveDemandMultiplier, type DemandMultiplierResult } from "./demand-profiles";
 import {
   AssignTablesRpcError,
   HoldConflictError,
@@ -39,6 +45,7 @@ import {
   getBufferConfig,
   getSelectorScoringConfig,
   getVenuePolicy,
+  getYieldManagementScarcityWeight,
   serviceEnd,
   whichService,
   type SelectorScoringConfig,
@@ -47,15 +54,26 @@ import {
   ServiceNotFoundError,
   ServiceOverrunError,
 } from "./policy";
-import { buildScoredTablePlans, type RankedTablePlan, type CandidateDiagnostics } from "./selector";
+import { loadTableScarcityScores } from "./scarcity";
 import {
+  buildScoredTablePlans,
+  type RankedTablePlan,
+  type CandidateDiagnostics,
+  type BuildCandidatesResult,
+  type ScoreBreakdown,
+} from "./selector";
+import { loadStrategicConfig } from "./strategic-config";
+import {
+  buildSelectorDecisionPayload,
   emitHoldConfirmed,
   emitRpcConflict,
   emitSelectorDecision,
   emitSelectorQuote,
   summarizeCandidate,
   type CandidateSummary,
+  type SelectorDecisionCapture,
   type SelectorDecisionEvent,
+  type StrategicPenaltyTelemetry,
 } from "./telemetry";
 import {
   AssignmentConflictError,
@@ -69,6 +87,8 @@ import {
 
 import type { Database, Tables } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
+
+export type { SelectorDecisionCapture } from "./telemetry";
 
 type DbClient = SupabaseClient<Database, "public">;
 
@@ -177,6 +197,7 @@ function buildSelectorFeatureFlagsTelemetry(): {
   adjacencyUndirected: boolean;
   holdsStrictConflicts: boolean;
   allocatorFailHard: boolean;
+  selectorLookahead: boolean;
 } {
   return {
     selectorScoring: isSelectorScoringEnabled(),
@@ -185,6 +206,7 @@ function buildSelectorFeatureFlagsTelemetry(): {
     adjacencyUndirected: isAdjacencyQueryUndirected(),
     holdsStrictConflicts: isHoldStrictConflictsEnabled(),
     allocatorFailHard: isAllocatorServiceFailHard(),
+    selectorLookahead: isSelectorLookaheadEnabled(),
   };
 }
 
@@ -192,6 +214,7 @@ export type AutoAssignResult = {
   assigned: Array<{ bookingId: string; tableIds: string[] }>;
   skipped: Array<{ bookingId: string; reason: string }>;
   serviceFallbacks: Array<{ bookingId: string; usedFallback: boolean; fallbackService: ServiceKey | null }>;
+  decisions?: SelectorDecisionCapture[];
 };
 
 export type QuoteTablesOptions = {
@@ -547,6 +570,154 @@ function roundMilliseconds(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+const AUTO_ASSIGN_LOG_ROOT = process.env.AUTO_ASSIGN_LOG_ROOT ?? path.join(process.cwd(), "logs");
+const AUTO_ASSIGN_LOG_DIR =
+  process.env.AUTO_ASSIGN_LOG_DIR ?? path.join(AUTO_ASSIGN_LOG_ROOT, process.env.AUTO_ASSIGN_LOG_SUBDIR ?? "auto-assign");
+
+const STRATEGIC_SKIP_REASON_PATTERNS = [
+  /conflicts with existing/i,
+  /future conflict/i,
+  /lookahead/i,
+  /strategic/i,
+];
+
+type ScoreBreakdownLike = ScoreBreakdown | CandidateSummary["scoreBreakdown"] | null | undefined;
+
+function isCamelCaseBreakdown(breakdown: ScoreBreakdownLike): breakdown is ScoreBreakdown {
+  return Boolean(breakdown && typeof breakdown === "object" && "slackPenalty" in breakdown);
+}
+
+function isSnakeCaseBreakdown(
+  breakdown: ScoreBreakdownLike,
+): breakdown is NonNullable<CandidateSummary["scoreBreakdown"]> {
+  return Boolean(breakdown && typeof breakdown === "object" && "slack_penalty" in breakdown);
+}
+
+function extractStrategicPenalties(breakdown: ScoreBreakdownLike): StrategicPenaltyTelemetry | null {
+  if (!breakdown) {
+    return null;
+  }
+
+  let slack = 0;
+  let scarcity = 0;
+  let futureConflict = 0;
+
+  if (isCamelCaseBreakdown(breakdown)) {
+    slack = Number(breakdown.slackPenalty ?? 0);
+    scarcity = Number(breakdown.scarcityPenalty ?? 0);
+    futureConflict = Number(breakdown.futureConflictPenalty ?? 0);
+  } else if (isSnakeCaseBreakdown(breakdown)) {
+    slack = Number(breakdown.slack_penalty ?? 0);
+    scarcity = Number(breakdown.scarcity_penalty ?? 0);
+    futureConflict = Number(breakdown.future_conflict_penalty ?? 0);
+  } else {
+    return null;
+  }
+
+  const contributions: Array<[StrategicPenaltyTelemetry["dominant"], number]> = [
+    ["slack", slack],
+    ["scarcity", scarcity],
+    ["future_conflict", futureConflict],
+  ];
+
+  let dominant: StrategicPenaltyTelemetry["dominant"] = "unknown";
+  let maxContribution = 0;
+
+  for (const [key, value] of contributions) {
+    if (value > maxContribution) {
+      maxContribution = value;
+      dominant = key;
+    }
+  }
+
+  if (maxContribution <= 0) {
+    dominant = "unknown";
+  }
+
+  return {
+    dominant,
+    slack,
+    scarcity,
+    futureConflict,
+  };
+}
+
+type RejectionTelemetry = {
+  classification: "hard" | "strategic";
+  penalties: StrategicPenaltyTelemetry | null;
+};
+
+function determineRejectionTelemetry(
+  skipReason: string | null | undefined,
+  breakdown: ScoreBreakdownLike,
+): RejectionTelemetry | null {
+  const reason = (skipReason ?? "").trim();
+  const normalized = reason.toLowerCase();
+  const penalties = extractStrategicPenalties(breakdown);
+  const hasMeaningfulPenalty = Boolean(
+    penalties && (penalties.slack > 0 || penalties.scarcity > 0 || penalties.futureConflict > 0),
+  );
+  const matchesStrategicKeyword =
+    normalized.length > 0 && STRATEGIC_SKIP_REASON_PATTERNS.some((pattern) => pattern.test(normalized));
+
+  if (hasMeaningfulPenalty || matchesStrategicKeyword) {
+    return {
+      classification: "strategic",
+      penalties: penalties ?? null,
+    };
+  }
+
+  if (!reason) {
+    return null;
+  }
+
+  return {
+    classification: "hard",
+    penalties: null,
+  };
+}
+
+async function persistDecisionSnapshots(params: {
+  restaurantId: string;
+  slug?: string | null;
+  date: string;
+  decisions: SelectorDecisionCapture[];
+}): Promise<void> {
+  if (params.decisions.length === 0) {
+    return;
+  }
+
+  if (process.env.NODE_ENV === "test") {
+    return;
+  }
+
+  try {
+    const timestamp = DateTime.utc().toFormat("yyyyLLdd-HHmmss");
+    const safeSlugSource = (params.slug && params.slug.trim().length > 0 ? params.slug : params.restaurantId) ?? params.restaurantId;
+    const safeSlug = safeSlugSource.replace(/[^a-zA-Z0-9-_]/g, "_").toLowerCase();
+    const bookingSegment = params.date.replace(/[^a-zA-Z0-9-_]/g, "_");
+    const decisionSegment = `${String(params.decisions.length).padStart(2, "0")}dec`;
+    const timestampDir = path.join(AUTO_ASSIGN_LOG_DIR, "log", timestamp);
+    await fs.mkdir(timestampDir, { recursive: true });
+    const filePath = path.join(timestampDir, `${safeSlug}-${bookingSegment}-${decisionSegment}.json`);
+    const payload = {
+      generatedAt: new Date().toISOString(),
+      restaurantId: params.restaurantId,
+      restaurantSlug: params.slug ?? null,
+      date: params.date,
+      decisionCount: params.decisions.length,
+      decisions: params.decisions,
+    };
+    await fs.writeFile(filePath, JSON.stringify(payload, null, 2), "utf8");
+  } catch (error) {
+    console.error("[auto-assign][capture] failed to persist decisions", {
+      error: error instanceof Error ? error.message : String(error),
+      restaurantId: params.restaurantId,
+      date: params.date,
+    });
+  }
+}
+
 function buildTiming(params: {
   totalMs: number;
   plannerMs?: number;
@@ -586,6 +757,9 @@ function composePlannerConfig(params: {
     usedFallback: boolean;
     fallbackService: ServiceKey | null;
   };
+  demandMultiplier: number;
+  demandRule?: DemandMultiplierResult["rule"];
+  lookahead: Pick<LookaheadConfig, "enabled" | "windowMinutes" | "penaltyWeight">;
 }): NonNullable<SelectorDecisionEvent["plannerConfig"]> {
   const { diagnostics, scoringConfig } = params;
   const { limits } = diagnostics;
@@ -596,10 +770,18 @@ function composePlannerConfig(params: {
     adjacencyRequiredGlobally: params.adjacencyRequiredGlobally,
     adjacencyMinPartySize: params.adjacencyMinPartySize,
     kMax: limits.kMax,
-    bucketLimit: limits.maxPlansPerSlack,
-    evaluationLimit: limits.maxCombinationEvaluations,
-    maxOverage: scoringConfig.maxOverage,
-    maxTables: scoringConfig.maxTables,
+   bucketLimit: limits.maxPlansPerSlack,
+   evaluationLimit: limits.maxCombinationEvaluations,
+   maxOverage: scoringConfig.maxOverage,
+   maxTables: scoringConfig.maxTables,
+    weights: {
+      overage: scoringConfig.weights.overage,
+      tableCount: scoringConfig.weights.tableCount,
+      fragmentation: scoringConfig.weights.fragmentation,
+      zoneBalance: scoringConfig.weights.zoneBalance,
+      adjacencyCost: scoringConfig.weights.adjacencyCost,
+      scarcity: scoringConfig.weights.scarcity,
+    },
     featureFlags: {
       plannerTimePruning: params.featureFlags.plannerTimePruning,
       adjacencyUndirected: params.featureFlags.adjacencyUndirected,
@@ -607,10 +789,28 @@ function composePlannerConfig(params: {
       allocatorFailHard: params.featureFlags.allocatorFailHard,
       selectorScoring: params.featureFlags.selectorScoring,
       opsMetrics: params.featureFlags.opsMetrics,
+      selectorLookahead: params.featureFlags.selectorLookahead,
     },
     serviceFallback: {
       used: params.serviceFallback.usedFallback,
       service: params.serviceFallback.fallbackService,
+    },
+    demandMultiplier: params.demandMultiplier,
+    demandRule: params.demandRule
+      ? {
+          label: params.demandRule.label ?? null,
+          source: params.demandRule.source,
+          serviceWindow: params.demandRule.serviceWindow ?? null,
+          days: params.demandRule.days,
+          start: params.demandRule.start ?? null,
+          end: params.demandRule.end ?? null,
+          priority: params.demandRule.priority ?? null,
+        }
+      : null,
+    lookahead: {
+      enabled: params.lookahead.enabled,
+      windowMinutes: params.lookahead.windowMinutes,
+      penaltyWeight: params.lookahead.penaltyWeight,
     },
   };
 }
@@ -782,9 +982,311 @@ function partiesRequireAdjacency(partySize: number): boolean {
  */
 function resolveRequireAdjacency(partySize: number, override?: boolean): boolean {
   if (typeof override === "boolean") {
-    return override;
+   return override;
   }
   return partiesRequireAdjacency(partySize);
+}
+
+type LookaheadConfig = {
+  enabled: boolean;
+  windowMinutes: number;
+  penaltyWeight: number;
+};
+
+type FutureBookingCandidate = {
+  bookingId: string;
+  partySize: number;
+  window: BookingWindow;
+  busy: AvailabilityMap;
+  usedFallback: boolean;
+  fallbackService: ServiceKey | null;
+};
+
+function prepareLookaheadBookings(params: {
+  bookingId: string;
+  currentWindow: BookingWindow;
+  lookahead: LookaheadConfig;
+  policy: VenuePolicy;
+  contextBookings: ContextBookingRow[];
+  holds: TableHold[];
+}): FutureBookingCandidate[] {
+  const { bookingId, currentWindow, lookahead, policy, contextBookings, holds } = params;
+  if (!lookahead.enabled || lookahead.windowMinutes <= 0) {
+    return [];
+  }
+
+  const cutoff = currentWindow.block.start.plus({ minutes: lookahead.windowMinutes });
+  const candidates: FutureBookingCandidate[] = [];
+
+  for (const booking of contextBookings) {
+    if (!booking || booking.id === bookingId) {
+      continue;
+    }
+
+    const partySize = booking.party_size ?? 0;
+    if (!Number.isFinite(partySize) || partySize <= 0) {
+      continue;
+    }
+
+    const assignments = booking.booking_table_assignments ?? [];
+    if (assignments.length > 0) {
+      continue;
+    }
+
+    let computed: BookingWindowWithFallback;
+    try {
+      computed = computeBookingWindowWithFallback({
+        startISO: booking.start_at,
+        bookingDate: booking.booking_date,
+        startTime: booking.start_time,
+        partySize,
+        policy,
+      });
+    } catch {
+      continue;
+    }
+
+    const { window } = computed;
+    if (window.block.start <= currentWindow.block.start) {
+      continue;
+    }
+
+    if (window.block.start > cutoff) {
+      continue;
+    }
+
+    const busy = buildBusyMaps({
+      targetBookingId: booking.id,
+      bookings: contextBookings,
+      holds,
+      policy,
+      targetWindow: window,
+    });
+
+    candidates.push({
+      bookingId: booking.id,
+      partySize,
+      window,
+      busy,
+      usedFallback: computed.usedFallback,
+      fallbackService: computed.fallbackService,
+    });
+  }
+
+  return candidates;
+}
+
+function applyLookaheadPenalties(params: {
+  plans: RankedTablePlan[];
+  bookingWindow: BookingWindow;
+  tables: Table[];
+  adjacency: Map<string, Set<string>>;
+  zoneId: string | null;
+  futureBookings: FutureBookingCandidate[];
+  config: SelectorScoringConfig;
+  combinationEnabled: boolean;
+  combinationLimit: number;
+  selectorLimits: ReturnType<typeof getSelectorPlannerLimits>;
+  penaltyWeight: number;
+}): {
+  penalizedPlans: number;
+  totalPenalty: number;
+  evaluationMs: number;
+  conflicts: Array<{ bookingId: string; planKey: string }>;
+} {
+  const { plans, bookingWindow, tables, adjacency, zoneId, futureBookings, config, combinationEnabled, combinationLimit, selectorLimits, penaltyWeight } = params;
+  const start = performance.now();
+
+  if (futureBookings.length === 0 || plans.length === 0 || penaltyWeight <= 0) {
+    return { penalizedPlans: 0, totalPenalty: 0, evaluationMs: performance.now() - start, conflicts: [] };
+  }
+
+  let penalizedPlans = 0;
+  let totalPenalty = 0;
+  const conflicts: Array<{ bookingId: string; planKey: string }> = [];
+
+  for (const plan of plans) {
+    let planPenalty = 0;
+    const avoidTables = new Set(plan.tables.map((table) => table.id));
+
+    for (const future of futureBookings) {
+      if (!windowsOverlap(bookingWindow.block, future.window.block)) {
+        continue;
+      }
+
+      const requireAdjacencyForFuture = resolveRequireAdjacency(future.partySize);
+      const availableTables = filterAvailableTables(
+        tables,
+        future.partySize,
+        future.window,
+        adjacency,
+        avoidTables,
+        zoneId ?? null,
+        {
+          allowInsufficientCapacity: true,
+          timeFilter: {
+            busy: future.busy,
+            mode: "strict",
+          },
+        },
+      );
+
+      if (availableTables.length === 0) {
+        planPenalty += penaltyWeight;
+        conflicts.push({ bookingId: future.bookingId, planKey: plan.tableKey });
+        continue;
+      }
+
+      const futurePlans = buildScoredTablePlans({
+        tables: availableTables,
+        partySize: future.partySize,
+        adjacency,
+        config,
+        enableCombinations: combinationEnabled,
+        kMax: combinationLimit,
+        maxPlansPerSlack: selectorLimits.maxPlansPerSlack,
+        maxCombinationEvaluations: selectorLimits.maxCombinationEvaluations,
+        requireAdjacency: requireAdjacencyForFuture,
+        demandMultiplier: 1,
+      });
+
+      if (futurePlans.plans.length === 0) {
+        planPenalty += penaltyWeight;
+        conflicts.push({ bookingId: future.bookingId, planKey: plan.tableKey });
+      }
+    }
+
+    if (planPenalty > 0) {
+      penalizedPlans += 1;
+      totalPenalty += planPenalty;
+      plan.score += planPenalty;
+      plan.scoreBreakdown.futureConflictPenalty =
+        (plan.scoreBreakdown.futureConflictPenalty ?? 0) + planPenalty;
+      plan.scoreBreakdown.total += planPenalty;
+    }
+  }
+
+  const evaluationMs = performance.now() - start;
+  return { penalizedPlans, totalPenalty, evaluationMs, conflicts };
+}
+
+function sortPlansByScore(plans: RankedTablePlan[]): void {
+  plans.sort((a, b) => {
+    if (a.score !== b.score) {
+      return a.score - b.score;
+    }
+    if (a.metrics.overage !== b.metrics.overage) {
+      return a.metrics.overage - b.metrics.overage;
+    }
+    if (a.metrics.tableCount !== b.metrics.tableCount) {
+      return a.metrics.tableCount - b.metrics.tableCount;
+    }
+    if (a.totalCapacity !== b.totalCapacity) {
+      return a.totalCapacity - b.totalCapacity;
+    }
+    if (a.metrics.fragmentation !== b.metrics.fragmentation) {
+      return a.metrics.fragmentation - b.metrics.fragmentation;
+    }
+    if (a.metrics.adjacencyCost !== b.metrics.adjacencyCost) {
+      return a.metrics.adjacencyCost - b.metrics.adjacencyCost;
+    }
+    return a.tableKey.localeCompare(b.tableKey, "en");
+  });
+}
+
+export function evaluateLookahead(params: {
+  lookahead: LookaheadConfig;
+  bookingId: string;
+  bookingWindow: BookingWindow;
+  plansResult: BuildCandidatesResult;
+  tables: Table[];
+  adjacency: Map<string, Set<string>>;
+  zoneId: string | null;
+  policy: VenuePolicy;
+  contextBookings: ContextBookingRow[];
+  holds: TableHold[];
+  combinationEnabled: boolean;
+  combinationLimit: number;
+  selectorLimits: ReturnType<typeof getSelectorPlannerLimits>;
+  scoringConfig: SelectorScoringConfig;
+}): CandidateDiagnostics["lookahead"] {
+  const {
+    lookahead,
+    bookingId,
+    bookingWindow,
+    plansResult,
+    tables,
+    adjacency,
+    zoneId,
+    policy,
+    contextBookings,
+    holds,
+    combinationEnabled,
+    combinationLimit,
+    selectorLimits,
+    scoringConfig,
+  } = params;
+
+  if (!lookahead.enabled) {
+    return {
+      enabled: false,
+      evaluationMs: 0,
+      futureBookingsConsidered: 0,
+      penalizedPlans: 0,
+      totalPenalty: 0,
+      windowMinutes: lookahead.windowMinutes,
+      conflicts: [],
+    };
+  }
+
+  const futureBookings = prepareLookaheadBookings({
+    bookingId,
+    currentWindow: bookingWindow,
+    lookahead,
+    policy,
+    contextBookings,
+    holds,
+  });
+
+  if (futureBookings.length === 0 || plansResult.plans.length === 0) {
+    return {
+      enabled: true,
+      evaluationMs: 0,
+      futureBookingsConsidered: futureBookings.length,
+      penalizedPlans: 0,
+      totalPenalty: 0,
+      windowMinutes: lookahead.windowMinutes,
+      conflicts: [],
+    };
+  }
+
+  const { penalizedPlans, totalPenalty, evaluationMs, conflicts } = applyLookaheadPenalties({
+    plans: plansResult.plans,
+    bookingWindow,
+    tables,
+    adjacency,
+    zoneId,
+    futureBookings,
+    config: scoringConfig,
+    combinationEnabled,
+    combinationLimit,
+    selectorLimits,
+    penaltyWeight: lookahead.penaltyWeight,
+  });
+
+  if (penalizedPlans > 0) {
+    sortPlansByScore(plansResult.plans);
+  }
+
+  return {
+    enabled: true,
+    evaluationMs,
+    futureBookingsConsidered: futureBookings.length,
+    penalizedPlans,
+    totalPenalty,
+    windowMinutes: lookahead.windowMinutes,
+    conflicts,
+  };
 }
 
 async function loadBooking(bookingId: string, client: DbClient): Promise<BookingRow> {
@@ -819,18 +1321,31 @@ async function loadBooking(bookingId: string, client: DbClient): Promise<Booking
   return normalizeBookingRow(data as unknown as BookingRow);
 }
 
-async function loadRestaurantTimezone(restaurantId: string, client: DbClient): Promise<string | null> {
+type RestaurantInfo = {
+  timezone: string | null;
+  slug: string | null;
+};
+
+async function loadRestaurantInfo(restaurantId: string, client: DbClient): Promise<RestaurantInfo> {
   const { data, error } = await client
     .from("restaurants")
-    .select("timezone")
+    .select("timezone, slug")
     .eq("id", restaurantId)
     .maybeSingle();
 
   if (error) {
-    throw new ManualSelectionInputError(error.message ?? "Failed to load restaurant timezone", "RESTAURANT_LOOKUP_FAILED", 500);
+    throw new ManualSelectionInputError(error.message ?? "Failed to load restaurant metadata", "RESTAURANT_LOOKUP_FAILED", 500);
   }
 
-  return data?.timezone ?? null;
+  return {
+    timezone: data?.timezone ?? null,
+    slug: data?.slug ?? null,
+  };
+}
+
+async function loadRestaurantTimezone(restaurantId: string, client: DbClient): Promise<string | null> {
+  const info = await loadRestaurantInfo(restaurantId, client);
+  return info.timezone;
 }
 
 async function loadTablesForRestaurant(restaurantId: string, client: DbClient): Promise<Table[]> {
@@ -2276,12 +2791,14 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
   );
   const requireAdjacency = resolveRequireAdjacency(booking.party_size, requireAdjacencyOverride);
   const timePruningEnabled = isPlannerTimePruningEnabled();
+  const lookaheadEnabled = isSelectorLookaheadEnabled();
   let timePruningStats: TimeFilterStats | null = null;
   let busyForPlanner: AvailabilityMap | undefined;
+  let contextBookings: ContextBookingRow[] = [];
+  let holdsForDay: TableHold[] = [];
 
-  if (timePruningEnabled) {
-    const contextBookings = await loadContextBookings(booking.restaurant_id, booking.booking_date ?? null, supabase);
-    let holdsForDay: TableHold[] = [];
+  if (timePruningEnabled || lookaheadEnabled) {
+    contextBookings = await loadContextBookings(booking.restaurant_id, booking.booking_date ?? null, supabase);
     if (isHoldsEnabled()) {
       try {
         holdsForDay = await loadActiveHoldsForDate(booking.restaurant_id, booking.booking_date ?? null, policy, supabase);
@@ -2300,6 +2817,9 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
         holdsForDay = [];
       }
     }
+  }
+
+  if (timePruningEnabled) {
     busyForPlanner = buildBusyMaps({
       targetBookingId: booking.id,
       bookings: contextBookings,
@@ -2331,10 +2851,33 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     },
   );
 
-  const scoringConfig = getSelectorScoringConfig();
+  const strategicOptions = { restaurantId: booking.restaurant_id ?? null } as const;
+  await loadStrategicConfig({ ...strategicOptions, client: supabase });
+  const baseScoringConfig = getSelectorScoringConfig(strategicOptions);
   const selectorLimits = getSelectorPlannerLimits();
   const combinationEnabled = isCombinationPlannerEnabled();
   const combinationLimit = maxTables ?? getAllocatorCombinationLimit();
+  const demandMultiplierResult = await resolveDemandMultiplier({
+    restaurantId: booking.restaurant_id,
+    serviceStart: window.block.start,
+    serviceKey: window.service,
+    timezone: policy.timezone,
+    client: supabase,
+  });
+  const demandMultiplier = demandMultiplierResult?.multiplier ?? 1;
+  const demandRule = demandMultiplierResult?.rule;
+  const tableScarcityScores = await loadTableScarcityScores({
+    restaurantId: booking.restaurant_id,
+    tables: filtered,
+    client: supabase,
+  });
+  const scoringConfig: SelectorScoringConfig = {
+    ...baseScoringConfig,
+    weights: {
+      ...baseScoringConfig.weights,
+      scarcity: getYieldManagementScarcityWeight(strategicOptions),
+    },
+  };
   const plannerStart = highResNow();
   const plans = buildScoredTablePlans({
     tables: filtered,
@@ -2346,7 +2889,32 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     maxPlansPerSlack: selectorLimits.maxPlansPerSlack,
     maxCombinationEvaluations: selectorLimits.maxCombinationEvaluations,
     requireAdjacency,
+    demandMultiplier,
+    tableScarcityScores,
   });
+  // const topRankedPlan = plans.plans[0] ?? null;
+  const lookaheadConfig: LookaheadConfig = {
+    enabled: lookaheadEnabled,
+    windowMinutes: getSelectorLookaheadWindowMinutes(),
+    penaltyWeight: getSelectorLookaheadPenaltyWeight(),
+  };
+  const lookaheadDiagnostics = evaluateLookahead({
+    lookahead: lookaheadConfig,
+    bookingId: booking.id,
+    bookingWindow: window,
+    plansResult: plans,
+    tables,
+    adjacency,
+    zoneId: zoneId ?? null,
+    policy,
+    contextBookings,
+    holds: holdsForDay,
+    combinationEnabled,
+    combinationLimit,
+    selectorLimits,
+    scoringConfig,
+  });
+  plans.diagnostics.lookahead = lookaheadDiagnostics;
   const plannerDurationMs = highResNow() - plannerStart;
   const adjacencyRequiredGlobally = adjacency.size > 0 && isAllocatorAdjacencyRequired();
   const adjacencyMinPartySize = getAllocatorAdjacencyMinPartySize();
@@ -2363,6 +2931,9 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
       usedFallback: bookingWindowUsedFallback,
       fallbackService: bookingWindowFallbackService,
     },
+    demandMultiplier,
+    demandRule,
+    lookahead: lookaheadConfig,
   });
   if (!timePruningStats) {
     timePruningStats = {
@@ -2417,6 +2988,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
       slack: plan.slack,
       score: plan.score,
       adjacencyStatus: plan.adjacencyStatus,
+      scoreBreakdown: plan.scoreBreakdown,
     });
 
     const conflicts = await findHoldConflicts({
@@ -2551,14 +3123,17 @@ export async function autoAssignTablesForDate(options: {
   date: string;
   client?: DbClient;
   assignedBy?: string | null;
+  captureDecisions?: boolean;
 }): Promise<AutoAssignResult> {
-  const { restaurantId, date, client, assignedBy = null } = options;
+  const { restaurantId, date, client, assignedBy = null, captureDecisions = true } = options;
   const supabase = ensureClient(client);
-  const [bookings, tables, restaurantTimezone] = await Promise.all([
+  const [bookings, tables, restaurantInfo] = await Promise.all([
     loadContextBookings(restaurantId, date, supabase),
     loadTablesForRestaurant(restaurantId, supabase),
-    loadRestaurantTimezone(restaurantId, supabase),
+    loadRestaurantInfo(restaurantId, supabase),
   ]);
+  const restaurantTimezone = restaurantInfo.timezone;
+  const restaurantSlug = restaurantInfo.slug;
   const adjacency = await loadAdjacency(
     tables.map((table) => table.id),
     supabase,
@@ -2569,6 +3144,11 @@ export async function autoAssignTablesForDate(options: {
   const combinationPlannerEnabled = isCombinationPlannerEnabled();
   const mergesEnabled = isAllocatorMergesEnabled();
   const selectorLimits = getSelectorPlannerLimits();
+  const lookaheadConfigGlobal: LookaheadConfig = {
+    enabled: isSelectorLookaheadEnabled(),
+    windowMinutes: getSelectorLookaheadWindowMinutes(),
+    penaltyWeight: getSelectorLookaheadPenaltyWeight(),
+  };
   const plannerTimePruningEnabled = isPlannerTimePruningEnabled();
   let activeHolds: TableHold[] = [];
   if (isHoldsEnabled()) {
@@ -2594,6 +3174,19 @@ export async function autoAssignTablesForDate(options: {
     assigned: [],
     skipped: [],
     serviceFallbacks: [],
+  };
+
+  const capturedDecisions: SelectorDecisionCapture[] | undefined = captureDecisions ? [] : undefined;
+
+  const recordDecision = async (event: SelectorDecisionEvent) => {
+    const normalizedEvent: SelectorDecisionEvent = {
+      ...event,
+      availabilitySnapshot: event.availabilitySnapshot ?? null,
+    };
+    if (capturedDecisions) {
+      capturedDecisions.push(buildSelectorDecisionPayload(normalizedEvent));
+    }
+    await emitSelectorDecision(normalizedEvent);
   };
 
   const adjacencyMinPartySizeFlag = getAllocatorAdjacencyMinPartySize();
@@ -2636,13 +3229,14 @@ export async function autoAssignTablesForDate(options: {
     if (!window) {
       const reason = overrunReason ?? "Reservation window exceeds service boundary";
       const totalDurationMs = highResNow() - operationStart;
+      const rejectionTelemetry = determineRejectionTelemetry(reason, null);
       result.skipped.push({ bookingId: booking.id, reason });
       result.serviceFallbacks.push({
         bookingId: booking.id,
         usedFallback: windowUsedFallback,
         fallbackService: windowFallbackService,
       });
-      await emitSelectorDecision({
+      await recordDecision({
         restaurantId,
         bookingId: booking.id,
         partySize: booking.party_size,
@@ -2655,6 +3249,8 @@ export async function autoAssignTablesForDate(options: {
         timing: buildTiming({ totalMs: totalDurationMs }),
         plannerConfig: undefined,
         diagnostics: undefined,
+        rejectionClassification: rejectionTelemetry?.classification ?? null,
+        strategicPenalties: rejectionTelemetry?.penalties ?? null,
       });
       continue;
     }
@@ -2695,8 +3291,31 @@ export async function autoAssignTablesForDate(options: {
           : undefined,
       },
     );
-    const scoringConfig = getSelectorScoringConfig();
+    const strategicOptions = { restaurantId } as const;
+    await loadStrategicConfig({ ...strategicOptions, client: supabase });
+    const baseScoringConfig = getSelectorScoringConfig(strategicOptions);
     const combinationLimit = getAllocatorCombinationLimit();
+    const demandMultiplierResult = await resolveDemandMultiplier({
+      restaurantId,
+      serviceStart: window.block.start,
+      serviceKey: window.service,
+      timezone: policy.timezone,
+      client: supabase,
+    });
+    const demandMultiplier = demandMultiplierResult?.multiplier ?? 1;
+    const demandRule = demandMultiplierResult?.rule;
+    const tableScarcityScores = await loadTableScarcityScores({
+      restaurantId,
+      tables: availableTables,
+      client: supabase,
+    });
+    const scoringConfig: SelectorScoringConfig = {
+      ...baseScoringConfig,
+      weights: {
+        ...baseScoringConfig.weights,
+        scarcity: getYieldManagementScarcityWeight(strategicOptions),
+      },
+    };
     const runPlanner = (enableCombinations: boolean) => {
       const plannerStart = highResNow();
       const result = buildScoredTablePlans({
@@ -2709,6 +3328,8 @@ export async function autoAssignTablesForDate(options: {
         maxPlansPerSlack: selectorLimits.maxPlansPerSlack,
         maxCombinationEvaluations: selectorLimits.maxCombinationEvaluations,
         requireAdjacency,
+        demandMultiplier,
+        tableScarcityScores,
       });
       plannerDurationMs += highResNow() - plannerStart;
       return result;
@@ -2735,6 +3356,24 @@ export async function autoAssignTablesForDate(options: {
       }
     }
 
+    const lookaheadDiagnostics = evaluateLookahead({
+      lookahead: lookaheadConfigGlobal,
+      bookingId: booking.id,
+      bookingWindow: window,
+      plansResult: plans,
+      tables,
+      adjacency,
+      zoneId: null,
+      policy,
+      contextBookings: bookings,
+      holds: activeHolds,
+      combinationEnabled: combinationModeForTelemetry,
+      combinationLimit,
+      selectorLimits,
+      scoringConfig,
+    });
+    plans.diagnostics.lookahead = lookaheadDiagnostics;
+
     const plannerConfigTelemetry = composePlannerConfig({
       diagnostics: plans.diagnostics,
       scoringConfig,
@@ -2747,6 +3386,9 @@ export async function autoAssignTablesForDate(options: {
         usedFallback: windowUsedFallback,
         fallbackService: windowFallbackService,
       },
+      demandMultiplier,
+      demandRule,
+      lookahead: lookaheadConfigGlobal,
     });
     if (!timePruningStats) {
       timePruningStats = {
@@ -2763,12 +3405,15 @@ export async function autoAssignTablesForDate(options: {
       candidates_after_time_prune: timePruningStats.candidates_after_time_prune,
     };
 
+    const topRankedPlan = plans.plans[0] ?? null;
+
     if (plans.plans.length === 0) {
       const fallback = plans.fallbackReason ?? "No suitable tables available";
       const skipReason = `No suitable tables available (${fallback})`;
       const totalDurationMs = highResNow() - operationStart;
+      const rejectionTelemetry = determineRejectionTelemetry(skipReason, topRankedPlan?.scoreBreakdown);
       result.skipped.push({ bookingId: booking.id, reason: skipReason });
-      await emitSelectorDecision({
+      await recordDecision({
         restaurantId,
         bookingId: booking.id,
         partySize: booking.party_size,
@@ -2784,6 +3429,8 @@ export async function autoAssignTablesForDate(options: {
         timing: buildTiming({ totalMs: totalDurationMs, plannerMs: plannerDurationMs }),
         plannerConfig: plannerConfigTelemetry,
         diagnostics: plans.diagnostics,
+        rejectionClassification: rejectionTelemetry?.classification ?? null,
+        strategicPenalties: rejectionTelemetry?.penalties ?? null,
       });
       continue;
     }
@@ -2796,6 +3443,7 @@ export async function autoAssignTablesForDate(options: {
         window,
       ),
     }));
+    const bestPlanForTelemetry = planEvaluations[0]?.plan ?? null;
 
     const candidateSummariesAll: CandidateSummary[] = planEvaluations.map(({ plan }) =>
       summarizeCandidate({
@@ -2806,6 +3454,7 @@ export async function autoAssignTablesForDate(options: {
         slack: plan.slack,
         score: plan.score,
         adjacencyStatus: plan.adjacencyStatus,
+        scoreBreakdown: plan.scoreBreakdown,
       }),
     );
 
@@ -2814,6 +3463,7 @@ export async function autoAssignTablesForDate(options: {
       const conflictEntry = planEvaluations.find(({ conflicts }) => conflicts.length > 0);
       const conflictSummary = conflictEntry ? formatConflictSummary(conflictEntry.conflicts) : "conflicts";
       const skipReason = `Conflicts with existing ${conflictSummary}`;
+      const rejectionTelemetry = determineRejectionTelemetry(skipReason, bestPlanForTelemetry?.scoreBreakdown);
 
       if (conflictEntry) {
         await emitRpcConflict({
@@ -2832,7 +3482,7 @@ export async function autoAssignTablesForDate(options: {
 
       result.skipped.push({ bookingId: booking.id, reason: skipReason });
       const totalDurationMs = highResNow() - operationStart;
-      await emitSelectorDecision({
+      await recordDecision({
         restaurantId,
         bookingId: booking.id,
         partySize: booking.party_size,
@@ -2848,6 +3498,8 @@ export async function autoAssignTablesForDate(options: {
         timing: buildTiming({ totalMs: totalDurationMs, plannerMs: plannerDurationMs }),
         plannerConfig: plannerConfigTelemetry,
         diagnostics: plans.diagnostics,
+        rejectionClassification: rejectionTelemetry?.classification ?? null,
+        strategicPenalties: rejectionTelemetry?.penalties ?? null,
       });
       continue;
     }
@@ -2863,6 +3515,7 @@ export async function autoAssignTablesForDate(options: {
         slack: plan.slack,
         score: plan.score,
         adjacencyStatus: plan.adjacencyStatus,
+        scoreBreakdown: plan.scoreBreakdown,
       }),
     );
     const candidate = candidateSummaries[0]!;
@@ -2919,9 +3572,10 @@ export async function autoAssignTablesForDate(options: {
       });
 
       const skipReason = "Auto assign skipped: Supabase reported an overlapping assignment";
+      const rejectionTelemetry = determineRejectionTelemetry(skipReason, topPlan?.scoreBreakdown);
       result.skipped.push({ bookingId: booking.id, reason: skipReason });
       const totalDurationMs = highResNow() - operationStart;
-      await emitSelectorDecision({
+      await recordDecision({
         restaurantId,
         bookingId: booking.id,
         partySize: booking.party_size,
@@ -2941,6 +3595,8 @@ export async function autoAssignTablesForDate(options: {
         }),
         plannerConfig: plannerConfigTelemetry,
         diagnostics: plans.diagnostics,
+        rejectionClassification: rejectionTelemetry?.classification ?? null,
+        strategicPenalties: rejectionTelemetry?.penalties ?? null,
       });
       continue;
     }
@@ -2959,8 +3615,17 @@ export async function autoAssignTablesForDate(options: {
       tableIds: topPlan.tables.map((table) => table.id),
     });
 
+    const assignedTableIds = new Set(topPlan.tables.map((table) => table.id));
+    const remainingTables = availableTables
+      .filter((table) => !assignedTableIds.has(table.id))
+      .map((table) => ({
+        id: table.id,
+        tableNumber: table.tableNumber,
+        capacity: table.capacity,
+      }));
+
     const totalDurationMs = highResNow() - operationStart;
-    await emitSelectorDecision({
+    await recordDecision({
       restaurantId,
       bookingId: booking.id,
       partySize: booking.party_size,
@@ -2980,7 +3645,17 @@ export async function autoAssignTablesForDate(options: {
       }),
       plannerConfig: plannerConfigTelemetry,
       diagnostics: plans.diagnostics,
+      availabilitySnapshot: {
+        totalCandidates: availableTables.length,
+        remainingAfterSelection: remainingTables.length,
+        remainingTables,
+      },
     });
+  }
+
+  if (capturedDecisions) {
+    await persistDecisionSnapshots({ restaurantId, date, slug: restaurantSlug, decisions: capturedDecisions });
+    return { ...result, decisions: capturedDecisions };
   }
 
   return result;
@@ -2991,6 +3666,7 @@ export async function autoAssignTables(options: {
   date: string;
   client?: DbClient;
   assignedBy?: string | null;
+  captureDecisions?: boolean;
 }): Promise<AutoAssignResult> {
   return autoAssignTablesForDate(options);
 }
@@ -3033,9 +3709,31 @@ export async function findSuitableTables(options: {
     undefined,
     { allowInsufficientCapacity: true },
   );
-  const scoringConfig = getSelectorScoringConfig();
+  const strategicOptions = { restaurantId: booking.restaurant_id ?? null } as const;
+  await loadStrategicConfig({ ...strategicOptions, client: supabase });
+  const baseScoringConfig = getSelectorScoringConfig(strategicOptions);
   const requireAdjacency = partiesRequireAdjacency(booking.party_size);
   const selectorLimits = getSelectorPlannerLimits();
+  const demandMultiplierResult = await resolveDemandMultiplier({
+    restaurantId: booking.restaurant_id,
+    serviceStart: window.block.start,
+    serviceKey: window.service,
+    timezone: policy.timezone,
+    client: supabase,
+  });
+  const demandMultiplier = demandMultiplierResult?.multiplier ?? 1;
+  const tableScarcityScores = await loadTableScarcityScores({
+    restaurantId: booking.restaurant_id,
+    tables: filtered,
+    client: supabase,
+  });
+  const scoringConfig: SelectorScoringConfig = {
+    ...baseScoringConfig,
+    weights: {
+      ...baseScoringConfig.weights,
+      scarcity: getYieldManagementScarcityWeight(strategicOptions),
+    },
+  };
   const plans = buildScoredTablePlans({
     tables: filtered,
     partySize: booking.party_size,
@@ -3046,6 +3744,8 @@ export async function findSuitableTables(options: {
     maxPlansPerSlack: selectorLimits.maxPlansPerSlack,
     maxCombinationEvaluations: selectorLimits.maxCombinationEvaluations,
     requireAdjacency,
+    demandMultiplier,
+    tableScarcityScores,
   });
 
   return plans.plans;

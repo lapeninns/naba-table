@@ -69,6 +69,7 @@ export type OpsSessionProviderProps = {
 const DEFAULT_FEATURE_FLAGS: OpsFeatureFlags = {
   opsMetrics: false,
   selectorScoring: false,
+  rejectionAnalytics: false,
 };
 
 export function OpsSessionProvider({
@@ -87,13 +88,7 @@ export function OpsSessionProvider({
   }, [initialRestaurantId, membershipIds, memberships]);
 
   const initialisedRef = useRef(false);
-  const [activeRestaurantId, setActiveRestaurantIdState] = useState<string | null>(() => {
-    const stored = readStoredRestaurantId();
-    if (stored && membershipIds.has(stored)) {
-      return stored;
-    }
-    return fallbackRestaurantId;
-  });
+  const [activeRestaurantId, setActiveRestaurantIdState] = useState<string | null>(fallbackRestaurantId);
 
   useEffect(() => {
     if (initialisedRef.current) {
@@ -213,8 +208,9 @@ export function OpsSessionProvider({
     () => ({
       opsMetrics: featureFlags.opsMetrics ?? false,
       selectorScoring: featureFlags.selectorScoring ?? false,
+      rejectionAnalytics: featureFlags.rejectionAnalytics ?? false,
     }),
-    [featureFlags.opsMetrics, featureFlags.selectorScoring],
+    [featureFlags.opsMetrics, featureFlags.selectorScoring, featureFlags.rejectionAnalytics],
   );
 
   const value = useMemo<OpsSessionContextValue>(

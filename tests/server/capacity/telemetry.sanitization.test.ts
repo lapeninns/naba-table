@@ -39,6 +39,7 @@ describe("telemetry sanitization", () => {
         adjacencyUndirected: true,
         holdsStrictConflicts: false,
         allocatorFailHard: false,
+        selectorLookahead: true,
       },
       timing: {
         totalMs: 128.75,
@@ -54,6 +55,14 @@ describe("telemetry sanitization", () => {
         evaluationLimit: 500,
         maxOverage: 2,
         maxTables: 3,
+        weights: {
+          overage: 5,
+          tableCount: 3,
+          fragmentation: 2,
+          zoneBalance: 4,
+          adjacencyCost: 1,
+          scarcity: 22,
+        },
         featureFlags: {
           selectorScoring: true,
           opsMetrics: false,
@@ -61,10 +70,18 @@ describe("telemetry sanitization", () => {
           adjacencyUndirected: true,
           holdsStrictConflicts: false,
           allocatorFailHard: false,
+          selectorLookahead: true,
         },
         serviceFallback: {
           used: false,
           service: null,
+        },
+        demandMultiplier: 1,
+        demandRule: null,
+        lookahead: {
+          enabled: true,
+          windowMinutes: 120,
+          penaltyWeight: 500,
         },
       },
       diagnostics: {

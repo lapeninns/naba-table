@@ -23,6 +23,17 @@ export type CandidateMetrics = {
   fragmentation: number;
   zoneBalance: number;
   adjacencyCost: number;
+  scarcityScore: number;
+};
+
+export type ScoreBreakdown = {
+  slackPenalty: number;
+  demandMultiplier: number;
+  scarcityPenalty: number;
+  combinationPenalty: number;
+  structuralPenalty: number;
+  futureConflictPenalty: number;
+  total: number;
 };
 
 export type RankedTablePlan = {
@@ -33,6 +44,7 @@ export type RankedTablePlan = {
   score: number;
   tableKey: string;
   adjacencyStatus: "single" | "connected" | "disconnected";
+  scoreBreakdown: ScoreBreakdown;
 };
 
 export type CandidateDiagnostics = {
@@ -61,6 +73,33 @@ export type CandidateDiagnostics = {
       holdIds: string[];
     };
   };
+  performance?: {
+    totalDurationMs: number;
+    buildScoredTablePlansMs: number;
+    enumerateCombinationsMs?: number;
+    sortingMs?: number;
+    inputSize: {
+      tableCount: number;
+      partySize: number;
+      validTablesCount: number;
+      singleTableCandidatesCount: number;
+    };
+    iterations: {
+      totalEvaluations: number;
+      dfsIterations?: number;
+      earlyExit: boolean;
+      earlyExitReason?: string;
+    };
+  };
+  lookahead?: {
+    enabled: boolean;
+    evaluationMs: number;
+    futureBookingsConsidered: number;
+    penalizedPlans: number;
+    totalPenalty: number;
+    windowMinutes: number;
+    conflicts: Array<{ bookingId: string; planKey: string }>;
+  };
 };
 
 export type BuildCandidatesOptions = {
@@ -73,6 +112,8 @@ export type BuildCandidatesOptions = {
   maxPlansPerSlack?: number;
   maxCombinationEvaluations?: number;
   requireAdjacency?: boolean;
+  demandMultiplier?: number;
+  tableScarcityScores?: Map<string, number>;
 };
 
 export type BuildCandidatesResult = {
@@ -98,6 +139,8 @@ function incrementCounter(target: Record<string, number>, key: string, amount = 
 }
 
 export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCandidatesResult {
+  const startTime = performance.now();
+
   const {
     tables,
     partySize,
@@ -108,8 +151,12 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
     maxPlansPerSlack,
     maxCombinationEvaluations,
     requireAdjacency = true,
+    demandMultiplier: inputDemandMultiplier,
+    tableScarcityScores: providedScarcityScores,
   } = options;
   const { maxOverage, weights } = config;
+  const demandMultiplier = normalizeDemandMultiplier(inputDemandMultiplier);
+  const tableScarcityScores = providedScarcityScores ?? computeTableScarcityScores(tables);
 
   const maxAllowedCapacity = partySize + Math.max(maxOverage, 0);
   const combinationCap = Math.max(1, Math.min(kMax ?? config.maxTables ?? 1, tables.length || 1));
@@ -170,8 +217,8 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
 
   for (const table of singleTableCandidates) {
     const adjacencyDepths = new Map<string, number>([[table.id, 0]]);
-    const metrics = computeMetrics([table], partySize, adjacencyDepths);
-    const score = computeScore(metrics, weights);
+    const metrics = computeMetrics([table], partySize, adjacencyDepths, tableScarcityScores);
+    const { score, breakdown } = computeScore(metrics, weights, demandMultiplier);
     const totalCapacity = metrics.overage + partySize;
     const tableKey = buildTableKey([table]);
 
@@ -183,10 +230,17 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
       score,
       tableKey,
       adjacencyStatus: "single",
+      scoreBreakdown: breakdown,
     });
   }
 
+  let enumerateCombinationsMs: number | undefined;
+  let dfsIterations: number | undefined;
+  let earlyExit = false;
+  let earlyExitReason: string | undefined;
+
   if (enableCombinations && combinationCap > 1 && validTables.length > 1) {
+    const combinationStartTime = performance.now();
     const combinationPlans = enumerateCombinationPlans({
       candidates: validTables,
       partySize,
@@ -198,22 +252,80 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
       evaluationLimit: combinationEvaluationLimit,
       diagnostics,
       requireAdjacency,
+      tableScarcityScores,
+      demandMultiplier,
     });
+    enumerateCombinationsMs = performance.now() - combinationStartTime;
+
+    // Check if early exit occurred
+    if (diagnostics.combinationsEnumerated > 0) {
+      dfsIterations = diagnostics.combinationsEnumerated;
+      const limitSkipped = diagnostics.skipped.limit ?? 0;
+      if (limitSkipped > 0) {
+        earlyExit = true;
+        earlyExitReason = `evaluation_limit_reached (${combinationEvaluationLimit})`;
+      }
+    }
 
     plans.push(...combinationPlans);
   }
 
+  const sortStartTime = performance.now();
   plans.sort((a, b) => comparePlans(a, b, weights));
+  const sortingMs = performance.now() - sortStartTime;
 
   const fallbackReason = plans.length > 0 ? undefined : FALLBACK_NO_TABLES;
 
   diagnostics.totals.enumerated = diagnostics.combinationsEnumerated + diagnostics.singlesConsidered;
   diagnostics.totals.accepted = plans.length;
 
+  const totalDurationMs = performance.now() - startTime;
+
+  // Add performance metrics to diagnostics
+  diagnostics.performance = {
+    totalDurationMs,
+    buildScoredTablePlansMs: totalDurationMs,
+    enumerateCombinationsMs,
+    sortingMs,
+    inputSize: {
+      tableCount: tables.length,
+      partySize,
+      validTablesCount: validTables.length,
+      singleTableCandidatesCount: singleTableCandidates.length,
+    },
+    iterations: {
+      totalEvaluations: diagnostics.combinationsEnumerated + diagnostics.singlesConsidered,
+      dfsIterations,
+      earlyExit,
+      earlyExitReason,
+    },
+  };
+
+  // Log performance warning if selector exceeds threshold (Sprint 0 - T0.2)
+  const SELECTOR_PERF_THRESHOLD_MS = 500;
+  if (totalDurationMs > SELECTOR_PERF_THRESHOLD_MS) {
+    console.warn("[PERF] buildScoredTablePlans exceeded threshold", {
+      durationMs: totalDurationMs,
+      threshold: SELECTOR_PERF_THRESHOLD_MS,
+      inputSize: diagnostics.performance.inputSize,
+      iterations: diagnostics.performance.iterations,
+      enumerateCombinationsMs,
+      sortingMs,
+      enableCombinations,
+      kMax: combinationCap,
+      evaluationLimit: combinationEvaluationLimit,
+    });
+  }
+
   return { plans, fallbackReason, diagnostics };
 }
 
-function computeMetrics(tables: Table[], partySize: number, adjacencyDepths: Map<string, number>): CandidateMetrics {
+function computeMetrics(
+  tables: Table[],
+  partySize: number,
+  adjacencyDepths: Map<string, number>,
+  tableScarcityScores: Map<string, number>,
+): CandidateMetrics {
   const capacities = tables.map((table) => table.capacity ?? 0);
   const totalCapacity = capacities.reduce((sum, capacity) => sum + capacity, 0);
   const maxCapacity = capacities.length > 0 ? Math.max(...capacities) : 0;
@@ -226,6 +338,7 @@ function computeMetrics(tables: Table[], partySize: number, adjacencyDepths: Map
   if (adjacencyDepths.size < tables.length) {
     adjacencyCost = Math.max(adjacencyCost, tables.length);
   }
+  const scarcityScore = tables.reduce((sum, table) => sum + (tableScarcityScores.get(table.id) ?? 0), 0);
 
   return {
     overage,
@@ -233,17 +346,50 @@ function computeMetrics(tables: Table[], partySize: number, adjacencyDepths: Map
     fragmentation,
     zoneBalance,
     adjacencyCost,
+    scarcityScore,
   };
 }
 
-function computeScore(metrics: CandidateMetrics, weights: SelectorScoringWeights): number {
-  return (
-    metrics.overage * weights.overage +
-    (metrics.tableCount - 1) * weights.tableCount +
-    metrics.fragmentation * weights.fragmentation +
-    metrics.zoneBalance * weights.zoneBalance +
-    metrics.adjacencyCost * weights.adjacencyCost
-  );
+function computeScore(
+  metrics: CandidateMetrics,
+  weights: SelectorScoringWeights,
+  demandMultiplier: number,
+): { score: number; breakdown: ScoreBreakdown } {
+  const normalizedDemandMultiplier = Number.isFinite(demandMultiplier) && demandMultiplier > 0 ? demandMultiplier : 1;
+  const baseSlackPenalty = metrics.overage * weights.overage;
+  const slackPenalty = baseSlackPenalty * normalizedDemandMultiplier;
+
+  const tableCountPenalty = (metrics.tableCount - 1) * weights.tableCount;
+  const fragmentationPenalty = metrics.fragmentation * weights.fragmentation;
+  const zoneBalancePenalty = metrics.zoneBalance * weights.zoneBalance;
+  const adjacencyPenalty = metrics.adjacencyCost * weights.adjacencyCost;
+  const scarcityWeight = Math.max(0, weights.scarcity ?? 0);
+  let combinationPenalty = metrics.tableCount > 1 ? tableCountPenalty + adjacencyPenalty : 0;
+  if (combinationPenalty > 0 && scarcityWeight > 0 && metrics.tableCount > 0) {
+    const averageScarcity = metrics.scarcityScore / metrics.tableCount;
+    if (averageScarcity > 0) {
+      const scarcityFactor = Math.min(3, 1 + averageScarcity);
+      combinationPenalty *= scarcityFactor;
+    }
+  }
+  const structuralPenalty = combinationPenalty + fragmentationPenalty + zoneBalancePenalty;
+
+  const scarcityPenalty = metrics.scarcityScore * scarcityWeight;
+
+  const total = slackPenalty + structuralPenalty + scarcityPenalty;
+
+  return {
+    score: total,
+    breakdown: {
+      slackPenalty,
+      demandMultiplier: normalizedDemandMultiplier,
+      scarcityPenalty,
+      combinationPenalty,
+      structuralPenalty,
+      futureConflictPenalty: 0,
+      total,
+    },
+  };
 }
 
 function comparePlans(a: RankedTablePlan, b: RankedTablePlan, _weights: SelectorScoringWeights): number {
@@ -274,6 +420,45 @@ function comparePlans(a: RankedTablePlan, b: RankedTablePlan, _weights: Selector
   return a.tableKey.localeCompare(b.tableKey, "en");
 }
 
+function normalizeDemandMultiplier(value?: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return 1;
+  }
+  if (value <= 0) {
+    return 1;
+  }
+  return value;
+}
+
+function computeTableScarcityScores(tables: Table[]): Map<string, number> {
+  const capacityCounts = new Map<number, number>();
+  for (const table of tables) {
+    const capacity = table.capacity ?? 0;
+    if (!Number.isFinite(capacity) || capacity <= 0) {
+      continue;
+    }
+    const current = capacityCounts.get(capacity) ?? 0;
+    capacityCounts.set(capacity, current + 1);
+  }
+
+  const scores = new Map<string, number>();
+  for (const table of tables) {
+    const capacity = table.capacity ?? 0;
+    if (!Number.isFinite(capacity) || capacity <= 0) {
+      scores.set(table.id, 0);
+      continue;
+    }
+    const count = capacityCounts.get(capacity) ?? 0;
+    if (count <= 0) {
+      scores.set(table.id, 0);
+      continue;
+    }
+    scores.set(table.id, 1 / count);
+  }
+
+  return scores;
+}
+
 function buildTableKey(tables: Table[]): string {
   return tables
     .map((table) => table.tableNumber ?? table.id)
@@ -292,6 +477,8 @@ type CombinationPlannerArgs = {
   evaluationLimit: number;
   diagnostics: CandidateDiagnostics;
   requireAdjacency: boolean;
+  tableScarcityScores: Map<string, number>;
+  demandMultiplier: number;
 };
 
 /**
@@ -314,6 +501,8 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
     evaluationLimit,
     diagnostics,
     requireAdjacency,
+    tableScarcityScores,
+    demandMultiplier,
   } = args;
 
   if (kMax <= 1) {
@@ -460,8 +649,8 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
       if (!adjacencyEvaluation.connected && requireAdjacency) {
         incrementCounter(diagnostics.skipped, "adjacency");
       } else {
-        const metrics = computeMetrics(selection, partySize, adjacencyEvaluation.depths);
-        const score = computeScore(metrics, weights);
+        const metrics = computeMetrics(selection, partySize, adjacencyEvaluation.depths, tableScarcityScores);
+        const { score, breakdown } = computeScore(metrics, weights, demandMultiplier);
           const totalCapacity = metrics.overage + partySize;
           const adjacencyStatus: RankedTablePlan["adjacencyStatus"] =
             selection.length <= 1
@@ -477,6 +666,7 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
             score,
             tableKey: key,
             adjacencyStatus,
+            scoreBreakdown: breakdown,
           };
           registerPlan(plan);
         }
