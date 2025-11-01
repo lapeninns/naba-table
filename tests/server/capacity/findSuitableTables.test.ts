@@ -32,6 +32,45 @@ function createSupabaseStub(options: {
   tables: Record<string, unknown>[];
   restaurantTimezone?: string | null;
 }) {
+  const createBuilder = (
+    dataset: { list?: unknown[]; single?: unknown },
+    options?: { maybeSingleOverride?: () => Promise<{ data: unknown; error: null }> },
+  ) => {
+    const listResult = { data: (dataset.list ?? []) as unknown[], error: null } as const;
+    const builder = {
+      select() {
+        return builder;
+      },
+      eq() {
+        return builder;
+      },
+      in() {
+        return builder;
+      },
+      order() {
+        return builder;
+      },
+      limit() {
+        return builder;
+      },
+      is() {
+        return builder;
+      },
+      maybeSingle: async () =>
+        options?.maybeSingleOverride
+          ? options.maybeSingleOverride()
+          : { data: dataset.single ?? null, error: null },
+      then(onfulfilled?: (value: { data: unknown[]; error: null }) => unknown, onrejected?: (reason: unknown) => unknown) {
+        return Promise.resolve(listResult).then(onfulfilled, onrejected);
+      },
+      catch(onrejected?: (reason: unknown) => unknown) {
+        return Promise.resolve(listResult).catch(onrejected ?? undefined);
+      },
+    } as const;
+
+    return builder;
+  };
+
   const restaurantsMaybeSingle = vi.fn(async () => ({
     data: options.restaurantTimezone ? { timezone: options.restaurantTimezone } : null,
     error: null,
@@ -41,53 +80,22 @@ function createSupabaseStub(options: {
     from(table: string) {
       switch (table) {
         case "bookings":
-          return {
-            select() {
-              return {
-                eq() {
-                  return {
-                    maybeSingle: async () => ({ data: options.booking, error: null }),
-                  };
-                },
-              };
-            },
-          };
+          return createBuilder({ single: options.booking });
         case "table_inventory":
-          return {
-            select() {
-              return {
-                eq() {
-                  return {
-                    order() {
-                      return Promise.resolve({ data: options.tables, error: null });
-                    },
-                  };
-                },
-              };
-            },
-          };
+          return createBuilder({ list: options.tables });
         case "table_adjacencies":
-          return {
-            select() {
-              return {
-                in() {
-                  return Promise.resolve({ data: [], error: null });
-                },
-              };
-            },
-          };
+          return createBuilder({ list: [] });
         case "restaurants":
-          return {
-            select() {
-              return {
-                eq() {
-                  return {
-                    maybeSingle: restaurantsMaybeSingle,
-                  };
-                },
-              };
-            },
-          };
+          return createBuilder(
+            { single: options.restaurantTimezone ? { timezone: options.restaurantTimezone } : null },
+            { maybeSingleOverride: restaurantsMaybeSingle },
+          );
+        case "strategic_configs":
+          return createBuilder({ list: [], single: null });
+        case "demand_profiles":
+          return createBuilder({ list: [], single: null });
+        case "table_scarcity_metrics":
+          return createBuilder({ list: [], single: null });
         default:
           throw new Error(`Unexpected table ${table}`);
       }

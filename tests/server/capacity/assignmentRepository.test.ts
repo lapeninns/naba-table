@@ -116,6 +116,17 @@ describe("SupabaseAssignmentRepository", () => {
     const repository = new SupabaseAssignmentRepository(fakeClient as any);
     await expect(repository.commitAssignment({ ...baseRequest })).rejects.toBeInstanceOf(AssignmentRepositoryError);
   });
+
+  it("treats missing relation (42P01) as AssignmentRepositoryError", async () => {
+    fakeClient.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: "42P01", message: 'relation "public.restaurant_capacity_rules" does not exist' },
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const repository = new SupabaseAssignmentRepository(fakeClient as any);
+    await expect(repository.commitAssignment({ ...baseRequest })).rejects.toBeInstanceOf(AssignmentRepositoryError);
+  });
 });
 
 describe("AssignmentOrchestrator", () => {

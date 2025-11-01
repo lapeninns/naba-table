@@ -1874,7 +1874,7 @@ COMMENT ON COLUMN "public"."booking_table_assignments"."assigned_at" IS 'When th
 
 
 
-COMMENT ON COLUMN "public"."booking_table_assignments"."assigned_by" IS 'User who made the assignment (null for auto-assignment)';
+COMMENT ON COLUMN "public"."booking_table_assignments"."assigned_by" IS 'User who made the assignment.';
 
 
 

@@ -11,12 +11,6 @@ export type TableAssignmentVariables = {
   tableId: string;
 };
 
-export type AutoAssignTablesVariables = {
-  restaurantId: string;
-  date?: string | null;
-  captureDecisions?: boolean;
-};
-
 export function useOpsTableAssignmentActions(params: { restaurantId: string | null; date: string | null }) {
   const bookingService = useBookingService();
   const queryClient = useQueryClient();
@@ -61,36 +55,8 @@ export function useOpsTableAssignmentActions(params: { restaurantId: string | nu
     },
   });
 
-  const autoAssignTables = useMutation({
-    mutationFn: ({ restaurantId: inputRestaurantId, date: targetDate, captureDecisions }: AutoAssignTablesVariables) =>
-      bookingService.autoAssignTables({
-        restaurantId: inputRestaurantId,
-        date: targetDate ?? date,
-        captureDecisions: captureDecisions ?? true,
-      }),
-    onSuccess: (result) => {
-      invalidateCaches();
-      const assignedCount = result.assigned.length;
-      const skippedCount = result.skipped.length;
-      const summaryParts = [];
-      if (assignedCount > 0) {
-        summaryParts.push(`${assignedCount} booking${assignedCount === 1 ? '' : 's'} assigned`);
-      }
-      if (skippedCount > 0) {
-        summaryParts.push(`${skippedCount} skipped`);
-      }
-      const summary = summaryParts.length > 0 ? summaryParts.join(', ') : 'No pending bookings';
-      toast.success(`Auto assignment complete: ${summary}`);
-    },
-    onError: (error: unknown) => {
-      const message = error instanceof Error ? error.message : 'Auto-assignment failed';
-      toast.error(message);
-    },
-  });
-
   return {
     assignTable,
     unassignTable,
-    autoAssignTables,
   };
 }

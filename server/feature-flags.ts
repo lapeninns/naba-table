@@ -45,6 +45,10 @@ export function getSelectorLookaheadPenaltyWeight(): number {
   return env.featureFlags.selectorLookahead?.penaltyWeight ?? 500;
 }
 
+export function getSelectorLookaheadBlockThreshold(): number {
+  return env.featureFlags.selectorLookahead?.blockThreshold ?? 0;
+}
+
 export function isCombinationPlannerEnabled(): boolean {
   return env.featureFlags.combinationPlanner ?? false;
 }
@@ -114,15 +118,19 @@ export function getAllocatorAdjacencyMinPartySize(): number | null {
 export function getSelectorPlannerLimits(): {
   maxPlansPerSlack?: number;
   maxCombinationEvaluations?: number;
+  enumerationTimeoutMs?: number;
 } {
   const { selector } = env.featureFlags;
   const maxPlansPerSlack =
     typeof selector?.maxPlansPerSlack === "number" ? selector.maxPlansPerSlack : undefined;
   const maxCombinationEvaluations =
     typeof selector?.maxCombinationEvaluations === "number" ? selector.maxCombinationEvaluations : undefined;
+  const enumerationTimeoutMs =
+    typeof selector?.enumerationTimeoutMs === "number" ? selector.enumerationTimeoutMs : undefined;
   return {
     ...(maxPlansPerSlack ? { maxPlansPerSlack } : {}),
     ...(maxCombinationEvaluations ? { maxCombinationEvaluations } : {}),
+    ...(enumerationTimeoutMs ? { enumerationTimeoutMs } : {}),
   };
 }
 

@@ -127,11 +127,12 @@ afterEach(() => {
     expect(topPlan?.slack).toBe(1);
     expect(result.diagnostics.combinationsEnumerated).toBeGreaterThan(0);
     expect(result.diagnostics.combinationsAccepted).toBeGreaterThan(0);
-    expect(result.diagnostics.limits).toEqual({
+    expect(result.diagnostics.limits).toMatchObject({
       kMax: 2,
       maxPlansPerSlack: 50,
       maxCombinationEvaluations: 500,
     });
+    expect(result.diagnostics.limits.enumerationTimeoutMs).toBeGreaterThanOrEqual(50);
   });
 
   it("prunes combinations that violate adjacency or kMax", () => {

@@ -101,6 +101,14 @@ export type SweepExpiredHoldsResult = {
   holdIds: string[];
 };
 
+export type ExtendTableHoldInput = {
+  holdId: string;
+  extendSeconds?: number;
+  newExpiresAt?: string;
+  actorId?: string | null;
+  client?: DbClient;
+};
+
 export class HoldConflictError extends Error {
   constructor(message: string, public readonly holdId?: string) {
     super(message);
@@ -358,6 +366,88 @@ export async function releaseTableHold(input: ReleaseTableHoldInput): Promise<vo
   await configureHoldStrictConflictSession(supabase);
   await supabase.from("table_hold_members").delete().eq("hold_id", holdId);
   await supabase.from("table_holds").delete().eq("id", holdId);
+}
+
+export async function extendTableHold(input: ExtendTableHoldInput): Promise<TableHold> {
+  const { holdId, extendSeconds, newExpiresAt, actorId = null, client } = input;
+  const supabase = ensureClient(client);
+  await configureHoldStrictConflictSession(supabase);
+
+  const { data: holdRow, error: fetchError } = await supabase
+    .from("table_holds")
+    .select("*, table_hold_members(table_id)")
+    .eq("id", holdId)
+    .maybeSingle();
+
+  if (fetchError || !holdRow) {
+    throw new HoldNotFoundError();
+  }
+
+  const currentHold = holdRow as HoldRowWithMembers;
+  const memberTableIds = extractTableIdsFromMembers(currentHold.table_hold_members ?? null);
+  const currentExpires = DateTime.fromISO(currentHold.expires_at ?? "").toUTC();
+  if (!currentExpires.isValid) {
+    throw new HoldConflictError("Hold expiration timestamp invalid", holdId);
+  }
+
+  let targetExpiry: DateTime | null = null;
+  if (typeof newExpiresAt === "string") {
+    const candidate = DateTime.fromISO(newExpiresAt).toUTC();
+    if (candidate.isValid) {
+      targetExpiry = candidate;
+    }
+  }
+
+  if (!targetExpiry && typeof extendSeconds === "number" && Number.isFinite(extendSeconds)) {
+    targetExpiry = currentExpires.plus({ seconds: extendSeconds });
+  }
+
+  if (!targetExpiry || !targetExpiry.isValid) {
+    throw new HoldConflictError("Cannot extend hold without a valid expiry" , holdId);
+  }
+
+  if (targetExpiry <= currentExpires) {
+    return normalizeHold(currentHold as Tables<"table_holds">, memberTableIds);
+  }
+
+  const targetIso = targetExpiry.toUTC().toISO();
+  const currentExpiresIso = currentExpires.toISO();
+  if (!targetIso || !currentExpiresIso) {
+    throw new HoldConflictError("Failed to normalize hold expiry", holdId);
+  }
+  const { data: updatedRow, error: updateError } = await supabase
+    .from("table_holds")
+    .update({
+      expires_at: targetIso,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", holdId)
+    .select("*, table_hold_members(table_id)")
+    .maybeSingle();
+
+  if (updateError || !updatedRow) {
+    throw new HoldConflictError(updateError?.message ?? "Failed to extend hold", holdId);
+  }
+
+  const updatedHold = updatedRow as HoldRowWithMembers;
+  const updatedTableIds = extractTableIdsFromMembers(updatedHold.table_hold_members ?? null);
+
+  const { emitHoldExtended } = await import("./telemetry");
+  await emitHoldExtended({
+    holdId,
+    bookingId: updatedHold.booking_id,
+    restaurantId: updatedHold.restaurant_id,
+    zoneId: updatedHold.zone_id,
+    tableIds: updatedTableIds,
+    startAt: updatedHold.start_at,
+    endAt: updatedHold.end_at,
+    previousExpiresAt: currentExpiresIso,
+    newExpiresAt: targetIso,
+    actorId: actorId ?? updatedHold.created_by,
+    metadata: updatedHold.metadata ?? null,
+  });
+
+  return normalizeHold(updatedHold as Tables<"table_holds">, updatedTableIds);
 }
 
 export async function listActiveHoldsForBooking(input: ListActiveHoldsInput): Promise<TableHold[]> {

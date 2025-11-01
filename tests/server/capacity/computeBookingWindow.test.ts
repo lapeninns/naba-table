@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { getVenuePolicy, ServiceOverrunError } from "@/server/capacity/policy";
+import { getVenuePolicy } from "@/server/capacity/policy";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let computeBookingWindow: any;
@@ -21,14 +21,16 @@ beforeAll(async () => {
 describe("computeBookingWindow & overlap handling", () => {
   const policy = getVenuePolicy({ timezone: "Europe/London" });
 
-  it("throws when dinner reservation for eight would exceed service close", () => {
-    expect(() =>
-      computeBookingWindow({
-        startISO: "2025-05-10T21:00:00+01:00",
-        partySize: 8,
-        policy,
-      }),
-    ).toThrow(ServiceOverrunError);
+  it("clamps late dinner reservations to the service end instead of throwing", () => {
+    const window = computeBookingWindow({
+      startISO: "2025-05-10T21:00:00+01:00",
+      partySize: 8,
+      policy,
+    });
+
+    expect(window.clampedToServiceEnd).toBe(true);
+    expect(window.block.end.toFormat("HH:mm")).toBe("22:00");
+    expect(window.dining.end.toFormat("HH:mm")).toBe("21:55");
   });
 
   it("flags overlap when 15 minute post-buffer is violated", () => {

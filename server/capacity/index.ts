@@ -42,12 +42,21 @@ export {
 } from "./transaction";
 
 export {
+  createTableHold,
+  releaseTableHold,
+  extendTableHold,
+  findHoldConflicts,
+  listActiveHoldsForBooking,
+  sweepExpiredHolds,
+} from "./holds";
+
+export type { SweepExpiredHoldsResult, ExtendTableHoldInput } from "./holds";
+
+export {
   findSuitableTables,
   assignTableToBooking,
   unassignTableFromBooking,
   getBookingTableAssignments,
-  autoAssignTables,
-  autoAssignTablesForDate,
   isTableAvailable,
   evaluateManualSelection,
   createManualHold,
@@ -116,8 +125,6 @@ export type {
   TableMatchParams,
   TableAssignmentMember,
   TableAssignmentGroup,
-  AutoAssignResult,
-  SelectorDecisionCapture,
   ManualSelectionCheck,
   ManualSelectionSummary,
   ManualValidationResult,

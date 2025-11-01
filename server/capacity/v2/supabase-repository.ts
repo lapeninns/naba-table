@@ -1,19 +1,28 @@
 import { getServiceSupabaseClient } from "@/server/supabase";
-import type { SupabaseClient } from "@supabase/supabase-js";
+
+import { AssignmentConflictError, AssignmentRepositoryError, AssignmentValidationError } from "./errors";
 
 import type { AssignmentRepository } from "./repository";
-import { AssignmentConflictError, AssignmentRepositoryError, AssignmentValidationError } from "./errors";
 import type {
   AssignmentCommitRequest,
   AssignmentCommitResponse,
   AssignmentRecord,
 } from "./types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type PostgrestError = {
   code?: string;
   message?: string;
   details?: string | null;
   hint?: string | null;
+};
+
+type AssignTablesAtomicRow = {
+  table_id: string;
+  start_at: string;
+  end_at: string;
+  merge_group_id: string | null;
+  assignment_id?: string | null;
 };
 
 function extractUuids(value: string | null | undefined): string[] {
@@ -97,6 +106,17 @@ function translateSupabaseError(params: {
   const message = error.message ?? "assign_tables_atomic_v2 failed";
   const normalized = message.toLowerCase();
 
+  if (normalized.includes("capacity_exceeded_post_assignment")) {
+    throw buildConflictError({
+      error: {
+        ...error,
+        message: "Capacity exceeded after assignment",
+        hint: error.hint ?? "Release tables or adjust capacity overrides before retrying.",
+      },
+      request,
+    });
+  }
+
   if (
     code === "23505" ||
     code === "P0001" ||
@@ -130,7 +150,7 @@ export class SupabaseAssignmentRepository implements AssignmentRepository {
   constructor(private readonly client: SupabaseClient = getServiceSupabaseClient()) {}
 
   async commitAssignment(request: AssignmentCommitRequest): Promise<AssignmentCommitResponse> {
-    const { context, plan, idempotencyKey, source, actorId, shadow } = request;
+    const { context, plan, idempotencyKey, actorId, shadow } = request;
     const supabase = this.client;
 
     if (!context.window) {
@@ -149,13 +169,14 @@ export class SupabaseAssignmentRepository implements AssignmentRepository {
       p_end_at: plan.endAt,
     };
 
-    const { data, error } = await supabase.rpc("assign_tables_atomic_v2", payload);
+    const { data, error } = await supabase.rpc<AssignTablesAtomicRow[]>("assign_tables_atomic_v2", payload);
 
     if (error) {
       translateSupabaseError({ error, request });
     }
 
-    const assignments: AssignmentRecord[] = (Array.isArray(data) ? data : []).map((row: any) => ({
+    const rows = data ?? [];
+    const assignments: AssignmentRecord[] = rows.map((row) => ({
       tableId: row.table_id,
       startAt: row.start_at,
       endAt: row.end_at,

@@ -48,7 +48,6 @@ function createBookingServiceStub(): BookingServiceMock {
     createWalkInBooking: vi.fn(),
     assignTable: vi.fn(),
     unassignTable: vi.fn(),
-    autoAssignTables: vi.fn(),
   } satisfies Record<string, ReturnType<typeof vi.fn>>;
 
   return stub as unknown as BookingServiceMock;

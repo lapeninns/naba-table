@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
         customer_id: "test-customer-id",
         reference: "TEST123",
         auth_user_id: null,
+        assigned_zone_id: null,
         restaurant_id: testRestaurantId,
         booking_date: bookingDate,
         start_time: startTime,

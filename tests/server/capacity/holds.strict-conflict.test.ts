@@ -15,9 +15,14 @@ const REQUIRED_ENV = {
 };
 
 type ChainableQuery<T> = {
+  select?: () => ChainableQuery<T>;
   eq(): ChainableQuery<T>;
   gt(): ChainableQuery<T>;
   lt(): ChainableQuery<T>;
+  in(): ChainableQuery<T>;
+  filter(): ChainableQuery<T>;
+  order(): ChainableQuery<T>;
+  limit(): ChainableQuery<T>;
   then: Promise<T>["then"];
   catch: Promise<T>["catch"];
   finally: Promise<T>["finally"];
@@ -29,6 +34,10 @@ function createChainableQuery<T>(result: T): ChainableQuery<T> {
     eq: () => chain,
     gt: () => chain,
     lt: () => chain,
+    in: () => chain,
+    filter: () => chain,
+    order: () => chain,
+    limit: () => chain,
     then: promise.then.bind(promise),
     catch: promise.catch.bind(promise),
     finally: promise.finally.bind(promise),
@@ -39,8 +48,28 @@ function createChainableQuery<T>(result: T): ChainableQuery<T> {
 type SupabaseHoldRow = Record<string, unknown>;
 
 function createSupabaseClientWithConflicts(conflicts: SupabaseHoldRow[]) {
+  const windowRows = conflicts.flatMap((conflict) => {
+    const members = Array.isArray(conflict.table_hold_members)
+      ? (conflict.table_hold_members as Array<{ table_id: string }>)
+      : [];
+    return members.map((member) => ({
+      hold_id: conflict.id,
+      booking_id: conflict.booking_id,
+      restaurant_id: conflict.restaurant_id ?? null,
+      table_id: member.table_id,
+      start_at: conflict.start_at,
+      end_at: conflict.end_at,
+      expires_at: conflict.expires_at,
+    }));
+  });
+
   return {
     from(table: string) {
+      if (table === "table_hold_windows") {
+        return {
+          select: () => createChainableQuery({ data: windowRows, error: null }),
+        };
+      }
       if (table === "table_holds") {
         return {
           select: () =>
@@ -52,6 +81,7 @@ function createSupabaseClientWithConflicts(conflicts: SupabaseHoldRow[]) {
       }
       if (table === "table_hold_members") {
         return {
+          select: () => createChainableQuery({ data: windowRows, error: null }),
           insert: () => Promise.resolve({ data: [], error: null }),
         };
       }
@@ -87,6 +117,7 @@ describe("createTableHold strict conflicts", () => {
       {
         id: "existing-hold",
         booking_id: "other-booking",
+        restaurant_id: "restaurant-1",
         start_at: "2025-01-20T18:00:00.000Z",
         end_at: "2025-01-20T20:00:00.000Z",
         expires_at: "2025-01-20T18:10:00.000Z",

@@ -124,6 +124,10 @@ export const env = {
       typeof parsed.FEATURE_SELECTOR_MAX_COMBINATION_EVALUATIONS === "number"
         ? Math.max(1, Math.min(parsed.FEATURE_SELECTOR_MAX_COMBINATION_EVALUATIONS, 5000))
         : null;
+    const selectorEnumerationTimeoutMs =
+      typeof parsed.FEATURE_SELECTOR_ENUMERATION_TIMEOUT_MS === "number"
+        ? Math.max(50, Math.min(parsed.FEATURE_SELECTOR_ENUMERATION_TIMEOUT_MS, 10_000))
+        : null;
     const adjacencyQueryUndirectedDefault = parsed.FEATURE_ADJACENCY_QUERY_UNDIRECTED ?? true;
     return {
       loyaltyPilotRestaurantIds: parsed.LOYALTY_PILOT_RESTAURANT_IDS,
@@ -147,6 +151,10 @@ export const env = {
         penaltyWeight: Math.max(
           1,
           Math.min(parsed.FEATURE_SELECTOR_LOOKAHEAD_PENALTY_WEIGHT ?? 500, 100_000),
+        ),
+        blockThreshold: Math.max(
+          0,
+          Math.min(parsed.FEATURE_SELECTOR_LOOKAHEAD_BLOCK_THRESHOLD ?? 0, 100_000),
         ),
       },
       combinationPlanner: combinationPlannerDefault,
@@ -174,6 +182,7 @@ export const env = {
       selector: {
         maxPlansPerSlack: selectorMaxPlansPerSlack,
         maxCombinationEvaluations: selectorMaxCombinationEvaluations,
+        enumerationTimeoutMs: selectorEnumerationTimeoutMs,
       },
       holds: {
         enabled: parsed.FEATURE_HOLDS_ENABLED ?? true,

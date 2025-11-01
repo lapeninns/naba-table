@@ -49,9 +49,18 @@ type Dataset = {
 type QueryBuilder<TList = unknown, TSingle = unknown> = {
   select(): QueryBuilder<TList, TSingle>;
   eq(): QueryBuilder<TList, TSingle>;
-  in(): Promise<{ data: TList[]; error: null }>;
-  order(): Promise<{ data: TList[]; error: null }>;
+  in(): QueryBuilder<TList, TSingle>;
+  order(): QueryBuilder<TList, TSingle>;
+  limit(): QueryBuilder<TList, TSingle>;
+  is(): QueryBuilder<TList, TSingle>;
   maybeSingle(): Promise<{ data: TSingle | null; error: null }>;
+  then<TResult1 = { data: TList[]; error: null }, TResult2 = never>(
+    onfulfilled?: ((value: { data: TList[]; error: null }) => TResult1 | Promise<TResult1>) | null,
+    onrejected?: ((reason: unknown) => TResult2 | Promise<TResult2>) | null,
+  ): Promise<TResult1 | TResult2>;
+  catch<TResult = never>(
+    onrejected?: ((reason: unknown) => TResult | Promise<TResult>) | null,
+  ): Promise<{ data: TList[]; error: null } | TResult>;
 };
 
 type SupabaseMock = {
@@ -157,17 +166,26 @@ function createStubClient(): SupabaseMock {
     },
   };
 
+  const createBuilder = <TList = unknown, TSingle = unknown>(dataset: Dataset): QueryBuilder<TList, TSingle> => {
+    const listResult = { data: (dataset.list ?? []) as TList[], error: null } as const;
+    const builder: QueryBuilder<TList, TSingle> = {
+      select: () => builder,
+      eq: () => builder,
+      in: () => builder,
+      order: () => builder,
+      limit: () => builder,
+      is: () => builder,
+      maybeSingle: () => Promise.resolve({ data: (dataset.single ?? null) as TSingle | null, error: null }),
+      then: (onfulfilled, onrejected) => Promise.resolve(listResult).then(onfulfilled, onrejected),
+      catch: (onrejected) => Promise.resolve(listResult).catch(onrejected ?? undefined),
+    };
+    return builder;
+  };
+
   return {
     from(table: string): QueryBuilder {
       const dataset = responses[table] ?? { list: [], single: null };
-      const builder: QueryBuilder = {
-        select: () => builder,
-        eq: () => builder,
-        in: () => Promise.resolve({ data: (dataset.list ?? []) as unknown[], error: null }),
-        order: () => Promise.resolve({ data: (dataset.list ?? []) as unknown[], error: null }),
-        maybeSingle: () => Promise.resolve({ data: (dataset.single ?? null) as unknown, error: null }),
-      };
-      return builder;
+      return createBuilder(dataset);
     },
   };
 }

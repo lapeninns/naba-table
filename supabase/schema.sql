@@ -5502,7 +5502,7 @@ COMMENT ON COLUMN public.booking_table_assignments.assigned_at IS 'When the assi
 -- Name: COLUMN booking_table_assignments.assigned_by; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.booking_table_assignments.assigned_by IS 'User who made the assignment (null for auto-assignment)';
+COMMENT ON COLUMN public.booking_table_assignments.assigned_by IS 'User who made the assignment.';
 
 
 --

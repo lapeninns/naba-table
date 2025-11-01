@@ -168,6 +168,7 @@ export type SelectorDecisionEvent = {
       enabled: boolean;
       windowMinutes: number;
       penaltyWeight: number;
+      blockThreshold: number;
     };
   };
   diagnostics?: CandidateDiagnostics;
@@ -296,6 +297,11 @@ export type HoldTelemetryEvent = {
   metadata?: Json | null;
 };
 
+export type HoldExtendedTelemetryEvent = HoldTelemetryEvent & {
+  previousExpiresAt: string;
+  newExpiresAt: string;
+};
+
 async function emitHoldEvent(eventType: string, payload: HoldTelemetryEvent): Promise<void> {
   const sanitizedPayload = sanitizeTelemetryContext(payload as Json);
   try {
@@ -326,6 +332,22 @@ export async function emitHoldConfirmed(event: HoldTelemetryEvent): Promise<void
 
 export async function emitHoldExpired(event: HoldTelemetryEvent): Promise<void> {
   await emitHoldEvent("capacity.hold.expired", event);
+}
+
+export async function emitHoldExtended(event: HoldExtendedTelemetryEvent): Promise<void> {
+  const baseMetadata: Record<string, unknown> =
+    event.metadata && typeof event.metadata === "object" && !Array.isArray(event.metadata)
+      ? { ...(event.metadata as Record<string, Json>) }
+      : {};
+
+  baseMetadata.previousExpiresAt = event.previousExpiresAt;
+  baseMetadata.newExpiresAt = event.newExpiresAt;
+
+  await emitHoldEvent("capacity.hold.extended", {
+    ...event,
+    expiresAt: event.newExpiresAt,
+    metadata: baseMetadata as Json,
+  });
 }
 
 export type HoldStrictConflictEvent = {

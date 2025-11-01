@@ -11,7 +11,10 @@ const DIAGNOSTIC_SKIP_KEYS = [
   "bucket",
   "adjacency_frontier",
   "capacity_upper_bound",
+  "timeout",
 ] as const;
+
+const DEFAULT_ENUMERATION_TIMEOUT_MS = 1_000;
 
 type DiagnosticSkipKey = (typeof DIAGNOSTIC_SKIP_KEYS)[number];
 
@@ -56,6 +59,7 @@ export type CandidateDiagnostics = {
     kMax: number;
     maxPlansPerSlack: number;
     maxCombinationEvaluations: number;
+    enumerationTimeoutMs?: number;
   };
   totals: {
     enumerated: number;
@@ -99,6 +103,8 @@ export type CandidateDiagnostics = {
     totalPenalty: number;
     windowMinutes: number;
     conflicts: Array<{ bookingId: string; planKey: string }>;
+    blockedPlans: string[];
+    hardBlockTriggered: boolean;
   };
 };
 
@@ -111,6 +117,7 @@ export type BuildCandidatesOptions = {
   kMax?: number;
   maxPlansPerSlack?: number;
   maxCombinationEvaluations?: number;
+  enumerationTimeoutMs?: number;
   requireAdjacency?: boolean;
   demandMultiplier?: number;
   tableScarcityScores?: Map<string, number>;
@@ -139,7 +146,7 @@ function incrementCounter(target: Record<string, number>, key: string, amount = 
 }
 
 export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCandidatesResult {
-  const startTime = performance.now();
+  const durationStartMs = performance.now();
 
   const {
     tables,
@@ -150,6 +157,7 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
     kMax,
     maxPlansPerSlack,
     maxCombinationEvaluations,
+    enumerationTimeoutMs,
     requireAdjacency = true,
     demandMultiplier: inputDemandMultiplier,
     tableScarcityScores: providedScarcityScores,
@@ -162,7 +170,6 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
   const combinationCap = Math.max(1, Math.min(kMax ?? config.maxTables ?? 1, tables.length || 1));
   const perSlackLimit = Math.max(1, maxPlansPerSlack ?? DEFAULT_MAX_PLANS_PER_SLACK);
   const combinationEvaluationLimit = Math.max(1, maxCombinationEvaluations ?? DEFAULT_MAX_COMBINATION_EVALUATIONS);
-
   const diagnostics: CandidateDiagnostics = {
     singlesConsidered: 0,
     combinationsEnumerated: 0,
@@ -172,6 +179,7 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
       kMax: combinationCap,
       maxPlansPerSlack: perSlackLimit,
       maxCombinationEvaluations: combinationEvaluationLimit,
+      enumerationTimeoutMs: Math.max(50, enumerationTimeoutMs ?? DEFAULT_ENUMERATION_TIMEOUT_MS),
     },
     totals: {
       enumerated: 0,
@@ -279,7 +287,7 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
   diagnostics.totals.enumerated = diagnostics.combinationsEnumerated + diagnostics.singlesConsidered;
   diagnostics.totals.accepted = plans.length;
 
-  const totalDurationMs = performance.now() - startTime;
+  const totalDurationMs = performance.now() - durationStartMs;
 
   // Add performance metrics to diagnostics
   diagnostics.performance = {
@@ -606,7 +614,9 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
   let enumerated = diagnostics.combinationsEnumerated ?? 0;
   let accepted = diagnostics.combinationsAccepted ?? 0;
   let limitRecorded = false;
+  let timeoutRecorded = false;
   let stopSearch = false;
+  let timedOut = false;
 
   const registerPlan = (plan: RankedTablePlan) => {
     const bucket = buckets.get(plan.slack) ?? [];
@@ -621,133 +631,151 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
     diagnostics.combinationsAccepted = accepted;
   };
 
-  const dfs = (
-    startIndex: number,
-    selection: Table[],
-    selectionIds: Set<string>,
-    runningCapacity: number,
-    baseZoneId: string | null,
-    frontier: Set<string> | null,
-  ) => {
-    if (stopSearch) {
-      return;
-    }
-
-    if (requireAdjacency && frontier && frontier.size === 0 && selection.length < kMax) {
-      incrementCounter(diagnostics.skipped, "adjacency_frontier");
-      return;
-    }
-
-    if (selection.length >= 2 && runningCapacity >= partySize) {
-      enumerated += 1;
-      diagnostics.combinationsEnumerated = enumerated;
-
-      const key = buildTableKey(selection);
-      if (!seenKeys.has(key)) {
-        seenKeys.add(key);
-      const adjacencyEvaluation = evaluateAdjacency(selection, adjacency);
-      if (!adjacencyEvaluation.connected && requireAdjacency) {
-        incrementCounter(diagnostics.skipped, "adjacency");
-      } else {
-        const metrics = computeMetrics(selection, partySize, adjacencyEvaluation.depths, tableScarcityScores);
-        const { score, breakdown } = computeScore(metrics, weights, demandMultiplier);
-          const totalCapacity = metrics.overage + partySize;
-          const adjacencyStatus: RankedTablePlan["adjacencyStatus"] =
-            selection.length <= 1
-              ? "single"
-              : adjacencyEvaluation.connected
-                ? "connected"
-                : "disconnected";
-          const plan: RankedTablePlan = {
-            tables: [...selection],
-            totalCapacity,
-            slack: metrics.overage,
-            metrics,
-            score,
-            tableKey: key,
-            adjacencyStatus,
-            scoreBreakdown: breakdown,
-          };
-          registerPlan(plan);
-        }
-      }
-
-      evaluations += 1;
-      if (evaluations >= evaluationLimit) {
-        stopSearch = true;
-        if (!limitRecorded) {
-          incrementCounter(diagnostics.skipped, "limit");
-          limitRecorded = true;
-        }
-        return;
-      }
-    }
-
-    if (selection.length >= kMax) {
-      if (runningCapacity < partySize) {
-        incrementCounter(diagnostics.skipped, "capacity");
-      }
-      incrementCounter(diagnostics.skipped, "kmax");
-      return;
-    }
-
-    const remainingSlots = kMax - selection.length;
-    if (remainingSlots > 0) {
-      let candidateIdsForUpperBound: string[] = [];
-      if (requireAdjacency) {
-        candidateIdsForUpperBound = frontier ? Array.from(frontier) : [];
-      } else {
-        candidateIdsForUpperBound = gatherCandidateIdsFromIndex(startIndex, selectionIds);
-      }
-      const capacityUpperBound = computeCapacityUpperBound(candidateIdsForUpperBound, remainingSlots, baseZoneId, selectionIds);
-      if (runningCapacity + capacityUpperBound < partySize) {
-        incrementCounter(diagnostics.skipped, "capacity_upper_bound");
-        return;
-      }
-    }
-
-    for (let index = startIndex; index < sortedCandidates.length; index += 1) {
+  const createDfs = (startMs: number, budgetMs: number) => {
+    const dfsInner = (
+      startIndex: number,
+      selection: Table[],
+      selectionIds: Set<string>,
+      runningCapacity: number,
+      baseZoneId: string | null,
+      frontier: Set<string> | null,
+    ) => {
       if (stopSearch) {
-        break;
+        return;
       }
 
-      const candidate = sortedCandidates[index];
-
-      if (selectionIds.has(candidate.id)) {
-        continue;
+      if (!timedOut && performance.now() - startMs >= budgetMs) {
+        stopSearch = true;
+        timedOut = true;
+        if (!timeoutRecorded) {
+          incrementCounter(diagnostics.skipped, "timeout");
+          timeoutRecorded = true;
+        }
+        return;
       }
 
-      if (requireAdjacency && frontier && !frontier.has(candidate.id)) {
-        continue;
+      if (requireAdjacency && frontier && frontier.size === 0 && selection.length < kMax) {
+        incrementCounter(diagnostics.skipped, "adjacency_frontier");
+        return;
       }
 
-      if (selection.length > 0 && baseZoneId && candidate.zoneId && candidate.zoneId !== baseZoneId) {
-        incrementCounter(diagnostics.skipped, "zone");
-        continue;
+      if (selection.length >= 2 && runningCapacity >= partySize) {
+        enumerated += 1;
+        diagnostics.combinationsEnumerated = enumerated;
+
+        const key = buildTableKey(selection);
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          const adjacencyEvaluation = evaluateAdjacency(selection, adjacency);
+          if (!adjacencyEvaluation.connected && requireAdjacency) {
+            incrementCounter(diagnostics.skipped, "adjacency");
+          } else {
+            const metrics = computeMetrics(selection, partySize, adjacencyEvaluation.depths, tableScarcityScores);
+            const { score, breakdown } = computeScore(metrics, weights, demandMultiplier);
+            const totalCapacity = metrics.overage + partySize;
+            const adjacencyStatus: RankedTablePlan["adjacencyStatus"] =
+              selection.length <= 1
+                ? "single"
+                : adjacencyEvaluation.connected
+                  ? "connected"
+                  : "disconnected";
+            const plan: RankedTablePlan = {
+              tables: [...selection],
+              totalCapacity,
+              slack: metrics.overage,
+              metrics,
+              score,
+              tableKey: key,
+              adjacencyStatus,
+              scoreBreakdown: breakdown,
+            };
+            registerPlan(plan);
+          }
+        }
+
+        evaluations += 1;
+        if (evaluations >= evaluationLimit) {
+          stopSearch = true;
+          if (!limitRecorded) {
+            incrementCounter(diagnostics.skipped, "limit");
+            limitRecorded = true;
+          }
+          return;
+        }
       }
 
-      if (selection.length + 1 > kMax) {
+      if (selection.length >= kMax) {
+        if (runningCapacity < partySize) {
+          incrementCounter(diagnostics.skipped, "capacity");
+        }
         incrementCounter(diagnostics.skipped, "kmax");
-        continue;
+        return;
       }
 
-      const nextCapacity = runningCapacity + (candidate.capacity ?? 0);
-
-      if (nextCapacity > maxAllowedCapacity) {
-        incrementCounter(diagnostics.skipped, "overage");
-        // Capacities sorted ascending; further entries will exceed as well for this path.
-        break;
+      const remainingSlots = kMax - selection.length;
+      if (remainingSlots > 0) {
+        let candidateIdsForUpperBound: string[] = [];
+        if (requireAdjacency) {
+          candidateIdsForUpperBound = frontier ? Array.from(frontier) : [];
+        } else {
+          candidateIdsForUpperBound = gatherCandidateIdsFromIndex(startIndex, selectionIds);
+        }
+        const capacityUpperBound = computeCapacityUpperBound(candidateIdsForUpperBound, remainingSlots, baseZoneId, selectionIds);
+        if (runningCapacity + capacityUpperBound < partySize) {
+          incrementCounter(diagnostics.skipped, "capacity_upper_bound");
+          return;
+        }
       }
 
-      const nextZoneId = baseZoneId ?? candidate.zoneId ?? null;
-      const nextSelection = [...selection, candidate];
-      const nextSelectionIds = new Set(selectionIds);
-      nextSelectionIds.add(candidate.id);
-      const nextFrontier = requireAdjacency ? updateFrontierSet(frontier, nextSelectionIds, candidate) : null;
+      for (let index = startIndex; index < sortedCandidates.length; index += 1) {
+        if (stopSearch) {
+          break;
+        }
 
-      dfs(index + 1, nextSelection, nextSelectionIds, nextCapacity, nextZoneId, nextFrontier);
-    }
+        const candidate = sortedCandidates[index];
+
+        if (selectionIds.has(candidate.id)) {
+          continue;
+        }
+
+        if (requireAdjacency && frontier && !frontier.has(candidate.id)) {
+          continue;
+        }
+
+        if (selection.length > 0 && baseZoneId && candidate.zoneId && candidate.zoneId !== baseZoneId) {
+          incrementCounter(diagnostics.skipped, "zone");
+          continue;
+        }
+
+        if (selection.length + 1 > kMax) {
+          incrementCounter(diagnostics.skipped, "kmax");
+          continue;
+        }
+
+        const nextCapacity = runningCapacity + (candidate.capacity ?? 0);
+
+        if (nextCapacity > maxAllowedCapacity) {
+          incrementCounter(diagnostics.skipped, "overage");
+          break;
+        }
+
+        const nextZoneId = baseZoneId ?? candidate.zoneId ?? null;
+        const nextSelection = [...selection, candidate];
+        const nextSelectionIds = new Set(selectionIds);
+        nextSelectionIds.add(candidate.id);
+        const nextFrontier = requireAdjacency ? updateFrontierSet(frontier, nextSelectionIds, candidate) : null;
+
+        dfsInner(index + 1, nextSelection, nextSelectionIds, nextCapacity, nextZoneId, nextFrontier);
+      }
+    };
+
+    return dfsInner;
   };
+
+  const dfs = createDfs(
+    performance.now(),
+    diagnostics.limits.enumerationTimeoutMs ?? DEFAULT_ENUMERATION_TIMEOUT_MS,
+  );
 
   for (let i = 0; i < sortedCandidates.length && !stopSearch; i += 1) {
     const base = sortedCandidates[i];
@@ -755,6 +783,15 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
     const baseSelectionIds = new Set<string>([base.id]);
     const baseFrontier = requireAdjacency ? buildFrontier(baseSelectionIds) : null;
     dfs(i + 1, baseSelection, baseSelectionIds, base.capacity ?? 0, base.zoneId ?? null, baseFrontier);
+  }
+
+  if (timedOut) {
+    console.warn("[selector] combination enumeration timed out", {
+      partySize,
+      tableCount: sortedCandidates.length,
+      timeoutMs: diagnostics.limits.enumerationTimeoutMs ?? DEFAULT_ENUMERATION_TIMEOUT_MS,
+      evaluations,
+    });
   }
 
   return Array.from(buckets.values())

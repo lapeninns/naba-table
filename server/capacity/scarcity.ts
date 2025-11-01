@@ -86,12 +86,30 @@ export async function loadTableScarcityScores(params: {
   const metrics = await fetchRestaurantMetrics(dbClient, restaurantId);
 
   const countsByType = new Map<string, number>();
+  const countsByCapacity = new Map<number, { tableCount: number; seatSupply: number }>();
   for (const table of tables) {
     const type = deriveTableType(table);
     countsByType.set(type, (countsByType.get(type) ?? 0) + 1);
+    const capacity = Number.isFinite(table.capacity) ? Number(table.capacity) : 0;
+    if (capacity > 0) {
+      const current = countsByCapacity.get(capacity) ?? { tableCount: 0, seatSupply: 0 };
+      current.tableCount += 1;
+      current.seatSupply += capacity;
+      countsByCapacity.set(capacity, current);
+    }
   }
 
   const scores = new Map<string, number>();
+
+  const resolveDemandWeight = (capacity: number): number => {
+    if (!Number.isFinite(capacity) || capacity <= 0) {
+      return 0.1;
+    }
+    if (capacity <= 2) return 1.6;
+    if (capacity <= 4) return 0.18;
+    if (capacity <= 6) return 0.12;
+    return 0.08;
+  };
 
   for (const table of tables) {
     const type = deriveTableType(table);
@@ -101,7 +119,21 @@ export async function loadTableScarcityScores(params: {
       continue;
     }
 
-    const fallback = computeScarcityScore(countsByType.get(type) ?? 0);
+    const capacity = Number.isFinite(table.capacity) ? Number(table.capacity) : 0;
+    const capacityGroup = countsByCapacity.get(capacity) ?? { tableCount: 1, seatSupply: Math.max(1, capacity) };
+    const demandWeight = resolveDemandWeight(capacity);
+    const seatSupply = Math.max(1, capacityGroup.seatSupply);
+    const fallback = Number((demandWeight / seatSupply).toFixed(4));
+    if (!metrics.has(type)) {
+      console.debug("[scarcity] using heuristic fallback", {
+        restaurantId,
+        type,
+        capacity,
+        fallback,
+        tableCount: capacityGroup.tableCount,
+        seatSupply,
+      });
+    }
     scores.set(table.id, fallback);
   }
 

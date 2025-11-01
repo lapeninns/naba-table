@@ -110,7 +110,7 @@ pushCandidate(A, score, reason("merge"));
 return rankAndTrim(); // top 1 + alternates + nextTimes
 }
 
-Holds & Auto Assign (quote/confirm)
+Holds & Auto Quote (quote/confirm)
 Quote (staff/auto/quote)
 
 Runs selector to produce candidate/alternates.

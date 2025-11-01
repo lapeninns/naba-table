@@ -1,6 +1,6 @@
 'use client';
 
-import { Calendar as CalendarIcon, Clock, ChevronLeft, ChevronRight, TrendingUp, UserRound, Users, Loader2, type LucideIcon } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, ChevronLeft, ChevronRight, TrendingUp, UserRound, Users, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition } from 'react';
@@ -258,11 +258,6 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
     return result.tableAssignments;
   };
 
-  const handleAutoAssignTables = () => {
-    if (!summary || !restaurantId) return;
-    tableAssignmentActions.autoAssignTables.mutate({ restaurantId, date: summary.date });
-  };
-
   // Early returns must come after all hooks
   if (!restaurantId) {
     return <NoAccessState />;
@@ -342,26 +337,9 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
                 <p className="text-sm text-slate-600">Manage today&apos;s bookings for {restaurantName}</p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                {allowTableAssignments ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-11 min-w-[140px]"
-                    onClick={handleAutoAssignTables}
-                    disabled={tableAssignmentActions.autoAssignTables.isPending}
-                  >
-                    {tableAssignmentActions.autoAssignTables.isPending ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-                        Assigning…
-                      </>
-                    ) : (
-                      'Auto assign tables'
-                    )}
-                  </Button>
-                ) : (
+                {!allowTableAssignments ? (
                   <p className="text-xs text-slate-500">Table assignments locked for past service dates.</p>
-                )}
+                ) : null}
                 <ExportBookingsButton
                   restaurantId={restaurantId}
                   restaurantName={restaurantName}

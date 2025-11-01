@@ -245,6 +245,7 @@ export type Database = {
           idempotency_key: string
           merge_group_allocation_id: string | null
           table_ids: string[]
+          table_set_hash: string | null
         }
         Insert: {
           assignment_window: unknown
@@ -253,6 +254,7 @@ export type Database = {
           idempotency_key: string
           merge_group_allocation_id?: string | null
           table_ids: string[]
+          table_set_hash?: string | null
         }
         Update: {
           assignment_window?: unknown
@@ -261,6 +263,7 @@ export type Database = {
           idempotency_key?: string
           merge_group_allocation_id?: string | null
           table_ids?: string[]
+          table_set_hash?: string | null
         }
         Relationships: [
           {
@@ -417,6 +420,7 @@ export type Database = {
         Row: {
           assigned_at: string
           assigned_by: string | null
+          allocation_id: string | null
           booking_id: string
           created_at: string
           end_at: string | null
@@ -431,6 +435,7 @@ export type Database = {
         Insert: {
           assigned_at?: string
           assigned_by?: string | null
+          allocation_id?: string | null
           booking_id: string
           created_at?: string
           end_at?: string | null
@@ -445,6 +450,7 @@ export type Database = {
         Update: {
           assigned_at?: string
           assigned_by?: string | null
+          allocation_id?: string | null
           booking_id?: string
           created_at?: string
           end_at?: string | null
@@ -462,6 +468,13 @@ export type Database = {
             columns: ["booking_id"]
             isOneToOne: false
             referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_table_assignments_allocation_id_fkey"
+            columns: ["allocation_id"]
+            isOneToOne: false
+            referencedRelation: "allocations"
             referencedColumns: ["id"]
           },
           {
@@ -534,6 +547,7 @@ export type Database = {
       bookings: {
         Row: {
           auth_user_id: string | null
+          assigned_zone_id: string | null
           booking_date: string
           booking_type: string
           checked_in_at: string | null
@@ -569,6 +583,7 @@ export type Database = {
         }
         Insert: {
           auth_user_id?: string | null
+          assigned_zone_id?: string | null
           booking_date: string
           booking_type?: string
           checked_in_at?: string | null
@@ -604,6 +619,7 @@ export type Database = {
         }
         Update: {
           auth_user_id?: string | null
+          assigned_zone_id?: string | null
           booking_date?: string
           booking_type?: string
           checked_in_at?: string | null
@@ -644,6 +660,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "booking_occasions"
             referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "bookings_assigned_zone_id_fkey"
+            columns: ["assigned_zone_id"]
+            isOneToOne: false
+            referencedRelation: "zones"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "bookings_customer_id_fkey"

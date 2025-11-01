@@ -74,7 +74,6 @@ function createBookingServiceStub(): BookingService {
     createWalkInBooking: vi.fn(),
     assignTable: vi.fn(),
     unassignTable: vi.fn(),
-    autoAssignTables: vi.fn(),
   } as unknown as BookingService;
 }
 
@@ -250,7 +249,7 @@ describe('Ops feature clients', () => {
       await screen.findByText((content) => content.trim() === 'Guests'),
     ).toBeInTheDocument();
 
-    expect(screen.getByRole('button', { name: /auto assign tables/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /download bookings/i })).toBeInTheDocument();
 
     expect(bookingService.getTodaySummary).toHaveBeenCalledWith({ restaurantId: 'rest-1', date: undefined });
   });
@@ -299,7 +298,6 @@ describe('Ops feature clients', () => {
     });
 
     await screen.findByText(/table assignments locked for past service dates/i);
-    expect(screen.queryByRole('button', { name: /auto assign tables/i })).not.toBeInTheDocument();
   });
 
   it('locks assignment controls for bookings whose service time has passed today', async () => {
@@ -369,7 +367,6 @@ describe('Ops feature clients', () => {
       createWalkInBooking: vi.fn(),
       assignTable: vi.fn(),
       unassignTable: vi.fn(),
-      autoAssignTables: vi.fn(),
     } as unknown as BookingService;
 
     renderWithProviders(<OpsDashboardClient initialDate={null} />, {

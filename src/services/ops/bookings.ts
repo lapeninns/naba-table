@@ -154,149 +154,8 @@ type AssignTableInput = {
   tableId: string;
 };
 
-type AutoAssignTablesInput = {
-  restaurantId: string;
-  date?: string | null;
-  captureDecisions?: boolean;
-};
-
 type TableAssignmentsResponse = {
   tableAssignments: OpsTodayBooking['tableAssignments'];
-};
-
-type AutoAssignDecisionSnapshot = {
-  type: 'capacity.selector';
-  timestamp: string;
-  restaurantId: string;
-  bookingId: string;
-  partySize: number;
-  window: { start: string | null; end: string | null } | null;
-  selected: (AutoQuoteCandidate & { adjacencyStatus?: 'single' | 'connected' | 'disconnected' }) | null;
-  topCandidates: AutoQuoteCandidate[];
-  candidates: AutoQuoteCandidate[];
-  skipReason: string | null;
-  rejectionClassification?: 'hard' | 'strategic' | null;
-  strategicPenalties?: {
-    dominant: 'slack' | 'scarcity' | 'future_conflict' | 'structural' | 'unknown';
-    slack: number;
-    scarcity: number;
-    futureConflict: number;
-  } | null;
-  durationMs: number;
-  featureFlags: {
-    selectorScoring: boolean;
-    opsMetrics: boolean;
-    plannerTimePruning: boolean;
-    adjacencyUndirected: boolean;
-    holdsStrictConflicts: boolean;
-    allocatorFailHard: boolean;
-  };
-  timing: {
-    totalMs: number;
-    plannerMs?: number;
-    assignmentMs?: number;
-    holdMs?: number;
-  } | null;
-  plannerConfig: {
-    combinationEnabled: boolean;
-    requireAdjacency: boolean;
-    adjacencyRequiredGlobally: boolean;
-    adjacencyMinPartySize: number | null;
-    kMax: number;
-    bucketLimit: number;
-    evaluationLimit: number;
-    maxOverage: number;
-    maxTables: number;
-    weights: {
-      overage: number;
-      tableCount: number;
-      fragmentation: number;
-      zoneBalance: number;
-      adjacencyCost: number;
-      scarcity: number;
-    };
-    featureFlags: {
-      selectorScoring: boolean;
-      opsMetrics: boolean;
-      plannerTimePruning: boolean;
-      adjacencyUndirected: boolean;
-      holdsStrictConflicts: boolean;
-      allocatorFailHard: boolean;
-      selectorLookahead: boolean;
-    };
-    serviceFallback: {
-      used: boolean;
-      service: string | null;
-    };
-    demandMultiplier: number;
-    demandRule: {
-      label?: string | null;
-      source: string;
-      serviceWindow?: string | null;
-      days?: string[];
-      start?: string | null;
-      end?: string | null;
-      priority?: number | null;
-    } | null;
-    lookahead: {
-      enabled: boolean;
-      windowMinutes: number;
-      penaltyWeight: number;
-    };
-  } | null;
-  diagnostics: {
-    singlesConsidered: number;
-    combinationsEnumerated: number;
-    combinationsAccepted: number;
-    skipped: Record<string, number>;
-    limits: {
-      kMax: number;
-      maxPlansPerSlack: number;
-      maxCombinationEvaluations: number;
-    };
-    totals: {
-      enumerated: number;
-      accepted: number;
-    };
-    timePruning?: {
-      prunedByTime: number;
-      candidatesAfterTimePrune: number;
-      pruned_by_time: number;
-      candidates_after_time_prune: number;
-    };
-    quoteSkips?: {
-      holdConflicts: {
-        count: number;
-        holdIds: string[];
-      };
-    };
-    performance?: {
-      totalDurationMs: number;
-      buildScoredTablePlansMs: number;
-      enumerateCombinationsMs?: number;
-      sortingMs?: number;
-      inputSize: {
-        tableCount: number;
-        partySize: number;
-        validTablesCount: number;
-        singleTableCandidatesCount: number;
-      };
-      iterations: {
-        totalEvaluations: number;
-        dfsIterations?: number;
-        earlyExit: boolean;
-        earlyExitReason?: string;
-      };
-    };
-  } | null;
-};
-
-type AutoAssignTablesResponse = {
-  date: string;
-  assigned: { bookingId: string; tableIds: string[] }[];
-  skipped: { bookingId: string; reason: string }[];
-  serviceFallbacks: { bookingId: string; usedFallback: boolean; fallbackService: string | null }[];
-  decisions?: AutoAssignDecisionSnapshot[];
 };
 
 type AutoQuoteCandidate = {
@@ -491,7 +350,6 @@ export interface BookingService {
   createWalkInBooking(input: WalkInInput): Promise<WalkInResponse>;
   assignTable(input: AssignTableInput): Promise<TableAssignmentsResponse>;
   unassignTable(input: AssignTableInput): Promise<TableAssignmentsResponse>;
-  autoAssignTables(input: AutoAssignTablesInput): Promise<AutoAssignTablesResponse>;
   autoQuoteTables(input: AutoQuoteInput): Promise<AutoQuoteResponse>;
   confirmHoldAssignment(input: ConfirmHoldInput): Promise<ConfirmHoldResponse>;
   manualValidateSelection(input: ManualSelectionPayload): Promise<ManualValidationResult>;
@@ -677,21 +535,6 @@ export function createBrowserBookingService(): BookingService {
         method: 'DELETE',
       });
     },
-    async autoAssignTables({ restaurantId, date, captureDecisions }) {
-      const payload: Record<string, unknown> = { restaurantId };
-      if (date) {
-        payload.date = date;
-      }
-      if (typeof captureDecisions === 'boolean') {
-        payload.captureDecisions = captureDecisions;
-      }
-
-      return fetchJson<AutoAssignTablesResponse>(`${OPS_DASHBOARD_BASE}/assign-tables`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-    },
     async autoQuoteTables({ bookingId, zoneId, maxTables, requireAdjacency, avoidTables, holdTtlSeconds }) {
       const payload: Record<string, unknown> = { bookingId };
       if (zoneId) payload.zoneId = zoneId;
@@ -852,10 +695,6 @@ export class NotImplementedBookingService implements BookingService {
 
   unassignTable(): Promise<TableAssignmentsResponse> {
     this.error('unassignTable not implemented');
-  }
-
-  autoAssignTables(_input?: AutoAssignTablesInput): Promise<AutoAssignTablesResponse> {
-    this.error('autoAssignTables not implemented');
   }
 
   autoQuoteTables(): Promise<AutoQuoteResponse> {

@@ -1,7 +1,5 @@
 import { DateTime } from "luxon";
 import { randomUUID } from "node:crypto";
-import { promises as fs } from "node:fs";
-import path from "node:path";
 import { performance } from "node:perf_hooks";
 
 import { BOOKING_BLOCKING_STATUSES } from "@/lib/enums";
@@ -10,7 +8,6 @@ import {
   getAllocatorKMax as getAllocatorCombinationLimit,
   getSelectorPlannerLimits,
   isAllocatorAdjacencyRequired,
-  isAllocatorMergesEnabled,
   isAllocatorServiceFailHard,
   isAllocatorV2Enabled,
   isCombinationPlannerEnabled,
@@ -23,6 +20,7 @@ import {
   isSelectorLookaheadEnabled,
   getSelectorLookaheadWindowMinutes,
   getSelectorLookaheadPenaltyWeight,
+  getSelectorLookaheadBlockThreshold,
 } from "@/server/feature-flags";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
@@ -60,20 +58,15 @@ import {
   type RankedTablePlan,
   type CandidateDiagnostics,
   type BuildCandidatesResult,
-  type ScoreBreakdown,
 } from "./selector";
 import { loadStrategicConfig } from "./strategic-config";
 import {
-  buildSelectorDecisionPayload,
   emitHoldConfirmed,
   emitRpcConflict,
-  emitSelectorDecision,
   emitSelectorQuote,
   summarizeCandidate,
   type CandidateSummary,
-  type SelectorDecisionCapture,
   type SelectorDecisionEvent,
-  type StrategicPenaltyTelemetry,
 } from "./telemetry";
 import {
   AssignmentConflictError,
@@ -87,8 +80,6 @@ import {
 
 import type { Database, Tables } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
-
-export type { SelectorDecisionCapture } from "./telemetry";
 
 type DbClient = SupabaseClient<Database, "public">;
 
@@ -209,13 +200,6 @@ function buildSelectorFeatureFlagsTelemetry(): {
     selectorLookahead: isSelectorLookaheadEnabled(),
   };
 }
-
-export type AutoAssignResult = {
-  assigned: Array<{ bookingId: string; tableIds: string[] }>;
-  skipped: Array<{ bookingId: string; reason: string }>;
-  serviceFallbacks: Array<{ bookingId: string; usedFallback: boolean; fallbackService: ServiceKey | null }>;
-  decisions?: SelectorDecisionCapture[];
-};
 
 export type QuoteTablesOptions = {
   bookingId: string;
@@ -374,6 +358,7 @@ export function computeBookingWindow(args: {
     start: DateTime;
     end: DateTime;
   };
+  clampedToServiceEnd: boolean;
 } {
   const policy = args.policy ?? getVenuePolicy();
   const baseStart = resolveStartDateTime(args, policy);
@@ -382,18 +367,24 @@ export function computeBookingWindow(args: {
   const diningMinutes = bandDuration(service, args.partySize, policy);
   const buffer = getBufferConfig(service, policy);
   const diningStart = baseStart;
-  const diningEnd = diningStart.plus({ minutes: diningMinutes });
+  let diningEnd = diningStart.plus({ minutes: diningMinutes });
   const blockStart = diningStart.minus({ minutes: buffer.pre ?? 0 });
-  const blockEnd = diningEnd.plus({ minutes: buffer.post ?? 0 });
+  let blockEnd = diningEnd.plus({ minutes: buffer.post ?? 0 });
+  let clampedToServiceEnd = false;
 
   const serviceEndBoundary = serviceEnd(service, diningStart, policy);
   if (blockEnd > serviceEndBoundary) {
-    throw new ServiceOverrunError(service, blockEnd, serviceEndBoundary);
+    blockEnd = serviceEndBoundary;
+    diningEnd = blockEnd.minus({ minutes: buffer.post ?? 0 });
+    if (diningEnd <= diningStart) {
+      throw new ServiceOverrunError(service, blockEnd, serviceEndBoundary);
+    }
+    clampedToServiceEnd = true;
   }
 
   return {
     service,
-    durationMinutes: diningMinutes,
+    durationMinutes: Math.max(1, Math.round(diningEnd.diff(diningStart, "minutes").minutes)),
     dining: {
       start: diningStart,
       end: diningEnd,
@@ -402,6 +393,7 @@ export function computeBookingWindow(args: {
       start: blockStart,
       end: blockEnd,
     },
+    clampedToServiceEnd,
   };
 }
 
@@ -442,38 +434,20 @@ function computeBookingWindowWithFallback(args: ComputeWindowArgs): BookingWindo
         throw error;
       }
 
-      const baseStart = resolveStartDateTime(args, policy);
-      const durationMinutes = bandDuration(fallbackService, args.partySize, policy);
-      const buffer = getBufferConfig(fallbackService, policy);
-      const diningStart = baseStart;
-      const diningEnd = diningStart.plus({ minutes: durationMinutes });
-      const blockStart = diningStart.minus({ minutes: buffer.pre ?? 0 });
-      const blockEnd = diningEnd.plus({ minutes: buffer.post ?? 0 });
-      const serviceEndBoundary = serviceEnd(fallbackService, diningStart, policy);
-      if (blockEnd > serviceEndBoundary) {
-        throw new ServiceOverrunError(fallbackService, blockEnd, serviceEndBoundary);
-      }
-
-      console.warn("[capacity][window][fallback] service not found, using fallback service", {
-        start: baseStart.toISO(),
-        fallbackService,
+      const fallbackWindow = computeBookingWindow({
+        ...args,
+        policy,
+        serviceHint: fallbackService,
       });
 
-      const window: BookingWindow = {
-        service: fallbackService,
-        durationMinutes,
-        dining: {
-          start: diningStart,
-          end: diningEnd,
-        },
-        block: {
-          start: blockStart,
-          end: blockEnd,
-        },
-      };
+      console.warn("[capacity][window][fallback] service not found, using fallback service", {
+        start: fallbackWindow.dining.start.toISO(),
+        fallbackService,
+        clamped: fallbackWindow.clampedToServiceEnd,
+      });
 
       return {
-        window,
+        window: fallbackWindow,
         usedFallback: true,
         fallbackService,
       };
@@ -570,154 +544,6 @@ function roundMilliseconds(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-const AUTO_ASSIGN_LOG_ROOT = process.env.AUTO_ASSIGN_LOG_ROOT ?? path.join(process.cwd(), "logs");
-const AUTO_ASSIGN_LOG_DIR =
-  process.env.AUTO_ASSIGN_LOG_DIR ?? path.join(AUTO_ASSIGN_LOG_ROOT, process.env.AUTO_ASSIGN_LOG_SUBDIR ?? "auto-assign");
-
-const STRATEGIC_SKIP_REASON_PATTERNS = [
-  /conflicts with existing/i,
-  /future conflict/i,
-  /lookahead/i,
-  /strategic/i,
-];
-
-type ScoreBreakdownLike = ScoreBreakdown | CandidateSummary["scoreBreakdown"] | null | undefined;
-
-function isCamelCaseBreakdown(breakdown: ScoreBreakdownLike): breakdown is ScoreBreakdown {
-  return Boolean(breakdown && typeof breakdown === "object" && "slackPenalty" in breakdown);
-}
-
-function isSnakeCaseBreakdown(
-  breakdown: ScoreBreakdownLike,
-): breakdown is NonNullable<CandidateSummary["scoreBreakdown"]> {
-  return Boolean(breakdown && typeof breakdown === "object" && "slack_penalty" in breakdown);
-}
-
-function extractStrategicPenalties(breakdown: ScoreBreakdownLike): StrategicPenaltyTelemetry | null {
-  if (!breakdown) {
-    return null;
-  }
-
-  let slack = 0;
-  let scarcity = 0;
-  let futureConflict = 0;
-
-  if (isCamelCaseBreakdown(breakdown)) {
-    slack = Number(breakdown.slackPenalty ?? 0);
-    scarcity = Number(breakdown.scarcityPenalty ?? 0);
-    futureConflict = Number(breakdown.futureConflictPenalty ?? 0);
-  } else if (isSnakeCaseBreakdown(breakdown)) {
-    slack = Number(breakdown.slack_penalty ?? 0);
-    scarcity = Number(breakdown.scarcity_penalty ?? 0);
-    futureConflict = Number(breakdown.future_conflict_penalty ?? 0);
-  } else {
-    return null;
-  }
-
-  const contributions: Array<[StrategicPenaltyTelemetry["dominant"], number]> = [
-    ["slack", slack],
-    ["scarcity", scarcity],
-    ["future_conflict", futureConflict],
-  ];
-
-  let dominant: StrategicPenaltyTelemetry["dominant"] = "unknown";
-  let maxContribution = 0;
-
-  for (const [key, value] of contributions) {
-    if (value > maxContribution) {
-      maxContribution = value;
-      dominant = key;
-    }
-  }
-
-  if (maxContribution <= 0) {
-    dominant = "unknown";
-  }
-
-  return {
-    dominant,
-    slack,
-    scarcity,
-    futureConflict,
-  };
-}
-
-type RejectionTelemetry = {
-  classification: "hard" | "strategic";
-  penalties: StrategicPenaltyTelemetry | null;
-};
-
-function determineRejectionTelemetry(
-  skipReason: string | null | undefined,
-  breakdown: ScoreBreakdownLike,
-): RejectionTelemetry | null {
-  const reason = (skipReason ?? "").trim();
-  const normalized = reason.toLowerCase();
-  const penalties = extractStrategicPenalties(breakdown);
-  const hasMeaningfulPenalty = Boolean(
-    penalties && (penalties.slack > 0 || penalties.scarcity > 0 || penalties.futureConflict > 0),
-  );
-  const matchesStrategicKeyword =
-    normalized.length > 0 && STRATEGIC_SKIP_REASON_PATTERNS.some((pattern) => pattern.test(normalized));
-
-  if (hasMeaningfulPenalty || matchesStrategicKeyword) {
-    return {
-      classification: "strategic",
-      penalties: penalties ?? null,
-    };
-  }
-
-  if (!reason) {
-    return null;
-  }
-
-  return {
-    classification: "hard",
-    penalties: null,
-  };
-}
-
-async function persistDecisionSnapshots(params: {
-  restaurantId: string;
-  slug?: string | null;
-  date: string;
-  decisions: SelectorDecisionCapture[];
-}): Promise<void> {
-  if (params.decisions.length === 0) {
-    return;
-  }
-
-  if (process.env.NODE_ENV === "test") {
-    return;
-  }
-
-  try {
-    const timestamp = DateTime.utc().toFormat("yyyyLLdd-HHmmss");
-    const safeSlugSource = (params.slug && params.slug.trim().length > 0 ? params.slug : params.restaurantId) ?? params.restaurantId;
-    const safeSlug = safeSlugSource.replace(/[^a-zA-Z0-9-_]/g, "_").toLowerCase();
-    const bookingSegment = params.date.replace(/[^a-zA-Z0-9-_]/g, "_");
-    const decisionSegment = `${String(params.decisions.length).padStart(2, "0")}dec`;
-    const timestampDir = path.join(AUTO_ASSIGN_LOG_DIR, "log", timestamp);
-    await fs.mkdir(timestampDir, { recursive: true });
-    const filePath = path.join(timestampDir, `${safeSlug}-${bookingSegment}-${decisionSegment}.json`);
-    const payload = {
-      generatedAt: new Date().toISOString(),
-      restaurantId: params.restaurantId,
-      restaurantSlug: params.slug ?? null,
-      date: params.date,
-      decisionCount: params.decisions.length,
-      decisions: params.decisions,
-    };
-    await fs.writeFile(filePath, JSON.stringify(payload, null, 2), "utf8");
-  } catch (error) {
-    console.error("[auto-assign][capture] failed to persist decisions", {
-      error: error instanceof Error ? error.message : String(error),
-      restaurantId: params.restaurantId,
-      date: params.date,
-    });
-  }
-}
-
 function buildTiming(params: {
   totalMs: number;
   plannerMs?: number;
@@ -759,7 +585,7 @@ function composePlannerConfig(params: {
   };
   demandMultiplier: number;
   demandRule?: DemandMultiplierResult["rule"];
-  lookahead: Pick<LookaheadConfig, "enabled" | "windowMinutes" | "penaltyWeight">;
+  lookahead: Pick<LookaheadConfig, "enabled" | "windowMinutes" | "penaltyWeight" | "blockThreshold">;
 }): NonNullable<SelectorDecisionEvent["plannerConfig"]> {
   const { diagnostics, scoringConfig } = params;
   const { limits } = diagnostics;
@@ -811,6 +637,7 @@ function composePlannerConfig(params: {
       enabled: params.lookahead.enabled,
       windowMinutes: params.lookahead.windowMinutes,
       penaltyWeight: params.lookahead.penaltyWeight,
+      blockThreshold: params.lookahead.blockThreshold,
     },
   };
 }
@@ -991,6 +818,7 @@ type LookaheadConfig = {
   enabled: boolean;
   windowMinutes: number;
   penaltyWeight: number;
+  blockThreshold: number;
 };
 
 type FutureBookingCandidate = {
@@ -1088,22 +916,44 @@ function applyLookaheadPenalties(params: {
   combinationLimit: number;
   selectorLimits: ReturnType<typeof getSelectorPlannerLimits>;
   penaltyWeight: number;
+  blockThreshold: number;
 }): {
   penalizedPlans: number;
   totalPenalty: number;
   evaluationMs: number;
   conflicts: Array<{ bookingId: string; planKey: string }>;
+  blockedPlans: string[];
 } {
-  const { plans, bookingWindow, tables, adjacency, zoneId, futureBookings, config, combinationEnabled, combinationLimit, selectorLimits, penaltyWeight } = params;
+  const {
+    plans,
+    bookingWindow,
+    tables,
+    adjacency,
+    zoneId,
+    futureBookings,
+    config,
+    combinationEnabled,
+    combinationLimit,
+    selectorLimits,
+    penaltyWeight,
+    blockThreshold,
+  } = params;
   const start = performance.now();
 
   if (futureBookings.length === 0 || plans.length === 0 || penaltyWeight <= 0) {
-    return { penalizedPlans: 0, totalPenalty: 0, evaluationMs: performance.now() - start, conflicts: [] };
+    return {
+      penalizedPlans: 0,
+      totalPenalty: 0,
+      evaluationMs: performance.now() - start,
+      conflicts: [],
+      blockedPlans: [],
+    };
   }
 
   let penalizedPlans = 0;
   let totalPenalty = 0;
   const conflicts: Array<{ bookingId: string; planKey: string }> = [];
+  const blockedPlanKeys = new Set<string>();
 
   for (const plan of plans) {
     let planPenalty = 0;
@@ -1146,6 +996,7 @@ function applyLookaheadPenalties(params: {
         kMax: combinationLimit,
         maxPlansPerSlack: selectorLimits.maxPlansPerSlack,
         maxCombinationEvaluations: selectorLimits.maxCombinationEvaluations,
+        enumerationTimeoutMs: selectorLimits.enumerationTimeoutMs,
         requireAdjacency: requireAdjacencyForFuture,
         demandMultiplier: 1,
       });
@@ -1164,10 +1015,28 @@ function applyLookaheadPenalties(params: {
         (plan.scoreBreakdown.futureConflictPenalty ?? 0) + planPenalty;
       plan.scoreBreakdown.total += planPenalty;
     }
+
+    if (blockThreshold > 0 && planPenalty >= blockThreshold) {
+      blockedPlanKeys.add(plan.tableKey);
+    }
+  }
+
+  if (blockedPlanKeys.size > 0) {
+    for (let index = plans.length - 1; index >= 0; index -= 1) {
+      if (blockedPlanKeys.has(plans[index].tableKey)) {
+        plans.splice(index, 1);
+      }
+    }
   }
 
   const evaluationMs = performance.now() - start;
-  return { penalizedPlans, totalPenalty, evaluationMs, conflicts };
+  return {
+    penalizedPlans,
+    totalPenalty,
+    evaluationMs,
+    conflicts,
+    blockedPlans: Array.from(blockedPlanKeys),
+  };
 }
 
 function sortPlansByScore(plans: RankedTablePlan[]): void {
@@ -1236,6 +1105,8 @@ export function evaluateLookahead(params: {
       totalPenalty: 0,
       windowMinutes: lookahead.windowMinutes,
       conflicts: [],
+      blockedPlans: [],
+      hardBlockTriggered: false,
     };
   }
 
@@ -1257,10 +1128,12 @@ export function evaluateLookahead(params: {
       totalPenalty: 0,
       windowMinutes: lookahead.windowMinutes,
       conflicts: [],
+      blockedPlans: [],
+      hardBlockTriggered: false,
     };
   }
 
-  const { penalizedPlans, totalPenalty, evaluationMs, conflicts } = applyLookaheadPenalties({
+  const { penalizedPlans, totalPenalty, evaluationMs, conflicts, blockedPlans } = applyLookaheadPenalties({
     plans: plansResult.plans,
     bookingWindow,
     tables,
@@ -1272,7 +1145,22 @@ export function evaluateLookahead(params: {
     combinationLimit,
     selectorLimits,
     penaltyWeight: lookahead.penaltyWeight,
+    blockThreshold: lookahead.blockThreshold,
   });
+
+  if (plansResult.plans.length === 0) {
+    return {
+      enabled: true,
+      evaluationMs,
+      futureBookingsConsidered: futureBookings.length,
+      penalizedPlans,
+      totalPenalty,
+      windowMinutes: lookahead.windowMinutes,
+      conflicts,
+      blockedPlans,
+      hardBlockTriggered: blockedPlans.length > 0,
+    };
+  }
 
   if (penalizedPlans > 0) {
     sortPlansByScore(plansResult.plans);
@@ -1286,6 +1174,8 @@ export function evaluateLookahead(params: {
     totalPenalty,
     windowMinutes: lookahead.windowMinutes,
     conflicts,
+    blockedPlans,
+    hardBlockTriggered: blockedPlans.length > 0,
   };
 }
 
@@ -1678,26 +1568,6 @@ function extractConflictsForTables(
   }
 
   return conflicts;
-}
-
-function formatConflictSummary(conflicts: ManualAssignmentConflict[]): string {
-  if (conflicts.length === 0) {
-    return "conflicts";
-  }
-
-  const sources = new Set(conflicts.map((conflict) => conflict.source));
-  const tableIds = Array.from(new Set(conflicts.map((conflict) => conflict.tableId))).join(", ");
-  if (sources.size === 0) {
-    return tableIds ? `conflicts on tables ${tableIds}` : "conflicts";
-  }
-
-  if (sources.size > 1) {
-    return tableIds ? `holds and bookings on tables ${tableIds}` : "holds and bookings";
-  }
-
-  const [source] = sources;
-  const label = source === "hold" ? "holds" : "bookings";
-  return tableIds ? `${label} on tables ${tableIds}` : label;
 }
 
 function formatHoldConflictReason(conflicts: HoldConflictInfo[], plan: RankedTablePlan): string {
@@ -2898,6 +2768,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     kMax: combinationLimit,
     maxPlansPerSlack: selectorLimits.maxPlansPerSlack,
     maxCombinationEvaluations: selectorLimits.maxCombinationEvaluations,
+    enumerationTimeoutMs: selectorLimits.enumerationTimeoutMs,
     requireAdjacency,
     demandMultiplier,
     tableScarcityScores,
@@ -2907,6 +2778,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     enabled: lookaheadEnabled,
     windowMinutes: getSelectorLookaheadWindowMinutes(),
     penaltyWeight: getSelectorLookaheadPenaltyWeight(),
+    blockThreshold: getSelectorLookaheadBlockThreshold(),
   };
   const lookaheadDiagnostics = evaluateLookahead({
     lookahead: lookaheadConfig,
@@ -3128,559 +3000,6 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
   };
 }
 
-export async function autoAssignTablesForDate(options: {
-  restaurantId: string;
-  date: string;
-  client?: DbClient;
-  assignedBy?: string | null;
-  captureDecisions?: boolean;
-}): Promise<AutoAssignResult> {
-  const { restaurantId, date, client, assignedBy = null, captureDecisions = true } = options;
-  const supabase = ensureClient(client);
-  const [bookings, tables, restaurantInfo] = await Promise.all([
-    loadContextBookings(restaurantId, date, supabase),
-    loadTablesForRestaurant(restaurantId, supabase),
-    loadRestaurantInfo(restaurantId, supabase),
-  ]);
-  const restaurantTimezone = restaurantInfo.timezone;
-  const restaurantSlug = restaurantInfo.slug;
-  const adjacency = await loadAdjacency(
-    tables.map((table) => table.id),
-    supabase,
-  );
-  const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
-  const adjacencyEdgeCount = Array.from(adjacency.values()).reduce((sum, neighbors) => sum + neighbors.size, 0);
-  const adjacencyEnforced = adjacencyEdgeCount > 0 && isAllocatorAdjacencyRequired();
-  const combinationPlannerEnabled = isCombinationPlannerEnabled();
-  const mergesEnabled = isAllocatorMergesEnabled();
-  const selectorLimits = getSelectorPlannerLimits();
-  const lookaheadConfigGlobal: LookaheadConfig = {
-    enabled: isSelectorLookaheadEnabled(),
-    windowMinutes: getSelectorLookaheadWindowMinutes(),
-    penaltyWeight: getSelectorLookaheadPenaltyWeight(),
-  };
-  const plannerTimePruningEnabled = isPlannerTimePruningEnabled();
-  let activeHolds: TableHold[] = [];
-  if (isHoldsEnabled()) {
-    try {
-      activeHolds = await loadActiveHoldsForDate(restaurantId, date, policy, supabase);
-    } catch (error: unknown) {
-      const code = extractErrorCode(error);
-      if (code === "42P01") {
-        console.warn("[ops][auto-assign] holds table unavailable; skipping hold hydration", {
-          restaurantId,
-        });
-      } else {
-        console.warn("[ops][auto-assign] failed to load active holds", {
-          restaurantId,
-          error,
-        });
-      }
-      activeHolds = [];
-    }
-  }
-
-  const result: AutoAssignResult = {
-    assigned: [],
-    skipped: [],
-    serviceFallbacks: [],
-  };
-
-  const capturedDecisions: SelectorDecisionCapture[] | undefined = captureDecisions ? [] : undefined;
-
-  const recordDecision = async (event: SelectorDecisionEvent) => {
-    const normalizedEvent: SelectorDecisionEvent = {
-      ...event,
-      availabilitySnapshot: event.availabilitySnapshot ?? null,
-    };
-    if (capturedDecisions) {
-      capturedDecisions.push(buildSelectorDecisionPayload(normalizedEvent));
-    }
-    await emitSelectorDecision(normalizedEvent);
-  };
-
-  const adjacencyMinPartySizeFlag = getAllocatorAdjacencyMinPartySize();
-
-  for (const booking of bookings) {
-    const alreadyAssigned = (booking.booking_table_assignments ?? []).some((row) => Boolean(row.table_id));
-    if (alreadyAssigned) {
-      continue;
-    }
-
-    const featureFlags = buildSelectorFeatureFlagsTelemetry();
-
-    const operationStart = highResNow();
-    let plannerDurationMs = 0;
-    let assignmentDurationMs = 0;
-    let combinationModeForTelemetry = combinationPlannerEnabled;
-
-    let window: BookingWindow | null = null;
-    let windowUsedFallback = false;
-    let windowFallbackService: ServiceKey | null = null;
-    let overrunReason: string | null = null;
-    try {
-      const computed = computeBookingWindowWithFallback({
-        startISO: booking.start_at,
-        bookingDate: booking.booking_date,
-        startTime: booking.start_time,
-        partySize: booking.party_size,
-        policy,
-      });
-      window = computed.window;
-      windowUsedFallback = computed.usedFallback;
-      windowFallbackService = computed.fallbackService;
-    } catch (error) {
-      if (error instanceof ServiceOverrunError) {
-        overrunReason = error.message ?? "Reservation window exceeds service boundary";
-      } else {
-        throw error;
-      }
-    }
-    if (!window) {
-      const reason = overrunReason ?? "Reservation window exceeds service boundary";
-      const totalDurationMs = highResNow() - operationStart;
-      const rejectionTelemetry = determineRejectionTelemetry(reason, null);
-      result.skipped.push({ bookingId: booking.id, reason });
-      result.serviceFallbacks.push({
-        bookingId: booking.id,
-        usedFallback: windowUsedFallback,
-        fallbackService: windowFallbackService,
-      });
-      await recordDecision({
-        restaurantId,
-        bookingId: booking.id,
-        partySize: booking.party_size,
-        window: undefined,
-        candidates: [],
-        selected: null,
-        skipReason: reason,
-        durationMs: roundMilliseconds(totalDurationMs),
-        featureFlags,
-        timing: buildTiming({ totalMs: totalDurationMs }),
-        plannerConfig: undefined,
-        diagnostics: undefined,
-        rejectionClassification: rejectionTelemetry?.classification ?? null,
-        strategicPenalties: rejectionTelemetry?.penalties ?? null,
-      });
-      continue;
-    }
-
-    result.serviceFallbacks.push({
-      bookingId: booking.id,
-      usedFallback: windowUsedFallback,
-      fallbackService: windowFallbackService,
-    });
-
-    const requireAdjacency = adjacencyEnforced && partiesRequireAdjacency(booking.party_size);
-    const busy = buildBusyMaps({
-      targetBookingId: booking.id,
-      bookings,
-      holds: activeHolds,
-      policy,
-      targetWindow: window,
-    });
-    let timePruningStats: TimeFilterStats | null = null;
-
-    const availableTables = filterAvailableTables(
-      tables,
-      booking.party_size,
-      window,
-      adjacency,
-      undefined,
-      undefined,
-      {
-        allowInsufficientCapacity: true,
-        timeFilter: plannerTimePruningEnabled
-          ? {
-              busy,
-              mode: "strict",
-              captureStats: (stats) => {
-                timePruningStats = stats;
-              },
-            }
-          : undefined,
-      },
-    );
-    const strategicOptions = { restaurantId } as const;
-    await loadStrategicConfig({ ...strategicOptions, client: supabase });
-    const baseScoringConfig = getSelectorScoringConfig(strategicOptions);
-    const combinationLimit = getAllocatorCombinationLimit();
-    const demandMultiplierResult = await resolveDemandMultiplier({
-      restaurantId,
-      serviceStart: window.block.start,
-      serviceKey: window.service,
-      timezone: policy.timezone,
-      client: supabase,
-    });
-    const demandMultiplier = demandMultiplierResult?.multiplier ?? 1;
-    const demandRule = demandMultiplierResult?.rule;
-    const tableScarcityScores = await loadTableScarcityScores({
-      restaurantId,
-      tables: availableTables,
-      client: supabase,
-    });
-    const scoringConfig: SelectorScoringConfig = {
-      ...baseScoringConfig,
-      weights: {
-        ...baseScoringConfig.weights,
-        scarcity: getYieldManagementScarcityWeight(strategicOptions),
-      },
-    };
-    const runPlanner = (enableCombinations: boolean) => {
-      const plannerStart = highResNow();
-      const result = buildScoredTablePlans({
-        tables: availableTables,
-        partySize: booking.party_size,
-        adjacency,
-        config: scoringConfig,
-        enableCombinations,
-        kMax: combinationLimit,
-        maxPlansPerSlack: selectorLimits.maxPlansPerSlack,
-        maxCombinationEvaluations: selectorLimits.maxCombinationEvaluations,
-        requireAdjacency,
-        demandMultiplier,
-        tableScarcityScores,
-      });
-      plannerDurationMs += highResNow() - plannerStart;
-      return result;
-    };
-    let plans = runPlanner(combinationPlannerEnabled);
-
-    if (plans.plans.length === 0 && !combinationPlannerEnabled) {
-      if (mergesEnabled) {
-        combinationModeForTelemetry = true;
-        const mergeFallback = runPlanner(true);
-        if (mergeFallback.plans.length > 0) {
-          plans = mergeFallback;
-        } else {
-          plans = {
-            ...mergeFallback,
-            fallbackReason: mergeFallback.fallbackReason ?? "Combination planner disabled (requires merges)",
-          };
-        }
-      } else if (!plans.fallbackReason) {
-        plans = {
-          ...plans,
-          fallbackReason: "Combination planner disabled (requires merges)",
-        };
-      }
-    }
-
-    const lookaheadDiagnostics = evaluateLookahead({
-      lookahead: lookaheadConfigGlobal,
-      bookingId: booking.id,
-      bookingWindow: window,
-      plansResult: plans,
-      tables,
-      adjacency,
-      zoneId: null,
-      policy,
-      contextBookings: bookings,
-      holds: activeHolds,
-      combinationEnabled: combinationModeForTelemetry,
-      combinationLimit,
-      selectorLimits,
-      scoringConfig,
-    });
-    plans.diagnostics.lookahead = lookaheadDiagnostics;
-
-    const plannerConfigTelemetry = composePlannerConfig({
-      diagnostics: plans.diagnostics,
-      scoringConfig,
-      combinationEnabled: combinationModeForTelemetry,
-      requireAdjacency,
-      adjacencyRequiredGlobally: adjacencyEnforced,
-      adjacencyMinPartySize: adjacencyMinPartySizeFlag ?? null,
-      featureFlags,
-      serviceFallback: {
-        usedFallback: windowUsedFallback,
-        fallbackService: windowFallbackService,
-      },
-      demandMultiplier,
-      demandRule,
-      lookahead: lookaheadConfigGlobal,
-    });
-    if (!timePruningStats) {
-      timePruningStats = {
-        prunedByTime: 0,
-        candidatesAfterTimePrune: availableTables.length,
-        pruned_by_time: 0,
-        candidates_after_time_prune: availableTables.length,
-      };
-    }
-    plans.diagnostics.timePruning = {
-      prunedByTime: timePruningStats.prunedByTime,
-      candidatesAfterTimePrune: timePruningStats.candidatesAfterTimePrune,
-      pruned_by_time: timePruningStats.pruned_by_time,
-      candidates_after_time_prune: timePruningStats.candidates_after_time_prune,
-    };
-
-    const topRankedPlan = plans.plans[0] ?? null;
-
-    if (plans.plans.length === 0) {
-      const fallback = plans.fallbackReason ?? "No suitable tables available";
-      const skipReason = `No suitable tables available (${fallback})`;
-      const totalDurationMs = highResNow() - operationStart;
-      const rejectionTelemetry = determineRejectionTelemetry(skipReason, topRankedPlan?.scoreBreakdown);
-      result.skipped.push({ bookingId: booking.id, reason: skipReason });
-      await recordDecision({
-        restaurantId,
-        bookingId: booking.id,
-        partySize: booking.party_size,
-        window: {
-          start: toIsoUtc(window.block.start),
-          end: toIsoUtc(window.block.end),
-        },
-        candidates: [],
-        selected: null,
-        skipReason,
-        durationMs: roundMilliseconds(totalDurationMs),
-        featureFlags,
-        timing: buildTiming({ totalMs: totalDurationMs, plannerMs: plannerDurationMs }),
-        plannerConfig: plannerConfigTelemetry,
-        diagnostics: plans.diagnostics,
-        rejectionClassification: rejectionTelemetry?.classification ?? null,
-        strategicPenalties: rejectionTelemetry?.penalties ?? null,
-      });
-      continue;
-    }
-
-    const planEvaluations = plans.plans.map((plan) => ({
-      plan,
-      conflicts: extractConflictsForTables(
-        busy,
-        plan.tables.map((table) => table.id),
-        window,
-      ),
-    }));
-    const bestPlanForTelemetry = planEvaluations[0]?.plan ?? null;
-
-    const candidateSummariesAll: CandidateSummary[] = planEvaluations.map(({ plan }) =>
-      summarizeCandidate({
-        tableIds: plan.tables.map((table) => table.id),
-        tableNumbers: plan.tables.map((table) => table.tableNumber),
-        totalCapacity: plan.totalCapacity,
-        tableCount: plan.tables.length,
-        slack: plan.slack,
-        score: plan.score,
-        adjacencyStatus: plan.adjacencyStatus,
-        scoreBreakdown: plan.scoreBreakdown,
-      }),
-    );
-
-    const conflictFreeEntries = planEvaluations.filter(({ conflicts }) => conflicts.length === 0);
-    if (conflictFreeEntries.length === 0) {
-      const conflictEntry = planEvaluations.find(({ conflicts }) => conflicts.length > 0);
-      const conflictSummary = conflictEntry ? formatConflictSummary(conflictEntry.conflicts) : "conflicts";
-      const skipReason = `Conflicts with existing ${conflictSummary}`;
-      const rejectionTelemetry = determineRejectionTelemetry(skipReason, bestPlanForTelemetry?.scoreBreakdown);
-
-      if (conflictEntry) {
-        await emitRpcConflict({
-          source: "auto_assign_conflict",
-          bookingId: booking.id,
-          restaurantId,
-          tableIds: conflictEntry.plan.tables.map((table) => table.id),
-          error: {
-            code: null,
-            message: skipReason,
-            details: JSON.stringify(conflictEntry.conflicts),
-            hint: null,
-          },
-        });
-      }
-
-      result.skipped.push({ bookingId: booking.id, reason: skipReason });
-      const totalDurationMs = highResNow() - operationStart;
-      await recordDecision({
-        restaurantId,
-        bookingId: booking.id,
-        partySize: booking.party_size,
-        window: {
-          start: toIsoUtc(window.block.start),
-          end: toIsoUtc(window.block.end),
-        },
-        candidates: candidateSummariesAll,
-        selected: null,
-        skipReason,
-        durationMs: roundMilliseconds(totalDurationMs),
-        featureFlags,
-        timing: buildTiming({ totalMs: totalDurationMs, plannerMs: plannerDurationMs }),
-        plannerConfig: plannerConfigTelemetry,
-        diagnostics: plans.diagnostics,
-        rejectionClassification: rejectionTelemetry?.classification ?? null,
-        strategicPenalties: rejectionTelemetry?.penalties ?? null,
-      });
-      continue;
-    }
-
-    const topEntry = conflictFreeEntries[0]!;
-    const topPlan = topEntry.plan;
-    const candidateSummaries: CandidateSummary[] = conflictFreeEntries.map(({ plan }) =>
-      summarizeCandidate({
-        tableIds: plan.tables.map((table) => table.id),
-        tableNumbers: plan.tables.map((table) => table.tableNumber),
-        totalCapacity: plan.totalCapacity,
-        tableCount: plan.tables.length,
-        slack: plan.slack,
-        score: plan.score,
-        adjacencyStatus: plan.adjacencyStatus,
-        scoreBreakdown: plan.scoreBreakdown,
-      }),
-    );
-    const candidate = candidateSummaries[0]!;
-
-    const assignmentStart = highResNow();
-    try {
-      await assignTableToBooking(
-        booking.id,
-        topPlan.tables.map((table) => table.id),
-        assignedBy,
-        supabase,
-        {
-          idempotencyKey: randomUUID(),
-          requireAdjacency,
-          booking: {
-            ...(booking as Partial<BookingRow>),
-            id: booking.id,
-            restaurant_id: restaurantId,
-            booking_date: booking.booking_date,
-            start_time: booking.start_time,
-            end_time: booking.end_time,
-            start_at: booking.start_at,
-            end_at: booking.end_at,
-            party_size: booking.party_size,
-            status: booking.status,
-            seating_preference: booking.seating_preference ?? null,
-            restaurants: { timezone: policy.timezone },
-          } as BookingRow,
-        },
-      );
-      assignmentDurationMs = highResNow() - assignmentStart;
-    } catch (error: unknown) {
-      assignmentDurationMs = highResNow() - assignmentStart;
-      const message = error instanceof Error ? error.message : String(error);
-      const normalized = message.toLowerCase();
-      const overlap =
-        normalized.includes("assignment overlap") || normalized.includes("allocations_no_overlap");
-
-      if (!overlap) {
-        throw error;
-      }
-
-      await emitRpcConflict({
-        source: "auto_assign_overlap",
-        bookingId: booking.id,
-        restaurantId,
-        tableIds: topPlan.tables.map((table) => table.id),
-        error: {
-          code: null,
-          message,
-          details: null,
-          hint: null,
-        },
-      });
-
-      const skipReason = "Auto assign skipped: Supabase reported an overlapping assignment";
-      const rejectionTelemetry = determineRejectionTelemetry(skipReason, topPlan?.scoreBreakdown);
-      result.skipped.push({ bookingId: booking.id, reason: skipReason });
-      const totalDurationMs = highResNow() - operationStart;
-      await recordDecision({
-        restaurantId,
-        bookingId: booking.id,
-        partySize: booking.party_size,
-        window: {
-          start: toIsoUtc(window.block.start),
-          end: toIsoUtc(window.block.end),
-        },
-        candidates: candidateSummariesAll,
-        selected: null,
-        skipReason,
-        durationMs: roundMilliseconds(totalDurationMs),
-        featureFlags,
-        timing: buildTiming({
-          totalMs: totalDurationMs,
-          plannerMs: plannerDurationMs,
-          assignmentMs: assignmentDurationMs,
-        }),
-        plannerConfig: plannerConfigTelemetry,
-        diagnostics: plans.diagnostics,
-        rejectionClassification: rejectionTelemetry?.classification ?? null,
-        strategicPenalties: rejectionTelemetry?.penalties ?? null,
-      });
-      continue;
-    }
-
-    if (!booking.booking_table_assignments) {
-      booking.booking_table_assignments = [];
-    }
-    for (const table of topPlan.tables) {
-      if (!booking.booking_table_assignments.some((assignment) => assignment?.table_id === table.id)) {
-        booking.booking_table_assignments.push({ table_id: table.id });
-      }
-    }
-
-    result.assigned.push({
-      bookingId: booking.id,
-      tableIds: topPlan.tables.map((table) => table.id),
-    });
-
-    const assignedTableIds = new Set(topPlan.tables.map((table) => table.id));
-    const remainingTables = availableTables
-      .filter((table) => !assignedTableIds.has(table.id))
-      .map((table) => ({
-        id: table.id,
-        tableNumber: table.tableNumber,
-        capacity: table.capacity,
-      }));
-
-    const totalDurationMs = highResNow() - operationStart;
-    await recordDecision({
-      restaurantId,
-      bookingId: booking.id,
-      partySize: booking.party_size,
-      window: {
-        start: toIsoUtc(window.block.start),
-        end: toIsoUtc(window.block.end),
-      },
-      candidates: candidateSummaries,
-      selected: candidate,
-      skipReason: null,
-      durationMs: roundMilliseconds(totalDurationMs),
-      featureFlags,
-      timing: buildTiming({
-        totalMs: totalDurationMs,
-        plannerMs: plannerDurationMs,
-        assignmentMs: assignmentDurationMs,
-      }),
-      plannerConfig: plannerConfigTelemetry,
-      diagnostics: plans.diagnostics,
-      availabilitySnapshot: {
-        totalCandidates: availableTables.length,
-        remainingAfterSelection: remainingTables.length,
-        remainingTables,
-      },
-    });
-  }
-
-  if (capturedDecisions) {
-    await persistDecisionSnapshots({ restaurantId, date, slug: restaurantSlug, decisions: capturedDecisions });
-    return { ...result, decisions: capturedDecisions };
-  }
-
-  return result;
-}
-
-export async function autoAssignTables(options: {
-  restaurantId: string;
-  date: string;
-  client?: DbClient;
-  assignedBy?: string | null;
-  captureDecisions?: boolean;
-}): Promise<AutoAssignResult> {
-  return autoAssignTablesForDate(options);
-}
-
 export async function findSuitableTables(options: {
   bookingId: string;
   client?: DbClient;
@@ -3753,6 +3072,7 @@ export async function findSuitableTables(options: {
     kMax: getAllocatorCombinationLimit(),
     maxPlansPerSlack: selectorLimits.maxPlansPerSlack,
     maxCombinationEvaluations: selectorLimits.maxCombinationEvaluations,
+    enumerationTimeoutMs: selectorLimits.enumerationTimeoutMs,
     requireAdjacency,
     demandMultiplier,
     tableScarcityScores,
