@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict Mt0Jt4aIZPJ3GjqSDoPEqLBxg6pc5O6UMFz8IC1bdy13EjZ9c0wb6sWkG8MxtRM
+\restrict mXExBCr5fo0ca01PVodAj2Jdmb2m2WSHtj3MaaP13cn7iJ5jGBOvmc88lR68cjx
 
 -- Dumped from database version 17.4
 -- Dumped by pg_dump version 17.6 (Homebrew)
@@ -20,254 +20,17 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Name: auth; Type: SCHEMA; Schema: -; Owner: -
---
-
-CREATE SCHEMA auth;
-
-
---
--- Name: extensions; Type: SCHEMA; Schema: -; Owner: -
---
-
-CREATE SCHEMA extensions;
-
-
---
--- Name: graphql; Type: SCHEMA; Schema: -; Owner: -
---
-
-CREATE SCHEMA graphql;
-
-
---
--- Name: graphql_public; Type: SCHEMA; Schema: -; Owner: -
---
-
-CREATE SCHEMA graphql_public;
-
-
---
--- Name: pgbouncer; Type: SCHEMA; Schema: -; Owner: -
---
-
-CREATE SCHEMA pgbouncer;
-
-
---
 -- Name: public; Type: SCHEMA; Schema: -; Owner: -
 --
 
--- *not* creating schema, since initdb creates it
+CREATE SCHEMA public;
 
 
 --
--- Name: realtime; Type: SCHEMA; Schema: -; Owner: -
+-- Name: SCHEMA public; Type: COMMENT; Schema: -; Owner: -
 --
 
-CREATE SCHEMA realtime;
-
-
---
--- Name: storage; Type: SCHEMA; Schema: -; Owner: -
---
-
-CREATE SCHEMA storage;
-
-
---
--- Name: supabase_migrations; Type: SCHEMA; Schema: -; Owner: -
---
-
-CREATE SCHEMA supabase_migrations;
-
-
---
--- Name: vault; Type: SCHEMA; Schema: -; Owner: -
---
-
-CREATE SCHEMA vault;
-
-
---
--- Name: btree_gist; Type: EXTENSION; Schema: -; Owner: -
---
-
-CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA public;
-
-
---
--- Name: EXTENSION btree_gist; Type: COMMENT; Schema: -; Owner: -
---
-
-COMMENT ON EXTENSION btree_gist IS 'support for indexing common datatypes in GiST';
-
-
---
--- Name: pg_graphql; Type: EXTENSION; Schema: -; Owner: -
---
-
-CREATE EXTENSION IF NOT EXISTS pg_graphql WITH SCHEMA graphql;
-
-
---
--- Name: EXTENSION pg_graphql; Type: COMMENT; Schema: -; Owner: -
---
-
-COMMENT ON EXTENSION pg_graphql IS 'pg_graphql: GraphQL support';
-
-
---
--- Name: pg_stat_statements; Type: EXTENSION; Schema: -; Owner: -
---
-
-CREATE EXTENSION IF NOT EXISTS pg_stat_statements WITH SCHEMA extensions;
-
-
---
--- Name: EXTENSION pg_stat_statements; Type: COMMENT; Schema: -; Owner: -
---
-
-COMMENT ON EXTENSION pg_stat_statements IS 'track planning and execution statistics of all SQL statements executed';
-
-
---
--- Name: pgcrypto; Type: EXTENSION; Schema: -; Owner: -
---
-
-CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
-
-
---
--- Name: EXTENSION pgcrypto; Type: COMMENT; Schema: -; Owner: -
---
-
-COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
-
-
---
--- Name: supabase_vault; Type: EXTENSION; Schema: -; Owner: -
---
-
-CREATE EXTENSION IF NOT EXISTS supabase_vault WITH SCHEMA vault;
-
-
---
--- Name: EXTENSION supabase_vault; Type: COMMENT; Schema: -; Owner: -
---
-
-COMMENT ON EXTENSION supabase_vault IS 'Supabase Vault Extension';
-
-
---
--- Name: uuid-ossp; Type: EXTENSION; Schema: -; Owner: -
---
-
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA extensions;
-
-
---
--- Name: EXTENSION "uuid-ossp"; Type: COMMENT; Schema: -; Owner: -
---
-
-COMMENT ON EXTENSION "uuid-ossp" IS 'generate universally unique identifiers (UUIDs)';
-
-
---
--- Name: aal_level; Type: TYPE; Schema: auth; Owner: -
---
-
-CREATE TYPE auth.aal_level AS ENUM (
-    'aal1',
-    'aal2',
-    'aal3'
-);
-
-
---
--- Name: code_challenge_method; Type: TYPE; Schema: auth; Owner: -
---
-
-CREATE TYPE auth.code_challenge_method AS ENUM (
-    's256',
-    'plain'
-);
-
-
---
--- Name: factor_status; Type: TYPE; Schema: auth; Owner: -
---
-
-CREATE TYPE auth.factor_status AS ENUM (
-    'unverified',
-    'verified'
-);
-
-
---
--- Name: factor_type; Type: TYPE; Schema: auth; Owner: -
---
-
-CREATE TYPE auth.factor_type AS ENUM (
-    'totp',
-    'webauthn',
-    'phone'
-);
-
-
---
--- Name: oauth_authorization_status; Type: TYPE; Schema: auth; Owner: -
---
-
-CREATE TYPE auth.oauth_authorization_status AS ENUM (
-    'pending',
-    'approved',
-    'denied',
-    'expired'
-);
-
-
---
--- Name: oauth_client_type; Type: TYPE; Schema: auth; Owner: -
---
-
-CREATE TYPE auth.oauth_client_type AS ENUM (
-    'public',
-    'confidential'
-);
-
-
---
--- Name: oauth_registration_type; Type: TYPE; Schema: auth; Owner: -
---
-
-CREATE TYPE auth.oauth_registration_type AS ENUM (
-    'dynamic',
-    'manual'
-);
-
-
---
--- Name: oauth_response_type; Type: TYPE; Schema: auth; Owner: -
---
-
-CREATE TYPE auth.oauth_response_type AS ENUM (
-    'code'
-);
-
-
---
--- Name: one_time_token_type; Type: TYPE; Schema: auth; Owner: -
---
-
-CREATE TYPE auth.one_time_token_type AS ENUM (
-    'confirmation_token',
-    'reauthentication_token',
-    'recovery_token',
-    'email_change_token_new',
-    'email_change_token_current',
-    'phone_change_token'
-);
+COMMENT ON SCHEMA public IS 'standard public schema';
 
 
 --
@@ -409,480 +172,6 @@ COMMENT ON TYPE public.table_status IS 'Status of a restaurant table: available,
 
 
 --
--- Name: action; Type: TYPE; Schema: realtime; Owner: -
---
-
-CREATE TYPE realtime.action AS ENUM (
-    'INSERT',
-    'UPDATE',
-    'DELETE',
-    'TRUNCATE',
-    'ERROR'
-);
-
-
---
--- Name: equality_op; Type: TYPE; Schema: realtime; Owner: -
---
-
-CREATE TYPE realtime.equality_op AS ENUM (
-    'eq',
-    'neq',
-    'lt',
-    'lte',
-    'gt',
-    'gte',
-    'in'
-);
-
-
---
--- Name: user_defined_filter; Type: TYPE; Schema: realtime; Owner: -
---
-
-CREATE TYPE realtime.user_defined_filter AS (
-	column_name text,
-	op realtime.equality_op,
-	value text
-);
-
-
---
--- Name: wal_column; Type: TYPE; Schema: realtime; Owner: -
---
-
-CREATE TYPE realtime.wal_column AS (
-	name text,
-	type_name text,
-	type_oid oid,
-	value jsonb,
-	is_pkey boolean,
-	is_selectable boolean
-);
-
-
---
--- Name: wal_rls; Type: TYPE; Schema: realtime; Owner: -
---
-
-CREATE TYPE realtime.wal_rls AS (
-	wal jsonb,
-	is_rls_enabled boolean,
-	subscription_ids uuid[],
-	errors text[]
-);
-
-
---
--- Name: buckettype; Type: TYPE; Schema: storage; Owner: -
---
-
-CREATE TYPE storage.buckettype AS ENUM (
-    'STANDARD',
-    'ANALYTICS'
-);
-
-
---
--- Name: email(); Type: FUNCTION; Schema: auth; Owner: -
---
-
-CREATE FUNCTION auth.email() RETURNS text
-    LANGUAGE sql STABLE
-    AS $$
-  select 
-  coalesce(
-    nullif(current_setting('request.jwt.claim.email', true), ''),
-    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'email')
-  )::text
-$$;
-
-
---
--- Name: FUNCTION email(); Type: COMMENT; Schema: auth; Owner: -
---
-
-COMMENT ON FUNCTION auth.email() IS 'Deprecated. Use auth.jwt() -> ''email'' instead.';
-
-
---
--- Name: jwt(); Type: FUNCTION; Schema: auth; Owner: -
---
-
-CREATE FUNCTION auth.jwt() RETURNS jsonb
-    LANGUAGE sql STABLE
-    AS $$
-  select 
-    coalesce(
-        nullif(current_setting('request.jwt.claim', true), ''),
-        nullif(current_setting('request.jwt.claims', true), '')
-    )::jsonb
-$$;
-
-
---
--- Name: role(); Type: FUNCTION; Schema: auth; Owner: -
---
-
-CREATE FUNCTION auth.role() RETURNS text
-    LANGUAGE sql STABLE
-    AS $$
-  select 
-  coalesce(
-    nullif(current_setting('request.jwt.claim.role', true), ''),
-    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role')
-  )::text
-$$;
-
-
---
--- Name: FUNCTION role(); Type: COMMENT; Schema: auth; Owner: -
---
-
-COMMENT ON FUNCTION auth.role() IS 'Deprecated. Use auth.jwt() -> ''role'' instead.';
-
-
---
--- Name: uid(); Type: FUNCTION; Schema: auth; Owner: -
---
-
-CREATE FUNCTION auth.uid() RETURNS uuid
-    LANGUAGE sql STABLE
-    AS $$
-  select 
-  coalesce(
-    nullif(current_setting('request.jwt.claim.sub', true), ''),
-    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')
-  )::uuid
-$$;
-
-
---
--- Name: FUNCTION uid(); Type: COMMENT; Schema: auth; Owner: -
---
-
-COMMENT ON FUNCTION auth.uid() IS 'Deprecated. Use auth.jwt() -> ''sub'' instead.';
-
-
---
--- Name: grant_pg_cron_access(); Type: FUNCTION; Schema: extensions; Owner: -
---
-
-CREATE FUNCTION extensions.grant_pg_cron_access() RETURNS event_trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-  IF EXISTS (
-    SELECT
-    FROM pg_event_trigger_ddl_commands() AS ev
-    JOIN pg_extension AS ext
-    ON ev.objid = ext.oid
-    WHERE ext.extname = 'pg_cron'
-  )
-  THEN
-    grant usage on schema cron to postgres with grant option;
-
-    alter default privileges in schema cron grant all on tables to postgres with grant option;
-    alter default privileges in schema cron grant all on functions to postgres with grant option;
-    alter default privileges in schema cron grant all on sequences to postgres with grant option;
-
-    alter default privileges for user supabase_admin in schema cron grant all
-        on sequences to postgres with grant option;
-    alter default privileges for user supabase_admin in schema cron grant all
-        on tables to postgres with grant option;
-    alter default privileges for user supabase_admin in schema cron grant all
-        on functions to postgres with grant option;
-
-    grant all privileges on all tables in schema cron to postgres with grant option;
-    revoke all on table cron.job from postgres;
-    grant select on table cron.job to postgres with grant option;
-  END IF;
-END;
-$$;
-
-
---
--- Name: FUNCTION grant_pg_cron_access(); Type: COMMENT; Schema: extensions; Owner: -
---
-
-COMMENT ON FUNCTION extensions.grant_pg_cron_access() IS 'Grants access to pg_cron';
-
-
---
--- Name: grant_pg_graphql_access(); Type: FUNCTION; Schema: extensions; Owner: -
---
-
-CREATE FUNCTION extensions.grant_pg_graphql_access() RETURNS event_trigger
-    LANGUAGE plpgsql
-    AS $_$
-DECLARE
-    func_is_graphql_resolve bool;
-BEGIN
-    func_is_graphql_resolve = (
-        SELECT n.proname = 'resolve'
-        FROM pg_event_trigger_ddl_commands() AS ev
-        LEFT JOIN pg_catalog.pg_proc AS n
-        ON ev.objid = n.oid
-    );
-
-    IF func_is_graphql_resolve
-    THEN
-        -- Update public wrapper to pass all arguments through to the pg_graphql resolve func
-        DROP FUNCTION IF EXISTS graphql_public.graphql;
-        create or replace function graphql_public.graphql(
-            "operationName" text default null,
-            query text default null,
-            variables jsonb default null,
-            extensions jsonb default null
-        )
-            returns jsonb
-            language sql
-        as $$
-            select graphql.resolve(
-                query := query,
-                variables := coalesce(variables, '{}'),
-                "operationName" := "operationName",
-                extensions := extensions
-            );
-        $$;
-
-        -- This hook executes when `graphql.resolve` is created. That is not necessarily the last
-        -- function in the extension so we need to grant permissions on existing entities AND
-        -- update default permissions to any others that are created after `graphql.resolve`
-        grant usage on schema graphql to postgres, anon, authenticated, service_role;
-        grant select on all tables in schema graphql to postgres, anon, authenticated, service_role;
-        grant execute on all functions in schema graphql to postgres, anon, authenticated, service_role;
-        grant all on all sequences in schema graphql to postgres, anon, authenticated, service_role;
-        alter default privileges in schema graphql grant all on tables to postgres, anon, authenticated, service_role;
-        alter default privileges in schema graphql grant all on functions to postgres, anon, authenticated, service_role;
-        alter default privileges in schema graphql grant all on sequences to postgres, anon, authenticated, service_role;
-
-        -- Allow postgres role to allow granting usage on graphql and graphql_public schemas to custom roles
-        grant usage on schema graphql_public to postgres with grant option;
-        grant usage on schema graphql to postgres with grant option;
-    END IF;
-
-END;
-$_$;
-
-
---
--- Name: FUNCTION grant_pg_graphql_access(); Type: COMMENT; Schema: extensions; Owner: -
---
-
-COMMENT ON FUNCTION extensions.grant_pg_graphql_access() IS 'Grants access to pg_graphql';
-
-
---
--- Name: grant_pg_net_access(); Type: FUNCTION; Schema: extensions; Owner: -
---
-
-CREATE FUNCTION extensions.grant_pg_net_access() RETURNS event_trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-  IF EXISTS (
-    SELECT 1
-    FROM pg_event_trigger_ddl_commands() AS ev
-    JOIN pg_extension AS ext
-    ON ev.objid = ext.oid
-    WHERE ext.extname = 'pg_net'
-  )
-  THEN
-    IF NOT EXISTS (
-      SELECT 1
-      FROM pg_roles
-      WHERE rolname = 'supabase_functions_admin'
-    )
-    THEN
-      CREATE USER supabase_functions_admin NOINHERIT CREATEROLE LOGIN NOREPLICATION;
-    END IF;
-
-    GRANT USAGE ON SCHEMA net TO supabase_functions_admin, postgres, anon, authenticated, service_role;
-
-    IF EXISTS (
-      SELECT FROM pg_extension
-      WHERE extname = 'pg_net'
-      -- all versions in use on existing projects as of 2025-02-20
-      -- version 0.12.0 onwards don't need these applied
-      AND extversion IN ('0.2', '0.6', '0.7', '0.7.1', '0.8', '0.10.0', '0.11.0')
-    ) THEN
-      ALTER function net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) SECURITY DEFINER;
-      ALTER function net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) SECURITY DEFINER;
-
-      ALTER function net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) SET search_path = net;
-      ALTER function net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) SET search_path = net;
-
-      REVOKE ALL ON FUNCTION net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) FROM PUBLIC;
-      REVOKE ALL ON FUNCTION net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) FROM PUBLIC;
-
-      GRANT EXECUTE ON FUNCTION net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) TO supabase_functions_admin, postgres, anon, authenticated, service_role;
-      GRANT EXECUTE ON FUNCTION net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) TO supabase_functions_admin, postgres, anon, authenticated, service_role;
-    END IF;
-  END IF;
-END;
-$$;
-
-
---
--- Name: FUNCTION grant_pg_net_access(); Type: COMMENT; Schema: extensions; Owner: -
---
-
-COMMENT ON FUNCTION extensions.grant_pg_net_access() IS 'Grants access to pg_net';
-
-
---
--- Name: pgrst_ddl_watch(); Type: FUNCTION; Schema: extensions; Owner: -
---
-
-CREATE FUNCTION extensions.pgrst_ddl_watch() RETURNS event_trigger
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-  cmd record;
-BEGIN
-  FOR cmd IN SELECT * FROM pg_event_trigger_ddl_commands()
-  LOOP
-    IF cmd.command_tag IN (
-      'CREATE SCHEMA', 'ALTER SCHEMA'
-    , 'CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO', 'ALTER TABLE'
-    , 'CREATE FOREIGN TABLE', 'ALTER FOREIGN TABLE'
-    , 'CREATE VIEW', 'ALTER VIEW'
-    , 'CREATE MATERIALIZED VIEW', 'ALTER MATERIALIZED VIEW'
-    , 'CREATE FUNCTION', 'ALTER FUNCTION'
-    , 'CREATE TRIGGER'
-    , 'CREATE TYPE', 'ALTER TYPE'
-    , 'CREATE RULE'
-    , 'COMMENT'
-    )
-    -- don't notify in case of CREATE TEMP table or other objects created on pg_temp
-    AND cmd.schema_name is distinct from 'pg_temp'
-    THEN
-      NOTIFY pgrst, 'reload schema';
-    END IF;
-  END LOOP;
-END; $$;
-
-
---
--- Name: pgrst_drop_watch(); Type: FUNCTION; Schema: extensions; Owner: -
---
-
-CREATE FUNCTION extensions.pgrst_drop_watch() RETURNS event_trigger
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-  obj record;
-BEGIN
-  FOR obj IN SELECT * FROM pg_event_trigger_dropped_objects()
-  LOOP
-    IF obj.object_type IN (
-      'schema'
-    , 'table'
-    , 'foreign table'
-    , 'view'
-    , 'materialized view'
-    , 'function'
-    , 'trigger'
-    , 'type'
-    , 'rule'
-    )
-    AND obj.is_temporary IS false -- no pg_temp objects
-    THEN
-      NOTIFY pgrst, 'reload schema';
-    END IF;
-  END LOOP;
-END; $$;
-
-
---
--- Name: set_graphql_placeholder(); Type: FUNCTION; Schema: extensions; Owner: -
---
-
-CREATE FUNCTION extensions.set_graphql_placeholder() RETURNS event_trigger
-    LANGUAGE plpgsql
-    AS $_$
-    DECLARE
-    graphql_is_dropped bool;
-    BEGIN
-    graphql_is_dropped = (
-        SELECT ev.schema_name = 'graphql_public'
-        FROM pg_event_trigger_dropped_objects() AS ev
-        WHERE ev.schema_name = 'graphql_public'
-    );
-
-    IF graphql_is_dropped
-    THEN
-        create or replace function graphql_public.graphql(
-            "operationName" text default null,
-            query text default null,
-            variables jsonb default null,
-            extensions jsonb default null
-        )
-            returns jsonb
-            language plpgsql
-        as $$
-            DECLARE
-                server_version float;
-            BEGIN
-                server_version = (SELECT (SPLIT_PART((select version()), ' ', 2))::float);
-
-                IF server_version >= 14 THEN
-                    RETURN jsonb_build_object(
-                        'errors', jsonb_build_array(
-                            jsonb_build_object(
-                                'message', 'pg_graphql extension is not enabled.'
-                            )
-                        )
-                    );
-                ELSE
-                    RETURN jsonb_build_object(
-                        'errors', jsonb_build_array(
-                            jsonb_build_object(
-                                'message', 'pg_graphql is only available on projects running Postgres 14 onwards.'
-                            )
-                        )
-                    );
-                END IF;
-            END;
-        $$;
-    END IF;
-
-    END;
-$_$;
-
-
---
--- Name: FUNCTION set_graphql_placeholder(); Type: COMMENT; Schema: extensions; Owner: -
---
-
-COMMENT ON FUNCTION extensions.set_graphql_placeholder() IS 'Reintroduces placeholder function for graphql_public.graphql';
-
-
---
--- Name: get_auth(text); Type: FUNCTION; Schema: pgbouncer; Owner: -
---
-
-CREATE FUNCTION pgbouncer.get_auth(p_usename text) RETURNS TABLE(username text, password text)
-    LANGUAGE plpgsql SECURITY DEFINER
-    AS $_$
-begin
-    raise debug 'PgBouncer auth request: %', p_usename;
-
-    return query
-    select 
-        rolname::text, 
-        case when rolvaliduntil < now() 
-            then null 
-            else rolpassword::text 
-        end 
-    from pg_authid 
-    where rolname=$1 and rolcanlogin;
-end;
-$_$;
-
-
---
 -- Name: allocations_overlap(tstzrange, tstzrange); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1012,6 +301,72 @@ BEGIN
   RETURN connected_count = total_count;
 END;
 $$;
+
+
+--
+-- Name: assign_merged_tables(uuid, uuid[], boolean, uuid, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.assign_merged_tables(p_booking_id uuid, p_table_ids uuid[], p_require_adjacency boolean DEFAULT true, p_assigned_by uuid DEFAULT NULL::uuid, p_idempotency_key text DEFAULT NULL::text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+  v_table_count integer;
+BEGIN
+  v_table_count := COALESCE(array_length(p_table_ids, 1), 0);
+
+  IF v_table_count < 2 THEN
+    RAISE EXCEPTION 'assign_merged_tables requires at least two table ids.';
+  END IF;
+
+  PERFORM public.assign_tables_atomic_v2(
+    p_booking_id := p_booking_id,
+    p_table_ids := p_table_ids,
+    p_idempotency_key := p_idempotency_key,
+    p_require_adjacency := p_require_adjacency,
+    p_assigned_by := p_assigned_by
+  );
+END;
+$$;
+
+
+--
+-- Name: FUNCTION assign_merged_tables(p_booking_id uuid, p_table_ids uuid[], p_require_adjacency boolean, p_assigned_by uuid, p_idempotency_key text); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.assign_merged_tables(p_booking_id uuid, p_table_ids uuid[], p_require_adjacency boolean, p_assigned_by uuid, p_idempotency_key text) IS 'Atomically assigns multiple tables to a booking with optional adjacency enforcement.';
+
+
+--
+-- Name: assign_single_table(uuid, uuid, uuid, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.assign_single_table(p_booking_id uuid, p_table_id uuid, p_assigned_by uuid DEFAULT NULL::uuid, p_idempotency_key text DEFAULT NULL::text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  IF p_table_id IS NULL THEN
+    RAISE EXCEPTION 'assign_single_table requires a table id.';
+  END IF;
+
+  PERFORM public.assign_tables_atomic_v2(
+    p_booking_id := p_booking_id,
+    p_table_ids := ARRAY[p_table_id],
+    p_idempotency_key := p_idempotency_key,
+    p_require_adjacency := false,
+    p_assigned_by := p_assigned_by
+  );
+END;
+$$;
+
+
+--
+-- Name: FUNCTION assign_single_table(p_booking_id uuid, p_table_id uuid, p_assigned_by uuid, p_idempotency_key text); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.assign_single_table(p_booking_id uuid, p_table_id uuid, p_assigned_by uuid, p_idempotency_key text) IS 'Atomically assigns a single table to a booking; preferred entrypoint for standard seating.';
 
 
 --
@@ -1200,6 +555,13 @@ CREATE FUNCTION public.assign_tables_atomic(p_booking_id uuid, p_table_ids uuid[
       RETURN NEXT;
     END;
     $$;
+
+
+--
+-- Name: FUNCTION assign_tables_atomic(p_booking_id uuid, p_table_ids uuid[], p_window tstzrange, p_assigned_by uuid, p_idempotency_key text); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.assign_tables_atomic(p_booking_id uuid, p_table_ids uuid[], p_window tstzrange, p_assigned_by uuid, p_idempotency_key text) IS 'DEPRECATED: prefer assign_single_table() or assign_merged_tables().';
 
 
 --
@@ -1606,6 +968,13 @@ CREATE FUNCTION public.assign_tables_atomic_v2(p_booking_id uuid, p_table_ids uu
 
 
 --
+-- Name: FUNCTION assign_tables_atomic_v2(p_booking_id uuid, p_table_ids uuid[], p_idempotency_key text, p_require_adjacency boolean, p_assigned_by uuid); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.assign_tables_atomic_v2(p_booking_id uuid, p_table_ids uuid[], p_idempotency_key text, p_require_adjacency boolean, p_assigned_by uuid) IS 'DEPRECATED: prefer assign_single_table() or assign_merged_tables().';
+
+
+--
 -- Name: assign_tables_atomic_v2(uuid, uuid[], text, boolean, uuid, timestamp with time zone, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1613,477 +982,453 @@ CREATE FUNCTION public.assign_tables_atomic_v2(p_booking_id uuid, p_table_ids uu
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
-  DECLARE
-    v_booking RECORD;
-    v_zone_id uuid;
-    v_restaurant_id uuid;
-    v_service_date date;
-    v_lock_zone int4;
-    v_lock_date int4;
-    v_now timestamptz := timezone('utc', now());
-    v_table_ids uuid[];
-    v_table_count integer;
-    v_table RECORD;
-    v_loaded_count integer := 0;
-    v_slot_id uuid := NULL;
-    v_start_at timestamptz;
-    v_end_at timestamptz;
-    v_window tstzrange;
-    v_timezone text := NULL;
-    v_hold_conflict uuid;
-    v_merge_allocation_id uuid := NULL;
-    v_table_assignment_id uuid;
-    v_existing RECORD;
-    v_adjacency_count integer;
-    v_table_id uuid;
-    v_merge_group_supported boolean := false;
-    v_conflict RECORD;
-  BEGIN
-    IF p_table_ids IS NULL OR array_length(p_table_ids, 1) = 0 THEN
-      RAISE EXCEPTION 'assign_tables_atomic_v2 requires at least one table id'
+DECLARE
+  v_booking RECORD;
+  v_zone_id uuid;
+  v_restaurant_id uuid;
+  v_service_date date;
+  v_lock_zone int4;
+  v_lock_bucket int4;
+  v_now timestamptz := timezone('utc', now());
+  v_table_ids uuid[];
+  v_table_count integer;
+  v_table RECORD;
+  v_loaded_count integer := 0;
+  v_slot_id uuid := NULL;
+  v_start_at timestamptz;
+  v_end_at timestamptz;
+  v_window tstzrange;
+  v_timezone text := NULL;
+  v_merge_allocation_id uuid := NULL;
+  v_table_assignment_id uuid;
+  v_existing RECORD;
+  v_adjacency_count integer;
+  v_table_id uuid;
+  v_merge_group_supported boolean := false;
+  v_conflict RECORD;
+  v_existing_zones uuid[] := ARRAY[]::uuid[];
+  v_table_set_hash text;
+  v_hold_conflict uuid;
+  v_allocation_id uuid;
+  v_capacity_check_enabled boolean := true;
+  v_bucket_minutes integer := 60;
+BEGIN
+  IF p_table_ids IS NULL OR array_length(p_table_ids, 1) = 0 THEN
+    RAISE EXCEPTION 'assign_tables_atomic_v2 requires at least one table id'
+      USING ERRCODE = '23514';
+  END IF;
+
+  SELECT array_agg(DISTINCT t.table_id ORDER BY t.table_id)
+  INTO v_table_ids
+  FROM unnest(p_table_ids) AS t(table_id);
+
+  IF v_table_ids IS NULL OR array_length(v_table_ids, 1) = 0 THEN
+    RAISE EXCEPTION 'assign_tables_atomic_v2 requires at least one valid table id'
+      USING ERRCODE = '23514';
+  END IF;
+
+  v_table_count := array_length(v_table_ids, 1);
+  v_table_set_hash := md5(array_to_string(v_table_ids, ','));
+
+  SELECT b.*, r.timezone AS restaurant_timezone
+  INTO v_booking
+  FROM public.bookings b
+  LEFT JOIN public.restaurants r ON r.id = b.restaurant_id
+  WHERE b.id = p_booking_id
+  FOR UPDATE OF b;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Booking % not found', p_booking_id
+      USING ERRCODE = 'P0002';
+  END IF;
+
+  v_restaurant_id := v_booking.restaurant_id;
+  v_timezone := COALESCE(NULLIF(v_booking.restaurant_timezone, ''), 'UTC');
+
+  SELECT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'booking_table_assignments'
+      AND column_name = 'merge_group_id'
+  ) INTO v_merge_group_supported;
+
+  IF (p_start_at IS NULL) <> (p_end_at IS NULL) THEN
+    RAISE EXCEPTION 'assign_tables_atomic_v2 requires both start and end when providing custom window'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF p_start_at IS NOT NULL AND p_end_at IS NOT NULL THEN
+    v_start_at := p_start_at;
+    v_end_at := p_end_at;
+  ELSIF v_booking.start_at IS NOT NULL AND v_booking.end_at IS NOT NULL THEN
+    v_start_at := v_booking.start_at;
+    v_end_at := v_booking.end_at;
+  ELSIF v_booking.booking_date IS NOT NULL AND v_booking.start_time IS NOT NULL AND v_booking.end_time IS NOT NULL THEN
+    v_start_at := make_timestamptz(
+      EXTRACT(YEAR FROM v_booking.booking_date)::int,
+      EXTRACT(MONTH FROM v_booking.booking_date)::int,
+      EXTRACT(DAY FROM v_booking.booking_date)::int,
+      EXTRACT(HOUR FROM v_booking.start_time)::int,
+      EXTRACT(MINUTE FROM v_booking.start_time)::int,
+      EXTRACT(SECOND FROM v_booking.start_time),
+      v_timezone
+    );
+    v_end_at := make_timestamptz(
+      EXTRACT(YEAR FROM v_booking.booking_date)::int,
+      EXTRACT(MONTH FROM v_booking.booking_date)::int,
+      EXTRACT(DAY FROM v_booking.booking_date)::int,
+      EXTRACT(HOUR FROM v_booking.end_time)::int,
+      EXTRACT(MINUTE FROM v_booking.end_time)::int,
+      EXTRACT(SECOND FROM v_booking.end_time),
+      v_timezone
+    );
+  ELSE
+    RAISE EXCEPTION 'Booking % missing start/end window', p_booking_id
+      USING ERRCODE = '22000';
+  END IF;
+
+  IF v_start_at >= v_end_at THEN
+    RAISE EXCEPTION 'Booking % has invalid time window', p_booking_id
+      USING ERRCODE = '22000';
+  END IF;
+
+  v_window := tstzrange(v_start_at, v_end_at, '[)');
+  v_service_date := (v_start_at AT TIME ZONE v_timezone)::date;
+
+  FOR v_table IN
+    SELECT id, restaurant_id, zone_id, active, status, mobility
+    FROM public.table_inventory
+    WHERE id = ANY (v_table_ids)
+    ORDER BY id
+    FOR UPDATE
+  LOOP
+    IF v_table.restaurant_id <> v_restaurant_id THEN
+      RAISE EXCEPTION 'Table % belongs to a different restaurant', v_table.id
+        USING ERRCODE = '23503';
+    END IF;
+
+    IF v_table.zone_id IS NULL THEN
+      RAISE EXCEPTION 'Table % is not assigned to a zone', v_table.id
         USING ERRCODE = '23514';
     END IF;
 
-    SELECT array_agg(DISTINCT t.table_id ORDER BY t.table_id)
-    INTO v_table_ids
-    FROM unnest(p_table_ids) AS t(table_id);
-
-    IF v_table_ids IS NULL OR array_length(v_table_ids, 1) = 0 THEN
-      RAISE EXCEPTION 'assign_tables_atomic_v2 requires at least one valid table id'
+    IF v_table.active IS NOT TRUE THEN
+      RAISE EXCEPTION 'Table % is inactive', v_table.id
         USING ERRCODE = '23514';
     END IF;
 
-    v_table_count := array_length(v_table_ids, 1);
-
-    SELECT
-      b.*,
-      r.timezone AS restaurant_timezone
-    INTO v_booking
-    FROM public.bookings b
-    LEFT JOIN public.restaurants r ON r.id = b.restaurant_id
-    WHERE b.id = p_booking_id
-    FOR UPDATE OF b;
-
-    IF NOT FOUND THEN
-      RAISE EXCEPTION 'Booking % not found', p_booking_id
-        USING ERRCODE = 'P0002';
+    IF v_zone_id IS NULL THEN
+      v_zone_id := v_table.zone_id;
+    ELSIF v_zone_id <> v_table.zone_id THEN
+      RAISE EXCEPTION 'All tables must belong to the same zone (found %, expected %)', v_table.zone_id, v_zone_id
+        USING ERRCODE = '23514';
     END IF;
 
-    v_restaurant_id := v_booking.restaurant_id;
-    v_timezone := COALESCE(NULLIF(v_booking.restaurant_timezone, ''), 'UTC');
-
-    SELECT EXISTS (
-      SELECT 1
-      FROM information_schema.columns
-      WHERE table_schema = 'public'
-        AND table_name = 'booking_table_assignments'
-        AND column_name = 'merge_group_id'
-    )
-    INTO v_merge_group_supported;
-
-    IF (p_start_at IS NULL) <> (p_end_at IS NULL) THEN
-      RAISE EXCEPTION 'assign_tables_atomic_v2 requires both start and end when providing custom window'
-        USING ERRCODE = '22023';
+    IF v_table_count > 1 AND v_table.mobility <> 'movable'::public.table_mobility THEN
+      RAISE EXCEPTION 'Merged assignments require movable tables (% is %)', v_table.id, v_table.mobility
+        USING ERRCODE = '23514';
     END IF;
 
-    IF p_start_at IS NOT NULL AND p_end_at IS NOT NULL THEN
-      v_start_at := p_start_at;
-      v_end_at := p_end_at;
-    ELSIF v_booking.start_at IS NOT NULL AND v_booking.end_at IS NOT NULL THEN
-      v_start_at := v_booking.start_at;
-      v_end_at := v_booking.end_at;
-    ELSIF v_booking.booking_date IS NOT NULL AND v_booking.start_time IS NOT NULL AND v_booking.end_time IS NOT NULL THEN
-      v_start_at := make_timestamptz(
-        EXTRACT(YEAR FROM v_booking.booking_date)::int,
-        EXTRACT(MONTH FROM v_booking.booking_date)::int,
-        EXTRACT(DAY FROM v_booking.booking_date)::int,
-        EXTRACT(HOUR FROM v_booking.start_time)::int,
-        EXTRACT(MINUTE FROM v_booking.start_time)::int,
-        EXTRACT(SECOND FROM v_booking.start_time),
-        v_timezone
-      );
-      v_end_at := make_timestamptz(
-        EXTRACT(YEAR FROM v_booking.booking_date)::int,
-        EXTRACT(MONTH FROM v_booking.booking_date)::int,
-        EXTRACT(DAY FROM v_booking.booking_date)::int,
-        EXTRACT(HOUR FROM v_booking.end_time)::int,
-        EXTRACT(MINUTE FROM v_booking.end_time)::int,
-        EXTRACT(SECOND FROM v_booking.end_time),
-        v_timezone
-      );
-    ELSE
-      RAISE EXCEPTION 'Booking % missing start/end window', p_booking_id
-        USING ERRCODE = '22000';
+    v_loaded_count := v_loaded_count + 1;
+  END LOOP;
+
+  IF v_loaded_count <> v_table_count THEN
+    RAISE EXCEPTION 'Unable to load all requested tables for booking %', p_booking_id
+      USING ERRCODE = 'P0002';
+  END IF;
+
+  SELECT array_agg(DISTINCT ti.zone_id)
+  INTO v_existing_zones
+  FROM public.booking_table_assignments existing
+  JOIN public.table_inventory ti ON ti.id = existing.table_id
+  WHERE existing.booking_id = p_booking_id;
+
+  IF array_length(v_existing_zones, 1) IS NOT NULL AND array_length(v_existing_zones, 1) > 0 THEN
+    IF v_zone_id IS NULL OR EXISTS (
+      SELECT 1 FROM unnest(v_existing_zones) AS z WHERE z IS DISTINCT FROM v_zone_id
+    ) THEN
+      RAISE EXCEPTION 'Booking % already has assignments in a different zone', p_booking_id
+        USING ERRCODE = '23514';
     END IF;
+  END IF;
 
-    IF v_start_at >= v_end_at THEN
-      RAISE EXCEPTION 'Booking % has invalid time window', p_booking_id
-        USING ERRCODE = '22000';
-    END IF;
+  IF v_booking.assigned_zone_id IS NULL THEN
+    UPDATE public.bookings
+    SET assigned_zone_id = v_zone_id,
+        updated_at = v_now
+    WHERE id = p_booking_id;
+  ELSIF v_booking.assigned_zone_id IS DISTINCT FROM v_zone_id THEN
+    RAISE EXCEPTION 'Booking % locked to zone %, cannot assign zone %', p_booking_id, v_booking.assigned_zone_id, v_zone_id
+      USING ERRCODE = '23514';
+  END IF;
 
-    v_window := tstzrange(v_start_at, v_end_at, '[)');
-
+  IF p_require_adjacency AND v_table_count > 1 THEN
     FOR v_table IN
-      SELECT id, restaurant_id, zone_id, active, status, mobility
-      FROM public.table_inventory
-      WHERE id = ANY (v_table_ids)
-      ORDER BY id
-      FOR UPDATE
+      SELECT id FROM unnest(v_table_ids) AS t(id)
     LOOP
-      IF v_table.restaurant_id <> v_restaurant_id THEN
-        RAISE EXCEPTION 'Table % belongs to a different restaurant', v_table.id
-          USING ERRCODE = '23503';
-      END IF;
+      SELECT COUNT(*)
+      INTO v_adjacency_count
+      FROM public.table_adjacencies
+      WHERE (
+        table_a = v_table.id AND table_b = ANY (v_table_ids) AND table_b <> v_table.id
+      ) OR (
+        table_b = v_table.id AND table_a = ANY (v_table_ids) AND table_a <> v_table.id
+      );
 
-      IF v_table.zone_id IS NULL THEN
-        RAISE EXCEPTION 'Table % is not assigned to a zone', v_table.id
+      IF COALESCE(v_adjacency_count, 0) = 0 THEN
+        RAISE EXCEPTION 'Table % is not adjacent to the selected set', v_table.id
           USING ERRCODE = '23514';
       END IF;
-
-      IF v_table.active IS NOT TRUE THEN
-        RAISE EXCEPTION 'Table % is inactive', v_table.id
-          USING ERRCODE = '23514';
-      END IF;
-
-      IF v_zone_id IS NULL THEN
-        v_zone_id := v_table.zone_id;
-      ELSIF v_zone_id <> v_table.zone_id THEN
-        RAISE EXCEPTION 'All tables must belong to the same zone (found %, expected %)', v_table.zone_id, v_zone_id
-          USING ERRCODE = '23514';
-      END IF;
-
-      IF v_table_count > 1 AND v_table.mobility <> 'movable'::public.table_mobility THEN
-        RAISE EXCEPTION 'Merged assignments require movable tables (% is %)', v_table.id, v_table.mobility
-          USING ERRCODE = '23514';
-      END IF;
-
-      v_loaded_count := v_loaded_count + 1;
     END LOOP;
+  END IF;
 
-    IF v_loaded_count <> v_table_count THEN
-      RAISE EXCEPTION 'Unable to load all requested tables for booking %', p_booking_id
-        USING ERRCODE = 'P0002';
-    END IF;
+  v_lock_zone := hashtext(COALESCE(v_zone_id::text, ''));
+  v_lock_bucket := COALESCE((EXTRACT(EPOCH FROM date_trunc('hour', v_start_at))::bigint / 60)::int, 0);
+  PERFORM pg_advisory_xact_lock(v_lock_zone, v_lock_bucket);
 
-    IF p_require_adjacency AND v_table_count > 1 THEN
-      FOR v_table IN
-        SELECT id FROM unnest(v_table_ids) AS t(id)
-      LOOP
-        SELECT COUNT(*)
-        INTO v_adjacency_count
-        FROM public.table_adjacencies
-        WHERE (
-            table_a = v_table.id
-            AND table_b = ANY (v_table_ids)
-            AND table_b <> v_table.id
-          )
-          OR (
-            table_b = v_table.id
-            AND table_a = ANY (v_table_ids)
-            AND table_a <> v_table.id
-          );
-
-        IF COALESCE(v_adjacency_count, 0) = 0 THEN
-          RAISE EXCEPTION 'Table % is not adjacent to the selected set', v_table.id
-            USING ERRCODE = '23514';
-        END IF;
-      END LOOP;
-    END IF;
-
-    v_service_date := (v_start_at AT TIME ZONE v_timezone)::date;
-
-    v_lock_zone := hashtext(COALESCE(v_zone_id::text, ''));
-    v_lock_date := COALESCE((v_service_date - DATE '2000-01-01')::int, 0);
-    PERFORM pg_advisory_xact_lock(v_lock_zone, v_lock_date);
-
-    IF p_idempotency_key IS NOT NULL THEN
-      SELECT *
-      INTO v_existing
-      FROM public.booking_assignment_idempotency
-      WHERE booking_id = p_booking_id
-        AND idempotency_key = p_idempotency_key;
-
-      IF FOUND THEN
-        IF v_existing.table_ids IS NULL OR array_length(v_existing.table_ids, 1) <> v_table_count
-           OR (SELECT array_agg(elem ORDER BY elem) FROM unnest(v_existing.table_ids) AS e(elem))
-              <> (SELECT array_agg(elem ORDER BY elem) FROM unnest(v_table_ids) AS e(elem)) THEN
-          RAISE EXCEPTION 'assign_tables_atomic_v2 idempotency mismatch for booking %', p_booking_id
-            USING ERRCODE = 'P0003',
-                  DETAIL = 'Idempotency key reuse detected with a different table set';
-        END IF;
-
-        RETURN QUERY
-          SELECT
-            bta.table_id,
-            COALESCE(bta.start_at, lower(v_existing.assignment_window)) AS start_at,
-            COALESCE(bta.end_at, upper(v_existing.assignment_window)) AS end_at,
-            v_existing.merge_group_allocation_id
-          FROM public.booking_table_assignments bta
-          WHERE bta.booking_id = p_booking_id
-            AND bta.idempotency_key = p_idempotency_key
-            AND bta.table_id = ANY (v_table_ids)
-          ORDER BY bta.table_id;
-
-        RETURN;
-      END IF;
-    END IF;
-
-    SELECT th.id
-    INTO v_hold_conflict
-    FROM public.table_holds th
-    JOIN public.table_hold_members thm ON thm.hold_id = th.id
-    WHERE thm.table_id = ANY (v_table_ids)
-      AND th.expires_at > v_now
-      AND (th.booking_id IS NULL OR th.booking_id <> p_booking_id)
-      AND tstzrange(th.start_at, th.end_at, '[)') && v_window
-    LIMIT 1;
+  IF p_idempotency_key IS NOT NULL THEN
+    SELECT *
+    INTO v_existing
+    FROM public.booking_assignment_idempotency
+    WHERE booking_id = p_booking_id
+      AND idempotency_key = p_idempotency_key;
 
     IF FOUND THEN
-      RAISE EXCEPTION 'Hold conflict prevents assignment for booking %', p_booking_id
-        USING ERRCODE = 'P0001',
-              DETAIL = format('Hold % overlaps requested window', v_hold_conflict),
-              HINT = 'Retry after hold expiration or confirm existing hold.';
-    END IF;
-
-    IF v_booking.booking_date IS NOT NULL AND v_booking.start_time IS NOT NULL THEN
-      SELECT id
-      INTO v_slot_id
-      FROM public.booking_slots
-      WHERE restaurant_id = v_restaurant_id
-        AND slot_date = v_booking.booking_date
-        AND slot_time = v_booking.start_time
-      LIMIT 1;
-
-      IF v_slot_id IS NULL THEN
-        SELECT public.get_or_create_booking_slot(v_restaurant_id, v_booking.booking_date, v_booking.start_time, 999)
-        INTO v_slot_id;
-      END IF;
-    END IF;
-
-    IF v_merge_group_supported AND v_table_count > 1 THEN
-      v_merge_allocation_id := gen_random_uuid();
-
-      BEGIN
-        INSERT INTO public.allocations (
-          id,
-          booking_id,
-          restaurant_id,
-          resource_type,
-          resource_id,
-          "window",
-          created_by,
-          shadow,
-          created_at,
-          updated_at
-        ) VALUES (
-          v_merge_allocation_id,
-          p_booking_id,
-          v_restaurant_id,
-          'merge_group',
-          v_merge_allocation_id,
-          v_window,
-          p_assigned_by,
-          false,
-          v_now,
-          v_now
-        )
-        ON CONFLICT ON CONSTRAINT allocations_booking_resource_key DO UPDATE
-        SET "window" = EXCLUDED."window",
-            created_by = COALESCE(EXCLUDED.created_by, public.allocations.created_by),
-            updated_at = v_now;
-      EXCEPTION
-        WHEN unique_violation OR exclusion_violation THEN
-          RAISE EXCEPTION 'allocations_no_overlap'
-            USING ERRCODE = 'P0001',
-                  DETAIL = format('Merge group overlaps requested window for booking %s', p_booking_id);
-      END;
-    END IF;
-
-    FOREACH v_table_id IN ARRAY v_table_ids LOOP
-      SELECT
-        existing.booking_id,
-        existing.start_at,
-        existing.end_at
-      INTO v_conflict
-      FROM public.booking_table_assignments existing
-      WHERE existing.table_id = v_table_id
-        AND existing.booking_id <> p_booking_id
-        AND existing.start_at IS NOT NULL
-        AND existing.end_at IS NOT NULL
-        AND tstzrange(existing.start_at, existing.end_at, '[)') && v_window
-      LIMIT 1;
-
-      IF FOUND THEN
-        RAISE EXCEPTION 'assign_tables_atomic_v2 assignment overlap for table %', v_table_id
-          USING ERRCODE = 'P0001',
-                DETAIL = format('Existing booking %s occupies %s from %s to %s', v_conflict.booking_id, v_table_id, v_conflict.start_at, v_conflict.end_at),
-                HINT = 'Adjust assignment window or release the conflicting table.';
+      IF v_existing.table_set_hash IS DISTINCT FROM v_table_set_hash THEN
+        RAISE EXCEPTION 'assign_tables_atomic_v2 idempotency mismatch for booking %', p_booking_id
+          USING ERRCODE = 'P0003',
+                DETAIL = 'Idempotency key reuse detected with a different table set';
       END IF;
 
-      v_conflict := NULL;
+      RETURN QUERY
+        SELECT
+          bta.table_id,
+          COALESCE(bta.start_at, lower(v_existing.assignment_window)) AS start_at,
+          COALESCE(bta.end_at, upper(v_existing.assignment_window)) AS end_at,
+          v_existing.merge_group_allocation_id
+        FROM public.booking_table_assignments bta
+        WHERE bta.booking_id = p_booking_id
+          AND bta.idempotency_key = p_idempotency_key
+          AND bta.table_id = ANY (v_table_ids)
+        ORDER BY bta.table_id;
 
-      IF v_merge_group_supported THEN
-        BEGIN
-          INSERT INTO public.booking_table_assignments (
-            booking_id,
-            table_id,
-            slot_id,
-            assigned_by,
-            idempotency_key,
-            merge_group_id,
-            start_at,
-            end_at
-          ) VALUES (
-            p_booking_id,
-            v_table_id,
-            v_slot_id,
-            p_assigned_by,
-            p_idempotency_key,
-            v_merge_allocation_id,
-            v_start_at,
-            v_end_at
-          )
-        ON CONFLICT ON CONSTRAINT booking_table_assignments_booking_table_key DO UPDATE
-          SET assigned_at = v_now,
-              assigned_by = COALESCE(EXCLUDED.assigned_by, public.booking_table_assignments.assigned_by),
-              idempotency_key = COALESCE(EXCLUDED.idempotency_key, public.booking_table_assignments.idempotency_key),
-              merge_group_id = COALESCE(EXCLUDED.merge_group_id, public.booking_table_assignments.merge_group_id),
-              slot_id = COALESCE(EXCLUDED.slot_id, public.booking_table_assignments.slot_id),
-              start_at = EXCLUDED.start_at,
-              end_at = EXCLUDED.end_at,
-              updated_at = v_now
-          RETURNING id INTO v_table_assignment_id;
-        EXCEPTION
-          WHEN unique_violation THEN
-            UPDATE public.booking_table_assignments AS bta
-              SET assigned_at = v_now,
-                  assigned_by = COALESCE(p_assigned_by, bta.assigned_by),
-                  idempotency_key = COALESCE(p_idempotency_key, bta.idempotency_key),
-                  merge_group_id = COALESCE(v_merge_allocation_id, bta.merge_group_id),
-                  slot_id = COALESCE(v_slot_id, bta.slot_id),
-                  start_at = v_start_at,
-                  end_at = v_end_at,
-                  updated_at = v_now
-            WHERE bta.booking_id = p_booking_id
-              AND bta.table_id = v_table_id
-            RETURNING bta.id INTO v_table_assignment_id;
+      RETURN;
+    END IF;
+  END IF;
 
-            IF NOT FOUND THEN
-              RAISE EXCEPTION 'assign_tables_atomic_v2 assignment duplicate for table %', v_table_id
-                USING ERRCODE = 'P0001';
-            END IF;
-        END;
-      ELSE
-        BEGIN
-          INSERT INTO public.booking_table_assignments (
-            booking_id,
-            table_id,
-            slot_id,
-            assigned_by,
-            idempotency_key,
-            start_at,
-            end_at
-          ) VALUES (
-            p_booking_id,
-            v_table_id,
-            v_slot_id,
-            p_assigned_by,
-            p_idempotency_key,
-            v_start_at,
-            v_end_at
-          )
-          ON CONFLICT ON CONSTRAINT booking_table_assignments_booking_table_key DO UPDATE
-          SET assigned_at = v_now,
-              assigned_by = COALESCE(EXCLUDED.assigned_by, public.booking_table_assignments.assigned_by),
-              idempotency_key = COALESCE(EXCLUDED.idempotency_key, public.booking_table_assignments.idempotency_key),
-              slot_id = COALESCE(EXCLUDED.slot_id, public.booking_table_assignments.slot_id),
-              start_at = EXCLUDED.start_at,
-              end_at = EXCLUDED.end_at,
-              updated_at = v_now
-          RETURNING id INTO v_table_assignment_id;
-        EXCEPTION
-          WHEN unique_violation THEN
-            UPDATE public.booking_table_assignments AS bta
-              SET assigned_at = v_now,
-                  assigned_by = COALESCE(p_assigned_by, bta.assigned_by),
-                  idempotency_key = COALESCE(p_idempotency_key, bta.idempotency_key),
-                  slot_id = COALESCE(v_slot_id, bta.slot_id),
-                  start_at = v_start_at,
-                  end_at = v_end_at,
-                  updated_at = v_now
-            WHERE bta.booking_id = p_booking_id
-              AND bta.table_id = v_table_id
-            RETURNING bta.id INTO v_table_assignment_id;
+  SELECT th.id
+  INTO v_hold_conflict
+  FROM public.table_hold_windows thw
+  JOIN public.table_holds th ON th.id = thw.hold_id
+  WHERE thw.table_id = ANY (v_table_ids)
+    AND thw.expires_at > v_now
+    AND (th.booking_id IS NULL OR th.booking_id <> p_booking_id)
+    AND thw.hold_window && v_window
+  LIMIT 1;
 
-            IF NOT FOUND THEN
-              RAISE EXCEPTION 'assign_tables_atomic_v2 assignment duplicate for table %', v_table_id
-                USING ERRCODE = 'P0001';
-            END IF;
-        END;
-      END IF;
+  IF FOUND THEN
+    RAISE EXCEPTION 'Hold conflict prevents assignment for booking %', p_booking_id
+      USING ERRCODE = 'P0001',
+            DETAIL = format('Hold % overlaps requested window', v_hold_conflict),
+            HINT = 'Retry after hold expiration or confirm existing hold.';
+  END IF;
 
-      BEGIN
-        INSERT INTO public.allocations (
-          booking_id,
-          restaurant_id,
-          resource_type,
-          resource_id,
-          "window",
-          created_by,
-          shadow,
-          created_at,
-          updated_at
-        ) VALUES (
-          p_booking_id,
-          v_restaurant_id,
-          'table',
-          v_table_id,
-          v_window,
-          p_assigned_by,
-          false,
-          v_now,
-          v_now
-        )
-        ON CONFLICT ON CONSTRAINT allocations_booking_resource_key DO UPDATE
-        SET "window" = EXCLUDED."window",
-            created_by = COALESCE(EXCLUDED.created_by, public.allocations.created_by),
-            updated_at = v_now;
-      EXCEPTION
-        WHEN unique_violation OR exclusion_violation THEN
-          RAISE EXCEPTION 'allocations_no_overlap'
-            USING ERRCODE = 'P0001',
-                  DETAIL = format('Resource %s overlaps requested window for booking %s', v_table_id, p_booking_id);
-      END;
+  IF v_booking.booking_date IS NOT NULL AND v_booking.start_time IS NOT NULL THEN
+    SELECT id
+    INTO v_slot_id
+    FROM public.booking_slots
+    WHERE restaurant_id = v_restaurant_id
+      AND slot_date = v_booking.booking_date
+      AND slot_time = v_booking.start_time
+    LIMIT 1;
 
-      PERFORM public.refresh_table_status(v_table_id);
+    IF v_slot_id IS NULL THEN
+      SELECT public.get_or_create_booking_slot(v_restaurant_id, v_booking.booking_date, v_booking.start_time, 999)
+      INTO v_slot_id;
+    END IF;
+  END IF;
 
-      table_id := v_table_id;
-      start_at := v_start_at;
-      end_at := v_end_at;
-      merge_group_id := CASE WHEN v_merge_group_supported THEN v_merge_allocation_id ELSE NULL END;
-      RETURN NEXT;
-    END LOOP;
+  IF v_merge_group_supported AND v_table_count > 1 THEN
+    v_merge_allocation_id := gen_random_uuid();
 
-    IF p_idempotency_key IS NOT NULL THEN
-      INSERT INTO public.booking_assignment_idempotency (
+    BEGIN
+      INSERT INTO public.allocations (
+        id,
         booking_id,
-        idempotency_key,
-        table_ids,
-        assignment_window,
-        merge_group_allocation_id,
-        created_at
+        restaurant_id,
+        resource_type,
+        resource_id,
+        "window",
+        created_by,
+        shadow,
+        created_at,
+        updated_at
       ) VALUES (
-        p_booking_id,
-        p_idempotency_key,
-        v_table_ids,
-        v_window,
         v_merge_allocation_id,
+        p_booking_id,
+        v_restaurant_id,
+        'merge_group',
+        v_merge_allocation_id,
+        v_window,
+        p_assigned_by,
+        false,
+        v_now,
         v_now
       )
-      ON CONFLICT (booking_id, idempotency_key) DO NOTHING;
-    END IF;
-  END;
-  $$;
+      ON CONFLICT ON CONSTRAINT allocations_booking_resource_key DO UPDATE
+      SET "window" = EXCLUDED."window",
+          created_by = COALESCE(EXCLUDED.created_by, public.allocations.created_by),
+          updated_at = v_now;
+    EXCEPTION
+      WHEN unique_violation OR exclusion_violation THEN
+        RAISE EXCEPTION 'allocations_no_overlap'
+          USING ERRCODE = 'P0001',
+                DETAIL = format('Merge group overlaps requested window for booking %s', p_booking_id);
+    END;
+  END IF;
+
+  FOREACH v_table_id IN ARRAY v_table_ids LOOP
+    BEGIN
+      INSERT INTO public.allocations (
+        booking_id,
+        restaurant_id,
+        resource_type,
+        resource_id,
+        "window",
+        created_by,
+        shadow,
+        created_at,
+        updated_at
+      ) VALUES (
+        p_booking_id,
+        v_restaurant_id,
+        'table',
+        v_table_id,
+        v_window,
+        p_assigned_by,
+        false,
+        v_now,
+        v_now
+      )
+      ON CONFLICT ON CONSTRAINT allocations_booking_resource_key DO UPDATE
+      SET "window" = EXCLUDED."window",
+          created_by = COALESCE(EXCLUDED.created_by, public.allocations.created_by),
+          shadow = false,
+          updated_at = v_now
+      RETURNING id INTO v_allocation_id;
+    EXCEPTION
+      WHEN unique_violation OR exclusion_violation THEN
+        RAISE EXCEPTION 'allocations_no_overlap'
+          USING ERRCODE = 'P0001',
+                DETAIL = format('Resource %s overlaps requested window for booking %s', v_table_id, p_booking_id);
+    END;
+
+    BEGIN
+      INSERT INTO public.booking_table_assignments (
+        booking_id,
+        table_id,
+        slot_id,
+        assigned_by,
+        idempotency_key,
+        merge_group_id,
+        start_at,
+        end_at,
+        allocation_id
+      ) VALUES (
+        p_booking_id,
+        v_table_id,
+        v_slot_id,
+        p_assigned_by,
+        p_idempotency_key,
+        v_merge_allocation_id,
+        v_start_at,
+        v_end_at,
+        v_allocation_id
+      )
+      ON CONFLICT ON CONSTRAINT booking_table_assignments_booking_table_key DO UPDATE
+      SET assigned_at = v_now,
+          assigned_by = COALESCE(EXCLUDED.assigned_by, public.booking_table_assignments.assigned_by),
+          idempotency_key = COALESCE(EXCLUDED.idempotency_key, public.booking_table_assignments.idempotency_key),
+          merge_group_id = COALESCE(EXCLUDED.merge_group_id, public.booking_table_assignments.merge_group_id),
+          slot_id = COALESCE(EXCLUDED.slot_id, public.booking_table_assignments.slot_id),
+          start_at = EXCLUDED.start_at,
+          end_at = EXCLUDED.end_at,
+          allocation_id = EXCLUDED.allocation_id,
+          updated_at = v_now
+      RETURNING id INTO v_table_assignment_id;
+    EXCEPTION
+      WHEN unique_violation THEN
+        UPDATE public.booking_table_assignments AS bta
+        SET assigned_at = v_now,
+            assigned_by = COALESCE(p_assigned_by, bta.assigned_by),
+            idempotency_key = COALESCE(p_idempotency_key, bta.idempotency_key),
+            merge_group_id = COALESCE(v_merge_allocation_id, bta.merge_group_id),
+            slot_id = COALESCE(v_slot_id, bta.slot_id),
+            start_at = v_start_at,
+            end_at = v_end_at,
+            allocation_id = COALESCE(v_allocation_id, bta.allocation_id),
+            updated_at = v_now
+        WHERE bta.booking_id = p_booking_id
+          AND bta.table_id = v_table_id
+        RETURNING bta.id INTO v_table_assignment_id;
+
+        IF NOT FOUND THEN
+          RAISE EXCEPTION 'assign_tables_atomic_v2 assignment duplicate for table %', v_table_id
+            USING ERRCODE = 'P0001';
+        END IF;
+    END;
+
+    PERFORM public.refresh_table_status(v_table_id);
+
+    table_id := v_table_id;
+    start_at := v_start_at;
+    end_at := v_end_at;
+    merge_group_id := CASE WHEN v_merge_group_supported THEN v_merge_allocation_id ELSE NULL END;
+    RETURN NEXT;
+  END LOOP;
+
+  IF p_idempotency_key IS NOT NULL THEN
+    INSERT INTO public.booking_assignment_idempotency (
+      booking_id,
+      idempotency_key,
+      table_ids,
+      assignment_window,
+      merge_group_allocation_id,
+      table_set_hash,
+      created_at
+    ) VALUES (
+      p_booking_id,
+      p_idempotency_key,
+      v_table_ids,
+      v_window,
+      v_merge_allocation_id,
+      v_table_set_hash,
+      v_now
+    )
+    ON CONFLICT (booking_id, idempotency_key) DO UPDATE
+      SET table_ids = EXCLUDED.table_ids,
+          assignment_window = EXCLUDED.assignment_window,
+          merge_group_allocation_id = EXCLUDED.merge_group_allocation_id,
+          table_set_hash = EXCLUDED.table_set_hash;
+  END IF;
+
+  IF current_setting('app.capacity.post_assignment.enabled', true) = 'off' THEN
+    v_capacity_check_enabled := false;
+  END IF;
+
+  IF v_capacity_check_enabled THEN
+    PERFORM public.validate_booking_capacity_after_assignment(p_booking_id);
+  END IF;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION assign_tables_atomic_v2(p_booking_id uuid, p_table_ids uuid[], p_idempotency_key text, p_require_adjacency boolean, p_assigned_by uuid, p_start_at timestamp with time zone, p_end_at timestamp with time zone); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.assign_tables_atomic_v2(p_booking_id uuid, p_table_ids uuid[], p_idempotency_key text, p_require_adjacency boolean, p_assigned_by uuid, p_start_at timestamp with time zone, p_end_at timestamp with time zone) IS 'DEPRECATED: prefer assign_single_table() or assign_merged_tables().';
 
 
 --
@@ -2114,6 +1459,384 @@ COMMENT ON FUNCTION public.booking_status_summary(p_restaurant_id uuid, p_start_
 
 
 --
+-- Name: create_booking_with_capacity_check(uuid, uuid, date, time without time zone, time without time zone, integer, text, text, text, text, text, text, boolean, text, text, uuid, text, jsonb, integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.create_booking_with_capacity_check(p_restaurant_id uuid, p_customer_id uuid, p_booking_date date, p_start_time time without time zone, p_end_time time without time zone, p_party_size integer, p_booking_type text, p_customer_name text, p_customer_email text, p_customer_phone text, p_seating_preference text, p_notes text DEFAULT NULL::text, p_marketing_opt_in boolean DEFAULT false, p_idempotency_key text DEFAULT NULL::text, p_source text DEFAULT 'api'::text, p_auth_user_id uuid DEFAULT NULL::uuid, p_client_request_id text DEFAULT NULL::text, p_details jsonb DEFAULT '{}'::jsonb, p_loyalty_points_awarded integer DEFAULT 0) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+    v_service_period_id uuid;
+    v_service_period_name text;
+    v_max_covers integer;
+    v_max_parties integer;
+    v_booked_covers integer;
+    v_booked_parties integer;
+    v_booking_id uuid;
+    v_booking_record jsonb;
+    v_reference text;
+    v_start_at timestamptz;
+    v_end_at timestamptz;
+    v_timezone text;
+    v_timezone_raw text;
+    v_allow_after_hours boolean;
+    v_local_start timestamp without time zone;
+    v_local_end timestamp without time zone;
+    v_local_day smallint;
+    v_is_open boolean;
+    v_has_closure boolean;
+BEGIN
+    -- =====================================================
+    -- STEP 1: Idempotency Check
+    -- =====================================================
+    IF p_idempotency_key IS NOT NULL THEN
+        SELECT id INTO v_booking_id
+        FROM bookings
+        WHERE restaurant_id = p_restaurant_id
+          AND idempotency_key = p_idempotency_key
+        LIMIT 1;
+
+        IF FOUND THEN
+            SELECT to_jsonb(b.*) INTO v_booking_record
+            FROM bookings b
+            WHERE id = v_booking_id;
+
+            RETURN jsonb_build_object(
+                'success', true,
+                'duplicate', true,
+                'booking', v_booking_record,
+                'message', 'Booking already exists (idempotency)'
+            );
+        END IF;
+    END IF;
+
+    -- =====================================================
+    -- STEP 2: Find Applicable Service Period
+    -- =====================================================
+    SELECT sp.id, sp.name INTO v_service_period_id, v_service_period_name
+    FROM restaurant_service_periods sp
+    WHERE sp.restaurant_id = p_restaurant_id
+      AND (sp.day_of_week IS NULL OR sp.day_of_week = EXTRACT(DOW FROM p_booking_date)::smallint)
+      AND p_start_time >= sp.start_time
+      AND p_start_time < sp.end_time
+    ORDER BY
+      sp.day_of_week DESC NULLS LAST,
+      sp.start_time ASC
+    LIMIT 1;
+
+    -- =====================================================
+    -- STEP 3: Timezone & Operating Hours Validation
+    -- =====================================================
+    SELECT timezone INTO v_timezone_raw
+    FROM restaurants
+    WHERE id = p_restaurant_id;
+
+    v_timezone_raw := COALESCE(BTRIM(v_timezone_raw), '');
+
+    IF v_timezone_raw = '' THEN
+        v_timezone := 'Europe/London';
+    ELSE
+        SELECT name INTO v_timezone
+        FROM pg_timezone_names
+        WHERE lower(name) = lower(v_timezone_raw)
+        LIMIT 1;
+
+        IF NOT FOUND OR v_timezone IS NULL THEN
+            v_timezone := 'Europe/London';
+        END IF;
+    END IF;
+
+    v_start_at := make_timestamptz(
+        EXTRACT(YEAR FROM p_booking_date)::int,
+        EXTRACT(MONTH FROM p_booking_date)::int,
+        EXTRACT(DAY FROM p_booking_date)::int,
+        EXTRACT(HOUR FROM p_start_time)::int,
+        EXTRACT(MINUTE FROM p_start_time)::int,
+        EXTRACT(SECOND FROM p_start_time),
+        v_timezone
+    );
+
+    v_end_at := make_timestamptz(
+        EXTRACT(YEAR FROM p_booking_date)::int,
+        EXTRACT(MONTH FROM p_booking_date)::int,
+        EXTRACT(DAY FROM p_booking_date)::int,
+        EXTRACT(HOUR FROM p_end_time)::int,
+        EXTRACT(MINUTE FROM p_end_time)::int,
+        EXTRACT(SECOND FROM p_end_time),
+        v_timezone
+    );
+
+    v_local_start := (v_start_at AT TIME ZONE v_timezone);
+    v_local_end := (v_end_at AT TIME ZONE v_timezone);
+    v_local_day := EXTRACT(ISODOW FROM v_local_start)::smallint;
+
+    SELECT allow_after_hours
+    INTO v_allow_after_hours
+    FROM service_policy
+    ORDER BY created_at DESC
+    LIMIT 1;
+
+    v_allow_after_hours := COALESCE(v_allow_after_hours, false);
+
+    IF NOT v_allow_after_hours THEN
+        SELECT EXISTS (
+            SELECT 1
+            FROM restaurant_operating_hours h
+            WHERE h.restaurant_id = p_restaurant_id
+              AND h.is_closed = true
+              AND (
+                    (h.effective_date IS NOT NULL AND h.effective_date = v_local_start::date)
+                 OR (h.effective_date IS NULL AND h.day_of_week = v_local_day)
+              )
+        ) INTO v_has_closure;
+
+        IF v_has_closure THEN
+            RETURN jsonb_build_object(
+                'success', false,
+                'error', 'BOOKING_OUTSIDE_OPERATING_HOURS',
+                'message', 'The restaurant is closed during the requested window.',
+                'retryable', false,
+                'details', jsonb_build_object(
+                    'requestedStart', to_char(v_local_start, 'YYYY-MM-DD"T"HH24:MI:SS'),
+                    'requestedEnd', to_char(v_local_end, 'YYYY-MM-DD"T"HH24:MI:SS'),
+                    'timezone', v_timezone,
+                    'allowAfterHours', v_allow_after_hours
+                )
+            );
+        END IF;
+
+        SELECT EXISTS (
+            SELECT 1
+            FROM restaurant_operating_hours h
+            WHERE h.restaurant_id = p_restaurant_id
+              AND h.is_closed = false
+              AND (
+                    (h.effective_date IS NOT NULL AND h.effective_date = v_local_start::date)
+                 OR (h.effective_date IS NULL AND h.day_of_week = v_local_day)
+              )
+              AND v_local_start::time >= h.opens_at
+              AND v_local_start::time < h.closes_at
+        ) INTO v_is_open;
+
+        IF NOT v_is_open THEN
+            RETURN jsonb_build_object(
+                'success', false,
+                'error', 'BOOKING_OUTSIDE_OPERATING_HOURS',
+                'message', 'The requested time is outside configured operating hours.',
+                'retryable', false,
+                'details', jsonb_build_object(
+                    'requestedStart', to_char(v_local_start, 'YYYY-MM-DD"T"HH24:MI:SS'),
+                    'requestedEnd', to_char(v_local_end, 'YYYY-MM-DD"T"HH24:MI:SS'),
+                    'timezone', v_timezone,
+                    'allowAfterHours', v_allow_after_hours
+                )
+            );
+        END IF;
+    END IF;
+
+    -- =====================================================
+    -- STEP 4: Get Capacity Rules with Row-Level Lock
+    -- =====================================================
+    SELECT
+        COALESCE(cr.max_covers, 999999) AS max_covers,
+        COALESCE(cr.max_parties, 999999) AS max_parties
+    INTO v_max_covers, v_max_parties
+    FROM restaurant_capacity_rules cr
+    WHERE cr.restaurant_id = p_restaurant_id
+      AND (cr.service_period_id IS NULL OR cr.service_period_id = v_service_period_id)
+      AND (cr.day_of_week IS NULL OR cr.day_of_week = EXTRACT(DOW FROM p_booking_date)::smallint)
+      AND (cr.effective_date IS NULL OR cr.effective_date <= p_booking_date)
+    ORDER BY
+      cr.effective_date DESC NULLS LAST,
+      cr.day_of_week DESC NULLS LAST,
+      cr.service_period_id DESC NULLS LAST
+    LIMIT 1
+    FOR UPDATE NOWAIT;
+
+    v_max_covers := COALESCE(v_max_covers, 999999);
+    v_max_parties := COALESCE(v_max_parties, 999999);
+
+    -- =====================================================
+    -- STEP 5: Count Existing Bookings in Same Period
+    -- =====================================================
+    SELECT
+        COALESCE(SUM(b.party_size), 0) AS total_covers,
+        COUNT(*) AS total_parties
+    INTO v_booked_covers, v_booked_parties
+    FROM bookings b
+    WHERE b.restaurant_id = p_restaurant_id
+      AND b.booking_date = p_booking_date
+      AND b.status NOT IN ('cancelled', 'no_show')
+      AND (
+            v_service_period_id IS NULL
+         OR b.start_time >= (
+                SELECT start_time FROM restaurant_service_periods WHERE id = v_service_period_id
+            )
+         AND b.start_time < (
+                SELECT end_time FROM restaurant_service_periods WHERE id = v_service_period_id
+            )
+      );
+
+    -- =====================================================
+    -- STEP 6: Capacity Validation
+    -- =====================================================
+    IF v_booked_covers + p_party_size > v_max_covers THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'CAPACITY_EXCEEDED',
+            'message', format('Maximum capacity of %s covers exceeded. Currently booked: %s, Requested: %s',
+                v_max_covers, v_booked_covers, p_party_size),
+            'details', jsonb_build_object(
+                'maxCovers', v_max_covers,
+                'bookedCovers', v_booked_covers,
+                'requestedCovers', p_party_size,
+                'availableCovers', v_max_covers - v_booked_covers,
+                'servicePeriod', v_service_period_name
+            )
+        );
+    END IF;
+
+    IF v_booked_parties + 1 > v_max_parties THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'CAPACITY_EXCEEDED',
+            'message', format('Maximum of %s bookings exceeded for this period. Currently booked: %s',
+                v_max_parties, v_booked_parties),
+            'details', jsonb_build_object(
+                'maxParties', v_max_parties,
+                'bookedParties', v_booked_parties,
+                'availableParties', v_max_parties - v_booked_parties,
+                'servicePeriod', v_service_period_name
+            )
+        );
+    END IF;
+
+    v_reference := public.generate_booking_reference();
+
+    INSERT INTO bookings (
+        restaurant_id,
+        customer_id,
+        booking_date,
+        start_time,
+        end_time,
+        start_at,
+        end_at,
+        party_size,
+        booking_type,
+        seating_preference,
+        status,
+        reference,
+        customer_name,
+        customer_email,
+        customer_phone,
+        notes,
+        marketing_opt_in,
+        loyalty_points_awarded,
+        source,
+        auth_user_id,
+        idempotency_key,
+        details
+    ) VALUES (
+        p_restaurant_id,
+        p_customer_id,
+        p_booking_date,
+        p_start_time,
+        p_end_time,
+        v_start_at,
+        v_end_at,
+        p_party_size,
+        p_booking_type::booking_type,
+        p_seating_preference::seating_preference_type,
+        'confirmed'::booking_status,
+        v_reference,
+        p_customer_name,
+        p_customer_email,
+        p_customer_phone,
+        p_notes,
+        p_marketing_opt_in,
+        p_loyalty_points_awarded,
+        p_source,
+        p_auth_user_id,
+        p_idempotency_key,
+        jsonb_build_object(
+            'channel', 'api.capacity_safe',
+            'client_request_id', p_client_request_id,
+            'capacity_check', jsonb_build_object(
+                'service_period_id', v_service_period_id,
+                'max_covers', v_max_covers,
+                'booked_covers_before', v_booked_covers,
+                'booked_covers_after', v_booked_covers + p_party_size
+            ),
+            'timezone', v_timezone,
+            'original_timezone', NULLIF(v_timezone_raw, '')
+        ) || COALESCE(p_details, '{}'::jsonb)
+    )
+    RETURNING id, to_jsonb(bookings.*) INTO v_booking_id, v_booking_record;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'duplicate', false,
+        'booking', v_booking_record,
+        'capacity', jsonb_build_object(
+            'servicePeriod', v_service_period_name,
+            'maxCovers', v_max_covers,
+            'bookedCovers', v_booked_covers + p_party_size,
+            'availableCovers', v_max_covers - (v_booked_covers + p_party_size),
+            'utilizationPercent', ROUND(((v_booked_covers + p_party_size)::numeric / v_max_covers) * 100, 1)
+        ),
+        'message', 'Booking created successfully'
+    );
+
+EXCEPTION
+    WHEN serialization_failure THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'BOOKING_CONFLICT',
+            'message', 'Concurrent booking conflict detected. Please retry.',
+            'retryable', true
+        );
+
+    WHEN deadlock_detected THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'BOOKING_CONFLICT',
+            'message', 'Database deadlock detected. Please retry.',
+            'retryable', true
+        );
+
+    WHEN lock_not_available THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'BOOKING_CONFLICT',
+            'message', 'Capacity rule is currently locked by another transaction. Please retry.',
+            'retryable', true
+        );
+
+    WHEN OTHERS THEN
+        RAISE WARNING 'Unexpected error in create_booking_with_capacity_check: % %', SQLERRM, SQLSTATE;
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'INTERNAL_ERROR',
+            'message', 'An unexpected error occurred while creating the booking',
+            'retryable', false,
+            'sqlstate', SQLSTATE,
+            'sqlerrm', SQLERRM,
+            'timezone', v_timezone,
+            'original_timezone', NULLIF(v_timezone_raw, '')
+        );
+END;
+$$;
+
+
+--
+-- Name: FUNCTION create_booking_with_capacity_check(p_restaurant_id uuid, p_customer_id uuid, p_booking_date date, p_start_time time without time zone, p_end_time time without time zone, p_party_size integer, p_booking_type text, p_customer_name text, p_customer_email text, p_customer_phone text, p_seating_preference text, p_notes text, p_marketing_opt_in boolean, p_idempotency_key text, p_source text, p_auth_user_id uuid, p_client_request_id text, p_details jsonb, p_loyalty_points_awarded integer); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.create_booking_with_capacity_check(p_restaurant_id uuid, p_customer_id uuid, p_booking_date date, p_start_time time without time zone, p_end_time time without time zone, p_party_size integer, p_booking_type text, p_customer_name text, p_customer_email text, p_customer_phone text, p_seating_preference text, p_notes text, p_marketing_opt_in boolean, p_idempotency_key text, p_source text, p_auth_user_id uuid, p_client_request_id text, p_details jsonb, p_loyalty_points_awarded integer) IS 'Race-safe booking creation enforcing capacity and operating hours. Returns JSON response with success/error detail.';
+
+
+--
 -- Name: generate_booking_reference(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -2140,72 +1863,73 @@ $$;
 CREATE FUNCTION public.get_or_create_booking_slot(p_restaurant_id uuid, p_slot_date date, p_slot_time time without time zone, p_default_capacity integer DEFAULT 999) RETURNS uuid
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
-  DECLARE
-    v_slot_id uuid;
-    v_service_period_id uuid;
-    v_capacity integer;
-    v_rules_exist boolean := to_regclass('public.restaurant_capacity_rules') IS NOT NULL;
-  BEGIN
-    SELECT id
-    INTO v_slot_id
-    FROM public.booking_slots
-    WHERE restaurant_id = p_restaurant_id
-      AND slot_date = p_slot_date
-      AND slot_time = p_slot_time;
+DECLARE
+  v_slot_id uuid;
+  v_service_period_id uuid;
+  v_capacity integer;
+  v_rules_exist boolean := to_regclass('public.restaurant_capacity_rules') IS NOT NULL;
+BEGIN
+  SELECT id
+  INTO v_slot_id
+  FROM public.booking_slots
+  WHERE restaurant_id = p_restaurant_id
+    AND slot_date = p_slot_date
+    AND slot_time = p_slot_time;
 
-    IF FOUND THEN
-      RETURN v_slot_id;
-    END IF;
-
-    SELECT id
-    INTO v_service_period_id
-    FROM public.restaurant_service_periods
-    WHERE restaurant_id = p_restaurant_id
-      AND (day_of_week IS NULL OR day_of_week = EXTRACT(DOW FROM p_slot_date)::smallint)
-      AND p_slot_time >= start_time
-      AND p_slot_time < end_time
-    ORDER BY day_of_week DESC NULLS LAST
-    LIMIT 1;
-
-    v_capacity := NULL;
-
-    IF v_rules_exist THEN
-      SELECT COALESCE(max_covers, p_default_capacity)
-      INTO v_capacity
-      FROM public.restaurant_capacity_rules
-      WHERE restaurant_id = p_restaurant_id
-        AND (service_period_id IS NULL OR service_period_id = v_service_period_id)
-        AND (day_of_week IS NULL OR day_of_week = EXTRACT(DOW FROM p_slot_date)::smallint)
-        AND (effective_date IS NULL OR effective_date <= p_slot_date)
-      ORDER BY
-        effective_date DESC NULLS LAST,
-        day_of_week DESC NULLS LAST,
-        service_period_id DESC NULLS LAST
-      LIMIT 1;
-    END IF;
-
-    v_capacity := COALESCE(v_capacity, p_default_capacity);
-
-    INSERT INTO public.booking_slots (
-      restaurant_id,
-      slot_date,
-      slot_time,
-      service_period_id,
-      available_capacity,
-      reserved_count
-    ) VALUES (
-      p_restaurant_id,
-      p_slot_date,
-      p_slot_time,
-      v_service_period_id,
-      v_capacity,
-      0
-    )
-    RETURNING id INTO v_slot_id;
-
+  IF FOUND THEN
     RETURN v_slot_id;
-  END;
-  $$;
+  END IF;
+
+  SELECT id
+  INTO v_service_period_id
+  FROM public.restaurant_service_periods
+  WHERE restaurant_id = p_restaurant_id
+    AND (day_of_week IS NULL OR day_of_week = EXTRACT(DOW FROM p_slot_date)::smallint)
+    AND p_slot_time >= start_time
+    AND p_slot_time < end_time
+  ORDER BY day_of_week DESC NULLS LAST, start_time ASC
+  LIMIT 1;
+
+  IF v_rules_exist THEN
+    SELECT COALESCE(max_covers, p_default_capacity)
+    INTO v_capacity
+    FROM public.restaurant_capacity_rules
+    WHERE restaurant_id = p_restaurant_id
+      AND (service_period_id IS NULL OR service_period_id = v_service_period_id)
+      AND (day_of_week IS NULL OR day_of_week = EXTRACT(DOW FROM p_slot_date)::smallint)
+      AND (effective_date IS NULL OR effective_date <= p_slot_date)
+    ORDER BY effective_date DESC NULLS LAST,
+             day_of_week DESC NULLS LAST,
+             service_period_id DESC NULLS LAST
+    LIMIT 1;
+  END IF;
+
+  v_capacity := COALESCE(v_capacity, p_default_capacity);
+
+  INSERT INTO public.booking_slots (
+    restaurant_id,
+    slot_date,
+    slot_time,
+    service_period_id,
+    available_capacity,
+    reserved_count
+  ) VALUES (
+    p_restaurant_id,
+    p_slot_date,
+    p_slot_time,
+    v_service_period_id,
+    v_capacity,
+    0
+  )
+  ON CONFLICT ON CONSTRAINT booking_slots_restaurant_slot_key DO UPDATE
+    SET service_period_id = EXCLUDED.service_period_id,
+        available_capacity = greatest(public.booking_slots.available_capacity, EXCLUDED.available_capacity),
+        updated_at = timezone('utc', now())
+  RETURNING id INTO v_slot_id;
+
+  RETURN v_slot_id;
+END;
+$$;
 
 
 --
@@ -2540,30 +2264,75 @@ $$;
 CREATE FUNCTION public.sync_table_hold_windows() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
+DECLARE
+  v_hold RECORD;
+  v_window tstzrange;
 BEGIN
   IF TG_OP = 'DELETE' THEN
     DELETE FROM public.table_hold_windows
     WHERE hold_id = OLD.hold_id AND table_id = OLD.table_id;
+
+    DELETE FROM public.allocations
+    WHERE resource_type = 'table'
+      AND resource_id = OLD.table_id
+      AND shadow = true
+      AND booking_id IS NOT DISTINCT FROM (
+        SELECT booking_id FROM public.table_holds WHERE id = OLD.hold_id
+      );
+
     RETURN OLD;
   END IF;
 
-  IF NOT public.is_holds_strict_conflicts_enabled() THEN
+  SELECT *
+  INTO v_hold
+  FROM public.table_holds
+  WHERE id = COALESCE(NEW.hold_id, OLD.hold_id)
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
     RETURN NEW;
   END IF;
 
+  v_window := tstzrange(v_hold.start_at, v_hold.end_at, '[)');
+
   IF TG_OP = 'INSERT' THEN
     INSERT INTO public.table_hold_windows (hold_id, table_id, restaurant_id, booking_id, start_at, end_at, expires_at)
-    SELECT NEW.hold_id, NEW.table_id, h.restaurant_id, h.booking_id, h.start_at, h.end_at, h.expires_at
-    FROM public.table_holds h
-    WHERE h.id = NEW.hold_id
+    VALUES (NEW.hold_id, NEW.table_id, v_hold.restaurant_id, v_hold.booking_id, v_hold.start_at, v_hold.end_at, v_hold.expires_at)
     ON CONFLICT (hold_id, table_id) DO UPDATE
       SET start_at = EXCLUDED.start_at,
           end_at = EXCLUDED.end_at,
           expires_at = EXCLUDED.expires_at,
           restaurant_id = EXCLUDED.restaurant_id,
           booking_id = EXCLUDED.booking_id;
-    RETURN NEW;
   END IF;
+
+  INSERT INTO public.allocations (
+    booking_id,
+    restaurant_id,
+    resource_type,
+    resource_id,
+    "window",
+    created_by,
+    shadow,
+    created_at,
+    updated_at
+  ) VALUES (
+    v_hold.booking_id,
+    v_hold.restaurant_id,
+    'table',
+    COALESCE(NEW.table_id, OLD.table_id),
+    v_window,
+    v_hold.created_by,
+    true,
+    timezone('utc', now()),
+    timezone('utc', now())
+  )
+  ON CONFLICT ON CONSTRAINT allocations_booking_resource_key DO UPDATE
+    SET "window" = EXCLUDED."window",
+        restaurant_id = EXCLUDED.restaurant_id,
+        shadow = true,
+        updated_at = timezone('utc', now());
+
   RETURN NEW;
 END;
 $$;
@@ -2933,11 +2702,9 @@ CREATE FUNCTION public.update_booking_with_capacity_check(p_booking_id uuid, p_r
 CREATE FUNCTION public.update_table_hold_windows() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
+DECLARE
+  v_window tstzrange := tstzrange(NEW.start_at, NEW.end_at, '[)');
 BEGIN
-  IF NOT public.is_holds_strict_conflicts_enabled() THEN
-    RETURN NEW;
-  END IF;
-
   UPDATE public.table_hold_windows
   SET start_at = NEW.start_at,
       end_at = NEW.end_at,
@@ -2945,6 +2712,20 @@ BEGIN
       restaurant_id = NEW.restaurant_id,
       booking_id = NEW.booking_id
   WHERE hold_id = NEW.id;
+
+  UPDATE public.allocations
+  SET "window" = v_window,
+      restaurant_id = NEW.restaurant_id,
+      booking_id = NEW.booking_id,
+      shadow = CASE WHEN shadow THEN shadow ELSE false END,
+      updated_at = timezone('utc', now())
+  WHERE resource_type = 'table'
+    AND resource_id IN (
+      SELECT table_id FROM public.table_hold_members WHERE hold_id = NEW.id
+    )
+    AND booking_id IS NOT DISTINCT FROM NEW.booking_id
+    AND shadow = true;
+
   RETURN NEW;
 END;
 $$;
@@ -2960,6 +2741,20 @@ CREATE FUNCTION public.update_updated_at() RETURNS trigger
 BEGIN
   NEW.updated_at := now();
   RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: update_updated_at_column(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_updated_at_column() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
 END;
 $$;
 
@@ -2993,6 +2788,106 @@ $$;
 
 
 --
+-- Name: validate_booking_capacity_after_assignment(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.validate_booking_capacity_after_assignment(p_booking_id uuid) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  v_booking RECORD;
+  v_service_period RECORD;
+  v_capacity_rule RECORD;
+  v_timezone text;
+  v_start timestamptz;
+  v_end timestamptz;
+  v_total_covers integer;
+  v_total_parties integer;
+  v_max_covers integer := 999999;
+  v_max_parties integer := 999999;
+  v_allow_after_hours boolean := false;
+  v_policy RECORD;
+  v_service_id uuid;
+BEGIN
+  SELECT b.*, r.timezone AS restaurant_timezone
+  INTO v_booking
+  FROM public.bookings b
+  JOIN public.restaurants r ON r.id = b.restaurant_id
+  WHERE b.id = p_booking_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN;
+  END IF;
+
+  v_timezone := COALESCE(NULLIF(v_booking.restaurant_timezone, ''), 'UTC');
+  v_start := v_booking.start_at;
+  v_end := v_booking.end_at;
+
+  IF v_start IS NULL OR v_end IS NULL THEN
+    RETURN;
+  END IF;
+
+  SELECT allow_after_hours
+  INTO v_allow_after_hours
+  FROM public.service_policy
+  ORDER BY created_at DESC
+  LIMIT 1;
+
+  SELECT sp.*
+  INTO v_service_period
+  FROM public.restaurant_service_periods sp
+  WHERE sp.restaurant_id = v_booking.restaurant_id
+    AND (sp.day_of_week IS NULL OR sp.day_of_week = EXTRACT(DOW FROM v_booking.booking_date)::smallint)
+    AND v_booking.start_time >= sp.start_time
+    AND v_booking.start_time < sp.end_time
+  ORDER BY sp.day_of_week DESC NULLS LAST, sp.start_time ASC
+  LIMIT 1;
+
+  v_service_id := v_service_period.id;
+
+  SELECT
+    COALESCE(cr.max_covers, v_max_covers) AS max_covers,
+    COALESCE(cr.max_parties, v_max_parties) AS max_parties
+  INTO v_capacity_rule
+  FROM public.restaurant_capacity_rules cr
+  WHERE cr.restaurant_id = v_booking.restaurant_id
+    AND (cr.service_period_id IS NULL OR cr.service_period_id = v_service_id)
+    AND (cr.day_of_week IS NULL OR cr.day_of_week = EXTRACT(DOW FROM v_booking.booking_date)::smallint)
+    AND (cr.effective_date IS NULL OR cr.effective_date <= v_booking.booking_date)
+  ORDER BY cr.effective_date DESC NULLS LAST,
+           cr.day_of_week DESC NULLS LAST,
+           cr.service_period_id DESC NULLS LAST
+  LIMIT 1
+  FOR UPDATE;
+
+  v_max_covers := COALESCE(v_capacity_rule.max_covers, v_max_covers);
+  v_max_parties := COALESCE(v_capacity_rule.max_parties, v_max_parties);
+
+  SELECT
+    COALESCE(SUM(b.party_size), 0) AS total_covers,
+    COUNT(*) AS total_parties
+  INTO v_total_covers, v_total_parties
+  FROM public.bookings b
+  WHERE b.restaurant_id = v_booking.restaurant_id
+    AND b.booking_date = v_booking.booking_date
+    AND b.status IN ('confirmed', 'pending', 'checked_in')
+    AND (
+      v_service_id IS NULL
+      OR (b.start_time >= v_service_period.start_time AND b.start_time < v_service_period.end_time)
+    );
+
+  IF v_total_covers > v_max_covers OR v_total_parties > v_max_parties THEN
+    RAISE EXCEPTION 'capacity_exceeded_post_assignment'
+      USING ERRCODE = 'P0001',
+            DETAIL = format('Capacity exceeded after assignment: covers %s/%s, parties %s/%s', v_total_covers, v_max_covers, v_total_parties, v_max_parties),
+            HINT = 'Release tables or adjust capacity overrides before retrying.';
+  END IF;
+END;
+$$;
+
+
+--
 -- Name: validate_table_adjacency(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3019,2133 +2914,9 @@ END;
 $$;
 
 
---
--- Name: apply_rls(jsonb, integer); Type: FUNCTION; Schema: realtime; Owner: -
---
-
-CREATE FUNCTION realtime.apply_rls(wal jsonb, max_record_bytes integer DEFAULT (1024 * 1024)) RETURNS SETOF realtime.wal_rls
-    LANGUAGE plpgsql
-    AS $$
-declare
--- Regclass of the table e.g. public.notes
-entity_ regclass = (quote_ident(wal ->> 'schema') || '.' || quote_ident(wal ->> 'table'))::regclass;
-
--- I, U, D, T: insert, update ...
-action realtime.action = (
-    case wal ->> 'action'
-        when 'I' then 'INSERT'
-        when 'U' then 'UPDATE'
-        when 'D' then 'DELETE'
-        else 'ERROR'
-    end
-);
-
--- Is row level security enabled for the table
-is_rls_enabled bool = relrowsecurity from pg_class where oid = entity_;
-
-subscriptions realtime.subscription[] = array_agg(subs)
-    from
-        realtime.subscription subs
-    where
-        subs.entity = entity_;
-
--- Subscription vars
-roles regrole[] = array_agg(distinct us.claims_role::text)
-    from
-        unnest(subscriptions) us;
-
-working_role regrole;
-claimed_role regrole;
-claims jsonb;
-
-subscription_id uuid;
-subscription_has_access bool;
-visible_to_subscription_ids uuid[] = '{}';
-
--- structured info for wal's columns
-columns realtime.wal_column[];
--- previous identity values for update/delete
-old_columns realtime.wal_column[];
-
-error_record_exceeds_max_size boolean = octet_length(wal::text) > max_record_bytes;
-
--- Primary jsonb output for record
-output jsonb;
-
-begin
-perform set_config('role', null, true);
-
-columns =
-    array_agg(
-        (
-            x->>'name',
-            x->>'type',
-            x->>'typeoid',
-            realtime.cast(
-                (x->'value') #>> '{}',
-                coalesce(
-                    (x->>'typeoid')::regtype, -- null when wal2json version <= 2.4
-                    (x->>'type')::regtype
-                )
-            ),
-            (pks ->> 'name') is not null,
-            true
-        )::realtime.wal_column
-    )
-    from
-        jsonb_array_elements(wal -> 'columns') x
-        left join jsonb_array_elements(wal -> 'pk') pks
-            on (x ->> 'name') = (pks ->> 'name');
-
-old_columns =
-    array_agg(
-        (
-            x->>'name',
-            x->>'type',
-            x->>'typeoid',
-            realtime.cast(
-                (x->'value') #>> '{}',
-                coalesce(
-                    (x->>'typeoid')::regtype, -- null when wal2json version <= 2.4
-                    (x->>'type')::regtype
-                )
-            ),
-            (pks ->> 'name') is not null,
-            true
-        )::realtime.wal_column
-    )
-    from
-        jsonb_array_elements(wal -> 'identity') x
-        left join jsonb_array_elements(wal -> 'pk') pks
-            on (x ->> 'name') = (pks ->> 'name');
-
-for working_role in select * from unnest(roles) loop
-
-    -- Update `is_selectable` for columns and old_columns
-    columns =
-        array_agg(
-            (
-                c.name,
-                c.type_name,
-                c.type_oid,
-                c.value,
-                c.is_pkey,
-                pg_catalog.has_column_privilege(working_role, entity_, c.name, 'SELECT')
-            )::realtime.wal_column
-        )
-        from
-            unnest(columns) c;
-
-    old_columns =
-            array_agg(
-                (
-                    c.name,
-                    c.type_name,
-                    c.type_oid,
-                    c.value,
-                    c.is_pkey,
-                    pg_catalog.has_column_privilege(working_role, entity_, c.name, 'SELECT')
-                )::realtime.wal_column
-            )
-            from
-                unnest(old_columns) c;
-
-    if action <> 'DELETE' and count(1) = 0 from unnest(columns) c where c.is_pkey then
-        return next (
-            jsonb_build_object(
-                'schema', wal ->> 'schema',
-                'table', wal ->> 'table',
-                'type', action
-            ),
-            is_rls_enabled,
-            -- subscriptions is already filtered by entity
-            (select array_agg(s.subscription_id) from unnest(subscriptions) as s where claims_role = working_role),
-            array['Error 400: Bad Request, no primary key']
-        )::realtime.wal_rls;
-
-    -- The claims role does not have SELECT permission to the primary key of entity
-    elsif action <> 'DELETE' and sum(c.is_selectable::int) <> count(1) from unnest(columns) c where c.is_pkey then
-        return next (
-            jsonb_build_object(
-                'schema', wal ->> 'schema',
-                'table', wal ->> 'table',
-                'type', action
-            ),
-            is_rls_enabled,
-            (select array_agg(s.subscription_id) from unnest(subscriptions) as s where claims_role = working_role),
-            array['Error 401: Unauthorized']
-        )::realtime.wal_rls;
-
-    else
-        output = jsonb_build_object(
-            'schema', wal ->> 'schema',
-            'table', wal ->> 'table',
-            'type', action,
-            'commit_timestamp', to_char(
-                ((wal ->> 'timestamp')::timestamptz at time zone 'utc'),
-                'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
-            ),
-            'columns', (
-                select
-                    jsonb_agg(
-                        jsonb_build_object(
-                            'name', pa.attname,
-                            'type', pt.typname
-                        )
-                        order by pa.attnum asc
-                    )
-                from
-                    pg_attribute pa
-                    join pg_type pt
-                        on pa.atttypid = pt.oid
-                where
-                    attrelid = entity_
-                    and attnum > 0
-                    and pg_catalog.has_column_privilege(working_role, entity_, pa.attname, 'SELECT')
-            )
-        )
-        -- Add "record" key for insert and update
-        || case
-            when action in ('INSERT', 'UPDATE') then
-                jsonb_build_object(
-                    'record',
-                    (
-                        select
-                            jsonb_object_agg(
-                                -- if unchanged toast, get column name and value from old record
-                                coalesce((c).name, (oc).name),
-                                case
-                                    when (c).name is null then (oc).value
-                                    else (c).value
-                                end
-                            )
-                        from
-                            unnest(columns) c
-                            full outer join unnest(old_columns) oc
-                                on (c).name = (oc).name
-                        where
-                            coalesce((c).is_selectable, (oc).is_selectable)
-                            and ( not error_record_exceeds_max_size or (octet_length((c).value::text) <= 64))
-                    )
-                )
-            else '{}'::jsonb
-        end
-        -- Add "old_record" key for update and delete
-        || case
-            when action = 'UPDATE' then
-                jsonb_build_object(
-                        'old_record',
-                        (
-                            select jsonb_object_agg((c).name, (c).value)
-                            from unnest(old_columns) c
-                            where
-                                (c).is_selectable
-                                and ( not error_record_exceeds_max_size or (octet_length((c).value::text) <= 64))
-                        )
-                    )
-            when action = 'DELETE' then
-                jsonb_build_object(
-                    'old_record',
-                    (
-                        select jsonb_object_agg((c).name, (c).value)
-                        from unnest(old_columns) c
-                        where
-                            (c).is_selectable
-                            and ( not error_record_exceeds_max_size or (octet_length((c).value::text) <= 64))
-                            and ( not is_rls_enabled or (c).is_pkey ) -- if RLS enabled, we can't secure deletes so filter to pkey
-                    )
-                )
-            else '{}'::jsonb
-        end;
-
-        -- Create the prepared statement
-        if is_rls_enabled and action <> 'DELETE' then
-            if (select 1 from pg_prepared_statements where name = 'walrus_rls_stmt' limit 1) > 0 then
-                deallocate walrus_rls_stmt;
-            end if;
-            execute realtime.build_prepared_statement_sql('walrus_rls_stmt', entity_, columns);
-        end if;
-
-        visible_to_subscription_ids = '{}';
-
-        for subscription_id, claims in (
-                select
-                    subs.subscription_id,
-                    subs.claims
-                from
-                    unnest(subscriptions) subs
-                where
-                    subs.entity = entity_
-                    and subs.claims_role = working_role
-                    and (
-                        realtime.is_visible_through_filters(columns, subs.filters)
-                        or (
-                          action = 'DELETE'
-                          and realtime.is_visible_through_filters(old_columns, subs.filters)
-                        )
-                    )
-        ) loop
-
-            if not is_rls_enabled or action = 'DELETE' then
-                visible_to_subscription_ids = visible_to_subscription_ids || subscription_id;
-            else
-                -- Check if RLS allows the role to see the record
-                perform
-                    -- Trim leading and trailing quotes from working_role because set_config
-                    -- doesn't recognize the role as valid if they are included
-                    set_config('role', trim(both '"' from working_role::text), true),
-                    set_config('request.jwt.claims', claims::text, true);
-
-                execute 'execute walrus_rls_stmt' into subscription_has_access;
-
-                if subscription_has_access then
-                    visible_to_subscription_ids = visible_to_subscription_ids || subscription_id;
-                end if;
-            end if;
-        end loop;
-
-        perform set_config('role', null, true);
-
-        return next (
-            output,
-            is_rls_enabled,
-            visible_to_subscription_ids,
-            case
-                when error_record_exceeds_max_size then array['Error 413: Payload Too Large']
-                else '{}'
-            end
-        )::realtime.wal_rls;
-
-    end if;
-end loop;
-
-perform set_config('role', null, true);
-end;
-$$;
-
-
---
--- Name: broadcast_changes(text, text, text, text, text, record, record, text); Type: FUNCTION; Schema: realtime; Owner: -
---
-
-CREATE FUNCTION realtime.broadcast_changes(topic_name text, event_name text, operation text, table_name text, table_schema text, new record, old record, level text DEFAULT 'ROW'::text) RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-    -- Declare a variable to hold the JSONB representation of the row
-    row_data jsonb := '{}'::jsonb;
-BEGIN
-    IF level = 'STATEMENT' THEN
-        RAISE EXCEPTION 'function can only be triggered for each row, not for each statement';
-    END IF;
-    -- Check the operation type and handle accordingly
-    IF operation = 'INSERT' OR operation = 'UPDATE' OR operation = 'DELETE' THEN
-        row_data := jsonb_build_object('old_record', OLD, 'record', NEW, 'operation', operation, 'table', table_name, 'schema', table_schema);
-        PERFORM realtime.send (row_data, event_name, topic_name);
-    ELSE
-        RAISE EXCEPTION 'Unexpected operation type: %', operation;
-    END IF;
-EXCEPTION
-    WHEN OTHERS THEN
-        RAISE EXCEPTION 'Failed to process the row: %', SQLERRM;
-END;
-
-$$;
-
-
---
--- Name: build_prepared_statement_sql(text, regclass, realtime.wal_column[]); Type: FUNCTION; Schema: realtime; Owner: -
---
-
-CREATE FUNCTION realtime.build_prepared_statement_sql(prepared_statement_name text, entity regclass, columns realtime.wal_column[]) RETURNS text
-    LANGUAGE sql
-    AS $$
-      /*
-      Builds a sql string that, if executed, creates a prepared statement to
-      tests retrive a row from *entity* by its primary key columns.
-      Example
-          select realtime.build_prepared_statement_sql('public.notes', '{"id"}'::text[], '{"bigint"}'::text[])
-      */
-          select
-      'prepare ' || prepared_statement_name || ' as
-          select
-              exists(
-                  select
-                      1
-                  from
-                      ' || entity || '
-                  where
-                      ' || string_agg(quote_ident(pkc.name) || '=' || quote_nullable(pkc.value #>> '{}') , ' and ') || '
-              )'
-          from
-              unnest(columns) pkc
-          where
-              pkc.is_pkey
-          group by
-              entity
-      $$;
-
-
---
--- Name: cast(text, regtype); Type: FUNCTION; Schema: realtime; Owner: -
---
-
-CREATE FUNCTION realtime."cast"(val text, type_ regtype) RETURNS jsonb
-    LANGUAGE plpgsql IMMUTABLE
-    AS $$
-    declare
-      res jsonb;
-    begin
-      execute format('select to_jsonb(%L::'|| type_::text || ')', val)  into res;
-      return res;
-    end
-    $$;
-
-
---
--- Name: check_equality_op(realtime.equality_op, regtype, text, text); Type: FUNCTION; Schema: realtime; Owner: -
---
-
-CREATE FUNCTION realtime.check_equality_op(op realtime.equality_op, type_ regtype, val_1 text, val_2 text) RETURNS boolean
-    LANGUAGE plpgsql IMMUTABLE
-    AS $$
-      /*
-      Casts *val_1* and *val_2* as type *type_* and check the *op* condition for truthiness
-      */
-      declare
-          op_symbol text = (
-              case
-                  when op = 'eq' then '='
-                  when op = 'neq' then '!='
-                  when op = 'lt' then '<'
-                  when op = 'lte' then '<='
-                  when op = 'gt' then '>'
-                  when op = 'gte' then '>='
-                  when op = 'in' then '= any'
-                  else 'UNKNOWN OP'
-              end
-          );
-          res boolean;
-      begin
-          execute format(
-              'select %L::'|| type_::text || ' ' || op_symbol
-              || ' ( %L::'
-              || (
-                  case
-                      when op = 'in' then type_::text || '[]'
-                      else type_::text end
-              )
-              || ')', val_1, val_2) into res;
-          return res;
-      end;
-      $$;
-
-
---
--- Name: is_visible_through_filters(realtime.wal_column[], realtime.user_defined_filter[]); Type: FUNCTION; Schema: realtime; Owner: -
---
-
-CREATE FUNCTION realtime.is_visible_through_filters(columns realtime.wal_column[], filters realtime.user_defined_filter[]) RETURNS boolean
-    LANGUAGE sql IMMUTABLE
-    AS $_$
-    /*
-    Should the record be visible (true) or filtered out (false) after *filters* are applied
-    */
-        select
-            -- Default to allowed when no filters present
-            $2 is null -- no filters. this should not happen because subscriptions has a default
-            or array_length($2, 1) is null -- array length of an empty array is null
-            or bool_and(
-                coalesce(
-                    realtime.check_equality_op(
-                        op:=f.op,
-                        type_:=coalesce(
-                            col.type_oid::regtype, -- null when wal2json version <= 2.4
-                            col.type_name::regtype
-                        ),
-                        -- cast jsonb to text
-                        val_1:=col.value #>> '{}',
-                        val_2:=f.value
-                    ),
-                    false -- if null, filter does not match
-                )
-            )
-        from
-            unnest(filters) f
-            join unnest(columns) col
-                on f.column_name = col.name;
-    $_$;
-
-
---
--- Name: list_changes(name, name, integer, integer); Type: FUNCTION; Schema: realtime; Owner: -
---
-
-CREATE FUNCTION realtime.list_changes(publication name, slot_name name, max_changes integer, max_record_bytes integer) RETURNS SETOF realtime.wal_rls
-    LANGUAGE sql
-    SET log_min_messages TO 'fatal'
-    AS $$
-      with pub as (
-        select
-          concat_ws(
-            ',',
-            case when bool_or(pubinsert) then 'insert' else null end,
-            case when bool_or(pubupdate) then 'update' else null end,
-            case when bool_or(pubdelete) then 'delete' else null end
-          ) as w2j_actions,
-          coalesce(
-            string_agg(
-              realtime.quote_wal2json(format('%I.%I', schemaname, tablename)::regclass),
-              ','
-            ) filter (where ppt.tablename is not null and ppt.tablename not like '% %'),
-            ''
-          ) w2j_add_tables
-        from
-          pg_publication pp
-          left join pg_publication_tables ppt
-            on pp.pubname = ppt.pubname
-        where
-          pp.pubname = publication
-        group by
-          pp.pubname
-        limit 1
-      ),
-      w2j as (
-        select
-          x.*, pub.w2j_add_tables
-        from
-          pub,
-          pg_logical_slot_get_changes(
-            slot_name, null, max_changes,
-            'include-pk', 'true',
-            'include-transaction', 'false',
-            'include-timestamp', 'true',
-            'include-type-oids', 'true',
-            'format-version', '2',
-            'actions', pub.w2j_actions,
-            'add-tables', pub.w2j_add_tables
-          ) x
-      )
-      select
-        xyz.wal,
-        xyz.is_rls_enabled,
-        xyz.subscription_ids,
-        xyz.errors
-      from
-        w2j,
-        realtime.apply_rls(
-          wal := w2j.data::jsonb,
-          max_record_bytes := max_record_bytes
-        ) xyz(wal, is_rls_enabled, subscription_ids, errors)
-      where
-        w2j.w2j_add_tables <> ''
-        and xyz.subscription_ids[1] is not null
-    $$;
-
-
---
--- Name: quote_wal2json(regclass); Type: FUNCTION; Schema: realtime; Owner: -
---
-
-CREATE FUNCTION realtime.quote_wal2json(entity regclass) RETURNS text
-    LANGUAGE sql IMMUTABLE STRICT
-    AS $$
-      select
-        (
-          select string_agg('' || ch,'')
-          from unnest(string_to_array(nsp.nspname::text, null)) with ordinality x(ch, idx)
-          where
-            not (x.idx = 1 and x.ch = '"')
-            and not (
-              x.idx = array_length(string_to_array(nsp.nspname::text, null), 1)
-              and x.ch = '"'
-            )
-        )
-        || '.'
-        || (
-          select string_agg('' || ch,'')
-          from unnest(string_to_array(pc.relname::text, null)) with ordinality x(ch, idx)
-          where
-            not (x.idx = 1 and x.ch = '"')
-            and not (
-              x.idx = array_length(string_to_array(nsp.nspname::text, null), 1)
-              and x.ch = '"'
-            )
-          )
-      from
-        pg_class pc
-        join pg_namespace nsp
-          on pc.relnamespace = nsp.oid
-      where
-        pc.oid = entity
-    $$;
-
-
---
--- Name: send(jsonb, text, text, boolean); Type: FUNCTION; Schema: realtime; Owner: -
---
-
-CREATE FUNCTION realtime.send(payload jsonb, event text, topic text, private boolean DEFAULT true) RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-  BEGIN
-    -- Set the topic configuration
-    EXECUTE format('SET LOCAL realtime.topic TO %L', topic);
-
-    -- Attempt to insert the message
-    INSERT INTO realtime.messages (payload, event, topic, private, extension)
-    VALUES (payload, event, topic, private, 'broadcast');
-  EXCEPTION
-    WHEN OTHERS THEN
-      -- Capture and notify the error
-      RAISE WARNING 'ErrorSendingBroadcastMessage: %', SQLERRM;
-  END;
-END;
-$$;
-
-
---
--- Name: subscription_check_filters(); Type: FUNCTION; Schema: realtime; Owner: -
---
-
-CREATE FUNCTION realtime.subscription_check_filters() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-    /*
-    Validates that the user defined filters for a subscription:
-    - refer to valid columns that the claimed role may access
-    - values are coercable to the correct column type
-    */
-    declare
-        col_names text[] = coalesce(
-                array_agg(c.column_name order by c.ordinal_position),
-                '{}'::text[]
-            )
-            from
-                information_schema.columns c
-            where
-                format('%I.%I', c.table_schema, c.table_name)::regclass = new.entity
-                and pg_catalog.has_column_privilege(
-                    (new.claims ->> 'role'),
-                    format('%I.%I', c.table_schema, c.table_name)::regclass,
-                    c.column_name,
-                    'SELECT'
-                );
-        filter realtime.user_defined_filter;
-        col_type regtype;
-
-        in_val jsonb;
-    begin
-        for filter in select * from unnest(new.filters) loop
-            -- Filtered column is valid
-            if not filter.column_name = any(col_names) then
-                raise exception 'invalid column for filter %', filter.column_name;
-            end if;
-
-            -- Type is sanitized and safe for string interpolation
-            col_type = (
-                select atttypid::regtype
-                from pg_catalog.pg_attribute
-                where attrelid = new.entity
-                      and attname = filter.column_name
-            );
-            if col_type is null then
-                raise exception 'failed to lookup type for column %', filter.column_name;
-            end if;
-
-            -- Set maximum number of entries for in filter
-            if filter.op = 'in'::realtime.equality_op then
-                in_val = realtime.cast(filter.value, (col_type::text || '[]')::regtype);
-                if coalesce(jsonb_array_length(in_val), 0) > 100 then
-                    raise exception 'too many values for `in` filter. Maximum 100';
-                end if;
-            else
-                -- raises an exception if value is not coercable to type
-                perform realtime.cast(filter.value, col_type);
-            end if;
-
-        end loop;
-
-        -- Apply consistent order to filters so the unique constraint on
-        -- (subscription_id, entity, filters) can't be tricked by a different filter order
-        new.filters = coalesce(
-            array_agg(f order by f.column_name, f.op, f.value),
-            '{}'
-        ) from unnest(new.filters) f;
-
-        return new;
-    end;
-    $$;
-
-
---
--- Name: to_regrole(text); Type: FUNCTION; Schema: realtime; Owner: -
---
-
-CREATE FUNCTION realtime.to_regrole(role_name text) RETURNS regrole
-    LANGUAGE sql IMMUTABLE
-    AS $$ select role_name::regrole $$;
-
-
---
--- Name: topic(); Type: FUNCTION; Schema: realtime; Owner: -
---
-
-CREATE FUNCTION realtime.topic() RETURNS text
-    LANGUAGE sql STABLE
-    AS $$
-select nullif(current_setting('realtime.topic', true), '')::text;
-$$;
-
-
---
--- Name: add_prefixes(text, text); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.add_prefixes(_bucket_id text, _name text) RETURNS void
-    LANGUAGE plpgsql SECURITY DEFINER
-    AS $$
-DECLARE
-    prefixes text[];
-BEGIN
-    prefixes := "storage"."get_prefixes"("_name");
-
-    IF array_length(prefixes, 1) > 0 THEN
-        INSERT INTO storage.prefixes (name, bucket_id)
-        SELECT UNNEST(prefixes) as name, "_bucket_id" ON CONFLICT DO NOTHING;
-    END IF;
-END;
-$$;
-
-
---
--- Name: can_insert_object(text, text, uuid, jsonb); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.can_insert_object(bucketid text, name text, owner uuid, metadata jsonb) RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-  INSERT INTO "storage"."objects" ("bucket_id", "name", "owner", "metadata") VALUES (bucketid, name, owner, metadata);
-  -- hack to rollback the successful insert
-  RAISE sqlstate 'PT200' using
-  message = 'ROLLBACK',
-  detail = 'rollback successful insert';
-END
-$$;
-
-
---
--- Name: delete_leaf_prefixes(text[], text[]); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.delete_leaf_prefixes(bucket_ids text[], names text[]) RETURNS void
-    LANGUAGE plpgsql SECURITY DEFINER
-    AS $$
-DECLARE
-    v_rows_deleted integer;
-BEGIN
-    LOOP
-        WITH candidates AS (
-            SELECT DISTINCT
-                t.bucket_id,
-                unnest(storage.get_prefixes(t.name)) AS name
-            FROM unnest(bucket_ids, names) AS t(bucket_id, name)
-        ),
-        uniq AS (
-             SELECT
-                 bucket_id,
-                 name,
-                 storage.get_level(name) AS level
-             FROM candidates
-             WHERE name <> ''
-             GROUP BY bucket_id, name
-        ),
-        leaf AS (
-             SELECT
-                 p.bucket_id,
-                 p.name,
-                 p.level
-             FROM storage.prefixes AS p
-                  JOIN uniq AS u
-                       ON u.bucket_id = p.bucket_id
-                           AND u.name = p.name
-                           AND u.level = p.level
-             WHERE NOT EXISTS (
-                 SELECT 1
-                 FROM storage.objects AS o
-                 WHERE o.bucket_id = p.bucket_id
-                   AND o.level = p.level + 1
-                   AND o.name COLLATE "C" LIKE p.name || '/%'
-             )
-             AND NOT EXISTS (
-                 SELECT 1
-                 FROM storage.prefixes AS c
-                 WHERE c.bucket_id = p.bucket_id
-                   AND c.level = p.level + 1
-                   AND c.name COLLATE "C" LIKE p.name || '/%'
-             )
-        )
-        DELETE
-        FROM storage.prefixes AS p
-            USING leaf AS l
-        WHERE p.bucket_id = l.bucket_id
-          AND p.name = l.name
-          AND p.level = l.level;
-
-        GET DIAGNOSTICS v_rows_deleted = ROW_COUNT;
-        EXIT WHEN v_rows_deleted = 0;
-    END LOOP;
-END;
-$$;
-
-
---
--- Name: delete_prefix(text, text); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.delete_prefix(_bucket_id text, _name text) RETURNS boolean
-    LANGUAGE plpgsql SECURITY DEFINER
-    AS $$
-BEGIN
-    -- Check if we can delete the prefix
-    IF EXISTS(
-        SELECT FROM "storage"."prefixes"
-        WHERE "prefixes"."bucket_id" = "_bucket_id"
-          AND level = "storage"."get_level"("_name") + 1
-          AND "prefixes"."name" COLLATE "C" LIKE "_name" || '/%'
-        LIMIT 1
-    )
-    OR EXISTS(
-        SELECT FROM "storage"."objects"
-        WHERE "objects"."bucket_id" = "_bucket_id"
-          AND "storage"."get_level"("objects"."name") = "storage"."get_level"("_name") + 1
-          AND "objects"."name" COLLATE "C" LIKE "_name" || '/%'
-        LIMIT 1
-    ) THEN
-    -- There are sub-objects, skip deletion
-    RETURN false;
-    ELSE
-        DELETE FROM "storage"."prefixes"
-        WHERE "prefixes"."bucket_id" = "_bucket_id"
-          AND level = "storage"."get_level"("_name")
-          AND "prefixes"."name" = "_name";
-        RETURN true;
-    END IF;
-END;
-$$;
-
-
---
--- Name: delete_prefix_hierarchy_trigger(); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.delete_prefix_hierarchy_trigger() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-    prefix text;
-BEGIN
-    prefix := "storage"."get_prefix"(OLD."name");
-
-    IF coalesce(prefix, '') != '' THEN
-        PERFORM "storage"."delete_prefix"(OLD."bucket_id", prefix);
-    END IF;
-
-    RETURN OLD;
-END;
-$$;
-
-
---
--- Name: enforce_bucket_name_length(); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.enforce_bucket_name_length() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-begin
-    if length(new.name) > 100 then
-        raise exception 'bucket name "%" is too long (% characters). Max is 100.', new.name, length(new.name);
-    end if;
-    return new;
-end;
-$$;
-
-
---
--- Name: extension(text); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.extension(name text) RETURNS text
-    LANGUAGE plpgsql IMMUTABLE
-    AS $$
-DECLARE
-    _parts text[];
-    _filename text;
-BEGIN
-    SELECT string_to_array(name, '/') INTO _parts;
-    SELECT _parts[array_length(_parts,1)] INTO _filename;
-    RETURN reverse(split_part(reverse(_filename), '.', 1));
-END
-$$;
-
-
---
--- Name: filename(text); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.filename(name text) RETURNS text
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-_parts text[];
-BEGIN
-	select string_to_array(name, '/') into _parts;
-	return _parts[array_length(_parts,1)];
-END
-$$;
-
-
---
--- Name: foldername(text); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.foldername(name text) RETURNS text[]
-    LANGUAGE plpgsql IMMUTABLE
-    AS $$
-DECLARE
-    _parts text[];
-BEGIN
-    -- Split on "/" to get path segments
-    SELECT string_to_array(name, '/') INTO _parts;
-    -- Return everything except the last segment
-    RETURN _parts[1 : array_length(_parts,1) - 1];
-END
-$$;
-
-
---
--- Name: get_level(text); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.get_level(name text) RETURNS integer
-    LANGUAGE sql IMMUTABLE STRICT
-    AS $$
-SELECT array_length(string_to_array("name", '/'), 1);
-$$;
-
-
---
--- Name: get_prefix(text); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.get_prefix(name text) RETURNS text
-    LANGUAGE sql IMMUTABLE STRICT
-    AS $_$
-SELECT
-    CASE WHEN strpos("name", '/') > 0 THEN
-             regexp_replace("name", '[\/]{1}[^\/]+\/?$', '')
-         ELSE
-             ''
-        END;
-$_$;
-
-
---
--- Name: get_prefixes(text); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.get_prefixes(name text) RETURNS text[]
-    LANGUAGE plpgsql IMMUTABLE STRICT
-    AS $$
-DECLARE
-    parts text[];
-    prefixes text[];
-    prefix text;
-BEGIN
-    -- Split the name into parts by '/'
-    parts := string_to_array("name", '/');
-    prefixes := '{}';
-
-    -- Construct the prefixes, stopping one level below the last part
-    FOR i IN 1..array_length(parts, 1) - 1 LOOP
-            prefix := array_to_string(parts[1:i], '/');
-            prefixes := array_append(prefixes, prefix);
-    END LOOP;
-
-    RETURN prefixes;
-END;
-$$;
-
-
---
--- Name: get_size_by_bucket(); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.get_size_by_bucket() RETURNS TABLE(size bigint, bucket_id text)
-    LANGUAGE plpgsql STABLE
-    AS $$
-BEGIN
-    return query
-        select sum((metadata->>'size')::bigint) as size, obj.bucket_id
-        from "storage".objects as obj
-        group by obj.bucket_id;
-END
-$$;
-
-
---
--- Name: list_multipart_uploads_with_delimiter(text, text, text, integer, text, text); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.list_multipart_uploads_with_delimiter(bucket_id text, prefix_param text, delimiter_param text, max_keys integer DEFAULT 100, next_key_token text DEFAULT ''::text, next_upload_token text DEFAULT ''::text) RETURNS TABLE(key text, id text, created_at timestamp with time zone)
-    LANGUAGE plpgsql
-    AS $_$
-BEGIN
-    RETURN QUERY EXECUTE
-        'SELECT DISTINCT ON(key COLLATE "C") * from (
-            SELECT
-                CASE
-                    WHEN position($2 IN substring(key from length($1) + 1)) > 0 THEN
-                        substring(key from 1 for length($1) + position($2 IN substring(key from length($1) + 1)))
-                    ELSE
-                        key
-                END AS key, id, created_at
-            FROM
-                storage.s3_multipart_uploads
-            WHERE
-                bucket_id = $5 AND
-                key ILIKE $1 || ''%'' AND
-                CASE
-                    WHEN $4 != '''' AND $6 = '''' THEN
-                        CASE
-                            WHEN position($2 IN substring(key from length($1) + 1)) > 0 THEN
-                                substring(key from 1 for length($1) + position($2 IN substring(key from length($1) + 1))) COLLATE "C" > $4
-                            ELSE
-                                key COLLATE "C" > $4
-                            END
-                    ELSE
-                        true
-                END AND
-                CASE
-                    WHEN $6 != '''' THEN
-                        id COLLATE "C" > $6
-                    ELSE
-                        true
-                    END
-            ORDER BY
-                key COLLATE "C" ASC, created_at ASC) as e order by key COLLATE "C" LIMIT $3'
-        USING prefix_param, delimiter_param, max_keys, next_key_token, bucket_id, next_upload_token;
-END;
-$_$;
-
-
---
--- Name: list_objects_with_delimiter(text, text, text, integer, text, text); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.list_objects_with_delimiter(bucket_id text, prefix_param text, delimiter_param text, max_keys integer DEFAULT 100, start_after text DEFAULT ''::text, next_token text DEFAULT ''::text) RETURNS TABLE(name text, id uuid, metadata jsonb, updated_at timestamp with time zone)
-    LANGUAGE plpgsql
-    AS $_$
-BEGIN
-    RETURN QUERY EXECUTE
-        'SELECT DISTINCT ON(name COLLATE "C") * from (
-            SELECT
-                CASE
-                    WHEN position($2 IN substring(name from length($1) + 1)) > 0 THEN
-                        substring(name from 1 for length($1) + position($2 IN substring(name from length($1) + 1)))
-                    ELSE
-                        name
-                END AS name, id, metadata, updated_at
-            FROM
-                storage.objects
-            WHERE
-                bucket_id = $5 AND
-                name ILIKE $1 || ''%'' AND
-                CASE
-                    WHEN $6 != '''' THEN
-                    name COLLATE "C" > $6
-                ELSE true END
-                AND CASE
-                    WHEN $4 != '''' THEN
-                        CASE
-                            WHEN position($2 IN substring(name from length($1) + 1)) > 0 THEN
-                                substring(name from 1 for length($1) + position($2 IN substring(name from length($1) + 1))) COLLATE "C" > $4
-                            ELSE
-                                name COLLATE "C" > $4
-                            END
-                    ELSE
-                        true
-                END
-            ORDER BY
-                name COLLATE "C" ASC) as e order by name COLLATE "C" LIMIT $3'
-        USING prefix_param, delimiter_param, max_keys, next_token, bucket_id, start_after;
-END;
-$_$;
-
-
---
--- Name: lock_top_prefixes(text[], text[]); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.lock_top_prefixes(bucket_ids text[], names text[]) RETURNS void
-    LANGUAGE plpgsql SECURITY DEFINER
-    AS $$
-DECLARE
-    v_bucket text;
-    v_top text;
-BEGIN
-    FOR v_bucket, v_top IN
-        SELECT DISTINCT t.bucket_id,
-            split_part(t.name, '/', 1) AS top
-        FROM unnest(bucket_ids, names) AS t(bucket_id, name)
-        WHERE t.name <> ''
-        ORDER BY 1, 2
-        LOOP
-            PERFORM pg_advisory_xact_lock(hashtextextended(v_bucket || '/' || v_top, 0));
-        END LOOP;
-END;
-$$;
-
-
---
--- Name: objects_delete_cleanup(); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.objects_delete_cleanup() RETURNS trigger
-    LANGUAGE plpgsql SECURITY DEFINER
-    AS $$
-DECLARE
-    v_bucket_ids text[];
-    v_names      text[];
-BEGIN
-    IF current_setting('storage.gc.prefixes', true) = '1' THEN
-        RETURN NULL;
-    END IF;
-
-    PERFORM set_config('storage.gc.prefixes', '1', true);
-
-    SELECT COALESCE(array_agg(d.bucket_id), '{}'),
-           COALESCE(array_agg(d.name), '{}')
-    INTO v_bucket_ids, v_names
-    FROM deleted AS d
-    WHERE d.name <> '';
-
-    PERFORM storage.lock_top_prefixes(v_bucket_ids, v_names);
-    PERFORM storage.delete_leaf_prefixes(v_bucket_ids, v_names);
-
-    RETURN NULL;
-END;
-$$;
-
-
---
--- Name: objects_insert_prefix_trigger(); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.objects_insert_prefix_trigger() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    PERFORM "storage"."add_prefixes"(NEW."bucket_id", NEW."name");
-    NEW.level := "storage"."get_level"(NEW."name");
-
-    RETURN NEW;
-END;
-$$;
-
-
---
--- Name: objects_update_cleanup(); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.objects_update_cleanup() RETURNS trigger
-    LANGUAGE plpgsql SECURITY DEFINER
-    AS $$
-DECLARE
-    -- NEW - OLD (destinations to create prefixes for)
-    v_add_bucket_ids text[];
-    v_add_names      text[];
-
-    -- OLD - NEW (sources to prune)
-    v_src_bucket_ids text[];
-    v_src_names      text[];
-BEGIN
-    IF TG_OP <> 'UPDATE' THEN
-        RETURN NULL;
-    END IF;
-
-    -- 1) Compute NEW−OLD (added paths) and OLD−NEW (moved-away paths)
-    WITH added AS (
-        SELECT n.bucket_id, n.name
-        FROM new_rows n
-        WHERE n.name <> '' AND position('/' in n.name) > 0
-        EXCEPT
-        SELECT o.bucket_id, o.name FROM old_rows o WHERE o.name <> ''
-    ),
-    moved AS (
-         SELECT o.bucket_id, o.name
-         FROM old_rows o
-         WHERE o.name <> ''
-         EXCEPT
-         SELECT n.bucket_id, n.name FROM new_rows n WHERE n.name <> ''
-    )
-    SELECT
-        -- arrays for ADDED (dest) in stable order
-        COALESCE( (SELECT array_agg(a.bucket_id ORDER BY a.bucket_id, a.name) FROM added a), '{}' ),
-        COALESCE( (SELECT array_agg(a.name      ORDER BY a.bucket_id, a.name) FROM added a), '{}' ),
-        -- arrays for MOVED (src) in stable order
-        COALESCE( (SELECT array_agg(m.bucket_id ORDER BY m.bucket_id, m.name) FROM moved m), '{}' ),
-        COALESCE( (SELECT array_agg(m.name      ORDER BY m.bucket_id, m.name) FROM moved m), '{}' )
-    INTO v_add_bucket_ids, v_add_names, v_src_bucket_ids, v_src_names;
-
-    -- Nothing to do?
-    IF (array_length(v_add_bucket_ids, 1) IS NULL) AND (array_length(v_src_bucket_ids, 1) IS NULL) THEN
-        RETURN NULL;
-    END IF;
-
-    -- 2) Take per-(bucket, top) locks: ALL prefixes in consistent global order to prevent deadlocks
-    DECLARE
-        v_all_bucket_ids text[];
-        v_all_names text[];
-    BEGIN
-        -- Combine source and destination arrays for consistent lock ordering
-        v_all_bucket_ids := COALESCE(v_src_bucket_ids, '{}') || COALESCE(v_add_bucket_ids, '{}');
-        v_all_names := COALESCE(v_src_names, '{}') || COALESCE(v_add_names, '{}');
-
-        -- Single lock call ensures consistent global ordering across all transactions
-        IF array_length(v_all_bucket_ids, 1) IS NOT NULL THEN
-            PERFORM storage.lock_top_prefixes(v_all_bucket_ids, v_all_names);
-        END IF;
-    END;
-
-    -- 3) Create destination prefixes (NEW−OLD) BEFORE pruning sources
-    IF array_length(v_add_bucket_ids, 1) IS NOT NULL THEN
-        WITH candidates AS (
-            SELECT DISTINCT t.bucket_id, unnest(storage.get_prefixes(t.name)) AS name
-            FROM unnest(v_add_bucket_ids, v_add_names) AS t(bucket_id, name)
-            WHERE name <> ''
-        )
-        INSERT INTO storage.prefixes (bucket_id, name)
-        SELECT c.bucket_id, c.name
-        FROM candidates c
-        ON CONFLICT DO NOTHING;
-    END IF;
-
-    -- 4) Prune source prefixes bottom-up for OLD−NEW
-    IF array_length(v_src_bucket_ids, 1) IS NOT NULL THEN
-        -- re-entrancy guard so DELETE on prefixes won't recurse
-        IF current_setting('storage.gc.prefixes', true) <> '1' THEN
-            PERFORM set_config('storage.gc.prefixes', '1', true);
-        END IF;
-
-        PERFORM storage.delete_leaf_prefixes(v_src_bucket_ids, v_src_names);
-    END IF;
-
-    RETURN NULL;
-END;
-$$;
-
-
---
--- Name: objects_update_level_trigger(); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.objects_update_level_trigger() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    -- Ensure this is an update operation and the name has changed
-    IF TG_OP = 'UPDATE' AND (NEW."name" <> OLD."name" OR NEW."bucket_id" <> OLD."bucket_id") THEN
-        -- Set the new level
-        NEW."level" := "storage"."get_level"(NEW."name");
-    END IF;
-    RETURN NEW;
-END;
-$$;
-
-
---
--- Name: objects_update_prefix_trigger(); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.objects_update_prefix_trigger() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-    old_prefixes TEXT[];
-BEGIN
-    -- Ensure this is an update operation and the name has changed
-    IF TG_OP = 'UPDATE' AND (NEW."name" <> OLD."name" OR NEW."bucket_id" <> OLD."bucket_id") THEN
-        -- Retrieve old prefixes
-        old_prefixes := "storage"."get_prefixes"(OLD."name");
-
-        -- Remove old prefixes that are only used by this object
-        WITH all_prefixes as (
-            SELECT unnest(old_prefixes) as prefix
-        ),
-        can_delete_prefixes as (
-             SELECT prefix
-             FROM all_prefixes
-             WHERE NOT EXISTS (
-                 SELECT 1 FROM "storage"."objects"
-                 WHERE "bucket_id" = OLD."bucket_id"
-                   AND "name" <> OLD."name"
-                   AND "name" LIKE (prefix || '%')
-             )
-         )
-        DELETE FROM "storage"."prefixes" WHERE name IN (SELECT prefix FROM can_delete_prefixes);
-
-        -- Add new prefixes
-        PERFORM "storage"."add_prefixes"(NEW."bucket_id", NEW."name");
-    END IF;
-    -- Set the new level
-    NEW."level" := "storage"."get_level"(NEW."name");
-
-    RETURN NEW;
-END;
-$$;
-
-
---
--- Name: operation(); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.operation() RETURNS text
-    LANGUAGE plpgsql STABLE
-    AS $$
-BEGIN
-    RETURN current_setting('storage.operation', true);
-END;
-$$;
-
-
---
--- Name: prefixes_delete_cleanup(); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.prefixes_delete_cleanup() RETURNS trigger
-    LANGUAGE plpgsql SECURITY DEFINER
-    AS $$
-DECLARE
-    v_bucket_ids text[];
-    v_names      text[];
-BEGIN
-    IF current_setting('storage.gc.prefixes', true) = '1' THEN
-        RETURN NULL;
-    END IF;
-
-    PERFORM set_config('storage.gc.prefixes', '1', true);
-
-    SELECT COALESCE(array_agg(d.bucket_id), '{}'),
-           COALESCE(array_agg(d.name), '{}')
-    INTO v_bucket_ids, v_names
-    FROM deleted AS d
-    WHERE d.name <> '';
-
-    PERFORM storage.lock_top_prefixes(v_bucket_ids, v_names);
-    PERFORM storage.delete_leaf_prefixes(v_bucket_ids, v_names);
-
-    RETURN NULL;
-END;
-$$;
-
-
---
--- Name: prefixes_insert_trigger(); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.prefixes_insert_trigger() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    PERFORM "storage"."add_prefixes"(NEW."bucket_id", NEW."name");
-    RETURN NEW;
-END;
-$$;
-
-
---
--- Name: search(text, text, integer, integer, integer, text, text, text); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.search(prefix text, bucketname text, limits integer DEFAULT 100, levels integer DEFAULT 1, offsets integer DEFAULT 0, search text DEFAULT ''::text, sortcolumn text DEFAULT 'name'::text, sortorder text DEFAULT 'asc'::text) RETURNS TABLE(name text, id uuid, updated_at timestamp with time zone, created_at timestamp with time zone, last_accessed_at timestamp with time zone, metadata jsonb)
-    LANGUAGE plpgsql
-    AS $$
-declare
-    can_bypass_rls BOOLEAN;
-begin
-    SELECT rolbypassrls
-    INTO can_bypass_rls
-    FROM pg_roles
-    WHERE rolname = coalesce(nullif(current_setting('role', true), 'none'), current_user);
-
-    IF can_bypass_rls THEN
-        RETURN QUERY SELECT * FROM storage.search_v1_optimised(prefix, bucketname, limits, levels, offsets, search, sortcolumn, sortorder);
-    ELSE
-        RETURN QUERY SELECT * FROM storage.search_legacy_v1(prefix, bucketname, limits, levels, offsets, search, sortcolumn, sortorder);
-    END IF;
-end;
-$$;
-
-
---
--- Name: search_legacy_v1(text, text, integer, integer, integer, text, text, text); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.search_legacy_v1(prefix text, bucketname text, limits integer DEFAULT 100, levels integer DEFAULT 1, offsets integer DEFAULT 0, search text DEFAULT ''::text, sortcolumn text DEFAULT 'name'::text, sortorder text DEFAULT 'asc'::text) RETURNS TABLE(name text, id uuid, updated_at timestamp with time zone, created_at timestamp with time zone, last_accessed_at timestamp with time zone, metadata jsonb)
-    LANGUAGE plpgsql STABLE
-    AS $_$
-declare
-    v_order_by text;
-    v_sort_order text;
-begin
-    case
-        when sortcolumn = 'name' then
-            v_order_by = 'name';
-        when sortcolumn = 'updated_at' then
-            v_order_by = 'updated_at';
-        when sortcolumn = 'created_at' then
-            v_order_by = 'created_at';
-        when sortcolumn = 'last_accessed_at' then
-            v_order_by = 'last_accessed_at';
-        else
-            v_order_by = 'name';
-        end case;
-
-    case
-        when sortorder = 'asc' then
-            v_sort_order = 'asc';
-        when sortorder = 'desc' then
-            v_sort_order = 'desc';
-        else
-            v_sort_order = 'asc';
-        end case;
-
-    v_order_by = v_order_by || ' ' || v_sort_order;
-
-    return query execute
-        'with folders as (
-           select path_tokens[$1] as folder
-           from storage.objects
-             where objects.name ilike $2 || $3 || ''%''
-               and bucket_id = $4
-               and array_length(objects.path_tokens, 1) <> $1
-           group by folder
-           order by folder ' || v_sort_order || '
-     )
-     (select folder as "name",
-            null as id,
-            null as updated_at,
-            null as created_at,
-            null as last_accessed_at,
-            null as metadata from folders)
-     union all
-     (select path_tokens[$1] as "name",
-            id,
-            updated_at,
-            created_at,
-            last_accessed_at,
-            metadata
-     from storage.objects
-     where objects.name ilike $2 || $3 || ''%''
-       and bucket_id = $4
-       and array_length(objects.path_tokens, 1) = $1
-     order by ' || v_order_by || ')
-     limit $5
-     offset $6' using levels, prefix, search, bucketname, limits, offsets;
-end;
-$_$;
-
-
---
--- Name: search_v1_optimised(text, text, integer, integer, integer, text, text, text); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.search_v1_optimised(prefix text, bucketname text, limits integer DEFAULT 100, levels integer DEFAULT 1, offsets integer DEFAULT 0, search text DEFAULT ''::text, sortcolumn text DEFAULT 'name'::text, sortorder text DEFAULT 'asc'::text) RETURNS TABLE(name text, id uuid, updated_at timestamp with time zone, created_at timestamp with time zone, last_accessed_at timestamp with time zone, metadata jsonb)
-    LANGUAGE plpgsql STABLE
-    AS $_$
-declare
-    v_order_by text;
-    v_sort_order text;
-begin
-    case
-        when sortcolumn = 'name' then
-            v_order_by = 'name';
-        when sortcolumn = 'updated_at' then
-            v_order_by = 'updated_at';
-        when sortcolumn = 'created_at' then
-            v_order_by = 'created_at';
-        when sortcolumn = 'last_accessed_at' then
-            v_order_by = 'last_accessed_at';
-        else
-            v_order_by = 'name';
-        end case;
-
-    case
-        when sortorder = 'asc' then
-            v_sort_order = 'asc';
-        when sortorder = 'desc' then
-            v_sort_order = 'desc';
-        else
-            v_sort_order = 'asc';
-        end case;
-
-    v_order_by = v_order_by || ' ' || v_sort_order;
-
-    return query execute
-        'with folders as (
-           select (string_to_array(name, ''/''))[level] as name
-           from storage.prefixes
-             where lower(prefixes.name) like lower($2 || $3) || ''%''
-               and bucket_id = $4
-               and level = $1
-           order by name ' || v_sort_order || '
-     )
-     (select name,
-            null as id,
-            null as updated_at,
-            null as created_at,
-            null as last_accessed_at,
-            null as metadata from folders)
-     union all
-     (select path_tokens[level] as "name",
-            id,
-            updated_at,
-            created_at,
-            last_accessed_at,
-            metadata
-     from storage.objects
-     where lower(objects.name) like lower($2 || $3) || ''%''
-       and bucket_id = $4
-       and level = $1
-     order by ' || v_order_by || ')
-     limit $5
-     offset $6' using levels, prefix, search, bucketname, limits, offsets;
-end;
-$_$;
-
-
---
--- Name: search_v2(text, text, integer, integer, text, text, text, text); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.search_v2(prefix text, bucket_name text, limits integer DEFAULT 100, levels integer DEFAULT 1, start_after text DEFAULT ''::text, sort_order text DEFAULT 'asc'::text, sort_column text DEFAULT 'name'::text, sort_column_after text DEFAULT ''::text) RETURNS TABLE(key text, name text, id uuid, updated_at timestamp with time zone, created_at timestamp with time zone, last_accessed_at timestamp with time zone, metadata jsonb)
-    LANGUAGE plpgsql STABLE
-    AS $_$
-DECLARE
-    sort_col text;
-    sort_ord text;
-    cursor_op text;
-    cursor_expr text;
-    sort_expr text;
-BEGIN
-    -- Validate sort_order
-    sort_ord := lower(sort_order);
-    IF sort_ord NOT IN ('asc', 'desc') THEN
-        sort_ord := 'asc';
-    END IF;
-
-    -- Determine cursor comparison operator
-    IF sort_ord = 'asc' THEN
-        cursor_op := '>';
-    ELSE
-        cursor_op := '<';
-    END IF;
-    
-    sort_col := lower(sort_column);
-    -- Validate sort column  
-    IF sort_col IN ('updated_at', 'created_at') THEN
-        cursor_expr := format(
-            '($5 = '''' OR ROW(date_trunc(''milliseconds'', %I), name COLLATE "C") %s ROW(COALESCE(NULLIF($6, '''')::timestamptz, ''epoch''::timestamptz), $5))',
-            sort_col, cursor_op
-        );
-        sort_expr := format(
-            'COALESCE(date_trunc(''milliseconds'', %I), ''epoch''::timestamptz) %s, name COLLATE "C" %s',
-            sort_col, sort_ord, sort_ord
-        );
-    ELSE
-        cursor_expr := format('($5 = '''' OR name COLLATE "C" %s $5)', cursor_op);
-        sort_expr := format('name COLLATE "C" %s', sort_ord);
-    END IF;
-
-    RETURN QUERY EXECUTE format(
-        $sql$
-        SELECT * FROM (
-            (
-                SELECT
-                    split_part(name, '/', $4) AS key,
-                    name,
-                    NULL::uuid AS id,
-                    updated_at,
-                    created_at,
-                    NULL::timestamptz AS last_accessed_at,
-                    NULL::jsonb AS metadata
-                FROM storage.prefixes
-                WHERE name COLLATE "C" LIKE $1 || '%%'
-                    AND bucket_id = $2
-                    AND level = $4
-                    AND %s
-                ORDER BY %s
-                LIMIT $3
-            )
-            UNION ALL
-            (
-                SELECT
-                    split_part(name, '/', $4) AS key,
-                    name,
-                    id,
-                    updated_at,
-                    created_at,
-                    last_accessed_at,
-                    metadata
-                FROM storage.objects
-                WHERE name COLLATE "C" LIKE $1 || '%%'
-                    AND bucket_id = $2
-                    AND level = $4
-                    AND %s
-                ORDER BY %s
-                LIMIT $3
-            )
-        ) obj
-        ORDER BY %s
-        LIMIT $3
-        $sql$,
-        cursor_expr,    -- prefixes WHERE
-        sort_expr,      -- prefixes ORDER BY
-        cursor_expr,    -- objects WHERE
-        sort_expr,      -- objects ORDER BY
-        sort_expr       -- final ORDER BY
-    )
-    USING prefix, bucket_name, limits, levels, start_after, sort_column_after;
-END;
-$_$;
-
-
---
--- Name: update_updated_at_column(); Type: FUNCTION; Schema: storage; Owner: -
---
-
-CREATE FUNCTION storage.update_updated_at_column() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    NEW.updated_at = now();
-    RETURN NEW; 
-END;
-$$;
-
-
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
-
---
--- Name: audit_log_entries; Type: TABLE; Schema: auth; Owner: -
---
-
-CREATE TABLE auth.audit_log_entries (
-    instance_id uuid,
-    id uuid NOT NULL,
-    payload json,
-    created_at timestamp with time zone,
-    ip_address character varying(64) DEFAULT ''::character varying NOT NULL
-);
-
-
---
--- Name: TABLE audit_log_entries; Type: COMMENT; Schema: auth; Owner: -
---
-
-COMMENT ON TABLE auth.audit_log_entries IS 'Auth: Audit trail for user actions.';
-
-
---
--- Name: flow_state; Type: TABLE; Schema: auth; Owner: -
---
-
-CREATE TABLE auth.flow_state (
-    id uuid NOT NULL,
-    user_id uuid,
-    auth_code text NOT NULL,
-    code_challenge_method auth.code_challenge_method NOT NULL,
-    code_challenge text NOT NULL,
-    provider_type text NOT NULL,
-    provider_access_token text,
-    provider_refresh_token text,
-    created_at timestamp with time zone,
-    updated_at timestamp with time zone,
-    authentication_method text NOT NULL,
-    auth_code_issued_at timestamp with time zone
-);
-
-
---
--- Name: TABLE flow_state; Type: COMMENT; Schema: auth; Owner: -
---
-
-COMMENT ON TABLE auth.flow_state IS 'stores metadata for pkce logins';
-
-
---
--- Name: identities; Type: TABLE; Schema: auth; Owner: -
---
-
-CREATE TABLE auth.identities (
-    provider_id text NOT NULL,
-    user_id uuid NOT NULL,
-    identity_data jsonb NOT NULL,
-    provider text NOT NULL,
-    last_sign_in_at timestamp with time zone,
-    created_at timestamp with time zone,
-    updated_at timestamp with time zone,
-    email text GENERATED ALWAYS AS (lower((identity_data ->> 'email'::text))) STORED,
-    id uuid DEFAULT gen_random_uuid() NOT NULL
-);
-
-
---
--- Name: TABLE identities; Type: COMMENT; Schema: auth; Owner: -
---
-
-COMMENT ON TABLE auth.identities IS 'Auth: Stores identities associated to a user.';
-
-
---
--- Name: COLUMN identities.email; Type: COMMENT; Schema: auth; Owner: -
---
-
-COMMENT ON COLUMN auth.identities.email IS 'Auth: Email is a generated column that references the optional email property in the identity_data';
-
-
---
--- Name: instances; Type: TABLE; Schema: auth; Owner: -
---
-
-CREATE TABLE auth.instances (
-    id uuid NOT NULL,
-    uuid uuid,
-    raw_base_config text,
-    created_at timestamp with time zone,
-    updated_at timestamp with time zone
-);
-
-
---
--- Name: TABLE instances; Type: COMMENT; Schema: auth; Owner: -
---
-
-COMMENT ON TABLE auth.instances IS 'Auth: Manages users across multiple sites.';
-
-
---
--- Name: mfa_amr_claims; Type: TABLE; Schema: auth; Owner: -
---
-
-CREATE TABLE auth.mfa_amr_claims (
-    session_id uuid NOT NULL,
-    created_at timestamp with time zone NOT NULL,
-    updated_at timestamp with time zone NOT NULL,
-    authentication_method text NOT NULL,
-    id uuid NOT NULL
-);
-
-
---
--- Name: TABLE mfa_amr_claims; Type: COMMENT; Schema: auth; Owner: -
---
-
-COMMENT ON TABLE auth.mfa_amr_claims IS 'auth: stores authenticator method reference claims for multi factor authentication';
-
-
---
--- Name: mfa_challenges; Type: TABLE; Schema: auth; Owner: -
---
-
-CREATE TABLE auth.mfa_challenges (
-    id uuid NOT NULL,
-    factor_id uuid NOT NULL,
-    created_at timestamp with time zone NOT NULL,
-    verified_at timestamp with time zone,
-    ip_address inet NOT NULL,
-    otp_code text,
-    web_authn_session_data jsonb
-);
-
-
---
--- Name: TABLE mfa_challenges; Type: COMMENT; Schema: auth; Owner: -
---
-
-COMMENT ON TABLE auth.mfa_challenges IS 'auth: stores metadata about challenge requests made';
-
-
---
--- Name: mfa_factors; Type: TABLE; Schema: auth; Owner: -
---
-
-CREATE TABLE auth.mfa_factors (
-    id uuid NOT NULL,
-    user_id uuid NOT NULL,
-    friendly_name text,
-    factor_type auth.factor_type NOT NULL,
-    status auth.factor_status NOT NULL,
-    created_at timestamp with time zone NOT NULL,
-    updated_at timestamp with time zone NOT NULL,
-    secret text,
-    phone text,
-    last_challenged_at timestamp with time zone,
-    web_authn_credential jsonb,
-    web_authn_aaguid uuid
-);
-
-
---
--- Name: TABLE mfa_factors; Type: COMMENT; Schema: auth; Owner: -
---
-
-COMMENT ON TABLE auth.mfa_factors IS 'auth: stores metadata about factors';
-
-
---
--- Name: oauth_authorizations; Type: TABLE; Schema: auth; Owner: -
---
-
-CREATE TABLE auth.oauth_authorizations (
-    id uuid NOT NULL,
-    authorization_id text NOT NULL,
-    client_id uuid NOT NULL,
-    user_id uuid,
-    redirect_uri text NOT NULL,
-    scope text NOT NULL,
-    state text,
-    resource text,
-    code_challenge text,
-    code_challenge_method auth.code_challenge_method,
-    response_type auth.oauth_response_type DEFAULT 'code'::auth.oauth_response_type NOT NULL,
-    status auth.oauth_authorization_status DEFAULT 'pending'::auth.oauth_authorization_status NOT NULL,
-    authorization_code text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    expires_at timestamp with time zone DEFAULT (now() + '00:03:00'::interval) NOT NULL,
-    approved_at timestamp with time zone,
-    CONSTRAINT oauth_authorizations_authorization_code_length CHECK ((char_length(authorization_code) <= 255)),
-    CONSTRAINT oauth_authorizations_code_challenge_length CHECK ((char_length(code_challenge) <= 128)),
-    CONSTRAINT oauth_authorizations_expires_at_future CHECK ((expires_at > created_at)),
-    CONSTRAINT oauth_authorizations_redirect_uri_length CHECK ((char_length(redirect_uri) <= 2048)),
-    CONSTRAINT oauth_authorizations_resource_length CHECK ((char_length(resource) <= 2048)),
-    CONSTRAINT oauth_authorizations_scope_length CHECK ((char_length(scope) <= 4096)),
-    CONSTRAINT oauth_authorizations_state_length CHECK ((char_length(state) <= 4096))
-);
-
-
---
--- Name: oauth_clients; Type: TABLE; Schema: auth; Owner: -
---
-
-CREATE TABLE auth.oauth_clients (
-    id uuid NOT NULL,
-    client_secret_hash text,
-    registration_type auth.oauth_registration_type NOT NULL,
-    redirect_uris text NOT NULL,
-    grant_types text NOT NULL,
-    client_name text,
-    client_uri text,
-    logo_uri text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    deleted_at timestamp with time zone,
-    client_type auth.oauth_client_type DEFAULT 'confidential'::auth.oauth_client_type NOT NULL,
-    CONSTRAINT oauth_clients_client_name_length CHECK ((char_length(client_name) <= 1024)),
-    CONSTRAINT oauth_clients_client_uri_length CHECK ((char_length(client_uri) <= 2048)),
-    CONSTRAINT oauth_clients_logo_uri_length CHECK ((char_length(logo_uri) <= 2048))
-);
-
-
---
--- Name: oauth_consents; Type: TABLE; Schema: auth; Owner: -
---
-
-CREATE TABLE auth.oauth_consents (
-    id uuid NOT NULL,
-    user_id uuid NOT NULL,
-    client_id uuid NOT NULL,
-    scopes text NOT NULL,
-    granted_at timestamp with time zone DEFAULT now() NOT NULL,
-    revoked_at timestamp with time zone,
-    CONSTRAINT oauth_consents_revoked_after_granted CHECK (((revoked_at IS NULL) OR (revoked_at >= granted_at))),
-    CONSTRAINT oauth_consents_scopes_length CHECK ((char_length(scopes) <= 2048)),
-    CONSTRAINT oauth_consents_scopes_not_empty CHECK ((char_length(TRIM(BOTH FROM scopes)) > 0))
-);
-
-
---
--- Name: one_time_tokens; Type: TABLE; Schema: auth; Owner: -
---
-
-CREATE TABLE auth.one_time_tokens (
-    id uuid NOT NULL,
-    user_id uuid NOT NULL,
-    token_type auth.one_time_token_type NOT NULL,
-    token_hash text NOT NULL,
-    relates_to text NOT NULL,
-    created_at timestamp without time zone DEFAULT now() NOT NULL,
-    updated_at timestamp without time zone DEFAULT now() NOT NULL,
-    CONSTRAINT one_time_tokens_token_hash_check CHECK ((char_length(token_hash) > 0))
-);
-
-
---
--- Name: refresh_tokens; Type: TABLE; Schema: auth; Owner: -
---
-
-CREATE TABLE auth.refresh_tokens (
-    instance_id uuid,
-    id bigint NOT NULL,
-    token character varying(255),
-    user_id character varying(255),
-    revoked boolean,
-    created_at timestamp with time zone,
-    updated_at timestamp with time zone,
-    parent character varying(255),
-    session_id uuid
-);
-
-
---
--- Name: TABLE refresh_tokens; Type: COMMENT; Schema: auth; Owner: -
---
-
-COMMENT ON TABLE auth.refresh_tokens IS 'Auth: Store of tokens used to refresh JWT tokens once they expire.';
-
-
---
--- Name: refresh_tokens_id_seq; Type: SEQUENCE; Schema: auth; Owner: -
---
-
-CREATE SEQUENCE auth.refresh_tokens_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: refresh_tokens_id_seq; Type: SEQUENCE OWNED BY; Schema: auth; Owner: -
---
-
-ALTER SEQUENCE auth.refresh_tokens_id_seq OWNED BY auth.refresh_tokens.id;
-
-
---
--- Name: saml_providers; Type: TABLE; Schema: auth; Owner: -
---
-
-CREATE TABLE auth.saml_providers (
-    id uuid NOT NULL,
-    sso_provider_id uuid NOT NULL,
-    entity_id text NOT NULL,
-    metadata_xml text NOT NULL,
-    metadata_url text,
-    attribute_mapping jsonb,
-    created_at timestamp with time zone,
-    updated_at timestamp with time zone,
-    name_id_format text,
-    CONSTRAINT "entity_id not empty" CHECK ((char_length(entity_id) > 0)),
-    CONSTRAINT "metadata_url not empty" CHECK (((metadata_url = NULL::text) OR (char_length(metadata_url) > 0))),
-    CONSTRAINT "metadata_xml not empty" CHECK ((char_length(metadata_xml) > 0))
-);
-
-
---
--- Name: TABLE saml_providers; Type: COMMENT; Schema: auth; Owner: -
---
-
-COMMENT ON TABLE auth.saml_providers IS 'Auth: Manages SAML Identity Provider connections.';
-
-
---
--- Name: saml_relay_states; Type: TABLE; Schema: auth; Owner: -
---
-
-CREATE TABLE auth.saml_relay_states (
-    id uuid NOT NULL,
-    sso_provider_id uuid NOT NULL,
-    request_id text NOT NULL,
-    for_email text,
-    redirect_to text,
-    created_at timestamp with time zone,
-    updated_at timestamp with time zone,
-    flow_state_id uuid,
-    CONSTRAINT "request_id not empty" CHECK ((char_length(request_id) > 0))
-);
-
-
---
--- Name: TABLE saml_relay_states; Type: COMMENT; Schema: auth; Owner: -
---
-
-COMMENT ON TABLE auth.saml_relay_states IS 'Auth: Contains SAML Relay State information for each Service Provider initiated login.';
-
-
---
--- Name: schema_migrations; Type: TABLE; Schema: auth; Owner: -
---
-
-CREATE TABLE auth.schema_migrations (
-    version character varying(255) NOT NULL
-);
-
-
---
--- Name: TABLE schema_migrations; Type: COMMENT; Schema: auth; Owner: -
---
-
-COMMENT ON TABLE auth.schema_migrations IS 'Auth: Manages updates to the auth system.';
-
-
---
--- Name: sessions; Type: TABLE; Schema: auth; Owner: -
---
-
-CREATE TABLE auth.sessions (
-    id uuid NOT NULL,
-    user_id uuid NOT NULL,
-    created_at timestamp with time zone,
-    updated_at timestamp with time zone,
-    factor_id uuid,
-    aal auth.aal_level,
-    not_after timestamp with time zone,
-    refreshed_at timestamp without time zone,
-    user_agent text,
-    ip inet,
-    tag text,
-    oauth_client_id uuid
-);
-
-
---
--- Name: TABLE sessions; Type: COMMENT; Schema: auth; Owner: -
---
-
-COMMENT ON TABLE auth.sessions IS 'Auth: Stores session data associated to a user.';
-
-
---
--- Name: COLUMN sessions.not_after; Type: COMMENT; Schema: auth; Owner: -
---
-
-COMMENT ON COLUMN auth.sessions.not_after IS 'Auth: Not after is a nullable column that contains a timestamp after which the session should be regarded as expired.';
-
-
---
--- Name: sso_domains; Type: TABLE; Schema: auth; Owner: -
---
-
-CREATE TABLE auth.sso_domains (
-    id uuid NOT NULL,
-    sso_provider_id uuid NOT NULL,
-    domain text NOT NULL,
-    created_at timestamp with time zone,
-    updated_at timestamp with time zone,
-    CONSTRAINT "domain not empty" CHECK ((char_length(domain) > 0))
-);
-
-
---
--- Name: TABLE sso_domains; Type: COMMENT; Schema: auth; Owner: -
---
-
-COMMENT ON TABLE auth.sso_domains IS 'Auth: Manages SSO email address domain mapping to an SSO Identity Provider.';
-
-
---
--- Name: sso_providers; Type: TABLE; Schema: auth; Owner: -
---
-
-CREATE TABLE auth.sso_providers (
-    id uuid NOT NULL,
-    resource_id text,
-    created_at timestamp with time zone,
-    updated_at timestamp with time zone,
-    disabled boolean,
-    CONSTRAINT "resource_id not empty" CHECK (((resource_id = NULL::text) OR (char_length(resource_id) > 0)))
-);
-
-
---
--- Name: TABLE sso_providers; Type: COMMENT; Schema: auth; Owner: -
---
-
-COMMENT ON TABLE auth.sso_providers IS 'Auth: Manages SSO identity provider information; see saml_providers for SAML.';
-
-
---
--- Name: COLUMN sso_providers.resource_id; Type: COMMENT; Schema: auth; Owner: -
---
-
-COMMENT ON COLUMN auth.sso_providers.resource_id IS 'Auth: Uniquely identifies a SSO provider according to a user-chosen resource ID (case insensitive), useful in infrastructure as code.';
-
-
---
--- Name: users; Type: TABLE; Schema: auth; Owner: -
---
-
-CREATE TABLE auth.users (
-    instance_id uuid,
-    id uuid NOT NULL,
-    aud character varying(255),
-    role character varying(255),
-    email character varying(255),
-    encrypted_password character varying(255),
-    email_confirmed_at timestamp with time zone,
-    invited_at timestamp with time zone,
-    confirmation_token character varying(255),
-    confirmation_sent_at timestamp with time zone,
-    recovery_token character varying(255),
-    recovery_sent_at timestamp with time zone,
-    email_change_token_new character varying(255),
-    email_change character varying(255),
-    email_change_sent_at timestamp with time zone,
-    last_sign_in_at timestamp with time zone,
-    raw_app_meta_data jsonb,
-    raw_user_meta_data jsonb,
-    is_super_admin boolean,
-    created_at timestamp with time zone,
-    updated_at timestamp with time zone,
-    phone text DEFAULT NULL::character varying,
-    phone_confirmed_at timestamp with time zone,
-    phone_change text DEFAULT ''::character varying,
-    phone_change_token character varying(255) DEFAULT ''::character varying,
-    phone_change_sent_at timestamp with time zone,
-    confirmed_at timestamp with time zone GENERATED ALWAYS AS (LEAST(email_confirmed_at, phone_confirmed_at)) STORED,
-    email_change_token_current character varying(255) DEFAULT ''::character varying,
-    email_change_confirm_status smallint DEFAULT 0,
-    banned_until timestamp with time zone,
-    reauthentication_token character varying(255) DEFAULT ''::character varying,
-    reauthentication_sent_at timestamp with time zone,
-    is_sso_user boolean DEFAULT false NOT NULL,
-    deleted_at timestamp with time zone,
-    is_anonymous boolean DEFAULT false NOT NULL,
-    CONSTRAINT users_email_change_confirm_status_check CHECK (((email_change_confirm_status >= 0) AND (email_change_confirm_status <= 2)))
-);
-
-
---
--- Name: TABLE users; Type: COMMENT; Schema: auth; Owner: -
---
-
-COMMENT ON TABLE auth.users IS 'Auth: Stores user login data within a secure schema.';
-
-
---
--- Name: COLUMN users.is_sso_user; Type: COMMENT; Schema: auth; Owner: -
---
-
-COMMENT ON COLUMN auth.users.is_sso_user IS 'Auth: Set this column to true when the account comes from SSO. These accounts can have duplicate emails.';
-
 
 --
 -- Name: _migrations; Type: TABLE; Schema: public; Owner: -
@@ -5196,6 +2967,13 @@ CREATE TABLE public.allocations (
     is_maintenance boolean DEFAULT false NOT NULL,
     CONSTRAINT allocations_resource_type_check CHECK ((resource_type = ANY (ARRAY['table'::text, 'hold'::text, 'merge_group'::text])))
 );
+
+
+--
+-- Name: COLUMN allocations.shadow; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.allocations.shadow IS 'True when allocation is tentative (shadow). Shadow allocations are visible to staff but do not block standard bookings.';
 
 
 --
@@ -5261,8 +3039,16 @@ CREATE TABLE public.booking_assignment_idempotency (
     table_ids uuid[] NOT NULL,
     assignment_window tstzrange NOT NULL,
     merge_group_allocation_id uuid,
-    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    table_set_hash text
 );
+
+
+--
+-- Name: COLUMN booking_assignment_idempotency.table_set_hash; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.booking_assignment_idempotency.table_set_hash IS 'MD5 hash of sorted table ids used to dedupe idempotency payloads.';
 
 
 --
@@ -5459,7 +3245,9 @@ CREATE TABLE public.booking_table_assignments (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     idempotency_key text,
     start_at timestamp with time zone,
-    end_at timestamp with time zone
+    end_at timestamp with time zone,
+    allocation_id uuid,
+    merge_group_id uuid
 );
 
 
@@ -5502,7 +3290,7 @@ COMMENT ON COLUMN public.booking_table_assignments.assigned_at IS 'When the assi
 -- Name: COLUMN booking_table_assignments.assigned_by; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.booking_table_assignments.assigned_by IS 'User who made the assignment.';
+COMMENT ON COLUMN public.booking_table_assignments.assigned_by IS 'User who made the assignment (null for auto-assignment)';
 
 
 --
@@ -5510,6 +3298,13 @@ COMMENT ON COLUMN public.booking_table_assignments.assigned_by IS 'User who made
 --
 
 COMMENT ON COLUMN public.booking_table_assignments.notes IS 'Optional notes about the assignment (e.g., "VIP preferred seating")';
+
+
+--
+-- Name: COLUMN booking_table_assignments.allocation_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.booking_table_assignments.allocation_id IS 'Allocation row backing the assignment; used for overlap enforcement.';
 
 
 --
@@ -5567,10 +3362,19 @@ CREATE TABLE public.bookings (
     checked_out_at timestamp with time zone,
     loyalty_points_awarded integer DEFAULT 0 NOT NULL,
     table_id uuid,
+    assigned_zone_id uuid,
     CONSTRAINT bookings_checked_out_after_checked_in CHECK (((checked_out_at IS NULL) OR (checked_in_at IS NULL) OR (checked_out_at >= checked_in_at))),
+    CONSTRAINT bookings_lifecycle_timestamp_consistency CHECK ((((status = ANY (ARRAY['pending'::public.booking_status, 'pending_allocation'::public.booking_status, 'confirmed'::public.booking_status])) AND (checked_in_at IS NULL) AND (checked_out_at IS NULL)) OR ((status = 'checked_in'::public.booking_status) AND (checked_in_at IS NOT NULL) AND (checked_out_at IS NULL)) OR ((status = 'completed'::public.booking_status) AND (checked_in_at IS NOT NULL) AND (checked_out_at IS NOT NULL) AND (checked_out_at >= checked_in_at)) OR (status = 'cancelled'::public.booking_status) OR ((status = 'no_show'::public.booking_status) AND (checked_in_at IS NULL) AND (checked_out_at IS NULL)))),
     CONSTRAINT bookings_party_size_check CHECK ((party_size > 0)),
     CONSTRAINT chk_time_order CHECK ((start_at < end_at))
 );
+
+
+--
+-- Name: COLUMN bookings.pending_ref; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.bookings.pending_ref IS 'Temporary reference used while an asynchronous booking is pending confirmation. Should be NULL for finalized bookings.';
 
 
 --
@@ -5616,10 +3420,65 @@ COMMENT ON COLUMN public.bookings.checked_out_at IS 'Timestamp when the guest wa
 
 
 --
+-- Name: COLUMN bookings.assigned_zone_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.bookings.assigned_zone_id IS 'Zone enforced for all table assignments tied to the booking.';
+
+
+--
 -- Name: CONSTRAINT bookings_checked_out_after_checked_in ON bookings; Type: COMMENT; Schema: public; Owner: -
 --
 
 COMMENT ON CONSTRAINT bookings_checked_out_after_checked_in ON public.bookings IS 'Ensures recorded check-out timestamps are chronologically after check-in.';
+
+
+--
+-- Name: CONSTRAINT bookings_lifecycle_timestamp_consistency ON bookings; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON CONSTRAINT bookings_lifecycle_timestamp_consistency ON public.bookings IS 'Ensures booking lifecycle timestamps align with the status (checked-in bookings must have check-in timestamps, completed bookings need both timestamps, etc).';
+
+
+--
+-- Name: observability_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.observability_events (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    source text NOT NULL,
+    event_type text NOT NULL,
+    severity text DEFAULT 'info'::text NOT NULL,
+    context jsonb,
+    restaurant_id uuid,
+    booking_id uuid,
+    CONSTRAINT observability_events_severity_check CHECK ((severity = ANY (ARRAY['info'::text, 'warning'::text, 'error'::text, 'critical'::text])))
+);
+
+
+--
+-- Name: capacity_selector_rejections_v1; Type: MATERIALIZED VIEW; Schema: public; Owner: -
+--
+
+CREATE MATERIALIZED VIEW public.capacity_selector_rejections_v1 AS
+ SELECT id,
+    created_at,
+    restaurant_id,
+    booking_id,
+    (context ->> 'skip_reason'::text) AS skip_reason,
+        CASE
+            WHEN ((context ->> 'skip_reason'::text) ~~ '%No suitable tables%'::text) THEN 'strategic'::text
+            WHEN ((context ->> 'skip_reason'::text) ~~ '%service_overrun%'::text) THEN 'hard'::text
+            WHEN ((context ->> 'skip_reason'::text) ~~ '%capacity%'::text) THEN 'strategic'::text
+            ELSE 'hard'::text
+        END AS classification,
+    (context -> 'scoreBreakdown'::text) AS score_breakdown,
+    (context -> 'plannerConfig'::text) AS planner_config,
+    (context -> 'dominantPenalty'::text) AS dominant_penalty
+   FROM public.observability_events oe
+  WHERE ((source = 'capacity.selector'::text) AND (event_type = 'capacity.selector.skipped'::text))
+  WITH NO DATA;
 
 
 --
@@ -5661,8 +3520,40 @@ CREATE TABLE public.customers (
     notes text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    user_profile_id uuid,
     CONSTRAINT customers_email_check CHECK ((email = lower(email))),
     CONSTRAINT customers_phone_check CHECK (((length(phone) >= 7) AND (length(phone) <= 20)))
+);
+
+
+--
+-- Name: COLUMN customers.user_profile_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.customers.user_profile_id IS 'Optional foreign key to global user_profiles identity.';
+
+
+--
+-- Name: demand_profiles; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.demand_profiles (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    restaurant_id uuid NOT NULL,
+    day_of_week smallint NOT NULL,
+    service_window text NOT NULL,
+    multiplier numeric(3,2) DEFAULT 1.0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    start_minute integer,
+    end_minute integer,
+    priority integer DEFAULT 1,
+    CONSTRAINT demand_profiles_check CHECK (((end_minute > start_minute) AND (end_minute <= 1440))),
+    CONSTRAINT demand_profiles_day_of_week_check CHECK (((day_of_week >= 0) AND (day_of_week <= 6))),
+    CONSTRAINT demand_profiles_multiplier_check CHECK (((multiplier >= 0.1) AND (multiplier <= 10.0))),
+    CONSTRAINT demand_profiles_priority_check CHECK ((priority >= 1)),
+    CONSTRAINT demand_profiles_service_window_check CHECK ((service_window = ANY (ARRAY['lunch'::text, 'drinks'::text, 'dinner'::text, 'christmas_party'::text, 'curry_and_carols'::text]))),
+    CONSTRAINT demand_profiles_start_minute_check CHECK (((start_minute >= 0) AND (start_minute < 1440)))
 );
 
 
@@ -5727,23 +3618,6 @@ CREATE TABLE public.loyalty_programs (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     pilot_only boolean DEFAULT false NOT NULL
-);
-
-
---
--- Name: observability_events; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.observability_events (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
-    source text NOT NULL,
-    event_type text NOT NULL,
-    severity text DEFAULT 'info'::text NOT NULL,
-    context jsonb,
-    restaurant_id uuid,
-    booking_id uuid,
-    CONSTRAINT observability_events_severity_check CHECK ((severity = ANY (ARRAY['info'::text, 'warning'::text, 'error'::text, 'critical'::text])))
 );
 
 
@@ -5918,6 +3792,47 @@ CREATE TABLE public.service_policy (
 
 
 --
+-- Name: COLUMN service_policy.allow_after_hours; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.service_policy.allow_after_hours IS 'If true, privileged staff may override standard operating hours when creating bookings.';
+
+
+--
+-- Name: strategic_configs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.strategic_configs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    restaurant_id uuid,
+    updated_by uuid,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    scarcity_weight numeric(8,2) DEFAULT 22 NOT NULL,
+    demand_multiplier_override numeric(8,3),
+    future_conflict_penalty numeric(10,2)
+);
+
+
+--
+-- Name: strategic_simulation_runs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.strategic_simulation_runs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    restaurant_id uuid NOT NULL,
+    strategy_a jsonb NOT NULL,
+    strategy_b jsonb NOT NULL,
+    snapshot_range tstzrange NOT NULL,
+    kpis jsonb,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    status text DEFAULT 'pending'::text,
+    CONSTRAINT strategic_simulation_runs_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'running'::text, 'completed'::text, 'failed'::text])))
+);
+
+
+--
 -- Name: stripe_events; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -6082,6 +3997,50 @@ COMMENT ON COLUMN public.table_inventory."position" IS 'Floor plan position as J
 
 
 --
+-- Name: table_scarcity_metrics; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.table_scarcity_metrics (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    restaurant_id uuid NOT NULL,
+    table_type text NOT NULL,
+    scarcity_score numeric(5,4) NOT NULL,
+    computed_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT table_scarcity_metrics_scarcity_score_check CHECK (((scarcity_score >= (0)::numeric) AND (scarcity_score <= (1)::numeric)))
+);
+
+
+--
+-- Name: user_profiles; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_profiles (
+    id uuid NOT NULL,
+    name text,
+    email public.citext,
+    phone text,
+    marketing_opt_in boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT user_profiles_phone_e164_check CHECK (((phone IS NULL) OR (phone ~ '^\\+[1-9]\\d{1,14}$'::text)))
+);
+
+
+--
+-- Name: TABLE user_profiles; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.user_profiles IS 'Global customer identity (1:1 with auth.users).';
+
+
+--
+-- Name: COLUMN user_profiles.phone; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.user_profiles.phone IS 'User phone number stored in E.164 format (leading + and digits only).';
+
+
+--
 -- Name: zones; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -6098,217 +4057,6 @@ CREATE TABLE public.zones (
 
 
 --
--- Name: messages; Type: TABLE; Schema: realtime; Owner: -
---
-
-CREATE TABLE realtime.messages (
-    topic text NOT NULL,
-    extension text NOT NULL,
-    payload jsonb,
-    event text,
-    private boolean DEFAULT false,
-    updated_at timestamp without time zone DEFAULT now() NOT NULL,
-    inserted_at timestamp without time zone DEFAULT now() NOT NULL,
-    id uuid DEFAULT gen_random_uuid() NOT NULL
-)
-PARTITION BY RANGE (inserted_at);
-
-
---
--- Name: schema_migrations; Type: TABLE; Schema: realtime; Owner: -
---
-
-CREATE TABLE realtime.schema_migrations (
-    version bigint NOT NULL,
-    inserted_at timestamp(0) without time zone
-);
-
-
---
--- Name: subscription; Type: TABLE; Schema: realtime; Owner: -
---
-
-CREATE TABLE realtime.subscription (
-    id bigint NOT NULL,
-    subscription_id uuid NOT NULL,
-    entity regclass NOT NULL,
-    filters realtime.user_defined_filter[] DEFAULT '{}'::realtime.user_defined_filter[] NOT NULL,
-    claims jsonb NOT NULL,
-    claims_role regrole GENERATED ALWAYS AS (realtime.to_regrole((claims ->> 'role'::text))) STORED NOT NULL,
-    created_at timestamp without time zone DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
-
---
--- Name: subscription_id_seq; Type: SEQUENCE; Schema: realtime; Owner: -
---
-
-ALTER TABLE realtime.subscription ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
-    SEQUENCE NAME realtime.subscription_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1
-);
-
-
---
--- Name: buckets; Type: TABLE; Schema: storage; Owner: -
---
-
-CREATE TABLE storage.buckets (
-    id text NOT NULL,
-    name text NOT NULL,
-    owner uuid,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
-    public boolean DEFAULT false,
-    avif_autodetection boolean DEFAULT false,
-    file_size_limit bigint,
-    allowed_mime_types text[],
-    owner_id text,
-    type storage.buckettype DEFAULT 'STANDARD'::storage.buckettype NOT NULL
-);
-
-
---
--- Name: COLUMN buckets.owner; Type: COMMENT; Schema: storage; Owner: -
---
-
-COMMENT ON COLUMN storage.buckets.owner IS 'Field is deprecated, use owner_id instead';
-
-
---
--- Name: buckets_analytics; Type: TABLE; Schema: storage; Owner: -
---
-
-CREATE TABLE storage.buckets_analytics (
-    id text NOT NULL,
-    type storage.buckettype DEFAULT 'ANALYTICS'::storage.buckettype NOT NULL,
-    format text DEFAULT 'ICEBERG'::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: migrations; Type: TABLE; Schema: storage; Owner: -
---
-
-CREATE TABLE storage.migrations (
-    id integer NOT NULL,
-    name character varying(100) NOT NULL,
-    hash character varying(40) NOT NULL,
-    executed_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
-);
-
-
---
--- Name: objects; Type: TABLE; Schema: storage; Owner: -
---
-
-CREATE TABLE storage.objects (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    bucket_id text,
-    name text,
-    owner uuid,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
-    last_accessed_at timestamp with time zone DEFAULT now(),
-    metadata jsonb,
-    path_tokens text[] GENERATED ALWAYS AS (string_to_array(name, '/'::text)) STORED,
-    version text,
-    owner_id text,
-    user_metadata jsonb,
-    level integer
-);
-
-
---
--- Name: COLUMN objects.owner; Type: COMMENT; Schema: storage; Owner: -
---
-
-COMMENT ON COLUMN storage.objects.owner IS 'Field is deprecated, use owner_id instead';
-
-
---
--- Name: prefixes; Type: TABLE; Schema: storage; Owner: -
---
-
-CREATE TABLE storage.prefixes (
-    bucket_id text NOT NULL,
-    name text NOT NULL COLLATE pg_catalog."C",
-    level integer GENERATED ALWAYS AS (storage.get_level(name)) STORED NOT NULL,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
-);
-
-
---
--- Name: s3_multipart_uploads; Type: TABLE; Schema: storage; Owner: -
---
-
-CREATE TABLE storage.s3_multipart_uploads (
-    id text NOT NULL,
-    in_progress_size bigint DEFAULT 0 NOT NULL,
-    upload_signature text NOT NULL,
-    bucket_id text NOT NULL,
-    key text NOT NULL COLLATE pg_catalog."C",
-    version text NOT NULL,
-    owner_id text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    user_metadata jsonb
-);
-
-
---
--- Name: s3_multipart_uploads_parts; Type: TABLE; Schema: storage; Owner: -
---
-
-CREATE TABLE storage.s3_multipart_uploads_parts (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    upload_id text NOT NULL,
-    size bigint DEFAULT 0 NOT NULL,
-    part_number integer NOT NULL,
-    bucket_id text NOT NULL,
-    key text NOT NULL COLLATE pg_catalog."C",
-    etag text NOT NULL,
-    owner_id text,
-    version text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: schema_migrations; Type: TABLE; Schema: supabase_migrations; Owner: -
---
-
-CREATE TABLE supabase_migrations.schema_migrations (
-    version text NOT NULL,
-    statements text[],
-    name text
-);
-
-
---
--- Name: seed_files; Type: TABLE; Schema: supabase_migrations; Owner: -
---
-
-CREATE TABLE supabase_migrations.seed_files (
-    path text NOT NULL,
-    hash text NOT NULL
-);
-
-
---
--- Name: refresh_tokens id; Type: DEFAULT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.refresh_tokens ALTER COLUMN id SET DEFAULT nextval('auth.refresh_tokens_id_seq'::regclass);
-
-
---
 -- Name: _migrations id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -6320,230 +4068,6 @@ ALTER TABLE ONLY public._migrations ALTER COLUMN id SET DEFAULT nextval('public.
 --
 
 ALTER TABLE ONLY public.booking_state_history ALTER COLUMN id SET DEFAULT nextval('public.booking_state_history_id_seq'::regclass);
-
-
---
--- Name: mfa_amr_claims amr_id_pk; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.mfa_amr_claims
-    ADD CONSTRAINT amr_id_pk PRIMARY KEY (id);
-
-
---
--- Name: audit_log_entries audit_log_entries_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.audit_log_entries
-    ADD CONSTRAINT audit_log_entries_pkey PRIMARY KEY (id);
-
-
---
--- Name: flow_state flow_state_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.flow_state
-    ADD CONSTRAINT flow_state_pkey PRIMARY KEY (id);
-
-
---
--- Name: identities identities_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.identities
-    ADD CONSTRAINT identities_pkey PRIMARY KEY (id);
-
-
---
--- Name: identities identities_provider_id_provider_unique; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.identities
-    ADD CONSTRAINT identities_provider_id_provider_unique UNIQUE (provider_id, provider);
-
-
---
--- Name: instances instances_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.instances
-    ADD CONSTRAINT instances_pkey PRIMARY KEY (id);
-
-
---
--- Name: mfa_amr_claims mfa_amr_claims_session_id_authentication_method_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.mfa_amr_claims
-    ADD CONSTRAINT mfa_amr_claims_session_id_authentication_method_pkey UNIQUE (session_id, authentication_method);
-
-
---
--- Name: mfa_challenges mfa_challenges_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.mfa_challenges
-    ADD CONSTRAINT mfa_challenges_pkey PRIMARY KEY (id);
-
-
---
--- Name: mfa_factors mfa_factors_last_challenged_at_key; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.mfa_factors
-    ADD CONSTRAINT mfa_factors_last_challenged_at_key UNIQUE (last_challenged_at);
-
-
---
--- Name: mfa_factors mfa_factors_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.mfa_factors
-    ADD CONSTRAINT mfa_factors_pkey PRIMARY KEY (id);
-
-
---
--- Name: oauth_authorizations oauth_authorizations_authorization_code_key; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.oauth_authorizations
-    ADD CONSTRAINT oauth_authorizations_authorization_code_key UNIQUE (authorization_code);
-
-
---
--- Name: oauth_authorizations oauth_authorizations_authorization_id_key; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.oauth_authorizations
-    ADD CONSTRAINT oauth_authorizations_authorization_id_key UNIQUE (authorization_id);
-
-
---
--- Name: oauth_authorizations oauth_authorizations_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.oauth_authorizations
-    ADD CONSTRAINT oauth_authorizations_pkey PRIMARY KEY (id);
-
-
---
--- Name: oauth_clients oauth_clients_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.oauth_clients
-    ADD CONSTRAINT oauth_clients_pkey PRIMARY KEY (id);
-
-
---
--- Name: oauth_consents oauth_consents_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.oauth_consents
-    ADD CONSTRAINT oauth_consents_pkey PRIMARY KEY (id);
-
-
---
--- Name: oauth_consents oauth_consents_user_client_unique; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.oauth_consents
-    ADD CONSTRAINT oauth_consents_user_client_unique UNIQUE (user_id, client_id);
-
-
---
--- Name: one_time_tokens one_time_tokens_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.one_time_tokens
-    ADD CONSTRAINT one_time_tokens_pkey PRIMARY KEY (id);
-
-
---
--- Name: refresh_tokens refresh_tokens_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.refresh_tokens
-    ADD CONSTRAINT refresh_tokens_pkey PRIMARY KEY (id);
-
-
---
--- Name: refresh_tokens refresh_tokens_token_unique; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.refresh_tokens
-    ADD CONSTRAINT refresh_tokens_token_unique UNIQUE (token);
-
-
---
--- Name: saml_providers saml_providers_entity_id_key; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.saml_providers
-    ADD CONSTRAINT saml_providers_entity_id_key UNIQUE (entity_id);
-
-
---
--- Name: saml_providers saml_providers_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.saml_providers
-    ADD CONSTRAINT saml_providers_pkey PRIMARY KEY (id);
-
-
---
--- Name: saml_relay_states saml_relay_states_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.saml_relay_states
-    ADD CONSTRAINT saml_relay_states_pkey PRIMARY KEY (id);
-
-
---
--- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.schema_migrations
-    ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
-
-
---
--- Name: sessions sessions_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.sessions
-    ADD CONSTRAINT sessions_pkey PRIMARY KEY (id);
-
-
---
--- Name: sso_domains sso_domains_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.sso_domains
-    ADD CONSTRAINT sso_domains_pkey PRIMARY KEY (id);
-
-
---
--- Name: sso_providers sso_providers_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.sso_providers
-    ADD CONSTRAINT sso_providers_pkey PRIMARY KEY (id);
-
-
---
--- Name: users users_phone_key; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.users
-    ADD CONSTRAINT users_phone_key UNIQUE (phone);
-
-
---
--- Name: users users_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.users
-    ADD CONSTRAINT users_pkey PRIMARY KEY (id);
 
 
 --
@@ -6691,21 +4215,6 @@ ALTER TABLE ONLY public.bookings
 
 
 --
--- Name: bookings bookings_lifecycle_timestamp_consistency; Type: CHECK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE public.bookings
-    ADD CONSTRAINT bookings_lifecycle_timestamp_consistency CHECK ((((status = ANY (ARRAY['pending'::public.booking_status, 'pending_allocation'::public.booking_status, 'confirmed'::public.booking_status])) AND (checked_in_at IS NULL) AND (checked_out_at IS NULL)) OR ((status = 'checked_in'::public.booking_status) AND (checked_in_at IS NOT NULL) AND (checked_out_at IS NULL)) OR ((status = 'completed'::public.booking_status) AND (checked_in_at IS NOT NULL) AND (checked_out_at IS NOT NULL) AND (checked_out_at >= checked_in_at)) OR (status = 'cancelled'::public.booking_status) OR ((status = 'no_show'::public.booking_status) AND (checked_in_at IS NULL) AND (checked_out_at IS NULL)))) NOT VALID;
-
-
---
--- Name: CONSTRAINT bookings_lifecycle_timestamp_consistency ON bookings; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON CONSTRAINT bookings_lifecycle_timestamp_consistency ON public.bookings IS 'Ensures booking lifecycle timestamps align with the status (checked-in bookings must have check-in timestamps, completed bookings need both timestamps, etc).';
-
-
---
 -- Name: bookings bookings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6759,6 +4268,14 @@ ALTER TABLE ONLY public.customers
 
 ALTER TABLE ONLY public.customers
     ADD CONSTRAINT customers_restaurant_id_phone_normalized_key UNIQUE (restaurant_id, phone_normalized);
+
+
+--
+-- Name: demand_profiles demand_profiles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.demand_profiles
+    ADD CONSTRAINT demand_profiles_pkey PRIMARY KEY (id);
 
 
 --
@@ -6906,6 +4423,30 @@ ALTER TABLE ONLY public.service_policy
 
 
 --
+-- Name: strategic_configs strategic_configs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.strategic_configs
+    ADD CONSTRAINT strategic_configs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: strategic_configs strategic_configs_restaurant_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.strategic_configs
+    ADD CONSTRAINT strategic_configs_restaurant_id_key UNIQUE (restaurant_id);
+
+
+--
+-- Name: strategic_simulation_runs strategic_simulation_runs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.strategic_simulation_runs
+    ADD CONSTRAINT strategic_simulation_runs_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: stripe_events stripe_events_event_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6986,444 +4527,43 @@ ALTER TABLE ONLY public.table_inventory
 
 
 --
+-- Name: table_scarcity_metrics table_scarcity_metrics_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.table_scarcity_metrics
+    ADD CONSTRAINT table_scarcity_metrics_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: table_scarcity_metrics unique_restaurant_table_type; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.table_scarcity_metrics
+    ADD CONSTRAINT unique_restaurant_table_type UNIQUE (restaurant_id, table_type);
+
+
+--
+-- Name: user_profiles user_profiles_email_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_profiles
+    ADD CONSTRAINT user_profiles_email_key UNIQUE (email);
+
+
+--
+-- Name: user_profiles user_profiles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_profiles
+    ADD CONSTRAINT user_profiles_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: zones zones_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.zones
     ADD CONSTRAINT zones_pkey PRIMARY KEY (id);
-
-
---
--- Name: messages messages_pkey; Type: CONSTRAINT; Schema: realtime; Owner: -
---
-
-ALTER TABLE ONLY realtime.messages
-    ADD CONSTRAINT messages_pkey PRIMARY KEY (id, inserted_at);
-
-
---
--- Name: subscription pk_subscription; Type: CONSTRAINT; Schema: realtime; Owner: -
---
-
-ALTER TABLE ONLY realtime.subscription
-    ADD CONSTRAINT pk_subscription PRIMARY KEY (id);
-
-
---
--- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: realtime; Owner: -
---
-
-ALTER TABLE ONLY realtime.schema_migrations
-    ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
-
-
---
--- Name: buckets_analytics buckets_analytics_pkey; Type: CONSTRAINT; Schema: storage; Owner: -
---
-
-ALTER TABLE ONLY storage.buckets_analytics
-    ADD CONSTRAINT buckets_analytics_pkey PRIMARY KEY (id);
-
-
---
--- Name: buckets buckets_pkey; Type: CONSTRAINT; Schema: storage; Owner: -
---
-
-ALTER TABLE ONLY storage.buckets
-    ADD CONSTRAINT buckets_pkey PRIMARY KEY (id);
-
-
---
--- Name: migrations migrations_name_key; Type: CONSTRAINT; Schema: storage; Owner: -
---
-
-ALTER TABLE ONLY storage.migrations
-    ADD CONSTRAINT migrations_name_key UNIQUE (name);
-
-
---
--- Name: migrations migrations_pkey; Type: CONSTRAINT; Schema: storage; Owner: -
---
-
-ALTER TABLE ONLY storage.migrations
-    ADD CONSTRAINT migrations_pkey PRIMARY KEY (id);
-
-
---
--- Name: objects objects_pkey; Type: CONSTRAINT; Schema: storage; Owner: -
---
-
-ALTER TABLE ONLY storage.objects
-    ADD CONSTRAINT objects_pkey PRIMARY KEY (id);
-
-
---
--- Name: prefixes prefixes_pkey; Type: CONSTRAINT; Schema: storage; Owner: -
---
-
-ALTER TABLE ONLY storage.prefixes
-    ADD CONSTRAINT prefixes_pkey PRIMARY KEY (bucket_id, level, name);
-
-
---
--- Name: s3_multipart_uploads_parts s3_multipart_uploads_parts_pkey; Type: CONSTRAINT; Schema: storage; Owner: -
---
-
-ALTER TABLE ONLY storage.s3_multipart_uploads_parts
-    ADD CONSTRAINT s3_multipart_uploads_parts_pkey PRIMARY KEY (id);
-
-
---
--- Name: s3_multipart_uploads s3_multipart_uploads_pkey; Type: CONSTRAINT; Schema: storage; Owner: -
---
-
-ALTER TABLE ONLY storage.s3_multipart_uploads
-    ADD CONSTRAINT s3_multipart_uploads_pkey PRIMARY KEY (id);
-
-
---
--- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: supabase_migrations; Owner: -
---
-
-ALTER TABLE ONLY supabase_migrations.schema_migrations
-    ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
-
-
---
--- Name: seed_files seed_files_pkey; Type: CONSTRAINT; Schema: supabase_migrations; Owner: -
---
-
-ALTER TABLE ONLY supabase_migrations.seed_files
-    ADD CONSTRAINT seed_files_pkey PRIMARY KEY (path);
-
-
---
--- Name: audit_logs_instance_id_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX audit_logs_instance_id_idx ON auth.audit_log_entries USING btree (instance_id);
-
-
---
--- Name: confirmation_token_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE UNIQUE INDEX confirmation_token_idx ON auth.users USING btree (confirmation_token) WHERE ((confirmation_token)::text !~ '^[0-9 ]*$'::text);
-
-
---
--- Name: email_change_token_current_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE UNIQUE INDEX email_change_token_current_idx ON auth.users USING btree (email_change_token_current) WHERE ((email_change_token_current)::text !~ '^[0-9 ]*$'::text);
-
-
---
--- Name: email_change_token_new_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE UNIQUE INDEX email_change_token_new_idx ON auth.users USING btree (email_change_token_new) WHERE ((email_change_token_new)::text !~ '^[0-9 ]*$'::text);
-
-
---
--- Name: factor_id_created_at_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX factor_id_created_at_idx ON auth.mfa_factors USING btree (user_id, created_at);
-
-
---
--- Name: flow_state_created_at_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX flow_state_created_at_idx ON auth.flow_state USING btree (created_at DESC);
-
-
---
--- Name: identities_email_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX identities_email_idx ON auth.identities USING btree (email text_pattern_ops);
-
-
---
--- Name: INDEX identities_email_idx; Type: COMMENT; Schema: auth; Owner: -
---
-
-COMMENT ON INDEX auth.identities_email_idx IS 'Auth: Ensures indexed queries on the email column';
-
-
---
--- Name: identities_user_id_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX identities_user_id_idx ON auth.identities USING btree (user_id);
-
-
---
--- Name: idx_auth_code; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX idx_auth_code ON auth.flow_state USING btree (auth_code);
-
-
---
--- Name: idx_user_id_auth_method; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX idx_user_id_auth_method ON auth.flow_state USING btree (user_id, authentication_method);
-
-
---
--- Name: mfa_challenge_created_at_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX mfa_challenge_created_at_idx ON auth.mfa_challenges USING btree (created_at DESC);
-
-
---
--- Name: mfa_factors_user_friendly_name_unique; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE UNIQUE INDEX mfa_factors_user_friendly_name_unique ON auth.mfa_factors USING btree (friendly_name, user_id) WHERE (TRIM(BOTH FROM friendly_name) <> ''::text);
-
-
---
--- Name: mfa_factors_user_id_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX mfa_factors_user_id_idx ON auth.mfa_factors USING btree (user_id);
-
-
---
--- Name: oauth_auth_pending_exp_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX oauth_auth_pending_exp_idx ON auth.oauth_authorizations USING btree (expires_at) WHERE (status = 'pending'::auth.oauth_authorization_status);
-
-
---
--- Name: oauth_clients_deleted_at_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX oauth_clients_deleted_at_idx ON auth.oauth_clients USING btree (deleted_at);
-
-
---
--- Name: oauth_consents_active_client_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX oauth_consents_active_client_idx ON auth.oauth_consents USING btree (client_id) WHERE (revoked_at IS NULL);
-
-
---
--- Name: oauth_consents_active_user_client_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX oauth_consents_active_user_client_idx ON auth.oauth_consents USING btree (user_id, client_id) WHERE (revoked_at IS NULL);
-
-
---
--- Name: oauth_consents_user_order_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX oauth_consents_user_order_idx ON auth.oauth_consents USING btree (user_id, granted_at DESC);
-
-
---
--- Name: one_time_tokens_relates_to_hash_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX one_time_tokens_relates_to_hash_idx ON auth.one_time_tokens USING hash (relates_to);
-
-
---
--- Name: one_time_tokens_token_hash_hash_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX one_time_tokens_token_hash_hash_idx ON auth.one_time_tokens USING hash (token_hash);
-
-
---
--- Name: one_time_tokens_user_id_token_type_key; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE UNIQUE INDEX one_time_tokens_user_id_token_type_key ON auth.one_time_tokens USING btree (user_id, token_type);
-
-
---
--- Name: reauthentication_token_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE UNIQUE INDEX reauthentication_token_idx ON auth.users USING btree (reauthentication_token) WHERE ((reauthentication_token)::text !~ '^[0-9 ]*$'::text);
-
-
---
--- Name: recovery_token_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE UNIQUE INDEX recovery_token_idx ON auth.users USING btree (recovery_token) WHERE ((recovery_token)::text !~ '^[0-9 ]*$'::text);
-
-
---
--- Name: refresh_tokens_instance_id_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX refresh_tokens_instance_id_idx ON auth.refresh_tokens USING btree (instance_id);
-
-
---
--- Name: refresh_tokens_instance_id_user_id_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX refresh_tokens_instance_id_user_id_idx ON auth.refresh_tokens USING btree (instance_id, user_id);
-
-
---
--- Name: refresh_tokens_parent_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX refresh_tokens_parent_idx ON auth.refresh_tokens USING btree (parent);
-
-
---
--- Name: refresh_tokens_session_id_revoked_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX refresh_tokens_session_id_revoked_idx ON auth.refresh_tokens USING btree (session_id, revoked);
-
-
---
--- Name: refresh_tokens_updated_at_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX refresh_tokens_updated_at_idx ON auth.refresh_tokens USING btree (updated_at DESC);
-
-
---
--- Name: saml_providers_sso_provider_id_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX saml_providers_sso_provider_id_idx ON auth.saml_providers USING btree (sso_provider_id);
-
-
---
--- Name: saml_relay_states_created_at_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX saml_relay_states_created_at_idx ON auth.saml_relay_states USING btree (created_at DESC);
-
-
---
--- Name: saml_relay_states_for_email_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX saml_relay_states_for_email_idx ON auth.saml_relay_states USING btree (for_email);
-
-
---
--- Name: saml_relay_states_sso_provider_id_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX saml_relay_states_sso_provider_id_idx ON auth.saml_relay_states USING btree (sso_provider_id);
-
-
---
--- Name: sessions_not_after_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX sessions_not_after_idx ON auth.sessions USING btree (not_after DESC);
-
-
---
--- Name: sessions_oauth_client_id_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX sessions_oauth_client_id_idx ON auth.sessions USING btree (oauth_client_id);
-
-
---
--- Name: sessions_user_id_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX sessions_user_id_idx ON auth.sessions USING btree (user_id);
-
-
---
--- Name: sso_domains_domain_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE UNIQUE INDEX sso_domains_domain_idx ON auth.sso_domains USING btree (lower(domain));
-
-
---
--- Name: sso_domains_sso_provider_id_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX sso_domains_sso_provider_id_idx ON auth.sso_domains USING btree (sso_provider_id);
-
-
---
--- Name: sso_providers_resource_id_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE UNIQUE INDEX sso_providers_resource_id_idx ON auth.sso_providers USING btree (lower(resource_id));
-
-
---
--- Name: sso_providers_resource_id_pattern_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX sso_providers_resource_id_pattern_idx ON auth.sso_providers USING btree (resource_id text_pattern_ops);
-
-
---
--- Name: unique_phone_factor_per_user; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE UNIQUE INDEX unique_phone_factor_per_user ON auth.mfa_factors USING btree (user_id, phone);
-
-
---
--- Name: user_id_created_at_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX user_id_created_at_idx ON auth.sessions USING btree (user_id, created_at);
-
-
---
--- Name: users_email_partial_key; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE UNIQUE INDEX users_email_partial_key ON auth.users USING btree (email) WHERE (is_sso_user = false);
-
-
---
--- Name: INDEX users_email_partial_key; Type: COMMENT; Schema: auth; Owner: -
---
-
-COMMENT ON INDEX auth.users_email_partial_key IS 'Auth: A partial unique index that applies only when is_sso_user is false';
-
-
---
--- Name: users_instance_id_email_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX users_instance_id_email_idx ON auth.users USING btree (instance_id, lower((email)::text));
-
-
---
--- Name: users_instance_id_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX users_instance_id_idx ON auth.users USING btree (instance_id);
-
-
---
--- Name: users_is_anonymous_idx; Type: INDEX; Schema: auth; Owner: -
---
-
-CREATE INDEX users_is_anonymous_idx ON auth.users USING btree (is_anonymous);
 
 
 --
@@ -7441,6 +4581,13 @@ CREATE INDEX allowed_capacities_restaurant_idx ON public.allowed_capacities USIN
 
 
 --
+-- Name: booking_assignment_idempotency_booking_hash_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX booking_assignment_idempotency_booking_hash_key ON public.booking_assignment_idempotency USING btree (booking_id, table_set_hash) WHERE (table_set_hash IS NOT NULL);
+
+
+--
 -- Name: booking_assignment_idempotency_created_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7448,10 +4595,24 @@ CREATE INDEX booking_assignment_idempotency_created_idx ON public.booking_assign
 
 
 --
+-- Name: booking_table_assignments_merge_group_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX booking_table_assignments_merge_group_idx ON public.booking_table_assignments USING btree (merge_group_id);
+
+
+--
 -- Name: bookings_restaurant_date_status_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX bookings_restaurant_date_status_idx ON public.bookings USING btree (restaurant_id, booking_date, status);
+
+
+--
+-- Name: customers_restaurant_id_user_profile_id_unique; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX customers_restaurant_id_user_profile_id_unique ON public.customers USING btree (restaurant_id, user_profile_id) WHERE (user_profile_id IS NOT NULL);
 
 
 --
@@ -7735,6 +4896,13 @@ CREATE INDEX idx_bookings_status ON public.bookings USING btree (restaurant_id, 
 
 
 --
+-- Name: idx_capacity_selector_rejections_v1_restaurant_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_capacity_selector_rejections_v1_restaurant_date ON public.capacity_selector_rejections_v1 USING btree (restaurant_id, created_at);
+
+
+--
 -- Name: idx_customer_profiles_updated_at; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7767,6 +4935,27 @@ CREATE INDEX idx_customers_phone_normalized ON public.customers USING btree (res
 --
 
 CREATE INDEX idx_customers_restaurant ON public.customers USING btree (restaurant_id);
+
+
+--
+-- Name: idx_customers_user_profile_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_customers_user_profile_id ON public.customers USING btree (user_profile_id);
+
+
+--
+-- Name: idx_demand_profiles_restaurant_day_window; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_demand_profiles_restaurant_day_window ON public.demand_profiles USING btree (restaurant_id, day_of_week, service_window);
+
+
+--
+-- Name: idx_demand_profiles_updated_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_demand_profiles_updated_at ON public.demand_profiles USING btree (updated_at);
 
 
 --
@@ -7910,6 +5099,27 @@ COMMENT ON INDEX public.idx_table_inventory_section IS 'Fast filtering by sectio
 
 
 --
+-- Name: idx_table_scarcity_metrics_computed_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_table_scarcity_metrics_computed_at ON public.table_scarcity_metrics USING btree (computed_at);
+
+
+--
+-- Name: idx_table_scarcity_metrics_restaurant_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_table_scarcity_metrics_restaurant_type ON public.table_scarcity_metrics USING btree (restaurant_id, table_type);
+
+
+--
+-- Name: idx_user_profiles_phone; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_profiles_phone ON public.user_profiles USING btree (phone);
+
+
+--
 -- Name: observability_events_created_at_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8012,90 +5222,6 @@ CREATE UNIQUE INDEX uniq_zones_restaurant_lower_name ON public.zones USING btree
 --
 
 CREATE UNIQUE INDEX zones_restaurant_name_idx ON public.zones USING btree (restaurant_id, lower(name));
-
-
---
--- Name: ix_realtime_subscription_entity; Type: INDEX; Schema: realtime; Owner: -
---
-
-CREATE INDEX ix_realtime_subscription_entity ON realtime.subscription USING btree (entity);
-
-
---
--- Name: messages_inserted_at_topic_index; Type: INDEX; Schema: realtime; Owner: -
---
-
-CREATE INDEX messages_inserted_at_topic_index ON ONLY realtime.messages USING btree (inserted_at DESC, topic) WHERE ((extension = 'broadcast'::text) AND (private IS TRUE));
-
-
---
--- Name: subscription_subscription_id_entity_filters_key; Type: INDEX; Schema: realtime; Owner: -
---
-
-CREATE UNIQUE INDEX subscription_subscription_id_entity_filters_key ON realtime.subscription USING btree (subscription_id, entity, filters);
-
-
---
--- Name: bname; Type: INDEX; Schema: storage; Owner: -
---
-
-CREATE UNIQUE INDEX bname ON storage.buckets USING btree (name);
-
-
---
--- Name: bucketid_objname; Type: INDEX; Schema: storage; Owner: -
---
-
-CREATE UNIQUE INDEX bucketid_objname ON storage.objects USING btree (bucket_id, name);
-
-
---
--- Name: idx_multipart_uploads_list; Type: INDEX; Schema: storage; Owner: -
---
-
-CREATE INDEX idx_multipart_uploads_list ON storage.s3_multipart_uploads USING btree (bucket_id, key, created_at);
-
-
---
--- Name: idx_name_bucket_level_unique; Type: INDEX; Schema: storage; Owner: -
---
-
-CREATE UNIQUE INDEX idx_name_bucket_level_unique ON storage.objects USING btree (name COLLATE "C", bucket_id, level);
-
-
---
--- Name: idx_objects_bucket_id_name; Type: INDEX; Schema: storage; Owner: -
---
-
-CREATE INDEX idx_objects_bucket_id_name ON storage.objects USING btree (bucket_id, name COLLATE "C");
-
-
---
--- Name: idx_objects_lower_name; Type: INDEX; Schema: storage; Owner: -
---
-
-CREATE INDEX idx_objects_lower_name ON storage.objects USING btree ((path_tokens[level]), lower(name) text_pattern_ops, bucket_id, level);
-
-
---
--- Name: idx_prefixes_lower_name; Type: INDEX; Schema: storage; Owner: -
---
-
-CREATE INDEX idx_prefixes_lower_name ON storage.prefixes USING btree (bucket_id, level, ((string_to_array(name, '/'::text))[level]), lower(name) text_pattern_ops);
-
-
---
--- Name: name_prefix_search; Type: INDEX; Schema: storage; Owner: -
---
-
-CREATE INDEX name_prefix_search ON storage.objects USING btree (name text_pattern_ops);
-
-
---
--- Name: objects_bucket_id_level_idx; Type: INDEX; Schema: storage; Owner: -
---
-
-CREATE UNIQUE INDEX objects_bucket_id_level_idx ON storage.objects USING btree (bucket_id, level, name COLLATE "C");
 
 
 --
@@ -8204,8 +5330,10 @@ CREATE TRIGGER set_restaurant_invites_updated_at BEFORE UPDATE ON public.restaur
 
 
 --
--- Name: table_adjacencies table_adjacencies_sync; Type: TRIGGER; Schema: public; Owner: -
+-- Name: user_profiles set_user_profiles_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
+
+CREATE TRIGGER set_user_profiles_updated_at BEFORE UPDATE ON public.user_profiles FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 
 
 --
@@ -8258,6 +5386,13 @@ CREATE TRIGGER trg_booking_status_refresh AFTER UPDATE OF status ON public.booki
 
 
 --
+-- Name: demand_profiles update_demand_profiles_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_demand_profiles_updated_at BEFORE UPDATE ON public.demand_profiles FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
 -- Name: loyalty_points update_loyalty_points_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -8283,190 +5418,6 @@ CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON public.profiles FOR E
 --
 
 CREATE TRIGGER zones_updated_at BEFORE UPDATE ON public.zones FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
-
-
---
--- Name: subscription tr_check_filters; Type: TRIGGER; Schema: realtime; Owner: -
---
-
-CREATE TRIGGER tr_check_filters BEFORE INSERT OR UPDATE ON realtime.subscription FOR EACH ROW EXECUTE FUNCTION realtime.subscription_check_filters();
-
-
---
--- Name: buckets enforce_bucket_name_length_trigger; Type: TRIGGER; Schema: storage; Owner: -
---
-
-CREATE TRIGGER enforce_bucket_name_length_trigger BEFORE INSERT OR UPDATE OF name ON storage.buckets FOR EACH ROW EXECUTE FUNCTION storage.enforce_bucket_name_length();
-
-
---
--- Name: objects objects_delete_delete_prefix; Type: TRIGGER; Schema: storage; Owner: -
---
-
-CREATE TRIGGER objects_delete_delete_prefix AFTER DELETE ON storage.objects FOR EACH ROW EXECUTE FUNCTION storage.delete_prefix_hierarchy_trigger();
-
-
---
--- Name: objects objects_insert_create_prefix; Type: TRIGGER; Schema: storage; Owner: -
---
-
-CREATE TRIGGER objects_insert_create_prefix BEFORE INSERT ON storage.objects FOR EACH ROW EXECUTE FUNCTION storage.objects_insert_prefix_trigger();
-
-
---
--- Name: objects objects_update_create_prefix; Type: TRIGGER; Schema: storage; Owner: -
---
-
-CREATE TRIGGER objects_update_create_prefix BEFORE UPDATE ON storage.objects FOR EACH ROW WHEN (((new.name <> old.name) OR (new.bucket_id <> old.bucket_id))) EXECUTE FUNCTION storage.objects_update_prefix_trigger();
-
-
---
--- Name: prefixes prefixes_create_hierarchy; Type: TRIGGER; Schema: storage; Owner: -
---
-
-CREATE TRIGGER prefixes_create_hierarchy BEFORE INSERT ON storage.prefixes FOR EACH ROW WHEN ((pg_trigger_depth() < 1)) EXECUTE FUNCTION storage.prefixes_insert_trigger();
-
-
---
--- Name: prefixes prefixes_delete_hierarchy; Type: TRIGGER; Schema: storage; Owner: -
---
-
-CREATE TRIGGER prefixes_delete_hierarchy AFTER DELETE ON storage.prefixes FOR EACH ROW EXECUTE FUNCTION storage.delete_prefix_hierarchy_trigger();
-
-
---
--- Name: objects update_objects_updated_at; Type: TRIGGER; Schema: storage; Owner: -
---
-
-CREATE TRIGGER update_objects_updated_at BEFORE UPDATE ON storage.objects FOR EACH ROW EXECUTE FUNCTION storage.update_updated_at_column();
-
-
---
--- Name: identities identities_user_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.identities
-    ADD CONSTRAINT identities_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-
---
--- Name: mfa_amr_claims mfa_amr_claims_session_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.mfa_amr_claims
-    ADD CONSTRAINT mfa_amr_claims_session_id_fkey FOREIGN KEY (session_id) REFERENCES auth.sessions(id) ON DELETE CASCADE;
-
-
---
--- Name: mfa_challenges mfa_challenges_auth_factor_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.mfa_challenges
-    ADD CONSTRAINT mfa_challenges_auth_factor_id_fkey FOREIGN KEY (factor_id) REFERENCES auth.mfa_factors(id) ON DELETE CASCADE;
-
-
---
--- Name: mfa_factors mfa_factors_user_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.mfa_factors
-    ADD CONSTRAINT mfa_factors_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-
---
--- Name: oauth_authorizations oauth_authorizations_client_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.oauth_authorizations
-    ADD CONSTRAINT oauth_authorizations_client_id_fkey FOREIGN KEY (client_id) REFERENCES auth.oauth_clients(id) ON DELETE CASCADE;
-
-
---
--- Name: oauth_authorizations oauth_authorizations_user_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.oauth_authorizations
-    ADD CONSTRAINT oauth_authorizations_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-
---
--- Name: oauth_consents oauth_consents_client_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.oauth_consents
-    ADD CONSTRAINT oauth_consents_client_id_fkey FOREIGN KEY (client_id) REFERENCES auth.oauth_clients(id) ON DELETE CASCADE;
-
-
---
--- Name: oauth_consents oauth_consents_user_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.oauth_consents
-    ADD CONSTRAINT oauth_consents_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-
---
--- Name: one_time_tokens one_time_tokens_user_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.one_time_tokens
-    ADD CONSTRAINT one_time_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-
---
--- Name: refresh_tokens refresh_tokens_session_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.refresh_tokens
-    ADD CONSTRAINT refresh_tokens_session_id_fkey FOREIGN KEY (session_id) REFERENCES auth.sessions(id) ON DELETE CASCADE;
-
-
---
--- Name: saml_providers saml_providers_sso_provider_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.saml_providers
-    ADD CONSTRAINT saml_providers_sso_provider_id_fkey FOREIGN KEY (sso_provider_id) REFERENCES auth.sso_providers(id) ON DELETE CASCADE;
-
-
---
--- Name: saml_relay_states saml_relay_states_flow_state_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.saml_relay_states
-    ADD CONSTRAINT saml_relay_states_flow_state_id_fkey FOREIGN KEY (flow_state_id) REFERENCES auth.flow_state(id) ON DELETE CASCADE;
-
-
---
--- Name: saml_relay_states saml_relay_states_sso_provider_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.saml_relay_states
-    ADD CONSTRAINT saml_relay_states_sso_provider_id_fkey FOREIGN KEY (sso_provider_id) REFERENCES auth.sso_providers(id) ON DELETE CASCADE;
-
-
---
--- Name: sessions sessions_oauth_client_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.sessions
-    ADD CONSTRAINT sessions_oauth_client_id_fkey FOREIGN KEY (oauth_client_id) REFERENCES auth.oauth_clients(id) ON DELETE CASCADE;
-
-
---
--- Name: sessions sessions_user_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.sessions
-    ADD CONSTRAINT sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-
---
--- Name: sso_domains sso_domains_sso_provider_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
---
-
-ALTER TABLE ONLY auth.sso_domains
-    ADD CONSTRAINT sso_domains_sso_provider_id_fkey FOREIGN KEY (sso_provider_id) REFERENCES auth.sso_providers(id) ON DELETE CASCADE;
 
 
 --
@@ -8574,6 +5525,14 @@ ALTER TABLE ONLY public.booking_state_history
 
 
 --
+-- Name: booking_table_assignments booking_table_assignments_allocation_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.booking_table_assignments
+    ADD CONSTRAINT booking_table_assignments_allocation_id_fkey FOREIGN KEY (allocation_id) REFERENCES public.allocations(id) ON DELETE SET NULL;
+
+
+--
 -- Name: booking_table_assignments booking_table_assignments_assigned_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8587,6 +5546,14 @@ ALTER TABLE ONLY public.booking_table_assignments
 
 ALTER TABLE ONLY public.booking_table_assignments
     ADD CONSTRAINT booking_table_assignments_booking_id_fkey FOREIGN KEY (booking_id) REFERENCES public.bookings(id) ON DELETE CASCADE;
+
+
+--
+-- Name: booking_table_assignments booking_table_assignments_merge_group_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.booking_table_assignments
+    ADD CONSTRAINT booking_table_assignments_merge_group_id_fkey FOREIGN KEY (merge_group_id) REFERENCES public.allocations(id) ON DELETE SET NULL;
 
 
 --
@@ -8619,6 +5586,14 @@ ALTER TABLE ONLY public.booking_versions
 
 ALTER TABLE ONLY public.booking_versions
     ADD CONSTRAINT booking_versions_restaurant_id_fkey FOREIGN KEY (restaurant_id) REFERENCES public.restaurants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: bookings bookings_assigned_zone_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bookings
+    ADD CONSTRAINT bookings_assigned_zone_id_fkey FOREIGN KEY (assigned_zone_id) REFERENCES public.zones(id) ON DELETE SET NULL;
 
 
 --
@@ -8667,6 +5642,22 @@ ALTER TABLE ONLY public.customer_profiles
 
 ALTER TABLE ONLY public.customers
     ADD CONSTRAINT customers_restaurant_id_fkey FOREIGN KEY (restaurant_id) REFERENCES public.restaurants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: customers customers_user_profile_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customers
+    ADD CONSTRAINT customers_user_profile_id_fkey FOREIGN KEY (user_profile_id) REFERENCES public.user_profiles(id) ON DELETE SET NULL;
+
+
+--
+-- Name: demand_profiles demand_profiles_restaurant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.demand_profiles
+    ADD CONSTRAINT demand_profiles_restaurant_id_fkey FOREIGN KEY (restaurant_id) REFERENCES public.restaurants(id) ON DELETE CASCADE;
 
 
 --
@@ -8782,6 +5773,38 @@ ALTER TABLE ONLY public.restaurant_service_periods
 
 
 --
+-- Name: strategic_configs strategic_configs_restaurant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.strategic_configs
+    ADD CONSTRAINT strategic_configs_restaurant_id_fkey FOREIGN KEY (restaurant_id) REFERENCES public.restaurants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: strategic_configs strategic_configs_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.strategic_configs
+    ADD CONSTRAINT strategic_configs_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id);
+
+
+--
+-- Name: strategic_simulation_runs strategic_simulation_runs_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.strategic_simulation_runs
+    ADD CONSTRAINT strategic_simulation_runs_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id);
+
+
+--
+-- Name: strategic_simulation_runs strategic_simulation_runs_restaurant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.strategic_simulation_runs
+    ADD CONSTRAINT strategic_simulation_runs_restaurant_id_fkey FOREIGN KEY (restaurant_id) REFERENCES public.restaurants(id) ON DELETE CASCADE;
+
+
+--
 -- Name: table_adjacencies table_adjacencies_table_a_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8886,148 +5909,28 @@ ALTER TABLE ONLY public.table_inventory
 
 
 --
+-- Name: table_scarcity_metrics table_scarcity_metrics_restaurant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.table_scarcity_metrics
+    ADD CONSTRAINT table_scarcity_metrics_restaurant_id_fkey FOREIGN KEY (restaurant_id) REFERENCES public.restaurants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_profiles user_profiles_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_profiles
+    ADD CONSTRAINT user_profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
 -- Name: zones zones_restaurant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.zones
     ADD CONSTRAINT zones_restaurant_id_fkey FOREIGN KEY (restaurant_id) REFERENCES public.restaurants(id) ON DELETE CASCADE;
 
-
---
--- Name: objects objects_bucketId_fkey; Type: FK CONSTRAINT; Schema: storage; Owner: -
---
-
-ALTER TABLE ONLY storage.objects
-    ADD CONSTRAINT "objects_bucketId_fkey" FOREIGN KEY (bucket_id) REFERENCES storage.buckets(id);
-
-
---
--- Name: prefixes prefixes_bucketId_fkey; Type: FK CONSTRAINT; Schema: storage; Owner: -
---
-
-ALTER TABLE ONLY storage.prefixes
-    ADD CONSTRAINT "prefixes_bucketId_fkey" FOREIGN KEY (bucket_id) REFERENCES storage.buckets(id);
-
-
---
--- Name: s3_multipart_uploads s3_multipart_uploads_bucket_id_fkey; Type: FK CONSTRAINT; Schema: storage; Owner: -
---
-
-ALTER TABLE ONLY storage.s3_multipart_uploads
-    ADD CONSTRAINT s3_multipart_uploads_bucket_id_fkey FOREIGN KEY (bucket_id) REFERENCES storage.buckets(id);
-
-
---
--- Name: s3_multipart_uploads_parts s3_multipart_uploads_parts_bucket_id_fkey; Type: FK CONSTRAINT; Schema: storage; Owner: -
---
-
-ALTER TABLE ONLY storage.s3_multipart_uploads_parts
-    ADD CONSTRAINT s3_multipart_uploads_parts_bucket_id_fkey FOREIGN KEY (bucket_id) REFERENCES storage.buckets(id);
-
-
---
--- Name: s3_multipart_uploads_parts s3_multipart_uploads_parts_upload_id_fkey; Type: FK CONSTRAINT; Schema: storage; Owner: -
---
-
-ALTER TABLE ONLY storage.s3_multipart_uploads_parts
-    ADD CONSTRAINT s3_multipart_uploads_parts_upload_id_fkey FOREIGN KEY (upload_id) REFERENCES storage.s3_multipart_uploads(id) ON DELETE CASCADE;
-
-
---
--- Name: audit_log_entries; Type: ROW SECURITY; Schema: auth; Owner: -
---
-
-ALTER TABLE auth.audit_log_entries ENABLE ROW LEVEL SECURITY;
-
---
--- Name: flow_state; Type: ROW SECURITY; Schema: auth; Owner: -
---
-
-ALTER TABLE auth.flow_state ENABLE ROW LEVEL SECURITY;
-
---
--- Name: identities; Type: ROW SECURITY; Schema: auth; Owner: -
---
-
-ALTER TABLE auth.identities ENABLE ROW LEVEL SECURITY;
-
---
--- Name: instances; Type: ROW SECURITY; Schema: auth; Owner: -
---
-
-ALTER TABLE auth.instances ENABLE ROW LEVEL SECURITY;
-
---
--- Name: mfa_amr_claims; Type: ROW SECURITY; Schema: auth; Owner: -
---
-
-ALTER TABLE auth.mfa_amr_claims ENABLE ROW LEVEL SECURITY;
-
---
--- Name: mfa_challenges; Type: ROW SECURITY; Schema: auth; Owner: -
---
-
-ALTER TABLE auth.mfa_challenges ENABLE ROW LEVEL SECURITY;
-
---
--- Name: mfa_factors; Type: ROW SECURITY; Schema: auth; Owner: -
---
-
-ALTER TABLE auth.mfa_factors ENABLE ROW LEVEL SECURITY;
-
---
--- Name: one_time_tokens; Type: ROW SECURITY; Schema: auth; Owner: -
---
-
-ALTER TABLE auth.one_time_tokens ENABLE ROW LEVEL SECURITY;
-
---
--- Name: refresh_tokens; Type: ROW SECURITY; Schema: auth; Owner: -
---
-
-ALTER TABLE auth.refresh_tokens ENABLE ROW LEVEL SECURITY;
-
---
--- Name: saml_providers; Type: ROW SECURITY; Schema: auth; Owner: -
---
-
-ALTER TABLE auth.saml_providers ENABLE ROW LEVEL SECURITY;
-
---
--- Name: saml_relay_states; Type: ROW SECURITY; Schema: auth; Owner: -
---
-
-ALTER TABLE auth.saml_relay_states ENABLE ROW LEVEL SECURITY;
-
---
--- Name: schema_migrations; Type: ROW SECURITY; Schema: auth; Owner: -
---
-
-ALTER TABLE auth.schema_migrations ENABLE ROW LEVEL SECURITY;
-
---
--- Name: sessions; Type: ROW SECURITY; Schema: auth; Owner: -
---
-
-ALTER TABLE auth.sessions ENABLE ROW LEVEL SECURITY;
-
---
--- Name: sso_domains; Type: ROW SECURITY; Schema: auth; Owner: -
---
-
-ALTER TABLE auth.sso_domains ENABLE ROW LEVEL SECURITY;
-
---
--- Name: sso_providers; Type: ROW SECURITY; Schema: auth; Owner: -
---
-
-ALTER TABLE auth.sso_providers ENABLE ROW LEVEL SECURITY;
-
---
--- Name: users; Type: ROW SECURITY; Schema: auth; Owner: -
---
-
-ALTER TABLE auth.users ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: bookings Admins and owners can delete bookings; Type: POLICY; Schema: public; Owner: -
@@ -9059,10 +5962,46 @@ CREATE POLICY "Customers can view their table assignments" ON public.booking_tab
 
 
 --
+-- Name: strategic_simulation_runs Ops can manage simulation runs; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Ops can manage simulation runs" ON public.strategic_simulation_runs USING ((EXISTS ( SELECT 1
+   FROM public.restaurant_memberships rm
+  WHERE ((rm.restaurant_id = strategic_simulation_runs.restaurant_id) AND (rm.user_id = auth.uid()) AND (rm.role = ANY (ARRAY['owner'::text, 'manager'::text, 'ops'::text]))))));
+
+
+--
+-- Name: strategic_configs Ops managers can manage strategic configs; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Ops managers can manage strategic configs" ON public.strategic_configs USING (((EXISTS ( SELECT 1
+   FROM public.restaurant_memberships rm
+  WHERE ((rm.restaurant_id = strategic_configs.restaurant_id) AND (rm.user_id = auth.uid()) AND (rm.role = ANY (ARRAY['owner'::text, 'manager'::text, 'ops'::text]))))) OR (restaurant_id IS NULL)));
+
+
+--
 -- Name: restaurant_memberships Owners and admins can manage memberships; Type: POLICY; Schema: public; Owner: -
 --
 
 CREATE POLICY "Owners and admins can manage memberships" ON public.restaurant_memberships USING ((restaurant_id IN ( SELECT public.user_restaurants_admin() AS user_restaurants_admin))) WITH CHECK ((restaurant_id IN ( SELECT public.user_restaurants_admin() AS user_restaurants_admin)));
+
+
+--
+-- Name: demand_profiles Owners and managers can manage demand profiles; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Owners and managers can manage demand profiles" ON public.demand_profiles USING ((EXISTS ( SELECT 1
+   FROM public.restaurant_memberships rm
+  WHERE ((rm.restaurant_id = demand_profiles.restaurant_id) AND (rm.user_id = auth.uid()) AND (rm.role = ANY (ARRAY['owner'::text, 'manager'::text]))))));
+
+
+--
+-- Name: table_scarcity_metrics Owners and managers can manage scarcity metrics; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Owners and managers can manage scarcity metrics" ON public.table_scarcity_metrics USING ((EXISTS ( SELECT 1
+   FROM public.restaurant_memberships rm
+  WHERE ((rm.restaurant_id = table_scarcity_metrics.restaurant_id) AND (rm.user_id = auth.uid()) AND (rm.role = ANY (ARRAY['owner'::text, 'manager'::text]))))));
 
 
 --
@@ -9419,6 +6358,15 @@ CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING
 
 
 --
+-- Name: demand_profiles Users can view demand profiles for their restaurants; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can view demand profiles for their restaurants" ON public.demand_profiles FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM public.restaurant_memberships rm
+  WHERE ((rm.restaurant_id = demand_profiles.restaurant_id) AND (rm.user_id = auth.uid())))));
+
+
+--
 -- Name: restaurant_memberships Users can view memberships in their restaurants; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -9430,6 +6378,33 @@ CREATE POLICY "Users can view memberships in their restaurants" ON public.restau
 --
 
 CREATE POLICY "Users can view own profile" ON public.profiles FOR SELECT USING ((auth.uid() = id));
+
+
+--
+-- Name: table_scarcity_metrics Users can view scarcity metrics for their restaurants; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can view scarcity metrics for their restaurants" ON public.table_scarcity_metrics FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM public.restaurant_memberships rm
+  WHERE ((rm.restaurant_id = table_scarcity_metrics.restaurant_id) AND (rm.user_id = auth.uid())))));
+
+
+--
+-- Name: strategic_simulation_runs Users can view simulation runs for their restaurants; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can view simulation runs for their restaurants" ON public.strategic_simulation_runs FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM public.restaurant_memberships rm
+  WHERE ((rm.restaurant_id = strategic_simulation_runs.restaurant_id) AND (rm.user_id = auth.uid())))));
+
+
+--
+-- Name: strategic_configs Users can view strategic configs for their restaurants; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can view strategic configs for their restaurants" ON public.strategic_configs FOR SELECT USING (((restaurant_id IS NULL) OR (EXISTS ( SELECT 1
+   FROM public.restaurant_memberships rm
+  WHERE ((rm.restaurant_id = strategic_configs.restaurant_id) AND (rm.user_id = auth.uid()))))));
 
 
 --
@@ -9512,6 +6487,12 @@ ALTER TABLE public.customer_profiles ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: demand_profiles; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.demand_profiles ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: loyalty_point_events; Type: ROW SECURITY; Schema: public; Owner: -
@@ -9642,6 +6623,18 @@ CREATE POLICY service_role_read_all ON public.restaurants FOR SELECT TO service_
 
 
 --
+-- Name: strategic_configs; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.strategic_configs ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: strategic_simulation_runs; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.strategic_simulation_runs ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: stripe_events; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -9672,120 +6665,20 @@ ALTER TABLE public.table_holds ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.table_inventory ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: table_scarcity_metrics; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.table_scarcity_metrics ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: zones; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.zones ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: messages; Type: ROW SECURITY; Schema: realtime; Owner: -
---
-
-ALTER TABLE realtime.messages ENABLE ROW LEVEL SECURITY;
-
---
--- Name: buckets; Type: ROW SECURITY; Schema: storage; Owner: -
---
-
-ALTER TABLE storage.buckets ENABLE ROW LEVEL SECURITY;
-
---
--- Name: buckets_analytics; Type: ROW SECURITY; Schema: storage; Owner: -
---
-
-ALTER TABLE storage.buckets_analytics ENABLE ROW LEVEL SECURITY;
-
---
--- Name: migrations; Type: ROW SECURITY; Schema: storage; Owner: -
---
-
-ALTER TABLE storage.migrations ENABLE ROW LEVEL SECURITY;
-
---
--- Name: objects; Type: ROW SECURITY; Schema: storage; Owner: -
---
-
-ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
-
---
--- Name: prefixes; Type: ROW SECURITY; Schema: storage; Owner: -
---
-
-ALTER TABLE storage.prefixes ENABLE ROW LEVEL SECURITY;
-
---
--- Name: s3_multipart_uploads; Type: ROW SECURITY; Schema: storage; Owner: -
---
-
-ALTER TABLE storage.s3_multipart_uploads ENABLE ROW LEVEL SECURITY;
-
---
--- Name: s3_multipart_uploads_parts; Type: ROW SECURITY; Schema: storage; Owner: -
---
-
-ALTER TABLE storage.s3_multipart_uploads_parts ENABLE ROW LEVEL SECURITY;
-
---
--- Name: supabase_realtime; Type: PUBLICATION; Schema: -; Owner: -
---
-
-CREATE PUBLICATION supabase_realtime WITH (publish = 'insert, update, delete, truncate');
-
-
---
--- Name: issue_graphql_placeholder; Type: EVENT TRIGGER; Schema: -; Owner: -
---
-
-CREATE EVENT TRIGGER issue_graphql_placeholder ON sql_drop
-         WHEN TAG IN ('DROP EXTENSION')
-   EXECUTE FUNCTION extensions.set_graphql_placeholder();
-
-
---
--- Name: issue_pg_cron_access; Type: EVENT TRIGGER; Schema: -; Owner: -
---
-
-CREATE EVENT TRIGGER issue_pg_cron_access ON ddl_command_end
-         WHEN TAG IN ('CREATE EXTENSION')
-   EXECUTE FUNCTION extensions.grant_pg_cron_access();
-
-
---
--- Name: issue_pg_graphql_access; Type: EVENT TRIGGER; Schema: -; Owner: -
---
-
-CREATE EVENT TRIGGER issue_pg_graphql_access ON ddl_command_end
-         WHEN TAG IN ('CREATE FUNCTION')
-   EXECUTE FUNCTION extensions.grant_pg_graphql_access();
-
-
---
--- Name: issue_pg_net_access; Type: EVENT TRIGGER; Schema: -; Owner: -
---
-
-CREATE EVENT TRIGGER issue_pg_net_access ON ddl_command_end
-         WHEN TAG IN ('CREATE EXTENSION')
-   EXECUTE FUNCTION extensions.grant_pg_net_access();
-
-
---
--- Name: pgrst_ddl_watch; Type: EVENT TRIGGER; Schema: -; Owner: -
---
-
-CREATE EVENT TRIGGER pgrst_ddl_watch ON ddl_command_end
-   EXECUTE FUNCTION extensions.pgrst_ddl_watch();
-
-
---
--- Name: pgrst_drop_watch; Type: EVENT TRIGGER; Schema: -; Owner: -
---
-
-CREATE EVENT TRIGGER pgrst_drop_watch ON sql_drop
-   EXECUTE FUNCTION extensions.pgrst_drop_watch();
-
-
---
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Mt0Jt4aIZPJ3GjqSDoPEqLBxg6pc5O6UMFz8IC1bdy13EjZ9c0wb6sWkG8MxtRM
+\unrestrict mXExBCr5fo0ca01PVodAj2Jdmb2m2WSHtj3MaaP13cn7iJ5jGBOvmc88lR68cjx
+

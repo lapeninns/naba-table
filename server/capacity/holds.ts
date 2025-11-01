@@ -658,9 +658,9 @@ export async function confirmTableHold(input: ConfirmTableHoldInput): Promise<Co
   const { data, error } = await supabase.rpc("assign_tables_atomic_v2", {
     p_booking_id: bookingId,
     p_table_ids: tableIds,
-    p_idempotency_key: idempotencyKey,
+    p_idempotency_key: idempotencyKey ?? undefined,
     p_require_adjacency: requireAdjacency,
-    p_assigned_by: assignedBy,
+    p_assigned_by: assignedBy ?? undefined,
     p_start_at: effectiveStartAt,
     p_end_at: effectiveEndAt,
   });

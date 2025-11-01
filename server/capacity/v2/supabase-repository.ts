@@ -169,13 +169,13 @@ export class SupabaseAssignmentRepository implements AssignmentRepository {
       p_end_at: plan.endAt,
     };
 
-    const { data, error } = await supabase.rpc<AssignTablesAtomicRow[]>("assign_tables_atomic_v2", payload);
+    const { data, error } = await supabase.rpc("assign_tables_atomic_v2", payload);
 
     if (error) {
       translateSupabaseError({ error, request });
     }
 
-    const rows = data ?? [];
+    const rows = (data ?? []) as AssignTablesAtomicRow[];
     const assignments: AssignmentRecord[] = rows.map((row) => ({
       tableId: row.table_id,
       startAt: row.start_at,
