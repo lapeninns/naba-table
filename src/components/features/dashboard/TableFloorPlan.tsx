@@ -19,6 +19,8 @@ type TableFloorPlanProps = {
   selectedTableIds: string[];
   onToggle: (tableId: string) => void;
   disabled?: boolean;
+  /** When true, hide tables that are unavailable for the current window (conflicts/holds/inactive). */
+  onlyAvailable?: boolean;
   className?: string;
 };
 
@@ -209,15 +211,37 @@ export const TableFloorPlan = memo(function TableFloorPlan({
   selectedTableIds,
   onToggle,
   disabled = false,
+  onlyAvailable = false,
   className,
 }: TableFloorPlanProps) {
   const bookingAssignmentSet = useMemo(() => new Set(bookingAssignments), [bookingAssignments]);
   const selectionSet = useMemo(() => new Set(selectedTableIds), [selectedTableIds]);
+  const conflictTableIds = useMemo(() => new Set(conflicts.map((c) => c.tableId)), [conflicts]);
 
-  const { positioned, unpositioned } = useMemo(
-    () => computeLayout(bookingId, tables, holds, conflicts, bookingAssignmentSet, selectionSet),
-    [bookingId, tables, holds, conflicts, bookingAssignmentSet, selectionSet],
-  );
+  const { positioned, unpositioned } = useMemo(() => {
+    const computed = computeLayout(bookingId, tables, holds, conflicts, bookingAssignmentSet, selectionSet);
+    if (!onlyAvailable) return computed;
+
+    const filteredPositioned = computed.positioned.filter((entry) => {
+      // Keep always-visible: assigned to this booking or held by this booking
+      if (entry.isAssignedToBooking || entry.holdOwned) return true;
+      // Filter out inactive, held by others, or conflicting
+      return !entry.isInactive && !entry.holdOther && entry.conflicts.length === 0;
+    });
+
+    const filteredUnpositioned = computed.unpositioned.filter((table) => {
+      const isInactive = !table.active || (table.status ? table.status !== 'available' : false);
+      const tableHolds = holds.filter((hold) => hold.tableIds.includes(table.id));
+      const holdOwned = tableHolds.find((hold) => hold.bookingId === bookingId) ?? null;
+      const holdOther = tableHolds.find((hold) => hold.bookingId && hold.bookingId !== bookingId) ?? null;
+      const assigned = bookingAssignmentSet.has(table.id);
+      if (assigned || holdOwned) return true;
+      if (isInactive || holdOther) return false;
+      return !conflictTableIds.has(table.id);
+    });
+
+    return { positioned: filteredPositioned, unpositioned: filteredUnpositioned };
+  }, [bookingId, tables, holds, conflicts, bookingAssignmentSet, selectionSet, onlyAvailable, conflictTableIds]);
 
   const groupedUnpositioned = useMemo(() => {
     const groups = new Map<
@@ -316,7 +340,13 @@ export const TableFloorPlan = memo(function TableFloorPlan({
                     const isSelected = selectionSet.has(table.id);
                     const tableHolds = holds.filter((hold) => hold.tableIds.includes(table.id));
                     const holdOther = tableHolds.find((hold) => hold.bookingId && hold.bookingId !== bookingId);
-                    const isBlocked = disabled || !table.active || (table.status && table.status !== 'available') || Boolean(holdOther);
+                    const hasConflict = conflictTableIds.has(table.id);
+                    const isBlocked =
+                      disabled ||
+                      !table.active ||
+                      (table.status && table.status !== 'available') ||
+                      Boolean(holdOther) ||
+                      hasConflict;
 
                     return (
                       <button

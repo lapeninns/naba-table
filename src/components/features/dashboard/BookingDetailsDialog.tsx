@@ -18,6 +18,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { useBookingState } from '@/contexts/booking-state-machine';
 import { useBookingService } from '@/contexts/ops-services';
 import { useManualAssignmentContext } from '@/hooks/ops/useManualAssignmentContext';
@@ -144,6 +146,7 @@ export function BookingDetailsDialog({
   const [localPendingAction, setLocalPendingAction] = useState<BookingAction | null>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [activeTab, setActiveTab] = useState<BookingDetailsTab>('overview');
+  const [onlyAvailable, setOnlyAvailable] = useState(true);
   const lifecycleAvailability = useMemo(
     () => ({ isToday: getTodayInTimezone(summary.timezone) === summary.date }),
     [summary.date, summary.timezone],
@@ -911,12 +914,23 @@ export function BookingDetailsDialog({
               <TabsContent value="tables" className="focus-visible:outline-none">
                 <div className="space-y-6">
                   <section className="space-y-6 rounded-2xl border border-border/60 bg-muted/10 px-4 py-5">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
                         <h3 className="text-sm font-semibold text-foreground">Manual assignment</h3>
                         <p className="text-xs text-muted-foreground">
                           Choose tables on the floor plan, review checks, then confirm to lock them in.
                         </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="only-available-switch" className="text-xs text-muted-foreground">
+                          Only show available
+                        </Label>
+                        <Switch
+                          id="only-available-switch"
+                          checked={onlyAvailable}
+                          onCheckedChange={setOnlyAvailable}
+                          aria-label="Toggle only showing available tables"
+                        />
                       </div>
                     </div>
 
@@ -936,6 +950,7 @@ export function BookingDetailsDialog({
                             bookingAssignments={manualContext?.bookingAssignments ?? []}
                             selectedTableIds={selectedTables}
                             onToggle={handleToggleTable}
+                            onlyAvailable={onlyAvailable}
                             disabled={selectionDisabled}
                           />
                           {manualContextLoading || manualContextFetching ? (

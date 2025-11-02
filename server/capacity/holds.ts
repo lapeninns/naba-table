@@ -58,23 +58,9 @@ export type ReleaseTableHoldInput = {
   client?: DbClient;
 };
 
-export type ConfirmTableHoldInput = {
-  holdId: string;
-  bookingId: string;
-  idempotencyKey?: string | null;
-  requireAdjacency?: boolean;
-  assignedBy?: string | null;
-  startAt?: string | null;
-  endAt?: string | null;
-  client?: DbClient;
-};
-
-export type ConfirmedAssignment = {
-  tableId: string;
-  startAt: string;
-  endAt: string;
-  mergeGroupId: string | null;
-};
+// Legacy confirmTableHold path has been removed in favor of the
+// allocator v2 flow implemented in server/capacity/tables.ts
+// (confirmHoldAssignment). Keeping error classes below for reuse.
 
 export type FindHoldConflictsInput = {
   restaurantId: string;
@@ -181,13 +167,6 @@ type HoldRowWithMembers = Tables<"table_holds"> & {
   table_hold_members?: unknown;
 };
 
-type AssignTablesRowPayload = {
-  table_id?: unknown;
-  start_at?: unknown;
-  end_at?: unknown;
-  merge_group_id?: unknown;
-};
-
 function extractTableIdsFromMembers(members: unknown): string[] {
   if (!Array.isArray(members)) {
     return [];
@@ -203,37 +182,6 @@ function extractTableIdsFromMembers(members: unknown): string[] {
       return typeof tableId === "string" ? tableId : null;
     })
     .filter((tableId): tableId is string => tableId !== null);
-}
-
-function mapAssignments(payload: unknown): ConfirmedAssignment[] {
-  if (!Array.isArray(payload)) {
-    return [];
-  }
-
-  return payload
-    .map((row) => {
-      if (!row || typeof row !== "object") {
-        return null;
-      }
-
-      const record = row as AssignTablesRowPayload;
-      if (
-        typeof record.table_id !== "string" ||
-        typeof record.start_at !== "string" ||
-        typeof record.end_at !== "string"
-      ) {
-        return null;
-      }
-
-      const mergeGroupId = record.merge_group_id;
-      return {
-        tableId: record.table_id,
-        startAt: record.start_at,
-        endAt: record.end_at,
-        mergeGroupId: typeof mergeGroupId === "string" ? mergeGroupId : null,
-      } satisfies ConfirmedAssignment;
-    })
-    .filter((assignment): assignment is ConfirmedAssignment => assignment !== null);
 }
 
 function intervalsOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
@@ -607,94 +555,7 @@ async function findHoldConflictsLegacy(params: {
   return conflicts;
 }
 
-export async function confirmTableHold(input: ConfirmTableHoldInput): Promise<ConfirmedAssignment[]> {
-  const {
-    holdId,
-    bookingId,
-    idempotencyKey = null,
-    requireAdjacency = false,
-    assignedBy = null,
-    startAt = null,
-    endAt = null,
-    client,
-  } = input;
-  const supabase = ensureClient(client);
-  await configureHoldStrictConflictSession(supabase);
-
-  const { data: holdRow, error: holdError } = await supabase
-    .from("table_holds")
-    .select("*, table_hold_members(table_id)")
-    .eq("id", holdId)
-    .maybeSingle();
-
-  if (holdError) {
-    throw new HoldNotFoundError(holdError.message ?? "Failed to load hold");
-  }
-
-  if (!holdRow) {
-    throw new HoldNotFoundError();
-  }
-
-  if (holdRow.booking_id && holdRow.booking_id !== bookingId) {
-    throw new HoldConflictError("Hold is linked to a different booking", holdId);
-  }
-
-  const tableIds = (holdRow.table_hold_members ?? []).map((member: { table_id: string }) => member.table_id);
-  if (tableIds.length === 0) {
-    throw new HoldConflictError("Hold has no tables", holdId);
-  }
-
-  const effectiveStartAt = startAt ?? holdRow.start_at ?? null;
-  const effectiveEndAt = endAt ?? holdRow.end_at ?? null;
-
-  if (!effectiveStartAt || !effectiveEndAt) {
-    throw new AssignTablesRpcError({
-      message: "Unable to resolve assignment window for table hold",
-      details: null,
-      hint: null,
-    });
-  }
-
-  const { data, error } = await supabase.rpc("assign_tables_atomic_v2", {
-    p_booking_id: bookingId,
-    p_table_ids: tableIds,
-    p_idempotency_key: idempotencyKey ?? undefined,
-    p_require_adjacency: requireAdjacency,
-    p_assigned_by: assignedBy ?? undefined,
-    p_start_at: effectiveStartAt,
-    p_end_at: effectiveEndAt,
-  });
-
-  if (error) {
-    const { emitRpcConflict } = await import("./telemetry");
-    await emitRpcConflict({
-      source: "confirm_table_hold",
-      bookingId,
-      restaurantId: holdRow.restaurant_id,
-      tableIds,
-      idempotencyKey,
-      holdId,
-      error: {
-        code: error.code ?? null,
-        message: error.message ?? "assign_tables_atomic_v2 failed",
-        details: error.details ?? null,
-        hint: error.hint ?? null,
-      },
-    });
-    throw new AssignTablesRpcError({
-      message: error.message ?? "assign_tables_atomic_v2 failed",
-      code: error.code,
-      details: error.details,
-      hint: error.hint,
-    });
-  }
-
-  const assignments = mapAssignments(data);
-
-  await supabase.from("table_holds").delete().eq("id", holdId);
-
-  return assignments;
-}
+// Legacy confirmTableHold removed. See confirmHoldAssignment in tables.ts (allocator v2).
 
 export async function sweepExpiredHolds(input?: SweepExpiredHoldsInput): Promise<SweepExpiredHoldsResult> {
   const { now, limit = 100, client } = input ?? {};
