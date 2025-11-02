@@ -212,6 +212,51 @@ export type Database = {
         }
         Relationships: []
       }
+      capacity_outbox: {
+        Row: {
+          id: string
+          created_at: string
+          updated_at: string
+          status: string
+          event_type: string
+          dedupe_key: string | null
+          attempt_count: number
+          next_attempt_at: string | null
+          restaurant_id: string | null
+          booking_id: string | null
+          idempotency_key: string | null
+          payload: Json
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          updated_at?: string
+          status?: string
+          event_type: string
+          dedupe_key?: string | null
+          attempt_count?: number
+          next_attempt_at?: string | null
+          restaurant_id?: string | null
+          booking_id?: string | null
+          idempotency_key?: string | null
+          payload?: Json
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          updated_at?: string
+          status?: string
+          event_type?: string
+          dedupe_key?: string | null
+          attempt_count?: number
+          next_attempt_at?: string | null
+          restaurant_id?: string | null
+          booking_id?: string | null
+          idempotency_key?: string | null
+          payload?: Json
+        }
+        Relationships: []
+      }
       booking_assignment_idempotency: {
         Row: {
           assignment_window: unknown
@@ -1866,6 +1911,116 @@ export type Database = {
           },
         ]
       }
+      merge_rules: {
+        Row: {
+          id: string
+          from_a: number
+          from_b: number
+          to_capacity: number
+          enabled: boolean
+          require_same_zone: boolean
+          require_adjacency: boolean
+          cross_category_merge: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          from_a: number
+          from_b: number
+          to_capacity: number
+          enabled?: boolean
+          require_same_zone?: boolean
+          require_adjacency?: boolean
+          cross_category_merge?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          from_a?: number
+          from_b?: number
+          to_capacity?: number
+          enabled?: boolean
+          require_same_zone?: boolean
+          require_adjacency?: boolean
+          cross_category_merge?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      waiting_list: {
+        Row: {
+          id: string
+          restaurant_id: string
+          booking_date: string
+          desired_time: string
+          party_size: number
+          seating_preference: Database["public"]["Enums"]["seating_preference_type"]
+          customer_name: string
+          customer_email: string
+          customer_phone: string | null
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          restaurant_id: string
+          booking_date: string
+          desired_time: string
+          party_size: number
+          seating_preference?: Database["public"]["Enums"]["seating_preference_type"]
+          customer_name: string
+          customer_email: string
+          customer_phone?: string | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          restaurant_id?: string
+          booking_date?: string
+          desired_time?: string
+          party_size?: number
+          seating_preference?: Database["public"]["Enums"]["seating_preference_type"]
+          customer_name?: string
+          customer_email?: string
+          customer_phone?: string | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "waiting_list_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      leads: {
+        Row: {
+          id: string
+          email: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          email: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          email?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       capacity_selector_rejections_v1: {
@@ -1882,6 +2037,19 @@ export type Database = {
         }
         Relationships: []
       }
+      current_bookings: {
+        Row: {
+          id: string | null
+          restaurant_id: string | null
+          start_at: string | null
+          end_at: string | null
+          party_size: number | null
+          status: Database["public"]["Enums"]["booking_status"] | null
+          notes: string | null
+          customer_email: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       allocations_overlap: {
@@ -1891,10 +2059,10 @@ export type Database = {
       apply_booking_state_transition: {
         Args: {
           p_booking_id: string
-          p_checked_in_at: string
-          p_checked_out_at: string
+          p_checked_in_at: string | null
+          p_checked_out_at: string | null
           p_history_changed_at: string
-          p_history_changed_by: string
+          p_history_changed_by: string | null
           p_history_from: Database["public"]["Enums"]["booking_status"]
           p_history_metadata?: Json
           p_history_reason: string
@@ -1986,6 +2154,13 @@ export type Database = {
           status: Database["public"]["Enums"]["booking_status"]
           total: number
         }[]
+      }
+      get_guest_bookings: {
+        Args: {
+          p_restaurant_id: string
+          p_hash: string
+        }
+        Returns: Json
       }
       create_booking_with_capacity_check: {
         Args: {

@@ -151,9 +151,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     p_updated_at: finalUpdatedAt,
     p_history_from: historyRecord.from_status ?? bookingRow.status,
     p_history_to: historyRecord.to_status,
-    p_history_changed_by: historyRecord.changed_by,
-    p_history_changed_at: historyRecord.changed_at,
-    p_history_reason: historyRecord.reason,
+    p_history_changed_by: historyRecord.changed_by ?? null,
+    p_history_changed_at: historyRecord.changed_at ?? finalUpdatedAt,
+    p_history_reason: historyRecord.reason ?? "status_change",
     p_history_metadata: historyRecord.metadata ?? {},
   });
 

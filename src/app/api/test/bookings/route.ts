@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { guardTestEndpoint } from '@/server/security/test-endpoints';
 import { getDefaultRestaurantId, getServiceSupabaseClient } from '@/server/supabase';
+import type { TablesInsert } from '@/types/supabase';
 
 import type { NextRequest} from 'next/server';
 
@@ -98,7 +99,8 @@ export async function POST(req: NextRequest) {
     customerId = createdCustomer.data.id;
   }
 
-  const bookingInsert = {
+  const { data: referenceRpc } = await service.rpc('generate_booking_reference');
+  const bookingInsert: TablesInsert<'bookings'> = {
     restaurant_id: restaurantId,
     customer_id: customerId,
     booking_date: isoDate,
@@ -114,6 +116,7 @@ export async function POST(req: NextRequest) {
     customer_email: normalizedEmail,
     customer_phone: phone,
     notes: notes ?? 'Seeded via Playwright test',
+    reference: referenceRpc ?? `TEST-${randomUUID().slice(0, 8).toUpperCase()}`,
     source: 'playwright.test',
     loyalty_points_awarded: 0,
     client_request_id: randomUUID(),

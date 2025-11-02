@@ -2,7 +2,7 @@ import { emitHoldConfirmed } from "@/server/capacity/telemetry";
 import { recordObservabilityEvent } from "@/server/observability";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
-import type { Database } from "@/types/supabase";
+import type { Database, Json } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type DbClient = SupabaseClient<Database, "public">;
@@ -29,7 +29,7 @@ export async function enqueueOutboxEvent(params: EnqueueParams): Promise<void> {
       booking_id: bookingId ?? null,
       idempotency_key: idempotencyKey ?? null,
       dedupe_key: dedupeKey ?? null,
-      payload: payload as Record<string, unknown>,
+      payload: payload as Json,
       status: "pending",
     };
     // Upsert on dedupe_key + event_type uniqueness
@@ -50,7 +50,7 @@ type OutboxRow = {
   restaurant_id: string | null;
   booking_id: string | null;
   idempotency_key: string | null;
-  payload: Record<string, unknown>;
+  payload: Json;
 };
 
 function computeBackoffMs(attempt: number): number {

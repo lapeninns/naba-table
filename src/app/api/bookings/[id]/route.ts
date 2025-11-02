@@ -567,7 +567,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     const { data, error } = await serviceSupabase
       .from("bookings")
       .select(
-        "id,restaurant_id,booking_date,start_time,end_time,start_at,end_at,slot,reference,party_size,booking_type,seating_preference,status,customer_name,customer_email,customer_phone,notes,marketing_opt_in,loyalty_points_awarded,client_request_id,pending_ref,idempotency_key,details,created_at,updated_at",
+        "id,restaurant_id,booking_date,start_time,end_time,start_at,end_at,reference,party_size,booking_type,seating_preference,status,customer_name,customer_email,customer_phone,notes,marketing_opt_in,loyalty_points_awarded,client_request_id,pending_ref,idempotency_key,details,created_at,updated_at",
       )
       .eq("id", bookingId)
       .maybeSingle();

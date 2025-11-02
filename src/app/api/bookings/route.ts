@@ -752,16 +752,22 @@ async function handleMyBookings(req: NextRequest) {
   }
 
   const client = getServiceSupabaseClient();
-  const relation: "bookings" | "current_bookings" =
-    params.status === "active" ? "current_bookings" : "bookings";
-
-  let query = client
-    .from(relation)
-    .select(
-      "id, restaurant_id, start_at, end_at, party_size, status, notes, restaurants(id, name, slug, timezone, reservation_interval_minutes)",
-      { count: "exact" },
-    )
-    .eq("customer_email", email);
+  let query =
+    params.status === "active"
+      ? client
+          .from("current_bookings")
+          .select(
+            "id, restaurant_id, start_at, end_at, party_size, status, notes, restaurants(id, name, slug, timezone, reservation_interval_minutes)",
+            { count: "exact" },
+          )
+          .eq("customer_email", email)
+      : client
+          .from("bookings")
+          .select(
+            "id, restaurant_id, start_at, end_at, party_size, status, notes, restaurants(id, name, slug, timezone, reservation_interval_minutes)",
+            { count: "exact" },
+          )
+          .eq("customer_email", email);
 
   if (params.restaurantId) {
     query = query.eq("restaurant_id", params.restaurantId);
