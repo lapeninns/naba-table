@@ -1,12 +1,13 @@
 import { isAllocatorV2Enabled, isAllocatorV2ShadowMode, isAllocatorV2ForceLegacy } from "@/server/feature-flags";
 
-import { AssignmentRepository } from "./repository";
 import {
   AssignmentConflictError,
   AssignmentRepositoryError,
   AssignmentValidationError,
 } from "./errors";
 import { NoopAssignmentRepository } from "./supabase-repository";
+
+import type { AssignmentRepository } from "./repository";
 import type {
   AssignmentCommitRequest,
   AssignmentCommitResponse,

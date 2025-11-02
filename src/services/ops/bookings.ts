@@ -198,6 +198,7 @@ type ConfirmHoldInput = {
   bookingId: string;
   idempotencyKey: string;
   requireAdjacency?: boolean;
+  contextVersion?: string;
 };
 
 type ConfirmHoldAssignment = {
@@ -237,6 +238,7 @@ export type ManualValidationResult = {
   ok: boolean;
   checks: ManualSelectionCheck[];
   summary: ManualSelectionSummary;
+  policyVersion?: string;
 };
 
 export type ManualHoldSummary = {
@@ -259,6 +261,7 @@ export type ManualSelectionPayload = {
   tableIds: string[];
   requireAdjacency?: boolean;
   excludeHoldId?: string;
+  contextVersion: string;
 };
 
 export type ManualHoldPayload = ManualSelectionPayload & {
@@ -324,6 +327,8 @@ export type ManualAssignmentContext = {
     startAt: string | null;
     endAt: string | null;
   };
+  contextVersion?: string;
+  serverNow?: string | null;
 };
 
 export type ManualReleaseHoldPayload = {
@@ -410,6 +415,16 @@ function createIdempotencyKey(): string {
     }
   }
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+async function fetchContextVersion(bookingId: string): Promise<string | null> {
+  try {
+    const params = new URLSearchParams({ bookingId });
+    const res = await fetchJson<ManualAssignmentContext>(`${STAFF_MANUAL_BASE}/context?${params.toString()}`);
+    return res?.contextVersion ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export function createBrowserBookingService(): BookingService {
@@ -549,11 +564,15 @@ export function createBrowserBookingService(): BookingService {
         body: JSON.stringify(payload),
       });
     },
-    async confirmHoldAssignment({ holdId, bookingId, idempotencyKey, requireAdjacency }) {
+    async confirmHoldAssignment({ holdId, bookingId, idempotencyKey, requireAdjacency, contextVersion }) {
+      if (!contextVersion) {
+        contextVersion = await fetchContextVersion(bookingId) ?? '';
+      }
       const payload: Record<string, unknown> = {
         holdId,
         bookingId,
         idempotencyKey,
+        contextVersion,
       };
       if (typeof requireAdjacency === 'boolean') payload.requireAdjacency = requireAdjacency;
 
@@ -563,10 +582,14 @@ export function createBrowserBookingService(): BookingService {
         body: JSON.stringify(payload),
       });
     },
-    async manualValidateSelection({ bookingId, tableIds, requireAdjacency, excludeHoldId }) {
+    async manualValidateSelection({ bookingId, tableIds, requireAdjacency, excludeHoldId, contextVersion }) {
+      if (!contextVersion) {
+        contextVersion = await fetchContextVersion(bookingId) ?? '';
+      }
       const payload: Record<string, unknown> = {
         bookingId,
         tableIds,
+        contextVersion,
       };
       if (typeof requireAdjacency === 'boolean') payload.requireAdjacency = requireAdjacency;
       if (excludeHoldId) payload.excludeHoldId = excludeHoldId;
@@ -577,10 +600,14 @@ export function createBrowserBookingService(): BookingService {
         body: JSON.stringify(payload),
       });
     },
-    async manualHoldSelection({ bookingId, tableIds, requireAdjacency, excludeHoldId, holdTtlSeconds }) {
+    async manualHoldSelection({ bookingId, tableIds, requireAdjacency, excludeHoldId, holdTtlSeconds, contextVersion }) {
+      if (!contextVersion) {
+        contextVersion = await fetchContextVersion(bookingId) ?? '';
+      }
       const payload: Record<string, unknown> = {
         bookingId,
         tableIds,
+        contextVersion,
       };
       if (typeof requireAdjacency === 'boolean') payload.requireAdjacency = requireAdjacency;
       if (excludeHoldId) payload.excludeHoldId = excludeHoldId;
@@ -592,11 +619,15 @@ export function createBrowserBookingService(): BookingService {
         body: JSON.stringify(payload),
       });
     },
-    async manualConfirmHold({ holdId, bookingId, idempotencyKey, requireAdjacency }) {
+    async manualConfirmHold({ holdId, bookingId, idempotencyKey, requireAdjacency, contextVersion }) {
+      if (!contextVersion) {
+        contextVersion = await fetchContextVersion(bookingId) ?? '';
+      }
       const payload: Record<string, unknown> = {
         holdId,
         bookingId,
         idempotencyKey,
+        contextVersion,
       };
       if (typeof requireAdjacency === 'boolean') payload.requireAdjacency = requireAdjacency;
 

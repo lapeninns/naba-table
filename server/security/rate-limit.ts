@@ -83,7 +83,7 @@ function now(): number {
   return Date.now();
 }
 
-function useMemoryStore(params: RateLimitParams): RateLimitResult {
+function memoryStoreRateLimit(params: RateLimitParams): RateLimitResult {
   if (shouldBypassRateLimit) {
     const resetAt = now() + params.windowMs;
     return {
@@ -142,7 +142,7 @@ export async function consumeRateLimit(params: RateLimitParams): Promise<RateLim
 
   const redis = getRedisClient();
   if (!redis) {
-    return useMemoryStore(params);
+    return memoryStoreRateLimit(params);
   }
 
   const current = now();
@@ -156,7 +156,7 @@ export async function consumeRateLimit(params: RateLimitParams): Promise<RateLim
 
     if (Number.isNaN(count)) {
       console.error("[rate-limit] redis incr returned non-numeric value", countResult);
-      return useMemoryStore(params);
+      return memoryStoreRateLimit(params);
     }
 
     if (count === 1) {
@@ -178,6 +178,6 @@ export async function consumeRateLimit(params: RateLimitParams): Promise<RateLim
     };
   } catch (error) {
     console.error("[rate-limit] redis pipeline failed", error);
-    return useMemoryStore(params);
+    return memoryStoreRateLimit(params);
   }
 }

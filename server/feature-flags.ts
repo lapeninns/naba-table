@@ -143,3 +143,28 @@ export function isAdjacencyQueryUndirected(): boolean {
   const defaultValue = env.featureFlags.adjacency?.queryUndirected ?? true;
   return resolveFeatureFlag("adjacency.query.undirected", defaultValue);
 }
+
+export function getContextQueryPaddingMinutes(): number {
+  // Narrow context queries to +/- X minutes around booking window
+  // Defaults to 60 minutes if not configured
+  const value = env.featureFlags.context?.queryPaddingMinutes;
+  if (typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 240) {
+    return Math.floor(value);
+  }
+  return 60;
+}
+
+export function getHoldMinTtlSeconds(): number {
+  const value = env.featureFlags.holds?.minTtlSeconds ?? 60;
+  return Math.max(1, Math.min(value, 3600));
+}
+
+export function getHoldRateWindowSeconds(): number {
+  const value = env.featureFlags.holds?.rate?.windowSeconds ?? 60;
+  return Math.max(5, Math.min(value, 3600));
+}
+
+export function getHoldRateMaxPerBooking(): number {
+  const value = env.featureFlags.holds?.rate?.maxPerBooking ?? 5;
+  return Math.max(1, Math.min(value, 100));
+}

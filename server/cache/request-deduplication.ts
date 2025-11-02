@@ -6,12 +6,7 @@ export function deduplicate<T>(key: string, factory: () => Promise<T>): Promise<
     return existing;
   }
 
-  let created: Promise<T>;
-  try {
-    created = Promise.resolve(factory());
-  } catch (error) {
-    throw error;
-  }
+  const created = Promise.resolve(factory());
 
   const tracked = created.finally(() => {
     pendingRequests.delete(key);

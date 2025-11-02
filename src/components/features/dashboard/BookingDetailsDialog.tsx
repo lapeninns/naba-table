@@ -147,6 +147,8 @@ export function BookingDetailsDialog({
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [activeTab, setActiveTab] = useState<BookingDetailsTab>('overview');
   const [onlyAvailable, setOnlyAvailable] = useState(true);
+  const [staleContext, setStaleContext] = useState(false);
+  const [lastApiError, setLastApiError] = useState<null | { scope: 'validate'|'hold'|'confirm', code: string | null, message: string, details?: any }>(null);
   const lifecycleAvailability = useMemo(
     () => ({ isToday: getTodayInTimezone(summary.timezone) === summary.date }),
     [summary.date, summary.timezone],
@@ -188,6 +190,7 @@ export function BookingDetailsDialog({
   const holdMutation = useMutation({
     mutationFn: (payload: ManualHoldPayload) => bookingService.manualHoldSelection(payload),
     onSuccess: (result) => {
+      setStaleContext(false);
       setValidationResult(result.validation);
       setLastValidatedAt(Date.now());
       const holdKey = result.hold ? result.hold.tableIds.slice().sort().join(',') : null;
@@ -200,6 +203,10 @@ export function BookingDetailsDialog({
       }
     },
     onError: async (error, variables) => {
+      if ((error as any)?.code === 'STALE_CONTEXT') {
+        setStaleContext(true);
+        return;
+      }
       if (isManualHoldValidationError(error)) {
         const validation = extractManualHoldValidation(error);
         if (validation) {
@@ -211,6 +218,7 @@ export function BookingDetailsDialog({
               tableIds: variables.tableIds,
               requireAdjacency: variables.requireAdjacency,
               excludeHoldId: variables.excludeHoldId,
+              contextVersion: manualContext?.contextVersion ?? '',
             });
             setValidationResult(result);
           } catch (validationError) {
@@ -227,20 +235,39 @@ export function BookingDetailsDialog({
         return;
       }
 
+      const code = (error as any)?.code ?? null;
+      const rawDetails = (error as any)?.details ?? null;
+      let details: any = rawDetails;
+      if (typeof rawDetails === 'string') {
+        try { details = JSON.parse(rawDetails); } catch { /* ignore */ }
+      }
       const message = error instanceof Error ? error.message : 'Unable to place hold';
       toast({ title: 'Hold failed', description: message, variant: 'destructive' });
+      setLastApiError({ scope: 'hold', code, message, details });
     },
   });
 
   const validateMutation = useMutation({
     mutationFn: (payload: ManualSelectionPayload) => bookingService.manualValidateSelection(payload),
     onSuccess: (result) => {
+      setStaleContext(false);
       setValidationResult(result);
       setLastValidatedAt(Date.now());
     },
     onError: (error) => {
+      if ((error as any)?.code === 'STALE_CONTEXT') {
+        setStaleContext(true);
+        return;
+      }
+      const code = (error as any)?.code ?? null;
+      const rawDetails = (error as any)?.details ?? null;
+      let details: any = rawDetails;
+      if (typeof rawDetails === 'string') {
+        try { details = JSON.parse(rawDetails); } catch { /* ignore */ }
+      }
       const message = error instanceof Error ? error.message : 'Validation failed';
       toast({ title: 'Validation failed', description: message, variant: 'destructive' });
+      setLastApiError({ scope: 'validate', code, message, details });
     },
   });
 
@@ -258,6 +285,7 @@ export function BookingDetailsDialog({
       });
     },
     onSuccess: (result) => {
+      setStaleContext(false);
       const tableMap = new Map(manualContext?.tables.map((table) => [table.id, table]) ?? []);
       const nextAssignments = result.assignments.map((assignment) => {
         const meta = tableMap.get(assignment.tableId);
@@ -285,8 +313,19 @@ export function BookingDetailsDialog({
       void queryClient.invalidateQueries({ queryKey: queryKeys.opsDashboard.summary(summary.restaurantId, summary.date ?? null) });
     },
     onError: (error) => {
+      if ((error as any)?.code === 'STALE_CONTEXT') {
+        setStaleContext(true);
+        return;
+      }
+      const code = (error as any)?.code ?? null;
+      const rawDetails = (error as any)?.details ?? null;
+      let details: any = rawDetails;
+      if (typeof rawDetails === 'string') {
+        try { details = JSON.parse(rawDetails); } catch { /* ignore */ }
+      }
       const message = error instanceof Error ? error.message : 'Assignment failed';
       toast({ title: 'Assignment failed', description: message, variant: 'destructive' });
+      setLastApiError({ scope: 'confirm', code, message, details });
     },
   });
 
@@ -306,6 +345,7 @@ export function BookingDetailsDialog({
       setValidationResult(null);
       setUserModifiedSelection(false);
       setLastHoldKey(null);
+      setStaleContext(false);
       setActiveTab('overview');
     }
   }, [isOpen]);
@@ -373,6 +413,7 @@ export function BookingDetailsDialog({
         tableIds: selectedTables,
         holdTtlSeconds: MANUAL_HOLD_TTL_SECONDS,
         requireAdjacency,
+        contextVersion: manualContext?.contextVersion ?? '',
       });
     }, 250);
     return () => clearTimeout(timeout);
@@ -521,6 +562,7 @@ export function BookingDetailsDialog({
       tableIds: selectedTables,
       requireAdjacency,
       excludeHoldId: manualContext?.activeHold?.id,
+      contextVersion: manualContext?.contextVersion ?? '',
     });
   }, [booking.id, manualContext?.activeHold?.id, requireAdjacency, selectedTables, toast, validateMutation]);
 
@@ -972,6 +1014,49 @@ export function BookingDetailsDialog({
                             holdCountdownLabel={holdCountdownLabel}
                             otherHolds={otherHolds}
                           />
+                          {staleContext ? (
+                            <Alert variant="destructive" role="alert" aria-live="polite">
+                              <AlertTriangle className="h-4 w-4" aria-hidden />
+                              <AlertTitle>Refresh needed — context changed</AlertTitle>
+                              <AlertDescription>
+                                The booking context has changed (holds or assignments). Please refresh to continue.
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  className="ml-2"
+                                  onClick={async () => {
+                                    try {
+                                      await refetchManualContext();
+                                      setStaleContext(false);
+                                    } catch {
+                                      // swallow errors; toast is handled elsewhere
+                                    }
+                                  }}
+                                >
+                                  Refresh
+                                </Button>
+                              </AlertDescription>
+                            </Alert>
+                          ) : null}
+                          {lastApiError ? (
+                            <Alert variant="destructive" className="rounded-xl border border-destructive/40 bg-destructive/10">
+                              <AlertTriangle className="h-4 w-4" aria-hidden />
+                              <AlertTitle>
+                                {lastApiError.code ? `${lastApiError.code}` : 'Manual action failed'}
+                              </AlertTitle>
+                              <AlertDescription>
+                                <div className="space-y-2">
+                                  <p className="text-sm">{lastApiError.message}</p>
+                                  {lastApiError.details ? (
+                                    <pre className="whitespace-pre-wrap text-xs text-muted-foreground">
+                                      {JSON.stringify(lastApiError.details, null, 2)}
+                                    </pre>
+                                  ) : null}
+                                </div>
+                              </AlertDescription>
+                            </Alert>
+                          ) : null}
+
                           <ManualAssignmentValidationPanel
                             checks={validationChecks}
                             lastValidatedAt={lastValidatedAt}

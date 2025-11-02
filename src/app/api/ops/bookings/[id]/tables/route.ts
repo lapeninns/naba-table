@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { assignTableToBooking, getBookingTableAssignments } from "@/server/capacity";
+import { assignTableToBooking, evaluateManualSelection, getBookingTableAssignments } from "@/server/capacity";
 import { AssignTablesRpcError } from "@/server/capacity/holds";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 import { requireMembershipForRestaurant } from "@/server/team/access";
@@ -71,6 +71,35 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const idempotencyKey = request.headers.get("Idempotency-Key");
 
   try {
+    // Strict pre-check: reject direct assignment if any conflicting hold exists
+    // Reuse manual selection evaluation to leverage shared conflict detection.
+    const validation = await evaluateManualSelection({
+      bookingId,
+      tableIds: [parsedBody.data.tableId],
+      requireAdjacency: false,
+      client: serviceClient,
+    });
+
+    const holdsCheck = validation.checks.find((c) => c.id === "holds");
+    const holdConflicts = (holdsCheck?.details as { holds?: unknown[] } | undefined)?.holds;
+    if (holdsCheck?.status === "error" && Array.isArray(holdConflicts) && holdConflicts.length > 0) {
+      const blockingHoldIds = holdConflicts
+        .map((h) => (h && typeof h === "object" ? (h as { holdId?: string }).holdId : null))
+        .filter((v): v is string => Boolean(v));
+
+      return NextResponse.json(
+        {
+          error: "Existing holds conflict with requested tables",
+          code: "HOLD_CONFLICT",
+          details: {
+            tables: [parsedBody.data.tableId],
+            blockingHoldIds,
+          },
+        },
+        { status: 409 },
+      );
+    }
+
     await assignTableToBooking(bookingId, parsedBody.data.tableId, user.id, serviceClient, {
       idempotencyKey: idempotencyKey?.trim() || null,
     });

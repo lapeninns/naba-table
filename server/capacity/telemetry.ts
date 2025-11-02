@@ -386,6 +386,80 @@ export async function emitHoldStrictConflict(event: HoldStrictConflictEvent): Pr
   }
 }
 
+// Manual actions metrics (validate/hold/confirm)
+type ManualActionBase = {
+  restaurantId: string;
+  bookingId: string;
+  policyVersion?: string | null;
+  adjacencyRequired?: boolean | null;
+};
+
+export async function emitManualValidate(event: ManualActionBase & { ok: boolean; code?: string | null }): Promise<void> {
+  const payload = sanitizeTelemetryContext({
+    type: "capacity.manual.validate",
+    ok: event.ok,
+    code: event.code ?? null,
+    policyVersion: event.policyVersion ?? null,
+    adjacencyRequired: Boolean(event.adjacencyRequired),
+  } as Json);
+  try {
+    await recordObservabilityEvent({
+      source: "capacity.manual",
+      eventType: event.ok ? "manual.validate.ok" : "manual.validate.fail",
+      severity: event.ok ? "info" : "warning",
+      context: payload,
+      restaurantId: event.restaurantId,
+      bookingId: event.bookingId,
+    });
+  } catch (error) {
+    console.error("[capacity.manual.validate] telemetry failed", { error, bookingId: event.bookingId });
+  }
+}
+
+export async function emitManualHold(event: ManualActionBase & { ok: boolean; code?: string | null }): Promise<void> {
+  const payload = sanitizeTelemetryContext({
+    type: "capacity.manual.hold",
+    ok: event.ok,
+    code: event.code ?? null,
+    policyVersion: event.policyVersion ?? null,
+    adjacencyRequired: Boolean(event.adjacencyRequired),
+  } as Json);
+  try {
+    await recordObservabilityEvent({
+      source: "capacity.manual",
+      eventType: event.ok ? "manual.hold.ok" : "manual.hold.fail",
+      severity: event.ok ? "info" : "warning",
+      context: payload,
+      restaurantId: event.restaurantId,
+      bookingId: event.bookingId,
+    });
+  } catch (error) {
+    console.error("[capacity.manual.hold] telemetry failed", { error, bookingId: event.bookingId });
+  }
+}
+
+export async function emitManualConfirm(event: ManualActionBase & { ok: boolean; code?: string | null }): Promise<void> {
+  const payload = sanitizeTelemetryContext({
+    type: "capacity.manual.confirm",
+    ok: event.ok,
+    code: event.code ?? null,
+    policyVersion: event.policyVersion ?? null,
+    adjacencyRequired: Boolean(event.adjacencyRequired),
+  } as Json);
+  try {
+    await recordObservabilityEvent({
+      source: "capacity.manual",
+      eventType: event.ok ? "manual.confirm.ok" : "manual.confirm.fail",
+      severity: event.ok ? "info" : "warning",
+      context: payload,
+      restaurantId: event.restaurantId,
+      bookingId: event.bookingId,
+    });
+  } catch (error) {
+    console.error("[capacity.manual.confirm] telemetry failed", { error, bookingId: event.bookingId });
+  }
+}
+
 export type RpcConflictEvent = {
   source: string;
   bookingId: string;

@@ -1,6 +1,6 @@
 import { DateTime } from "luxon";
 
-import { isHoldStrictConflictsEnabled } from "@/server/feature-flags";
+import { isHoldStrictConflictsEnabled, getHoldMinTtlSeconds, getHoldRateWindowSeconds, getHoldRateMaxPerBooking } from "@/server/feature-flags";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
 import type { Database, Json, Tables, TablesInsert } from "@/types/supabase";
@@ -140,6 +140,21 @@ async function configureHoldStrictConflictSession(client: DbClient): Promise<voi
         error: error.message ?? error,
       });
     }
+    // Best-effort verification
+    try {
+      const { data, error: verifyError } = await client.rpc("is_holds_strict_conflicts_enabled");
+      if (verifyError) {
+        console.warn("[capacity.hold] strict conflict verification failed", {
+          error: verifyError.message ?? verifyError,
+        });
+      } else if (enabled && !data) {
+        console.error("[capacity.hold] strict conflict enforcement not honored by server (GUC off)");
+      }
+    } catch (e) {
+      console.warn("[capacity.hold] strict conflict verification errored", {
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
   } catch (error) {
     console.warn("[capacity.hold] failed to configure strict conflict enforcement", {
       enabled,
@@ -215,6 +230,51 @@ export async function createTableHold(input: CreateTableHoldInput): Promise<Tabl
 
   const supabase = ensureClient(client);
   await configureHoldStrictConflictSession(supabase);
+
+  // Enforce minimum TTL policy (clamp up)
+  try {
+    const minTtl = getHoldMinTtlSeconds();
+    const nowIso = DateTime.now().toUTC();
+    const requested = DateTime.fromISO(expiresAt).toUTC();
+    if (requested.isValid) {
+      const ttlSec = Math.max(0, Math.floor(requested.diff(nowIso, "seconds").seconds));
+      if (ttlSec < minTtl) {
+        const clamped = nowIso.plus({ seconds: minTtl }).toISO();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (input as any).expiresAt = clamped;
+      }
+    }
+  } catch {
+    // ignore TTL enforcement errors to avoid blocking
+  }
+
+  // Rate limit per user per booking within window
+  if (createdBy && bookingId) {
+    try {
+      const windowSec = getHoldRateWindowSeconds();
+      const maxPer = getHoldRateMaxPerBooking();
+      const cutoff = DateTime.now().minus({ seconds: windowSec }).toISO();
+      const { count, error: countError } = await supabase
+        .from("table_holds")
+        .select("id", { count: "exact", head: true })
+        .eq("booking_id", bookingId)
+        .eq("created_by", createdBy)
+        .gt("created_at", cutoff as string);
+      if (!countError && typeof count === "number" && count >= maxPer) {
+        throw new AssignTablesRpcError({
+          message: "Too many holds recently for this booking. Please wait before trying again.",
+          code: "RPC_VALIDATION",
+          details: JSON.stringify({ reason: "HOLD_RATE_LIMIT", windowSeconds: windowSec, maxPerBooking: maxPer }),
+          hint: "Reduce attempts or wait a moment, then retry.",
+        });
+      }
+    } catch (e) {
+      if (e instanceof AssignTablesRpcError) {
+        throw e;
+      }
+      // If rate-limit check fails unexpectedly, proceed to avoid false positives.
+    }
+  }
 
   if (isHoldStrictConflictsEnabled()) {
     try {
@@ -332,6 +392,46 @@ export async function extendTableHold(input: ExtendTableHoldInput): Promise<Tabl
   }
 
   const currentHold = holdRow as HoldRowWithMembers;
+  // Authorization: only creator or elevated role may extend the hold
+  if (!actorId) {
+    throw new AssignTablesRpcError({
+      message: "Only the creator or elevated roles may extend holds",
+      code: "AUTH_FORBIDDEN",
+      details: null,
+      hint: null,
+    });
+  }
+  if (currentHold.created_by && currentHold.created_by !== actorId) {
+    try {
+      const { data: membership } = await supabase
+        .from("restaurant_memberships")
+        .select("role")
+        .eq("restaurant_id", currentHold.restaurant_id)
+        .eq("user_id", actorId)
+        .maybeSingle();
+      const role = (membership as { role?: string } | null)?.role ?? null;
+      const elevated = role && ["admin", "manager", "owner"].includes(role);
+      if (!elevated) {
+        throw new AssignTablesRpcError({
+          message: "Only the creator or elevated roles may extend holds",
+          code: "AUTH_FORBIDDEN",
+          details: null,
+          hint: null,
+        });
+      }
+    } catch (e) {
+      if (e instanceof AssignTablesRpcError) {
+        throw e;
+      }
+      // If membership lookup fails, deny by default
+      throw new AssignTablesRpcError({
+        message: "Only the creator or elevated roles may extend holds",
+        code: "AUTH_FORBIDDEN",
+        details: null,
+        hint: null,
+      });
+    }
+  }
   const memberTableIds = extractTableIdsFromMembers(currentHold.table_hold_members ?? null);
   const currentExpires = DateTime.fromISO(currentHold.expires_at ?? "").toUTC();
   if (!currentExpires.isValid) {

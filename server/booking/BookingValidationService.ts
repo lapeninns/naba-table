@@ -270,7 +270,6 @@ export class BookingValidationService {
     let normalizedEndTime: string | null = null;
     let scheduleTimezone: string | null = null;
     let schedule;
-    let bookingType: BookingType;
 
     const startDateTime = DateTime.fromISO(input.start, { zone: ctx.tz });
     if (!startDateTime.isValid) {
@@ -285,7 +284,7 @@ export class BookingValidationService {
     }
 
     const startTime = startDateTime.toFormat("HH:mm");
-    bookingType = this.resolveBookingType(input, startTime);
+    const bookingType = this.resolveBookingType(input, startTime);
 
     try {
       schedule = await this.scheduleRepo.getSchedule({
@@ -588,7 +587,7 @@ export class BookingValidationService {
     issues: BookingError[],
     input: BookingInput,
     ctx: ValidationContext,
-    options: ValidationOptions,
+    _options: ValidationOptions,
   ): CoreValidationOutcome {
     const overrideAttempted = input.override?.apply === true;
 

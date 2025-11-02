@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { HoldConflictError, releaseTableHold } from "@/server/capacity/holds";
-import { ManualSelectionInputError, createManualHold } from "@/server/capacity/tables";
+import { ManualSelectionInputError, createManualHold, getManualAssignmentContext } from "@/server/capacity/tables";
+import { emitManualHold } from "@/server/capacity/telemetry";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 
 import type { NextRequest } from "next/server";
@@ -13,6 +14,7 @@ const holdPayloadSchema = z.object({
   holdTtlSeconds: z.number().int().min(30).max(600).optional(),
   requireAdjacency: z.boolean().optional(),
   excludeHoldId: z.string().uuid().optional(),
+  contextVersion: z.string(),
 });
 
 const holdReleaseSchema = z.object({
@@ -42,7 +44,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { bookingId, tableIds, holdTtlSeconds, requireAdjacency, excludeHoldId } = parsed.data;
+  const { bookingId, tableIds, holdTtlSeconds, requireAdjacency, excludeHoldId, contextVersion } = parsed.data;
 
   const bookingLookup = await supabase
     .from("bookings")
@@ -78,6 +80,25 @@ export async function POST(req: NextRequest) {
 
   const serviceClient = getServiceSupabaseClient();
 
+  // Require fresh context
+  let contextAdjacencyRequired: boolean | null = null;
+  try {
+    const context = await getManualAssignmentContext({ bookingId, client: serviceClient });
+    contextAdjacencyRequired = Boolean((context as any)?.flags?.adjacencyRequired ?? null);
+    if (context.contextVersion && context.contextVersion !== contextVersion) {
+      return NextResponse.json(
+        {
+          error: "Stale context; please refresh",
+          code: "STALE_CONTEXT",
+          details: { expected: context.contextVersion, provided: contextVersion },
+        },
+        { status: 409 },
+      );
+    }
+  } catch {
+    // soft-fail
+  }
+
   try {
     const result = await createManualHold({
       bookingId,
@@ -106,6 +127,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    await emitManualHold({
+      ok: true,
+      bookingId,
+      restaurantId: bookingRow.restaurant_id,
+      policyVersion: (result.validation as any)?.policyVersion ?? null,
+      adjacencyRequired: contextAdjacencyRequired ?? (typeof requireAdjacency === 'boolean' ? requireAdjacency : null),
+    });
+
     return NextResponse.json({
       hold: {
         id: result.hold.id,
@@ -115,11 +144,20 @@ export async function POST(req: NextRequest) {
         zoneId: result.hold.zoneId,
         tableIds: result.hold.tableIds,
       },
+      serverNow: new Date().toISOString(),
       summary: result.validation.summary,
       validation: result.validation,
     });
   } catch (error) {
     if (error instanceof ManualSelectionInputError) {
+      await emitManualHold({
+        ok: false,
+        bookingId,
+        restaurantId: bookingRow.restaurant_id,
+        policyVersion: null,
+        adjacencyRequired: contextAdjacencyRequired ?? (typeof requireAdjacency === 'boolean' ? requireAdjacency : null),
+        code: error.code,
+      });
       return NextResponse.json(
         { error: error.message, code: error.code },
         { status: error.status },
@@ -127,6 +165,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (error instanceof HoldConflictError) {
+      await emitManualHold({
+        ok: false,
+        bookingId,
+        restaurantId: bookingRow.restaurant_id,
+        policyVersion: null,
+        adjacencyRequired: contextAdjacencyRequired ?? (typeof requireAdjacency === 'boolean' ? requireAdjacency : null),
+        code: "HOLD_CONFLICT",
+      });
       return NextResponse.json(
         {
           error: error.message,
@@ -138,6 +184,14 @@ export async function POST(req: NextRequest) {
     }
 
     console.error("[staff/manual/hold] unexpected error", { error, bookingId, userId: user.id });
+    await emitManualHold({
+      ok: false,
+      bookingId,
+      restaurantId: bookingRow.restaurant_id,
+      policyVersion: null,
+      adjacencyRequired: contextAdjacencyRequired ?? (typeof requireAdjacency === 'boolean' ? requireAdjacency : null),
+      code: "INTERNAL_ERROR",
+    });
     const message = error instanceof Error ? error.message : "Unexpected error";
     return NextResponse.json({ error: message, code: "INTERNAL_ERROR" }, { status: 500 });
   }

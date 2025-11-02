@@ -21,6 +21,7 @@ import {
   getSelectorLookaheadWindowMinutes,
   getSelectorLookaheadPenaltyWeight,
   getSelectorLookaheadBlockThreshold,
+  getContextQueryPaddingMinutes,
 } from "@/server/feature-flags";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
@@ -60,14 +61,7 @@ import {
   type BuildCandidatesResult,
 } from "./selector";
 import { loadStrategicConfig } from "./strategic-config";
-import {
-  emitHoldConfirmed,
-  emitRpcConflict,
-  emitSelectorQuote,
-  summarizeCandidate,
-  type CandidateSummary,
-  type SelectorDecisionEvent,
-} from "./telemetry";
+import { emitRpcConflict, emitSelectorQuote, summarizeCandidate, type CandidateSummary, type SelectorDecisionEvent } from "./telemetry";
 import {
   AssignmentConflictError,
   AssignmentOrchestrator,
@@ -75,6 +69,9 @@ import {
   AssignmentValidationError,
   SupabaseAssignmentRepository,
   createPlanSignature,
+  createDeterministicIdempotencyKey,
+  hashPolicyVersion,
+  computePayloadChecksum,
   normalizeTableIds,
 } from "./v2";
 
@@ -160,6 +157,7 @@ export type ManualValidationResult = {
   ok: boolean;
   summary: ManualSelectionSummary;
   checks: ManualSelectionCheck[];
+  policyVersion?: string;
 };
 
 export type ManualSelectionOptions = {
@@ -250,6 +248,15 @@ export type ManualAssignmentContext = {
     startAt: string | null;
     endAt: string | null;
   };
+  flags?: {
+    holdsStrictConflicts: boolean;
+    adjacencyRequired: boolean;
+    adjacencyUndirected: boolean;
+  };
+  // Snapshot/hash of current context (holds+assignments+flags+window)
+  contextVersion?: string;
+  // Server-authoritative clock reference for client countdowns
+  serverNow?: string;
 };
 
 type BookingRow = Tables<"bookings"> & {
@@ -1239,6 +1246,17 @@ async function loadRestaurantTimezone(restaurantId: string, client: DbClient): P
 }
 
 async function loadTablesForRestaurant(restaurantId: string, client: DbClient): Promise<Table[]> {
+  // Try cache first
+  try {
+    const { getInventoryCache } = await import("@/server/capacity/cache");
+    const cached = getInventoryCache(restaurantId);
+    if (Array.isArray(cached) && cached.length > 0) {
+      return cached as Table[];
+    }
+  } catch {
+    // no-op on cache errors
+  }
+
   const { data, error } = await client
     .from("table_inventory")
     .select<typeof TABLE_INVENTORY_SELECT, TableInventoryRow>(TABLE_INVENTORY_SELECT)
@@ -1251,7 +1269,7 @@ async function loadTablesForRestaurant(restaurantId: string, client: DbClient): 
 
   const rows = data as unknown as Tables<"table_inventory">[];
 
-  return rows.map((row) => ({
+  const tables = rows.map((row) => ({
     id: row.id,
     tableNumber: row.table_number,
     capacity: row.capacity ?? 0,
@@ -1266,6 +1284,15 @@ async function loadTablesForRestaurant(restaurantId: string, client: DbClient): 
     active: row.active,
     position: row.position,
   }));
+
+  try {
+    const { setInventoryCache } = await import("@/server/capacity/cache");
+    setInventoryCache(restaurantId, tables);
+  } catch {
+    // ignore cache set failures
+  }
+
+  return tables;
 }
 
 async function loadTablesByIds(
@@ -1320,7 +1347,11 @@ async function loadTablesByIds(
   }, []);
 }
 
-async function loadAdjacency(tableIds: string[], client: DbClient): Promise<Map<string, Set<string>>> {
+async function loadAdjacency(
+  restaurantId: string,
+  tableIds: string[],
+  client: DbClient,
+): Promise<Map<string, Set<string>>> {
   const uniqueTableIds = Array.from(
     new Set(
       tableIds.filter((value): value is string => typeof value === "string" && value.length > 0),
@@ -1330,18 +1361,34 @@ async function loadAdjacency(tableIds: string[], client: DbClient): Promise<Map<
   if (uniqueTableIds.length === 0) {
     return new Map();
   }
+  // Try to satisfy from cache if available
+  let cachedGraph: Map<string, Set<string>> | null = null;
+  try {
+    const { getAdjacencyCache } = await import("@/server/capacity/cache");
+    cachedGraph = getAdjacencyCache(restaurantId);
+  } catch {
+    cachedGraph = null;
+  }
+  const missing: string[] = [];
+  if (cachedGraph) {
+    for (const id of uniqueTableIds) {
+      if (!cachedGraph.has(id)) {
+        missing.push(id);
+      }
+    }
+  }
+  const needFetch = !cachedGraph || missing.length > 0;
 
   type AdjacencyRow = { table_a: string | null; table_b: string | null };
   const baseQuery = () => client.from("table_adjacencies").select("table_a, table_b");
   const adjacencyUndirected = isAdjacencyQueryUndirected();
-
-  const forward = await baseQuery().in("table_a", uniqueTableIds);
+  const targetIds = needFetch && cachedGraph ? missing : uniqueTableIds;
+  const forward = await baseQuery().in("table_a", targetIds);
   if (forward.error) {
     return new Map();
   }
 
-  const reverse =
-    adjacencyUndirected ? await baseQuery().in("table_b", uniqueTableIds) : null;
+  const reverse = adjacencyUndirected ? await baseQuery().in("table_b", targetIds) : null;
   if (reverse?.error) {
     return new Map();
   }
@@ -1352,7 +1399,34 @@ async function loadAdjacency(tableIds: string[], client: DbClient): Promise<Map<
       ? (reverse.data as AdjacencyRow[])
       : [];
 
-  const map = new Map<string, Set<string>>();
+  if (adjacencyUndirected) {
+    // Data integrity check: ensure symmetry when undirected is enabled
+    const missingReverse: Array<{ a: string; b: string }> = [];
+    const forwardSet = new Set(
+      forwardRows
+        .filter((r) => r.table_a && r.table_b)
+        .map((r) => `${r.table_a as string}->${r.table_b as string}`),
+    );
+    const reverseSet = new Set(
+      reverseRows
+        .filter((r) => r.table_a && r.table_b)
+        .map((r) => `${r.table_b as string}->${r.table_a as string}`),
+    );
+    for (const key of forwardSet) {
+      if (!reverseSet.has(key)) {
+        const [a, b] = key.split("->");
+        missingReverse.push({ a, b });
+      }
+    }
+    if (missingReverse.length > 0) {
+      console.warn("[capacity.adjacency] asymmetry detected in table_adjacencies (undirected mode)", {
+        missing: missingReverse.slice(0, 10),
+        total: missingReverse.length,
+      });
+    }
+  }
+
+  const map = cachedGraph ? new Map<string, Set<string>>(cachedGraph) : new Map<string, Set<string>>();
   const addEdge = (from: string | null, to: string | null) => {
     if (!from || !to) {
       return;
@@ -1377,19 +1451,43 @@ async function loadAdjacency(tableIds: string[], client: DbClient): Promise<Map<
     }
   }
 
-  return map;
+  // Update cache
+  try {
+    const { setAdjacencyCache } = await import("@/server/capacity/cache");
+    setAdjacencyCache(restaurantId, map);
+  } catch {
+    // ignore cache set failures
+  }
+
+  // Return only requested nodes to reduce payloads
+  const filtered = new Map<string, Set<string>>();
+  for (const id of uniqueTableIds) {
+    if (map.has(id)) {
+      filtered.set(id, new Set(map.get(id)!));
+    }
+  }
+  return filtered;
 }
 
 async function loadContextBookings(
   restaurantId: string,
   bookingDate: string | null,
   client: DbClient,
+  aroundWindow?: { startIso: string; endIso: string; paddingMinutes?: number },
 ): Promise<ContextBookingRow[]> {
   if (!bookingDate) {
     return [];
   }
 
-  const { data, error } = await client
+  const paddingDefault = Math.max(0, Math.min(getContextQueryPaddingMinutes(), 240));
+  const pad = Math.max(0, Math.min(aroundWindow?.paddingMinutes ?? paddingDefault, 240));
+  const startIso = aroundWindow?.startIso ?? null;
+  const endIso = aroundWindow?.endIso ?? null;
+  const padMs = pad * 60 * 1000;
+  const startPad = startIso ? DateTime.fromISO(startIso, { setZone: true }).minus({ milliseconds: padMs }).toISO() : null;
+  const endPad = endIso ? DateTime.fromISO(endIso, { setZone: true }).plus({ milliseconds: padMs }).toISO() : null;
+
+  const query = client
     .from("bookings")
     .select(
       [
@@ -1408,6 +1506,17 @@ async function loadContextBookings(
     .eq("booking_date", bookingDate)
     .in("status", [...BOOKING_BLOCKING_STATUSES])
     .order("start_at", { ascending: true });
+
+  const hasGt = typeof (query as unknown as { gt?: unknown }).gt === "function";
+  const hasLt = typeof (query as unknown as { lt?: unknown }).lt === "function";
+  if (startPad && hasGt) {
+    (query as unknown as { gt: (col: string, val: string) => unknown }).gt("end_at", startPad);
+  }
+  if (endPad && hasLt) {
+    (query as unknown as { lt: (col: string, val: string) => unknown }).lt("start_at", endPad);
+  }
+
+  const { data, error } = await query;
 
   if (error || !data) {
     return [];
@@ -1765,6 +1874,7 @@ export async function evaluateManualSelection(options: ManualSelectionOptions): 
     (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
     getVenuePolicy().timezone;
   const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
+  const policyVersion = hashPolicyVersion(policy);
 
   const { window } = computeBookingWindowWithFallback({
     startISO: booking.start_at,
@@ -1779,9 +1889,17 @@ export async function evaluateManualSelection(options: ManualSelectionOptions): 
     throw new ManualSelectionInputError("One or more selected tables were not found", "TABLE_LOOKUP_FAILED");
   }
 
-  const adjacency = await loadAdjacency(tableIds, supabase);
+  const adjacency = await loadAdjacency(booking.restaurant_id, tableIds, supabase);
 
-  const contextBookings = await loadContextBookings(booking.restaurant_id, booking.booking_date ?? null, supabase);
+  const contextBookings = await loadContextBookings(
+    booking.restaurant_id,
+    booking.booking_date ?? null,
+    supabase,
+    {
+      startIso: toIsoUtc(window.block.start),
+      endIso: toIsoUtc(window.block.end),
+    },
+  );
   let holds: TableHold[] = [];
   if (isHoldsEnabled()) {
     try {
@@ -1832,6 +1950,7 @@ export async function evaluateManualSelection(options: ManualSelectionOptions): 
     ok,
     summary,
     checks,
+    policyVersion,
   };
 }
 
@@ -1860,6 +1979,9 @@ export async function createManualHold(options: ManualHoldOptions): Promise<Manu
     (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
     getVenuePolicy().timezone;
   const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
+  const policyVersion = typeof (validation as { policyVersion?: string }).policyVersion === "string"
+    ? (validation as { policyVersion?: string }).policyVersion!
+    : hashPolicyVersion(policy);
 
   const { window } = computeBookingWindowWithFallback({
     startISO: booking.start_at,
@@ -1887,6 +2009,25 @@ export async function createManualHold(options: ManualHoldOptions): Promise<Manu
     throw new ManualSelectionInputError("Unable to determine zone for selected tables", "ZONE_REQUIRED");
   }
 
+  // Compute adjacency/zone snapshot for freeze semantics
+  const adjacency = await loadAdjacency(booking.restaurant_id, tableIds, supabase);
+  const adjacencyUndirected = isAdjacencyQueryUndirected();
+  const zoneIds = Array.from(new Set(selectionTables.map((t) => t.zoneId))).filter(Boolean) as string[];
+  const edgeSet = new Set<string>();
+  for (const a of tableIds) {
+    const neighbors = adjacency.get(a);
+    if (!neighbors) continue;
+    for (const b of neighbors) {
+      if (!tableIds.includes(b)) continue;
+      const key = adjacencyUndirected
+        ? ([a, b].sort((x, y) => x.localeCompare(y)) as [string, string]).join("->")
+        : `${a}->${b}`;
+      edgeSet.add(key);
+    }
+  }
+  const normalizedEdges = Array.from(edgeSet).sort();
+  const adjacencySnapshot = computePayloadChecksum({ undirected: adjacencyUndirected, edges: normalizedEdges });
+
   const holdPayload: CreateTableHoldInput = {
     bookingId,
     restaurantId: booking.restaurant_id,
@@ -1900,7 +2041,16 @@ export async function createManualHold(options: ManualHoldOptions): Promise<Manu
       selection: {
         tableIds,
         summary: validation.summary,
+        snapshot: {
+          zoneIds,
+          adjacency: {
+            undirected: adjacencyUndirected,
+            edges: normalizedEdges,
+            hash: adjacencySnapshot,
+          },
+        },
       },
+      policyVersion,
     },
     client: supabase,
   };
@@ -1949,7 +2099,15 @@ export async function getManualAssignmentContext(options: {
   });
 
   const tables = await loadTablesForRestaurant(booking.restaurant_id, supabase);
-  const contextBookings = await loadContextBookings(booking.restaurant_id, booking.booking_date ?? null, supabase);
+  const contextBookings = await loadContextBookings(
+    booking.restaurant_id,
+    booking.booking_date ?? null,
+    supabase,
+    {
+      startIso: toIsoUtc(window.block.start),
+      endIso: toIsoUtc(window.block.end),
+    },
+  );
 
   let holds: ManualAssignmentContextHold[] = [];
   if (isHoldsEnabled()) {
@@ -1991,6 +2149,24 @@ export async function getManualAssignmentContext(options: {
 
   const activeHold = holds.find((hold) => hold.bookingId === bookingId) ?? null;
 
+  // Compute context version from holds + assignments + flags + window
+  const flags = {
+    holdsStrictConflicts: isHoldStrictConflictsEnabled(),
+    adjacencyRequired: isAllocatorAdjacencyRequired(),
+    adjacencyUndirected: isAdjacencyQueryUndirected(),
+  };
+  const contextVersionPayload = {
+    holds: holds.map((h) => ({ id: h.id, tableIds: h.tableIds, startAt: h.startAt, endAt: h.endAt })),
+    assignments: bookingAssignments.map((row) => row.table_id),
+    flags,
+    window: {
+      startAt: toIsoUtc(window.block.start),
+      endAt: toIsoUtc(window.block.end),
+    },
+  };
+  const contextVersion = computePayloadChecksum(contextVersionPayload);
+  const serverNow = toIsoUtc(DateTime.now());
+
   return {
     booking,
     tables,
@@ -2002,6 +2178,9 @@ export async function getManualAssignmentContext(options: {
       startAt: toIsoUtc(window.block.start),
       endAt: toIsoUtc(window.block.end),
     },
+    flags,
+    contextVersion,
+    serverNow,
   };
 }
 
@@ -2202,14 +2381,22 @@ async function synchronizeAssignments(params: AssignmentSyncParams): Promise<Tab
       // Ignore missing allocation support in mocked environments.
     }
 
-    if (idempotencyKey) {
+  if (idempotencyKey) {
       try {
         await supabase
           .from("booking_assignment_idempotency")
           .update({
             assignment_window: windowRange,
             merge_group_allocation_id: mergeGroupId ?? null,
-          })
+            payload_checksum: computePayloadChecksum({
+              bookingId: booking.id,
+              tableIds: uniqueTableIds,
+              startAt: startIso,
+              endAt: endIso,
+              actorId,
+              holdId: holdContext?.holdId ?? null,
+            }) as unknown as string,
+          } as Record<string, unknown>)
           .eq("booking_id", booking.id)
           .eq("idempotency_key", idempotencyKey);
       } catch {
@@ -2240,18 +2427,53 @@ async function synchronizeAssignments(params: AssignmentSyncParams): Promise<Tab
   if (holdContext) {
     const zoneId = holdContext.zoneId ?? "";
     const telemetryMetadata = holdContext.zoneId ? undefined : { unknownZone: true };
-    await emitHoldConfirmed({
-      holdId: holdContext.holdId,
-      bookingId: booking.id,
+    try {
+      const { enqueueOutboxEvent } = await import("@/server/outbox");
+      await enqueueOutboxEvent({
+        eventType: "capacity.hold.confirmed",
+        restaurantId: booking.restaurant_id,
+        bookingId: booking.id,
+        idempotencyKey: idempotencyKey ?? null,
+        dedupeKey: `${booking.id}:${holdContext.holdId}:hold.confirmed`,
+        payload: {
+          holdId: holdContext.holdId,
+          bookingId: booking.id,
+          restaurantId: booking.restaurant_id,
+          zoneId,
+          tableIds: result.map((assignment) => assignment.tableId),
+          startAt: startIso,
+          endAt: endIso,
+          expiresAt: endIso,
+          actorId: actorId ?? null,
+          metadata: telemetryMetadata ?? null,
+        },
+      });
+    } catch (e) {
+      console.warn("[capacity.outbox] enqueue hold.confirmed failed", { bookingId: booking.id, error: e });
+    }
+  }
+
+  // Enqueue assignment sync observability event (post-commit)
+  try {
+    const { enqueueOutboxEvent } = await import("@/server/outbox");
+    await enqueueOutboxEvent({
+      eventType: "capacity.assignment.sync",
       restaurantId: booking.restaurant_id,
-      zoneId,
-      tableIds: result.map((assignment) => assignment.tableId),
-      startAt: startIso,
-      endAt: endIso,
-      expiresAt: endIso,
-      actorId: actorId ?? null,
-      metadata: telemetryMetadata,
+      bookingId: booking.id,
+      idempotencyKey: idempotencyKey ?? null,
+      dedupeKey: `${booking.id}:${startIso}:${endIso}:${result.map(r=>r.tableId).join(',')}`,
+      payload: {
+        bookingId: booking.id,
+        restaurantId: booking.restaurant_id,
+        tableIds: result.map((assignment) => assignment.tableId),
+        startAt: startIso,
+        endAt: endIso,
+        mergeGroupId: mergeGroupId ?? null,
+        idempotencyKey: idempotencyKey ?? null,
+      },
     });
+  } catch (e) {
+    console.warn("[capacity.outbox] enqueue assignment.sync failed", { bookingId: booking.id, error: e });
   }
 
   return result;
@@ -2274,7 +2496,7 @@ export async function confirmHoldAssignment(options: {
     });
   }
 
-  const { holdId, bookingId, idempotencyKey, requireAdjacency: requireAdjacencyOverride, assignedBy = null, client } = options;
+  const { holdId, bookingId, requireAdjacency: requireAdjacencyOverride, assignedBy = null, client } = options;
   const supabase = ensureClient(client);
 
   const {
@@ -2282,7 +2504,7 @@ export async function confirmHoldAssignment(options: {
     error: holdError,
   } = await supabase
     .from("table_holds")
-    .select("restaurant_id, zone_id, booking_id, table_hold_members(table_id)")
+    .select("restaurant_id, zone_id, booking_id, metadata, table_hold_members(table_id)")
     .eq("id", holdId)
     .maybeSingle();
 
@@ -2337,6 +2559,16 @@ export async function confirmHoldAssignment(options: {
     (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
     getVenuePolicy().timezone;
   const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
+  const policyVersion = hashPolicyVersion(policy);
+  const holdPolicyVersion = (holdRow as { metadata?: { policyVersion?: string } })?.metadata?.policyVersion ?? null;
+  if (holdPolicyVersion && holdPolicyVersion !== policyVersion) {
+    throw new AssignTablesRpcError({
+      message: "Policy has changed since hold was created",
+      code: "POLICY_CHANGED",
+      details: serializeDetails({ expected: holdPolicyVersion, actual: policyVersion }),
+      hint: "Refresh and revalidate selection before confirming.",
+    });
+  }
   const { window } = computeBookingWindowWithFallback({
     startISO: booking.start_at,
     bookingDate: booking.booking_date,
@@ -2349,12 +2581,99 @@ export async function confirmHoldAssignment(options: {
   const startIso = toIsoUtc(window.block.start);
   const endIso = toIsoUtc(window.block.end);
   const normalizedTableIds = normalizeTableIds(tableIds);
+  // Verify adjacency/zone snapshot freeze
+  const selectionSnapshot = ((holdRow as { 
+    metadata?: { 
+      selection?: { 
+        snapshot?: {
+          zoneIds?: string[];
+          adjacency?: { undirected?: boolean; edges?: string[]; hash?: string };
+        } 
+      } 
+    } 
+  })?.metadata?.selection?.snapshot ?? null);
+  if (selectionSnapshot) {
+    const currentTables = await loadTablesByIds(booking.restaurant_id, normalizedTableIds, supabase);
+    const currentZoneIds = Array.from(new Set(currentTables.map((t) => t.zoneId))).filter(Boolean) as string[];
+    const zonesMatch = JSON.stringify([...currentZoneIds].sort()) === JSON.stringify([...(selectionSnapshot.zoneIds ?? [])].sort());
+
+    const currentAdjacency = await loadAdjacency(booking.restaurant_id, normalizedTableIds, supabase);
+    const undirected = Boolean(selectionSnapshot.adjacency?.undirected);
+    const edgeSet = new Set<string>();
+    for (const a of normalizedTableIds) {
+      const neighbors = currentAdjacency.get(a);
+      if (!neighbors) continue;
+      for (const b of neighbors) {
+        if (!normalizedTableIds.includes(b)) continue;
+        const key = undirected ? ([a, b].sort((x, y) => x.localeCompare(y)) as [string, string]).join("->") : `${a}->${b}`;
+        edgeSet.add(key);
+      }
+    }
+    const nowEdges = Array.from(edgeSet).sort();
+    const nowHash = computePayloadChecksum({ undirected, edges: nowEdges });
+    const edgesMatch =
+      nowHash === selectionSnapshot.adjacency?.hash &&
+      JSON.stringify(nowEdges) === JSON.stringify([...(selectionSnapshot.adjacency?.edges ?? [])].sort());
+
+    if (!zonesMatch || !edgesMatch) {
+      throw new AssignTablesRpcError({
+        message: !zonesMatch
+          ? "Zone assignment changed since hold was created"
+          : "Adjacency definition changed since hold was created",
+        code: "POLICY_CHANGED",
+        details: serializeDetails({
+          zones: { expected: selectionSnapshot.zoneIds ?? [], actual: currentZoneIds },
+          adjacency: {
+            undirected,
+            expectedHash: selectionSnapshot.adjacency?.hash ?? null,
+            actualHash: nowHash,
+            expectedEdges: selectionSnapshot.adjacency?.edges ?? [],
+            actualEdges: nowEdges,
+          },
+        }),
+        hint: "Refresh and revalidate selection before confirming.",
+      });
+    }
+  }
   const planSignature = createPlanSignature({
     bookingId,
     tableIds: normalizedTableIds,
     startAt: startIso,
     endAt: endIso,
   });
+  const deterministicKey = createDeterministicIdempotencyKey({
+    tenantId: booking.restaurant_id,
+    bookingId,
+    tableIds: normalizedTableIds,
+    startAt: startIso,
+    endAt: endIso,
+    policyVersion,
+  });
+  // Optional: pre-check for mismatched payloads for same key (legacy-compatible)
+  try {
+    const { data: existing } = await supabase
+      .from("booking_assignment_idempotency")
+      .select("idempotency_key, booking_id, table_ids, assignment_window")
+      .eq("booking_id", bookingId)
+      .eq("idempotency_key", deterministicKey)
+      .maybeSingle();
+    if (existing && typeof existing === "object") {
+      const existingTyped = existing as { table_ids?: unknown };
+      const sameTables = Array.isArray(existingTyped.table_ids)
+        ? normalizeTableIds(existingTyped.table_ids as string[]).join(",") === normalizedTableIds.join(",")
+        : true;
+      if (!sameTables) {
+        throw new AssignTablesRpcError({
+          message: "Idempotency mismatch for the same key",
+          code: "RPC_VALIDATION",
+          details: serializeDetails({ reason: "IDEMPOTENCY_MISMATCH" }),
+          hint: "Retry using the same payload as the original request.",
+        });
+      }
+    }
+  } catch {
+    // ignore lookup errors
+  }
 
   const orchestrator = new AssignmentOrchestrator(new SupabaseAssignmentRepository(supabase));
   let response;
@@ -2383,7 +2702,7 @@ export async function confirmHoldAssignment(options: {
       },
       {
         source: "manual",
-        idempotencyKey,
+        idempotencyKey: deterministicKey,
         actorId: assignedBy,
         metadata: {
           requireAdjacency,
@@ -2424,16 +2743,20 @@ export async function confirmHoldAssignment(options: {
   }
 
   try {
-    await supabase.from("table_holds").delete().eq("id", holdId);
-  } catch {
-    // Best-effort cleanup.
+    await releaseHoldWithRetry({ holdId, client: supabase });
+  } catch (e) {
+    console.warn("[capacity.confirm] failed to release hold after confirm; will rely on sweeper", {
+      holdId,
+      bookingId,
+      error: e instanceof Error ? e.message : String(e),
+    });
   }
 
   return synchronizeAssignments({
     supabase,
     booking,
     tableIds: normalizedTableIds,
-    idempotencyKey,
+    idempotencyKey: deterministicKey,
     assignments: response.assignments.map((assignment) => ({
       tableId: assignment.tableId,
       startAt: assignment.startAt,
@@ -2496,7 +2819,16 @@ export async function assignTableToBooking(
     endAt: endIso,
     salt: options?.idempotencyKey ?? undefined,
   });
-  const idempotencyKey = options?.idempotencyKey ?? planSignature;
+  const policyVersion = hashPolicyVersion(policy);
+  const deterministicKey = createDeterministicIdempotencyKey({
+    tenantId: booking.restaurant_id,
+    bookingId,
+    tableIds: normalizedTableIds,
+    startAt: startIso,
+    endAt: endIso,
+    policyVersion,
+  });
+  const idempotencyKey = options?.idempotencyKey ?? deterministicKey;
   const requireAdjacency = options?.requireAdjacency ?? false;
 
   const orchestrator = new AssignmentOrchestrator(new SupabaseAssignmentRepository(supabase));
@@ -2590,6 +2922,29 @@ export async function assignTableToBooking(
     });
   }
 
+  // Enqueue assignment sync observability event (post-commit)
+  try {
+    const { enqueueOutboxEvent } = await import("@/server/outbox");
+    await enqueueOutboxEvent({
+      eventType: "capacity.assignment.sync",
+      restaurantId: booking.restaurant_id,
+      bookingId: booking.id,
+      idempotencyKey,
+      dedupeKey: `${booking.id}:${startIso}:${endIso}:${normalizedTableIds.join(',')}`,
+      payload: {
+        bookingId: booking.id,
+        restaurantId: booking.restaurant_id,
+        tableIds: normalizedTableIds,
+        startAt: startIso,
+        endAt: endIso,
+        mergeGroupId: response.mergeGroupId ?? null,
+        idempotencyKey,
+      },
+    });
+  } catch (e) {
+    console.warn("[capacity.outbox] enqueue assignment.sync failed", { bookingId: booking.id, error: e });
+  }
+
   return firstAssignment.assignmentId;
 }
 
@@ -2666,6 +3021,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
 
   const tables = await loadTablesForRestaurant(booking.restaurant_id, supabase);
   const adjacency = await loadAdjacency(
+    booking.restaurant_id,
     tables.map((table) => table.id),
     supabase,
   );
@@ -2678,7 +3034,15 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
   let holdsForDay: TableHold[] = [];
 
   if (timePruningEnabled || lookaheadEnabled) {
-    contextBookings = await loadContextBookings(booking.restaurant_id, booking.booking_date ?? null, supabase);
+    contextBookings = await loadContextBookings(
+      booking.restaurant_id,
+      booking.booking_date ?? null,
+      supabase,
+      {
+        startIso: toIsoUtc(window.block.start),
+        endIso: toIsoUtc(window.block.end),
+      },
+    );
     if (isHoldsEnabled()) {
       try {
         holdsForDay = await loadActiveHoldsForDate(booking.restaurant_id, booking.booking_date ?? null, policy, supabase);
@@ -3009,6 +3373,7 @@ export async function findSuitableTables(options: {
   const booking = await loadBooking(bookingId, supabase);
   const tables = await loadTablesForRestaurant(booking.restaurant_id, supabase);
   const adjacency = await loadAdjacency(
+    booking.restaurant_id,
     tables.map((table) => table.id),
     supabase,
   );

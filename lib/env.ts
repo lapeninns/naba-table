@@ -184,9 +184,17 @@ export const env = {
         maxCombinationEvaluations: selectorMaxCombinationEvaluations,
         enumerationTimeoutMs: selectorEnumerationTimeoutMs,
       },
+      context: {
+        queryPaddingMinutes: Math.max(0, Math.min(parsed.FEATURE_CONTEXT_QUERY_PADDING_MINUTES ?? 60, 240)),
+      },
       holds: {
         enabled: parsed.FEATURE_HOLDS_ENABLED ?? true,
         strictConflicts: parsed.FEATURE_HOLDS_STRICT_CONFLICTS_ENABLED ?? false,
+        minTtlSeconds: Math.max(1, Math.min(parsed.FEATURE_HOLDS_MIN_TTL_SECONDS ?? 60, 3600)),
+        rate: {
+          windowSeconds: Math.max(5, Math.min(parsed.FEATURE_HOLDS_RATE_WINDOW_SECONDS ?? 60, 3600)),
+          maxPerBooking: Math.max(1, Math.min(parsed.FEATURE_HOLDS_RATE_MAX_PER_BOOKING ?? 5, 100)),
+        },
       },
       adjacency: {
         queryUndirected: adjacencyQueryUndirectedDefault,
