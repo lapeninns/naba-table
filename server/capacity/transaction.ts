@@ -255,7 +255,7 @@ async function createBookingWithoutCapacity(
       party_size: params.partySize,
       booking_type: params.bookingType,
       seating_preference: params.seatingPreference,
-      status: "confirmed",
+      status: "pending",
       reference,
       customer_name: params.customerName,
       customer_email: params.customerEmail,

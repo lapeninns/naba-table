@@ -164,19 +164,29 @@ function ThankYouPageContent() {
   // Success state (booking loaded)
   if (pageState.state === 'success') {
     const { booking } = pageState;
+    const isPending = booking.status === 'pending' || booking.status === 'pending_allocation';
 
     return (
       <main className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-6 py-24">
         <div className="mx-auto max-w-2xl space-y-6">
           {/* Success header */}
           <div className="text-center space-y-3">
-            <div className="rounded-full bg-green-100 p-3 mx-auto w-fit">
-              <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
+            <div className={`rounded-full ${isPending ? 'bg-blue-100' : 'bg-green-100'} p-3 mx-auto w-fit`}>
+              {isPending ? (
+                <svg className="h-8 w-8 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <circle cx="12" cy="12" r="9" className="opacity-20" strokeWidth="2" />
+                  <path d="M12 7v5l3 3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              ) : (
+                <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              )}
             </div>
 
-            <h1 className="text-3xl font-bold tracking-tight text-slate-800">Booking Confirmed!</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-800">
+              {isPending ? 'Booking Pending' : 'Booking Confirmed!'}
+            </h1>
             <p className="text-lg text-slate-600">
               Reference: <span className="font-mono font-semibold text-slate-900">{booking.reference}</span>
             </p>
@@ -229,8 +239,10 @@ function ThankYouPageContent() {
           {/* Additional info */}
           <div className="rounded-md bg-blue-50 p-4">
             <p className="text-sm text-blue-800">
-              <strong>What&apos;s next?</strong> We&apos;ve sent a confirmation email with all the details. 
-              Please arrive 5 minutes before your reservation time.
+              <strong>What&apos;s next?</strong>{' '}
+              {isPending
+                ? "You'll shortly get a confirmation email with all the details once the venue confirms your reservation."
+                : "We\'ve sent a confirmation email with all the details. Please arrive 5 minutes before your reservation time."}
             </p>
           </div>
 

@@ -1,7 +1,7 @@
 'use client';
 
-import { AlertTriangle, CheckCircle2, Info, Loader2, XCircle } from 'lucide-react';
-import React, { useMemo } from 'react';
+import { AlertTriangle, CheckCircle2, Info, XCircle } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 import { useConfirmationStep } from '@features/reservations/wizard/hooks/useConfirmationStep';
 import { Alert, AlertDescription, AlertIcon } from '@shared/ui/alert';
@@ -27,13 +27,33 @@ export function ConfirmationStep(props: ConfirmationStepProps) {
 
   const { Icon: StatusIcon, className: statusIconClass } =
     controller.status === 'pending'
-      ? { Icon: Loader2, className: 'animate-spin text-primary' }
+      ? { Icon: Info, className: 'text-blue-600' }
       : STATUS_ICON_MAP[controller.status];
 
   const FeedbackIcon = useMemo(() => {
     if (!controller.feedback) return null;
     return FEEDBACK_ICON_MAP[controller.feedback.variant];
   }, [controller.feedback]);
+
+  // Auto-redirect to thank-you after 5s when pending, with visible countdown
+  const [redirectIn, setRedirectIn] = useState<number | null>(null);
+  useEffect(() => {
+    if (controller.status !== 'pending') {
+      setRedirectIn(null);
+      return;
+    }
+    setRedirectIn(5);
+    const interval = setInterval(() => {
+      setRedirectIn((prev) => (prev !== null && prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    const timeout = setTimeout(() => {
+      controller.handleClose();
+    }, 5000);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, [controller.status, controller.handleClose, controller]);
 
   return (
     <Card className="mx-auto w-full max-w-4xl lg:max-w-5xl">
@@ -47,6 +67,22 @@ export function ConfirmationStep(props: ConfirmationStepProps) {
         <CardDescription className="text-sm text-muted-foreground">
           {controller.description}
         </CardDescription>
+        {controller.status === 'pending' ? (
+          <div className="space-y-2" aria-live="polite">
+            <p className="text-xs text-muted-foreground">
+              It’s okay to leave this screen. We’ll send the confirmation via email.
+            </p>
+            <div className="h-1.5 w-full rounded bg-muted/50 overflow-hidden">
+              <div
+                className="h-full bg-blue-600 transition-[width] duration-1000 ease-linear"
+                style={{ width: `${((5 - (redirectIn ?? 5)) / 5) * 100}%` }}
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Redirecting to summary in {redirectIn ?? 5}s…
+            </p>
+          </div>
+        ) : null}
       </CardHeader>
       <CardContent className="space-y-6">
         <p className="sr-only" aria-live="polite">

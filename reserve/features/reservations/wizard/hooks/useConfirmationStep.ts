@@ -77,20 +77,22 @@ export function useConfirmationStep({
 
   const status: ConfirmationStatus = isLoading
     ? 'pending'
-    : state.lastAction === 'update'
-      ? 'updated'
-      : 'confirmed';
+    : booking?.status === 'pending' || booking?.status === 'pending_allocation'
+      ? 'pending'
+      : state.lastAction === 'update'
+        ? 'updated'
+        : 'confirmed';
 
   const heading =
     status === 'pending'
-      ? 'Finalising reservation…'
+      ? 'Booking pending'
       : status === 'updated'
         ? 'Booking updated'
         : 'Booking confirmed';
 
   const description =
     status === 'pending'
-      ? 'Hang tight—we’re finishing up your booking. This usually takes just a moment.'
+      ? `Your request has been received. You'll shortly get a confirmation email at ${details.email}.`
       : status === 'updated'
         ? `Your reservation was updated. A confirmation email has been sent to ${details.email}.`
         : `A confirmation email has been sent to ${details.email}.`;

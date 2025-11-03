@@ -12,7 +12,6 @@ import {
 } from "@/lib/enums";
 import { getCachedOccasionCatalog } from '@/server/occasions/catalog';
 
-import { generateBookingReference, generateUniqueBookingReference } from "./booking-reference";
 import { invalidateAvailabilitySnapshot } from "./cache/availability";
 import {
   findCustomerByContact,
@@ -20,7 +19,6 @@ import {
   normalizePhone,
   recordBookingForCustomerProfile,
   recordCancellationForCustomerProfile,
-  upsertCustomer,
 } from "./customers";
 
 import type { Database, Json, Tables, TablesInsert } from "@/types/supabase";
@@ -28,6 +26,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export { generateBookingReference, generateUniqueBookingReference } from "./booking-reference";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DbClient = SupabaseClient<Database, any, any>;
 type BookingRow = Tables<"bookings">;
 
@@ -79,7 +78,6 @@ type UpdateBookingPayload = {
   idempotency_key?: string | null;
 };
 
-const TABLE_SELECT = "id,label,capacity,seating_type,features";
 const BOOKING_SELECT = "*";
 
 export const BOOKING_TYPES = BOOKING_TYPES_UI;
@@ -461,7 +459,7 @@ export async function insertBookingRecord(
 ): Promise<BookingRecord> {
   const bookingType = ensureBookingType(payload.booking_type);
   const seatingPreference = ensureSeatingPreference(payload.seating_preference);
-  const status = ensureBookingStatus(payload.status ?? "confirmed");
+  const status = ensureBookingStatus(payload.status ?? "pending");
 
   const insertPayload: TablesInsert<"bookings"> = {
     restaurant_id: payload.restaurant_id,

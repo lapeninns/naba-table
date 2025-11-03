@@ -20,6 +20,8 @@ import {
   inferMealTypeFromTime,
   logAuditEvent,
   calculateDurationMinutes,
+  insertBookingRecord,
+  generateUniqueBookingReference,
 } from "@/server/bookings";
 import {
   generateConfirmationToken,
@@ -190,6 +192,51 @@ function toIsoString(value: unknown): string {
   }
 
   return date.toISOString();
+}
+
+async function recoverBookingRecord(
+  client: ReturnType<typeof getServiceSupabaseClient>,
+  args: {
+    restaurantId: string;
+    idempotencyKey: string | null;
+    customerId: string;
+    bookingDate: string;
+    startTime: string;
+    endTime: string;
+  },
+): Promise<BookingRecord | null> {
+  // 1) Try idempotency key (strongest signal)
+  if (args.idempotencyKey) {
+    const { data, error } = await client
+      .from("bookings")
+      .select("*")
+      .eq("restaurant_id", args.restaurantId)
+      .eq("idempotency_key", args.idempotencyKey)
+      .maybeSingle();
+
+    if (!error && data) {
+      return data as BookingRecord;
+    }
+  }
+
+  // 2) Fallback by booking signature
+  const { data: sigData, error: sigError } = await client
+    .from("bookings")
+    .select("*")
+    .eq("restaurant_id", args.restaurantId)
+    .eq("customer_id", args.customerId)
+    .eq("booking_date", args.bookingDate)
+    .eq("start_time", args.startTime)
+    .eq("end_time", args.endTime)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!sigError && sigData) {
+    return sigData as BookingRecord;
+  }
+
+  return null;
 }
 
 export async function GET(req: NextRequest) {
@@ -559,10 +606,85 @@ export async function POST(req: NextRequest) {
       booking = bookingResult.booking as BookingRecord | undefined;
 
       if (!booking) {
-        throw new Error("Booking creation succeeded but no booking data was returned.");
+        // Attempt to recover the booking record if the RPC didn't return it
+        const recovered = await recoverBookingRecord(supabase, {
+          restaurantId,
+          idempotencyKey,
+          customerId: customer.id,
+          bookingDate: data.date,
+          startTime,
+          endTime,
+        });
+
+        if (recovered) {
+          booking = recovered;
+          void recordObservabilityEvent({
+            source: "api.bookings",
+            eventType: "booking.create.recovered",
+            severity: "warning",
+            context: {
+              restaurantId,
+              idempotencyKey: idempotencyKey ?? undefined,
+              method: idempotencyKey ? "idempotency_key" : "signature",
+            },
+          });
+        } else {
+          // As a last resort, create the record directly (capacity not enforced here)
+          try {
+            const reference = await generateUniqueBookingReference(supabase);
+            const created = await insertBookingRecord(supabase, {
+              restaurant_id: restaurantId,
+              customer_id: customer.id,
+              booking_date: data.date,
+              start_time: startTime,
+              end_time: endTime,
+              party_size: data.party,
+              booking_type: normalizedBookingType,
+              seating_preference: data.seating,
+              status: "pending",
+              reference,
+              customer_name: data.name,
+              customer_email: normalizeEmail(data.email),
+              customer_phone: data.phone.trim(),
+              notes: data.notes ?? null,
+              marketing_opt_in: data.marketingOptIn ?? false,
+              loyalty_points_awarded: 0,
+              source: "api",
+              client_request_id: clientRequestId,
+              idempotency_key: idempotencyKey ?? null,
+              details: { fallback: "missing_rpc_booking_record" } as Json,
+            });
+
+            booking = created as BookingRecord;
+            void recordObservabilityEvent({
+              source: "api.bookings",
+              eventType: "booking.create.insert_fallback",
+              severity: "warning",
+              context: {
+                restaurantId,
+                idempotencyKey: idempotencyKey ?? undefined,
+              },
+            });
+          } catch (createFallbackError) {
+            throw new Error(
+              `Booking creation succeeded but booking record could not be retrieved or created: ${
+                stringifyError(createFallbackError)
+              }`,
+            );
+          }
+        }
       }
 
       reusedExisting = bookingResult.duplicate === true;
+
+      // Enforce default initial status to 'pending' for newly created bookings (RPC may return 'confirmed').
+      if (!reusedExisting && booking.status !== "pending") {
+        try {
+          booking = await updateBookingRecord(supabase, booking.id, { status: "pending" });
+        } catch (statusError) {
+          console.error("[bookings][POST][status-enforce]", stringifyError(statusError));
+        }
+      }
     }
 
     let finalBooking = booking;
