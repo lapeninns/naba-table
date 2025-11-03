@@ -58,6 +58,22 @@ const nextConfig = {
   images: {
     remotePatterns: imageRemotePatterns,
   },
+  async redirects() {
+    return [
+      // Canonicalize alternate venue entry to the main booking route
+      {
+        source: '/item/:slug',
+        destination: '/reserve/r/:slug',
+        permanent: true,
+      },
+      // Normalize ops login to unified signin with context
+      {
+        source: '/ops/login',
+        destination: '/signin?context=ops',
+        permanent: true,
+      },
+    ];
+  },
   turbopack: {
     resolveAlias: aliasEntries,
   },

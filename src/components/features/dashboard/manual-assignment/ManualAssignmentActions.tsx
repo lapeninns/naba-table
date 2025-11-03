@@ -34,6 +34,12 @@ export function ManualAssignmentActions({
       className="h-9 min-w-[6.5rem]"
       onClick={onConfirm}
       disabled={disableConfirm || confirming}
+      aria-disabled={disableConfirm || confirming || undefined}
+      aria-label={
+        disableConfirm && confirmDisabledReason
+          ? `Confirm assignment disabled: ${confirmDisabledReason}`
+          : 'Confirm assignment'
+      }
     >
       {confirming ? (
         <>
@@ -66,7 +72,18 @@ export function ManualAssignmentActions({
       {confirmDisabledReason ? (
         <TooltipProvider>
           <Tooltip>
-            <TooltipTrigger asChild>{confirmButton}</TooltipTrigger>
+            {/* Wrap disabled button in a focusable span so tooltip works and is accessible */}
+            <TooltipTrigger asChild>
+              <span
+                className="inline-flex"
+                tabIndex={0}
+                aria-disabled={disableConfirm || confirming || undefined}
+                title={confirmDisabledReason}
+                aria-label={`Confirm assignment disabled: ${confirmDisabledReason}`}
+              >
+                {confirmButton}
+              </span>
+            </TooltipTrigger>
             <TooltipContent side="top" align="center" className="max-w-xs text-xs">
               {confirmDisabledReason}
             </TooltipContent>

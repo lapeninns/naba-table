@@ -30,7 +30,7 @@ export default async function OpsDashboardPage({ searchParams }: { searchParams?
   }
 
   if (!user) {
-    redirect(`/signin?redirectedFrom=/ops`);
+    redirect(`/signin?context=ops&redirectedFrom=/ops`);
   }
 
   return (

@@ -13,9 +13,7 @@ import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest} from 'next/server';
 
-const querySchema = z.object({
-  token: z.string().min(64).max(64),
-});
+const tokenSchema = z.string().min(64).max(64);
 
 /**
  * GET /api/bookings/confirm?token=xxx
@@ -62,12 +60,12 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Validate query parameters
-  const parsed = querySchema.safeParse({
-    token: req.nextUrl.searchParams.get('token'),
-  });
+  // Read token from query or secure cookie (PRG pattern)
+  const queryToken = req.nextUrl.searchParams.get('token');
+  const cookieToken = req.cookies.get('sr_confirm')?.value ?? null;
+  const candidate = queryToken ?? cookieToken ?? null;
 
-  if (!parsed.success) {
+  if (!candidate || !tokenSchema.safeParse(candidate).success) {
     return NextResponse.json(
       {
         error: 'Invalid or missing confirmation token',
@@ -76,8 +74,7 @@ export async function GET(req: NextRequest) {
       { status: 400 },
     );
   }
-
-  const { token } = parsed.data;
+  const token = candidate;
 
   try {
     // Validate token and get booking
@@ -99,9 +96,10 @@ export async function GET(req: NextRequest) {
     // Transform to public-safe data (no PII)
     const publicBooking = toPublicConfirmation(booking, restaurantName);
 
-    return NextResponse.json({
-      booking: publicBooking,
-    });
+    const res = NextResponse.json({ booking: publicBooking });
+    // Clear the ephemeral confirmation cookie if present
+    res.cookies.set('sr_confirm', '', { path: '/thank-you', maxAge: 0 });
+    return res;
   } catch (error: unknown) {
     // Handle token validation errors
     if (error instanceof TokenValidationError) {

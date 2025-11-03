@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 
 type BookingDetails = {
@@ -62,25 +62,25 @@ function LoadingScreen() {
 
 function ThankYouPageContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const token = searchParams?.get('token') ?? null;
 
-  const [pageState, setPageState] = useState<PageState>({
-    state: token ? 'loading' : 'idle',
-  });
+  const [pageState, setPageState] = useState<PageState>({ state: 'loading' });
 
   useEffect(() => {
-    if (!token) {
-      setPageState({ state: 'idle' });
-      return;
-    }
-
     const fetchBooking = async () => {
       try {
-        const response = await fetch(`/api/bookings/confirm?token=${encodeURIComponent(token)}`);
+        const url = token ? `/api/bookings/confirm?token=${encodeURIComponent(token)}` : '/api/bookings/confirm';
+        const response = await fetch(url, { credentials: 'same-origin' });
 
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
+          // If no token and cookie/session missing, fall back to idle (generic thank-you)
+          if (!token) {
+            setPageState({ state: 'idle' });
+            return;
+          }
 
+          const errorData = await response.json().catch(() => ({}));
           setPageState({
             state: 'error',
             message: errorData.error || 'Unable to load booking confirmation',
@@ -92,27 +92,23 @@ function ThankYouPageContent() {
         const data = await response.json();
 
         if (data.booking) {
-          setPageState({
-            state: 'success',
-            booking: data.booking,
-          });
+          setPageState({ state: 'success', booking: data.booking });
         } else {
-          setPageState({
-            state: 'error',
-            message: 'Invalid response from server',
-          });
+          setPageState({ state: 'idle' });
         }
       } catch (err) {
         console.error('[thank-you] Failed to fetch booking', err);
-        setPageState({
-          state: 'error',
-          message: 'Network error. Please check your connection.',
-        });
+        setPageState({ state: 'error', message: 'Network error. Please check your connection.' });
+      } finally {
+        // Strip token from the URL if present to avoid leaking in referrers or history
+        if (token) {
+          router.replace('/thank-you');
+        }
       }
     };
 
     void fetchBooking();
-  }, [token]);
+  }, [token, router]);
 
   if (pageState.state === 'loading') {
     return <LoadingScreen />;
@@ -258,7 +254,7 @@ function ThankYouPageContent() {
     );
   }
 
-  // Idle state (no token, just generic thank you)
+  // Idle state (no token or no server session, generic thank you)
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-6 py-24 text-center">
       <div className="mx-auto max-w-md space-y-4">

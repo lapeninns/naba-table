@@ -74,6 +74,19 @@ function formatTableTitle(entry: DerivedTable): string {
   return lines.join('\n');
 }
 
+function formatTableAriaLabel(entry: DerivedTable, isSelected: boolean, isBlocked: boolean): string {
+  const parts: string[] = [];
+  // Start with the table number to keep accessible name compatible with tests and screen reader expectations
+  parts.push(`${entry.table.tableNumber}`);
+  parts.push(`${entry.table.capacity} seats`);
+  if (isSelected) parts.push('selected');
+  if (isBlocked) parts.push('unavailable');
+  if (entry.holdOwned) parts.push('held by you');
+  if (entry.holdOther) parts.push('held by another booking');
+  if (entry.conflicts.length > 0) parts.push(`${entry.conflicts.length} conflict${entry.conflicts.length === 1 ? '' : 's'}`);
+  return parts.join(', ');
+}
+
 function formatCountdown(seconds: number | null): string | null {
   if (seconds === null || !Number.isFinite(seconds)) {
     return null;
@@ -308,10 +321,20 @@ export const TableFloorPlan = memo(function TableFloorPlan({
                     onToggle(entry.table.id);
                   }}
                   title={formatTableTitle(entry)}
+                  aria-label={formatTableAriaLabel(entry, variant === 'selected', isBlocked)}
+                  aria-pressed={variant === 'selected' ? true : undefined}
+                  disabled={isBlocked}
+                  aria-disabled={isBlocked || undefined}
                 >
                   <span className="text-sm font-semibold">{entry.table.tableNumber}</span>
                   <span className="text-[11px] font-medium">{entry.table.capacity} seats</span>
                   {countdown ? <span className="mt-0.5 text-[10px] font-semibold">{countdown}</span> : null}
+                  {/* Inline badges for reasons */}
+                  {!countdown && (entry.holdOther || !entry.table.active || entry.conflicts.length > 0) ? (
+                    <span className="mt-0.5 text-[10px] font-semibold">
+                      {entry.holdOther ? 'Held' : entry.conflicts.length > 0 ? 'Conflict' : 'Inactive'}
+                    </span>
+                  ) : null}
                 </button>
               );
             })}
@@ -366,9 +389,21 @@ export const TableFloorPlan = memo(function TableFloorPlan({
                           onToggle(table.id);
                         }}
                         title={`Table ${table.tableNumber} · ${table.capacity} seats`}
+                        aria-label={`${table.tableNumber}, ${table.capacity} seats${isSelected ? ', selected' : ''}${isBlocked ? ', unavailable' : ''}${holdOther ? ', held' : ''}${hasConflict ? ', conflict' : ''}${!table.active || (table.status && table.status !== 'available') ? ', inactive' : ''}`}
+                        aria-pressed={isSelected ? true : undefined}
+                        disabled={isBlocked}
+                        aria-disabled={isBlocked || undefined}
                       >
                         <span>{table.tableNumber}</span>
                         <span className="text-[11px] font-medium">{table.capacity}</span>
+                        {/* Inline reason labels */}
+                        {holdOther ? (
+                          <span className="text-[10px] font-semibold">Held</span>
+                        ) : hasConflict ? (
+                          <span className="text-[10px] font-semibold">Conflict</span>
+                        ) : !table.active || (table.status && table.status !== 'available') ? (
+                          <span className="text-[10px] font-semibold">Inactive</span>
+                        ) : null}
                       </button>
                     );
                   })}

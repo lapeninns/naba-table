@@ -68,6 +68,13 @@ test.describe('customer reservation flow', () => {
     await expect(page.getByRole('heading', { name: /Booking confirmed/i })).toBeVisible();
     await expect(page.getByText(bookingName, { exact: false })).toBeVisible();
     await expect(page.getByText(restaurantName ?? '', { exact: false })).toBeVisible();
+    // Optional navigation: click "Close confirmation" to go to /thank-you
+    const closeBtn = page.getByRole('button', { name: /Close confirmation/i });
+    if (await closeBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await closeBtn.click();
+      await page.waitForURL(/\/thank-you(\?.*)?$/, { timeout: 10000 });
+      expect(page.url()).toContain('/thank-you');
+    }
   });
 
   test(

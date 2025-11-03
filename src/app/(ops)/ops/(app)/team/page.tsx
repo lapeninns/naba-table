@@ -24,7 +24,8 @@ export default async function TeamManagementPage() {
 
   if (!user) {
     const loginUrl = config.auth.loginUrl ?? "/signin";
-    redirect(`${loginUrl}?redirectedFrom=/ops/team`);
+    const separator = loginUrl.includes('?') ? '&' : '?';
+    redirect(`${loginUrl}${separator}context=ops&redirectedFrom=/ops/team`);
   }
 
   return (

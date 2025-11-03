@@ -19,6 +19,7 @@ function formatZoneLabel(summary: ManualValidationResult['summary'] | null): str
   if (!summary.zoneId) {
     return 'Mixed zones';
   }
+  // Avoid showing UUID fragments; name is not available here. Keep simple label.
   return 'Single zone';
 }
 
@@ -168,12 +169,7 @@ export function ManualAssignmentSummaryCard({
               </div>
               <div className="space-y-0.5">
                 <dt className="text-xs font-semibold uppercase text-muted-foreground">Zone</dt>
-                <dd className="text-sm font-medium text-foreground">
-                  {zoneLabel}
-                  {summary?.zoneId ? (
-                    <span className="ml-1 text-xs text-muted-foreground">({summary.zoneId.slice(0, 8)})</span>
-                  ) : null}
-                </dd>
+                <dd className="text-sm font-medium text-foreground">{zoneLabel}</dd>
               </div>
               <div className="space-y-0.5">
                 <dt className="text-xs font-semibold uppercase text-muted-foreground">Table numbers</dt>
@@ -185,7 +181,7 @@ export function ManualAssignmentSummaryCard({
               <HoldList holds={activeHoldList} heading={`Active hold ${holdCountdownLabel ? `(${holdCountdownLabel} left)` : ''}`} />
             ) : (
               <p className="text-xs text-muted-foreground">
-                No hold yet. Validating a selection will create one automatically for three minutes.
+                No hold yet. Selecting tables places a temporary 3‑minute hold automatically. Use Validate to run checks.
               </p>
             )}
 

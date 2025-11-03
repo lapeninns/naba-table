@@ -1,16 +1,17 @@
-import { NextRequest } from "next/server";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
+import type { ManualHoldResult, ManualValidationResult } from "@/server/capacity/tables";
+import type { NextRequest } from "next/server";
 
 process.env.BASE_URL = "http://localhost:3000";
 process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
 process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-key";
 
-import type { ManualHoldResult, ManualValidationResult } from "@/server/capacity/tables";
-
 const mockCreateManualHold = vi.fn<[], Promise<ManualHoldResult>>();
 const mockEvaluateManualSelection = vi.fn<[], Promise<ManualValidationResult>>();
 const mockConfirmHoldAssignment = vi.fn();
+const mockGetManualAssignmentContext = vi.fn();
 const mockReleaseTableHold = vi.fn();
 
 const BOOKING_ID = "11111111-1111-4111-8111-111111111111";
@@ -28,9 +29,9 @@ const routeClient = {
 const serviceClient = {} as const;
 
 const routeContext: {
-  bookingRow: Record<string, any> | null;
-  membershipRow: Record<string, any> | null;
-  holdRow: Record<string, any> | null;
+  bookingRow: Record<string, unknown> | null;
+  membershipRow: Record<string, unknown> | null;
+  holdRow: Record<string, unknown> | null;
 } = {
   bookingRow: null,
   membershipRow: null,
@@ -42,28 +43,35 @@ vi.mock("@/server/supabase", () => ({
   getServiceSupabaseClient: vi.fn(() => serviceClient),
 }));
 
-vi.mock("@/server/capacity/tables", async () => {
-  const actual = await vi.importActual<typeof import("@/server/capacity/tables")>("@/server/capacity/tables");
+vi.mock("@/server/capacity/tables", async (importOriginal) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const actual = (await importOriginal()) as any;
   return {
     ...actual,
     createManualHold: mockCreateManualHold,
     evaluateManualSelection: mockEvaluateManualSelection,
     confirmHoldAssignment: mockConfirmHoldAssignment,
+    getManualAssignmentContext: mockGetManualAssignmentContext,
   };
 });
 
-vi.mock("@/server/capacity/holds", async () => {
-  const actual = await vi.importActual<typeof import("@/server/capacity/holds")>("@/server/capacity/holds");
+vi.mock("@/server/capacity/holds", async (importOriginal) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const actual = (await importOriginal()) as any;
   return {
     ...actual,
     releaseTableHold: mockReleaseTableHold,
   };
 });
 
-let holdPost: typeof import("@/app/api/staff/manual/hold/route").POST;
-let holdDelete: typeof import("@/app/api/staff/manual/hold/route").DELETE;
-let validatePost: typeof import("@/app/api/staff/manual/validate/route").POST;
-let confirmPost: typeof import("@/app/api/staff/manual/confirm/route").POST;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let holdPost: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let holdDelete: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let validatePost: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let confirmPost: any;
 
 beforeAll(async () => {
   ({ POST: holdPost, DELETE: holdDelete } = await import("@/app/api/staff/manual/hold/route"));
@@ -72,6 +80,18 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
+  mockGetManualAssignmentContext.mockResolvedValue({
+    booking: { id: BOOKING_ID },
+    tables: [],
+    bookingAssignments: [],
+    holds: [],
+    activeHold: null,
+    conflicts: [],
+    window: { startAt: null, endAt: null },
+    flags: { adjacencyRequired: true, holdsStrictConflicts: false, adjacencyUndirected: true },
+    contextVersion: "ctx-1",
+    serverNow: new Date().toISOString(),
+  });
   routeClient.auth.getUser.mockResolvedValue({
     data: { user: { id: "user-1" } },
     error: null,
@@ -156,7 +176,7 @@ describe("POST /api/staff/manual/hold", () => {
     const request = new Request("http://localhost/api/staff/manual/hold", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bookingId: BOOKING_ID, tableIds: [TABLE_ID] }),
+      body: JSON.stringify({ bookingId: BOOKING_ID, tableIds: [TABLE_ID], contextVersion: "ctx-1" }),
     }) as unknown as NextRequest;
 
     const response = await holdPost(request);
@@ -198,7 +218,7 @@ describe("POST /api/staff/manual/validate", () => {
     const request = new Request("http://localhost/api/staff/manual/validate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bookingId: BOOKING_ID, tableIds: [TABLE_ID, TABLE_ID_B] }),
+      body: JSON.stringify({ bookingId: BOOKING_ID, tableIds: [TABLE_ID, TABLE_ID_B], contextVersion: "ctx-1" }),
     }) as unknown as NextRequest;
 
     const response = await validatePost(request);
@@ -223,7 +243,7 @@ describe("POST /api/staff/manual/confirm", () => {
     const request = new Request("http://localhost/api/staff/manual/confirm", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bookingId: BOOKING_ID, holdId: HOLD_ID, idempotencyKey: "key-1" }),
+      body: JSON.stringify({ bookingId: BOOKING_ID, holdId: HOLD_ID, idempotencyKey: "key-1", contextVersion: "ctx-1" }),
     }) as unknown as NextRequest;
 
     const response = await confirmPost(request);
@@ -240,13 +260,13 @@ describe("POST /api/staff/manual/confirm", () => {
         message: "duplicate",
         details: "conflict",
         hint: null,
-      } as any),
+      } as unknown),
     );
 
     const request = new Request("http://localhost/api/staff/manual/confirm", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bookingId: BOOKING_ID, holdId: HOLD_ID, idempotencyKey: "key-2" }),
+      body: JSON.stringify({ bookingId: BOOKING_ID, holdId: HOLD_ID, idempotencyKey: "key-2", contextVersion: "ctx-1" }),
     }) as unknown as NextRequest;
 
     const response = await confirmPost(request);
@@ -264,13 +284,13 @@ describe("POST /api/staff/manual/confirm", () => {
         message: "Tables must be adjacent",
         details: JSON.stringify({ tableIds: [TABLE_ID, TABLE_ID_B] }),
         hint: "Select adjacent tables",
-      } as any),
+      } as unknown),
     );
 
     const request = new Request("http://localhost/api/staff/manual/confirm", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bookingId: BOOKING_ID, holdId: HOLD_ID, idempotencyKey: "key-3" }),
+      body: JSON.stringify({ bookingId: BOOKING_ID, holdId: HOLD_ID, idempotencyKey: "key-3", contextVersion: "ctx-1" }),
     }) as unknown as NextRequest;
 
     const response = await confirmPost(request);

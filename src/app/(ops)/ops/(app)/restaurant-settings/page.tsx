@@ -24,7 +24,8 @@ export default async function RestaurantSettingsPage() {
 
   if (!user) {
     const loginUrl = config.auth.loginUrl ?? '/signin';
-    redirect(`${loginUrl}?redirectedFrom=/ops/restaurant-settings`);
+    const separator = loginUrl.includes('?') ? '&' : '?';
+    redirect(`${loginUrl}${separator}context=ops&redirectedFrom=/ops/restaurant-settings`);
   }
 
   return (

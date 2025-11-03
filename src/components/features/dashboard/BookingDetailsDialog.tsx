@@ -415,7 +415,7 @@ export function BookingDetailsDialog({
         requireAdjacency,
         contextVersion: manualContext?.contextVersion ?? '',
       });
-    }, 250);
+    }, 800);
     return () => clearTimeout(timeout);
   }, [booking.id, holdMutation, isOpen, lastHoldKey, manualContext, requireAdjacency, selectedTables]);
 
@@ -605,6 +605,26 @@ export function BookingDetailsDialog({
       setLocalPendingAction(null);
     }
   }, [isOpen]);
+
+  // Persist onlyAvailable toggle to localStorage for user convenience
+  useEffect(() => {
+    if (!isOpen) return;
+    try {
+      const stored = localStorage.getItem('manualAssign.onlyAvailable');
+      if (stored === 'true') setOnlyAvailable(true);
+      else if (stored === 'false') setOnlyAvailable(false);
+    } catch {
+      // ignore storage errors
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('manualAssign.onlyAvailable', String(onlyAvailable));
+    } catch {
+      // ignore storage errors
+    }
+  }, [onlyAvailable]);
 
   const handleUnassignTable = async (tableId: string) => {
     if (!onUnassignTable) {
