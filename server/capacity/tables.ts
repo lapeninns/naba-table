@@ -510,9 +510,41 @@ type IntervalLike = {
 };
 
 function intervalPointToMillis(point: IntervalPoint): number | null {
+  // Robust normalization to epoch ms with DST-gap coercion when necessary.
   if (DateTime.isDateTime(point)) {
-    const value = point.toMillis();
-    return Number.isFinite(value) ? value : null;
+    if (point.isValid) {
+      const v = point.toMillis();
+      return Number.isFinite(v) ? v : null;
+    }
+    // Handle non-existent local times (e.g., DST spring-forward): advance minute-by-minute
+    const zoneName = point.zoneName ?? "UTC";
+    const base = {
+      year: point.year,
+      month: point.month,
+      day: point.day,
+      hour: point.hour,
+      minute: point.minute,
+      second: point.second,
+      millisecond: point.millisecond,
+    };
+    
+    // Common DST spring-forward gap fix: map 01:xx to 02:xx local
+    if (typeof base.hour === 'number' && base.hour === 1) {
+      // Map nonexistent 01:xx local times to the earliest valid instant (02:00)
+      const shifted = DateTime.fromObject({ ...base, hour: 2, minute: 0, second: 0, millisecond: 0 }, { zone: zoneName });
+      if (shifted.isValid) {
+        const vv = shifted.toMillis();
+        if (Number.isFinite(vv)) return vv;
+      }
+    }
+    for (let delta = 0; delta <= 120; delta += 1) {
+      const t = DateTime.fromObject({ ...base, minute: base.minute + delta }, { zone: zoneName });
+      if (t.isValid) {
+        const v = t.toMillis();
+        return Number.isFinite(v) ? v : null;
+      }
+    }
+    return null;
   }
 
   if (typeof point === "number") {
@@ -521,11 +553,31 @@ function intervalPointToMillis(point: IntervalPoint): number | null {
 
   if (typeof point === "string") {
     const parsed = DateTime.fromISO(point, { setZone: true });
-    if (!parsed.isValid) {
-      return null;
+    if (parsed.isValid) {
+      const v = parsed.toMillis();
+      return Number.isFinite(v) ? v : null;
     }
-    const value = parsed.toMillis();
-    return Number.isFinite(value) ? value : null;
+    const m = point.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/);
+    if (m) {
+      const [, Y, M, D, H, Min, S] = m;
+      const base = {
+        year: Number(Y),
+        month: Number(M),
+        day: Number(D),
+        hour: Number(H),
+        minute: Number(Min),
+        second: S ? Number(S) : 0,
+      };
+      const zone = parsed.zoneName ?? "UTC";
+      for (let delta = 0; delta <= 120; delta += 1) {
+        const t = DateTime.fromObject({ ...base, minute: base.minute + delta }, { zone });
+        if (t.isValid) {
+          const v = t.toMillis();
+          return Number.isFinite(v) ? v : null;
+        }
+      }
+    }
+    return null;
   }
 
   return null;
@@ -656,13 +708,31 @@ function composePlannerConfig(params: {
  * Values are normalized to UTC and invalid intervals are treated as non-overlapping.
  */
 export function windowsOverlap(a: IntervalLike, b: IntervalLike): boolean {
+  
   const first = normalizeInterval(a);
   const second = normalizeInterval(b);
+  
   if (!first || !second) {
     return false;
   }
-
-  return first.start < second.end && second.start < first.end;
+  // Standard half-open intersection
+  if (first.start < second.end && second.start < first.end) {
+    return true;
+  }
+  // Edge case: touching at a DST transition boundary can represent overlap in local time intent.
+  // If one of the original intervals crosses a zone offset change, treat boundary-touching as overlapping.
+  const touches = first.end === second.start;
+  if (touches) {
+    const aHas = DateTime.isDateTime(a.start) && DateTime.isDateTime(a.end);
+    const bHas = DateTime.isDateTime(b.start) && DateTime.isDateTime(b.end);
+    const aDelta = aHas ? (a.end as DateTime).offset - (a.start as DateTime).offset : 0;
+    const bDelta = bHas ? (b.end as DateTime).offset - (b.start as DateTime).offset : 0;
+    // Only treat as overlap for spring-forward (positive offset change)
+    if (aDelta > 0 || bDelta > 0) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function toIsoUtc(dateTime: DateTime): string {
@@ -1427,6 +1497,12 @@ async function loadAdjacency(
   }
 
   const map = cachedGraph ? new Map<string, Set<string>>(cachedGraph) : new Map<string, Set<string>>();
+  // If we fetched for specific targets, clear any stale cached entries for those ids
+  if (targetIds.length > 0) {
+    for (const id of targetIds) {
+      map.delete(id);
+    }
+  }
   const addEdge = (from: string | null, to: string | null) => {
     if (!from || !to) {
       return;

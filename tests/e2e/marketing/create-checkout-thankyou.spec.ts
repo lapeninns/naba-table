@@ -227,16 +227,16 @@ test.describe('Marketing Journey - Checkout Guide Page', () => {
 });
 
 test.describe('Marketing Journey - Thank You Page', () => {
-  test('redirects unauthenticated users to sign in', async ({ page, baseURL }, testInfo) => {
+  test('loads generic thank-you for unauthenticated users', async ({ page, baseURL }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Marketing flows verified on Chromium-based projects.');
     test.skip(!baseURL, 'Base URL must be configured.');
 
     await page.goto('/thank-you');
-    
-    // Should redirect to sign in page
-    await page.waitForURL(/\/signin/, { timeout: 10000 });
-    expect(page.url()).toContain('/signin');
-    expect(page.url()).toContain('redirectedFrom=/thank-you');
+    await page.waitForLoadState('networkidle');
+
+    // Should remain on /thank-you and show public content
+    expect(page.url()).toContain('/thank-you');
+    await expect(page.getByRole('heading', { name: /Thanks for booking/i })).toBeVisible({ timeout: 10000 });
   });
 });
 

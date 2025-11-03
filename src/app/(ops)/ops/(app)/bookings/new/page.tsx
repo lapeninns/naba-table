@@ -22,7 +22,7 @@ export default async function OpsWalkInBookingPage() {
   }
 
   if (!user) {
-    redirect("/signin?redirectedFrom=/ops/bookings/new");
+    redirect("/signin?context=ops&redirectedFrom=/ops/bookings/new");
   }
 
   return <OpsWalkInBookingClient />;

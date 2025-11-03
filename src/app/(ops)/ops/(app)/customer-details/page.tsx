@@ -106,7 +106,7 @@ export default async function OpsCustomerDetailsPage() {
   }
 
   if (!user) {
-    redirect("/signin?redirectedFrom=/ops/customer-details");
+    redirect("/signin?context=ops&redirectedFrom=/ops/customer-details");
   }
 
   const memberships = await fetchUserMemberships(user.id, supabase);

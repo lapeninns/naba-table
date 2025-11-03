@@ -9,7 +9,7 @@
 │  ├─ restaurant-settings (admin)
 │  ├─ tables (admin)
 │  ├─ team (admin)
-│  └─ login (admin)
+│  └─ login
 ├─ blog
 │  ├─ :articleId
 │  ├─ author
@@ -46,14 +46,14 @@
 │  ├─ :id [GET, PUT, DELETE]
 │  │  └─ history [GET]
 │  └─ confirm [GET]
-├─ events [GET, POST]
+├─ events [POST, GET]
 ├─ lead [POST]
 ├─ profile [GET, PUT]
 │  └─ image [POST]
 ├─ restaurants [GET]
 │  └─ :slug
 │     └─ schedule [GET]
-├─ test-email [GET, POST]
+├─ test-email [POST, GET]
 ├─ auth
 │  └─ callback [GET]
 ├─ config
@@ -62,7 +62,7 @@
 ├─ ops
 │  ├─ allowed-capacities [GET, PUT]
 │  ├─ bookings [GET, POST]
-│  │  ├─ :id [DELETE, PATCH]
+│  │  ├─ :id [PATCH, DELETE]
 │  │  │  ├─ check-in [POST]
 │  │  │  ├─ check-out [POST]
 │  │  │  ├─ history [GET]
@@ -77,11 +77,11 @@
 │  │  └─ export [GET]
 │  ├─ occasions [GET]
 │  ├─ restaurants [GET, POST]
-│  │  └─ :id [GET, DELETE, PATCH]
+│  │  └─ :id [GET, PATCH, DELETE]
 │  ├─ tables [GET, POST]
-│  │  └─ :id [DELETE, PATCH]
+│  │  └─ :id [PATCH, DELETE]
 │  ├─ zones [GET, POST]
-│  │  └─ :id [DELETE, PATCH]
+│  │  └─ :id [PATCH, DELETE]
 │  ├─ dashboard
 │  │  ├─ changes [GET]
 │  │  ├─ heatmap [GET]
@@ -91,7 +91,7 @@
 │  ├─ settings
 │  │  └─ strategic-config [GET, POST]
 │  └─ strategies
-│     └─ simulate [GET, POST]
+│     └─ simulate [POST, GET]
 ├─ test
 │  ├─ bookings [POST]
 │  ├─ invitations [POST, DELETE]
@@ -101,18 +101,18 @@
 │     └─ :reservationId
 │        └─ confirmation [GET]
 ├─ v1
-│  ├─ bookings [GET]
-│  ├─ events [GET]
-│  ├─ lead [GET]
-│  ├─ profile [GET]
-│  │  └─ image [GET]
+│  ├─ bookings [GET, POST]
+│  ├─ events [GET, POST]
+│  ├─ lead [POST]
+│  ├─ profile [GET, PUT]
+│  │  └─ image [POST]
 │  ├─ restaurants [GET]
 │  │  └─ :slug
 │  │     └─ schedule [GET]
 │  └─ test
-│     ├─ bookings [GET]
-│     ├─ leads [GET]
-│     ├─ playwright-session [GET]
+│     ├─ bookings [POST]
+│     ├─ leads [DELETE]
+│     ├─ playwright-session [POST]
 │     └─ reservations
 │        └─ :reservationId
 │           └─ confirmation [GET]

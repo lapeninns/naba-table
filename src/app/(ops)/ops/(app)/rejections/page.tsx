@@ -27,7 +27,7 @@ export default async function OpsRejectionsPage() {
   }
 
   if (!user) {
-    redirect('/signin?redirectedFrom=/ops/rejections');
+    redirect('/signin?context=ops&redirectedFrom=/ops/rejections');
   }
 
   return (

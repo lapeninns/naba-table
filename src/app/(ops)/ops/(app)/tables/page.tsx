@@ -4,8 +4,10 @@
  */
 
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 
 import TableInventoryClient from "@/components/features/tables/TableInventoryClient";
+import { getServerComponentSupabaseClient } from "@/server/supabase";
 
 import type { Metadata } from "next";
 
@@ -14,7 +16,21 @@ export const metadata: Metadata = {
   description: "Manage restaurant table inventory and floor plan",
 };
 
-export default function TablesPage() {
+export default async function TablesPage() {
+  const supabase = await getServerComponentSupabaseClient();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error) {
+    console.error("[ops/tables] failed to resolve auth", error.message);
+  }
+
+  if (!user) {
+    redirect('/signin?context=ops&redirectedFrom=/ops/tables');
+  }
+
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex items-center justify-between">

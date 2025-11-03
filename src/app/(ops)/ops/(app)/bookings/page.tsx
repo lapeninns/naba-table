@@ -81,7 +81,7 @@ export default async function OpsBookingsPage({
   }
 
   if (!user) {
-    redirect("/signin?redirectedFrom=/ops/bookings");
+    redirect("/signin?context=ops&redirectedFrom=/ops/bookings");
   }
 
   const initialFilter = parseStatusFilter(resolvedParams.filter ?? resolvedParams.status);

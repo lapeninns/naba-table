@@ -671,7 +671,22 @@ export async function POST(req: NextRequest) {
       ? withValidationHeaders({ status: reusedExisting ? 200 : 201 })
       : { status: reusedExisting ? 200 : 201 };
 
-    return NextResponse.json(responsePayload, responseInit);
+    const res = NextResponse.json(responsePayload, responseInit);
+    if (confirmationToken) {
+      try {
+        // Ephemeral confirmation token cookie for PRG access on /thank-you (no URL leakage)
+        res.cookies.set('sr_confirm', confirmationToken, {
+          httpOnly: true,
+          sameSite: 'lax',
+          secure: true,
+          path: '/thank-you',
+          maxAge: 60 * 60, // 1 hour
+        });
+      } catch (e) {
+        // Non-fatal; continue without cookie
+      }
+    }
+    return res;
   } catch (error: unknown) {
     const message = stringifyError(error);
     const enriched = error as BookingCreationError | undefined;
