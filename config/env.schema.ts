@@ -104,6 +104,11 @@ const baseEnvSchema = z
     AVAILABILITY_CACHE_TTL_SECONDS: z.coerce.number().int().positive().optional(),
     ENABLE_AVAILABILITY_CACHE: booleanStringOptional,
     STRATEGIC_DEMAND_PROFILE_PATH: z.string().optional(),
+    // Auto-assignment feature: run allocator after booking creation and suppress initial pending email
+    FEATURE_AUTO_ASSIGN_ON_BOOKING: booleanStringOptional,
+    FEATURE_AUTO_ASSIGN_MAX_RETRIES: z.coerce.number().int().min(0).max(10).optional(),
+    FEATURE_AUTO_ASSIGN_RETRY_DELAYS_MS: z.string().optional(),
+    FEATURE_AUTO_ASSIGN_START_CUTOFF_MINUTES: z.coerce.number().int().min(0).max(240).optional(),
   })
   .passthrough();
 

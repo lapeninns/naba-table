@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { recordBookingCancelledEvent, recordBookingCreatedEvent } from "@/server/analytics";
 import { sendBookingCancellationEmail, sendBookingConfirmationEmail, sendBookingUpdateEmail } from "@/server/emails/bookings";
+import { isAutoAssignOnBookingEnabled } from "@/server/feature-flags";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
 import type { BookingRecord } from "@/server/bookings";
@@ -42,29 +43,26 @@ const bookingPayloadSchema = z
 
 type BookingPayload = z.infer<typeof bookingPayloadSchema>;
 
-const bookingCreatedSideEffectsSchema = z.object({
-  booking: bookingPayloadSchema,
-  idempotencyKey: z.string().nullable(),
-  restaurantId: z.string(),
-});
+export type BookingCreatedSideEffectsPayload = {
+  booking: BookingPayload;
+  idempotencyKey: string | null;
+  restaurantId: string;
+};
 
-const bookingUpdatedSideEffectsSchema = z.object({
-  previous: bookingPayloadSchema,
-  current: bookingPayloadSchema,
-  restaurantId: z.string(),
-});
+export type BookingUpdatedSideEffectsPayload = {
+  previous: BookingPayload;
+  current: BookingPayload;
+  restaurantId: string;
+};
 
-const bookingCancelledSideEffectsSchema = z.object({
-  previous: bookingPayloadSchema,
-  cancelled: bookingPayloadSchema,
-  restaurantId: z.string(),
-  cancelledBy: z.enum(["customer", "staff", "system"]),
-});
+export type BookingCancelledSideEffectsPayload = {
+  previous: BookingPayload;
+  cancelled: BookingPayload;
+  restaurantId: string;
+  cancelledBy: "customer" | "staff" | "system";
+};
 
-export type BookingCreatedSideEffectsPayload = z.infer<typeof bookingCreatedSideEffectsSchema>;
-export type BookingUpdatedSideEffectsPayload = z.infer<typeof bookingUpdatedSideEffectsSchema>;
-export type BookingCancelledSideEffectsPayload = z.infer<typeof bookingCancelledSideEffectsSchema>;
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseLike = SupabaseClient<any, any, any>;
 
 function resolveSupabase(client?: SupabaseLike): SupabaseLike {
@@ -77,9 +75,9 @@ function safeBookingPayload(record: BookingRecord): BookingPayload {
 
 async function processBookingCreatedSideEffects(
   payload: BookingCreatedSideEffectsPayload,
-  supabase?: SupabaseLike,
+  _supabase?: SupabaseLike,
 ) {
-  const client = resolveSupabase(supabase);
+  const client = resolveSupabase(_supabase);
   const { booking, idempotencyKey, restaurantId } = payload;
 
   try {
@@ -103,17 +101,24 @@ async function processBookingCreatedSideEffects(
   }
 
   if (booking.customer_email && booking.customer_email.trim().length > 0) {
-    try {
-      await sendBookingConfirmationEmail(booking as BookingRecord);
-    } catch (error) {
-      console.error("[jobs][booking.created][email]", error);
+    // If auto-assign is enabled, suppress the initial "request received" email for pending bookings
+    const suppressCreatedEmail =
+      isAutoAssignOnBookingEnabled() &&
+      (booking.status === "pending" || booking.status === "pending_allocation");
+
+    if (!suppressCreatedEmail) {
+      try {
+        await sendBookingConfirmationEmail(booking as BookingRecord);
+      } catch (error) {
+        console.error("[jobs][booking.created][email]", error);
+      }
     }
   }
 }
 
 async function processBookingUpdatedSideEffects(
   payload: BookingUpdatedSideEffectsPayload,
-  supabase?: SupabaseLike,
+  _supabase?: SupabaseLike,
 ) {
   const { current } = payload;
   if (current.customer_email && current.customer_email.trim().length > 0) {

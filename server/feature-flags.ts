@@ -168,3 +168,29 @@ export function getHoldRateMaxPerBooking(): number {
   const value = env.featureFlags.holds?.rate?.maxPerBooking ?? 5;
   return Math.max(1, Math.min(value, 100));
 }
+
+// ------------------------------
+// Booking Auto-Assignment
+// ------------------------------
+export function isAutoAssignOnBookingEnabled(): boolean {
+  return env.featureFlags.autoAssignOnBooking ?? false;
+}
+
+export function getAutoAssignMaxRetries(): number {
+  return env.featureFlags.autoAssign?.maxRetries ?? 3;
+}
+
+export function getAutoAssignRetryDelaysMs(): number[] {
+  const raw = env.featureFlags.autoAssign?.retryDelaysMs;
+  if (typeof raw !== 'string' || raw.trim().length === 0) {
+    return [5000, 15000, 45000];
+  }
+  const parts = raw.split(',').map((s) => Number(s.trim())).filter((n) => Number.isFinite(n) && n >= 0);
+  if (parts.length === 0) return [5000, 15000, 45000];
+  // clamp to reasonable
+  return parts.map((n) => Math.max(0, Math.min(n, 5 * 60 * 1000)));
+}
+
+export function getAutoAssignStartCutoffMinutes(): number {
+  return env.featureFlags.autoAssign?.startCutoffMinutes ?? 10;
+}

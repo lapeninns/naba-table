@@ -761,6 +761,17 @@ export async function POST(req: NextRequest) {
       } catch (jobError: unknown) {
         console.error("[bookings][POST][side-effects]", stringifyError(jobError));
       }
+
+      // Fire-and-forget: auto-assign tables and flip to confirmed if allocator finds a plan
+      try {
+        if (env.featureFlags.autoAssignOnBooking) {
+          const { autoAssignAndConfirmIfPossible } = await import("@/server/jobs/auto-assign");
+          // Do not await to keep API latency low
+          void autoAssignAndConfirmIfPossible(finalBooking.id);
+        }
+      } catch (autoError: unknown) {
+        console.error("[bookings][POST][auto-assign]", stringifyError(autoError));
+      }
     }
 
     // Generate confirmation token for guest access to confirmation page

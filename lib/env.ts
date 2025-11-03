@@ -199,6 +199,15 @@ export const env = {
       adjacency: {
         queryUndirected: adjacencyQueryUndirectedDefault,
       },
+      // Booking auto-assignment
+      autoAssignOnBooking: parsed.FEATURE_AUTO_ASSIGN_ON_BOOKING ?? false,
+      autoAssign: {
+        maxRetries: Math.max(0, Math.min(parsed.FEATURE_AUTO_ASSIGN_MAX_RETRIES ?? 3, 10)),
+        retryDelaysMs: typeof parsed.FEATURE_AUTO_ASSIGN_RETRY_DELAYS_MS === 'string'
+          ? parsed.FEATURE_AUTO_ASSIGN_RETRY_DELAYS_MS
+          : undefined,
+        startCutoffMinutes: Math.max(0, Math.min(parsed.FEATURE_AUTO_ASSIGN_START_CUTOFF_MINUTES ?? 10, 240)),
+      },
     } as const;
   },
 
