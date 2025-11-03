@@ -1,0 +1,141 @@
+== PAGES ==
+/
+├─ my-bookings (auth)
+├─ ops (admin)
+│  ├─ bookings (admin)
+│  │  └─ new (admin)
+│  ├─ customer-details (admin)
+│  ├─ rejections (admin)
+│  ├─ restaurant-settings (admin)
+│  ├─ tables (admin)
+│  ├─ team (admin)
+│  └─ login (admin)
+├─ blog
+│  ├─ :articleId
+│  ├─ author
+│  │  └─ :authorId
+│  └─ category
+│     └─ :categoryId
+├─ browse
+├─ checkout
+├─ create
+├─ pricing
+├─ privacy-policy
+├─ reserve
+│  ├─ :reservationId
+│  └─ r
+│     └─ :slug
+├─ signin
+├─ thank-you
+├─ tos
+├─ profile
+│  └─ manage (auth)
+├─ invite
+│  └─ :token
+├─ item
+│  └─ :slug
+└─ terms
+   ├─ togo
+   └─ venue
+
+
+== API ROUTES ==
+/api
+├─ availability [GET]
+├─ bookings [GET, POST]
+│  ├─ :id [GET, PUT, DELETE]
+│  │  └─ history [GET]
+│  └─ confirm [GET]
+├─ events [GET, POST]
+├─ lead [POST]
+├─ profile [GET, PUT]
+│  └─ image [POST]
+├─ restaurants [GET]
+│  └─ :slug
+│     └─ schedule [GET]
+├─ test-email [GET, POST]
+├─ auth
+│  └─ callback [GET]
+├─ config
+│  ├─ merge-rules [GET]
+│  └─ service-policy [GET]
+├─ ops
+│  ├─ allowed-capacities [GET, PUT]
+│  ├─ bookings [GET, POST]
+│  │  ├─ :id [DELETE, PATCH]
+│  │  │  ├─ check-in [POST]
+│  │  │  ├─ check-out [POST]
+│  │  │  ├─ history [GET]
+│  │  │  ├─ no-show [POST]
+│  │  │  ├─ status [PATCH]
+│  │  │  ├─ tables [POST]
+│  │  │  │  └─ :tableId [DELETE]
+│  │  │  └─ undo-no-show [POST]
+│  │  ├─ export [GET]
+│  │  └─ status-summary [GET]
+│  ├─ customers [GET]
+│  │  └─ export [GET]
+│  ├─ occasions [GET]
+│  ├─ restaurants [GET, POST]
+│  │  └─ :id [GET, DELETE, PATCH]
+│  ├─ tables [GET, POST]
+│  │  └─ :id [DELETE, PATCH]
+│  ├─ zones [GET, POST]
+│  │  └─ :id [DELETE, PATCH]
+│  ├─ dashboard
+│  │  ├─ changes [GET]
+│  │  ├─ heatmap [GET]
+│  │  ├─ rejections [GET]
+│  │  ├─ summary [GET]
+│  │  └─ vips [GET]
+│  ├─ settings
+│  │  └─ strategic-config [GET, POST]
+│  └─ strategies
+│     └─ simulate [GET, POST]
+├─ test
+│  ├─ bookings [POST]
+│  ├─ invitations [POST, DELETE]
+│  ├─ leads [DELETE]
+│  ├─ playwright-session [POST]
+│  └─ reservations
+│     └─ :reservationId
+│        └─ confirmation [GET]
+├─ v1
+│  ├─ bookings [GET]
+│  ├─ events [GET]
+│  ├─ lead [GET]
+│  ├─ profile [GET]
+│  │  └─ image [GET]
+│  ├─ restaurants [GET]
+│  │  └─ :slug
+│  │     └─ schedule [GET]
+│  └─ test
+│     ├─ bookings [GET]
+│     ├─ leads [GET]
+│     ├─ playwright-session [GET]
+│     └─ reservations
+│        └─ :reservationId
+│           └─ confirmation [GET]
+├─ owner
+│  ├─ team
+│  │  ├─ invitations [GET, POST]
+│  │  │  └─ :inviteId [DELETE]
+│  │  └─ memberships [GET]
+│  └─ restaurants
+│     └─ :id
+│        ├─ details [GET, PUT]
+│        ├─ hours [GET, PUT]
+│        └─ service-periods [GET, PUT]
+├─ staff
+│  ├─ auto
+│  │  ├─ confirm [POST]
+│  │  └─ quote [POST]
+│  └─ manual
+│     ├─ confirm [POST]
+│     ├─ context [GET]
+│     ├─ hold [POST, DELETE]
+│     └─ validate [POST]
+└─ team
+   └─ invitations
+      └─ :token [GET]
+         └─ accept [POST]
