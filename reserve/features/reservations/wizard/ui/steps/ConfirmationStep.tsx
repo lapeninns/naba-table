@@ -24,6 +24,7 @@ const FEEDBACK_ICON_MAP = {
 
 export function ConfirmationStep(props: ConfirmationStepProps) {
   const controller = useConfirmationStep(props);
+  const { status, handleClose } = controller;
 
   const { Icon: StatusIcon, className: statusIconClass } =
     controller.status === 'pending'
@@ -38,7 +39,7 @@ export function ConfirmationStep(props: ConfirmationStepProps) {
   // Auto-redirect to thank-you after 5s when pending, with visible countdown
   const [redirectIn, setRedirectIn] = useState<number | null>(null);
   useEffect(() => {
-    if (controller.status !== 'pending') {
+    if (status !== 'pending') {
       setRedirectIn(null);
       return;
     }
@@ -47,13 +48,13 @@ export function ConfirmationStep(props: ConfirmationStepProps) {
       setRedirectIn((prev) => (prev !== null && prev > 0 ? prev - 1 : 0));
     }, 1000);
     const timeout = setTimeout(() => {
-      controller.handleClose();
+      handleClose();
     }, 5000);
     return () => {
       clearInterval(interval);
       clearTimeout(timeout);
     };
-  }, [controller.status, controller.handleClose, controller]);
+  }, [status, handleClose]);
 
   return (
     <Card className="mx-auto w-full max-w-4xl lg:max-w-5xl">

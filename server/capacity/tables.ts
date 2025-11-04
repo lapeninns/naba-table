@@ -62,6 +62,7 @@ import {
 } from "./selector";
 import { loadStrategicConfig } from "./strategic-config";
 import { emitRpcConflict, emitSelectorQuote, summarizeCandidate, type CandidateSummary, type SelectorDecisionEvent } from "./telemetry";
+import { windowsOverlap } from "./time-windows";
 import {
   AssignmentConflictError,
   AssignmentOrchestrator,
@@ -503,97 +504,8 @@ function resolveService(start: DateTime, hint: ServiceKey | null, policy: VenueP
   return found;
 }
 
-type IntervalPoint = DateTime | string | number;
-type IntervalLike = {
-  start: IntervalPoint;
-  end: IntervalPoint;
-};
-
-function intervalPointToMillis(point: IntervalPoint): number | null {
-  // Robust normalization to epoch ms with DST-gap coercion when necessary.
-  if (DateTime.isDateTime(point)) {
-    if (point.isValid) {
-      const v = point.toMillis();
-      return Number.isFinite(v) ? v : null;
-    }
-    // Handle non-existent local times (e.g., DST spring-forward): advance minute-by-minute
-    const zoneName = point.zoneName ?? "UTC";
-    const base = {
-      year: point.year,
-      month: point.month,
-      day: point.day,
-      hour: point.hour,
-      minute: point.minute,
-      second: point.second,
-      millisecond: point.millisecond,
-    };
-    
-    // Common DST spring-forward gap fix: map 01:xx to 02:xx local
-    if (typeof base.hour === 'number' && base.hour === 1) {
-      // Map nonexistent 01:xx local times to the earliest valid instant (02:00)
-      const shifted = DateTime.fromObject({ ...base, hour: 2, minute: 0, second: 0, millisecond: 0 }, { zone: zoneName });
-      if (shifted.isValid) {
-        const vv = shifted.toMillis();
-        if (Number.isFinite(vv)) return vv;
-      }
-    }
-    for (let delta = 0; delta <= 120; delta += 1) {
-      const t = DateTime.fromObject({ ...base, minute: base.minute + delta }, { zone: zoneName });
-      if (t.isValid) {
-        const v = t.toMillis();
-        return Number.isFinite(v) ? v : null;
-      }
-    }
-    return null;
-  }
-
-  if (typeof point === "number") {
-    return Number.isFinite(point) ? point : null;
-  }
-
-  if (typeof point === "string") {
-    const parsed = DateTime.fromISO(point, { setZone: true });
-    if (parsed.isValid) {
-      const v = parsed.toMillis();
-      return Number.isFinite(v) ? v : null;
-    }
-    const m = point.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/);
-    if (m) {
-      const [, Y, M, D, H, Min, S] = m;
-      const base = {
-        year: Number(Y),
-        month: Number(M),
-        day: Number(D),
-        hour: Number(H),
-        minute: Number(Min),
-        second: S ? Number(S) : 0,
-      };
-      const zone = parsed.zoneName ?? "UTC";
-      for (let delta = 0; delta <= 120; delta += 1) {
-        const t = DateTime.fromObject({ ...base, minute: base.minute + delta }, { zone });
-        if (t.isValid) {
-          const v = t.toMillis();
-          return Number.isFinite(v) ? v : null;
-        }
-      }
-    }
-    return null;
-  }
-
-  return null;
-}
-
-function normalizeInterval(interval: IntervalLike): { start: number; end: number } | null {
-  const start = intervalPointToMillis(interval.start);
-  const end = intervalPointToMillis(interval.end);
-  if (start === null || end === null) {
-    return null;
-  }
-  if (!(start < end)) {
-    return null;
-  }
-  return { start, end };
-}
+export { windowsOverlap } from "./time-windows";
+export type { IntervalLike } from "./time-windows";
 
 function highResNow(): number {
   return typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -707,33 +619,7 @@ function composePlannerConfig(params: {
  * Accepts ISO strings, Luxon {@link DateTime} instances, or epoch millisecond numbers.
  * Values are normalized to UTC and invalid intervals are treated as non-overlapping.
  */
-export function windowsOverlap(a: IntervalLike, b: IntervalLike): boolean {
-  
-  const first = normalizeInterval(a);
-  const second = normalizeInterval(b);
-  
-  if (!first || !second) {
-    return false;
-  }
-  // Standard half-open intersection
-  if (first.start < second.end && second.start < first.end) {
-    return true;
-  }
-  // Edge case: touching at a DST transition boundary can represent overlap in local time intent.
-  // If one of the original intervals crosses a zone offset change, treat boundary-touching as overlapping.
-  const touches = first.end === second.start;
-  if (touches) {
-    const aHas = DateTime.isDateTime(a.start) && DateTime.isDateTime(a.end);
-    const bHas = DateTime.isDateTime(b.start) && DateTime.isDateTime(b.end);
-    const aDelta = aHas ? (a.end as DateTime).offset - (a.start as DateTime).offset : 0;
-    const bDelta = bHas ? (b.end as DateTime).offset - (b.start as DateTime).offset : 0;
-    // Only treat as overlap for spring-forward (positive offset change)
-    if (aDelta > 0 || bDelta > 0) {
-      return true;
-    }
-  }
-  return false;
-}
+// windowsOverlap now lives in ./time-windows and is re-exported above
 
 function toIsoUtc(dateTime: DateTime): string {
   return (
@@ -1000,6 +886,8 @@ function applyLookaheadPenalties(params: {
   evaluationMs: number;
   conflicts: Array<{ bookingId: string; planKey: string }>;
   blockedPlans: string[];
+  timeBudgetHit: boolean;
+  precheckedConflicts: number;
 } {
   const {
     plans,
@@ -1016,6 +904,9 @@ function applyLookaheadPenalties(params: {
     blockThreshold,
   } = params;
   const start = performance.now();
+  // Guardrails to cap the cost of lookahead evaluation
+  const MAX_LOOKAHEAD_PLANS = Math.min(20, plans.length);
+  const LOOKAHEAD_TIME_BUDGET_MS = Math.max(15, Math.min(100, params.selectorLimits.enumerationTimeoutMs ?? 50));
 
   if (futureBookings.length === 0 || plans.length === 0 || penaltyWeight <= 0) {
     return {
@@ -1024,6 +915,8 @@ function applyLookaheadPenalties(params: {
       evaluationMs: performance.now() - start,
       conflicts: [],
       blockedPlans: [],
+      timeBudgetHit: false,
+      precheckedConflicts: 0,
     };
   }
 
@@ -1031,8 +924,36 @@ function applyLookaheadPenalties(params: {
   let totalPenalty = 0;
   const conflicts: Array<{ bookingId: string; planKey: string }> = [];
   const blockedPlanKeys = new Set<string>();
+  let timeBudgetHit = false;
+  let precheckedConflicts = 0;
 
-  for (const plan of plans) {
+  // Quick capacity upper-bound precheck to avoid full planning when impossible.
+  const quickCapacityFeasible = (
+    candidateTables: Table[],
+    required: number,
+    kLimit: number,
+    baseZone: string | null,
+  ): boolean => {
+    if (kLimit <= 0 || candidateTables.length === 0) return false;
+    // Filter by zone if applicable and take top-k capacities
+    const caps: number[] = [];
+    for (const t of candidateTables) {
+      if (baseZone && t.zoneId && t.zoneId !== baseZone) continue;
+      const c = t.capacity ?? 0;
+      if (c > 0) caps.push(c);
+    }
+    if (caps.length === 0) return false;
+    caps.sort((a, b) => b - a);
+    const ub = caps.slice(0, Math.min(kLimit, caps.length)).reduce((s, v) => s + v, 0);
+    return ub >= required;
+  };
+
+  // Evaluate only the top-N plans under a strict time budget
+  for (const plan of plans.slice(0, MAX_LOOKAHEAD_PLANS)) {
+    if (performance.now() - start > LOOKAHEAD_TIME_BUDGET_MS) {
+      timeBudgetHit = true;
+      break;
+    }
     let planPenalty = 0;
     const avoidTables = new Set(plan.tables.map((table) => table.id));
 
@@ -1061,6 +982,14 @@ function applyLookaheadPenalties(params: {
       if (availableTables.length === 0) {
         planPenalty += penaltyWeight;
         conflicts.push({ bookingId: future.bookingId, planKey: plan.tableKey });
+        continue;
+      }
+
+      // Fast upper-bound capacity precheck to skip expensive planning
+      if (!quickCapacityFeasible(availableTables, future.partySize, combinationLimit, zoneId ?? null)) {
+        planPenalty += penaltyWeight;
+        conflicts.push({ bookingId: future.bookingId, planKey: plan.tableKey });
+        precheckedConflicts += 1;
         continue;
       }
 
@@ -1113,6 +1042,8 @@ function applyLookaheadPenalties(params: {
     evaluationMs,
     conflicts,
     blockedPlans: Array.from(blockedPlanKeys),
+    timeBudgetHit,
+    precheckedConflicts,
   };
 }
 
@@ -1184,6 +1115,10 @@ export function evaluateLookahead(params: {
       conflicts: [],
       blockedPlans: [],
       hardBlockTriggered: false,
+      plansConsidered: 0,
+      plansEvaluated: 0,
+      timeBudgetHit: false,
+      precheckedConflicts: 0,
     };
   }
 
@@ -1207,10 +1142,14 @@ export function evaluateLookahead(params: {
       conflicts: [],
       blockedPlans: [],
       hardBlockTriggered: false,
+      plansConsidered: 0,
+      plansEvaluated: 0,
+      timeBudgetHit: false,
+      precheckedConflicts: 0,
     };
   }
 
-  const { penalizedPlans, totalPenalty, evaluationMs, conflicts, blockedPlans } = applyLookaheadPenalties({
+  const { penalizedPlans, totalPenalty, evaluationMs, conflicts, blockedPlans, timeBudgetHit, precheckedConflicts } = applyLookaheadPenalties({
     plans: plansResult.plans,
     bookingWindow,
     tables,
@@ -1236,6 +1175,10 @@ export function evaluateLookahead(params: {
       conflicts,
       blockedPlans,
       hardBlockTriggered: blockedPlans.length > 0,
+      plansConsidered: Math.min(20, plansResult.plans.length),
+      plansEvaluated: Math.min(20, plansResult.plans.length),
+      timeBudgetHit,
+      precheckedConflicts,
     };
   }
 
@@ -1253,6 +1196,11 @@ export function evaluateLookahead(params: {
     conflicts,
     blockedPlans,
     hardBlockTriggered: blockedPlans.length > 0,
+    // Best-effort estimates; exact counts are cheap to compute here
+    plansConsidered: Math.min(20, plansResult.plans.length),
+    plansEvaluated: Math.min(20, plansResult.plans.length),
+    timeBudgetHit,
+    precheckedConflicts,
   };
 }
 
@@ -1952,13 +1900,24 @@ export async function evaluateManualSelection(options: ManualSelectionOptions): 
   const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
   const policyVersion = hashPolicyVersion(policy);
 
-  const { window } = computeBookingWindowWithFallback({
-    startISO: booking.start_at,
-    bookingDate: booking.booking_date,
-    startTime: booking.start_time,
-    partySize: booking.party_size,
-    policy,
-  });
+  let window: ReturnType<typeof computeBookingWindow>;
+  try {
+    ({ window } = computeBookingWindowWithFallback({
+      startISO: booking.start_at,
+      bookingDate: booking.booking_date,
+      startTime: booking.start_time,
+      partySize: booking.party_size,
+      policy,
+    }));
+  } catch (error) {
+    if (error instanceof ServiceOverrunError) {
+      // Surface a structured 422 that the API layer can return to the client
+      // rather than bubbling a 500. Keeps math unchanged while avoiding crashes
+      // in manual context fetches for after-hours/overrun bookings.
+      throw new ManualSelectionInputError(error.message, "SERVICE_OVERRUN", 422);
+    }
+    throw error;
+  }
 
   const selectionTables = await loadTablesByIds(booking.restaurant_id, tableIds, supabase);
   if (selectionTables.length !== tableIds.length) {
@@ -2059,13 +2018,21 @@ export async function createManualHold(options: ManualHoldOptions): Promise<Manu
     ? (validation as { policyVersion?: string }).policyVersion!
     : hashPolicyVersion(policy);
 
-  const { window } = computeBookingWindowWithFallback({
-    startISO: booking.start_at,
-    bookingDate: booking.booking_date,
-    startTime: booking.start_time,
-    partySize: booking.party_size,
-    policy,
-  });
+  let window: ReturnType<typeof computeBookingWindow>;
+  try {
+    ({ window } = computeBookingWindowWithFallback({
+      startISO: booking.start_at,
+      bookingDate: booking.booking_date,
+      startTime: booking.start_time,
+      partySize: booking.party_size,
+      policy,
+    }));
+  } catch (error) {
+    if (error instanceof ServiceOverrunError) {
+      throw new ManualSelectionInputError(error.message, "SERVICE_OVERRUN", 422);
+    }
+    throw error;
+  }
 
   const selectionTables = await loadTablesByIds(booking.restaurant_id, tableIds, supabase);
   if (selectionTables.length !== tableIds.length) {
@@ -2166,13 +2133,21 @@ export async function getManualAssignmentContext(options: {
     getVenuePolicy().timezone;
   const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
 
-  const { window } = computeBookingWindowWithFallback({
-    startISO: booking.start_at,
-    bookingDate: booking.booking_date,
-    startTime: booking.start_time,
-    partySize: booking.party_size,
-    policy,
-  });
+  let window: ReturnType<typeof computeBookingWindow>;
+  try {
+    ({ window } = computeBookingWindowWithFallback({
+      startISO: booking.start_at,
+      bookingDate: booking.booking_date,
+      startTime: booking.start_time,
+      partySize: booking.party_size,
+      policy,
+    }));
+  } catch (error) {
+    if (error instanceof ServiceOverrunError) {
+      throw new ManualSelectionInputError(error.message, "SERVICE_OVERRUN", 422);
+    }
+    throw error;
+  }
 
   const tables = await loadTablesForRestaurant(booking.restaurant_id, supabase);
   const contextBookings = await loadContextBookings(
@@ -3313,17 +3288,19 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
       scoreBreakdown: plan.scoreBreakdown,
     });
 
-    const conflicts = await findHoldConflicts({
-      restaurantId: booking.restaurant_id,
-      tableIds: plan.tables.map((table) => table.id),
-      startAt: toIsoUtc(window.block.start),
-      endAt: toIsoUtc(window.block.end),
-      client: supabase,
-    });
+    if (!isHoldStrictConflictsEnabled()) {
+      const conflicts = await findHoldConflicts({
+        restaurantId: booking.restaurant_id,
+        tableIds: plan.tables.map((table) => table.id),
+        startAt: toIsoUtc(window.block.start),
+        endAt: toIsoUtc(window.block.end),
+        client: supabase,
+      });
 
-    if (conflicts.length > 0) {
-      recordHoldConflictSkip(conflicts, candidateSummary, plan);
-      continue;
+      if (conflicts.length > 0) {
+        recordHoldConflictSkip(conflicts, candidateSummary, plan);
+        continue;
+      }
     }
 
     if (index > 0) {

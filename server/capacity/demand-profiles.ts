@@ -1,8 +1,8 @@
-import fs from "node:fs";
-
+import * as fsp from "node:fs/promises";
 
 import { getServiceSupabaseClient } from "@/server/supabase";
 
+import { LruCache } from "./lru-cache";
 import { getDemandProfileConfigPath } from "./strategic-config";
 
 import type { ServiceKey } from "./policy";
@@ -46,12 +46,36 @@ function parseTimeToMinutes(value?: string | null): number | null {
   return hour * 60 + minute;
 }
 
+/**
+ * Normalize a [start, end) service window (in HH:mm strings) into minutes-of-day.
+ *
+ * Semantics:
+ * - Missing/invalid `start` → 00:00 (0 minutes)
+ * - Missing/invalid `end` → 24:00 (1440 minutes)
+ * - If both provided and `end <= start`, treat as same-day remainder `[start, 24:00)` and emit a warning.
+ *   Cross-midnight windows are not implicitly supported — define two rules instead.
+ */
 function normalizeWindow(start?: string, end?: string): { startMinute: number; endMinute: number } {
-  const startMinute = parseTimeToMinutes(start) ?? 0;
-  let endMinute = parseTimeToMinutes(end) ?? MINUTES_PER_DAY;
+  const startParsed = parseTimeToMinutes(start);
+  const endParsed = parseTimeToMinutes(end);
 
+  const startMinute = startParsed ?? 0;
+  let endMinute = endParsed ?? MINUTES_PER_DAY;
+
+  if (typeof startParsed === "number" && typeof endParsed === "number" && endMinute <= startMinute) {
+    // Explicit inputs but inverted/non-increasing: treat as remainder-of-day, not 24h wrap.
+    // This avoids accidentally spanning into the next day-of-week.
+    console.warn("[demand-profiles] normalizeWindow adjusted non-increasing window", {
+      start,
+      end,
+      normalized: { startMinute, endMinute: MINUTES_PER_DAY },
+    });
+    endMinute = MINUTES_PER_DAY;
+  }
+
+  // Guarantee at least one minute duration when both are equal after defaults.
   if (endMinute <= startMinute) {
-    endMinute = startMinute === 0 ? MINUTES_PER_DAY : Math.min(startMinute + MINUTES_PER_DAY, MINUTES_PER_DAY);
+    endMinute = Math.min(startMinute + 1, MINUTES_PER_DAY);
   }
 
   return { startMinute, endMinute };
@@ -133,12 +157,11 @@ type PreparedFallbackProfiles = {
   restaurants: Map<string, PreparedFallbackRule[]>;
 };
 
-type CacheEntry = {
-  result: DemandMultiplierResult;
-  expiresAt: number;
-};
 
-const demandCache = new Map<string, CacheEntry>();
+const DEMAND_CACHE_MAX_ENTRIES = Number.parseInt(process.env.DEMAND_CACHE_MAX_ENTRIES ?? "8192", 10) || 8192;
+const DEMAND_CACHE_SCAVENGE_MS = Number.parseInt(process.env.DEMAND_CACHE_SCAVENGE_MS ?? "60000", 10) || 60_000;
+const demandCache = new LruCache<DemandMultiplierResult>(DEMAND_CACHE_MAX_ENTRIES, CACHE_TTL_MS);
+demandCache.startScavenger(DEMAND_CACHE_SCAVENGE_MS);
 
 const EMBEDDED_DEFAULTS: DemandProfileRule[] = [
   {
@@ -180,35 +203,36 @@ type FallbackConfig = {
   restaurants?: Record<string, DemandProfileRule[]>;
 };
 
-let preparedFallbackProfiles: PreparedFallbackProfiles | null = null;
+let preparedFallbackProfilesPromise: Promise<PreparedFallbackProfiles> | null = null;
 
 function toDayNumber(day: string): number | null {
   const normalized = day.trim().toUpperCase();
   return DAY_NAME_TO_NUMBER[normalized] ?? null;
 }
 
-function readFallbackConfig(): FallbackConfig {
+async function readFallbackConfigAsync(): Promise<FallbackConfig> {
+  const profilePath = getDemandProfileConfigPath();
   try {
-    const profilePath = getDemandProfileConfigPath();
-    const raw = fs.readFileSync(profilePath, "utf8");
+    const raw = await fsp.readFile(profilePath, "utf8");
     return JSON.parse(raw) as FallbackConfig;
   } catch (error) {
     console.warn("[demand-profiles] failed to load fallback config, using embedded defaults", {
       error: error instanceof Error ? error.message : String(error),
-      path: getDemandProfileConfigPath(),
+      path: profilePath,
     });
     return { default: EMBEDDED_DEFAULTS };
   }
 }
 
-function prepareFallbackProfiles(): PreparedFallbackProfiles {
-  if (preparedFallbackProfiles) {
-    return preparedFallbackProfiles;
+async function prepareFallbackProfilesAsync(): Promise<PreparedFallbackProfiles> {
+  if (preparedFallbackProfilesPromise) {
+    return preparedFallbackProfilesPromise;
   }
 
-  const config = readFallbackConfig();
-  const defaultRules: PreparedFallbackRule[] = [];
-  const restaurantRules = new Map<string, PreparedFallbackRule[]>();
+  const loader = (async () => {
+    const config = await readFallbackConfigAsync();
+    const defaultRules: PreparedFallbackRule[] = [];
+    const restaurantRules = new Map<string, PreparedFallbackRule[]>();
 
   const processRuleSet = (rules: DemandProfileRule[] | undefined, source: "default" | "restaurant"): PreparedFallbackRule[] => {
     if (!Array.isArray(rules)) {
@@ -249,32 +273,34 @@ function prepareFallbackProfiles(): PreparedFallbackProfiles {
     return prepared;
   };
 
-  defaultRules.push(...processRuleSet(config.default ?? EMBEDDED_DEFAULTS, "default"));
+    defaultRules.push(...processRuleSet(config.default ?? EMBEDDED_DEFAULTS, "default"));
 
-  if (config.restaurants) {
-    for (const [restaurantId, rules] of Object.entries(config.restaurants)) {
-      if (!Array.isArray(rules) || rules.length === 0) {
-        continue;
+    if (config.restaurants) {
+      for (const [restaurantId, rules] of Object.entries(config.restaurants)) {
+        if (!Array.isArray(rules) || rules.length === 0) {
+          continue;
+        }
+        restaurantRules.set(restaurantId, processRuleSet(rules, "restaurant"));
       }
-      restaurantRules.set(restaurantId, processRuleSet(rules, "restaurant"));
     }
-  }
 
-  preparedFallbackProfiles = {
-    default: defaultRules,
-    restaurants: restaurantRules,
-  };
+    return {
+      default: defaultRules,
+      restaurants: restaurantRules,
+    } satisfies PreparedFallbackProfiles;
+  })();
 
-  return preparedFallbackProfiles;
+  preparedFallbackProfilesPromise = loader;
+  return loader;
 }
 
-function getFallbackRule(
+async function getFallbackRuleAsync(
   restaurantId: string | null | undefined,
   dayOfWeek: number,
   serviceWindow: string,
   minuteOfDay: number,
-): PreparedFallbackRule | null {
-  const profiles = prepareFallbackProfiles();
+): Promise<PreparedFallbackRule | null> {
+  const profiles = await prepareFallbackProfilesAsync();
   const candidates: PreparedFallbackRule[] = [];
 
   if (restaurantId) {
@@ -440,12 +466,8 @@ export async function resolveDemandMultiplier(params: {
   const weekdayLabel = localized.setLocale("en").weekdayLong ?? localized.weekdayLong ?? "Unknown";
   const minuteOfDay = localized.hour * 60 + localized.minute;
   const cacheKey = buildCacheKey(params.restaurantId, dayOfWeek, serviceWindow, minuteOfDay);
-  const now = Date.now();
   const cached = demandCache.get(cacheKey);
-
-  if (cached && cached.expiresAt > now) {
-    return cached.result;
-  }
+  if (cached) return cached;
 
   let multiplier = 1;
   let rule: DemandMultiplierResult["rule"] | undefined;
@@ -468,16 +490,18 @@ export async function resolveDemandMultiplier(params: {
         priority: normalizedRule.priority ?? null,
       };
 
-      demandCache.set(cacheKey, {
-        result: { multiplier, rule },
-        expiresAt: now + CACHE_TTL_MS,
-      });
+      demandCache.set(cacheKey, { multiplier, rule }, CACHE_TTL_MS);
 
       return { multiplier, rule };
     }
   }
 
-  const fallbackRule = getFallbackRule(params.restaurantId ?? undefined, dayOfWeek, serviceWindow, minuteOfDay);
+  const fallbackRule = await getFallbackRuleAsync(
+    params.restaurantId ?? undefined,
+    dayOfWeek,
+    serviceWindow,
+    minuteOfDay,
+  );
   if (fallbackRule) {
     multiplier = fallbackRule.multiplier;
     rule = toDemandRuleFromFallback(fallbackRule, localized);
@@ -491,24 +515,22 @@ export async function resolveDemandMultiplier(params: {
   }
 
   const result: DemandMultiplierResult = { multiplier, rule };
-
-  demandCache.set(cacheKey, {
-    result,
-    expiresAt: now + CACHE_TTL_MS,
-  });
-
+  demandCache.set(cacheKey, result, CACHE_TTL_MS);
   return result;
 }
 
-export function clearDemandMultiplierCache(): void {
-  demandCache.clear();
-}
+export function clearDemandMultiplierCache(): void { demandCache.clear(); }
 
 export function clearDemandProfileFallbackCache(): void {
-  preparedFallbackProfiles = null;
+  preparedFallbackProfilesPromise = null;
 }
 
 export function clearAllDemandProfileCaches(): void {
   clearDemandMultiplierCache();
   clearDemandProfileFallbackCache();
 }
+
+// Internal utilities for testing
+export const __internal = {
+  normalizeWindow,
+};

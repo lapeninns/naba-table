@@ -12,6 +12,8 @@ const DIAGNOSTIC_SKIP_KEYS = [
   "adjacency_frontier",
   "capacity_upper_bound",
   "timeout",
+  // Applied when we restrict which base seeds we start DFS from
+  "seed_limit",
 ] as const;
 
 const DEFAULT_ENUMERATION_TIMEOUT_MS = 1_000;
@@ -93,6 +95,8 @@ export type CandidateDiagnostics = {
       dfsIterations?: number;
       earlyExit: boolean;
       earlyExitReason?: string;
+      seedLimitApplied?: boolean;
+      seedsConsidered?: number;
     };
   };
   lookahead?: {
@@ -105,6 +109,10 @@ export type CandidateDiagnostics = {
     conflicts: Array<{ bookingId: string; planKey: string }>;
     blockedPlans: string[];
     hardBlockTriggered: boolean;
+    plansConsidered?: number;
+    plansEvaluated?: number;
+    timeBudgetHit?: boolean;
+    precheckedConflicts?: number;
   };
 };
 
@@ -306,6 +314,11 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
       dfsIterations,
       earlyExit,
       earlyExitReason,
+      seedLimitApplied: (diagnostics.skipped.seed_limit ?? 0) > 0,
+      seedsConsidered:
+        (diagnostics.skipped.seed_limit ?? 0) > 0
+          ? Math.max(0, validTables.length - (diagnostics.skipped.seed_limit ?? 0))
+          : validTables.length,
     },
   };
 
@@ -519,11 +532,10 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
 
   const seenKeys = new Set<string>();
   const buckets = new Map<number, RankedTablePlan[]>();
+  // Sort by capacity asc for deterministic ordering
   const sortedCandidates = [...candidates].sort((a, b) => {
     const capacityDiff = (a.capacity ?? 0) - (b.capacity ?? 0);
-    if (capacityDiff !== 0) {
-      return capacityDiff;
-    }
+    if (capacityDiff !== 0) return capacityDiff;
     const nameA = a.tableNumber ?? a.id;
     const nameB = b.tableNumber ?? b.id;
     return nameA.localeCompare(nameB);
@@ -617,6 +629,40 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
   let timeoutRecorded = false;
   let stopSearch = false;
   let timedOut = false;
+  // Heuristic seed limiting to reduce combinatorial explosion
+  // Estimate a reasonable number of starting seeds based on evaluation budget and kMax.
+  const estimatedSeeds = Math.max(8, Math.floor(evaluationLimit / Math.max(1, kMax - 1)));
+  // For small inputs keep all seeds; otherwise apply the limit.
+  const applySeedLimit = sortedCandidates.length > 30 || kMax > 2;
+  const maxSeeds = applySeedLimit ? Math.min(sortedCandidates.length, estimatedSeeds) : sortedCandidates.length;
+
+  // Rank seeds (base tables) by a lightweight heuristic to increase early hit rate:
+  //  - smaller deficit to partySize is better
+  //  - higher adjacency degree is better
+  //  - higher capacity as a tiebreaker
+  const degreeCache = new Map<string, number>();
+  const seedOrder = [...sortedCandidates]
+    .map((t) => {
+      const cap = t.capacity ?? 0;
+      const deficit = Math.max(0, partySize - cap);
+      const degree = degreeCache.get(t.id) ?? adjacency.get(t.id)?.size ?? 0;
+      degreeCache.set(t.id, degree);
+      return { t, deficit, degree, cap };
+    })
+    .sort((a, b) => {
+      if (a.deficit !== b.deficit) return a.deficit - b.deficit;
+      if (a.degree !== b.degree) return b.degree - a.degree;
+      if (a.cap !== b.cap) return b.cap - a.cap;
+      const nA = a.t.tableNumber ?? a.t.id;
+      const nB = b.t.tableNumber ?? b.t.id;
+      return nA.localeCompare(nB);
+    })
+    .map((x) => x.t);
+
+  if (applySeedLimit && maxSeeds < sortedCandidates.length) {
+    // Record diagnostics on seeds skipped
+    incrementCounter(diagnostics.skipped, "seed_limit", sortedCandidates.length - maxSeeds);
+  }
 
   const registerPlan = (plan: RankedTablePlan) => {
     const bucket = buckets.get(plan.slack) ?? [];
@@ -777,8 +823,9 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
     diagnostics.limits.enumerationTimeoutMs ?? DEFAULT_ENUMERATION_TIMEOUT_MS,
   );
 
-  for (let i = 0; i < sortedCandidates.length && !stopSearch; i += 1) {
-    const base = sortedCandidates[i];
+  const seedLoop = applySeedLimit ? seedOrder.slice(0, maxSeeds) : seedOrder;
+  for (let i = 0; i < seedLoop.length && !stopSearch; i += 1) {
+    const base = seedLoop[i];
     const baseSelection = [base];
     const baseSelectionIds = new Set<string>([base.id]);
     const baseFrontier = requireAdjacency ? buildFrontier(baseSelectionIds) : null;

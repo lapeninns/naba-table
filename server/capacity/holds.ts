@@ -3,7 +3,7 @@ import { DateTime } from "luxon";
 import { isHoldStrictConflictsEnabled, getHoldMinTtlSeconds, getHoldRateWindowSeconds, getHoldRateMaxPerBooking } from "@/server/feature-flags";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
-import type { Database, Json, Tables, TablesInsert } from "@/types/supabase";
+import type { Database, Json, Tables } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type DbClient = SupabaseClient<Database, "public">;
@@ -276,47 +276,14 @@ export async function createTableHold(input: CreateTableHoldInput): Promise<Tabl
     }
   }
 
-  if (isHoldStrictConflictsEnabled()) {
-    try {
-      const conflicts = await findHoldConflicts({
-        restaurantId,
-        tableIds,
-        startAt,
-        endAt,
-        client: supabase,
-      });
-      const blockingConflicts = conflicts.filter((conflict) => conflict.bookingId !== bookingId);
-      if (blockingConflicts.length > 0) {
-        const { emitHoldStrictConflict } = await import("./telemetry");
-        await emitHoldStrictConflict({
-          restaurantId,
-          bookingId,
-          tableIds,
-          startAt,
-          endAt,
-          conflicts: blockingConflicts.map((conflict) => ({
-            holdId: conflict.holdId,
-            bookingId: conflict.bookingId,
-            tableIds: conflict.tableIds,
-            startAt: conflict.startAt,
-            endAt: conflict.endAt,
-            expiresAt: conflict.expiresAt,
-          })),
-        });
-        throw new HoldConflictError("Existing holds conflict with requested tables", blockingConflicts[0]?.holdId);
-      }
-    } catch (error) {
-      if (error instanceof HoldConflictError) {
-        throw error;
-      }
-      console.warn("[capacity.hold] strict conflict evaluation failed; proceeding with relaxed checks", {
-        restaurantId,
-        error,
-      });
-    }
-  }
+  // When strict conflicts are enabled, avoid a TOCTOU race by relying on
+  // database-level exclusion constraints and inserting the hold + members
+  // atomically via a nested write in a single request.
+  // We still emit telemetry for conflicts after-the-fact based on DB errors.
 
-  const insertPayload: TablesInsert<"table_holds"> = {
+  // Build a nested insert payload. Types don't model nested writes, so cast.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const insertPayload: any = {
     booking_id: bookingId,
     restaurant_id: restaurantId,
     zone_id: zoneId,
@@ -325,31 +292,73 @@ export async function createTableHold(input: CreateTableHoldInput): Promise<Tabl
     expires_at: expiresAt,
     created_by: createdBy,
     metadata,
+    table_hold_members: {
+      data: Array.from(new Set(tableIds)).map((tableId) => ({ table_id: tableId })),
+    },
   };
 
-  const { data: holdRow, error: insertError } = await supabase
+  // Single statement, atomic. If an exclusion constraint is violated due to a
+  // concurrent hold, Postgres returns an error and nothing is persisted (no orphan hold row).
+  const { data: inserted, error: nestedError } = await supabase
     .from("table_holds")
     .insert(insertPayload)
-    .select("id, booking_id, restaurant_id, zone_id, start_at, end_at, expires_at, created_by, metadata")
-    .maybeSingle();
+    .select(
+      "id, booking_id, restaurant_id, zone_id, start_at, end_at, expires_at, created_by, metadata, table_hold_members(table_id)",
+    )
+    .single();
 
-  if (insertError || !holdRow) {
-    throw new HoldConflictError(insertError?.message ?? "Failed to create table hold");
+  if (nestedError || !inserted) {
+    const code = (nestedError as { code?: string } | null)?.code ?? null;
+    const message = (nestedError as { message?: string } | null)?.message ?? String(nestedError ?? "");
+
+    // Translate DB-level overlap to a domain HoldConflictError.
+    if (code === "23P01" || /table_hold_windows_no_overlap|exclusion/i.test(message)) {
+      // Best-effort pull current conflicts for telemetry
+      try {
+        const conflicts = await findHoldConflicts({ restaurantId, tableIds, startAt, endAt, client: supabase });
+        const blocking = conflicts.filter((c) => c.bookingId !== bookingId);
+        if (blocking.length > 0) {
+          const { emitHoldStrictConflict } = await import("./telemetry");
+          await emitHoldStrictConflict({
+            restaurantId,
+            bookingId,
+            tableIds,
+            startAt,
+            endAt,
+            conflicts: blocking.map((conflict) => ({
+              holdId: conflict.holdId,
+              bookingId: conflict.bookingId,
+              tableIds: conflict.tableIds,
+              startAt: conflict.startAt,
+              endAt: conflict.endAt,
+              expiresAt: conflict.expiresAt,
+            })),
+          });
+          throw new HoldConflictError("Existing holds conflict with requested tables", blocking[0]?.holdId);
+        }
+      } catch {
+        // Even if conflict enumeration fails, translate as a conflict.
+      }
+      throw new HoldConflictError("Existing holds conflict with requested tables");
+    }
+
+    // Bubble other errors explicitly.
+    throw new HoldConflictError(message || "Failed to create table hold");
   }
 
-  const memberRows = tableIds.map((tableId) => ({
-    hold_id: holdRow.id,
-    table_id: tableId,
-  }));
-
-  const { error: memberError } = await supabase.from("table_hold_members").insert(memberRows);
-
-  if (memberError) {
-    await supabase.from("table_holds").delete().eq("id", holdRow.id);
-    throw new HoldConflictError(memberError.message ?? "Failed to record table hold members", holdRow.id);
-  }
-
-  const hold = normalizeHold(holdRow as Tables<"table_holds">, tableIds);
+  const memberTableIds = extractTableIdsFromMembers((inserted as HoldRowWithMembers).table_hold_members ?? null);
+  const hold: TableHold = {
+    id: (inserted as { id: string }).id,
+    bookingId: (inserted as { booking_id: string | null }).booking_id ?? null,
+    restaurantId: (inserted as { restaurant_id: string }).restaurant_id,
+    zoneId: (inserted as { zone_id: string }).zone_id,
+    startAt: (inserted as { start_at: string }).start_at,
+    endAt: (inserted as { end_at: string }).end_at,
+    expiresAt: (inserted as { expires_at: string }).expires_at,
+    tableIds: memberTableIds,
+    createdBy: (inserted as { created_by: string | null }).created_by ?? null,
+    metadata: (inserted as { metadata: Json | null }).metadata ?? null,
+  };
 
   const { emitHoldCreated } = await import("./telemetry");
   await emitHoldCreated({
@@ -546,13 +555,15 @@ export async function findHoldConflicts(input: FindHoldConflictsInput): Promise<
     if (error) {
       const code = (error as { code?: string }).code;
       if (code === "42P01") {
+        // Missing view in some environments; only then use legacy.
         return await findHoldConflictsLegacy({ restaurantId, tableIds, startAt, endAt, excludeHoldId, client: supabase });
       }
-      console.warn("[capacity.hold] hold_window query failed; falling back to legacy conflict detection", {
+      console.error("[capacity.hold] hold_window query failed; strict conflict detection unavailable", {
         restaurantId,
-        error,
+        code: code ?? null,
+        message: (error as { message?: string }).message ?? String(error),
       });
-      return await findHoldConflictsLegacy({ restaurantId, tableIds, startAt, endAt, excludeHoldId, client: supabase });
+      throw error;
     }
 
     const rows = Array.isArray(data) ? (data as TableHoldWindowRow[]) : [];
@@ -590,13 +601,16 @@ export async function findHoldConflicts(input: FindHoldConflictsInput): Promise<
   } catch (error) {
     const code = (error as { code?: string }).code;
     if (code === "42P01") {
+      // Missing view; permissible fallback.
       return await findHoldConflictsLegacy({ restaurantId, tableIds, startAt, endAt, excludeHoldId, client: supabase });
     }
-    console.warn("[capacity.hold] conflict evaluation failed; using legacy fallback", {
+    // Escalate instead of silently degrading to legacy checks.
+    console.error("[capacity.hold] conflict evaluation failed (no fallback)", {
       restaurantId,
-      error,
+      code: code ?? null,
+      message: (error as { message?: string }).message ?? String(error),
     });
-    return await findHoldConflictsLegacy({ restaurantId, tableIds, startAt, endAt, excludeHoldId, client: supabase });
+    throw error;
   }
 }
 
@@ -610,13 +624,20 @@ async function findHoldConflictsLegacy(params: {
 }): Promise<HoldConflictInfo[]> {
   const { restaurantId, tableIds, startAt, endAt, excludeHoldId = null, client } = params;
 
+  const nowIso = new Date().toISOString();
+  const uniqueIds = Array.from(new Set(tableIds));
+  // Push filtering into the database: inner-join table_hold_members and filter by member ids
   const query = client
     .from("table_holds")
-    .select("id, booking_id, start_at, end_at, expires_at, table_hold_members(table_id)")
+    .select(
+      "id, booking_id, start_at, end_at, expires_at, table_hold_members!inner(table_id)",
+    )
     .eq("restaurant_id", restaurantId)
-    .gt("expires_at", new Date().toISOString())
+    .gt("expires_at", nowIso)
+    // Basic overlap check (start < endAt AND end > startAt)
     .lt("start_at", endAt)
-    .gt("end_at", startAt);
+    .gt("end_at", startAt)
+    .in("table_hold_members.table_id", uniqueIds);
 
   const { data, error } = await query;
 
@@ -633,10 +654,6 @@ async function findHoldConflictsLegacy(params: {
 
     const members = (row.table_hold_members ?? []) as Array<{ table_id: string }>;
     const memberTableIds = members.map((member) => member.table_id);
-
-    if (!memberTableIds.some((id) => tableIds.includes(id))) {
-      continue;
-    }
 
     if (!intervalsOverlap(row.start_at, row.end_at, startAt, endAt)) {
       continue;

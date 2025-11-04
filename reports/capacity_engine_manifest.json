@@ -1,0 +1,1369 @@
+{
+  "name": "capacity_engine_manifest",
+  "generatedAt": "2025-11-04T13:34:30.224Z",
+  "modules": [
+    {
+      "path": "server/capacity/service.ts",
+      "size": 3571,
+      "exports": [
+        {
+          "kind": "function",
+          "name": "getServicePeriodsWithCapacity",
+          "raw": "export async function getServicePeriodsWithCapacity"
+        },
+        {
+          "kind": "function",
+          "name": "checkSlotAvailability",
+          "raw": "export async function checkSlotAvailability"
+        },
+        {
+          "kind": "function",
+          "name": "findAlternativeSlots",
+          "raw": "export async function findAlternativeSlots"
+        },
+        {
+          "kind": "function",
+          "name": "calculateCapacityUtilization",
+          "raw": "export async function calculateCapacityUtilization"
+        }
+      ],
+      "dependsOn": []
+    },
+    {
+      "path": "server/capacity/selector.ts",
+      "size": 25571,
+      "exports": [
+        {
+          "kind": "type",
+          "name": "CandidateMetrics",
+          "raw": "export type CandidateMetrics"
+        },
+        {
+          "kind": "type",
+          "name": "ScoreBreakdown",
+          "raw": "export type ScoreBreakdown"
+        },
+        {
+          "kind": "type",
+          "name": "RankedTablePlan",
+          "raw": "export type RankedTablePlan"
+        },
+        {
+          "kind": "type",
+          "name": "CandidateDiagnostics",
+          "raw": "export type CandidateDiagnostics"
+        },
+        {
+          "kind": "type",
+          "name": "BuildCandidatesOptions",
+          "raw": "export type BuildCandidatesOptions"
+        },
+        {
+          "kind": "type",
+          "name": "BuildCandidatesResult",
+          "raw": "export type BuildCandidatesResult"
+        },
+        {
+          "kind": "function",
+          "name": "buildScoredTablePlans",
+          "raw": "export function buildScoredTablePlans"
+        }
+      ],
+      "dependsOn": []
+    },
+    {
+      "path": "server/capacity/planner/bitset.ts",
+      "size": 2138,
+      "exports": [
+        {
+          "kind": "type",
+          "name": "AvailabilityBitset",
+          "raw": "export type AvailabilityBitset"
+        },
+        {
+          "kind": "function",
+          "name": "createAvailabilityBitset",
+          "raw": "export function createAvailabilityBitset"
+        },
+        {
+          "kind": "function",
+          "name": "markWindow",
+          "raw": "export function markWindow"
+        },
+        {
+          "kind": "function",
+          "name": "isWindowFree",
+          "raw": "export function isWindowFree"
+        },
+        {
+          "kind": "function",
+          "name": "mergeBitsets",
+          "raw": "export function mergeBitsets"
+        }
+      ],
+      "dependsOn": []
+    },
+    {
+      "path": "server/capacity/holds.ts",
+      "size": 21233,
+      "exports": [
+        {
+          "kind": "type",
+          "name": "TableHold",
+          "raw": "export type TableHold"
+        },
+        {
+          "kind": "type",
+          "name": "HoldConflictInfo",
+          "raw": "export type HoldConflictInfo"
+        },
+        {
+          "kind": "type",
+          "name": "CreateTableHoldInput",
+          "raw": "export type CreateTableHoldInput"
+        },
+        {
+          "kind": "type",
+          "name": "ReleaseTableHoldInput",
+          "raw": "export type ReleaseTableHoldInput"
+        },
+        {
+          "kind": "type",
+          "name": "FindHoldConflictsInput",
+          "raw": "export type FindHoldConflictsInput"
+        },
+        {
+          "kind": "type",
+          "name": "ListActiveHoldsInput",
+          "raw": "export type ListActiveHoldsInput"
+        },
+        {
+          "kind": "type",
+          "name": "SweepExpiredHoldsInput",
+          "raw": "export type SweepExpiredHoldsInput"
+        },
+        {
+          "kind": "type",
+          "name": "SweepExpiredHoldsResult",
+          "raw": "export type SweepExpiredHoldsResult"
+        },
+        {
+          "kind": "type",
+          "name": "ExtendTableHoldInput",
+          "raw": "export type ExtendTableHoldInput"
+        },
+        {
+          "kind": "class",
+          "name": "HoldConflictError",
+          "raw": "export class HoldConflictError"
+        },
+        {
+          "kind": "class",
+          "name": "HoldNotFoundError",
+          "raw": "export class HoldNotFoundError"
+        },
+        {
+          "kind": "class",
+          "name": "AssignTablesRpcError",
+          "raw": "export class AssignTablesRpcError"
+        },
+        {
+          "kind": "function",
+          "name": "createTableHold",
+          "raw": "export async function createTableHold"
+        },
+        {
+          "kind": "function",
+          "name": "releaseTableHold",
+          "raw": "export async function releaseTableHold"
+        },
+        {
+          "kind": "function",
+          "name": "extendTableHold",
+          "raw": "export async function extendTableHold"
+        },
+        {
+          "kind": "function",
+          "name": "listActiveHoldsForBooking",
+          "raw": "export async function listActiveHoldsForBooking"
+        },
+        {
+          "kind": "function",
+          "name": "findHoldConflicts",
+          "raw": "export async function findHoldConflicts"
+        },
+        {
+          "kind": "function",
+          "name": "sweepExpiredHolds",
+          "raw": "export async function sweepExpiredHolds"
+        }
+      ],
+      "dependsOn": []
+    },
+    {
+      "path": "server/capacity/transaction.ts",
+      "size": 18996,
+      "exports": [
+        {
+          "kind": "function",
+          "name": "retryWithBackoff",
+          "raw": "export async function retryWithBackoff"
+        },
+        {
+          "kind": "function",
+          "name": "createBookingWithCapacityCheck",
+          "raw": "export async function createBookingWithCapacityCheck"
+        },
+        {
+          "kind": "function",
+          "name": "updateBookingWithCapacityCheck",
+          "raw": "export async function updateBookingWithCapacityCheck"
+        },
+        {
+          "kind": "function",
+          "name": "createBookingOrThrow",
+          "raw": "export async function createBookingOrThrow"
+        },
+        {
+          "kind": "function",
+          "name": "isRetryableBookingError",
+          "raw": "export function isRetryableBookingError"
+        },
+        {
+          "kind": "function",
+          "name": "getBookingErrorMessage",
+          "raw": "export function getBookingErrorMessage"
+        }
+      ],
+      "dependsOn": []
+    },
+    {
+      "path": "server/capacity/policy.ts",
+      "size": 8210,
+      "exports": [
+        {
+          "kind": "const",
+          "name": "SERVICE_KEYS",
+          "raw": "export const SERVICE_KEYS"
+        },
+        {
+          "kind": "type",
+          "name": "ServiceKey",
+          "raw": "export type ServiceKey"
+        },
+        {
+          "kind": "type",
+          "name": "TimeOfDay",
+          "raw": "export type TimeOfDay"
+        },
+        {
+          "kind": "type",
+          "name": "BufferConfig",
+          "raw": "export type BufferConfig"
+        },
+        {
+          "kind": "type",
+          "name": "TurnBand",
+          "raw": "export type TurnBand"
+        },
+        {
+          "kind": "type",
+          "name": "ServiceDefinition",
+          "raw": "export type ServiceDefinition"
+        },
+        {
+          "kind": "type",
+          "name": "VenuePolicy",
+          "raw": "export type VenuePolicy"
+        },
+        {
+          "kind": "type",
+          "name": "SelectorScoringWeights",
+          "raw": "export type SelectorScoringWeights"
+        },
+        {
+          "kind": "const",
+          "name": "YIELD_MANAGEMENT_SCARCITY_WEIGHT",
+          "raw": "export const YIELD_MANAGEMENT_SCARCITY_WEIGHT"
+        },
+        {
+          "kind": "type",
+          "name": "SelectorScoringConfig",
+          "raw": "export type SelectorScoringConfig"
+        },
+        {
+          "kind": "type",
+          "name": "ServiceWindow",
+          "raw": "export type ServiceWindow"
+        },
+        {
+          "kind": "const",
+          "name": "defaultVenuePolicy",
+          "raw": "export const defaultVenuePolicy"
+        },
+        {
+          "kind": "function",
+          "name": "getSelectorScoringConfig",
+          "raw": "export function getSelectorScoringConfig"
+        },
+        {
+          "kind": "function",
+          "name": "getYieldManagementScarcityWeight",
+          "raw": "export function getYieldManagementScarcityWeight"
+        },
+        {
+          "kind": "class",
+          "name": "PolicyError",
+          "raw": "export class PolicyError"
+        },
+        {
+          "kind": "class",
+          "name": "ServiceNotFoundError",
+          "raw": "export class ServiceNotFoundError"
+        },
+        {
+          "kind": "class",
+          "name": "ServiceOverrunError",
+          "raw": "export class ServiceOverrunError"
+        },
+        {
+          "kind": "function",
+          "name": "getVenuePolicy",
+          "raw": "export function getVenuePolicy"
+        },
+        {
+          "kind": "function",
+          "name": "whichService",
+          "raw": "export function whichService"
+        },
+        {
+          "kind": "function",
+          "name": "serviceWindowFor",
+          "raw": "export function serviceWindowFor"
+        },
+        {
+          "kind": "function",
+          "name": "serviceEnd",
+          "raw": "export function serviceEnd"
+        },
+        {
+          "kind": "function",
+          "name": "getTurnBand",
+          "raw": "export function getTurnBand"
+        },
+        {
+          "kind": "function",
+          "name": "bandDuration",
+          "raw": "export function bandDuration"
+        },
+        {
+          "kind": "function",
+          "name": "getBufferConfig",
+          "raw": "export function getBufferConfig"
+        }
+      ],
+      "dependsOn": []
+    },
+    {
+      "path": "server/capacity/rotations.ts",
+      "size": 5827,
+      "exports": [
+        {
+          "kind": "type",
+          "name": "TableRotationDetail",
+          "raw": "export type TableRotationDetail"
+        },
+        {
+          "kind": "type",
+          "name": "ServiceCapacitySummary",
+          "raw": "export type ServiceCapacitySummary"
+        },
+        {
+          "kind": "type",
+          "name": "CalculateCapacityParams",
+          "raw": "export type CalculateCapacityParams"
+        },
+        {
+          "kind": "function",
+          "name": "calculateRestaurantCapacityByService",
+          "raw": "export async function calculateRestaurantCapacityByService"
+        },
+        {
+          "kind": "function",
+          "name": "calculateCapacityForTables",
+          "raw": "export function calculateCapacityForTables"
+        }
+      ],
+      "dependsOn": []
+    },
+    {
+      "path": "server/capacity/scarcity.ts",
+      "size": 4553,
+      "exports": [
+        {
+          "kind": "function",
+          "name": "deriveTableType",
+          "raw": "export function deriveTableType"
+        },
+        {
+          "kind": "function",
+          "name": "computeScarcityScore",
+          "raw": "export function computeScarcityScore"
+        },
+        {
+          "kind": "function",
+          "name": "loadTableScarcityScores",
+          "raw": "export async function loadTableScarcityScores"
+        },
+        {
+          "kind": "function",
+          "name": "clearScarcityCache",
+          "raw": "export function clearScarcityCache"
+        }
+      ],
+      "dependsOn": []
+    },
+    {
+      "path": "server/capacity/strategic-config.ts",
+      "size": 9105,
+      "exports": [
+        {
+          "kind": "const",
+          "name": "DEFAULT_SCARCITY_WEIGHT",
+          "raw": "export const DEFAULT_SCARCITY_WEIGHT"
+        },
+        {
+          "kind": "type",
+          "name": "StrategicConfigSource",
+          "raw": "export type StrategicConfigSource"
+        },
+        {
+          "kind": "type",
+          "name": "StrategicConfigState",
+          "raw": "export type StrategicConfigState"
+        },
+        {
+          "kind": "type",
+          "name": "StrategicConfigSnapshotOptions",
+          "raw": "export type StrategicConfigSnapshotOptions"
+        },
+        {
+          "kind": "type",
+          "name": "StrategicConfigLoadOptions",
+          "raw": "export type StrategicConfigLoadOptions"
+        },
+        {
+          "kind": "function",
+          "name": "getDemandProfileConfigPath",
+          "raw": "export function getDemandProfileConfigPath"
+        },
+        {
+          "kind": "function",
+          "name": "getStrategicConfigSnapshot",
+          "raw": "export function getStrategicConfigSnapshot"
+        },
+        {
+          "kind": "function",
+          "name": "getStrategicScarcityWeight",
+          "raw": "export function getStrategicScarcityWeight"
+        },
+        {
+          "kind": "function",
+          "name": "loadStrategicConfig",
+          "raw": "export async function loadStrategicConfig"
+        },
+        {
+          "kind": "function",
+          "name": "applyStrategicConfigOverride",
+          "raw": "export function applyStrategicConfigOverride"
+        },
+        {
+          "kind": "function",
+          "name": "invalidateStrategicConfigCache",
+          "raw": "export function invalidateStrategicConfigCache"
+        },
+        {
+          "kind": "function",
+          "name": "setStrategicScarcityWeightForTests",
+          "raw": "export function setStrategicScarcityWeightForTests"
+        },
+        {
+          "kind": "function",
+          "name": "setDemandProfileConfigPathForTests",
+          "raw": "export function setDemandProfileConfigPathForTests"
+        },
+        {
+          "kind": "function",
+          "name": "setStrategicConfigForTests",
+          "raw": "export function setStrategicConfigForTests"
+        },
+        {
+          "kind": "function",
+          "name": "resetStrategicConfigTestOverrides",
+          "raw": "export function resetStrategicConfigTestOverrides"
+        }
+      ],
+      "dependsOn": []
+    },
+    {
+      "path": "server/capacity/tables.ts",
+      "size": 111319,
+      "exports": [
+        {
+          "kind": "type",
+          "name": "Table",
+          "raw": "export type Table"
+        },
+        {
+          "kind": "type",
+          "name": "TableMatchParams",
+          "raw": "export type TableMatchParams"
+        },
+        {
+          "kind": "type",
+          "name": "TableAssignmentMember",
+          "raw": "export type TableAssignmentMember"
+        },
+        {
+          "kind": "type",
+          "name": "TableAssignmentGroup",
+          "raw": "export type TableAssignmentGroup"
+        },
+        {
+          "kind": "type",
+          "name": "ManualSelectionCheck",
+          "raw": "export type ManualSelectionCheck"
+        },
+        {
+          "kind": "type",
+          "name": "ManualSelectionSummary",
+          "raw": "export type ManualSelectionSummary"
+        },
+        {
+          "kind": "type",
+          "name": "ManualValidationResult",
+          "raw": "export type ManualValidationResult"
+        },
+        {
+          "kind": "type",
+          "name": "ManualSelectionOptions",
+          "raw": "export type ManualSelectionOptions"
+        },
+        {
+          "kind": "type",
+          "name": "ManualHoldOptions",
+          "raw": "export type ManualHoldOptions"
+        },
+        {
+          "kind": "type",
+          "name": "ManualHoldResult",
+          "raw": "export type ManualHoldResult"
+        },
+        {
+          "kind": "type",
+          "name": "QuoteTablesOptions",
+          "raw": "export type QuoteTablesOptions"
+        },
+        {
+          "kind": "type",
+          "name": "QuoteTablesResult",
+          "raw": "export type QuoteTablesResult"
+        },
+        {
+          "kind": "type",
+          "name": "ManualAssignmentConflict",
+          "raw": "export type ManualAssignmentConflict"
+        },
+        {
+          "kind": "type",
+          "name": "ManualAssignmentContextHold",
+          "raw": "export type ManualAssignmentContextHold"
+        },
+        {
+          "kind": "type",
+          "name": "ManualAssignmentContext",
+          "raw": "export type ManualAssignmentContext"
+        },
+        {
+          "kind": "class",
+          "name": "ManualSelectionInputError",
+          "raw": "export class ManualSelectionInputError"
+        },
+        {
+          "kind": "type",
+          "name": "BookingWindow",
+          "raw": "export type BookingWindow"
+        },
+        {
+          "kind": "function",
+          "name": "computeBookingWindow",
+          "raw": "export function computeBookingWindow"
+        },
+        {
+          "kind": "function",
+          "name": "windowsOverlap",
+          "raw": "export function windowsOverlap"
+        },
+        {
+          "kind": "function",
+          "name": "filterAvailableTables",
+          "raw": "export function filterAvailableTables"
+        },
+        {
+          "kind": "function",
+          "name": "evaluateLookahead",
+          "raw": "export function evaluateLookahead"
+        },
+        {
+          "kind": "function",
+          "name": "evaluateManualSelection",
+          "raw": "export async function evaluateManualSelection"
+        },
+        {
+          "kind": "function",
+          "name": "createManualHold",
+          "raw": "export async function createManualHold"
+        },
+        {
+          "kind": "function",
+          "name": "getManualAssignmentContext",
+          "raw": "export async function getManualAssignmentContext"
+        },
+        {
+          "kind": "function",
+          "name": "confirmHoldAssignment",
+          "raw": "export async function confirmHoldAssignment"
+        },
+        {
+          "kind": "function",
+          "name": "assignTableToBooking",
+          "raw": "export async function assignTableToBooking"
+        },
+        {
+          "kind": "function",
+          "name": "unassignTableFromBooking",
+          "raw": "export async function unassignTableFromBooking"
+        },
+        {
+          "kind": "function",
+          "name": "getBookingTableAssignments",
+          "raw": "export async function getBookingTableAssignments"
+        },
+        {
+          "kind": "function",
+          "name": "quoteTablesForBooking",
+          "raw": "export async function quoteTablesForBooking"
+        },
+        {
+          "kind": "function",
+          "name": "findSuitableTables",
+          "raw": "export async function findSuitableTables"
+        },
+        {
+          "kind": "function",
+          "name": "isTableAvailableV2",
+          "raw": "export async function isTableAvailableV2"
+        },
+        {
+          "kind": "function",
+          "name": "isTableAvailable",
+          "raw": "export async function isTableAvailable"
+        },
+        {
+          "kind": "const",
+          "name": "__internal",
+          "raw": "export const __internal"
+        }
+      ],
+      "dependsOn": ["server/capacity/cache"]
+    },
+    {
+      "path": "server/capacity/index.ts",
+      "size": 2926,
+      "exports": [
+        {
+          "kind": "type",
+          "name": "",
+          "raw": "export type "
+        },
+        {
+          "kind": "type",
+          "name": "",
+          "raw": "export type "
+        },
+        {
+          "kind": "type",
+          "name": "",
+          "raw": "export type "
+        },
+        {
+          "kind": "named",
+          "name": "checkSlotAvailability",
+          "raw": "export {\n  checkSlotAvailability,\n  findAlternativeSlots,\n  calculateCapacityUtilization,\n  getServicePeriodsWithCapacity,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "findAlternativeSlots",
+          "raw": "export {\n  checkSlotAvailability,\n  findAlternativeSlots,\n  calculateCapacityUtilization,\n  getServicePeriodsWithCapacity,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "calculateCapacityUtilization",
+          "raw": "export {\n  checkSlotAvailability,\n  findAlternativeSlots,\n  calculateCapacityUtilization,\n  getServicePeriodsWithCapacity,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "getServicePeriodsWithCapacity",
+          "raw": "export {\n  checkSlotAvailability,\n  findAlternativeSlots,\n  calculateCapacityUtilization,\n  getServicePeriodsWithCapacity,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "createBookingWithCapacityCheck",
+          "raw": "export {\n  createBookingWithCapacityCheck,\n  updateBookingWithCapacityCheck,\n  createBookingOrThrow,\n  retryWithBackoff,\n  isRetryableBookingError,\n  getBookingErrorMessage,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "updateBookingWithCapacityCheck",
+          "raw": "export {\n  createBookingWithCapacityCheck,\n  updateBookingWithCapacityCheck,\n  createBookingOrThrow,\n  retryWithBackoff,\n  isRetryableBookingError,\n  getBookingErrorMessage,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "createBookingOrThrow",
+          "raw": "export {\n  createBookingWithCapacityCheck,\n  updateBookingWithCapacityCheck,\n  createBookingOrThrow,\n  retryWithBackoff,\n  isRetryableBookingError,\n  getBookingErrorMessage,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "retryWithBackoff",
+          "raw": "export {\n  createBookingWithCapacityCheck,\n  updateBookingWithCapacityCheck,\n  createBookingOrThrow,\n  retryWithBackoff,\n  isRetryableBookingError,\n  getBookingErrorMessage,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "isRetryableBookingError",
+          "raw": "export {\n  createBookingWithCapacityCheck,\n  updateBookingWithCapacityCheck,\n  createBookingOrThrow,\n  retryWithBackoff,\n  isRetryableBookingError,\n  getBookingErrorMessage,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "getBookingErrorMessage",
+          "raw": "export {\n  createBookingWithCapacityCheck,\n  updateBookingWithCapacityCheck,\n  createBookingOrThrow,\n  retryWithBackoff,\n  isRetryableBookingError,\n  getBookingErrorMessage,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "createTableHold",
+          "raw": "export {\n  createTableHold,\n  releaseTableHold,\n  extendTableHold,\n  findHoldConflicts,\n  listActiveHoldsForBooking,\n  sweepExpiredHolds,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "releaseTableHold",
+          "raw": "export {\n  createTableHold,\n  releaseTableHold,\n  extendTableHold,\n  findHoldConflicts,\n  listActiveHoldsForBooking,\n  sweepExpiredHolds,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "extendTableHold",
+          "raw": "export {\n  createTableHold,\n  releaseTableHold,\n  extendTableHold,\n  findHoldConflicts,\n  listActiveHoldsForBooking,\n  sweepExpiredHolds,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "findHoldConflicts",
+          "raw": "export {\n  createTableHold,\n  releaseTableHold,\n  extendTableHold,\n  findHoldConflicts,\n  listActiveHoldsForBooking,\n  sweepExpiredHolds,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "listActiveHoldsForBooking",
+          "raw": "export {\n  createTableHold,\n  releaseTableHold,\n  extendTableHold,\n  findHoldConflicts,\n  listActiveHoldsForBooking,\n  sweepExpiredHolds,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "sweepExpiredHolds",
+          "raw": "export {\n  createTableHold,\n  releaseTableHold,\n  extendTableHold,\n  findHoldConflicts,\n  listActiveHoldsForBooking,\n  sweepExpiredHolds,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "findSuitableTables",
+          "raw": "export {\n  findSuitableTables,\n  assignTableToBooking,\n  unassignTableFromBooking,\n  getBookingTableAssignments,\n  isTableAvailable,\n  evaluateManualSelection,\n  createManualHold,\n  ManualSelectionInputError,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "assignTableToBooking",
+          "raw": "export {\n  findSuitableTables,\n  assignTableToBooking,\n  unassignTableFromBooking,\n  getBookingTableAssignments,\n  isTableAvailable,\n  evaluateManualSelection,\n  createManualHold,\n  ManualSelectionInputError,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "unassignTableFromBooking",
+          "raw": "export {\n  findSuitableTables,\n  assignTableToBooking,\n  unassignTableFromBooking,\n  getBookingTableAssignments,\n  isTableAvailable,\n  evaluateManualSelection,\n  createManualHold,\n  ManualSelectionInputError,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "getBookingTableAssignments",
+          "raw": "export {\n  findSuitableTables,\n  assignTableToBooking,\n  unassignTableFromBooking,\n  getBookingTableAssignments,\n  isTableAvailable,\n  evaluateManualSelection,\n  createManualHold,\n  ManualSelectionInputError,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "isTableAvailable",
+          "raw": "export {\n  findSuitableTables,\n  assignTableToBooking,\n  unassignTableFromBooking,\n  getBookingTableAssignments,\n  isTableAvailable,\n  evaluateManualSelection,\n  createManualHold,\n  ManualSelectionInputError,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "evaluateManualSelection",
+          "raw": "export {\n  findSuitableTables,\n  assignTableToBooking,\n  unassignTableFromBooking,\n  getBookingTableAssignments,\n  isTableAvailable,\n  evaluateManualSelection,\n  createManualHold,\n  ManualSelectionInputError,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "createManualHold",
+          "raw": "export {\n  findSuitableTables,\n  assignTableToBooking,\n  unassignTableFromBooking,\n  getBookingTableAssignments,\n  isTableAvailable,\n  evaluateManualSelection,\n  createManualHold,\n  ManualSelectionInputError,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "ManualSelectionInputError",
+          "raw": "export {\n  findSuitableTables,\n  assignTableToBooking,\n  unassignTableFromBooking,\n  getBookingTableAssignments,\n  isTableAvailable,\n  evaluateManualSelection,\n  createManualHold,\n  ManualSelectionInputError,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "defaultVenuePolicy",
+          "raw": "export {\n  defaultVenuePolicy,\n  getVenuePolicy,\n  whichService,\n  bandDuration,\n  serviceEnd,\n  ServiceNotFoundError,\n  ServiceOverrunError,\n  PolicyError,\n  getSelectorScoringConfig,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "getVenuePolicy",
+          "raw": "export {\n  defaultVenuePolicy,\n  getVenuePolicy,\n  whichService,\n  bandDuration,\n  serviceEnd,\n  ServiceNotFoundError,\n  ServiceOverrunError,\n  PolicyError,\n  getSelectorScoringConfig,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "whichService",
+          "raw": "export {\n  defaultVenuePolicy,\n  getVenuePolicy,\n  whichService,\n  bandDuration,\n  serviceEnd,\n  ServiceNotFoundError,\n  ServiceOverrunError,\n  PolicyError,\n  getSelectorScoringConfig,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "bandDuration",
+          "raw": "export {\n  defaultVenuePolicy,\n  getVenuePolicy,\n  whichService,\n  bandDuration,\n  serviceEnd,\n  ServiceNotFoundError,\n  ServiceOverrunError,\n  PolicyError,\n  getSelectorScoringConfig,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "serviceEnd",
+          "raw": "export {\n  defaultVenuePolicy,\n  getVenuePolicy,\n  whichService,\n  bandDuration,\n  serviceEnd,\n  ServiceNotFoundError,\n  ServiceOverrunError,\n  PolicyError,\n  getSelectorScoringConfig,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "ServiceNotFoundError",
+          "raw": "export {\n  defaultVenuePolicy,\n  getVenuePolicy,\n  whichService,\n  bandDuration,\n  serviceEnd,\n  ServiceNotFoundError,\n  ServiceOverrunError,\n  PolicyError,\n  getSelectorScoringConfig,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "ServiceOverrunError",
+          "raw": "export {\n  defaultVenuePolicy,\n  getVenuePolicy,\n  whichService,\n  bandDuration,\n  serviceEnd,\n  ServiceNotFoundError,\n  ServiceOverrunError,\n  PolicyError,\n  getSelectorScoringConfig,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "PolicyError",
+          "raw": "export {\n  defaultVenuePolicy,\n  getVenuePolicy,\n  whichService,\n  bandDuration,\n  serviceEnd,\n  ServiceNotFoundError,\n  ServiceOverrunError,\n  PolicyError,\n  getSelectorScoringConfig,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "getSelectorScoringConfig",
+          "raw": "export {\n  defaultVenuePolicy,\n  getVenuePolicy,\n  whichService,\n  bandDuration,\n  serviceEnd,\n  ServiceNotFoundError,\n  ServiceOverrunError,\n  PolicyError,\n  getSelectorScoringConfig,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "calculateRestaurantCapacityByService",
+          "raw": "export {\n  calculateRestaurantCapacityByService,\n  calculateCapacityForTables,\n  type ServiceCapacitySummary,\n  type TableRotationDetail,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "calculateCapacityForTables",
+          "raw": "export {\n  calculateRestaurantCapacityByService,\n  calculateCapacityForTables,\n  type ServiceCapacitySummary,\n  type TableRotationDetail,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "type ServiceCapacitySummary",
+          "raw": "export {\n  calculateRestaurantCapacityByService,\n  calculateCapacityForTables,\n  type ServiceCapacitySummary,\n  type TableRotationDetail,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "type TableRotationDetail",
+          "raw": "export {\n  calculateRestaurantCapacityByService,\n  calculateCapacityForTables,\n  type ServiceCapacitySummary,\n  type TableRotationDetail,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "validateBookingWindow",
+          "raw": "export {\n  validateBookingWindow,\n  type BookingValidationInput,\n  type BookingValidationResult,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "type BookingValidationInput",
+          "raw": "export {\n  validateBookingWindow,\n  type BookingValidationInput,\n  type BookingValidationResult,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "type BookingValidationResult",
+          "raw": "export {\n  validateBookingWindow,\n  type BookingValidationInput,\n  type BookingValidationResult,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "// Error Classes\n  CapacityError",
+          "raw": "export {\n  // Error Classes\n  CapacityError,\n  CapacityExceededError,\n  BookingConflictError,\n  \n  // Constants\n  DEFAULT_RETRY_CONFIG,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "CapacityExceededError",
+          "raw": "export {\n  // Error Classes\n  CapacityError,\n  CapacityExceededError,\n  BookingConflictError,\n  \n  // Constants\n  DEFAULT_RETRY_CONFIG,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "BookingConflictError",
+          "raw": "export {\n  // Error Classes\n  CapacityError,\n  CapacityExceededError,\n  BookingConflictError,\n  \n  // Constants\n  DEFAULT_RETRY_CONFIG,\n}"
+        },
+        {
+          "kind": "named",
+          "name": "// Constants\n  DEFAULT_RETRY_CONFIG",
+          "raw": "export {\n  // Error Classes\n  CapacityError,\n  CapacityExceededError,\n  BookingConflictError,\n  \n  // Constants\n  DEFAULT_RETRY_CONFIG,\n}"
+        }
+      ],
+      "dependsOn": ["server/capacity"]
+    },
+    {
+      "path": "server/capacity/v2/index.ts",
+      "size": 204,
+      "exports": [
+        {
+          "kind": "star",
+          "name": "from",
+          "raw": "export * from"
+        },
+        {
+          "kind": "star",
+          "name": "from",
+          "raw": "export * from"
+        },
+        {
+          "kind": "star",
+          "name": "from",
+          "raw": "export * from"
+        },
+        {
+          "kind": "star",
+          "name": "from",
+          "raw": "export * from"
+        },
+        {
+          "kind": "star",
+          "name": "from",
+          "raw": "export * from"
+        },
+        {
+          "kind": "star",
+          "name": "from",
+          "raw": "export * from"
+        },
+        {
+          "kind": "star",
+          "name": "from",
+          "raw": "export * from"
+        }
+      ],
+      "dependsOn": []
+    },
+    {
+      "path": "server/capacity/v2/orchestrator.ts",
+      "size": 2268,
+      "exports": [
+        {
+          "kind": "type",
+          "name": "CommitPlanOptions",
+          "raw": "export type CommitPlanOptions"
+        },
+        {
+          "kind": "class",
+          "name": "AssignmentOrchestrator",
+          "raw": "export class AssignmentOrchestrator"
+        }
+      ],
+      "dependsOn": []
+    },
+    {
+      "path": "server/capacity/v2/planner.ts",
+      "size": 1153,
+      "exports": [
+        {
+          "kind": "type",
+          "name": "PlannerInput",
+          "raw": "export type PlannerInput"
+        },
+        {
+          "kind": "type",
+          "name": "PlannerResult",
+          "raw": "export type PlannerResult"
+        },
+        {
+          "kind": "function",
+          "name": "generateCandidatePlans",
+          "raw": "export function generateCandidatePlans"
+        }
+      ],
+      "dependsOn": []
+    },
+    {
+      "path": "server/capacity/v2/supabase-repository.ts",
+      "size": 5978,
+      "exports": [
+        {
+          "kind": "class",
+          "name": "SupabaseAssignmentRepository",
+          "raw": "export class SupabaseAssignmentRepository"
+        },
+        {
+          "kind": "class",
+          "name": "NoopAssignmentRepository",
+          "raw": "export class NoopAssignmentRepository"
+        }
+      ],
+      "dependsOn": []
+    },
+    {
+      "path": "server/feature-flags.ts",
+      "size": 6534,
+      "exports": [
+        {
+          "kind": "function",
+          "name": "isLoyaltyPilotRestaurant",
+          "raw": "export function isLoyaltyPilotRestaurant"
+        },
+        {
+          "kind": "function",
+          "name": "isAllocationsDualWriteEnabled",
+          "raw": "export function isAllocationsDualWriteEnabled"
+        },
+        {
+          "kind": "function",
+          "name": "isSelectorScoringEnabled",
+          "raw": "export function isSelectorScoringEnabled"
+        },
+        {
+          "kind": "function",
+          "name": "isSelectorLookaheadEnabled",
+          "raw": "export function isSelectorLookaheadEnabled"
+        },
+        {
+          "kind": "function",
+          "name": "getSelectorLookaheadWindowMinutes",
+          "raw": "export function getSelectorLookaheadWindowMinutes"
+        },
+        {
+          "kind": "function",
+          "name": "getSelectorLookaheadPenaltyWeight",
+          "raw": "export function getSelectorLookaheadPenaltyWeight"
+        },
+        {
+          "kind": "function",
+          "name": "getSelectorLookaheadBlockThreshold",
+          "raw": "export function getSelectorLookaheadBlockThreshold"
+        },
+        {
+          "kind": "function",
+          "name": "isCombinationPlannerEnabled",
+          "raw": "export function isCombinationPlannerEnabled"
+        },
+        {
+          "kind": "function",
+          "name": "isAdjacencyValidationEnabled",
+          "raw": "export function isAdjacencyValidationEnabled"
+        },
+        {
+          "kind": "function",
+          "name": "isOpsMetricsEnabled",
+          "raw": "export function isOpsMetricsEnabled"
+        },
+        {
+          "kind": "function",
+          "name": "isOpsRejectionAnalyticsEnabled",
+          "raw": "export function isOpsRejectionAnalyticsEnabled"
+        },
+        {
+          "kind": "function",
+          "name": "isHoldsEnabled",
+          "raw": "export function isHoldsEnabled"
+        },
+        {
+          "kind": "function",
+          "name": "isAllocatorMergesEnabled",
+          "raw": "export function isAllocatorMergesEnabled"
+        },
+        {
+          "kind": "function",
+          "name": "isPlannerTimePruningEnabled",
+          "raw": "export function isPlannerTimePruningEnabled"
+        },
+        {
+          "kind": "function",
+          "name": "isAllocatorV2ForceLegacy",
+          "raw": "export function isAllocatorV2ForceLegacy"
+        },
+        {
+          "kind": "function",
+          "name": "isAllocatorV2Enabled",
+          "raw": "export function isAllocatorV2Enabled"
+        },
+        {
+          "kind": "function",
+          "name": "isAllocatorV2ShadowMode",
+          "raw": "export function isAllocatorV2ShadowMode"
+        },
+        {
+          "kind": "function",
+          "name": "isAllocatorAdjacencyRequired",
+          "raw": "export function isAllocatorAdjacencyRequired"
+        },
+        {
+          "kind": "function",
+          "name": "isAllocatorServiceFailHard",
+          "raw": "export function isAllocatorServiceFailHard"
+        },
+        {
+          "kind": "function",
+          "name": "getAllocatorKMax",
+          "raw": "export function getAllocatorKMax"
+        },
+        {
+          "kind": "function",
+          "name": "getAllocatorAdjacencyMinPartySize",
+          "raw": "export function getAllocatorAdjacencyMinPartySize"
+        },
+        {
+          "kind": "function",
+          "name": "getSelectorPlannerLimits",
+          "raw": "export function getSelectorPlannerLimits"
+        },
+        {
+          "kind": "function",
+          "name": "isHoldStrictConflictsEnabled",
+          "raw": "export function isHoldStrictConflictsEnabled"
+        },
+        {
+          "kind": "function",
+          "name": "isAdjacencyQueryUndirected",
+          "raw": "export function isAdjacencyQueryUndirected"
+        },
+        {
+          "kind": "function",
+          "name": "getContextQueryPaddingMinutes",
+          "raw": "export function getContextQueryPaddingMinutes"
+        },
+        {
+          "kind": "function",
+          "name": "getHoldMinTtlSeconds",
+          "raw": "export function getHoldMinTtlSeconds"
+        },
+        {
+          "kind": "function",
+          "name": "getHoldRateWindowSeconds",
+          "raw": "export function getHoldRateWindowSeconds"
+        },
+        {
+          "kind": "function",
+          "name": "getHoldRateMaxPerBooking",
+          "raw": "export function getHoldRateMaxPerBooking"
+        },
+        {
+          "kind": "function",
+          "name": "isAutoAssignOnBookingEnabled",
+          "raw": "export function isAutoAssignOnBookingEnabled"
+        },
+        {
+          "kind": "function",
+          "name": "getAutoAssignMaxRetries",
+          "raw": "export function getAutoAssignMaxRetries"
+        },
+        {
+          "kind": "function",
+          "name": "getAutoAssignRetryDelaysMs",
+          "raw": "export function getAutoAssignRetryDelaysMs"
+        },
+        {
+          "kind": "function",
+          "name": "getAutoAssignStartCutoffMinutes",
+          "raw": "export function getAutoAssignStartCutoffMinutes"
+        }
+      ],
+      "dependsOn": []
+    }
+  ],
+  "api_routes": [
+    {
+      "path": "src/app/api/availability/route.ts",
+      "imports": ["checkSlotAvailability", "findAlternativeSlots"]
+    },
+    {
+      "path": "src/app/api/bookings/route.ts",
+      "imports": ["createBookingWithCapacityCheck"]
+    },
+    {
+      "path": "src/app/api/ops/bookings/[id]/tables/[tableId]/route.ts",
+      "imports": ["getBookingTableAssignments", "unassignTableFromBooking"]
+    },
+    {
+      "path": "src/app/api/ops/bookings/[id]/tables/route.ts",
+      "imports": [
+        "AssignTablesRpcError",
+        "assignTableToBooking",
+        "evaluateManualSelection",
+        "getBookingTableAssignments"
+      ]
+    },
+    {
+      "path": "src/app/api/ops/bookings/route.ts",
+      "imports": ["validateBookingWindow"]
+    },
+    {
+      "path": "src/app/api/ops/settings/strategic-config/route.ts",
+      "imports": ["clearStrategicCaches", "getStrategicConfigSnapshot"]
+    },
+    {
+      "path": "src/app/api/staff/auto/confirm/route.ts",
+      "imports": ["AssignTablesRpcError", "HoldNotFoundError", "confirmHoldAssignment"]
+    },
+    {
+      "path": "src/app/api/staff/auto/quote/route.ts",
+      "imports": ["HoldConflictError", "ServiceNotFoundError", "quoteTablesForBooking"]
+    },
+    {
+      "path": "src/app/api/staff/manual/confirm/route.ts",
+      "imports": [
+        "AssignTablesRpcError",
+        "HoldNotFoundError",
+        "confirmHoldAssignment",
+        "emitManualConfirm",
+        "getManualAssignmentContext"
+      ]
+    },
+    {
+      "path": "src/app/api/staff/manual/context/route.ts",
+      "imports": ["ManualSelectionInputError", "getManualAssignmentContext"]
+    },
+    {
+      "path": "src/app/api/staff/manual/hold/route.ts",
+      "imports": [
+        "HoldConflictError",
+        "ManualSelectionInputError",
+        "createManualHold",
+        "emitManualHold",
+        "getManualAssignmentContext",
+        "releaseTableHold"
+      ]
+    },
+    {
+      "path": "src/app/api/staff/manual/validate/route.ts",
+      "imports": [
+        "ManualSelectionInputError",
+        "emitManualValidate",
+        "evaluateManualSelection",
+        "getManualAssignmentContext"
+      ]
+    }
+  ],
+  "feature_flags": [
+    "isLoyaltyPilotRestaurant",
+    "isAllocationsDualWriteEnabled",
+    "isSelectorScoringEnabled",
+    "isSelectorLookaheadEnabled",
+    "getSelectorLookaheadWindowMinutes",
+    "getSelectorLookaheadPenaltyWeight",
+    "getSelectorLookaheadBlockThreshold",
+    "isCombinationPlannerEnabled",
+    "isAdjacencyValidationEnabled",
+    "isOpsMetricsEnabled",
+    "isOpsRejectionAnalyticsEnabled",
+    "isHoldsEnabled",
+    "isAllocatorMergesEnabled",
+    "isPlannerTimePruningEnabled",
+    "isAllocatorV2ForceLegacy",
+    "isAllocatorV2Enabled",
+    "isAllocatorV2ShadowMode",
+    "isAllocatorAdjacencyRequired",
+    "isAllocatorServiceFailHard",
+    "getAllocatorKMax",
+    "getAllocatorAdjacencyMinPartySize",
+    "getSelectorPlannerLimits",
+    "isHoldStrictConflictsEnabled",
+    "isAdjacencyQueryUndirected",
+    "getContextQueryPaddingMinutes",
+    "getHoldMinTtlSeconds",
+    "getHoldRateWindowSeconds",
+    "getHoldRateMaxPerBooking",
+    "isAutoAssignOnBookingEnabled",
+    "getAutoAssignMaxRetries",
+    "getAutoAssignRetryDelaysMs",
+    "getAutoAssignStartCutoffMinutes"
+  ],
+  "rpc_functions": [
+    "assign_tables_atomic_v2",
+    "create_booking_with_capacity_check",
+    "is_holds_strict_conflicts_enabled",
+    "is_table_available_v2",
+    "set_hold_conflict_enforcement",
+    "unassign_tables_atomic",
+    "update_booking_with_capacity_check"
+  ],
+  "flows": [
+    {
+      "name": "auto_quote_to_hold",
+      "entry_route": "src/app/api/staff/auto/quote/route.ts",
+      "steps": [
+        "auth check",
+        "load booking + membership",
+        "call capacity/tables.quoteTablesForBooking",
+        "create hold if candidate passes conflicts",
+        "return selected candidate + alternates + diagnostics"
+      ],
+      "core_functions": [
+        "quoteTablesForBooking",
+        "buildScoredTablePlans",
+        "createTableHold",
+        "findHoldConflicts"
+      ]
+    },
+    {
+      "name": "auto_confirm_hold",
+      "entry_route": "src/app/api/staff/auto/confirm/route.ts",
+      "steps": [
+        "auth check",
+        "validate membership for hold.restaurant",
+        "call capacity/tables.confirmHoldAssignment (orchestrator + repository)",
+        "return assignments"
+      ],
+      "core_functions": [
+        "confirmHoldAssignment",
+        "AssignmentOrchestrator",
+        "SupabaseAssignmentRepository"
+      ]
+    },
+    {
+      "name": "manual_validate_hold_confirm",
+      "entry_route": "src/app/api/staff/manual/*",
+      "steps": [
+        "getManualAssignmentContext",
+        "evaluateManualSelection",
+        "createManualHold",
+        "confirmHoldAssignment"
+      ],
+      "core_functions": [
+        "evaluateManualSelection",
+        "createManualHold",
+        "getManualAssignmentContext",
+        "confirmHoldAssignment"
+      ]
+    },
+    {
+      "name": "booking_capacity_transaction",
+      "entry_service": "server/capacity/transaction.ts",
+      "steps": [
+        "createBookingWithCapacityCheck -> supabase.rpc(\"create_booking_with_capacity_check\")",
+        "normalize result + telemetry",
+        "fallback path (if missing RPC and not failHard): direct insert",
+        "updateBookingWithCapacityCheck for changes"
+      ],
+      "core_functions": [
+        "createBookingWithCapacityCheck",
+        "updateBookingWithCapacityCheck",
+        "retryWithBackoff"
+      ]
+    }
+  ]
+}
