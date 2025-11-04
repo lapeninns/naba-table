@@ -50,6 +50,7 @@
     "load:booking-pack": "tsx scripts/booking-pack-fill.ts",
     "observability:baseline": "tsx scripts/observability/export-capacity-baselines.ts",
     "email:check": "tsx scripts/email/check-resend-status.ts",
+    "assign:loop": "tsx -r tsconfig-paths/register scripts/ops-auto-assign-ultra-fast-loop.ts --slug prince-of-wales-pub-bromham --date 2025-11-10",
     "db:reset": "echo '🔄 Resetting remote database...' && source .env.local && psql \"$SUPABASE_DB_URL\" -v ON_ERROR_STOP=1 -f supabase/utilities/init-database.sql && psql \"$SUPABASE_DB_URL\" -v ON_ERROR_STOP=1 -f supabase/utilities/init-seeds.sql && echo '✅ Reset complete!'",
     "db:migrate": "echo '📊 Applying migrations to remote...' && source .env.local && psql \"$SUPABASE_DB_URL\" -v ON_ERROR_STOP=1 -f supabase/utilities/init-database.sql && echo '✅ Migrations applied!'",
     "db:seed-only": "echo '🌱 Seeding remote database...' && source .env.local && psql \"$SUPABASE_DB_URL\" -v ON_ERROR_STOP=1 -f supabase/utilities/init-seeds.sql && echo '✅ Seeds applied!'",

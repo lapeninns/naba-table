@@ -155,6 +155,7 @@ function incrementCounter(target: Record<string, number>, key: string, amount = 
 
 export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCandidatesResult {
   const durationStartMs = performance.now();
+  const DEBUG = process.env.CAPACITY_DEBUG === '1' || process.env.CAPACITY_DEBUG === 'true';
 
   const {
     tables,
@@ -321,6 +322,21 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
           : validTables.length,
     },
   };
+
+  if (DEBUG) {
+    console.warn('[capacity.debug][selector] plans built', {
+      inputTables: tables.length,
+      partySize,
+      validTables: diagnostics.performance.inputSize.validTablesCount,
+      singlesConsidered: diagnostics.singlesConsidered,
+      combosEnumerated: diagnostics.combinationsEnumerated,
+      combosAccepted: diagnostics.combinationsAccepted,
+      plans: plans.length,
+      fallbackReason,
+      durationMs: totalDurationMs,
+      limits: diagnostics.limits,
+    });
+  }
 
   // Log performance warning if selector exceeds threshold (Sprint 0 - T0.2)
   const SELECTOR_PERF_THRESHOLD_MS = 500;

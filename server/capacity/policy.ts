@@ -119,7 +119,7 @@ const defaultSelectorScoringConfig: SelectorScoringConfig = {
     adjacencyCost: 1,
     scarcity: DEFAULT_SCARCITY_WEIGHT,
   },
-  maxOverage: 2,
+  maxOverage: 4,
   maxTables: 3,
 };
 

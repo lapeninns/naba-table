@@ -34,6 +34,10 @@ export function isSelectorScoringEnabled(): boolean {
 }
 
 export function isSelectorLookaheadEnabled(): boolean {
+  // Debug override: allow disabling via env for rapid bisection
+  if (process.env.CAPACITY_DISABLE_LOOKAHEAD === 'true' || process.env.CAPACITY_DISABLE_LOOKAHEAD === '1') {
+    return false;
+  }
   return env.featureFlags.selectorLookahead?.enabled ?? false;
 }
 
@@ -74,6 +78,10 @@ export function isAllocatorMergesEnabled(): boolean {
 }
 
 export function isPlannerTimePruningEnabled(): boolean {
+  // Debug override: allow disabling via env for rapid bisection
+  if (process.env.CAPACITY_DISABLE_TIME_PRUNING === 'true' || process.env.CAPACITY_DISABLE_TIME_PRUNING === '1') {
+    return false;
+  }
   const defaultValue = env.featureFlags.planner?.timePruningEnabled ?? false;
   return resolveFeatureFlag("planner.time_pruning.enabled", defaultValue);
 }

@@ -662,6 +662,7 @@ function filterTimeAvailableTables(
   mode: TimeFilterMode,
   captureStats?: (stats: TimeFilterStats) => void,
 ): Table[] {
+  const DEBUG = process.env.CAPACITY_DEBUG === '1' || process.env.CAPACITY_DEBUG === 'true';
   if (!busy || busy.size === 0 || mode === "approx") {
     captureStats?.({
       prunedByTime: 0,
@@ -669,6 +670,12 @@ function filterTimeAvailableTables(
       pruned_by_time: 0,
       candidates_after_time_prune: tables.length,
     });
+    if (DEBUG) {
+      console.warn('[capacity.debug][time-filter] skipped (no busy map or approx mode)', {
+        input: tables.length,
+        mode,
+      });
+    }
     return tables;
   }
 
@@ -696,6 +703,16 @@ function filterTimeAvailableTables(
     candidates_after_time_prune: filtered.length,
   });
 
+  if (DEBUG) {
+    console.warn('[capacity.debug][time-filter] applied', {
+      input: tables.length,
+      prunedByTime,
+      remaining: filtered.length,
+      start: toIsoUtc(window.block.start),
+      end: toIsoUtc(window.block.end),
+    });
+  }
+
   return filtered;
 }
 
@@ -708,8 +725,21 @@ export function filterAvailableTables(
   zoneId?: string | null,
   options?: { allowInsufficientCapacity?: boolean; timeFilter?: TimeFilterOptions },
 ): Table[] {
+  const DEBUG = process.env.CAPACITY_DEBUG === '1' || process.env.CAPACITY_DEBUG === 'true';
   const allowPartial = options?.allowInsufficientCapacity ?? false;
   const avoid = avoidTables ?? new Set<string>();
+
+  if (DEBUG) {
+    console.warn('[capacity.debug][filter] input', {
+      tables: tables.length,
+      partySize,
+      windowStart: toIsoUtc(window.block.start),
+      windowEnd: toIsoUtc(window.block.end),
+      allowPartial,
+      zoneId: zoneId ?? null,
+      avoidCount: avoid.size,
+    });
+  }
 
   const filtered = tables.filter((table) => {
     if (!table) return false;
@@ -733,12 +763,20 @@ export function filterAvailableTables(
     return true;
   });
 
+  if (DEBUG) {
+    console.warn('[capacity.debug][filter] after basic', { remaining: filtered.length });
+  }
+
   const timeFiltered =
     options?.timeFilter && window
       ? filterTimeAvailableTables(filtered, window, options.timeFilter.busy, options.timeFilter.mode ?? "strict", (stats) =>
           options.timeFilter?.captureStats?.(stats),
         )
       : filtered;
+
+  if (DEBUG) {
+    console.warn('[capacity.debug][filter] after time', { remaining: timeFiltered.length });
+  }
 
   return timeFiltered.sort((a, b) => {
     const capacityDiff = (a.capacity ?? 0) - (b.capacity ?? 0);
@@ -3174,7 +3212,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     },
   };
   const plannerStart = highResNow();
-  const plans = buildScoredTablePlans({
+  let plans = buildScoredTablePlans({
     tables: filtered,
     partySize: booking.party_size,
     adjacency,
@@ -3188,6 +3226,28 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     demandMultiplier,
     tableScarcityScores,
   });
+  // Fallback: if no plans found and adjacency was required, retry without adjacency constraint
+  let requireAdjacencyUsed = requireAdjacency;
+  if (plans.plans.length === 0 && requireAdjacency) {
+    const relaxed = buildScoredTablePlans({
+      tables: filtered,
+      partySize: booking.party_size,
+      adjacency,
+      config: scoringConfig,
+      enableCombinations: combinationEnabled,
+      kMax: combinationLimit,
+      maxPlansPerSlack: selectorLimits.maxPlansPerSlack,
+      maxCombinationEvaluations: selectorLimits.maxCombinationEvaluations,
+      enumerationTimeoutMs: selectorLimits.enumerationTimeoutMs,
+      requireAdjacency: false,
+      demandMultiplier,
+      tableScarcityScores,
+    });
+    if (relaxed.plans.length > 0) {
+      plans = relaxed;
+      requireAdjacencyUsed = false;
+    }
+  }
   // const topRankedPlan = plans.plans[0] ?? null;
   const lookaheadConfig: LookaheadConfig = {
     enabled: lookaheadEnabled,
@@ -3220,7 +3280,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     diagnostics: plans.diagnostics,
     scoringConfig,
     combinationEnabled,
-    requireAdjacency,
+    requireAdjacency: requireAdjacencyUsed,
     adjacencyRequiredGlobally,
     adjacencyMinPartySize: adjacencyMinPartySize ?? null,
     featureFlags,
@@ -3403,12 +3463,16 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
   }
   applyQuoteSkipDiagnostics();
 
+  const failureReason =
+    holdConflictSkipCount > 0
+      ? 'Hold conflicts prevented all candidates'
+      : plans.fallbackReason ?? 'No suitable tables available';
   return {
     hold: null,
     candidate: null,
     alternates,
     nextTimes: [],
-    reason: plans.fallbackReason ?? "No suitable tables available",
+    reason: failureReason,
     skipped: skippedCandidates,
     metadata: {
       usedFallback: bookingWindowUsedFallback,

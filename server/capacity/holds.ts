@@ -4,7 +4,7 @@ import { isHoldStrictConflictsEnabled, getHoldMinTtlSeconds, getHoldRateWindowSe
 import { getServiceSupabaseClient } from "@/server/supabase";
 
 import type { Database, Json, Tables } from "@/types/supabase";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient, PostgrestError } from "@supabase/supabase-js";
 
 type DbClient = SupabaseClient<Database, "public">;
 
@@ -229,6 +229,9 @@ export async function createTableHold(input: CreateTableHoldInput): Promise<Tabl
   }
 
   const supabase = ensureClient(client);
+  const createdByUuid = typeof createdBy === 'string' && /^(?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$/.test(createdBy)
+    ? createdBy
+    : null;
   await configureHoldStrictConflictSession(supabase);
 
   // Enforce minimum TTL policy (clamp up)
@@ -290,7 +293,7 @@ export async function createTableHold(input: CreateTableHoldInput): Promise<Tabl
     start_at: startAt,
     end_at: endAt,
     expires_at: expiresAt,
-    created_by: createdBy,
+    created_by: createdByUuid,
     metadata,
     table_hold_members: {
       data: Array.from(new Set(tableIds)).map((tableId) => ({ table_id: tableId })),
@@ -310,6 +313,18 @@ export async function createTableHold(input: CreateTableHoldInput): Promise<Tabl
   if (nestedError || !inserted) {
     const code = (nestedError as { code?: string } | null)?.code ?? null;
     const message = (nestedError as { message?: string } | null)?.message ?? String(nestedError ?? "");
+    if (process.env.CAPACITY_LOG_HOLD_ERRORS === '1' || process.env.CAPACITY_LOG_HOLD_ERRORS === 'true') {
+      console.error('[capacity.hold] hold insert failed', {
+        bookingId,
+        restaurantId,
+        tableIds,
+        startAt,
+        endAt,
+        expiresAt,
+        code,
+        message,
+      });
+    }
 
     // Translate DB-level overlap to a domain HoldConflictError.
     if (code === "23P01" || /table_hold_windows_no_overlap|exclusion/i.test(message)) {
@@ -342,7 +357,74 @@ export async function createTableHold(input: CreateTableHoldInput): Promise<Tabl
       throw new HoldConflictError("Existing holds conflict with requested tables");
     }
 
-    // Bubble other errors explicitly.
+    // If PostgREST schema cache prevents nested writes, fallback to two-step insert
+    if (code === 'PGRST204' || /schema cache|table_hold_members/.test(message)) {
+      // Step 1: insert hold row
+      const { data: holdRow, error: holdErr } = await supabase
+        .from("table_holds")
+        .insert({
+          booking_id: bookingId,
+          restaurant_id: restaurantId,
+          zone_id: zoneId,
+          start_at: startAt,
+          end_at: endAt,
+          expires_at: expiresAt,
+          created_by: createdByUuid,
+          metadata,
+        })
+        .select("id, booking_id, restaurant_id, zone_id, start_at, end_at, expires_at, created_by, metadata")
+        .single();
+
+      if (holdErr || !holdRow) {
+        if (process.env.CAPACITY_LOG_HOLD_ERRORS === '1' || process.env.CAPACITY_LOG_HOLD_ERRORS === 'true') {
+          console.error('[capacity.hold] fallback hold insert failed', { code: (holdErr as PostgrestError)?.code ?? null, message: (holdErr as PostgrestError)?.message ?? String(holdErr) });
+        }
+        throw new HoldConflictError((holdErr as { message?: string } | null)?.message || message || "Failed to create table hold");
+      }
+
+      // Step 2: insert members
+      const rows = Array.from(new Set(tableIds)).map((tableId) => ({ hold_id: (holdRow as { id: string }).id, table_id: tableId }));
+      const { error: membersErr } = await supabase.from("table_hold_members").insert(rows);
+      if (membersErr) {
+        if (process.env.CAPACITY_LOG_HOLD_ERRORS === '1' || process.env.CAPACITY_LOG_HOLD_ERRORS === 'true') {
+          console.error('[capacity.hold] fallback hold members insert failed', { code: (membersErr as PostgrestError)?.code ?? null, message: (membersErr as PostgrestError)?.message ?? String(membersErr) });
+        }
+        // Best-effort cleanup
+        await supabase.from("table_holds").delete().eq("id", (holdRow as { id: string }).id);
+        throw new HoldConflictError((membersErr as { message?: string } | null)?.message || message || "Failed to create table hold members");
+      }
+
+      const hold: TableHold = {
+        id: (holdRow as { id: string }).id,
+        bookingId: (holdRow as { booking_id: string | null }).booking_id ?? null,
+        restaurantId: (holdRow as { restaurant_id: string }).restaurant_id,
+        zoneId: (holdRow as { zone_id: string }).zone_id,
+        startAt: (holdRow as { start_at: string }).start_at,
+        endAt: (holdRow as { end_at: string }).end_at,
+        expiresAt: (holdRow as { expires_at: string }).expires_at,
+        tableIds: Array.from(new Set(tableIds)),
+        createdBy: (holdRow as { created_by: string | null }).created_by ?? null,
+        metadata: (holdRow as { metadata: Json | null }).metadata ?? null,
+      };
+
+      const { emitHoldCreated } = await import("./telemetry");
+      await emitHoldCreated({
+        holdId: hold.id,
+        bookingId: hold.bookingId,
+        restaurantId: hold.restaurantId,
+        zoneId: hold.zoneId,
+        tableIds: hold.tableIds,
+        startAt: hold.startAt,
+        endAt: hold.endAt,
+        expiresAt: hold.expiresAt,
+        actorId: createdBy,
+        metadata,
+      });
+
+      return hold;
+    }
+
+    // Bubble other errors explicitly in a consistent error type for callers.
     throw new HoldConflictError(message || "Failed to create table hold");
   }
 

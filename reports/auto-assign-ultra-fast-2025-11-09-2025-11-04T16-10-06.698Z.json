@@ -1,0 +1,563 @@
+{
+  "executedAt": "2025-11-04T16:10:06.698Z",
+  "restaurant": "Prince of Wales Pub (Bromham)",
+  "date": "2025-11-09",
+  "config": {
+    "TARGET_RESTAURANT_SLUG": "prince-of-wales-pub-bromham",
+    "TARGET_DATE": "2025-11-09",
+    "MAX_CONCURRENT_BOOKINGS": 15,
+    "SINGLE_ATTEMPT_ONLY": true,
+    "HOLD_TTL_SECONDS": 180,
+    "MINIMAL_CONSOLE_OUTPUT": false,
+    "FORCE_REASSIGN_ALL": true
+  },
+  "totalBookings": 60,
+  "pendingProcessed": 60,
+  "successful": 0,
+  "failed": 60,
+  "successRate": 0,
+  "totalDurationSeconds": 126.52,
+  "avgProcessingMs": 15557,
+  "results": [
+    {
+      "id": "9a354fb0",
+      "time": "12:00:00",
+      "party": 4,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 38002
+    },
+    {
+      "id": "6b3b1bbf",
+      "time": "12:00:00",
+      "party": 4,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 38024
+    },
+    {
+      "id": "9d2a47a0",
+      "time": "12:00:00",
+      "party": 4,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 37107
+    },
+    {
+      "id": "a9ab645e",
+      "time": "12:15:00",
+      "party": 7,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 9940
+    },
+    {
+      "id": "91b3f299",
+      "time": "12:15:00",
+      "party": 7,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 10206
+    },
+    {
+      "id": "77d623dd",
+      "time": "12:15:00",
+      "party": 7,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 10276
+    },
+    {
+      "id": "0666ee46",
+      "time": "12:30:00",
+      "party": 4,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 36587
+    },
+    {
+      "id": "f07601f0",
+      "time": "12:30:00",
+      "party": 4,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 38123
+    },
+    {
+      "id": "35033105",
+      "time": "12:45:00",
+      "party": 7,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 10026
+    },
+    {
+      "id": "f8c13119",
+      "time": "12:45:00",
+      "party": 7,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 10183
+    },
+    {
+      "id": "f759f4ad",
+      "time": "12:45:00",
+      "party": 7,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 9803
+    },
+    {
+      "id": "1311a6ac",
+      "time": "13:00:00",
+      "party": 4,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 38392
+    },
+    {
+      "id": "70e43147",
+      "time": "13:00:00",
+      "party": 4,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 38687
+    },
+    {
+      "id": "068e2ab9",
+      "time": "13:15:00",
+      "party": 7,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 10443
+    },
+    {
+      "id": "37fddf23",
+      "time": "13:15:00",
+      "party": 7,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 10446
+    },
+    {
+      "id": "2a36d490",
+      "time": "13:30:00",
+      "party": 4,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 39696
+    },
+    {
+      "id": "052cb139",
+      "time": "13:30:00",
+      "party": 4,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 39403
+    },
+    {
+      "id": "29406430",
+      "time": "13:30:00",
+      "party": 4,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 39212
+    },
+    {
+      "id": "467e0f5c",
+      "time": "13:45:00",
+      "party": 7,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 10044
+    },
+    {
+      "id": "d2faca95",
+      "time": "13:45:00",
+      "party": 7,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 9791
+    },
+    {
+      "id": "a1f02e81",
+      "time": "15:15:00",
+      "party": 5,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 153
+    },
+    {
+      "id": "5831c151",
+      "time": "15:15:00",
+      "party": 5,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 161
+    },
+    {
+      "id": "41ce7bc1",
+      "time": "15:15:00",
+      "party": 5,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 176
+    },
+    {
+      "id": "f150f7dc",
+      "time": "15:15:00",
+      "party": 5,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 176
+    },
+    {
+      "id": "61211473",
+      "time": "15:15:00",
+      "party": 5,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 162
+    },
+    {
+      "id": "dea30916",
+      "time": "15:15:00",
+      "party": 5,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 176
+    },
+    {
+      "id": "da903d31",
+      "time": "15:15:00",
+      "party": 5,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 279
+    },
+    {
+      "id": "4d8b249e",
+      "time": "15:15:00",
+      "party": 5,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 284
+    },
+    {
+      "id": "40bcba60",
+      "time": "15:15:00",
+      "party": 5,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 265
+    },
+    {
+      "id": "75ea0882",
+      "time": "15:15:00",
+      "party": 5,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 268
+    },
+    {
+      "id": "5fb0cdb6",
+      "time": "16:00:00",
+      "party": 2,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 303
+    },
+    {
+      "id": "479e9151",
+      "time": "16:00:00",
+      "party": 2,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 119
+    },
+    {
+      "id": "7b9e7d5d",
+      "time": "16:00:00",
+      "party": 2,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 130
+    },
+    {
+      "id": "5886c762",
+      "time": "16:00:00",
+      "party": 2,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 115
+    },
+    {
+      "id": "03352c35",
+      "time": "16:00:00",
+      "party": 2,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 120
+    },
+    {
+      "id": "e626e321",
+      "time": "16:00:00",
+      "party": 2,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 219
+    },
+    {
+      "id": "4034b2b4",
+      "time": "16:00:00",
+      "party": 2,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 129
+    },
+    {
+      "id": "9d91eea0",
+      "time": "16:00:00",
+      "party": 2,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 208
+    },
+    {
+      "id": "2325bc20",
+      "time": "16:00:00",
+      "party": 2,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 219
+    },
+    {
+      "id": "52cf5a6f",
+      "time": "16:00:00",
+      "party": 2,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 209
+    },
+    {
+      "id": "67019b12",
+      "time": "18:00:00",
+      "party": 6,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 22556
+    },
+    {
+      "id": "073261d1",
+      "time": "18:00:00",
+      "party": 6,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 23440
+    },
+    {
+      "id": "6f0ed384",
+      "time": "18:15:00",
+      "party": 3,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 21765
+    },
+    {
+      "id": "15eb309e",
+      "time": "18:15:00",
+      "party": 3,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 21878
+    },
+    {
+      "id": "75b046a0",
+      "time": "18:30:00",
+      "party": 6,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 24092
+    },
+    {
+      "id": "83bf33d3",
+      "time": "18:30:00",
+      "party": 6,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 22214
+    },
+    {
+      "id": "080cc1bb",
+      "time": "18:45:00",
+      "party": 3,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 21042
+    },
+    {
+      "id": "ef9fdd2f",
+      "time": "18:45:00",
+      "party": 3,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 21647
+    },
+    {
+      "id": "9a217d0e",
+      "time": "19:00:00",
+      "party": 6,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 23292
+    },
+    {
+      "id": "695094c6",
+      "time": "19:00:00",
+      "party": 6,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 23053
+    },
+    {
+      "id": "20b4f990",
+      "time": "19:15:00",
+      "party": 3,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 20923
+    },
+    {
+      "id": "49ac68f1",
+      "time": "19:15:00",
+      "party": 3,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 20403
+    },
+    {
+      "id": "5d947225",
+      "time": "19:30:00",
+      "party": 6,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 22907
+    },
+    {
+      "id": "b01815cc",
+      "time": "19:30:00",
+      "party": 6,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 22869
+    },
+    {
+      "id": "b025f5aa",
+      "time": "19:45:00",
+      "party": 3,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 21528
+    },
+    {
+      "id": "555ec585",
+      "time": "19:45:00",
+      "party": 3,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 21933
+    },
+    {
+      "id": "dd2f7cdd",
+      "time": "20:00:00",
+      "party": 6,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 22857
+    },
+    {
+      "id": "d52dfe1a",
+      "time": "20:00:00",
+      "party": 6,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 22999
+    },
+    {
+      "id": "14398a68",
+      "time": "20:15:00",
+      "party": 3,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 22420
+    },
+    {
+      "id": "40e2cd44",
+      "time": "20:15:00",
+      "party": 3,
+      "success": false,
+      "reason": "No suitable tables available",
+      "tablesAssigned": [],
+      "durationMs": 21345
+    }
+  ]
+}
