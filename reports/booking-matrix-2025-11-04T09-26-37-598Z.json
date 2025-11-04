@@ -1,0 +1,69 @@
+{
+  "args": {
+    "days": 1,
+    "count": 5,
+    "maxParty": 12,
+    "concurrency": 2,
+    "availabilityCheck": true
+  },
+  "baseURL": "http://localhost:3000",
+  "restaurantId": "670b1050-add8-4dcd-b8f6-65e4c2d36667",
+  "slug": "old-crown-pub-girton",
+  "startedAt": "2025-11-04T09:26:34.672Z",
+  "finishedAt": "2025-11-04T09:26:37.600Z",
+  "byStatus": {
+    "500": 5
+  },
+  "results": [
+    {
+      "ok": false,
+      "status": 500,
+      "date": "2025-11-04",
+      "time": "19:30",
+      "party": 5,
+      "bookingType": "dinner",
+      "seating": "any",
+      "message": "{\"code\":\"23505\",\"details\":\"Key (restaurant_id, phone_normalized)=(670b1050-add8-4dcd-b8f6-65e4c2d36667, 0712345000) already exists.\",\"hint\":null,\"message\":\"duplicate key value violates unique constraint \\\"customers_restaurant_id_phone_normalized_key\\\"\"}"
+    },
+    {
+      "ok": false,
+      "status": 500,
+      "date": "2025-11-04",
+      "time": "17:45",
+      "party": 5,
+      "bookingType": "dinner",
+      "seating": "indoor",
+      "message": "{\"code\":\"23505\",\"details\":\"Key (restaurant_id, phone_normalized)=(670b1050-add8-4dcd-b8f6-65e4c2d36667, 0712345001) already exists.\",\"hint\":null,\"message\":\"duplicate key value violates unique constraint \\\"customers_restaurant_id_phone_normalized_key\\\"\"}"
+    },
+    {
+      "ok": false,
+      "status": 500,
+      "date": "2025-11-04",
+      "time": "14:45",
+      "party": 6,
+      "bookingType": "lunch",
+      "seating": "outdoor",
+      "message": "{\"code\":\"23505\",\"details\":\"Key (restaurant_id, phone_normalized)=(670b1050-add8-4dcd-b8f6-65e4c2d36667, 0712345002) already exists.\",\"hint\":null,\"message\":\"duplicate key value violates unique constraint \\\"customers_restaurant_id_phone_normalized_key\\\"\"}"
+    },
+    {
+      "ok": false,
+      "status": 500,
+      "date": "2025-11-04",
+      "time": "15:00",
+      "party": 2,
+      "bookingType": "drinks",
+      "seating": "any",
+      "message": "{\"code\":\"23505\",\"details\":\"Key (restaurant_id, phone_normalized)=(670b1050-add8-4dcd-b8f6-65e4c2d36667, 0712345003) already exists.\",\"hint\":null,\"message\":\"duplicate key value violates unique constraint \\\"customers_restaurant_id_phone_normalized_key\\\"\"}"
+    },
+    {
+      "ok": false,
+      "status": 500,
+      "date": "2025-11-04",
+      "time": "15:15",
+      "party": 6,
+      "bookingType": "drinks",
+      "seating": "indoor",
+      "message": "{\"code\":\"23505\",\"details\":\"Key (restaurant_id, phone_normalized)=(670b1050-add8-4dcd-b8f6-65e4c2d36667, 0712345004) already exists.\",\"hint\":null,\"message\":\"duplicate key value violates unique constraint \\\"customers_restaurant_id_phone_normalized_key\\\"\"}"
+    }
+  ]
+}

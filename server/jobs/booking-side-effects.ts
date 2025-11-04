@@ -73,6 +73,10 @@ function safeBookingPayload(record: BookingRecord): BookingPayload {
   return bookingPayloadSchema.parse(record);
 }
 
+// Allow bypassing all outbound guest emails during load tests or local stress runs.
+// Set LOAD_TEST_DISABLE_EMAILS=true to suppress email sending without changing business logic.
+const SUPPRESS_EMAILS = process.env.LOAD_TEST_DISABLE_EMAILS === 'true' || process.env.SUPPRESS_EMAILS === 'true';
+
 async function processBookingCreatedSideEffects(
   payload: BookingCreatedSideEffectsPayload,
   _supabase?: SupabaseLike,
@@ -100,7 +104,7 @@ async function processBookingCreatedSideEffects(
     console.error("[jobs][booking.created][analytics]", error);
   }
 
-  if (booking.customer_email && booking.customer_email.trim().length > 0) {
+  if (!SUPPRESS_EMAILS && booking.customer_email && booking.customer_email.trim().length > 0) {
     // If auto-assign is enabled, suppress the initial "request received" email for pending bookings
     const suppressCreatedEmail =
       isAutoAssignOnBookingEnabled() &&
@@ -121,7 +125,7 @@ async function processBookingUpdatedSideEffects(
   _supabase?: SupabaseLike,
 ) {
   const { current } = payload;
-  if (current.customer_email && current.customer_email.trim().length > 0) {
+  if (!SUPPRESS_EMAILS && current.customer_email && current.customer_email.trim().length > 0) {
     try {
       await sendBookingUpdateEmail(current as BookingRecord);
     } catch (error) {
@@ -150,7 +154,7 @@ async function processBookingCancelledSideEffects(
     console.error("[jobs][booking.cancelled][analytics]", error);
   }
 
-  if (cancelled.customer_email && cancelled.customer_email.trim().length > 0) {
+  if (!SUPPRESS_EMAILS && cancelled.customer_email && cancelled.customer_email.trim().length > 0) {
     try {
       await sendBookingCancellationEmail(cancelled as BookingRecord);
     } catch (error) {

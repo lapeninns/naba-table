@@ -1,0 +1,119 @@
+{
+  "args": {
+    "days": 2,
+    "count": 10,
+    "maxParty": 12,
+    "concurrency": 2,
+    "availabilityCheck": true
+  },
+  "baseURL": "http://localhost:3000",
+  "restaurantId": "670b1050-add8-4dcd-b8f6-65e4c2d36667",
+  "slug": "old-crown-pub-girton",
+  "startedAt": "2025-11-04T09:25:53.672Z",
+  "finishedAt": "2025-11-04T09:26:07.733Z",
+  "byStatus": {
+    "201": 10
+  },
+  "results": [
+    {
+      "ok": true,
+      "status": 201,
+      "date": "2025-11-04",
+      "time": "18:45",
+      "party": 11,
+      "bookingType": "dinner",
+      "seating": "indoor",
+      "id": "0553f712-0252-442d-a9cd-93f6e16eeb65"
+    },
+    {
+      "ok": true,
+      "status": 201,
+      "date": "2025-11-05",
+      "time": "12:15",
+      "party": 12,
+      "bookingType": "lunch",
+      "seating": "any",
+      "id": "301a1962-86fa-4972-a32a-f24294f54030"
+    },
+    {
+      "ok": true,
+      "status": 201,
+      "date": "2025-11-04",
+      "time": "13:30",
+      "party": 8,
+      "bookingType": "lunch",
+      "seating": "outdoor",
+      "id": "c006c6c3-ffa1-4e32-941b-40a03069485a"
+    },
+    {
+      "ok": true,
+      "status": 201,
+      "date": "2025-11-05",
+      "time": "17:00",
+      "party": 8,
+      "bookingType": "dinner",
+      "seating": "any",
+      "id": "7d53066b-fd23-4cdb-9e55-9e6de3eb0269"
+    },
+    {
+      "ok": true,
+      "status": 201,
+      "date": "2025-11-04",
+      "time": "14:30",
+      "party": 11,
+      "bookingType": "lunch",
+      "seating": "outdoor",
+      "id": "409a2347-c412-48b8-bd7b-08f6db90a70c"
+    },
+    {
+      "ok": true,
+      "status": 201,
+      "date": "2025-11-04",
+      "time": "18:00",
+      "party": 2,
+      "bookingType": "dinner",
+      "seating": "indoor",
+      "id": "97f40563-67fe-4725-ac06-aa8d1e68b0df"
+    },
+    {
+      "ok": true,
+      "status": 201,
+      "date": "2025-11-05",
+      "time": "15:30",
+      "party": 12,
+      "bookingType": "drinks",
+      "seating": "any",
+      "id": "4b563b2f-fc16-4f6b-8b0f-02049f1e2a9f"
+    },
+    {
+      "ok": true,
+      "status": 201,
+      "date": "2025-11-05",
+      "time": "15:45",
+      "party": 8,
+      "bookingType": "drinks",
+      "seating": "indoor",
+      "id": "baf2b4c4-4d86-4616-a7f7-b1f8f54629a5"
+    },
+    {
+      "ok": true,
+      "status": 201,
+      "date": "2025-11-05",
+      "time": "19:30",
+      "party": 2,
+      "bookingType": "dinner",
+      "seating": "outdoor",
+      "id": "d9ca3c26-80b5-4078-aadd-6aefef2c4ad1"
+    },
+    {
+      "ok": true,
+      "status": 201,
+      "date": "2025-11-05",
+      "time": "19:15",
+      "party": 5,
+      "bookingType": "dinner",
+      "seating": "any",
+      "id": "ebd76809-137d-4f45-a256-9cb292ae6d0f"
+    }
+  ]
+}

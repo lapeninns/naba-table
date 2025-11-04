@@ -18,6 +18,7 @@ import type { Tables } from "@/types/supabase";
  * Best-effort: swallows errors and logs; safe to fire-and-forget.
  */
 export async function autoAssignAndConfirmIfPossible(bookingId: string): Promise<void> {
+  const SUPPRESS_EMAILS = process.env.LOAD_TEST_DISABLE_EMAILS === 'true' || process.env.SUPPRESS_EMAILS === 'true';
   if (!isAutoAssignOnBookingEnabled()) return;
 
   const supabase = getServiceSupabaseClient();
@@ -45,7 +46,9 @@ export async function autoAssignAndConfirmIfPossible(bookingId: string): Promise
     if (booking.status === "confirmed") {
       try {
         // Cast is safe for email template expectations
-        await sendBookingConfirmationEmail(booking as unknown as Tables<"bookings">);
+        if (!SUPPRESS_EMAILS) {
+          await sendBookingConfirmationEmail(booking as unknown as Tables<"bookings">);
+        }
       } catch (e) {
         console.error("[auto-assign] failed sending confirmation for already-confirmed", { bookingId, error: e });
       }
@@ -148,7 +151,7 @@ export async function autoAssignAndConfirmIfPossible(bookingId: string): Promise
             .select("*")
             .eq("id", bookingId)
             .maybeSingle();
-          if (updated) {
+          if (updated && !SUPPRESS_EMAILS) {
             await sendBookingConfirmationEmail(updated as unknown as Tables<"bookings">);
           }
 
