@@ -207,6 +207,7 @@ export const env = {
           ? parsed.FEATURE_AUTO_ASSIGN_RETRY_DELAYS_MS
           : undefined,
         startCutoffMinutes: Math.max(0, Math.min(parsed.FEATURE_AUTO_ASSIGN_START_CUTOFF_MINUTES ?? 10, 240)),
+        createdEmailDeferMinutes: Math.max(0, Math.min(parsed.FEATURE_AUTO_ASSIGN_CREATED_EMAIL_DEFER_MINUTES ?? 5, 120)),
       },
     } as const;
   },

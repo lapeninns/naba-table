@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { recordBookingCancelledEvent, recordBookingCreatedEvent } from "@/server/analytics";
 import { sendBookingCancellationEmail, sendBookingConfirmationEmail, sendBookingUpdateEmail } from "@/server/emails/bookings";
-import { isAutoAssignOnBookingEnabled } from "@/server/feature-flags";
+import { getAutoAssignCreatedEmailDeferMinutes, isAutoAssignOnBookingEnabled } from "@/server/feature-flags";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
 import type { BookingRecord } from "@/server/bookings";
@@ -105,16 +105,34 @@ async function processBookingCreatedSideEffects(
   }
 
   if (!SUPPRESS_EMAILS && booking.customer_email && booking.customer_email.trim().length > 0) {
-    // If auto-assign is enabled AND we plan to retry in background, suppress the
-    // initial "request received" email for pending bookings. Otherwise, send it
-    // so guests aren't left without any acknowledgement when retries are disabled.
-    const willRetryInBackground = isAutoAssignOnBookingEnabled() && (
-      (process.env.FEATURE_AUTO_ASSIGN_MAX_RETRIES && Number(process.env.FEATURE_AUTO_ASSIGN_MAX_RETRIES) > 0)
-    );
-    const suppressCreatedEmail = willRetryInBackground &&
-      (booking.status === "pending" || booking.status === "pending_allocation");
-
-    if (!suppressCreatedEmail) {
+    // Conditional send: if auto-assign is enabled, defer the "request received" email
+    // for up to N minutes. If the booking gets confirmed within the window, the
+    // auto-assign path sends the ticket email and we skip the pending email entirely.
+    const deferMinutes = isAutoAssignOnBookingEnabled() ? getAutoAssignCreatedEmailDeferMinutes() : 0;
+    if (deferMinutes > 0 && (booking.status === "pending" || booking.status === "pending_allocation")) {
+      // Best-effort deferred send using a timer and re-check. In serverless environments,
+      // consider moving this to a durable scheduler.
+      const delayMs = Math.max(0, Math.min(deferMinutes, 120)) * 60_000;
+      const bookingId = booking.id;
+      setTimeout(async () => {
+        try {
+          const client = resolveSupabase(_supabase);
+          const { data: latest } = await client
+            .from("bookings")
+            .select("*")
+            .eq("id", bookingId)
+            .maybeSingle();
+          if (!latest) return;
+          // Only send the pending email if still not confirmed
+          if (latest.status === "pending" || latest.status === "pending_allocation") {
+            await sendBookingConfirmationEmail(latest as BookingRecord);
+          }
+        } catch (e) {
+          console.error("[jobs][booking.created][deferred-email]", e);
+        }
+      }, delayMs);
+    } else {
+      // Immediate send (either not deferring or already in a final state)
       try {
         await sendBookingConfirmationEmail(booking as BookingRecord);
       } catch (error) {

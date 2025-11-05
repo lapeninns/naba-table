@@ -109,6 +109,7 @@ const baseEnvSchema = z
     FEATURE_AUTO_ASSIGN_MAX_RETRIES: z.coerce.number().int().min(0).max(10).optional(),
     FEATURE_AUTO_ASSIGN_RETRY_DELAYS_MS: z.string().optional(),
     FEATURE_AUTO_ASSIGN_START_CUTOFF_MINUTES: z.coerce.number().int().min(0).max(240).optional(),
+    FEATURE_AUTO_ASSIGN_CREATED_EMAIL_DEFER_MINUTES: z.coerce.number().int().min(0).max(120).optional(),
   })
   .passthrough();
 

@@ -35,6 +35,7 @@ import { normalizeEmail, upsertCustomer } from "@/server/customers";
 import { enqueueBookingCreatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
 import { getActiveLoyaltyProgram, calculateLoyaltyAward, applyLoyaltyAward } from "@/server/loyalty";
 import { recordObservabilityEvent } from "@/server/observability";
+import { sendBookingConfirmationEmail } from "@/server/emails/bookings";
 import { getRestaurantSchedule } from "@/server/restaurants/schedule";
 import { computeGuestLookupHash } from "@/server/security/guest-lookup";
 import { consumeRateLimit } from "@/server/security/rate-limit";
@@ -748,6 +749,83 @@ export async function POST(req: NextRequest) {
 
     const bookings = await fetchBookingsForContact(supabase, restaurantId, data.email, data.phone);
 
+    // Attempt inline auto-assign AFTER sending the initial created email so
+    // guests first receive a "request received". If assignment succeeds, we
+    // flip status to confirmed and send the confirmation email.
+    if (!reusedExisting && env.featureFlags.autoAssignOnBooking) {
+      try {
+        // Timebox overall inline attempt to keep API responsive
+        const timeoutMs = 4000;
+        const deadline = Date.now() + timeoutMs;
+
+        const { quoteTablesForBooking, confirmHoldAssignment } = await import('@/server/capacity/tables');
+
+        const quote = await Promise.race([
+          quoteTablesForBooking({
+            bookingId: finalBooking.id,
+            createdBy: 'api-booking',
+            holdTtlSeconds: 120,
+          }),
+          new Promise<symbol>((resolve) => setTimeout(() => resolve(Symbol('timeout_quote')), Math.max(1000, Math.floor(timeoutMs * 0.6)))),
+        ]);
+
+        if (typeof quote === 'symbol') {
+          console.warn('[bookings][POST][inline-auto-assign] quote timed out');
+        }
+
+        if (typeof quote !== 'symbol' && quote && quote.hold) {
+          const confirmResult = await Promise.race([
+            confirmHoldAssignment({
+              holdId: quote.hold.id,
+              bookingId: finalBooking.id,
+              idempotencyKey: `api-${finalBooking.id}`,
+              assignedBy: null,
+            }),
+            new Promise<symbol>((resolve) => setTimeout(() => resolve(Symbol('timeout_confirm')), Math.max(1000, deadline - Date.now()))),
+          ]);
+
+          if (typeof confirmResult === 'symbol') {
+            console.warn('[bookings][POST][inline-auto-assign] confirm timed out');
+          }
+
+          if (typeof confirmResult !== 'symbol') {
+            const nowIso = new Date().toISOString();
+            const { error: txError } = await supabase.rpc('apply_booking_state_transition', {
+              p_booking_id: finalBooking.id,
+              p_status: 'confirmed',
+              p_checked_in_at: null,
+              p_checked_out_at: null,
+              p_updated_at: nowIso,
+              p_history_from: finalBooking.status,
+              p_history_to: 'confirmed',
+              p_history_changed_by: null,
+              p_history_changed_at: nowIso,
+              p_history_reason: 'api_inline_auto_assign',
+              p_history_metadata: { source: 'api-inline', holdId: quote.hold.id },
+            });
+            if (!txError) {
+              const { data: reloaded } = await supabase
+                .from('bookings')
+                .select('*')
+                .eq('id', finalBooking.id)
+                .maybeSingle();
+              if (reloaded) {
+                finalBooking = reloaded as BookingRecord;
+                // Send confirmation email now that we have an assigned table
+                try {
+                  await sendBookingConfirmationEmail(finalBooking);
+                } catch (mailError) {
+                  console.error('[bookings][POST][inline-confirm-email]', mailError);
+                }
+              }
+            }
+          }
+        }
+      } catch (inlineError) {
+        console.warn('[bookings][POST][inline-auto-assign] failed', { error: stringifyError(inlineError) });
+      }
+    }
+
     if (!reusedExisting) {
       try {
         await enqueueBookingCreatedSideEffects(
@@ -762,29 +840,12 @@ export async function POST(req: NextRequest) {
         console.error("[bookings][POST][side-effects]", stringifyError(jobError));
       }
 
-      // Auto-assign tables and flip to confirmed if allocator finds a plan
+      // If inline attempt did not confirm and retries are configured, run background job
       try {
-        if (env.featureFlags.autoAssignOnBooking) {
+        if (env.featureFlags.autoAssignOnBooking && finalBooking.status !== 'confirmed') {
           const { autoAssignAndConfirmIfPossible } = await import("@/server/jobs/auto-assign");
-          const maxRetries = env.featureFlags.autoAssign?.maxRetries ?? 3;
-          // If retries are disabled (0), perform a best-effort synchronous attempt
-          // so users aren't left in a limbo state with no email.
-          if (maxRetries <= 0) {
-            // Timebox to avoid excessive API latency. The allocator attempt has no retries
-            // in this mode, so it should complete quickly.
-            const withTimeout = <T>(p: Promise<T>, ms: number) =>
-              Promise.race<T | symbol>([
-                p,
-                new Promise<symbol>((resolve) => setTimeout(() => resolve(Symbol('timeout')), ms)),
-              ]);
-            const result = await withTimeout(autoAssignAndConfirmIfPossible(finalBooking.id), 10_000);
-            if (typeof result === 'symbol') {
-              console.warn('[bookings][POST][auto-assign] best-effort attempt timed out');
-            }
-          } else {
-            // Background (non-blocking) when retries are enabled
-            void autoAssignAndConfirmIfPossible(finalBooking.id);
-          }
+          // Always schedule a background attempt at least once
+          void autoAssignAndConfirmIfPossible(finalBooking.id);
         }
       } catch (autoError: unknown) {
         console.error("[bookings][POST][auto-assign]", stringifyError(autoError));

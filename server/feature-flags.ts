@@ -202,3 +202,7 @@ export function getAutoAssignRetryDelaysMs(): number[] {
 export function getAutoAssignStartCutoffMinutes(): number {
   return env.featureFlags.autoAssign?.startCutoffMinutes ?? 10;
 }
+
+export function getAutoAssignCreatedEmailDeferMinutes(): number {
+  return env.featureFlags.autoAssign?.createdEmailDeferMinutes ?? 0;
+}
