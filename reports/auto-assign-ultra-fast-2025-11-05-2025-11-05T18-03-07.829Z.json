@@ -1,0 +1,194 @@
+{
+  "executedAt": "2025-11-05T18:03:07.829Z",
+  "restaurant": "Fine_dining 4",
+  "date": "2025-11-05",
+  "config": {
+    "TARGET_RESTAURANT_SLUG": "finedining-4",
+    "TARGET_DATE": "2025-11-05",
+    "MAX_CONCURRENT_BOOKINGS": 15,
+    "SINGLE_ATTEMPT_ONLY": true,
+    "HOLD_TTL_SECONDS": 180,
+    "MINIMAL_CONSOLE_OUTPUT": false,
+    "FORCE_REASSIGN_ALL": false
+  },
+  "totalBookings": 19,
+  "pendingProcessed": 19,
+  "successful": 9,
+  "failed": 10,
+  "successRate": 47,
+  "totalDurationSeconds": 18.76,
+  "avgProcessingMs": 6298,
+  "results": [
+    {
+      "id": "23fd09c1",
+      "time": "11:48:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T057"],
+      "durationMs": 11696
+    },
+    {
+      "id": "83111fe8",
+      "time": "14:25:00",
+      "party": 2,
+      "success": false,
+      "reason": "Allocator v2 repository failure",
+      "tablesAssigned": [],
+      "durationMs": 6580
+    },
+    {
+      "id": "1b05e8dd",
+      "time": "15:25:00",
+      "party": 2,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 189
+    },
+    {
+      "id": "dd4f86e2",
+      "time": "15:46:00",
+      "party": 2,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 139
+    },
+    {
+      "id": "bbd1d31c",
+      "time": "15:49:00",
+      "party": 2,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 278
+    },
+    {
+      "id": "736c9d32",
+      "time": "16:45:00",
+      "party": 6,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 206
+    },
+    {
+      "id": "2273a109",
+      "time": "18:29:00",
+      "party": 6,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T055"],
+      "durationMs": 8144
+    },
+    {
+      "id": "2b59ccaf",
+      "time": "18:38:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T066"],
+      "durationMs": 12223
+    },
+    {
+      "id": "b91a717b",
+      "time": "19:09:00",
+      "party": 2,
+      "success": false,
+      "reason": "Allocator v2 repository failure",
+      "tablesAssigned": [],
+      "durationMs": 9137
+    },
+    {
+      "id": "7b738be1",
+      "time": "19:19:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T060"],
+      "durationMs": 8317
+    },
+    {
+      "id": "f199a8f3",
+      "time": "19:24:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T057"],
+      "durationMs": 11171
+    },
+    {
+      "id": "f45389df",
+      "time": "19:32:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T056"],
+      "durationMs": 6579
+    },
+    {
+      "id": "b80b49d7",
+      "time": "19:39:00",
+      "party": 4,
+      "success": false,
+      "reason": "Allocator v2 repository failure",
+      "tablesAssigned": [],
+      "durationMs": 9432
+    },
+    {
+      "id": "e92cc50f",
+      "time": "19:44:00",
+      "party": 4,
+      "success": false,
+      "reason": "Allocator v2 repository failure",
+      "tablesAssigned": [],
+      "durationMs": 8412
+    },
+    {
+      "id": "0e8c62d9",
+      "time": "20:16:00",
+      "party": 2,
+      "success": false,
+      "reason": "Allocator v2 repository failure",
+      "tablesAssigned": [],
+      "durationMs": 10211
+    },
+    {
+      "id": "dd3c9767",
+      "time": "20:20:00",
+      "party": 2,
+      "success": false,
+      "reason": "conflicting key value violates exclusion constraint \"no_overlapping_table_assignments\"",
+      "tablesAssigned": [],
+      "durationMs": 2902
+    },
+    {
+      "id": "fe695df6",
+      "time": "20:27:00",
+      "party": 6,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T055"],
+      "durationMs": 4012
+    },
+    {
+      "id": "fdeec00a",
+      "time": "20:28:00",
+      "party": 6,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T062"],
+      "durationMs": 5790
+    },
+    {
+      "id": "abc464cf",
+      "time": "20:55:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T056"],
+      "durationMs": 4249
+    }
+  ]
+}

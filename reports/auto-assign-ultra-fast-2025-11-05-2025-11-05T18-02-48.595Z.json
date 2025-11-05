@@ -1,0 +1,203 @@
+{
+  "executedAt": "2025-11-05T18:02:48.595Z",
+  "restaurant": "Fine_dining 5",
+  "date": "2025-11-05",
+  "config": {
+    "TARGET_RESTAURANT_SLUG": "finedining-5",
+    "TARGET_DATE": "2025-11-05",
+    "MAX_CONCURRENT_BOOKINGS": 15,
+    "SINGLE_ATTEMPT_ONLY": true,
+    "HOLD_TTL_SECONDS": 180,
+    "MINIMAL_CONSOLE_OUTPUT": false,
+    "FORCE_REASSIGN_ALL": false
+  },
+  "totalBookings": 20,
+  "pendingProcessed": 20,
+  "successful": 13,
+  "failed": 7,
+  "successRate": 65,
+  "totalDurationSeconds": 18.45,
+  "avgProcessingMs": 4400,
+  "results": [
+    {
+      "id": "52834fb7",
+      "time": "12:02:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T074"],
+      "durationMs": 4710
+    },
+    {
+      "id": "407dad70",
+      "time": "13:16:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T075"],
+      "durationMs": 4417
+    },
+    {
+      "id": "c514065a",
+      "time": "13:56:00",
+      "party": 6,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T073"],
+      "durationMs": 4758
+    },
+    {
+      "id": "aef45dc9",
+      "time": "15:20:00",
+      "party": 2,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 264
+    },
+    {
+      "id": "d19d7c07",
+      "time": "15:51:00",
+      "party": 6,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 431
+    },
+    {
+      "id": "c375866d",
+      "time": "16:13:00",
+      "party": 6,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 475
+    },
+    {
+      "id": "51278da6",
+      "time": "16:30:00",
+      "party": 4,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 262
+    },
+    {
+      "id": "09258874",
+      "time": "18:18:00",
+      "party": 6,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T073"],
+      "durationMs": 4514
+    },
+    {
+      "id": "ab5f382e",
+      "time": "18:20:00",
+      "party": 3,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T082"],
+      "durationMs": 6484
+    },
+    {
+      "id": "d119c35a",
+      "time": "18:21:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T076"],
+      "durationMs": 5959
+    },
+    {
+      "id": "33140929",
+      "time": "18:33:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T081"],
+      "durationMs": 7841
+    },
+    {
+      "id": "a670ed48",
+      "time": "19:04:00",
+      "party": 8,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T077"],
+      "durationMs": 4652
+    },
+    {
+      "id": "3175479c",
+      "time": "19:18:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T074"],
+      "durationMs": 4646
+    },
+    {
+      "id": "43655466",
+      "time": "19:21:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T075"],
+      "durationMs": 4559
+    },
+    {
+      "id": "da8350e5",
+      "time": "19:45:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T082"],
+      "durationMs": 6276
+    },
+    {
+      "id": "61be7cdf",
+      "time": "19:54:00",
+      "party": 4,
+      "success": false,
+      "reason": "conflicting key value violates exclusion constraint \"no_overlapping_table_assignments\"",
+      "tablesAssigned": [],
+      "durationMs": 2476
+    },
+    {
+      "id": "5e8b6d38",
+      "time": "19:59:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T084"],
+      "durationMs": 8380
+    },
+    {
+      "id": "02eaaf04",
+      "time": "20:14:00",
+      "party": 2,
+      "success": false,
+      "reason": "conflicting key value violates exclusion constraint \"no_overlapping_table_assignments\"",
+      "tablesAssigned": [],
+      "durationMs": 2476
+    },
+    {
+      "id": "f14de8a1",
+      "time": "20:47:00",
+      "party": 4,
+      "success": false,
+      "reason": "conflicting key value violates exclusion constraint \"no_overlapping_table_assignments\"",
+      "tablesAssigned": [],
+      "durationMs": 4382
+    },
+    {
+      "id": "b8338a84",
+      "time": "20:52:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T085"],
+      "durationMs": 10047
+    }
+  ]
+}

@@ -184,19 +184,12 @@ VALUES (
 );
 
 -- -----------------------------------------------------------------------------
--- Stage 4: restaurant scaffolding (8 venues)
+-- Stage 4: restaurant scaffolding (1 venue)
 -- -----------------------------------------------------------------------------
 WITH restaurant_source AS (
     SELECT * FROM (
         VALUES
-            ('The Queen Elizabeth Pub',       'the-queen-elizabeth-pub',       'Europe/London', '32 Gayton Road, King''s Lynn, PE30 4EL',          'thequeen@lapeninns.com',    '01553 824083', NULL,                 'Visit: https://thequeenelizabethpub.co.uk'),
-            ('Old Crown Pub (Girton)',        'old-crown-pub-girton',          'Europe/London', '89 High Street, Girton, Cambridge, CB3 0QQ',      'oldcrown@lapeninns.com',    '01223 277217', NULL,                 'Visit: https://oldcrowngirton.com'),
-            ('White Horse Pub (Waterbeach)',  'white-horse-pub-waterbeach',    'Europe/London', '12 Green Side, Waterbeach, Cambridge, CB25 9HP',  'whitehorse@lapeninns.com',  '01223 375578', NULL,                 'Visit: https://whitehorsepub.co'),
-            ('The Corner House Pub (Cambridge)', 'the-corner-house-pub-cambridge', 'Europe/London', '231 Newmarket Road, Cambridge, CB5 8JE',       'cornerhouse@lapeninns.com', '01223 921122', NULL,                 'Visit: https://thecornerhousepub.co'),
-            ('Prince of Wales Pub (Bromham)', 'prince-of-wales-pub-bromham',   'Europe/London', '8 Northampton Road, Bromham, Bedford, MK43 8PE',  'theprince@lapeninns.com',   '01234 822447', '+44 7438 699609',   'Visit: https://princeofwalesbromham.com • Mobile: +44 7438 699609'),
-            ('The Bell (Sawtry)',             'the-bell-sawtry',               'Europe/London', '82 Green End Road, Sawtry, Huntingdon, PE28 5UY', 'thebell@lapeninns.com',     '01487 900149', NULL,                 'Visit: https://thebellsawtry.com'),
-            ('The Railway Pub (Whittlesey)',  'the-railway-pub-whittlesey',    'Europe/London', '139 Station Road, Whittlesey, PE7 1UF',           'therailway@lapeninns.com',  '01733 788345', NULL,                 'Visit: https://therailwaypub.co'),
-            ('The Barley Mow Pub (Hartford)', 'the-barley-mow-pub-hartford',   'Europe/London', '42 Main St, Hartford, Huntingdon, PE29 1XU',      'barleymow@lapeninns.com',   '01480 450550', '+44 7399 835329',   'Visit: https://barleymowhartford.co.uk • Mobile: +44 7399 835329')
+            ('The Queen Elizabeth Pub',       'the-queen-elizabeth-pub',       'Europe/London', '32 Gayton Road, King''s Lynn, PE30 4EL',          'thequeen@lapeninns.com',    '01553 824083', NULL,                 'Visit: https://thequeenelizabethpub.co.uk')
     ) AS r(name, slug, timezone, address, email, phone, mobile, policy)
 )
 INSERT INTO public.restaurants (id, name, slug, timezone, capacity, contact_email, contact_phone, address, booking_policy, reservation_interval_minutes, reservation_default_duration_minutes, reservation_last_seating_buffer_minutes, is_active, created_at, updated_at)
@@ -262,17 +255,14 @@ CROSS JOIN LATERAL (
 INSERT INTO public.allowed_capacities (restaurant_id, capacity, created_at, updated_at)
 SELECT r.id, caps.capacity, timezone('utc', now()), timezone('utc', now())
 FROM public.restaurants r
-CROSS JOIN (VALUES (2), (4), (6), (8), (10)) AS caps(capacity);
+CROSS JOIN (VALUES (2), (4), (7)) AS caps(capacity);
 
--- Zone layout (5 per restaurant)
+-- Zone layout (2 per restaurant)
 WITH zone_defs AS (
     SELECT * FROM (
         VALUES
-            ('Main Dining',     1),
-            ('Bar Area',        2),
-            ('Patio',           3),
-            ('Private Room',    4),
-            ('Outdoor Garden',  5)
+            ('Dining 1',        1),
+            ('Dining 2',        2)
     ) AS z(name, sort_order)
 )
 INSERT INTO public.zones (id, restaurant_id, name, sort_order, created_at, updated_at)
@@ -329,7 +319,34 @@ layout AS (
             ('Outdoor Garden','OG-04', 6, 3, 6, 'patio','standard'),
             ('Outdoor Garden','OG-05', 6, 3, 6, 'patio','standard'),
             ('Outdoor Garden','OG-06', 8, 4, 8, 'patio','standard')
-    ) AS l(zone_name, table_number, capacity, min_party, max_party, category, seating_type)
+) AS l(zone_name, table_number, capacity, min_party, max_party, category, seating_type)
+),
+custom_layout AS (
+    SELECT * FROM (
+        VALUES
+            -- Dining 1: 3x T-2 (movable)
+            ('Dining 1', 'D1-02-01', 2, 1, 2, 'dining', 'standard', 'movable'),
+            ('Dining 1', 'D1-02-02', 2, 1, 2, 'dining', 'standard', 'movable'),
+            ('Dining 1', 'D1-02-03', 2, 1, 2, 'dining', 'standard', 'movable'),
+            -- Dining 1: 5x T-4 (movable)
+            ('Dining 1', 'D1-04-01', 4, 2, 4, 'dining', 'standard', 'movable'),
+            ('Dining 1', 'D1-04-02', 4, 2, 4, 'dining', 'standard', 'movable'),
+            ('Dining 1', 'D1-04-03', 4, 2, 4, 'dining', 'standard', 'movable'),
+            ('Dining 1', 'D1-04-04', 4, 2, 4, 'dining', 'standard', 'movable'),
+            ('Dining 1', 'D1-04-05', 4, 2, 4, 'dining', 'standard', 'movable'),
+            -- Dining 1: 1x T-7 (fixed)
+            ('Dining 1', 'D1-07-01', 7, 4, 7, 'dining', 'standard', 'fixed'),
+            -- Dining 2: 6x T-4 (movable)
+            ('Dining 2', 'D2-04-01', 4, 2, 4, 'dining', 'standard', 'movable'),
+            ('Dining 2', 'D2-04-02', 4, 2, 4, 'dining', 'standard', 'movable'),
+            ('Dining 2', 'D2-04-03', 4, 2, 4, 'dining', 'standard', 'movable'),
+            ('Dining 2', 'D2-04-04', 4, 2, 4, 'dining', 'standard', 'movable'),
+            ('Dining 2', 'D2-04-05', 4, 2, 4, 'dining', 'standard', 'movable'),
+            ('Dining 2', 'D2-04-06', 4, 2, 4, 'dining', 'standard', 'movable'),
+            -- Dining 2: 2x T-2 (fixed)
+            ('Dining 2', 'D2-02-01', 2, 1, 2, 'dining', 'standard', 'fixed'),
+            ('Dining 2', 'D2-02-02', 2, 1, 2, 'dining', 'standard', 'fixed')
+    ) AS l(zone_name, table_number, capacity, min_party, max_party, category, seating_type, mobility)
 )
 INSERT INTO public.table_inventory (id, restaurant_id, table_number, capacity, min_party_size, max_party_size, section, status, position, notes, created_at, updated_at, zone_id, category, seating_type, mobility, active)
 SELECT
@@ -348,10 +365,10 @@ SELECT
     zl.id,
     l.category::public.table_category,
     l.seating_type::public.table_seating_type,
-    'movable',
+    l.mobility::public.table_mobility,
     true
 FROM zone_lookup zl
-JOIN layout l ON l.zone_name = zl.name;
+JOIN custom_layout l ON l.zone_name = zl.name;
 
 -- Table adjacencies for allocator merge heuristics
 INSERT INTO public.table_adjacencies (table_a, table_b, created_at)

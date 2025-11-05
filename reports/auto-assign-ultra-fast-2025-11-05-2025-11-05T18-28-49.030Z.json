@@ -1,0 +1,194 @@
+{
+  "executedAt": "2025-11-05T18:28:49.030Z",
+  "restaurant": "Fine_dining 4",
+  "date": "2025-11-05",
+  "config": {
+    "TARGET_RESTAURANT_SLUG": "finedining-4",
+    "TARGET_DATE": "2025-11-05",
+    "MAX_CONCURRENT_BOOKINGS": 5,
+    "SINGLE_ATTEMPT_ONLY": true,
+    "HOLD_TTL_SECONDS": 180,
+    "MINIMAL_CONSOLE_OUTPUT": false,
+    "FORCE_REASSIGN_ALL": false
+  },
+  "totalBookings": 19,
+  "pendingProcessed": 19,
+  "successful": 11,
+  "failed": 8,
+  "successRate": 58,
+  "totalDurationSeconds": 49.74,
+  "avgProcessingMs": 7816,
+  "results": [
+    {
+      "id": "23fd09c1",
+      "time": "11:48:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 5164
+    },
+    {
+      "id": "83111fe8",
+      "time": "14:25:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 6556
+    },
+    {
+      "id": "1b05e8dd",
+      "time": "15:25:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 4399
+    },
+    {
+      "id": "dd4f86e2",
+      "time": "15:46:00",
+      "party": 2,
+      "success": false,
+      "reason": "Booking dd4f86e2-650d-4771-916f-539e72b72576 locked to zone 8ca7df8d-fc1f-44fe-9b0d-1b3b5f10eeee, cannot assign zone ab4c4cff-4e26-4df3-85b5-6be1112f5d80",
+      "tablesAssigned": [],
+      "durationMs": 4973
+    },
+    {
+      "id": "bbd1d31c",
+      "time": "15:49:00",
+      "party": 2,
+      "success": false,
+      "reason": "Booking bbd1d31c-7624-444a-9733-0fbab7d15d47 locked to zone ab4c4cff-4e26-4df3-85b5-6be1112f5d80, cannot assign zone 8ca7df8d-fc1f-44fe-9b0d-1b3b5f10eeee",
+      "tablesAssigned": [],
+      "durationMs": 7121
+    },
+    {
+      "id": "736c9d32",
+      "time": "16:45:00",
+      "party": 6,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 3742
+    },
+    {
+      "id": "2273a109",
+      "time": "18:29:00",
+      "party": 6,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 4093
+    },
+    {
+      "id": "2b59ccaf",
+      "time": "18:38:00",
+      "party": 2,
+      "success": false,
+      "reason": "Booking 2b59ccaf-2e1d-4830-9b21-0935c1b1b70d locked to zone 8ca7df8d-fc1f-44fe-9b0d-1b3b5f10eeee, cannot assign zone 29e7ac01-f985-469a-be2b-f1f30f9fe6de",
+      "tablesAssigned": [],
+      "durationMs": 13028
+    },
+    {
+      "id": "b91a717b",
+      "time": "19:09:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 3625
+    },
+    {
+      "id": "7b738be1",
+      "time": "19:19:00",
+      "party": 2,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 15249
+    },
+    {
+      "id": "f199a8f3",
+      "time": "19:24:00",
+      "party": 2,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 12770
+    },
+    {
+      "id": "f45389df",
+      "time": "19:32:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 4104
+    },
+    {
+      "id": "b80b49d7",
+      "time": "19:39:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 9430
+    },
+    {
+      "id": "e92cc50f",
+      "time": "19:44:00",
+      "party": 4,
+      "success": false,
+      "reason": "Booking e92cc50f-077b-4099-b3bb-5297179cfe87 locked to zone ab4c4cff-4e26-4df3-85b5-6be1112f5d80, cannot assign zone 8ca7df8d-fc1f-44fe-9b0d-1b3b5f10eeee",
+      "tablesAssigned": [],
+      "durationMs": 12180
+    },
+    {
+      "id": "0e8c62d9",
+      "time": "20:16:00",
+      "party": 2,
+      "success": false,
+      "reason": "Booking 0e8c62d9-cec4-4ce7-8e1b-e58c808524fb locked to zone ab4c4cff-4e26-4df3-85b5-6be1112f5d80, cannot assign zone 29e7ac01-f985-469a-be2b-f1f30f9fe6de",
+      "tablesAssigned": [],
+      "durationMs": 11380
+    },
+    {
+      "id": "dd3c9767",
+      "time": "20:20:00",
+      "party": 2,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 13659
+    },
+    {
+      "id": "fe695df6",
+      "time": "20:27:00",
+      "party": 6,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 5016
+    },
+    {
+      "id": "fdeec00a",
+      "time": "20:28:00",
+      "party": 6,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 6992
+    },
+    {
+      "id": "abc464cf",
+      "time": "20:55:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 5017
+    }
+  ]
+}

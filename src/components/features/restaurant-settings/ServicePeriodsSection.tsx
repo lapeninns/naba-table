@@ -381,6 +381,14 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
       <CardFooter className="flex items-center justify-between border-t border-border/60 bg-muted/40 px-6 py-4">
         <div className="text-xs text-muted-foreground">Align service periods with kitchen and front-of-house workflows.</div>
         <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={addPeriod}
+            disabled={isDisabled || occasionOptions.length === 0}
+          >
+            <Plus className="mr-2 h-4 w-4" aria-hidden /> Add service period
+          </Button>
           <Button type="button" variant="outline" onClick={handleReset} disabled={isDisabled || !isDirty}>
             Reset
           </Button>

@@ -1,0 +1,176 @@
+{
+  "executedAt": "2025-11-05T18:02:10.182Z",
+  "restaurant": "Cafe 3",
+  "date": "2025-11-05",
+  "config": {
+    "TARGET_RESTAURANT_SLUG": "cafe-3",
+    "TARGET_DATE": "2025-11-05",
+    "MAX_CONCURRENT_BOOKINGS": 15,
+    "SINGLE_ATTEMPT_ONLY": true,
+    "HOLD_TTL_SECONDS": 180,
+    "MINIMAL_CONSOLE_OUTPUT": false,
+    "FORCE_REASSIGN_ALL": false
+  },
+  "totalBookings": 30,
+  "pendingProcessed": 17,
+  "successful": 3,
+  "failed": 14,
+  "successRate": 18,
+  "totalDurationSeconds": 21.47,
+  "avgProcessingMs": 9369,
+  "results": [
+    {
+      "id": "96f93f4e",
+      "time": "12:56:00",
+      "party": 6,
+      "success": false,
+      "reason": "Merged assignments require movable tables",
+      "tablesAssigned": [],
+      "durationMs": 12632
+    },
+    {
+      "id": "41a06f4e",
+      "time": "13:13:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T046"],
+      "durationMs": 8999
+    },
+    {
+      "id": "31e73798",
+      "time": "13:56:00",
+      "party": 3,
+      "success": false,
+      "reason": "conflicting key value violates exclusion constraint \"no_overlapping_table_assignments\"",
+      "tablesAssigned": [],
+      "durationMs": 5682
+    },
+    {
+      "id": "d2efb6c3",
+      "time": "18:09:00",
+      "party": 4,
+      "success": false,
+      "reason": "conflicting key value violates exclusion constraint \"no_overlapping_table_assignments\"",
+      "tablesAssigned": [],
+      "durationMs": 13350
+    },
+    {
+      "id": "5d8a07bc",
+      "time": "18:19:00",
+      "party": 3,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T046", "T047"],
+      "durationMs": 12116
+    },
+    {
+      "id": "e3396320",
+      "time": "18:23:00",
+      "party": 2,
+      "success": false,
+      "reason": "conflicting key value violates exclusion constraint \"no_overlapping_table_assignments\"",
+      "tablesAssigned": [],
+      "durationMs": 5825
+    },
+    {
+      "id": "b8c78675",
+      "time": "18:24:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T050"],
+      "durationMs": 9223
+    },
+    {
+      "id": "96801298",
+      "time": "18:41:00",
+      "party": 2,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 14602
+    },
+    {
+      "id": "9560be94",
+      "time": "18:44:00",
+      "party": 2,
+      "success": false,
+      "reason": "Booking 9560be94-f5ac-454f-b147-1f148ab1876c already has assignments in a different zone",
+      "tablesAssigned": [],
+      "durationMs": 9312
+    },
+    {
+      "id": "3d073e57",
+      "time": "19:07:00",
+      "party": 4,
+      "success": false,
+      "reason": "conflicting key value violates exclusion constraint \"no_overlapping_table_assignments\"",
+      "tablesAssigned": [],
+      "durationMs": 5757
+    },
+    {
+      "id": "b8c014fb",
+      "time": "19:13:00",
+      "party": 2,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 15233
+    },
+    {
+      "id": "18636316",
+      "time": "19:15:00",
+      "party": 2,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 13287
+    },
+    {
+      "id": "efa414a3",
+      "time": "19:22:00",
+      "party": 2,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 14703
+    },
+    {
+      "id": "410bb54f",
+      "time": "19:43:00",
+      "party": 4,
+      "success": false,
+      "reason": "conflicting key value violates exclusion constraint \"no_overlapping_table_assignments\"",
+      "tablesAssigned": [],
+      "durationMs": 6312
+    },
+    {
+      "id": "ccf421df",
+      "time": "19:44:00",
+      "party": 4,
+      "success": false,
+      "reason": "conflicting key value violates exclusion constraint \"no_overlapping_table_assignments\"",
+      "tablesAssigned": [],
+      "durationMs": 4058
+    },
+    {
+      "id": "e13fd695",
+      "time": "19:48:00",
+      "party": 4,
+      "success": false,
+      "reason": "Booking e13fd695-74f4-4ffc-b133-7c0e3ed2f7dd already has assignments in a different zone",
+      "tablesAssigned": [],
+      "durationMs": 5091
+    },
+    {
+      "id": "898405de",
+      "time": "20:04:00",
+      "party": 2,
+      "success": false,
+      "reason": "conflicting key value violates exclusion constraint \"no_overlapping_table_assignments\"",
+      "tablesAssigned": [],
+      "durationMs": 3087
+    }
+  ]
+}

@@ -1,0 +1,207 @@
+
+> ship-fast-code@0.1.0 db:run-allocation-test /Users/amankumarshrestha/Downloads/SajiloReserveX
+> ./scripts/run-allocation-stress-test.sh
+
+
+╔════════════════════════════════════════════════════════════════╗
+║  ALLOCATION ALGORITHM STRESS TEST RUNNER                       ║
+╚════════════════════════════════════════════════════════════════╝
+
+📊 Baseline Statistics
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      ?column?       
+---------------------
+ Bookings pending: 0
+(1 row)
+
+
+⚡ Running Allocation Algorithm
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Processing: cafe-3...
+
+> ship-fast-code@0.1.0 assign:loop /Users/amankumarshrestha/Downloads/SajiloReserveX
+> tsx -r tsconfig-paths/register scripts/ops-auto-assign-ultra-fast-loop.ts --slug prince-of-wales-pub-bromham --date 2025-11-10 -- --slug cafe-3 --date 2025-11-05 --once
+
+
+node:internal/modules/run_main:122
+    triggerUncaughtException(
+    ^
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/amankumarshrestha/Downloads/SajiloReserveX/scripts/ops-auto-assign-ultra-fast-loop.ts' imported from /Users/amankumarshrestha/Downloads/SajiloReserveX/
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:932:10)
+    at defaultResolve (node:internal/modules/esm/resolve:1056:11)
+    at nextResolve (node:internal/modules/esm/hooks:748:28)
+    at resolveBase (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/tsx@4.20.6/node_modules/tsx/dist/esm/index.mjs?1762368700359:2:3744)
+    at async resolveDirectory (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/tsx@4.20.6/node_modules/tsx/dist/esm/index.mjs?1762368700359:2:4237)
+    at async resolve (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/tsx@4.20.6/node_modules/tsx/dist/esm/index.mjs?1762368700359:2:5355)
+    at async nextResolve (node:internal/modules/esm/hooks:748:22)
+    at async Hooks.resolve (node:internal/modules/esm/hooks:240:24)
+    at async handleMessage (node:internal/modules/esm/worker:199:18) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///Users/amankumarshrestha/Downloads/SajiloReserveX/scripts/ops-auto-assign-ultra-fast-loop.ts'
+}
+
+Node.js v22.12.0
+ ELIFECYCLE  Command failed with exit code 1.
+  Processing: finedining-4...
+
+> ship-fast-code@0.1.0 assign:loop /Users/amankumarshrestha/Downloads/SajiloReserveX
+> tsx -r tsconfig-paths/register scripts/ops-auto-assign-ultra-fast-loop.ts --slug prince-of-wales-pub-bromham --date 2025-11-10 -- --slug finedining-4 --date 2025-11-05 --once
+
+
+node:internal/modules/run_main:122
+    triggerUncaughtException(
+    ^
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/amankumarshrestha/Downloads/SajiloReserveX/scripts/ops-auto-assign-ultra-fast-loop.ts' imported from /Users/amankumarshrestha/Downloads/SajiloReserveX/
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:932:10)
+    at defaultResolve (node:internal/modules/esm/resolve:1056:11)
+    at nextResolve (node:internal/modules/esm/hooks:748:28)
+    at resolveBase (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/tsx@4.20.6/node_modules/tsx/dist/esm/index.mjs?1762368700781:2:3744)
+    at async resolveDirectory (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/tsx@4.20.6/node_modules/tsx/dist/esm/index.mjs?1762368700781:2:4237)
+    at async resolve (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/tsx@4.20.6/node_modules/tsx/dist/esm/index.mjs?1762368700781:2:5355)
+    at async nextResolve (node:internal/modules/esm/hooks:748:22)
+    at async Hooks.resolve (node:internal/modules/esm/hooks:240:24)
+    at async handleMessage (node:internal/modules/esm/worker:199:18) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///Users/amankumarshrestha/Downloads/SajiloReserveX/scripts/ops-auto-assign-ultra-fast-loop.ts'
+}
+
+Node.js v22.12.0
+ ELIFECYCLE  Command failed with exit code 1.
+  Processing: finedining-5...
+
+> ship-fast-code@0.1.0 assign:loop /Users/amankumarshrestha/Downloads/SajiloReserveX
+> tsx -r tsconfig-paths/register scripts/ops-auto-assign-ultra-fast-loop.ts --slug prince-of-wales-pub-bromham --date 2025-11-10 -- --slug finedining-5 --date 2025-11-05 --once
+
+
+node:internal/modules/run_main:122
+    triggerUncaughtException(
+    ^
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/amankumarshrestha/Downloads/SajiloReserveX/scripts/ops-auto-assign-ultra-fast-loop.ts' imported from /Users/amankumarshrestha/Downloads/SajiloReserveX/
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:932:10)
+    at defaultResolve (node:internal/modules/esm/resolve:1056:11)
+    at nextResolve (node:internal/modules/esm/hooks:748:28)
+    at resolveBase (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/tsx@4.20.6/node_modules/tsx/dist/esm/index.mjs?1762368701309:2:3744)
+    at async resolveDirectory (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/tsx@4.20.6/node_modules/tsx/dist/esm/index.mjs?1762368701309:2:4237)
+    at async resolve (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/tsx@4.20.6/node_modules/tsx/dist/esm/index.mjs?1762368701309:2:5355)
+    at async nextResolve (node:internal/modules/esm/hooks:748:22)
+    at async Hooks.resolve (node:internal/modules/esm/hooks:240:24)
+    at async handleMessage (node:internal/modules/esm/worker:199:18) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///Users/amankumarshrestha/Downloads/SajiloReserveX/scripts/ops-auto-assign-ultra-fast-loop.ts'
+}
+
+Node.js v22.12.0
+ ELIFECYCLE  Command failed with exit code 1.
+  Processing: pub-1...
+
+> ship-fast-code@0.1.0 assign:loop /Users/amankumarshrestha/Downloads/SajiloReserveX
+> tsx -r tsconfig-paths/register scripts/ops-auto-assign-ultra-fast-loop.ts --slug prince-of-wales-pub-bromham --date 2025-11-10 -- --slug pub-1 --date 2025-11-05 --once
+
+
+node:internal/modules/run_main:122
+    triggerUncaughtException(
+    ^
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/amankumarshrestha/Downloads/SajiloReserveX/scripts/ops-auto-assign-ultra-fast-loop.ts' imported from /Users/amankumarshrestha/Downloads/SajiloReserveX/
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:932:10)
+    at defaultResolve (node:internal/modules/esm/resolve:1056:11)
+    at nextResolve (node:internal/modules/esm/hooks:748:28)
+    at resolveBase (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/tsx@4.20.6/node_modules/tsx/dist/esm/index.mjs?1762368701738:2:3744)
+    at async resolveDirectory (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/tsx@4.20.6/node_modules/tsx/dist/esm/index.mjs?1762368701738:2:4237)
+    at async resolve (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/tsx@4.20.6/node_modules/tsx/dist/esm/index.mjs?1762368701738:2:5355)
+    at async nextResolve (node:internal/modules/esm/hooks:748:22)
+    at async Hooks.resolve (node:internal/modules/esm/hooks:240:24)
+    at async handleMessage (node:internal/modules/esm/worker:199:18) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///Users/amankumarshrestha/Downloads/SajiloReserveX/scripts/ops-auto-assign-ultra-fast-loop.ts'
+}
+
+Node.js v22.12.0
+ ELIFECYCLE  Command failed with exit code 1.
+  Processing: pub-2...
+
+> ship-fast-code@0.1.0 assign:loop /Users/amankumarshrestha/Downloads/SajiloReserveX
+> tsx -r tsconfig-paths/register scripts/ops-auto-assign-ultra-fast-loop.ts --slug prince-of-wales-pub-bromham --date 2025-11-10 -- --slug pub-2 --date 2025-11-05 --once
+
+
+node:internal/modules/run_main:122
+    triggerUncaughtException(
+    ^
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/amankumarshrestha/Downloads/SajiloReserveX/scripts/ops-auto-assign-ultra-fast-loop.ts' imported from /Users/amankumarshrestha/Downloads/SajiloReserveX/
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:932:10)
+    at defaultResolve (node:internal/modules/esm/resolve:1056:11)
+    at nextResolve (node:internal/modules/esm/hooks:748:28)
+    at resolveBase (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/tsx@4.20.6/node_modules/tsx/dist/esm/index.mjs?1762368702192:2:3744)
+    at async resolveDirectory (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/tsx@4.20.6/node_modules/tsx/dist/esm/index.mjs?1762368702192:2:4237)
+    at async resolve (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/tsx@4.20.6/node_modules/tsx/dist/esm/index.mjs?1762368702192:2:5355)
+    at async nextResolve (node:internal/modules/esm/hooks:748:22)
+    at async Hooks.resolve (node:internal/modules/esm/hooks:240:24)
+    at async handleMessage (node:internal/modules/esm/worker:199:18) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///Users/amankumarshrestha/Downloads/SajiloReserveX/scripts/ops-auto-assign-ultra-fast-loop.ts'
+}
+
+Node.js v22.12.0
+ ELIFECYCLE  Command failed with exit code 1.
+
+  ✅ Allocation complete in 3s
+
+📊 Post-Allocation Statistics
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      ?column?       
+---------------------
+ Total bookings: 105
+(1 row)
+
+          ?column?          
+----------------------------
+ Successfully allocated: 19
+(1 row)
+
+     ?column?     
+------------------
+ Still pending: 0
+(1 row)
+
+       ?column?       
+----------------------
+ Tables used: 15 / 90
+(1 row)
+
+          ?column?          
+----------------------------
+ Multi-table assignments: 0
+(1 row)
+
+             ?column?              
+-----------------------------------
+ Average party size allocated: 3.6
+(1 row)
+
+
+⚡ Constraint Validation
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+> ship-fast-code@0.1.0 db:stress-test /Users/amankumarshrestha/Downloads/SajiloReserveX
+> echo '⚡ Running allocation stress test...' && source .env.local && psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/seeds/stress-test-allocation.sql && echo '✅ Stress test complete!'
+
+⚡ Running allocation stress test...
+BEGIN
+SET
+SET
+DO
+COMMIT
+✅ Stress test complete!
+
+╔════════════════════════════════════════════════════════════════╗
+║  STRESS TEST COMPLETE                                          ║
+╚════════════════════════════════════════════════════════════════╝
+
+  Performance: 3s for all allocations
+  See full results above
+

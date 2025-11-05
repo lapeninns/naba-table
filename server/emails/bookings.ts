@@ -1,8 +1,9 @@
 import config from "@/config";
 import { env } from "@/lib/env";
 import { buildCalendarEvent, type ReservationCalendarPayload } from "@/lib/reservations/calendar-event";
-import { DEFAULT_VENUE, type VenueDetails } from "@/lib/venue";
+import { type VenueDetails } from "@/lib/venue";
 import { sendEmail, type EmailAttachment } from "@/libs/resend";
+import { renderButton, renderEmailBase } from "@/server/emails/base";
 import { getServiceSupabaseClient } from "@/server/supabase";
 import {
   formatDateForInput,
@@ -256,6 +257,7 @@ function renderActionButton(
   return `<a href="${safeHref}" style="${border}display:inline-block;padding:14px 28px;border-radius:999px;background:${background};color:${color};font-family:${EMAIL_FONT_STACK};font-weight:600;font-size:15px;text-decoration:none;min-height:44px;line-height:1.35;">${iconHtml}<span style="vertical-align:middle;">${safeLabel}</span></a>`;
 }
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
 function renderHtml({
   booking,
   venue,
@@ -458,6 +460,188 @@ function renderHtml({
   `;
 }
 
+/* eslint-enable @typescript-eslint/no-unused-vars */
+// New responsive, bulletproof, base-wrapped template
+function renderHtmlRevamp({
+  booking,
+  venue,
+  summary,
+  headline,
+  intro,
+  ctaLabel,
+  ctaUrl,
+  calendarActionUrl,
+  walletActionUrl,
+  calendarAttachmentName,
+}: {
+  booking: BookingRecord;
+  venue: VenueDetails;
+  summary: BookingSummary;
+  headline: string;
+  intro: string;
+  ctaLabel?: string;
+  ctaUrl?: string;
+  calendarActionUrl?: string;
+  walletActionUrl?: string;
+  calendarAttachmentName?: string;
+}) {
+  const manageUrl = buildManageUrl(booking);
+  const statusPresentation = getStatusPresentation(booking.status);
+  const bookingTypeLabel = formatBookingTypeLabel(booking.booking_type);
+  const seatingLabel = formatSeatingLabel(booking.seating_preference);
+  const timeRange = summary.endTime ? `${summary.startTime} – ${summary.endTime}` : summary.startTime;
+  const notes = booking.notes?.trim();
+  const preheader = `${summary.date} at ${summary.startTime}${summary.endTime ? ` · Ends ${summary.endTime}` : ''} · ${venue.name}`;
+
+  const secondaryButtons: string[] = [];
+  if (calendarActionUrl) secondaryButtons.push(renderButton('📅 Add reservation to calendar', calendarActionUrl, { variant: 'secondary', align: 'left' }));
+  if (walletActionUrl) secondaryButtons.push(renderButton('💼 Add reservation to wallet', walletActionUrl, { variant: 'secondary', align: 'left' }));
+
+  const secondaryActionsHtml = secondaryButtons.length
+    ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="action-group" style="margin-top:24px;border-collapse:separate;">
+        <tr>
+          ${secondaryButtons.map((button) => `<td class="action-cell" style="padding:0 6px 12px;text-align:center;">${button}</td>`).join('')}
+        </tr>
+      </table>
+      ${calendarAttachmentName ? `<p style="margin:8px 0 0;font-size:12px;line-height:1.6;color:#64748b;">Calendar file attached: ${escapeHtml(calendarAttachmentName)}</p>` : ''}`
+    : calendarAttachmentName
+      ? `<p style="margin:24px 0 0;font-size:12px;line-height:1.6;color:#64748b;">Calendar file attached: ${escapeHtml(calendarAttachmentName)}</p>`
+      : '';
+
+  const supportEmail = venue.email?.trim() || config.email.supportEmail || '';
+  const supportPhone = venue.phone?.trim() || '';
+  const supportLine = [
+    supportEmail ? `Email <a href="mailto:${escapeHtml(supportEmail)}" style="color:#4338ca;text-decoration:none;">${escapeHtml(supportEmail)}</a>` : '',
+    supportPhone ? `Call ${escapeHtml(supportPhone)}` : '',
+  ].filter(Boolean).join(' · ');
+
+  const customerPhone = booking.customer_phone?.trim();
+  const customerPhoneHref = customerPhone ? `tel:${encodeURIComponent(customerPhone)}` : null;
+  const venuePhone = venue.phone?.trim();
+  const venuePhoneHref = venuePhone ? `tel:${encodeURIComponent(venuePhone)}` : null;
+  const venueEmailHref = venue.email ? `mailto:${escapeHtml(venue.email)}` : null;
+
+  const notesHtml = notes
+    ? `<tr>
+        <td style="padding:0 36px 32px;">
+          <div style="margin-top:16px;padding:18px 20px;border-radius:18px;border:1px solid #e2e8f0;background:#f8fafc;">
+            <p style="margin:0 0 6px;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;font-weight:600;color:#475569;">Guest notes</p>
+            <p style="margin:0;font-size:14px;line-height:1.6;color:#334155;">${escapeHtml(notes)}</p>
+          </div>
+        </td>
+      </tr>`
+    : '';
+
+  const primaryButton = ctaLabel && ctaUrl ? renderButton(ctaLabel, ctaUrl, { variant: 'primary', align: 'center' }) : '';
+
+  const contentHtml = `
+      <div class="card">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:linear-gradient(165deg,#6366f1,#4338ca);">
+          <tr>
+            <td style="padding:28px 24px 24px 24px;">
+              <span style="display:inline-block;padding:6px 14px;border-radius:999px;border:1px solid ${statusPresentation.border};background:${statusPresentation.badgeBg};color:${statusPresentation.badgeText};font-weight:600;font-size:13px;">${escapeHtml(statusPresentation.label)}</span>
+              <h1 style="margin:18px 0 10px;font-size:28px;line-height:1.25;font-weight:700;color:#ffffff;">${escapeHtml(headline)}</h1>
+              <p style="margin:0;font-size:15px;line-height:1.7;color:#e5edff;">${escapeHtml(intro)}</p>
+              <p style="margin:18px 0 0;font-size:13px;line-height:1.6;color:#c7cffd;">${escapeHtml(statusPresentation.note)}</p>
+              ${secondaryActionsHtml}
+            </td>
+          </tr>
+        </table>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+          <tr>
+            <td style="padding:24px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td class="stack-column" valign="top" width="50%" style="padding:12px 18px 0 18px;">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                      <tr>
+                        <td style="padding:0 0 10px 0;border-bottom:1px solid #f1f5f9;">
+                          <p style="margin:0 0 6px;font-size:11px;color:#94a3b8;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;">Date</p>
+                          <p style="margin:0 0 6px;font-size:18px;font-weight:600;">${escapeHtml(summary.date)}</p>
+                          <p style="margin:0 0 16px;font-size:15px;color:#334155;">${escapeHtml(timeRange)}</p>
+                          <p style="margin:0 0 16px;font-size:12px;color:#94a3b8;">${escapeHtml(venue.timezone)}</p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:16px 0 0 0;border-bottom:1px solid #f1f5f9;">
+                          <p style="margin:0 0 6px;font-size:11px;color:#94a3b8;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;">Party</p>
+                          <p style="margin:0 0 18px;font-size:15px;font-weight:600;color:#111827;">${escapeHtml(summary.party)}</p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:16px 0 0 0;border-bottom:1px solid #f1f5f9;">
+                          <p style="margin:0 0 6px;font-size:11px;color:#94a3b8;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;">Type</p>
+                          <p style="margin:0 0 18px;font-size:14px;color:#334155;">${escapeHtml(bookingTypeLabel)}</p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:16px 0 0 0;">
+                          <p style="margin:0 0 6px;font-size:11px;color:#94a3b8;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;">Seating</p>
+                          <p style="margin:0 0 18px;font-size:14px;color:#334155;">${escapeHtml(seatingLabel)}</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                  <td class="stack-column" valign="top" width="50%" style="padding:12px 18px 0 18px;border-left:1px dashed #e2e8f0;">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                      <tr>
+                        <td style="padding:0 0 10px 0;border-bottom:1px solid #f1f5f9;">
+                          <p style="margin:0 0 6px;font-size:11px;color:#94a3b8;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;">Guest</p>
+                          <p style="margin:0;font-size:14px;color:#0f172a;">${escapeHtml(booking.customer_name)}</p>
+                          ${booking.customer_email ? `<p style="margin:4px 0 0;font-size:14px;color:#475569;">${escapeHtml(booking.customer_email)}</p>` : ''}
+                          ${customerPhone ? `<p style="margin:4px 0 0;font-size:14px;"><a href="${customerPhoneHref}" style="color:#4338ca;text-decoration:none;">${escapeHtml(customerPhone)}</a></p>` : ''}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:16px 0 0 0;border-bottom:1px solid #f1f5f9;">
+                          <p style="margin:0 0 6px;font-size:11px;color:#94a3b8;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;">Venue</p>
+                          <p style="margin:0 0 16px;font-size:17px;font-weight:600;color:#111827;">${escapeHtml(venue.name)}</p>
+                          <p style="margin:0 0 16px;font-size:14px;color:#334155;line-height:1.6;">${escapeHtml(venue.address)}</p>
+                          ${venuePhone ? `<p style="margin:0 0 6px;font-size:11px;color:#94a3b8;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;">Phone</p><p style="margin:0 0 16px;font-size:14px;"><a href="${venuePhoneHref}" style="color:#4338ca;text-decoration:none;">${escapeHtml(venuePhone)}</a></p>` : ''}
+                          ${venue.email ? `<p style="margin:0 0 6px;font-size:11px;color:#94a3b8;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;">Email</p><p style="margin:0 0 16px;font-size:14px;"><a href="${venueEmailHref}" style="color:#4338ca;text-decoration:none;word-break:break-word;">${escapeHtml(venue.email)}</a></p>` : ''}
+                          ${venue.policy ? `<p style="margin:0 0 6px;font-size:11px;color:#94a3b8;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;">Policy</p><p style="margin:0;font-size:13px;line-height:1.6;color:#475569;">${escapeHtml(venue.policy)}</p>` : ''}
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          ${notesHtml}
+          <tr>
+            <td style="padding:0 24px 24px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td style="padding:0 24px 24px;" align="center">
+                    ${primaryButton}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0 24px 0;">
+                    <div style="margin-top:16px;padding:16px 18px;border-radius:16px;background:#f8fafc;border:1px solid #e2e8f0;">
+                      <p style="margin:0 0 4px;font-size:12px;color:#64748b;">Share / Manage booking</p>
+                      <p style="margin:0 0 4px;font-size:14px;line-height:1.6;color:#111827;word-break:break-all;">
+                        <a href="${escapeHtml(manageUrl)}" style="color:#4338ca;text-decoration:none;word-break:break-all;">${escapeHtml(manageUrl)}</a>
+                      </p>
+                      ${supportLine ? `<p style="margin:10px 0 0;font-size:13px;color:#64748b;">Need help? ${supportLine}</p>` : ''}
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </div>`;
+
+  return renderEmailBase({
+    title: headline,
+    preheader,
+    contentHtml,
+    backgroundColor: EMAIL_BACKGROUND,
+  });
+}
+
 function renderText(
   booking: BookingRecord,
   venue: VenueDetails,
@@ -591,7 +775,7 @@ async function dispatchEmail(
   await sendEmail({
     to: booking.customer_email,
     subject,
-    html: renderHtml({
+    html: renderHtmlRevamp({
       booking,
       venue,
       summary,
@@ -617,6 +801,9 @@ async function dispatchEmail(
 export async function sendBookingConfirmationEmail(booking: BookingRecord) {
   await dispatchEmail("created", booking);
 }
+
+// Exported for preview/testing harnesses
+export { renderHtmlRevamp as renderBookingEmailHtml };
 
 export async function sendBookingUpdateEmail(booking: BookingRecord) {
   await dispatchEmail("updated", booking);

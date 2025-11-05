@@ -1,0 +1,140 @@
+{
+  "executedAt": "2025-11-05T18:03:17.088Z",
+  "restaurant": "Pub 2",
+  "date": "2025-11-05",
+  "config": {
+    "TARGET_RESTAURANT_SLUG": "pub-2",
+    "TARGET_DATE": "2025-11-05",
+    "MAX_CONCURRENT_BOOKINGS": 15,
+    "SINGLE_ATTEMPT_ONLY": true,
+    "HOLD_TTL_SECONDS": 180,
+    "MINIMAL_CONSOLE_OUTPUT": false,
+    "FORCE_REASSIGN_ALL": false
+  },
+  "totalBookings": 13,
+  "pendingProcessed": 13,
+  "successful": 12,
+  "failed": 1,
+  "successRate": 92,
+  "totalDurationSeconds": 8.7,
+  "avgProcessingMs": 5495,
+  "results": [
+    {
+      "id": "76168f3a",
+      "time": "12:06:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T023"],
+      "durationMs": 5203
+    },
+    {
+      "id": "52670999",
+      "time": "12:43:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T024"],
+      "durationMs": 6479
+    },
+    {
+      "id": "9699088a",
+      "time": "13:57:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T019"],
+      "durationMs": 4836
+    },
+    {
+      "id": "4c03c785",
+      "time": "13:57:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T023"],
+      "durationMs": 5255
+    },
+    {
+      "id": "dfd35153",
+      "time": "15:27:00",
+      "party": 4,
+      "success": false,
+      "reason": "Reservation would overrun lunch service (end 15:00).",
+      "tablesAssigned": [],
+      "durationMs": 243
+    },
+    {
+      "id": "e028b953",
+      "time": "18:31:00",
+      "party": 8,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T022"],
+      "durationMs": 5033
+    },
+    {
+      "id": "350aaca6",
+      "time": "18:48:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T026"],
+      "durationMs": 6998
+    },
+    {
+      "id": "134fc6bc",
+      "time": "19:10:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T023"],
+      "durationMs": 4958
+    },
+    {
+      "id": "a9421bfa",
+      "time": "19:19:00",
+      "party": 3,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T024"],
+      "durationMs": 6778
+    },
+    {
+      "id": "4cfd2e47",
+      "time": "19:38:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T019"],
+      "durationMs": 5180
+    },
+    {
+      "id": "924d1c99",
+      "time": "19:51:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T027"],
+      "durationMs": 8013
+    },
+    {
+      "id": "20d89db1",
+      "time": "20:20:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T023"],
+      "durationMs": 5467
+    },
+    {
+      "id": "4ab3470b",
+      "time": "20:46:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T024"],
+      "durationMs": 6991
+    }
+  ]
+}

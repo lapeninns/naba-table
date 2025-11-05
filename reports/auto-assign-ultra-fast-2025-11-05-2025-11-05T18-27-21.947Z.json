@@ -1,0 +1,230 @@
+{
+  "executedAt": "2025-11-05T18:27:21.947Z",
+  "restaurant": "Pub 1",
+  "date": "2025-11-05",
+  "config": {
+    "TARGET_RESTAURANT_SLUG": "pub-1",
+    "TARGET_DATE": "2025-11-05",
+    "MAX_CONCURRENT_BOOKINGS": 5,
+    "SINGLE_ATTEMPT_ONLY": true,
+    "HOLD_TTL_SECONDS": 180,
+    "MINIMAL_CONSOLE_OUTPUT": false,
+    "FORCE_REASSIGN_ALL": false
+  },
+  "totalBookings": 23,
+  "pendingProcessed": 23,
+  "successful": 19,
+  "failed": 4,
+  "successRate": 83,
+  "totalDurationSeconds": 58.51,
+  "avgProcessingMs": 7586,
+  "results": [
+    {
+      "id": "3971b3a5",
+      "time": "11:58:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T007"],
+      "durationMs": 4456
+    },
+    {
+      "id": "d5b75121",
+      "time": "12:10:00",
+      "party": 4,
+      "success": false,
+      "reason": "Booking d5b75121-7953-496f-b6c9-5018aeeed820 locked to zone 1708ef1e-8722-4c3c-8293-7c3d3fdfeafd, cannot assign zone 151524f3-22c7-4ae9-bf23-c1d6968e5f4e",
+      "tablesAssigned": [],
+      "durationMs": 12173
+    },
+    {
+      "id": "3e158746",
+      "time": "12:18:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T012"],
+      "durationMs": 9957
+    },
+    {
+      "id": "a7437abc",
+      "time": "12:24:00",
+      "party": 3,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T011"],
+      "durationMs": 8312
+    },
+    {
+      "id": "6baa8d24",
+      "time": "12:42:00",
+      "party": 6,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 4625
+    },
+    {
+      "id": "0e72f45d",
+      "time": "12:49:00",
+      "party": 2,
+      "success": false,
+      "reason": "Booking 0e72f45d-eed5-4712-97a7-b3f48327f4b2 locked to zone 1708ef1e-8722-4c3c-8293-7c3d3fdfeafd, cannot assign zone 151524f3-22c7-4ae9-bf23-c1d6968e5f4e",
+      "tablesAssigned": [],
+      "durationMs": 8788
+    },
+    {
+      "id": "259e5eee",
+      "time": "13:23:00",
+      "party": 4,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 26706
+    },
+    {
+      "id": "e8a85ede",
+      "time": "13:45:00",
+      "party": 2,
+      "success": false,
+      "reason": "Booking e8a85ede-732a-4eac-bbaf-6043bee1fe67 locked to zone 151524f3-22c7-4ae9-bf23-c1d6968e5f4e, cannot assign zone 1708ef1e-8722-4c3c-8293-7c3d3fdfeafd",
+      "tablesAssigned": [],
+      "durationMs": 6796
+    },
+    {
+      "id": "6f57ce9b",
+      "time": "13:48:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T012"],
+      "durationMs": 9428
+    },
+    {
+      "id": "a16d7e95",
+      "time": "14:14:00",
+      "party": 3,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 11339
+    },
+    {
+      "id": "8d0a9391",
+      "time": "15:24:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 4687
+    },
+    {
+      "id": "4a9cf22b",
+      "time": "18:03:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 6622
+    },
+    {
+      "id": "681a74b3",
+      "time": "18:16:00",
+      "party": 3,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 5196
+    },
+    {
+      "id": "1ce53fa7",
+      "time": "18:35:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 6732
+    },
+    {
+      "id": "088d0696",
+      "time": "18:41:00",
+      "party": 6,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 6550
+    },
+    {
+      "id": "d4a38d18",
+      "time": "19:27:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 6701
+    },
+    {
+      "id": "5f9d285c",
+      "time": "19:42:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 4112
+    },
+    {
+      "id": "1e0b3f4e",
+      "time": "19:57:00",
+      "party": 3,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 6791
+    },
+    {
+      "id": "1dd9414e",
+      "time": "20:00:00",
+      "party": 6,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 6577
+    },
+    {
+      "id": "c4953a4f",
+      "time": "20:02:00",
+      "party": 8,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 4815
+    },
+    {
+      "id": "178c8d7d",
+      "time": "20:13:00",
+      "party": 6,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 3886
+    },
+    {
+      "id": "d4c6a432",
+      "time": "20:51:00",
+      "party": 6,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T003"],
+      "durationMs": 5362
+    },
+    {
+      "id": "690a63fe",
+      "time": "20:56:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T007"],
+      "durationMs": 3876
+    }
+  ]
+}

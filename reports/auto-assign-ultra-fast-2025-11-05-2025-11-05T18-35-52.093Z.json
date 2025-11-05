@@ -1,0 +1,167 @@
+{
+  "executedAt": "2025-11-05T18:35:52.093Z",
+  "restaurant": "Fine_dining 5",
+  "date": "2025-11-05",
+  "config": {
+    "TARGET_RESTAURANT_SLUG": "finedining-5",
+    "TARGET_DATE": "2025-11-05",
+    "MAX_CONCURRENT_BOOKINGS": 5,
+    "SINGLE_ATTEMPT_ONLY": true,
+    "HOLD_TTL_SECONDS": 180,
+    "MINIMAL_CONSOLE_OUTPUT": false,
+    "FORCE_REASSIGN_ALL": false
+  },
+  "totalBookings": 20,
+  "pendingProcessed": 16,
+  "successful": 7,
+  "failed": 9,
+  "successRate": 44,
+  "totalDurationSeconds": 103.94,
+  "avgProcessingMs": 16300,
+  "results": [
+    {
+      "id": "52834fb7",
+      "time": "12:02:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 4567
+    },
+    {
+      "id": "407dad70",
+      "time": "13:16:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 4336
+    },
+    {
+      "id": "aef45dc9",
+      "time": "15:20:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 4619
+    },
+    {
+      "id": "d19d7c07",
+      "time": "15:51:00",
+      "party": 6,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 4849
+    },
+    {
+      "id": "51278da6",
+      "time": "16:30:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 4460
+    },
+    {
+      "id": "09258874",
+      "time": "18:18:00",
+      "party": 6,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 4230
+    },
+    {
+      "id": "d119c35a",
+      "time": "18:21:00",
+      "party": 2,
+      "success": false,
+      "reason": "Booking d119c35a-3a02-4e97-82a3-c5537eab1c84 locked to zone e2f01cab-b601-43d0-bf48-10efb75edb75, cannot assign zone 18aff47e-a742-45b8-b49d-d070d33c8fb2",
+      "tablesAssigned": [],
+      "durationMs": 9984
+    },
+    {
+      "id": "33140929",
+      "time": "18:33:00",
+      "party": 2,
+      "success": false,
+      "reason": "Booking 33140929-9dfe-44ac-a1ce-8258621c6caf locked to zone 66c4e078-c136-4ba3-ae5c-40488882823d, cannot assign zone 18aff47e-a742-45b8-b49d-d070d33c8fb2",
+      "tablesAssigned": [],
+      "durationMs": 12052
+    },
+    {
+      "id": "a670ed48",
+      "time": "19:04:00",
+      "party": 8,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 3821
+    },
+    {
+      "id": "3175479c",
+      "time": "19:18:00",
+      "party": 4,
+      "success": false,
+      "reason": "Booking 3175479c-0636-4f67-a862-fb17952b41ba locked to zone e2f01cab-b601-43d0-bf48-10efb75edb75, cannot assign zone 18aff47e-a742-45b8-b49d-d070d33c8fb2",
+      "tablesAssigned": [],
+      "durationMs": 12580
+    },
+    {
+      "id": "43655466",
+      "time": "19:21:00",
+      "party": 2,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 10388
+    },
+    {
+      "id": "da8350e5",
+      "time": "19:45:00",
+      "party": 4,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 31697
+    },
+    {
+      "id": "61be7cdf",
+      "time": "19:54:00",
+      "party": 4,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 33636
+    },
+    {
+      "id": "5e8b6d38",
+      "time": "19:59:00",
+      "party": 4,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 33768
+    },
+    {
+      "id": "f14de8a1",
+      "time": "20:47:00",
+      "party": 4,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 39729
+    },
+    {
+      "id": "b8338a84",
+      "time": "20:52:00",
+      "party": 4,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 46086
+    }
+  ]
+}

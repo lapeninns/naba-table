@@ -380,14 +380,20 @@ export function computeBookingWindow(args: {
   let blockEnd = diningEnd.plus({ minutes: buffer.post ?? 0 });
   let clampedToServiceEnd = false;
 
+  // Allow lunch bookings to overrun the formal service end boundary.
+  // Business rule: any booking that starts before 15:00 counts as lunch,
+  // regardless of its end time. We therefore do not clamp lunch to service end
+  // and never emit ServiceOverrunError for lunch.
   const serviceEndBoundary = serviceEnd(service, diningStart, policy);
-  if (blockEnd > serviceEndBoundary) {
-    blockEnd = serviceEndBoundary;
-    diningEnd = blockEnd.minus({ minutes: buffer.post ?? 0 });
-    if (diningEnd <= diningStart) {
-      throw new ServiceOverrunError(service, blockEnd, serviceEndBoundary);
+  if (service !== "lunch") {
+    if (blockEnd > serviceEndBoundary) {
+      blockEnd = serviceEndBoundary;
+      diningEnd = blockEnd.minus({ minutes: buffer.post ?? 0 });
+      if (diningEnd <= diningStart) {
+        throw new ServiceOverrunError(service, blockEnd, serviceEndBoundary);
+      }
+      clampedToServiceEnd = true;
     }
-    clampedToServiceEnd = true;
   }
 
   return {

@@ -1,0 +1,275 @@
+{
+  "executedAt": "2025-11-05T18:33:36.682Z",
+  "restaurant": "Cafe 3",
+  "date": "2025-11-05",
+  "config": {
+    "TARGET_RESTAURANT_SLUG": "cafe-3",
+    "TARGET_DATE": "2025-11-05",
+    "MAX_CONCURRENT_BOOKINGS": 5,
+    "SINGLE_ATTEMPT_ONLY": true,
+    "HOLD_TTL_SECONDS": 180,
+    "MINIMAL_CONSOLE_OUTPUT": false,
+    "FORCE_REASSIGN_ALL": false
+  },
+  "totalBookings": 30,
+  "pendingProcessed": 28,
+  "successful": 3,
+  "failed": 25,
+  "successRate": 11,
+  "totalDurationSeconds": 259.35,
+  "avgProcessingMs": 33964,
+  "results": [
+    {
+      "id": "c7048ced",
+      "time": "12:55:00",
+      "party": 2,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 31185
+    },
+    {
+      "id": "96f93f4e",
+      "time": "12:56:00",
+      "party": 6,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 58142
+    },
+    {
+      "id": "41a06f4e",
+      "time": "13:13:00",
+      "party": 4,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 44596
+    },
+    {
+      "id": "99f8abdb",
+      "time": "13:14:00",
+      "party": 3,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 30346
+    },
+    {
+      "id": "a4bc61c2",
+      "time": "13:39:00",
+      "party": 2,
+      "success": false,
+      "reason": "conflicting key value violates exclusion constraint \"no_overlapping_table_assignments\"",
+      "tablesAssigned": [],
+      "durationMs": 10748
+    },
+    {
+      "id": "31e73798",
+      "time": "13:56:00",
+      "party": 3,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 31476
+    },
+    {
+      "id": "9584362d",
+      "time": "13:57:00",
+      "party": 2,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 31266
+    },
+    {
+      "id": "d2efb6c3",
+      "time": "18:09:00",
+      "party": 4,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 48160
+    },
+    {
+      "id": "90484f9c",
+      "time": "18:11:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 9925
+    },
+    {
+      "id": "5d8a07bc",
+      "time": "18:19:00",
+      "party": 3,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 33772
+    },
+    {
+      "id": "e3396320",
+      "time": "18:23:00",
+      "party": 2,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 39231
+    },
+    {
+      "id": "562753c1",
+      "time": "18:24:00",
+      "party": 2,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 39246
+    },
+    {
+      "id": "b8c78675",
+      "time": "18:24:00",
+      "party": 2,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 41851
+    },
+    {
+      "id": "1e090c15",
+      "time": "18:28:00",
+      "party": 8,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 5293
+    },
+    {
+      "id": "c70606b3",
+      "time": "18:34:00",
+      "party": 3,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 32817
+    },
+    {
+      "id": "96801298",
+      "time": "18:41:00",
+      "party": 2,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 40530
+    },
+    {
+      "id": "9560be94",
+      "time": "18:44:00",
+      "party": 2,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 39722
+    },
+    {
+      "id": "3d073e57",
+      "time": "19:07:00",
+      "party": 4,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 47612
+    },
+    {
+      "id": "b8c014fb",
+      "time": "19:13:00",
+      "party": 2,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 39850
+    },
+    {
+      "id": "18636316",
+      "time": "19:15:00",
+      "party": 2,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 41374
+    },
+    {
+      "id": "efa414a3",
+      "time": "19:22:00",
+      "party": 2,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 39532
+    },
+    {
+      "id": "d8f23783",
+      "time": "19:35:00",
+      "party": 2,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 40651
+    },
+    {
+      "id": "410bb54f",
+      "time": "19:43:00",
+      "party": 4,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 46542
+    },
+    {
+      "id": "ccf421df",
+      "time": "19:44:00",
+      "party": 4,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 44722
+    },
+    {
+      "id": "e13fd695",
+      "time": "19:48:00",
+      "party": 4,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 45951
+    },
+    {
+      "id": "898405de",
+      "time": "20:04:00",
+      "party": 2,
+      "success": false,
+      "reason": "Booking 898405de-e19f-4e74-8361-230501f0d808 locked to zone 7a0747a3-12ef-4192-81d4-3a87cef4d18f, cannot assign zone db0ccb6c-a5a0-47ac-ba3c-f1d3001d6168",
+      "tablesAssigned": [],
+      "durationMs": 16307
+    },
+    {
+      "id": "9a403481",
+      "time": "20:47:00",
+      "party": 2,
+      "success": false,
+      "reason": "Booking 9a403481-2bd5-4f1a-89a0-f4899e3839ff locked to zone d10f0eec-d6ec-494d-a31e-531debdd322a, cannot assign zone 7a0747a3-12ef-4192-81d4-3a87cef4d18f",
+      "tablesAssigned": [],
+      "durationMs": 10741
+    },
+    {
+      "id": "a95b8f88",
+      "time": "20:52:00",
+      "party": 3,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 9401
+    }
+  ]
+}

@@ -1,0 +1,140 @@
+{
+  "executedAt": "2025-11-05T18:29:13.738Z",
+  "restaurant": "Pub 2",
+  "date": "2025-11-05",
+  "config": {
+    "TARGET_RESTAURANT_SLUG": "pub-2",
+    "TARGET_DATE": "2025-11-05",
+    "MAX_CONCURRENT_BOOKINGS": 5,
+    "SINGLE_ATTEMPT_ONLY": true,
+    "HOLD_TTL_SECONDS": 180,
+    "MINIMAL_CONSOLE_OUTPUT": false,
+    "FORCE_REASSIGN_ALL": false
+  },
+  "totalBookings": 13,
+  "pendingProcessed": 13,
+  "successful": 10,
+  "failed": 3,
+  "successRate": 77,
+  "totalDurationSeconds": 24.26,
+  "avgProcessingMs": 6202,
+  "results": [
+    {
+      "id": "76168f3a",
+      "time": "12:06:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 5867
+    },
+    {
+      "id": "52670999",
+      "time": "12:43:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 7748
+    },
+    {
+      "id": "9699088a",
+      "time": "13:57:00",
+      "party": 4,
+      "success": false,
+      "reason": "Booking 9699088a-7ace-4257-88c3-6d0dbffb2694 locked to zone ef81b55e-bb6c-4c86-8aaf-1e19d7fd16ad, cannot assign zone 00fd32dd-db9e-48e6-9e6c-7815a3bf48bb",
+      "tablesAssigned": [],
+      "durationMs": 8419
+    },
+    {
+      "id": "4c03c785",
+      "time": "13:57:00",
+      "party": 2,
+      "success": false,
+      "reason": "Booking 4c03c785-f370-4c9a-8746-2ab4fa4e4165 locked to zone ef81b55e-bb6c-4c86-8aaf-1e19d7fd16ad, cannot assign zone 00fd32dd-db9e-48e6-9e6c-7815a3bf48bb",
+      "tablesAssigned": [],
+      "durationMs": 6383
+    },
+    {
+      "id": "dfd35153",
+      "time": "15:27:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 6482
+    },
+    {
+      "id": "e028b953",
+      "time": "18:31:00",
+      "party": 8,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 4260
+    },
+    {
+      "id": "350aaca6",
+      "time": "18:48:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T027"],
+      "durationMs": 7752
+    },
+    {
+      "id": "134fc6bc",
+      "time": "19:10:00",
+      "party": 2,
+      "success": false,
+      "reason": "Booking 134fc6bc-0fc5-4a17-9821-1effbebf6e65 locked to zone ef81b55e-bb6c-4c86-8aaf-1e19d7fd16ad, cannot assign zone 00fd32dd-db9e-48e6-9e6c-7815a3bf48bb",
+      "tablesAssigned": [],
+      "durationMs": 7960
+    },
+    {
+      "id": "a9421bfa",
+      "time": "19:19:00",
+      "party": 3,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 6710
+    },
+    {
+      "id": "4cfd2e47",
+      "time": "19:38:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 4509
+    },
+    {
+      "id": "924d1c99",
+      "time": "19:51:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 7104
+    },
+    {
+      "id": "20d89db1",
+      "time": "20:20:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": [],
+      "durationMs": 3710
+    },
+    {
+      "id": "4ab3470b",
+      "time": "20:46:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["T019"],
+      "durationMs": 3724
+    }
+  ]
+}
