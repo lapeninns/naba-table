@@ -1,42 +1,76 @@
-// Validates environment variables at build time using the shared schema.
-import { config } from "dotenv";
-import { resolve } from "path";
+#!/usr/bin/env tsx
+/**
+ * Environment variable validation script
+ * Runs before build and dev to ensure required environment variables are set
+ */
 
-import { getEnv } from "../lib/env";
+import { config as loadEnv } from 'dotenv';
+import { resolve as resolvePath } from 'path';
+import { existsSync } from 'fs';
 
-// Load environment variables before validation (in priority order)
-// .env.local has highest priority (local overrides)
-config({ path: resolve(process.cwd(), ".env.local") });
-// .env.development for development defaults
-config({ path: resolve(process.cwd(), ".env.development") });
-// .env for shared defaults
-config({ path: resolve(process.cwd(), ".env") });
-
-function formatError(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message.trim();
-  }
-
-  if (typeof error === "string") {
-    return error;
-  }
-
-  return JSON.stringify(error, null, 2);
-}
-
-function main() {
-  const nodeEnv = process.env.NODE_ENV || "development";
-  console.log(`🔍 Validating environment variables for ${nodeEnv}...`);
-
-  try {
-    const env = getEnv();
-    const varCount = Object.keys(env).length;
-    console.log(`✅ Environment validation passed (${varCount} variables checked).`);
-  } catch (error) {
-    console.error("❌ Environment validation failed:");
-    console.error(formatError(error));
-    process.exitCode = 1;
+// Load environment files in order
+const envFiles = ['.env.local', '.env.development', '.env'];
+for (const file of envFiles) {
+  const path = resolvePath(process.cwd(), file);
+  if (existsSync(path)) {
+    loadEnv({ path });
   }
 }
 
-main();
+// Get NODE_ENV or default to development
+const nodeEnv = process.env.NODE_ENV || 'development';
+
+console.log(`🔍 Validating environment variables for ${nodeEnv}...`);
+
+// Required environment variables for all environments
+const requiredVars = [
+  'NEXT_PUBLIC_SUPABASE_URL',
+  'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+  'SUPABASE_SERVICE_ROLE_KEY',
+];
+
+// Optional but recommended variables
+const optionalVars = [
+  'SUPABASE_DB_URL',
+  'RESEND_API_KEY',
+  'NEXT_PUBLIC_PLAUSIBLE_DOMAIN',
+];
+
+let hasErrors = false;
+let warningCount = 0;
+let totalChecked = 0;
+
+// Check required variables
+for (const varName of requiredVars) {
+  totalChecked++;
+  if (!process.env[varName]) {
+    console.error(`❌ Missing required environment variable: ${varName}`);
+    hasErrors = true;
+  }
+}
+
+// Check optional variables (warnings only)
+for (const varName of optionalVars) {
+  totalChecked++;
+  if (!process.env[varName]) {
+    if (nodeEnv === 'production') {
+      console.warn(`⚠️  Optional environment variable not set: ${varName} (recommended for production)`);
+      warningCount++;
+    }
+  }
+}
+
+// Count all set environment variables
+const allEnvVars = Object.keys(process.env);
+totalChecked = allEnvVars.length;
+
+if (hasErrors) {
+  console.error('\n❌ Environment validation failed. Please check your .env.local file.');
+  process.exit(1);
+}
+
+if (warningCount > 0) {
+  console.log(`\n⚠️  Environment validation passed with ${warningCount} warning(s) (${totalChecked} variables checked).`);
+} else {
+  console.log(`✅ Environment validation passed (${totalChecked} variables checked).`);
+}

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { ManualSelectionInputError, evaluateManualSelection, getManualAssignmentContext } from "@/server/capacity/tables";
+import { ManualSelectionInputError, validateManualSelection, getManualContext } from "@/server/capacity/engine";
 import { emitManualValidate } from "@/server/capacity/telemetry";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
   // Require fresh context: compare provided contextVersion with server-computed
   let contextAdjacencyRequired: boolean | null = null;
   try {
-    const context = await getManualAssignmentContext({ bookingId, client: serviceClient });
+    const context = await getManualContext({ bookingId, client: serviceClient });
     contextAdjacencyRequired = Boolean((context as any)?.flags?.adjacencyRequired ?? null);
     if (context.contextVersion && context.contextVersion !== contextVersion) {
       return NextResponse.json(
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const validation = await evaluateManualSelection({
+    const validation = await validateManualSelection({
       bookingId,
       tableIds,
       requireAdjacency,

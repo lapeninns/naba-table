@@ -762,12 +762,29 @@ export async function POST(req: NextRequest) {
         console.error("[bookings][POST][side-effects]", stringifyError(jobError));
       }
 
-      // Fire-and-forget: auto-assign tables and flip to confirmed if allocator finds a plan
+      // Auto-assign tables and flip to confirmed if allocator finds a plan
       try {
         if (env.featureFlags.autoAssignOnBooking) {
           const { autoAssignAndConfirmIfPossible } = await import("@/server/jobs/auto-assign");
-          // Do not await to keep API latency low
-          void autoAssignAndConfirmIfPossible(finalBooking.id);
+          const maxRetries = env.featureFlags.autoAssign?.maxRetries ?? 3;
+          // If retries are disabled (0), perform a best-effort synchronous attempt
+          // so users aren't left in a limbo state with no email.
+          if (maxRetries <= 0) {
+            // Timebox to avoid excessive API latency. The allocator attempt has no retries
+            // in this mode, so it should complete quickly.
+            const withTimeout = <T>(p: Promise<T>, ms: number) =>
+              Promise.race<T | symbol>([
+                p,
+                new Promise<symbol>((resolve) => setTimeout(() => resolve(Symbol('timeout')), ms)),
+              ]);
+            const result = await withTimeout(autoAssignAndConfirmIfPossible(finalBooking.id), 10_000);
+            if (typeof result === 'symbol') {
+              console.warn('[bookings][POST][auto-assign] best-effort attempt timed out');
+            }
+          } else {
+            // Background (non-blocking) when retries are enabled
+            void autoAssignAndConfirmIfPossible(finalBooking.id);
+          }
         }
       } catch (autoError: unknown) {
         console.error("[bookings][POST][auto-assign]", stringifyError(autoError));

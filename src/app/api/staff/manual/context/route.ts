@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { ManualSelectionInputError, getManualAssignmentContext } from "@/server/capacity/tables";
+import { ManualSelectionInputError, getManualContext } from "@/server/capacity/engine";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 
 import type { NextRequest } from "next/server";
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const context = await getManualAssignmentContext({
+    const context = await getManualContext({
       bookingId,
       client: getServiceSupabaseClient(),
     });

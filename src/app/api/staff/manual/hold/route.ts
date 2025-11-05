@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { HoldConflictError, releaseTableHold } from "@/server/capacity/holds";
-import { ManualSelectionInputError, createManualHold, getManualAssignmentContext } from "@/server/capacity/tables";
+import { ManualSelectionInputError, holdManualSelection, getManualContext } from "@/server/capacity/engine";
 import { emitManualHold } from "@/server/capacity/telemetry";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
   // Require fresh context
   let contextAdjacencyRequired: boolean | null = null;
   try {
-    const context = await getManualAssignmentContext({ bookingId, client: serviceClient });
+    const context = await getManualContext({ bookingId, client: serviceClient });
     contextAdjacencyRequired = Boolean((context as any)?.flags?.adjacencyRequired ?? null);
     if (context.contextVersion && context.contextVersion !== contextVersion) {
       return NextResponse.json(
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await createManualHold({
+    const result = await holdManualSelection({
       bookingId,
       tableIds,
       holdTtlSeconds,

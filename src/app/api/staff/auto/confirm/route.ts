@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { AssignTablesRpcError, HoldNotFoundError } from "@/server/capacity/holds";
-import { confirmHoldAssignment } from "@/server/capacity/tables";
+import { confirmHold } from "@/server/capacity/engine";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 
 import type { NextRequest } from "next/server";
@@ -67,13 +67,13 @@ export async function POST(req: NextRequest) {
 
   try {
     const serviceClient = getServiceSupabaseClient();
-    const assignments = await confirmHoldAssignment({
+    const assignments = await confirmHold({
       holdId,
       bookingId,
       idempotencyKey,
       requireAdjacency,
-      assignedBy: user.id,
-      client: serviceClient,
+      // pass-through for legacy impl
+      ...( { assignedBy: user.id, client: serviceClient } as any ),
     });
 
     return NextResponse.json({

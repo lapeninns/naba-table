@@ -105,9 +105,13 @@ async function processBookingCreatedSideEffects(
   }
 
   if (!SUPPRESS_EMAILS && booking.customer_email && booking.customer_email.trim().length > 0) {
-    // If auto-assign is enabled, suppress the initial "request received" email for pending bookings
-    const suppressCreatedEmail =
-      isAutoAssignOnBookingEnabled() &&
+    // If auto-assign is enabled AND we plan to retry in background, suppress the
+    // initial "request received" email for pending bookings. Otherwise, send it
+    // so guests aren't left without any acknowledgement when retries are disabled.
+    const willRetryInBackground = isAutoAssignOnBookingEnabled() && (
+      (process.env.FEATURE_AUTO_ASSIGN_MAX_RETRIES && Number(process.env.FEATURE_AUTO_ASSIGN_MAX_RETRIES) > 0)
+    );
+    const suppressCreatedEmail = willRetryInBackground &&
       (booking.status === "pending" || booking.status === "pending_allocation");
 
     if (!suppressCreatedEmail) {

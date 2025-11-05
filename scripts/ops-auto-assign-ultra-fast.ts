@@ -299,14 +299,19 @@ async function main() {
     results,
   };
 
-  // Save report
-  const timestamp = new Date().toISOString().replace(/:/g, '-');
-  const reportPath = path.join(
-    process.cwd(),
-    'reports',
-    `auto-assign-ultra-fast-${CONFIG.TARGET_DATE}-${timestamp}.json`
-  );
-  await fs.writeFile(reportPath, JSON.stringify(report, null, 2));
+  // Save report (optional). To disable writing, set ULTRA_WRITE_REPORTS=false
+  const WRITE_REPORTS = String(process.env.ULTRA_WRITE_REPORTS ?? 'true').toLowerCase() !== 'false';
+  let reportPath: string | null = null;
+  if (WRITE_REPORTS) {
+    const timestamp = new Date().toISOString().replace(/:/g, '-');
+    const reportsDir = path.join(process.cwd(), 'reports');
+    await fs.mkdir(reportsDir, { recursive: true });
+    reportPath = path.join(
+      reportsDir,
+      `auto-assign-ultra-fast-${CONFIG.TARGET_DATE}-${timestamp}.json`
+    );
+    await fs.writeFile(reportPath, JSON.stringify(report, null, 2));
+  }
 
   // Summary
   console.log('\n═══════════════════════════════════════════════════════════');
@@ -321,7 +326,11 @@ async function main() {
   console.log(`  Success rate: ${report.successRate}%`);
   console.log(`  ⏱️  Total time: ${totalDuration.toFixed(2)}s`);
   console.log(`  ⚡ Avg per booking: ${report.avgProcessingMs}ms`);
-  console.log(`  📁 Report: ${reportPath}`);
+  if (reportPath) {
+    console.log(`  📁 Report: ${reportPath}`);
+  } else {
+    console.log(`  📁 Report writing disabled (ULTRA_WRITE_REPORTS=false)`);
+  }
   console.log('═══════════════════════════════════════════════════════════\n');
 
   // Failure breakdown

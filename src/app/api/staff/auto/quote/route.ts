@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { HoldConflictError } from "@/server/capacity/holds";
 import { ServiceNotFoundError } from "@/server/capacity/policy";
-import { quoteTablesForBooking } from "@/server/capacity/tables";
+import { quoteTables } from "@/server/capacity/engine";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 
 import type { NextRequest } from "next/server";
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const serviceClient = getServiceSupabaseClient();
-    const result = await quoteTablesForBooking({
+    const result = await quoteTables({
       bookingId,
       zoneId,
       maxTables,
