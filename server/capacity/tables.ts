@@ -723,10 +723,15 @@ export function filterAvailableTables(
   adjacency: Map<string, Set<string>>,
   avoidTables?: Set<string>,
   zoneId?: string | null,
-  options?: { allowInsufficientCapacity?: boolean; timeFilter?: TimeFilterOptions },
+  options?: { 
+    allowInsufficientCapacity?: boolean; 
+    allowMaxPartySizeViolation?: boolean;  // NEW: allow tables that violate maxPartySize (for combinations)
+    timeFilter?: TimeFilterOptions 
+  },
 ): Table[] {
   const DEBUG = process.env.CAPACITY_DEBUG === '1' || process.env.CAPACITY_DEBUG === 'true';
   const allowPartial = options?.allowInsufficientCapacity ?? false;
+  const allowMaxPartySizeViolation = options?.allowMaxPartySizeViolation ?? false;
   const avoid = avoidTables ?? new Set<string>();
 
   if (DEBUG) {
@@ -736,6 +741,7 @@ export function filterAvailableTables(
       windowStart: toIsoUtc(window.block.start),
       windowEnd: toIsoUtc(window.block.end),
       allowPartial,
+      allowMaxPartySizeViolation,
       zoneId: zoneId ?? null,
       avoidCount: avoid.size,
     });
@@ -750,9 +756,12 @@ export function filterAvailableTables(
     const capacity = table.capacity ?? 0;
     if (!Number.isFinite(capacity) || capacity <= 0) return false;
     if (!allowPartial && capacity < partySize) return false;
-    if (typeof table.maxPartySize === "number" && table.maxPartySize > 0 && partySize > table.maxPartySize) {
+    
+    // FIX: Only enforce maxPartySize if not allowing violations (for combinations)
+    if (!allowMaxPartySizeViolation && typeof table.maxPartySize === "number" && table.maxPartySize > 0 && partySize > table.maxPartySize) {
       return false;
     }
+    
     if (typeof table.minPartySize === "number" && table.minPartySize > 0 && partySize < table.minPartySize) {
       return false;
     }
@@ -3162,6 +3171,11 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     });
   }
 
+  // Load config early so we can use combinationEnabled for filtering
+  const strategicOptions = { restaurantId: booking.restaurant_id ?? null } as const;
+  await loadStrategicConfig({ ...strategicOptions, client: supabase });
+  const combinationEnabled = isCombinationPlannerEnabled();
+  
   const filtered = filterAvailableTables(
     tables,
     booking.party_size,
@@ -3171,6 +3185,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     zoneId ?? null,
     {
       allowInsufficientCapacity: true,
+      allowMaxPartySizeViolation: combinationEnabled,  // Allow maxPartySize violations when combinations enabled
       timeFilter:
         busyForPlanner && timePruningEnabled
           ? {
@@ -3184,11 +3199,8 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     },
   );
 
-  const strategicOptions = { restaurantId: booking.restaurant_id ?? null } as const;
-  await loadStrategicConfig({ ...strategicOptions, client: supabase });
   const baseScoringConfig = getSelectorScoringConfig(strategicOptions);
   const selectorLimits = getSelectorPlannerLimits();
-  const combinationEnabled = isCombinationPlannerEnabled();
   const combinationLimit = maxTables ?? getAllocatorCombinationLimit();
   const demandMultiplierResult = await resolveDemandMultiplier({
     restaurantId: booking.restaurant_id,

@@ -3,8 +3,8 @@
  * Debug a single table assignment to understand why it's failing
  */
 
-import { createServerSupabaseClient } from '@/server/supabase'
-import { assignTablesForBooking } from '@/server/capacity/tables'
+import { getServiceSupabaseClient } from '@/server/supabase'
+import { quoteTablesForBooking, assignTableToBooking } from '@/server/capacity/tables'
 
 const RESTAURANT_ID = '0babe9cf-4656-4c7f-bb60-fc3da6cb7e4a'
 const BOOKING_ID = '3c3c3c0a-9ab8-4a15-bc6d-3fe5d36b9eb8' // party of 2 at 12:00
@@ -12,7 +12,7 @@ const BOOKING_ID = '3c3c3c0a-9ab8-4a15-bc6d-3fe5d36b9eb8' // party of 2 at 12:00
 async function debugSingleAssignment() {
   console.log('🔍 Debugging single table assignment...\n')
   
-  const supabase = createServerSupabaseClient()
+  const supabase = getServiceSupabaseClient()
   
   // Fetch booking details
   const { data: booking, error: bookingError } = await supabase
@@ -76,33 +76,34 @@ async function debugSingleAssignment() {
   
   console.log(`📌 Existing assignments for ${booking.booking_date}:`, assignments?.length || 0)
   
-  // Try to assign
-  console.log('\n⚡ Attempting table assignment...\n')
-  
+  // Try to select and assign using V2 APIs
+  console.log('\n⚡ Selecting candidate tables and attempting assignment...\n')
+
   try {
-    const result = await assignTablesForBooking({
+    const quote = await quoteTablesForBooking({
       bookingId: BOOKING_ID,
-      restaurantId: RESTAURANT_ID,
-      bookingDate: booking.booking_date,
-      startTime: booking.start_time,
-      endTime: booking.end_time,
-      partySize: booking.party_size,
-      seatingPreference: booking.seating_preference,
-      bookingType: booking.booking_type
+      createdBy: 'debug-script',
+      // Keep defaults for adjacency, max tables; adjust as needed
     })
-    
-    if (result.success) {
-      console.log('✅ Assignment successful!')
-      console.log('Tables assigned:', result.tables?.map(t => ({
-        id: t.id.substring(0, 8),
-        name: t.table_number,
-        capacity: t.capacity
-      })))
-    } else {
-      console.log('❌ Assignment failed')
-      console.log('Reason:', result.error)
-      console.log('Details:', result.details)
+
+    if (!quote.candidate || quote.candidate.tableIds.length === 0) {
+      console.log('❌ No suitable candidate tables found')
+      console.log('Reason:', quote.reason)
+      if (quote.alternates?.length) {
+        console.log('Alternates:', quote.alternates.slice(0, 3))
+      }
+      return
     }
+
+    const assignmentId = await assignTableToBooking(
+      BOOKING_ID,
+      quote.candidate.tableIds,
+      'debug-script'
+    )
+
+    console.log('✅ Assignment successful!')
+    console.log('Assignment ID:', assignmentId.substring(0, 8))
+    console.log('Tables assigned:', quote.candidate.tableNumbers)
   } catch (error) {
     console.error('💥 Exception during assignment:', error)
   }

@@ -1,0 +1,212 @@
+{
+  "executedAt": "2025-11-04T23:56:36.134Z",
+  "restaurant": "Prince of Wales Pub (Bromham)",
+  "date": "2025-11-15",
+  "config": {
+    "TARGET_RESTAURANT_SLUG": "prince-of-wales-pub-bromham",
+    "TARGET_DATE": "2025-11-15",
+    "MAX_CONCURRENT_BOOKINGS": 15,
+    "SINGLE_ATTEMPT_ONLY": true,
+    "HOLD_TTL_SECONDS": 180,
+    "MINIMAL_CONSOLE_OUTPUT": false,
+    "FORCE_REASSIGN_ALL": false
+  },
+  "totalBookings": 76,
+  "pendingProcessed": 21,
+  "successful": 2,
+  "failed": 19,
+  "successRate": 10,
+  "totalDurationSeconds": 36.79,
+  "avgProcessingMs": 10094,
+  "results": [
+    {
+      "id": "77ab6974",
+      "time": "17:30:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["PT-01", "PT-03"],
+      "durationMs": 10029
+    },
+    {
+      "id": "51115f62",
+      "time": "17:30:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["BA-04"],
+      "durationMs": 22492
+    },
+    {
+      "id": "89094d90",
+      "time": "18:00:00",
+      "party": 6,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 28784
+    },
+    {
+      "id": "60073b6f",
+      "time": "18:15:00",
+      "party": 5,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 22087
+    },
+    {
+      "id": "937f1c5e",
+      "time": "18:15:00",
+      "party": 5,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 21770
+    },
+    {
+      "id": "453c1979",
+      "time": "18:30:00",
+      "party": 11,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 1972
+    },
+    {
+      "id": "ffb1d6a1",
+      "time": "18:45:00",
+      "party": 12,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 1718
+    },
+    {
+      "id": "640b38c2",
+      "time": "18:45:00",
+      "party": 5,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 21756
+    },
+    {
+      "id": "891e1b87",
+      "time": "19:00:00",
+      "party": 12,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 1825
+    },
+    {
+      "id": "4ff39427",
+      "time": "19:00:00",
+      "party": 5,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 20478
+    },
+    {
+      "id": "6f8c1601",
+      "time": "19:00:00",
+      "party": 5,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 20266
+    },
+    {
+      "id": "56d2fdec",
+      "time": "19:15:00",
+      "party": 2,
+      "success": false,
+      "reason": "conflicting key value violates exclusion constraint \"no_overlapping_table_assignments\"",
+      "tablesAssigned": [],
+      "durationMs": 8925
+    },
+    {
+      "id": "20fee055",
+      "time": "19:30:00",
+      "party": 11,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 2008
+    },
+    {
+      "id": "22478635",
+      "time": "19:30:00",
+      "party": 7,
+      "success": false,
+      "reason": "conflicting key value violates exclusion constraint \"no_overlapping_table_assignments\"",
+      "tablesAssigned": [],
+      "durationMs": 12975
+    },
+    {
+      "id": "0de59e67",
+      "time": "20:00:00",
+      "party": 12,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 2133
+    },
+    {
+      "id": "855ab9bb",
+      "time": "20:30:00",
+      "party": 11,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 1018
+    },
+    {
+      "id": "7f783027",
+      "time": "20:30:00",
+      "party": 11,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 987
+    },
+    {
+      "id": "baa9dae7",
+      "time": "20:45:00",
+      "party": 11,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 998
+    },
+    {
+      "id": "1708a71e",
+      "time": "20:45:00",
+      "party": 14,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 1028
+    },
+    {
+      "id": "8d2d2e84",
+      "time": "21:00:00",
+      "party": 2,
+      "success": false,
+      "reason": "conflicting key value violates exclusion constraint \"no_overlapping_table_assignments\"",
+      "tablesAssigned": [],
+      "durationMs": 7486
+    },
+    {
+      "id": "9d84e8dd",
+      "time": "21:15:00",
+      "party": 14,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 1233
+    }
+  ]
+}

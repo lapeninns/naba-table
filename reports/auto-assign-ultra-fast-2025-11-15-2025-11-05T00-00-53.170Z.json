@@ -1,0 +1,176 @@
+{
+  "executedAt": "2025-11-05T00:00:53.170Z",
+  "restaurant": "Prince of Wales Pub (Bromham)",
+  "date": "2025-11-15",
+  "config": {
+    "TARGET_RESTAURANT_SLUG": "prince-of-wales-pub-bromham",
+    "TARGET_DATE": "2025-11-15",
+    "MAX_CONCURRENT_BOOKINGS": 15,
+    "SINGLE_ATTEMPT_ONLY": true,
+    "HOLD_TTL_SECONDS": 180,
+    "MINIMAL_CONSOLE_OUTPUT": false,
+    "FORCE_REASSIGN_ALL": false
+  },
+  "totalBookings": 76,
+  "pendingProcessed": 17,
+  "successful": 0,
+  "failed": 17,
+  "successRate": 0,
+  "totalDurationSeconds": 35.95,
+  "avgProcessingMs": 12104,
+  "results": [
+    {
+      "id": "89094d90",
+      "time": "18:00:00",
+      "party": 6,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 34137
+    },
+    {
+      "id": "60073b6f",
+      "time": "18:15:00",
+      "party": 5,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 27354
+    },
+    {
+      "id": "937f1c5e",
+      "time": "18:15:00",
+      "party": 5,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 27438
+    },
+    {
+      "id": "453c1979",
+      "time": "18:30:00",
+      "party": 11,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 1856
+    },
+    {
+      "id": "ffb1d6a1",
+      "time": "18:45:00",
+      "party": 12,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 1905
+    },
+    {
+      "id": "640b38c2",
+      "time": "18:45:00",
+      "party": 5,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 27424
+    },
+    {
+      "id": "891e1b87",
+      "time": "19:00:00",
+      "party": 12,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 1640
+    },
+    {
+      "id": "4ff39427",
+      "time": "19:00:00",
+      "party": 5,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 29197
+    },
+    {
+      "id": "6f8c1601",
+      "time": "19:00:00",
+      "party": 5,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 26959
+    },
+    {
+      "id": "20fee055",
+      "time": "19:30:00",
+      "party": 11,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 1480
+    },
+    {
+      "id": "22478635",
+      "time": "19:30:00",
+      "party": 7,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 17311
+    },
+    {
+      "id": "0de59e67",
+      "time": "20:00:00",
+      "party": 12,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 1739
+    },
+    {
+      "id": "855ab9bb",
+      "time": "20:30:00",
+      "party": 11,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 1807
+    },
+    {
+      "id": "7f783027",
+      "time": "20:30:00",
+      "party": 11,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 1660
+    },
+    {
+      "id": "baa9dae7",
+      "time": "20:45:00",
+      "party": 11,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 1645
+    },
+    {
+      "id": "1708a71e",
+      "time": "20:45:00",
+      "party": 14,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 955
+    },
+    {
+      "id": "9d84e8dd",
+      "time": "21:15:00",
+      "party": 14,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 1258
+    }
+  ]
+}

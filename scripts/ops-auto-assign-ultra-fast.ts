@@ -41,7 +41,7 @@ import path from 'node:path';
 
 const CONFIG = {
   TARGET_RESTAURANT_SLUG: 'prince-of-wales-pub-bromham',
-  TARGET_DATE: '2025-11-10',  // Monday with smart-generated bookings
+  TARGET_DATE: new Date().toISOString().split('T')[0],  // Today's date (YYYY-MM-DD)
   
   // PERFORMANCE SETTINGS
   MAX_CONCURRENT_BOOKINGS: 15,  // Process 15 bookings simultaneously

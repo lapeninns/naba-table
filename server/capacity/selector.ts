@@ -211,7 +211,14 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
       continue;
     }
 
-    if (typeof table.maxPartySize === "number" && table.maxPartySize > 0 && partySize > table.maxPartySize) {
+    // FIX: maxPartySize should only apply to single-table assignments, not combinations
+    // For combinations, we need to allow tables with maxPartySize < partySize
+    // because they can be combined with other tables to meet the party size
+    const canUseSingle = !(typeof table.maxPartySize === "number" && table.maxPartySize > 0 && partySize > table.maxPartySize);
+    
+    // Skip this table entirely only if it also can't contribute to combinations
+    // (e.g., if combinations are disabled AND it violates maxPartySize for singles)
+    if (!canUseSingle && !enableCombinations) {
       incrementCounter(diagnostics.skipped, "capacity");
       continue;
     }
@@ -223,12 +230,22 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
 
     validTables.push(table);
 
-    if (capacity >= partySize) {
+    // Only add to single-table candidates if it can be used as a single table
+    // AND has sufficient capacity for the party
+    if (canUseSingle && capacity >= partySize) {
       singleTableCandidates.push(table);
     }
   }
 
   diagnostics.singlesConsidered = singleTableCandidates.length;
+
+  if (DEBUG) {
+    console.log('[selector] Party size:', partySize);
+    console.log('[selector] Valid tables for combinations:', validTables.length);
+    console.log('[selector] Single-table candidates:', singleTableCandidates.length);
+    console.log('[selector] Enable combinations:', enableCombinations);
+    console.log('[selector] k-max:', combinationCap);
+  }
 
   const plans: RankedTablePlan[] = [];
 

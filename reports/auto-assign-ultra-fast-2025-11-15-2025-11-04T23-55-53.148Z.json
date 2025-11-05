@@ -1,0 +1,707 @@
+{
+  "executedAt": "2025-11-04T23:55:53.148Z",
+  "restaurant": "Prince of Wales Pub (Bromham)",
+  "date": "2025-11-15",
+  "config": {
+    "TARGET_RESTAURANT_SLUG": "prince-of-wales-pub-bromham",
+    "TARGET_DATE": "2025-11-15",
+    "MAX_CONCURRENT_BOOKINGS": 15,
+    "SINGLE_ATTEMPT_ONLY": true,
+    "HOLD_TTL_SECONDS": 180,
+    "MINIMAL_CONSOLE_OUTPUT": false,
+    "FORCE_REASSIGN_ALL": false
+  },
+  "totalBookings": 76,
+  "pendingProcessed": 76,
+  "successful": 51,
+  "failed": 25,
+  "successRate": 67,
+  "totalDurationSeconds": 95.95,
+  "avgProcessingMs": 8385,
+  "results": [
+    {
+      "id": "3656b4a5",
+      "time": "17:00:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["MD-01"],
+      "durationMs": 8834
+    },
+    {
+      "id": "14702663",
+      "time": "17:00:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["BA-01"],
+      "durationMs": 7037
+    },
+    {
+      "id": "b2393616",
+      "time": "17:00:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["BA-03"],
+      "durationMs": 7016
+    },
+    {
+      "id": "e22dacb5",
+      "time": "17:00:00",
+      "party": 6,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["OG-04"],
+      "durationMs": 12074
+    },
+    {
+      "id": "d46ee0c6",
+      "time": "17:00:00",
+      "party": 6,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["MD-07"],
+      "durationMs": 8609
+    },
+    {
+      "id": "04bd2393",
+      "time": "17:15:00",
+      "party": 7,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["OG-06"],
+      "durationMs": 9671
+    },
+    {
+      "id": "a08caea4",
+      "time": "17:15:00",
+      "party": 7,
+      "success": false,
+      "reason": "Allocator v2 repository failure",
+      "tablesAssigned": [],
+      "durationMs": 5174
+    },
+    {
+      "id": "357541cc",
+      "time": "17:15:00",
+      "party": 7,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["MD-10"],
+      "durationMs": 7237
+    },
+    {
+      "id": "e2ca0f1a",
+      "time": "17:15:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["BA-02"],
+      "durationMs": 7034
+    },
+    {
+      "id": "088cba16",
+      "time": "17:15:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["PR-04"],
+      "durationMs": 7239
+    },
+    {
+      "id": "cf4966d4",
+      "time": "17:15:00",
+      "party": 6,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["BA-08"],
+      "durationMs": 7009
+    },
+    {
+      "id": "77ab6974",
+      "time": "17:30:00",
+      "party": 2,
+      "success": false,
+      "reason": "Allocator v2 repository failure",
+      "tablesAssigned": [],
+      "durationMs": 4714
+    },
+    {
+      "id": "51115f62",
+      "time": "17:30:00",
+      "party": 4,
+      "success": false,
+      "reason": "Allocator v2 repository failure",
+      "tablesAssigned": [],
+      "durationMs": 5796
+    },
+    {
+      "id": "7cd72881",
+      "time": "17:45:00",
+      "party": 6,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["MD-08"],
+      "durationMs": 10292
+    },
+    {
+      "id": "58f8f5be",
+      "time": "17:45:00",
+      "party": 6,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["BA-07"],
+      "durationMs": 7008
+    },
+    {
+      "id": "6a47b7e7",
+      "time": "17:45:00",
+      "party": 8,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["PT-08"],
+      "durationMs": 10051
+    },
+    {
+      "id": "5ee0c44c",
+      "time": "18:00:00",
+      "party": 7,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["MD-12"],
+      "durationMs": 13820
+    },
+    {
+      "id": "bd15dc7b",
+      "time": "18:00:00",
+      "party": 7,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["MD-11"],
+      "durationMs": 11813
+    },
+    {
+      "id": "89094d90",
+      "time": "18:00:00",
+      "party": 6,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 29783
+    },
+    {
+      "id": "4d02d9d7",
+      "time": "18:00:00",
+      "party": 8,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["PT-07"],
+      "durationMs": 7837
+    },
+    {
+      "id": "60073b6f",
+      "time": "18:15:00",
+      "party": 5,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 24622
+    },
+    {
+      "id": "937f1c5e",
+      "time": "18:15:00",
+      "party": 5,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 24939
+    },
+    {
+      "id": "6f310ca0",
+      "time": "18:15:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["MD-01", "MD-03"],
+      "durationMs": 4994
+    },
+    {
+      "id": "61a99052",
+      "time": "18:15:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["PT-06"],
+      "durationMs": 8762
+    },
+    {
+      "id": "e02efa30",
+      "time": "18:15:00",
+      "party": 6,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["OG-05"],
+      "durationMs": 13245
+    },
+    {
+      "id": "453c1979",
+      "time": "18:30:00",
+      "party": 11,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 1570
+    },
+    {
+      "id": "8ed1f3a2",
+      "time": "18:30:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["MD-02", "MD-04"],
+      "durationMs": 14173
+    },
+    {
+      "id": "fe35f072",
+      "time": "18:30:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["PT-05"],
+      "durationMs": 7140
+    },
+    {
+      "id": "d89bc58b",
+      "time": "18:30:00",
+      "party": 6,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["OG-04"],
+      "durationMs": 11438
+    },
+    {
+      "id": "97019b8c",
+      "time": "18:30:00",
+      "party": 6,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["MD-07"],
+      "durationMs": 8086
+    },
+    {
+      "id": "64b4ad57",
+      "time": "18:45:00",
+      "party": 9,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["PR-05"],
+      "durationMs": 8993
+    },
+    {
+      "id": "ffb1d6a1",
+      "time": "18:45:00",
+      "party": 12,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 1584
+    },
+    {
+      "id": "640b38c2",
+      "time": "18:45:00",
+      "party": 5,
+      "success": false,
+      "reason": "assign_tables_atomic_v2 assignment duplicate for table eb1535fd-f415-48f7-a7c9-03442cdf96b1",
+      "tablesAssigned": [],
+      "durationMs": 14863
+    },
+    {
+      "id": "c557b9a6",
+      "time": "18:45:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["PT-04"],
+      "durationMs": 5900
+    },
+    {
+      "id": "44b8c742",
+      "time": "18:45:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["PR-04"],
+      "durationMs": 6238
+    },
+    {
+      "id": "3b99bc9d",
+      "time": "18:45:00",
+      "party": 6,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["BA-08"],
+      "durationMs": 7277
+    },
+    {
+      "id": "891e1b87",
+      "time": "19:00:00",
+      "party": 12,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 2029
+    },
+    {
+      "id": "1a5e34e1",
+      "time": "19:00:00",
+      "party": 5,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["OG-06"],
+      "durationMs": 24271
+    },
+    {
+      "id": "4ff39427",
+      "time": "19:00:00",
+      "party": 5,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 26932
+    },
+    {
+      "id": "6f8c1601",
+      "time": "19:00:00",
+      "party": 5,
+      "success": false,
+      "reason": "Hold conflicts prevented all candidates",
+      "tablesAssigned": [],
+      "durationMs": 25582
+    },
+    {
+      "id": "64a28ff0",
+      "time": "19:15:00",
+      "party": 5,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["BA-07"],
+      "durationMs": 5657
+    },
+    {
+      "id": "56d2fdec",
+      "time": "19:15:00",
+      "party": 2,
+      "success": false,
+      "reason": "conflicting key value violates exclusion constraint \"no_overlapping_table_assignments\"",
+      "tablesAssigned": [],
+      "durationMs": 14458
+    },
+    {
+      "id": "544c4a8d",
+      "time": "19:15:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["PR-03"],
+      "durationMs": 5876
+    },
+    {
+      "id": "beba0f29",
+      "time": "19:15:00",
+      "party": 8,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["MD-09"],
+      "durationMs": 5694
+    },
+    {
+      "id": "3e544623",
+      "time": "19:15:00",
+      "party": 8,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["MD-10"],
+      "durationMs": 7424
+    },
+    {
+      "id": "20fee055",
+      "time": "19:30:00",
+      "party": 11,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 1439
+    },
+    {
+      "id": "22478635",
+      "time": "19:30:00",
+      "party": 7,
+      "success": false,
+      "reason": "conflicting key value violates exclusion constraint \"no_overlapping_table_assignments\"",
+      "tablesAssigned": [],
+      "durationMs": 3739
+    },
+    {
+      "id": "1dbd386a",
+      "time": "19:30:00",
+      "party": 7,
+      "success": false,
+      "reason": "Booking 1dbd386a-1a46-4977-9786-ce8c28fee7df already has assignments in a different zone",
+      "tablesAssigned": [],
+      "durationMs": 5772
+    },
+    {
+      "id": "fab56bcd",
+      "time": "19:45:00",
+      "party": 9,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["MD-11"],
+      "durationMs": 4872
+    },
+    {
+      "id": "0de59e67",
+      "time": "20:00:00",
+      "party": 12,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 1270
+    },
+    {
+      "id": "d4c2438e",
+      "time": "20:00:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["MD-01", "MD-03"],
+      "durationMs": 5217
+    },
+    {
+      "id": "f93593e4",
+      "time": "20:00:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["PT-01", "PT-03"],
+      "durationMs": 11105
+    },
+    {
+      "id": "3ee1722a",
+      "time": "20:00:00",
+      "party": 2,
+      "success": false,
+      "reason": "assign_tables_atomic_v2 assignment duplicate for table b015e56a-5835-447b-9a8b-053f23c53e91",
+      "tablesAssigned": [],
+      "durationMs": 11823
+    },
+    {
+      "id": "ce2e885d",
+      "time": "20:00:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["PT-05"],
+      "durationMs": 5780
+    },
+    {
+      "id": "d0693bef",
+      "time": "20:15:00",
+      "party": 2,
+      "success": false,
+      "reason": "conflicting key value violates exclusion constraint \"no_overlapping_table_assignments\"",
+      "tablesAssigned": [],
+      "durationMs": 6278
+    },
+    {
+      "id": "50d49474",
+      "time": "20:15:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["BA-01"],
+      "durationMs": 13262
+    },
+    {
+      "id": "2ca46202",
+      "time": "20:15:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["PR-04"],
+      "durationMs": 5421
+    },
+    {
+      "id": "d6af1a33",
+      "time": "20:15:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["PT-06"],
+      "durationMs": 7623
+    },
+    {
+      "id": "be15fdc1",
+      "time": "20:15:00",
+      "party": 8,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["PT-07"],
+      "durationMs": 10135
+    },
+    {
+      "id": "855ab9bb",
+      "time": "20:30:00",
+      "party": 11,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 2048
+    },
+    {
+      "id": "7f783027",
+      "time": "20:30:00",
+      "party": 11,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 1068
+    },
+    {
+      "id": "570a96b1",
+      "time": "20:30:00",
+      "party": 5,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["BA-08"],
+      "durationMs": 4634
+    },
+    {
+      "id": "baa9dae7",
+      "time": "20:45:00",
+      "party": 11,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 1370
+    },
+    {
+      "id": "1708a71e",
+      "time": "20:45:00",
+      "party": 14,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 1403
+    },
+    {
+      "id": "7f299885",
+      "time": "20:45:00",
+      "party": 2,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["PT-04"],
+      "durationMs": 4499
+    },
+    {
+      "id": "d9fbcac6",
+      "time": "20:45:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["PR-03"],
+      "durationMs": 4052
+    },
+    {
+      "id": "06371b14",
+      "time": "21:00:00",
+      "party": 9,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["MD-12"],
+      "durationMs": 4990
+    },
+    {
+      "id": "d674f317",
+      "time": "21:00:00",
+      "party": 9,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["PR-06"],
+      "durationMs": 6682
+    },
+    {
+      "id": "674ff02a",
+      "time": "21:00:00",
+      "party": 5,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["MD-08"],
+      "durationMs": 7820
+    },
+    {
+      "id": "8d2d2e84",
+      "time": "21:00:00",
+      "party": 2,
+      "success": false,
+      "reason": "conflicting key value violates exclusion constraint \"no_overlapping_table_assignments\"",
+      "tablesAssigned": [],
+      "durationMs": 6544
+    },
+    {
+      "id": "2a997c3e",
+      "time": "21:15:00",
+      "party": 9,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["PR-05"],
+      "durationMs": 6565
+    },
+    {
+      "id": "9d84e8dd",
+      "time": "21:15:00",
+      "party": 14,
+      "success": false,
+      "reason": "No tables meet the capacity requirements for this party size.",
+      "tablesAssigned": [],
+      "durationMs": 1541
+    },
+    {
+      "id": "d4a69f4c",
+      "time": "21:15:00",
+      "party": 4,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["BA-03"],
+      "durationMs": 4310
+    },
+    {
+      "id": "17f77179",
+      "time": "21:30:00",
+      "party": 5,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["MD-07"],
+      "durationMs": 6182
+    },
+    {
+      "id": "9b331fe1",
+      "time": "21:30:00",
+      "party": 7,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["MD-09"],
+      "durationMs": 4481
+    },
+    {
+      "id": "a83628e7",
+      "time": "21:30:00",
+      "party": 8,
+      "success": true,
+      "reason": "Assigned",
+      "tablesAssigned": ["MD-10"],
+      "durationMs": 5534
+    }
+  ]
+}
