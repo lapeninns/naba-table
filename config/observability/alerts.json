@@ -1,0 +1,40 @@
+[
+  {
+    "name": "Capacity Success Rate Degradation",
+    "type": "query alert",
+    "query": "avg(last_15m):avg:capacity_selector_success_rate{*} < 0.90",
+    "message": "@pagerduty Capacity assignment success <90% for 15 minutes. Investigate recent deploys or flag changes.",
+    "tags": ["service:capacity", "severity:high"],
+    "options": {
+      "evaluation_delay": 120,
+      "notify_audit": false,
+      "notify_no_data": false,
+      "renotify_interval": 30
+    }
+  },
+  {
+    "name": "Hold Strict Conflicts Surge",
+    "type": "query alert",
+    "query": "sum(last_5m):sum:capacity_hold_strict_conflict_total{*} > 10",
+    "message": "@slack-ops Hold strict conflicts exceeded 10 in 5m window.",
+    "tags": ["service:capacity", "severity:medium"],
+    "options": {
+      "evaluation_delay": 120,
+      "no_data_timeframe": 10,
+      "notify_audit": false,
+      "notify_no_data": false
+    }
+  },
+  {
+    "name": "Auto Assign Retry Exhaustion",
+    "type": "query alert",
+    "query": "sum(last_15m):sum:auto_assign_attempt_error_total{*} > 5",
+    "message": "@slack-platform Auto assign retries exhausted >5 in 15m",
+    "tags": ["service:capacity", "severity:medium"],
+    "options": {
+      "evaluation_delay": 120,
+      "notify_audit": false,
+      "notify_no_data": false
+    }
+  }
+]

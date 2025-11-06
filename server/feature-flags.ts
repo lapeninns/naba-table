@@ -8,6 +8,16 @@ const loyaltyPilotIds = new Set(
     .filter((value) => value.length > 0),
 );
 
+const issuedSafetyWarnings = new Set<string>();
+
+function warnUnsafeFeatureFlag(message: string, context: Record<string, unknown>): void {
+  if (issuedSafetyWarnings.has(message)) {
+    return;
+  }
+  issuedSafetyWarnings.add(message);
+  console.warn("[feature-flags][safety]", { message, ...context });
+}
+
 function isProductionEnv(): boolean {
   return env.node.env === "production";
 }
@@ -198,6 +208,34 @@ export function getAutoAssignRetryDelaysMs(): number[] {
   // clamp to reasonable
   return parts.map((n) => Math.max(0, Math.min(n, 5 * 60 * 1000)));
 }
+
+function validateFeatureFlagSafety(): void {
+  const { holds, allocator, selectorLookahead } = env.featureFlags;
+
+  if ((holds?.enabled ?? true) && !(holds?.strictConflicts ?? false)) {
+    warnUnsafeFeatureFlag("holds.strictConflicts disabled while holds.enabled=true", {
+      environment: env.node.env,
+      strictConflicts: holds?.strictConflicts ?? null,
+    });
+  }
+
+  if ((allocator?.mergesEnabled ?? false) && (allocator?.requireAdjacency === false)) {
+    warnUnsafeFeatureFlag("allocator merges enabled while adjacency requirement disabled", {
+      environment: env.node.env,
+      mergesEnabled: allocator?.mergesEnabled ?? null,
+      requireAdjacency: allocator?.requireAdjacency ?? null,
+    });
+  }
+
+  if (selectorLookahead?.enabled && (selectorLookahead?.penaltyWeight ?? 0) === 0) {
+    warnUnsafeFeatureFlag("selectorLookahead enabled but penaltyWeight equals 0", {
+      environment: env.node.env,
+      penaltyWeight: selectorLookahead?.penaltyWeight ?? null,
+    });
+  }
+}
+
+validateFeatureFlagSafety();
 
 export function getAutoAssignStartCutoffMinutes(): number {
   return env.featureFlags.autoAssign?.startCutoffMinutes ?? 10;

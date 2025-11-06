@@ -1,0 +1,71 @@
+{
+  "executedAt": "2025-11-06T08:35:19.999Z",
+  "restaurant": "Demo Restaurant",
+  "date": "2025-11-07",
+  "config": {
+    "TARGET_RESTAURANT_SLUG": "demo-restaurant",
+    "TARGET_DATE": "2025-11-07",
+    "MAX_CONCURRENT_BOOKINGS": 15,
+    "SINGLE_ATTEMPT_ONLY": true,
+    "HOLD_TTL_SECONDS": 180,
+    "MINIMAL_CONSOLE_OUTPUT": false,
+    "FORCE_REASSIGN_ALL": false
+  },
+  "totalBookings": 16,
+  "pendingProcessed": 2,
+  "successful": 1,
+  "failed": 1,
+  "successRate": 50,
+  "totalDurationSeconds": 6.89,
+  "avgProcessingMs": 5478,
+  "results": [
+    {
+      "id": "92be563d",
+      "bookingId": "92be563d-b818-483e-ad4f-8c46fa2f418c",
+      "time": "17:00:00",
+      "party": 6,
+      "statusBefore": null,
+      "statusAfter": null,
+      "success": false,
+      "reason": "Allocator v2 repository failure",
+      "failureType": "unknown",
+      "errorCode": "ASSIGNMENT_REPOSITORY_ERROR",
+      "rawError": "Allocator v2 repository failure",
+      "transitionError": null,
+      "quoteReason": null,
+      "holdId": null,
+      "holdExpiresAt": null,
+      "tablesAssigned": [],
+      "assignmentsPersisted": null,
+      "alternatesSuggested": 0,
+      "skippedCandidates": 0,
+      "durationMs": 4913
+    },
+    {
+      "id": "19df6754",
+      "bookingId": "19df6754-b710-44ab-acff-bf0c7a3a29b7",
+      "time": "19:30:00",
+      "party": 6,
+      "statusBefore": "pending",
+      "statusAfter": "confirmed",
+      "success": true,
+      "reason": "Assigned",
+      "failureType": null,
+      "errorCode": null,
+      "rawError": null,
+      "transitionError": null,
+      "quoteReason": null,
+      "holdId": "4dd0a8a3-8d01-4ef6-96ae-be5b1ff013e8",
+      "holdExpiresAt": "2025-11-06T08:38:16.184+00:00",
+      "tablesAssigned": ["D1-T04", "D1-T02"],
+      "assignmentsPersisted": 2,
+      "alternatesSuggested": 0,
+      "skippedCandidates": 0,
+      "durationMs": 6042
+    }
+  ],
+  "persistedStatuses": {
+    "92be563d-b818-483e-ad4f-8c46fa2f418c": "pending",
+    "19df6754-b710-44ab-acff-bf0c7a3a29b7": "confirmed"
+  }
+}

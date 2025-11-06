@@ -23,23 +23,27 @@ vi.mock("@/server/capacity/holds", async () => {
     ...actual,
     createTableHold: vi.fn(),
     findHoldConflicts: vi.fn(),
+    releaseTableHold: vi.fn(),
   };
 });
 
 const holdsModule = await import("@/server/capacity/holds");
 const telemetry = await import("@/server/capacity/telemetry");
 const tablesModule = await import("@/server/capacity/tables");
+const featureFlagsModule = await import("@/server/feature-flags");
 
-const { createTableHold, findHoldConflicts } = holdsModule;
+const { createTableHold, findHoldConflicts, releaseTableHold, HoldConflictError } = holdsModule;
 const { quoteTablesForBooking } = tablesModule;
 
 const createTableHoldMock = vi.mocked(createTableHold);
 const findHoldConflictsMock = vi.mocked(findHoldConflicts);
+const releaseTableHoldMock = vi.mocked(releaseTableHold);
 
 let emitSelectorQuoteSpy: ReturnType<typeof vi.spyOn>;
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 let emitHoldCreatedSpy: ReturnType<typeof vi.spyOn>;
 let emitRpcConflictSpy: ReturnType<typeof vi.spyOn>;
+let emitHoldStrictConflictSpy: ReturnType<typeof vi.spyOn>;
 
 type Dataset = {
   list?: unknown[];
@@ -194,9 +198,11 @@ describe("quoteTablesForBooking - hold conflicts", () => {
   beforeEach(() => {
     createTableHoldMock.mockReset();
     findHoldConflictsMock.mockReset();
+    releaseTableHoldMock.mockReset();
     emitSelectorQuoteSpy = vi.spyOn(telemetry, "emitSelectorQuote").mockResolvedValue();
     emitHoldCreatedSpy = vi.spyOn(telemetry, "emitHoldCreated").mockResolvedValue();
     emitRpcConflictSpy = vi.spyOn(telemetry, "emitRpcConflict").mockResolvedValue();
+    emitHoldStrictConflictSpy = vi.spyOn(telemetry, "emitHoldStrictConflict").mockResolvedValue();
     isCombinationPlannerEnabledMock.mockReturnValue(true);
   });
 
@@ -238,17 +244,113 @@ describe("quoteTablesForBooking - hold conflicts", () => {
     expect(findHoldConflictsMock).toHaveBeenCalledTimes(2);
     expect(result.hold?.id).toBe("hold-new");
     expect(result.reason).toBeUndefined();
-    expect(result.skipped).toEqual([
-      expect.objectContaining({
-        candidate: expect.objectContaining({ tableIds: expect.arrayContaining(["combo-a", "combo-b"]) }),
-        reason: expect.stringContaining("Conflicts with holds"),
-      }),
-    ]);
+    expect(result.skipped).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          reason: expect.stringContaining("Conflicts with holds"),
+        }),
+      ]),
+    );
     expect(result.metadata).toEqual({ usedFallback: false, fallbackService: null });
     expect(emitSelectorQuoteSpy).toHaveBeenCalledWith(
       expect.objectContaining({ holdId: "hold-new" }),
     );
     expect(emitRpcConflictSpy).not.toHaveBeenCalled();
+  });
+
+  it("skips candidate when strict conflict validation detects a persisted overlap", async () => {
+    const strictFlagSpy = vi.spyOn(featureFlagsModule, "isHoldStrictConflictsEnabled").mockReturnValue(true);
+
+    const holdRecord = {
+      id: "hold-new",
+      bookingId: "booking-1",
+      restaurantId: "restaurant-1",
+      zoneId: "zone-main",
+      tableIds: ["combo-a", "combo-b"],
+      startAt: "2025-10-26T18:00:00Z",
+      endAt: "2025-10-26T19:35:00Z",
+      expiresAt: "2025-10-26T18:10:00Z",
+    };
+
+    createTableHoldMock.mockResolvedValue(holdRecord);
+    findHoldConflictsMock.mockImplementation(({ excludeHoldId }) => {
+      if (excludeHoldId) {
+        return Promise.resolve([
+          {
+            holdId: "existing-hold",
+            bookingId: "booking-2",
+            tableIds: ["combo-a", "combo-b"],
+            startAt: "2025-10-26T18:00:00Z",
+            endAt: "2025-10-26T19:35:00Z",
+            expiresAt: "2025-10-26T18:15:00Z",
+          },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+    releaseTableHoldMock.mockResolvedValue();
+
+    const result = await quoteTablesForBooking({
+      bookingId: "booking-1",
+      client: createStubClient(),
+    });
+
+    expect(result.hold).toBeNull();
+    expect(result.reason).toBe("Hold conflicts prevented all candidates");
+    expect(releaseTableHoldMock).toHaveBeenCalledWith(
+      expect.objectContaining({ holdId: "hold-new" }),
+    );
+    expect(emitHoldStrictConflictSpy).toHaveBeenCalled();
+    expect(emitHoldStrictConflictSpy.mock.calls[0]?.[0]).toMatchObject({
+      bookingId: "booking-1",
+    });
+    expect(
+      emitHoldStrictConflictSpy.mock.calls[0]?.[0]?.conflicts,
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ holdId: "existing-hold" }),
+      ]),
+    );
+    expect(findHoldConflictsMock).toHaveBeenCalled();
+    expect(strictFlagSpy).toHaveBeenCalled();
+  });
+
+  it("permits only one hold across concurrent requests with strict conflicts enabled", async () => {
+    const strictFlagSpy = vi.spyOn(featureFlagsModule, "isHoldStrictConflictsEnabled").mockReturnValue(true);
+
+    createTableHoldMock
+      .mockResolvedValueOnce({
+        id: "hold-success",
+        bookingId: "booking-1",
+        restaurantId: "restaurant-1",
+        zoneId: "zone-main",
+        tableIds: ["combo-a", "combo-b"],
+        startAt: "2025-10-26T18:00:00Z",
+        endAt: "2025-10-26T19:35:00Z",
+        expiresAt: "2025-10-26T18:10:00Z",
+      })
+      .mockRejectedValueOnce(new HoldConflictError("conflict"));
+
+    findHoldConflictsMock.mockResolvedValue([]);
+
+    const client = createStubClient();
+    const runQuote = () =>
+      quoteTablesForBooking({
+        bookingId: "booking-1",
+        client,
+      });
+
+    const [first, second] = await Promise.all([runQuote(), runQuote()]);
+
+    const successes = [first, second].filter((result) => result.hold);
+    const failures = [first, second].filter((result) => !result.hold);
+
+    expect(successes).toHaveLength(1);
+    expect(successes[0]?.hold?.id).toBe("hold-success");
+    expect(failures).toHaveLength(1);
+    expect(failures[0]?.reason).toBe("Hold conflicts prevented all candidates");
+    expect(createTableHoldMock.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(strictFlagSpy).toHaveBeenCalled();
   });
 
   it("reports skip reason when combination planner is disabled", async () => {

@@ -1,3 +1,5 @@
+CRITICAL: When fixing a bug, identify the root cause, implement the fix, and verify with linting. ALWAYS end with a simple one-sentence summary using exactly 3 alarm emojis (🚨🚨🚨). This is mandatory and must be the very last sentence in your response.
+
 # AGENTS.md
 
 **SDLC‑aligned operating handbook for AI coding agents and human contributors (with MCP tooling)**

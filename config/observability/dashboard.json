@@ -1,0 +1,75 @@
+{
+  "title": "Capacity Assignment Health",
+  "timezone": "browser",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Assignment Success Rate",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "capacity_selector_assignments_total / ignoring(status) max(capacity_selector_attempts_total, 1)",
+          "legendFormat": "{{restaurant}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              { "color": "red", "value": 0 },
+              { "color": "orange", "value": 90 },
+              { "color": "green", "value": 95 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Total Latency (ms)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, sum(rate(capacity_selector_total_duration_ms_bucket[5m])) by (le, restaurant))",
+          "legendFormat": "P50 {{restaurant}}"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(capacity_selector_total_duration_ms_bucket[5m])) by (le, restaurant))",
+          "legendFormat": "P95 {{restaurant}}"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(capacity_selector_total_duration_ms_bucket[5m])) by (le, restaurant))",
+          "legendFormat": "P99 {{restaurant}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Hold Strict Conflicts",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(capacity_hold_strict_conflict_total[5m])) by (restaurant)",
+          "legendFormat": "{{restaurant}}"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Retry Exhaustion",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(auto_assign_attempt_error_total[15m])) by (restaurant)",
+          "legendFormat": "Failures"
+        },
+        {
+          "expr": "sum(rate(auto_assign_cutoff_skipped_total[15m])) by (restaurant)",
+          "legendFormat": "Cutoff Skips"
+        }
+      ]
+    }
+  ]
+}

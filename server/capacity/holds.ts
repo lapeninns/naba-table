@@ -163,6 +163,22 @@ async function configureHoldStrictConflictSession(client: DbClient): Promise<voi
   }
 }
 
+export async function isStrictConflictSessionEnabled(client?: DbClient): Promise<boolean> {
+  const supabase = ensureClient(client);
+  try {
+    const { data, error } = await supabase.rpc("is_holds_strict_conflicts_enabled");
+    if (error) {
+      throw new Error(error.message ?? String(error));
+    }
+    return Boolean(data);
+  } catch (error) {
+    console.warn("[capacity.hold] failed to verify strict conflict session flag", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return false;
+  }
+}
+
 function normalizeHold(row: Tables<"table_holds">, tableIds: string[]): TableHold {
   return {
     id: row.id,

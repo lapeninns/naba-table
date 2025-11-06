@@ -108,9 +108,12 @@ async function main() {
   // Dynamic import after env is loaded
   const supabaseModule = await import('@/server/supabase');
   const tablesModule = await import('@/server/capacity/tables');
+  const holdsModule = await import('@/server/capacity/holds');
   const getServiceSupabaseClient = supabaseModule.getServiceSupabaseClient;
   const quoteTablesForBooking = tablesModule.quoteTablesForBooking;
   const confirmHoldAssignment = tablesModule.confirmHoldAssignment;
+  const releaseTableHold = holdsModule.releaseTableHold;
+  const AssignTablesRpcError = holdsModule.AssignTablesRpcError;
   
   // Ultra-fast assignment function (defined inside main to access imports)
   async function fastAssign(
@@ -121,9 +124,18 @@ async function main() {
   ): Promise<QuickResult> {
     const start = Date.now();
     const shortId = bookingId.slice(0, 8);
-    const sanitizeError = (error: unknown): { code: string | null; message: string } => {
+    const sanitizeError = (
+      error: unknown,
+    ): { code: string | null; message: string; details?: unknown } => {
       if (!error) {
         return { code: null, message: "Unknown error" };
+      }
+      if (error instanceof AssignTablesRpcError) {
+        return {
+          code: error.code ?? null,
+          message: error.message,
+          details: error.details ?? null,
+        };
       }
       if (typeof error === "object" && error !== null) {
         const code = "code" in error && typeof (error as { code?: unknown }).code === "string"
@@ -137,7 +149,8 @@ async function main() {
       return { code: null, message: String(error) };
     };
 
-    const classifyFailure = (message: string | null): string | null => {
+    const classifyFailure = (message: string | null, code?: string | null): string | null => {
+      if (code === "ASSIGNMENT_CONFLICT") return "assignment_conflict";
       if (!message) return null;
       const normalized = message.toLowerCase();
       if (normalized.includes("locked to zone")) return "zone_lock";
@@ -148,6 +161,10 @@ async function main() {
       if (normalized.includes("duplicate")) return "idempotency";
       return "unknown";
     };
+
+    let holdId: string | null = null;
+    let holdExpiresAt: string | null = null;
+    let holdConfirmed = false;
 
     try {
       const { data: before } = await supabase
@@ -197,6 +214,9 @@ async function main() {
         };
       }
 
+      holdId = quote.hold.id;
+      holdExpiresAt = quote.hold.expiresAt;
+
       // Confirm hold
       await confirmHoldAssignment({
         holdId: quote.hold.id,
@@ -204,6 +224,7 @@ async function main() {
         idempotencyKey: `ultra-fast-${bookingId}`,
         assignedBy: null,
       });
+      holdConfirmed = true;
 
       // Transition to confirmed
       const { data: current } = await supabase
@@ -238,7 +259,7 @@ async function main() {
           statusAfter: current?.status ?? null,
           success: false,
           reason: message,
-          failureType: classifyFailure(message),
+          failureType: classifyFailure(message, code),
           errorCode: code,
           rawError: message,
           transitionError: message,
@@ -270,7 +291,7 @@ async function main() {
           statusAfter: 'confirmed',
           success: false,
           reason: message,
-          failureType: classifyFailure(message),
+          failureType: classifyFailure(message, code),
           errorCode: code,
           rawError: message,
           transitionError: null,
@@ -322,6 +343,20 @@ async function main() {
       };
 
     } catch (error: any) {
+      if (holdId && !holdConfirmed) {
+        try {
+          await releaseTableHold({ holdId });
+        } catch (releaseError) {
+          if (!CONFIG.MINIMAL_CONSOLE_OUTPUT) {
+            console.warn('[ultra-fast] failed to release hold after error', {
+              bookingId,
+              holdId,
+              error: releaseError instanceof Error ? releaseError.message : String(releaseError),
+            });
+          }
+        }
+      }
+
       const { code, message } = sanitizeError(error);
       return {
         id: shortId,
@@ -332,13 +367,13 @@ async function main() {
         statusAfter: null,
         success: false,
         reason: message || 'Error',
-        failureType: classifyFailure(message || null),
+        failureType: classifyFailure(message || null, code ?? undefined),
         errorCode: code,
         rawError: message,
         transitionError: null,
         quoteReason: null,
-        holdId: null,
-        holdExpiresAt: null,
+        holdId,
+        holdExpiresAt,
         tablesAssigned: [],
         assignmentsPersisted: null,
         alternatesSuggested: 0,

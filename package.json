@@ -49,6 +49,8 @@
     "test:e2e:matrix": "playwright test tests/e2e/reservations/booking-validation-matrix.spec.ts --project=chromium",
     "load:booking-pack": "tsx scripts/booking-pack-fill.ts",
     "observability:baseline": "tsx scripts/observability/export-capacity-baselines.ts",
+    "observability:export": "tsx scripts/observability/export-capacity-metrics.ts",
+    "flags:audit": "tsx scripts/feature-flags/audit.ts",
     "email:check": "tsx scripts/email/check-resend-status.ts",
     "email:preview": "tsx -r tsconfig-paths/register scripts/preview-booking-email.ts",
     "assign:loop": "tsx -r tsconfig-paths/register scripts/ops-auto-assign-ultra-fast-loop.ts --slug prince-of-wales-pub-bromham --date 2025-11-10",

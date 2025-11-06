@@ -1,0 +1,71 @@
+{
+  "executedAt": "2025-11-06T08:26:17.376Z",
+  "restaurant": "Demo Restaurant",
+  "date": "2025-11-06",
+  "config": {
+    "TARGET_RESTAURANT_SLUG": "demo-restaurant",
+    "TARGET_DATE": "2025-11-06",
+    "MAX_CONCURRENT_BOOKINGS": 15,
+    "SINGLE_ATTEMPT_ONLY": true,
+    "HOLD_TTL_SECONDS": 180,
+    "MINIMAL_CONSOLE_OUTPUT": false,
+    "FORCE_REASSIGN_ALL": false
+  },
+  "totalBookings": 117,
+  "pendingProcessed": 2,
+  "successful": 2,
+  "failed": 0,
+  "successRate": 100,
+  "totalDurationSeconds": 5.66,
+  "avgProcessingMs": 4593,
+  "results": [
+    {
+      "id": "4d933476",
+      "bookingId": "4d933476-4be6-411c-bf77-0834eaa420da",
+      "time": "17:00:00",
+      "party": 6,
+      "statusBefore": "pending",
+      "statusAfter": "confirmed",
+      "success": true,
+      "reason": "Assigned",
+      "failureType": null,
+      "errorCode": null,
+      "rawError": null,
+      "transitionError": null,
+      "quoteReason": null,
+      "holdId": "f8f9332b-7c7e-4437-b06b-54ee303e0079",
+      "holdExpiresAt": "2025-11-06T08:29:14.533+00:00",
+      "tablesAssigned": ["D2-T02", "D2-T04"],
+      "assignmentsPersisted": 2,
+      "alternatesSuggested": 0,
+      "skippedCandidates": 0,
+      "durationMs": 4589
+    },
+    {
+      "id": "928abbe1",
+      "bookingId": "928abbe1-43ee-41d4-b837-aae7f8d37593",
+      "time": "19:30:00",
+      "party": 6,
+      "statusBefore": "pending",
+      "statusAfter": "confirmed",
+      "success": true,
+      "reason": "Assigned",
+      "failureType": null,
+      "errorCode": null,
+      "rawError": null,
+      "transitionError": null,
+      "quoteReason": null,
+      "holdId": "fc06ad69-c7fc-40ea-8085-c26e40bf3460",
+      "holdExpiresAt": "2025-11-06T08:29:14.436+00:00",
+      "tablesAssigned": ["D2-T02", "D2-T04"],
+      "assignmentsPersisted": 2,
+      "alternatesSuggested": 0,
+      "skippedCandidates": 0,
+      "durationMs": 4597
+    }
+  ],
+  "persistedStatuses": {
+    "4d933476-4be6-411c-bf77-0834eaa420da": "confirmed",
+    "928abbe1-43ee-41d4-b837-aae7f8d37593": "confirmed"
+  }
+}

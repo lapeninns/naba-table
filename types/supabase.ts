@@ -2023,6 +2023,42 @@ export type Database = {
       }
     }
     Views: {
+      capacity_observability_hold_metrics: {
+        Row: {
+          bucket_day: string | null
+          confirmations: number | null
+          quote_to_confirm_rate: number | null
+          quotes: number | null
+          restaurant_id: string | null
+          strict_conflicts: number | null
+        }
+        Relationships: []
+      }
+      capacity_observability_rpc_conflicts: {
+        Row: {
+          bucket_day: string | null
+          conflict_code: string | null
+          last_message: string | null
+          occurrences: number | null
+          restaurant_id: string | null
+        }
+        Relationships: []
+      }
+      capacity_observability_selector_metrics: {
+        Row: {
+          assignments: number | null
+          avg_candidate_count: number | null
+          avg_planner_ms: number | null
+          avg_total_duration_ms: number | null
+          bucket_day: string | null
+          p95_candidate_count: number | null
+          p95_planner_ms: number | null
+          p95_total_duration_ms: number | null
+          restaurant_id: string | null
+          skipped: number | null
+        }
+        Relationships: []
+      }
       capacity_selector_rejections_v1: {
         Row: {
           booking_id: string | null

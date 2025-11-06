@@ -61,7 +61,14 @@ import {
   type BuildCandidatesResult,
 } from "./selector";
 import { loadStrategicConfig } from "./strategic-config";
-import { emitRpcConflict, emitSelectorQuote, summarizeCandidate, type CandidateSummary, type SelectorDecisionEvent } from "./telemetry";
+import {
+  emitHoldStrictConflict,
+  emitRpcConflict,
+  emitSelectorQuote,
+  summarizeCandidate,
+  type CandidateSummary,
+  type SelectorDecisionEvent,
+} from "./telemetry";
 import { windowsOverlap } from "./time-windows";
 import {
   AssignmentConflictError,
@@ -3355,8 +3362,9 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
 
   for (let index = 0; index < plans.plans.length; index += 1) {
     const plan = plans.plans[index]!;
+    const requestedTableIds = plan.tables.map((table) => table.id);
     const candidateSummary = summarizeCandidate({
-      tableIds: plan.tables.map((table) => table.id),
+      tableIds: requestedTableIds,
       tableNumbers: plan.tables.map((table) => table.tableNumber),
       totalCapacity: plan.totalCapacity,
       tableCount: plan.tables.length,
@@ -3366,12 +3374,15 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
       scoreBreakdown: plan.scoreBreakdown,
     });
 
+    const requestedWindowStart = toIsoUtc(window.block.start);
+    const requestedWindowEnd = toIsoUtc(window.block.end);
+
     if (!isHoldStrictConflictsEnabled()) {
       const conflicts = await findHoldConflicts({
         restaurantId: booking.restaurant_id,
-        tableIds: plan.tables.map((table) => table.id),
-        startAt: toIsoUtc(window.block.start),
-        endAt: toIsoUtc(window.block.end),
+        tableIds: requestedTableIds,
+        startAt: requestedWindowStart,
+        endAt: requestedWindowEnd,
         client: supabase,
       });
 
@@ -3397,19 +3408,115 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
         bookingId,
         restaurantId: booking.restaurant_id,
         zoneId: zoneForHold,
-        tableIds: plan.tables.map((table) => table.id),
-        startAt: toIsoUtc(window.block.start),
-        endAt: toIsoUtc(window.block.end),
+        tableIds: requestedTableIds,
+        startAt: requestedWindowStart,
+        endAt: requestedWindowEnd,
         expiresAt: toIsoUtc(DateTime.now().plus({ seconds: holdTtlSeconds })),
         createdBy,
         metadata: {
           selection: {
-            tableIds: plan.tables.map((table) => table.id),
+            tableIds: requestedTableIds,
             summary,
           },
         },
         client: supabase,
       });
+
+      if (isHoldStrictConflictsEnabled()) {
+        try {
+          const conflictsAfterInsert = await findHoldConflicts({
+            restaurantId: booking.restaurant_id,
+            tableIds: requestedTableIds,
+            startAt: requestedWindowStart,
+            endAt: requestedWindowEnd,
+            excludeHoldId: hold.id,
+            client: supabase,
+          });
+
+          if (conflictsAfterInsert.length > 0) {
+            try {
+              await emitHoldStrictConflict({
+                restaurantId: booking.restaurant_id,
+                bookingId,
+                tableIds: requestedTableIds,
+                startAt: requestedWindowStart,
+                endAt: requestedWindowEnd,
+                conflicts: conflictsAfterInsert.map((conflict) => ({
+                  holdId: conflict.holdId,
+                  bookingId: conflict.bookingId,
+                  tableIds: conflict.tableIds,
+                  startAt: conflict.startAt,
+                  endAt: conflict.endAt,
+                  expiresAt: conflict.expiresAt,
+                })),
+              });
+            } catch (telemetryError) {
+              console.error("[capacity.quote] failed to emit strict conflict telemetry (post-insert)", {
+                bookingId,
+                restaurantId: booking.restaurant_id,
+                tableIds: requestedTableIds,
+                error: telemetryError instanceof Error ? telemetryError.message : String(telemetryError),
+              });
+            }
+
+            recordHoldConflictSkip(conflictsAfterInsert, candidateSummary, plan);
+
+            try {
+              await releaseTableHold({ holdId: hold.id, client: supabase });
+            } catch (releaseError) {
+              console.error("[capacity.quote] failed to release conflicting hold after validation", {
+                holdId: hold.id,
+                bookingId,
+                restaurantId: booking.restaurant_id,
+                error: releaseError instanceof Error ? releaseError.message : String(releaseError),
+              });
+            }
+
+            applyQuoteSkipDiagnostics();
+            continue;
+          }
+        } catch (validationError) {
+          console.error("[capacity.quote] strict conflict validation errored", {
+            bookingId,
+            restaurantId: booking.restaurant_id,
+            holdId: hold?.id ?? null,
+            error: validationError instanceof Error ? validationError.message : String(validationError),
+          });
+          if (hold?.id) {
+            try {
+              await releaseTableHold({ holdId: hold.id, client: supabase });
+            } catch (releaseError) {
+              console.error("[capacity.quote] failed to release hold after validation error", {
+                holdId: hold.id,
+                bookingId,
+                restaurantId: booking.restaurant_id,
+                error: releaseError instanceof Error ? releaseError.message : String(releaseError),
+              });
+            }
+          }
+
+          recordHoldConflictSkip(
+            hold
+              ? [
+                  {
+                    holdId: hold.id,
+                    bookingId,
+                    tableIds: requestedTableIds,
+                    startAt: requestedWindowStart,
+                    endAt: requestedWindowEnd,
+                    expiresAt: hold.expiresAt,
+                  },
+                ]
+              : [],
+            candidateSummary,
+            plan,
+          );
+
+          applyQuoteSkipDiagnostics();
+          continue;
+        }
+      }
+
       const holdDurationMs = highResNow() - holdStart;
       const totalDurationMs = highResNow() - operationStart;
 
@@ -3419,8 +3526,8 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
         bookingId,
         partySize: booking.party_size,
         window: {
-          start: toIsoUtc(window.block.start),
-          end: toIsoUtc(window.block.end),
+          start: requestedWindowStart,
+          end: requestedWindowEnd,
         },
         candidates: [candidateSummary, ...alternates],
         selected: candidateSummary,
