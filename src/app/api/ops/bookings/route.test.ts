@@ -10,11 +10,27 @@ vi.mock("@/lib/env", () => {
         return {
           loyaltyPilotRestaurantIds: undefined,
           enableTestApi: true,
-        guestLookupPolicy: false,
-        opsGuardV2: false,
-        bookingPastTimeBlocking: false,
-        bookingPastTimeGraceMinutes: 5,
-      } as const;
+          guestLookupPolicy: false,
+          opsGuardV2: false,
+          bookingPastTimeBlocking: false,
+          bookingPastTimeGraceMinutes: 5,
+          autoAssignOnBooking: false,
+          autoAssignMaxRetries: 0,
+          autoAssignRetryDelaysMs: [],
+          autoAssignStartCutoffMinutes: 15,
+          autoAssignCreatedEmailDeferMinutes: 0,
+        } as const;
+      },
+      get resend() {
+        return {
+          apiKey: "test-resend-api-key",
+          from: "reservations@example.com",
+        } as const;
+      },
+      get node() {
+        return {
+          env: "test",
+        } as const;
       },
       get supabase() {
         return {
@@ -212,6 +228,7 @@ describe("POST /api/ops/bookings", () => {
       occasionCatalog: [],
       slots: [],
     });
+    enqueueBookingCreatedSideEffectsMock.mockResolvedValue({ queued: false });
   });
 
   it("accepts optional contact fields in schema", () => {

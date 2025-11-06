@@ -50,6 +50,14 @@ function isBookingInPastError(error: unknown): error is BookingError {
   return code === 'BOOKING_IN_PAST';
 }
 
+const isRequestAbortedError = (error: unknown): error is { code?: string | number | null } => {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const code = (error as { code?: string | number | null | undefined }).code;
+  return code === 'REQUEST_ABORTED';
+};
+
 export function useReservationWizard(
   initialDetails?: Partial<BookingDetails>,
   mode: BookingWizardMode = 'customer',
@@ -251,6 +259,13 @@ export function useReservationWizard(
         context: mode,
       });
     } catch (error) {
+      if (isRequestAbortedError(error)) {
+        actions.setLoading(false);
+        actions.setSubmitting(false);
+        actions.goToStep(originStep);
+        setPlanAlert(null);
+        return;
+      }
       const isPastBooking = isBookingInPastError(error);
       if (!isPastBooking) {
         errorReporter.capture(error, {

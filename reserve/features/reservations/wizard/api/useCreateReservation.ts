@@ -7,6 +7,7 @@ import { emit } from '@/lib/analytics/emit';
 import { reservationAdapter, reservationListAdapter } from '@entities/reservation/adapter';
 import { apiClient, type ApiError } from '@shared/api/client';
 import { reservationKeys } from '@shared/api/queryKeys';
+import { env } from '@shared/config/env';
 import { track } from '@shared/lib/analytics';
 
 import type { ReservationSubmissionResult } from './types';
@@ -40,6 +41,7 @@ export function useCreateReservation() {
 
       const path = bookingId ? `/bookings/${bookingId}` : '/bookings';
       const method = bookingId ? apiClient.put : apiClient.post;
+      const submissionTimeoutMs = Math.max(env.API_TIMEOUT_MS * 2, 30_000);
       const idempotencyKey =
         idempotencyKeyRef.current ??
         (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -52,6 +54,7 @@ export function useCreateReservation() {
           bookings?: unknown;
         }>(path, payload, {
           headers: { 'Idempotency-Key': idempotencyKey },
+          timeoutMs: submissionTimeoutMs,
         });
 
         const booking = response?.booking ? reservationAdapter(response.booking) : null;
@@ -73,6 +76,9 @@ export function useCreateReservation() {
     },
     onError: (error, variables) => {
       idempotencyKeyRef.current = null;
+      if (error?.code === 'REQUEST_ABORTED') {
+        return;
+      }
       const payload = {
         code: error?.code ?? 'UNKNOWN',
         status: error?.status,

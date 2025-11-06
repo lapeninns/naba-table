@@ -209,6 +209,8 @@ export const env = {
         startCutoffMinutes: Math.max(0, Math.min(parsed.FEATURE_AUTO_ASSIGN_START_CUTOFF_MINUTES ?? 10, 240)),
         createdEmailDeferMinutes: Math.max(0, Math.min(parsed.FEATURE_AUTO_ASSIGN_CREATED_EMAIL_DEFER_MINUTES ?? 5, 120)),
       },
+      emailQueueEnabled: parsed.FEATURE_EMAIL_QUEUE_ENABLED ?? false,
+      policyRequoteEnabled: parsed.FEATURE_POLICY_REQUOTE_ENABLED ?? true,
     } as const;
   },
 
@@ -286,6 +288,18 @@ export const env = {
         restUrl: parsed.UPSTASH_REDIS_REST_URL,
         restToken: parsed.UPSTASH_REDIS_REST_TOKEN,
       },
+    } as const;
+  },
+
+  get queue() {
+    const parsed = parseEnv();
+    return {
+      redisUrl: parsed.QUEUE_REDIS_URL,
+      host: parsed.QUEUE_REDIS_HOST,
+      port: parsed.QUEUE_REDIS_PORT,
+      username: parsed.QUEUE_REDIS_USERNAME,
+      password: parsed.QUEUE_REDIS_PASSWORD,
+      tls: parsed.QUEUE_REDIS_TLS ?? false,
     } as const;
   },
 } as const;

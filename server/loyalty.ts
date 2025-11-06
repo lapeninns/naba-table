@@ -8,7 +8,7 @@ const LOYALTY_SCHEMA_VERSION = 1;
 
 export type LoyaltyProgramRow = Tables<"loyalty_programs">;
 
-type DbClient = SupabaseClient<Database, any, any>;
+type DbClient = SupabaseClient<Database, "public", Database["public"]>;
 
 type LoyaltyAccrualRule =
   | {
@@ -136,7 +136,6 @@ export async function applyLoyaltyAward(
   },
 ): Promise<void> {
   const nowIso = params.occurredAt ?? new Date().toISOString();
-  const positivePoints = Math.max(0, params.points);
   const delta = Math.round(params.points);
 
   if (delta === 0) {
@@ -145,8 +144,8 @@ export async function applyLoyaltyAward(
 
   const { data: existing, error: existingError } = await client
     .from("loyalty_points")
-    .select("id,balance,lifetime_points")
-    .eq("program_id", params.program.id)
+    .select("id,total_points,tier")
+    .eq("restaurant_id", params.program.restaurant_id)
     .eq("customer_id", params.customerId)
     .maybeSingle();
 
@@ -154,39 +153,35 @@ export async function applyLoyaltyAward(
     throw existingError;
   }
 
-  const currentBalance = existing?.balance ?? 0;
-  const newBalance = Math.max(0, currentBalance + delta);
-  const currentLifetime = existing?.lifetime_points ?? 0;
-  const newLifetime = currentLifetime + positivePoints;
-  const tier = determineTier(params.program.tiers, newBalance);
+  const currentPoints = existing?.total_points ?? 0;
+  const newPoints = Math.max(0, currentPoints + delta);
+  const tier = determineTier(params.program.tiers, newPoints);
 
   const upsertPayload = {
-    program_id: params.program.id,
+    restaurant_id: params.program.restaurant_id,
     customer_id: params.customerId,
-    balance: newBalance,
-    lifetime_points: newLifetime,
     tier,
-    last_awarded_at: nowIso,
     updated_at: nowIso,
+    total_points: newPoints,
   };
 
   const { error: upsertError } = await client
     .from("loyalty_points")
-    .upsert(upsertPayload, { onConflict: "program_id,customer_id" });
+    .upsert(upsertPayload, { onConflict: "restaurant_id,customer_id" });
 
   if (upsertError) {
     throw upsertError;
   }
 
   const { error: eventError } = await client.from("loyalty_point_events").insert({
-    program_id: params.program.id,
+    restaurant_id: params.program.restaurant_id,
     customer_id: params.customerId,
     booking_id: params.bookingId,
-    points_delta: delta,
-    balance_after: newBalance,
-    reason: delta >= 0 ? "booking.confirmed" : "booking.adjustment",
+    points_change: delta,
+    event_type: delta >= 0 ? "booking.confirmed" : "booking.adjustment",
+    schema_version: LOYALTY_SCHEMA_VERSION,
     metadata: params.metadata ?? {},
-    occurred_at: nowIso,
+    created_at: nowIso,
   });
 
   if (eventError) {

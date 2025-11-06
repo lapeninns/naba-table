@@ -754,75 +754,97 @@ export async function POST(req: NextRequest) {
     // flip status to confirmed and send the confirmation email.
     if (!reusedExisting && env.featureFlags.autoAssignOnBooking) {
       try {
-        // Timebox overall inline attempt to keep API responsive
-        const timeoutMs = 4000;
-        const deadline = Date.now() + timeoutMs;
+        const { quoteTablesForBooking, atomicConfirmAndTransition } = await import("@/server/capacity/tables");
+        const { CancellableAutoAssign } = await import("@/server/booking/auto-assign/cancellable-auto-assign");
 
-        const { quoteTablesForBooking, confirmHoldAssignment } = await import('@/server/capacity/tables');
+        const inlineTimeoutMs = 4000;
+        const inlineIdempotencyKey = finalBooking.auto_assign_idempotency_key ?? `api-${finalBooking.id}`;
+        const autoAssign = new CancellableAutoAssign(inlineTimeoutMs);
 
-        const quote = await Promise.race([
-          quoteTablesForBooking({
-            bookingId: finalBooking.id,
-            createdBy: 'api-booking',
-            holdTtlSeconds: 120,
-          }),
-          new Promise<symbol>((resolve) => setTimeout(() => resolve(Symbol('timeout_quote')), Math.max(1000, Math.floor(timeoutMs * 0.6)))),
-        ]);
-
-        if (typeof quote === 'symbol') {
-          console.warn('[bookings][POST][inline-auto-assign] quote timed out');
-        }
-
-        if (typeof quote !== 'symbol' && quote && quote.hold) {
-          const confirmResult = await Promise.race([
-            confirmHoldAssignment({
-              holdId: quote.hold.id,
+        await autoAssign.runWithTimeout(
+          async (signal) => {
+            const quote = await quoteTablesForBooking({
               bookingId: finalBooking.id,
-              idempotencyKey: `api-${finalBooking.id}`,
-              assignedBy: null,
-            }),
-            new Promise<symbol>((resolve) => setTimeout(() => resolve(Symbol('timeout_confirm')), Math.max(1000, deadline - Date.now()))),
-          ]);
-
-          if (typeof confirmResult === 'symbol') {
-            console.warn('[bookings][POST][inline-auto-assign] confirm timed out');
-          }
-
-          if (typeof confirmResult !== 'symbol') {
-            const nowIso = new Date().toISOString();
-            const { error: txError } = await supabase.rpc('apply_booking_state_transition', {
-              p_booking_id: finalBooking.id,
-              p_status: 'confirmed',
-              p_checked_in_at: null,
-              p_checked_out_at: null,
-              p_updated_at: nowIso,
-              p_history_from: finalBooking.status,
-              p_history_to: 'confirmed',
-              p_history_changed_by: null,
-              p_history_changed_at: nowIso,
-              p_history_reason: 'api_inline_auto_assign',
-              p_history_metadata: { source: 'api-inline', holdId: quote.hold.id },
+              createdBy: "api-booking",
+              holdTtlSeconds: 120,
+              signal,
             });
-            if (!txError) {
-              const { data: reloaded } = await supabase
-                .from('bookings')
-                .select('*')
-                .eq('id', finalBooking.id)
-                .maybeSingle();
-              if (reloaded) {
-                finalBooking = reloaded as BookingRecord;
-                // Send confirmation email now that we have an assigned table
-                try {
-                  await sendBookingConfirmationEmail(finalBooking);
-                } catch (mailError) {
-                  console.error('[bookings][POST][inline-confirm-email]', mailError);
-                }
+
+            if (!quote?.hold) {
+              console.warn("[bookings][POST][inline-auto-assign] hold not available", {
+                bookingId: finalBooking.id,
+                reason: quote?.reason ?? "NO_HOLD",
+                alternates: quote?.alternates?.length ?? 0,
+              });
+              await recordObservabilityEvent({
+                source: "bookings.inline_auto_assign",
+                eventType: "inline_auto_assign.no_hold",
+                restaurantId,
+                bookingId: finalBooking.id,
+                context: {
+                  reason: quote?.reason ?? "NO_HOLD",
+                  alternates: quote?.alternates?.length ?? 0,
+                },
+                severity: "info",
+              });
+              return;
+            }
+
+            await atomicConfirmAndTransition({
+              bookingId: finalBooking.id,
+              holdId: quote.hold.id,
+              idempotencyKey: inlineIdempotencyKey,
+              assignedBy: null,
+              historyReason: "api_inline_auto_assign",
+              historyMetadata: { source: "api-inline", holdId: quote.hold.id },
+              signal,
+            });
+
+            const { data: reloaded } = await supabase
+              .from("bookings")
+              .select("*")
+              .eq("id", finalBooking.id)
+              .maybeSingle();
+
+            if (reloaded) {
+              finalBooking = reloaded as BookingRecord;
+              try {
+                await sendBookingConfirmationEmail(finalBooking);
+              } catch (mailError) {
+                console.error("[bookings][POST][inline-confirm-email]", mailError);
               }
             }
-          }
-        }
+
+            await recordObservabilityEvent({
+              source: "bookings.inline_auto_assign",
+              eventType: "inline_auto_assign.succeeded",
+              restaurantId,
+              bookingId: finalBooking.id,
+              context: {
+                holdId: quote.hold.id,
+                idempotencyKey: inlineIdempotencyKey,
+              },
+            });
+          },
+          async () => {
+            await recordObservabilityEvent({
+              source: "bookings.inline_auto_assign",
+              eventType: "inline_auto_assign.timeout",
+              restaurantId,
+              bookingId: finalBooking.id,
+              context: {
+                timeoutMs: inlineTimeoutMs,
+              },
+              severity: "warning",
+            });
+          },
+        );
       } catch (inlineError) {
-        console.warn('[bookings][POST][inline-auto-assign] failed', { error: stringifyError(inlineError) });
+        if (inlineError instanceof Error && inlineError.name === "AbortError") {
+          console.warn("[bookings][POST][inline-auto-assign] aborted", { bookingId: finalBooking.id });
+        } else {
+          console.warn("[bookings][POST][inline-auto-assign] failed", { error: stringifyError(inlineError) });
+        }
       }
     }
 

@@ -187,6 +187,14 @@ export function getHoldRateMaxPerBooking(): number {
   return Math.max(1, Math.min(value, 100));
 }
 
+export function isEmailQueueEnabled(): boolean {
+  return env.featureFlags.emailQueueEnabled ?? false;
+}
+
+export function isPolicyRequoteEnabled(): boolean {
+  return env.featureFlags.policyRequoteEnabled ?? true;
+}
+
 // ------------------------------
 // Booking Auto-Assignment
 // ------------------------------

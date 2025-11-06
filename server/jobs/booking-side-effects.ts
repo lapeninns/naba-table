@@ -3,8 +3,14 @@ import { z } from "zod";
 
 import { recordBookingCancelledEvent, recordBookingCreatedEvent } from "@/server/analytics";
 import { sendBookingCancellationEmail, sendBookingConfirmationEmail, sendBookingUpdateEmail } from "@/server/emails/bookings";
-import { getAutoAssignCreatedEmailDeferMinutes, isAutoAssignOnBookingEnabled } from "@/server/feature-flags";
+import {
+  getAutoAssignCreatedEmailDeferMinutes,
+  isAutoAssignOnBookingEnabled,
+  isEmailQueueEnabled,
+} from "@/server/feature-flags";
+import { enqueueEmailJob } from "@/server/queue/email";
 import { getServiceSupabaseClient } from "@/server/supabase";
+
 
 import type { BookingRecord } from "@/server/bookings";
 import type { Tables } from "@/types/supabase";
@@ -80,9 +86,10 @@ const SUPPRESS_EMAILS = process.env.LOAD_TEST_DISABLE_EMAILS === 'true' || proce
 async function processBookingCreatedSideEffects(
   payload: BookingCreatedSideEffectsPayload,
   _supabase?: SupabaseLike,
-) {
+): Promise<boolean> {
   const client = resolveSupabase(_supabase);
   const { booking, idempotencyKey, restaurantId } = payload;
+  let queuedViaQueue = false;
 
   try {
     await recordBookingCreatedEvent(client, {
@@ -105,41 +112,45 @@ async function processBookingCreatedSideEffects(
   }
 
   if (!SUPPRESS_EMAILS && booking.customer_email && booking.customer_email.trim().length > 0) {
-    // Conditional send: if auto-assign is enabled, defer the "request received" email
-    // for up to N minutes. If the booking gets confirmed within the window, the
-    // auto-assign path sends the ticket email and we skip the pending email entirely.
     const deferMinutes = isAutoAssignOnBookingEnabled() ? getAutoAssignCreatedEmailDeferMinutes() : 0;
-    if (deferMinutes > 0 && (booking.status === "pending" || booking.status === "pending_allocation")) {
-      // Best-effort deferred send using a timer and re-check. In serverless environments,
-      // consider moving this to a durable scheduler.
-      const delayMs = Math.max(0, Math.min(deferMinutes, 120)) * 60_000;
-      const bookingId = booking.id;
-      setTimeout(async () => {
-        try {
-          const client = resolveSupabase(_supabase);
-          const { data: latest } = await client
-            .from("bookings")
-            .select("*")
-            .eq("id", bookingId)
-            .maybeSingle();
-          if (!latest) return;
-          // Only send the pending email if still not confirmed
-          if (latest.status === "pending" || latest.status === "pending_allocation") {
-            await sendBookingConfirmationEmail(latest as BookingRecord);
-          }
-        } catch (e) {
-          console.error("[jobs][booking.created][deferred-email]", e);
-        }
-      }, delayMs);
-    } else {
-      // Immediate send (either not deferring or already in a final state)
+    const shouldDefer =
+      deferMinutes > 0 && (booking.status === "pending" || booking.status === "pending_allocation");
+    const delayMs = shouldDefer ? Math.max(0, Math.min(deferMinutes, 120)) * 60_000 : 0;
+
+    if (isEmailQueueEnabled()) {
       try {
+        await enqueueEmailJob(
+          {
+            bookingId: booking.id,
+            restaurantId,
+            type: "request_received",
+            scheduledFor: delayMs > 0 ? new Date(Date.now() + delayMs).toISOString() : null,
+          },
+          {
+            jobId: `request_received:${booking.id}`,
+            delayMs,
+          },
+        );
+        queuedViaQueue = true;
+      } catch (error) {
+        console.error("[jobs][booking.created][queue]", error);
+        try {
+          await sendBookingConfirmationEmail(booking as BookingRecord);
+        } catch (fallbackError) {
+          console.error("[jobs][booking.created][email-fallback]", fallbackError);
+        }
+      }
+    } else {
+      try {
+        // Queue disabled → send immediately (without deferral) to avoid timer-based loss.
         await sendBookingConfirmationEmail(booking as BookingRecord);
       } catch (error) {
         console.error("[jobs][booking.created][email]", error);
       }
     }
   }
+
+  return queuedViaQueue;
 }
 
 async function processBookingUpdatedSideEffects(
@@ -189,8 +200,8 @@ export async function enqueueBookingCreatedSideEffects(
   payload: BookingCreatedSideEffectsPayload,
   options?: { supabase?: SupabaseLike },
 ) {
-  await processBookingCreatedSideEffects(payload, options?.supabase);
-  return { queued: false } as const;
+  const queued = await processBookingCreatedSideEffects(payload, options?.supabase);
+  return { queued } as const;
 }
 
 export async function enqueueBookingUpdatedSideEffects(

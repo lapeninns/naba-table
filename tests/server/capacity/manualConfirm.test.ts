@@ -9,14 +9,19 @@ vi.hoisted(() => {
   return {};
 });
 
-import { AssignTablesRpcError } from "@/server/capacity/holds";
+import * as HoldsModule from "@/server/capacity/holds";
+import { getVenuePolicy } from "@/server/capacity/policy";
 import { AssignmentConflictError, SupabaseAssignmentRepository } from "@/server/capacity/v2";
+import { computePayloadChecksum, hashPolicyVersion } from "@/server/capacity/v2";
+
+const { AssignTablesRpcError } = HoldsModule;
 
 const emitHoldCreated = vi.fn();
 const emitHoldConfirmed = vi.fn();
 const emitRpcConflict = vi.fn();
 const emitSelectorDecision = vi.fn();
 const emitSelectorQuote = vi.fn();
+const enqueueOutboxEvent = vi.fn();
 
 vi.mock("@/server/capacity/telemetry", () => ({
   emitHoldCreated,
@@ -28,9 +33,33 @@ vi.mock("@/server/capacity/telemetry", () => ({
   emitHoldExpired: vi.fn(),
 }));
 
+vi.mock("@/server/outbox", () => ({
+  enqueueOutboxEvent,
+}));
+
 const BOOKING_ID = "booking-1";
 const HOLD_ID = "hold-1";
 const TABLE_ID = "table-a";
+
+const DEFAULT_POLICY_HASH = hashPolicyVersion(getVenuePolicy({ timezone: "Europe/London" }));
+const DEFAULT_SELECTION_SNAPSHOT = {
+  zoneIds: ["zone-1"],
+  adjacency: {
+    undirected: true,
+    edges: [] as string[],
+    hash: computePayloadChecksum({ undirected: true, edges: [] as string[] }),
+  },
+};
+const DEFAULT_HOLD_METADATA = {
+  policyVersion: DEFAULT_POLICY_HASH,
+  selection: {
+    snapshot: DEFAULT_SELECTION_SNAPSHOT,
+  },
+};
+
+function cloneDefaultHoldMetadata(): Record<string, unknown> {
+  return JSON.parse(JSON.stringify(DEFAULT_HOLD_METADATA));
+}
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 type TablesModule = typeof import("@/server/capacity/tables");
@@ -78,6 +107,7 @@ type SupabaseOverride = {
     end_at: string;
     expires_at: string;
     table_hold_members: Array<{ table_id: string }>;
+    metadata: Record<string, unknown>;
   }>;
   booking?: Partial<{
     id: string;
@@ -110,6 +140,7 @@ function createSupabaseClient(overrides?: SupabaseOverride) {
     end_at: "2025-01-01T20:00:00.000Z",
     expires_at: "2025-01-01T18:05:00.000Z",
     table_hold_members: [{ table_id: TABLE_ID }],
+    metadata: cloneDefaultHoldMetadata(),
   };
   const holdRow = { ...baseHoldRow, ...(overrides?.hold ?? {}) };
 
@@ -151,7 +182,8 @@ function createSupabaseClient(overrides?: SupabaseOverride) {
 
   return {
     from(table: string) {
-      switch (table) {
+      const normalizedTable = table.trim();
+      switch (normalizedTable) {
         case "table_holds":
           return {
             select() {
@@ -171,6 +203,67 @@ function createSupabaseClient(overrides?: SupabaseOverride) {
               };
             },
           };
+        case "table_inventory":
+          return {
+            select() {
+              return {
+                eq(eqColumn: string, eqValue: unknown) {
+                  if (eqColumn !== "restaurant_id" || eqValue !== holdRow.restaurant_id) {
+                    return {
+                      in() {
+                        return Promise.resolve({ data: [], error: null });
+                      },
+                    };
+                  }
+                  return {
+                    in(_: string, ids: unknown) {
+                      const idList = Array.isArray(ids) ? ids : [];
+                      const rows = idList.map((id) => ({
+                        id,
+                        table_number: "T1",
+                        capacity: 4,
+                        min_party_size: null,
+                        max_party_size: null,
+                        section: null,
+                        category: null,
+                        seating_type: null,
+                        mobility: null,
+                        zone_id: holdRow.zone_id ?? "zone-1",
+                        status: "available",
+                        active: true,
+                        position: null,
+                      }));
+                      return Promise.resolve({ data: rows, error: null });
+                    },
+                  };
+                },
+              };
+            },
+          };
+        case "table_adjacencies":
+          return {
+            select() {
+              const builder = {
+                eq() {
+                  return builder;
+                },
+                in() {
+                  return Promise.resolve({ data: [], error: null });
+                },
+              };
+              return builder;
+            },
+          };
+        case "table_hold_members":
+          return {
+            delete() {
+              return {
+                eq() {
+                  return Promise.resolve({ data: null, error: null });
+                },
+              };
+            },
+          };
         case "booking_table_assignments":
           return {
             select() {
@@ -185,7 +278,18 @@ function createSupabaseClient(overrides?: SupabaseOverride) {
         case "allocations":
           return allocationUpdateRecorder;
         case "booking_assignment_idempotency":
-          return ledgerUpdateRecorder;
+          return {
+            select() {
+              const builder = {
+                eq() {
+                  return builder;
+                },
+                maybeSingle: async () => ({ data: null, error: null }),
+              };
+              return builder;
+            },
+            update: ledgerUpdateRecorder.update,
+          };
         case "bookings":
           return {
             select() {
@@ -203,29 +307,55 @@ function createSupabaseClient(overrides?: SupabaseOverride) {
       }
     },
     rpc(name: string, payload: Record<string, unknown>) {
-      if (name !== "assign_tables_atomic_v2") {
-        throw new Error(`Unexpected RPC ${name}`);
+      if (name === "assign_tables_atomic_v2") {
+        return Promise.resolve({
+          data: [
+            {
+              table_id: TABLE_ID,
+              start_at: payload.p_start_at,
+              end_at: payload.p_end_at,
+              merge_group_id: null,
+            },
+          ],
+          error: null,
+        });
       }
-      return Promise.resolve({
-        data: [
-          {
-            table_id: TABLE_ID,
-            start_at: payload.p_start_at,
-            end_at: payload.p_end_at,
-            merge_group_id: null,
-          },
-        ],
-        error: null,
-      });
+      if (name === "set_hold_conflict_enforcement") {
+        return Promise.resolve({ data: true, error: null });
+      }
+      if (name === "is_holds_strict_conflicts_enabled") {
+        return Promise.resolve({ data: true, error: null });
+      }
+      if (name === "confirm_hold_assignment_with_transition") {
+        return Promise.resolve({
+          data: [
+            {
+              table_id: TABLE_ID,
+              start_at: payload.p_start_at,
+              end_at: payload.p_end_at,
+              merge_group_id: null,
+            },
+          ],
+          error: null,
+        });
+      }
+      throw new Error(`Unexpected RPC ${name}`);
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as unknown as any;
 }
 
 describe('confirmHoldAssignment', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-  });
+beforeEach(() => {
+  vi.restoreAllMocks();
+  emitHoldCreated.mockReset();
+  emitHoldConfirmed.mockReset();
+  emitRpcConflict.mockReset();
+  emitSelectorDecision.mockReset();
+  emitSelectorQuote.mockReset();
+  enqueueOutboxEvent.mockReset();
+  vi.spyOn(HoldsModule, 'releaseTableHold').mockResolvedValue();
+});
 
   it('returns assignments for first confirmation and rejects subsequent attempts', async () => {
     const repoSpy = vi
@@ -269,6 +399,26 @@ describe('confirmHoldAssignment', () => {
         client,
       }),
     ).rejects.toBeInstanceOf(AssignTablesRpcError);
+  });
+
+  it('rejects holds without snapshot metadata', async () => {
+    const client = createSupabaseClient({
+      hold: {
+        metadata: {
+          policyVersion: "policy-1",
+          selection: {},
+        },
+      },
+    });
+
+    await expect(
+      confirmHoldAssignment({
+        holdId: HOLD_ID,
+        bookingId: BOOKING_ID,
+        idempotencyKey: 'missing-metadata',
+        client,
+      }),
+    ).rejects.toMatchObject({ code: "HOLD_METADATA_INCOMPLETE" });
   });
 
   it('invokes the allocator repository when confirming', async () => {
@@ -328,6 +478,7 @@ describe('confirmHoldAssignment', () => {
       end_at: '2025-01-01T23:00:00.000Z',
       expires_at: '2025-01-01T18:05:00.000Z',
       table_hold_members: [{ table_id: TABLE_ID }],
+      metadata: cloneDefaultHoldMetadata(),
     };
 
     const bookingRow = {
@@ -350,19 +501,87 @@ describe('confirmHoldAssignment', () => {
 
     const client = {
       from(table: string) {
-        switch (table) {
-          case 'table_holds':
+        const normalizedTable = table.trim();
+        if (normalizedTable === 'table_hold_members') {
+          return {
+            delete() {
+              return {
+                eq() {
+                  return Promise.resolve({ data: null, error: null });
+                },
+              };
+            },
+          };
+        }
+        switch (normalizedTable) {
+      case 'table_holds':
+        return {
+          select() {
             return {
-              select() {
-                return {
-                  eq() {
+              eq() {
                     return {
                       maybeSingle: async () => ({ data: holdRow, error: null }),
                     };
-                  },
-                };
               },
             };
+          },
+        };
+      case 'table_inventory': {
+        const baseTable = {
+          id: TABLE_ID,
+          table_number: "T1",
+          capacity: 4,
+          min_party_size: null,
+          max_party_size: null,
+          section: null,
+          category: null,
+          seating_type: null,
+          mobility: null,
+          zone_id: holdRow.zone_id ?? "zone-1",
+          status: "available",
+          active: true,
+          position: null,
+        };
+          return {
+            select() {
+              return {
+                eq(eqColumn: string, eqValue: unknown) {
+                  if (eqColumn !== "restaurant_id" || eqValue !== holdRow.restaurant_id) {
+                    return {
+                      in() {
+                        return Promise.resolve({ data: [], error: null });
+                      },
+                    };
+                  }
+                  return {
+                    in(_: string, ids: unknown) {
+                      const idList = Array.isArray(ids) ? ids : [];
+                      const rows = idList.map((id) => ({
+                        ...baseTable,
+                        id,
+                      }));
+                      return Promise.resolve({ data: rows, error: null });
+                    },
+                  };
+                },
+              };
+            },
+          };
+        }
+        case 'table_adjacencies':
+          return {
+            select() {
+              const builder = {
+                eq() {
+                  return builder;
+                },
+                in() {
+                  return Promise.resolve({ data: [], error: null });
+                },
+              };
+              return builder;
+            },
+          };
           case 'booking_table_assignments':
             return {
               select() {
@@ -389,10 +608,56 @@ describe('confirmHoldAssignment', () => {
           case 'allocations':
             return createUpdateRecorder(allocationUpdateCalls);
           case 'booking_assignment_idempotency':
-            return createUpdateRecorder(ledgerUpdateCalls);
+            return {
+              select() {
+                const builder = {
+                  eq() {
+                    return builder;
+                  },
+                  maybeSingle: async () => ({ data: null, error: null }),
+                };
+                return builder;
+              },
+              update: createUpdateRecorder(ledgerUpdateCalls).update,
+            };
           default:
             throw new Error(`Unexpected table ${table}`);
         }
+      },
+      rpc(name: string, payload: Record<string, unknown>) {
+        if (name === 'assign_tables_atomic_v2') {
+          return Promise.resolve({
+            data: [
+              {
+                table_id: TABLE_ID,
+                start_at: payload.p_start_at,
+                end_at: payload.p_end_at,
+                merge_group_id: null,
+              },
+            ],
+            error: null,
+          });
+        }
+        if (name === 'set_hold_conflict_enforcement') {
+          return Promise.resolve({ data: true, error: null });
+        }
+        if (name === 'is_holds_strict_conflicts_enabled') {
+          return Promise.resolve({ data: true, error: null });
+        }
+        if (name === 'confirm_hold_assignment_with_transition') {
+          return Promise.resolve({
+            data: [
+              {
+                table_id: TABLE_ID,
+                start_at: payload.p_start_at,
+                end_at: payload.p_end_at,
+                merge_group_id: null,
+              },
+            ],
+            error: null,
+          });
+        }
+        throw new Error(`Unexpected RPC ${name}`);
       },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as unknown as any;
@@ -414,19 +679,32 @@ describe('confirmHoldAssignment', () => {
     expect(allocationUpdateCalls).toHaveLength(1);
     expect(allocationUpdateCalls[0]?.payload).toEqual({ window: '[2025-01-01T18:00:00Z,2025-01-01T19:20:00Z)' });
     expect(ledgerUpdateCalls).toHaveLength(1);
-    expect(ledgerUpdateCalls[0]?.payload).toEqual({
-      assignment_window: '[2025-01-01T18:00:00Z,2025-01-01T19:20:00Z)',
-      merge_group_allocation_id: null,
-    });
-    const telemetryPayload = emitHoldConfirmed.mock.calls.at(-1)?.[0];
-    expect(telemetryPayload).toBeDefined();
-    expect(telemetryPayload).toMatchObject({
+    expect(ledgerUpdateCalls[0]?.payload).toEqual(
+      expect.objectContaining({
+        assignment_window: '[2025-01-01T18:00:00Z,2025-01-01T19:20:00Z)',
+        merge_group_allocation_id: null,
+        payload_checksum: expect.any(String),
+      }),
+    );
+
+    const holdConfirmedCall = enqueueOutboxEvent.mock.calls.find(
+      ([args]) => args.eventType === 'capacity.hold.confirmed',
+    );
+    expect(holdConfirmedCall).toBeDefined();
+    expect(holdConfirmedCall?.[0]?.payload).toMatchObject({
       holdId: HOLD_ID,
+      bookingId: BOOKING_ID,
+      zoneId: 'zone-1',
+      tableIds: [TABLE_ID],
       startAt: '2025-01-01T18:00:00Z',
       endAt: '2025-01-01T19:20:00Z',
-      zoneId: 'zone-1',
+      metadata: null,
     });
-    expect(telemetryPayload?.metadata ?? undefined).toBeUndefined();
+
+    const assignmentSyncCall = enqueueOutboxEvent.mock.calls.find(
+      ([args]) => args.eventType === 'capacity.assignment.sync',
+    );
+    expect(assignmentSyncCall).toBeDefined();
   });
 
   it('flags telemetry metadata when hold zone is missing', async () => {
@@ -457,13 +735,19 @@ describe('confirmHoldAssignment', () => {
     });
 
     expect(repoSpy).toHaveBeenCalledTimes(1);
-    const telemetryPayload = emitHoldConfirmed.mock.calls.at(-1)?.[0];
-    expect(telemetryPayload).toBeDefined();
-    expect(telemetryPayload).toMatchObject({
+    const holdConfirmedCall = enqueueOutboxEvent.mock.calls.find(
+      ([args]) => args.eventType === 'capacity.hold.confirmed',
+    );
+    expect(holdConfirmedCall).toBeDefined();
+    expect(holdConfirmedCall?.[0]?.payload).toMatchObject({
       holdId: HOLD_ID,
       zoneId: '',
+      metadata: { unknownZone: true },
     });
-    expect(telemetryPayload?.metadata).toEqual({ unknownZone: true });
+    const assignmentSyncCall = enqueueOutboxEvent.mock.calls.find(
+      ([args]) => args.eventType === 'capacity.assignment.sync',
+    );
+    expect(assignmentSyncCall).toBeDefined();
   });
 
   it('emits conflict and rejects when hold booking mismatches', async () => {

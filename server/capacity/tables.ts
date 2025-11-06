@@ -22,7 +22,9 @@ import {
   getSelectorLookaheadPenaltyWeight,
   getSelectorLookaheadBlockThreshold,
   getContextQueryPaddingMinutes,
+  isPolicyRequoteEnabled,
 } from "@/server/feature-flags";
+import { recordObservabilityEvent } from "@/server/observability";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
 import { resolveDemandMultiplier, type DemandMultiplierResult } from "./demand-profiles";
@@ -83,7 +85,7 @@ import {
   normalizeTableIds,
 } from "./v2";
 
-import type { Database, Tables } from "@/types/supabase";
+import type { Database, Tables, Json } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type DbClient = SupabaseClient<Database, "public">;
@@ -96,6 +98,62 @@ const TABLE_INVENTORY_SELECT =
 type TableHoldRow = Tables<"table_holds"> & {
   table_hold_members: Array<{ table_id: string | null }> | null;
 };
+
+function findMissingHoldMetadataFields(holdRow: TableHoldRow): string[] {
+  const missing: string[] = [];
+  const rawMetadata = (holdRow as { metadata?: unknown }).metadata;
+
+  if (!rawMetadata || typeof rawMetadata !== "object") {
+    return ["metadata"];
+  }
+
+  const metadata = rawMetadata as Record<string, unknown>;
+  if (typeof metadata.policyVersion !== "string" || metadata.policyVersion.trim().length === 0) {
+    missing.push("metadata.policyVersion");
+  }
+
+  const selection = metadata.selection as Record<string, unknown> | undefined;
+  if (!selection || typeof selection !== "object") {
+    missing.push("metadata.selection");
+    return missing;
+  }
+
+  const snapshot = selection.snapshot as Record<string, unknown> | undefined;
+  if (!snapshot || typeof snapshot !== "object") {
+    missing.push("metadata.selection.snapshot");
+    return missing;
+  }
+
+  const zoneIds = snapshot.zoneIds;
+  if (!Array.isArray(zoneIds) || zoneIds.length === 0 || zoneIds.some((zone) => typeof zone !== "string" || zone.trim().length === 0)) {
+    missing.push("metadata.selection.snapshot.zoneIds");
+  }
+
+  const adjacency = snapshot.adjacency as Record<string, unknown> | undefined;
+  if (!adjacency || typeof adjacency !== "object") {
+    missing.push("metadata.selection.snapshot.adjacency");
+    return missing;
+  }
+
+  const edges = adjacency.edges;
+  if (!Array.isArray(edges) || edges.some((edge) => typeof edge !== "string")) {
+    missing.push("metadata.selection.snapshot.adjacency.edges");
+  }
+
+  const hash = adjacency.hash;
+  if (typeof hash !== "string" || hash.trim().length === 0) {
+    missing.push("metadata.selection.snapshot.adjacency.hash");
+  }
+
+  return missing;
+}
+
+function applyAbortSignal<T extends { abortSignal?: (signal: AbortSignal) => T }>(builder: T, signal?: AbortSignal): T {
+  if (signal && typeof builder.abortSignal === "function") {
+    return builder.abortSignal(signal);
+  }
+  return builder;
+}
 
 
 type AssignmentAvailabilityRow = {
@@ -216,6 +274,7 @@ export type QuoteTablesOptions = {
   holdTtlSeconds?: number;
   createdBy: string;
   client?: DbClient;
+  signal?: AbortSignal;
 };
 
 export type QuoteTablesResult = {
@@ -1264,26 +1323,30 @@ export function evaluateLookahead(params: {
   };
 }
 
-async function loadBooking(bookingId: string, client: DbClient): Promise<BookingRow> {
-  const { data, error } = await client
-    .from("bookings")
-    .select(
-      [
-        "id",
-        "restaurant_id",
-        "booking_date",
-        "start_time",
-        "end_time",
-        "start_at",
-        "end_at",
-        "party_size",
-        "status",
-        "seating_preference",
-        "restaurants(timezone)",
-      ].join(","),
-    )
-    .eq("id", bookingId)
-    .maybeSingle();
+async function loadBooking(bookingId: string, client: DbClient, signal?: AbortSignal): Promise<BookingRow> {
+  const bookingQuery = applyAbortSignal(
+    client
+      .from("bookings")
+      .select(
+        [
+          "id",
+          "restaurant_id",
+          "booking_date",
+          "start_time",
+          "end_time",
+          "start_at",
+          "end_at",
+          "party_size",
+          "status",
+          "seating_preference",
+          "restaurants(timezone)",
+        ].join(","),
+      )
+      .eq("id", bookingId),
+    signal,
+  );
+
+  const { data, error } = await bookingQuery.maybeSingle();
 
   if (error) {
     throw new ManualSelectionInputError(error.message ?? "Failed to load booking", "BOOKING_LOOKUP_FAILED", 500);
@@ -1301,12 +1364,13 @@ type RestaurantInfo = {
   slug: string | null;
 };
 
-async function loadRestaurantInfo(restaurantId: string, client: DbClient): Promise<RestaurantInfo> {
-  const { data, error } = await client
-    .from("restaurants")
-    .select("timezone, slug")
-    .eq("id", restaurantId)
-    .maybeSingle();
+async function loadRestaurantInfo(restaurantId: string, client: DbClient, signal?: AbortSignal): Promise<RestaurantInfo> {
+  const restaurantQuery = applyAbortSignal(
+    client.from("restaurants").select("timezone, slug").eq("id", restaurantId),
+    signal,
+  );
+
+  const { data, error } = await restaurantQuery.maybeSingle();
 
   if (error) {
     throw new ManualSelectionInputError(error.message ?? "Failed to load restaurant metadata", "RESTAURANT_LOOKUP_FAILED", 500);
@@ -1318,12 +1382,12 @@ async function loadRestaurantInfo(restaurantId: string, client: DbClient): Promi
   };
 }
 
-async function loadRestaurantTimezone(restaurantId: string, client: DbClient): Promise<string | null> {
-  const info = await loadRestaurantInfo(restaurantId, client);
+async function loadRestaurantTimezone(restaurantId: string, client: DbClient, signal?: AbortSignal): Promise<string | null> {
+  const info = await loadRestaurantInfo(restaurantId, client, signal);
   return info.timezone;
 }
 
-async function loadTablesForRestaurant(restaurantId: string, client: DbClient): Promise<Table[]> {
+async function loadTablesForRestaurant(restaurantId: string, client: DbClient, signal?: AbortSignal): Promise<Table[]> {
   // Try cache first
   try {
     const { getInventoryCache } = await import("@/server/capacity/cache");
@@ -1335,11 +1399,16 @@ async function loadTablesForRestaurant(restaurantId: string, client: DbClient): 
     // no-op on cache errors
   }
 
-  const { data, error } = await client
-    .from("table_inventory")
-    .select<typeof TABLE_INVENTORY_SELECT, TableInventoryRow>(TABLE_INVENTORY_SELECT)
-    .eq("restaurant_id", restaurantId)
-    .order("table_number", { ascending: true });
+  const tableQuery = applyAbortSignal(
+    client
+      .from("table_inventory")
+      .select<typeof TABLE_INVENTORY_SELECT, TableInventoryRow>(TABLE_INVENTORY_SELECT)
+      .eq("restaurant_id", restaurantId)
+      .order("table_number", { ascending: true }),
+    signal,
+  );
+
+  const { data, error } = await tableQuery;
 
   if (error || !data) {
     return [];
@@ -1377,17 +1446,23 @@ async function loadTablesByIds(
   restaurantId: string,
   tableIds: string[],
   client: DbClient,
+  signal?: AbortSignal,
 ): Promise<Table[]> {
   if (tableIds.length === 0) {
     return [];
   }
 
   const uniqueIds = Array.from(new Set(tableIds));
-  const { data, error } = await client
-    .from("table_inventory")
-    .select<typeof TABLE_INVENTORY_SELECT, TableInventoryRow>(TABLE_INVENTORY_SELECT)
-    .eq("restaurant_id", restaurantId)
-    .in("id", uniqueIds);
+  const tableQuery = applyAbortSignal(
+    client
+      .from("table_inventory")
+      .select<typeof TABLE_INVENTORY_SELECT, TableInventoryRow>(TABLE_INVENTORY_SELECT)
+      .eq("restaurant_id", restaurantId)
+      .in("id", uniqueIds),
+    signal,
+  );
+
+  const { data, error } = await tableQuery;
 
   if (error || !data) {
     return [];
@@ -1429,6 +1504,7 @@ async function loadAdjacency(
   restaurantId: string,
   tableIds: string[],
   client: DbClient,
+  signal?: AbortSignal,
 ): Promise<Map<string, Set<string>>> {
   const uniqueTableIds = Array.from(
     new Set(
@@ -1458,7 +1534,7 @@ async function loadAdjacency(
   const needFetch = !cachedGraph || missing.length > 0;
 
   type AdjacencyRow = { table_a: string | null; table_b: string | null };
-  const baseQuery = () => client.from("table_adjacencies").select("table_a, table_b");
+  const baseQuery = () => applyAbortSignal(client.from("table_adjacencies").select("table_a, table_b"), signal);
   const adjacencyUndirected = isAdjacencyQueryUndirected();
   const targetIds = needFetch && cachedGraph ? missing : uniqueTableIds;
   const forward = await baseQuery().in("table_a", targetIds);
@@ -1558,6 +1634,7 @@ async function loadContextBookings(
   bookingDate: string | null,
   client: DbClient,
   aroundWindow?: { startIso: string; endIso: string; paddingMinutes?: number },
+  signal?: AbortSignal,
 ): Promise<ContextBookingRow[]> {
   if (!bookingDate) {
     return [];
@@ -1571,7 +1648,7 @@ async function loadContextBookings(
   const startPad = startIso ? DateTime.fromISO(startIso, { setZone: true }).minus({ milliseconds: padMs }).toISO() : null;
   const endPad = endIso ? DateTime.fromISO(endIso, { setZone: true }).plus({ milliseconds: padMs }).toISO() : null;
 
-  const query = client
+  let query = client
     .from("bookings")
     .select(
       [
@@ -1590,6 +1667,8 @@ async function loadContextBookings(
     .eq("booking_date", bookingDate)
     .in("status", [...BOOKING_BLOCKING_STATUSES])
     .order("start_at", { ascending: true });
+
+  query = applyAbortSignal(query, signal);
 
   const hasGt = typeof (query as unknown as { gt?: unknown }).gt === "function";
   const hasLt = typeof (query as unknown as { lt?: unknown }).lt === "function";
@@ -2373,6 +2452,7 @@ async function loadActiveHoldsForDate(
   bookingDate: string | null,
   policy: VenuePolicy,
   client: DbClient,
+  signal?: AbortSignal,
 ): Promise<TableHold[]> {
   if (!bookingDate) {
     return [];
@@ -2387,13 +2467,18 @@ async function loadActiveHoldsForDate(
   const dayEnd = toIsoUtc(day.plus({ days: 1 }).startOf("day"));
   const now = toIsoUtc(DateTime.now());
 
-  const { data, error } = await client
-    .from("table_holds")
-    .select("*, table_hold_members(table_id)")
-    .eq("restaurant_id", restaurantId)
-    .gt("expires_at", now)
-    .lt("start_at", dayEnd)
-    .gt("end_at", dayStart);
+  const holdsQuery = applyAbortSignal(
+    client
+      .from("table_holds")
+      .select("*, table_hold_members(table_id)")
+      .eq("restaurant_id", restaurantId)
+      .gt("expires_at", now)
+      .lt("start_at", dayEnd)
+      .gt("end_at", dayStart),
+    signal,
+  );
+
+  const { data, error } = await holdsQuery;
 
   if (error || !data) {
     throw error ?? new Error("Failed to load holds");
@@ -2590,14 +2675,25 @@ async function synchronizeAssignments(params: AssignmentSyncParams): Promise<Tab
   return result;
 }
 
-export async function confirmHoldAssignment(options: {
+type ConfirmHoldTransition = {
+  targetStatus: Tables<"bookings">["status"];
+  historyReason: string;
+  historyMetadata?: Json;
+  historyChangedBy?: string | null;
+};
+
+type ConfirmHoldAssignmentOptions = {
   holdId: string;
   bookingId: string;
-  idempotencyKey: string;
+  idempotencyKey?: string;
   requireAdjacency?: boolean;
   assignedBy?: string | null;
   client?: DbClient;
-}): Promise<TableAssignmentMember[]> {
+  signal?: AbortSignal;
+  transition?: ConfirmHoldTransition;
+};
+
+export async function confirmHoldAssignment(options: ConfirmHoldAssignmentOptions): Promise<TableAssignmentMember[]> {
   if (!isAllocatorV2Enabled()) {
     throw new AssignTablesRpcError({
       message: "Allocator v2 must be enabled to confirm holds",
@@ -2607,17 +2703,26 @@ export async function confirmHoldAssignment(options: {
     });
   }
 
-  const { holdId, bookingId, requireAdjacency: requireAdjacencyOverride, assignedBy = null, client } = options;
+  const {
+    holdId,
+    bookingId,
+    idempotencyKey: providedIdempotencyKey,
+    requireAdjacency: requireAdjacencyOverride,
+    assignedBy = null,
+    client,
+    signal,
+    transition,
+  } = options;
   const supabase = ensureClient(client);
 
-  const {
-    data: holdRow,
-    error: holdError,
-  } = await supabase
-    .from("table_holds")
-    .select("restaurant_id, zone_id, booking_id, metadata, table_hold_members(table_id)")
-    .eq("id", holdId)
-    .maybeSingle();
+  const holdQuery = applyAbortSignal(
+    supabase
+      .from("table_holds")
+      .select("restaurant_id, zone_id, booking_id, metadata, table_hold_members(table_id)")
+      .eq("id", holdId),
+    signal,
+  );
+  const { data: holdRow, error: holdError } = await holdQuery.maybeSingle();
 
   if (holdError) {
     throw new HoldNotFoundError(holdError.message ?? "Failed to load table hold");
@@ -2625,6 +2730,28 @@ export async function confirmHoldAssignment(options: {
 
   if (!holdRow) {
     throw new HoldNotFoundError();
+  }
+
+  const missingMetadataFields = findMissingHoldMetadataFields(holdRow as TableHoldRow);
+  if (missingMetadataFields.length > 0) {
+    await recordObservabilityEvent({
+      source: "capacity.confirm",
+      eventType: "holds.metadata.invalid",
+      severity: "warning",
+      restaurantId: holdRow.restaurant_id ?? undefined,
+      bookingId,
+      context: {
+        holdId,
+        missingFields: missingMetadataFields,
+      },
+    });
+
+    throw new AssignTablesRpcError({
+      message: "Hold metadata incomplete; regenerate hold before confirming",
+      code: "HOLD_METADATA_INCOMPLETE",
+      details: serializeDetails({ missingFields: missingMetadataFields }),
+      hint: "Re-create hold to capture latest selection snapshot.",
+    });
   }
 
   const tableIds = Array.isArray(holdRow.table_hold_members)
@@ -2704,11 +2831,11 @@ export async function confirmHoldAssignment(options: {
     } 
   })?.metadata?.selection?.snapshot ?? null);
   if (selectionSnapshot) {
-    const currentTables = await loadTablesByIds(booking.restaurant_id, normalizedTableIds, supabase);
+    const currentTables = await loadTablesByIds(booking.restaurant_id, normalizedTableIds, supabase, signal);
     const currentZoneIds = Array.from(new Set(currentTables.map((t) => t.zoneId))).filter(Boolean) as string[];
     const zonesMatch = JSON.stringify([...currentZoneIds].sort()) === JSON.stringify([...(selectionSnapshot.zoneIds ?? [])].sort());
 
-    const currentAdjacency = await loadAdjacency(booking.restaurant_id, normalizedTableIds, supabase);
+    const currentAdjacency = await loadAdjacency(booking.restaurant_id, normalizedTableIds, supabase, signal);
     const undirected = Boolean(selectionSnapshot.adjacency?.undirected);
     const edgeSet = new Set<string>();
     for (const a of normalizedTableIds) {
@@ -2762,12 +2889,15 @@ export async function confirmHoldAssignment(options: {
   });
   // Optional: pre-check for mismatched payloads for same key (legacy-compatible)
   try {
-    const { data: existing } = await supabase
-      .from("booking_assignment_idempotency")
-      .select("idempotency_key, booking_id, table_ids, assignment_window")
-      .eq("booking_id", bookingId)
-      .eq("idempotency_key", deterministicKey)
-      .maybeSingle();
+    const ledgerLookup = applyAbortSignal(
+      supabase
+        .from("booking_assignment_idempotency")
+        .select("idempotency_key, booking_id, table_ids, assignment_window")
+        .eq("booking_id", bookingId)
+        .eq("idempotency_key", deterministicKey),
+      signal,
+    );
+    const { data: existing } = await ledgerLookup.maybeSingle();
     if (existing && typeof existing === "object") {
       const existingTyped = existing as { table_ids?: unknown };
       const sameTables = Array.isArray(existingTyped.table_ids)
@@ -2786,71 +2916,130 @@ export async function confirmHoldAssignment(options: {
     // ignore lookup errors
   }
 
-  const orchestrator = new AssignmentOrchestrator(new SupabaseAssignmentRepository(supabase));
-  let response;
-  try {
-    response = await orchestrator.commitPlan(
-      {
-        bookingId,
-        restaurantId: booking.restaurant_id,
-        partySize: booking.party_size,
-        zoneId: holdRow.zone_id,
-        serviceDate: booking.booking_date ?? null,
-        window: {
+  const effectiveIdempotencyKey = providedIdempotencyKey ?? deterministicKey;
+
+  let assignmentPayload: Array<{ tableId: string; startAt: string; endAt: string; mergeGroupId: string | null }> = [];
+  let mergeGroupId: string | null = null;
+
+  if (transition) {
+    const rpcArgs = {
+      p_booking_id: bookingId,
+      p_table_ids: normalizedTableIds,
+      p_idempotency_key: effectiveIdempotencyKey,
+      p_require_adjacency: requireAdjacency,
+      p_assigned_by: assignedBy ?? undefined,
+      p_start_at: startIso,
+      p_end_at: endIso,
+      p_target_status: transition.targetStatus,
+      p_history_changed_by: transition.historyChangedBy ?? undefined,
+      p_history_reason: transition.historyReason,
+      p_history_metadata: transition.historyMetadata ?? {},
+    };
+
+    const rpcCall = applyAbortSignal(supabase.rpc("confirm_hold_assignment_with_transition", rpcArgs), signal);
+    const { data: rpcData, error: rpcError } = await rpcCall;
+
+    if (rpcError) {
+      throw new AssignTablesRpcError({
+        message: rpcError.message ?? "confirm_hold_assignment_with_transition failed",
+        code: rpcError.code ?? "RPC_EXECUTION_FAILED",
+        details: serializeDetails(rpcError.details ?? null),
+        hint: rpcError.hint ?? null,
+      });
+    }
+
+    const rows = Array.isArray(rpcData) ? rpcData : [];
+    if (rows.length === 0) {
+      throw new AssignTablesRpcError({
+        message: "Atomic confirm returned no assignments",
+        code: "ASSIGNMENT_EMPTY",
+        details: null,
+        hint: null,
+      });
+    }
+
+    assignmentPayload = rows.map((row) => ({
+      tableId: row.table_id,
+      startAt: row.start_at,
+      endAt: row.end_at,
+      mergeGroupId: row.merge_group_id ?? null,
+    }));
+    mergeGroupId = assignmentPayload[0]?.mergeGroupId ?? null;
+  } else {
+    const orchestrator = new AssignmentOrchestrator(new SupabaseAssignmentRepository(supabase));
+    let response;
+    try {
+      response = await orchestrator.commitPlan(
+        {
+          bookingId,
+          restaurantId: booking.restaurant_id,
+          partySize: booking.party_size,
+          zoneId: holdRow.zone_id,
+          serviceDate: booking.booking_date ?? null,
+          window: {
+            startAt: startIso,
+            endAt: endIso,
+          },
+          holdId,
+        },
+        {
+          signature: planSignature,
+          tableIds: normalizedTableIds,
           startAt: startIso,
           endAt: endIso,
+          metadata: {
+            holdId,
+          },
         },
-        holdId,
-      },
-      {
-        signature: planSignature,
-        tableIds: normalizedTableIds,
-        startAt: startIso,
-        endAt: endIso,
-        metadata: {
-          holdId,
-        },
-      },
-      {
-        source: "manual",
-        idempotencyKey: deterministicKey,
-        actorId: assignedBy,
-        metadata: {
+        {
+          source: "manual",
+          idempotencyKey: effectiveIdempotencyKey,
+          actorId: assignedBy,
+          metadata: {
+            requireAdjacency,
+            holdId,
+          },
           requireAdjacency,
-          holdId,
         },
-        requireAdjacency,
-      },
-    );
-  } catch (error) {
-    if (error instanceof AssignmentConflictError) {
-      throw new AssignTablesRpcError({
-        message: error.message,
-        code: "ASSIGNMENT_CONFLICT",
-        details: serializeDetails(error.details),
-        hint: error.details?.hint ?? null,
-      });
+      );
+    } catch (error) {
+      if (error instanceof AssignmentConflictError) {
+        throw new AssignTablesRpcError({
+          message: error.message,
+          code: "ASSIGNMENT_CONFLICT",
+          details: serializeDetails(error.details),
+          hint: error.details?.hint ?? null,
+        });
+      }
+
+      if (error instanceof AssignmentValidationError) {
+        throw new AssignTablesRpcError({
+          message: error.message,
+          code: "ASSIGNMENT_VALIDATION",
+          details: serializeDetails(error.details),
+          hint: null,
+        });
+      }
+
+      if (error instanceof AssignmentRepositoryError) {
+        throw new AssignTablesRpcError({
+          message: error.message,
+          code: "ASSIGNMENT_REPOSITORY_ERROR",
+          details: serializeDetails(error.cause ?? null),
+          hint: null,
+        });
+      }
+
+      throw error;
     }
 
-    if (error instanceof AssignmentValidationError) {
-      throw new AssignTablesRpcError({
-        message: error.message,
-        code: "ASSIGNMENT_VALIDATION",
-        details: serializeDetails(error.details),
-        hint: null,
-      });
-    }
-
-    if (error instanceof AssignmentRepositoryError) {
-      throw new AssignTablesRpcError({
-        message: error.message,
-        code: "ASSIGNMENT_REPOSITORY_ERROR",
-        details: serializeDetails(error.cause ?? null),
-        hint: null,
-      });
-    }
-
-    throw error;
+    assignmentPayload = response.assignments.map((assignment) => ({
+      tableId: assignment.tableId,
+      startAt: assignment.startAt,
+      endAt: assignment.endAt,
+      mergeGroupId: assignment.mergeGroupId ?? response.mergeGroupId ?? null,
+    }));
+    mergeGroupId = response.mergeGroupId ?? null;
   }
 
   try {
@@ -2867,22 +3056,499 @@ export async function confirmHoldAssignment(options: {
     supabase,
     booking,
     tableIds: normalizedTableIds,
-    idempotencyKey: deterministicKey,
-    assignments: response.assignments.map((assignment) => ({
-      tableId: assignment.tableId,
-      startAt: assignment.startAt,
-      endAt: assignment.endAt,
-      mergeGroupId: assignment.mergeGroupId ?? response.mergeGroupId ?? null,
-    })),
+    idempotencyKey: effectiveIdempotencyKey,
+    assignments: assignmentPayload,
     startIso,
     endIso,
     actorId: assignedBy,
-    mergeGroupId: response.mergeGroupId ?? null,
+    mergeGroupId,
     holdContext: {
       holdId,
       zoneId: holdRow.zone_id ?? null,
     },
   });
+}
+
+type AtomicConfirmOptions = {
+  bookingId: string;
+  holdId: string;
+  idempotencyKey: string;
+  assignedBy?: string | null;
+  historyReason: string;
+  historyMetadata?: Json;
+  historyChangedBy?: string | null;
+  signal?: AbortSignal;
+  client?: DbClient;
+  policyRetryAttempts?: number;
+};
+
+type BookingAssignmentState = {
+  bookingState: Tables<"bookings">["status"] | null;
+  assignmentCount: number;
+  restaurantId: string | null;
+};
+
+async function fetchBookingAssignmentState(params: {
+  bookingId: string;
+  client: DbClient;
+  signal?: AbortSignal;
+}): Promise<BookingAssignmentState> {
+  const { bookingId, client, signal } = params;
+
+  const bookingQuery = applyAbortSignal(
+    client.from("bookings").select("status, restaurant_id").eq("id", bookingId),
+    signal,
+  );
+  const { data: bookingRow } = await bookingQuery.maybeSingle();
+
+  const assignmentsQuery = applyAbortSignal(
+    client
+      .from("booking_table_assignments")
+      .select("table_id", { count: "exact", head: true })
+      .eq("booking_id", bookingId),
+    signal,
+  );
+  const { count: assignmentCount } = await assignmentsQuery;
+
+  return {
+    bookingState: (bookingRow?.status as Tables<"bookings">["status"] | null) ?? null,
+    assignmentCount: typeof assignmentCount === "number" ? assignmentCount : 0,
+    restaurantId: (bookingRow?.restaurant_id as string | null) ?? null,
+  };
+}
+
+async function reconcileOrphanedAssignments(params: {
+  bookingId: string;
+  holdId?: string;
+  client: DbClient;
+  signal?: AbortSignal;
+}): Promise<void> {
+  const { bookingId, holdId, client, signal } = params;
+
+  const assignmentLookup = applyAbortSignal(
+    client.from("booking_table_assignments").select("table_id").eq("booking_id", bookingId),
+    signal,
+  );
+  const { data: assignmentRows } = await assignmentLookup;
+  const tableIds = (assignmentRows ?? [])
+    .map((row) => row.table_id)
+    .filter((value): value is string => typeof value === "string" && value.length > 0);
+
+  if (tableIds.length > 0) {
+    try {
+      await client.rpc("unassign_tables_atomic", {
+        p_booking_id: bookingId,
+        p_table_ids: tableIds,
+      });
+    } catch (unassignError) {
+      console.warn("[capacity.atomic] failed to unassign tables during reconciliation", {
+        bookingId,
+        tableIds,
+        error: unassignError instanceof Error ? unassignError.message : String(unassignError),
+      });
+    }
+  }
+
+  if (holdId) {
+    try {
+      await releaseHoldWithRetry({ holdId, client });
+    } catch (releaseError) {
+      console.warn("[capacity.atomic] failed to release hold during reconciliation", {
+        holdId,
+        bookingId,
+        error: releaseError instanceof Error ? releaseError.message : String(releaseError),
+      });
+    }
+  }
+}
+
+type PolicyDriftDetails = {
+  expectedHash?: string;
+  actualHash?: string;
+  adjacency?: {
+    expectedEdges?: string[];
+    actualEdges?: string[];
+    expectedHash?: string;
+    actualHash?: string;
+  };
+  zones?: {
+    expected?: Json;
+    actual?: Json;
+  };
+  raw?: Json;
+};
+
+function isPolicyChangedError(error: unknown): error is AssignTablesRpcError {
+  return error instanceof AssignTablesRpcError && error.code === "POLICY_CHANGED";
+}
+
+function extractPolicyDriftDetails(error: AssignTablesRpcError): PolicyDriftDetails {
+  if (!error.details) {
+    return { raw: null };
+  }
+
+  try {
+    const parsed = JSON.parse(error.details) as Json;
+    const parsedRecord = (typeof parsed === "object" && parsed !== null ? parsed : null) as
+      | Record<string, Json>
+      | null;
+    const details: PolicyDriftDetails = { raw: parsed };
+
+    if (parsedRecord) {
+      if (typeof parsedRecord.expected === "string") {
+        details.expectedHash = parsedRecord.expected;
+      }
+      if (typeof parsedRecord.actual === "string") {
+        details.actualHash = parsedRecord.actual;
+      }
+
+      const adjacency = parsedRecord.adjacency as Record<string, Json> | undefined;
+      if (adjacency && typeof adjacency === "object") {
+        const expectedEdges = adjacency.expectedEdges;
+        const actualEdges = adjacency.actualEdges;
+        details.adjacency = {
+          expectedEdges: Array.isArray(expectedEdges) ? (expectedEdges as string[]) : undefined,
+          actualEdges: Array.isArray(actualEdges) ? (actualEdges as string[]) : undefined,
+          expectedHash: typeof adjacency.expectedHash === "string" ? adjacency.expectedHash : undefined,
+          actualHash: typeof adjacency.actualHash === "string" ? adjacency.actualHash : undefined,
+        };
+      }
+
+      const zones = parsedRecord.zones as Record<string, Json> | undefined;
+      if (zones && typeof zones === "object") {
+        details.zones = {
+          expected: zones.expected,
+          actual: zones.actual,
+        };
+      }
+    }
+
+    return details;
+  } catch {
+    return { raw: error.details };
+  }
+}
+
+async function publishPolicyDriftNotification(params: {
+  bookingId: string;
+  restaurantId?: string | null;
+  holdId: string;
+  attempt: number;
+  recovered: boolean;
+  details: PolicyDriftDetails;
+}): Promise<void> {
+  try {
+    const { enqueueOutboxEvent } = await import("@/server/outbox");
+    await enqueueOutboxEvent({
+      eventType: "capacity.policy.drift",
+      restaurantId: params.restaurantId ?? null,
+      bookingId: params.bookingId,
+      payload: {
+        holdId: params.holdId,
+        attempt: params.attempt,
+        recovered: params.recovered,
+        details: params.details,
+      },
+    });
+  } catch (error) {
+    console.warn("[capacity.policy] failed to enqueue drift notification", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+async function confirmWithPolicyRetry(params: {
+  supabase: DbClient;
+  bookingId: string;
+  restaurantId?: string | null;
+  holdId: string;
+  idempotencyKey: string;
+  assignedBy: string | null;
+  transition: ConfirmHoldTransition;
+  signal?: AbortSignal;
+  maxAttempts: number;
+  enableRetry: boolean;
+  contextRef: { currentHoldId: string };
+}): Promise<{ assignments: TableAssignmentMember[]; attempts: number }> {
+  const {
+    supabase,
+    bookingId,
+    restaurantId,
+    idempotencyKey,
+    assignedBy,
+    transition,
+    signal,
+    maxAttempts,
+    enableRetry,
+    contextRef,
+  } = params;
+
+  const totalAttempts = enableRetry ? Math.max(1, maxAttempts) : 1;
+  let attempt = 0;
+  let driftDetected = false;
+  let driftNotificationSent = false;
+  let lastError: unknown = null;
+
+  while (attempt < totalAttempts) {
+    try {
+      const assignments = await confirmHoldAssignment({
+        holdId: contextRef.currentHoldId,
+        bookingId,
+        idempotencyKey,
+        assignedBy,
+        client: supabase,
+        signal,
+        transition,
+      });
+
+      if (driftDetected) {
+        await recordObservabilityEvent({
+          source: "capacity.policy",
+          eventType: "policy_drift.recovered",
+          restaurantId: restaurantId ?? undefined,
+          bookingId,
+          context: {
+            attempts: attempt + 1,
+            holdId: contextRef.currentHoldId,
+          },
+        });
+
+        await publishPolicyDriftNotification({
+          bookingId,
+          restaurantId,
+          holdId: contextRef.currentHoldId,
+          attempt: attempt + 1,
+          recovered: true,
+          details: { raw: null },
+        });
+      }
+
+      return { assignments, attempts: attempt + 1 };
+    } catch (error) {
+      if (isPolicyChangedError(error) && enableRetry && attempt < totalAttempts - 1) {
+        driftDetected = true;
+        const details = extractPolicyDriftDetails(error);
+
+        await recordObservabilityEvent({
+          source: "capacity.policy",
+          eventType: "policy_drift.detected",
+          severity: "warning",
+          restaurantId: restaurantId ?? undefined,
+          bookingId,
+          context: {
+            attempt: attempt + 1,
+            holdId: contextRef.currentHoldId,
+            details,
+          },
+        });
+
+        if (!driftNotificationSent) {
+          driftNotificationSent = true;
+          await publishPolicyDriftNotification({
+            bookingId,
+            restaurantId,
+            holdId: contextRef.currentHoldId,
+            attempt: attempt + 1,
+            recovered: false,
+            details,
+          });
+        }
+
+        try {
+          await releaseHoldWithRetry({ holdId: contextRef.currentHoldId, client: supabase });
+        } catch (releaseError) {
+          console.warn("[capacity.policy] failed to release hold during policy drift retry", {
+            holdId: contextRef.currentHoldId,
+            error: releaseError instanceof Error ? releaseError.message : String(releaseError),
+          });
+        }
+
+        const quote = await quoteTablesForBooking({
+          bookingId,
+          createdBy: assignedBy ?? "policy-retry",
+          holdTtlSeconds: DEFAULT_HOLD_TTL_SECONDS,
+          client: supabase,
+          signal,
+        });
+
+        if (!quote.hold) {
+          lastError = new AssignTablesRpcError({
+            message: "Failed to re-quote tables after policy drift",
+            code: "POLICY_REQUOTE_FAILED",
+            details: serializeDetails({ reason: quote.reason ?? "NO_HOLD" }),
+            hint: quote.reason ?? null,
+          });
+          break;
+        }
+
+        contextRef.currentHoldId = quote.hold.id;
+        attempt += 1;
+        continue;
+      }
+
+      lastError = error;
+      break;
+    }
+  }
+
+  if (driftDetected) {
+    await recordObservabilityEvent({
+      source: "capacity.policy",
+      eventType: "policy_drift.failed",
+      severity: "error",
+      restaurantId: restaurantId ?? undefined,
+      bookingId,
+      context: {
+        attempt: attempt + 1,
+        holdId: contextRef.currentHoldId,
+        error: lastError instanceof Error ? lastError.message : String(lastError),
+      },
+    });
+  }
+
+  if (lastError instanceof Error) {
+    throw lastError;
+  }
+
+  throw new AssignTablesRpcError({
+    message: "Policy drift retry failed",
+    code: "POLICY_RETRY_FAILED",
+    details: serializeDetails({ reason: "UNKNOWN" }),
+    hint: null,
+  });
+}
+
+export async function atomicConfirmAndTransition(options: AtomicConfirmOptions): Promise<TableAssignmentMember[]> {
+  const {
+    bookingId,
+    holdId,
+    idempotencyKey,
+    assignedBy = null,
+    historyReason,
+    historyMetadata,
+    historyChangedBy = null,
+    signal,
+    client,
+  } = options;
+
+  const supabase = ensureClient(client);
+  const preState = await fetchBookingAssignmentState({ bookingId, client: supabase, signal });
+
+  recordObservabilityEvent({
+    source: "capacity.atomic_confirm",
+    eventType: "transaction.started",
+    restaurantId: preState.restaurantId ?? undefined,
+    bookingId,
+    context: {
+      holdId,
+      idempotencyKey,
+      preStatus: preState.bookingState,
+      preAssignments: preState.assignmentCount,
+    },
+  }).catch((startError) => {
+    console.warn("[capacity.atomic_confirm] failed to record start event", {
+      error: startError instanceof Error ? startError.message : String(startError),
+    });
+  });
+
+  const policyContext = { currentHoldId: holdId };
+  const policyRetryEnabled = isPolicyRequoteEnabled();
+
+  try {
+    const { assignments } = await confirmWithPolicyRetry({
+      supabase,
+      bookingId,
+      restaurantId: preState.restaurantId ?? undefined,
+      holdId,
+      idempotencyKey,
+      assignedBy,
+      signal,
+      transition: {
+        targetStatus: "confirmed",
+        historyReason,
+        historyMetadata,
+        historyChangedBy,
+      },
+      maxAttempts: options.policyRetryAttempts ?? 2,
+      enableRetry: policyRetryEnabled,
+      contextRef: policyContext,
+    });
+
+    const postState = await fetchBookingAssignmentState({ bookingId, client: supabase, signal });
+
+    if (postState.bookingState !== "confirmed" || postState.assignmentCount === 0) {
+      await reconcileOrphanedAssignments({
+        bookingId,
+        holdId: policyContext.currentHoldId,
+        client: supabase,
+        signal,
+      });
+
+      recordObservabilityEvent({
+        source: "capacity.atomic_confirm",
+        eventType: "transaction.reconciled_mismatch",
+        restaurantId: postState.restaurantId ?? undefined,
+        bookingId,
+        context: {
+          holdId: policyContext.currentHoldId,
+          idempotencyKey,
+          postStatus: postState.bookingState,
+          postAssignments: postState.assignmentCount,
+        },
+        severity: "warning",
+      });
+
+      throw new AssignTablesRpcError({
+        message: "Atomic confirmation completed but reconciliation failed",
+        code: "STATE_RECONCILIATION_FAILED",
+        details: serializeDetails({
+          bookingState: postState.bookingState,
+          assignmentCount: postState.assignmentCount,
+        }),
+        hint: "Investigate mismatch and retry confirmation if safe.",
+      });
+    }
+
+    recordObservabilityEvent({
+      source: "capacity.atomic_confirm",
+      eventType: "transaction.succeeded",
+      restaurantId: postState.restaurantId ?? undefined,
+      bookingId,
+      context: {
+        holdId: policyContext.currentHoldId,
+        idempotencyKey,
+        assignments: postState.assignmentCount,
+      },
+    }).catch((successError) => {
+      console.warn("[capacity.atomic_confirm] failed to record success event", {
+        error: successError instanceof Error ? successError.message : String(successError),
+      });
+    });
+
+    return assignments;
+  } catch (error) {
+    await reconcileOrphanedAssignments({
+      bookingId,
+      holdId: policyContext.currentHoldId,
+      client: supabase,
+      signal,
+    });
+
+    recordObservabilityEvent({
+      source: "capacity.atomic_confirm",
+      eventType: "transaction.failed",
+      restaurantId: preState.restaurantId ?? undefined,
+      bookingId,
+      context: {
+        holdId: policyContext.currentHoldId,
+        idempotencyKey,
+        error: error instanceof Error ? error.message : String(error),
+      },
+      severity: "error",
+    });
+
+    throw error;
+  }
 }
 
 export async function assignTableToBooking(
@@ -3108,14 +3774,15 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     holdTtlSeconds = DEFAULT_HOLD_TTL_SECONDS,
     createdBy,
     client,
+    signal,
   } = options;
 
   const operationStart = highResNow();
   const supabase = ensureClient(client);
-  const booking = await loadBooking(bookingId, supabase);
+  const booking = await loadBooking(bookingId, supabase, signal);
   const restaurantTimezone =
     (booking.restaurants && !Array.isArray(booking.restaurants) ? booking.restaurants.timezone : null) ??
-    (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
+    (await loadRestaurantTimezone(booking.restaurant_id, supabase, signal)) ??
     getVenuePolicy().timezone;
   const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
   const {
@@ -3130,11 +3797,12 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     policy,
   });
 
-  const tables = await loadTablesForRestaurant(booking.restaurant_id, supabase);
+  const tables = await loadTablesForRestaurant(booking.restaurant_id, supabase, signal);
   const adjacency = await loadAdjacency(
     booking.restaurant_id,
     tables.map((table) => table.id),
     supabase,
+    signal,
   );
   const requireAdjacency = resolveRequireAdjacency(booking.party_size, requireAdjacencyOverride);
   const timePruningEnabled = isPlannerTimePruningEnabled();
@@ -3153,10 +3821,11 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
         startIso: toIsoUtc(window.block.start),
         endIso: toIsoUtc(window.block.end),
       },
+      signal,
     );
     if (isHoldsEnabled()) {
       try {
-        holdsForDay = await loadActiveHoldsForDate(booking.restaurant_id, booking.booking_date ?? null, policy, supabase);
+        holdsForDay = await loadActiveHoldsForDate(booking.restaurant_id, booking.booking_date ?? null, policy, supabase, signal);
       } catch (error: unknown) {
         const code = extractErrorCode(error);
         if (code === "42P01") {

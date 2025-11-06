@@ -78,6 +78,7 @@ export async function POST(req: NextRequest) {
         marketing_opt_in: false,
         loyalty_points_awarded: 0,
         source: "test",
+        auto_assign_idempotency_key: null,
         client_request_id: clientRequestId,
         pending_ref: pendingRef,
         idempotency_key: "test-email",

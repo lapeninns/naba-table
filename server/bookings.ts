@@ -1,4 +1,6 @@
 // --- IGNORE ---
+import { createHash, randomUUID } from "node:crypto";
+
 import {
   BOOKING_BLOCKING_STATUSES,
   BOOKING_TYPES_UI,
@@ -82,6 +84,18 @@ const BOOKING_SELECT = "*";
 
 export const BOOKING_TYPES = BOOKING_TYPES_UI;
 export const SEATING_OPTIONS = SEATING_PREFERENCES_UI;
+
+function buildAutoAssignIdempotencyKey(params: {
+  bookingId: string;
+  restaurantId: string;
+  bookingDate: string;
+  startTime: string;
+  partySize: number;
+}): string {
+  const payload = `${params.bookingId}|${params.restaurantId}|${params.partySize}|${params.bookingDate}T${params.startTime}`;
+  const digest = createHash("sha256").update(payload).digest("hex").slice(0, 12);
+  return `booking-${params.bookingId}-auto-assign-${digest}`;
+}
 
 const AUDIT_BOOKING_FIELDS: Array<keyof BookingRecord> = [
   "restaurant_id",
@@ -461,7 +475,17 @@ export async function insertBookingRecord(
   const seatingPreference = ensureSeatingPreference(payload.seating_preference);
   const status = ensureBookingStatus(payload.status ?? "pending");
 
+  const bookingId = randomUUID();
+  const autoAssignKey = buildAutoAssignIdempotencyKey({
+    bookingId,
+    restaurantId: payload.restaurant_id,
+    bookingDate: payload.booking_date,
+    startTime: payload.start_time,
+    partySize: payload.party_size,
+  });
+
   const insertPayload: TablesInsert<"bookings"> = {
+    id: bookingId,
     restaurant_id: payload.restaurant_id,
     booking_date: payload.booking_date,
     start_time: payload.start_time,
@@ -482,6 +506,7 @@ export async function insertBookingRecord(
     client_request_id: payload.client_request_id,
     idempotency_key: payload.idempotency_key ?? null,
     details: payload.details ?? null,
+    auto_assign_idempotency_key: autoAssignKey,
   };
 
   if (payload.pending_ref) {

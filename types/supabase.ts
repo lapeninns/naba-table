@@ -577,6 +577,7 @@ export type Database = {
       bookings: {
         Row: {
           assigned_zone_id: string | null
+          auto_assign_idempotency_key: string | null
           auth_user_id: string | null
           booking_date: string
           booking_type: string
@@ -613,6 +614,7 @@ export type Database = {
         }
         Insert: {
           assigned_zone_id?: string | null
+          auto_assign_idempotency_key?: string | null
           auth_user_id?: string | null
           booking_date: string
           booking_type?: string
@@ -649,6 +651,7 @@ export type Database = {
         }
         Update: {
           assigned_zone_id?: string | null
+          auto_assign_idempotency_key?: string | null
           auth_user_id?: string | null
           booking_date?: string
           booking_type?: string
@@ -2179,6 +2182,27 @@ export type Database = {
               table_id: string
             }[]
           }
+      confirm_hold_assignment_with_transition: {
+        Args: {
+          p_assigned_by?: string
+          p_booking_id: string
+          p_end_at?: string
+          p_history_changed_by?: string
+          p_history_metadata?: Json
+          p_history_reason?: string
+          p_idempotency_key: string
+          p_require_adjacency?: boolean
+          p_start_at?: string
+          p_table_ids: string[]
+          p_target_status?: Database["public"]["Enums"]["booking_status"]
+        }
+        Returns: {
+          end_at: string
+          merge_group_id: string | null
+          start_at: string
+          table_id: string
+        }[]
+      }
       booking_status_summary: {
         Args: {
           p_end_date?: string

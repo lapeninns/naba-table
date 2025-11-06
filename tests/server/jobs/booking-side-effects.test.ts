@@ -13,6 +13,18 @@ const emailMocks = {
 };
 vi.mock("@/server/emails/bookings", () => emailMocks);
 
+const featureFlagMocks = {
+  getAutoAssignCreatedEmailDeferMinutes: vi.fn(() => 0),
+  isAutoAssignOnBookingEnabled: vi.fn(() => false),
+  isEmailQueueEnabled: vi.fn(() => false),
+};
+vi.mock("@/server/feature-flags", () => featureFlagMocks);
+
+const queueMocks = {
+  enqueueEmailJob: vi.fn().mockResolvedValue(undefined),
+};
+vi.mock("@/server/queue/email", () => queueMocks);
+
 vi.mock("@/server/supabase", () => ({
   getServiceSupabaseClient: vi.fn(() => ({})),
 }));
@@ -51,8 +63,9 @@ describe("booking side-effects processing", () => {
       restaurantId: RESTAURANT_ID,
     } as const;
 
-    await processBookingCreatedSideEffects(payload, {} as any);
+    const queued = await processBookingCreatedSideEffects(payload);
 
+    expect(queued).toBe(false);
     expect(analyticsMocks.recordBookingCreatedEvent).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({
       bookingId: "booking-123",
       restaurantId: RESTAURANT_ID,
@@ -67,8 +80,34 @@ describe("booking side-effects processing", () => {
       restaurantId: RESTAURANT_ID,
     } as const;
 
-    await processBookingCreatedSideEffects(payload, {} as any);
+    const queued = await processBookingCreatedSideEffects(payload);
 
+    expect(queued).toBe(false);
+    expect(emailMocks.sendBookingConfirmationEmail).not.toHaveBeenCalled();
+  });
+
+  it("enqueues email job when queue enabled", async () => {
+    featureFlagMocks.isEmailQueueEnabled.mockReturnValueOnce(true);
+
+    const payload = {
+      booking: bookingPayload(),
+      idempotencyKey: null,
+      restaurantId: RESTAURANT_ID,
+    } as const;
+
+    const queued = await processBookingCreatedSideEffects(payload);
+
+    expect(queued).toBe(true);
+    expect(queueMocks.enqueueEmailJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookingId: "booking-123",
+        type: "request_received",
+      }),
+      expect.objectContaining({
+        jobId: "request_received:booking-123",
+        delayMs: 0,
+      }),
+    );
     expect(emailMocks.sendBookingConfirmationEmail).not.toHaveBeenCalled();
   });
 
@@ -76,7 +115,7 @@ describe("booking side-effects processing", () => {
     const previous = bookingPayload();
     const current = { ...previous, updated_at: new Date().toISOString() } as typeof previous;
 
-    await processBookingUpdatedSideEffects({ previous, current, restaurantId: RESTAURANT_ID }, {} as any);
+    await processBookingUpdatedSideEffects({ previous, current, restaurantId: RESTAURANT_ID });
 
     expect(emailMocks.sendBookingUpdateEmail).toHaveBeenCalledWith(expect.objectContaining({ id: "booking-123" }));
   });
@@ -85,7 +124,7 @@ describe("booking side-effects processing", () => {
     const previous = bookingPayload();
     const cancelled = { ...previous, status: "cancelled" };
 
-    await processBookingCancelledSideEffects({ previous, cancelled, restaurantId: RESTAURANT_ID, cancelledBy: "staff" }, {} as any);
+    await processBookingCancelledSideEffects({ previous, cancelled, restaurantId: RESTAURANT_ID, cancelledBy: "staff" });
 
     expect(analyticsMocks.recordBookingCancelledEvent).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({
       bookingId: "booking-123",
@@ -103,7 +142,7 @@ describe("enqueue booking side-effects", () => {
   } as const;
 
   it("executes synchronously when async queue disabled", async () => {
-    const result = await enqueueBookingCreatedSideEffects(payload, { supabase: {} as any });
+    const result = await enqueueBookingCreatedSideEffects(payload);
 
     expect(result).toMatchObject({ queued: false });
     expect(analyticsMocks.recordBookingCreatedEvent).toHaveBeenCalled();

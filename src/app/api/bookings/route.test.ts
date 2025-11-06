@@ -12,11 +12,22 @@ vi.mock('@/lib/env', () => {
         return {
           loyaltyPilotRestaurantIds: undefined,
           enableTestApi: true,
-        guestLookupPolicy: true,
-        opsGuardV2: false,
-        bookingPastTimeBlocking: false,
-        bookingPastTimeGraceMinutes: 5,
-      } as const;
+          guestLookupPolicy: true,
+          opsGuardV2: false,
+          bookingPastTimeBlocking: false,
+          bookingPastTimeGraceMinutes: 5,
+          autoAssignOnBooking: false,
+          autoAssignMaxRetries: 0,
+          autoAssignRetryDelaysMs: [],
+          autoAssignStartCutoffMinutes: 15,
+          autoAssignCreatedEmailDeferMinutes: 0,
+        } as const;
+      },
+      get resend() {
+        return {
+          apiKey: "test-resend-api-key",
+          from: "reservations@example.com",
+        } as const;
       },
       get supabase() {
         return {
@@ -215,6 +226,11 @@ describe('/api/bookings POST', () => {
       booking: DEFAULT_BOOKING,
       capacity: DEFAULT_CAPACITY_METADATA,
     });
+    enqueueBookingCreatedSideEffectsMock.mockResolvedValue({ queued: false });
+    updateBookingRecordMock.mockImplementation(async (_client, _id, updates) => ({
+      ...DEFAULT_BOOKING,
+      ...(updates ?? {}),
+    }));
   });
 
   afterEach(() => {

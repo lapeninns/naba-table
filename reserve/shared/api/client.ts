@@ -13,19 +13,61 @@ const defaultHeaders: HeadersInit = {
   'Content-Type': 'application/json',
 };
 
+type RequestOptions = RequestInit & { method?: HttpMethod; timeoutMs?: number };
+
+function mergeSignals(source: AbortController, external?: AbortSignal | null): () => void {
+  if (!external) {
+    return () => {};
+  }
+
+  if (external.aborted) {
+    source.abort(external.reason ?? new DOMException('Request aborted', 'AbortError'));
+    return () => {};
+  }
+
+  const forwardAbort = () => {
+    source.abort(external.reason ?? new DOMException('Request aborted', 'AbortError'));
+  };
+
+  external.addEventListener('abort', forwardAbort, { once: true });
+
+  return () => external.removeEventListener('abort', forwardAbort);
+}
+
+function inferTimeoutMs(timeoutMs: number | undefined): number | null {
+  if (typeof timeoutMs === 'number') {
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+      return null;
+    }
+    return timeoutMs;
+  }
+  if (!Number.isFinite(env.API_TIMEOUT_MS) || env.API_TIMEOUT_MS <= 0) {
+    return null;
+  }
+  return env.API_TIMEOUT_MS;
+}
+
 async function request<TResponse>(
   path: string,
-  { method = 'GET', headers, body, signal, ...init }: RequestInit & { method?: HttpMethod } = {},
+  { method = 'GET', headers, body, signal, timeoutMs, ...init }: RequestOptions = {},
 ): Promise<TResponse> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), env.API_TIMEOUT_MS);
+  const removeExternalListener = mergeSignals(controller, signal);
+
+  const resolvedTimeout = inferTimeoutMs(timeoutMs);
+  const timeoutHandle =
+    resolvedTimeout !== null
+      ? setTimeout(() => {
+          controller.abort(new DOMException('Request timed out', 'TimeoutError'));
+        }, resolvedTimeout)
+      : null;
 
   try {
     const response = await fetch(`${env.API_BASE_URL}${path}`, {
       method,
       headers: { ...defaultHeaders, ...headers },
       body,
-      signal: signal ?? controller.signal,
+      signal: controller.signal,
       credentials: 'include',
       ...init,
     });
@@ -44,20 +86,58 @@ async function request<TResponse>(
     }
 
     return parsed as TResponse;
+  } catch (error) {
+    if (error instanceof DOMException) {
+      if (error.name === 'TimeoutError') {
+        const timeoutError: ApiError = {
+          code: 'TIMEOUT',
+          message: 'Request timed out. Please try again.',
+          status: 408,
+        };
+        throw timeoutError;
+      }
+      if (error.name === 'AbortError') {
+        const reason = controller.signal.reason ?? null;
+        let reasonMessage: string | null = null;
+        if (typeof reason === 'string') {
+          reasonMessage = reason;
+        } else if (
+          reason &&
+          typeof reason === 'object' &&
+          typeof (reason as { message?: unknown }).message === 'string'
+        ) {
+          reasonMessage = (reason as { message: string }).message;
+        }
+        const derivedMessage =
+          reasonMessage && reasonMessage.trim().length > 0
+            ? reasonMessage.trim()
+            : 'Request was cancelled.';
+        const abortError: ApiError = {
+          code: 'REQUEST_ABORTED',
+          message: derivedMessage,
+          status: 499,
+        };
+        throw abortError;
+      }
+    }
+    throw error;
   } finally {
-    clearTimeout(timeout);
+    if (timeoutHandle !== null) {
+      clearTimeout(timeoutHandle);
+    }
+    removeExternalListener();
   }
 }
 
 export const apiClient = {
-  get: <TResponse>(path: string, init?: RequestInit) =>
+  get: <TResponse>(path: string, init?: RequestOptions) =>
     request<TResponse>(path, { ...init, method: 'GET' }),
-  post: <TResponse>(path: string, body: unknown, init?: RequestInit) =>
+  post: <TResponse>(path: string, body: unknown, init?: RequestOptions) =>
     request<TResponse>(path, { ...init, method: 'POST', body: JSON.stringify(body) }),
-  put: <TResponse>(path: string, body: unknown, init?: RequestInit) =>
+  put: <TResponse>(path: string, body: unknown, init?: RequestOptions) =>
     request<TResponse>(path, { ...init, method: 'PUT', body: JSON.stringify(body) }),
-  patch: <TResponse>(path: string, body: unknown, init?: RequestInit) =>
+  patch: <TResponse>(path: string, body: unknown, init?: RequestOptions) =>
     request<TResponse>(path, { ...init, method: 'PATCH', body: JSON.stringify(body) }),
-  delete: <TResponse>(path: string, init?: RequestInit) =>
+  delete: <TResponse>(path: string, init?: RequestOptions) =>
     request<TResponse>(path, { ...init, method: 'DELETE' }),
 };

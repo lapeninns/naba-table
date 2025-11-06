@@ -1,4 +1,4 @@
-import { quoteTablesForBooking, confirmHoldAssignment } from "@/server/capacity/tables";
+import { quoteTablesForBooking, atomicConfirmAndTransition } from "@/server/capacity/tables";
 import { sendBookingConfirmationEmail } from "@/server/emails/bookings";
 import {
   isAutoAssignOnBookingEnabled,
@@ -27,7 +27,7 @@ export async function autoAssignAndConfirmIfPossible(bookingId: string): Promise
     const { data: booking, error } = await supabase
       .from("bookings")
       .select(
-        "id, restaurant_id, status, booking_date, start_time, end_time, start_at, end_at, party_size, customer_email, customer_name, reference, seating_preference, booking_type, notes, source, loyalty_points_awarded, created_at, updated_at",
+        "id, restaurant_id, status, booking_date, start_time, end_time, start_at, end_at, party_size, customer_email, customer_name, reference, seating_preference, booking_type, notes, source, loyalty_points_awarded, created_at, updated_at, auto_assign_idempotency_key",
       )
       .eq("id", bookingId)
       .maybeSingle();
@@ -119,31 +119,16 @@ export async function autoAssignAndConfirmIfPossible(bookingId: string): Promise
             },
           });
         } else {
-          await confirmHoldAssignment({
-            holdId: quote.hold.id,
-            bookingId,
-            idempotencyKey: `auto-${bookingId}`,
-            assignedBy: null,
-          });
+          const idempotencyKey = booking.auto_assign_idempotency_key ?? `auto-${bookingId}`;
 
-          // Transition booking status -> confirmed with history
-          const nowIso = new Date().toISOString();
-          const { error: txError } = await supabase.rpc("apply_booking_state_transition", {
-            p_booking_id: bookingId,
-            p_status: "confirmed",
-            p_checked_in_at: null,
-            p_checked_out_at: null,
-            p_updated_at: nowIso,
-            p_history_from: booking.status,
-            p_history_to: "confirmed",
-            p_history_changed_by: null,
-            p_history_changed_at: nowIso,
-            p_history_reason: "auto_assign",
-            p_history_metadata: { source: "auto-assign", holdId: quote.hold.id },
+          await atomicConfirmAndTransition({
+            bookingId,
+            holdId: quote.hold.id,
+            idempotencyKey,
+            assignedBy: null,
+            historyReason: "auto_assign",
+            historyMetadata: { source: "auto-assign", holdId: quote.hold.id },
           });
-          if (txError) {
-            throw new Error(txError.message ?? String(txError));
-          }
 
           // Reload booking and send confirmed email
           const { data: updated } = await supabase
