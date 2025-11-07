@@ -1,60 +1,9 @@
 [
   {
-    "name": "The Queen Elizabeth Pub",
-    "website": "https://thequeenelizabethpub.co.uk",
-    "address": "32 Gayton Road, King's Lynn, PE30 4EL",
-    "phone": "01553 824083",
-    "email": "thequeen@lapeninns.com"
-  },
-  {
-    "name": "Old Crown Pub (Girton)",
-    "website": "https://oldcrowngirton.com",
-    "address": "89 High Street, Girton, Cambridge, CB3 0QQ",
-    "phone": "01223 277217",
-    "email": "oldcrown@lapeninns.com"
-  },
-  {
     "name": "White Horse Pub (Waterbeach)",
     "website": "https://whitehorsepub.co",
     "address": "12 Green Side, Waterbeach, Cambridge, CB25 9HP",
     "phone": "01223 375578",
     "email": "whitehorse@lapeninns.com"
-  },
-  {
-    "name": "The Corner House Pub (Cambridge)",
-    "website": "https://thecornerhousepub.co",
-    "address": "231 Newmarket Road, Cambridge, CB5 8JE",
-    "phone": "01223 921122",
-    "email": "cornerhouse@lapeninns.com"
-  },
-  {
-    "name": "Prince of Wales Pub (Bromham)",
-    "website": "https://princeofwalesbromham.com",
-    "address": "8 Northampton Road, Bromham, Bedford, MK43 8PE",
-    "phone": "01234 822447",
-    "mobile": "+44 7438 699609",
-    "email": "theprince@lapeninns.com"
-  },
-  {
-    "name": "The Bell (Sawtry)",
-    "website": "https://thebellsawtry.com",
-    "address": "82 Green End Road, Sawtry, Huntingdon, PE28 5UY",
-    "phone": "01487 900149",
-    "email": "thebell@lapeninns.com"
-  },
-  {
-    "name": "The Railway Pub (Whittlesey)",
-    "website": "https://therailwaypub.co",
-    "address": "139 Station Road, Whittlesey, PE7 1UF",
-    "phone": "01733 788345",
-    "email": "therailway@lapeninns.com"
-  },
-  {
-    "name": "The Barley Mow Pub (Hartford)",
-    "website": "https://barleymowhartford.co.uk",
-    "address": "42 Main St, Hartford, Huntingdon, PE29 1XU",
-    "phone": "01480 450550",
-    "mobile": "+44 7399 835329",
-    "email": "barleymow@lapeninns.com"
   }
 ]

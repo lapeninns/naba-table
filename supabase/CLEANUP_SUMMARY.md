@@ -1,13 +1,15 @@
 # Supabase Folder Cleanup - Summary
 
+> **Note (2025-11-07):** The canonical seed has moved back to `supabase/seed.sql` as part of the Waterbeach-only cleanup. The sections below describe the earlier multi-restaurant structure and are retained for historical context.
+
 **Date**: October 19, 2025  
 **Task**: Clean and organize the supabase directory structure
 
 ## ✅ Actions Completed
 
-### 1. Removed Duplicates
+### 1. Removed Duplicates _(Legacy State)_
 
-- ❌ Deleted `supabase/seed.sql` (duplicate of `supabase/seeds/seed.sql`)
+- ❌ Deleted `supabase/seed.sql` (at that time it duplicated `supabase/seeds/seed.sql`; the canonical file now lives at `supabase/seed.sql`)
 
 ### 2. Created Documentation
 

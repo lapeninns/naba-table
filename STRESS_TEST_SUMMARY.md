@@ -5,6 +5,8 @@
 
 ---
 
+> **Note (2025-11-07):** This report documents legacy stress-test datasets that depended on retired seed files (`intelligent-seed.sql`, `today-bookings-seed.sql`, etc.). Only the White Horse Pub (Waterbeach) dataset remains active.
+
 ## Executive Summary
 
 ✅ **Successfully generated and validated 105 bookings for today**  

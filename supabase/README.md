@@ -11,11 +11,14 @@ supabase/
 │   ├── 20251019102432_consolidated_schema.sql
 │   ├── ...                      # Timestamped change scripts
 │   └── _archive/                # Legacy dumps & placeholders (kept for history)
-├── seeds/                       # Seed data for development/testing
-│   └── seed.sql                # Sample data (restaurants, bookings, etc.)
+├── seed.sql                    # Canonical Waterbeach dataset
+├── seeds/                      # Targeted helper scripts (Waterbeach only)
+│   ├── white-horse-service-periods.sql
+│   └── cleanup-keep-only-waterbeach.sql
 └── utilities/                   # Helper scripts for database operations
     ├── init-database.sql       # Migration orchestration (for db:reset)
-    └── init-seeds.sql          # Seed orchestration (for db:reset)
+    ├── init-seeds.sql          # Seed orchestration (for db:reset)
+    └── init-seeds-waterbeach.sql # Minimal Waterbeach seed wrapper
 ```
 
 ## 🚀 Quick Start
@@ -53,26 +56,21 @@ Contains all database schema migrations. Migrations are applied via:
 - `20251101104500_reinstate_support_tables.sql` – Restores `merge_rules`, formalises `waiting_list`, and captures marketing `leads`.
 - `_archive/` retains prior `remote_schema` dumps/comment-only stubs for auditability.
 
-### seeds/
+### seed.sql + seeds/
 
-Contains seed data files for populating the database with sample data.
+- `seed.sql` – canonical Waterbeach-only dataset (White Horse Pub). Inserts owner, restaurant, zones, tables, allowed capacities, service periods, bookings, holds, analytics, etc.
+- `seeds/white-horse-service-periods.sql` – idempotent helper that recreates service periods/tables for the single venue. Useful after partial cleanups.
+- `seeds/cleanup-keep-only-waterbeach.sql` – deletes any non-White-Horse restaurants plus cascading records.
 
-**Current Seed:**
-
-- `seed.sql` - Sample data including:
-  - 4 employee profiles (owner, manager, host, server)
-  - 2 restaurants with full configuration
-  - 10 tables across 4 zones
-  - 6 customers with profiles
-  - 7 bookings in various states
-  - Supporting data (service periods, loyalty programs, etc.)
+> All other seed variants (intelligent/schema-driven/demo) were removed on 2025-11-07.
 
 ### utilities/
 
 Helper scripts that orchestrate migrations and seeds for the `pnpm` commands.
 
 - `init-database.sql` - Wrapper for migration application (used by `db:reset`)
-- `init-seeds.sql` - Wrapper for seed execution (used by `db:reset`, `db:seed-only`)
+- `init-seeds.sql` - Wrapper for seed execution (used by `db:reset`, `db:seed-only`) – sources `../seed.sql`.
+- `init-seeds-waterbeach.sql` - Minimal loader for `seeds/white-horse-service-periods.sql`.
 
 ## 🔧 Available Commands
 

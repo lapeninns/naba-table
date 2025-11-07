@@ -2,6 +2,8 @@
 
 ## 🎯 Overview
 
+> **Note (2025-11-07):** This guide references legacy multi-restaurant seed scripts (`intelligent-seed.sql`, `today-bookings-seed.sql`, etc.) that have been removed. The active repository now seeds only White Horse Pub (Waterbeach).
+
 This stress test suite validates your table allocation algorithm with **105 realistic bookings** across 5 restaurants with 90 tables. All data is generated directly from your database schema ensuring 100% compatibility.
 
 ## ✅ What's Been Done

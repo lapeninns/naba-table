@@ -40,7 +40,7 @@ import path from 'node:path';
 // ============================================================
 
 const CONFIG = {
-  TARGET_RESTAURANT_SLUG: process.env.TARGET_RESTAURANT_SLUG || 'prince-of-wales-pub-bromham',
+  TARGET_RESTAURANT_SLUG: process.env.TARGET_RESTAURANT_SLUG || 'white-horse-pub-waterbeach',
   TARGET_DATE: process.env.TARGET_DATE || new Date().toISOString().split('T')[0],  // Today's date (YYYY-MM-DD)
   
   // PERFORMANCE SETTINGS

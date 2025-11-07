@@ -4,7 +4,6 @@
 
 \echo '🌱 Loading seed data...'
 
--- Load the main seed data
-\ir ../seeds/seed.sql
+\ir ../seed.sql
 
 \echo '✅ Seed data loaded successfully!'

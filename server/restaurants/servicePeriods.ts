@@ -8,7 +8,7 @@ import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 
-type DbClient = SupabaseClient<Database, 'public', any>;
+type DbClient = SupabaseClient<Database, 'public', Database['public']>;
 
 export type BookingOption = string;
 
@@ -29,6 +29,8 @@ export type UpdateServicePeriod = {
   endTime: string;
   bookingOption: BookingOption;
 };
+
+const OVERLAP_EXEMPT_NAMES = new Set(['drinks']);
 
 function normalizeDayOfWeek(value: number | null | undefined): number | null {
   if (value === null || value === undefined) {
@@ -76,6 +78,36 @@ function validateServicePeriod(entry: UpdateServicePeriod, validOptions: Set<str
   };
 }
 
+function isOverlapExempt(name: string): boolean {
+  return OVERLAP_EXEMPT_NAMES.has(name.trim().toLowerCase());
+}
+
+function canOverlap(first: ServicePeriod, second: ServicePeriod): boolean {
+  return isOverlapExempt(first.name) || isOverlapExempt(second.name);
+}
+
+export function assertNoOverlappingPeriods(periods: ServicePeriod[]): void {
+  const byDay = new Map<number | null, ServicePeriod[]>();
+  periods.forEach((period) => {
+    const key = period.dayOfWeek ?? null;
+    const list = byDay.get(key) ?? [];
+    list.push(period);
+    byDay.set(key, list);
+  });
+
+  byDay.forEach((list, key) => {
+    const sorted = [...list].sort((a, b) => a.startTime.localeCompare(b.startTime));
+    for (let index = 1; index < sorted.length; index += 1) {
+      const prev = sorted[index - 1];
+      const current = sorted[index];
+      if (prev.endTime > current.startTime && !canOverlap(prev, current)) {
+        const label = key === null ? 'all days' : `day ${key}`;
+        throw new Error(`Service periods overlap on ${label}: "${prev.name}" and "${current.name}"`);
+      }
+    }
+  });
+}
+
 export async function getServicePeriods(
   restaurantId: string,
   client: DbClient = getServiceSupabaseClient(),
@@ -118,26 +150,8 @@ export async function updateServicePeriods(
 
   const validated = periods.map((entry) => validateServicePeriod(entry, validOptions));
 
-  // Prevent overlapping periods for the same day (including null day)
-  const byDay = new Map<number | null, ServicePeriod[]>();
-  validated.forEach((period) => {
-    const key = period.dayOfWeek ?? null;
-    const list = byDay.get(key) ?? [];
-    list.push(period);
-    byDay.set(key, list);
-  });
-
-  byDay.forEach((list, key) => {
-    const sorted = [...list].sort((a, b) => a.startTime.localeCompare(b.startTime));
-    for (let index = 1; index < sorted.length; index += 1) {
-      const prev = sorted[index - 1];
-      const current = sorted[index];
-      if (prev.endTime > current.startTime) {
-        const label = key === null ? 'all days' : `day ${key}`;
-        throw new Error(`Service periods overlap on ${label}: "${prev.name}" and "${current.name}"`);
-      }
-    }
-  });
+  // Prevent overlapping periods for the same day (including null day) unless an overlap-exempt period is involved.
+  assertNoOverlappingPeriods(validated);
 
   const { error: deleteError } = await client
     .from('restaurant_service_periods')

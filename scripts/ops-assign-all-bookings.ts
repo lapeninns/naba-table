@@ -37,7 +37,7 @@ import path from 'node:path';
 // ============================================================
 
 const CONFIG = {
-  TARGET_RESTAURANT_SLUG: process.env.TARGET_RESTAURANT_SLUG || 'demo-restaurant',
+  TARGET_RESTAURANT_SLUG: process.env.TARGET_RESTAURANT_SLUG || 'white-horse-pub-waterbeach',
   
   // PERFORMANCE: Process sequentially by time to avoid conflicts
   BATCH_SIZE: 5,  // Process 5 at a time within same time slot

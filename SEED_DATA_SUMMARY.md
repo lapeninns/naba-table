@@ -1,169 +1,82 @@
-# Seed Data Summary - SajiloReserveX
+# Waterbeach Seed Data Summary
 
 ## Overview
 
-Comprehensive seed data for the La Pen Inns restaurant booking system with realistic test data.
+The repository now seeds a **single venue** – **White Horse Pub (Waterbeach)** – to mirror the only live property that still uses SajiloReserveX. All legacy multi-restaurant datasets were removed on 2025-11-07.
 
-## Database Contents
+## 📊 Snapshot
 
-### 📊 Summary
+- **Restaurants**: 1 (White Horse Pub, slug `white-horse-pub-waterbeach`)
+- **Customers**: 50 (Waterbeach-specific guest profiles)
+- **Bookings**: 25 per dataset refresh (past, present, future spread)
+- **Owner account**: `owner@lapeninns.com` (same credentials as before)
 
-- **8 Restaurants** - All La Pen Inns locations
-- **400 Customers** - 50 customers per restaurant
-- **200 Bookings** - 25 bookings per restaurant (past, present, and future)
-- **1 Owner Account** - `owner@lapeninns.com`
+## 🏢 Restaurant Details
 
-### 🏢 Restaurants
+- **Address**: 12 Green Side, Waterbeach, Cambridge, CB25 9HP
+- **Phone**: 01223 375578
+- **Email**: whitehorse@lapeninns.com
+- **Website**: https://whitehorsepub.co
+- **Timezone**: Europe/London
+- **Policy snippet**: “Visit: https://whitehorsepub.co”
 
-1. **The Queen Elizabeth Pub** - King's Lynn
-   - Email: thequeen@lapeninns.com
-   - Phone: 01553 824083
-   - Website: https://thequeenelizabethpub.co.uk
+### Operating Hours
 
-2. **Old Crown Pub (Girton)** - Cambridge
-   - Email: oldcrown@lapeninns.com
-   - Phone: 01223 277217
-   - Website: https://oldcrowngirton.com
+- **Monday – Friday**: 12:00 → 22:00
+- **Weekends**: Closed (marked via `is_closed = true`)
 
-3. **White Horse Pub (Waterbeach)** - Cambridge
-   - Email: whitehorse@lapeninns.com
-   - Phone: 01223 375578
-   - Website: https://whitehorsepub.co
+### Service Periods
 
-4. **The Corner House Pub** - Cambridge
-   - Email: cornerhouse@lapeninns.com
-   - Phone: 01223 921122
-   - Website: https://thecornerhousepub.co
+Every weekday receives three blocks:
 
-5. **Prince of Wales Pub** - Bromham, Bedford
-   - Email: theprince@lapeninns.com
-   - Phone: 01234 822447
-   - Mobile: +44 7438 699609
-   - Website: https://princeofwalesbromham.com
+1. **Weekday Lunch** (12:00–15:00, `lunch`)
+2. **Happy Hour** (15:00–17:00, `drinks`)
+3. **Dinner Service** (17:00–22:00, `dinner`)
 
-6. **The Bell** - Sawtry, Huntingdon
-   - Email: thebell@lapeninns.com
-   - Phone: 01487 900149
-   - Website: https://thebellsawtry.com
+### Customers & Bookings
 
-7. **The Railway Pub** - Whittlesey
-   - Email: therailway@lapeninns.com
-   - Phone: 01733 788345
-   - Website: https://therailwaypub.co
+- 50 synthetic guests tied to the restaurant slug (unique emails + phones)
+- 25 bookings distributed evenly across:
+  - Past 8 days
+  - Today
+  - Next 8 days
+- Party sizes span 2–7, with table assignments exercised through allocator logic
+- Status mix keeps ~95% confirmed and a small cancel rate for realism
 
-8. **The Barley Mow Pub** - Hartford, Huntingdon
-   - Email: barleymow@lapeninns.com
-   - Phone: 01480 450550
-   - Mobile: +44 7399 835329
-   - Website: https://barleymowhartford.co.uk
-
-### 🕐 Operating Hours (All Restaurants)
-
-- **Monday - Friday**: 12:00 PM - 10:00 PM
-- **Saturday - Sunday**: Closed
-
-### 🍽️ Service Periods
-
-Each restaurant has 3 service periods (weekdays only):
-
-1. **Weekday Lunch**: 12:00 PM - 3:00 PM
-2. **Happy Hour**: 3:00 PM - 5:00 PM
-3. **Dinner Service**: 5:00 PM - 10:00 PM
-
-### 👥 Customers
-
-- **50 customers per restaurant** (400 total)
-- Email format: `{restaurant-slug}.guest{number}@example.com`
-- Names: `{Restaurant Name} Guest {number}`
-- Unique phone numbers generated for each customer
-- ~33% opted into marketing communications
-- ~20% marked as VIP customers
-
-### 📅 Bookings Distribution
-
-Per restaurant (25 bookings each):
-
-- **~8 Past bookings** - 1-8 days ago
-- **~9 Today's bookings** - Current date
-- **~8 Future bookings** - 1-8 days ahead
-
-#### Booking Types:
-
-- **Lunch bookings**: 12:00 PM (90 min duration)
-- **Drinks bookings**: 3:30 PM (60 min duration)
-- **Dinner bookings**: 6:00 PM (120 min duration)
-
-#### Party Sizes:
-
-- Range: 2-7 people
-- Distributed evenly across bookings
-
-#### Seating Preferences:
-
-- ~75% Indoor
-- ~25% Outdoor
-
-#### Booking Status:
-
-- ~95% Confirmed
-- ~5% Cancelled (only in past bookings)
-
-## 🔐 Access Credentials
-
-**Owner Account:**
-
-- Email: `owner@lapeninns.com`
-- Password: (needs to be set in Supabase Auth)
-- Role: Owner of all 8 restaurants
-
-## 🚀 Running the Seed Script
-
-### Local Development
+## 🛠️ Running the Seed
 
 ```bash
-# Execute seed script directly with psql
-psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -f supabase/seeds/seed.sql
+pnpm run db:seed-only               # orchestrates supabase/seed.sql
+# or manually
+psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/seed.sql
 ```
 
-### Verification Queries
+### Verification Snippets
 
 ```sql
--- Check restaurants
-SELECT COUNT(*) as restaurants FROM public.restaurants;
-
--- Check customers
-SELECT COUNT(*) as customers FROM public.customers;
-
--- Check bookings
-SELECT COUNT(*) as total_bookings FROM public.bookings;
-
--- Bookings by date
-SELECT
-  COUNT(*) FILTER (WHERE booking_date < current_date) as past,
-  COUNT(*) FILTER (WHERE booking_date = current_date) as today,
-  COUNT(*) FILTER (WHERE booking_date > current_date) as future
-FROM public.bookings;
-
--- Bookings by type
-SELECT booking_type, COUNT(*) as count
-FROM public.bookings
-GROUP BY booking_type;
+SELECT COUNT(*) FROM public.restaurants;        -- expect 1
+SELECT COUNT(*) FROM public.customers;          -- expect 50
+SELECT COUNT(*) FROM public.bookings;           -- expect 25
+SELECT DISTINCT slug FROM public.restaurants;   -- expect 'white-horse-pub-waterbeach'
 ```
 
-## 📝 Notes
+## ♻️ Cleanup Helpers
 
-- All timestamps use `Europe/London` timezone
-- Customer creation dates are randomized within the past 90 days
-- Booking creation dates are randomized within the past 30 days
-- Booking references follow the format: `LP-{6 random uppercase hex chars}`
-- All data is regenerated each time the seed script runs (TRUNCATE CASCADE is used)
+- `supabase/seeds/cleanup-keep-only-waterbeach.sql` removes any stray restaurants if legacy data sneaks back.
+- `supabase/seeds/white-horse-service-periods.sql` replays the service periods/tables without touching auth data.
+
+## Notes
+
+- All timestamps remain `Europe/London`.
+- Scripts use `TRUNCATE ... CASCADE`; never run against production without backups.
+- Historical docs referencing multi-restaurant datasets are archived for provenance but no longer map to runnable SQL.
 
 ## 🔄 Resetting Data
 
 To reset the database and reseed:
 
 ```bash
-psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -f supabase/seeds/seed.sql
+psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -f supabase/seed.sql
 ```
 
 This will:

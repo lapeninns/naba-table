@@ -1,5 +1,7 @@
 # 🚀 Table Allocation Stress Test Results
 
+> **Note (2025-11-07):** This report references legacy stress seeds (`today-bookings-seed.sql`, etc.) that have been removed. Only the White Horse Pub (Waterbeach) dataset is currently supported.
+
 **Test Date**: November 5, 2025  
 **Total Bookings**: 105 (generated via `today-bookings-seed.sql`)  
 **Allocation Algorithm**: `ops-auto-assign-ultra-fast.ts` (Ultra-Fast Parallel Assignment)  

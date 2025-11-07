@@ -5,7 +5,7 @@ loadEnv({ path: resolvePath(process.cwd(), '.env.local') });
 loadEnv({ path: resolvePath(process.cwd(), '.env.development') });
 loadEnv({ path: resolvePath(process.cwd(), '.env') });
 
-const TARGET_RESTAURANT_SLUG = process.env.TARGET_RESTAURANT_SLUG || 'demo-restaurant';
+const TARGET_RESTAURANT_SLUG = process.env.TARGET_RESTAURANT_SLUG || 'white-horse-pub-waterbeach';
 
 async function main() {
   const { getServiceSupabaseClient } = await import('@/server/supabase');

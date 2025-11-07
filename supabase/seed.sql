@@ -184,19 +184,12 @@ VALUES (
 );
 
 -- -----------------------------------------------------------------------------
--- Stage 4: restaurant scaffolding (8 venues)
+-- Stage 4: restaurant scaffolding (White Horse only)
 -- -----------------------------------------------------------------------------
 WITH restaurant_source AS (
     SELECT * FROM (
         VALUES
-            ('The Queen Elizabeth Pub',       'the-queen-elizabeth-pub',       'Europe/London', '32 Gayton Road, King''s Lynn, PE30 4EL',          'thequeen@lapeninns.com',    '01553 824083', NULL,                 'Visit: https://thequeenelizabethpub.co.uk'),
-            ('Old Crown Pub (Girton)',        'old-crown-pub-girton',          'Europe/London', '89 High Street, Girton, Cambridge, CB3 0QQ',      'oldcrown@lapeninns.com',    '01223 277217', NULL,                 'Visit: https://oldcrowngirton.com'),
-            ('White Horse Pub (Waterbeach)',  'white-horse-pub-waterbeach',    'Europe/London', '12 Green Side, Waterbeach, Cambridge, CB25 9HP',  'whitehorse@lapeninns.com',  '01223 375578', NULL,                 'Visit: https://whitehorsepub.co'),
-            ('The Corner House Pub (Cambridge)', 'the-corner-house-pub-cambridge', 'Europe/London', '231 Newmarket Road, Cambridge, CB5 8JE',       'cornerhouse@lapeninns.com', '01223 921122', NULL,                 'Visit: https://thecornerhousepub.co'),
-            ('Prince of Wales Pub (Bromham)', 'prince-of-wales-pub-bromham',   'Europe/London', '8 Northampton Road, Bromham, Bedford, MK43 8PE',  'theprince@lapeninns.com',   '01234 822447', '+44 7438 699609',   'Visit: https://princeofwalesbromham.com • Mobile: +44 7438 699609'),
-            ('The Bell (Sawtry)',             'the-bell-sawtry',               'Europe/London', '82 Green End Road, Sawtry, Huntingdon, PE28 5UY', 'thebell@lapeninns.com',     '01487 900149', NULL,                 'Visit: https://thebellsawtry.com'),
-            ('The Railway Pub (Whittlesey)',  'the-railway-pub-whittlesey',    'Europe/London', '139 Station Road, Whittlesey, PE7 1UF',           'therailway@lapeninns.com',  '01733 788345', NULL,                 'Visit: https://therailwaypub.co'),
-            ('The Barley Mow Pub (Hartford)', 'the-barley-mow-pub-hartford',   'Europe/London', '42 Main St, Hartford, Huntingdon, PE29 1XU',      'barleymow@lapeninns.com',   '01480 450550', '+44 7399 835329',   'Visit: https://barleymowhartford.co.uk • Mobile: +44 7399 835329')
+            ('White Horse Pub (Waterbeach)', 'white-horse-pub-waterbeach', 'Europe/London', '12 Green Side, Waterbeach, Cambridge, CB25 9HP', 'whitehorse@lapeninns.com', '01223 375578', NULL, 'Visit: https://whitehorsepub.co')
     ) AS r(name, slug, timezone, address, email, phone, mobile, policy)
 )
 INSERT INTO public.restaurants (id, name, slug, timezone, capacity, contact_email, contact_phone, address, booking_policy, reservation_interval_minutes, reservation_default_duration_minutes, reservation_last_seating_buffer_minutes, is_active, created_at, updated_at)
