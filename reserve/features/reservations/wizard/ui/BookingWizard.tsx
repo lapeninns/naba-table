@@ -16,12 +16,7 @@ import { PlanStep } from './steps/PlanStep';
 import { ReviewStep } from './steps/ReviewStep';
 import { WizardContainer } from './WizardContainer';
 import { WizardOfflineBanner } from './WizardOfflineBanner';
-import {
-  ConfirmationStepSkeleton,
-  DetailsStepSkeleton,
-  PlanStepSkeleton,
-  ReviewStepSkeleton,
-} from './WizardSkeletons';
+import { DetailsStepSkeleton, PlanStepSkeleton, ReviewStepSkeleton } from './WizardSkeletons';
 
 import type { BookingDetails, BookingWizardMode } from '../model/reducer';
 
@@ -171,7 +166,7 @@ function BookingWizardContent({
     wasOfflineRef.current = isOffline;
   }, [hasHydrated, isOffline]);
 
-  const disableAllActions = isOffline || state.loading;
+  const disableAllActions = isOffline || (state.loading && state.step !== 4);
 
   const effectiveActions = useMemo(() => {
     if (!disableAllActions) {
@@ -192,8 +187,10 @@ function BookingWizardContent({
       />
     ) : null;
 
+  const shouldShowSkeleton = state.loading && state.step !== 4;
+
   const stepContent = (() => {
-    if (state.loading) {
+    if (shouldShowSkeleton) {
       switch (state.step) {
         case 1:
           return <PlanStepSkeleton />;
@@ -201,8 +198,6 @@ function BookingWizardContent({
           return <DetailsStepSkeleton />;
         case 3:
           return <ReviewStepSkeleton />;
-        case 4:
-          return <ConfirmationStepSkeleton />;
         default:
           return null;
       }
