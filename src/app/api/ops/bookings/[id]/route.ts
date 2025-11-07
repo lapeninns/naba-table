@@ -21,10 +21,11 @@ import { PastBookingError, assertBookingNotInPast, canOverridePastBooking } from
 import { enqueueBookingCancelledSideEffects, enqueueBookingUpdatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
 import { recordObservabilityEvent } from "@/server/observability";
 import { getRestaurantSchedule } from "@/server/restaurants/schedule";
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
+import { getRouteHandlerSupabaseClient, getServiceSupabaseClient, getTenantServiceSupabaseClient } from "@/server/supabase";
 import { requireMembershipForRestaurant, fetchUserMemberships } from "@/server/team/access";
 import { formatDateForInput } from "@reserve/shared/formatting/booking";
 import { fromMinutes } from "@reserve/shared/time";
+import { mapDbErrorToConstraint, isRetryableConstraintError } from "@/server/db-errors";
 
 import type { BookingRecord } from "@/server/bookings";
 import type { Json, Tables } from "@/types/supabase";
@@ -359,8 +360,11 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     }
   }
 
+  // Use tenant-scoped client for all booking operations
+  const tenantClient = getTenantServiceSupabaseClient(existingBooking.restaurant_id);
+
   try {
-    const updated = await updateBookingRecord(serviceSupabase, bookingId, {
+    const updated = await updateBookingRecord(tenantClient, bookingId, {
       booking_date: bookingDate,
       start_time: startTime,
       end_time: endTime,
@@ -373,7 +377,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       ...buildBookingAuditSnapshot(existingBooking, updated),
     } as Json;
 
-    await logAuditEvent(serviceSupabase, {
+    await logAuditEvent(tenantClient, {
       action: "booking.updated",
       entity: "booking",
       entityId: bookingId,
@@ -388,7 +392,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
           current: safeBookingPayload(updated),
           restaurantId: updated.restaurant_id ?? existingBooking.restaurant_id,
         },
-        { supabase: serviceSupabase },
+        { supabase: tenantClient },
       );
     } catch (jobError) {
       console.error("[ops/bookings][PATCH] side effects failed", jobError);
@@ -414,6 +418,31 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json(response);
   } catch (updateError) {
     console.error("[ops/bookings][PATCH] update failed", updateError);
+
+    if (env.featureFlags.dbStrictConstraints) {
+      const mapped = mapDbErrorToConstraint(updateError);
+      if (mapped) {
+        const status = mapped.kind === "overlap_conflict" || mapped.kind === "unique_conflict" ? 409 : 422;
+        return NextResponse.json(
+          {
+            error: mapped.userMessage,
+            code:
+              mapped.kind === "overlap_conflict"
+                ? "ALLOCATION_CONFLICT"
+                : mapped.kind === "unique_conflict"
+                  ? "UNIQUE_CONFLICT"
+                  : mapped.kind === "fk_conflict"
+                    ? "FK_CONFLICT"
+                    : mapped.kind === "check_violation"
+                      ? "CHECK_VIOLATION"
+                      : "DB_CONSTRAINT_ERROR",
+            retryable: isRetryableConstraintError(updateError),
+          },
+          { status },
+        );
+      }
+    }
+
     return NextResponse.json({ error: "Unable to update booking" }, { status: 500 });
   }
 }
@@ -435,7 +464,9 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
   const overrideReason = payload.override?.reason?.trim() ?? null;
   const overrideRequest = payload.override?.apply ? { apply: true, reason: overrideReason } : undefined;
 
-  const validationService = createBookingValidationService({ client: serviceSupabase });
+  // Use tenant-scoped client for all validation and update operations
+  const tenantClient = getTenantServiceSupabaseClient(existingBooking.restaurant_id);
+  const validationService = createBookingValidationService({ client: tenantClient });
 
   const bookingInput: BookingInput = {
     restaurantId: existingBooking.restaurant_id,
@@ -487,7 +518,7 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
       (auditMetadata as Record<string, unknown>).override_applied = true;
     }
 
-    await logAuditEvent(serviceSupabase, {
+    await logAuditEvent(tenantClient, {
       action: "booking.updated",
       entity: "booking",
       entityId: bookingId,
@@ -502,7 +533,7 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
           current: safeBookingPayload(updated as unknown as BookingRecord),
           restaurantId: updated.restaurant_id ?? existingBooking.restaurant_id,
         },
-        { supabase: serviceSupabase },
+        { supabase: tenantClient },
       );
     } catch (jobError) {
       console.error("[ops/bookings][PATCH][unified] side effects failed", jobError);
@@ -632,15 +663,18 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "Booking not found" }, { status: 404 });
   }
 
+  // Use tenant-scoped client for all cancellation operations
+  const tenantClient = getTenantServiceSupabaseClient(existingBooking.restaurant_id);
+
   try {
-    const cancelled = await softCancelBooking(serviceSupabase, bookingId);
+    const cancelled = await softCancelBooking(tenantClient, bookingId);
 
     const auditMetadata = {
       restaurant_id: existingBooking.restaurant_id,
       ...buildBookingAuditSnapshot(existingBooking, cancelled),
     } as Json;
 
-    await logAuditEvent(serviceSupabase, {
+    await logAuditEvent(tenantClient, {
       action: "booking.cancelled",
       entity: "booking",
       entityId: bookingId,
@@ -656,7 +690,7 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
           restaurantId: existingBooking.restaurant_id,
           cancelledBy: "staff",
         },
-        { supabase: serviceSupabase },
+        { supabase: tenantClient },
       );
     } catch (jobError) {
       console.error("[ops/bookings][DELETE] side effects failed", jobError);

@@ -69,6 +69,7 @@ export function useReviewStep({
         icon: 'Pencil',
         variant: 'outline',
         onClick: handleEdit,
+        role: 'secondary',
       },
       {
         id: 'review-confirm',
@@ -78,6 +79,7 @@ export function useReviewStep({
         disabled: state.submitting,
         loading: state.submitting,
         onClick: handleConfirm,
+        role: 'primary',
       },
     ]);
   }, [handleConfirm, handleEdit, onActionsChange, state.submitting]);

@@ -11,10 +11,7 @@ vi.hoisted(() => {
 
 import * as HoldsModule from "@/server/capacity/holds";
 import { getVenuePolicy } from "@/server/capacity/policy";
-import { AssignmentConflictError, SupabaseAssignmentRepository } from "@/server/capacity/v2";
 import { computePayloadChecksum, hashPolicyVersion } from "@/server/capacity/v2";
-
-const { AssignTablesRpcError } = HoldsModule;
 
 const emitHoldCreated = vi.fn();
 const emitHoldConfirmed = vi.fn();
@@ -128,6 +125,19 @@ type SupabaseOverride = {
     merge_group_id: string | null;
   }>;
   holdDelete?: (column: string, value: unknown) => Promise<{ data: null; error: null }>;
+  rpcAssignments?: Array<{
+    assignment_id: string;
+    table_id: string;
+    start_at: string;
+    end_at: string;
+    merge_group_id: string | null;
+  }>;
+  rpcError?: {
+    message?: string;
+    code?: string;
+    details?: unknown;
+    hint?: string | null;
+  };
 };
 
 function createSupabaseClient(overrides?: SupabaseOverride) {
@@ -179,8 +189,21 @@ function createSupabaseClient(overrides?: SupabaseOverride) {
   const assignmentUpdateRecorder = createUpdateRecorder(assignmentUpdateCalls);
   const allocationUpdateRecorder = createUpdateRecorder(allocationUpdateCalls);
   const ledgerUpdateRecorder = createUpdateRecorder(ledgerUpdateCalls);
+  const rpcAssignments =
+    overrides?.rpcAssignments ??
+    [
+      {
+        assignment_id: assignmentRows[0]?.id ?? "assignment-1",
+        table_id: TABLE_ID,
+        start_at: holdRow.start_at,
+        end_at: holdRow.end_at,
+        merge_group_id: null,
+      },
+    ];
+  const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
 
   return {
+    __rpcCalls: rpcCalls,
     from(table: string) {
       const normalizedTable = table.trim();
       switch (normalizedTable) {
@@ -307,6 +330,19 @@ function createSupabaseClient(overrides?: SupabaseOverride) {
       }
     },
     rpc(name: string, payload: Record<string, unknown>) {
+      rpcCalls.push({ name, args: payload });
+      if (name === "confirm_hold_assignment_tx") {
+        if (overrides?.rpcError) {
+          return Promise.resolve({
+            data: null,
+            error: overrides.rpcError,
+          });
+        }
+        return Promise.resolve({
+          data: rpcAssignments,
+          error: null,
+        });
+      }
       if (name === "assign_tables_atomic_v2") {
         return Promise.resolve({
           data: [
@@ -326,19 +362,6 @@ function createSupabaseClient(overrides?: SupabaseOverride) {
       if (name === "is_holds_strict_conflicts_enabled") {
         return Promise.resolve({ data: true, error: null });
       }
-      if (name === "confirm_hold_assignment_with_transition") {
-        return Promise.resolve({
-          data: [
-            {
-              table_id: TABLE_ID,
-              start_at: payload.p_start_at,
-              end_at: payload.p_end_at,
-              merge_group_id: null,
-            },
-          ],
-          error: null,
-        });
-      }
       throw new Error(`Unexpected RPC ${name}`);
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -346,71 +369,56 @@ function createSupabaseClient(overrides?: SupabaseOverride) {
 }
 
 describe('confirmHoldAssignment', () => {
-beforeEach(() => {
-  vi.restoreAllMocks();
-  emitHoldCreated.mockReset();
-  emitHoldConfirmed.mockReset();
-  emitRpcConflict.mockReset();
-  emitSelectorDecision.mockReset();
-  emitSelectorQuote.mockReset();
-  enqueueOutboxEvent.mockReset();
-  vi.spyOn(HoldsModule, 'releaseTableHold').mockResolvedValue();
-});
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    emitHoldCreated.mockReset();
+    emitHoldConfirmed.mockReset();
+    emitRpcConflict.mockReset();
+    emitSelectorDecision.mockReset();
+    emitSelectorQuote.mockReset();
+    enqueueOutboxEvent.mockReset();
+    vi.spyOn(HoldsModule, 'releaseTableHold').mockResolvedValue();
+  });
 
-  it('returns assignments for first confirmation and rejects subsequent attempts', async () => {
-    const repoSpy = vi
-      .spyOn(SupabaseAssignmentRepository.prototype, 'commitAssignment')
-      .mockResolvedValueOnce({
-        attemptId: 'attempt-1',
-        assignments: [
-          {
-            tableId: TABLE_ID,
-            startAt: '2025-01-01T18:00:00.000Z',
-            endAt: '2025-01-01T20:00:00.000Z',
-            mergeGroupId: null,
-          },
-        ],
-        mergeGroupId: null,
-        shadow: false,
-      })
-      .mockRejectedValueOnce(new AssignmentConflictError('duplicate', { tableIds: [TABLE_ID] }));
-
-    emitHoldConfirmed.mockResolvedValue();
-    emitRpcConflict.mockResolvedValue();
-
+  it('invokes confirm_hold_assignment_tx and returns assignments', async () => {
     const client = createSupabaseClient();
-
-    const first = await confirmHoldAssignment({
+    const result = await confirmHoldAssignment({
       holdId: HOLD_ID,
       bookingId: BOOKING_ID,
-      idempotencyKey: 'key-1',
+      idempotencyKey: 'rpc-success',
       client,
     });
+    expect(result).toHaveLength(1);
+    expect(result[0]?.tableId).toBe(TABLE_ID);
+    expect(result[0]?.assignmentId).toBe('assignment-1');
+    const rpcCall = client.__rpcCalls.find((call: { name: string }) => call.name === 'confirm_hold_assignment_tx');
+    expect(rpcCall).toBeTruthy();
+    expect(rpcCall?.args.p_hold_id).toBe(HOLD_ID);
+  });
 
-    expect(first).toHaveLength(1);
-    expect(first[0]?.tableId).toBe(TABLE_ID);
-    expect(repoSpy).toHaveBeenCalledTimes(1);
-
+  it('propagates RPC errors', async () => {
+    const client = createSupabaseClient({
+      rpcError: { message: 'rpc failed', code: 'RPC_FAIL' },
+    });
     await expect(
       confirmHoldAssignment({
         holdId: HOLD_ID,
         bookingId: BOOKING_ID,
-        idempotencyKey: 'key-2',
+        idempotencyKey: 'rpc-error',
         client,
       }),
-    ).rejects.toBeInstanceOf(AssignTablesRpcError);
+    ).rejects.toMatchObject({ code: 'RPC_FAIL' });
   });
 
   it('rejects holds without snapshot metadata', async () => {
     const client = createSupabaseClient({
       hold: {
         metadata: {
-          policyVersion: "policy-1",
+          policyVersion: 'policy-1',
           selection: {},
         },
       },
     });
-
     await expect(
       confirmHoldAssignment({
         holdId: HOLD_ID,
@@ -418,367 +426,37 @@ beforeEach(() => {
         idempotencyKey: 'missing-metadata',
         client,
       }),
-    ).rejects.toMatchObject({ code: "HOLD_METADATA_INCOMPLETE" });
+    ).rejects.toMatchObject({ code: 'HOLD_METADATA_INCOMPLETE' });
   });
 
-  it('invokes the allocator repository when confirming', async () => {
-    const repoSpy = vi
-      .spyOn(SupabaseAssignmentRepository.prototype, 'commitAssignment')
-      .mockResolvedValue({
-        attemptId: 'rpc-plan',
-        assignments: [
-          {
-            tableId: TABLE_ID,
-            startAt: '2025-01-01T18:00:00.000Z',
-            endAt: '2025-01-01T19:20:00.000Z',
-            mergeGroupId: null,
-          },
-        ],
-        mergeGroupId: null,
-        shadow: false,
-      });
-
-    const client = createSupabaseClient();
-
-    const result = await confirmHoldAssignment({
-      holdId: HOLD_ID,
-      bookingId: BOOKING_ID,
-      idempotencyKey: 'key-allocator-v2',
-      client,
-    });
-
-    expect(repoSpy).toHaveBeenCalledTimes(1);
-    expect(result).toHaveLength(1);
-    expect(result[0]?.tableId).toBe(TABLE_ID);
-  });
-
-  it('normalizes confirmed assignment windows when the booking duration is excessive', async () => {
-    const repoSpy = vi
-      .spyOn(SupabaseAssignmentRepository.prototype, 'commitAssignment')
-      .mockResolvedValueOnce({
-        attemptId: 'attempt-1',
-        assignments: [
-          {
-            tableId: TABLE_ID,
-            startAt: '2025-01-01T18:00:00.000Z',
-            endAt: '2025-01-01T23:00:00.000Z',
-            mergeGroupId: null,
-          },
-        ],
-        mergeGroupId: null,
-        shadow: false,
-      });
-
-    const holdRow = {
-      id: HOLD_ID,
-      booking_id: BOOKING_ID,
-      restaurant_id: 'restaurant-1',
-      zone_id: 'zone-1',
-      start_at: '2025-01-01T18:00:00.000Z',
-      end_at: '2025-01-01T23:00:00.000Z',
-      expires_at: '2025-01-01T18:05:00.000Z',
-      table_hold_members: [{ table_id: TABLE_ID }],
-      metadata: cloneDefaultHoldMetadata(),
-    };
-
-    const bookingRow = {
-      id: BOOKING_ID,
-      restaurant_id: 'restaurant-1',
-      booking_date: '2025-01-01',
-      start_time: '18:00',
-      end_time: '23:00',
-      start_at: '2025-01-01T18:00:00.000Z',
-      end_at: '2025-01-01T23:00:00.000Z',
-      party_size: 4,
-      restaurants: [{ timezone: 'Europe/London' }],
-    };
-
-    const assignmentRows = [{ table_id: TABLE_ID, id: 'assignment-1', start_at: '2025-01-01T18:00:00.000Z', end_at: '2025-01-01T23:00:00.000Z', merge_group_id: null }];
-
-    const assignmentUpdateCalls: UpdateCall<{ start_at: string; end_at: string }>[] = [];
-    const allocationUpdateCalls: UpdateCall<{ window: string }>[] = [];
-    const ledgerUpdateCalls: UpdateCall<{ assignment_window: string; merge_group_allocation_id: string | null }>[] = [];
-
-    const client = {
-      from(table: string) {
-        const normalizedTable = table.trim();
-        if (normalizedTable === 'table_hold_members') {
-          return {
-            delete() {
-              return {
-                eq() {
-                  return Promise.resolve({ data: null, error: null });
-                },
-              };
-            },
-          };
-        }
-        switch (normalizedTable) {
-      case 'table_holds':
-        return {
-          select() {
-            return {
-              eq() {
-                    return {
-                      maybeSingle: async () => ({ data: holdRow, error: null }),
-                    };
-              },
-            };
-          },
-        };
-      case 'table_inventory': {
-        const baseTable = {
-          id: TABLE_ID,
-          table_number: "T1",
-          capacity: 4,
-          min_party_size: null,
-          max_party_size: null,
-          section: null,
-          category: null,
-          seating_type: null,
-          mobility: null,
-          zone_id: holdRow.zone_id ?? "zone-1",
-          status: "available",
-          active: true,
-          position: null,
-        };
-          return {
-            select() {
-              return {
-                eq(eqColumn: string, eqValue: unknown) {
-                  if (eqColumn !== "restaurant_id" || eqValue !== holdRow.restaurant_id) {
-                    return {
-                      in() {
-                        return Promise.resolve({ data: [], error: null });
-                      },
-                    };
-                  }
-                  return {
-                    in(_: string, ids: unknown) {
-                      const idList = Array.isArray(ids) ? ids : [];
-                      const rows = idList.map((id) => ({
-                        ...baseTable,
-                        id,
-                      }));
-                      return Promise.resolve({ data: rows, error: null });
-                    },
-                  };
-                },
-              };
-            },
-          };
-        }
-        case 'table_adjacencies':
-          return {
-            select() {
-              const builder = {
-                eq() {
-                  return builder;
-                },
-                in() {
-                  return Promise.resolve({ data: [], error: null });
-                },
-              };
-              return builder;
-            },
-          };
-          case 'booking_table_assignments':
-            return {
-              select() {
-                return {
-                  eq() {
-                    return Promise.resolve({ data: assignmentRows, error: null });
-                  },
-                };
-              },
-              update: createUpdateRecorder(assignmentUpdateCalls).update,
-            };
-          case 'bookings':
-            return {
-              select() {
-                return {
-                  eq() {
-                    return {
-                      maybeSingle: async () => ({ data: bookingRow, error: null }),
-                    };
-                  },
-                };
-              },
-            };
-          case 'allocations':
-            return createUpdateRecorder(allocationUpdateCalls);
-          case 'booking_assignment_idempotency':
-            return {
-              select() {
-                const builder = {
-                  eq() {
-                    return builder;
-                  },
-                  maybeSingle: async () => ({ data: null, error: null }),
-                };
-                return builder;
-              },
-              update: createUpdateRecorder(ledgerUpdateCalls).update,
-            };
-          default:
-            throw new Error(`Unexpected table ${table}`);
-        }
-      },
-      rpc(name: string, payload: Record<string, unknown>) {
-        if (name === 'assign_tables_atomic_v2') {
-          return Promise.resolve({
-            data: [
-              {
-                table_id: TABLE_ID,
-                start_at: payload.p_start_at,
-                end_at: payload.p_end_at,
-                merge_group_id: null,
-              },
-            ],
-            error: null,
-          });
-        }
-        if (name === 'set_hold_conflict_enforcement') {
-          return Promise.resolve({ data: true, error: null });
-        }
-        if (name === 'is_holds_strict_conflicts_enabled') {
-          return Promise.resolve({ data: true, error: null });
-        }
-        if (name === 'confirm_hold_assignment_with_transition') {
-          return Promise.resolve({
-            data: [
-              {
-                table_id: TABLE_ID,
-                start_at: payload.p_start_at,
-                end_at: payload.p_end_at,
-                merge_group_id: null,
-              },
-            ],
-            error: null,
-          });
-        }
-        throw new Error(`Unexpected RPC ${name}`);
-      },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as unknown as any;
-
-    emitHoldConfirmed.mockResolvedValue();
-
-    const result = await confirmHoldAssignment({
-      holdId: HOLD_ID,
-      bookingId: BOOKING_ID,
-      idempotencyKey: 'clamp-hold',
-      client,
-    });
-
-    expect(repoSpy).toHaveBeenCalledTimes(1);
-    expect(result).toHaveLength(1);
-    expect(result[0]?.startAt).toBe('2025-01-01T18:00:00Z');
-    expect(result[0]?.endAt).toBe('2025-01-01T19:20:00Z');
-    expect(assignmentUpdateCalls).toHaveLength(1);
-    expect(allocationUpdateCalls).toHaveLength(1);
-    expect(allocationUpdateCalls[0]?.payload).toEqual({ window: '[2025-01-01T18:00:00Z,2025-01-01T19:20:00Z)' });
-    expect(ledgerUpdateCalls).toHaveLength(1);
-    expect(ledgerUpdateCalls[0]?.payload).toEqual(
-      expect.objectContaining({
-        assignment_window: '[2025-01-01T18:00:00Z,2025-01-01T19:20:00Z)',
-        merge_group_allocation_id: null,
-        payload_checksum: expect.any(String),
-      }),
-    );
-
-    const holdConfirmedCall = enqueueOutboxEvent.mock.calls.find(
-      ([args]) => args.eventType === 'capacity.hold.confirmed',
-    );
-    expect(holdConfirmedCall).toBeDefined();
-    expect(holdConfirmedCall?.[0]?.payload).toMatchObject({
-      holdId: HOLD_ID,
-      bookingId: BOOKING_ID,
-      zoneId: 'zone-1',
-      tableIds: [TABLE_ID],
-      startAt: '2025-01-01T18:00:00Z',
-      endAt: '2025-01-01T19:20:00Z',
-      metadata: null,
-    });
-
-    const assignmentSyncCall = enqueueOutboxEvent.mock.calls.find(
-      ([args]) => args.eventType === 'capacity.assignment.sync',
-    );
-    expect(assignmentSyncCall).toBeDefined();
-  });
-
-  it('flags telemetry metadata when hold zone is missing', async () => {
-    const repoSpy = vi
-      .spyOn(SupabaseAssignmentRepository.prototype, 'commitAssignment')
-      .mockResolvedValue({
-        attemptId: 'telemetry',
-        assignments: [
-          {
-            tableId: TABLE_ID,
-            startAt: '2025-01-01T18:00:00.000Z',
-            endAt: '2025-01-01T19:20:00.000Z',
-            mergeGroupId: null,
-          },
-        ],
-        mergeGroupId: null,
-        shadow: false,
-      });
-
-    const client = createSupabaseClient({ hold: { zone_id: null } });
-    emitHoldConfirmed.mockResolvedValue();
-
-    await confirmHoldAssignment({
-      holdId: HOLD_ID,
-      bookingId: BOOKING_ID,
-      idempotencyKey: 'missing-zone',
-      client,
-    });
-
-    expect(repoSpy).toHaveBeenCalledTimes(1);
-    const holdConfirmedCall = enqueueOutboxEvent.mock.calls.find(
-      ([args]) => args.eventType === 'capacity.hold.confirmed',
-    );
-    expect(holdConfirmedCall).toBeDefined();
-    expect(holdConfirmedCall?.[0]?.payload).toMatchObject({
-      holdId: HOLD_ID,
-      zoneId: '',
-      metadata: { unknownZone: true },
-    });
-    const assignmentSyncCall = enqueueOutboxEvent.mock.calls.find(
-      ([args]) => args.eventType === 'capacity.assignment.sync',
-    );
-    expect(assignmentSyncCall).toBeDefined();
-  });
-
-  it('emits conflict and rejects when hold booking mismatches', async () => {
-    const repoSpy = vi.spyOn(SupabaseAssignmentRepository.prototype, 'commitAssignment');
-    emitRpcConflict.mockResolvedValue();
-    const holdDelete = vi.fn().mockResolvedValue({ data: null, error: null });
-    const client = createSupabaseClient({
-      hold: { booking_id: 'another-booking' },
-      holdDelete: holdDelete,
-    });
-
+  it('rejects when policy version drifts', async () => {
+    const metadata = cloneDefaultHoldMetadata();
+    metadata.policyVersion = 'stale';
+    const client = createSupabaseClient({ hold: { metadata } });
     await expect(
       confirmHoldAssignment({
         holdId: HOLD_ID,
         bookingId: BOOKING_ID,
-        idempotencyKey: 'mismatch',
+        idempotencyKey: 'policy-drift',
         client,
       }),
-    ).rejects.toMatchObject({ code: 'HOLD_BOOKING_MISMATCH' });
+    ).rejects.toMatchObject({ code: 'POLICY_CHANGED' });
+  });
 
-    expect(repoSpy).not.toHaveBeenCalled();
-    expect(emitHoldConfirmed).not.toHaveBeenCalled();
-    expect(emitRpcConflict).toHaveBeenCalledTimes(1);
-    const conflictPayload = emitRpcConflict.mock.calls[0]?.[0];
-    expect(conflictPayload).toMatchObject({
-      bookingId: BOOKING_ID,
-      holdId: HOLD_ID,
-      error: {
-        code: 'HOLD_BOOKING_MISMATCH',
-      },
-    });
-    expect(holdDelete).not.toHaveBeenCalled();
+  it('rejects when adjacency snapshot hash changes', async () => {
+    const metadata = cloneDefaultHoldMetadata();
+    metadata.selection.snapshot = {
+      zoneIds: ['zone-other'],
+      adjacency: DEFAULT_SELECTION_SNAPSHOT.adjacency,
+    };
+    const client = createSupabaseClient({ hold: { metadata } });
+    await expect(
+      confirmHoldAssignment({
+        holdId: HOLD_ID,
+        bookingId: BOOKING_ID,
+        idempotencyKey: 'adjacency-drift',
+        client,
+      }),
+    ).rejects.toMatchObject({ code: 'POLICY_CHANGED' });
   });
 });

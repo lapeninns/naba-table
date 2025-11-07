@@ -64,6 +64,85 @@ describe("filterAvailableTables", () => {
     expect(result).toHaveLength(0);
   });
 
+  it("allows tables exceeding maxPartySize when violations are permitted", () => {
+    const policy = getVenuePolicy();
+    const window = computeBookingWindow({
+      startISO: "2025-10-26T18:00:00Z",
+      partySize: 6,
+      policy,
+    });
+    if (!window) {
+      throw new Error("Failed to compute booking window for test");
+    }
+    const tables: Table[] = [
+      {
+        id: "table-flex",
+        tableNumber: "FLEX",
+        capacity: 6,
+        minPartySize: 1,
+        maxPartySize: 4,
+        section: "Main",
+        category: "dining",
+        seatingType: "standard",
+        mobility: "movable",
+        zoneId: "zone-main",
+        status: "available",
+        active: true,
+        position: null,
+      },
+    ];
+    const adjacency = new Map<string, Set<string>>([["table-flex", new Set()]]);
+    const result = filterAvailableTables(
+      tables,
+      6,
+      window,
+      adjacency,
+      undefined,
+      undefined,
+      {
+        allowMaxPartySizeViolation: true,
+      },
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0]?.id).toBe("table-flex");
+  });
+
+  it("does not mutate adjacency map entries when enforcement is required", () => {
+    const policy = getVenuePolicy();
+    const window = computeBookingWindow({
+      startISO: "2025-10-26T18:00:00Z",
+      partySize: 4,
+      policy,
+    });
+    if (!window) {
+      throw new Error("Failed to compute booking window for test");
+    }
+
+    const adjacency = new Map<string, Set<string>>();
+    const tables: Table[] = [
+      {
+        id: "table-a",
+        tableNumber: "A1",
+        capacity: 4,
+        minPartySize: 1,
+        maxPartySize: 4,
+        section: "Main",
+        category: "dining",
+        seatingType: "standard",
+        mobility: "movable",
+        zoneId: "zone-main",
+        status: "available",
+        active: true,
+        position: null,
+      },
+    ];
+
+    const result = filterAvailableTables(tables, 4, window, adjacency, undefined, undefined);
+    expect(result).toHaveLength(0);
+    expect(adjacency.has("table-a")).toBe(false);
+    expect(adjacency.size).toBe(0);
+  });
+
   it("drops tables that overlap the target window when strict time pruning is enabled", () => {
     const policy = getVenuePolicy();
     const window = computeBookingWindow({
@@ -116,11 +195,15 @@ describe("filterAvailableTables", () => {
 
     let statsCaptured: { prunedByTime: number; candidatesAfterTimePrune: number } | null = null;
 
+    const adjacency = new Map<string, Set<string>>([
+      ["table-busy", new Set()],
+      ["table-free", new Set()],
+    ]);
     const result = filterAvailableTables(
       tables,
       2,
       window,
-      new Map(),
+      adjacency,
       undefined,
       undefined,
       {

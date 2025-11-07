@@ -41,6 +41,8 @@ import { serializeDetails, toIsoUtc, normalizeIsoString } from "./utils";
 
 import type { Tables, Json } from "@/types/supabase";
 
+let confirmHoldAssignmentRpcAvailable: boolean | undefined;
+
 type ConfirmHoldTransition = {
   targetStatus: Tables<"bookings">["status"];
   historyReason: string;
@@ -80,6 +82,29 @@ type AssignmentSyncParams = {
     holdId: string;
     zoneId?: string | null;
   };
+};
+
+function isSchemaCacheMissError(error: AssignTablesRpcError): boolean {
+  const code = (error.code ?? "").toUpperCase();
+  if (code === "PGRST202" || code === "PGRST204") {
+    return true;
+  }
+  const message = (error.message ?? "").toLowerCase();
+  return message.includes("schema cache");
+}
+
+type LegacyConfirmContext = {
+  supabase: DbClient;
+  booking: BookingRow;
+  holdRow: TableHoldRow;
+  normalizedTableIds: string[];
+  startIso: string;
+  endIso: string;
+  assignedBy: string | null;
+  idempotencyKey: string;
+  requireAdjacency: boolean;
+  holdId: string;
+  transition?: ConfirmHoldTransition;
 };
 
 async function synchronizeAssignments(params: AssignmentSyncParams): Promise<TableAssignmentMember[]> {
@@ -213,6 +238,171 @@ async function synchronizeAssignments(params: AssignmentSyncParams): Promise<Tab
   return result;
 }
 
+async function confirmHoldAssignmentLegacy(ctx: LegacyConfirmContext): Promise<TableAssignmentMember[]> {
+  const {
+    supabase,
+    booking,
+    holdRow,
+    normalizedTableIds,
+    startIso,
+    endIso,
+    assignedBy,
+    idempotencyKey,
+    requireAdjacency,
+    holdId,
+  } = ctx;
+  const actorId = assignedBy ?? null;
+  const legacyHoldRow = holdRow;
+
+  const planSignature = createPlanSignature({
+    bookingId: booking.id,
+    tableIds: normalizedTableIds,
+    startAt: startIso,
+    endAt: endIso,
+    salt: idempotencyKey ?? undefined,
+  });
+
+  const orchestrator = new AssignmentOrchestrator(new SupabaseAssignmentRepository(supabase));
+  let response;
+  try {
+    response = await orchestrator.commitPlan(
+      {
+        bookingId: booking.id,
+        restaurantId: booking.restaurant_id,
+        partySize: booking.party_size,
+        serviceDate: booking.booking_date ?? null,
+        window: { startAt: startIso, endAt: endIso },
+      },
+      {
+        signature: planSignature,
+        tableIds: normalizedTableIds,
+        startAt: startIso,
+        endAt: endIso,
+        metadata: { requestSource: "confirmHoldAssignmentFallback" },
+      },
+      {
+        source: "auto",
+        idempotencyKey,
+        actorId,
+        metadata: { requireAdjacency, fallback: true },
+        requireAdjacency,
+      },
+    );
+  } catch (error) {
+    if (error instanceof AssignmentConflictError) {
+      throw new AssignTablesRpcError({
+        message: error.message,
+        code: "ASSIGNMENT_CONFLICT",
+        details: serializeDetails(error.details),
+        hint: error.details?.hint ?? null,
+      });
+    }
+    if (error instanceof AssignmentValidationError) {
+      throw new AssignTablesRpcError({
+        message: error.message,
+        code: "ASSIGNMENT_VALIDATION",
+        details: serializeDetails(error.details),
+        hint: null,
+      });
+    }
+    if (error instanceof AssignmentRepositoryError) {
+      throw new AssignTablesRpcError({
+        message: error.message,
+        code: "ASSIGNMENT_REPOSITORY_ERROR",
+        details: serializeDetails(error.cause ?? null),
+        hint: null,
+      });
+    }
+    throw error;
+  }
+
+  const assignmentPayload = response.assignments.map((assignment) => ({
+    tableId: assignment.tableId,
+    startAt: assignment.startAt,
+    endAt: assignment.endAt,
+    mergeGroupId: assignment.mergeGroupId ?? response.mergeGroupId ?? null,
+  }));
+
+  const synchronized = await synchronizeAssignments({
+    supabase,
+    booking,
+    tableIds: normalizedTableIds,
+    idempotencyKey,
+    assignments: assignmentPayload,
+    startIso,
+    endIso,
+    actorId,
+    mergeGroupId: response.mergeGroupId ?? null,
+    holdContext: {
+      holdId,
+      zoneId: legacyHoldRow.zone_id ?? null,
+    },
+  });
+
+  const transition = ctx.transition;
+  if (transition?.targetStatus) {
+    const targetStatus = transition.targetStatus;
+    if (booking.status !== targetStatus) {
+      const nowIso = new Date().toISOString();
+      const { data: transitionRows, error: transitionError } = await supabase.rpc("apply_booking_state_transition", {
+        p_booking_id: booking.id,
+        p_status: targetStatus,
+        p_checked_in_at: booking.checked_in_at ?? null,
+        p_checked_out_at: booking.checked_out_at ?? null,
+        p_updated_at: nowIso,
+        p_history_from: booking.status,
+        p_history_to: targetStatus,
+        p_history_changed_by: transition.historyChangedBy ?? null,
+        p_history_changed_at: nowIso,
+        p_history_reason: transition.historyReason ?? "auto_assign_confirm",
+        p_history_metadata: transition.historyMetadata ?? {},
+      });
+
+      if (transitionError) {
+        throw new AssignTablesRpcError({
+          message: transitionError.message ?? "Failed to transition booking status after assignment",
+          code: transitionError.code ?? "BOOKING_STATUS_TRANSITION_FAILED",
+          details: serializeDetails(transitionError.details ?? null),
+          hint: transitionError.hint ?? null,
+        });
+      }
+
+      const transitionRow = Array.isArray(transitionRows) ? transitionRows[0] : null;
+      booking.status = (transitionRow?.status as Tables<"bookings">["status"] | undefined) ?? targetStatus;
+      if ("checked_in_at" in booking) {
+        (booking as BookingRow).checked_in_at = (transitionRow?.checked_in_at as string | null | undefined) ?? booking.checked_in_at ?? null;
+      }
+      if ("checked_out_at" in booking) {
+        (booking as BookingRow).checked_out_at = (transitionRow?.checked_out_at as string | null | undefined) ?? booking.checked_out_at ?? null;
+      }
+    }
+  }
+
+  try {
+    await releaseHoldWithRetry({ holdId, client: supabase });
+  } catch (releaseError) {
+    console.warn("[capacity.confirm][fallback] failed to release hold", {
+      holdId,
+      bookingId: booking.id,
+      error: releaseError instanceof Error ? releaseError.message : String(releaseError),
+    });
+  }
+
+  await recordObservabilityEvent({
+    source: "capacity.confirm",
+    eventType: "confirm_hold.rpc_fallback_succeeded",
+    restaurantId: booking.restaurant_id ?? undefined,
+    bookingId: booking.id,
+    context: {
+      holdId,
+      tableCount: normalizedTableIds.length,
+    },
+    severity: "info",
+  }).catch(() => {});
+
+  return synchronized;
+}
+
 export async function confirmHoldAssignment(options: ConfirmHoldAssignmentOptions): Promise<TableAssignmentMember[]> {
   if (!isAllocatorV2Enabled()) {
     throw new AssignTablesRpcError({
@@ -234,11 +424,12 @@ export async function confirmHoldAssignment(options: ConfirmHoldAssignmentOption
     transition,
   } = options;
   const supabase = ensureClient(client);
+  const actorId = assignedBy ?? null;
 
   const holdQuery = applyAbortSignal(
     supabase
       .from("table_holds")
-      .select("restaurant_id, zone_id, booking_id, metadata, table_hold_members(table_id)")
+      .select("id, restaurant_id, zone_id, booking_id, metadata, table_hold_members(table_id)")
       .eq("id", holdId),
     signal,
   );
@@ -274,11 +465,24 @@ export async function confirmHoldAssignment(options: ConfirmHoldAssignmentOption
     });
   }
 
-  const tableIds = Array.isArray(holdRow.table_hold_members)
-    ? (holdRow.table_hold_members as Array<{ table_id: string }>).map((member) => member.table_id)
+  const typedHoldRow = holdRow as TableHoldRow;
+  const holdMetadata = (typedHoldRow.metadata ?? null) as
+    | {
+        policyVersion?: string | null;
+        selection?: {
+          snapshot?: {
+            zoneIds?: string[];
+            adjacency?: { undirected?: boolean; edges?: string[]; hash?: string };
+          };
+        };
+      }
+    | null;
+
+  const tableIds = Array.isArray(typedHoldRow.table_hold_members)
+    ? (typedHoldRow.table_hold_members as Array<{ table_id: string }>).map((member) => member.table_id)
     : [];
 
-  const holdBookingId = (holdRow as { booking_id?: string | null }).booking_id ?? null;
+  const holdBookingId = typedHoldRow.booking_id ?? null;
   if (holdBookingId && holdBookingId !== bookingId) {
     await emitRpcConflict({
       source: "confirm_hold_booking_mismatch",
@@ -318,7 +522,7 @@ export async function confirmHoldAssignment(options: ConfirmHoldAssignmentOption
     getVenuePolicy().timezone;
   const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
   const policyVersion = hashPolicyVersion(policy);
-  const holdPolicyVersion = (holdRow as { metadata?: { policyVersion?: string } })?.metadata?.policyVersion ?? null;
+  const holdPolicyVersion = typeof holdMetadata?.policyVersion === "string" ? holdMetadata.policyVersion : null;
   if (holdPolicyVersion && holdPolicyVersion !== policyVersion) {
     throw new AssignTablesRpcError({
       message: "Policy has changed since hold was created",
@@ -340,16 +544,8 @@ export async function confirmHoldAssignment(options: ConfirmHoldAssignmentOption
   const endIso = toIsoUtc(window.block.end);
   const normalizedTableIds = normalizeTableIds(tableIds);
   // Verify adjacency/zone snapshot freeze
-  const selectionSnapshot = ((holdRow as { 
-    metadata?: { 
-      selection?: { 
-        snapshot?: {
-          zoneIds?: string[];
-          adjacency?: { undirected?: boolean; edges?: string[]; hash?: string };
-        } 
-      } 
-    } 
-  })?.metadata?.selection?.snapshot ?? null);
+  let adjacencySnapshotHash: string | null = null;
+  const selectionSnapshot = holdMetadata?.selection?.snapshot ?? null;
   if (selectionSnapshot) {
     const currentTables = await loadTablesByIds(booking.restaurant_id, normalizedTableIds, supabase, signal);
     const currentZoneIds = Array.from(new Set(currentTables.map((t) => t.zoneId))).filter(Boolean) as string[];
@@ -369,6 +565,7 @@ export async function confirmHoldAssignment(options: ConfirmHoldAssignmentOption
     }
     const nowEdges = Array.from(edgeSet).sort();
     const nowHash = computePayloadChecksum({ undirected, edges: nowEdges });
+    adjacencySnapshotHash = nowHash;
     const edgesMatch =
       nowHash === selectionSnapshot.adjacency?.hash &&
       JSON.stringify(nowEdges) === JSON.stringify([...(selectionSnapshot.adjacency?.edges ?? [])].sort());
@@ -393,12 +590,6 @@ export async function confirmHoldAssignment(options: ConfirmHoldAssignmentOption
       });
     }
   }
-  const planSignature = createPlanSignature({
-    bookingId,
-    tableIds: normalizedTableIds,
-    startAt: startIso,
-    endAt: endIso,
-  });
   const deterministicKey = createDeterministicIdempotencyKey({
     tenantId: booking.restaurant_id,
     bookingId,
@@ -437,140 +628,95 @@ export async function confirmHoldAssignment(options: ConfirmHoldAssignmentOption
   }
 
   const effectiveIdempotencyKey = providedIdempotencyKey ?? deterministicKey;
+  const fallbackContext: LegacyConfirmContext = {
+    supabase,
+    booking,
+    holdRow: typedHoldRow,
+    normalizedTableIds,
+    startIso,
+    endIso,
+    assignedBy,
+    idempotencyKey: effectiveIdempotencyKey,
+    requireAdjacency,
+    holdId,
+    transition,
+  };
 
-  let assignmentPayload: Array<{ tableId: string; startAt: string; endAt: string; mergeGroupId: string | null }> = [];
-  let mergeGroupId: string | null = null;
-
-  if (transition) {
-    const rpcArgs = {
-      p_booking_id: bookingId,
-      p_table_ids: normalizedTableIds,
-      p_idempotency_key: effectiveIdempotencyKey,
-      p_require_adjacency: requireAdjacency,
-      p_assigned_by: assignedBy ?? undefined,
-      p_start_at: startIso,
-      p_end_at: endIso,
-      p_target_status: transition.targetStatus,
-      p_history_changed_by: transition.historyChangedBy ?? undefined,
-      p_history_reason: transition.historyReason,
-      p_history_metadata: transition.historyMetadata ?? {},
-    };
-
-    const rpcCall = applyAbortSignal(supabase.rpc("confirm_hold_assignment_with_transition", rpcArgs), signal);
-    const { data: rpcData, error: rpcError } = await rpcCall;
-
-    if (rpcError) {
-      throw new AssignTablesRpcError({
-        message: rpcError.message ?? "confirm_hold_assignment_with_transition failed",
-        code: rpcError.code ?? "RPC_EXECUTION_FAILED",
-        details: serializeDetails(rpcError.details ?? null),
-        hint: rpcError.hint ?? null,
-      });
-    }
-
-    const rows = Array.isArray(rpcData) ? rpcData : [];
-    if (rows.length === 0) {
-      throw new AssignTablesRpcError({
-        message: "Atomic confirm returned no assignments",
-        code: "ASSIGNMENT_EMPTY",
-        details: null,
-        hint: null,
-      });
-    }
-
-    assignmentPayload = rows.map((row) => ({
-      tableId: row.table_id,
-      startAt: row.start_at,
-      endAt: row.end_at,
-      mergeGroupId: row.merge_group_id ?? null,
-    }));
-    mergeGroupId = assignmentPayload[0]?.mergeGroupId ?? null;
-  } else {
-    const orchestrator = new AssignmentOrchestrator(new SupabaseAssignmentRepository(supabase));
-    let response;
-    try {
-      response = await orchestrator.commitPlan(
-        {
-          bookingId,
-          restaurantId: booking.restaurant_id,
-          partySize: booking.party_size,
-          zoneId: holdRow.zone_id,
-          serviceDate: booking.booking_date ?? null,
-          window: {
-            startAt: startIso,
-            endAt: endIso,
-          },
-          holdId,
-        },
-        {
-          signature: planSignature,
-          tableIds: normalizedTableIds,
-          startAt: startIso,
-          endAt: endIso,
-          metadata: {
-            holdId,
-          },
-        },
-        {
-          source: "manual",
-          idempotencyKey: effectiveIdempotencyKey,
-          actorId: assignedBy,
-          metadata: {
-            requireAdjacency,
-            holdId,
-          },
-          requireAdjacency,
-        },
-      );
-    } catch (error) {
-      if (error instanceof AssignmentConflictError) {
-        throw new AssignTablesRpcError({
-          message: error.message,
-          code: "ASSIGNMENT_CONFLICT",
-          details: serializeDetails(error.details),
-          hint: error.details?.hint ?? null,
-        });
-      }
-
-      if (error instanceof AssignmentValidationError) {
-        throw new AssignTablesRpcError({
-          message: error.message,
-          code: "ASSIGNMENT_VALIDATION",
-          details: serializeDetails(error.details),
-          hint: null,
-        });
-      }
-
-      if (error instanceof AssignmentRepositoryError) {
-        throw new AssignTablesRpcError({
-          message: error.message,
-          code: "ASSIGNMENT_REPOSITORY_ERROR",
-          details: serializeDetails(error.cause ?? null),
-          hint: null,
-        });
-      }
-
-      throw error;
-    }
-
-    assignmentPayload = response.assignments.map((assignment) => ({
-      tableId: assignment.tableId,
-      startAt: assignment.startAt,
-      endAt: assignment.endAt,
-      mergeGroupId: assignment.mergeGroupId ?? response.mergeGroupId ?? null,
-    }));
-    mergeGroupId = response.mergeGroupId ?? null;
+  if (confirmHoldAssignmentRpcAvailable === false) {
+    return confirmHoldAssignmentLegacy(fallbackContext);
   }
 
-  try {
-    await releaseHoldWithRetry({ holdId, client: supabase });
-  } catch (e) {
-    console.warn("[capacity.confirm] failed to release hold after confirm; will rely on sweeper", {
-      holdId,
-      bookingId,
-      error: e instanceof Error ? e.message : String(e),
+  const rpcArgs = {
+    p_hold_id: holdId,
+    p_booking_id: bookingId,
+    p_idempotency_key: effectiveIdempotencyKey,
+    p_require_adjacency: requireAdjacency,
+    p_assigned_by: assignedBy ?? undefined,
+    p_window_start: startIso,
+    p_window_end: endIso,
+    p_expected_policy_version: policyVersion,
+    p_expected_adjacency_hash: adjacencySnapshotHash ?? undefined,
+    p_target_status: transition?.targetStatus ?? undefined,
+    p_history_reason: transition?.historyReason ?? "auto_assign_confirm",
+    p_history_metadata: transition?.historyMetadata ?? {},
+    p_history_changed_by: transition?.historyChangedBy ?? undefined,
+  };
+
+  const rpcCall = applyAbortSignal(supabase.rpc("confirm_hold_assignment_tx", rpcArgs), signal);
+  const { data: rpcData, error: rpcError } = await rpcCall;
+
+  if (rpcError) {
+    const rpcFailure = new AssignTablesRpcError({
+      message: rpcError.message ?? "confirm_hold_assignment_tx failed",
+      code: rpcError.code ?? "RPC_EXECUTION_FAILED",
+      details: serializeDetails(rpcError.details ?? null),
+      hint: rpcError.hint ?? null,
+    });
+
+    if (isSchemaCacheMissError(rpcFailure)) {
+      console.warn("[capacity.confirm] confirm_hold_assignment_tx unavailable, falling back", {
+        bookingId,
+        holdId,
+        code: rpcFailure.code,
+        message: rpcFailure.message,
+      });
+      confirmHoldAssignmentRpcAvailable = false;
+      await recordObservabilityEvent({
+        source: "capacity.confirm",
+        eventType: "confirm_hold.rpc_schema_cache_miss",
+        restaurantId: booking.restaurant_id ?? undefined,
+        bookingId,
+        context: {
+          holdId,
+          code: rpcFailure.code ?? null,
+        },
+        severity: "warning",
+      }).catch(() => {});
+      return confirmHoldAssignmentLegacy(fallbackContext);
+    }
+
+    throw rpcFailure;
+  }
+
+  const rows = Array.isArray(rpcData) ? rpcData : [];
+  if (rows.length === 0) {
+    throw new AssignTablesRpcError({
+      message: "confirm_hold_assignment_tx returned no assignments",
+      code: "ASSIGNMENT_EMPTY",
+      details: null,
+      hint: null,
     });
   }
+
+  confirmHoldAssignmentRpcAvailable = true;
+
+  const assignmentPayload = rows.map((row) => ({
+    tableId: row.table_id,
+    startAt: row.start_at,
+    endAt: row.end_at,
+    mergeGroupId: row.merge_group_id ?? null,
+  }));
+  const mergeGroupId = rows[0]?.merge_group_id ?? null;
 
   return synchronizeAssignments({
     supabase,
@@ -580,11 +726,11 @@ export async function confirmHoldAssignment(options: ConfirmHoldAssignmentOption
     assignments: assignmentPayload,
     startIso,
     endIso,
-    actorId: assignedBy,
+    actorId,
     mergeGroupId,
     holdContext: {
       holdId,
-      zoneId: holdRow.zone_id ?? null,
+      zoneId: typedHoldRow.zone_id ?? null,
     },
   });
 }

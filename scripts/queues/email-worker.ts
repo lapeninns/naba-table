@@ -79,6 +79,34 @@ async function processEmailJob(job: EmailJobPayload): Promise<void> {
       }
       break;
     }
+    case "confirmation": {
+      if (bookingRecord.status === "confirmed") {
+        await sendBookingConfirmationEmail(bookingRecord);
+        await recordObservabilityEvent({
+          source: "queue.email",
+          eventType: "email_queue.delivered",
+          restaurantId: job.restaurantId ?? bookingRecord.restaurant_id ?? undefined,
+          bookingId: bookingRecord.id,
+          context: {
+            type: job.type,
+            status: bookingRecord.status,
+          },
+        });
+      } else {
+        await recordObservabilityEvent({
+          source: "queue.email",
+          eventType: "email_queue.skipped",
+          restaurantId: job.restaurantId ?? bookingRecord.restaurant_id ?? undefined,
+          bookingId: bookingRecord.id,
+          context: {
+            type: job.type,
+            status: bookingRecord.status,
+            reason: "booking_not_confirmed",
+          },
+        });
+      }
+      break;
+    }
     default: {
       throw new Error(`Unsupported email job type: ${job.type}`);
     }

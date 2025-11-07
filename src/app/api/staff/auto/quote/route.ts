@@ -4,7 +4,7 @@ import { z } from "zod";
 import { quoteTables } from "@/server/capacity/engine";
 import { HoldConflictError } from "@/server/capacity/holds";
 import { ServiceNotFoundError } from "@/server/capacity/policy";
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
+import { getRouteHandlerSupabaseClient, getTenantServiceSupabaseClient } from "@/server/supabase";
 
 import type { NextRequest } from "next/server";
 
@@ -68,8 +68,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Access denied" }, { status: 403 });
   }
 
+  const serviceClient = getTenantServiceSupabaseClient(bookingRow.restaurant_id);
+
   try {
-    const serviceClient = getServiceSupabaseClient();
     const result = await quoteTables({
       bookingId,
       zoneId,
@@ -140,9 +141,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (error instanceof ServiceNotFoundError) {
-      return NextResponse.json({
-        error: error.message,
-      }, { status: 422 });
+      return NextResponse.json({ error: error.message }, { status: 422 });
     }
 
     console.error("[staff/auto/quote] unexpected error", { error, bookingId });

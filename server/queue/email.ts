@@ -3,7 +3,7 @@ import { Queue, QueueEvents, type JobsOptions } from "bullmq";
 import { getRedisConnection } from "@/lib/queue/redis";
 import { recordObservabilityEvent } from "@/server/observability";
 
-export type EmailJobType = "request_received";
+export type EmailJobType = "request_received" | "confirmation";
 
 export type EmailJobPayload = {
   bookingId: string;

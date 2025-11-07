@@ -51,15 +51,19 @@ export default async function RestaurantBookingPage({ params }: { params: RouteP
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <nav className="border-b border-border/50 bg-background/80 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+      <nav className="sticky top-0 z-40 border-b border-border/50 bg-background/90 backdrop-blur-md">
+        <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <Link href="/" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
-            ← All restaurants
+            2 All restaurants
           </Link>
-          <span className="text-sm text-muted-foreground">Currently booking: {restaurant.name}</span>
+          <span className="truncate text-xs font-medium text-muted-foreground sm:text-sm">
+            Currently booking: {restaurant.name}
+          </span>
         </div>
       </nav>
-      <BookingFlowPage initialDetails={initialDetails} />
+      <div className="mx-auto w-full max-w-5xl px-4 pb-8 pt-4 sm:px-6 sm:pt-6 lg:px-8">
+        <BookingFlowPage initialDetails={initialDetails} />
+      </div>
     </div>
   );
 }

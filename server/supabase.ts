@@ -11,11 +11,13 @@ import type { NextResponse} from "next/server";
 export { BOOKING_BLOCKING_STATUSES } from "@/lib/enums";
 
 let serviceClient: SupabaseClient<Database> | null = null;
+const tenantClientCache = new Map<string, SupabaseClient<Database>>();
 let strictHoldInitStarted = false;
 let strictHoldEnforcementActive: boolean | null = null;
 
 const runtimeEnv = getEnv();
 const { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY, serviceKey: SUPABASE_SERVICE_ROLE_KEY } = env.supabase;
+const RESTAURANT_CONTEXT_HEADER = "X-Restaurant-Id";
 const DEFAULT_RESTAURANT_FALLBACK_ID = "39cb1346-20fb-4fa2-b163-0230e1caf749";
 const DEFAULT_RESTAURANT_SLUG = runtimeEnv.NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG;
 
@@ -92,6 +94,36 @@ export function getServiceSupabaseClient(): SupabaseClient<Database> {
   }
 
   return serviceClient;
+}
+
+/**
+ * Returns a memoized service-role client that injects the tenant context header required for scoped RLS.
+ * Use this only when executing tenant-specific reads/writes that must honor row-level policies.
+ */
+export function getTenantServiceSupabaseClient(restaurantId: string): SupabaseClient<Database> {
+  if (!restaurantId) {
+    throw new Error("restaurantId is required for tenant-scoped Supabase client");
+  }
+
+  const cacheKey = restaurantId.toLowerCase();
+  const cached = tenantClientCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const tenantClient = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: {
+      persistSession: false,
+    },
+    global: {
+      headers: {
+        [RESTAURANT_CONTEXT_HEADER]: restaurantId,
+      },
+    },
+  });
+
+  tenantClientCache.set(cacheKey, tenantClient);
+  return tenantClient;
 }
 
 export async function getServerComponentSupabaseClient(): Promise<SupabaseClient<Database>> {
@@ -177,5 +209,3 @@ export async function getDefaultRestaurantId(): Promise<string> {
   cachedDefaultRestaurantId = resolved ?? DEFAULT_RESTAURANT_FALLBACK_ID;
   return cachedDefaultRestaurantId;
 }
-
-

@@ -157,9 +157,9 @@ export function filterAvailableTables(
     if (typeof table.minPartySize === "number" && table.minPartySize > 0 && partySize < table.minPartySize) {
       return false;
     }
-    // If adjacency map is supplied and requires zone-level adjacency, ensure entry exists.
-    if (partiesRequireAdjacency(partySize) && adjacency.size > 0 && !adjacency.has(table.id)) {
-      adjacency.set(table.id, new Set());
+    // Require explicit adjacency info when enforcement is on; missing entry means we cannot validate.
+    if (partiesRequireAdjacency(partySize) && !adjacency.has(table.id)) {
+      return false;
     }
     return true;
   });
@@ -404,6 +404,7 @@ function applyLookaheadPenalties(params: {
         zoneId ?? null,
         {
           allowInsufficientCapacity: true,
+          allowMaxPartySizeViolation: combinationEnabled,
           timeFilter: {
             busy: future.busy,
             mode: "strict",

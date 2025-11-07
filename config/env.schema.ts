@@ -48,6 +48,7 @@ const baseEnvSchema = z
     FEATURE_ALLOCATOR_ADJACENCY_MIN_PARTY_SIZE: z.coerce.number().int().min(1).max(20).optional(),
     FEATURE_HOLDS_ENABLED: booleanStringOptional,
     FEATURE_HOLDS_STRICT_CONFLICTS_ENABLED: booleanStringOptional,
+    FEATURE_DB_STRICT_CONSTRAINTS: booleanStringOptional,
     FEATURE_HOLDS_MIN_TTL_SECONDS: z.coerce.number().int().min(1).max(3600).optional(),
     FEATURE_HOLDS_RATE_WINDOW_SECONDS: z.coerce.number().int().min(5).max(3600).optional(),
     FEATURE_HOLDS_RATE_MAX_PER_BOOKING: z.coerce.number().int().min(1).max(100).optional(),
@@ -118,6 +119,7 @@ const baseEnvSchema = z
     FEATURE_AUTO_ASSIGN_RETRY_DELAYS_MS: z.string().optional(),
     FEATURE_AUTO_ASSIGN_START_CUTOFF_MINUTES: z.coerce.number().int().min(0).max(240).optional(),
     FEATURE_AUTO_ASSIGN_CREATED_EMAIL_DEFER_MINUTES: z.coerce.number().int().min(0).max(120).optional(),
+    FEATURE_INLINE_AUTO_ASSIGN_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60000).optional(),
   })
   .passthrough();
 

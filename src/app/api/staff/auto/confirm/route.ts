@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { confirmHold } from "@/server/capacity/engine";
 import { AssignTablesRpcError, HoldNotFoundError } from "@/server/capacity/holds";
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
+import { getRouteHandlerSupabaseClient, getTenantServiceSupabaseClient } from "@/server/supabase";
 
 import type { NextRequest } from "next/server";
 
@@ -65,22 +65,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Access denied" }, { status: 403 });
   }
 
+  const serviceClient = getTenantServiceSupabaseClient(holdRow.restaurant_id);
+
   try {
-    const serviceClient = getServiceSupabaseClient();
     const assignments = await confirmHold({
       holdId,
       bookingId,
       idempotencyKey,
       requireAdjacency,
-      // pass-through for legacy impl
-      ...( { assignedBy: user.id, client: serviceClient } as any ),
+      assignedBy: user.id,
+      client: serviceClient,
     });
 
-    return NextResponse.json({
-      holdId,
-      bookingId,
-      assignments,
-    });
+    return NextResponse.json({ holdId, bookingId, assignments });
   } catch (error) {
     if (error instanceof HoldNotFoundError) {
       return NextResponse.json({ error: "Hold not found" }, { status: 404 });

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { ManualSelectionInputError, getManualContext } from "@/server/capacity/engine";
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
+import { getRouteHandlerSupabaseClient, getTenantServiceSupabaseClient } from "@/server/supabase";
 
 import type { NextRequest } from "next/server";
 
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
   try {
     const context = await getManualContext({
       bookingId,
-      client: getServiceSupabaseClient(),
+      client: getTenantServiceSupabaseClient(bookingRow.restaurant_id),
     });
 
     return NextResponse.json(context);

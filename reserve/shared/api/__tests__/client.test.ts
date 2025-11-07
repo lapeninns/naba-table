@@ -91,6 +91,6 @@ describe('apiClient', () => {
 
     expect(capturedSignal?.aborted).toBe(true);
     const error = await pending;
-    expect(error).toHaveProperty('name', 'AbortError');
+    expect(error).toMatchObject({ code: 'REQUEST_ABORTED', status: 499 });
   });
 });

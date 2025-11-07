@@ -201,6 +201,14 @@ export const env = {
       },
       // Booking auto-assignment
       autoAssignOnBooking: parsed.FEATURE_AUTO_ASSIGN_ON_BOOKING ?? false,
+      inlineAutoAssignTimeoutMs: (() => {
+        const raw = parsed.FEATURE_INLINE_AUTO_ASSIGN_TIMEOUT_MS;
+        const fallback = 12_000;
+        if (typeof raw === "number" && Number.isFinite(raw)) {
+          return Math.max(2_000, Math.min(raw, 20_000));
+        }
+        return fallback;
+      })(),
       autoAssign: {
         maxRetries: Math.max(0, Math.min(parsed.FEATURE_AUTO_ASSIGN_MAX_RETRIES ?? 3, 10)),
         retryDelaysMs: typeof parsed.FEATURE_AUTO_ASSIGN_RETRY_DELAYS_MS === 'string'
@@ -211,6 +219,7 @@ export const env = {
       },
       emailQueueEnabled: parsed.FEATURE_EMAIL_QUEUE_ENABLED ?? false,
       policyRequoteEnabled: parsed.FEATURE_POLICY_REQUOTE_ENABLED ?? true,
+      dbStrictConstraints: parsed.FEATURE_DB_STRICT_CONSTRAINTS ?? false,
     } as const;
   },
 

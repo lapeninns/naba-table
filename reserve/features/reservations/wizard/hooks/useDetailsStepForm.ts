@@ -139,6 +139,7 @@ export function useDetailsStepForm({
         variant: 'outline',
         disabled: isSubmitting,
         onClick: handleBack,
+        role: 'secondary',
       },
       {
         id: 'details-review',
@@ -148,6 +149,7 @@ export function useDetailsStepForm({
         disabled: isSubmitting || !isValid,
         loading: isSubmitting,
         onClick: handleReview,
+        role: 'primary',
       },
     ],
     [handleBack, handleReview, isSubmitting, isValid],

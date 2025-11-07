@@ -753,21 +753,79 @@ export async function POST(req: NextRequest) {
     // guests first receive a "request received". If assignment succeeds, we
     // flip status to confirmed and send the confirmation email.
     if (!reusedExisting && env.featureFlags.autoAssignOnBooking) {
+      const inlineTimeoutMs = env.featureFlags.inlineAutoAssignTimeoutMs ?? 4000;
+      const inlineAttemptId = randomUUID();
+      let inlineAttemptStartedAt = 0;
       try {
         const { quoteTablesForBooking, atomicConfirmAndTransition } = await import("@/server/capacity/tables");
         const { CancellableAutoAssign } = await import("@/server/booking/auto-assign/cancellable-auto-assign");
 
-        const inlineTimeoutMs = 4000;
         const inlineIdempotencyKey = finalBooking.auto_assign_idempotency_key ?? `api-${finalBooking.id}`;
         const autoAssign = new CancellableAutoAssign(inlineTimeoutMs);
+        inlineAttemptStartedAt = Date.now();
+
+        console.info("[bookings][POST][inline-auto-assign] start", {
+          bookingId: finalBooking.id,
+          attemptId: inlineAttemptId,
+          timeoutMs: inlineTimeoutMs,
+        });
 
         await autoAssign.runWithTimeout(
           async (signal) => {
-            const quote = await quoteTablesForBooking({
+            const quoteStartedAt = Date.now();
+            let quoteDurationMs = 0;
+            let quote: Awaited<ReturnType<typeof quoteTablesForBooking>> | null = null;
+            try {
+              quote = await quoteTablesForBooking({
+                bookingId: finalBooking.id,
+                createdBy: "api-booking",
+                holdTtlSeconds: 120,
+                signal,
+              });
+              quoteDurationMs = Date.now() - quoteStartedAt;
+            } catch (quoteError) {
+              quoteDurationMs = Date.now() - quoteStartedAt;
+              console.error("[bookings][POST][inline-auto-assign] quote error", {
+                bookingId: finalBooking.id,
+                attemptId: inlineAttemptId,
+                durationMs: quoteDurationMs,
+                error: stringifyError(quoteError),
+              });
+              await recordObservabilityEvent({
+                source: "bookings.inline_auto_assign",
+                eventType: "inline_auto_assign.quote_error",
+                restaurantId,
+                bookingId: finalBooking.id,
+                context: {
+                  durationMs: quoteDurationMs,
+                  attemptId: inlineAttemptId,
+                },
+                severity: "warning",
+              });
+              throw quoteError;
+            }
+
+            console.info("[bookings][POST][inline-auto-assign] quote result", {
               bookingId: finalBooking.id,
-              createdBy: "api-booking",
-              holdTtlSeconds: 120,
-              signal,
+              attemptId: inlineAttemptId,
+              durationMs: quoteDurationMs,
+              hasHold: Boolean(quote?.hold),
+              reason: quote?.reason ?? null,
+              alternates: quote?.alternates?.length ?? 0,
+            });
+
+            await recordObservabilityEvent({
+              source: "bookings.inline_auto_assign",
+              eventType: "inline_auto_assign.quote_result",
+              restaurantId,
+              bookingId: finalBooking.id,
+              context: {
+                durationMs: quoteDurationMs,
+                hasHold: Boolean(quote?.hold),
+                attemptId: inlineAttemptId,
+                reason: quote?.reason ?? null,
+                alternates: quote?.alternates?.length ?? 0,
+              },
             });
 
             if (!quote?.hold) {
@@ -775,6 +833,8 @@ export async function POST(req: NextRequest) {
                 bookingId: finalBooking.id,
                 reason: quote?.reason ?? "NO_HOLD",
                 alternates: quote?.alternates?.length ?? 0,
+                attemptId: inlineAttemptId,
+                durationMs: quoteDurationMs,
               });
               await recordObservabilityEvent({
                 source: "bookings.inline_auto_assign",
@@ -784,20 +844,67 @@ export async function POST(req: NextRequest) {
                 context: {
                   reason: quote?.reason ?? "NO_HOLD",
                   alternates: quote?.alternates?.length ?? 0,
+                  durationMs: quoteDurationMs,
+                  attemptId: inlineAttemptId,
                 },
                 severity: "info",
               });
               return;
             }
 
-            await atomicConfirmAndTransition({
+            const confirmStartedAt = Date.now();
+            try {
+              await atomicConfirmAndTransition({
+                bookingId: finalBooking.id,
+                holdId: quote.hold.id,
+                idempotencyKey: inlineIdempotencyKey,
+                assignedBy: null,
+                historyReason: "api_inline_auto_assign",
+                historyMetadata: { source: "api-inline", holdId: quote.hold.id },
+                signal,
+              });
+            } catch (confirmError) {
+              const confirmDurationMs = Date.now() - confirmStartedAt;
+              console.error("[bookings][POST][inline-auto-assign] confirm error", {
+                bookingId: finalBooking.id,
+                attemptId: inlineAttemptId,
+                holdId: quote.hold.id,
+                durationMs: confirmDurationMs,
+                error: stringifyError(confirmError),
+              });
+              await recordObservabilityEvent({
+                source: "bookings.inline_auto_assign",
+                eventType: "inline_auto_assign.confirm_failed",
+                restaurantId,
+                bookingId: finalBooking.id,
+                context: {
+                  attemptId: inlineAttemptId,
+                  holdId: quote.hold.id,
+                  durationMs: confirmDurationMs,
+                },
+                severity: "error",
+              });
+              throw confirmError;
+            }
+
+            const confirmDurationMs = Date.now() - confirmStartedAt;
+            console.info("[bookings][POST][inline-auto-assign] confirm completed", {
               bookingId: finalBooking.id,
+              attemptId: inlineAttemptId,
               holdId: quote.hold.id,
-              idempotencyKey: inlineIdempotencyKey,
-              assignedBy: null,
-              historyReason: "api_inline_auto_assign",
-              historyMetadata: { source: "api-inline", holdId: quote.hold.id },
-              signal,
+              durationMs: confirmDurationMs,
+            });
+
+            await recordObservabilityEvent({
+              source: "bookings.inline_auto_assign",
+              eventType: "inline_auto_assign.confirm_succeeded",
+              restaurantId,
+              bookingId: finalBooking.id,
+              context: {
+                attemptId: inlineAttemptId,
+                holdId: quote.hold.id,
+                durationMs: confirmDurationMs,
+              },
             });
 
             const { data: reloaded } = await supabase
@@ -823,10 +930,14 @@ export async function POST(req: NextRequest) {
               context: {
                 holdId: quote.hold.id,
                 idempotencyKey: inlineIdempotencyKey,
+                attemptId: inlineAttemptId,
+                quoteDurationMs,
+                confirmDurationMs,
               },
             });
           },
           async () => {
+            const elapsedMs = inlineAttemptStartedAt > 0 ? Date.now() - inlineAttemptStartedAt : undefined;
             await recordObservabilityEvent({
               source: "bookings.inline_auto_assign",
               eventType: "inline_auto_assign.timeout",
@@ -834,6 +945,8 @@ export async function POST(req: NextRequest) {
               bookingId: finalBooking.id,
               context: {
                 timeoutMs: inlineTimeoutMs,
+                elapsedMs,
+                attemptId: inlineAttemptId,
               },
               severity: "warning",
             });
@@ -841,7 +954,25 @@ export async function POST(req: NextRequest) {
         );
       } catch (inlineError) {
         if (inlineError instanceof Error && inlineError.name === "AbortError") {
-          console.warn("[bookings][POST][inline-auto-assign] aborted", { bookingId: finalBooking.id });
+          const durationMs = inlineAttemptStartedAt > 0 ? Date.now() - inlineAttemptStartedAt : undefined;
+          console.warn("[bookings][POST][inline-auto-assign] aborted", {
+            bookingId: finalBooking.id,
+            durationMs,
+            timeoutMs: inlineTimeoutMs,
+            attemptId: inlineAttemptId,
+          });
+          await recordObservabilityEvent({
+            source: "bookings.inline_auto_assign",
+            eventType: "inline_auto_assign.operation_aborted",
+            restaurantId,
+            bookingId: finalBooking.id,
+            context: {
+              attemptId: inlineAttemptId,
+              durationMs,
+              timeoutMs: inlineTimeoutMs,
+            },
+            severity: "warning",
+          });
         } else {
           console.warn("[bookings][POST][inline-auto-assign] failed", { error: stringifyError(inlineError) });
         }

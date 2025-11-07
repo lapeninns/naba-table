@@ -1,10 +1,13 @@
 import type { Locator, Page } from '@playwright/test';
 
+const wizardAction = (page: Page, actionId: string): Locator =>
+  page.getByTestId(`wizard-action-${actionId}`);
+
 export const wizardSelectors = {
   planHeading: (page: Page): Locator => page.getByRole('heading', { name: /Plan your visit/i }),
   datePickerTrigger: (page: Page): Locator => page.getByRole('button', { name: /^Date$/i }),
-  continueButton: (page: Page): Locator => page.getByRole('button', { name: /^Continue$/i }),
-  confirmButton: (page: Page): Locator => page.getByRole('button', { name: /Confirm booking/i }),
+  continueButton: (page: Page): Locator => wizardAction(page, 'plan-continue'),
+  confirmButton: (page: Page): Locator => wizardAction(page, 'review-confirm'),
   contactHeading: (page: Page): Locator => page.getByRole('heading', { name: /Tell us how to reach you/i }),
 };
 

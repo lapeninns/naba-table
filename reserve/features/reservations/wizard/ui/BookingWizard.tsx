@@ -14,8 +14,7 @@ import { ConfirmationStep } from './steps/ConfirmationStep';
 import { DetailsStep } from './steps/DetailsStep';
 import { PlanStep } from './steps/PlanStep';
 import { ReviewStep } from './steps/ReviewStep';
-import { WizardFooter } from './WizardFooter';
-import { WizardLayout } from './WizardLayout';
+import { WizardContainer } from './WizardContainer';
 import { WizardOfflineBanner } from './WizardOfflineBanner';
 import {
   ConfirmationStepSkeleton,
@@ -23,7 +22,6 @@ import {
   PlanStepSkeleton,
   ReviewStepSkeleton,
 } from './WizardSkeletons';
-import { WizardStickyConfirmation } from './WizardStickyConfirmation';
 
 import type { BookingDetails, BookingWizardMode } from '../model/reducer';
 
@@ -186,37 +184,6 @@ function BookingWizardContent({
     }));
   }, [disableAllActions, stickyActions]);
 
-  const findAction = (id: string) => effectiveActions.find((action) => action.id === id);
-
-  const footer =
-    state.step === 4 ? (
-      <WizardStickyConfirmation
-        steps={stepsMeta}
-        currentStep={state.step}
-        summary={selectionSummary}
-        visible={stickyVisible}
-        onClose={findAction('confirmation-close')?.onClick}
-        onAddToCalendar={findAction('confirmation-calendar')?.onClick}
-        onAddToWallet={findAction('confirmation-wallet')?.onClick}
-        onStartNew={findAction('confirmation-new')?.onClick}
-        closeDisabled={findAction('confirmation-close')?.disabled}
-        calendarDisabled={findAction('confirmation-calendar')?.disabled}
-        walletDisabled={findAction('confirmation-wallet')?.disabled}
-        startNewDisabled={findAction('confirmation-new')?.disabled}
-        calendarLoading={findAction('confirmation-calendar')?.loading}
-        walletLoading={findAction('confirmation-wallet')?.loading}
-      />
-    ) : (
-      <WizardFooter
-        steps={stepsMeta}
-        currentStep={state.step}
-        summary={selectionSummary}
-        actions={effectiveActions}
-        visible={stickyVisible}
-        onHeightChange={handleStickyHeightChange}
-      />
-    );
-
   const banner =
     hasHydrated && isOffline ? (
       <WizardOfflineBanner
@@ -286,16 +253,20 @@ function BookingWizardContent({
   })();
 
   return (
-    <WizardLayout
+    <WizardContainer
+      steps={stepsMeta}
+      currentStep={state.step}
+      actions={effectiveActions}
+      summary={selectionSummary}
       heroRef={heroRef}
       stickyHeight={stickyHeight}
       stickyVisible={stickyVisible}
+      onStickyHeightChange={handleStickyHeightChange}
       banner={banner}
-      footer={footer}
-      elementType={layoutElement}
+      layoutElement={layoutElement}
     >
       {stepContent}
-    </WizardLayout>
+    </WizardContainer>
   );
 }
 

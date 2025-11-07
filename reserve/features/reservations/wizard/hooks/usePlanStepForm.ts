@@ -622,6 +622,7 @@ export function usePlanStepForm({
         disabled: form.formState.isSubmitting || !form.formState.isValid,
         loading: form.formState.isSubmitting,
         onClick: handleContinue,
+        role: 'primary',
       },
     ],
     [form.formState.isSubmitting, form.formState.isValid, handleContinue],

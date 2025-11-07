@@ -140,7 +140,8 @@ describe('BookingWizard offline banner', () => {
       </WizardDependenciesProvider>,
     );
 
-    expect(await screen.findByText(/You’re offline/i)).toBeVisible();
+    const offlineBanner = await screen.findByRole('status');
+    expect(offlineBanner).toBeVisible();
 
     const continueButton = await screen.findByRole('button', { name: /Continue/i });
     expect(continueButton).toBeDisabled();

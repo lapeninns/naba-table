@@ -3,7 +3,7 @@ import { recordObservabilityEvent } from "@/server/observability";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
 import type { Database, Json } from "@/types/supabase";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 
 type DbClient = SupabaseClient<Database, "public">;
 
@@ -19,6 +19,16 @@ export type EnqueueParams = {
   client?: DbClient;
 };
 
+const ACTIVE_STATUSES = ["pending", "processing"] as const;
+
+function isUniqueViolation(error: unknown): error is PostgrestError {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+  const code = (error as Partial<PostgrestError>).code;
+  return typeof code === "string" && code === "23505";
+}
+
 export async function enqueueOutboxEvent(params: EnqueueParams): Promise<void> {
   const { eventType, restaurantId, bookingId, idempotencyKey, dedupeKey, payload, client } = params;
   const supabase = client ?? getServiceSupabaseClient();
@@ -31,10 +41,16 @@ export async function enqueueOutboxEvent(params: EnqueueParams): Promise<void> {
       dedupe_key: dedupeKey ?? null,
       payload: payload as Json,
       status: "pending",
+      attempt_count: 0,
+      next_attempt_at: null,
     };
-    // Upsert on dedupe_key + event_type uniqueness
-    const query = supabase.from("capacity_outbox").upsert(insert, { onConflict: "event_type,dedupe_key" });
-    await query;
+    const { error } = await supabase.from("capacity_outbox").insert(insert);
+    if (error) {
+      if (isUniqueViolation(error)) {
+        return;
+      }
+      throw error;
+    }
   } catch (error) {
     // Best-effort enqueue — do not throw in hot paths
     console.warn("[outbox] enqueue failed", { eventType, bookingId, restaurantId, error });
@@ -51,6 +67,7 @@ type OutboxRow = {
   booking_id: string | null;
   idempotency_key: string | null;
   payload: Json;
+  created_at: string;
 };
 
 function computeBackoffMs(attempt: number): number {
@@ -92,8 +109,10 @@ export async function processOutboxBatch(params?: { limit?: number; client?: DbC
   const { data, error } = await supabase
     .from("capacity_outbox")
     .select("*")
-    .in("status", ["pending", "processing"])
+    .in("status", ACTIVE_STATUSES as unknown as string[])
     .or(`next_attempt_at.is.null,next_attempt_at.lte.${now}`)
+    .order("status", { ascending: true })
+    .order("next_attempt_at", { ascending: true, nullsFirst: true })
     .order("created_at", { ascending: true })
     .limit(limit);
 

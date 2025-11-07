@@ -34,6 +34,8 @@ export function computeBookingWindow(args: ComputeWindowArgs): BookingWindow {
   const policy = args.policy ?? getVenuePolicy();
   const baseStart = resolveStartDateTime(args, policy);
   const service = resolveService(baseStart, args.serviceHint ?? null, policy);
+  const serviceConfig = policy.services[service];
+  const allowOverrun = Boolean(serviceConfig?.allowOverrun);
 
   const diningMinutes = bandDuration(service, args.partySize, policy);
   const buffer = getBufferConfig(service, policy);
@@ -44,7 +46,7 @@ export function computeBookingWindow(args: ComputeWindowArgs): BookingWindow {
   let clampedToServiceEnd = false;
 
   const serviceEndBoundary = serviceEnd(service, diningStart, policy);
-  if (service !== "lunch") {
+  if (!allowOverrun) {
     if (blockEnd > serviceEndBoundary) {
       blockEnd = serviceEndBoundary;
       diningEnd = blockEnd.minus({ minutes: buffer.post ?? 0 });

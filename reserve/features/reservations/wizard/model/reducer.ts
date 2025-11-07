@@ -50,6 +50,9 @@ export type StepAction = {
   loading?: boolean;
   icon?: IconKey;
   ariaLabel?: string;
+  role?: 'primary' | 'secondary' | 'support';
+  fullWidth?: boolean;
+  srLabel?: string;
 };
 
 export type BookingDetails = {

@@ -112,40 +112,72 @@ async function processBookingCreatedSideEffects(
   }
 
   if (!SUPPRESS_EMAILS && booking.customer_email && booking.customer_email.trim().length > 0) {
+    const isPending = booking.status === "pending" || booking.status === "pending_allocation";
     const deferMinutes = isAutoAssignOnBookingEnabled() ? getAutoAssignCreatedEmailDeferMinutes() : 0;
-    const shouldDefer =
-      deferMinutes > 0 && (booking.status === "pending" || booking.status === "pending_allocation");
-    const delayMs = shouldDefer ? Math.max(0, Math.min(deferMinutes, 120)) * 60_000 : 0;
+    const shouldDeferPending = deferMinutes > 0 && isPending;
+    const delayMs = shouldDeferPending ? Math.max(0, Math.min(deferMinutes, 120)) * 60_000 : 0;
 
-    if (isEmailQueueEnabled()) {
-      try {
-        await enqueueEmailJob(
-          {
-            bookingId: booking.id,
-            restaurantId,
-            type: "request_received",
-            scheduledFor: delayMs > 0 ? new Date(Date.now() + delayMs).toISOString() : null,
-          },
-          {
-            jobId: `request_received:${booking.id}`,
-            delayMs,
-          },
-        );
-        queuedViaQueue = true;
-      } catch (error) {
-        console.error("[jobs][booking.created][queue]", error);
+    if (isPending) {
+      if (isEmailQueueEnabled()) {
+        try {
+          await enqueueEmailJob(
+            {
+              bookingId: booking.id,
+              restaurantId,
+              type: "request_received",
+              scheduledFor: delayMs > 0 ? new Date(Date.now() + delayMs).toISOString() : null,
+            },
+            {
+              jobId: `request_received:${booking.id}`,
+              delayMs,
+            },
+          );
+          queuedViaQueue = true;
+        } catch (error) {
+          console.error("[jobs][booking.created][queue]", error);
+          try {
+            await sendBookingConfirmationEmail(booking as BookingRecord);
+          } catch (fallbackError) {
+            console.error("[jobs][booking.created][email-fallback]", fallbackError);
+          }
+        }
+      } else {
         try {
           await sendBookingConfirmationEmail(booking as BookingRecord);
-        } catch (fallbackError) {
-          console.error("[jobs][booking.created][email-fallback]", fallbackError);
+        } catch (error) {
+          console.error("[jobs][booking.created][email]", error);
         }
       }
     } else {
-      try {
-        // Queue disabled → send immediately (without deferral) to avoid timer-based loss.
-        await sendBookingConfirmationEmail(booking as BookingRecord);
-      } catch (error) {
-        console.error("[jobs][booking.created][email]", error);
+      if (isEmailQueueEnabled()) {
+        try {
+          await enqueueEmailJob(
+            {
+              bookingId: booking.id,
+              restaurantId,
+              type: "confirmation",
+              scheduledFor: null,
+            },
+            {
+              jobId: `confirmation:${booking.id}`,
+              delayMs: 0,
+            },
+          );
+          queuedViaQueue = true;
+        } catch (error) {
+          console.error("[jobs][booking.created][queue-confirmation]", error);
+          try {
+            await sendBookingConfirmationEmail(booking as BookingRecord);
+          } catch (fallbackError) {
+            console.error("[jobs][booking.created][email-fallback]", fallbackError);
+          }
+        }
+      } else {
+        try {
+          await sendBookingConfirmationEmail(booking as BookingRecord);
+        } catch (error) {
+          console.error("[jobs][booking.created][email]", error);
+        }
       }
     }
   }

@@ -33,6 +33,7 @@ export type ServiceDefinition = {
   end: TimeOfDay;
   buffer: BufferConfig;
   turnBands: TurnBand[];
+  allowOverrun?: boolean;
 };
 
 export type VenuePolicy = {
@@ -74,6 +75,7 @@ function cloneService(service: ServiceDefinition): ServiceDefinition {
     end: { ...service.end },
     buffer: { ...service.buffer },
     turnBands: cloneTurnBands(service.turnBands),
+    allowOverrun: service.allowOverrun ?? false,
   };
 }
 
@@ -87,6 +89,7 @@ export const defaultVenuePolicy: VenuePolicy = {
       start: { hour: 12, minute: 0 },
       end: { hour: 15, minute: 0 },
       buffer: { pre: 0, post: 5 },
+      allowOverrun: true,
       turnBands: [
         { maxPartySize: 2, durationMinutes: 60 },
         { maxPartySize: 4, durationMinutes: 75 },

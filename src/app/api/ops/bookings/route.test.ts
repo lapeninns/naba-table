@@ -15,6 +15,7 @@ vi.mock("@/lib/env", () => {
           bookingPastTimeBlocking: false,
           bookingPastTimeGraceMinutes: 5,
           autoAssignOnBooking: false,
+          inlineAutoAssignTimeoutMs: 4000,
           autoAssignMaxRetries: 0,
           autoAssignRetryDelaysMs: [],
           autoAssignStartCutoffMinutes: 15,

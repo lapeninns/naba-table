@@ -264,6 +264,7 @@ export type Database = {
           created_at: string
           idempotency_key: string
           merge_group_allocation_id: string | null
+          payload_checksum: string | null
           table_ids: string[]
           table_set_hash: string | null
         }
@@ -273,6 +274,7 @@ export type Database = {
           created_at?: string
           idempotency_key: string
           merge_group_allocation_id?: string | null
+          payload_checksum?: string | null
           table_ids: string[]
           table_set_hash?: string | null
         }
@@ -282,6 +284,7 @@ export type Database = {
           created_at?: string
           idempotency_key?: string
           merge_group_allocation_id?: string | null
+          payload_checksum?: string | null
           table_ids?: string[]
           table_set_hash?: string | null
         }
@@ -439,6 +442,7 @@ export type Database = {
       booking_table_assignments: {
         Row: {
           allocation_id: string | null
+          assignment_window: unknown
           assigned_at: string
           assigned_by: string | null
           booking_id: string
@@ -455,6 +459,7 @@ export type Database = {
         }
         Insert: {
           allocation_id?: string | null
+          assignment_window?: unknown
           assigned_at?: string
           assigned_by?: string | null
           booking_id: string
@@ -471,6 +476,7 @@ export type Database = {
         }
         Update: {
           allocation_id?: string | null
+          assignment_window?: unknown
           assigned_at?: string
           assigned_by?: string | null
           booking_id?: string
@@ -2197,6 +2203,30 @@ export type Database = {
           p_target_status?: Database["public"]["Enums"]["booking_status"]
         }
         Returns: {
+          end_at: string
+          merge_group_id: string | null
+          start_at: string
+          table_id: string
+        }[]
+      }
+      confirm_hold_assignment_tx: {
+        Args: {
+          p_assigned_by?: string
+          p_booking_id: string
+          p_expected_adjacency_hash?: string
+          p_expected_policy_version?: string
+          p_history_changed_by?: string
+          p_history_metadata?: Json
+          p_history_reason?: string
+          p_hold_id: string
+          p_idempotency_key: string
+          p_require_adjacency?: boolean
+          p_target_status?: Database["public"]["Enums"]["booking_status"]
+          p_window_end?: string
+          p_window_start?: string
+        }
+        Returns: {
+          assignment_id: string
           end_at: string
           merge_group_id: string | null
           start_at: string

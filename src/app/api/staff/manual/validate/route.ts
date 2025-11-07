@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { ManualSelectionInputError, validateManualSelection, getManualContext } from "@/server/capacity/engine";
 import { emitManualValidate } from "@/server/capacity/telemetry";
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
+import { getRouteHandlerSupabaseClient, getTenantServiceSupabaseClient } from "@/server/supabase";
 
 import type { NextRequest } from "next/server";
 
@@ -71,13 +71,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Access denied", code: "ACCESS_DENIED" }, { status: 403 });
   }
 
-  const serviceClient = getServiceSupabaseClient();
+  const serviceClient = getTenantServiceSupabaseClient(bookingRow.restaurant_id);
 
   // Require fresh context: compare provided contextVersion with server-computed
   let contextAdjacencyRequired: boolean | null = null;
   try {
     const context = await getManualContext({ bookingId, client: serviceClient });
-    contextAdjacencyRequired = Boolean((context as any)?.flags?.adjacencyRequired ?? null);
+    contextAdjacencyRequired = Boolean(context.flags?.adjacencyRequired ?? null);
     if (context.contextVersion && context.contextVersion !== contextVersion) {
       return NextResponse.json(
         {

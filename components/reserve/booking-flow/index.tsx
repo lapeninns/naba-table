@@ -116,7 +116,11 @@ type BookingFlowPageProps = {
 export default function BookingFlowPage({ initialDetails, mode = "customer", layoutElement = "main" }: BookingFlowPageProps = {}) {
   return (
     <BookingFlowProviders>
-      <BookingWizardWithNavigator initialDetails={initialDetails} mode={mode} layoutElement={layoutElement} />
+      <BookingWizardWithNavigator
+        initialDetails={initialDetails}
+        mode={mode}
+        layoutElement={layoutElement}
+      />
     </BookingFlowProviders>
   );
 }

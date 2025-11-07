@@ -1,0 +1,66 @@
+{
+  "WizardLayout.tsx": {
+    "path": "reserve/features/reservations/wizard/ui/WizardLayout.tsx",
+    "summary": "Layout wrapper that applies bottom padding based on sticky footer height so page content never sits beneath sticky elements.",
+    "keyParts": {
+      "props": [
+        "heroRef",
+        "stickyHeight",
+        "stickyVisible",
+        "banner",
+        "children",
+        "footer",
+        "elementType"
+      ],
+      "paddingLogic": "if stickyVisible, apply inline style paddingBottom = stickyHeight + safe-area + extra spacing",
+      "container": "min-h-screen w-full bg-muted/[0.15] px-4 pb-20 pt-6 sm:pt-12 md:px-6 lg:px-10",
+      "inner": "mx-auto w-full max-w-5xl flex flex-col gap-10 sm:gap-12"
+    }
+  },
+  "BookingWizard.tsx": {
+    "path": "reserve/features/reservations/wizard/ui/BookingWizard.tsx",
+    "summary": "Coordinates wizard state and hands step metadata + actions to the new WizardContainer/WizardNavigation shell.",
+    "keyParts": {
+      "fromUseReservationWizard": [
+        "stickyVisible",
+        "stickyHeight",
+        "handleStickyHeightChange",
+        "stickyActions",
+        "selectionSummary"
+      ],
+      "containerUsage": "WizardContainer wraps WizardLayout and renders WizardNavigation with the latest StepAction[]",
+      "layoutUsage": "Passes heroRef, stickyHeight, stickyVisible, banner into WizardContainer"
+    }
+  },
+  "WizardNavigation.tsx": {
+    "path": "reserve/features/reservations/wizard/ui/WizardNavigation.tsx",
+    "summary": "Single sticky navigation shell for every step. Mobile-first layout with text labels, WizardProgress, StepSummary, and grouped StepAction buttons.",
+    "keyParts": {
+      "props": ["steps", "currentStep", "summary", "actions", "visible", "onHeightChange"],
+      "grouping": "StepAction.role ('primary' | 'secondary' | 'support') drives layout so confirmation actions share the same shell.",
+      "heightReporting": "ResizeObserver reports rendered height to WizardContainer for padding adjustments.",
+      "layout": {
+        "outer": "fixed inset-x-0 bottom-0 pointer-events-none with safe-area padding",
+        "nav": "rounded-3xl card with backdrop blur, houses progress, summary, separators, and responsive button rows"
+      }
+    }
+  },
+  "WizardProgress.tsx": {
+    "path": "reserve/features/reservations/wizard/ui/WizardProgress.tsx",
+    "summary": "Shared progress indicator (linear bar + step pills) consumed by WizardNavigation.",
+    "keyParts": {
+      "WizardSummary": "{ primary: string; details?: string[]; srLabel?: string }",
+      "ariaSummary": "Screenreader text: step + summary.",
+      "progressBar": "Visual linear progress between steps.",
+      "stepPills": "ol row of numbered steps; updated to hidden on small screens and visible from md+ to keep stickies compact."
+    }
+  },
+  "useStickyProgress.ts": {
+    "path": "reserve/shared/hooks/useStickyProgress.ts (re-exported via components/reserve/booking-flow/use-sticky-progress.ts)",
+    "summary": "Hook that observes an anchorRef (usually heroRef in WizardLayout) via IntersectionObserver to control when sticky UI should appear.",
+    "keyParts": {
+      "api": "useStickyProgress(anchorRef) -> { isAnchorVisible, shouldShow }",
+      "behavior": "Sets isAnchorVisible based on intersection; sticky containers use their own visible flag from wizard state."
+    }
+  }
+}

@@ -174,6 +174,7 @@ export function useConfirmationStep({
         icon: 'X',
         onClick: handleClose,
         disabled: isLoading,
+        role: 'secondary',
       },
       {
         id: 'confirmation-calendar',
@@ -184,6 +185,7 @@ export function useConfirmationStep({
         onClick: handleAddToCalendar,
         loading: calendarLoading,
         disabled: isLoading,
+        role: 'support',
       },
       {
         id: 'confirmation-wallet',
@@ -194,6 +196,7 @@ export function useConfirmationStep({
         onClick: handleAddToWallet,
         loading: walletLoading,
         disabled: isLoading,
+        role: 'support',
       },
       {
         id: 'confirmation-new',
@@ -203,6 +206,7 @@ export function useConfirmationStep({
         icon: 'Plus',
         onClick: handleNewBooking,
         disabled: isLoading,
+        role: 'primary',
       },
     ]);
   }, [

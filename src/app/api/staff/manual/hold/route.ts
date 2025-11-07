@@ -4,7 +4,7 @@ import { z } from "zod";
 import { ManualSelectionInputError, holdManualSelection, getManualContext } from "@/server/capacity/engine";
 import { HoldConflictError, releaseTableHold } from "@/server/capacity/holds";
 import { emitManualHold } from "@/server/capacity/telemetry";
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
+import { getRouteHandlerSupabaseClient, getTenantServiceSupabaseClient } from "@/server/supabase";
 
 import type { NextRequest } from "next/server";
 
@@ -78,13 +78,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Access denied", code: "ACCESS_DENIED" }, { status: 403 });
   }
 
-  const serviceClient = getServiceSupabaseClient();
+  const serviceClient = getTenantServiceSupabaseClient(bookingRow.restaurant_id);
 
   // Require fresh context
   let contextAdjacencyRequired: boolean | null = null;
   try {
     const context = await getManualContext({ bookingId, client: serviceClient });
-    contextAdjacencyRequired = Boolean((context as any)?.flags?.adjacencyRequired ?? null);
+    contextAdjacencyRequired = Boolean(context.flags?.adjacencyRequired ?? null);
     if (context.contextVersion && context.contextVersion !== contextVersion) {
       return NextResponse.json(
         {
@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
       ok: true,
       bookingId,
       restaurantId: bookingRow.restaurant_id,
-      policyVersion: (result.validation as any)?.policyVersion ?? null,
+      policyVersion: result.validation.policyVersion ?? null,
       adjacencyRequired: contextAdjacencyRequired ?? (typeof requireAdjacency === 'boolean' ? requireAdjacency : null),
     });
 
@@ -260,7 +260,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Access denied", code: "ACCESS_DENIED" }, { status: 403 });
   }
 
-  const serviceClient = getServiceSupabaseClient();
+  const serviceClient = getTenantServiceSupabaseClient(holdRow.restaurant_id);
 
   try {
     await releaseTableHold({ holdId, client: serviceClient });

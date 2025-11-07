@@ -1064,6 +1064,278 @@ GRANT ALL ON FUNCTION public.confirm_hold_assignment_with_transition(
 ) TO service_role;
 
 
+CREATE FUNCTION public.confirm_hold_assignment_tx(
+    p_hold_id uuid,
+    p_booking_id uuid,
+    p_idempotency_key text,
+    p_require_adjacency boolean DEFAULT false,
+    p_assigned_by uuid DEFAULT NULL::uuid,
+    p_window_start timestamptz DEFAULT NULL::timestamptz,
+    p_window_end timestamptz DEFAULT NULL::timestamptz,
+    p_expected_policy_version text DEFAULT NULL::text,
+    p_expected_adjacency_hash text DEFAULT NULL::text,
+    p_target_status public.booking_status DEFAULT NULL::public.booking_status,
+    p_history_reason text DEFAULT 'auto_assign_confirm'::text,
+    p_history_metadata jsonb DEFAULT '{}'::jsonb,
+    p_history_changed_by uuid DEFAULT NULL::uuid
+) RETURNS TABLE(assignment_id uuid, table_id uuid, start_at timestamptz, end_at timestamptz, merge_group_id uuid)
+    LANGUAGE plpgsql
+    SECURITY DEFINER
+    SET search_path TO 'public'
+AS $$
+DECLARE
+  v_hold public.table_holds%ROWTYPE;
+  v_now timestamptz := timezone('utc', now());
+  v_table_ids uuid[];
+  v_zone_id uuid;
+  v_policy_version text;
+  v_snapshot_hash text;
+  v_start_at timestamptz;
+  v_end_at timestamptz;
+  v_window tstzrange;
+  v_rows integer;
+  v_booking_status public.booking_status;
+  v_payload_checksum text;
+  v_dedupe_key text;
+  v_table_list text;
+  v_hold_payload jsonb;
+BEGIN
+  IF p_window_start IS NULL AND p_window_end IS NOT NULL THEN
+    RAISE EXCEPTION 'confirm_hold_assignment_tx requires both start and end when providing custom window'
+      USING ERRCODE = '22023';
+  END IF;
+  IF p_window_start IS NOT NULL AND p_window_end IS NULL THEN
+    RAISE EXCEPTION 'confirm_hold_assignment_tx requires both start and end when providing custom window'
+      USING ERRCODE = '22023';
+  END IF;
+
+  SELECT * INTO v_hold
+  FROM public.table_holds
+  WHERE id = p_hold_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Hold % not found', p_hold_id
+      USING ERRCODE = 'P0002';
+  END IF;
+
+  IF v_hold.booking_id IS NOT NULL AND v_hold.booking_id <> p_booking_id THEN
+    RAISE EXCEPTION 'Hold % belongs to booking % (expected %)', p_hold_id, v_hold.booking_id, p_booking_id
+      USING ERRCODE = 'P0001';
+  END IF;
+
+  IF v_hold.expires_at <= v_now THEN
+    RAISE EXCEPTION 'Hold % expired at %', p_hold_id, v_hold.expires_at
+      USING ERRCODE = 'P0001';
+  END IF;
+
+  SELECT array_agg(thm.table_id ORDER BY thm.table_id)
+  INTO v_table_ids
+  FROM public.table_hold_members thm
+  WHERE thm.hold_id = p_hold_id;
+
+  IF v_table_ids IS NULL OR array_length(v_table_ids, 1) = 0 THEN
+    RAISE EXCEPTION 'Hold % has no table members', p_hold_id
+      USING ERRCODE = 'P0001';
+  END IF;
+
+  v_zone_id := v_hold.zone_id;
+  v_policy_version := COALESCE((v_hold.metadata ->> 'policyVersion'), NULL);
+  v_snapshot_hash := v_hold.metadata -> 'selection' -> 'snapshot' -> 'adjacency' ->> 'hash';
+
+  IF p_expected_policy_version IS NOT NULL AND v_policy_version IS NOT NULL AND v_policy_version <> p_expected_policy_version THEN
+    RAISE EXCEPTION 'Policy version changed (hold %, expected %, actual %)', p_hold_id, p_expected_policy_version, v_policy_version
+      USING ERRCODE = 'P0003';
+  END IF;
+
+  IF p_expected_adjacency_hash IS NOT NULL AND v_snapshot_hash IS NOT NULL AND v_snapshot_hash <> p_expected_adjacency_hash THEN
+    RAISE EXCEPTION 'Adjacency snapshot changed for hold %', p_hold_id
+      USING ERRCODE = 'P0003';
+  END IF;
+
+  v_start_at := COALESCE(p_window_start, v_hold.start_at);
+  v_end_at := COALESCE(p_window_end, v_hold.end_at);
+
+  IF v_start_at IS NULL OR v_end_at IS NULL THEN
+    RAISE EXCEPTION 'Hold % missing scheduling window', p_hold_id
+      USING ERRCODE = '22000';
+  END IF;
+
+  IF v_start_at >= v_end_at THEN
+    RAISE EXCEPTION 'Hold % has invalid window', p_hold_id
+      USING ERRCODE = '22000';
+  END IF;
+
+  v_window := tstzrange(v_start_at, v_end_at, '[)');
+
+  DROP TABLE IF EXISTS tmp_confirm_assignments_tx;
+  CREATE TEMP TABLE tmp_confirm_assignments_tx ON COMMIT DROP AS
+    SELECT *
+    FROM public.assign_tables_atomic_v2(
+      p_booking_id,
+      v_table_ids,
+      p_idempotency_key,
+      p_require_adjacency,
+      p_assigned_by,
+      v_start_at,
+      v_end_at
+    );
+
+  GET DIAGNOSTICS v_rows = ROW_COUNT;
+  IF v_rows = 0 THEN
+    RAISE EXCEPTION 'assign_tables_atomic_v2 returned no assignments for booking %', p_booking_id
+      USING ERRCODE = 'P0003';
+  END IF;
+
+  IF p_target_status IS NOT NULL THEN
+    SELECT status INTO v_booking_status
+    FROM public.bookings
+    WHERE id = p_booking_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Booking % not found during transition', p_booking_id
+        USING ERRCODE = 'P0002';
+    END IF;
+
+    IF v_booking_status <> p_target_status THEN
+      PERFORM public.apply_booking_state_transition(
+        p_booking_id,
+        p_target_status,
+        NULL,
+        NULL,
+        v_now,
+        v_booking_status,
+        p_target_status,
+        p_history_changed_by,
+        v_now,
+        COALESCE(p_history_reason, 'auto_assign_confirm'),
+        COALESCE(p_history_metadata, '{}'::jsonb)
+      );
+    END IF;
+  END IF;
+
+  IF p_idempotency_key IS NOT NULL THEN
+    v_payload_checksum := encode(
+      digest(
+        jsonb_build_object(
+          'bookingId', p_booking_id,
+          'tableIds', v_table_ids,
+          'startAt', v_start_at,
+          'endAt', v_end_at,
+          'actorId', p_assigned_by,
+          'holdId', p_hold_id
+        )::text,
+        'sha256'
+      ),
+      'hex'
+    );
+
+    UPDATE public.booking_assignment_idempotency
+      SET payload_checksum = v_payload_checksum
+    WHERE booking_id = p_booking_id
+      AND idempotency_key = p_idempotency_key;
+  END IF;
+
+  v_table_list := array_to_string(v_table_ids, ',');
+  v_dedupe_key := format('%s:%s:%s:%s', p_booking_id, to_char(v_start_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'), to_char(v_end_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'), v_table_list);
+
+  BEGIN
+    INSERT INTO public.capacity_outbox (
+      event_type,
+      dedupe_key,
+      restaurant_id,
+      booking_id,
+      idempotency_key,
+      payload
+    ) VALUES (
+      'capacity.assignment.sync',
+      v_dedupe_key,
+      v_hold.restaurant_id,
+      p_booking_id,
+      p_idempotency_key,
+      jsonb_build_object(
+        'bookingId', p_booking_id,
+        'restaurantId', v_hold.restaurant_id,
+        'tableIds', v_table_ids,
+        'startAt', to_char(v_start_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'),
+        'endAt', to_char(v_end_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'),
+        'mergeGroupId', (SELECT merge_group_id FROM tmp_confirm_assignments_tx LIMIT 1),
+        'idempotencyKey', p_idempotency_key
+      )
+    )
+    ON CONFLICT ON CONSTRAINT capacity_outbox_dedupe_unique DO NOTHING;
+  EXCEPTION
+    WHEN undefined_table THEN NULL;
+  END;
+
+  BEGIN
+    v_hold_payload := jsonb_build_object(
+      'holdId', p_hold_id,
+      'bookingId', p_booking_id,
+      'restaurantId', v_hold.restaurant_id,
+      'zoneId', v_zone_id,
+      'tableIds', v_table_ids,
+      'startAt', to_char(v_start_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'),
+      'endAt', to_char(v_end_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'),
+      'expiresAt', to_char(v_hold.expires_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'),
+      'actorId', p_assigned_by,
+      'metadata', v_hold.metadata
+    );
+
+    INSERT INTO public.capacity_outbox (
+      event_type,
+      dedupe_key,
+      restaurant_id,
+      booking_id,
+      idempotency_key,
+      payload
+    ) VALUES (
+      'capacity.hold.confirmed',
+      format('%s:%s:hold.confirmed', p_booking_id, p_hold_id),
+      v_hold.restaurant_id,
+      p_booking_id,
+      p_idempotency_key,
+      v_hold_payload
+    )
+    ON CONFLICT ON CONSTRAINT capacity_outbox_dedupe_unique DO NOTHING;
+  EXCEPTION
+    WHEN undefined_table THEN NULL;
+  END;
+
+  DELETE FROM public.table_holds WHERE id = p_hold_id;
+
+  RETURN QUERY
+    SELECT bta.id,
+           tmp.table_id,
+           tmp.start_at,
+           tmp.end_at,
+           tmp.merge_group_id
+    FROM tmp_confirm_assignments_tx tmp
+    JOIN public.booking_table_assignments bta
+      ON bta.booking_id = p_booking_id
+     AND bta.table_id = tmp.table_id;
+END;
+$$;
+
+
+GRANT ALL ON FUNCTION public.confirm_hold_assignment_tx(
+    p_hold_id uuid,
+    p_booking_id uuid,
+    p_idempotency_key text,
+    p_require_adjacency boolean,
+    p_assigned_by uuid,
+    p_window_start timestamp with time zone,
+    p_window_end timestamp with time zone,
+    p_expected_policy_version text,
+    p_expected_adjacency_hash text,
+    p_target_status public.booking_status,
+    p_history_reason text,
+    p_history_metadata jsonb,
+    p_history_changed_by uuid
+) TO service_role;
+
+
 --
 -- Name: assign_tables_atomic_v2(uuid, uuid[], text, boolean, uuid, timestamp with time zone, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -3130,7 +3402,8 @@ CREATE TABLE public.booking_assignment_idempotency (
     assignment_window tstzrange NOT NULL,
     merge_group_allocation_id uuid,
     created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
-    table_set_hash text
+    table_set_hash text,
+    payload_checksum text
 );
 
 
@@ -3337,7 +3610,8 @@ CREATE TABLE public.booking_table_assignments (
     start_at timestamp with time zone,
     end_at timestamp with time zone,
     allocation_id uuid,
-    merge_group_id uuid
+    merge_group_id uuid,
+    assignment_window tstzrange GENERATED ALWAYS AS (tstzrange(start_at, end_at, '[)'::text)) STORED
 );
 
 
@@ -3993,7 +4267,8 @@ CREATE TABLE public.table_holds (
     created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
     metadata jsonb,
-    CONSTRAINT table_holds_window_check CHECK ((start_at < end_at))
+    CONSTRAINT table_holds_window_check CHECK ((start_at < end_at)),
+    CONSTRAINT th_times_consistent CHECK ((expires_at >= end_at))
 );
 
 
@@ -4288,6 +4563,13 @@ ALTER TABLE ONLY public.booking_table_assignments
 ALTER TABLE ONLY public.booking_table_assignments
     ADD CONSTRAINT booking_table_assignments_table_id_slot_id_key UNIQUE (table_id, slot_id);
 
+--
+-- Name: booking_table_assignments bta_no_overlap; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.booking_table_assignments
+    ADD CONSTRAINT bta_no_overlap EXCLUDE USING gist (table_id WITH =, assignment_window WITH &&) WHERE (table_id IS NOT NULL);
+
 
 --
 -- Name: booking_versions booking_versions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -4578,11 +4860,11 @@ ALTER TABLE ONLY public.table_hold_members
 
 
 --
--- Name: table_hold_windows table_hold_windows_no_overlap; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: table_hold_windows thw_no_overlap; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.table_hold_windows
-    ADD CONSTRAINT table_hold_windows_no_overlap EXCLUDE USING gist (table_id WITH =, hold_window WITH &&);
+    ADD CONSTRAINT thw_no_overlap EXCLUDE USING gist (table_id WITH =, hold_window WITH &&);
 
 
 --
@@ -4684,12 +4966,30 @@ CREATE UNIQUE INDEX booking_assignment_idempotency_booking_hash_key ON public.bo
 
 CREATE INDEX booking_assignment_idempotency_created_idx ON public.booking_assignment_idempotency USING btree (created_at DESC);
 
+--
+-- Name: bai_rest_bk_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX bai_rest_bk_idx ON public.booking_assignment_idempotency USING btree (booking_id, idempotency_key);
+
 
 --
 -- Name: booking_table_assignments_merge_group_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX booking_table_assignments_merge_group_idx ON public.booking_table_assignments USING btree (merge_group_id);
+
+--
+-- Name: bta_window_gist; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX bta_window_gist ON public.booking_table_assignments USING gist (assignment_window);
+
+--
+-- Name: bta_table_window_gist; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX bta_table_window_gist ON public.booking_table_assignments USING gist (table_id, assignment_window);
 
 
 --
@@ -4845,6 +5145,12 @@ COMMENT ON INDEX public.idx_booking_state_history_changed_at IS 'Support chronol
 
 CREATE INDEX idx_booking_table_assignments_booking ON public.booking_table_assignments USING btree (booking_id);
 
+--
+-- Name: bta_booking_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX bta_booking_id_idx ON public.booking_table_assignments USING btree (booking_id);
+
 
 --
 -- Name: INDEX idx_booking_table_assignments_booking; Type: COMMENT; Schema: public; Owner: -
@@ -4872,6 +5178,12 @@ COMMENT ON INDEX public.idx_booking_table_assignments_slot IS 'Fast lookup of as
 --
 
 CREATE INDEX idx_booking_table_assignments_table ON public.booking_table_assignments USING btree (table_id, assigned_at);
+
+--
+-- Name: bta_table_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX bta_table_id_idx ON public.booking_table_assignments USING btree (table_id);
 
 
 --
@@ -4985,6 +5297,13 @@ CREATE INDEX idx_bookings_restaurant ON public.bookings USING btree (restaurant_
 --
 
 CREATE INDEX idx_bookings_status ON public.bookings USING btree (restaurant_id, status);
+
+
+--
+-- Name: bookings_restaurant_date_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX bookings_restaurant_date_idx ON public.bookings USING btree (restaurant_id, booking_date, start_at);
 
 
 --
@@ -5259,12 +5578,30 @@ CREATE INDEX table_adjacencies_table_b_idx ON public.table_adjacencies USING btr
 
 CREATE INDEX table_hold_members_table_idx ON public.table_hold_members USING btree (table_id);
 
+--
+-- Name: thm_unique; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX thm_unique ON public.table_hold_members USING btree (hold_id, table_id);
+
 
 --
 -- Name: table_hold_windows_restaurant_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX table_hold_windows_restaurant_idx ON public.table_hold_windows USING btree (restaurant_id);
+
+--
+-- Name: thw_window_gist; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX thw_window_gist ON public.table_hold_windows USING gist (hold_window);
+
+--
+-- Name: thw_table_window_gist; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX thw_table_window_gist ON public.table_hold_windows USING gist (table_id, hold_window);
 
 
 --
@@ -5293,6 +5630,12 @@ CREATE INDEX table_holds_expires_at_idx ON public.table_holds USING btree (expir
 --
 
 CREATE INDEX table_holds_zone_start_idx ON public.table_holds USING btree (zone_id, start_at);
+
+--
+-- Name: table_holds_restaurant_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX table_holds_restaurant_idx ON public.table_holds USING btree (restaurant_id, start_at, end_at, expires_at);
 
 
 --
