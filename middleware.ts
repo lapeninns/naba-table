@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+
 import type { NextRequest } from 'next/server';
 
 // Allowlisted redirect destinations (prefixes). Keep short and explicit.

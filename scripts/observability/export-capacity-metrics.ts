@@ -1,14 +1,15 @@
 #!/usr/bin/env tsx
 import { config as loadEnv } from "dotenv";
-import { resolve as resolvePath } from "path";
 import { DateTime } from "luxon";
+import { resolve as resolvePath } from "path";
 
 loadEnv({ path: resolvePath(process.cwd(), ".env.local") });
 loadEnv({ path: resolvePath(process.cwd(), ".env.development") });
 loadEnv({ path: resolvePath(process.cwd(), ".env") });
 
-import type { PostgrestError } from "@supabase/supabase-js";
 import { getServiceSupabaseClient } from "@/server/supabase";
+
+import type { PostgrestError } from "@supabase/supabase-js";
 
 function parseSinceArg(): string {
   const arg = process.argv.find((value) => value.startsWith("--since="));

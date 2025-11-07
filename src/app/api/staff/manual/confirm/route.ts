@@ -4,8 +4,10 @@ import { z } from "zod";
 import { AssignTablesRpcError, HoldNotFoundError } from "@/server/capacity/holds";
 import { confirmHoldAssignment, getManualAssignmentContext } from "@/server/capacity/tables";
 import { emitManualConfirm } from "@/server/capacity/telemetry";
+import { sendBookingConfirmationEmail } from "@/server/emails/bookings";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 
+import type { BookingRecord } from "@/server/bookings";
 import type { NextRequest } from "next/server";
 
 const confirmPayloadSchema = z.object({
@@ -15,6 +17,9 @@ const confirmPayloadSchema = z.object({
   requireAdjacency: z.boolean().optional(),
   contextVersion: z.string(),
 });
+
+const isEmailSuppressed = () =>
+  process.env.LOAD_TEST_DISABLE_EMAILS === "true" || process.env.SUPPRESS_EMAILS === "true";
 
 export async function POST(req: NextRequest) {
   const supabase = await getRouteHandlerSupabaseClient();
@@ -102,6 +107,29 @@ export async function POST(req: NextRequest) {
 
   const serviceClient = getServiceSupabaseClient();
 
+  const bookingLookup = await serviceClient
+    .from("bookings")
+    .select("*")
+    .eq("id", bookingId)
+    .maybeSingle();
+
+  if (bookingLookup.error) {
+    console.error("[staff/manual/confirm] booking lookup failed", { bookingId, error: bookingLookup.error });
+    return NextResponse.json(
+      { message: "Failed to load booking", error: "Failed to load booking", code: "BOOKING_LOOKUP_FAILED" },
+      { status: 500 },
+    );
+  }
+
+  const bookingRow = (bookingLookup.data ?? null) as BookingRecord | null;
+  if (!bookingRow) {
+    return NextResponse.json(
+      { message: "Booking not found", error: "Booking not found", code: "BOOKING_NOT_FOUND" },
+      { status: 404 },
+    );
+  }
+  const alreadyConfirmed = bookingRow.status === "confirmed";
+
   // Require fresh context before confirming
   let contextAdjacencyRequired: boolean | null = null;
   try {
@@ -130,6 +158,17 @@ export async function POST(req: NextRequest) {
       requireAdjacency,
       assignedBy: user.id,
       client: serviceClient,
+      transition: {
+        targetStatus: "confirmed",
+        historyReason: "manual_assign",
+        historyChangedBy: user.id ?? null,
+        historyMetadata: {
+          source: "ops_manual_confirm",
+          holdId,
+          previousStatus: bookingRow.status,
+          actorRole: membership.data?.role ?? null,
+        },
+      },
     });
     await emitManualConfirm({
       ok: true,
@@ -138,6 +177,41 @@ export async function POST(req: NextRequest) {
       policyVersion: null, // computed in allocator; omit here
       adjacencyRequired: contextAdjacencyRequired ?? (typeof requireAdjacency === 'boolean' ? requireAdjacency : null),
     });
+
+    if (!isEmailSuppressed() && !alreadyConfirmed) {
+      try {
+        const refreshed = await serviceClient
+          .from("bookings")
+          .select("*")
+          .eq("id", bookingId)
+          .maybeSingle();
+
+        if (refreshed.error) {
+          console.error("[staff/manual/confirm] failed to reload booking for email", {
+            bookingId,
+            error: refreshed.error,
+          });
+        } else {
+          const updatedBooking = (refreshed.data ?? null) as BookingRecord | null;
+          if (!updatedBooking) {
+            console.warn("[staff/manual/confirm] booking disappeared before email send", { bookingId });
+          } else if (updatedBooking.status === "confirmed" && updatedBooking.customer_email) {
+            await sendBookingConfirmationEmail(updatedBooking);
+          } else if (updatedBooking.status !== "confirmed") {
+            console.warn("[staff/manual/confirm] booking not confirmed post-transition; skipping email", {
+              bookingId,
+              status: updatedBooking.status,
+            });
+          }
+        }
+      } catch (emailError) {
+        console.error("[staff/manual/confirm] failed sending confirmation email", {
+          bookingId,
+          error: emailError instanceof Error ? emailError.message : emailError,
+        });
+      }
+    }
+
     return NextResponse.json({
       holdId,
       bookingId,

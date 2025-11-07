@@ -3,8 +3,8 @@
  * Story 4: Ops Dashboard - Tables UI
  */
 
-import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
 import TableInventoryClient from "@/components/features/tables/TableInventoryClient";
 import { getServerComponentSupabaseClient } from "@/server/supabase";

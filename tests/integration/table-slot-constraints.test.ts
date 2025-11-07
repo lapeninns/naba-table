@@ -5,8 +5,9 @@
  * while allowing non-overlapping bookings on the same day.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+
 import type { Database } from '../../types/supabase';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;

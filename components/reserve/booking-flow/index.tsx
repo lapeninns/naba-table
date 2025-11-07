@@ -7,10 +7,10 @@ import { useEffect, useMemo, useState, type PropsWithChildren } from "react";
 import { track } from "@/lib/analytics";
 import { configureQueryPersistence } from "@/lib/query/persist";
 import { WizardDependenciesProvider } from "@features/reservations/wizard/di";
-import { BookingWizard } from "@features/reservations/wizard/ui/BookingWizard";
 import { useWizardStore } from "@features/reservations/wizard/model/store";
-import type { WizardStep } from "@features/reservations/wizard/model/reducer";
+import { BookingWizard } from "@features/reservations/wizard/ui/BookingWizard";
 
+import type { WizardStep } from "@features/reservations/wizard/model/reducer";
 import type { BookingDetails, BookingWizardMode } from "@features/reservations/wizard/model/reducer";
 
 const defaultQueryOptions = {

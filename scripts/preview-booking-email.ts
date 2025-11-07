@@ -8,10 +8,11 @@
 import { config as loadEnv } from 'dotenv';
 loadEnv({ path: '.env.local', override: true });
 
-import { getServiceSupabaseClient } from '@/server/supabase';
 import { renderBookingEmailHtml } from '@/server/emails/bookings';
+import { getServiceSupabaseClient } from '@/server/supabase';
 import { formatDateForInput, formatReservationDateShort, formatReservationTime, formatReservationTimeFromDate } from '@reserve/shared/formatting/booking';
 import { normalizeTime } from '@reserve/shared/time';
+
 import type { VenueDetails } from '@/lib/venue';
 
 function normalizeTimeLoose(value: string | null | undefined) {

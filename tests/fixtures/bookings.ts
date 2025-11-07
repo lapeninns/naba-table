@@ -1,8 +1,9 @@
 import { DateTime } from "luxon";
 
+import { ZONE_IDS } from "./layout";
+
 import type { BookingRecord } from "@/server/capacity/types";
 
-import { ZONE_IDS } from "./layout";
 
 const BASE_START = DateTime.fromISO("2025-10-21T19:00:00Z");
 

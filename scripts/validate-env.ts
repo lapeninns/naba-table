@@ -5,8 +5,8 @@
  */
 
 import { config as loadEnv } from 'dotenv';
-import { resolve as resolvePath } from 'path';
 import { existsSync } from 'fs';
+import { resolve as resolvePath } from 'path';
 
 // Load environment files in order
 const envFiles = ['.env.local', '.env.development', '.env'];

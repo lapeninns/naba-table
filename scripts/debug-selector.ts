@@ -17,6 +17,7 @@ loadEnv({ path: resolvePath(process.cwd(), '.env') });
 process.env.CAPACITY_DEBUG = process.env.CAPACITY_DEBUG || '1';
 
 import { DateTime } from 'luxon';
+
 import type { SelectorScoringConfig } from '@/server/capacity/policy';
 
 async function main() {

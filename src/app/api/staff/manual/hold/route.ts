@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { HoldConflictError, releaseTableHold } from "@/server/capacity/holds";
 import { ManualSelectionInputError, holdManualSelection, getManualContext } from "@/server/capacity/engine";
+import { HoldConflictError, releaseTableHold } from "@/server/capacity/holds";
 import { emitManualHold } from "@/server/capacity/telemetry";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 

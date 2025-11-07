@@ -4,8 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
-import { HttpError } from '@/lib/http/errors';
 import { toIsoDateParam } from '@/hooks/ops/utils/toIsoDateParam';
+import { HttpError } from '@/lib/http/errors';
 
 import type { OpsBookingStatus } from '@/types/ops';
 

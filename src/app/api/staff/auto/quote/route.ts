@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { quoteTables } from "@/server/capacity/engine";
 import { HoldConflictError } from "@/server/capacity/holds";
 import { ServiceNotFoundError } from "@/server/capacity/policy";
-import { quoteTables } from "@/server/capacity/engine";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 
 import type { NextRequest } from "next/server";

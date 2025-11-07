@@ -13,6 +13,7 @@ const mockEvaluateManualSelection = vi.fn<[], Promise<ManualValidationResult>>()
 const mockConfirmHoldAssignment = vi.fn();
 const mockGetManualAssignmentContext = vi.fn();
 const mockReleaseTableHold = vi.fn();
+const mockSendBookingConfirmationEmail = vi.fn();
 
 const BOOKING_ID = "11111111-1111-4111-8111-111111111111";
 const TABLE_ID = "22222222-2222-4222-8222-222222222222";
@@ -26,7 +27,18 @@ const routeClient = {
   from: vi.fn(),
 };
 
-const serviceClient = {} as const;
+const serviceClient = {
+  from: vi.fn(),
+};
+
+const serviceContext: {
+  bookingRow: Record<string, unknown> | null;
+} = {
+  bookingRow: null,
+};
+
+const clone = <T>(value: T): T =>
+  value === null || value === undefined ? value : JSON.parse(JSON.stringify(value));
 
 const routeContext: {
   bookingRow: Record<string, unknown> | null;
@@ -41,6 +53,10 @@ const routeContext: {
 vi.mock("@/server/supabase", () => ({
   getRouteHandlerSupabaseClient: vi.fn(async () => routeClient),
   getServiceSupabaseClient: vi.fn(() => serviceClient),
+}));
+
+vi.mock("@/server/emails/bookings", () => ({
+  sendBookingConfirmationEmail: mockSendBookingConfirmationEmail,
 }));
 
 vi.mock("@/server/capacity/tables", async (importOriginal) => {
@@ -109,6 +125,24 @@ beforeEach(() => {
     expires_at: "2025-01-01T18:05:00.000Z",
     table_hold_members: [{ table_id: TABLE_ID }],
   };
+  serviceContext.bookingRow = {
+    id: BOOKING_ID,
+    restaurant_id: "restaurant-1",
+    status: "pending",
+    booking_date: "2025-01-01",
+    start_time: "18:00:00",
+    end_time: "20:00:00",
+    start_at: "2025-01-01T18:00:00.000Z",
+    end_at: "2025-01-01T20:00:00.000Z",
+    party_size: 3,
+    booking_type: "standard",
+    seating_preference: "standard",
+    customer_name: "Guest Example",
+    customer_email: "guest@example.com",
+    reference: "REF123",
+    created_at: "2025-01-01T17:00:00.000Z",
+    updated_at: "2025-01-01T17:00:00.000Z",
+  };
 
   routeClient.from.mockImplementation((table: string) => {
     if (table === "bookings") {
@@ -140,10 +174,48 @@ beforeEach(() => {
       }),
     };
   });
+
+  serviceClient.from.mockImplementation((table: string) => {
+    if (table === "bookings") {
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: vi.fn(async () => ({
+              data: clone(serviceContext.bookingRow),
+              error: null,
+            })),
+          }),
+        }),
+      };
+    }
+    return {
+      select: () => ({
+        eq: () => ({
+          maybeSingle: vi.fn(async () => ({ data: null, error: null })),
+        }),
+      }),
+    };
+  });
+
+  mockConfirmHoldAssignment.mockImplementation(async () => {
+    serviceContext.bookingRow = serviceContext.bookingRow
+      ? { ...serviceContext.bookingRow, status: "confirmed" }
+      : serviceContext.bookingRow;
+    return [
+      {
+        tableId: TABLE_ID,
+        assignmentId: "assign-1",
+        startAt: "2025-01-01T18:00:00.000Z",
+        endAt: "2025-01-01T20:00:00.000Z",
+      },
+    ];
+  });
 });
 
 afterEach(() => {
   vi.clearAllMocks();
+  delete process.env.SUPPRESS_EMAILS;
+  delete process.env.LOAD_TEST_DISABLE_EMAILS;
 });
 
 describe("POST /api/staff/manual/hold", () => {
@@ -231,15 +303,6 @@ describe("POST /api/staff/manual/validate", () => {
 
 describe("POST /api/staff/manual/confirm", () => {
   it("returns assignments on success", async () => {
-    mockConfirmHoldAssignment.mockResolvedValue([
-      {
-        tableId: TABLE_ID,
-        assignmentId: "assign-1",
-        startAt: "2025-01-01T18:00:00.000Z",
-        endAt: "2025-01-01T20:00:00.000Z",
-      },
-    ]);
-
     const request = new Request("http://localhost/api/staff/manual/confirm", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -250,6 +313,23 @@ describe("POST /api/staff/manual/confirm", () => {
     expect(response.status).toBe(200);
     const payload = await response.json();
     expect(payload.assignments[0]?.tableId).toBe(TABLE_ID);
+    expect(mockConfirmHoldAssignment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookingId: BOOKING_ID,
+        transition: expect.objectContaining({
+          targetStatus: "confirmed",
+          historyReason: "manual_assign",
+        }),
+      }),
+    );
+    expect(mockSendBookingConfirmationEmail).toHaveBeenCalledTimes(1);
+    expect(mockSendBookingConfirmationEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: BOOKING_ID,
+        status: "confirmed",
+        customer_email: "guest@example.com",
+      }),
+    );
   });
 
   it("propagates RPC conflicts with structured payload", async () => {
@@ -298,6 +378,44 @@ describe("POST /api/staff/manual/confirm", () => {
     const payload = await response.json();
     expect(payload.code).toBe("ASSIGNMENT_VALIDATION");
     expect(payload.error).toBe("Tables must be adjacent");
+  });
+
+  it("skips email when booking is already confirmed", async () => {
+    serviceContext.bookingRow = serviceContext.bookingRow
+      ? { ...serviceContext.bookingRow, status: "confirmed" }
+      : serviceContext.bookingRow;
+
+    const request = new Request("http://localhost/api/staff/manual/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bookingId: BOOKING_ID, holdId: HOLD_ID, idempotencyKey: "key-4", contextVersion: "ctx-1" }),
+    }) as unknown as NextRequest;
+
+    const response = await confirmPost(request);
+    expect(response.status).toBe(200);
+    expect(mockSendBookingConfirmationEmail).not.toHaveBeenCalled();
+  });
+
+  it("honors global email suppression flag", async () => {
+    process.env.SUPPRESS_EMAILS = "true";
+    try {
+      const request = new Request("http://localhost/api/staff/manual/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookingId: BOOKING_ID,
+          holdId: HOLD_ID,
+          idempotencyKey: "key-5",
+          contextVersion: "ctx-1",
+        }),
+      }) as unknown as NextRequest;
+
+      const response = await confirmPost(request);
+      expect(response.status).toBe(200);
+      expect(mockSendBookingConfirmationEmail).not.toHaveBeenCalled();
+    } finally {
+      delete process.env.SUPPRESS_EMAILS;
+    }
   });
 });
 

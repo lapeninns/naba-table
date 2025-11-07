@@ -8,7 +8,7 @@ const LOYALTY_SCHEMA_VERSION = 1;
 
 export type LoyaltyProgramRow = Tables<"loyalty_programs">;
 
-type DbClient = SupabaseClient<Database, "public", Database["public"]>;
+type DbClient = SupabaseClient<Database>;
 
 type LoyaltyAccrualRule =
   | {

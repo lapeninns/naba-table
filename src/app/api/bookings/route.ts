@@ -32,10 +32,10 @@ import { PastBookingError, assertBookingNotInPast } from "@/server/bookings/past
 import { OperatingHoursError, assertBookingWithinOperatingWindow } from "@/server/bookings/timeValidation";
 import { createBookingWithCapacityCheck } from "@/server/capacity";
 import { normalizeEmail, upsertCustomer } from "@/server/customers";
+import { sendBookingConfirmationEmail } from "@/server/emails/bookings";
 import { enqueueBookingCreatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
 import { getActiveLoyaltyProgram, calculateLoyaltyAward, applyLoyaltyAward } from "@/server/loyalty";
 import { recordObservabilityEvent } from "@/server/observability";
-import { sendBookingConfirmationEmail } from "@/server/emails/bookings";
 import { getRestaurantSchedule } from "@/server/restaurants/schedule";
 import { computeGuestLookupHash } from "@/server/security/guest-lookup";
 import { consumeRateLimit } from "@/server/security/rate-limit";

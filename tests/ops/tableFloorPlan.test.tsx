@@ -1,11 +1,12 @@
 import "@testing-library/jest-dom/vitest";
 
-import type { ComponentProps } from "react";
 
 import { fireEvent, render, screen } from "@testing-library/react";
 import { vi } from "vitest";
 
 import { TableFloorPlan } from "@/components/features/dashboard/TableFloorPlan";
+
+import type { ComponentProps } from "react";
 
 const baseTable = {
   id: "table-1",

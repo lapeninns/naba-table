@@ -1,9 +1,9 @@
 import { QueueEvents, Worker } from "bullmq";
 
 import { closeRedisConnection, getRedisConnection } from "@/lib/queue/redis";
+import { sendBookingConfirmationEmail } from "@/server/emails/bookings";
 import { recordObservabilityEvent } from "@/server/observability";
 import { EMAIL_QUEUE_NAME, type EmailJobPayload, getEmailDlq } from "@/server/queue/email";
-import { sendBookingConfirmationEmail } from "@/server/emails/bookings";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
 import type { BookingRecord } from "@/server/bookings";

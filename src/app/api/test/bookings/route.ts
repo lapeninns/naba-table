@@ -4,8 +4,8 @@ import { z } from 'zod';
 
 import { guardTestEndpoint } from '@/server/security/test-endpoints';
 import { getDefaultRestaurantId, getServiceSupabaseClient } from '@/server/supabase';
-import type { TablesInsert } from '@/types/supabase';
 
+import type { TablesInsert } from '@/types/supabase';
 import type { NextRequest} from 'next/server';
 
 export const dynamic = 'force-dynamic';
