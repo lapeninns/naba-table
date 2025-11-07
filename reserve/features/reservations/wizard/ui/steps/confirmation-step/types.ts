@@ -1,7 +1,7 @@
 import type { State, StepAction } from '../../../model/reducer';
 
 export interface ConfirmationStepProps {
-  state: State;
+  state?: State;
   onNewBooking: () => void;
   onClose: () => void;
   onActionsChange: (actions: StepAction[]) => void;

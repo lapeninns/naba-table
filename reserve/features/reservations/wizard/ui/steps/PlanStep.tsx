@@ -5,11 +5,12 @@ import React, { useMemo } from 'react';
 
 import { Alert, AlertDescription, AlertIcon } from '@shared/ui/alert';
 
+import { useWizardActions, useWizardState } from '../../context/WizardContext';
+import { StepErrorBoundary } from '../ErrorBoundary';
 import { WizardStep } from '../WizardStep';
 import { PlanStepForm } from './plan-step/PlanStepForm';
 
-import type { State, StepAction } from '../../model/reducer';
-import type { WizardActions } from '../../model/store';
+import type { StepAction } from '../../model/reducer';
 import type { AnalyticsEvent } from '@shared/lib/analytics';
 
 function getMinSelectableDate(timezone: string | null | undefined) {
@@ -53,14 +54,14 @@ const DESCRIPTION =
   'Choose a date, time, party size, and any preferences. We’ll show the best options available.';
 
 export interface PlanStepProps {
-  state: State;
-  actions: Pick<WizardActions, 'updateDetails' | 'goToStep'>;
   onActionsChange: (actions: StepAction[]) => void;
   onTrack?: (event: AnalyticsEvent, payload?: Record<string, unknown>) => void;
   planAlert?: string | null;
 }
 
-export function PlanStep({ state, actions, onActionsChange, onTrack, planAlert }: PlanStepProps) {
+export function PlanStep({ onActionsChange, onTrack, planAlert }: PlanStepProps) {
+  const state = useWizardState();
+  const actions = useWizardActions();
   const minSelectableDate = useMemo(() => {
     return getMinSelectableDate(state.details.restaurantTimezone);
   }, [state.details.restaurantTimezone]);
@@ -68,22 +69,27 @@ export function PlanStep({ state, actions, onActionsChange, onTrack, planAlert }
   const alertMessage = planAlert ?? state.error;
 
   return (
-    <WizardStep step={1} title={TITLE} description={DESCRIPTION}>
-      {alertMessage ? (
-        <Alert variant="destructive" role="alert" className="items-start">
-          <AlertIcon>
-            <AlertTriangle className="h-4 w-4" aria-hidden />
-          </AlertIcon>
-          <AlertDescription>{alertMessage}</AlertDescription>
-        </Alert>
-      ) : null}
-      <PlanStepForm
-        state={state}
-        actions={actions}
-        onActionsChange={onActionsChange}
-        onTrack={onTrack}
-        minDate={minSelectableDate}
-      />
-    </WizardStep>
+    <StepErrorBoundary
+      stepName="Plan your visit"
+      onReset={() => {
+        actions.goToStep(1);
+      }}
+    >
+      <WizardStep step={1} title={TITLE} description={DESCRIPTION}>
+        {alertMessage ? (
+          <Alert variant="destructive" role="alert" className="items-start">
+            <AlertIcon>
+              <AlertTriangle className="h-4 w-4" aria-hidden />
+            </AlertIcon>
+            <AlertDescription>{alertMessage}</AlertDescription>
+          </Alert>
+        ) : null}
+        <PlanStepForm
+          onActionsChange={onActionsChange}
+          onTrack={onTrack}
+          minDate={minSelectableDate}
+        />
+      </WizardStep>
+    </StepErrorBoundary>
   );
 }

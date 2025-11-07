@@ -12,8 +12,11 @@ import type { AnalyticsEvent } from '@shared/lib/analytics';
 import type { UseFormReturn } from 'react-hook-form';
 
 export interface PlanStepFormProps {
-  state: State;
-  actions: Pick<WizardActions, 'updateDetails' | 'goToStep'>;
+  /**
+   * Legacy hooks/tests can provide explicit state/actions. Wizard context is used when omitted.
+   */
+  state?: State;
+  actions?: Pick<WizardActions, 'updateDetails' | 'goToStep'>;
   onActionsChange: (actions: StepAction[]) => void;
   onTrack?: (event: AnalyticsEvent, payload?: Record<string, unknown>) => void;
   minDate: Date;
@@ -40,6 +43,7 @@ export type PlanStepFormState = {
   minDate: Date;
   intervalMinutes: number | null;
   unavailableDates: Map<string, PlanStepUnavailableReason>;
+  loadingDates: Set<string>;
   hasAvailableSlots: boolean;
   isScheduleLoading: boolean;
   schedule: ReservationSchedule | null;

@@ -5,7 +5,10 @@ import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { wizardStateFixture } from '@/tests/fixtures/wizard';
+import { WizardProvider } from '@features/reservations/wizard/context/WizardContext';
 import { PlanStepForm } from '@features/reservations/wizard/ui/steps/plan-step/PlanStepForm';
+
+import type { WizardActions } from '@features/reservations/wizard/model/store';
 
 const MIN_DATE = new Date('2025-05-01T00:00:00Z');
 
@@ -160,7 +163,7 @@ beforeEach(() => {
 
 describe('<PlanStepForm />', () => {
   const setup = () => {
-    const state = wizardStateFixture({
+    const initialState = wizardStateFixture({
       date: '2025-05-15',
       time: '18:00',
       bookingType: 'lunch',
@@ -172,16 +175,62 @@ describe('<PlanStepForm />', () => {
     const onActionsChange = vi.fn();
     const onTrack = vi.fn();
 
-    const wrapper = createWrapper();
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+        },
+      },
+    });
+
+    const ProviderWrapper = ({ children }: { children: React.ReactNode }) => {
+      const [wizardState, setWizardState] = React.useState(initialState);
+
+      const actions = React.useMemo<WizardActions>(() => {
+        const noop = () => undefined;
+        return {
+          goToStep: (step) => {
+            goToStep(step);
+            setWizardState((prev) => ({ ...prev, step }));
+          },
+          updateDetails: (key, value) => {
+            updateDetails(key, value);
+            setWizardState((prev) => ({
+              ...prev,
+              details: {
+                ...prev.details,
+                [key]: value,
+              },
+            }));
+          },
+          setSubmitting: noop,
+          setLoading: noop,
+          setError: noop,
+          clearError: noop,
+          setBookings: noop,
+          applyConfirmation: noop,
+          startEdit: noop,
+          resetForm: noop,
+          hydrateContacts: noop,
+          hydrateDetails: noop,
+        } satisfies WizardActions;
+      }, []);
+
+      return (
+        <WizardProvider state={wizardState} actions={actions}>
+          {children}
+        </WizardProvider>
+      );
+    };
+
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={queryClient}>
+        <ProviderWrapper>{children}</ProviderWrapper>
+      </QueryClientProvider>
+    );
 
     render(
-      <PlanStepForm
-        state={state}
-        actions={{ updateDetails, goToStep }}
-        onActionsChange={onActionsChange}
-        onTrack={onTrack}
-        minDate={MIN_DATE}
-      />,
+      <PlanStepForm onActionsChange={onActionsChange} onTrack={onTrack} minDate={MIN_DATE} />,
       { wrapper },
     );
 

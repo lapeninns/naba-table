@@ -8,6 +8,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useSupabaseSession } from '@/hooks/useSupabaseSession';
 import { emit } from '@/lib/analytics/emit';
 
+import { WizardProvider } from '../context/WizardContext';
 import { useWizardDependencies } from '../di';
 import { useReservationWizard } from '../hooks/useReservationWizard';
 import { ConfirmationStep } from './steps/ConfirmationStep';
@@ -207,8 +208,6 @@ function BookingWizardContent({
       case 1:
         return (
           <PlanStep
-            state={state}
-            actions={actions}
             onActionsChange={handleActionsChange}
             onTrack={analytics.track}
             planAlert={planAlert}
@@ -217,26 +216,16 @@ function BookingWizardContent({
       case 2:
         return (
           <DetailsStep
-            state={state}
-            actions={actions}
             onActionsChange={handleActionsChange}
             contactLocks={contactLocks}
             mode={mode}
           />
         );
       case 3:
-        return (
-          <ReviewStep
-            state={state}
-            actions={actions}
-            onConfirm={handleConfirm}
-            onActionsChange={handleActionsChange}
-          />
-        );
+        return <ReviewStep onConfirm={handleConfirm} onActionsChange={handleActionsChange} />;
       case 4:
         return (
           <ConfirmationStep
-            state={state}
             onNewBooking={handleNewBooking}
             onClose={handleClose}
             onActionsChange={handleActionsChange}
@@ -248,20 +237,22 @@ function BookingWizardContent({
   })();
 
   return (
-    <WizardContainer
-      steps={stepsMeta}
-      currentStep={state.step}
-      actions={effectiveActions}
-      summary={selectionSummary}
-      heroRef={heroRef}
-      stickyHeight={stickyHeight}
-      stickyVisible={stickyVisible}
-      onStickyHeightChange={handleStickyHeightChange}
-      banner={banner}
-      layoutElement={layoutElement}
-    >
-      {stepContent}
-    </WizardContainer>
+    <WizardProvider state={state} actions={actions}>
+      <WizardContainer
+        steps={stepsMeta}
+        currentStep={state.step}
+        actions={effectiveActions}
+        summary={selectionSummary}
+        heroRef={heroRef}
+        stickyHeight={stickyHeight}
+        stickyVisible={stickyVisible}
+        onStickyHeightChange={handleStickyHeightChange}
+        banner={banner}
+        layoutElement={layoutElement}
+      >
+        {stepContent}
+      </WizardContainer>
+    </WizardProvider>
   );
 }
 

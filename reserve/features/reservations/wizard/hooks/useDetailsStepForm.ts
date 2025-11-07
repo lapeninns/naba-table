@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form';
 
 import { track } from '@shared/lib/analytics';
 
+import { useWizardActions, useWizardState } from '../context/WizardContext';
 import {
   createDetailsFormSchema,
   type DetailsFormInputValues,
@@ -16,12 +17,16 @@ import type { BookingDetails, StepAction } from '../model/reducer';
 import type { DetailsStepProps, DetailsStepController } from '../ui/steps/details-step/types';
 
 export function useDetailsStepForm({
-  state,
-  actions,
+  state: providedState,
+  actions: providedActions,
   onActionsChange,
   onTrack = track,
   mode = 'customer',
 }: DetailsStepProps): DetailsStepController {
+  const contextState = useWizardState();
+  const contextActions = useWizardActions();
+  const state = providedState ?? contextState;
+  const actions = providedActions ?? contextActions;
   const schema = useMemo(() => createDetailsFormSchema(mode), [mode]);
   const form = useForm<DetailsFormInputValues, unknown, DetailsFormValues>({
     resolver: zodResolver(schema),

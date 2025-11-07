@@ -14,7 +14,9 @@ import {
 import { formatDateForInput } from '@reserve/shared/formatting/booking';
 import { toMinutes } from '@reserve/shared/time';
 
+import { useWizardActions, useWizardState } from '../context/WizardContext';
 import { planFormSchema, type PlanFormValues } from '../model/schemas';
+import { useDebounce } from '../utils/debounce';
 
 import type { BookingDetails, StepAction } from '../model/reducer';
 import type {
@@ -86,6 +88,23 @@ const parseDateKey = (value: string | null | undefined): Date | null => {
   return Number.isNaN(next.getTime()) ? null : next;
 };
 
+const linkAbortSignals = (controller: AbortController, querySignal?: AbortSignal) => {
+  if (!querySignal) {
+    return undefined;
+  }
+  if (querySignal.aborted) {
+    controller.abort();
+    return undefined;
+  }
+
+  const abortHandler = () => controller.abort();
+  querySignal.addEventListener('abort', abortHandler, { once: true });
+
+  return () => {
+    querySignal.removeEventListener('abort', abortHandler);
+  };
+};
+
 type UnavailableDateTrackingArgs = {
   restaurantSlug: string | null | undefined;
   date: string | null | undefined;
@@ -98,6 +117,7 @@ type UnavailableDateTrackingResult = {
   updateUnavailableDate: (dateKey: string, reason: PlanStepUnavailableReason | null) => void;
   normalizedMinDate: Date;
   currentUnavailabilityReason: PlanStepUnavailableReason | null;
+  loadingDates: Set<string>;
 };
 
 function useUnavailableDateTracking({
@@ -107,15 +127,30 @@ function useUnavailableDateTracking({
 }: UnavailableDateTrackingArgs): UnavailableDateTrackingResult {
   const queryClient = useQueryClient();
   const prefetchedMonthsRef = useRef<Set<string>>(new Set());
+  const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
+  const pendingFetchesRef = useRef<Map<string, Promise<void>>>(new Map());
   const [unavailableDates, setUnavailableDates] = useState<Map<string, PlanStepUnavailableReason>>(
     () => new Map(),
   );
+  const [loadingDates, setLoadingDates] = useState<Set<string>>(() => new Set());
 
   const normalizedMinDate = useMemo(() => {
-    const next = new Date(minDate);
-    next.setHours(0, 0, 0, 0);
-    return next;
+    const hasTime =
+      minDate.getHours() !== 0 ||
+      minDate.getMinutes() !== 0 ||
+      minDate.getSeconds() !== 0 ||
+      minDate.getMilliseconds() !== 0;
+
+    if (!hasTime) {
+      return minDate;
+    }
+
+    const normalized = new Date(minDate);
+    normalized.setHours(0, 0, 0, 0);
+    return normalized;
   }, [minDate]);
+
+  const normalizedMinTimestamp = useMemo(() => normalizedMinDate.getTime(), [normalizedMinDate]);
 
   const updateUnavailableDate = useCallback(
     (dateKey: string, reason: PlanStepUnavailableReason | null) => {
@@ -141,6 +176,7 @@ function useUnavailableDateTracking({
       if (!value) {
         return;
       }
+
       const slug = restaurantSlug?.trim();
       if (!slug) {
         return;
@@ -150,7 +186,7 @@ function useUnavailableDateTracking({
       const monthStarts: Date[] = [monthStart];
 
       const previousMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() - 1, 1);
-      if (previousMonth >= normalizedMinDate) {
+      if (previousMonth.getTime() >= normalizedMinTimestamp) {
         monthStarts.push(previousMonth);
       }
 
@@ -162,6 +198,7 @@ function useUnavailableDateTracking({
         if (prefetchedMonthsRef.current.has(monthKey)) {
           return;
         }
+
         prefetchedMonthsRef.current.add(monthKey);
 
         const dateKeys = buildMonthDateKeys(month, normalizedMinDate);
@@ -169,28 +206,67 @@ function useUnavailableDateTracking({
           return;
         }
 
-        void Promise.all(
-          dateKeys.map(async (dateKey) => {
+        dateKeys.forEach((dateKey) => {
+          if (pendingFetchesRef.current.has(dateKey)) {
+            return;
+          }
+
+          const controller = new AbortController();
+          abortControllersRef.current.set(dateKey, controller);
+
+          setLoadingDates((prev) => {
+            const next = new Set(prev);
+            next.add(dateKey);
+            return next;
+          });
+
+          const fetchPromise = (async () => {
+            let unlinkAbort: (() => void) | undefined;
             try {
               const scheduleResult = await queryClient.fetchQuery({
                 queryKey: scheduleQueryKey(slug, dateKey),
-                queryFn: ({ signal }) => fetchReservationSchedule(slug, dateKey, signal),
+                queryFn: ({ signal: querySignal }) => {
+                  unlinkAbort = linkAbortSignals(controller, querySignal);
+                  return fetchReservationSchedule(slug, dateKey, controller.signal);
+                },
                 staleTime: 60_000,
               });
-              const reason = deriveUnavailableReason(scheduleResult);
-              updateUnavailableDate(dateKey, reason);
+
+              if (!controller.signal.aborted) {
+                const reason = deriveUnavailableReason(scheduleResult);
+                updateUnavailableDate(dateKey, reason);
+              }
             } catch (error) {
+              if (controller.signal.aborted) {
+                return;
+              }
+
               if (process.env.NODE_ENV !== 'production') {
                 console.error('[plan-step] failed to prefetch schedule', { date: dateKey, error });
               }
+
               emit('schedule.fetch.miss', { restaurantSlug: slug, date: dateKey });
               updateUnavailableDate(dateKey, 'unknown');
+            } finally {
+              unlinkAbort?.();
+              if (!controller.signal.aborted) {
+                setLoadingDates((prev) => {
+                  const next = new Set(prev);
+                  next.delete(dateKey);
+                  return next;
+                });
+              }
+
+              abortControllersRef.current.delete(dateKey);
+              pendingFetchesRef.current.delete(dateKey);
             }
-          }),
-        );
+          })();
+
+          pendingFetchesRef.current.set(dateKey, fetchPromise);
+        });
       });
     },
-    [normalizedMinDate, queryClient, restaurantSlug, updateUnavailableDate],
+    [normalizedMinDate, normalizedMinTimestamp, queryClient, restaurantSlug, updateUnavailableDate],
   );
 
   useEffect(() => {
@@ -199,7 +275,25 @@ function useUnavailableDateTracking({
   }, [date, normalizedMinDate, prefetchVisibleMonth]);
 
   useEffect(() => {
-    prefetchedMonthsRef.current.clear();
+    const abortControllers = abortControllersRef.current;
+    const pendingFetches = pendingFetchesRef.current;
+
+    return () => {
+      abortControllers.forEach((controller) => controller.abort());
+      abortControllers.clear();
+      pendingFetches.clear();
+    };
+  }, []);
+
+  useEffect(() => {
+    const abortControllers = abortControllersRef.current;
+    const pendingFetches = pendingFetchesRef.current;
+    const prefetchedMonths = prefetchedMonthsRef.current;
+    abortControllers.forEach((controller) => controller.abort());
+    abortControllers.clear();
+    pendingFetches.clear();
+    prefetchedMonths.clear();
+    setLoadingDates(new Set());
   }, [restaurantSlug]);
 
   const currentUnavailabilityReason = useMemo<PlanStepUnavailableReason | null>(() => {
@@ -215,6 +309,7 @@ function useUnavailableDateTracking({
     updateUnavailableDate,
     normalizedMinDate,
     currentUnavailabilityReason,
+    loadingDates,
   };
 }
 
@@ -294,12 +389,16 @@ function usePlanSlotData({ restaurantSlug, date, time }: PlanSlotDataArgs): Plan
 }
 
 export function usePlanStepForm({
-  state,
-  actions,
+  state: providedState,
+  actions: providedActions,
   onActionsChange,
   onTrack,
   minDate,
 }: PlanStepFormProps): PlanStepFormState {
+  const contextState = useWizardState();
+  const contextActions = useWizardActions();
+  const state = providedState ?? contextState;
+  const actions = providedActions ?? contextActions;
   const form = useForm<PlanFormValues>({
     resolver: zodResolver(planFormSchema),
     mode: 'onChange',
@@ -319,6 +418,7 @@ export function usePlanStepForm({
     updateUnavailableDate,
     normalizedMinDate,
     currentUnavailabilityReason,
+    loadingDates,
   } = useUnavailableDateTracking({
     restaurantSlug: state.details.restaurantSlug,
     date: state.details.date,
@@ -341,6 +441,8 @@ export function usePlanStepForm({
     date: state.details.date,
     time: state.details.time,
   });
+
+  const debouncedPrefetch = useDebounce(prefetchVisibleMonth, 300);
 
   const lastValidDateRef = useRef<string | null>(state.details.date ?? null);
 
@@ -645,12 +747,13 @@ export function usePlanStepForm({
       changeOccasion,
       commitNotes,
       prefetchMonth: (month: Date) => {
-        prefetchVisibleMonth(month);
+        debouncedPrefetch(month);
       },
     },
     minDate: normalizedMinDate,
     intervalMinutes,
     unavailableDates,
+    loadingDates,
     hasAvailableSlots,
     isScheduleLoading,
     schedule,

@@ -4,7 +4,7 @@ import { endOfDay } from 'date-fns';
 import { ChevronDownIcon } from 'lucide-react';
 import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
 
-import { formatReservationDate } from '@reserve/shared/formatting/booking';
+import { formatDateForInput, formatReservationDate } from '@reserve/shared/formatting/booking';
 import { cn } from '@shared/lib/cn';
 import { Button } from '@shared/ui/button';
 import { Calendar } from '@shared/ui/calendar';
@@ -37,6 +37,7 @@ export type Calendar24FieldProps = {
   isTimeDisabled?: boolean;
   unavailableMessage?: string;
   onMonthChange?: (month: Date) => void;
+  loadingDates?: Set<string>;
 };
 
 export function Calendar24Field({
@@ -48,6 +49,7 @@ export function Calendar24Field({
   isTimeDisabled = false,
   unavailableMessage,
   onMonthChange,
+  loadingDates,
 }: Calendar24FieldProps) {
   const resolvedIntervalMinutes =
     typeof intervalMinutes === 'number' && intervalMinutes > 0 ? intervalMinutes : undefined;
@@ -99,13 +101,37 @@ export function Calendar24Field({
       if (endOfDay(day) < date.minDate) {
         return true;
       }
+      if (loadingDates?.has(formatDateForInput(day))) {
+        return false;
+      }
       if (typeof isDateUnavailable === 'function') {
         return isDateUnavailable(day);
       }
       return false;
     },
-    [date.minDate, isDateUnavailable],
+    [date.minDate, isDateUnavailable, loadingDates],
   );
+
+  const calendarModifiers = useMemo(() => {
+    if (!loadingDates || loadingDates.size === 0) {
+      return undefined;
+    }
+
+    return {
+      loading: (day: Date) => loadingDates.has(formatDateForInput(day)),
+    } satisfies React.ComponentProps<typeof Calendar>['modifiers'];
+  }, [loadingDates]);
+
+  const calendarModifiersClassNames = useMemo(() => {
+    if (!loadingDates || loadingDates.size === 0) {
+      return undefined;
+    }
+
+    return {
+      loading:
+        'relative after:absolute after:left-1/2 after:top-1/2 after:h-1.5 after:w-1.5 after:-translate-x-1/2 after:-translate-y-1/2 after:rounded-full after:bg-primary after:animate-pulse',
+    } satisfies React.ComponentProps<typeof Calendar>['modifiersClassNames'];
+  }, [loadingDates]);
 
   return (
     <div className="flex flex-col gap-4 md:flex-row">
@@ -145,6 +171,8 @@ export function Calendar24Field({
                 onMonthChange?.(month);
               }}
               disabled={disabledMatcher}
+              modifiers={calendarModifiers}
+              modifiersClassNames={calendarModifiersClassNames}
               initialFocus
             />
           </PopoverContent>

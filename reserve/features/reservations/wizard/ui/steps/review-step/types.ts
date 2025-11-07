@@ -2,8 +2,8 @@ import type { State, StepAction } from '../../../model/reducer';
 import type { WizardActions } from '../../../model/store';
 
 export interface ReviewStepProps {
-  state: State;
-  actions: Pick<WizardActions, 'goToStep'>;
+  state?: State;
+  actions?: Pick<WizardActions, 'goToStep'>;
   onConfirm: () => void | Promise<void>;
   onActionsChange: (actions: StepAction[]) => void;
 }

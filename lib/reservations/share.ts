@@ -83,18 +83,33 @@ export function buildShareText(payload: ReservationSharePayload): string {
   ].join("\n");
 }
 
+type ShareReservationOptions = {
+  signal?: AbortSignal;
+};
+
 export async function shareReservationDetails(
   payload: ReservationSharePayload,
+  options?: ShareReservationOptions,
 ): Promise<ShareResult> {
   const venue = ensureReservationVenue(payload);
   const text = buildShareText(payload);
+  const signal = options?.signal;
+
+  const throwIfAborted = () => {
+    if (signal?.aborted) {
+      throw new DOMException('Aborted', 'AbortError');
+    }
+  };
 
   try {
+    throwIfAborted();
+
     if (navigator.share) {
       await navigator.share({
         title: `${venue.name} reservation`,
         text,
       });
+      throwIfAborted();
       return {
         variant: "success",
         message: "Sharing sheet opened. Follow the prompts to save your reservation.",
@@ -103,17 +118,23 @@ export async function shareReservationDetails(
 
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(text);
+      throwIfAborted();
       return {
         variant: "info",
         message: "Reservation details copied. Paste into any app to share.",
       };
     }
 
+    throwIfAborted();
     return {
       variant: "info",
       message: text,
     };
   } catch (error) {
+    if (signal?.aborted) {
+      throw new DOMException('Aborted', 'AbortError');
+    }
+
     console.error("[reservation-share] failed to share reservation", error);
     return {
       variant: "error",

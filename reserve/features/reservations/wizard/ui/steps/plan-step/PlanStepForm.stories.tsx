@@ -2,6 +2,7 @@ import { expect, fn, userEvent, within } from '@storybook/test';
 import React, { useEffect, useMemo, useState } from 'react';
 
 import { PlanStepForm } from './PlanStepForm';
+import { WizardProvider } from '../../../context/WizardContext';
 import { getInitialState } from '../../../model/reducer';
 
 import type { PlanStepFormProps } from './PlanStepForm';
@@ -78,13 +79,13 @@ const PlanStepFormPreview: React.FC<StoryArgs> = ({ initialState, minDate, onTra
   const actionsChange = useMemo(() => fn<(actions: StepAction[]) => void>(), []);
 
   return (
-    <PlanStepForm
-      state={state}
-      actions={actions}
-      minDate={minDate ?? DEFAULT_MIN_DATE}
-      onTrack={onTrack ?? fn()}
-      onActionsChange={actionsChange}
-    />
+    <WizardProvider state={state} actions={actions}>
+      <PlanStepForm
+        minDate={minDate ?? DEFAULT_MIN_DATE}
+        onTrack={onTrack ?? fn()}
+        onActionsChange={actionsChange}
+      />
+    </WizardProvider>
   );
 };
 

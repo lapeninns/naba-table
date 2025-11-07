@@ -63,12 +63,15 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
   const isDateUnavailable = useCallback(
     (day: Date) => {
       const key = formatDateForInput(day);
-      return state.unavailableDates.has(key);
+      const reason = state.unavailableDates.get(key) ?? null;
+      return reason === 'closed' || reason === 'no-slots';
     },
     [state.unavailableDates],
   );
 
-  const timeDisabled = state.currentUnavailabilityReason !== null;
+  const timeDisabled =
+    state.currentUnavailabilityReason === 'closed' ||
+    state.currentUnavailabilityReason === 'no-slots';
 
   const unavailableCopy = useMemo(() => {
     switch (state.currentUnavailabilityReason) {
@@ -144,6 +147,7 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
           isTimeDisabled={timeDisabled}
           unavailableMessage={unavailableCopy ?? undefined}
           onMonthChange={state.handlers.prefetchMonth}
+          loadingDates={state.loadingDates}
         />
 
         <FormField

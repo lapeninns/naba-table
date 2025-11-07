@@ -7,6 +7,7 @@ import {
   formatReservationTime,
 } from '@reserve/shared/formatting/booking';
 
+import { useWizardActions, useWizardState } from '../context/WizardContext';
 import { useWizardDependencies } from '../di';
 
 import type {
@@ -16,11 +17,15 @@ import type {
 } from '../ui/steps/review-step/types';
 
 export function useReviewStep({
-  state,
-  actions,
+  state: providedState,
+  actions: providedActions,
   onConfirm,
   onActionsChange,
 }: ReviewStepProps): ReviewStepController {
+  const contextState = useWizardState();
+  const contextActions = useWizardActions();
+  const state = providedState ?? contextState;
+  const actions = providedActions ?? contextActions;
   const details = state.details;
   const { analytics } = useWizardDependencies();
 
