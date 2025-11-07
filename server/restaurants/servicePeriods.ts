@@ -8,7 +8,7 @@ import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 
-type DbClient = SupabaseClient<Database, 'public', Database['public']>;
+type DbClient = SupabaseClient<Database>;
 
 export type BookingOption = string;
 

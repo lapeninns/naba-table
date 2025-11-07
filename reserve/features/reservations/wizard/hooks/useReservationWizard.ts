@@ -8,6 +8,7 @@ import { mapErrorToMessage } from '@reserve/shared/error';
 import { useStickyProgress } from '@reserve/shared/hooks/useStickyProgress';
 import { BOOKING_TYPES_UI, SEATING_PREFERENCES_UI } from '@shared/config/booking';
 import { runtime } from '@shared/config/runtime';
+import { DEFAULT_RESTAURANT_SLUG } from '@shared/config/venue';
 
 import { useRememberedContacts } from './useRememberedContacts';
 import { clearWizardDraft, loadWizardDraft, saveWizardDraft } from './useWizardDraftStorage';
@@ -73,6 +74,11 @@ export function useReservationWizard(
 
   useRememberedContacts({ details: state.details, actions, enabled: mode === 'customer' });
 
+  const wizardRestaurantSlug = useMemo(
+    () => initialDetails?.restaurantSlug ?? DEFAULT_RESTAURANT_SLUG ?? null,
+    [initialDetails?.restaurantSlug],
+  );
+
   useEffect(() => {
     if (draftHydratedRef.current || mode !== 'customer') {
       return;
@@ -81,24 +87,35 @@ export function useReservationWizard(
       draftHydratedRef.current = true;
       return;
     }
-    const stored = loadWizardDraft();
+    const stored = loadWizardDraft(wizardRestaurantSlug);
     draftHydratedRef.current = true;
     if (!stored) {
       return;
     }
     if (!hasMeaningfulDraft(stored.details)) {
-      clearWizardDraft();
+      clearWizardDraft(wizardRestaurantSlug);
+      return;
+    }
+    if (stored.slugMismatch) {
+      clearWizardDraft(wizardRestaurantSlug);
+      setPlanAlert('Switched restaurants—let’s refresh availability.');
+      emit('wizard.reset.triggered', {
+        reason: 'slug-mismatch',
+        fromSlug: stored.slugMismatch.stored ?? null,
+        toSlug: stored.slugMismatch.expected ?? wizardRestaurantSlug ?? null,
+      });
+      actions.resetForm();
       return;
     }
     if (stored.expired) {
-      clearWizardDraft();
+      clearWizardDraft(wizardRestaurantSlug);
       setPlanAlert('Draft expired—let’s refresh availability.');
       emit('wizard.reset.triggered', { reason: 'draft-expired' });
       actions.resetForm();
       return;
     }
     actions.hydrateDetails(stored.details);
-  }, [actions, initialDetails?.bookingId, mode]);
+  }, [actions, initialDetails?.bookingId, mode, wizardRestaurantSlug]);
 
   const stepsMeta = useMemo(
     () => [
@@ -182,15 +199,15 @@ export function useReservationWizard(
       return;
     }
     if (mutation.isSuccess) {
-      clearWizardDraft();
+      clearWizardDraft(state.details.restaurantSlug ?? wizardRestaurantSlug);
       return;
     }
     if (!hasMeaningfulDraft(state.details)) {
-      clearWizardDraft();
+      clearWizardDraft(state.details.restaurantSlug ?? wizardRestaurantSlug);
       return;
     }
     saveWizardDraft(state.details);
-  }, [mode, mutation.isSuccess, state.details]);
+  }, [mode, mutation.isSuccess, state.details, wizardRestaurantSlug]);
 
   useEffect(() => {
     if (mode !== 'customer') {

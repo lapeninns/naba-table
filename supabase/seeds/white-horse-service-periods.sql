@@ -172,4 +172,211 @@ CROSS JOIN (
     ('Saturday Drinks', 6, time '12:00', time '23:00', 'drinks')
 ) AS sp(name, day_of_week, start_time, end_time, booking_option);
 
+-- Delete existing zones
+WITH target AS (
+  SELECT id
+  FROM public.restaurants
+  WHERE slug = 'white-horse-pub-waterbeach'
+  LIMIT 1
+)
+DELETE FROM public.zones
+WHERE restaurant_id IN (SELECT id FROM target);
+
+-- Insert zones
+WITH target AS (
+  SELECT id
+  FROM public.restaurants
+  WHERE slug = 'white-horse-pub-waterbeach'
+  LIMIT 1
+)
+INSERT INTO public.zones (
+  id,
+  restaurant_id,
+  name,
+  sort_order,
+  area_type,
+  created_at,
+  updated_at
+)
+SELECT
+  gen_random_uuid(),
+  target.id,
+  z.name,
+  z.sort_order,
+  z.area_type::area_type,
+  timezone('utc', now()),
+  timezone('utc', now())
+FROM target
+CROSS JOIN (
+  VALUES
+    ('Main Bar',      1, 'indoor'),
+    ('Dining Room',   2, 'indoor'),
+    ('Garden',        3, 'outdoor')
+) AS z(name, sort_order, area_type);
+
+-- Insert allowed capacities (must be before tables due to FK constraint)
+WITH target AS (
+  SELECT id
+  FROM public.restaurants
+  WHERE slug = 'white-horse-pub-waterbeach'
+  LIMIT 1
+)
+DELETE FROM public.allowed_capacities
+WHERE restaurant_id IN (SELECT id FROM target);
+
+WITH target AS (
+  SELECT id
+  FROM public.restaurants
+  WHERE slug = 'white-horse-pub-waterbeach'
+  LIMIT 1
+)
+INSERT INTO public.allowed_capacities (
+  restaurant_id,
+  capacity,
+  created_at,
+  updated_at
+)
+SELECT
+  target.id,
+  caps.capacity,
+  timezone('utc', now()),
+  timezone('utc', now())
+FROM target
+CROSS JOIN (VALUES (2), (4), (6), (8)) AS caps(capacity);
+
+-- Delete existing tables
+WITH target AS (
+  SELECT id
+  FROM public.restaurants
+  WHERE slug = 'white-horse-pub-waterbeach'
+  LIMIT 1
+)
+DELETE FROM public.table_inventory
+WHERE restaurant_id IN (SELECT id FROM target);
+
+-- Insert tables
+WITH target AS (
+  SELECT id
+  FROM public.restaurants
+  WHERE slug = 'white-horse-pub-waterbeach'
+  LIMIT 1
+),
+zone_lookup AS (
+  SELECT z.id, z.name, r.id as restaurant_id
+  FROM public.zones z
+  JOIN public.restaurants r ON r.id = z.restaurant_id
+  WHERE r.slug = 'white-horse-pub-waterbeach'
+)
+INSERT INTO public.table_inventory (
+  id,
+  restaurant_id,
+  zone_id,
+  table_number,
+  capacity,
+  min_party_size,
+  max_party_size,
+  category,
+  seating_type,
+  mobility,
+  status,
+  active,
+  created_at,
+  updated_at
+)
+SELECT
+  gen_random_uuid(),
+  zl.restaurant_id,
+  zl.id,
+  t.table_number,
+  t.capacity,
+  t.min_party_size,
+  t.max_party_size,
+  t.category::table_category,
+  t.seating_type::table_seating_type,
+  'movable'::table_mobility,
+  'available'::table_status,
+  true,
+  timezone('utc', now()),
+  timezone('utc', now())
+FROM zone_lookup zl
+CROSS JOIN LATERAL (
+  VALUES
+    -- Main Bar (zone 1) - 8 tables
+    ('B1',  2, 1, 2, 'bar', 'standard'),
+    ('B2',  2, 1, 2, 'bar', 'standard'),
+    ('B3',  4, 2, 4, 'bar', 'standard'),
+    ('B4',  4, 2, 4, 'bar', 'standard'),
+    ('B5',  6, 4, 6, 'bar', 'standard'),
+    ('B6',  6, 4, 6, 'bar', 'standard'),
+    ('B7',  4, 2, 4, 'bar', 'high_top'),
+    ('B8',  4, 2, 4, 'bar', 'high_top')
+) AS t(table_number, capacity, min_party_size, max_party_size, category, seating_type)
+WHERE zl.name = 'Main Bar'
+
+UNION ALL
+
+SELECT
+  gen_random_uuid(),
+  zl.restaurant_id,
+  zl.id,
+  t.table_number,
+  t.capacity,
+  t.min_party_size,
+  t.max_party_size,
+  t.category::table_category,
+  t.seating_type::table_seating_type,
+  'movable'::table_mobility,
+  'available'::table_status,
+  true,
+  timezone('utc', now()),
+  timezone('utc', now())
+FROM zone_lookup zl
+CROSS JOIN LATERAL (
+  VALUES
+    -- Dining Room (zone 2) - 12 tables
+    ('D1',  2, 2, 2, 'dining', 'standard'),
+    ('D2',  2, 2, 2, 'dining', 'standard'),
+    ('D3',  2, 2, 2, 'dining', 'standard'),
+    ('D4',  2, 2, 2, 'dining', 'standard'),
+    ('D5',  4, 2, 4, 'dining', 'standard'),
+    ('D6',  4, 2, 4, 'dining', 'standard'),
+    ('D7',  4, 2, 4, 'dining', 'standard'),
+    ('D8',  4, 2, 4, 'dining', 'standard'),
+    ('D9',  6, 4, 6, 'dining', 'standard'),
+    ('D10', 6, 4, 6, 'dining', 'standard'),
+    ('D11', 8, 6, 8, 'dining', 'standard'),
+    ('D12', 8, 6, 8, 'dining', 'standard')
+) AS t(table_number, capacity, min_party_size, max_party_size, category, seating_type)
+WHERE zl.name = 'Dining Room'
+
+UNION ALL
+
+SELECT
+  gen_random_uuid(),
+  zl.restaurant_id,
+  zl.id,
+  t.table_number,
+  t.capacity,
+  t.min_party_size,
+  t.max_party_size,
+  t.category::table_category,
+  t.seating_type::table_seating_type,
+  'movable'::table_mobility,
+  'available'::table_status,
+  true,
+  timezone('utc', now()),
+  timezone('utc', now())
+FROM zone_lookup zl
+CROSS JOIN LATERAL (
+  VALUES
+    -- Garden (zone 3) - 6 tables
+    ('G1', 4, 2, 4, 'patio', 'standard'),
+    ('G2', 4, 2, 4, 'patio', 'standard'),
+    ('G3', 4, 2, 4, 'patio', 'standard'),
+    ('G4', 6, 4, 6, 'patio', 'standard'),
+    ('G5', 6, 4, 6, 'patio', 'standard'),
+    ('G6', 8, 6, 8, 'patio', 'standard')
+) AS t(table_number, capacity, min_party_size, max_party_size, category, seating_type)
+WHERE zl.name = 'Garden';
+
 COMMIT;
