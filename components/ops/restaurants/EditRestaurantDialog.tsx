@@ -49,7 +49,6 @@ export function EditRestaurantDialog({ open, onOpenChange, restaurant }: EditRes
             name: restaurant.name,
             slug: restaurant.slug,
             timezone: restaurant.timezone,
-            capacity: restaurant.capacity,
             contactEmail: restaurant.contactEmail,
             contactPhone: restaurant.contactPhone,
             address: restaurant.address,

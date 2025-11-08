@@ -27,9 +27,18 @@ This directory now contains **only the SQL helpers required to operate the Water
    ```
 
 3. **Clean up stray data**
+
    ```bash
    psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/seeds/cleanup-keep-only-waterbeach.sql
    ```
+
+4. **Dump current database seed data (NEW!)**
+
+   ```bash
+   ./scripts/dump-seed-data.sh
+   ```
+
+   Exports all current data to `supabase/seeds/dumps/` for backup or migration.
 
 ## Notes
 

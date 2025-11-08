@@ -4,7 +4,7 @@ import { useCallback, useDeferredValue, useMemo, useState } from 'react';
 
 import type { OpsBookingStatus } from '@/types/ops';
 
-export type OpsStatusFilter = 'all' | 'upcoming' | 'past' | 'cancelled' | OpsBookingStatus;
+export type OpsStatusFilter = 'all' | 'upcoming' | 'past' | 'cancelled' | 'recent' | OpsBookingStatus;
 
 export type UseOpsBookingsTableStateOptions = {
   initialStatus?: OpsStatusFilter;
@@ -78,6 +78,7 @@ export function useOpsBookingsTableState({
       to?: Date;
       query?: string;
       statuses?: OpsBookingStatus[];
+      sortBy?: 'start_at' | 'created_at';
     } = {
       page,
       pageSize,
@@ -87,21 +88,30 @@ export function useOpsBookingsTableState({
       case 'upcoming':
         filters.from = now;
         filters.sort = 'asc';
+        filters.sortBy = 'start_at';
         break;
       case 'past':
         filters.to = now;
         filters.sort = 'desc';
+        filters.sortBy = 'start_at';
         break;
       case 'cancelled':
         filters.status = 'cancelled';
         filters.sort = 'desc';
+        filters.sortBy = 'start_at';
+        break;
+      case 'recent':
+        filters.sort = 'desc';
+        filters.sortBy = 'created_at';
         break;
       case 'all':
         filters.sort = 'asc';
+        filters.sortBy = 'start_at';
         break;
       default:
         filters.status = statusFilter as OpsBookingStatus;
         filters.sort = 'asc';
+        filters.sortBy = 'start_at';
         break;
     }
 

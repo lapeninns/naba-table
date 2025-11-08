@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { MAX_ONLINE_PARTY_SIZE, ONLINE_PARTY_SIZE_LIMIT_COPY } from '@/lib/bookings/partySize';
 import { isEmail, isUKPhone } from '@reserve/shared/validation';
 
 import type { BookingWizardMode } from './reducer';
@@ -21,7 +22,7 @@ export const planFormSchema = z.object({
   party: z
     .number()
     .min(1, { message: 'Minimum of one guest required.' })
-    .max(12, { message: 'We can accommodate up to 12 guests online.' }),
+    .max(MAX_ONLINE_PARTY_SIZE, { message: ONLINE_PARTY_SIZE_LIMIT_COPY }),
   bookingType: z.string().min(1, { message: 'Please select an occasion.' }),
   notes: z.string().max(500, { message: 'Notes must be 500 characters or fewer.' }).optional(),
 });

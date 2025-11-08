@@ -280,13 +280,14 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-white">
-      <div className="mx-auto max-w-7xl space-y-4 px-3 py-4 sm:space-y-6 sm:px-6 sm:py-6 lg:px-8 lg:py-10">
+      <main className="mx-auto max-w-7xl space-y-4 px-3 py-4 sm:space-y-6 sm:px-6 sm:py-6 lg:space-y-8 lg:px-8 lg:py-10">
         <header className="space-y-1">
           <h1 className="text-xl font-semibold leading-tight text-slate-900 sm:text-2xl sm:leading-normal lg:text-3xl">Operations Dashboard</h1>
           <p className="text-sm text-slate-600">{restaurantName}</p>
         </header>
-
-        <BookingOfflineBanner />
+        <section aria-label="Connection status">
+          <BookingOfflineBanner />
+        </section>
 
         <section
           aria-label="Service date"
@@ -326,85 +327,89 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
           </section>
         ) : null}
 
-      <section
-        aria-label="Reservations"
-        className="rounded-2xl border border-white/60 bg-white/90 shadow-sm backdrop-blur-sm"
-      >
-          <div className="px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900">Reservations</h2>
-                <p className="text-sm text-slate-600">Manage today&apos;s bookings for {restaurantName}</p>
+        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,_2fr)_minmax(0,_1fr)] lg:items-start">
+          <section
+            aria-label="Reservations"
+            className="rounded-2xl border border-white/60 bg-white/90 shadow-sm backdrop-blur-sm"
+          >
+            <div className="px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">Reservations</h2>
+                  <p className="text-sm text-slate-600">Manage today&apos;s bookings for {restaurantName}</p>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                  {!allowTableAssignments ? (
+                    <p className="text-xs text-slate-500">Table assignments locked for past service dates.</p>
+                  ) : null}
+                  <ExportBookingsButton
+                    restaurantId={restaurantId}
+                    restaurantName={restaurantName}
+                    date={summary.date}
+                  />
+                </div>
               </div>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                {!allowTableAssignments ? (
-                  <p className="text-xs text-slate-500">Table assignments locked for past service dates.</p>
-                ) : null}
-                <ExportBookingsButton
-                  restaurantId={restaurantId}
-                  restaurantName={restaurantName}
-                  date={summary.date}
+              <div className="mt-6 space-y-6">
+                <BookingsFilterBar value={filter} onChange={setFilter} />
+                <BookingsList
+                  bookings={summary.bookings}
+                  filter={filter}
+                  summary={summary}
+                  allowTableAssignments={allowTableAssignments}
+                  onMarkNoShow={handleMarkNoShow}
+                  onUndoNoShow={handleUndoNoShow}
+                  onCheckIn={handleCheckIn}
+                  onCheckOut={handleCheckOut}
+                  pendingLifecycleAction={pendingBookingAction}
+                  onAssignTable={handleAssignTable}
+                  onUnassignTable={handleUnassignTable}
+                  tableActionState={tableActionState}
                 />
               </div>
             </div>
-            <div className="mt-6 space-y-6">
-              <BookingsFilterBar value={filter} onChange={setFilter} />
-              <BookingsList
-                bookings={summary.bookings}
-                filter={filter}
-                summary={summary}
-                allowTableAssignments={allowTableAssignments}
-                onMarkNoShow={handleMarkNoShow}
-                onUndoNoShow={handleUndoNoShow}
-                onCheckIn={handleCheckIn}
-                onCheckOut={handleCheckOut}
-                pendingLifecycleAction={pendingBookingAction}
-                onAssignTable={handleAssignTable}
-                onUnassignTable={handleUnassignTable}
-                tableActionState={tableActionState}
-              />
-            </div>
-          </div>
-        </section>
+          </section>
 
-        {/* VIP Guests always visible with empty state */}
-        <section
-          aria-label="VIP guests"
-          className="rounded-2xl border border-white/60 bg-white/80 p-3 shadow-sm backdrop-blur-sm sm:p-4 lg:p-6"
-        >
-          {showVipModule ? (
-            <VIPGuestsModule
-              vips={vipData!.vips}
-              totalVipCovers={vipData!.totalVipCovers}
-              loading={vipsQuery.isLoading}
-            />
-          ) : (
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold text-slate-900">VIP Guests</h3>
-              {vipsQuery.isLoading ? null : <span className="text-xs text-slate-500">No VIP arrivals today</span>}
-            </div>
-          )}
-        </section>
+          <aside className="flex flex-col gap-4" aria-label="Supplementary insights" role="complementary">
+            {/* VIP Guests always visible with empty state */}
+            <section
+              aria-label="VIP guests"
+              className="rounded-2xl border border-white/60 bg-white/80 p-3 shadow-sm backdrop-blur-sm sm:p-4 lg:p-6"
+            >
+              {showVipModule ? (
+                <VIPGuestsModule
+                  vips={vipData!.vips}
+                  totalVipCovers={vipData!.totalVipCovers}
+                  loading={vipsQuery.isLoading}
+                />
+              ) : (
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-semibold text-slate-900">VIP Guests</h3>
+                  {vipsQuery.isLoading ? null : <span className="text-xs text-slate-500">No VIP arrivals today</span>}
+                </div>
+              )}
+            </section>
 
-        {/* Change feed always visible with empty state */}
-        <section
-          aria-label="Booking changes"
-          className="rounded-2xl border border-white/60 bg-white/80 p-3 shadow-sm backdrop-blur-sm sm:p-4 lg:p-6"
-        >
-          {showChangeFeed ? (
-            <BookingChangeFeed
-              changes={changeFeedData}
-              totalChanges={changeFeedTotal}
-              loading={changesQuery.isLoading}
-            />
-          ) : (
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold text-slate-900">Recent Changes</h3>
-              {changesQuery.isLoading ? null : <span className="text-xs text-slate-500">No changes today</span>}
-            </div>
-          )}
-        </section>
-      </div>
+            {/* Change feed always visible with empty state */}
+            <section
+              aria-label="Booking changes"
+              className="rounded-2xl border border-white/60 bg-white/80 p-3 shadow-sm backdrop-blur-sm sm:p-4 lg:p-6"
+            >
+              {showChangeFeed ? (
+                <BookingChangeFeed
+                  changes={changeFeedData}
+                  totalChanges={changeFeedTotal}
+                  loading={changesQuery.isLoading}
+                />
+              ) : (
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-semibold text-slate-900">Recent Changes</h3>
+                  {changesQuery.isLoading ? null : <span className="text-xs text-slate-500">No changes today</span>}
+                </div>
+              )}
+            </section>
+          </aside>
+        </div>
+      </main>
     </div>
   );
 }

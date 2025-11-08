@@ -59,7 +59,7 @@ type CreateBookingPayload = {
   details?: Json | null;
 };
 
-type UpdateBookingPayload = {
+export type UpdateBookingPayload = {
   restaurant_id?: string;
   booking_date?: string;
   start_time?: string;
@@ -465,6 +465,48 @@ export async function updateBookingRecord(
   void invalidateAvailabilitySnapshot(booking.restaurant_id, booking.booking_date);
 
   return booking;
+}
+
+type TableAssignmentRow = {
+  table_id: string | null;
+};
+
+export async function clearBookingTableAssignments(client: DbClient, bookingId: string): Promise<number> {
+  try {
+    const { data, error } = await client
+      .from("booking_table_assignments")
+      .select("table_id")
+      .eq("booking_id", bookingId);
+
+    if (error) {
+      throw error;
+    }
+
+    const tableIds = (data ?? [])
+      .map((row: TableAssignmentRow) => row.table_id)
+      .filter((value): value is string => typeof value === "string" && value.length > 0);
+
+    if (tableIds.length === 0) {
+      return 0;
+    }
+
+    const { error: rpcError } = await client.rpc("unassign_tables_atomic", {
+      p_booking_id: bookingId,
+      p_table_ids: tableIds,
+    });
+
+    if (rpcError) {
+      throw rpcError;
+    }
+
+    return tableIds.length;
+  } catch (error) {
+    console.warn("[bookings] failed to clear table assignments", {
+      bookingId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return 0;
+  }
 }
 
 export async function insertBookingRecord(

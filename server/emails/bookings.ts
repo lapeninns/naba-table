@@ -4,6 +4,8 @@ import { buildCalendarEvent, type ReservationCalendarPayload } from "@/lib/reser
 import { type VenueDetails } from "@/lib/venue";
 import { sendEmail, type EmailAttachment } from "@/libs/resend";
 import { renderButton, renderEmailBase } from "@/server/emails/base";
+import { ensureLogoColumnOnRow, isLogoUrlColumnMissing, logLogoColumnFallback } from "@/server/restaurants/logo-url-compat";
+import { restaurantSelectColumns } from "@/server/restaurants/select-fields";
 import { getServiceSupabaseClient } from "@/server/supabase";
 import {
   formatDateForInput,
@@ -14,6 +16,9 @@ import {
 import { normalizeTime } from "@reserve/shared/time";
 
 import type { BookingRecord } from "@/server/bookings";
+import type { Database } from "@/types/supabase";
+
+type RestaurantRow = Database["public"]["Tables"]["restaurants"]["Row"];
 
 const siteUrl = env.app.url;
 
@@ -59,11 +64,20 @@ async function resolveVenueDetails(restaurantId: string | null | undefined): Pro
   }
 
   const supabase = getServiceSupabaseClient();
-  const { data, error } = await supabase
-    .from("restaurants")
-    .select("id,name,timezone,contact_email,contact_phone,address,booking_policy")
-    .eq("id", restaurantId)
-    .maybeSingle();
+  const execute = (includeLogo: boolean) =>
+    supabase
+      .from("restaurants")
+      .select(restaurantSelectColumns(includeLogo))
+      .eq("id", restaurantId)
+      .maybeSingle<RestaurantRow>();
+
+  let { data, error } = await execute(true);
+
+  if (error && isLogoUrlColumnMissing(error)) {
+    logLogoColumnFallback("resolveVenueDetails");
+    ({ data, error } = await execute(false));
+    data = ensureLogoColumnOnRow(data);
+  }
 
   if (error) {
     console.error("[emails][bookings] venue lookup failed", {
@@ -80,14 +94,16 @@ async function resolveVenueDetails(restaurantId: string | null | undefined): Pro
     throw new Error(`Restaurant not found: ${restaurantId}`);
   }
 
+  const restaurant = ensureLogoColumnOnRow(data);
   return {
-    id: data.id,
-    name: data.name || "Restaurant",
-    timezone: data.timezone || "Europe/London",
-    address: data.address || "",
-    phone: data.contact_phone || "",
-    email: data.contact_email || "",
-    policy: data.booking_policy || "",
+    id: restaurant.id,
+    name: restaurant.name || "Restaurant",
+    timezone: restaurant.timezone || "Europe/London",
+    address: restaurant.address || "",
+    phone: restaurant.contact_phone || "",
+    email: restaurant.contact_email || "",
+    policy: restaurant.booking_policy || "",
+    logoUrl: restaurant.logo_url || null,
   };
 }
 
@@ -461,6 +477,32 @@ function renderHtml({
 }
 
 /* eslint-enable @typescript-eslint/no-unused-vars */
+
+function renderBrandHeader(venue: VenueDetails) {
+  const safeName = escapeHtml(venue.name);
+  if (venue.logoUrl) {
+    const safeLogo = escapeHtml(venue.logoUrl);
+    return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+      <tr>
+        <td align="center" style="padding-bottom:12px;">
+          <img src="${safeLogo}" alt="${safeName} logo" width="92" style="max-width:96px;height:auto;border-radius:20px;border:1px solid #e2e8f0;padding:12px;background:#ffffff;box-shadow:0 8px 30px rgba(15,23,42,0.08);" />
+        </td>
+      </tr>
+      <tr>
+        <td align="center" style="font-family:${EMAIL_FONT_STACK};font-size:13px;color:#64748b;">${safeName}</td>
+      </tr>
+    </table>`;
+  }
+
+  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+    <tr>
+      <td align="center" style="padding-bottom:12px;">
+        <span style="display:inline-block;padding:10px 22px;border-radius:999px;background:#eef2ff;color:#4338ca;font-family:${EMAIL_FONT_STACK};font-weight:600;font-size:14px;">${safeName}</span>
+      </td>
+    </tr>
+  </table>`;
+}
+
 // New responsive, bulletproof, base-wrapped template
 function renderHtmlRevamp({
   booking,
@@ -639,6 +681,7 @@ function renderHtmlRevamp({
     preheader,
     contentHtml,
     backgroundColor: EMAIL_BACKGROUND,
+    headerHtml: renderBrandHeader(venue),
   });
 }
 
@@ -703,8 +746,15 @@ function renderText(
   return lines.join("\n");
 }
 
+type BookingEmailType =
+  | "created"
+  | "updated"
+  | "cancelled"
+  | "modification_pending"
+  | "modification_confirmed";
+
 async function dispatchEmail(
-  type: "created" | "updated" | "cancelled",
+  type: BookingEmailType,
   booking: BookingRecord,
 ) {
   const venue = await resolveVenueDetails(booking.restaurant_id);
@@ -756,6 +806,20 @@ async function dispatchEmail(
       ctaLabel = "Review updates";
       ctaUrl = manageUrl;
       break;
+    case "modification_pending":
+      subject = `Reservation modification requested – ${venue.name}`;
+      headline = `We're updating your booking`;
+      intro = `Thanks for the update. Your ${summary.date} ${summary.startTime} reservation is now awaiting a new table assignment. We'll confirm as soon as a table is secured.`;
+      ctaLabel = "Track request";
+      ctaUrl = manageUrl;
+      break;
+    case "modification_confirmed":
+      subject = `Reservation modified – ${venue.name}`;
+      headline = `Your reservation has been updated`;
+      intro = `Great news—your updated plan for ${summary.date} at ${summary.startTime} is confirmed. The ticket below reflects the new details.`;
+      ctaLabel = "View updated ticket";
+      ctaUrl = manageUrl;
+      break;
     case "cancelled":
       subject = `Booking cancelled – ${venue.name}`;
       headline = `Reservation cancelled`;
@@ -792,7 +856,7 @@ async function dispatchEmail(
       walletActionUrl,
       calendarAttachmentName,
     }),
-      replyTo: config.email.supportEmail,
+    replyTo: config.email.supportEmail,
     fromName: venue.name, // Use restaurant name as the sender name
     attachments: attachments.length ? attachments : undefined,
   });
@@ -811,4 +875,12 @@ export async function sendBookingUpdateEmail(booking: BookingRecord) {
 
 export async function sendBookingCancellationEmail(booking: BookingRecord) {
   await dispatchEmail("cancelled", booking);
+}
+
+export async function sendBookingModificationPendingEmail(booking: BookingRecord) {
+  await dispatchEmail("modification_pending", booking);
+}
+
+export async function sendBookingModificationConfirmedEmail(booking: BookingRecord) {
+  await dispatchEmail("modification_confirmed", booking);
 }

@@ -1,10 +1,16 @@
-
+import { ensureLogoColumnOnRows, isLogoUrlColumnMissing, logLogoColumnFallback } from '@/server/restaurants/logo-url-compat';
+import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-type DbClient = SupabaseClient<Database, 'public', any>;
+type RestaurantRow = Database['public']['Tables']['restaurants']['Row'];
+type MembershipRow = Database['public']['Tables']['restaurant_memberships']['Row'];
+type RestaurantMembership = Pick<MembershipRow, 'role'>;
+type RestaurantWithMembership = RestaurantRow & { restaurant_memberships: RestaurantMembership[] };
+type PublicSchema = Database['public'];
+type DbClient = SupabaseClient<Database, 'public', PublicSchema>;
 
 export type RestaurantListItem = {
   id: string;
@@ -16,6 +22,7 @@ export type RestaurantListItem = {
   contactPhone: string | null;
   address: string | null;
   bookingPolicy: string | null;
+  logoUrl: string | null;
   reservationIntervalMinutes: number;
   reservationDefaultDurationMinutes: number;
   reservationLastSeatingBufferMinutes: number;
@@ -52,45 +59,42 @@ export async function listRestaurantsForOps(
   const offset = (page - 1) * pageSize;
   const limit = pageSize;
 
-  let query = client
-    .from('restaurants')
-    .select(
-      `
-      id,
-      name,
-      slug,
-      timezone,
-      capacity,
-      contact_email,
-      contact_phone,
-      address,
-      booking_policy,
-      reservation_interval_minutes,
-      reservation_default_duration_minutes,
-      reservation_last_seating_buffer_minutes,
-      created_at,
-      updated_at,
-      restaurant_memberships!inner(
-        role
+  const buildQuery = (includeLogo: boolean) => {
+    let query = client
+      .from('restaurants')
+      .select(
+        `
+        ${restaurantSelectColumns(includeLogo)},
+        restaurant_memberships!inner(
+          role
+        )
+      `,
+        { count: 'exact' },
       )
-    `,
-      { count: 'exact' },
-    )
-    .eq('restaurant_memberships.user_id', filters.userId);
+      .eq('restaurant_memberships.user_id', filters.userId);
 
-  if (search) {
-    query = query.ilike('name', `%${search}%`);
+    if (search) {
+      query = query.ilike('name', `%${search}%`);
+    }
+
+    if (sort === 'name') {
+      query = query.order('name', { ascending: true });
+    } else {
+      query = query.order('created_at', { ascending: false });
+    }
+
+    return query.range(offset, offset + limit - 1);
+  };
+
+  let { data, error, count } = await buildQuery(true);
+
+  if (error && isLogoUrlColumnMissing(error)) {
+    logLogoColumnFallback('listRestaurantsForOps');
+    const fallback = await buildQuery(false);
+    data = ensureLogoColumnOnRows(fallback.data) ?? [];
+    error = fallback.error;
+    count = fallback.count;
   }
-
-  if (sort === 'name') {
-    query = query.order('name', { ascending: true });
-  } else {
-    query = query.order('created_at', { ascending: false });
-  }
-
-  query = query.range(offset, offset + limit - 1);
-
-  const { data, error, count } = await query;
 
   if (error) {
     console.error('[listRestaurantsForOps] Query failed', error);
@@ -100,7 +104,9 @@ export async function listRestaurantsForOps(
   const total = count ?? 0;
   const hasNext = offset + limit < total;
 
-  const restaurants: RestaurantListItem[] = (data ?? []).map((row: any) => ({
+  const rowsWithLogo = (ensureLogoColumnOnRows(data) ?? []) as RestaurantWithMembership[];
+
+  const restaurants: RestaurantListItem[] = rowsWithLogo.map((row) => ({
     id: row.id,
     name: row.name,
     slug: row.slug,
@@ -110,6 +116,7 @@ export async function listRestaurantsForOps(
     contactPhone: row.contact_phone,
     address: row.address,
     bookingPolicy: row.booking_policy,
+    logoUrl: row.logo_url,
     reservationIntervalMinutes: row.reservation_interval_minutes,
     reservationDefaultDurationMinutes: row.reservation_default_duration_minutes,
     reservationLastSeatingBufferMinutes: row.reservation_last_seating_buffer_minutes,

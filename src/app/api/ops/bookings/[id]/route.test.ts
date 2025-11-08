@@ -47,6 +47,11 @@ vi.mock("@/lib/env", () => {
           defaultDurationMinutes: 90,
         } as const;
       },
+      get node() {
+        return {
+          env: "test",
+        } as const;
+      },
     },
   };
 });
@@ -60,6 +65,7 @@ const getRouteHandlerSupabaseClientMock = vi.fn(async () => ({
   },
 }));
 const getServiceSupabaseClientMock = vi.fn();
+const getTenantServiceSupabaseClientMock = vi.fn();
 const getRestaurantScheduleMock = vi.fn();
 
 const requireMembershipForRestaurantMock = vi.fn();
@@ -68,10 +74,12 @@ const softCancelBookingMock = vi.fn();
 const logAuditEventMock = vi.fn();
 const enqueueBookingUpdatedSideEffectsMock = vi.fn();
 const enqueueBookingCancelledSideEffectsMock = vi.fn();
+const beginBookingModificationFlowMock = vi.fn();
 
 vi.mock("@/server/supabase", () => ({
   getRouteHandlerSupabaseClient: () => getRouteHandlerSupabaseClientMock(),
   getServiceSupabaseClient: () => getServiceSupabaseClientMock(),
+  getTenantServiceSupabaseClient: (...args: unknown[]) => getTenantServiceSupabaseClientMock(...args),
 }));
 
 vi.mock("@/server/restaurants/schedule", () => ({
@@ -92,11 +100,16 @@ vi.mock("@/server/bookings", async () => {
   };
 });
 
+vi.mock("@/server/bookings/modification-flow", () => ({
+  beginBookingModificationFlow: (...args: unknown[]) => beginBookingModificationFlowMock(...args),
+}));
+
 vi.mock("@/server/jobs/booking-side-effects", () => ({
   enqueueBookingUpdatedSideEffects: (...args: unknown[]) => enqueueBookingUpdatedSideEffectsMock(...args),
   enqueueBookingCancelledSideEffects: (...args: unknown[]) => enqueueBookingCancelledSideEffectsMock(...args),
   safeBookingPayload: (payload: unknown) => payload,
 }));
+
 
 function createServiceClient(booking: Record<string, unknown> | null) {
   const maybeSingle = vi.fn().mockResolvedValue({ data: booking, error: null });
@@ -106,7 +119,15 @@ function createServiceClient(booking: Record<string, unknown> | null) {
   return { from };
 }
 
+function createTenantClient() {
+  return { from: vi.fn(), rpc: vi.fn() };
+}
+
 describe("/api/ops/bookings/[id] PATCH", () => {
+  beforeEach(() => {
+    beginBookingModificationFlowMock.mockResolvedValue(undefined);
+  });
+
   afterEach(() => {
     vi.clearAllMocks();
   });
@@ -116,6 +137,8 @@ describe("/api/ops/bookings/[id] PATCH", () => {
     const restaurantId = "rest-1";
     getUserMock.mockResolvedValue({ data: { user: { id: "user-1", email: "ops@example.com" } }, error: null });
     requireMembershipForRestaurantMock.mockResolvedValue({});
+    const tenantClient = createTenantClient();
+    getTenantServiceSupabaseClientMock.mockReturnValue(tenantClient);
 
     const existingBooking = {
       id: bookingId,
@@ -129,6 +152,7 @@ describe("/api/ops/bookings/[id] PATCH", () => {
       end_time: "20:00",
       notes: null,
       restaurants: { name: "Sajilo" },
+      booking_type: "dinner",
     };
 
     const updatedBooking = {
@@ -138,9 +162,10 @@ describe("/api/ops/bookings/[id] PATCH", () => {
       end_at: "2025-05-01T21:00:00.000Z",
       start_time: "19:00",
       end_time: "21:00",
+      status: "pending",
     };
 
-    updateBookingRecordMock.mockResolvedValue(updatedBooking);
+    beginBookingModificationFlowMock.mockResolvedValue(updatedBooking);
     getServiceSupabaseClientMock.mockReturnValue(createServiceClient(existingBooking));
     getRestaurantScheduleMock.mockResolvedValue({
       defaultDurationMinutes: 120,
@@ -164,12 +189,24 @@ describe("/api/ops/bookings/[id] PATCH", () => {
     });
 
     const response = await PATCH(request, { params: Promise.resolve({ id: bookingId }) });
-    expect(response.status).toBe(200);
     const json = await response.json();
+    expect(response.status).toBe(200);
     expect(json.id).toBe(bookingId);
     expect(json.partySize).toBe(4);
     expect(json.startIso).toBe("2025-05-01T19:00:00.000Z");
-    expect(updateBookingRecordMock).toHaveBeenCalled();
+    expect(json.status).toBe("pending");
+    expect(beginBookingModificationFlowMock).toHaveBeenCalledWith({
+      client: tenantClient,
+      bookingId,
+      existingBooking,
+      source: "ops",
+      payload: expect.objectContaining({
+        party_size: 4,
+        notes: "VIP guests",
+        booking_date: "2025-05-01",
+      }),
+    });
+    expect(updateBookingRecordMock).not.toHaveBeenCalled();
     expect(enqueueBookingUpdatedSideEffectsMock).toHaveBeenCalled();
   });
 
@@ -205,6 +242,7 @@ describe("/api/ops/bookings/[id] PATCH", () => {
     const json = await response.json();
     expect(json.error).toBe("Booking not found");
   });
+
 });
 
 describe("/api/ops/bookings/[id] DELETE", () => {

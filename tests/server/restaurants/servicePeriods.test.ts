@@ -39,16 +39,16 @@ describe('assertNoOverlappingPeriods', () => {
 
   it('allows multiple Drinks overlaps', () => {
     const periods = [
-      createPeriod({ name: 'Drinks', startTime: '09:00', endTime: '14:00', bookingOption: 'drinks-morning' }),
-      createPeriod({ name: 'DRINKS', startTime: '13:00', endTime: '23:00', bookingOption: 'drinks-evening' }),
+      createPeriod({ name: 'Drinks', startTime: '09:00', endTime: '14:00', bookingOption: 'drinks' }),
+      createPeriod({ name: 'DRINKS', startTime: '13:00', endTime: '23:00', bookingOption: 'drinks' }),
     ];
 
     expect(() => assertNoOverlappingPeriods(periods)).not.toThrow();
   });
 
-  it('treats Drinks name case-insensitively and trimmed', () => {
+  it('treats Drinks booking option case-insensitively and trimmed', () => {
     const periods = [
-      createPeriod({ name: '  drinks  ', startTime: '09:00', endTime: '22:00' }),
+      createPeriod({ name: '  drinks  ', startTime: '09:00', endTime: '22:00', bookingOption: '  DRINKS  ' }),
       createPeriod({ name: 'Dinner', startTime: '18:00', endTime: '23:00' }),
     ];
 

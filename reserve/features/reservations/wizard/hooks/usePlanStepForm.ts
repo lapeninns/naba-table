@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { emit } from '@/lib/analytics/emit';
+import { MAX_ONLINE_PARTY_SIZE, MIN_ONLINE_PARTY_SIZE } from '@/lib/bookings/partySize';
 import { useTimeSlots } from '@reserve/features/reservations/wizard/services';
 import {
   fetchReservationSchedule,
@@ -585,7 +586,10 @@ export function usePlanStepForm({
   const changeParty = useCallback(
     (direction: 'decrement' | 'increment') => {
       const current = form.getValues('party');
-      const next = direction === 'decrement' ? Math.max(1, current - 1) : Math.min(12, current + 1);
+      const next =
+        direction === 'decrement'
+          ? Math.max(MIN_ONLINE_PARTY_SIZE, current - 1)
+          : Math.min(MAX_ONLINE_PARTY_SIZE, current + 1);
       form.setValue('party', next, { shouldDirty: true, shouldValidate: true });
       updateField('party', next);
       onTrack?.('select_party', { party: next });

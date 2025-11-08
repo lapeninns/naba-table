@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { env } from "@/lib/env";
 import { HttpError } from "@/lib/http/errors";
+import { MAX_ONLINE_PARTY_SIZE, MIN_ONLINE_PARTY_SIZE } from "@/lib/bookings/partySize";
 import { GuardError, listUserRestaurantMemberships, requireSession } from "@/server/auth/guards";
 import {
   createBookingValidationService,
@@ -15,6 +16,7 @@ import {
   BOOKING_TYPES,
   SEATING_OPTIONS,
   buildBookingAuditSnapshot,
+  clearBookingTableAssignments,
   deriveEndTime,
   fetchBookingsForContact,
   inferMealTypeFromTime,
@@ -22,6 +24,7 @@ import {
   softCancelBooking,
   updateBookingRecord,
 } from "@/server/bookings";
+import { beginBookingModificationFlow } from "@/server/bookings/modification-flow";
 import { PastBookingError, assertBookingNotInPast } from "@/server/bookings/pastTimeValidation";
 import {
   OperatingHoursError,
@@ -68,7 +71,7 @@ const updateSchema = z.object({
 const dashboardUpdateSchema = z.object({
   startIso: z.string().datetime(),
   endIso: z.string().datetime().optional(),
-  partySize: z.number().int().min(1),
+  partySize: z.number().int().min(MIN_ONLINE_PARTY_SIZE).max(MAX_ONLINE_PARTY_SIZE),
   notes: z.string().max(500).optional().nullable(),
 });
 
@@ -311,6 +314,12 @@ async function handleDashboardUpdate(params: {
 
     const endTime = endDateTime.set({ second: 0, millisecond: 0 }).toFormat("HH:mm");
     const resolvedScheduleTz = schedule.timezone ?? scheduleTimezone;
+    const requiresTableRealignment =
+      bookingDate !== (existingBooking.booking_date ?? "") ||
+      startTime !== (existingBooking.start_time ?? "") ||
+      endTime !== (existingBooking.end_time ?? "") ||
+      data.partySize !== (existingBooking.party_size ?? 0);
+    const normalizedNotes = data.notes ?? null;
 
     const useUnifiedValidation = env.featureFlags.bookingValidationUnified;
     let updated: Tables<"bookings">;
@@ -370,13 +379,28 @@ async function handleDashboardUpdate(params: {
         }
         throw error;
       }
+    } else if (requiresTableRealignment) {
+      updated = await beginBookingModificationFlow({
+        client: serviceSupabase,
+        bookingId,
+        existingBooking,
+        source: "guest",
+        payload: {
+          restaurant_id: restaurantId,
+          booking_date: bookingDate,
+          start_time: startTime,
+          end_time: endTime,
+          party_size: data.partySize,
+          notes: normalizedNotes,
+        },
+      });
     } else {
       updated = await updateBookingRecord(serviceSupabase, bookingId, {
         booking_date: bookingDate,
         start_time: startTime,
         end_time: endTime,
         party_size: data.partySize,
-        notes: data.notes ?? null,
+        notes: normalizedNotes,
         booking_type: existingBooking.booking_type,
         seating_preference: existingBooking.seating_preference,
         customer_name: existingBooking.customer_name,
@@ -715,20 +739,48 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
     const endTime = deriveEndTime(startTime, normalizedBookingType);
 
-    const updated = await updateBookingRecord(serviceSupabase, bookingId, {
-      restaurant_id: restaurantId,
-      booking_date: data.date,
-      start_time: startTime,
-      end_time: endTime,
-      party_size: data.party,
-      booking_type: normalizedBookingType,
-      seating_preference: data.seating,
-      customer_name: data.name,
-      customer_email: normalizedEmail,
-      customer_phone: normalizedPhone,
-      notes: data.notes ?? null,
-      marketing_opt_in: data.marketingOptIn ?? existingBooking.marketing_opt_in,
-    });
+    const requiresTableRealignment =
+      existingBooking.booking_date !== data.date ||
+      existingBooking.start_time !== startTime ||
+      existingBooking.end_time !== endTime ||
+      existingBooking.party_size !== data.party ||
+      existingBooking.seating_preference !== data.seating;
+
+    const updated: Tables<"bookings"> = requiresTableRealignment
+      ? await beginBookingModificationFlow({
+          client: serviceSupabase,
+          bookingId,
+          existingBooking,
+          source: "guest",
+          payload: {
+            restaurant_id: restaurantId,
+            booking_date: data.date,
+            start_time: startTime,
+            end_time: endTime,
+            party_size: data.party,
+            booking_type: normalizedBookingType,
+            seating_preference: data.seating,
+            customer_name: data.name,
+            customer_email: normalizedEmail,
+            customer_phone: normalizedPhone,
+            notes: data.notes ?? null,
+            marketing_opt_in: data.marketingOptIn ?? existingBooking.marketing_opt_in,
+          },
+        })
+      : await updateBookingRecord(serviceSupabase, bookingId, {
+          restaurant_id: restaurantId,
+          booking_date: data.date,
+          start_time: startTime,
+          end_time: endTime,
+          party_size: data.party,
+          booking_type: normalizedBookingType,
+          seating_preference: data.seating,
+          customer_name: data.name,
+          customer_email: normalizedEmail,
+          customer_phone: normalizedPhone,
+          notes: data.notes ?? null,
+          marketing_opt_in: data.marketingOptIn ?? existingBooking.marketing_opt_in,
+        });
 
     const auditMetadata = {
       restaurant_id: restaurantId,
@@ -824,6 +876,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     }
 
     const cancelledRecord = await softCancelBooking(serviceSupabase, bookingId);
+    await clearBookingTableAssignments(serviceSupabase, bookingId);
 
     const cancellationMetadata = {
       restaurant_id: existingBooking.restaurant_id,

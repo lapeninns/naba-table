@@ -4,12 +4,14 @@ import { Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 
+import { HelpTooltip } from '@/components/features/restaurant-settings/HelpTooltip';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { useOpsOperatingHours, useOpsUpdateOperatingHours } from '@/hooks';
 import { cn } from '@/lib/utils';
 import { normalizeTime } from '@reserve/shared/time';
@@ -313,7 +315,8 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
   const isDisabled = updateMutation.isPending;
 
   return (
-    <Card>
+    <TooltipProvider delayDuration={100}>
+      <Card>
       <CardHeader>
         <CardTitle>Operating Hours</CardTitle>
         <CardDescription>Configure weekly schedule and holiday overrides</CardDescription>
@@ -321,7 +324,13 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
       <CardContent className="space-y-6">
         {/* Weekly Schedule */}
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-foreground">Weekly Schedule</h3>
+          <div className="flex items-center gap-1">
+            <h3 className="text-sm font-semibold text-foreground">Weekly Schedule</h3>
+            <HelpTooltip
+              description="Set default open/close windows for each day. Mark a day closed to block bookings."
+              ariaLabel="Weekly schedule help"
+            />
+          </div>
           <div className="overflow-hidden rounded-xl border">
             <table className="min-w-full divide-y divide-border">
               <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
@@ -403,8 +412,14 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
 
         {/* Overrides */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-foreground">Overrides</h3>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-1">
+              <h3 className="text-sm font-semibold text-foreground">Overrides</h3>
+              <HelpTooltip
+                description="Create one-off changes for holidays or events. Overrides apply on their date only."
+                ariaLabel="Overrides help"
+              />
+            </div>
             <Button type="button" variant="outline" size="sm" onClick={addOverride} disabled={isDisabled}>
               <Plus className="mr-2 h-4 w-4" aria-hidden /> Add override
             </Button>
@@ -453,7 +468,14 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
                       {errors.closesAt && <p className="mt-1 text-xs text-destructive">{errors.closesAt}</p>}
                     </div>
                     <div className="flex flex-col justify-center gap-2">
-                      <Label className="text-xs uppercase tracking-wide text-muted-foreground">Closed</Label>
+                      <div className="flex items-center gap-1">
+                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">Closed</Label>
+                        <HelpTooltip
+                          description="Enable to close the restaurant for the entire override date. Leave off to set custom hours."
+                          ariaLabel="Override closed help"
+                          align="center"
+                        />
+                      </div>
                       <div className="flex items-center gap-2">
                         <input
                           id={`override-${index}-closed`}
@@ -518,5 +540,6 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
         </div>
       </CardFooter>
     </Card>
+    </TooltipProvider>
   );
 }

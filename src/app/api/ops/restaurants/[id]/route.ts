@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 
 import { deleteRestaurant, updateRestaurant } from '@/server/restaurants';
+import { ensureLogoColumnOnRow, isLogoUrlColumnMissing, logLogoColumnFallback } from '@/server/restaurants/logo-url-compat';
+import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
-import { fetchUserMemberships } from '@/server/team/access';
+import { requireAdminMembership, requireMembershipForRestaurant } from '@/server/team/access';
+import { RESTAURANT_ROLE_OWNER } from '@/lib/owner/auth/roles';
 
 import {
   updateRestaurantSchema,
@@ -12,39 +15,27 @@ import {
 } from '../schema';
 
 import type { NextRequest} from 'next/server';
+import type { Database } from '@/types/supabase';
+
+type RestaurantRow = Database['public']['Tables']['restaurants']['Row'];
 
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-async function verifyRestaurantAccess(
-  userId: string,
-  restaurantId: string,
-  requiredRole?: 'owner' | 'admin',
-): Promise<{ hasAccess: boolean; role?: string; error?: string }> {
-  const supabase = getServiceSupabaseClient();
+type MembershipGuardErrorCode = 'MEMBERSHIP_NOT_FOUND' | 'MEMBERSHIP_ROLE_DENIED';
 
-  try {
-    const memberships = await fetchUserMemberships(userId, supabase);
-    const membership = memberships.find((m) => m.restaurant_id === restaurantId);
-
-    if (!membership) {
-      return { hasAccess: false, error: 'Forbidden' };
-    }
-
-    if (requiredRole === 'owner' && membership.role !== 'owner') {
-      return { hasAccess: false, error: 'Forbidden: Owner role required' };
-    }
-
-    if (requiredRole === 'admin' && !['owner', 'admin'].includes(membership.role)) {
-      return { hasAccess: false, error: 'Forbidden: Admin or Owner role required' };
-    }
-
-    return { hasAccess: true, role: membership.role };
-  } catch (error) {
-    console.error('[verifyRestaurantAccess] Failed', error);
-    return { hasAccess: false, error: 'Unable to verify access' };
+function getMembershipGuardErrorCode(error: unknown): MembershipGuardErrorCode | null {
+  if (!error || typeof error !== 'object') {
+    return null;
   }
+
+  const code = (error as { code?: string }).code;
+  if (code === 'MEMBERSHIP_NOT_FOUND' || code === 'MEMBERSHIP_ROLE_DENIED') {
+    return code;
+  }
+
+  return null;
 }
 
 export async function GET(req: NextRequest, context: RouteContext) {
@@ -64,22 +55,40 @@ export async function GET(req: NextRequest, context: RouteContext) {
   }
 
   const { id: restaurantId } = await context.params;
-  const access = await verifyRestaurantAccess(user.id, restaurantId);
+  let membershipRole: RestaurantDTO['role'] = 'viewer';
+  try {
+    const membership = await requireMembershipForRestaurant({ userId: user.id, restaurantId });
+    membershipRole = (membership.role as RestaurantDTO['role']) ?? 'viewer';
+  } catch (error) {
+    const membershipErrorCode = getMembershipGuardErrorCode(error);
+    if (membershipErrorCode === 'MEMBERSHIP_NOT_FOUND') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    if (membershipErrorCode === 'MEMBERSHIP_ROLE_DENIED') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
-  if (!access.hasAccess) {
-    return NextResponse.json({ error: access.error ?? 'Forbidden' }, { status: 403 });
+    console.error('[ops/restaurants/[id]][GET] membership guard failed', error);
+    return NextResponse.json({ error: 'Unable to verify access' }, { status: 500 });
   }
 
   const serviceSupabase = getServiceSupabaseClient();
 
   try {
-    const { data, error } = await serviceSupabase
-      .from('restaurants')
-      .select(
-        'id, name, slug, timezone, capacity, contact_email, contact_phone, address, booking_policy, reservation_interval_minutes, reservation_default_duration_minutes, reservation_last_seating_buffer_minutes, created_at, updated_at',
-      )
-      .eq('id', restaurantId)
-      .single();
+    const selectRestaurant = (includeLogo: boolean) =>
+      serviceSupabase
+        .from('restaurants')
+        .select(restaurantSelectColumns(includeLogo))
+        .eq('id', restaurantId)
+        .single<RestaurantRow>();
+
+    let { data, error } = await selectRestaurant(true);
+
+    if (error && isLogoUrlColumnMissing(error)) {
+      logLogoColumnFallback('ops/restaurants/[id] GET');
+      ({ data, error } = await selectRestaurant(false));
+      data = ensureLogoColumnOnRow(data);
+    }
 
     if (error) {
       throw error;
@@ -89,22 +98,24 @@ export async function GET(req: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 });
     }
 
+    const restaurantRow = ensureLogoColumnOnRow(data);
     const restaurant: RestaurantDTO = {
-      id: data.id,
-      name: data.name,
-      slug: data.slug,
-      timezone: data.timezone,
-      capacity: data.capacity,
-      contactEmail: data.contact_email,
-      contactPhone: data.contact_phone,
-      address: data.address,
-      bookingPolicy: data.booking_policy,
-      reservationIntervalMinutes: data.reservation_interval_minutes,
-      reservationDefaultDurationMinutes: data.reservation_default_duration_minutes,
-      reservationLastSeatingBufferMinutes: data.reservation_last_seating_buffer_minutes,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
-      role: (access.role as RestaurantDTO['role']) ?? 'viewer',
+      id: restaurantRow.id,
+      name: restaurantRow.name,
+      slug: restaurantRow.slug,
+      timezone: restaurantRow.timezone,
+      capacity: restaurantRow.capacity,
+      contactEmail: restaurantRow.contact_email,
+      contactPhone: restaurantRow.contact_phone,
+      address: restaurantRow.address,
+      bookingPolicy: restaurantRow.booking_policy,
+      logoUrl: restaurantRow.logo_url,
+      reservationIntervalMinutes: restaurantRow.reservation_interval_minutes,
+      reservationDefaultDurationMinutes: restaurantRow.reservation_default_duration_minutes,
+      reservationLastSeatingBufferMinutes: restaurantRow.reservation_last_seating_buffer_minutes,
+      createdAt: restaurantRow.created_at,
+      updatedAt: restaurantRow.updated_at,
+      role: membershipRole,
     };
 
     const response: RestaurantResponse = {
@@ -135,10 +146,21 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
   }
 
   const { id: restaurantId } = await context.params;
-  const access = await verifyRestaurantAccess(user.id, restaurantId, 'admin');
+  let membershipRole: RestaurantDTO['role'] = 'viewer';
+  try {
+    const membership = await requireAdminMembership({ userId: user.id, restaurantId });
+    membershipRole = (membership.role as RestaurantDTO['role']) ?? 'viewer';
+  } catch (error) {
+    const membershipErrorCode = getMembershipGuardErrorCode(error);
+    if (membershipErrorCode === 'MEMBERSHIP_NOT_FOUND') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    if (membershipErrorCode === 'MEMBERSHIP_ROLE_DENIED') {
+      return NextResponse.json({ error: 'Forbidden: Owner or manager role required' }, { status: 403 });
+    }
 
-  if (!access.hasAccess) {
-    return NextResponse.json({ error: access.error ?? 'Forbidden' }, { status: 403 });
+    console.error('[ops/restaurants/[id]][PATCH] membership guard failed', error);
+    return NextResponse.json({ error: 'Unable to verify access' }, { status: 500 });
   }
 
   let body: unknown;
@@ -168,6 +190,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
         contactPhone: input.contactPhone,
         address: input.address,
         bookingPolicy: input.bookingPolicy,
+        logoUrl: input.logoUrl,
         reservationIntervalMinutes: input.reservationIntervalMinutes,
         reservationDefaultDurationMinutes: input.reservationDefaultDurationMinutes,
         reservationLastSeatingBufferMinutes: input.reservationLastSeatingBufferMinutes,
@@ -186,12 +209,13 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
         contactPhone: restaurant.contactPhone,
         address: restaurant.address,
         bookingPolicy: restaurant.bookingPolicy,
+        logoUrl: restaurant.logoUrl,
         reservationIntervalMinutes: restaurant.reservationIntervalMinutes,
         reservationDefaultDurationMinutes: restaurant.reservationDefaultDurationMinutes,
         reservationLastSeatingBufferMinutes: restaurant.reservationLastSeatingBufferMinutes,
         createdAt: restaurant.createdAt,
         updatedAt: restaurant.updatedAt,
-        role: (access.role as RestaurantDTO['role']) ?? 'viewer',
+        role: membershipRole,
       },
     };
 
@@ -220,10 +244,23 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
   }
 
   const { id: restaurantId } = await context.params;
-  const access = await verifyRestaurantAccess(user.id, restaurantId, 'owner');
+  try {
+    await requireMembershipForRestaurant({
+      userId: user.id,
+      restaurantId,
+      allowedRoles: [RESTAURANT_ROLE_OWNER],
+    });
+  } catch (error) {
+    const membershipErrorCode = getMembershipGuardErrorCode(error);
+    if (membershipErrorCode === 'MEMBERSHIP_NOT_FOUND') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    if (membershipErrorCode === 'MEMBERSHIP_ROLE_DENIED') {
+      return NextResponse.json({ error: 'Forbidden: Owner role required' }, { status: 403 });
+    }
 
-  if (!access.hasAccess) {
-    return NextResponse.json({ error: access.error ?? 'Forbidden' }, { status: 403 });
+    console.error('[ops/restaurants/[id]][DELETE] membership guard failed', error);
+    return NextResponse.json({ error: 'Unable to verify access' }, { status: 500 });
   }
 
   const serviceSupabase = getServiceSupabaseClient();

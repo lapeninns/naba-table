@@ -189,7 +189,22 @@ async function processBookingUpdatedSideEffects(
   payload: BookingUpdatedSideEffectsPayload,
   _supabase?: SupabaseLike,
 ) {
-  const { current } = payload;
+  const { current, previous } = payload;
+  const prevStatus = previous.status ?? null;
+  const currStatus = current.status ?? null;
+
+  const transitionedToPending =
+    (currStatus === "pending" || currStatus === "pending_allocation") &&
+    currStatus !== prevStatus;
+
+  const confirmedFromPending =
+    (prevStatus === "pending" || prevStatus === "pending_allocation") &&
+    currStatus === "confirmed";
+
+  if (transitionedToPending || confirmedFromPending) {
+    return;
+  }
+
   if (!SUPPRESS_EMAILS && current.customer_email && current.customer_email.trim().length > 0) {
     try {
       await sendBookingUpdateEmail(current as BookingRecord);

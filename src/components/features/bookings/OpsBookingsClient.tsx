@@ -17,14 +17,23 @@ import { useOpsBookingLifecycleActions } from '@/hooks/ops/useOpsBookingStatusAc
 import { useOpsCancelBooking } from '@/hooks/useOpsCancelBooking';
 import { useOpsUpdateBooking } from '@/hooks/useOpsUpdateBooking';
 
+import type { StatusOption } from '@/components/dashboard/StatusFilterGroup';
 import type { BookingAction } from '@/components/features/booking-state-machine';
 import type { BookingDTO } from '@/hooks/useBookings';
 import type { StatusFilter } from '@/hooks/useBookingsTableState';
 import type { OpsBookingListItem, OpsBookingStatus } from '@/types/ops';
 
-const DEFAULT_FILTER: OpsStatusFilter = 'upcoming';
+const DEFAULT_FILTER: OpsStatusFilter = 'recent';
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = DASHBOARD_DEFAULT_PAGE_SIZE;
+
+const OPS_STATUS_TABS: StatusOption[] = [
+  { value: 'upcoming', label: 'Upcoming' },
+  { value: 'all', label: 'All' },
+  { value: 'past', label: 'Past' },
+  { value: 'cancelled', label: 'Cancelled' },
+  { value: 'recent', label: 'Recent' },
+];
 
 export type OpsBookingsClientProps = {
   initialFilter?: OpsStatusFilter | null;
@@ -380,6 +389,7 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
         onEdit={handleEdit}
         onCancel={handleCancel}
         variant="ops"
+        statusOptions={OPS_STATUS_TABS}
         opsLifecycle={{
           pendingBookingId: pendingLifecycle.bookingId,
           pendingAction: pendingLifecycle.action,

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { EditBookingDialog } from '@/components/dashboard/EditBookingDialog';
 import { useUpdateBooking, type UpdateBookingInput } from '@/hooks/useUpdateBooking';
+import { MAX_ONLINE_PARTY_SIZE, ONLINE_PARTY_SIZE_LIMIT_COPY } from '@/lib/bookings/partySize';
 
 import type { ScheduleAwareTimestampPickerProps } from '@/components/features/booking-state-machine/ScheduleAwareTimestampPicker';
 import type { BookingDTO } from '@/hooks/useBookings';
@@ -15,12 +16,13 @@ vi.mock('@/hooks/useUpdateBooking');
 vi.mock('@/lib/analytics/emit', () => ({ emit: vi.fn() }));
 vi.mock('react-hot-toast', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
-const schedulePickerMock = vi.fn(
-  (_props: ScheduleAwareTimestampPickerProps) => <div data-testid="schedule-picker" />,
-);
+const schedulePickerMock = vi.fn((_props: ScheduleAwareTimestampPickerProps) => (
+  <div data-testid="schedule-picker" />
+));
 
 vi.mock('@/components/features/booking-state-machine', () => ({
-  ScheduleAwareTimestampPicker: (props: ScheduleAwareTimestampPickerProps) => schedulePickerMock(props),
+  ScheduleAwareTimestampPicker: (props: ScheduleAwareTimestampPickerProps) =>
+    schedulePickerMock(props),
 }));
 
 const booking: BookingDTO = {
@@ -42,9 +44,9 @@ let mutateAsync: ReturnType<typeof vi.fn>;
 describe('EditBookingDialog', () => {
   beforeEach(() => {
     schedulePickerMock.mockClear();
-    schedulePickerMock.mockImplementation(
-      (_props: ScheduleAwareTimestampPickerProps) => <div data-testid="schedule-picker" />,
-    );
+    schedulePickerMock.mockImplementation((_props: ScheduleAwareTimestampPickerProps) => (
+      <div data-testid="schedule-picker" />
+    ));
     mutateAsync = vi.fn().mockResolvedValue(booking);
     mockUseUpdateBooking.mockReturnValue({
       mutateAsync,
@@ -77,7 +79,9 @@ describe('EditBookingDialog', () => {
     );
 
     expect(schedulePickerMock).toHaveBeenCalled();
-    const pickerProps = schedulePickerMock.mock.calls.at(-1)?.[0] as ScheduleAwareTimestampPickerProps;
+    const pickerProps = schedulePickerMock.mock.calls.at(
+      -1,
+    )?.[0] as ScheduleAwareTimestampPickerProps;
     expect(pickerProps.restaurantSlug).toBe('test-restaurant');
     expect(pickerProps.disabled).toBe(false);
     expect(pickerProps.timeScrollArea).toBe(true);
@@ -131,13 +135,17 @@ describe('EditBookingDialog', () => {
     );
 
     expect(
-      screen.getByText("We're missing the restaurant information needed to load availability. Please refresh or contact support before trying again."),
+      screen.getByText(
+        "We're missing the restaurant information needed to load availability. Please refresh or contact support before trying again.",
+      ),
     ).toBeInTheDocument();
 
     expect(screen.getByRole('button', { name: /^unavailable$/i })).toBeDisabled();
 
     expect(schedulePickerMock).toHaveBeenCalled();
-    const guardProps = schedulePickerMock.mock.calls.at(-1)?.[0] as ScheduleAwareTimestampPickerProps;
+    const guardProps = schedulePickerMock.mock.calls.at(
+      -1,
+    )?.[0] as ScheduleAwareTimestampPickerProps;
     expect(guardProps.restaurantSlug).toBeNull();
     expect(guardProps.disabled).toBe(true);
     expect(guardProps.timeScrollArea).toBe(true);
@@ -176,5 +184,25 @@ describe('EditBookingDialog', () => {
     await waitFor(() => {
       expect(latestPickerProps?.errorMessage).toBeNull();
     });
+  });
+
+  it('prevents saving when party size exceeds the online limit', async () => {
+    const user = userEvent.setup();
+
+    render(<EditBookingDialog booking={booking} open onOpenChange={() => {}} />);
+
+    const partyInput = screen.getByLabelText('Party size');
+    expect(partyInput).toHaveAttribute('max', String(MAX_ONLINE_PARTY_SIZE));
+
+    await user.clear(partyInput);
+    await user.type(partyInput, String(MAX_ONLINE_PARTY_SIZE + 1));
+    expect(partyInput).toHaveValue(MAX_ONLINE_PARTY_SIZE + 1);
+
+    const saveButton = screen.getByRole('button', { name: /save changes/i });
+    expect(saveButton).not.toBeDisabled();
+    await user.click(saveButton);
+
+    expect(await screen.findByText(ONLINE_PARTY_SIZE_LIMIT_COPY)).toBeInTheDocument();
+    expect(mutateAsync).not.toHaveBeenCalled();
   });
 });

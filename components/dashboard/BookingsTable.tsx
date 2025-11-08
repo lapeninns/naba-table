@@ -14,7 +14,7 @@ import { EmptyState, type EmptyStateProps } from './EmptyState';
 import { Pagination } from './Pagination';
 
 import type { BookingAction } from '@/components/features/booking-state-machine';
-import type { BookingDTO, BookingStatus, BookingsPage } from '@/hooks/useBookings';
+import type { BookingDTO, BookingsPage } from '@/hooks/useBookings';
 import type { StatusFilter } from '@/hooks/useBookingsTableState';
 import type { HttpError } from '@/lib/http/errors';
 
@@ -35,6 +35,7 @@ export type BookingsTableProps = {
   onEdit: (booking: BookingDTO) => void;
   onCancel: (booking: BookingDTO) => void;
   variant?: 'guest' | 'ops';
+  statusOptions?: { value: StatusFilter; label: string }[];
   opsLifecycle?: {
     pendingBookingId: string | null;
     pendingAction: BookingAction | null;
@@ -45,7 +46,7 @@ export type BookingsTableProps = {
   };
 };
 
-const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
+const DEFAULT_STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: 'upcoming', label: 'Upcoming' },
   { value: 'all', label: 'All' },
   { value: 'past', label: 'Past' },
@@ -71,6 +72,7 @@ export function BookingsTable({
   onEdit,
   onCancel,
   variant = 'guest',
+  statusOptions,
   opsLifecycle,
 }: BookingsTableProps) {
   const showSkeleton = isLoading;
@@ -157,7 +159,7 @@ export function BookingsTable({
       <BookingsHeader
         statusFilter={statusFilter}
         onStatusFilterChange={onStatusFilterChange}
-        statusOptions={STATUS_OPTIONS}
+        statusOptions={statusOptions ?? DEFAULT_STATUS_OPTIONS}
         searchTerm={searchTerm}
         onSearchChange={onSearchChange}
         isSearching={isFetching}

@@ -1,5 +1,5 @@
 import { quoteTablesForBooking, atomicConfirmAndTransition } from "@/server/capacity/tables";
-import { sendBookingConfirmationEmail } from "@/server/emails/bookings";
+import { sendBookingConfirmationEmail, sendBookingModificationConfirmedEmail } from "@/server/emails/bookings";
 import {
   isAutoAssignOnBookingEnabled,
   getAutoAssignMaxRetries,
@@ -11,15 +11,31 @@ import { getServiceSupabaseClient } from "@/server/supabase";
 
 import type { Tables } from "@/types/supabase";
 
+type AutoAssignReason = "creation" | "modification";
+type AutoAssignEmailVariant = "standard" | "modified";
+
+type AutoAssignOptions = {
+  bypassFeatureFlag?: boolean;
+  reason?: AutoAssignReason;
+  emailVariant?: AutoAssignEmailVariant;
+};
+
 /**
- * Attempts to automatically assign tables for a newly created booking and
- * flips status to confirmed. Sends the confirmed email on success.
+ * Attempts to automatically assign tables for a booking and flips status to confirmed.
+ * Sends the configured confirmation email variant on success.
  *
  * Best-effort: swallows errors and logs; safe to fire-and-forget.
  */
-export async function autoAssignAndConfirmIfPossible(bookingId: string): Promise<void> {
+export async function autoAssignAndConfirmIfPossible(
+  bookingId: string,
+  options?: AutoAssignOptions,
+): Promise<void> {
   const SUPPRESS_EMAILS = process.env.LOAD_TEST_DISABLE_EMAILS === 'true' || process.env.SUPPRESS_EMAILS === 'true';
-  if (!isAutoAssignOnBookingEnabled()) return;
+  const shouldRun = options?.bypassFeatureFlag || isAutoAssignOnBookingEnabled();
+  if (!shouldRun) return;
+
+  const emailVariant: AutoAssignEmailVariant = options?.emailVariant ?? "standard";
+  const reason: AutoAssignReason = options?.reason ?? "creation";
 
   const supabase = getServiceSupabaseClient();
 
@@ -47,7 +63,11 @@ export async function autoAssignAndConfirmIfPossible(bookingId: string): Promise
       try {
         // Cast is safe for email template expectations
         if (!SUPPRESS_EMAILS) {
-          await sendBookingConfirmationEmail(booking as unknown as Tables<"bookings">);
+          if (emailVariant === "modified") {
+            await sendBookingModificationConfirmedEmail(booking as unknown as Tables<"bookings">);
+          } else {
+            await sendBookingConfirmationEmail(booking as unknown as Tables<"bookings">);
+          }
         }
       } catch (e) {
         console.error("[auto-assign] failed sending confirmation for already-confirmed", { bookingId, error: e });
@@ -60,7 +80,7 @@ export async function autoAssignAndConfirmIfPossible(bookingId: string): Promise
       eventType: "auto_assign.started",
       restaurantId: booking.restaurant_id,
       bookingId: booking.id,
-      context: { status: booking.status },
+      context: { status: booking.status, trigger: reason },
     });
 
     const maxRetries = getAutoAssignMaxRetries();
@@ -116,6 +136,7 @@ export async function autoAssignAndConfirmIfPossible(bookingId: string): Promise
               success: false,
               reason: quote.reason ?? 'NO_HOLD',
               alternates: (quote.alternates ?? []).length,
+              trigger: reason,
             },
           });
         } else {
@@ -137,7 +158,11 @@ export async function autoAssignAndConfirmIfPossible(bookingId: string): Promise
             .eq("id", bookingId)
             .maybeSingle();
           if (updated && !SUPPRESS_EMAILS) {
-            await sendBookingConfirmationEmail(updated as unknown as Tables<"bookings">);
+            if (emailVariant === "modified") {
+              await sendBookingModificationConfirmedEmail(updated as unknown as Tables<"bookings">);
+            } else {
+              await sendBookingConfirmationEmail(updated as unknown as Tables<"bookings">);
+            }
           }
 
           const durationMs = Date.now() - startedAt;
@@ -146,7 +171,7 @@ export async function autoAssignAndConfirmIfPossible(bookingId: string): Promise
             eventType: "auto_assign.succeeded",
             restaurantId: booking.restaurant_id,
             bookingId: booking.id,
-            context: { attempt, durationMs },
+            context: { attempt, durationMs, trigger: reason },
           });
           return; // done
         }
@@ -157,7 +182,7 @@ export async function autoAssignAndConfirmIfPossible(bookingId: string): Promise
           severity: "warning",
           restaurantId: booking.restaurant_id,
           bookingId: booking.id,
-          context: { attempt, error: e instanceof Error ? e.message : String(e) },
+          context: { attempt, error: e instanceof Error ? e.message : String(e), trigger: reason },
         });
       }
 
@@ -178,7 +203,7 @@ export async function autoAssignAndConfirmIfPossible(bookingId: string): Promise
           eventType: 'auto_assign.exited_already_confirmed',
           restaurantId: booking.restaurant_id,
           bookingId: booking.id,
-          context: { attempt },
+          context: { attempt, trigger: reason },
         });
         return;
       }
@@ -190,7 +215,7 @@ export async function autoAssignAndConfirmIfPossible(bookingId: string): Promise
       severity: "warning",
       restaurantId: booking.restaurant_id,
       bookingId: booking.id,
-      context: { attempts: attempt },
+      context: { attempts: attempt, trigger: reason },
     });
   } catch (e) {
     console.error("[auto-assign] unexpected error", { bookingId, error: e });

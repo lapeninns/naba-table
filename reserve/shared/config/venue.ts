@@ -9,6 +9,7 @@ export type VenueDetails = {
   email: string;
   policy: string;
   timezone: string;
+  logoUrl: string | null;
 };
 
 const defaultRestaurantId =
@@ -57,6 +58,7 @@ export const DEFAULT_VENUE: VenueDetails = {
     runtime.readString('RESERVE_DEFAULT_VENUE_TIMEZONE', {
       fallback: 'Europe/London',
     }) ?? 'Europe/London',
+  logoUrl: runtime.readString('RESERVE_DEFAULT_VENUE_LOGO_URL') ?? null,
 };
 
 export const resolveVenueDetails = (overrides?: Partial<VenueDetails>): VenueDetails => ({

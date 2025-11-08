@@ -22,6 +22,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useUpdateBooking } from '@/hooks/useUpdateBooking';
 import { emit } from '@/lib/analytics/emit';
+import { MAX_ONLINE_PARTY_SIZE, MIN_ONLINE_PARTY_SIZE, ONLINE_PARTY_SIZE_LIMIT_COPY } from '@/lib/bookings/partySize';
 import { BOOKING_IN_PAST_DASHBOARD_MESSAGE } from '@/lib/bookings/messages';
 
 import type { BookingDTO } from '@/hooks/useBookings';
@@ -55,7 +56,11 @@ const schema = z.object({
       const date = new Date(value);
       return !Number.isNaN(date.getTime());
     }, 'Select a valid start time'),
-  partySize: z.coerce.number().int().min(1, 'Party size must be at least 1'),
+  partySize: z
+    .coerce.number()
+    .int()
+    .min(MIN_ONLINE_PARTY_SIZE, 'Party size must be at least 1')
+    .max(MAX_ONLINE_PARTY_SIZE, ONLINE_PARTY_SIZE_LIMIT_COPY),
   notes: z.string().max(500, 'Notes must be 500 characters or less').nullable().optional(),
 });
 
@@ -268,11 +273,19 @@ export function EditBookingDialog({
         className="max-h-[85vh] overflow-y-auto sm:max-w-2xl"
         onInteractOutside={(event) => event.preventDefault()}
       >
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
           <DialogHeader>
             <DialogTitle>Edit booking</DialogTitle>
             <DialogDescription>Adjust the booking details and save your changes.</DialogDescription>
           </DialogHeader>
+
+          <Alert variant="warning" role="status" aria-live="polite">
+            <AlertTitle>Heads up</AlertTitle>
+            <AlertDescription>
+              Editing your reservation releases the table we held for you. We&apos;ll try to reassign you right away, but if
+              nothing suitable is available the booking will stay pending until the team can help.
+            </AlertDescription>
+          </Alert>
 
           <div className="grid gap-4">
             {missingScheduleMetadata ? (
@@ -330,7 +343,9 @@ export function EditBookingDialog({
               <Controller
                 name="partySize"
                 control={control}
-                render={({ field }) => <Input id="partySize" type="number" min={1} {...field} />}
+                render={({ field }) => (
+                  <Input id="partySize" type="number" min={MIN_ONLINE_PARTY_SIZE} max={MAX_ONLINE_PARTY_SIZE} {...field} />
+                )}
               />
               {errors.partySize ? <p className="text-sm text-destructive">{errors.partySize.message}</p> : null}
             </div>

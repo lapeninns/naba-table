@@ -1,12 +1,14 @@
+import { ensureLogoColumnOnRow, isLogoUrlColumnMissing, logLogoColumnFallback } from '@/server/restaurants/logo-url-compat';
+import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
 import { assertValidTimezone } from '@/server/restaurants/timezone';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-
-
-type DbClient = SupabaseClient<Database, 'public', any>;
+type RestaurantRow = Database['public']['Tables']['restaurants']['Row'];
+type PublicSchema = Database['public'];
+type DbClient = SupabaseClient<Database, 'public', PublicSchema>;
 
 export type CreateRestaurantInput = {
   name: string;
@@ -17,6 +19,7 @@ export type CreateRestaurantInput = {
   contactPhone?: string | null;
   address?: string | null;
   bookingPolicy?: string | null;
+  logoUrl?: string | null;
   reservationIntervalMinutes?: number;
   reservationDefaultDurationMinutes?: number;
   reservationLastSeatingBufferMinutes?: number;
@@ -32,6 +35,7 @@ export type CreatedRestaurant = {
   contactPhone: string | null;
   address: string | null;
   bookingPolicy: string | null;
+  logoUrl: string | null;
   reservationIntervalMinutes: number;
   reservationDefaultDurationMinutes: number;
   reservationLastSeatingBufferMinutes: number;
@@ -117,6 +121,7 @@ export async function createRestaurant(
     contact_phone: input.contactPhone ?? null,
     address: input.address ?? null,
     booking_policy: input.bookingPolicy ?? null,
+    logo_url: input.logoUrl ?? null,
     reservation_interval_minutes: intervalMinutes,
     reservation_default_duration_minutes: defaultDurationMinutes,
     ...(lastSeatingBufferMinutes !== undefined
@@ -124,13 +129,25 @@ export async function createRestaurant(
       : {}),
   };
 
-  const { data: restaurant, error: restaurantError } = await client
-    .from('restaurants')
-    .insert(insertPayload)
-    .select(
-      'id, name, slug, timezone, capacity, contact_email, contact_phone, address, booking_policy, reservation_interval_minutes, reservation_default_duration_minutes, reservation_last_seating_buffer_minutes, created_at, updated_at',
-    )
-    .single();
+  const insertWithSelect = (
+    payload: Database['public']['Tables']['restaurants']['Insert'],
+    includeLogo: boolean,
+  ) =>
+    client
+      .from('restaurants')
+      .insert(payload)
+      .select(restaurantSelectColumns(includeLogo))
+      .single<RestaurantRow>();
+
+  let { data: restaurant, error: restaurantError } = await insertWithSelect(insertPayload, true);
+
+  if (restaurantError && isLogoUrlColumnMissing(restaurantError)) {
+    logLogoColumnFallback('createRestaurant');
+    const fallbackPayload = { ...insertPayload };
+    delete fallbackPayload.logo_url;
+    ({ data: restaurant, error: restaurantError } = await insertWithSelect(fallbackPayload, false));
+    restaurant = ensureLogoColumnOnRow(restaurant);
+  }
 
   if (restaurantError) {
     console.error('[createRestaurant] Insert failed', restaurantError);
@@ -163,6 +180,7 @@ export async function createRestaurant(
     contactPhone: restaurant.contact_phone,
     address: restaurant.address,
     bookingPolicy: restaurant.booking_policy,
+    logoUrl: restaurant.logo_url,
     reservationIntervalMinutes: restaurant.reservation_interval_minutes,
     reservationDefaultDurationMinutes: restaurant.reservation_default_duration_minutes,
     reservationLastSeatingBufferMinutes: restaurant.reservation_last_seating_buffer_minutes,

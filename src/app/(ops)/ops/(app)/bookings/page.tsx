@@ -29,6 +29,7 @@ const VALID_FILTERS: OpsStatusFilter[] = [
   "upcoming",
   "past",
   "cancelled",
+  "recent",
   "pending",
   "pending_allocation",
   "confirmed",

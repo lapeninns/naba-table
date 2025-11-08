@@ -25,6 +25,7 @@ const detailsSchema = z.object({
   email: z.string().email().nullable().optional(),
   address: z.string().max(240).nullable().optional(),
   bookingPolicy: z.string().max(800).nullable().optional(),
+  logoUrl: z.string().url().nullable().optional(),
 });
 
 type RouteParams = {
@@ -119,6 +120,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       contactEmail: parsed.email ?? null,
       address: parsed.address ?? null,
       bookingPolicy: parsed.bookingPolicy ?? null,
+      logoUrl: parsed.logoUrl ?? null,
     };
   } catch (error) {
     if (error instanceof z.ZodError) {

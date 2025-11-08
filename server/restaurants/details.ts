@@ -1,14 +1,15 @@
+import { ensureLogoColumnOnRow, isLogoUrlColumnMissing, logLogoColumnFallback } from '@/server/restaurants/logo-url-compat';
+import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
 import { assertValidTimezone } from '@/server/restaurants/timezone';
 import { getServiceSupabaseClient } from '@/server/supabase';
-
 
 import { updateRestaurant } from './update';
 
 import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-
-type DbClient = SupabaseClient<Database, 'public', any>;
+type RestaurantRow = Database['public']['Tables']['restaurants']['Row'];
+type DbClient = SupabaseClient<Database>;
 
 export type RestaurantDetails = {
   restaurantId: string;
@@ -20,6 +21,7 @@ export type RestaurantDetails = {
   contactPhone: string | null;
   address: string | null;
   bookingPolicy: string | null;
+  logoUrl: string | null;
 };
 
 export type UpdateRestaurantDetailsInput = {
@@ -31,6 +33,7 @@ export type UpdateRestaurantDetailsInput = {
   contactPhone?: string | null;
   address?: string | null;
   bookingPolicy?: string | null;
+  logoUrl?: string | null;
 };
 
 function sanitizeString(value: string | null | undefined): string | null {
@@ -52,6 +55,7 @@ type NormalizedDetailsInput = {
   contactPhone: string | null;
   address: string | null;
   bookingPolicy: string | null;
+  logoUrl: string | null;
 };
 
 function validateDetailsInput(input: NormalizedDetailsInput): NormalizedDetailsInput {
@@ -84,6 +88,7 @@ function validateDetailsInput(input: NormalizedDetailsInput): NormalizedDetailsI
     contactPhone: sanitizeString(input.contactPhone),
     address: sanitizeString(input.address),
     bookingPolicy: sanitizeString(input.bookingPolicy),
+    logoUrl: sanitizeString(input.logoUrl),
   };
 }
 
@@ -91,11 +96,20 @@ export async function getRestaurantDetails(
   restaurantId: string,
   client: DbClient = getServiceSupabaseClient(),
 ): Promise<RestaurantDetails> {
-  const { data, error } = await client
-    .from('restaurants')
-    .select('id, name, slug, timezone, capacity, contact_email, contact_phone, address, booking_policy')
-    .eq('id', restaurantId)
-    .maybeSingle();
+  const execute = (includeLogo: boolean) =>
+    client
+      .from('restaurants')
+      .select(restaurantSelectColumns(includeLogo))
+      .eq('id', restaurantId)
+      .maybeSingle<RestaurantRow>();
+
+  let { data, error } = await execute(true);
+
+  if (error && isLogoUrlColumnMissing(error)) {
+    logLogoColumnFallback('getRestaurantDetails');
+    ({ data, error } = await execute(false));
+    data = ensureLogoColumnOnRow(data);
+  }
 
   if (error) {
     throw error;
@@ -105,16 +119,18 @@ export async function getRestaurantDetails(
     throw new Error('Restaurant not found');
   }
 
+  const restaurant = ensureLogoColumnOnRow(data);
   return {
-    restaurantId: data.id,
-    name: data.name,
-    slug: data.slug,
-    timezone: data.timezone,
-    capacity: data.capacity,
-    contactEmail: data.contact_email,
-    contactPhone: data.contact_phone,
-    address: data.address,
-    bookingPolicy: data.booking_policy,
+    restaurantId: restaurant.id,
+    name: restaurant.name,
+    slug: restaurant.slug,
+    timezone: restaurant.timezone,
+    capacity: restaurant.capacity,
+    contactEmail: restaurant.contact_email,
+    contactPhone: restaurant.contact_phone,
+    address: restaurant.address,
+    bookingPolicy: restaurant.booking_policy,
+    logoUrl: restaurant.logo_url,
   };
 }
 
@@ -133,6 +149,7 @@ export async function updateRestaurantDetails(
     contactPhone: input.contactPhone ?? current.contactPhone,
     address: input.address ?? current.address,
     bookingPolicy: input.bookingPolicy ?? current.bookingPolicy,
+    logoUrl: input.logoUrl ?? current.logoUrl,
   };
 
   const validated = validateDetailsInput(merged);
@@ -148,5 +165,6 @@ export async function updateRestaurantDetails(
     contactPhone: updated.contactPhone,
     address: updated.address,
     bookingPolicy: updated.bookingPolicy,
+    logoUrl: updated.logoUrl,
   };
 }

@@ -11,12 +11,8 @@ import {
   type ValidationContext,
 } from "@/server/booking";
 import { mapValidationFailure, withValidationHeaders } from "@/server/booking/http";
-import {
-  buildBookingAuditSnapshot,
-  logAuditEvent,
-  softCancelBooking,
-  updateBookingRecord,
-} from "@/server/bookings";
+import { buildBookingAuditSnapshot, logAuditEvent, softCancelBooking, updateBookingRecord } from "@/server/bookings";
+import { beginBookingModificationFlow } from "@/server/bookings/modification-flow";
 import { PastBookingError, assertBookingNotInPast, canOverridePastBooking } from "@/server/bookings/pastTimeValidation";
 import { enqueueBookingCancelledSideEffects, enqueueBookingUpdatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
 import { recordObservabilityEvent } from "@/server/observability";
@@ -192,6 +188,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   }
 
   const restaurantId = existingBooking.restaurant_id ?? "";
+  const bookingType = existingBooking.booking_type ?? "dinner";
   const existingStartAt = existingBooking.start_at ? new Date(existingBooking.start_at) : null;
   const existingEndAt = existingBooking.end_at ? new Date(existingBooking.end_at) : null;
   const existingDurationMinutes =
@@ -260,6 +257,12 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   }
 
   const endTime = fromMinutes(endDate.getHours() * 60 + endDate.getMinutes());
+  const requiresTableRealignment =
+    bookingDate !== (existingBooking.booking_date ?? "") ||
+    startTime !== (existingBooking.start_time ?? "") ||
+    endTime !== (existingBooking.end_time ?? "") ||
+    parsed.data.partySize !== (existingBooking.party_size ?? 0);
+  const normalizedNotes = parsed.data.notes ?? null;
 
   const useUnifiedValidation = env.featureFlags.bookingValidationUnified;
 
@@ -364,13 +367,27 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   const tenantClient = getTenantServiceSupabaseClient(existingBooking.restaurant_id);
 
   try {
-    const updated = await updateBookingRecord(tenantClient, bookingId, {
-      booking_date: bookingDate,
-      start_time: startTime,
-      end_time: endTime,
-      party_size: parsed.data.partySize,
-      notes: parsed.data.notes ?? null,
-    });
+    const updated: Tables<"bookings"> = requiresTableRealignment
+      ? await beginBookingModificationFlow({
+          client: tenantClient,
+          bookingId,
+          existingBooking,
+          source: "ops",
+          payload: {
+            booking_date: bookingDate,
+            start_time: startTime,
+            end_time: endTime,
+            party_size: parsed.data.partySize,
+            notes: normalizedNotes,
+          },
+        })
+      : await updateBookingRecord(tenantClient, bookingId, {
+          booking_date: bookingDate,
+          start_time: startTime,
+          end_time: endTime,
+          party_size: parsed.data.partySize,
+          notes: normalizedNotes,
+        });
 
     const auditMetadata = {
       restaurant_id: updated.restaurant_id ?? existingBooking.restaurant_id,

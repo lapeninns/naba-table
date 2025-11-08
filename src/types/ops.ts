@@ -110,6 +110,7 @@ export type OpsBookingsFilters = {
   pageSize?: number;
   status?: OpsBookingStatus | 'all';
   sort?: 'asc' | 'desc';
+  sortBy?: 'start_at' | 'created_at';
   from?: Date | string | null;
   to?: Date | string | null;
   query?: string | null;

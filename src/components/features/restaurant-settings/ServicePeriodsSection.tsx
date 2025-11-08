@@ -1,5 +1,6 @@
 'use client';
 
+import { HelpTooltip } from '@/components/features/restaurant-settings/HelpTooltip';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { useOpsOccasions, useOpsOperatingHours, useOpsServicePeriods, useOpsUpdateServicePeriods } from '@/hooks';
 import { cn } from '@/lib/utils';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { toast } from 'react-hot-toast';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -33,6 +35,11 @@ type DayErrors = Record<number, Partial<Record<MealKey, MealError>>>;
 const MEAL_LABELS: Record<MealKey, string> = {
   lunch: 'Lunch',
   dinner: 'Dinner',
+};
+
+const MEAL_TOOLTIPS: Record<MealKey, string> = {
+  lunch: 'Defines when lunch reservations can be booked within the kitchen operating window.',
+  dinner: 'Defines when dinner reservations can be booked. Keep times inside the kitchen open/close window.',
 };
 
 function canonicalizeRequiredTime(value: string): string {
@@ -88,6 +95,7 @@ const formatRange = (start?: string | null, end?: string | null): string => {
 
 function MealEditor({
   label,
+  tooltip,
   meal,
   disabled,
   errors,
@@ -95,6 +103,7 @@ function MealEditor({
   onChange,
 }: {
   label: string;
+  tooltip: string;
   meal: MealConfig;
   disabled: boolean;
   errors?: MealError;
@@ -105,7 +114,10 @@ function MealEditor({
     <div className="rounded-lg border border-border/60 p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-foreground">{label}</p>
+          <div className="flex items-center gap-1">
+            <p className="text-sm font-medium text-foreground">{label}</p>
+            <HelpTooltip description={tooltip} ariaLabel={`${label} service window help`} align="center" />
+          </div>
           <p className="text-xs text-muted-foreground">Only available while the kitchen is open.</p>
         </div>
         <div className="flex items-center gap-2">
@@ -406,9 +418,16 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
   const isDisabled = updateMutation.isPending || !hasRequiredOccasions;
 
   return (
-    <Card>
+    <TooltipProvider delayDuration={100}>
+      <Card>
       <CardHeader>
-        <CardTitle>Service Periods</CardTitle>
+        <div className="flex items-center gap-2">
+          <CardTitle>Service Periods</CardTitle>
+          <HelpTooltip
+            description="Lunch and dinner windows must stay inside each day's kitchen hours. Drinks inherit general operating hours."
+            ariaLabel="Service periods help"
+          />
+        </div>
         <CardDescription>
           Drinks automatically follow general opening hours. Configure kitchen windows for lunch and dinner per day.
         </CardDescription>
@@ -458,6 +477,7 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <MealEditor
                   label={MEAL_LABELS.lunch}
+                  tooltip={MEAL_TOOLTIPS.lunch}
                   meal={day.lunch}
                   disabled={day.isClosed || isDisabled}
                   errors={errors[day.dayOfWeek]?.lunch}
@@ -466,6 +486,7 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
                 />
                 <MealEditor
                   label={MEAL_LABELS.dinner}
+                  tooltip={MEAL_TOOLTIPS.dinner}
                   meal={day.dinner}
                   disabled={day.isClosed || isDisabled}
                   errors={errors[day.dayOfWeek]?.dinner}
@@ -489,5 +510,6 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
         </div>
       </CardFooter>
     </Card>
+    </TooltipProvider>
   );
 }

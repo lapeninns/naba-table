@@ -4113,6 +4113,7 @@ CREATE TABLE public.restaurants (
     contact_phone text,
     address text,
     booking_policy text,
+    logo_url text,
     reservation_interval_minutes integer DEFAULT 15 NOT NULL,
     reservation_default_duration_minutes integer DEFAULT 90 NOT NULL,
     is_active boolean DEFAULT true NOT NULL,

@@ -9,11 +9,16 @@ import { config as loadEnv } from 'dotenv';
 loadEnv({ path: '.env.local', override: true });
 
 import { renderBookingEmailHtml } from '@/server/emails/bookings';
+import { ensureLogoColumnOnRow, isLogoUrlColumnMissing, logLogoColumnFallback } from '@/server/restaurants/logo-url-compat';
+import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
 import { getServiceSupabaseClient } from '@/server/supabase';
 import { formatDateForInput, formatReservationDateShort, formatReservationTime, formatReservationTimeFromDate } from '@reserve/shared/formatting/booking';
 import { normalizeTime } from '@reserve/shared/time';
 
 import type { VenueDetails } from '@/lib/venue';
+import type { Database } from '@/types/supabase';
+
+type RestaurantRow = Database['public']['Tables']['restaurants']['Row'];
 
 function normalizeTimeLoose(value: string | null | undefined) {
   if (!value) return null;
@@ -61,20 +66,32 @@ function parseArgs(): { id: string; out?: string } {
 
 async function resolveVenueDetails(restaurantId: string): Promise<VenueDetails> {
   const supabase = getServiceSupabaseClient();
-  const { data, error } = await supabase
-    .from('restaurants')
-    .select('id,name,timezone,contact_email,contact_phone,address,booking_policy')
-    .eq('id', restaurantId)
-    .maybeSingle();
+  const execute = (includeLogo: boolean) =>
+    supabase
+      .from('restaurants')
+      .select(restaurantSelectColumns(includeLogo))
+      .eq('id', restaurantId)
+      .maybeSingle<RestaurantRow>();
+
+  let { data, error } = await execute(true);
+
+  if (error && isLogoUrlColumnMissing(error)) {
+    logLogoColumnFallback('preview-booking-email:resolveVenueDetails');
+    ({ data, error } = await execute(false));
+    data = ensureLogoColumnOnRow(data);
+  }
+
   if (error || !data) throw new Error('Restaurant not found or DB error');
+  const restaurant = ensureLogoColumnOnRow(data);
   return {
-    id: data.id,
-    name: data.name || 'Restaurant',
-    timezone: data.timezone || 'Europe/London',
-    address: data.address || '',
-    phone: data.contact_phone || '',
-    email: data.contact_email || '',
-    policy: data.booking_policy || '',
+    id: restaurant.id,
+    name: restaurant.name || 'Restaurant',
+    timezone: restaurant.timezone || 'Europe/London',
+    address: restaurant.address || '',
+    phone: restaurant.contact_phone || '',
+    email: restaurant.contact_email || '',
+    policy: restaurant.booking_policy || '',
+    logoUrl: restaurant.logo_url || null,
   };
 }
 

@@ -16,6 +16,7 @@ export type RestaurantDetails = {
   contactPhone: string | null;
   address: string | null;
   bookingPolicy: string | null;
+  logoUrl: string | null;
 };
 
 export type UpdateRestaurantDetailsInput = {
@@ -27,6 +28,7 @@ export type UpdateRestaurantDetailsInput = {
   contactPhone?: string | null;
   address?: string | null;
   bookingPolicy?: string | null;
+  logoUrl?: string | null;
 };
 
 const DISABLED_KEY = ['owner', 'restaurants', 'disabled', 'details'] as const;
@@ -72,6 +74,7 @@ export function useUpdateRestaurantDetails(restaurantId: string | null) {
           email: input.contactEmail ?? null,
           address: input.address ?? null,
           bookingPolicy: input.bookingPolicy ?? null,
+          logoUrl: input.logoUrl ?? null,
         }),
       });
     },

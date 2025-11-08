@@ -49,6 +49,11 @@ vi.mock('@/lib/env', () => {
           defaultDurationMinutes: 90,
         } as const;
       },
+      get node() {
+        return {
+          env: 'test',
+        } as const;
+      },
     },
   };
 });
@@ -65,6 +70,7 @@ const getRouteHandlerSupabaseClientMock = vi.hoisted(() => vi.fn());
 const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn());
 const fetchBookingsForContactMock = vi.hoisted(() => vi.fn());
 const updateBookingRecordMock = vi.hoisted(() => vi.fn());
+const beginBookingModificationFlowMock = vi.hoisted(() => vi.fn());
 const buildBookingAuditSnapshotMock = vi.hoisted(() => vi.fn());
 const logAuditEventMock = vi.hoisted(() => vi.fn());
 const enqueueBookingUpdatedSideEffectsMock = vi.hoisted(() => vi.fn());
@@ -111,6 +117,10 @@ vi.mock('@/server/bookings', async () => {
     logAuditEvent: (...args: unknown[]) => logAuditEventMock(...args),
   };
 });
+
+vi.mock('@/server/bookings/modification-flow', () => ({
+  beginBookingModificationFlow: (...args: unknown[]) => beginBookingModificationFlowMock(...args),
+}));
 
 vi.mock('@/server/jobs/booking-side-effects', () => ({
   enqueueBookingUpdatedSideEffects: (...args: unknown[]) => enqueueBookingUpdatedSideEffectsMock(...args),
@@ -377,6 +387,10 @@ describe('/api/bookings/[id] GET', () => {
 });
 
 describe('/api/bookings/[id] PUT', () => {
+  beforeEach(() => {
+    beginBookingModificationFlowMock.mockResolvedValue(existingBooking);
+  });
+
   afterEach(() => {
     vi.clearAllMocks();
   });
@@ -456,7 +470,7 @@ describe('/api/bookings/[id] PUT', () => {
     expect(json.code).toBe('FORBIDDEN');
   });
 
-  it('updates booking through dashboard path for authorized staff', async () => {
+  it('routes dashboard allocation changes through the modification flow', async () => {
     const payload = {
       startIso: '2025-10-10T19:00:00.000Z',
       endIso: '2025-10-10T21:00:00.000Z',
@@ -476,12 +490,104 @@ describe('/api/bookings/[id] PUT', () => {
       { restaurant_id: existingBooking.restaurant_id, role: 'manager', created_at: '', restaurants: null },
     ]);
 
-    const updatedBooking = {
+    const pendingBooking = {
       ...existingBooking,
       party_size: 4,
       notes: 'Table near window',
       start_at: '2025-10-10T19:00:00.000Z',
       end_at: '2025-10-10T21:00:00.000Z',
+      status: 'pending',
+    };
+
+    beginBookingModificationFlowMock.mockResolvedValue(pendingBooking);
+    buildBookingAuditSnapshotMock.mockReturnValue({ diff: 'changed' });
+    logAuditEventMock.mockResolvedValue(undefined);
+    enqueueBookingUpdatedSideEffectsMock.mockResolvedValue(undefined);
+    getRestaurantScheduleMock.mockResolvedValue({
+      defaultDurationMinutes: 120,
+      lastSeatingBufferMinutes: 120,
+      timezone: 'Europe/London',
+      intervalMinutes: 15,
+      isClosed: false,
+      window: { opensAt: '09:00', closesAt: '23:00' },
+      availableBookingOptions: ['dinner'],
+      occasionCatalog: [],
+      slots: [
+        {
+          value: '19:00',
+          disabled: false,
+          periodId: null,
+          periodName: null,
+          bookingOption: 'dinner',
+          defaultBookingOption: 'dinner',
+          availability: {
+            services: { dinner: 'enabled' },
+            labels: {
+              happyHour: false,
+              drinksOnly: false,
+              kitchenClosed: false,
+              lunchWindow: false,
+              dinnerWindow: true,
+            },
+          },
+        },
+      ],
+    });
+    assertBookingWithinOperatingWindowMock.mockReturnValue({ time: '19:00' });
+
+    const serviceSupabase = createServiceSupabase({ booking: existingBooking });
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+
+    const response = await PUT(request, params);
+
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.id).toBe(pendingBooking.id);
+    expect(json.partySize).toBe(4);
+    expect(json.status).toBe('pending');
+    expect(beginBookingModificationFlowMock).toHaveBeenCalledWith({
+      client: serviceSupabase,
+      bookingId: existingBooking.id,
+      existingBooking,
+      source: 'guest',
+      payload: expect.objectContaining({
+        party_size: 4,
+        start_time: '19:00',
+        end_time: '21:00',
+      }),
+    });
+    expect(updateBookingRecordMock).not.toHaveBeenCalled();
+    expect(logAuditEventMock).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({
+      metadata: expect.objectContaining({
+        actor_user_id: 'user-1',
+        restaurant_id: existingBooking.restaurant_id,
+      }),
+    }));
+  });
+
+  it('updates booking inline when dashboard edits do not impact allocation', async () => {
+    const payload = {
+      startIso: '2025-10-10T19:00:00.000Z',
+      endIso: '2025-10-10T21:00:00.000Z',
+      partySize: 2,
+      notes: 'Birthday',
+    };
+
+    const request = createRequest(payload);
+    const params = { params: Promise.resolve({ id: existingBooking.id }) } as const;
+
+    const tenantSupabase = createTenantSupabase(existingBooking);
+    requireSessionMock.mockResolvedValue({
+      supabase: tenantSupabase,
+      user: { id: 'user-2', email: 'ops@example.com' },
+    });
+    listUserRestaurantMembershipsMock.mockResolvedValue([
+      { restaurant_id: existingBooking.restaurant_id, role: 'manager', created_at: '', restaurants: null },
+    ]);
+
+    const updatedBooking = {
+      ...existingBooking,
+      notes: 'Birthday',
     };
 
     updateBookingRecordMock.mockResolvedValue(updatedBooking);
@@ -527,17 +633,11 @@ describe('/api/bookings/[id] PUT', () => {
 
     expect(response.status).toBe(200);
     const json = await response.json();
-    expect(json.id).toBe(updatedBooking.id);
-    expect(json.partySize).toBe(4);
+    expect(json.partySize).toBe(2);
+    expect(json.status).toBe(updatedBooking.status);
+    expect(beginBookingModificationFlowMock).not.toHaveBeenCalled();
     expect(updateBookingRecordMock).toHaveBeenCalledWith(expect.any(Object), existingBooking.id, expect.objectContaining({
-      party_size: 4,
-      notes: 'Table near window',
-    }));
-    expect(logAuditEventMock).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({
-      metadata: expect.objectContaining({
-        actor_user_id: 'user-1',
-        restaurant_id: existingBooking.restaurant_id,
-      }),
+      notes: 'Birthday',
     }));
   });
 
@@ -589,7 +689,7 @@ describe('/api/bookings/[id] PUT', () => {
     const payload = {
       restaurantId: RESTAURANT_ID,
       date: '2025-10-10',
-      time: '20:00',
+      time: '19:00',
       party: 2,
       bookingType: 'dinner',
       seating: 'any',
@@ -632,8 +732,8 @@ describe('/api/bookings/[id] PUT', () => {
       availableBookingOptions: ['dinner'],
       slots: [
         {
-          value: '20:00',
-          display: '8:00 PM',
+          value: '19:00',
+          display: '7:00 PM',
           periodId: null,
           periodName: 'Dinner',
           bookingOption: 'dinner',
@@ -652,8 +752,8 @@ describe('/api/bookings/[id] PUT', () => {
         },
       ],
     });
-    assertBookingWithinOperatingWindowMock.mockReturnValue({ time: '20:00' });
-    updateBookingRecordMock.mockResolvedValue({ ...existingBooking, start_time: '20:00', end_time: '22:00' });
+    assertBookingWithinOperatingWindowMock.mockReturnValue({ time: '19:00' });
+    updateBookingRecordMock.mockResolvedValue({ ...existingBooking, start_time: '19:00', end_time: '21:00' });
     fetchBookingsForContactMock.mockResolvedValue([existingBooking]);
     buildBookingAuditSnapshotMock.mockReturnValue({ previous: null, current: null, changes: [] });
     logAuditEventMock.mockResolvedValue(undefined);
@@ -664,12 +764,107 @@ describe('/api/bookings/[id] PUT', () => {
     expect(response.status).toBe(200);
     expect(assertBookingWithinOperatingWindowMock).toHaveBeenCalledWith({
       schedule: expect.any(Object),
-      requestedTime: '20:00',
+      requestedTime: '19:00',
       bookingType: 'dinner',
     });
     expect(updateBookingRecordMock).toHaveBeenCalledWith(serviceSupabase, 'booking-1', expect.objectContaining({
-      start_time: '20:00',
+      start_time: '19:00',
     }));
-    expect(json.booking.start_time).toBe('20:00');
+    expect(json.booking.start_time).toBe('19:00');
+  });
+
+  it('enqueues modification flow when core allocation fields change', async () => {
+    const payload = {
+      restaurantId: RESTAURANT_ID,
+      date: '2025-10-11',
+      time: '21:00',
+      party: 6,
+      bookingType: 'dinner',
+      seating: 'outdoor',
+      notes: 'Anniversary',
+      name: 'Test User',
+      email: 'test@example.com',
+      phone: '1234567890',
+    };
+
+    const request = createRequest(payload);
+    const params = { params: Promise.resolve({ id: existingBooking.id }) } as const;
+
+    const tenantSupabase = createTenantSupabase();
+    const serviceSupabase = createServiceSupabase();
+
+    getDefaultRestaurantIdMock.mockResolvedValue('rest-default');
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(tenantSupabase);
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+    getRestaurantScheduleMock.mockResolvedValue({
+      restaurantId: RESTAURANT_ID,
+      date: '2025-10-11',
+      timezone: 'UTC',
+      intervalMinutes: 15,
+      defaultDurationMinutes: 90,
+      lastSeatingBufferMinutes: 120,
+      isClosed: false,
+      window: { opensAt: '10:00', closesAt: '22:00' },
+      occasionCatalog: [],
+      availableBookingOptions: ['dinner'],
+      slots: [
+        {
+          value: '21:00',
+          display: '9:00 PM',
+          periodId: null,
+          periodName: 'Dinner',
+          bookingOption: 'dinner',
+          defaultBookingOption: 'dinner',
+          availability: {
+            services: { dinner: 'enabled' },
+            labels: {
+              happyHour: false,
+              drinksOnly: false,
+              kitchenClosed: false,
+              lunchWindow: false,
+              dinnerWindow: true,
+            },
+          },
+          disabled: false,
+        },
+      ],
+    });
+    assertBookingWithinOperatingWindowMock.mockReturnValue({ time: '21:00' });
+
+    const pendingBooking = {
+      ...existingBooking,
+      booking_date: '2025-10-11',
+      start_time: '21:00',
+      end_time: '23:00',
+      party_size: 6,
+      seating_preference: 'outdoor',
+      status: 'pending',
+    };
+    beginBookingModificationFlowMock.mockResolvedValue(pendingBooking);
+    fetchBookingsForContactMock.mockResolvedValue([pendingBooking]);
+    buildBookingAuditSnapshotMock.mockReturnValue({ previous: null, current: null, changes: [] });
+    logAuditEventMock.mockResolvedValue(undefined);
+    enqueueBookingUpdatedSideEffectsMock.mockResolvedValue(undefined);
+
+    const response = await PUT(request, params);
+    const json = await response.json();
+
+    if (response.status !== 200) {
+      throw new Error(`unexpected status ${response.status}: ${JSON.stringify(json)}`);
+    }
+
+    expect(response.status).toBe(200);
+    expect(beginBookingModificationFlowMock).toHaveBeenCalledWith({
+      client: serviceSupabase,
+      bookingId: existingBooking.id,
+      existingBooking,
+      source: 'guest',
+      payload: expect.objectContaining({
+        party_size: 6,
+        seating_preference: 'outdoor',
+      }),
+    });
+    expect(updateBookingRecordMock).not.toHaveBeenCalled();
+    expect(json.booking.status).toBe('pending');
   });
 });

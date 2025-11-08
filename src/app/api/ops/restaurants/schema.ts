@@ -5,6 +5,17 @@ const SLUG_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const INTERVAL_SCHEMA = z.number().int().min(1).max(180);
 const DURATION_SCHEMA = z.number().int().min(15).max(300);
 
+const optionalLogoUrlSchema = z
+  .preprocess((value) => {
+    if (typeof value !== 'string') {
+      return value === undefined ? undefined : value;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }, z.string().url('Logo URL must be a valid absolute URL').nullable())
+  .optional();
+
 export const listRestaurantsQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(100).default(20),
@@ -50,6 +61,7 @@ export const createRestaurantSchema = z.object({
     .nullable()
     .optional()
     .transform((val) => val || null),
+  logoUrl: optionalLogoUrlSchema,
   reservationIntervalMinutes: INTERVAL_SCHEMA.optional(),
   reservationDefaultDurationMinutes: DURATION_SCHEMA.optional(),
   reservationLastSeatingBufferMinutes: DURATION_SCHEMA.optional(),
@@ -93,6 +105,7 @@ export const updateRestaurantSchema = z.object({
     .nullable()
     .optional()
     .transform((val) => val || null),
+  logoUrl: optionalLogoUrlSchema,
   reservationIntervalMinutes: INTERVAL_SCHEMA.optional(),
   reservationDefaultDurationMinutes: DURATION_SCHEMA.optional(),
   reservationLastSeatingBufferMinutes: DURATION_SCHEMA.optional(),
@@ -110,6 +123,7 @@ export type RestaurantDTO = {
   contactPhone: string | null;
   address: string | null;
   bookingPolicy: string | null;
+  logoUrl: string | null;
   reservationIntervalMinutes: number;
   reservationDefaultDurationMinutes: number;
   reservationLastSeatingBufferMinutes: number;

@@ -173,6 +173,7 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
       contactPhone: formData.contactPhone.trim() || null,
       address: formData.address.trim() || null,
       bookingPolicy: formData.bookingPolicy.trim() || null,
+      logoUrl: null,
     };
 
     try {

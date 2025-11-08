@@ -1,9 +1,10 @@
 process.env.BASE_URL ??= "http://localhost:3000";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   buildBookingAuditSnapshot,
+  clearBookingTableAssignments,
   deriveEndTime,
   inferMealTypeFromTime,
   minutesFromTime,
@@ -73,5 +74,56 @@ describe("buildBookingAuditSnapshot", () => {
     const baseline = makeBookingRecord();
     const snapshot = buildBookingAuditSnapshot(baseline, { ...baseline });
     expect(snapshot.changes).toHaveLength(0);
+  });
+});
+
+describe("clearBookingTableAssignments", () => {
+  const bookingId = "booking-123";
+
+  function createMockClient(rows: Array<{ table_id: string | null }>, rpcError: Error | null = null) {
+    const eq = vi.fn().mockResolvedValue({ data: rows, error: null });
+    const select = vi.fn().mockReturnValue({ eq });
+    const from = vi.fn().mockReturnValue({ select });
+    const rpc = vi
+      .fn()
+      .mockResolvedValue({ data: null, error: rpcError });
+
+    return {
+      from,
+      rpc,
+    } as unknown as Parameters<typeof clearBookingTableAssignments>[0];
+  }
+
+  it("invokes unassign RPC when booking has tables", async () => {
+    const client = createMockClient([{ table_id: "tbl_a" }, { table_id: "tbl_b" }]);
+
+    const released = await clearBookingTableAssignments(client, bookingId);
+
+    expect(released).toBe(2);
+    expect(client.from).toHaveBeenCalledWith("booking_table_assignments");
+    expect(client.rpc).toHaveBeenCalledWith("unassign_tables_atomic", {
+      p_booking_id: bookingId,
+      p_table_ids: ["tbl_a", "tbl_b"],
+    });
+  });
+
+  it("skips RPC when no assignments exist", async () => {
+    const client = createMockClient([]);
+
+    const released = await clearBookingTableAssignments(client, bookingId);
+
+    expect(released).toBe(0);
+    expect(client.rpc).not.toHaveBeenCalled();
+  });
+
+  it("swallows RPC failures and logs a warning", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const client = createMockClient([{ table_id: "tbl_only" }], new Error("rpc failed"));
+
+    const released = await clearBookingTableAssignments(client, bookingId);
+
+    expect(released).toBe(0);
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 });

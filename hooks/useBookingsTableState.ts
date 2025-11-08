@@ -10,7 +10,7 @@ type Options = {
   pageSize?: number;
 };
 
-export type StatusFilter = 'all' | 'upcoming' | 'past' | 'cancelled' | BookingStatus;
+export type StatusFilter = 'all' | 'upcoming' | 'past' | 'cancelled' | 'recent' | BookingStatus;
 
 export function useBookingsTableState({
   initialStatus = 'upcoming',
@@ -60,6 +60,9 @@ export function useBookingsTableState({
         break;
       case 'cancelled':
         filters.status = 'cancelled';
+        filters.sort = 'desc';
+        break;
+      case 'recent':
         filters.sort = 'desc';
         break;
       case 'all':

@@ -14,21 +14,36 @@ vi.mock("@/server/supabase", () => ({
   getServiceSupabaseClient: vi.fn(),
 }));
 
-type MockClient = SupabaseClient<Database, "public", any>;
+type MockClient = SupabaseClient<Database>;
+type RestaurantRow = Database["public"]["Tables"]["restaurants"]["Row"];
 
-function createClient(options: { restaurant?: any }) {
+const DEFAULT_RESTAURANT_ROW: RestaurantRow = {
+  id: "rest-1",
+  name: "Original Name",
+  slug: "original-slug",
+  timezone: "America/New_York",
+  capacity: 120,
+  contact_email: "ops@example.com",
+  contact_phone: "+15551234",
+  address: "100 Demo St",
+  booking_policy: "Standard policy",
+  logo_url: "https://cdn.example.com/logo.png",
+  created_at: "2025-01-01T00:00:00Z",
+  updated_at: "2025-01-01T00:00:00Z",
+  is_active: true,
+  reservation_default_duration_minutes: 90,
+  reservation_interval_minutes: 15,
+  reservation_last_seating_buffer_minutes: 30,
+};
+
+function createClient(options: { restaurant?: Partial<RestaurantRow> } = {}) {
+  const restaurant: RestaurantRow = {
+    ...DEFAULT_RESTAURANT_ROW,
+    ...options.restaurant,
+  };
+
   const maybeSingle = vi.fn().mockResolvedValue({
-    data: options.restaurant ?? {
-      id: "rest-1",
-      name: "Original Name",
-      slug: "original-slug",
-      timezone: "America/New_York",
-      capacity: 120,
-      contact_email: "ops@example.com",
-      contact_phone: "+15551234",
-      address: "100 Demo St",
-      booking_policy: "Standard policy",
-    },
+    data: restaurant,
     error: null,
   });
 
@@ -61,6 +76,7 @@ describe("updateRestaurantDetails", () => {
         contact_phone: "555-0000",
         address: "1 Infinity Loop",
         booking_policy: "Legacy",
+        logo_url: null,
       },
     });
 
@@ -74,6 +90,7 @@ describe("updateRestaurantDetails", () => {
       contactPhone: "555-1234",
       address: "1 Infinity Loop",
       bookingPolicy: null,
+      logoUrl: "https://cdn.example.com/new-logo.png",
       createdAt: "2025-01-01T00:00:00Z",
       updatedAt: "2025-01-21T00:00:00Z",
     });
@@ -89,6 +106,7 @@ describe("updateRestaurantDetails", () => {
         contactPhone: " 555-1234 ",
         address: "1 Infinity Loop",
         bookingPolicy: "\n\t",
+        logoUrl: "  https://cdn.example.com/new-logo.png  ",
       },
       client,
     );
@@ -105,6 +123,7 @@ describe("updateRestaurantDetails", () => {
         contactPhone: "555-1234",
         address: "1 Infinity Loop",
         bookingPolicy: null,
+        logoUrl: "https://cdn.example.com/new-logo.png",
       },
       client,
     );
@@ -114,6 +133,7 @@ describe("updateRestaurantDetails", () => {
       slug: "new-slug",
       contactEmail: null,
       contactPhone: "555-1234",
+      logoUrl: "https://cdn.example.com/new-logo.png",
     });
   });
 

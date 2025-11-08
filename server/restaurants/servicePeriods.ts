@@ -30,7 +30,7 @@ export type UpdateServicePeriod = {
   bookingOption: BookingOption;
 };
 
-const OVERLAP_EXEMPT_NAMES = new Set(['drinks']);
+const OVERLAP_EXEMPT_BOOKING_OPTIONS = new Set(['drinks']);
 
 function normalizeDayOfWeek(value: number | null | undefined): number | null {
   if (value === null || value === undefined) {
@@ -78,12 +78,12 @@ function validateServicePeriod(entry: UpdateServicePeriod, validOptions: Set<str
   };
 }
 
-function isOverlapExempt(name: string): boolean {
-  return OVERLAP_EXEMPT_NAMES.has(name.trim().toLowerCase());
+function isOverlapExempt(bookingOption: BookingOption): boolean {
+  return OVERLAP_EXEMPT_BOOKING_OPTIONS.has(bookingOption.trim().toLowerCase());
 }
 
 function canOverlap(first: ServicePeriod, second: ServicePeriod): boolean {
-  return isOverlapExempt(first.name) || isOverlapExempt(second.name);
+  return isOverlapExempt(first.bookingOption) || isOverlapExempt(second.bookingOption);
 }
 
 export function assertNoOverlappingPeriods(periods: ServicePeriod[]): void {

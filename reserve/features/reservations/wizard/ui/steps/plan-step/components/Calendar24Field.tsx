@@ -53,10 +53,12 @@ export function Calendar24Field({
 }: Calendar24FieldProps) {
   const resolvedIntervalMinutes =
     typeof intervalMinutes === 'number' && intervalMinutes > 0 ? intervalMinutes : undefined;
-  const timeStepSeconds = resolvedIntervalMinutes
+  const [open, setOpen] = useState(false);
+  const [hasHydrated, setHasHydrated] = useState(false);
+  const computedStepSeconds = resolvedIntervalMinutes
     ? Math.max(60, Math.round(resolvedIntervalMinutes * 60))
     : 60;
-  const [open, setOpen] = useState(false);
+  const timeStepSeconds = hasHydrated ? computedStepSeconds : 60;
   const baseId = useId();
   const dateButtonId = `${baseId}-date`;
   const timeInputId = `${baseId}-time`;
@@ -88,7 +90,11 @@ export function Calendar24Field({
     () => suggestions.filter((slot) => !slot.disabled),
     [suggestions],
   );
-  const showSuggestions = !isTimeDisabled && enabledSuggestions.length > 0;
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
+
+  const showSuggestions = hasHydrated && !isTimeDisabled && enabledSuggestions.length > 0;
   const inputValue = time.value ?? '';
   const resolvedUnavailableMessage =
     unavailableMessage ?? 'No available times for the selected date.';

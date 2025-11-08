@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-
+import { HelpTooltip } from '@/components/features/restaurant-settings/HelpTooltip';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 import type { UpdateRestaurantInput } from '@/app/api/ops/restaurants/schema';
@@ -16,7 +17,6 @@ export type RestaurantDetailsFormValues = {
   name: string;
   slug: string;
   timezone: string;
-  capacity: number | null;
   contactEmail: string | null;
   contactPhone: string | null;
   address: string | null;
@@ -39,7 +39,6 @@ type FormState = {
   name: string;
   slug: string;
   timezone: string;
-  capacity: string;
   contactEmail: string;
   contactPhone: string;
   address: string;
@@ -52,6 +51,19 @@ type FormState = {
 type FormErrors = Partial<Record<keyof FormState, string>>;
 
 const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+const FIELD_TOOLTIPS = {
+  slug: 'Lowercase identifier used in booking links and exports. Only letters, numbers, and hyphens are allowed.',
+  timezone: 'Determines how operating hours, reservations, and reminders are interpreted across the product.',
+  reservationInterval:
+    'Spacing between available reservation slots. Shorter intervals create more options but increase booking traffic.',
+  reservationDuration:
+    'Default dining time that pre-fills new reservations. Staff can override per booking if needed.',
+  lastSeatingBuffer:
+    'Minutes before closing when you stop seating guests so everyone can finish before the kitchen closes.',
+  bookingPolicy:
+    'Optional message shown to guests during booking and in confirmations (e.g., deposits, grace periods).',
+} as const;
 
 export const COMMON_TIMEZONES = [
   'Europe/London',
@@ -71,7 +83,6 @@ function mapInitialValues(values: RestaurantDetailsFormValues): FormState {
     name: values.name ?? '',
     slug: values.slug ?? '',
     timezone: values.timezone ?? COMMON_TIMEZONES[0],
-    capacity: values.capacity !== null && values.capacity !== undefined ? String(values.capacity) : '',
     contactEmail: values.contactEmail ?? '',
     contactPhone: values.contactPhone ?? '',
     address: values.address ?? '',
@@ -108,7 +119,6 @@ function sanitizePayload(state: FormState): UpdateRestaurantInput {
     name: trimmedName,
     slug: trimmedSlug,
     timezone: trimmedTimezone,
-    capacity: state.capacity ? Number(state.capacity) : null,
     contactEmail: trimmedEmail.length > 0 ? trimmedEmail : null,
     contactPhone: trimmedPhone.length > 0 ? trimmedPhone : null,
     address: trimmedAddress.length > 0 ? trimmedAddress : null,
@@ -135,15 +145,6 @@ function validate(state: FormState): FormErrors {
 
   if (!state.timezone.trim()) {
     errors.timezone = 'Timezone is required';
-  }
-
-  if (state.capacity) {
-    const numericCapacity = Number(state.capacity);
-    if (Number.isNaN(numericCapacity)) {
-      errors.capacity = 'Capacity must be a number';
-    } else if (numericCapacity <= 0) {
-      errors.capacity = 'Capacity must be positive';
-    }
   }
 
   const intervalRaw = state.reservationIntervalMinutes.trim();
@@ -180,8 +181,6 @@ function validate(state: FormState): FormErrors {
       errors.reservationLastSeatingBufferMinutes = 'Must be a whole number';
     } else if (bufferValue < 15 || bufferValue > 300) {
       errors.reservationLastSeatingBufferMinutes = 'Must be between 15 and 300 minutes';
-    } else if (durationValue !== null && bufferValue < durationValue) {
-      errors.reservationLastSeatingBufferMinutes = `Must be at least the default duration (${durationValue} minutes)`;
     }
   }
 
@@ -197,6 +196,7 @@ function validate(state: FormState): FormErrors {
 
   return errors;
 }
+
 
 export function RestaurantDetailsForm({
   initialValues,
@@ -242,7 +242,8 @@ export function RestaurantDetailsForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className={cn('space-y-4', className)}>
+    <TooltipProvider delayDuration={100}>
+      <form onSubmit={handleSubmit} className={cn('space-y-4', className)}>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5 sm:col-span-2">
           <Label htmlFor="restaurant-name">
@@ -265,9 +266,12 @@ export function RestaurantDetailsForm({
         </div>
 
         <div className="space-y-1.5 sm:col-span-2">
-          <Label htmlFor="restaurant-slug">
-            Slug <span className="text-destructive">*</span>
-          </Label>
+          <div className="flex items-center gap-1">
+            <Label htmlFor="restaurant-slug" className="inline-flex items-center gap-1">
+              Slug <span className="text-destructive">*</span>
+            </Label>
+            <HelpTooltip description={FIELD_TOOLTIPS.slug} ariaLabel="What is a restaurant slug?" />
+          </div>
           <Input
             id="restaurant-slug"
             value={state.slug}
@@ -284,9 +288,12 @@ export function RestaurantDetailsForm({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="restaurant-timezone">
-            Timezone <span className="text-destructive">*</span>
-          </Label>
+          <div className="flex items-center gap-1">
+            <Label htmlFor="restaurant-timezone" className="inline-flex items-center gap-1">
+              Timezone <span className="text-destructive">*</span>
+            </Label>
+            <HelpTooltip description={FIELD_TOOLTIPS.timezone} ariaLabel="Why does timezone matter?" />
+          </div>
           <select
             id="restaurant-timezone"
             value={state.timezone}
@@ -312,28 +319,15 @@ export function RestaurantDetailsForm({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="restaurant-capacity">Capacity</Label>
-          <Input
-            id="restaurant-capacity"
-            type="number"
-            min="1"
-            value={state.capacity}
-            onChange={(event) => handleChange('capacity', event.target.value)}
-            aria-invalid={Boolean(errors.capacity)}
-            aria-describedby={errors.capacity ? 'restaurant-capacity-error' : undefined}
-            className={cn(errors.capacity && 'border-destructive focus-visible:ring-destructive/60')}
-          />
-          {errors.capacity && (
-            <p id="restaurant-capacity-error" className="text-xs text-destructive" role="alert">
-              {errors.capacity}
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-1.5">
-          <Label htmlFor="restaurant-interval">
-            Reservation Interval (minutes) <span className="text-destructive">*</span>
-          </Label>
+          <div className="flex items-center gap-1">
+            <Label htmlFor="restaurant-interval" className="inline-flex items-center gap-1">
+              Reservation Interval (minutes) <span className="text-destructive">*</span>
+            </Label>
+            <HelpTooltip
+              description={FIELD_TOOLTIPS.reservationInterval}
+              ariaLabel="Reservation interval details"
+            />
+          </div>
           <Input
             id="restaurant-interval"
             type="number"
@@ -364,9 +358,15 @@ export function RestaurantDetailsForm({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="restaurant-duration">
-            Default Reservation Duration (minutes) <span className="text-destructive">*</span>
-          </Label>
+          <div className="flex items-center gap-1">
+            <Label htmlFor="restaurant-duration" className="inline-flex items-center gap-1">
+              Default Reservation Duration (minutes) <span className="text-destructive">*</span>
+            </Label>
+            <HelpTooltip
+              description={FIELD_TOOLTIPS.reservationDuration}
+              ariaLabel="Reservation duration details"
+            />
+          </div>
           <Input
             id="restaurant-duration"
             type="number"
@@ -398,9 +398,15 @@ export function RestaurantDetailsForm({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="restaurant-last-seating">
-            Last Seating Buffer (minutes) <span className="text-destructive">*</span>
-          </Label>
+          <div className="flex items-center gap-1">
+            <Label htmlFor="restaurant-last-seating" className="inline-flex items-center gap-1">
+              Last Seating Buffer (minutes) <span className="text-destructive">*</span>
+            </Label>
+            <HelpTooltip
+              description={FIELD_TOOLTIPS.lastSeatingBuffer}
+              ariaLabel="Last seating buffer details"
+            />
+          </div>
           <Input
             id="restaurant-last-seating"
             type="number"
@@ -422,7 +428,7 @@ export function RestaurantDetailsForm({
             )}
           />
           <p id="restaurant-last-seating-help" className="text-xs text-muted-foreground">
-            Controls the latest start time relative to closing; must be at least as long as the default reservation duration.
+            Controls the latest start time relative to closing; choose a value between 15 and 300 minutes.
           </p>
           {errors.reservationLastSeatingBufferMinutes && (
             <p id="restaurant-last-seating-error" className="text-xs text-destructive" role="alert">
@@ -477,7 +483,10 @@ export function RestaurantDetailsForm({
         </div>
 
         <div className="space-y-1.5 sm:col-span-2">
-          <Label htmlFor="restaurant-policy">Booking Policy</Label>
+          <div className="flex items-center gap-1">
+            <Label htmlFor="restaurant-policy">Booking Policy</Label>
+            <HelpTooltip description={FIELD_TOOLTIPS.bookingPolicy} ariaLabel="Booking policy guidance" />
+          </div>
           <Textarea
             id="restaurant-policy"
             value={state.bookingPolicy}
@@ -499,6 +508,7 @@ export function RestaurantDetailsForm({
           {isSubmitting ? 'Saving…' : submitLabel}
         </Button>
       </div>
-    </form>
+      </form>
+    </TooltipProvider>
   );
 }

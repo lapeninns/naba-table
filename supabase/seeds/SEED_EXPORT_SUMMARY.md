@@ -1,0 +1,182 @@
+# Database Seed Export Summary
+
+**Date**: November 8, 2025, 09:39 UTC
+**Source**: Production Supabase (`mqtchcaavsucsdjskptc`)
+
+## ✅ Successfully Exported
+
+Your current production database seed data has been successfully dumped and is available in:
+
+```
+supabase/seeds/dumps/
+```
+
+## 📊 Data Inventory
+
+### 1. Restaurant (1 record)
+
+- **White Horse Pub** (Waterbeach)
+  - ID: `359d7726-f56f-4bcd-9be5-c3b240b8713f`
+  - Slug: `white-horse-pub-waterbeach`
+  - Max Party: 50 people
+  - Total Covers: 236
+  - Logo: ✅ Configured
+
+### 2. Zones (3 records)
+
+1. Main Bar (Indoor, Priority 1)
+2. Dining Room (Indoor, Priority 2)
+3. Garden (Outdoor, Priority 3)
+
+### 3. Bookings (5 records)
+
+All bookings are for user: **Aman Shrestha** (amanshresthaaaaa@gmail.com)
+
+| Booking ID | Date   | Time  | Party | Status    | Service | Zone        |
+| ---------- | ------ | ----- | ----- | --------- | ------- | ----------- |
+| 296816c3   | Nov 26 | 18:00 | 12    | Confirmed | Dinner  | Main Bar    |
+| 38ca2be3   | Nov 27 | 19:00 | 5     | Confirmed | Dinner  | Dining Room |
+| 35eef281   | Nov 27 | 17:00 | 12    | Confirmed | Dinner  | Dining Room |
+| 406666b5   | Nov 28 | 13:00 | 5     | Confirmed | Lunch   | Dining Room |
+| 50fb0cb3   | Nov 19 | 13:00 | 5     | Confirmed | Lunch   | Dining Room |
+
+### 4. Other Tables
+
+- ✅ **allowed_capacities**: Exported
+- ✅ **table_adjacencies**: Exported
+- ✅ **booking_table_assignments**: Exported
+
+### 5. Empty Tables (No Data)
+
+These tables exist but have no data:
+
+- ⚠️ **tables** - **CRITICAL**: No physical tables defined!
+- ⚠️ **service_periods** - **IMPORTANT**: No service periods defined!
+- **occasions** - Empty (optional)
+- **booking_status_changes** - Empty (history)
+- **team_memberships** - Empty
+- **team_invitations** - Empty
+
+## 🚨 Critical Issues
+
+### 1. Missing `tables` Data
+
+The `tables` table is **empty**, which means:
+
+- No physical tables are defined in the system
+- Table assignments may not work correctly
+- You should reseed tables data ASAP
+
+**Fix**:
+
+```bash
+source .env.local
+psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/seeds/white-horse-service-periods.sql
+```
+
+### 2. Missing `service_periods` Data
+
+No service periods are defined, which means:
+
+- The system doesn't know when to accept bookings
+- Operating hours are undefined
+- This should be reseeded
+
+**Fix**: Same command as above (the white-horse-service-periods.sql includes both)
+
+## 📦 Files Generated
+
+### Individual Table Dumps
+
+```
+supabase/seeds/dumps/
+├── restaurants-20251108-093935.sql
+├── zones-20251108-093935.sql
+├── allowed_capacities-20251108-093935.sql
+├── table_adjacencies-20251108-093935.sql
+├── bookings-20251108-093935.sql
+├── booking_table_assignments-20251108-093935.sql
+└── full-seed-20251108-093935.sql (combined)
+```
+
+## 🔄 How to Use These Dumps
+
+### Option 1: Restore Everything
+
+```bash
+source .env.local
+psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/seeds/dumps/full-seed-20251108-093935.sql
+```
+
+### Option 2: Restore Individual Tables
+
+```bash
+source .env.local
+
+# Restore restaurants only
+psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/seeds/dumps/restaurants-20251108-093935.sql
+
+# Restore zones only
+psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/seeds/dumps/zones-20251108-093935.sql
+
+# etc...
+```
+
+### Option 3: Copy to Another Environment
+
+```bash
+# Export from production (already done)
+./scripts/dump-seed-data.sh
+
+# Import to staging/local
+SUPABASE_DB_URL="your-staging-url" psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/seeds/dumps/full-seed-20251108-093935.sql
+```
+
+## 🛠️ Recommended Next Steps
+
+1. **Fix Missing Tables**: Run the white-horse-service-periods seed
+
+   ```bash
+   source .env.local
+   psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/seeds/white-horse-service-periods.sql
+   ```
+
+2. **Re-run the Dump**: After fixing tables/service_periods, re-run the dump to get a complete snapshot
+
+   ```bash
+   ./scripts/dump-seed-data.sh
+   ```
+
+3. **Backup Regularly**: Consider scheduling regular dumps, especially before deployments
+
+4. **Version Control**: These dumps can be committed to git for tracking seed data evolution
+
+## 📝 Script Used
+
+The dump was created using:
+
+```bash
+./scripts/dump-seed-data.sh
+```
+
+This script:
+
+- Uses `pg_dump` with `--inserts` for readable SQL
+- Exports one file per table
+- Creates a combined file for easy restoration
+- Respects foreign key constraints
+- Includes TRUNCATE statements for clean restoration
+
+## ⚠️ Important Warnings
+
+1. **DESTRUCTIVE**: The combined seed file will `TRUNCATE` all tables before inserting
+2. **BACKUP FIRST**: Always backup before running any restoration
+3. **TEST ON STAGING**: Test restoration on non-production environments first
+4. **CONNECTION REQUIRED**: Requires network access to Supabase pooler
+5. **PERMISSIONS**: Requires service role or appropriate database permissions
+
+---
+
+**Generated by**: dump-seed-data.sh
+**Database**: Production Supabase
+**Timestamp**: 2025-11-08 09:39:35 UTC

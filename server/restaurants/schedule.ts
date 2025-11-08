@@ -9,7 +9,8 @@ import type { Database } from '@/types/supabase';
 import type { ReservationTime } from '@reserve/shared/time';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-type DbClient = SupabaseClient<Database, 'public', any>;
+type PublicSchema = Database['public'];
+type DbClient = SupabaseClient<Database, 'public', PublicSchema>;
 type ServiceState = 'enabled' | 'disabled';
 type CoverageRange = { start: number; end: number };
 type OptionCoverage = Map<OccasionKey, CoverageRange[]>;
@@ -230,17 +231,76 @@ function computeSlots(
     return [];
   }
 
-  const daySpecific = periods.filter((period) => period.day_of_week === dayOfWeek);
-  const allDays = periods.filter((period) => period.day_of_week === null);
+  const optionPriority = new Map<OccasionKey, number>();
+  orderedKeys.forEach((key, index) => optionPriority.set(key, index));
+  // Drinks spans broad windows, so treat it as a fallback if a meal-specific period overlaps.
+  const fallbackOptions = new Set<OccasionKey>(['drinks']);
+
+  type PeriodDetail = {
+    period: RawServicePeriod;
+    option: OccasionKey;
+    isDaySpecific: boolean;
+    startMinutes: number;
+    endMinutes: number;
+    durationMinutes: number;
+    fallbackBias: number;
+    optionOrder: number;
+  };
+
+  const periodDetails = periods.reduce<PeriodDetail[]>((acc, period) => {
+    const start = normalizeMaybeTime(period.start_time);
+    const end = normalizeMaybeTime(period.end_time);
+    if (!start || !end) {
+      return acc;
+    }
+    const startMinutes = toMinutes(start);
+    const endMinutes = toMinutes(end);
+    if (endMinutes <= startMinutes) {
+      return acc;
+    }
+    const option = pickBookingOption(period);
+    acc.push({
+      period,
+      option,
+      isDaySpecific: period.day_of_week === dayOfWeek,
+      startMinutes,
+      endMinutes,
+      durationMinutes: endMinutes - startMinutes,
+      fallbackBias: fallbackOptions.has(option) ? 1 : 0,
+      optionOrder: optionPriority.get(option) ?? optionPriority.size,
+    });
+    return acc;
+  }, []);
 
   const findPeriodForTime = (value: ReservationTime) => {
-    const inRange = (period: RawServicePeriod) =>
-      value >= (normalizeMaybeTime(period.start_time) ?? value) &&
-      value < (normalizeMaybeTime(period.end_time) ?? value);
+    const slotMinutes = toMinutes(value);
+    const matches = periodDetails.filter(
+      (entry) => slotMinutes >= entry.startMinutes && slotMinutes < entry.endMinutes,
+    );
+    if (matches.length === 0) {
+      return null;
+    }
 
-    const specific = daySpecific.find(inRange);
-    if (specific) return specific;
-    return allDays.find(inRange);
+    matches.sort((a, b) => {
+      if (a.isDaySpecific !== b.isDaySpecific) {
+        return a.isDaySpecific ? -1 : 1;
+      }
+      if (a.durationMinutes !== b.durationMinutes) {
+        return a.durationMinutes - b.durationMinutes;
+      }
+      if (a.fallbackBias !== b.fallbackBias) {
+        return a.fallbackBias - b.fallbackBias;
+      }
+      if (a.optionOrder !== b.optionOrder) {
+        return a.optionOrder - b.optionOrder;
+      }
+      if (a.startMinutes !== b.startMinutes) {
+        return a.startMinutes - b.startMinutes;
+      }
+      return (a.period.name ?? '').localeCompare(b.period.name ?? '');
+    });
+
+    return matches[0]?.period ?? null;
   };
 
   const baseSlots = slotsForRange(opensAt, closesAt, intervalMinutes);

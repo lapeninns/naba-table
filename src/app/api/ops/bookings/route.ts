@@ -161,6 +161,7 @@ const opsBookingsQuerySchema = z.object({
   from: z.string().datetime({ offset: true }).optional(),
   to: z.string().datetime({ offset: true }).optional(),
   sort: z.enum(["asc", "desc"]).default("asc"),
+  sortBy: z.enum(["start_at", "created_at"]).default("start_at"),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(50).default(10),
   query: z
@@ -173,7 +174,7 @@ const opsBookingsQuerySchema = z.object({
 
 type OpsBookingRow = Pick<
   Tables<"bookings">,
-  "id" | "start_at" | "end_at" | "booking_date" | "start_time" | "end_time" | "party_size" | "status" | "notes" | "restaurant_id" | "customer_name" | "customer_email" | "customer_phone"
+  "id" | "start_at" | "end_at" | "booking_date" | "start_time" | "end_time" | "party_size" | "status" | "notes" | "restaurant_id" | "customer_name" | "customer_email" | "customer_phone" | "created_at"
 > & {
   restaurants?: { name: string | null; reservation_interval_minutes?: number | null } | { name: string | null; reservation_interval_minutes?: number | null }[] | null;
 };
@@ -354,7 +355,7 @@ export async function GET(req: NextRequest) {
   let query = serviceSupabase
     .from("bookings")
     .select(
-      "id, start_at, end_at, booking_date, start_time, end_time, party_size, status, notes, restaurant_id, customer_name, customer_email, customer_phone, restaurants(name, reservation_interval_minutes)",
+      "id, start_at, end_at, booking_date, start_time, end_time, party_size, status, notes, restaurant_id, customer_name, customer_email, customer_phone, created_at, restaurants(name, reservation_interval_minutes)",
       { count: "exact" },
     )
     .eq("restaurant_id", targetRestaurantId);
@@ -373,7 +374,8 @@ export async function GET(req: NextRequest) {
     query = query.lt("start_at", params.to);
   }
 
-  query = query.order("start_at", { ascending: params.sort === "asc" });
+  const orderColumn = params.sortBy === "created_at" ? "created_at" : "start_at";
+  query = query.order(orderColumn, { ascending: params.sort === "asc" });
 
   if (params.query) {
     const escaped = sanitizeSearchTerm(params.query);
@@ -799,7 +801,7 @@ export async function POST(req: NextRequest) {
 }
 
 async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
-  const { req, payload, user, service, normalizedIdempotencyKey, clientRequestId, userAgent, clientIp } = params;
+  const { payload, user, service, normalizedIdempotencyKey, clientRequestId, userAgent, clientIp } = params;
 
   const schedule = await getRestaurantSchedule(payload.restaurantId, {
     date: payload.date,

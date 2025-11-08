@@ -1,12 +1,15 @@
+import { ensureLogoColumnOnRow, isLogoUrlColumnMissing, logLogoColumnFallback } from '@/server/restaurants/logo-url-compat';
+import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
 import { assertValidTimezone } from '@/server/restaurants/timezone';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-
-
-type DbClient = SupabaseClient<Database, 'public', any>;
+type RestaurantRow = Database['public']['Tables']['restaurants']['Row'];
+type RestaurantUpdate = Database['public']['Tables']['restaurants']['Update'];
+type PublicSchema = Database['public'];
+type DbClient = SupabaseClient<Database, 'public', PublicSchema>;
 
 export type UpdateRestaurantInput = {
   name?: string;
@@ -17,6 +20,7 @@ export type UpdateRestaurantInput = {
   contactPhone?: string | null;
   address?: string | null;
   bookingPolicy?: string | null;
+  logoUrl?: string | null;
   reservationIntervalMinutes?: number;
   reservationDefaultDurationMinutes?: number;
   reservationLastSeatingBufferMinutes?: number;
@@ -32,6 +36,7 @@ export type UpdatedRestaurant = {
   contactPhone: string | null;
   address: string | null;
   bookingPolicy: string | null;
+  logoUrl: string | null;
   reservationIntervalMinutes: number;
   reservationDefaultDurationMinutes: number;
   reservationLastSeatingBufferMinutes: number;
@@ -48,7 +53,7 @@ export async function updateRestaurant(
     throw new Error('No fields to update');
   }
 
-  const updateData: Record<string, any> = {};
+  const updateData: RestaurantUpdate = {};
 
   if (input.name !== undefined) {
     updateData.name = input.name;
@@ -97,6 +102,11 @@ export async function updateRestaurant(
     updateData.booking_policy = input.bookingPolicy;
   }
 
+  if (input.logoUrl !== undefined) {
+    const trimmed = input.logoUrl?.trim();
+    updateData.logo_url = trimmed && trimmed.length > 0 ? trimmed : null;
+  }
+
   if (input.reservationIntervalMinutes !== undefined) {
     const value = input.reservationIntervalMinutes;
     if (!Number.isInteger(value) || value < 1 || value > 180) {
@@ -121,14 +131,23 @@ export async function updateRestaurant(
     updateData.reservation_last_seating_buffer_minutes = value;
   }
 
-  const { data, error } = await client
-    .from('restaurants')
-    .update(updateData)
-    .eq('id', restaurantId)
-    .select(
-      'id, name, slug, timezone, capacity, contact_email, contact_phone, address, booking_policy, reservation_interval_minutes, reservation_default_duration_minutes, reservation_last_seating_buffer_minutes, created_at, updated_at',
-    )
-    .single();
+  const runUpdate = (includeLogo: boolean, payload: RestaurantUpdate) =>
+    client
+      .from('restaurants')
+      .update(payload)
+      .eq('id', restaurantId)
+      .select(restaurantSelectColumns(includeLogo))
+      .single<RestaurantRow>();
+
+  let { data, error } = await runUpdate(true, updateData);
+
+  if (error && isLogoUrlColumnMissing(error)) {
+    logLogoColumnFallback('updateRestaurant');
+    const fallbackPayload: RestaurantUpdate = { ...updateData };
+    delete fallbackPayload.logo_url;
+    ({ data, error } = await runUpdate(false, fallbackPayload));
+    data = ensureLogoColumnOnRow(data);
+  }
 
   if (error) {
     console.error('[updateRestaurant] Update failed', error);
@@ -149,6 +168,7 @@ export async function updateRestaurant(
     contactPhone: data.contact_phone,
     address: data.address,
     bookingPolicy: data.booking_policy,
+    logoUrl: data.logo_url,
     reservationIntervalMinutes: data.reservation_interval_minutes,
     reservationDefaultDurationMinutes: data.reservation_default_duration_minutes,
     reservationLastSeatingBufferMinutes: data.reservation_last_seating_buffer_minutes,

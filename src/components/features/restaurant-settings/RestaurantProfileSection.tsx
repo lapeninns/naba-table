@@ -8,24 +8,26 @@ import {
   type RestaurantDetailsFormValues,
   COMMON_TIMEZONES,
 } from '@/components/ops/restaurants/RestaurantDetailsForm';
+import type { UpdateRestaurantInput } from '@/app/api/ops/restaurants/schema';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOpsRestaurantDetails, useOpsUpdateRestaurantDetails } from '@/hooks';
 
+import { RestaurantLogoUploader } from './RestaurantLogoUploader';
+
 const EMPTY_VALUES: RestaurantDetailsFormValues = {
   name: '',
   slug: '',
   timezone: COMMON_TIMEZONES[0],
-  capacity: null,
   contactEmail: null,
   contactPhone: null,
   address: null,
   bookingPolicy: null,
   reservationIntervalMinutes: 15,
   reservationDefaultDurationMinutes: 90,
-  reservationLastSeatingBufferMinutes: 120,
+  reservationLastSeatingBufferMinutes: 15,
 };
 
 type RestaurantProfileSectionProps = {
@@ -45,7 +47,6 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
       name: data.name,
       slug: data.slug ?? '',
       timezone: data.timezone ?? COMMON_TIMEZONES[0],
-      capacity: data.capacity,
       contactEmail: data.contactEmail,
       contactPhone: data.contactPhone,
       address: data.address,
@@ -56,13 +57,14 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
     };
   }, [data]);
 
-  const handleSubmit = async (values: RestaurantDetailsFormValues) => {
+  const derivedRestaurantName = data?.name ?? initialValues.name ?? 'Restaurant';
+
+  const handleSubmit = async (values: UpdateRestaurantInput) => {
     try {
       await updateMutation.mutateAsync({
         name: values.name,
         slug: values.slug,
         timezone: values.timezone,
-        capacity: values.capacity,
         contactEmail: values.contactEmail ?? null,
         contactPhone: values.contactPhone ?? null,
         address: values.address ?? null,
@@ -137,7 +139,14 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
         <CardTitle>Restaurant Profile</CardTitle>
         <CardDescription>Update core restaurant details and contact information.</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-6">
+        <RestaurantLogoUploader
+          restaurantId={restaurantId}
+          restaurantName={derivedRestaurantName}
+          logoUrl={data?.logoUrl ?? null}
+          updateMutation={updateMutation}
+          isLoading={isLoading && !data}
+        />
         <RestaurantDetailsForm
           initialValues={initialValues}
           onSubmit={handleSubmit}

@@ -41,6 +41,7 @@ type RestaurantResponse = {
     contactPhone: string | null;
     address: string | null;
   bookingPolicy: string | null;
+  logoUrl: string | null;
   reservationIntervalMinutes: number | null;
   reservationDefaultDurationMinutes: number | null;
   reservationLastSeatingBufferMinutes: number | null;
@@ -65,6 +66,7 @@ export type RestaurantProfile = {
   contactPhone: string | null;
   address: string | null;
   bookingPolicy: string | null;
+  logoUrl: string | null;
   reservationIntervalMinutes: number;
   reservationDefaultDurationMinutes: number;
   reservationLastSeatingBufferMinutes: number;
@@ -171,9 +173,10 @@ function mapRestaurant(dto: RestaurantResponse['restaurant']): RestaurantProfile
     contactPhone: dto.contactPhone ?? null,
     address: dto.address ?? null,
     bookingPolicy: dto.bookingPolicy ?? null,
+    logoUrl: dto.logoUrl ?? null,
     reservationIntervalMinutes: dto.reservationIntervalMinutes ?? 15,
     reservationDefaultDurationMinutes: dto.reservationDefaultDurationMinutes ?? 90,
-    reservationLastSeatingBufferMinutes: dto.reservationLastSeatingBufferMinutes ?? 120,
+    reservationLastSeatingBufferMinutes: dto.reservationLastSeatingBufferMinutes ?? 15,
   };
 }
 

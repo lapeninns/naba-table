@@ -382,6 +382,7 @@ function buildSearch(filters: OpsBookingsFilters): string {
   if (filters.status && filters.status !== 'all') params.set('status', filters.status);
   if (filters.statuses && filters.statuses.length > 0) params.set('statuses', filters.statuses.join(','));
   if (filters.sort) params.set('sort', filters.sort);
+  if (filters.sortBy) params.set('sortBy', filters.sortBy);
   const fromIso = toIsoParam(filters.from ?? undefined);
   if (fromIso) params.set('from', fromIso);
   const toIso = toIsoParam(filters.to ?? undefined);
