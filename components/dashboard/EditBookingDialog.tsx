@@ -31,6 +31,7 @@ import type { HttpError } from '@/lib/http/errors';
 const errorCopy: Record<string, string> = {
   OVERLAP_DETECTED: 'That time overlaps an existing booking. Please choose another slot.',
   CUTOFF_PASSED: 'This booking can no longer be changed online. Please contact the venue.',
+  PENDING_LOCKED: 'This booking is still pending review. Please contact the venue to adjust it.',
   CLOSED_DATE: 'The restaurant is closed on the selected date. Please choose another day.',
   BOOKING_NOT_FOUND: 'We couldn’t find that booking.',
   BOOKING_LOOKUP_FAILED: 'We couldn’t load this booking. Please refresh and try again.',

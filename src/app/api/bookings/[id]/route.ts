@@ -87,6 +87,41 @@ function mapOperatingHoursReason(reason: OperatingHoursErrorReason): string {
   return OPERATING_HOURS_REASON_TO_CODE[reason] ?? "OUTSIDE_HOURS";
 }
 
+const pendingSelfServeGraceMinutes = env.featureFlags.pendingSelfServeGraceMinutes ?? 10;
+const pendingSelfServeGraceWindowMs = Math.max(0, pendingSelfServeGraceMinutes) * 60_000;
+
+function isPendingBookingLocked(booking: Pick<Tables<"bookings">, "status" | "created_at"> | null | undefined): boolean {
+  if (!booking || booking.status !== "pending") {
+    return false;
+  }
+
+  if (pendingSelfServeGraceWindowMs <= 0) {
+    return true;
+  }
+
+  const createdAt = booking.created_at;
+  if (!createdAt) {
+    return true;
+  }
+
+  const createdAtMs = Date.parse(createdAt);
+  if (!Number.isFinite(createdAtMs)) {
+    return true;
+  }
+
+  return Date.now() - createdAtMs >= pendingSelfServeGraceWindowMs;
+}
+
+function respondWithPendingLock() {
+  return NextResponse.json(
+    {
+      error: "This reservation is still pending review and can't be changed yet.",
+      code: "PENDING_LOCKED",
+    },
+    { status: 403 },
+  );
+}
+
 
 
 type RouteParams = {
@@ -156,6 +191,10 @@ async function handleDashboardUpdate(params: {
   serviceSupabase: ReturnType<typeof getServiceSupabaseClient>;
 }) {
   const { bookingId, data, existingBooking, actor, serviceSupabase } = params;
+
+  if (isPendingBookingLocked(existingBooking)) {
+    return respondWithPendingLock();
+  }
 
   try {
     const startInstant = new Date(data.startIso);
@@ -693,6 +732,10 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Booking not found", code: "BOOKING_NOT_FOUND" }, { status: 404 });
     }
 
+    if (isPendingBookingLocked(existingBooking)) {
+      return respondWithPendingLock();
+    }
+
     const {
       data: { user },
       error: authError,
@@ -873,6 +916,10 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     // Verify the booking belongs to the authenticated user
     if (existingBooking.customer_email !== normalizedEmail) {
       return NextResponse.json({ error: "You can only cancel your own reservation", code: "FORBIDDEN" }, { status: 403 });
+    }
+
+    if (isPendingBookingLocked(existingBooking)) {
+      return respondWithPendingLock();
     }
 
     const cancelledRecord = await softCancelBooking(serviceSupabase, bookingId);

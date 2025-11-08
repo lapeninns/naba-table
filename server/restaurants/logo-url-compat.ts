@@ -19,7 +19,7 @@ export function ensureLogoColumnOnRow<T extends LogoCompatibleRecord | null | un
   }
 
   if (!(LOGO_COLUMN_NAME in row)) {
-    return { ...(row as LogoCompatibleRecord), [LOGO_COLUMN_NAME]: null } as T;
+    return { ...(row as LogoCompatibleRecord), [LOGO_COLUMN_NAME]: null } as unknown as T;
   }
 
   return row;

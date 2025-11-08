@@ -19,6 +19,7 @@ const baseEnvSchema = z
     NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG: z.string().optional(),
     NEXT_PUBLIC_RESERVE_V2: booleanStringOptional,
     NEXT_PUBLIC_ENABLE_TEST_UI: booleanStringOptional,
+    NEXT_PUBLIC_BOOKING_PENDING_GRACE_MINUTES: z.coerce.number().int().min(0).max(120).optional(),
     NEXT_PUBLIC_APP_VERSION: z.string().optional(),
     NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA: z.string().optional(),
     RESERVE_API_BASE_URL: z.string().min(1).optional(),

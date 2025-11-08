@@ -779,7 +779,9 @@ async function legacyTableAvailabilityCheck(params: {
   const { data, error } = await supabase
     .from("booking_table_assignments")
     .select("table_id, start_at, end_at, bookings(id, status, start_at, end_at)")
-    .eq("table_id", tableId);
+    .eq("table_id", tableId)
+    .lt("start_at", endAt)
+    .gt("end_at", startAt);
 
   if (error || !data) {
     throw new AssignTablesRpcError({

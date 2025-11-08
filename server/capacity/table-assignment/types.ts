@@ -1,7 +1,8 @@
-import type { TableHold, HoldConflictInfo } from "@/server/capacity/holds";
+import { AssignTablesRpcError, type TableHold, type HoldConflictInfo } from "@/server/capacity/holds";
+
 import type { ServiceKey } from "@/server/capacity/policy";
 import type { CandidateSummary } from "@/server/capacity/telemetry";
-import type { Tables, Database } from "@/types/supabase";
+import type { Tables, Database, Json } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DateTime } from "luxon";
 
@@ -32,11 +33,53 @@ export type TableMatchParams = {
 
 export type TableAssignmentMember = {
   tableId: string;
+  /** Empty string indicates caller should re-read assignments later (replication lag). */
   assignmentId: string;
   startAt: string;
   endAt: string;
   mergeGroupId?: string | null;
 };
+
+export type PolicyDriftKind = "policy" | "adjacency";
+
+export type PolicyDriftDetails = {
+  expectedHash?: string;
+  actualHash?: string;
+  adjacency?: {
+    expectedEdges?: string[];
+    actualEdges?: string[];
+    expectedHash?: string | null;
+    actualHash?: string | null;
+  };
+  zones?: {
+    expected?: Json;
+    actual?: Json;
+  };
+  raw?: Json;
+};
+
+export class PolicyDriftError extends AssignTablesRpcError {
+  public readonly kind: PolicyDriftKind;
+  public readonly driftDetails: PolicyDriftDetails;
+
+  constructor(params: {
+    message: string;
+    kind: PolicyDriftKind;
+    details: PolicyDriftDetails;
+    hint?: string | null;
+  }) {
+    const serializedDetails = params.details ? JSON.stringify(params.details) : null;
+    super({
+      message: params.message,
+      code: "POLICY_CHANGED",
+      details: serializedDetails,
+      hint: params.hint ?? "Refresh and revalidate selection before confirming.",
+    });
+    this.kind = params.kind;
+    this.driftDetails = params.details;
+    this.name = "PolicyDriftError";
+  }
+}
 
 export type TableAssignmentGroup = {
   bookingId: string;

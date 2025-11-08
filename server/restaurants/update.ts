@@ -9,7 +9,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 type RestaurantRow = Database['public']['Tables']['restaurants']['Row'];
 type RestaurantUpdate = Database['public']['Tables']['restaurants']['Update'];
 type PublicSchema = Database['public'];
-type DbClient = SupabaseClient<Database, 'public', PublicSchema>;
+type DbClient = SupabaseClient<Database, 'public', 'public', PublicSchema>;
 
 export type UpdateRestaurantInput = {
   name?: string;

@@ -1,9 +1,10 @@
 import { fetchJson } from '@/lib/http/fetchJson';
 
-import type { OpsServiceError } from '@/types/ops';
+import type { OpsServiceError, TableTimelineResponse } from '@/types/ops';
 import type { Tables } from '@/types/supabase';
 
 const OPS_TABLES_BASE = '/api/ops/tables';
+const OPS_TABLE_TIMELINE_BASE = '/api/ops/tables/timeline';
 
 type TableInventoryRow = Tables<'table_inventory'>;
 
@@ -97,11 +98,18 @@ export type ListTablesResult = {
   summary: TableInventorySummary | null;
 };
 
+export type TableTimelineParams = {
+  date?: string | null;
+  zoneId?: string | null;
+  service?: 'lunch' | 'dinner' | 'all';
+};
+
 export interface TableInventoryService {
   list(restaurantId: string, params?: ListTablesParams): Promise<ListTablesResult>;
   create(restaurantId: string, payload: CreateTablePayload): Promise<TableInventory>;
   update(tableId: string, payload: UpdateTablePayload): Promise<TableInventory>;
   remove(tableId: string): Promise<void>;
+  timeline(restaurantId: string, params?: TableTimelineParams): Promise<TableTimelineResponse>;
 }
 
 export type TableInventoryServiceFactory = () => TableInventoryService;
@@ -125,6 +133,10 @@ export class NotImplementedTableInventoryService implements TableInventoryServic
 
   remove(): Promise<void> {
     this.error('remove not implemented');
+  }
+
+  timeline(): Promise<TableTimelineResponse> {
+    this.error('timeline not implemented');
   }
 }
 
@@ -270,6 +282,21 @@ export function createBrowserTableInventoryService(): TableInventoryService {
       await fetchJson<{ success: boolean }>(`${OPS_TABLES_BASE}/${tableId}`, {
         method: 'DELETE',
       });
+    },
+
+    async timeline(restaurantId, params = {}) {
+      const searchParams = new URLSearchParams({ restaurantId });
+      if (params.date) {
+        searchParams.set('date', params.date);
+      }
+      if (params.zoneId) {
+        searchParams.set('zoneId', params.zoneId);
+      }
+      if (params.service && params.service !== 'all') {
+        searchParams.set('service', params.service);
+      }
+
+      return fetchJson<TableTimelineResponse>(`${OPS_TABLE_TIMELINE_BASE}?${searchParams.toString()}`);
     },
 
   };

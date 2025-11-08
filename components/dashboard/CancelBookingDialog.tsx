@@ -26,6 +26,7 @@ function formatDateTime(iso: string) {
 
 const errorCopy: Record<string, string> = {
   CUTOFF_PASSED: 'This booking can no longer be cancelled online. Please contact the venue.',
+  PENDING_LOCKED: 'This booking is still pending review. Please contact the venue to cancel.',
   BOOKING_NOT_FOUND: 'We couldn’t find that booking.',
   FORBIDDEN: 'You don’t have permission to cancel this booking.',
   UNKNOWN: 'Something went wrong on our side. Please try again.',

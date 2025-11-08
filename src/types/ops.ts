@@ -198,6 +198,103 @@ export type OpsRejectionBucket = 'day' | 'hour';
 
 export type OpsStrategicPenaltyKey = 'slack' | 'scarcity' | 'future_conflict' | 'structural' | 'unknown';
 
+export type TableTimelineServiceKey = 'lunch' | 'dinner' | 'drinks' | 'other';
+
+export type TableTimelineSlot = {
+  start: string;
+  end: string;
+  label: string;
+  serviceKey: TableTimelineServiceKey;
+  disabled: boolean;
+};
+
+export type TableTimelineService = {
+  key: TableTimelineServiceKey;
+  label: string;
+  start: string;
+  end: string;
+  slotCount: number;
+};
+
+export type TableTimelineBookingRef = {
+  id: string;
+  customerName: string | null;
+  partySize: number;
+  status: OpsBookingStatus;
+  startAt: string;
+  endAt: string;
+};
+
+export type TableTimelineHoldRef = {
+  id: string;
+  bookingId: string | null;
+  startAt: string;
+  endAt: string;
+};
+
+export type TableTimelineSegmentState = 'available' | 'reserved' | 'hold' | 'out_of_service';
+
+export type TableTimelineSegment = {
+  start: string;
+  end: string;
+  state: TableTimelineSegmentState;
+  serviceKey: TableTimelineServiceKey;
+  booking?: TableTimelineBookingRef | null;
+  hold?: TableTimelineHoldRef | null;
+};
+
+export type TableTimelineRow = {
+  table: {
+    id: string;
+    tableNumber: string;
+    capacity: number;
+    zoneId: string | null;
+    zoneName: string | null;
+    status: 'available' | 'reserved' | 'occupied' | 'out_of_service';
+    active: boolean;
+  };
+  stats: {
+    occupancyMinutes: number;
+    totalMinutes: number;
+    occupancyPercentage: number;
+    nextStateAt: string | null;
+  };
+  segments: TableTimelineSegment[];
+};
+
+export type TableTimelineResponse = {
+  date: string;
+  timezone: string;
+  window: {
+    start: string;
+    end: string;
+    isClosed: boolean;
+  };
+  slots: TableTimelineSlot[];
+  services: TableTimelineService[];
+  summary: {
+    totalTables: number;
+    totalCapacity: number;
+    availableTables: number;
+    zones: { id: string; name: string }[];
+    serviceCapacities: Array<{
+      key: 'lunch' | 'dinner';
+      label: string;
+      capacity: number;
+      tablesConsidered: number;
+      turnsPerTable: number;
+      seatsPerTurn: number;
+      assumptions: {
+        windowMinutes: number;
+        turnMinutes: number;
+        bufferMinutes: number;
+        intervalMinutes: number | null;
+      };
+    }>;
+  } | null;
+  tables: TableTimelineRow[];
+};
+
 export type OpsRejectionSeriesPoint = {
   bucket: string;
   hard: number;

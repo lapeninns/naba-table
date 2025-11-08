@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import { AssignTablesRpcError, HoldNotFoundError } from "@/server/capacity/holds";
 import { getVenuePolicy } from "@/server/capacity/policy";
 import { emitRpcConflict } from "@/server/capacity/telemetry";
@@ -36,12 +34,20 @@ import {
   hashPolicyVersion,
   normalizeTableIds,
 } from "../v2";
-import { ManualSelectionInputError, type TableAssignmentMember } from "./types";
+import {
+  ManualSelectionInputError,
+  PolicyDriftError,
+  type PolicyDriftDetails,
+  type PolicyDriftKind,
+  type TableAssignmentMember,
+} from "./types";
 import { serializeDetails, toIsoUtc, normalizeIsoString } from "./utils";
 
 import type { Tables, Json } from "@/types/supabase";
 
 let confirmHoldAssignmentRpcAvailable: boolean | undefined;
+const ASSIGNMENT_REFRESH_ATTEMPTS = 2;
+const ASSIGNMENT_REFRESH_DELAY_MS = 15;
 
 type ConfirmHoldTransition = {
   targetStatus: Tables<"bookings">["status"];
@@ -86,11 +92,17 @@ type AssignmentSyncParams = {
 
 function isSchemaCacheMissError(error: AssignTablesRpcError): boolean {
   const code = (error.code ?? "").toUpperCase();
-  if (code === "PGRST202" || code === "PGRST204") {
+  if (["PGRST202", "PGRST204", "42883", "42P01"].includes(code)) {
     return true;
   }
-  const message = (error.message ?? "").toLowerCase();
-  return message.includes("schema cache");
+  const text = `${error.message ?? ""} ${typeof error.details === "string" ? error.details : ""}`.toLowerCase();
+  if (text.includes("schema cache")) {
+    return true;
+  }
+  if (text.includes("does not exist") && (text.includes("function") || text.includes("relation"))) {
+    return true;
+  }
+  return false;
 }
 
 type LegacyConfirmContext = {
@@ -107,10 +119,14 @@ type LegacyConfirmContext = {
   transition?: ConfirmHoldTransition;
 };
 
+const sleep = (ms: number): Promise<void> =>
+  ms > 0 ? new Promise((resolve) => setTimeout(resolve, ms)) : Promise.resolve();
+
 async function synchronizeAssignments(params: AssignmentSyncParams): Promise<TableAssignmentMember[]> {
   const { supabase, booking, tableIds, idempotencyKey, assignments, startIso, endIso, actorId, mergeGroupId, holdContext } = params;
   const uniqueTableIds = Array.from(new Set(tableIds));
-  const assignmentRows = await loadTableAssignmentsForTables(booking.id, uniqueTableIds, supabase);
+  const loadAssignments = () => loadTableAssignmentsForTables(booking.id, uniqueTableIds, supabase);
+  let assignmentRows = await loadAssignments();
   const windowRange = `[${startIso},${endIso})`;
 
   const needsUpdate = assignments.some((assignment) => {
@@ -170,14 +186,33 @@ async function synchronizeAssignments(params: AssignmentSyncParams): Promise<Tab
     assignmentLookup.set(assignment.tableId, assignment);
   }
 
-  const tableRowLookup = new Map(assignmentRows.map((row) => [row.table_id, row]));
+  let tableRowLookup = new Map(assignmentRows.map((row) => [row.table_id, row]));
+  const missingTableIds = new Set(uniqueTableIds.filter((tableId) => !tableRowLookup.has(tableId)));
+
+  for (let attempt = 0; attempt < ASSIGNMENT_REFRESH_ATTEMPTS && missingTableIds.size > 0; attempt += 1) {
+    await sleep(ASSIGNMENT_REFRESH_DELAY_MS);
+    assignmentRows = await loadAssignments();
+    tableRowLookup = new Map(assignmentRows.map((row) => [row.table_id, row]));
+    for (const tableId of Array.from(missingTableIds)) {
+      if (tableRowLookup.has(tableId)) {
+        missingTableIds.delete(tableId);
+      }
+    }
+  }
+
+  if (missingTableIds.size > 0) {
+    console.warn("[capacity.assignments] assignment rows missing after refresh", {
+      bookingId: booking.id,
+      missingTableIds: Array.from(missingTableIds),
+    });
+  }
 
   const result: TableAssignmentMember[] = uniqueTableIds.map((tableId) => {
     const row = tableRowLookup.get(tableId);
     const assignment = assignmentLookup.get(tableId);
     return {
       tableId,
-      assignmentId: row?.id ?? randomUUID(),
+      assignmentId: row?.id ?? "",
       startAt: startIso,
       endAt: endIso,
       mergeGroupId: assignment?.mergeGroupId ?? mergeGroupId ?? null,
@@ -516,6 +551,30 @@ export async function confirmHoldAssignment(options: ConfirmHoldAssignmentOption
   }
 
   const booking = await loadBooking(bookingId, supabase);
+  if (typedHoldRow.restaurant_id && typedHoldRow.restaurant_id !== booking.restaurant_id) {
+    await recordObservabilityEvent({
+      source: "capacity.confirm",
+      eventType: "holds.restaurant.mismatch",
+      severity: "error",
+      restaurantId: booking.restaurant_id ?? undefined,
+      bookingId,
+      context: {
+        holdId,
+        holdRestaurantId: typedHoldRow.restaurant_id,
+        bookingRestaurantId: booking.restaurant_id,
+      },
+    }).catch(() => {});
+
+    throw new AssignTablesRpcError({
+      message: "Hold belongs to a different restaurant",
+      code: "HOLD_RESTAURANT_MISMATCH",
+      details: serializeDetails({
+        bookingRestaurantId: booking.restaurant_id,
+        holdRestaurantId: typedHoldRow.restaurant_id,
+      }),
+      hint: "Regenerate the hold under the correct tenant before confirming.",
+    });
+  }
   const restaurantTimezone =
     (booking.restaurants && !Array.isArray(booking.restaurants) ? booking.restaurants.timezone : null) ??
     (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
@@ -524,11 +583,17 @@ export async function confirmHoldAssignment(options: ConfirmHoldAssignmentOption
   const policyVersion = hashPolicyVersion(policy);
   const holdPolicyVersion = typeof holdMetadata?.policyVersion === "string" ? holdMetadata.policyVersion : null;
   if (holdPolicyVersion && holdPolicyVersion !== policyVersion) {
-    throw new AssignTablesRpcError({
+    throw new PolicyDriftError({
       message: "Policy has changed since hold was created",
-      code: "POLICY_CHANGED",
-      details: serializeDetails({ expected: holdPolicyVersion, actual: policyVersion }),
-      hint: "Refresh and revalidate selection before confirming.",
+      kind: "policy",
+      details: {
+        expectedHash: holdPolicyVersion,
+        actualHash: policyVersion,
+        raw: {
+          expected: holdPolicyVersion,
+          actual: policyVersion,
+        },
+      },
     });
   }
   const { window } = computeBookingWindowWithFallback({
@@ -571,22 +636,33 @@ export async function confirmHoldAssignment(options: ConfirmHoldAssignmentOption
       JSON.stringify(nowEdges) === JSON.stringify([...(selectionSnapshot.adjacency?.edges ?? [])].sort());
 
     if (!zonesMatch || !edgesMatch) {
-      throw new AssignTablesRpcError({
+      throw new PolicyDriftError({
         message: !zonesMatch
           ? "Zone assignment changed since hold was created"
           : "Adjacency definition changed since hold was created",
-        code: "POLICY_CHANGED",
-        details: serializeDetails({
-          zones: { expected: selectionSnapshot.zoneIds ?? [], actual: currentZoneIds },
+        kind: "adjacency",
+        details: {
+          zones: {
+            expected: selectionSnapshot.zoneIds ?? [],
+            actual: currentZoneIds,
+          },
           adjacency: {
-            undirected,
             expectedHash: selectionSnapshot.adjacency?.hash ?? null,
             actualHash: nowHash,
             expectedEdges: selectionSnapshot.adjacency?.edges ?? [],
             actualEdges: nowEdges,
           },
-        }),
-        hint: "Refresh and revalidate selection before confirming.",
+          raw: {
+            zones: { expected: selectionSnapshot.zoneIds ?? [], actual: currentZoneIds },
+            adjacency: {
+              undirected,
+              expectedHash: selectionSnapshot.adjacency?.hash ?? null,
+              actualHash: nowHash,
+              expectedEdges: selectionSnapshot.adjacency?.edges ?? [],
+              actualEdges: nowEdges,
+            },
+          },
+        },
       });
     }
   }
@@ -672,6 +748,17 @@ export async function confirmHoldAssignment(options: ConfirmHoldAssignmentOption
       details: serializeDetails(rpcError.details ?? null),
       hint: rpcError.hint ?? null,
     });
+
+    if ((rpcFailure.code ?? "").toUpperCase() === "POLICY_CHANGED") {
+      const parsedDetails = extractPolicyDriftDetails(rpcFailure);
+      const derivedKind: PolicyDriftKind = parsedDetails.adjacency || parsedDetails.zones ? "adjacency" : "policy";
+      throw new PolicyDriftError({
+        message: rpcFailure.message,
+        kind: derivedKind,
+        details: parsedDetails,
+        hint: rpcFailure.hint ?? undefined,
+      });
+    }
 
     if (isSchemaCacheMissError(rpcFailure)) {
       console.warn("[capacity.confirm] confirm_hold_assignment_tx unavailable, falling back", {
@@ -828,27 +915,10 @@ async function reconcileOrphanedAssignments(params: {
   }
 }
 
-type PolicyDriftDetails = {
-  expectedHash?: string;
-  actualHash?: string;
-  adjacency?: {
-    expectedEdges?: string[];
-    actualEdges?: string[];
-    expectedHash?: string;
-    actualHash?: string;
-  };
-  zones?: {
-    expected?: Json;
-    actual?: Json;
-  };
-  raw?: Json;
-};
-
-function isPolicyChangedError(error: unknown): error is AssignTablesRpcError {
-  return error instanceof AssignTablesRpcError && error.code === "POLICY_CHANGED";
-}
-
 function extractPolicyDriftDetails(error: AssignTablesRpcError): PolicyDriftDetails {
+  if (error instanceof PolicyDriftError) {
+    return error.driftDetails;
+  }
   if (!error.details) {
     return { raw: null };
   }
@@ -902,6 +972,7 @@ async function publishPolicyDriftNotification(params: {
   attempt: number;
   recovered: boolean;
   details: PolicyDriftDetails;
+  kind: PolicyDriftKind;
 }): Promise<void> {
   try {
     const { enqueueOutboxEvent } = await import("@/server/outbox");
@@ -914,6 +985,7 @@ async function publishPolicyDriftNotification(params: {
         attempt: params.attempt,
         recovered: params.recovered,
         details: params.details,
+        kind: params.kind,
       },
     });
   } catch (error) {
@@ -954,6 +1026,7 @@ async function confirmWithPolicyRetry(params: {
   let driftDetected = false;
   let driftNotificationSent = false;
   let lastError: unknown = null;
+  let lastDriftInfo: { kind: PolicyDriftKind; details: PolicyDriftDetails } | null = null;
 
   while (attempt < totalAttempts) {
     try {
@@ -968,6 +1041,7 @@ async function confirmWithPolicyRetry(params: {
       });
 
       if (driftDetected) {
+        const recoveryKind = lastDriftInfo?.kind ?? null;
         await recordObservabilityEvent({
           source: "capacity.policy",
           eventType: "policy_drift.recovered",
@@ -976,6 +1050,7 @@ async function confirmWithPolicyRetry(params: {
           context: {
             attempts: attempt + 1,
             holdId: contextRef.currentHoldId,
+            kind: recoveryKind,
           },
         });
 
@@ -985,15 +1060,17 @@ async function confirmWithPolicyRetry(params: {
           holdId: contextRef.currentHoldId,
           attempt: attempt + 1,
           recovered: true,
-          details: { raw: null },
+          details: lastDriftInfo?.details ?? { raw: null },
+          kind: recoveryKind ?? "policy",
         });
       }
 
       return { assignments, attempts: attempt + 1 };
     } catch (error) {
-      if (isPolicyChangedError(error) && enableRetry && attempt < totalAttempts - 1) {
+      if (error instanceof PolicyDriftError && enableRetry && attempt < totalAttempts - 1) {
         driftDetected = true;
-        const details = extractPolicyDriftDetails(error);
+        const details = error.driftDetails;
+        lastDriftInfo = { kind: error.kind, details };
 
         await recordObservabilityEvent({
           source: "capacity.policy",
@@ -1005,6 +1082,7 @@ async function confirmWithPolicyRetry(params: {
             attempt: attempt + 1,
             holdId: contextRef.currentHoldId,
             details,
+            kind: error.kind,
           },
         });
 
@@ -1017,6 +1095,7 @@ async function confirmWithPolicyRetry(params: {
             attempt: attempt + 1,
             recovered: false,
             details,
+            kind: error.kind,
           });
         }
 
@@ -1068,6 +1147,7 @@ async function confirmWithPolicyRetry(params: {
         attempt: attempt + 1,
         holdId: contextRef.currentHoldId,
         error: lastError instanceof Error ? lastError.message : String(lastError),
+        kind: lastDriftInfo?.kind ?? null,
       },
     });
   }
@@ -1363,29 +1443,6 @@ export async function assignTableToBooking(
       details: null,
       hint: null,
     });
-  }
-
-  // Enqueue assignment sync observability event (post-commit)
-  try {
-    const { enqueueOutboxEvent } = await import("@/server/outbox");
-    await enqueueOutboxEvent({
-      eventType: "capacity.assignment.sync",
-      restaurantId: booking.restaurant_id,
-      bookingId: booking.id,
-      idempotencyKey,
-      dedupeKey: `${booking.id}:${startIso}:${endIso}:${normalizedTableIds.join(',')}`,
-      payload: {
-        bookingId: booking.id,
-        restaurantId: booking.restaurant_id,
-        tableIds: normalizedTableIds,
-        startAt: startIso,
-        endAt: endIso,
-        mergeGroupId: response.mergeGroupId ?? null,
-        idempotencyKey,
-      },
-    });
-  } catch (e) {
-    console.warn("[capacity.outbox] enqueue assignment.sync failed", { bookingId: booking.id, error: e });
   }
 
   return firstAssignment.assignmentId;

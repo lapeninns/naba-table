@@ -14,6 +14,7 @@ vi.mock('@/lib/env', () => {
         opsGuardV2: false,
         bookingPastTimeBlocking: false,
         bookingPastTimeGraceMinutes: 5,
+        pendingSelfServeGraceMinutes: 10,
       } as const;
       },
       get supabase() {
@@ -61,7 +62,7 @@ vi.mock('@/lib/env', () => {
 import { GuardError } from '@/server/auth/guards';
 import { OperatingHoursError } from '@/server/bookings/timeValidation';
 
-import { GET, PUT } from './route';
+import { DELETE, GET, PUT } from './route';
 
 const assertBookingWithinOperatingWindowMock = vi.hoisted(() => vi.fn());
 const getRestaurantScheduleMock = vi.hoisted(() => vi.fn());
@@ -73,6 +74,8 @@ const updateBookingRecordMock = vi.hoisted(() => vi.fn());
 const beginBookingModificationFlowMock = vi.hoisted(() => vi.fn());
 const buildBookingAuditSnapshotMock = vi.hoisted(() => vi.fn());
 const logAuditEventMock = vi.hoisted(() => vi.fn());
+const softCancelBookingMock = vi.hoisted(() => vi.fn());
+const clearBookingTableAssignmentsMock = vi.hoisted(() => vi.fn());
 const enqueueBookingUpdatedSideEffectsMock = vi.hoisted(() => vi.fn());
 const requireSessionMock = vi.hoisted(() => vi.fn());
 const listUserRestaurantMembershipsMock = vi.hoisted(() => vi.fn());
@@ -115,6 +118,8 @@ vi.mock('@/server/bookings', async () => {
     updateBookingRecord: (...args: unknown[]) => updateBookingRecordMock(...args),
     buildBookingAuditSnapshot: (...args: unknown[]) => buildBookingAuditSnapshotMock(...args),
     logAuditEvent: (...args: unknown[]) => logAuditEventMock(...args),
+    softCancelBooking: (...args: unknown[]) => softCancelBookingMock(...args),
+    clearBookingTableAssignments: (...args: unknown[]) => clearBookingTableAssignmentsMock(...args),
   };
 });
 
@@ -866,5 +871,81 @@ describe('/api/bookings/[id] PUT', () => {
     });
     expect(updateBookingRecordMock).not.toHaveBeenCalled();
     expect(json.booking.status).toBe('pending');
+  });
+
+  it('blocks dashboard edits once a pending booking ages past the grace window', async () => {
+    const payload = {
+      startIso: '2025-10-10T19:00:00.000Z',
+      endIso: '2025-10-10T21:00:00.000Z',
+      partySize: 2,
+    };
+
+    const request = createRequest(payload);
+    const params = { params: Promise.resolve({ id: existingBooking.id }) } as const;
+
+    const pendingBooking = {
+      ...existingBooking,
+      status: 'pending' as const,
+      created_at: '2025-10-10T09:45:00.000Z',
+    };
+
+    const tenantSupabase = createTenantSupabase(pendingBooking);
+    requireSessionMock.mockResolvedValue({
+      supabase: tenantSupabase,
+      user: { id: 'user-1', email: pendingBooking.customer_email },
+    });
+
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2025-10-10T10:00:01.000Z'));
+
+    const response = await PUT(request, params);
+    nowSpy.mockRestore();
+
+    expect(response.status).toBe(403);
+    const json = await response.json();
+    expect(json.code).toBe('PENDING_LOCKED');
+    expect(getRestaurantScheduleMock).not.toHaveBeenCalled();
+    expect(beginBookingModificationFlowMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('/api/bookings/[id] DELETE', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('blocks cancellations once a pending booking ages past the grace window', async () => {
+    const request = new NextRequest('http://localhost/api/bookings/booking-1', { method: 'DELETE' });
+    const params = { params: Promise.resolve({ id: existingBooking.id }) } as const;
+
+    const pendingBooking = {
+      ...existingBooking,
+      status: 'pending' as const,
+      created_at: '2025-10-10T09:45:00.000Z',
+    };
+
+    const tenantSupabase = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { email: pendingBooking.customer_email } },
+          error: null,
+        }),
+      },
+    };
+
+    const serviceSupabase = createServiceSupabase({ booking: pendingBooking });
+
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(tenantSupabase);
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2025-10-10T10:00:01.000Z'));
+
+    const response = await DELETE(request, params);
+    nowSpy.mockRestore();
+
+    expect(response.status).toBe(403);
+    const json = await response.json();
+    expect(json.code).toBe('PENDING_LOCKED');
+    expect(softCancelBookingMock).not.toHaveBeenCalled();
+    expect(clearBookingTableAssignmentsMock).not.toHaveBeenCalled();
   });
 });

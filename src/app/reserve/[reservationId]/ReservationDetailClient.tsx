@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import config from '@/config';
 import { CancelBookingDialog } from '@/components/dashboard/CancelBookingDialog';
 import { EditBookingDialog } from '@/components/dashboard/EditBookingDialog';
 import { StatusChip } from '@/components/dashboard/StatusChip';
@@ -13,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
+import { getPendingSelfServeGraceMinutes, isPendingSelfServeLocked } from '@/lib/bookings/pendingLock';
 import { downloadCalendarEvent, shareReservationDetails, type ShareResult } from '@/lib/reservations/share';
 import { cn } from '@/lib/utils';
 import { useReservation } from '@features/reservations/wizard/api/useReservation';
@@ -135,6 +137,9 @@ export function ReservationDetailClient({
           ? 'info'
           : 'success'
     : 'info';
+  const pendingGraceMinutes = useMemo(() => getPendingSelfServeGraceMinutes(), []);
+  const supportEmail = config.email?.supportEmail ?? 'support@example.com';
+  const [clockNow, setClockNow] = useState(() => Date.now());
 
   const { data: reservation, error, isError, isLoading, refetch, isFetching } = useReservation(reservationId);
   const testUiEnabled = process.env.NEXT_PUBLIC_ENABLE_TEST_UI === 'true';
@@ -177,6 +182,36 @@ export function ReservationDetailClient({
       venueTimezone: venue.timezone,
     };
   }, [reservation, reservationId, venue.address, venue.name, venue.timezone]);
+
+  const pendingLock = useMemo(() => {
+    if (!reservation || reservation.status !== 'pending') {
+      return { locked: false, lockTimestamp: null as number | null };
+    }
+    const locked = isPendingSelfServeLocked(reservation.status, reservation.createdAt, clockNow);
+    const createdMs = reservation.createdAt ? Date.parse(reservation.createdAt) : Number.NaN;
+    const lockTimestamp = Number.isFinite(createdMs)
+      ? createdMs + pendingGraceMinutes * 60_000
+      : null;
+    return { locked, lockTimestamp };
+  }, [reservation, pendingGraceMinutes, clockNow]);
+
+  const pendingSupportHref = useMemo(() => {
+    const target = supportEmail;
+    if (!reservation) {
+      return `mailto:${target}`;
+    }
+    const subject = `Reservation change request (${reservation.reference ?? reservation.id})`;
+    const details = [
+      'Hi team,',
+      '',
+      'I need help updating or cancelling this pending reservation while it is under review.',
+      `Reservation ID: ${reservation.id}`,
+      reservation.reference ? `Reference: ${reservation.reference}` : null,
+      `Name: ${reservation.customerName}`,
+      reservation.startAt ? `Start: ${formatDate(reservation.startAt)} at ${formatTimeRange(reservation.startAt, reservation.endAt ?? reservation.startAt)}` : null,
+    ].filter(Boolean);
+    return `mailto:${target}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(details.join('\n'))}`;
+  }, [reservation, supportEmail]);
 
   // Calculate JSON-LD before any early returns
   const reservationJsonLdString = useMemo(() => {
@@ -250,6 +285,20 @@ export function ReservationDetailClient({
   }, [reservation, reservationId]);
 
   useEffect(() => {
+    if (!reservation || reservation.status !== 'pending' || pendingLock.locked) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setClockNow(Date.now());
+    }, 15_000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [reservation, pendingLock.locked]);
+
+  useEffect(() => {
     const actionParam = searchParams?.get('action');
     if (!actionParam) {
       return;
@@ -267,16 +316,16 @@ export function ReservationDetailClient({
   }, [searchParams]);
 
   const handleEdit = useCallback(() => {
-    if (!reservation) return;
+    if (!reservation || pendingLock.locked) return;
     void emit('reservation_detail_edit_clicked', { reservationId });
     setIsEditOpen(true);
-  }, [reservation, reservationId]);
+  }, [pendingLock.locked, reservation, reservationId]);
 
   const handleCancel = useCallback(() => {
-    if (!reservation) return;
+    if (!reservation || pendingLock.locked) return;
     void emit('reservation_detail_cancel_clicked', { reservationId });
     setIsCancelOpen(true);
-  }, [reservation, reservationId]);
+  }, [pendingLock.locked, reservation, reservationId]);
 
   const handleRebook = useCallback(() => {
     if (!reservation) return;
@@ -295,7 +344,7 @@ export function ReservationDetailClient({
     setIsCancelOpen(open);
   }, []);
 
-  const actionDisabled = reservation?.status === 'cancelled';
+  const actionDisabled = reservation ? reservation.status === 'cancelled' || pendingLock.locked : true;
 
   if (isLoading && !reservation) {
     return (
@@ -428,6 +477,25 @@ export function ReservationDetailClient({
           </div>
         </Alert>
       ))}
+
+      {pendingLock.locked ? (
+        <Alert variant="info" role="status" aria-live="polite">
+          <div className="space-y-2">
+            <div>
+              <AlertTitle>Your request is pending review</AlertTitle>
+              <AlertDescription>
+                We temporarily pause self-serve edits while the restaurant reviews pending bookings.
+                You can request a change below or wait until the booking is confirmed (typically within about {pendingGraceMinutes} minutes).
+              </AlertDescription>
+            </div>
+            <Button asChild variant="outline">
+              <a href={pendingSupportHref} target="_blank" rel="noopener noreferrer">
+                Request a change
+              </a>
+            </Button>
+          </div>
+        </Alert>
+      ) : null}
 
       <div className="rounded-[var(--radius-lg)] border border-border bg-card shadow-sm">
         <div className="flex flex-col gap-4 border-b border-border/80 p-6 sm:flex-row sm:items-center sm:justify-between">

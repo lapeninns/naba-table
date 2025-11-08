@@ -3,6 +3,7 @@ import {
   CalendarDays,
   CalendarPlus,
   CircleHelp,
+  GanttChart,
   LayoutGrid,
   OctagonAlert,
   SlidersHorizontal,
@@ -37,6 +38,13 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         href: '/ops',
         icon: BarChart3,
         match: (pathname) => pathname === '/ops',
+      },
+      {
+        title: 'Capacity',
+        description: 'Timeline view of table availability',
+        href: '/ops/capacity',
+        icon: GanttChart,
+        match: (pathname) => pathname.startsWith('/ops/capacity'),
       },
       {
         title: 'Rejections',
