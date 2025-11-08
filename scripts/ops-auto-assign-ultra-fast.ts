@@ -19,6 +19,7 @@
 
 import { config as loadEnv } from 'dotenv';
 import { resolve as resolvePath } from 'path';
+import { pathToFileURL } from 'node:url';
 
 // Load env BEFORE any imports that depend on it
 loadEnv({ path: resolvePath(process.cwd(), '.env.local') });
@@ -39,18 +40,28 @@ import path from 'node:path';
 // ULTRA-FAST CONFIGURATION
 // ============================================================
 
-const CONFIG = {
+export type UltraFastConfig = {
+  TARGET_RESTAURANT_SLUG: string;
+  TARGET_DATE: string;
+  MAX_CONCURRENT_BOOKINGS: number;
+  SINGLE_ATTEMPT_ONLY: boolean;
+  HOLD_TTL_SECONDS: number;
+  MINIMAL_CONSOLE_OUTPUT: boolean;
+  FORCE_REASSIGN_ALL: boolean;
+};
+
+const DEFAULT_CONFIG: UltraFastConfig = {
   TARGET_RESTAURANT_SLUG: process.env.TARGET_RESTAURANT_SLUG || 'white-horse-pub-waterbeach',
   TARGET_DATE: process.env.TARGET_DATE || new Date().toISOString().split('T')[0],  // Today's date (YYYY-MM-DD)
-  
+
   // PERFORMANCE SETTINGS
   MAX_CONCURRENT_BOOKINGS: parseInt(process.env.MAX_CONCURRENT_BOOKINGS || '15', 10),  // Process bookings simultaneously
   SINGLE_ATTEMPT_ONLY: true,    // No retries - fail fast
   HOLD_TTL_SECONDS: 180,
-  
+
   // REPORTING
   MINIMAL_CONSOLE_OUTPUT: false,
-  
+
   // FORCE REASSIGNMENT (ignore current status)
   FORCE_REASSIGN_ALL: false,  // Only process pending bookings
 };
@@ -86,7 +97,7 @@ interface FastReport {
   executedAt: string;
   restaurant: string;
   date: string;
-  config: typeof CONFIG;
+  config: UltraFastConfig;
   totalBookings: number;
   pendingProcessed: number;
   successful: number;
@@ -102,7 +113,13 @@ interface FastReport {
 // MAIN
 // ============================================================
 
-async function main() {
+export async function runUltraFastAssignment(
+  overrides: Partial<UltraFastConfig> = {},
+): Promise<FastReport> {
+  const config: UltraFastConfig = {
+    ...DEFAULT_CONFIG,
+    ...overrides,
+  };
   const scriptStart = Date.now();
   
   // Dynamic import after env is loaded
@@ -184,7 +201,7 @@ async function main() {
       const quote = await quoteTablesForBooking({
         bookingId,
         createdBy: 'ultra-fast-script',
-        holdTtlSeconds: CONFIG.HOLD_TTL_SECONDS,
+        holdTtlSeconds: config.HOLD_TTL_SECONDS,
         requireAdjacency: requireAdjacencyOverride,
         maxTables: maxTablesOverride,
       });
@@ -347,7 +364,7 @@ async function main() {
         try {
           await releaseTableHold({ holdId });
         } catch (releaseError) {
-          if (!CONFIG.MINIMAL_CONSOLE_OUTPUT) {
+          if (!config.MINIMAL_CONSOLE_OUTPUT) {
             console.warn('[ultra-fast] failed to release hold after error', {
               bookingId,
               holdId,
@@ -383,10 +400,10 @@ async function main() {
     }
   }
   
-  if (!CONFIG.MINIMAL_CONSOLE_OUTPUT) {
+  if (!config.MINIMAL_CONSOLE_OUTPUT) {
     console.log('\n⚡ ULTRA-FAST AUTO-ASSIGNMENT SCRIPT');
-    console.log(`📍 ${CONFIG.TARGET_RESTAURANT_SLUG} | ${CONFIG.TARGET_DATE}`);
-    console.log(`🚀 Concurrent: ${CONFIG.MAX_CONCURRENT_BOOKINGS} | Single attempt only\n`);
+    console.log(`📍 ${config.TARGET_RESTAURANT_SLUG} | ${config.TARGET_DATE}`);
+    console.log(`🚀 Concurrent: ${config.MAX_CONCURRENT_BOOKINGS} | Single attempt only\n`);
   }
 
   const supabase = getServiceSupabaseClient();
@@ -395,7 +412,7 @@ async function main() {
   const { data: restaurant } = await supabase
     .from('restaurants')
     .select('id, name')
-    .eq('slug', CONFIG.TARGET_RESTAURANT_SLUG)
+    .eq('slug', config.TARGET_RESTAURANT_SLUG)
     .single();
 
   if (!restaurant) throw new Error('Restaurant not found');
@@ -405,16 +422,16 @@ async function main() {
     .from('bookings')
     .select('id, booking_date, start_time, party_size, status')
     .eq('restaurant_id', restaurant.id)
-    .eq('booking_date', CONFIG.TARGET_DATE)
+    .eq('booking_date', config.TARGET_DATE)
     .order('start_time', { ascending: true });
 
   // Choose which bookings to process
   const pending = (allBookings || []).filter((b: any) => b.status === 'pending');
-  const toProcess = CONFIG.FORCE_REASSIGN_ALL ? (allBookings || []) : pending;
+  const toProcess = config.FORCE_REASSIGN_ALL ? (allBookings || []) : pending;
 
-  if (!CONFIG.MINIMAL_CONSOLE_OUTPUT) {
+  if (!config.MINIMAL_CONSOLE_OUTPUT) {
     console.log(`📊 Found ${allBookings?.length || 0} bookings (${pending.length} pending)`);
-    if (CONFIG.FORCE_REASSIGN_ALL) {
+    if (config.FORCE_REASSIGN_ALL) {
       console.log(`⚠️  FORCE MODE: Processing ALL ${toProcess.length} bookings (including confirmed)\n`);
     } else {
       console.log();
@@ -427,16 +444,16 @@ async function main() {
   }
 
   // Process with aggressive parallelization
-  if (!CONFIG.MINIMAL_CONSOLE_OUTPUT) {
+  if (!config.MINIMAL_CONSOLE_OUTPUT) {
     console.log(`⚡ Processing ${toProcess.length} bookings...`);
-    console.log(`   ${CONFIG.MAX_CONCURRENT_BOOKINGS} at a time, no retries\n`);
+    console.log(`   ${config.MAX_CONCURRENT_BOOKINGS} at a time, no retries\n`);
   }
 
   const results: QuickResult[] = [];
   
   // Split into chunks for parallel processing
-  for (let i = 0; i < toProcess.length; i += CONFIG.MAX_CONCURRENT_BOOKINGS) {
-    const chunk = toProcess.slice(i, i + CONFIG.MAX_CONCURRENT_BOOKINGS);
+  for (let i = 0; i < toProcess.length; i += config.MAX_CONCURRENT_BOOKINGS) {
+    const chunk = toProcess.slice(i, i + config.MAX_CONCURRENT_BOOKINGS);
     
     const chunkResults = await Promise.allSettled(
       chunk.map((b: any) => 
@@ -453,7 +470,7 @@ async function main() {
       if (result.status === 'fulfilled') {
         results.push(result.value);
         
-        if (!CONFIG.MINIMAL_CONSOLE_OUTPUT) {
+        if (!config.MINIMAL_CONSOLE_OUTPUT) {
           const icon = result.value.success ? '✅' : '❌';
           const tables = result.value.success 
             ? ` → tables=${result.value.tablesAssigned.join(',')}` 
@@ -493,8 +510,8 @@ async function main() {
   const report: FastReport = {
     executedAt: new Date().toISOString(),
     restaurant: restaurant.name,
-    date: CONFIG.TARGET_DATE,
-    config: CONFIG,
+    date: config.TARGET_DATE,
+    config,
     totalBookings: allBookings?.length || 0,
     pendingProcessed: toProcess.length,
     successful,
@@ -515,7 +532,7 @@ async function main() {
     await fs.mkdir(reportsDir, { recursive: true });
     reportPath = path.join(
       reportsDir,
-      `auto-assign-ultra-fast-${CONFIG.TARGET_DATE}-${timestamp}.json`
+      `auto-assign-ultra-fast-${config.TARGET_DATE}-${timestamp}.json`
     );
     await fs.writeFile(reportPath, JSON.stringify(report, null, 2));
   }
@@ -525,7 +542,7 @@ async function main() {
   console.log('  ⚡ ULTRA-FAST EXECUTION COMPLETE');
   console.log('═══════════════════════════════════════════════════════════');
   console.log(`  Restaurant: ${restaurant.name}`);
-  console.log(`  Date: ${CONFIG.TARGET_DATE}`);
+  console.log(`  Date: ${config.TARGET_DATE}`);
   console.log(`  Total bookings: ${report.totalBookings}`);
   console.log(`  Pending processed: ${results.length}`);
   console.log(`  ✅ Success (script reported): ${successful}`);
@@ -573,9 +590,14 @@ async function main() {
       });
     console.log('');
   }
+
+  return report;
 }
 
-main().catch(error => {
-  console.error('\n❌ FATAL ERROR:', error.message);
-  process.exit(1);
-});
+const invokedPath = process.argv[1] ? pathToFileURL(process.argv[1]).href : null;
+if (invokedPath && invokedPath === import.meta.url) {
+  runUltraFastAssignment().catch(error => {
+    console.error('\n❌ FATAL ERROR:', error.message);
+    process.exit(1);
+  });
+}

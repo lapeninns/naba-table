@@ -5,6 +5,7 @@ import type { Database } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const SHOULD_LOG_SCARCITY_DEBUG = String(process.env.SCARCITY_DEBUG ?? "").toLowerCase() === "true";
 
 type DbClient = SupabaseClient<Database, "public">;
 
@@ -124,7 +125,7 @@ export async function loadTableScarcityScores(params: {
     const demandWeight = resolveDemandWeight(capacity);
     const seatSupply = Math.max(1, capacityGroup.seatSupply);
     const fallback = Number((demandWeight / seatSupply).toFixed(4));
-    if (!metrics.has(type)) {
+    if (!metrics.has(type) && SHOULD_LOG_SCARCITY_DEBUG) {
       console.debug("[scarcity] using heuristic fallback", {
         restaurantId,
         type,
