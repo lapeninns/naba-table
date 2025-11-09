@@ -31,11 +31,19 @@ export async function autoAssignAndConfirmIfPossible(
   options?: AutoAssignOptions,
 ): Promise<void> {
   const SUPPRESS_EMAILS = process.env.LOAD_TEST_DISABLE_EMAILS === 'true' || process.env.SUPPRESS_EMAILS === 'true';
+  const logJob = (stage: string, payload: Record<string, unknown> = {}) => {
+    console.info("[auto-assign][job]", stage, { bookingId, ...payload });
+  };
+
   const shouldRun = options?.bypassFeatureFlag || isAutoAssignOnBookingEnabled();
-  if (!shouldRun) return;
+  if (!shouldRun) {
+    logJob("skipped.feature-flag", { bypass: Boolean(options?.bypassFeatureFlag) });
+    return;
+  }
 
   const emailVariant: AutoAssignEmailVariant = options?.emailVariant ?? "standard";
   const reason: AutoAssignReason = options?.reason ?? "creation";
+  logJob("scheduled", { reason, emailVariant, bypass: Boolean(options?.bypassFeatureFlag) });
 
   const supabase = getServiceSupabaseClient();
 
@@ -50,11 +58,13 @@ export async function autoAssignAndConfirmIfPossible(
 
     if (error || !booking) {
       console.error("[auto-assign] booking lookup failed", { bookingId, error: error?.message ?? error });
+      logJob("failed.lookup", { error: error?.message ?? error });
       return;
     }
 
     // Skip non-actionable states
     if (["cancelled", "no_show", "completed"].includes(String(booking.status))) {
+      logJob("skipped.status", { status: booking.status });
       return;
     }
 
@@ -71,6 +81,7 @@ export async function autoAssignAndConfirmIfPossible(
         }
       } catch (e) {
         console.error("[auto-assign] failed sending confirmation for already-confirmed", { bookingId, error: e });
+        logJob("failed.email_already_confirmed", { error: e instanceof Error ? e.message : String(e) });
       }
       return;
     }
@@ -103,6 +114,7 @@ export async function autoAssignAndConfirmIfPossible(
     const maxAttempts = Math.max(1, Math.min(maxRetries + 1, 11));
 
     while (attempt < maxAttempts) {
+      logJob("attempt.start", { attempt, maxAttempts });
       // If near service start, avoid further attempts (let ops handle)
       if (attempt > 0 && withinCutoff()) {
         await recordObservabilityEvent({
@@ -112,6 +124,7 @@ export async function autoAssignAndConfirmIfPossible(
           bookingId: booking.id,
           context: { attempt, cutoffMinutes },
         });
+        logJob("attempt.cutoff_skipped", { attempt, cutoffMinutes });
         break;
       }
 
@@ -138,6 +151,11 @@ export async function autoAssignAndConfirmIfPossible(
               alternates: (quote.alternates ?? []).length,
               trigger: reason,
             },
+          });
+          logJob("attempt.no_hold", {
+            attempt,
+            reason: quote.reason ?? "NO_HOLD",
+            alternates: (quote.alternates ?? []).length,
           });
         } else {
           const idempotencyKey = booking.auto_assign_idempotency_key ?? `auto-${bookingId}`;
@@ -173,6 +191,7 @@ export async function autoAssignAndConfirmIfPossible(
             bookingId: booking.id,
             context: { attempt, durationMs, trigger: reason },
           });
+          logJob("attempt.success", { attempt, holdId: quote.hold.id, durationMs });
           return; // done
         }
       } catch (e) {
@@ -184,6 +203,7 @@ export async function autoAssignAndConfirmIfPossible(
           bookingId: booking.id,
           context: { attempt, error: e instanceof Error ? e.message : String(e), trigger: reason },
         });
+        logJob("attempt.error", { attempt, error: e instanceof Error ? e.message : String(e) });
       }
 
       attempt += 1;
@@ -205,6 +225,7 @@ export async function autoAssignAndConfirmIfPossible(
           bookingId: booking.id,
           context: { attempt, trigger: reason },
         });
+        logJob("attempt.success_race", { attempt });
         return;
       }
     }
@@ -217,7 +238,9 @@ export async function autoAssignAndConfirmIfPossible(
       bookingId: booking.id,
       context: { attempts: attempt, trigger: reason },
     });
+    logJob("exhausted", { attempts: attempt, maxAttempts });
   } catch (e) {
     console.error("[auto-assign] unexpected error", { bookingId, error: e });
+    logJob("failed.unexpected", { error: e instanceof Error ? e.message : String(e) });
   }
 }

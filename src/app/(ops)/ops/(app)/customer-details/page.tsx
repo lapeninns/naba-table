@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { DASHBOARD_DEFAULT_PAGE_SIZE } from "@/components/dashboard/constants";
 import { OpsCustomersClient } from "@/components/features/customers";
 import { queryKeys } from "@/lib/query/keys";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 import { getServerComponentSupabaseClient } from "@/server/supabase";
 import { fetchUserMemberships } from "@/server/team/access";
 
@@ -43,7 +44,7 @@ function resolveOrigin(requestHeaders: HeaderLike): string {
     return `${protocol}://${forwardedHost}`;
   }
 
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  return process.env.NEXT_PUBLIC_SITE_URL ?? getCanonicalSiteUrl();
 }
 
 async function prefetchOpsCustomers(queryClient: QueryClient, params: URLSearchParams) {

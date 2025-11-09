@@ -1,4 +1,5 @@
 import { envSchemas, type Env } from "@/config/env.schema";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 
 let cachedEnv: Env | null = null;
 
@@ -19,7 +20,7 @@ function parseEnv(): Env {
   sanitizeUrlEnv('SITE_URL');
 
   if (!process.env.BASE_URL) {
-    const fallback = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+    const fallback = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? getCanonicalSiteUrl();
     process.env.BASE_URL = fallback;
   }
 
@@ -72,7 +73,7 @@ export const env = {
   get app() {
     const parsed = parseEnv();
     return {
-      url: parsed.NEXT_PUBLIC_APP_URL ?? parsed.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+      url: parsed.NEXT_PUBLIC_APP_URL ?? parsed.NEXT_PUBLIC_SITE_URL ?? getCanonicalSiteUrl(),
       version: parsed.NEXT_PUBLIC_APP_VERSION,
       commitSha: parsed.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA,
     } as const;

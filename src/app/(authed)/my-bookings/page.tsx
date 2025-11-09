@@ -3,6 +3,7 @@ import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { DASHBOARD_DEFAULT_PAGE_SIZE } from '@/components/dashboard/constants';
+import { getCanonicalSiteUrl } from '@/lib/site-url';
 import { queryKeys } from '@/lib/query/keys';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
 
@@ -42,7 +43,7 @@ function resolveOrigin(requestHeaders: HeaderLike): string {
     return `${protocol}://${forwardedHost}`;
   }
 
-  return process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+  return process.env.NEXT_PUBLIC_SITE_URL ?? getCanonicalSiteUrl();
 }
 
 async function prefetchUpcomingBookings(queryClient: QueryClient) {

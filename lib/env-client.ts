@@ -1,5 +1,7 @@
 "use client";
 
+import { getCanonicalSiteUrl } from "@/lib/site-url";
+
 type Optional<T> = T | undefined | null;
 
 function assertEnv(name: string, value: Optional<string>): string {
@@ -20,7 +22,7 @@ export const clientEnv = {
       process.env.NEXT_PUBLIC_APP_VERSION ??
       process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ??
       "web-dev",
-    siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+    siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? getCanonicalSiteUrl(),
   },
   flags: {
     reserveV2: process.env.NEXT_PUBLIC_RESERVE_V2 === "true",
