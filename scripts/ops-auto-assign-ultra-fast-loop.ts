@@ -11,7 +11,7 @@ import { createBookingWithCapacityCheck, type BookingRecord } from "@/server/cap
 import { quoteTablesForBooking, confirmHoldAssignment } from "@/server/capacity/tables";
 import { releaseTableHold } from "@/server/capacity/holds";
 import type { CandidateSummary } from "@/server/capacity/telemetry";
-import type { Database, Tables } from "@/types/supabase";
+import { Constants, type Database, type Tables } from "@/types/supabase";
 import { ensureBookingType } from "@/lib/enums";
 
 loadEnv({ path: resolvePath(process.cwd(), ".env.local") });
@@ -35,6 +35,17 @@ if (!process.env.SUPABASE_DB_URL) {
 }
 
 const VALID_STATUS_FOR_PENDING = ["pending", "pending_allocation", "confirmed"] as const;
+type BookingStatus = Tables<"bookings">["status"];
+
+// Mirror the Supabase enum to keep RPC transitions type-safe.
+const SUPABASE_BOOKING_STATUS_VALUES = new Set<string>(Constants.public.Enums.booking_status);
+
+function normalizeBookingStatus(value: string | null | undefined): BookingStatus {
+  if (value && SUPABASE_BOOKING_STATUS_VALUES.has(value)) {
+    return value as BookingStatus;
+  }
+  return "pending";
+}
 
 type LoopMode = "assign" | "reserve";
 
@@ -581,13 +592,14 @@ async function markBookingConfirmed(params: {
 }): Promise<void> {
   const { supabase, bookingId, previousStatus } = params;
   const nowIso = new Date().toISOString();
+  const historyFrom = normalizeBookingStatus(previousStatus);
   const { error } = await supabase.rpc("apply_booking_state_transition", {
     p_booking_id: bookingId,
     p_status: "confirmed",
     p_checked_in_at: null,
     p_checked_out_at: null,
     p_updated_at: nowIso,
-    p_history_from: previousStatus ?? "pending",
+    p_history_from: historyFrom,
     p_history_to: "confirmed",
     p_history_changed_by: null,
     p_history_changed_at: nowIso,

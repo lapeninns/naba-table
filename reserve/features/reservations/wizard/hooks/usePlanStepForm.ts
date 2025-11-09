@@ -412,6 +412,7 @@ export function usePlanStepForm({
       notes: state.details.notes ?? '',
     },
   });
+  const initialPrefetchSlugRef = useRef<string | null>(null);
 
   const {
     unavailableDates,
@@ -425,6 +426,19 @@ export function usePlanStepForm({
     date: state.details.date,
     minDate,
   });
+
+  useEffect(() => {
+    const slug = state.details.restaurantSlug?.trim();
+    if (!slug) {
+      return;
+    }
+    if (initialPrefetchSlugRef.current === slug) {
+      return;
+    }
+    const initialMonth = parseDateKey(state.details.date) ?? normalizedMinDate;
+    prefetchVisibleMonth(initialMonth);
+    initialPrefetchSlugRef.current = slug;
+  }, [normalizedMinDate, prefetchVisibleMonth, state.details.date, state.details.restaurantSlug]);
 
   const {
     slots,

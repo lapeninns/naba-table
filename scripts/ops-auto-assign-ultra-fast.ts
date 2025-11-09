@@ -440,7 +440,22 @@ export async function runUltraFastAssignment(
 
   if (toProcess.length === 0) {
     console.log('✅ No bookings to process\n');
-    return;
+    const emptyReport: FastReport = {
+      executedAt: new Date().toISOString(),
+      restaurant: restaurant.name,
+      date: config.TARGET_DATE,
+      config,
+      totalBookings: allBookings?.length || 0,
+      pendingProcessed: 0,
+      successful: 0,
+      failed: 0,
+      successRate: 0,
+      totalDurationSeconds: Math.round(((Date.now() - scriptStart) / 1000) * 100) / 100,
+      avgProcessingMs: 0,
+      results: [],
+      persistedStatuses: {},
+    };
+    return emptyReport;
   }
 
   // Process with aggressive parallelization

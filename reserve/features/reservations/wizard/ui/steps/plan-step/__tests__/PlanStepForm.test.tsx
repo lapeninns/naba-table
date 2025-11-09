@@ -151,8 +151,29 @@ function createWrapper() {
     },
   });
 
+  const wizardState = wizardStateFixture();
+  const noop = () => undefined;
+  const wizardActions = {
+    goToStep: () => undefined,
+    updateDetails: () => undefined,
+    setSubmitting: noop,
+    setLoading: noop,
+    setError: () => undefined,
+    clearError: noop,
+    setBookings: () => undefined,
+    applyConfirmation: () => undefined,
+    startEdit: () => undefined,
+    resetForm: noop,
+    hydrateContacts: () => undefined,
+    hydrateDetails: () => undefined,
+  } satisfies WizardActions;
+
   return ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <QueryClientProvider client={queryClient}>
+      <WizardProvider state={wizardState} actions={wizardActions}>
+        {children}
+      </WizardProvider>
+    </QueryClientProvider>
   );
 }
 
@@ -265,6 +286,17 @@ describe('<PlanStepForm />', () => {
     expect(timeInput).toHaveValue('18:00');
     // Time input updates the local state but doesn't trigger updateDetails
     // The update happens when clicking time slot buttons or submitting the form
+  });
+
+  it('prefetches schedule data for the visible month on mount', async () => {
+    setup();
+
+    await waitFor(() => {
+      const hasPrefetchCall = getMock.mock.calls.some(([path]) => {
+        return typeof path === 'string' && path.includes('date=2025-05-01');
+      });
+      expect(hasPrefetchCall).toBe(true);
+    });
   });
 
   it('normalizes manual times beyond the last seating buffer', async () => {

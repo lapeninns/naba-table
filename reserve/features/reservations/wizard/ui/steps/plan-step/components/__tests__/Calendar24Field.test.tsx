@@ -161,4 +161,29 @@ describe('<Calendar24Field />', () => {
 
     expect(handleMonthChange).toHaveBeenCalledTimes(2);
   });
+
+  it('treats loading dates as disabled until schedules resolve', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <Calendar24Field
+        date={{
+          value: '',
+          minDate: new Date('2025-05-01T00:00:00Z'),
+          onSelect: vi.fn(),
+        }}
+        time={{ value: '18:00', onChange: vi.fn() }}
+        loadingDates={new Set(['2025-05-15'])}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Date' }));
+    const targetCell = (await screen.findAllByRole('gridcell')).find((cell) =>
+      cell.textContent?.trim()?.includes('15'),
+    );
+    expect(targetCell).toBeDefined();
+    const dayButton = targetCell?.querySelector('button');
+    expect(dayButton).toBeDefined();
+    expect(dayButton).toBeDisabled();
+  });
 });

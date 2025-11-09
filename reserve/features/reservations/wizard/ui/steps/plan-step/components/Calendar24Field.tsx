@@ -107,8 +107,10 @@ export function Calendar24Field({
       if (endOfDay(day) < date.minDate) {
         return true;
       }
-      if (loadingDates?.has(formatDateForInput(day))) {
-        return false;
+      const dayKey = formatDateForInput(day);
+      if (loadingDates?.has(dayKey)) {
+        // Prevent selection while availability for that day is still loading.
+        return true;
       }
       if (typeof isDateUnavailable === 'function') {
         return isDateUnavailable(day);
