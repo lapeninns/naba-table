@@ -38,6 +38,19 @@ describe('buildReservationDraft', () => {
     }
   });
 
+  it('fails when restaurant id is missing', () => {
+    const details = getInitialDetails();
+    details.time = '17:00';
+    details.restaurantId = '';
+
+    const result = buildReservationDraft(details, 'customer');
+
+    expect(result.ok).toBe(false);
+    if (!result.ok && 'error' in result) {
+      expect(result.error).toContain('determine which restaurant');
+    }
+  });
+
   it('allows missing email/phone in ops mode', () => {
     const details = getInitialDetails();
     details.time = '12:30';

@@ -123,7 +123,7 @@ describe('useTimeSlots hook', () => {
     const { result, rerender } = renderHook(
       ({ selectedTime }) =>
         useTimeSlots({
-          restaurantSlug: 'sajiloreservex-test-kitchen',
+          restaurantSlug: 'white-horse-pub-waterbeach',
           date: '2025-05-08',
           selectedTime,
         }),
@@ -151,7 +151,7 @@ describe('useTimeSlots hook', () => {
     });
 
     expect(getMock).toHaveBeenCalledWith(
-      '/restaurants/sajiloreservex-test-kitchen/schedule?date=2025-05-08',
+      '/restaurants/white-horse-pub-waterbeach/schedule?date=2025-05-08',
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
   });

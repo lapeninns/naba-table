@@ -477,4 +477,61 @@ describe('<PlanStepForm />', () => {
 
     expect(onActionsChange.mock.calls.length).toBe(initialCalls);
   });
+
+  it('disables dates included in the initial calendar mask before schedules load', async () => {
+    getMock.mockImplementation((path: string) => {
+      if (path.includes('date=2025-05-21')) {
+        return Promise.resolve({
+          ...scheduleFixture,
+          date: '2025-05-21',
+          isClosed: true,
+          availableBookingOptions: [],
+          occasionCatalog: [],
+          slots: [],
+        });
+      }
+      return Promise.resolve(scheduleFixture);
+    });
+
+    const state = wizardStateFixture({
+      date: '2025-05-15',
+      time: '18:00',
+      bookingType: 'dinner',
+    });
+    const updateDetails = vi.fn();
+    const goToStep = vi.fn();
+    const onActionsChange = vi.fn();
+    const wrapper = createWrapper();
+
+    render(
+      <PlanStepForm
+        state={state}
+        actions={{ updateDetails, goToStep }}
+        onActionsChange={onActionsChange}
+        minDate={MIN_DATE}
+        initialCalendarMask={{
+          timezone: 'Europe/London',
+          from: '2025-05-01',
+          to: '2025-05-31',
+          closedDaysOfWeek: [],
+          closedDates: ['2025-05-21'],
+        }}
+      />,
+      { wrapper },
+    );
+
+    const user = userEvent.setup();
+    await user.click(
+      screen.getByRole('button', {
+        name: /^date$/i,
+      }),
+    );
+
+    await waitFor(() => {
+      const closedDayButton = screen.getByRole('button', {
+        name: /may\s+21.*2025/i,
+      });
+      expect(closedDayButton).toBeDisabled();
+    });
+  });
 });

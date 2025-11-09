@@ -6,6 +6,7 @@ import BookingFlowPage from '@/components/reserve/booking-flow';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { getRestaurantBySlug } from '@/server/restaurants';
+import { getInitialCalendarMask } from '@/server/restaurants/calendarMask';
 import { DEFAULT_VENUE } from '@shared/config/venue';
 
 import type { Metadata } from 'next';
@@ -41,13 +42,20 @@ export default async function RestaurantBookingPage({ params }: { params: RouteP
     notFound();
   }
 
+  const timezone = restaurant.timezone ?? DEFAULT_VENUE.timezone;
+
   const initialDetails = {
     restaurantId: restaurant.id,
     restaurantSlug: slug,
     restaurantName: restaurant.name,
-    restaurantTimezone: restaurant.timezone ?? DEFAULT_VENUE.timezone,
+    restaurantTimezone: timezone,
     restaurantAddress: DEFAULT_VENUE.address,
   } as const;
+
+  const initialCalendarMask = await getInitialCalendarMask({
+    restaurantId: restaurant.id,
+    timezone,
+  });
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -62,7 +70,7 @@ export default async function RestaurantBookingPage({ params }: { params: RouteP
         </div>
       </nav>
       <div className="mx-auto w-full max-w-5xl px-4 pb-8 pt-4 sm:px-6 sm:pt-6 lg:px-8">
-        <BookingFlowPage initialDetails={initialDetails} />
+        <BookingFlowPage initialDetails={initialDetails} initialCalendarMask={initialCalendarMask} />
       </div>
     </div>
   );

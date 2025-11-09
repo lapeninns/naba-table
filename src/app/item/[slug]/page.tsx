@@ -5,6 +5,7 @@ import BookingFlowPage from "@/components/reserve/booking-flow";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getRestaurantBySlug } from "@/server/restaurants";
+import { getInitialCalendarMask } from "@/server/restaurants/calendarMask";
 import { DEFAULT_VENUE } from "@shared/config/venue";
 
 import type { Metadata } from "next";
@@ -65,13 +66,20 @@ export default async function RestaurantItemPage({ params }: { params: RoutePara
     );
   }
 
+  const timezone = restaurant.timezone ?? DEFAULT_VENUE.timezone;
+
   const initialDetails = {
     restaurantId: restaurant.id,
     restaurantSlug: slug,
     restaurantName: restaurant.name,
-    restaurantTimezone: restaurant.timezone ?? DEFAULT_VENUE.timezone,
+    restaurantTimezone: timezone,
     restaurantAddress: DEFAULT_VENUE.address,
   } as const;
+
+  const initialCalendarMask = await getInitialCalendarMask({
+    restaurantId: restaurant.id,
+    timezone,
+  });
 
   return (
     <div className="bg-[var(--sr-color-background)]">
@@ -137,7 +145,11 @@ export default async function RestaurantItemPage({ params }: { params: RoutePara
           <h2 id="booking-flow-heading" className="sr-only">
             Book a table at {restaurant.name}
           </h2>
-          <BookingFlowPage initialDetails={initialDetails} layoutElement="div" />
+          <BookingFlowPage
+            initialDetails={initialDetails}
+            layoutElement="div"
+            initialCalendarMask={initialCalendarMask}
+          />
         </div>
       </main>
     </div>

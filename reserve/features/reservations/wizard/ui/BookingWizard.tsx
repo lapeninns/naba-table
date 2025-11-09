@@ -20,6 +20,7 @@ import { WizardOfflineBanner } from './WizardOfflineBanner';
 import { DetailsStepSkeleton, PlanStepSkeleton, ReviewStepSkeleton } from './WizardSkeletons';
 
 import type { BookingDetails, BookingWizardMode } from '../model/reducer';
+import type { CalendarMask } from '@reserve/features/reservations/wizard/services/schedule';
 
 function LoadingFallback() {
   return (
@@ -38,12 +39,14 @@ type BookingWizardContentProps = {
   initialDetails?: Partial<BookingDetails>;
   mode?: BookingWizardMode;
   layoutElement?: 'main' | 'div';
+  initialCalendarMask?: CalendarMask | null;
 };
 
 function BookingWizardContent({
   initialDetails,
   mode = 'customer',
   layoutElement = 'main',
+  initialCalendarMask,
 }: BookingWizardContentProps) {
   const {
     state,
@@ -211,6 +214,7 @@ function BookingWizardContent({
             onActionsChange={handleActionsChange}
             onTrack={analytics.track}
             planAlert={planAlert}
+            initialCalendarMask={initialCalendarMask}
           />
         );
       case 2:
@@ -260,12 +264,14 @@ type BookingWizardProps = {
   initialDetails?: Partial<BookingDetails>;
   mode?: BookingWizardMode;
   layoutElement?: 'main' | 'div';
+  initialCalendarMask?: CalendarMask | null;
 };
 
 export function BookingWizard({
   initialDetails,
   mode = 'customer',
   layoutElement = 'main',
+  initialCalendarMask,
 }: BookingWizardProps = {}) {
   return (
     <Suspense fallback={<LoadingFallback />}>
@@ -273,6 +279,7 @@ export function BookingWizard({
         initialDetails={initialDetails}
         mode={mode}
         layoutElement={layoutElement}
+        initialCalendarMask={initialCalendarMask}
       />
     </Suspense>
   );

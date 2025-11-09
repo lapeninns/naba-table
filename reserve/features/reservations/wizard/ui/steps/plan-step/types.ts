@@ -6,6 +6,7 @@ import type {
   ServiceAvailability,
   TimeSlotDescriptor,
 } from '@reserve/features/reservations/wizard/services';
+import type { CalendarMask } from '@reserve/features/reservations/wizard/services/schedule';
 import type { BookingOption } from '@reserve/shared/booking';
 import type { OccasionDefinition } from '@reserve/shared/occasions';
 import type { AnalyticsEvent } from '@shared/lib/analytics';
@@ -20,6 +21,7 @@ export interface PlanStepFormProps {
   onActionsChange: (actions: StepAction[]) => void;
   onTrack?: (event: AnalyticsEvent, payload?: Record<string, unknown>) => void;
   minDate: Date;
+  initialCalendarMask?: CalendarMask | null;
 }
 
 export type PlanStepFormHandlers = {

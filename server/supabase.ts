@@ -18,8 +18,9 @@ let strictHoldEnforcementActive: boolean | null = null;
 const runtimeEnv = getEnv();
 const { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY, serviceKey: SUPABASE_SERVICE_ROLE_KEY } = env.supabase;
 const RESTAURANT_CONTEXT_HEADER = "X-Restaurant-Id";
-const DEFAULT_RESTAURANT_FALLBACK_ID = "39cb1346-20fb-4fa2-b163-0230e1caf749";
-const DEFAULT_RESTAURANT_SLUG = runtimeEnv.NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG;
+const DEFAULT_RESTAURANT_FALLBACK_ID = "b70decfe-8ad3-487e-bdbb-43aa7bd016ca";
+const DEFAULT_RESTAURANT_SLUG =
+  runtimeEnv.NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG ?? "white-horse-pub-waterbeach";
 
 let cachedDefaultRestaurantId: string | null =
   runtimeEnv.NEXT_PUBLIC_DEFAULT_RESTAURANT_ID ?? env.misc.bookingDefaultRestaurantId ?? null;

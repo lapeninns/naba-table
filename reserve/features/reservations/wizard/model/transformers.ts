@@ -1,5 +1,4 @@
 import { inferBookingOption, normalizeTime } from '@reserve/shared/time';
-import { DEFAULT_RESTAURANT_ID } from '@shared/config/venue';
 
 import type { ApiBooking, BookingDetails, BookingWizardMode, ReservationDraft } from './reducer';
 import type { Reservation } from '@entities/reservation/reservation.schema';
@@ -31,6 +30,13 @@ export const buildReservationDraft = (
   details: BookingDetails,
   mode: BookingWizardMode = 'customer',
 ): DraftResult => {
+  const normalizedRestaurantId = details.restaurantId?.trim();
+  if (!normalizedRestaurantId) {
+    return {
+      ok: false,
+      error: 'We could not determine which restaurant to book. Please refresh and try again.',
+    };
+  }
   const normalizedTime = normalizeTime(details.time);
 
   if (!normalizedTime) {
@@ -43,7 +49,7 @@ export const buildReservationDraft = (
   return {
     ok: true,
     draft: {
-      restaurantId: details.restaurantId || DEFAULT_RESTAURANT_ID,
+      restaurantId: normalizedRestaurantId,
       date: details.date,
       time: normalizedTime,
       party: Math.max(1, details.party),

@@ -15,14 +15,14 @@ export type VenueDetails = {
 const defaultRestaurantId =
   runtime.readString('RESERVE_DEFAULT_RESTAURANT_ID', {
     alternatives: ['DEFAULT_RESTAURANT_ID'],
-    fallback: '39cb1346-20fb-4fa2-b163-0230e1caf749',
-  }) ?? '39cb1346-20fb-4fa2-b163-0230e1caf749';
+    fallback: 'b70decfe-8ad3-487e-bdbb-43aa7bd016ca',
+  }) ?? 'b70decfe-8ad3-487e-bdbb-43aa7bd016ca';
 
 const defaultRestaurantSlug =
   runtime.readString('RESERVE_DEFAULT_RESTAURANT_SLUG', {
     alternatives: ['DEFAULT_RESTAURANT_SLUG'],
-    fallback: 'sajiloreservex-test-kitchen',
-  }) ?? 'sajiloreservex-test-kitchen';
+    fallback: 'white-horse-pub-waterbeach',
+  }) ?? 'white-horse-pub-waterbeach';
 
 const defaultPolicy =
   runtime.readString('RESERVE_DEFAULT_VENUE_POLICY', {
@@ -39,20 +39,20 @@ export const DEFAULT_VENUE: VenueDetails = {
   slug: defaultRestaurantSlug,
   name:
     runtime.readString('RESERVE_DEFAULT_VENUE_NAME', {
-      fallback: 'SajiloReserveX Test Kitchen',
-    }) ?? 'SajiloReserveX Test Kitchen',
+      fallback: 'White Horse Pub (Waterbeach)',
+    }) ?? 'White Horse Pub (Waterbeach)',
   address:
     runtime.readString('RESERVE_DEFAULT_VENUE_ADDRESS', {
-      fallback: '12 Market Row, London SE1 0AA',
-    }) ?? '12 Market Row, London SE1 0AA',
+      fallback: '12 Green Side, Waterbeach, Cambridge, CB25 9HP',
+    }) ?? '12 Green Side, Waterbeach, Cambridge, CB25 9HP',
   phone:
     runtime.readString('RESERVE_DEFAULT_VENUE_PHONE', {
-      fallback: '+44 20 1234 5678',
-    }) ?? '+44 20 1234 5678',
+      fallback: '01223 375578',
+    }) ?? '01223 375578',
   email:
     runtime.readString('RESERVE_DEFAULT_VENUE_EMAIL', {
-      fallback: 'reservations@SajiloReserveX.co.uk',
-    }) ?? 'reservations@SajiloReserveX.co.uk',
+      fallback: 'whitehorse@lapeninns.com',
+    }) ?? 'whitehorse@lapeninns.com',
   policy: defaultPolicy,
   timezone:
     runtime.readString('RESERVE_DEFAULT_VENUE_TIMEZONE', {

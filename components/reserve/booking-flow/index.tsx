@@ -12,6 +12,7 @@ import { BookingWizard } from "@features/reservations/wizard/ui/BookingWizard";
 
 import type { WizardStep } from "@features/reservations/wizard/model/reducer";
 import type { BookingDetails, BookingWizardMode } from "@features/reservations/wizard/model/reducer";
+import type { CalendarMask } from "@reserve/features/reservations/wizard/services/schedule";
 
 const defaultQueryOptions = {
   queries: {
@@ -32,9 +33,15 @@ type BookingWizardWithNavigatorProps = {
   initialDetails?: Partial<BookingDetails>;
   mode?: BookingWizardMode;
   layoutElement?: "main" | "div";
+  initialCalendarMask?: CalendarMask | null;
 };
 
-function BookingWizardWithNavigator({ initialDetails, mode = "customer", layoutElement = "main" }: BookingWizardWithNavigatorProps) {
+function BookingWizardWithNavigator({
+  initialDetails,
+  mode = "customer",
+  layoutElement = "main",
+  initialCalendarMask,
+}: BookingWizardWithNavigatorProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -102,7 +109,12 @@ function BookingWizardWithNavigator({ initialDetails, mode = "customer", layoutE
 
   return (
     <WizardDependenciesProvider value={dependencies}>
-      <BookingWizard initialDetails={initialDetails} mode={mode} layoutElement={layoutElement} />
+      <BookingWizard
+        initialDetails={initialDetails}
+        mode={mode}
+        layoutElement={layoutElement}
+        initialCalendarMask={initialCalendarMask}
+      />
     </WizardDependenciesProvider>
   );
 }
@@ -111,15 +123,22 @@ type BookingFlowPageProps = {
   initialDetails?: Partial<BookingDetails>;
   mode?: BookingWizardMode;
   layoutElement?: "main" | "div";
+  initialCalendarMask?: CalendarMask | null;
 };
 
-export default function BookingFlowPage({ initialDetails, mode = "customer", layoutElement = "main" }: BookingFlowPageProps = {}) {
+export default function BookingFlowPage({
+  initialDetails,
+  mode = "customer",
+  layoutElement = "main",
+  initialCalendarMask,
+}: BookingFlowPageProps = {}) {
   return (
     <BookingFlowProviders>
       <BookingWizardWithNavigator
         initialDetails={initialDetails}
         mode={mode}
         layoutElement={layoutElement}
+        initialCalendarMask={initialCalendarMask}
       />
     </BookingFlowProviders>
   );

@@ -1,0 +1,8 @@
+{
+  "description": "Files related to the booking calendar issue where weekends are not disabled until after a user interaction.",
+  "files": [
+    "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/features/reservations/wizard/ui/steps/plan-step/components/Calendar24Field.tsx",
+    "/Users/amankumarshrestha/Downloads/SajiloReserveX/src/components/features/booking-state-machine/ScheduleAwareTimestampPicker.tsx",
+    "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/features/reservations/wizard/services/schedule.ts"
+  ]
+}

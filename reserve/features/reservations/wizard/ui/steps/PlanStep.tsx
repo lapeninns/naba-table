@@ -11,6 +11,7 @@ import { WizardStep } from '../WizardStep';
 import { PlanStepForm } from './plan-step/PlanStepForm';
 
 import type { StepAction } from '../../model/reducer';
+import type { CalendarMask } from '@reserve/features/reservations/wizard/services/schedule';
 import type { AnalyticsEvent } from '@shared/lib/analytics';
 
 function getMinSelectableDate(timezone: string | null | undefined) {
@@ -57,9 +58,15 @@ export interface PlanStepProps {
   onActionsChange: (actions: StepAction[]) => void;
   onTrack?: (event: AnalyticsEvent, payload?: Record<string, unknown>) => void;
   planAlert?: string | null;
+  initialCalendarMask?: CalendarMask | null;
 }
 
-export function PlanStep({ onActionsChange, onTrack, planAlert }: PlanStepProps) {
+export function PlanStep({
+  onActionsChange,
+  onTrack,
+  planAlert,
+  initialCalendarMask,
+}: PlanStepProps) {
   const state = useWizardState();
   const actions = useWizardActions();
   const minSelectableDate = useMemo(() => {
@@ -88,6 +95,7 @@ export function PlanStep({ onActionsChange, onTrack, planAlert }: PlanStepProps)
           onActionsChange={onActionsChange}
           onTrack={onTrack}
           minDate={minSelectableDate}
+          initialCalendarMask={initialCalendarMask}
         />
       </WizardStep>
     </StepErrorBoundary>
