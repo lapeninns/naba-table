@@ -66,10 +66,19 @@ const nextConfig = {
         destination: '/reserve/r/:slug',
         permanent: true,
       },
-      // Normalize ops login to unified signin with context
       {
-        source: '/ops/login',
-        destination: '/signin?context=ops',
+        source: '/tos',
+        destination: '/terms',
+        permanent: true,
+      },
+      {
+        source: '/terms/venue',
+        destination: '/terms',
+        permanent: true,
+      },
+      {
+        source: '/terms/togo',
+        destination: '/terms',
         permanent: true,
       },
     ];

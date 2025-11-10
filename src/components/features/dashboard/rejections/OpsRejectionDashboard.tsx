@@ -21,6 +21,7 @@ import {
 } from '@/hooks';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { CSRF_HEADER_NAME, getBrowserCsrfToken } from '@/lib/security/csrf';
 
 import type { OpsStrategicPenaltyKey, OpsStrategicSettings } from '@/types/ops';
 
@@ -291,9 +292,15 @@ export function OpsRejectionDashboard() {
     if (!restaurantId) return;
     try {
       setSimulationStatus('running');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const csrfToken = getBrowserCsrfToken();
+      if (csrfToken) {
+        headers[CSRF_HEADER_NAME] = csrfToken;
+      }
+
       const response = await fetch('/api/ops/strategies/simulate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           restaurantId,
           strategies: [

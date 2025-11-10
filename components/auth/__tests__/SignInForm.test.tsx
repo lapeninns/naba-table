@@ -8,6 +8,9 @@ import { SignInForm } from "../SignInForm";
 const trackMock = vi.hoisted(() => vi.fn());
 const emitMock = vi.hoisted(() => vi.fn());
 const signInWithOtpMock = vi.hoisted(() => vi.fn());
+const signInWithPasswordMock = vi.hoisted(() => vi.fn());
+const replaceMock = vi.hoisted(() => vi.fn());
+const refreshMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/analytics", () => ({
   track: (...args: unknown[]) => trackMock(...(args as Parameters<typeof trackMock>)),
@@ -29,14 +32,15 @@ vi.mock("@/lib/supabase/browser", () => ({
   getSupabaseBrowserClient: () => ({
     auth: {
       signInWithOtp: (...args: unknown[]) => signInWithOtpMock(...args),
+      signInWithPassword: (...args: unknown[]) => signInWithPasswordMock(...args),
     },
   }),
 }));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
-    replace: vi.fn(),
-    refresh: vi.fn(),
+    replace: (...args: unknown[]) => replaceMock(...args),
+    refresh: (...args: unknown[]) => refreshMock(...args),
   }),
 }));
 
@@ -45,6 +49,9 @@ describe("<SignInForm /> magic link flow", () => {
     trackMock.mockReset();
     emitMock.mockReset();
     signInWithOtpMock.mockReset();
+    signInWithPasswordMock.mockReset();
+    replaceMock.mockReset();
+    refreshMock.mockReset();
   });
 
   it("sends a magic link and shows success status", async () => {
@@ -100,5 +107,72 @@ describe("<SignInForm /> magic link flow", () => {
     await screen.findByText(/magic link sent! check your inbox to finish signing in/i);
     expect(button.hasAttribute("disabled")).toBe(true);
     expect(button.textContent).toMatch(/resend in/i);
+  });
+});
+
+describe("<SignInForm /> password flow", () => {
+  afterEach(() => {
+    trackMock.mockReset();
+    emitMock.mockReset();
+    signInWithOtpMock.mockReset();
+    signInWithPasswordMock.mockReset();
+    replaceMock.mockReset();
+    refreshMock.mockReset();
+  });
+
+  it("signs in with password and redirects on success", async () => {
+    signInWithPasswordMock.mockResolvedValue({ error: null });
+
+    render(<SignInForm redirectedFrom="/my-bookings" />);
+
+    await userEvent.click(screen.getByRole("tab", { name: /password/i }));
+    await userEvent.type(screen.getByLabelText(/email address/i), "ada@example.com");
+    await userEvent.type(screen.getByLabelText(/password/i), "super-secret");
+    const submitButton = screen.getByRole("button", { name: /sign in with password/i });
+    await userEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(signInWithPasswordMock).toHaveBeenCalledWith({
+        email: "ada@example.com",
+        password: "super-secret",
+      });
+    });
+
+    expect(
+      await screen.findByText(/signed in successfully\. redirecting/i),
+    ).toBeTruthy();
+    expect(trackMock).toHaveBeenCalledWith(
+      "auth_signin_success",
+      expect.objectContaining({ method: "password" }),
+    );
+    expect(emitMock).toHaveBeenCalledWith(
+      "auth_signin_success",
+      expect.objectContaining({ method: "password" }),
+    );
+    expect(replaceMock).toHaveBeenCalledWith("/my-bookings");
+    expect(refreshMock).toHaveBeenCalled();
+  });
+
+  it("shows error status when Supabase password auth fails", async () => {
+    signInWithPasswordMock.mockResolvedValue({
+      error: { message: "Invalid login credentials", name: "AuthApiError", status: 400 },
+    });
+
+    render(<SignInForm redirectedFrom="/my-bookings" />);
+
+    await userEvent.click(screen.getByRole("tab", { name: /password/i }));
+    await userEvent.type(screen.getByLabelText(/email address/i), "ada@example.com");
+    await userEvent.type(screen.getByLabelText(/password/i), "wrong-password");
+    await userEvent.click(screen.getByRole("button", { name: /sign in with password/i }));
+
+    expect(await screen.findByText(/invalid login credentials/i)).toBeTruthy();
+    expect(trackMock).toHaveBeenCalledWith(
+      "auth_signin_error",
+      expect.objectContaining({ method: "password" }),
+    );
+    expect(emitMock).toHaveBeenCalledWith(
+      "auth_signin_error",
+      expect.objectContaining({ method: "password" }),
+    );
   });
 });

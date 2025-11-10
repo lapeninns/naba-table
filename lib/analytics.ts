@@ -24,6 +24,7 @@ export type AnalyticsEvent =
   | "auth_signin_viewed"
   | "auth_signin_attempt"
   | "auth_signin_error"
+  | "auth_signin_success"
   | "auth_magiclink_sent";
 
 type AnalyticsProps = Record<string, unknown>;

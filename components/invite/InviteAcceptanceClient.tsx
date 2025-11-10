@@ -14,6 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { invitationAcceptResponseSchema } from '@/lib/owner/team/schema';
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
+import { CSRF_HEADER_NAME, getBrowserCsrfToken } from '@/lib/security/csrf';
 
 const acceptanceSchema = z.object({
   name: z.string().trim().min(2, 'Enter your full name'),
@@ -53,11 +54,17 @@ export function InviteAcceptanceClient({ token, invite }: InviteAcceptanceClient
     setErrorMessage(null);
     setIsSubmitting(true);
     try {
+      const requestHeaders: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      const csrfToken = getBrowserCsrfToken();
+      if (csrfToken) {
+        requestHeaders[CSRF_HEADER_NAME] = csrfToken;
+      }
+
       const response = await fetch(`/api/team/invitations/${encodeURIComponent(token)}/accept`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: requestHeaders,
         body: JSON.stringify(values),
       });
 

@@ -1,3 +1,5 @@
+'use client';
+
 import { AppSidebar } from "@/components/app-sidebar"
 import {
   Breadcrumb,
@@ -50,3 +52,4 @@ export default function Page() {
     </SidebarProvider>
   )
 }
+ "use client"
