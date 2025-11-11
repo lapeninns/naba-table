@@ -479,8 +479,18 @@ export async function releaseTableHold(input: ReleaseTableHoldInput): Promise<vo
   const { holdId, client } = input;
   const supabase = ensureClient(client);
   await configureHoldStrictConflictSession(supabase);
-  await supabase.from("table_hold_members").delete().eq("hold_id", holdId);
-  await supabase.from("table_holds").delete().eq("id", holdId);
+  const rpcCall = supabase.rpc("release_hold_and_emit", { p_hold_id: holdId, p_actor_id: null });
+  const { error: rpcError } = await rpcCall;
+
+  if (rpcError) {
+    console.warn("[capacity.hold] release_hold_and_emit failed; falling back to manual delete", {
+      holdId,
+      code: rpcError.code ?? null,
+      message: rpcError.message ?? null,
+    });
+    await supabase.from("table_hold_members").delete().eq("hold_id", holdId);
+    await supabase.from("table_holds").delete().eq("id", holdId);
+  }
 }
 
 export async function extendTableHold(input: ExtendTableHoldInput): Promise<TableHold> {

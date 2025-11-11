@@ -2,7 +2,7 @@ import { request } from '@playwright/test';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import type { FullConfig} from '@playwright/test';
+import type { APIRequestContext, FullConfig} from '@playwright/test';
 
 const AUTH_STATE_ENV_PATH = 'PLAYWRIGHT_AUTH_STATE_PATH';
 const AUTH_STATE_ENV_JSON = 'PLAYWRIGHT_AUTH_STATE_JSON';
@@ -16,6 +16,30 @@ function resolveBaseURL(config: FullConfig): string | undefined {
     }
   }
   return process.env.BASE_URL;
+}
+
+async function ensureTestLoginUser(requestContext: APIRequestContext) {
+  const testEmail = process.env.PLAYWRIGHT_TEST_EMAIL;
+  const testPassword = process.env.PLAYWRIGHT_TEST_PASSWORD;
+  if (!testEmail || !testPassword) {
+    return;
+  }
+
+  try {
+    await requestContext.post('/api/test/playwright-session', {
+      data: {
+        email: testEmail,
+        password: testPassword,
+        profile: {
+          name: 'Playwright Customer',
+          phone: '07123 456780',
+          role: 'host',
+        },
+      },
+    });
+  } catch (error) {
+    console.warn('⚠️ Failed to ensure customer login user via test API:', error);
+  }
 }
 
 export default async function globalSetup(config: FullConfig) {
@@ -89,9 +113,11 @@ export default async function globalSetup(config: FullConfig) {
     if (!response.ok()) {
       const bodyText = await response.text();
       console.warn(`⚠️ Failed to bootstrap auth session (${response.status()}): ${bodyText}`);
+      await ensureTestLoginUser(requestContext);
       return;
     }
 
+    await ensureTestLoginUser(requestContext);
     await requestContext.storageState({ path: targetPath });
   } catch (error) {
     console.warn('⚠️ Failed to generate storage state via test API:', error);

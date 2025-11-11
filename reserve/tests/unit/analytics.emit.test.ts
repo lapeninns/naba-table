@@ -99,7 +99,7 @@ describe('analytics emitter', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe('/api/events');
+    expect(url).toBe('/api/v1/events');
     expect(init?.keepalive).toBe(true);
     expect(init?.method).toBe('POST');
 

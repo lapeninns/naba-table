@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 
 import { DASHBOARD_DEFAULT_PAGE_SIZE } from '@/components/dashboard/constants';
 import { getCanonicalSiteUrl } from '@/lib/site-url';
+import { withRedirectedFrom } from '@/lib/url/withRedirectedFrom';
 import { queryKeys } from '@/lib/query/keys';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
 
@@ -46,7 +47,12 @@ function resolveOrigin(requestHeaders: HeaderLike): string {
   return process.env.NEXT_PUBLIC_SITE_URL ?? getCanonicalSiteUrl();
 }
 
+const SKIP_PREFETCH_FOR_PLAYWRIGHT = process.env.PLAYWRIGHT_TEST_DASHBOARD === 'true';
+
 async function prefetchUpcomingBookings(queryClient: QueryClient) {
+  if (SKIP_PREFETCH_FOR_PLAYWRIGHT) {
+    return;
+  }
   const searchParams = buildDefaultSearchParams(DASHBOARD_DEFAULT_PAGE_SIZE);
   const keyParams = Object.fromEntries(searchParams.entries());
   const requestHeaders = await headers();
@@ -89,7 +95,7 @@ export default async function MyBookingsPage() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect('/signin?redirectedFrom=/my-bookings');
+    redirect(withRedirectedFrom('/signin', '/my-bookings'));
   }
 
   const queryClient = new QueryClient();

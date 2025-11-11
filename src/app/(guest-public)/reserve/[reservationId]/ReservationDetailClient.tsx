@@ -16,7 +16,6 @@ import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
 import { getPendingSelfServeGraceMinutes, isPendingSelfServeLocked } from '@/lib/bookings/pendingLock';
 import { downloadCalendarEvent, shareReservationDetails, type ShareResult } from '@/lib/reservations/share';
-import { cn } from '@/lib/utils';
 import { useReservation } from '@features/reservations/wizard/api/useReservation';
 import { DEFAULT_VENUE } from '@shared/config/venue';
 
@@ -126,6 +125,7 @@ export function ReservationDetailClient({
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
+  const [downloadLoading, setDownloadLoading] = useState(false);
   const calendarButtonRef = useRef<HTMLButtonElement | null>(null);
   const shareButtonRef = useRef<HTMLButtonElement | null>(null);
   const shareAlertVariant = shareFeedback
@@ -142,7 +142,6 @@ export function ReservationDetailClient({
   const [clockNow, setClockNow] = useState(() => Date.now());
 
   const { data: reservation, error, isError, isLoading, refetch, isFetching } = useReservation(reservationId);
-  const testUiEnabled = process.env.NEXT_PUBLIC_ENABLE_TEST_UI === 'true';
 
   // Calculate venue info before any early returns
   const venue = useMemo<ReservationVenue>(() => {
@@ -182,6 +181,37 @@ export function ReservationDetailClient({
       venueTimezone: venue.timezone,
     };
   }, [reservation, reservationId, venue.address, venue.name, venue.timezone]);
+
+  const handleDownloadConfirmation = useCallback(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    if (!reservation) {
+      setShareFeedback({ variant: 'warning', message: 'Reservation details not ready yet.' });
+      return;
+    }
+
+    const targetId = reservation.id ?? reservationId;
+    setDownloadLoading(true);
+    try {
+      const link = document.createElement('a');
+      link.href = `/api/reservations/${targetId}/confirmation`;
+      link.download = `reservation-${reservation.reference ?? targetId}.pdf`;
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('[reservation-detail] download failed', error);
+      setShareFeedback({
+        variant: 'error',
+        message: "We couldn't download the confirmation. Please try again.",
+      });
+    } finally {
+      setDownloadLoading(false);
+    }
+  }, [reservation, reservationId]);
 
   const pendingLock = useMemo(() => {
     if (!reservation || reservation.status !== 'pending') {
@@ -554,22 +584,13 @@ export function ReservationDetailClient({
             >
               {shareLoading ? 'Sharing…' : 'Share details'}
             </Button>
-            {testUiEnabled ? (
-              <a
-                href={`/api/test/reservations/${reservation.id}/confirmation`}
-                download
-                className={cn(
-                  'inline-flex items-center justify-center gap-2',
-                  'min-h-[44px] h-11 px-5 py-2.5',
-                  'rounded-[var(--radius-md)] text-button',
-                  'border border-srx-border-strong bg-white/90 text-srx-ink-strong hover:bg-srx-surface-positive-alt',
-                  'transition-[transform,box-shadow,background-color,color] duration-100 ease-out',
-                  'active:scale-[0.98]',
-                )}
-              >
-                Download confirmation
-              </a>
-            ) : null}
+            <Button
+              variant="outline"
+              onClick={handleDownloadConfirmation}
+              disabled={downloadLoading || !reservation}
+            >
+              {downloadLoading ? 'Preparing…' : 'Download confirmation'}
+            </Button>
           </div>
         </div>
 

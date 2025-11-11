@@ -6,6 +6,7 @@ import { DASHBOARD_DEFAULT_PAGE_SIZE } from "@/components/dashboard/constants";
 import { OpsCustomersClient } from "@/components/features/customers";
 import { queryKeys } from "@/lib/query/keys";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
+import { withRedirectedFrom } from "@/lib/url/withRedirectedFrom";
 import { getServerComponentSupabaseClient } from "@/server/supabase";
 import { fetchUserMemberships } from "@/server/team/access";
 
@@ -107,7 +108,7 @@ export default async function OpsCustomerDetailsPage() {
   }
 
   if (!user) {
-    redirect("/signin?context=ops&redirectedFrom=/ops/customer-details");
+    redirect(withRedirectedFrom("/ops/login", "/ops/customer-details"));
   }
 
   const memberships = await fetchUserMemberships(user.id, supabase);

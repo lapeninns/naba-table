@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { OpsWalkInBookingClient } from "@/components/features";
+import { withRedirectedFrom } from "@/lib/url/withRedirectedFrom";
 import { getServerComponentSupabaseClient } from "@/server/supabase";
 
 import type { Metadata } from "next";
@@ -22,7 +23,7 @@ export default async function OpsWalkInBookingPage() {
   }
 
   if (!user) {
-    redirect("/signin?context=ops&redirectedFrom=/ops/bookings/new");
+    redirect(withRedirectedFrom("/ops/login", "/ops/bookings/new"));
   }
 
   return <OpsWalkInBookingClient />;

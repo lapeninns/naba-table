@@ -92,7 +92,9 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
   const [magicCooldown, setMagicCooldown] = useState(0);
   const [status, setStatus] = useState<StatusState | null>(null);
   const statusRef = useRef<HTMLParagraphElement | null>(null);
-  const [mode, setMode] = useState<AuthMode>(AUTH_MODES.MAGIC_LINK);
+  const [mode, setMode] = useState<AuthMode>(() =>
+    clientEnv.flags.forcePasswordSignIn ? AUTH_MODES.PASSWORD : AUTH_MODES.MAGIC_LINK,
+  );
 
   const targetPath = redirectedFrom && redirectedFrom.startsWith('/') ? redirectedFrom : '/my-bookings';
 

@@ -162,13 +162,10 @@ export default async function HomePage() {
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
       <div className="bg-background relative min-h-screen bg-gradient-to-b from-background via-background/98 to-background">
-        <main
-          id="main-content"
-          className="mx-auto flex w-full max-w-6xl flex-col gap-16 px-6 pb-20 pt-12 md:gap-24 md:pb-24"
-        >
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-16 px-6 pb-20 pt-12 md:gap-24 md:pb-24">
           <HeroSection />
           <RestaurantsSection />
-        </main>
+        </div>
       </div>
     </HydrationBoundary>
   );

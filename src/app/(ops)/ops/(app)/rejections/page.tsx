@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 
 import { OpsRejectionDashboard } from '@/components/features/dashboard/rejections';
 import { env } from '@/lib/env';
+import { withRedirectedFrom } from '@/lib/url/withRedirectedFrom';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
 
 import type { Metadata } from 'next';
@@ -27,7 +28,7 @@ export default async function OpsRejectionsPage() {
   }
 
   if (!user) {
-    redirect('/signin?context=ops&redirectedFrom=/ops/rejections');
+    redirect(withRedirectedFrom('/ops/login', '/ops/rejections'));
   }
 
   return (

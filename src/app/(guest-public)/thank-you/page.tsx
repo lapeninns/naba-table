@@ -49,37 +49,39 @@ export default function ThankYouPage() {
 
 function LoadingScreen() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-6 py-24">
+    <section className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-6 py-24">
       <div className="mx-auto max-w-md space-y-4 text-center">
         <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-slate-900 border-r-transparent" role="status">
           <span className="sr-only">Loading confirmation...</span>
         </div>
         <p className="text-slate-600">Loading your booking confirmation...</p>
       </div>
-    </main>
+    </section>
   );
 }
 
 function ThankYouPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const token = searchParams?.get('token') ?? null;
+  const rawToken = searchParams?.get('token')?.trim() ?? null;
+  const token = rawToken && rawToken.length > 0 ? rawToken : null;
 
-  const [pageState, setPageState] = useState<PageState>({ state: 'loading' });
+  const [pageState, setPageState] = useState<PageState>(() =>
+    token ? { state: 'loading' } : { state: 'idle' },
+  );
 
   useEffect(() => {
+    if (!token) {
+      setPageState((prev) => (prev.state === 'idle' ? prev : { state: 'idle' }));
+      return;
+    }
+
     const fetchBooking = async () => {
       try {
-        const url = token ? `/api/bookings/confirm?token=${encodeURIComponent(token)}` : '/api/bookings/confirm';
+        const url = `/api/v1/bookings/confirm?token=${encodeURIComponent(token)}`;
         const response = await fetch(url, { credentials: 'same-origin' });
 
         if (!response.ok) {
-          // If no token and cookie/session missing, fall back to idle (generic thank-you)
-          if (!token) {
-            setPageState({ state: 'idle' });
-            return;
-          }
-
           const errorData = await response.json().catch(() => ({}));
           setPageState({
             state: 'error',
@@ -101,9 +103,7 @@ function ThankYouPageContent() {
         setPageState({ state: 'error', message: 'Network error. Please check your connection.' });
       } finally {
         // Strip token from the URL if present to avoid leaking in referrers or history
-        if (token) {
-          router.replace('/thank-you');
-        }
+        router.replace('/thank-you');
       }
     };
 
@@ -119,7 +119,7 @@ function ThankYouPageContent() {
     const isExpired = pageState.code === 'TOKEN_EXPIRED' || pageState.code === 'TOKEN_USED';
 
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-6 py-24">
+      <section className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-6 py-24">
         <div className="mx-auto max-w-md space-y-4 text-center">
           <div className="rounded-full bg-red-100 p-3 mx-auto w-fit">
             <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -157,7 +157,7 @@ function ThankYouPageContent() {
             </Link>
           </div>
         </div>
-      </main>
+      </section>
     );
   }
 
@@ -167,7 +167,7 @@ function ThankYouPageContent() {
     const isPending = booking.status === 'pending' || booking.status === 'pending_allocation';
 
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-6 py-24">
+      <section className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-6 py-24">
         <div className="mx-auto max-w-2xl space-y-6">
           {/* Success header */}
           <div className="text-center space-y-3">
@@ -262,13 +262,13 @@ function ThankYouPageContent() {
             </Link>
           </div>
         </div>
-      </main>
+      </section>
     );
   }
 
   // Idle state (no token or no server session, generic thank you)
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-6 py-24 text-center">
+    <section className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-6 py-24 text-center">
       <div className="mx-auto max-w-md space-y-4">
         <h1 className="text-3xl font-bold tracking-tight text-slate-800">Thanks for booking with SajiloReserveX</h1>
         <p className="text-slate-600">
@@ -290,6 +290,6 @@ function ThankYouPageContent() {
           </Link>
         </div>
       </div>
-    </main>
+    </section>
   );
 }

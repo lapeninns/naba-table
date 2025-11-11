@@ -1,11 +1,8 @@
 'use client';
 
-import dynamic from "next/dynamic";
 import { useEffect, useMemo } from "react";
 
-const ReserveRouter = dynamic(() => import("@reserve/app/router").then((mod) => mod.ReserveRouter), {
-  ssr: false,
-});
+import { ReserveRouter } from "@reserve/app/router";
 
 type ReserveAppProps = {
   initialPath?: string;

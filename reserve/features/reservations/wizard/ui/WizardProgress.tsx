@@ -29,10 +29,19 @@ export function WizardProgress({ steps, currentStep, summary, className }: Wizar
   const clampedCurrent = Math.min(Math.max(currentStep, 1), total);
   const progressValue = total <= 1 ? 100 : ((clampedCurrent - 1) / (total - 1)) * 100;
   const ariaSummary = summary.srLabel ?? `${summary.primary}. ${summary.details?.join(', ') ?? ''}`;
+  const headingId = React.useId();
+  const liveSummaryId = React.useId();
 
   return (
-    <section className={cn('flex flex-col gap-2', className)} aria-label="Wizard progress">
-      <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground sm:text-[13px]">
+    <section
+      className={cn('flex flex-col gap-2', className)}
+      aria-labelledby={headingId}
+      aria-describedby={liveSummaryId}
+    >
+      <div
+        id={headingId}
+        className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground sm:text-[13px]"
+      >
         <span>{`Step ${clampedCurrent} of ${total}`}</span>
         <span aria-hidden>{`${Math.round(progressValue)}% complete`}</span>
       </div>
@@ -44,7 +53,7 @@ export function WizardProgress({ steps, currentStep, summary, className }: Wizar
         aria-valuenow={Math.round(progressValue)}
         aria-valuetext={`Step ${clampedCurrent} of ${total}`}
       />
-      <div className="sr-only" aria-live="polite">
+      <div id={liveSummaryId} className="sr-only" aria-live="polite">
         {`Step ${clampedCurrent} of ${total}. ${ariaSummary}`}
       </div>
       <ol className="hidden items-center justify-between gap-3 md:flex" aria-label="Steps">

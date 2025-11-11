@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { guardTestEndpoint } from '@/server/security/test-endpoints';
 import { getDefaultRestaurantId, getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 
+import type { User } from '@supabase/supabase-js';
 import type { NextRequest} from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -24,6 +25,74 @@ const payloadSchema = z.object({
   metadata: z.record(z.string(), z.any()).optional(),
 });
 
+async function findUserByEmail(email: string): Promise<User | null> {
+  const service = getServiceSupabaseClient();
+  const normalized = email.toLowerCase();
+  const { data, error } = await service.auth.admin.listUsers();
+  if (error) {
+    console.warn('[test/playwright-session] listUsers error', error);
+    return null;
+  }
+
+  return data?.users?.find((candidate) => candidate.email?.toLowerCase() === normalized) ?? null;
+}
+
+async function ensureAuthUser(
+  email: string,
+  password: string,
+  metadata?: Record<string, unknown>,
+): Promise<User | null> {
+  const service = getServiceSupabaseClient();
+  const normalizedEmail = email.toLowerCase();
+
+  const toMetadata = metadata && Object.keys(metadata).length > 0 ? metadata : undefined;
+  let user = await findUserByEmail(normalizedEmail);
+
+  if (!user) {
+    const created = await service.auth.admin.createUser({
+      email: normalizedEmail,
+      password,
+      email_confirm: true,
+      user_metadata: toMetadata ?? {},
+    });
+
+    if (created.error || !created.data.user) {
+      const duplicate = created.error?.message?.toLowerCase().includes('already been registered');
+      if (!duplicate) {
+        console.error('[test/playwright-session] createUser failed', created.error);
+        return null;
+      }
+      user = await findUserByEmail(normalizedEmail);
+    } else {
+      user = created.data.user;
+    }
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  const updates: Record<string, unknown> = {
+    password,
+    email_confirm: true,
+  };
+
+  if (toMetadata) {
+    updates.user_metadata = {
+      ...(user.user_metadata ?? {}),
+      ...toMetadata,
+    };
+  }
+
+  const updated = await service.auth.admin.updateUserById(user.id, updates);
+  if (updated.error || !updated.data.user) {
+    console.error('[test/playwright-session] updateUser failed', updated.error);
+    return null;
+  }
+
+  return updated.data.user;
+}
+
 export async function POST(req: NextRequest) {
   const guard = guardTestEndpoint();
   if (guard) return guard;
@@ -37,44 +106,11 @@ export async function POST(req: NextRequest) {
 
   const { email, password, profile, metadata } = parsed.data;
   const service = getServiceSupabaseClient();
-
   const normalizedEmail = email.toLowerCase();
 
-  // List users and filter by email since getUserByEmail doesn't exist
-  const { data: usersData } = await service.auth.admin.listUsers();
-  const existingUser = usersData?.users?.find((u: { email?: string }) => u.email?.toLowerCase() === normalizedEmail);
-  let user = existingUser ?? null;
-
+  const user = await ensureAuthUser(normalizedEmail, password, metadata);
   if (!user) {
-    const created = await service.auth.admin.createUser({
-      email: normalizedEmail,
-      password,
-      email_confirm: true,
-      user_metadata: metadata ?? {},
-    });
-
-    if (created.error || !created.data.user) {
-      return NextResponse.json({ error: created.error?.message ?? 'Failed to create auth user' }, { status: 500 });
-    }
-
-    user = created.data.user;
-  } else {
-    const updates: Record<string, unknown> = {};
-    if (metadata && Object.keys(metadata).length > 0) {
-      updates.user_metadata = {
-        ...(user.user_metadata ?? {}),
-        ...metadata,
-      };
-    }
-
-    updates.password = password;
-    updates.email_confirm = true;
-
-    const updated = await service.auth.admin.updateUserById(user.id, updates);
-    if (updated.error || !updated.data.user) {
-      return NextResponse.json({ error: updated.error?.message ?? 'Failed to update auth user' }, { status: 500 });
-    }
-    user = updated.data.user;
+    return NextResponse.json({ error: 'Failed to provision auth user' }, { status: 500 });
   }
 
   const restaurantId = profile.restaurantId ?? (await getDefaultRestaurantId());

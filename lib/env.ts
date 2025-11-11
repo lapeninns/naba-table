@@ -82,7 +82,7 @@ export const env = {
   get reserve() {
     const parsed = parseEnv();
     return {
-      apiBaseUrl: parsed.RESERVE_API_BASE_URL ?? "/api",
+      apiBaseUrl: parsed.RESERVE_API_BASE_URL ?? "/api/v1",
       apiTimeoutMs: parsed.RESERVE_API_TIMEOUT_MS ?? 15_000,
       routerBasePath: parsed.RESERVE_ROUTER_BASE_PATH ?? "/reserve",
       buildOutDir: parsed.RESERVE_BUILD_OUT_DIR,

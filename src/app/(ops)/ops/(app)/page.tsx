@@ -4,6 +4,7 @@ import { BookingErrorBoundary } from "@/components/features/booking-state-machin
 import { OpsDashboardClient } from "@/components/features/dashboard";
 import { BookingOfflineQueueProvider } from "@/contexts/booking-offline-queue";
 import { getServerComponentSupabaseClient } from "@/server/supabase";
+import { withRedirectedFrom } from "@/lib/url/withRedirectedFrom";
 import { sanitizeDateParam } from "@/utils/ops/dashboard";
 
 import type { Metadata } from "next";
@@ -30,7 +31,7 @@ export default async function OpsDashboardPage({ searchParams }: { searchParams?
   }
 
   if (!user) {
-    redirect(`/signin?context=ops&redirectedFrom=/ops`);
+    redirect(withRedirectedFrom("/ops/login", "/ops"));
   }
 
   return (

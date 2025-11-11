@@ -88,6 +88,7 @@ type AssignmentSyncParams = {
     holdId: string;
     zoneId?: string | null;
   };
+  signal?: AbortSignal;
 };
 
 function isSchemaCacheMissError(error: AssignTablesRpcError): boolean {
@@ -123,7 +124,19 @@ const sleep = (ms: number): Promise<void> =>
   ms > 0 ? new Promise((resolve) => setTimeout(resolve, ms)) : Promise.resolve();
 
 async function synchronizeAssignments(params: AssignmentSyncParams): Promise<TableAssignmentMember[]> {
-  const { supabase, booking, tableIds, idempotencyKey, assignments, startIso, endIso, actorId, mergeGroupId, holdContext } = params;
+  const {
+    supabase,
+    booking,
+    tableIds,
+    idempotencyKey,
+    assignments,
+    startIso,
+    endIso,
+    actorId,
+    mergeGroupId,
+    holdContext,
+    signal,
+  } = params;
   const uniqueTableIds = Array.from(new Set(tableIds));
   const loadAssignments = () => loadTableAssignmentsForTables(booking.id, uniqueTableIds, supabase);
   let assignmentRows = await loadAssignments();
@@ -136,48 +149,87 @@ async function synchronizeAssignments(params: AssignmentSyncParams): Promise<Tab
   });
 
   if (needsUpdate) {
-    try {
-      await supabase
-        .from("booking_table_assignments")
-        .update({ start_at: startIso, end_at: endIso })
-        .eq("booking_id", booking.id)
-        .in("table_id", uniqueTableIds);
-    } catch {
-      // Ignore in mocked environments.
-    }
+    let syncedViaRpc = false;
+    const payloadChecksum = computePayloadChecksum({
+      bookingId: booking.id,
+      tableIds: uniqueTableIds,
+      startAt: startIso,
+      endAt: endIso,
+      actorId,
+      holdId: holdContext?.holdId ?? null,
+    }) as unknown as string;
 
     try {
-      await supabase
-        .from("allocations")
-        .update({ window: windowRange })
-        .eq("booking_id", booking.id)
-        .eq("resource_type", TABLE_RESOURCE_TYPE)
-        .in("resource_id", uniqueTableIds);
-    } catch {
-      // Ignore missing allocation support in mocked environments.
+      const rpcCall = applyAbortSignal(
+        supabase.rpc("sync_confirmed_assignment_windows", {
+          p_booking_id: booking.id,
+          p_table_ids: uniqueTableIds,
+          p_window_start: startIso,
+          p_window_end: endIso,
+          p_actor_id: actorId ?? undefined,
+          p_hold_id: holdContext?.holdId ?? undefined,
+          p_merge_group_id: mergeGroupId ?? undefined,
+          p_idempotency_key: idempotencyKey ?? undefined,
+          p_payload_checksum: idempotencyKey ? payloadChecksum : undefined,
+        }),
+        signal,
+      );
+
+      const { data: syncRows, error: syncError } = await rpcCall;
+      if (syncError) {
+        throw syncError;
+      }
+      if (Array.isArray(syncRows) && syncRows.length > 0) {
+        assignmentRows = syncRows as typeof assignmentRows;
+        syncedViaRpc = true;
+      }
+    } catch (error) {
+      console.warn("[capacity.confirm] sync_confirmed_assignment_windows failed", {
+        bookingId: booking.id,
+        holdId: holdContext?.holdId ?? null,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
 
-    if (idempotencyKey) {
+    if (!syncedViaRpc) {
       try {
         await supabase
-          .from("booking_assignment_idempotency")
-          .update({
-            assignment_window: windowRange,
-            merge_group_allocation_id: mergeGroupId ?? null,
-            payload_checksum: computePayloadChecksum({
-              bookingId: booking.id,
-              tableIds: uniqueTableIds,
-              startAt: startIso,
-              endAt: endIso,
-              actorId,
-              holdId: holdContext?.holdId ?? null,
-            }) as unknown as string,
-          } as Record<string, unknown>)
+          .from("booking_table_assignments")
+          .update({ start_at: startIso, end_at: endIso })
           .eq("booking_id", booking.id)
-          .eq("idempotency_key", idempotencyKey);
+          .in("table_id", uniqueTableIds);
       } catch {
-        // Ignore ledger updates in mocked environments.
+        // Ignore in mocked environments.
       }
+
+      try {
+        await supabase
+          .from("allocations")
+          .update({ window: windowRange })
+          .eq("booking_id", booking.id)
+          .eq("resource_type", TABLE_RESOURCE_TYPE)
+          .in("resource_id", uniqueTableIds);
+      } catch {
+        // Ignore missing allocation support in mocked environments.
+      }
+
+      if (idempotencyKey) {
+        try {
+          await supabase
+            .from("booking_assignment_idempotency")
+            .update({
+              assignment_window: windowRange,
+              merge_group_allocation_id: mergeGroupId ?? null,
+              payload_checksum: payloadChecksum,
+            } as Record<string, unknown>)
+            .eq("booking_id", booking.id)
+            .eq("idempotency_key", idempotencyKey);
+        } catch {
+          // Ignore ledger updates in mocked environments.
+        }
+      }
+
+      assignmentRows = await loadAssignments();
     }
   }
 
@@ -819,6 +871,7 @@ export async function confirmHoldAssignment(options: ConfirmHoldAssignmentOption
       holdId,
       zoneId: typedHoldRow.zone_id ?? null,
     },
+    signal,
   });
 }
 

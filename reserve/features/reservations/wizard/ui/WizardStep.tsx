@@ -66,6 +66,8 @@ export function WizardStep({
             ) : null}
             <CardTitle
               id={titleId}
+              role="heading"
+              aria-level={2}
               className="text-[clamp(1.65rem,1.35rem+0.6vw,2.1rem)] text-foreground"
             >
               {title}

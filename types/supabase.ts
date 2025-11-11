@@ -2300,9 +2300,27 @@ export type Database = {
         Returns: boolean
       }
       refresh_table_status: { Args: { p_table_id: string }; Returns: undefined }
+      release_hold_and_emit: {
+        Args: { p_hold_id: string; p_actor_id?: string | null }
+        Returns: boolean
+      }
       set_hold_conflict_enforcement: {
         Args: { enabled: boolean }
         Returns: boolean
+      }
+      sync_confirmed_assignment_windows: {
+        Args: {
+          p_booking_id: string
+          p_table_ids: string[]
+          p_window_start: string
+          p_window_end: string
+          p_actor_id?: string | null
+          p_hold_id?: string | null
+          p_merge_group_id?: string | null
+          p_idempotency_key?: string | null
+          p_payload_checksum?: string | null
+        }
+        Returns: Database["public"]["Tables"]["booking_table_assignments"]["Row"][]
       }
       unassign_table_from_booking: {
         Args: { p_booking_id: string; p_table_id: string }

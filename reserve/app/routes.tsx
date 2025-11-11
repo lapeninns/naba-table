@@ -25,6 +25,12 @@ export const reserveRoutes: RouteObject[] = [
         }),
       },
       {
+        path: 'r/:slug',
+        lazy: async () => ({
+          Component: (await import('@pages/WizardPage')).default,
+        }),
+      },
+      {
         path: ':reservationId',
         element: <ReservationDetailsPage />,
       },

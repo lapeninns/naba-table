@@ -12,13 +12,26 @@ function testRouteHeaders() {
   return apiKey ? { 'x-test-route-key': apiKey } : undefined;
 }
 
+async function resolveRestaurantContext(request: APIRequestContext) {
+  const response = await request.get('/api/restaurants');
+  expect(response.ok()).toBeTruthy();
+  const payload = await response.json();
+  const restaurants = Array.isArray(payload?.data) ? payload.data : [];
+  expect(restaurants.length).toBeGreaterThan(0);
+  const first = restaurants[0] as { id: string; slug: string };
+  return { id: first.id, slug: first.slug };
+}
+
 async function createTestBooking(request: APIRequestContext) {
+  const restaurant = await resolveRestaurantContext(request);
   const response = await request.post('/api/test/bookings', {
     data: {
       email: process.env.PLAYWRIGHT_AUTH_EMAIL ?? 'qa.manager@example.com',
       name: 'QA Confirmation Guest',
       phone: '07123 456789',
       status: 'confirmed',
+      restaurantId: restaurant.id,
+      restaurantSlug: restaurant.slug,
     },
     headers: testRouteHeaders(),
   });

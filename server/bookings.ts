@@ -420,7 +420,7 @@ export async function softCancelBooking(client: DbClient, bookingId: string): Pr
     cancelledAt: booking.updated_at,
   });
 
-  void invalidateAvailabilitySnapshot(booking.restaurant_id, booking.booking_date);
+  await invalidateAvailabilitySnapshot(booking.restaurant_id, booking.booking_date);
 
   return booking;
 }
@@ -462,7 +462,7 @@ export async function updateBookingRecord(
 
   const booking = data as BookingRecord;
 
-  void invalidateAvailabilitySnapshot(booking.restaurant_id, booking.booking_date);
+  await invalidateAvailabilitySnapshot(booking.restaurant_id, booking.booking_date);
 
   return booking;
 }
@@ -575,7 +575,7 @@ export async function insertBookingRecord(
     status: booking.status,
   });
 
-  void invalidateAvailabilitySnapshot(booking.restaurant_id, booking.booking_date);
+  await invalidateAvailabilitySnapshot(booking.restaurant_id, booking.booking_date);
 
   return booking;
 }

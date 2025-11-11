@@ -2,13 +2,11 @@ import { NextResponse } from 'next/server';
 
 import { guardTestEndpoint } from '@/server/security/test-endpoints';
 import { getServiceSupabaseClient } from '@/server/supabase';
+import { buildReservationConfirmationPdfBuffer } from '@/server/reservations/confirmation-pdf';
 
 import type { NextRequest} from 'next/server';
 
 export const dynamic = 'force-dynamic';
-
-const PDF_BASE64 =
-  'JVBERi0xLjMKJcTl8uXrp/Og0MTGCjEgMCBvYmoKPDwvVHlwZS9DYXRhbG9nL1BhZ2VzIDIgMCBSCj4+CmVuZG9iagoKMiAwIG9iago8PC9UeXBlL1BhZ2VzL0NvdW50IDEvS2lkcyBbMyAwIFJdCj4+CmVuZG9iagoKMyAwIG9iago8PC9UeXBlL1BhZ2UvUGFyZW50IDIgMCBSL01lZGlhQm94IFswIDAgNTk1IDg0Ml0vQ29udGVudHMgNCAwIFIvUmVzb3VyY2VzIDw8L0ZvbnQgPDwvRjEgNSAwIFI+Pj4+Pj4KZW5kb2JqCgo0IDAgb2JqCjw8L0xlbmd0aCA3OCA+PgpzdHJlYW0KQlQKL0YxIDI0IFRmCjcyIDc2MCBUZAooUmVzZXJ2YXRpb24gQ29uZmlybWF0aW9uKSBUagplbmRzdHJlYW0KZW5kb2JqCgo1IDAgb2JqCjw8L1R5cGUvRm9udC9TdWJ0eXBlL1R5cGUxL0Jhc2VGb250L0hlbHZldGljYT4+CmVuZG9iagoKeHJlZgowIDYKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDE3IDAwMDAwIG4gCjAwMDAwMDAwNjMgMDAwMDAgbiAKMDAwMDAwMDE1MyAwMDAwMCBuIAowMDAwMDAwMjU1IDAwMDAwIG4gCjAwMDAwMDAzMzMgMDAwMDAgbiAKdHJhaWxlcgo8PC9Sb290IDEgMCBSL1NpemUgNj4+CnN0YXJ0eHJlZgoyOTYKJSVFT0YK';
 
 type RouteParams = {
   params: Promise<{ reservationId: string | string[] }>;
@@ -36,9 +34,10 @@ export async function GET(req: NextRequest, context: RouteParams) {
     return NextResponse.json({ error: 'Reservation not found' }, { status: 404 });
   }
 
-  const file = Buffer.from(PDF_BASE64, 'base64');
+  const file = buildReservationConfirmationPdfBuffer();
+  const pdfArrayBuffer = file.buffer.slice(file.byteOffset, file.byteOffset + file.byteLength) as ArrayBuffer;
 
-  return new NextResponse(file, {
+  return new NextResponse(pdfArrayBuffer, {
     status: 200,
     headers: {
       'Content-Type': 'application/pdf',

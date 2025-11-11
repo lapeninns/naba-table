@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 
 import { OpsRestaurantSettingsClient } from '@/components/features';
 import config from '@/config';
+import { withRedirectedFrom } from '@/lib/url/withRedirectedFrom';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
 
 import type { Metadata } from 'next';
@@ -23,9 +24,8 @@ export default async function RestaurantSettingsPage() {
   }
 
   if (!user) {
-    const loginUrl = config.auth.loginUrl ?? '/signin';
-    const separator = loginUrl.includes('?') ? '&' : '?';
-    redirect(`${loginUrl}${separator}context=ops&redirectedFrom=/ops/restaurant-settings`);
+    const loginUrl = config.auth.loginUrl ?? '/ops/login';
+    redirect(withRedirectedFrom(loginUrl, '/ops/restaurant-settings'));
   }
 
   return (

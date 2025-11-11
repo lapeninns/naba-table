@@ -251,9 +251,12 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
   const operationStart = highResNow();
   const supabase = ensureClient(client);
   const booking = await loadBooking(bookingId, supabase, signal);
+  const restaurantTimezonePromise = loadRestaurantTimezone(booking.restaurant_id, supabase, signal).catch(() => null);
+  const tablesPromise = loadTablesForRestaurant(booking.restaurant_id, supabase, signal);
+  const restaurantTimezoneLookup = await restaurantTimezonePromise;
   const restaurantTimezone =
     (booking.restaurants && !Array.isArray(booking.restaurants) ? booking.restaurants.timezone : null) ??
-    (await loadRestaurantTimezone(booking.restaurant_id, supabase, signal)) ??
+    restaurantTimezoneLookup ??
     getVenuePolicy().timezone;
   const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
   const policyVersion = hashPolicyVersion(policy);
@@ -269,7 +272,17 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     policy,
   });
 
-  const tables = await loadTablesForRestaurant(booking.restaurant_id, supabase, signal);
+  const strategicOptions = { restaurantId: booking.restaurant_id ?? null } as const;
+  const strategicConfigPromise = loadStrategicConfig({ ...strategicOptions, client: supabase });
+  const demandMultiplierPromise = resolveDemandMultiplier({
+    restaurantId: booking.restaurant_id,
+    serviceStart: window.block.start,
+    serviceKey: window.service,
+    timezone: policy.timezone,
+    client: supabase,
+  });
+
+  const tables = await tablesPromise;
   const adjacency = await loadAdjacency(
     booking.restaurant_id,
     tables.map((table) => table.id),
@@ -285,7 +298,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
   let holdsForDay: TableHold[] = [];
 
   if (timePruningEnabled || lookaheadEnabled) {
-    contextBookings = await loadContextBookings(
+    const contextPromise = loadContextBookings(
       booking.restaurant_id,
       booking.booking_date ?? null,
       supabase,
@@ -295,24 +308,27 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
       },
       signal,
     );
-    if (isHoldsEnabled()) {
-      try {
-        holdsForDay = await loadActiveHoldsForDate(booking.restaurant_id, booking.booking_date ?? null, policy, supabase, signal);
-      } catch (error: unknown) {
-        const code = extractErrorCode(error);
-        if (code === "42P01") {
-          console.warn("[capacity.quote] holds table unavailable; skipping hold hydration", {
-            restaurantId: booking.restaurant_id,
-          });
-        } else {
-          console.warn("[capacity.quote] failed to load active holds", {
-            restaurantId: booking.restaurant_id,
-            error,
-          });
-        }
-        holdsForDay = [];
-      }
-    }
+
+    const holdsPromise = isHoldsEnabled()
+      ? loadActiveHoldsForDate(booking.restaurant_id, booking.booking_date ?? null, policy, supabase, signal).catch((error: unknown) => {
+          const code = extractErrorCode(error);
+          if (code === "42P01") {
+            console.warn("[capacity.quote] holds table unavailable; skipping hold hydration", {
+              restaurantId: booking.restaurant_id,
+            });
+          } else {
+            console.warn("[capacity.quote] failed to load active holds", {
+              restaurantId: booking.restaurant_id,
+              error,
+            });
+          }
+          return [] as TableHold[];
+        })
+      : Promise.resolve([] as TableHold[]);
+
+    const [contextResult, holdsResult] = await Promise.all([contextPromise, holdsPromise]);
+    contextBookings = contextResult;
+    holdsForDay = holdsResult;
   }
 
   if (timePruningEnabled) {
@@ -325,9 +341,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     });
   }
 
-  // Load config early so we can use combinationEnabled for filtering
-  const strategicOptions = { restaurantId: booking.restaurant_id ?? null } as const;
-  await loadStrategicConfig({ ...strategicOptions, client: supabase });
+  await strategicConfigPromise;
   const combinationEnabled = isCombinationPlannerEnabled();
   
   const filtered = filterAvailableTables(
@@ -356,13 +370,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
   const baseScoringConfig = getSelectorScoringConfig(strategicOptions);
   const selectorLimits = getSelectorPlannerLimits();
   const combinationLimit = maxTables ?? getAllocatorCombinationLimit();
-  const demandMultiplierResult = await resolveDemandMultiplier({
-    restaurantId: booking.restaurant_id,
-    serviceStart: window.block.start,
-    serviceKey: window.service,
-    timezone: policy.timezone,
-    client: supabase,
-  });
+  const demandMultiplierResult = await demandMultiplierPromise.catch(() => null);
   const demandMultiplier = demandMultiplierResult?.multiplier ?? 1;
   const demandRule = demandMultiplierResult?.rule;
   const tableScarcityScores = await loadTableScarcityScores({

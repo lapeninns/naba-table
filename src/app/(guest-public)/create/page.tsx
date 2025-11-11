@@ -41,10 +41,7 @@ export default async function CreateReservationPage() {
   return (
     <HydrationBoundary state={dehydratedState}>
       <div className="bg-[var(--sr-color-background)]">
-        <main
-          id="main-content"
-          className="sr-container sr-stack-lg min-h-screen px-[var(--sr-space-6)] py-[var(--sr-space-8)]"
-        >
+        <div className="sr-container sr-stack-lg min-h-screen px-[var(--sr-space-6)] py-[var(--sr-space-8)]">
           <header className="sr-stack-md text-left">
             <span className="inline-flex w-fit items-center justify-center rounded-full bg-primary/10 px-[var(--sr-space-3)] py-[var(--sr-space-1)] text-sm font-medium text-primary">
               Plan your night
@@ -96,7 +93,7 @@ export default async function CreateReservationPage() {
             </div>
             <RestaurantBrowser initialData={restaurants} initialError={loadError} />
           </section>
-        </main>
+        </div>
       </div>
     </HydrationBoundary>
   );

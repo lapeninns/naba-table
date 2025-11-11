@@ -5,9 +5,13 @@ import { useToast } from "@/hooks/use-toast"
 
 export function Toaster() {
   const { toasts } = useToast()
+  const toastViewportLabelId = "toast-viewport-region-label"
 
   return (
     <ToastProvider>
+      <span id={toastViewportLabelId} className="sr-only">
+        Notification center
+      </span>
       {toasts.map(function ({ id, title, description, action, ...props }) {
         return (
           <Toast key={id} {...props}>
@@ -20,7 +24,7 @@ export function Toaster() {
           </Toast>
         )
       })}
-      <ToastViewport />
+      <ToastViewport aria-labelledby={toastViewportLabelId} />
     </ToastProvider>
   )
 }

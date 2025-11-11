@@ -61,6 +61,7 @@ function resolveActions(mode: "booking" | "account", isAuthenticated: boolean): 
 
     return {
       primary: { href: "/signin", label: "Sign in" },
+      secondary: { href: "/create", label: "Create account" },
     };
   }
 

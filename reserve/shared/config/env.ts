@@ -43,8 +43,10 @@ const routerBasePathRaw = runtime.readString('RESERVE_ROUTER_BASE_PATH', {
 
 const routerBasePath = sanitizeBasePath(routerBasePathRaw);
 
+const API_FALLBACK = '/api';
+
 const raw = {
-  API_BASE_URL: apiBaseUrlRaw ?? '/api',
+  API_BASE_URL: apiBaseUrlRaw ?? API_FALLBACK,
   API_TIMEOUT_MS: apiTimeoutRaw ?? 15_000,
   RESERVE_V2_ENABLED: reserveV2Raw ?? false,
   ROUTER_BASE_PATH: routerBasePath,

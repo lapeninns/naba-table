@@ -29,10 +29,7 @@ const CHECKOUT_STEPS = [
 
 export default function CheckoutGuidePage() {
   return (
-    <main
-      id="main-content"
-      className="sr-container sr-stack-lg min-h-screen px-[var(--sr-space-6)] py-[var(--sr-space-8)]"
-    >
+    <div className="sr-container sr-stack-lg min-h-screen px-[var(--sr-space-6)] py-[var(--sr-space-8)]">
       <header className="sr-stack-md text-left">
         <span className="inline-flex w-fit items-center justify-center rounded-full bg-primary/10 px-[var(--sr-space-3)] py-[var(--sr-space-1)] text-sm font-medium text-primary">
           Checkout
@@ -49,7 +46,9 @@ export default function CheckoutGuidePage() {
       </header>
 
       <section
+        role="region"
         aria-labelledby="checkout-steps-heading"
+        data-testid="checkout-steps"
         className="sr-stack-md rounded-3xl border border-[var(--sr-color-border)] bg-[var(--sr-color-surface)] p-[var(--sr-space-6)] shadow-[var(--sr-shadow-lg)]"
       >
         <div className="sr-stack-sm">
@@ -63,7 +62,10 @@ export default function CheckoutGuidePage() {
             We store everything securely so you can edit or cancel with a couple of taps.
           </p>
         </div>
-        <ol className="sr-stack-md list-inside list-decimal text-left">
+        <ol
+          data-testid="checkout-steps-list"
+          className="sr-stack-md list-inside list-decimal text-left"
+        >
           {CHECKOUT_STEPS.map((step) => (
             <li key={step.title} className="sr-stack-sm">
               <h3 className="text-[var(--sr-font-size-lg)] font-semibold text-[var(--sr-color-text-primary)]">
@@ -97,6 +99,6 @@ export default function CheckoutGuidePage() {
           Start a new reservation
         </Link>
       </div>
-    </main>
+    </div>
   );
 }

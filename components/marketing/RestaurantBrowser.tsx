@@ -351,8 +351,12 @@ export function RestaurantBrowser({
             id="restaurants-grid"
           >
             {filteredRestaurants.map((restaurant, index) => (
-              <li key={restaurant.id}>
-                <Card className="group h-full scroll-m-24 border-[var(--sr-color-border)] bg-[var(--sr-color-surface)] shadow-[var(--sr-shadow-sm)] transition-transform duration-[var(--sr-duration-medium)] hover:-translate-y-0.5 hover:shadow-[var(--sr-shadow-md)] focus-within:-translate-y-0.5 focus-within:border-ring focus-within:shadow-[var(--sr-shadow-md)] focus-within:ring-2 focus-within:ring-ring/60">
+              <li key={restaurant.id} data-testid={`restaurant-card-${restaurant.slug ?? index}`}>
+                <Card
+                  role="article"
+                  aria-label={restaurant.name}
+                  className="group h-full scroll-m-24 border-[var(--sr-color-border)] bg-[var(--sr-color-surface)] shadow-[var(--sr-shadow-sm)] transition-transform duration-[var(--sr-duration-medium)] hover:-translate-y-0.5 hover:shadow-[var(--sr-shadow-md)] focus-within:-translate-y-0.5 focus-within:border-ring focus-within:shadow-[var(--sr-shadow-md)] focus-within:ring-2 focus-within:ring-ring/60"
+                >
                   <CardHeader className="space-y-[var(--sr-space-3)]">
                     <div className="flex items-center justify-between gap-[var(--sr-space-3)]">
                       <CardTitle className="text-lg font-semibold text-foreground">

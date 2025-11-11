@@ -26,8 +26,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
       : undefined;
 
   return (
-    <main
-      id="main-content"
+    <section
       tabIndex={-1}
       className="flex min-h-screen flex-col items-center bg-slate-50 focus:outline-none"
     >
@@ -57,6 +56,6 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           </Link>
         </p>
       </div>
-    </main>
+    </section>
   );
 }
