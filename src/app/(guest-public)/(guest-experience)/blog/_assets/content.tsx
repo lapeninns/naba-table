@@ -1,6 +1,6 @@
 import Image from "next/image";
 
-import marcImg from "@/app/(guest-public)/blog/_assets/images/authors/marc.png";
+import marcImg from "./images/authors/marc.png";
 import introducingSupabaseImg from "@/public/blog/introducing-supabase/header.png";
 
 import type { StaticImageData } from "next/image";

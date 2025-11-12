@@ -58,6 +58,7 @@ type UnifiedCreateParams = {
   clientRequestId: string;
   userAgent: string | null;
   clientIp: string | null;
+  contactEmail: string | null;
 };
 
 type PostgrestErrorLike = {
@@ -119,6 +120,45 @@ function ensureFallbackContact(value: string | null | undefined, clientRequestId
     return `walkin+${slug}@system.local`;
   }
   return `000-${slug}`;
+}
+
+type RestaurantContactDetails = {
+  email: string | null;
+  phone: string | null;
+};
+
+async function fetchRestaurantContactDetails(
+  client: ReturnType<typeof getServiceSupabaseClient>,
+  restaurantId: string,
+): Promise<RestaurantContactDetails> {
+  try {
+    const { data, error } = await client
+      .from("restaurants")
+      .select("contact_email, contact_phone")
+      .eq("id", restaurantId)
+      .maybeSingle<Pick<Tables<"restaurants">, "contact_email" | "contact_phone">>();
+
+    if (error) {
+      console.error("[ops/bookings] restaurant contact lookup failed", error.message);
+      return { email: null, phone: null };
+    }
+
+    if (!data) {
+      return { email: null, phone: null };
+    }
+
+    const email = typeof data.contact_email === "string" && data.contact_email.trim().length > 0
+      ? data.contact_email.trim()
+      : null;
+    const phone = typeof data.contact_phone === "string" && data.contact_phone.trim().length > 0
+      ? data.contact_phone.trim()
+      : null;
+
+    return { email, phone };
+  } catch (error) {
+    console.error("[ops/bookings] restaurant contact lookup threw", error);
+    return { email: null, phone: null };
+  }
 }
 
 const OPS_BOOKING_STATUSES = [
@@ -518,6 +558,7 @@ export async function POST(req: NextRequest) {
   }
 
   const service = getServiceSupabaseClient();
+  const restaurantContacts = await fetchRestaurantContactDetails(service, payload.restaurantId);
   const useUnifiedValidation = env.featureFlags.bookingValidationUnified;
   const idempotencyKey = req.headers.get("Idempotency-Key");
   const normalizedIdempotencyKey =
@@ -538,6 +579,7 @@ export async function POST(req: NextRequest) {
       clientRequestId,
       userAgent,
       clientIp,
+      contactEmail: restaurantContacts.email,
     });
   }
 
@@ -655,6 +697,11 @@ export async function POST(req: NextRequest) {
 
   const fallbackEmail = ensureFallbackContact(payload.email, clientRequestId, "email");
   const fallbackPhone = ensureFallbackContact(payload.phone, clientRequestId, "phone");
+  const fallbackEmailNormalized = normalizeEmail(fallbackEmail);
+  const normalizedRestaurantEmail = restaurantContacts.email ? normalizeEmail(restaurantContacts.email) : null;
+  const resolvedCustomerEmail =
+    emailProvided ? normalizeEmail(customerEmailForRecord) : normalizedRestaurantEmail ?? fallbackEmailNormalized;
+  const resolvedCustomerPhone = phoneProvided ? customerPhoneForRecord : "";
 
   const customer = await upsertCustomer(service, {
     restaurantId: payload.restaurantId,
@@ -718,10 +765,10 @@ export async function POST(req: NextRequest) {
         party_size: payload.party,
         booking_type: bookingType,
         seating_preference: payload.seating as BookingRecord["seating_preference"],
-        status: "confirmed",
+        status: "pending",
         customer_name: payload.name,
-        customer_email: emailProvided ? normalizeEmail(customerEmailForRecord) : "",
-        customer_phone: phoneProvided ? payload.phone!.trim() : "",
+        customer_email: resolvedCustomerEmail,
+        customer_phone: resolvedCustomerPhone,
         notes: payload.notes ?? null,
         marketing_opt_in: payload.marketingOptIn ?? false,
         source: SYSTEM_SOURCE,
@@ -801,7 +848,16 @@ export async function POST(req: NextRequest) {
 }
 
 async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
-  const { payload, user, service, normalizedIdempotencyKey, clientRequestId, userAgent, clientIp } = params;
+  const {
+    payload,
+    user,
+    service,
+    normalizedIdempotencyKey,
+    clientRequestId,
+    userAgent,
+    clientIp,
+    contactEmail,
+  } = params;
 
   const schedule = await getRestaurantSchedule(payload.restaurantId, {
     date: payload.date,
@@ -826,7 +882,11 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
 
   const fallbackEmail = ensureFallbackContact(payload.email, clientRequestId, "email");
   const fallbackPhone = ensureFallbackContact(payload.phone, clientRequestId, "phone");
-  const customerEmailForStorage = emailProvided ? normalizeEmail(rawCustomerEmail) : fallbackEmail;
+  const normalizedRestaurantEmail = contactEmail && contactEmail.trim().length > 0 ? normalizeEmail(contactEmail) : null;
+  const fallbackEmailNormalized = normalizeEmail(fallbackEmail);
+  const customerEmailForStorage = emailProvided
+    ? normalizeEmail(rawCustomerEmail)
+    : normalizedRestaurantEmail ?? fallbackEmailNormalized;
   const customerPhoneForStorage = phoneProvided ? rawCustomerPhone : fallbackPhone;
 
   const customer = await upsertCustomer(service, {

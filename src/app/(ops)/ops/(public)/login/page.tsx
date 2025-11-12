@@ -36,7 +36,7 @@ export default async function OpsLoginPage({ searchParams }: OpsLoginPageProps) 
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center bg-slate-50">
+    <main className="flex min-h-screen flex-col items-center bg-slate-50 text-slate-900">
       <a
         href="#signin-form"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-slate-900 focus:shadow"
@@ -46,7 +46,7 @@ export default async function OpsLoginPage({ searchParams }: OpsLoginPageProps) 
       <div className="flex w-full max-w-5xl flex-1 flex-col items-center justify-center gap-10 px-6 py-16">
         <div className="space-y-3 text-center">
           <Link href="/" className="text-sm font-semibold text-primary hover:underline">
-            ← Back to home
+            ← Back to marketing site
           </Link>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
             Sign in to restaurant operations
@@ -55,13 +55,9 @@ export default async function OpsLoginPage({ searchParams }: OpsLoginPageProps) 
             Manage service, confirm covers, and keep your team aligned for today’s shifts.
           </p>
         </div>
-        <SignInForm redirectedFrom={redirectTarget} />
-        <p className="text-sm text-muted-foreground">
-          Need customer access instead?{' '}
-          <Link href="/signin" className="font-medium text-primary hover:underline">
-            Switch to guest sign in
-          </Link>
-        </p>
+        <div className="w-full max-w-xl rounded-3xl border border-border bg-white p-8 shadow-[0_35px_70px_-45px_rgba(15,23,42,0.35)]">
+          <SignInForm redirectedFrom={redirectTarget} />
+        </div>
       </div>
     </main>
   );

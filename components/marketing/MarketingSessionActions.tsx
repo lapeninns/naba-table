@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-
-
 import { buttonVariants } from "@/components/ui/button";
 import { useSupabaseSession } from "@/hooks/useSupabaseSession";
+import config from "@/config";
 import { cn } from "@/lib/utils";
 
 import type { VariantProps } from "class-variance-authority";
@@ -24,8 +23,10 @@ type ResolveResult = {
   secondary?: Action;
 };
 
+type Mode = "booking" | "account" | "restaurant";
+
 type MarketingSessionActionsProps = {
-  mode?: "booking" | "account";
+  mode?: Mode;
   size?: Extract<ButtonSize, "sm" | "primary" | "lg">;
   showSecondary?: boolean;
   className?: string;
@@ -33,7 +34,7 @@ type MarketingSessionActionsProps = {
   secondaryVariant?: ButtonVariant;
 };
 
-const defaultsByMode: Record<NonNullable<MarketingSessionActionsProps["mode"]>, {
+const defaultsByMode: Record<Mode, {
   primary: ButtonVariant;
   secondary: ButtonVariant;
   showSecondary: boolean;
@@ -48,9 +49,16 @@ const defaultsByMode: Record<NonNullable<MarketingSessionActionsProps["mode"]>, 
     secondary: "outline",
     showSecondary: false,
   },
+  restaurant: {
+    primary: "default",
+    secondary: "outline",
+    showSecondary: true,
+  },
 };
 
-function resolveActions(mode: "booking" | "account", isAuthenticated: boolean): ResolveResult {
+const partnerContactEmail = config.email?.supportEmail ?? "support@example.com";
+
+function resolveActions(mode: Mode, isAuthenticated: boolean): ResolveResult {
   if (mode === "account") {
     if (isAuthenticated) {
       return {
@@ -62,6 +70,28 @@ function resolveActions(mode: "booking" | "account", isAuthenticated: boolean): 
     return {
       primary: { href: "/signin", label: "Sign in" },
       secondary: { href: "/create", label: "Create account" },
+    };
+  }
+
+  if (mode === "restaurant") {
+    if (isAuthenticated) {
+      return {
+        primary: { href: "/ops", label: "Go to Ops console" },
+        secondary: { href: "/ops/team", label: "Manage team" },
+      };
+    }
+
+    return {
+      primary: {
+        href: "/ops/login",
+        label: "Access operations console",
+        ariaLabel: "Access the restaurant operations console",
+      },
+      secondary: {
+        href: `mailto:${partnerContactEmail}`,
+        label: "Talk to partnerships",
+        ariaLabel: `Contact SajiloReserveX partnerships at ${partnerContactEmail}`,
+      },
     };
   }
 

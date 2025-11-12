@@ -84,6 +84,7 @@ const mockSafeBookingPayload = vi.fn((value) => value);
 const mockFindCustomerByContact = vi.fn();
 
 const RESTAURANT_ID = "4a89f4b1-55cb-4e4f-9e5a-123456789abc";
+const RESTAURANT_CONTACT_EMAIL = "ops@whitehorse.test";
 
 vi.mock("@/server/bookings", async () => {
   const actual = await vi.importActual<typeof BookingsModule>("@/server/bookings");
@@ -113,15 +114,17 @@ describe("POST /api/ops/bookings", () => {
       switch (table) {
         case "restaurants":
           return {
-            select: () => ({
+            select: (columns?: string) => ({
               eq: () => ({
                 maybeSingle: async () => ({
-                  data: {
-                    id: RESTAURANT_ID,
-                    timezone: "Europe/London",
-                    reservation_interval_minutes: 15,
-                    reservation_default_duration_minutes: 90,
-                  },
+                  data: columns && columns.includes("contact_email")
+                    ? { contact_email: RESTAURANT_CONTACT_EMAIL, contact_phone: null }
+                    : {
+                        id: RESTAURANT_ID,
+                        timezone: "Europe/London",
+                        reservation_interval_minutes: 15,
+                        reservation_default_duration_minutes: 90,
+                      },
                   error: null,
                 }),
               }),
@@ -201,6 +204,7 @@ describe("POST /api/ops/bookings", () => {
         restaurant_id: RESTAURANT_ID,
         reference: "BOOKREF123",
         customer_email: "alex@example.com",
+        status: "pending",
       })
     );
     mockEnqueueBookingCreatedSideEffects.mockResolvedValue({ queued: true });
@@ -289,6 +293,9 @@ describe("POST /api/ops/bookings", () => {
       party_size: payload.party,
       reference: "BOOKREF123",
     }));
+    const insertPayload = mockInsertBookingRecord.mock.calls[0]?.[1];
+    expect(insertPayload?.status).toBe("pending");
+    expect(insertPayload?.customer_email).toBe("alex@example.com");
 
     expect(mockEnqueueBookingCreatedSideEffects).toHaveBeenCalled();
     const enqueueArgs = mockEnqueueBookingCreatedSideEffects.mock.calls[0]?.[0];
@@ -305,6 +312,29 @@ describe("POST /api/ops/bookings", () => {
     expect(typeof data.clientRequestId).toBe("string");
   });
 
+  it("defaults to the restaurant contact email when guest email is missing", async () => {
+    const payload = {
+      restaurantId: RESTAURANT_ID,
+      date: "2025-10-10",
+      time: "18:00",
+      party: 2,
+      bookingType: "dinner",
+      seating: "indoor",
+      notes: null,
+      name: "Walk In Guest",
+      email: null,
+      phone: null,
+      marketingOptIn: false,
+    };
+
+    const request = createRequest(payload);
+    const response = await POST(request);
+    expect(response.status).toBe(201);
+    const insertPayload = mockInsertBookingRecord.mock.calls[0]?.[1];
+    expect(insertPayload?.customer_email).toBe(RESTAURANT_CONTACT_EMAIL);
+    expect(insertPayload?.status).toBe("pending");
+  });
+
   it("deduplicates requests with the same idempotency key", async () => {
     const existing = makeBookingRecord({
       id: "booking-existing",
@@ -317,7 +347,12 @@ describe("POST /api/ops/bookings", () => {
     const eqSecond = vi.fn(() => ({ maybeSingle }));
     const eqFirst = vi.fn(() => ({ eq: eqSecond }));
     const select = vi.fn(() => ({ eq: eqFirst }));
-    const from = vi.fn(() => ({ select }));
+    const from = vi.fn((table: string) => {
+      if (table === "bookings") {
+        return { select };
+      }
+      return serviceClientStub.from(table);
+    });
     mockGetServiceSupabaseClient.mockReturnValue({ from });
 
     mockFetchBookingsForContact.mockResolvedValue([existing]);
