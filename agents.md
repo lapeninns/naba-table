@@ -26,9 +26,9 @@
 8. **Secrets never in source.** Use env vars/secret stores; never commit tokens.
 9. **Conventional Commits** and **PR templates** are enforced.
 10. **PRs must reference a valid task folder** (`tasks/<slug>-YYYYMMDD-HHMM>`). CI blocks merges otherwise.
-11. **AGENTS.md casing is exact.** Only `AGENTS.md` (uppercase) is valid in any directory.
+11. **Root policy path is exact.** The root file **must be** `/AGENTS.md` (uppercase). Any other path/casing fails CI.
 
-### 1A) Non‑Overridable Core Rules
+### 1A) Non‑Overridable Core Rules (Root‑enforced, closest cannot relax)
 
 Nested `AGENTS.md` files **cannot relax or override** these:
 
@@ -38,7 +38,7 @@ Nested `AGENTS.md` files **cannot relax or override** these:
 - Manual UI QA via Chrome DevTools MCP for UI changes (with artifacts).
 - Conventional Commits; PR must include task artifacts and verification evidence.
 
-> CI enforces the above; violations fail the build.
+> **Add your own must‑win rules here** (root only). Anything listed here wins even against “closest‑wins” precedence.
 
 ---
 
@@ -80,11 +80,11 @@ owner: github:@maintainers
 
 <Brief description>
 ## Build & Test Commands
-- `npm install` — Install
-- `npm run dev` — Dev server
-- `npm run build` — Production build
-- `npm run test` — Tests
-- `npm run lint` — Lint
+- `pnpm install` — Install
+- `pnpm run dev` — Dev server
+- `pnpm run build` — Production build
+- `pnpm run test` — Tests
+- `pnpm run lint` — Lint
 ## Code Style Guidelines
 - <Conventions, naming, file org>
 ## Testing Instructions
@@ -118,11 +118,21 @@ git commit -m "docs: initialize AGENTS.md for coding agents"
 /repo/apps/web/src/components/AGENTS.md  # Component-specific (closest precedence)
 ```
 
+#### Policy Trace (confirm effective stack)
+
+To see which files were applied for a given source file and in what order, use the **policy‑trace script** (Appendix H) or run:
+
+```bash
+pnpm ts-node scripts/agents-policy-trace.ts apps/web/src/pages/index.tsx
+```
+
+This prints the chain `root → … → closest` so you can confirm inheritance and spot misconfigurations (e.g., wrong `extends:`).
+
 ### Large Monorepos (88+ AGENTS.md files)
 
 - Each package/app gets its own `AGENTS.md` focused on **local concerns**.
 - Root covers **cross‑cutting** rules (CI/CD, security, commit standards).
-- Nested files **must** include frontmatter with `extends: ../../AGENTS.md` and `agents_version`.
+- Nested files **must** include frontmatter with `scope: subproject`, `extends: ../../AGENTS.md`, and `agents_version`.
 
 ---
 
@@ -612,10 +622,10 @@ profile: web-next|mobile|service-python|package-ui
 
 ## Build & Test Commands
 
-- `npm run dev`
-- `npm run build`
-- `npm run test`
-- `npm run lint`
+- `pnpm run dev`
+- `pnpm run build`
+- `pnpm run test`
+- `pnpm run lint`
 
 ## Subproject-Specific Guidelines
 
@@ -661,19 +671,14 @@ profile: web-next|mobile|service-python|package-ui
 
 - **Chrome DevTools MCP** — Manual QA (console/network, emulation, performance, Lighthouse/a11y).
   **Phase**: 4. **Note**: For auth flows, obtain short‑lived session cookies out‑of‑band.
-
 - **Shadcn MCP** — Discover/scaffold UI components, synchronize tokens.
   **Phases**: 2, 3. **Rule**: Prefer SHADCN before custom.
-
 - **Next DevTools MCP** — Next.js routing/data‑fetch, server/client boundaries, bundle hints.
   **Phases**: 2, 3.
-
 - **Supabase MCP** — Remote migrations/seeds; schema drift; rollback plans.
   **Phases**: 2, 3, 6. **Rule**: **Remote only**; connections via secrets.
-
 - **Context7 MCP** — Semantic search over internal knowledge.
   **Phase**: 1.
-
 - **DeepWiki MCP** — External/domain research summaries.
   **Phase**: 1.
 
@@ -811,7 +816,7 @@ Escalate or stop immediately if:
 
 - **Secret scanning** required (e.g., Gitleaks/Trufflehog) on every PR.
 - **SAST** (e.g., CodeQL/Semgrep) on default branches and PRs.
-- **Dependency audit** (npm/yarn/pnpm audit) with allowlisted exceptions only.
+- **Dependency audit** (pnpm/yarn/npm audit) with allowlisted exceptions only.
 - **SBOM** generation for release builds if applicable.
 - **Commit signing** recommended; protected environments for production.
 
@@ -868,19 +873,104 @@ Escalate or stop immediately if:
 /packages/ui/              @design-systems
 ```
 
-### G) Scripts & Policy‑as‑Code (paths and intent)
+### G) CI Enforcement (policy‑as‑code)
 
-- **Task scaffolding** — `scripts/new-task.sh`
-  Creates `tasks/<slug>-YYYYMMDD-HHMM>/` with `research.md`, `plan.md`, `todo.md`, `verification.md`, and `artifacts/`.
+**agents-guards.yml** (example)
 
-- **CI Enforcement** (GitHub Actions examples):
-  - `.github/workflows/agents-guards.yml` — Validates:
-    - PR references a valid task folder with 4 files.
-    - `AGENTS.md` casing & frontmatter; nested `extends` present.
-    - Required artifacts for UI changes (Lighthouse JSON, HAR; Axe summary in `verification.md`).
-    - Supabase commands use `--db-url` and DB diffs/rollback notes present when migrations change.
+```yaml
+name: Agents Guards
+on: [pull_request]
+jobs:
+  guards:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: pnpm install --frozen-lockfile || npm ci
+      - run: node scripts/check-agents-compliance.cjs
+```
 
-> CI is the source of truth for enforcement.
+**scripts/check-agents-compliance.cjs**
+
+```js
+const fs = require('fs');
+const path = require('path');
+
+function read(file) {
+  return fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
+}
+
+// 1) Root file must be exactly /AGENTS.md
+if (!fs.existsSync(path.join(process.cwd(), 'AGENTS.md'))) {
+  console.error('Missing required root /AGENTS.md (exact casing).');
+  process.exit(1);
+}
+
+// 2) Validate all nested AGENTS.md have scope: subproject and a non-null extends:
+function* walk(dir) {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) yield* walk(p);
+    else if (e.isFile() && e.name === 'AGENTS.md' && p !== path.join(process.cwd(), 'AGENTS.md'))
+      yield p;
+  }
+}
+let ok = true;
+for (const p of walk(process.cwd())) {
+  const content = read(p);
+  const hasScope = /scope:\s*subproject\b/.test(content);
+  const hasExt = /extends:\s+(\.\.\/)+AGENTS\.md\b/.test(content);
+  if (!hasScope || !hasExt) {
+    console.error(
+      `Nested ${p} must declare 'scope: subproject' and a valid 'extends: ../../AGENTS.md' path.`,
+    );
+    ok = false;
+  }
+}
+if (!ok) process.exit(1);
+console.log('AGENTS policy checks passed.');
+```
+
+### H) Policy‑Trace Script (confirm effective stack)
+
+**scripts/agents-policy-trace.ts**
+
+```ts
+import fs from 'fs';
+import path from 'path';
+
+function walkAgents(startFile: string) {
+  const stack: string[] = [];
+  let dir = path.resolve(path.dirname(startFile));
+  while (true) {
+    const p = path.join(dir, 'AGENTS.md'); // exact casing
+    if (fs.existsSync(p)) stack.push(p);
+    const parent = path.resolve(dir, '..');
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return stack.reverse(); // root -> ... -> closest
+}
+
+const targets = process.argv.slice(2);
+if (targets.length === 0) {
+  console.error('Usage: ts-node scripts/agents-policy-trace.ts <path/to/file>');
+  process.exit(1);
+}
+for (const f of targets) {
+  const stack = walkAgents(f);
+  console.log(`\n${f}\nEffective AGENTS stack:`);
+  stack.forEach((p, i) => console.log(`  ${i + 1}. ${p}`));
+}
+```
+
+Usage:
+
+```bash
+pnpm ts-node scripts/agents-policy-trace.ts apps/web/src/pages/index.tsx
+```
 
 ---
 
