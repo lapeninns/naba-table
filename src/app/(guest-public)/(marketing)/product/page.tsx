@@ -9,42 +9,42 @@ const PRODUCT_SECTIONS = [
   {
     id: "capture",
     title: "Capture",
-    headline: "Turn every owned channel into a booking magnet",
+    headline: "Let guests book in a few clicks",
     description:
-      "Widgets, QR codes, concierge deep links, and calendar embeds all respect the same pacing logic so covers never collide.",
-    bullets: ["No-code embeds for your website", "QR + NFC ready host tools", "Concierge & hotel partner deep links"],
+      "Use the hosted booking page (or embed it) so guests can create, edit, or cancel reservations without calling the restaurant.",
+    bullets: ["Responsive booking UI", "Automatic confirmation emails", "Full booking CRUD for guests"],
   },
   {
     id: "operate",
     title: "Operate",
-    headline: "One console for the entire front-of-house",
+    headline: "One console for the front-of-house",
     description:
-      "Hosts, sommeliers, and managers share the same context—from seating plans to service notes and live guest messaging.",
-    bullets: ["Role-based dashboards", "Floor-aware table swaps", "Audit log of every change"],
+      "See every booking in a timeline, adjust party size, mark arrivals, and assign tables or holds without switching tabs.",
+    bullets: ["Live booking board", "Table + zone assignment", "Walk-in + hold queue"],
   },
   {
     id: "communicate",
     title: "Communicate",
-    headline: "Conversations that feel bespoke at scale",
+    headline: "Know how to reach every guest",
     description:
-      "Keep SMS and email threads inside the console. Confirmations, reminders, and upsells go out automatically with your tone.",
-    bullets: ["Journey templates", "Two-way SMS + email", "Allergy & VIP context"],
+      "View guest contact details, resend confirmation emails, and keep notes so follow-ups are quick and personalized.",
+    bullets: ["Email + phone info", "Resend confirmations", "Guest notes"],
   },
   {
     id: "service-match",
     title: "Service Match",
-    headline: "Software that respects how you serve",
+    headline: "Match the way your dining room runs",
     description:
-      "Pair pacing rules with prep stations, tasting menus, and walk-in policies so the product feels like your floor plan, not ours.",
-    bullets: ["Multiple service periods", "Prep-station throttles", "Walk-in + waitlist merge"],
+      "Set opening and closing hours, configure tables and zones, and close sections during events or private buyouts.",
+    bullets: ["Opening/closing hours", "Table + zone manager", "Close-outs & blackout dates"],
   },
   {
     id: "guest-ownership",
     title: "Guest Ownership",
-    headline: "Every signal belongs to you",
+    headline: "Keep a clean customer list",
     description:
-      "Own the guest relationship end-to-end. Export data nightly, trigger loyalty campaigns, and give finance receipts that make sense.",
-    bullets: ["Warehouse-ready exports", "Channel attribution", "Spend + visit history"],
+      "Look up every guest in seconds, check past visits, and contact them by email or phone when plans change.",
+    bullets: ["Customer directory", "Visit history", "Email + phone access"],
   },
 ];
 
@@ -110,7 +110,7 @@ export default function ProductPage() {
           </Badge>
           <h2 className="text-balance text-3xl font-semibold md:text-4xl text-slate-900">Put the console in the hands of your best host</h2>
           <p className="text-muted-foreground">
-            Sign in to the ops console or loop partnerships in for a walkthrough. We’ll configure journeys, pacing, and access controls with you.
+            Sign in to the ops console or loop partnerships in for a walkthrough. We’ll help you configure tables, hours, and team access.
           </p>
           <div className="max-w-md">
             <MarketingSessionActions

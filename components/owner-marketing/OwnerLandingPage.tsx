@@ -6,70 +6,69 @@ import { cn } from "@/lib/utils";
 import { Bot, CalendarCheck, CheckCircle2, Layers3, Sparkles } from "lucide-react";
 
 const HERO_STATS = [
-  { label: "Lift in direct covers", value: "+38%" },
-  { label: "Ops messages auto-resolved", value: "78%" },
-  { label: "Time to clear waitlist", value: "−12 min" },
+  { label: "Self-serve guest bookings", value: "1 flow" },
+  { label: "Team members you can invite", value: "Unlimited" },
+  { label: "Time to update service hours", value: "<5 min" },
 ];
 
 const FEATURE_COLUMNS = [
   {
-    title: "Bookings that convert",
+    title: "Guest booking flow",
     description:
-      "Embed widgets, sync QR codes, and give concierge partners deep links that all honor the same pacing logic.",
-    bullets: ["Real-time seat inventory", "Service pacing & blackout windows", "Auto-confirm + reminders"],
+      "Guests reserve in a few clicks, receive confirmation emails automatically, and can edit or cancel without calling the host stand.",
+    bullets: ["Responsive booking pages", "Email + dashboard confirmations", "Full booking CRUD"],
     icon: CalendarCheck,
   },
   {
-    title: "Table management that adapts",
+    title: "Operations console",
     description:
-      "Hosts share the same living floor map as managers, so swaps, splits, and walk-ins stay aligned.",
-    bullets: ["Role-based dashboards", "Walk-in & waitlist merge", "Shift notes + audits"],
+      "Manage every reservation, assign tables, log walk-ins, and resolve issues from one screen built for front-of-house teams.",
+    bullets: ["Live booking board", "Table + zone assignment", "Walk-in + hold tracking"],
     icon: Layers3,
   },
   {
-    title: "Automation without losing the guest",
+    title: "Team & restaurant controls",
     description:
-      "Journeys keep your tone while handling confirmations, reminders, and upsells inside one thread.",
-    bullets: ["Journey templates", "SMS + email together", "Open + upsell reporting"],
+      "Onboard staff, configure opening and closing hours, and keep tables, zones, and guest settings in sync across locations.",
+    bullets: ["Team roles & invitations", "Hours + service config", "Customer directory"],
     icon: Bot,
   },
 ];
 
 const PLAYBOOK_STEPS = [
   {
-    title: "Import your service DNA",
-    content:
-      "Map covers, turn-times, and overbooking tolerances in under 30 minutes with success engineering.",
+    title: "Set up booking surfaces",
+    content: "Connect the hosted booking page or embed it on your site so guests can reserve without calling.",
   },
   {
-    title: "Instrument every touchpoint",
-    content: "Drop booking widgets anywhere, mirror menus, and pin deep links without adding another login.",
+    title: "Configure tables & hours",
+    content: "Define tables, zones, opening hours, and close-outs once—every reservation follows the same rules.",
   },
   {
-    title: "Coach the team once",
-    content: "Hosts, sommeliers, and managers get role-based dashboards so everyone shares context at the rush.",
+    title: "Invite the ops team",
+    content: "Add hosts, managers, and owners with the right permissions so everyone can edit bookings confidently.",
   },
   {
-    title: "Measure what matters",
-    content: "Daily summaries highlight pacing deltas, at-risk covers, and which journeys filled the book.",
+    title: "Run service with one console",
+    content: "Track walk-ins, update bookings, message guests via email, and assign tables as the night evolves.",
   },
 ];
 
 const AUTOMATION_CARDS = [
   {
-    title: "Service pacing autopilot",
-    description: "Hold or release seats automatically based on kitchen load and live wait times.",
-    details: ["Dynamic throttle rules", "Floor-aware recommendations", "Manager approvals"],
+    title: "Central booking board",
+    description: "Filter by status, edit guest counts, and keep every reservation in sync with a couple of clicks.",
+    details: ["Search + filters", "Full booking history", "Email confirmations"],
   },
   {
-    title: "Guest ownership",
-    description: "Keep every message, allergy, and spend note tied to your brand and export it nightly.",
-    details: ["Unified comms thread", "Allergy + VIP alerts", "Warehouse-ready exports"],
+    title: "Table & zone controls",
+    description: "Drag parties between tables, mark sections closed, and keep walk-ins lined up next to confirmed covers.",
+    details: ["Table + zone management", "Walk-in + hold queue", "Service notes"],
   },
   {
-    title: "Ops-grade analytics",
-    description: "See which channels fill the book and share cover pacing summaries with finance in seconds.",
-    details: ["Channel attribution", "Shift retros", "Cover pacing forecasts"],
+    title: "Customer directory",
+    description: "Look up guest contact info, record preferences, and follow up after service via email or phone.",
+    details: ["Customer list", "Email + phone details", "Profile notes"],
   },
 ];
 
@@ -92,7 +91,7 @@ export function OwnerLandingPage() {
                 Turn your website into a shameless booking engine.
               </h1>
               <p className="text-lg text-muted-foreground md:text-xl">
-                Route every direct visit, QR scan, and concierge request into a console your hosts actually love.
+                Capture bookings online, confirm them automatically, and hand every reservation to the team that seats your guests.
               </p>
             </div>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -185,9 +184,9 @@ export function OwnerLandingPage() {
           <Badge variant="secondary" className="mx-auto w-fit uppercase tracking-[0.25em]">
             Console superpowers
           </Badge>
-          <h2 className="text-balance text-3xl font-semibold md:text-4xl text-slate-900">Give your team context before they greet</h2>
+          <h2 className="text-balance text-3xl font-semibold md:text-4xl text-slate-900">Give your team everything they need to run service</h2>
           <p className="mx-auto max-w-3xl text-muted-foreground">
-            Hosts, sommeliers, and managers finally share the same reality—one thread for guests, one timeline for pacing, and receipts to prove what happened.
+            The same booking board powers walk-ins, table assignments, customer lookup, and follow-ups—no extra tools or spreadsheets.
           </p>
         </div>
         <div className="grid gap-6 md:grid-cols-3">
@@ -220,9 +219,9 @@ export function OwnerLandingPage() {
           <Badge variant="secondary" className="w-fit uppercase tracking-[0.2em]">
             Ready when you are
           </Badge>
-          <h2 className="text-balance text-3xl font-semibold md:text-4xl text-slate-900">Take back your guest relationship</h2>
+          <h2 className="text-balance text-3xl font-semibold md:text-4xl text-slate-900">Run bookings end-to-end with one tool</h2>
           <p className="text-base text-muted-foreground md:max-w-3xl">
-            Sign in to the operations console if you already have credentials, or email partnerships at {supportEmail}. We will map your floor, import reservations, and run the first double turn with you.
+            Sign in to the operations console if you already have credentials, or email partnerships at {supportEmail}. We will help you move bookings over, configure tables, and train the team.
           </p>
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
             <MarketingSessionActions

@@ -1,16 +1,14 @@
-CRITICAL: When fixing a bug, identify the root cause, implement the fix, and verify with linting. ALWAYS end with a simple one-sentence summary using exactly 3 alarm emojis (🚨🚨🚨). This is mandatory and must be the very last sentence in your response.
-
 # AGENTS.md
 
 **SDLC‑aligned operating handbook for AI coding agents and human contributors (with MCP tooling)**
 
-> Deliver reliable software changes using the same structure every time—mapped to a clear SDLC and powered by MCP where it adds the most value.
+> Deliver reliable software changes using the same structure every time—mapped to a clear SDLC and enforced by policy‑as‑code.
 
 ---
 
 ## 0) Scope & Audience
 
-- **Who**: AI coding agents, human engineers, reviewers, maintainers, and release managers in this repository.
+- **Who**: AI coding agents, human engineers, reviewers, maintainers, release managers.
 - **What**: The authoritative SDLC, workflow, quality bars, file structure, conventions, and MCP tool usage for any change (feature, fix, refactor, experiment).
 - **Why**: Consistency, traceability, safe iteration—especially in monorepos and multi‑app repos.
 
@@ -18,100 +16,206 @@ CRITICAL: When fixing a bug, identify the root cause, implement the fix, and ver
 
 ## 1) Non‑Negotiables (Read First)
 
-1. **Follow the SDLC phases in order.** No coding before requirements & plan are reviewed.
-2. **Everything is a Task** with its own time‑stamped directory and artifacts.
+1. **Follow SDLC phases in order.** No coding before requirements & plan are reviewed.
+2. **Everything is a Task** with its own UTC‑timestamped directory and artifacts.
 3. **Manual UI QA via Chrome DevTools (MCP) is mandatory** for any UI change.
-4. **Supabase: remote only.** Never run migrations or seeds against a local instance for this project.
-5. **Prefer existing patterns** (DRY/KISS/YAGNI). **Use SHADCN UI** (via **Shadcn MCP**) before building custom components.
+4. **Supabase: remote only.** Never run migrations or seeds against a local instance.
+5. **Prefer existing patterns** (DRY/KISS/YAGNI). **Use SHADCN UI** (via **Shadcn MCP**) before custom components.
 6. **Accessibility is required** (WCAG/WAI‑ARIA APG). No exceptions.
-7. **Document assumptions & deviations** from the plan inside the task folder.
-8. **Secrets never in source.** Use env vars / secret stores; never commit tokens.
+7. **Document assumptions & deviations** in the task folder.
+8. **Secrets never in source.** Use env vars/secret stores; never commit tokens.
 9. **Conventional Commits** and **PR templates** are enforced.
+10. **PRs must reference a valid task folder** (`tasks/<slug>-YYYYMMDD-HHMM>`). CI blocks merges otherwise.
+11. **AGENTS.md casing is exact.** Only `AGENTS.md` (uppercase) is valid in any directory.
+
+### 1A) Non‑Overridable Core Rules
+
+Nested `AGENTS.md` files **cannot relax or override** these:
+
+- Secrets never in source; only via env/secret store.
+- Supabase is **remote‑only**; migrations require backup/rollback plan and evidence.
+- Accessibility baseline (keyboard navigation; WCAG/WAI‑ARIA compliance).
+- Manual UI QA via Chrome DevTools MCP for UI changes (with artifacts).
+- Conventional Commits; PR must include task artifacts and verification evidence.
+
+> CI enforces the above; violations fail the build.
+
+---
+
+## 1.5) AGENTS.md Initialization & Discovery
+
+### Before Starting Any Task
+
+If no `AGENTS.md` exists in the working context:
+
+1. **Walk up the directory tree** from the current path to the repo root.
+2. **Check for `AGENTS.md`** at each level (**exact casing**).
+3. **If none found**, create one using the initialization workflow below.
+
+### Initialization Workflow
+
+**Step 1: Determine Scope**
+
+- **Root-level**: Creating `/AGENTS.md` → use full template (this file).
+- **Subproject**: Creating `/apps/web/AGENTS.md` → use nested template (§7).
+
+**Step 2: Scaffold the File**
+
+- Add machine‑readable **frontmatter** to every `AGENTS.md`.
+
+**Root AGENTS.md (minimal viable)**
+
+```markdown
+---
+agents_version: 5.2
+scope: root
+extends: null
+last_updated: 2025-11-12
+owner: github:@maintainers
+---
+
+# AGENTS.md
+
+## Project Overview
+
+<Brief description>
+## Build & Test Commands
+- `npm install` — Install
+- `npm run dev` — Dev server
+- `npm run build` — Production build
+- `npm run test` — Tests
+- `npm run lint` — Lint
+## Code Style Guidelines
+- <Conventions, naming, file org>
+## Testing Instructions
+- <How/where/coverage>
+## Security Considerations
+- Never commit secrets; use .env / secret store
+- <Auth patterns / data handling>
+## Additional Context
+- Conventional Commits; PR template; Deployment notes
+```
+
+**Step 3: Commit It**
+
+```bash
+git add AGENTS.md
+git commit -m "docs: initialize AGENTS.md for coding agents"
+```
+
+### Discovery Rules (for Agents & Tools)
+
+- From path `X`, **walk up** to root collecting `AGENTS.md` (exact casing).
+- Apply rules in order: **root → intermediate → closest** (**closest wins** on conflicts), except **Non‑Overridable Core Rules** which always win.
+- On Unix (case‑sensitive) and macOS/Windows (default case‑insensitive), only `AGENTS.md` (uppercase) is valid. Files like `agents.md` **fail CI**.
+- If none found at root: **Stop and create one** at root before proceeding (use minimal template above). Tailor to discovered files (`package.json`, `Makefile`, etc.).
+
+**Example**
+
+```
+/repo/AGENTS.md                          # Root rules (always apply)
+/repo/apps/web/AGENTS.md                 # Web app rules (inherit + override)
+/repo/apps/web/src/components/AGENTS.md  # Component-specific (closest precedence)
+```
+
+### Large Monorepos (88+ AGENTS.md files)
+
+- Each package/app gets its own `AGENTS.md` focused on **local concerns**.
+- Root covers **cross‑cutting** rules (CI/CD, security, commit standards).
+- Nested files **must** include frontmatter with `extends: ../../AGENTS.md` and `agents_version`.
 
 ---
 
 ## 2) Task Structure & Naming
 
-- **Directory**: `tasks/<slug>-YYYYMMDD-HHMM/` (UTC timestamp).
-  - Slug examples: `user-auth-flow`, `payment-gateway-integration`, `fix-avatar-cropping`.
-  - Timestamp format: `YYYYMMDD-HHMM` (e.g., `20250110-1430` → 2025‑01‑10 14:30 UTC).
+- **Directory**: `tasks/<slug>-YYYYMMDD-HHMM/` (UTC).
+  - Slugs: `user-auth-flow`, `payment-gateway-integration`, `fix-avatar-cropping`.
+  - Timestamp: `YYYYMMDD-HHMM` (e.g., `20250110-1430` → 2025‑01‑10 14:30 UTC).
 
-**Required files**
+**Required contents**
 
 ```
 tasks/<slug>-YYYYMMDD-HHMM/
-├── research.md      # Requirements & analysis: what exists, reuse, constraints, references
-├── plan.md          # Design/plan: objective, architecture, API, states, tests, rollout
-├── todo.md          # Implementation checklist (atomic steps)
-└── verification.md  # Verification: manual QA, test outcomes, performance, sign-offs
+├── research.md       # Requirements & analysis (what exists, reuse, constraints)
+├── plan.md           # Design/plan: objective, architecture, API, states, tests, rollout
+├── todo.md           # Live implementation checklist (atomic steps)
+├── verification.md   # Verification: manual QA, tests, perf/a11y budgets, sign-offs
+└── artifacts/        # Evidence: Lighthouse JSON, HAR, traces, screenshots, db diffs
 ```
 
-**Example**
-`tasks/user-authentication-flow-20250110-1430/`
+**Frontmatter (add to each task file)**
+
+```markdown
+---
+task: <slug>
+timestamp_utc: <ISO-8601 Z>
+owner: github:@<handle>
+reviewers: [github:@<handle>]
+risk: low|medium|high
+flags: [<feature_flag_keys>]
+related_tickets: [<TICKET-123>]
+---
+```
 
 ---
 
 ## 3) SDLC at a Glance (Map → Artifacts → MCP)
 
-| SDLC Phase                       | What happens                                            | Primary Artifacts            | Gate / Exit Criteria                                  | Required MCP(s)                                         |
-| -------------------------------- | ------------------------------------------------------- | ---------------------------- | ----------------------------------------------------- | ------------------------------------------------------- |
-| **0. Initiation**                | Create task, define scope stub                          | Task folder, stubs           | Folder exists; basic scope noted                      | —                                                       |
-| **1. Requirements & Analysis**   | Inventory current code, clarify requirements, risks     | `research.md`                | Clear, justified approach; constraints/risks explicit | **Context7 MCP**, **DeepWiki MCP**, **Atlassian MCP**   |
-| **2. Design & Planning**         | Architecture, contracts, UX states, test & rollout plan | `plan.md`                    | Reviewer can approve build without a meeting          | **Shadcn MCP**, **Supabase MCP**, **Next DevTools MCP** |
-| **3. Implementation**            | Code, migrations, components, unit tests                | `todo.md` (live)             | Core complete; local tests pass                       | **Shadcn MCP**, **Supabase MCP**, **Next DevTools MCP** |
-| **4. Verification & Validation** | Manual QA, a11y, perf, E2E, cross‑browser               | `verification.md`            | Meets success criteria; no P0/P1; sign‑offs           | **Chrome DevTools MCP**                                 |
-| **5. Review & Merge**            | PR, review, evidence, CI green                          | PR links to task             | Approvals obtained; CI green; merge per policy        | **GitHub tool** (if available), **Atlassian MCP**       |
-| **6. Release & Deployment**      | Gradual rollout; metrics & logs                         | Release notes, runbook notes | Stable at 100%; no regressions                        | **Supabase MCP** (if DB), Observability stack           |
-| **7. Operate & Improve**         | Monitor, hotfix, retrospective                          | Post‑release notes           | Learnings captured; tickets filed                     | **Atlassian MCP**                                       |
+| SDLC Phase                       | What happens                                       | Primary Artifacts             | Gate / Exit Criteria                                                 | Required MCP(s)                             |
+| -------------------------------- | -------------------------------------------------- | ----------------------------- | -------------------------------------------------------------------- | ------------------------------------------- |
+| **0. Initiation**                | Create task, define scope stub                     | Task folder, stubs            | Folder exists; basic scope noted                                     | —                                           |
+| **1. Requirements & Analysis**   | Inventory code, clarify requirements, risks        | `research.md`                 | **DoR met**; justified approach; constraints/risks explicit          | **Context7**, **DeepWiki**                  |
+| **2. Design & Planning**         | Architecture, contracts, UX states, tests, rollout | `plan.md`                     | Reviewer can approve build without a meeting                         | **Shadcn**, **Supabase**, **Next DevTools** |
+| **3. Implementation**            | Code, migrations, components, unit tests           | `todo.md` (live)              | Core complete; local tests pass                                      | **Shadcn**, **Supabase**, **Next DevTools** |
+| **4. Verification & Validation** | Manual QA, a11y, perf, E2E, cross‑browser          | `verification.md` + artifacts | **DoD met**; budgets met; no P0/P1; sign‑offs; artifacts present     | **Chrome DevTools**                         |
+| **5. Review & Merge**            | PR, review, evidence, CI green                     | PR links to task              | Approvals obtained; CI green; merge per policy                       | **GitHub tool** (if configured)             |
+| **6. Release & Deployment**      | Gradual rollout; metrics & logs                    | Release notes, runbook notes  | Stable at 100%; rollback path documented; monitors/alerts configured | **Supabase** (if DB), Observability stack   |
+| **7. Operate & Improve**         | Monitor, hotfix, retrospective                     | Post‑release notes            | Learnings captured; tickets filed                                    | —                                           |
 
-> **Note**: MCP names refer to your configured servers (see §8). Use placeholders/env vars—never commit real tokens.
+> MCP names refer to your configured servers (see §8). Use env/secrets—never commit real tokens.
 
 ---
 
-## 4) Detailed SDLC Phases (with MCP usage)
+## 4) Detailed SDLC Phases (with DoR/DoD & MCP)
 
 ### Phase 0 — **Initiation (Task Setup)**
 
-**Inputs**: Ticket, problem statement, or spike.
+**Inputs**: Ticket or problem statement.
 **Activities**:
 
 - Create `tasks/<slug>-YYYYMMDD-HHMM/` (UTC).
-- Capture initial scope + success criteria (brief).
-  **Outputs**:
-- Folder + stubbed `research.md` & `plan.md`.
-  **Exit**:
-- Task folder exists with named objective stub.
+- Stub `research.md` and `plan.md` with frontmatter.
+  **Exit**: Task folder exists; scope stub recorded.
 
 ---
 
-### Phase 1 — **Requirements & Analysis** (`research.md`)
+### Phase 1 — **Requirements & Analysis** (`research.md`) — **Definition of Ready**
 
 **Goal**: Understand before building.
 
 **Activities**:
 
-- Inventory codebase for reuse opportunities & anti‑patterns.
-- Gather requirements (functional + non‑functional: a11y, perf budgets, security, privacy).
-- Identify domain constraints, risks, and open questions.
-- Record a recommended approach with rationale.
+- Inventory codebase for reuse and anti‑patterns.
+- Gather functional + non‑functional requirements (a11y, perf, security, privacy, i18n).
+- Identify domain constraints/risks; record recommended approach with rationale.
+- Capture open questions with owners & due dates.
 
-**Use MCP here**
+**Use MCP**:
 
-- **Context7 MCP**: semantic search across internal docs/specs/prior art.
-- **DeepWiki MCP**: external/domain references (summaries, RFCs).
-- **Atlassian MCP**: pull ticket description/ACs; update questions/notes back to the ticket if applicable.
+- **Context7** for internal prior art; **DeepWiki** for external references.
 
-**Outputs (`research.md`)**
+**Outputs**:
 
-- Existing patterns/components/utilities to reuse.
-- External references & why they matter.
-- Constraints (tech, performance, security, product).
-- Open Q&A (resolved/owner).
-- Recommended direction (with rationale).
+- Reuse list; constraints; risks; external refs and why they matter; recommended direction.
 
-**Exit**: A reasoned recommendation; risks & constraints explicit.
+**Definition of Ready (DoR)**
 
-**Template**
+- [ ] Scope & success criteria are clear/measurable.
+- [ ] Reuse or “no reusable pattern” is documented.
+- [ ] Risks & open questions listed with owners/dates.
+- [ ] Owner & reviewers assigned.
+
+Template:
 
 ```markdown
 # Research: <Feature/Change Name>
@@ -127,7 +231,7 @@ tasks/<slug>-YYYYMMDD-HHMM/
 
 ## External Resources
 
-- [Spec/Doc](url) – why it matters
+- [Spec/Doc](url) — why it matters
 
 ## Constraints & Risks
 
@@ -151,29 +255,20 @@ tasks/<slug>-YYYYMMDD-HHMM/
 
 **Activities**:
 
-- Mobile‑first, progressive enhancement; favor existing components.
-- Define architecture, data flow, API contracts, error paths.
-- Define UI states; plan tests and rollout (flags/metrics).
+- Mobile‑first, progressive enhancement; prefer existing components (Shadcn).
+- Define architecture, data flow, API contracts, error paths, UI states.
+- Define tests and rollout (flags, metrics, kill‑switch).
+- **DB:** “staging‑first” migration strategy; expansion→backfill→contraction; rollback plan.
 
-**Use MCP here**
+**Use MCP**:
 
-- **Shadcn MCP**: discover existing components, scaffold variants, align tokens.
-- **Supabase MCP**: design migrations/seeds safely **against remote**; prepare rollback/backup plan.
-- **Next DevTools MCP**: inspect routing, bundle, server/client boundaries for Next.js apps.
+- **Shadcn** for components; **Supabase** for remote migrations (dry‑run → plan → apply); **Next DevTools** for routing/bundle inspection.
 
-**Outputs (`plan.md`)**
+**Outputs**:
 
-- Objective, success criteria (measurable).
-- Architecture & components (state ownership, URL state).
-- API contracts (request/response/errors).
-- UI/UX states (loading/empty/error/success).
-- Edge cases & failure handling.
-- Testing strategy (unit/integration/E2E/a11y).
-- Rollout plan (flags, exposure steps, metrics, kill‑switch).
+- Objective; success criteria; components; contracts; states; edge cases; testing; rollout & observability.
 
-**Exit**: Reviewer can say “yes, build this.”
-
-**Template**
+Template:
 
 ```markdown
 # Implementation Plan: <Feature/Change Name>
@@ -202,10 +297,7 @@ Errors: { code, message }
 
 ## UI/UX States
 
-- Loading: ...
-- Empty: ...
-- Error: ...
-- Success: ...
+- Loading / Empty / Error / Success
 
 ## Edge Cases
 
@@ -213,17 +305,22 @@ Errors: { code, message }
 
 ## Testing Strategy
 
-- Unit: ...
-- Integration: ...
-- E2E: ...
-- Accessibility: ...
+- Unit / Integration / E2E / Accessibility
 
 ## Rollout
 
-- Feature flag: <flag_name>
+- Feature flag: <flag_name> (namespace: feat.<area>.<name>)
 - Exposure: 10% → 50% → 100%
-- Monitoring: <metrics/logs/dashboards>
+- Monitoring: <dashboards/metrics>
 - Kill‑switch: <how to disable safely>
+
+## DB Change Plan (if applicable)
+
+- Target envs: staging → production (window: <time>)
+- Backup reference: <snapshot/PITR link>
+- Dry‑run evidence: `artifacts/db-diff.txt`
+- Backfill strategy: <chunk size, idempotency>
+- Rollback plan: <steps/compensating migration>
 ```
 
 ---
@@ -234,27 +331,21 @@ Errors: { code, message }
 
 **Activities**:
 
-- Break work into atomic steps; keep the checklist living.
-- Implement code, components, migrations (remote), and tests.
-- Log deviations & assumptions.
+- Track atomic steps; log deviations & assumptions.
+- Implement code, components, remote migrations, and tests.
 
-**Use MCP here**
+**Use MCP**:
 
-- **Shadcn MCP**: scaffold/extend UI components; adhere to design tokens.
-- **Supabase MCP**: run **remote** migrations/seeds with dry‑run and rollback plans.
-- **Next DevTools MCP**: diagnose routing/data‑fetch/bundle issues during dev.
+- **Shadcn**, **Supabase**, **Next DevTools** as needed.
 
-**Outputs**: Updated `todo.md`, working feature, local tests green.
-**Exit**: Core functionality complete; tests passing locally.
-
-**Template**
+Template:
 
 ```markdown
 # Implementation Checklist
 
 ## Setup
 
-- [ ] Create/extend components
+- [ ] Create/extend components (Shadcn-first; exception noted if any)
 - [ ] Add feature flag <flag_name> (default off)
 
 ## Core
@@ -281,36 +372,39 @@ Errors: { code, message }
 - Assumptions:
 - Deviations:
 
-## Batched Questions (if any)
+## Batched Questions
 
 - ...
 ```
 
 ---
 
-### Phase 4 — **Verification & Validation** (`verification.md`)
+### Phase 4 — **Verification & Validation** (`verification.md`) — **Definition of Done**
 
 **Goal**: Prove it works, is accessible, and performs.
 
-**Activities (UI required)**:
+**Activities**:
 
-- **Chrome DevTools MCP Manual QA**:
-  - DOM semantics; Console (no errors); Network waterfall shape.
-  - Device emulation (mobile/tablet/desktop).
-  - Performance profiling (CPU/network throttling).
-  - Lighthouse/a11y checks (labels, headings, contrast, focus).
-
-- Cross‑browser smoke tests (where feasible).
+- **Chrome DevTools MCP Manual QA**: console/network; device emulation; profiling; Lighthouse; a11y.
+- Cross‑browser smoke where relevant.
 - Validate edge cases & error paths; perf budgets; basic security checks.
+- Attach artifacts in `artifacts/` (Lighthouse JSON, HAR, traces, screenshots, db diff).
 
-**Use MCP here**
+**Budgets (mobile; 4× CPU; 4G)**
 
-- **Chrome DevTools MCP**: all the above checks & artifacts capture.
+- FCP ≤ **2.0 s** · LCP ≤ **2.5 s** · CLS ≤ **0.10** · TBT ≤ **200 ms**
+- Axe: **0** critical/serious issues
+- Critical interaction latency: **P95 ≤ 500 ms**
 
-**Outputs**: Checklists, metrics, issues, sign‑offs captured in `verification.md`.
-**Exit**: Meets success criteria; no P0/P1 defects; sign‑offs done.
+**Definition of Done (DoD)**
 
-**Template**
+- [ ] Requirements met; success criteria satisfied.
+- [ ] All tests pass (unit/integration/E2E/a11y).
+- [ ] Perf/a11y budgets met; no P0/P1.
+- [ ] `verification.md` completed with artifacts.
+- [ ] Docs/changelogs updated; flags & runbooks documented.
+
+Template:
 
 ```markdown
 # Verification Report
@@ -323,33 +417,35 @@ Tool: Chrome DevTools MCP
 
 - [x] No Console errors
 - [x] Network requests match contract
-- [ ] Performance warnings addressed (notes)
 
 ### DOM & Accessibility
 
 - [x] Semantic HTML verified
 - [x] ARIA attributes correct
-- [x] Focus order logical & visible indicators
+- [x] Focus order logical & visible
 - [x] Keyboard-only flows succeed
 
-### Performance (profiled)
+### Performance (profiled; mobile; 4× CPU; 4G)
 
-- FCP: <value> s
-- LCP: <value> s
-- CLS: <value>
-  Notes: ...
+- FCP: <value> s | LCP: <value> s | CLS: <value> | TBT: <value> ms
+- Budgets met: [ ] Yes [ ] No (notes)
 
 ### Device Emulation
 
-- [x] Mobile (≈375px)
-- [x] Tablet (≈768px)
-- [x] Desktop (≥1280px)
+- [x] Mobile (≈375px) [x] Tablet (≈768px) [x] Desktop (≥1280px)
 
 ## Test Outcomes
 
 - [x] Happy paths
 - [x] Error handling
-- [ ] Non‑critical perf issues (tracked as <ticket>)
+- [x] A11y (axe): 0 critical/serious
+
+## Artifacts
+
+- Lighthouse: `artifacts/lighthouse-report.json`
+- Network: `artifacts/network.har`
+- Traces/Screens: `artifacts/`
+- DB diff (if DB change): `artifacts/db-diff.txt`
 
 ## Known Issues
 
@@ -359,6 +455,7 @@ Tool: Chrome DevTools MCP
 
 - [ ] Engineering
 - [ ] Design/PM
+- [ ] QA
 ```
 
 ---
@@ -367,25 +464,20 @@ Tool: Chrome DevTools MCP
 
 **Activities**:
 
-- Open PR referencing the task directory.
-- Use **Conventional Commits** in PR title (`feat: ...`, `fix: ...`, etc.).
-- Attach screenshots/clips for UI; link to `verification.md`.
+- Open PR; reference task directory; include evidence and checklists.
+- Use **Conventional Commits** in PR title (`feat: ...`, `fix: ...`).
+- Attach UI screenshots/clips and link to `verification.md`.
 
-**Use MCP here**
+**Exit**: Approvals obtained; CI green; merged per repo policy.
 
-- **Atlassian MCP**: link PR to ticket; update status.
-- **GitHub tool (if configured)**: surface checks, requested reviewers.
-
-**Exit**: Approvals obtained; CI green; merged via squash/rebase per repo policy.
-
-**PR Checklist** _(include in PR description)_
+PR Checklist (include in PR description)
 
 ```
 [ ] Links to task folder and ticket
 [ ] Screenshots/clips (UI) + verification.md
 [ ] Tests added/updated
 [ ] A11y verified (keyboard, SR cues)
-[ ] Perf checked (no regressions)
+[ ] Perf budgets met (Lighthouse attached)
 [ ] Docs/changelogs updated if needed
 ```
 
@@ -396,14 +488,10 @@ Tool: Chrome DevTools MCP
 **Activities**:
 
 - Roll out per plan; monitor metrics/logs; keep flag guardrails.
-- Hotfix if needed; document in task folder.
+- Apply DB changes **staging first**, then production in a window with approvals.
+- Document outcomes in task folder.
 
-**Use MCP here**
-
-- **Supabase MCP**: apply DB changes to the correct **remote** environment; confirm backups/rollback steps recorded.
-- Observability stack (dashboards/alerts) per service.
-
-**Exit**: Stable at 100%; final notes added to task folder.
+**Exit**: Stable at 100%; final notes added to task.
 
 ---
 
@@ -414,10 +502,6 @@ Tool: Chrome DevTools MCP
 - Monitor SLOs; triage incidents; capture learnings.
 - File follow‑ups; schedule refactors/tech debt as tasks.
 
-**Use MCP here**
-
-- **Atlassian MCP**: create follow‑ups and post‑mortems; link evidence.
-
 **Exit**: Learnings captured; backlog updated.
 
 ---
@@ -427,16 +511,16 @@ Tool: Chrome DevTools MCP
 ### Components
 
 - **Use SHADCN UI via Shadcn MCP**; extend rather than rebuild.
-- Search for existing patterns before introducing new ones.
+- **Exceptions**: Only if no Shadcn equivalent supports required a11y/UX; document justification in `plan.md` and get design sign‑off.
 
 ### Mobile‑First & Progressive Enhancement
 
 - Build for small screens first; enhance for larger screens.
-- Core flows should not depend on non‑essential JS where reasonable.
+- Core flows should degrade gracefully with minimal JS where reasonable.
 
 ### Accessibility (must‑haves)
 
-- Full keyboard navigation; manage focus (trap in modals, restore on close).
+- Full keyboard navigation; manage focus (trap in modals; restore on close).
 - Visible focus via `:focus-visible`.
 - Prefer semantic HTML; add ARIA only when necessary.
 - Provide accessible names/labels; avoid color‑only cues.
@@ -446,10 +530,10 @@ Tool: Chrome DevTools MCP
 ### Forms
 
 - Inputs ≥16px font on mobile.
-- Proper `type`, `inputmode`, `autocomplete`.
-- Submit surfaces inline validation; focus first error.
-- Keep submit enabled until request starts; show non‑blocking spinners.
-- Permit paste; trim values; warn before navigating away with unsaved changes.
+- Correct `type`, `inputmode`, `autocomplete`.
+- Submit triggers inline validation; focus first error.
+- Submit remains enabled until request starts; show non‑blocking spinners.
+- Permit paste; trim values; warn on unsaved changes.
 - `Enter` submits single‑line; `Ctrl/⌘+Enter` submits textareas.
 
 ### Navigation & State
@@ -466,7 +550,7 @@ Tool: Chrome DevTools MCP
 ### Motion & Layout
 
 - Respect `prefers-reduced-motion`.
-- Animate only `transform`/`opacity`; make animations interruptible.
+- Animate only `transform`/`opacity`; animations are interruptible.
 - Test mobile, laptop, ultra‑wide; avoid accidental scrollbars.
 - Respect safe areas with `env(safe-area-inset-*)`.
 
@@ -474,7 +558,7 @@ Tool: Chrome DevTools MCP
 
 - Minimize re‑renders; virtualize large lists.
 - Prevent image‑induced CLS (reserve space).
-- Target <500ms for common user‑visible mutations.
+- Target <500ms for common user‑visible mutations (P95).
 
 ---
 
@@ -483,52 +567,41 @@ Tool: Chrome DevTools MCP
 ### Supabase — **Remote Only**
 
 - **Never** run local Supabase for this project.
-- All migrations/seeds target the **remote** instance (staging/prod per plan).
+- All migrations/seeds target **remote** environments (staging/prod per plan).
+- **Staging‑first** apply; production requires protected env + approval.
 
 **MCP‑first operations**
 
 - Use **Supabase MCP** to:
-  - Preview migrations (dry run), then apply to the _target remote_.
-  - Seed only when required and idempotent.
+  - Preview migrations (dry run) → attach output to `artifacts/db-diff.txt`.
+  - Apply to **target remote** (staging → prod).
   - Capture migration IDs and rollback steps in `verification.md`.
-
-**Commands (illustrative)**
-
-```bash
-# Push migrations to remote (configure DB URL/token via env or MCP)
-supabase db push --db-url $SUPABASE_DB_URL
-
-# Seeds (remote; only if required and safe)
-supabase db seed --db-url $SUPABASE_DB_URL
-```
 
 **Safety**
 
-- Review migrations carefully; coordinate with maintainers.
-- Document rollout/rollback in `verification.md`.
-- Ensure backups prior to impactful schema changes.
+- Expansion → backfill → contraction.
+- Avoid long‑running locking transactions; chunk backfills with idempotency.
+- Verify backups/PITR before impactful schema changes.
+- Production applies occur in a change window with on‑call acknowledged.
 
 ---
 
-## 7) Monorepos & Nested AGENTS.md
+## 7) Nested AGENTS.md (Subprojects)
 
-### When to Create Nested Files
+> Discovery rules in §1.5 apply. Additions/overrides only; root rules remain in force.
 
-Create `AGENTS.md` inside subprojects that have:
-
-- Unique build/test commands
-- Different frameworks/patterns
-- Distinct security/deployment flows
-- Library vs app concerns that justify tailored guidance
-
-### Precedence Rules
-
-1. The **closest** `AGENTS.md` to a file wins.
-2. Nested docs **inherit** main rules; they may **add/override** as needed.
-
-### Template for Nested Files
+### Template (Nested)
 
 ```markdown
+---
+agents_version: 5.2
+scope: subproject
+extends: ../../AGENTS.md
+last_updated: 2025-11-12
+owner: github:@<team>
+profile: web-next|mobile|service-python|package-ui
+---
+
 # AGENTS.md — <Subproject Name>
 
 > Inherits main AGENTS.md. Additions/overrides below.
@@ -537,100 +610,88 @@ Create `AGENTS.md` inside subprojects that have:
 
 <Brief purpose and scope>
 
-## Commands
+## Build & Test Commands
 
 - `npm run dev`
 - `npm run build`
 - `npm run test`
+- `npm run lint`
 
 ## Subproject-Specific Guidelines
 
-- ...
+### Code Conventions
+
+- <Naming, file organization>
+
+### Testing
+
+- <Location/structure, coverage expectations>
+
+### Deployment
+
+- <Process for this subproject>
 
 ## Links
 
-- ...
+- Main docs: <url>
+- API reference: <url>
 ```
 
-**Example Monorepo Layout**
+### Example Monorepo Layout
 
 ```
 /
 ├── AGENTS.md
 ├── apps/
-│   ├── web/        └── AGENTS.md
-│   ├── mobile/     └── AGENTS.md
-│   └── admin/      └── AGENTS.md
+│   ├── web/AGENTS.md
+│   ├── mobile/AGENTS.md
+│   └── admin/AGENTS.md
 ├── packages/
-│   ├── ui/         └── AGENTS.md
-│   ├── api-client/ └── AGENTS.md
-│   └── database/   └── AGENTS.md
-└── infrastructure/ └── AGENTS.md
+│   ├── ui/AGENTS.md
+│   ├── api-client/AGENTS.md
+│   └── database/AGENTS.md
+└── infrastructure/AGENTS.md
 ```
 
 ---
 
 ## 8) MCP Tooling & Integrations (Catalog + Rules)
 
-> Use MCP when it provides **repeatability, safety, or scale**. Do _not_ hardcode tokens; configure via env/secrets.
+> Use MCP when it provides **repeatability, safety, or scale**. Configure via env/secrets; do not commit tokens.
 
-### MCP Inventory (examples reflect common setup)
+- **Chrome DevTools MCP** — Manual QA (console/network, emulation, performance, Lighthouse/a11y).
+  **Phase**: 4. **Note**: For auth flows, obtain short‑lived session cookies out‑of‑band.
 
-- **Chrome DevTools MCP**
-  _Use for_: Manual QA (console/network, device emulation, performance profiling, Lighthouse/a11y).
-  _Phases_: 4.
-  _Notes_: For auth‑protected pages, obtain a valid session token _out‑of‑band_. Never commit it.
+- **Shadcn MCP** — Discover/scaffold UI components, synchronize tokens.
+  **Phases**: 2, 3. **Rule**: Prefer SHADCN before custom.
 
-- **Shadcn MCP**
-  _Use for_: Discovering existing UI components, scaffolding variants, synchronizing tokens.
-  _Phases_: 2, 3.
-  _Rule_: Prefer SHADCN before building custom.
+- **Next DevTools MCP** — Next.js routing/data‑fetch, server/client boundaries, bundle hints.
+  **Phases**: 2, 3.
 
-- **Next DevTools MCP**
-  _Use for_: Next.js routing/data‑fetch debug, server/client boundary inspection, bundle hints.
-  _Phases_: 2, 3.
+- **Supabase MCP** — Remote migrations/seeds; schema drift; rollback plans.
+  **Phases**: 2, 3, 6. **Rule**: **Remote only**; connections via secrets.
 
-- **Supabase MCP**
-  _Use for_: Remote migrations/seeds; verifying schema drift; generating rollback plans.
-  _Phases_: 2, 3, 6.
-  _Rule_: **Remote only**; pass connection strings/tokens via secrets. Never in code.
+- **Context7 MCP** — Semantic search over internal knowledge.
+  **Phase**: 1.
 
-- **Context7 MCP**
-  _Use for_: Semantic search over internal knowledge (docs, ADRs, past tasks).
-  _Phases_: 1.
+- **DeepWiki MCP** — External/domain research summaries.
+  **Phase**: 1.
 
-- **DeepWiki MCP**
-  _Use for_: External/domain research summaries (standards, RFCs).
-  _Phases_: 1.
-
-- **Atlassian MCP**
-  _Use for_: Fetch/update ticket details, link PRs, move states during Review/Release/Operate.
-  _Phases_: 1, 5, 7.
-
-- **GitHub tool** (if available)
-  _Use for_: PR metadata, checks, reviewers; linking evidence to task.
-  _Phases_: 5.
-
-**MCP Security Rules**
-
-- All tokens via env/secret store (e.g., `SUPABASE_DB_URL`, `ATLASSIAN_API_TOKEN`).
-- Rotate tokens regularly; expect expiry; verify before sessions.
-- Do not log secrets in artifacts (`research.md`, `plan.md`, etc.).
-- For auth QA, use short‑lived session cookies provided by a maintainer.
+**If MCP unavailable temporarily**: run equivalent CLI/manual steps and attach artifacts. MCP usage is still **required** long‑term.
 
 ---
 
 ## 9) Git & Branching
 
-- **Branch**: `task/<slug>-YYYYMMDD-HHMM`
+- **Branch**: `task/<slug>-YYYYMMDD-HHMM` (short‑lived; trunk‑based; squash merges).
 - **Commits**: Conventional Commits (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`).
-- **PR**: Reference the task folder; include checklists and evidence (screens, clips, metrics).
+- **PRs**: Must reference the task folder path and include evidence (screens, clips, Lighthouse, HAR, traces).
 
 ---
 
-## 10) Red Flags & Stop Signs
+## 10) Red Flags, Stop Signs & Waivers
 
-Escalate immediately if:
+Escalate or stop immediately if:
 
 - No reusable pattern exists for a risky area → **request design/arch review**.
 - Requirements ambiguous → **clarify in Phase 1** before coding.
@@ -641,6 +702,14 @@ Escalate immediately if:
 - Attempting **local** Supabase migrations/seeds → **not allowed**.
 - Secrets appear in diffs or artifacts → **block PR** until removed.
 
+### 10.1 Waiver / Hotfix Flow (exception path)
+
+- **Use only for urgent hotfixes (P0/P1).**
+- Branch: `hotfix/<slug>-YYYYMMDD-HHMM>`.
+- Minimal `research.md`/`plan.md` allowed if risk explicitly documented.
+- **Post‑merge within 24h**: complete full Phase 4, attach artifacts, and file retro in Phase 7.
+- Approvals: Maintainer + QA Lead; time‑boxed waiver (≤72h).
+
 ---
 
 ## 11) Quick Reference Checklists
@@ -648,11 +717,12 @@ Escalate immediately if:
 **Task Lifecycle**
 
 ```
+[ ] Check for AGENTS.md (§1.5); create if missing
 [ ] Create task dir (UTC timestamp)
-[ ] Requirements & analysis → research.md
-[ ] Design/plan written → plan.md
-[ ] Implementation executed → todo.md
-[ ] Verification recorded → verification.md (DevTools MCP for UI)
+[ ] Requirements & analysis → research.md (DoR met)
+[ ] Design/plan → plan.md
+[ ] Implementation → todo.md
+[ ] Verification → verification.md + artifacts (DoD met)
 [ ] Approvals & merge
 [ ] Release & monitor; notes added
 [ ] Post‑release learnings filed (tickets)
@@ -669,20 +739,23 @@ Escalate immediately if:
 [ ] No CLS from media; images sized
 ```
 
-**Perf Essentials**
+**Perf Budgets (mobile; 4× CPU; 4G)**
 
 ```
-[ ] No console errors/warnings
-[ ] Critical interactions < 500ms
-[ ] FCP/LCP reasonable; profiles attached
+[ ] FCP ≤ 2.0 s
+[ ] LCP ≤ 2.5 s
+[ ] CLS ≤ 0.10
+[ ] TBT ≤ 200 ms
+[ ] Critical interaction P95 ≤ 500 ms
 ```
 
 **Data & Migrations**
 
 ```
 [ ] Remote Supabase only (via MCP)
-[ ] Migration reviewed & coordinated
-[ ] Rollback/backup plan noted
+[ ] Staging first, then production (window + approval)
+[ ] Backup/rollback plan noted
+[ ] Dry-run(diff) artifact attached
 ```
 
 **Security & Privacy**
@@ -707,15 +780,23 @@ Escalate immediately if:
 
 ## 13) Appendices
 
-### A) Example Artifacts
+### A) RACI (by Phase)
 
-Use the templates embedded in phases above; copy into your task files.
+| Phase             | Responsible            | Accountable     | Consulted            | Informed |
+| ----------------- | ---------------------- | --------------- | -------------------- | -------- |
+| 1. Requirements   | Feature Eng / AI Agent | Tech Lead       | PM, Design, Security | QA       |
+| 2. Design         | Feature Eng            | Tech Lead       | DB Eng, A11y SME     | QA       |
+| 3. Implementation | Feature Eng            | Tech Lead       | Maintainers          | PM       |
+| 4. Verification   | QA + Feature Eng       | QA Lead         | A11y SME, Perf       | PM       |
+| 5. Review/Merge   | Reviewers              | Repo Maintainer | Security             | All      |
+| 6. Release        | Release Manager        | Eng Manager     | SRE, Support         | All      |
+| 7. Operate        | SRE/On‑call            | Eng Manager     | PM                   | All      |
 
 ### B) Style Principles
 
 - **DRY**: Reuse patterns/components.
 - **KISS**: Prefer simple, obvious solutions.
-- **YAGNI**: Build only what’s needed now.
+- **YAGNI**: Build only what's needed now.
 
 ### C) MCP Pre‑Flight (copy into `verification.md` when MCP is used)
 
@@ -726,7 +807,86 @@ Use the templates embedded in phases above; copy into your task files.
 [ ] Target environment confirmed (staging/prod)
 ```
 
+### D) Security Baselines
+
+- **Secret scanning** required (e.g., Gitleaks/Trufflehog) on every PR.
+- **SAST** (e.g., CodeQL/Semgrep) on default branches and PRs.
+- **Dependency audit** (npm/yarn/pnpm audit) with allowlisted exceptions only.
+- **SBOM** generation for release builds if applicable.
+- **Commit signing** recommended; protected environments for production.
+
+### E) PR Template (drop in `.github/PULL_REQUEST_TEMPLATE.md`)
+
+```markdown
+## Summary
+
+<What and why>
+
+## Task & Tickets
+
+- Task folder: `tasks/<slug>-YYYYMMDD-HHMM>`
+- Ticket: <link>
+
+## Evidence
+
+- [ ] `verification.md` updated
+- [ ] Screenshots/clips for UI changes
+- [ ] Metrics/perf notes (if applicable)
+- [ ] Lighthouse JSON + HAR attached in `artifacts/`
+
+## Checklists
+
+**Definition of Ready (Phase 1)**
+
+- [ ] Scope & success criteria clear
+- [ ] Reuse identified or N/A
+- [ ] Risks & open Qs tracked with owners
+
+**Definition of Done (Phase 4)**
+
+- [ ] All tests pass (unit/integration/E2E/a11y)
+- [ ] Perf/a11y thresholds met; no P0/P1
+- [ ] Docs/changelog updated
+- [ ] Rollout plan & flag documented
+
+## Notes
+
+<assumptions/deviations>
+```
+
+### F) CODEOWNERS (excerpt)
+
+```
+# Cross-cutting
+/AGENTS.md                 @maintainers
+/tasks/                    @release-managers @maintainers
+/supabase/migrations/      @db-owners
+
+# Apps
+/apps/web/                 @web-core
+/apps/mobile/              @mobile-core
+/packages/ui/              @design-systems
+```
+
+### G) Scripts & Policy‑as‑Code (paths and intent)
+
+- **Task scaffolding** — `scripts/new-task.sh`
+  Creates `tasks/<slug>-YYYYMMDD-HHMM>/` with `research.md`, `plan.md`, `todo.md`, `verification.md`, and `artifacts/`.
+
+- **CI Enforcement** (GitHub Actions examples):
+  - `.github/workflows/agents-guards.yml` — Validates:
+    - PR references a valid task folder with 4 files.
+    - `AGENTS.md` casing & frontmatter; nested `extends` present.
+    - Required artifacts for UI changes (Lighthouse JSON, HAR; Axe summary in `verification.md`).
+    - Supabase commands use `--db-url` and DB diffs/rollback notes present when migrations change.
+
+> CI is the source of truth for enforcement.
+
 ---
 
-**Last Updated**: 2025‑10‑28
-**Version**: 5.0
+**Last Updated**: 2025‑11‑12
+**Version**: 5.2
+
+```
+
+```

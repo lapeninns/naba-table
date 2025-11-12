@@ -6,11 +6,11 @@ import config from "@/config";
 export const metadata: Metadata = {
   title: `${config.appName} · Restaurant console for owners`,
   description:
-    "Turn your website into a high-converting booking engine with SajiloReserveX. Give hosts, sommeliers, and managers one console for pacing, messaging, and automation.",
+    "Capture guest bookings online and manage every reservation, table assignment, and customer detail from one console.",
   openGraph: {
     title: `${config.appName} · Restaurant console for owners`,
     description:
-      "Give your team the operations console built for restaurants, not marketplaces.",
+      "Self-serve guest booking, confirmation emails, and the operations dashboard for table assignments and walk-ins.",
     type: "website",
   },
 };
