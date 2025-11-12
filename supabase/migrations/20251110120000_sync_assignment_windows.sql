@@ -35,7 +35,7 @@ BEGIN
      AND table_id = ANY(p_table_ids);
 
   UPDATE public.allocations
-     SET window = v_window,
+     SET "window" = v_window,
          merge_group_id = COALESCE(p_merge_group_id, merge_group_id)
    WHERE booking_id = p_booking_id
      AND resource_type = 'table'
