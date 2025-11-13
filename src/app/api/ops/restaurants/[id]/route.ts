@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 
+import { RESTAURANT_ROLE_OWNER } from '@/lib/owner/auth/roles';
 import { deleteRestaurant, updateRestaurant } from '@/server/restaurants';
 import { ensureLogoColumnOnRow, isLogoUrlColumnMissing, logLogoColumnFallback } from '@/server/restaurants/logo-url-compat';
 import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 import { requireAdminMembership, requireMembershipForRestaurant } from '@/server/team/access';
-import { RESTAURANT_ROLE_OWNER } from '@/lib/owner/auth/roles';
 
 import {
   updateRestaurantSchema,
@@ -14,8 +14,8 @@ import {
   type RestaurantDTO,
 } from '../schema';
 
-import type { NextRequest} from 'next/server';
 import type { Database } from '@/types/supabase';
+import type { NextRequest} from 'next/server';
 
 type RestaurantRow = Database['public']['Tables']['restaurants']['Row'];
 

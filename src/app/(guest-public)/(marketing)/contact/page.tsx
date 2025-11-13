@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import config from "@/config";
+
+import type { Metadata } from "next";
 
 const CHECKLIST = [
   "Number of locations + service styles",

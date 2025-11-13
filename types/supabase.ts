@@ -398,6 +398,88 @@ export type Database = {
           },
         ]
       }
+      booking_assignment_attempts: {
+        Row: {
+          attempt_no: number
+          booking_id: string
+          created_at: string
+          id: string
+          metadata: Json
+          reason: string | null
+          result: string
+          strategy: string
+        }
+        Insert: {
+          attempt_no: number
+          booking_id: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          reason?: string | null
+          result: string
+          strategy: string
+        }
+        Update: {
+          attempt_no?: number
+          booking_id?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          reason?: string | null
+          result?: string
+          strategy?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_assignment_attempts_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_assignment_state_history: {
+        Row: {
+          actor_id: string | null
+          booking_id: string
+          created_at: string
+          from_state: Database["public"]["Enums"]["booking_assignment_state"] | null
+          id: string
+          metadata: Json
+          reason: string | null
+          to_state: Database["public"]["Enums"]["booking_assignment_state"]
+        }
+        Insert: {
+          actor_id?: string | null
+          booking_id: string
+          created_at?: string
+          from_state?: Database["public"]["Enums"]["booking_assignment_state"] | null
+          id?: string
+          metadata?: Json
+          reason?: string | null
+          to_state: Database["public"]["Enums"]["booking_assignment_state"]
+        }
+        Update: {
+          actor_id?: string | null
+          booking_id?: string
+          created_at?: string
+          from_state?: Database["public"]["Enums"]["booking_assignment_state"] | null
+          id?: string
+          metadata?: Json
+          reason?: string | null
+          to_state?: Database["public"]["Enums"]["booking_assignment_state"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_assignment_state_history_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       booking_state_history: {
         Row: {
           booking_id: string
@@ -583,7 +665,11 @@ export type Database = {
       bookings: {
         Row: {
           assigned_zone_id: string | null
+          assignment_state: Database["public"]["Enums"]["booking_assignment_state"]
+          assignment_state_version: number
+          assignment_strategy: string | null
           auto_assign_idempotency_key: string | null
+          auto_assign_last_result: Json | null
           auth_user_id: string | null
           booking_date: string
           booking_type: string
@@ -620,7 +706,11 @@ export type Database = {
         }
         Insert: {
           assigned_zone_id?: string | null
+          assignment_state?: Database["public"]["Enums"]["booking_assignment_state"]
+          assignment_state_version?: number
+          assignment_strategy?: string | null
           auto_assign_idempotency_key?: string | null
+          auto_assign_last_result?: Json | null
           auth_user_id?: string | null
           booking_date: string
           booking_type?: string
@@ -657,7 +747,11 @@ export type Database = {
         }
         Update: {
           assigned_zone_id?: string | null
+          assignment_state?: Database["public"]["Enums"]["booking_assignment_state"]
+          assignment_state_version?: number
+          assignment_strategy?: string | null
           auto_assign_idempotency_key?: string | null
+          auto_assign_last_result?: Json | null
           auth_user_id?: string | null
           booking_date?: string
           booking_type?: string
@@ -2370,6 +2464,15 @@ export type Database = {
         | "booking.allocated"
         | "booking.waitlisted"
       area_type: "indoor" | "outdoor" | "covered"
+      booking_assignment_state:
+        | "created"
+        | "capacity_verified"
+        | "assignment_pending"
+        | "assignment_in_progress"
+        | "assigned"
+        | "confirmed"
+        | "failed"
+        | "manual_review"
       booking_change_type: "created" | "updated" | "cancelled" | "deleted"
       booking_status:
         | "confirmed"

@@ -19,7 +19,6 @@
 
 import { config as loadEnv } from 'dotenv';
 import { resolve as resolvePath } from 'path';
-import { pathToFileURL } from 'node:url';
 
 // Load env BEFORE any imports that depend on it
 loadEnv({ path: resolvePath(process.cwd(), '.env.local') });
@@ -35,6 +34,31 @@ process.env.SUPPRESS_EMAILS = process.env.SUPPRESS_EMAILS ?? 'true';
 import { DateTime } from 'luxon';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+import {
+  isPlannerCacheEnabled,
+  buildPlannerCacheKey,
+  getPlannerCacheEntry,
+  setPlannerCacheEntry,
+} from '@/server/capacity/planner-cache';
+import { classifyPlannerReason } from '@/server/capacity/planner-reason';
+import { recordPlannerQuoteTelemetry } from '@/server/capacity/planner-telemetry';
+
+const ALLOW_ULTRA_OVERRIDE = String(process.env.ULTRA_ALLOW_FORCE ?? '').toLowerCase() === 'true';
+const REQUESTED_MAX_CONCURRENT = parseInt(process.env.MAX_CONCURRENT_BOOKINGS || '5', 10);
+const SAFE_MAX_CONCURRENT = ALLOW_ULTRA_OVERRIDE ? REQUESTED_MAX_CONCURRENT : Math.min(REQUESTED_MAX_CONCURRENT, 5);
+if (!ALLOW_ULTRA_OVERRIDE && REQUESTED_MAX_CONCURRENT > 5) {
+  console.warn(
+    `[ultra-fast] MAX_CONCURRENT_BOOKINGS=${REQUESTED_MAX_CONCURRENT} capped at ${SAFE_MAX_CONCURRENT} (set ULTRA_ALLOW_FORCE=true to override)`,
+  );
+}
+if (
+  !ALLOW_ULTRA_OVERRIDE &&
+  String(process.env.FORCE_REASSIGN_ALL ?? '').toLowerCase() === 'true'
+) {
+  console.warn("[ultra-fast] FORCE_REASSIGN_ALL ignored (enable ULTRA_ALLOW_FORCE to override safeguards)");
+}
 
 // ============================================================
 // ULTRA-FAST CONFIGURATION
@@ -55,7 +79,7 @@ const DEFAULT_CONFIG: UltraFastConfig = {
   TARGET_DATE: process.env.TARGET_DATE || new Date().toISOString().split('T')[0],  // Today's date (YYYY-MM-DD)
 
   // PERFORMANCE SETTINGS
-  MAX_CONCURRENT_BOOKINGS: parseInt(process.env.MAX_CONCURRENT_BOOKINGS || '15', 10),  // Process bookings simultaneously
+  MAX_CONCURRENT_BOOKINGS: SAFE_MAX_CONCURRENT,
   SINGLE_ATTEMPT_ONLY: true,    // No retries - fail fast
   HOLD_TTL_SECONDS: 180,
 
@@ -63,8 +87,10 @@ const DEFAULT_CONFIG: UltraFastConfig = {
   MINIMAL_CONSOLE_OUTPUT: false,
 
   // FORCE REASSIGNMENT (ignore current status)
-  FORCE_REASSIGN_ALL: false,  // Only process pending bookings
+  FORCE_REASSIGN_ALL: ALLOW_ULTRA_OVERRIDE && String(process.env.FORCE_REASSIGN_ALL ?? '').toLowerCase() === 'true',
 };
+
+const PLANNER_CACHE_ENABLED = isPlannerCacheEnabled();
 
 // ============================================================
 // TYPES
@@ -135,9 +161,11 @@ export async function runUltraFastAssignment(
   // Ultra-fast assignment function (defined inside main to access imports)
   async function fastAssign(
     supabase: any,
+    restaurantId: string,
     bookingId: string,
+    bookingDate: string,
     bookingTime: string,
-    partySize: number
+    partySize: number,
   ): Promise<QuickResult> {
     const start = Date.now();
     const shortId = bookingId.slice(0, 8);
@@ -183,6 +211,12 @@ export async function runUltraFastAssignment(
     let holdExpiresAt: string | null = null;
     let holdConfirmed = false;
 
+    let plannerCacheKey: string | null = null;
+    let plannerStart = 0;
+    let strategyContext: { requireAdjacency: boolean | null; maxTables: number | null } = {
+      requireAdjacency: null,
+      maxTables: null,
+    };
     try {
       const { data: before } = await supabase
         .from('bookings')
@@ -197,7 +231,49 @@ export async function runUltraFastAssignment(
       const maxTablesOverride = process.env.ULTRA_MAX_TABLES
         ? Math.max(1, Math.min(Number(process.env.ULTRA_MAX_TABLES) || 1, 5))
         : undefined;
+      strategyContext = {
+        requireAdjacency: typeof requireAdjacencyOverride === 'boolean' ? requireAdjacencyOverride : null,
+        maxTables: typeof maxTablesOverride === 'number' ? maxTablesOverride : null,
+      };
+      if (PLANNER_CACHE_ENABLED) {
+        plannerCacheKey = buildPlannerCacheKey({
+          restaurantId,
+          bookingDate,
+          startTime: bookingTime,
+          partySize,
+          strategy: strategyContext,
+          trigger: 'ultra_fast',
+        });
+        if (plannerCacheKey) {
+          const cached = getPlannerCacheEntry(plannerCacheKey);
+          if (cached && cached.status === 'failure' && cached.reasonCategory === 'hard') {
+            return {
+              id: shortId,
+              bookingId,
+              time: bookingTime,
+              party: partySize,
+              statusBefore: before?.status ?? null,
+              statusAfter: before?.status ?? null,
+              success: false,
+              reason: cached.reason ?? cached.reasonCode ?? 'Cached planner failure',
+              failureType: classifyFailure(cached.reason ?? null),
+              errorCode: null,
+              rawError: cached.reason ?? null,
+              transitionError: null,
+              quoteReason: cached.reason ?? null,
+              holdId: null,
+              holdExpiresAt: null,
+              tablesAssigned: [],
+              assignmentsPersisted: null,
+              alternatesSuggested: 0,
+              skippedCandidates: 0,
+              durationMs: Date.now() - start,
+            };
+          }
+        }
+      }
 
+      plannerStart = Date.now();
       const quote = await quoteTablesForBooking({
         bookingId,
         createdBy: 'ultra-fast-script',
@@ -205,6 +281,30 @@ export async function runUltraFastAssignment(
         requireAdjacency: requireAdjacencyOverride,
         maxTables: maxTablesOverride,
       });
+      const plannerDurationMs = Date.now() - plannerStart;
+      const classification = classifyPlannerReason(quote.reason ?? null);
+      await recordPlannerQuoteTelemetry({
+        source: 'auto_assign.ultra_fast',
+        restaurantId,
+        bookingId,
+        durationMs: plannerDurationMs,
+        success: Boolean(quote.hold),
+        reason: quote.reason ?? null,
+        reasonCode: classification.code,
+        reasonCategory: classification.category,
+        strategy: strategyContext,
+        trigger: 'ultra_fast',
+        attemptIndex: 0,
+        internalStats: quote.plannerStats ?? null,
+      });
+      if (plannerCacheKey && PLANNER_CACHE_ENABLED) {
+        setPlannerCacheEntry(plannerCacheKey, {
+          status: quote.hold ? 'success' : 'failure',
+          reason: quote.reason ?? null,
+          reasonCode: classification.code,
+          reasonCategory: classification.category,
+        });
+      }
 
       if (!quote.hold) {
         return {
@@ -374,6 +474,34 @@ export async function runUltraFastAssignment(
         }
       }
 
+      const plannerDurationMs = plannerStart > 0 ? Date.now() - plannerStart : 0;
+      const plannerErrorReason =
+        error instanceof Error && error.name ? error.name : 'QUOTE_ERROR';
+      const classification = classifyPlannerReason(plannerErrorReason);
+      await recordPlannerQuoteTelemetry({
+        source: 'auto_assign.ultra_fast',
+        restaurantId,
+        bookingId,
+        durationMs: plannerDurationMs,
+        success: false,
+        reason: plannerErrorReason,
+        reasonCode: classification.code,
+        reasonCategory: classification.category,
+        strategy: strategyContext,
+        trigger: 'ultra_fast',
+        attemptIndex: 0,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        severity: 'warning',
+      });
+      if (plannerCacheKey && PLANNER_CACHE_ENABLED) {
+        setPlannerCacheEntry(plannerCacheKey, {
+          status: 'failure',
+          reason: plannerErrorReason,
+          reasonCode: classification.code,
+          reasonCategory: classification.category,
+        });
+      }
+
       const { code, message } = sanitizeError(error);
       return {
         id: shortId,
@@ -471,13 +599,15 @@ export async function runUltraFastAssignment(
     const chunk = toProcess.slice(i, i + config.MAX_CONCURRENT_BOOKINGS);
     
     const chunkResults = await Promise.allSettled(
-      chunk.map((b: any) => 
+      chunk.map((b: any) =>
         fastAssign(
           supabase,
+          restaurant.id,
           b.id,
+          b.booking_date,
           b.start_time, // Time in HH:mm:ss format
-          b.party_size
-        )
+          b.party_size,
+        ),
       )
     );
 

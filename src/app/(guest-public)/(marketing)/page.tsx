@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
 
 import { OwnerLandingPage } from "@/components/owner-marketing/OwnerLandingPage";
 import config from "@/config";
+
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: `${config.appName} · Restaurant console for owners`,

@@ -12,14 +12,22 @@ import { DEFAULT_RESTAURANT_SLUG } from '@shared/config/venue';
 
 import { useRememberedContacts } from './useRememberedContacts';
 import { clearWizardDraft, loadWizardDraft, saveWizardDraft } from './useWizardDraftStorage';
+import { fetchBookingsByContact } from '../api/fetchBookingsByContact';
 import { useCreateOpsReservation } from '../api/useCreateOpsReservation';
 import { useCreateReservation } from '../api/useCreateReservation';
 import { useWizardDependencies } from '../di';
 import { createSelectionSummary } from '../model/selectors';
 import { useWizardStore } from '../model/store';
 import { buildReservationDraft, reservationToApiBooking } from '../model/transformers';
+import { recoverBookingAfterTimeout, type TimeoutRecoveryResult } from '../utils/timeoutRecovery';
 
-import type { BookingDetails, BookingWizardMode, StepAction } from '../model/reducer';
+import type { AnalyticsTracker } from '../di/types';
+import type {
+  BookingDetails,
+  BookingWizardMode,
+  ReservationDraft,
+  StepAction,
+} from '../model/reducer';
 
 const EMPTY_ACTIONS: StepAction[] = [];
 
@@ -58,6 +66,17 @@ const isRequestAbortedError = (error: unknown): error is { code?: string | numbe
   const code = (error as { code?: string | number | null | undefined }).code;
   return code === 'REQUEST_ABORTED';
 };
+
+const isTimeoutError = (error: unknown): error is { code?: string | number | null } => {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const code = (error as { code?: string | number | null | undefined }).code;
+  return code === 'TIMEOUT';
+};
+
+const TIMEOUT_RECOVERY_ATTEMPTS = 3;
+const TIMEOUT_RECOVERY_DELAY_MS = 2_000;
 
 export function useReservationWizard(
   initialDetails?: Partial<BookingDetails>,
@@ -274,6 +293,7 @@ export function useReservationWizard(
         start_time: draft.time,
         reference: submission.booking?.reference ?? 'pending',
         context: mode,
+        recovered: false,
       });
     } catch (error) {
       if (isRequestAbortedError(error)) {
@@ -281,6 +301,62 @@ export function useReservationWizard(
         actions.setSubmitting(false);
         actions.goToStep(originStep);
         setPlanAlert(null);
+        return;
+      }
+      if (isTimeoutError(error)) {
+        emit('wizard.submit.timeout', {
+          bookingId: state.editingId ?? null,
+          context: mode,
+        });
+        setPlanAlert('Finalizing your booking… please keep this tab open while we complete it.');
+        try {
+          const recovery = await recoverBookingAfterTimeout({
+            draft,
+            fetchBookings: fetchBookingsByContact,
+            attempts: TIMEOUT_RECOVERY_ATTEMPTS,
+            delayMs: TIMEOUT_RECOVERY_DELAY_MS,
+            logger: (lookupError) => {
+              errorReporter.capture(lookupError, { scope: 'wizard.timeoutRecovery' });
+            },
+          });
+          if (recovery) {
+            hydrateRecoveredBooking({
+              recovery,
+              draft,
+              applyConfirmation: actions.applyConfirmation,
+              analytics,
+              mode,
+              lastAction: state.editingId ? 'update' : 'create',
+            });
+            actions.setLoading(false);
+            actions.setSubmitting(false);
+            setPlanAlert(null);
+            emit('wizard.timeout.recovered', {
+              bookingId: recovery.booking.id,
+              context: mode,
+            });
+            return;
+          }
+        } catch (recoveryError) {
+          errorReporter.capture(recoveryError, { scope: 'wizard.timeoutRecovery.unexpected' });
+        }
+
+        actions.setLoading(false);
+        actions.setSubmitting(false);
+        actions.goToStep(originStep);
+        actions.setError(
+          'We could not confirm the booking in time. Please check your email before trying again.',
+        );
+        setPlanAlert('If you received a confirmation email you are all set—otherwise retry now.');
+        analytics.track('booking_timeout_unrecovered', {
+          context: mode,
+          party: draft.party,
+          start_time: draft.time,
+        });
+        emit('wizard.timeout.unrecovered', {
+          bookingId: state.editingId ?? null,
+          context: mode,
+        });
         return;
       }
       const isPastBooking = isBookingInPastError(error);
@@ -356,4 +432,33 @@ export function useReservationWizard(
     mode,
     planAlert,
   };
+}
+
+type HydrateRecoveredBookingParams = {
+  recovery: TimeoutRecoveryResult;
+  draft: ReservationDraft;
+  applyConfirmation: ReturnType<typeof useWizardStore>['actions']['applyConfirmation'];
+  analytics: AnalyticsTracker;
+  mode: BookingWizardMode;
+  lastAction: 'create' | 'update';
+};
+
+function hydrateRecoveredBooking(params: HydrateRecoveredBookingParams) {
+  const { recovery, draft, applyConfirmation, analytics, mode, lastAction } = params;
+  const normalizedBookings = recovery.bookings.map(reservationToApiBooking);
+  const normalizedBooking = reservationToApiBooking(recovery.booking);
+
+  applyConfirmation({
+    bookings: normalizedBookings,
+    booking: normalizedBooking,
+    lastAction,
+  });
+
+  analytics.track('booking_created', {
+    party: draft.party,
+    start_time: draft.time,
+    reference: recovery.booking.reference ?? 'pending',
+    context: mode,
+    recovered: true,
+  });
 }

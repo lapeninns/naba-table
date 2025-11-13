@@ -73,6 +73,9 @@ const baseEnvSchema = z
     FEATURE_OPS_REJECTION_ANALYTICS: booleanStringOptional,
     FEATURE_EMAIL_QUEUE_ENABLED: booleanStringOptional,
     FEATURE_POLICY_REQUOTE_ENABLED: booleanStringOptional,
+    FEATURE_ASSIGNMENT_PIPELINE_V3: booleanStringOptional,
+    FEATURE_ASSIGNMENT_PIPELINE_V3_SHADOW: booleanStringOptional,
+    FEATURE_ASSIGNMENT_PIPELINE_V3_MAX_PARALLEL: z.coerce.number().int().min(1).max(50).optional(),
     FEATURE_ALLOCATOR_V2_ENABLED: booleanStringOptional,
     FEATURE_ALLOCATOR_V2_SHADOW: booleanStringOptional,
     FEATURE_ALLOCATOR_V2_FORCE_LEGACY: booleanStringOptional,
@@ -120,7 +123,11 @@ const baseEnvSchema = z
     FEATURE_AUTO_ASSIGN_RETRY_DELAYS_MS: z.string().optional(),
     FEATURE_AUTO_ASSIGN_START_CUTOFF_MINUTES: z.coerce.number().int().min(0).max(240).optional(),
     FEATURE_AUTO_ASSIGN_CREATED_EMAIL_DEFER_MINUTES: z.coerce.number().int().min(0).max(120).optional(),
+    FEATURE_AUTO_ASSIGN_RETRY_POLICY_V2: booleanStringOptional,
     FEATURE_INLINE_AUTO_ASSIGN_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60000).optional(),
+    PLANNER_CACHE_ENABLED: booleanStringOptional,
+    PLANNER_CACHE_TTL_MS: z.coerce.number().int().min(1000).max(600000).optional(),
+    DEBUG_CAPACITY_PROFILING: booleanStringOptional,
   })
   .passthrough();
 

@@ -72,6 +72,7 @@ const getRestaurantScheduleMock = vi.hoisted(() => vi.fn());
 const getDefaultRestaurantIdMock = vi.hoisted(() => vi.fn());
 const getRouteHandlerSupabaseClientMock = vi.hoisted(() => vi.fn());
 const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn(() => ({})));
+const getTenantServiceSupabaseClientMock = vi.hoisted(() => vi.fn(() => ({})));
 const upsertCustomerMock = vi.hoisted(() => vi.fn());
 const fetchBookingsForContactMock = vi.hoisted(() => vi.fn());
 const buildBookingAuditSnapshotMock = vi.hoisted(() => vi.fn());
@@ -104,6 +105,7 @@ vi.mock('@/server/supabase', () => ({
   getDefaultRestaurantId: (...args: unknown[]) => getDefaultRestaurantIdMock(...args),
   getRouteHandlerSupabaseClient: (...args: unknown[]) => getRouteHandlerSupabaseClientMock(...args),
   getServiceSupabaseClient: (...args: unknown[]) => getServiceSupabaseClientMock(...args),
+  getTenantServiceSupabaseClient: (...args: unknown[]) => getTenantServiceSupabaseClientMock(...args),
 }));
 
 vi.mock('@/server/customers', () => ({

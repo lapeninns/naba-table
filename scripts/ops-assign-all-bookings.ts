@@ -32,6 +32,15 @@ import { DateTime } from 'luxon';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import {
+  isPlannerCacheEnabled,
+  buildPlannerCacheKey,
+  getPlannerCacheEntry,
+  setPlannerCacheEntry,
+} from '@/server/capacity/planner-cache';
+import { classifyPlannerReason } from '@/server/capacity/planner-reason';
+import { recordPlannerQuoteTelemetry } from '@/server/capacity/planner-telemetry';
+
 // ============================================================
 // CONFIGURATION
 // ============================================================
@@ -58,6 +67,8 @@ const CONFIG = {
   VERBOSE: true,
 };
 
+const PLANNER_CACHE_ENABLED = isPlannerCacheEnabled();
+
 // ============================================================
 // TYPES
 // ============================================================
@@ -69,6 +80,7 @@ interface Booking {
   party_size: number;
   status: string;
   customer_name?: string;
+  restaurant_id: string;
 }
 
 interface AssignmentResult {
@@ -132,7 +144,8 @@ async function assignBookingWithRetry(
   quoteTablesForBooking: any,
   confirmHoldAssignment: any,
   booking: Booking,
-  attempt: number = 1
+  attempt: number = 1,
+  restaurantId: string,
 ): Promise<AssignmentResult> {
   const start = Date.now();
   const maxRetries = CONFIG.MAX_RETRIES;
@@ -142,14 +155,120 @@ async function assignBookingWithRetry(
     const requireAdjacency = attempt <= 3 ? undefined : false;  // Relax after 3 attempts
     const maxTables = attempt <= 2 ? undefined : 5;  // Allow more tables after 2 attempts
     
-    // Get quote
-    const quote = await quoteTablesForBooking({
+    const strategyContext = {
+      requireAdjacency: typeof requireAdjacency === 'boolean' ? requireAdjacency : null,
+      maxTables: typeof maxTables === 'number' ? maxTables : null,
+    };
+    const plannerCacheKey =
+      PLANNER_CACHE_ENABLED
+        ? buildPlannerCacheKey({
+            restaurantId,
+            bookingDate: booking.booking_date ?? null,
+            startTime: booking.start_time ?? null,
+            partySize: booking.party_size ?? null,
+            strategy: strategyContext,
+            trigger: 'bulk_script',
+          })
+        : null;
+    if (plannerCacheKey) {
+      const cached = getPlannerCacheEntry(plannerCacheKey);
+      if (cached && cached.status === 'failure' && cached.reasonCategory === 'hard') {
+        if (attempt < maxRetries) {
+          const delay = CONFIG.RETRY_DELAY_MS * Math.pow(CONFIG.BACKOFF_MULTIPLIER, attempt - 1);
+          if (CONFIG.VERBOSE) {
+            console.log(
+              `  ⏳ Cached hard failure, retry ${attempt + 1}/${maxRetries} for ${booking.id.slice(0, 8)} after ${delay}ms...`,
+            );
+          }
+          await sleep(delay);
+          return assignBookingWithRetry(
+            supabase,
+            quoteTablesForBooking,
+            confirmHoldAssignment,
+            booking,
+            attempt + 1,
+            restaurantId,
+          );
+        }
+        return {
+          bookingId: booking.id,
+          date: booking.booking_date,
+          time: booking.start_time,
+          party: booking.party_size,
+          success: false,
+          attempt,
+          tables: [],
+          reason: cached.reason ?? cached.reasonCode ?? 'Cached planner failure',
+          durationMs: Date.now() - start,
+        };
+      }
+    }
+    let quote: any;
+    let plannerDurationMs = 0;
+    let plannerStart = 0;
+    try {
+      plannerStart = Date.now();
+      quote = await quoteTablesForBooking({
+        bookingId: booking.id,
+        createdBy: 'bulk-assign-script',
+        holdTtlSeconds: CONFIG.HOLD_TTL_SECONDS,
+        requireAdjacency,
+        maxTables,
+      });
+      plannerDurationMs = Date.now() - plannerStart;
+    } catch (plannerError: any) {
+      plannerDurationMs = plannerStart > 0 ? Date.now() - plannerStart : 0;
+      const plannerErrorReason =
+        plannerError instanceof Error && plannerError.name ? plannerError.name : 'QUOTE_ERROR';
+      const classification = classifyPlannerReason(plannerErrorReason);
+      if (plannerCacheKey && PLANNER_CACHE_ENABLED) {
+        setPlannerCacheEntry(plannerCacheKey, {
+          status: 'failure',
+          reason: plannerErrorReason,
+          reasonCode: classification.code,
+          reasonCategory: classification.category,
+        });
+      }
+      await recordPlannerQuoteTelemetry({
+        source: 'auto_assign.bulk_script',
+        restaurantId,
+        bookingId: booking.id,
+        durationMs: plannerDurationMs,
+        success: false,
+        reason: plannerErrorReason,
+        reasonCode: classification.code,
+        reasonCategory: classification.category,
+        strategy: strategyContext,
+        trigger: 'bulk_script',
+        attemptIndex: attempt - 1,
+        errorMessage: plannerError instanceof Error ? plannerError.message : String(plannerError),
+        severity: 'warning',
+      });
+      throw plannerError;
+    }
+    const classification = classifyPlannerReason(quote.reason ?? null);
+    await recordPlannerQuoteTelemetry({
+      source: 'auto_assign.bulk_script',
+      restaurantId,
       bookingId: booking.id,
-      createdBy: 'bulk-assign-script',
-      holdTtlSeconds: CONFIG.HOLD_TTL_SECONDS,
-      requireAdjacency,
-      maxTables,
+      durationMs: plannerDurationMs,
+      success: Boolean(quote.hold),
+      reason: quote.reason ?? null,
+      reasonCode: classification.code,
+      reasonCategory: classification.category,
+      strategy: strategyContext,
+      trigger: 'bulk_script',
+      attemptIndex: attempt - 1,
+      internalStats: quote.plannerStats ?? null,
     });
+    if (plannerCacheKey && PLANNER_CACHE_ENABLED) {
+      setPlannerCacheEntry(plannerCacheKey, {
+        status: quote.hold ? 'success' : 'failure',
+        reason: quote.reason ?? null,
+        reasonCode: classification.code,
+        reasonCategory: classification.category,
+      });
+    }
     
     if (!quote.hold) {
       // No tables available - retry with backoff
@@ -159,7 +278,14 @@ async function assignBookingWithRetry(
           console.log(`  ⏳ Retry ${attempt + 1}/${maxRetries} for ${booking.id.slice(0, 8)} after ${delay}ms...`);
         }
         await sleep(delay);
-        return assignBookingWithRetry(supabase, quoteTablesForBooking, confirmHoldAssignment, booking, attempt + 1);
+        return assignBookingWithRetry(
+          supabase,
+          quoteTablesForBooking,
+          confirmHoldAssignment,
+          booking,
+          attempt + 1,
+          restaurantId,
+        );
       }
       
       return {
@@ -207,7 +333,14 @@ async function assignBookingWithRetry(
           console.log(`  ⏳ Transition failed, retry ${attempt + 1}/${maxRetries} after ${delay}ms...`);
         }
         await sleep(delay);
-        return assignBookingWithRetry(supabase, quoteTablesForBooking, confirmHoldAssignment, booking, attempt + 1);
+        return assignBookingWithRetry(
+          supabase,
+          quoteTablesForBooking,
+          confirmHoldAssignment,
+          booking,
+          attempt + 1,
+          restaurantId,
+        );
       }
       
       return {
@@ -247,7 +380,14 @@ async function assignBookingWithRetry(
         console.log(`  ⏳ Verification failed, retry ${attempt + 1}/${maxRetries} after ${delay}ms...`);
       }
       await sleep(delay);
-      return assignBookingWithRetry(supabase, quoteTablesForBooking, confirmHoldAssignment, booking, attempt + 1);
+      return assignBookingWithRetry(
+        supabase,
+        quoteTablesForBooking,
+        confirmHoldAssignment,
+        booking,
+        attempt + 1,
+        restaurantId,
+      );
     }
     
     return {
@@ -270,7 +410,14 @@ async function assignBookingWithRetry(
         console.log(`  ⏳ Error occurred, retry ${attempt + 1}/${maxRetries} after ${delay}ms...`);
       }
       await sleep(delay);
-      return assignBookingWithRetry(supabase, quoteTablesForBooking, confirmHoldAssignment, booking, attempt + 1);
+      return assignBookingWithRetry(
+        supabase,
+        quoteTablesForBooking,
+        confirmHoldAssignment,
+        booking,
+        attempt + 1,
+        restaurantId,
+      );
     }
     
     return {
@@ -325,7 +472,7 @@ async function main() {
   // Get all pending bookings across all dates
   const { data: allBookings } = await supabase
     .from('bookings')
-    .select('id, booking_date, start_time, party_size, status, customer_name')
+    .select('id, booking_date, start_time, party_size, status, customer_name, restaurant_id')
     .eq('restaurant_id', restaurant.id)
     .eq('status', 'pending')
     .order('booking_date', { ascending: true })
@@ -361,7 +508,9 @@ async function main() {
             supabase,
             quoteTablesForBooking,
             confirmHoldAssignment,
-            booking
+            booking,
+            1,
+            restaurant.id,
           )
         )
       );

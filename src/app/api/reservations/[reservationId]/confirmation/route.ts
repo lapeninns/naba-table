@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 import { buildReservationConfirmationPdfBuffer } from '@/server/reservations/confirmation-pdf';
+import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
 

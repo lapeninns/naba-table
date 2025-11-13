@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import { BookingErrorBoundary } from "@/components/features/booking-state-machine";
 import { OpsDashboardClient } from "@/components/features/dashboard";
 import { BookingOfflineQueueProvider } from "@/contexts/booking-offline-queue";
-import { getServerComponentSupabaseClient } from "@/server/supabase";
 import { withRedirectedFrom } from "@/lib/url/withRedirectedFrom";
+import { getServerComponentSupabaseClient } from "@/server/supabase";
 import { sanitizeDateParam } from "@/utils/ops/dashboard";
 
 import type { Metadata } from "next";

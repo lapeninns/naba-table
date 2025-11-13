@@ -20,8 +20,8 @@ import {
   useUpdateOpsStrategicSettings,
 } from '@/hooks';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
 import { CSRF_HEADER_NAME, getBrowserCsrfToken } from '@/lib/security/csrf';
+import { cn } from '@/lib/utils';
 
 import type { OpsStrategicPenaltyKey, OpsStrategicSettings } from '@/types/ops';
 

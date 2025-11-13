@@ -1,9 +1,10 @@
+import { Bot, CalendarCheck, CheckCircle2, Layers3, Sparkles } from "lucide-react";
+
 import { MarketingSessionActions } from "@/components/marketing/MarketingSessionActions";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import config from "@/config";
 import { cn } from "@/lib/utils";
-import { Bot, CalendarCheck, CheckCircle2, Layers3, Sparkles } from "lucide-react";
 
 const HERO_STATS = [
   { label: "Self-serve guest bookings", value: "1 flow" },

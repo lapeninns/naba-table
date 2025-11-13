@@ -28,8 +28,9 @@ import { signOutFromSupabase } from '@/lib/supabase/signOut';
 import { cn } from '@/lib/utils';
 
 import { OPS_NAV_SECTIONS, OPS_SUPPORT_ITEM, isNavItemActive } from './navigation';
-import type { OpsNavigationSection } from './navigation';
 import { OpsRestaurantSwitch } from './OpsRestaurantSwitch';
+
+import type { OpsNavigationSection } from './navigation';
 
 type OpsSidebarLayoutProps = {
   children: ReactNode;

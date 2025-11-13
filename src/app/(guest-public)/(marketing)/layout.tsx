@@ -1,7 +1,8 @@
-import type { ReactNode } from "react";
 
 import { OwnerMarketingFooter } from "@/components/owner-marketing/OwnerMarketingFooter";
 import { OwnerMarketingNavbar } from "@/components/owner-marketing/OwnerMarketingNavbar";
+
+import type { ReactNode } from "react";
 
 interface MarketingLayoutProps {
   children: ReactNode;

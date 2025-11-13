@@ -1,16 +1,24 @@
 "use client";
 
+import {
+  ArrowRight,
+  CalendarCheck,
+  CheckCircle2,
+  Search,
+  Sparkles,
+  UtensilsCrossed,
+} from "lucide-react";
 import Link from "next/link";
 
 import { MarketingSessionActions } from "@/components/marketing/MarketingSessionActions";
-import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -20,14 +28,6 @@ import {
 } from "@/components/ui/card";
 import config from "@/config";
 import { cn } from "@/lib/utils";
-import {
-  ArrowRight,
-  CalendarCheck,
-  CheckCircle2,
-  Search,
-  Sparkles,
-  UtensilsCrossed,
-} from "lucide-react";
 
 const SUPPORT_EMAIL = config.email?.supportEmail ?? "support@example.com";
 

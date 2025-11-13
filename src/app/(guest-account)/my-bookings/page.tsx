@@ -3,9 +3,9 @@ import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { DASHBOARD_DEFAULT_PAGE_SIZE } from '@/components/dashboard/constants';
+import { queryKeys } from '@/lib/query/keys';
 import { getCanonicalSiteUrl } from '@/lib/site-url';
 import { withRedirectedFrom } from '@/lib/url/withRedirectedFrom';
-import { queryKeys } from '@/lib/query/keys';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
 
 import { MyBookingsClient } from './MyBookingsClient';

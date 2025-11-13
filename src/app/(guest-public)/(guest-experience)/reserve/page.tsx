@@ -1,6 +1,7 @@
+import ReserveApp from "./_components/ReserveApp";
+
 import type { Metadata } from "next";
 
-import ReserveApp from "./_components/ReserveApp";
 
 export const dynamic = "force-dynamic";
 

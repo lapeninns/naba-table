@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -55,8 +55,9 @@ describe('BookingsListMobile', () => {
     expect(screen.getByText(/party of 4/i)).toBeInTheDocument();
     expect(screen.getByText('Confirmed')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /edit booking at test bistro/i }));
-    await user.click(screen.getByRole('button', { name: /cancel booking at test bistro/i }));
+    const card = screen.getByTestId('mobile-booking-row');
+    await user.click(within(card).getByRole('button', { name: /edit booking at test bistro/i }));
+    await user.click(within(card).getByRole('button', { name: /^cancel$/i }));
 
     expect(handleEdit).toHaveBeenCalledWith(booking);
     expect(handleCancel).toHaveBeenCalledWith(booking);
@@ -113,8 +114,9 @@ describe('BookingsListMobile', () => {
     expect(screen.getByText('Ops Bistro')).toBeInTheDocument();
     expect(screen.getByText('—')).toBeInTheDocument();
 
-    const editButton = screen.getByRole('button', { name: /edit booking for priya sharma/i });
-    const cancelButton = screen.getByRole('button', { name: /cancel booking for priya sharma/i });
+    const card = screen.getByTestId('mobile-booking-row');
+    const editButton = within(card).getByRole('button', { name: /edit booking for priya sharma/i });
+    const cancelButton = within(card).getByRole('button', { name: /^cancel$/i });
 
     await userEvent.click(editButton);
     await userEvent.click(cancelButton);

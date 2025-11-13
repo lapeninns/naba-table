@@ -1,7 +1,8 @@
+import { CustomerNavbar } from "@/components/customer/navigation";
+import Footer from "@/components/Footer";
+
 import type { ReactNode } from "react";
 
-import Footer from "@/components/Footer";
-import { CustomerNavbar } from "@/components/customer/navigation";
 
 type GuestAccountLayoutProps = {
   children: ReactNode;

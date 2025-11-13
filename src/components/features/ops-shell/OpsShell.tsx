@@ -1,8 +1,9 @@
 'use client';
 
+import { OpsSidebarLayout } from './OpsSidebarLayout';
+
 import type { ReactNode } from 'react';
 
-import { OpsSidebarLayout } from './OpsSidebarLayout';
 
 type OpsShellProps = {
   children: ReactNode;

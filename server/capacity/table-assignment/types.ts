@@ -141,6 +141,21 @@ export type QuoteTablesOptions = {
   signal?: AbortSignal;
 };
 
+export type QuotePlannerStats = {
+  totalTables?: number;
+  filteredTables?: number;
+  generatedPlans?: number;
+  alternatesGenerated?: number;
+  skippedCandidates?: number;
+  holdConflictSkips?: number;
+  timePruned?: number;
+  candidatesAfterTimePrune?: number;
+  combinationEnabled?: boolean;
+  requireAdjacency?: boolean;
+  demandMultiplier?: number;
+  plannerDurationMs?: number;
+};
+
 export type QuoteTablesResult = {
   hold: TableHold | null;
   candidate: CandidateSummary | null;
@@ -152,6 +167,7 @@ export type QuoteTablesResult = {
     usedFallback: boolean;
     fallbackService: ServiceKey | null;
   };
+  plannerStats?: QuotePlannerStats | null;
 };
 
 export type ManualAssignmentConflict = {

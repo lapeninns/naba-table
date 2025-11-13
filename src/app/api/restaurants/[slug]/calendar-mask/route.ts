@@ -1,6 +1,6 @@
+import { DateTime } from 'luxon';
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
-import { DateTime } from 'luxon';
 
 import { getRestaurantBySlug } from '@/server/restaurants';
 import { getRestaurantCalendarMask } from '@/server/restaurants/calendarMask';

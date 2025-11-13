@@ -4,13 +4,13 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import config from '@/config';
 import { CancelBookingDialog } from '@/components/dashboard/CancelBookingDialog';
 import { EditBookingDialog } from '@/components/dashboard/EditBookingDialog';
 import { StatusChip } from '@/components/dashboard/StatusChip';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import config from '@/config';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';

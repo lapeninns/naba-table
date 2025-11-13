@@ -1,6 +1,6 @@
+import { chromium, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'fs';
 import { basename, join, resolve } from 'path';
-import { chromium, type Browser, type BrowserContext, type Page } from '@playwright/test';
 
 const BASE_URL = process.env.ROUTE_SNAPSHOT_BASE_URL ?? 'http://127.0.0.1:3000';
 const SNAPSHOT_EMAIL = process.env.ROUTE_SNAPSHOT_EMAIL;

@@ -18,6 +18,7 @@ export type AnalyticsEvent =
   | "network_offline"
   | "wizard_offline_detected"
   | "wizard_submit_failed"
+  | "booking_timeout_unrecovered"
   | "profile_updated"
   | "profile_upload_error"
   | "profile_update_duplicate"

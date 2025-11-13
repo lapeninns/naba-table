@@ -1,5 +1,6 @@
 import { DateTime } from "luxon";
 
+import { env } from "@/lib/env";
 import { resolveDemandMultiplier, type DemandMultiplierResult } from "@/server/capacity/demand-profiles";
 import { createTableHold, releaseTableHold, findHoldConflicts, HoldConflictError, type HoldConflictInfo, type TableHold } from "@/server/capacity/holds";
 import { getVenuePolicy, getSelectorScoringConfig, getYieldManagementScarcityWeight, type SelectorScoringConfig, type ServiceKey } from "@/server/capacity/policy";
@@ -51,7 +52,7 @@ import {
   type DbClient,
   type ContextBookingRow,
 } from "./supabase";
-import { type Table, type QuoteTablesOptions, type QuoteTablesResult } from "./types";
+import { type Table, type QuoteTablesOptions, type QuoteTablesResult, type QuotePlannerStats } from "./types";
 import { highResNow, buildTiming, toIsoUtc, summarizeSelection, roundMilliseconds } from "./utils";
 
 
@@ -247,6 +248,11 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     client,
     signal,
   } = options;
+  if (signal?.aborted) {
+    const abortError = new Error("Planner aborted");
+    abortError.name = "AbortError";
+    throw abortError;
+  }
 
   const operationStart = highResNow();
   const supabase = ensureClient(client);
@@ -271,6 +277,29 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     partySize: booking.party_size,
     policy,
   });
+  const shouldEmitPlannerStats = env.featureFlags.planner.debugProfiling ?? false;
+  const attachPlannerStats = (result: QuoteTablesResult, stats?: QuotePlannerStats | null) => {
+    if (shouldEmitPlannerStats && stats) {
+      result.plannerStats = stats;
+    }
+    return result;
+  };
+  const buildFailureResult = (reason: string, stats?: QuotePlannerStats | null): QuoteTablesResult =>
+    attachPlannerStats(
+      {
+        hold: null,
+        candidate: null,
+        alternates: [],
+        nextTimes: [],
+        reason,
+        skipped: [],
+        metadata: {
+          usedFallback: bookingWindowUsedFallback,
+          fallbackService: bookingWindowFallbackService,
+        },
+      },
+      stats ?? null,
+    );
 
   const strategicOptions = { restaurantId: booking.restaurant_id ?? null } as const;
   const strategicConfigPromise = loadStrategicConfig({ ...strategicOptions, client: supabase });
@@ -343,7 +372,18 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
 
   await strategicConfigPromise;
   const combinationEnabled = isCombinationPlannerEnabled();
-  
+  const totalVenueCapacity = tables.reduce((sum, table) => sum + (table.capacity ?? 0), 0);
+  if (booking.party_size > totalVenueCapacity) {
+    await demandMultiplierPromise.catch(() => null);
+    return buildFailureResult("Insufficient global capacity", {
+      totalTables: tables.length,
+      filteredTables: 0,
+      combinationEnabled,
+      demandMultiplier: 0,
+      plannerDurationMs: roundMilliseconds(highResNow() - operationStart),
+    });
+  }
+
   const filtered = filterAvailableTables(
     tables,
     booking.party_size,
@@ -366,6 +406,27 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
           : undefined,
     },
   );
+  const filteredCapacity = filtered.reduce((sum, table) => sum + (table.capacity ?? 0), 0);
+  if (filtered.length === 0) {
+    await demandMultiplierPromise.catch(() => null);
+    return buildFailureResult("No tables available for requested window", {
+      totalTables: tables.length,
+      filteredTables: 0,
+      combinationEnabled,
+      demandMultiplier: 0,
+      plannerDurationMs: roundMilliseconds(highResNow() - operationStart),
+    });
+  }
+  if (filteredCapacity < booking.party_size) {
+    await demandMultiplierPromise.catch(() => null);
+    return buildFailureResult("Insufficient filtered capacity", {
+      totalTables: tables.length,
+      filteredTables: filtered.length,
+      combinationEnabled,
+      demandMultiplier: 0,
+      plannerDurationMs: roundMilliseconds(highResNow() - operationStart),
+    });
+  }
 
   const baseScoringConfig = getSelectorScoringConfig(strategicOptions);
   const selectorLimits = getSelectorPlannerLimits();
@@ -508,6 +569,21 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
       conflicts,
     });
   };
+
+  const collectPlannerStats = (): QuotePlannerStats => ({
+    totalTables: tables.length,
+    filteredTables: filtered.length,
+    generatedPlans: plans.plans.length,
+    alternatesGenerated: alternates.length,
+    skippedCandidates: skippedCandidates.length,
+    holdConflictSkips: holdConflictSkipCount,
+    timePruned: timePruningStats?.prunedByTime,
+    candidatesAfterTimePrune: timePruningStats?.candidatesAfterTimePrune,
+    combinationEnabled,
+    requireAdjacency: requireAdjacencyUsed,
+    demandMultiplier,
+    plannerDurationMs: roundMilliseconds(plannerDurationMs),
+  });
 
   for (let index = 0; index < plans.plans.length; index += 1) {
     const plan = plans.plans[index]!;
@@ -701,7 +777,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
         expiresAt: hold.expiresAt,
       });
 
-      return {
+      const successResult: QuoteTablesResult = {
         hold,
         candidate: candidateSummary,
         alternates,
@@ -712,6 +788,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
           fallbackService: bookingWindowFallbackService,
         },
       };
+      return attachPlannerStats(successResult, collectPlannerStats());
     } catch (error) {
       if (error instanceof HoldConflictError) {
         const refreshedConflicts = await findHoldConflicts({
@@ -749,7 +826,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     holdConflictSkipCount > 0
       ? 'Hold conflicts prevented all candidates'
       : plans.fallbackReason ?? 'No suitable tables available';
-  return {
+  const failureResult: QuoteTablesResult = {
     hold: null,
     candidate: null,
     alternates,
@@ -761,6 +838,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
       fallbackService: bookingWindowFallbackService,
     },
   };
+  return attachPlannerStats(failureResult, collectPlannerStats());
 }
 
 export async function findSuitableTables(options: {

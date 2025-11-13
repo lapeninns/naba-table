@@ -1,7 +1,8 @@
 import Image from "next/image";
 
-import marcImg from "./images/authors/marc.png";
 import introducingSupabaseImg from "@/public/blog/introducing-supabase/header.png";
+
+import marcImg from "./images/authors/marc.png";
 
 import type { StaticImageData } from "next/image";
 import type { JSX } from "react";

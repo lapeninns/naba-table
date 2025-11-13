@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { MAX_ONLINE_PARTY_SIZE, MIN_ONLINE_PARTY_SIZE } from "@/lib/bookings/partySize";
 import { env } from "@/lib/env";
 import { HttpError } from "@/lib/http/errors";
-import { MAX_ONLINE_PARTY_SIZE, MIN_ONLINE_PARTY_SIZE } from "@/lib/bookings/partySize";
 import { GuardError, listUserRestaurantMemberships, requireSession } from "@/server/auth/guards";
 import {
   createBookingValidationService,

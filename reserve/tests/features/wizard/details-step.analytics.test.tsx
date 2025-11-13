@@ -3,8 +3,11 @@ import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { wizardStateFixture } from '@/tests/fixtures/wizard';
+import { WizardProvider } from '@features/reservations/wizard/context/WizardContext';
 import { WizardDependenciesProvider } from '@features/reservations/wizard/di';
 import { DetailsStep } from '@features/reservations/wizard/ui/steps/DetailsStep';
+
+import type { WizardActions } from '@features/reservations/wizard/model/store';
 
 const createState = () => {
   const state = wizardStateFixture({
@@ -19,26 +22,48 @@ const createState = () => {
   return state;
 };
 
+const createWizardActions = (overrides: Partial<WizardActions> = {}): WizardActions => ({
+  goToStep: vi.fn(),
+  updateDetails: vi.fn(),
+  setSubmitting: vi.fn(),
+  setLoading: vi.fn(),
+  setError: vi.fn(),
+  clearError: vi.fn(),
+  setBookings: vi.fn(),
+  applyConfirmation: vi.fn(),
+  startEdit: vi.fn(),
+  resetForm: vi.fn(),
+  hydrateContacts: vi.fn(),
+  hydrateDetails: vi.fn(),
+  ...overrides,
+});
+
 describe('<DetailsStep /> analytics', () => {
   it('uses dependency-provided analytics tracker on submit', async () => {
     const track = vi.fn();
     const state = createState();
-    const updateDetails = vi.fn();
-    const goToStep = vi.fn();
+    const wizardActions = createWizardActions();
     const onActionsChange = vi.fn();
 
     render(
       <WizardDependenciesProvider value={{ analytics: { track } }}>
-        <DetailsStep
-          state={state}
-          actions={{ updateDetails, goToStep }}
-          onActionsChange={onActionsChange}
-        />
+        <WizardProvider state={state} actions={wizardActions}>
+          <DetailsStep
+            state={state}
+            actions={{
+              updateDetails: wizardActions.updateDetails,
+              goToStep: wizardActions.goToStep,
+            }}
+            onActionsChange={onActionsChange}
+          />
+        </WizardProvider>
       </WizardDependenciesProvider>,
     );
 
-    const actions = onActionsChange.mock.calls.at(-1)?.[0] ?? [];
-    const reviewAction = actions.find((action: { id: string }) => action.id === 'details-review');
+    const recordedActions = onActionsChange.mock.calls.at(-1)?.[0] ?? [];
+    const reviewAction = recordedActions.find(
+      (action: { id: string }) => action.id === 'details-review',
+    );
     expect(reviewAction).toBeDefined();
 
     await act(async () => {

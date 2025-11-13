@@ -4,9 +4,9 @@ import { redirect } from "next/navigation";
 
 import { getCanonicalSiteUrl } from "@/lib/site-url";
 import { withRedirectedFrom } from "@/lib/url/withRedirectedFrom";
+import { getServerComponentSupabaseClient } from "@/server/supabase";
 import { reservationAdapter } from "@entities/reservation/adapter";
 import { reservationKeys } from "@shared/api/queryKeys";
-import { getServerComponentSupabaseClient } from "@/server/supabase";
 
 import ReservationDetailClient from "./ReservationDetailClient";
 

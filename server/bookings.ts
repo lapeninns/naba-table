@@ -78,6 +78,7 @@ export type UpdateBookingPayload = {
   auth_user_id?: string | null;
   details?: Json | null;
   idempotency_key?: string | null;
+  auto_assign_last_result?: Json | null;
 };
 
 const BOOKING_SELECT = "*";

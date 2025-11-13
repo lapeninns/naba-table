@@ -6,12 +6,12 @@ import { toast } from 'react-hot-toast';
 
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { cn } from '@/lib/utils';
 import { useOpsRestaurantLogoUpload } from '@/hooks';
+import { cn } from '@/lib/utils';
 
-import type { UseMutationResult } from '@tanstack/react-query';
-import type { RestaurantProfile } from '@/services/ops/restaurants';
 import type { HttpError } from '@/lib/http/errors';
+import type { RestaurantProfile } from '@/services/ops/restaurants';
+import type { UseMutationResult } from '@tanstack/react-query';
 
 const ALLOWED_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
 const MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024;

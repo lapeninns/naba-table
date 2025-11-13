@@ -1,5 +1,6 @@
-import { HttpError, normalizeError } from './errors';
 import { CSRF_HEADER_NAME, getBrowserCsrfToken } from '@/lib/security/csrf';
+
+import { HttpError, normalizeError } from './errors';
 
 export type FetchJsonInit = RequestInit & {
   parseJson?: (text: string) => unknown;

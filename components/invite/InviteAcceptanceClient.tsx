@@ -13,8 +13,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { invitationAcceptResponseSchema } from '@/lib/owner/team/schema';
-import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { CSRF_HEADER_NAME, getBrowserCsrfToken } from '@/lib/security/csrf';
+import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
 
 const acceptanceSchema = z.object({
   name: z.string().trim().min(2, 'Enter your full name'),

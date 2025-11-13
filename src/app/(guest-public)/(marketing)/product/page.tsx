@@ -1,9 +1,10 @@
-import type { Metadata } from "next";
 
 import { MarketingSessionActions } from "@/components/marketing/MarketingSessionActions";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import config from "@/config";
+
+import type { Metadata } from "next";
 
 const PRODUCT_SECTIONS = [
   {
