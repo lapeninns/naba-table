@@ -32,6 +32,7 @@ export function useCreateOpsReservation() {
 
       const payload = {
         restaurantId: draft.restaurantId,
+        restaurantSlug: draft.restaurantSlug,
         date: draft.date,
         time: draft.time,
         party: draft.party,

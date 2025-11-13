@@ -123,6 +123,7 @@ export type Action =
 
 export type ReservationDraft = {
   restaurantId?: string;
+  restaurantSlug?: string;
   date: string;
   time: string;
   party: number;

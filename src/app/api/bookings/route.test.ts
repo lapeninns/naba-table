@@ -69,6 +69,7 @@ import { env } from '@/lib/env';
 
 const assertBookingWithinOperatingWindowMock = vi.hoisted(() => vi.fn());
 const getRestaurantScheduleMock = vi.hoisted(() => vi.fn());
+const getRestaurantBySlugMock = vi.hoisted(() => vi.fn());
 const getDefaultRestaurantIdMock = vi.hoisted(() => vi.fn());
 const getRouteHandlerSupabaseClientMock = vi.hoisted(() => vi.fn());
 const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn(() => ({})));
@@ -98,6 +99,10 @@ vi.mock('@/server/bookings/timeValidation', async () => {
 
 vi.mock('@/server/restaurants/schedule', () => ({
   getRestaurantSchedule: (...args: unknown[]) => getRestaurantScheduleMock(...args),
+}));
+
+vi.mock('@/server/restaurants/getRestaurantBySlug', () => ({
+  getRestaurantBySlug: (...args: unknown[]) => getRestaurantBySlugMock(...args),
 }));
 
 vi.mock('@/server/supabase', () => ({
@@ -308,6 +313,12 @@ describe('/api/bookings POST', () => {
 
     getDefaultRestaurantIdMock.mockResolvedValue('rest-closed');
 
+    const maybeSingleMock = vi.fn().mockResolvedValue({ data: { id: 'rest-closed' }, error: null });
+    const eqMock = vi.fn().mockReturnValue({ maybeSingle: maybeSingleMock });
+    const selectMock = vi.fn().mockReturnValue({ eq: eqMock });
+    const fromMock = vi.fn().mockReturnValue({ select: selectMock });
+    getServiceSupabaseClientMock.mockReturnValue({ from: fromMock });
+
     getRestaurantScheduleMock.mockResolvedValue({
       restaurantId: RESTAURANT_ID,
       date: '2025-10-10',
@@ -464,6 +475,101 @@ describe('/api/bookings POST', () => {
     }));
     expect(json.booking.reference).toBe('REF123');
     expect(json.capacity).toBeNull();
+  });
+
+  it('resolves restaurant id via slug when restaurantId is omitted', async () => {
+    const payload = {
+      restaurantSlug: 'white-horse-pub-waterbeach',
+      date: '2025-10-10',
+      time: '19:00',
+      party: 2,
+      bookingType: 'dinner',
+      seating: 'any',
+      notes: null,
+      name: 'Test User',
+      email: 'test@example.com',
+      phone: '1234567890',
+    } as const;
+
+    const request = createRequest(payload);
+
+    getRestaurantBySlugMock.mockResolvedValue({
+      id: RESTAURANT_ID,
+      name: 'White Horse',
+      slug: payload.restaurantSlug,
+      timezone: 'UTC',
+      capacity: 100,
+    });
+
+    getRestaurantScheduleMock.mockResolvedValue({
+      restaurantId: RESTAURANT_ID,
+      date: payload.date,
+      timezone: 'UTC',
+      intervalMinutes: 15,
+      defaultDurationMinutes: 90,
+      lastSeatingBufferMinutes: 120,
+      isClosed: false,
+      window: { opensAt: '10:00', closesAt: '22:00' },
+      availableBookingOptions: ['dinner'],
+      occasionCatalog: [],
+      slots: [
+        {
+          value: '19:00',
+          display: '7:00 PM',
+          periodId: null,
+          periodName: 'Dinner',
+          bookingOption: 'dinner',
+          defaultBookingOption: 'dinner',
+          availability: {
+            services: { lunch: 'disabled', dinner: 'enabled', drinks: 'disabled' },
+            labels: {
+              happyHour: false,
+              drinksOnly: false,
+              kitchenClosed: false,
+              lunchWindow: false,
+              dinnerWindow: true,
+            },
+          },
+          disabled: false,
+        },
+      ],
+    });
+    assertBookingWithinOperatingWindowMock.mockReturnValue({ time: '19:00' });
+    upsertCustomerMock.mockResolvedValue({ id: 'customer-1' });
+
+    const response = await POST(request);
+    expect(response.status).toBe(201);
+    expect(getRestaurantBySlugMock).toHaveBeenCalledWith(payload.restaurantSlug);
+    expect(createBookingWithCapacityCheckMock).toHaveBeenCalledWith(
+      expect.objectContaining({ restaurantId: RESTAURANT_ID }),
+    );
+  });
+
+  it('returns 404 when restaurant context is missing and the default restaurant is absent', async () => {
+    const payload = {
+      date: '2025-10-10',
+      time: '19:00',
+      party: 2,
+      bookingType: 'dinner',
+      seating: 'any',
+      notes: null,
+      name: 'Test User',
+      email: 'test@example.com',
+      phone: '1234567890',
+    } as const;
+
+    const maybeSingleMock = vi.fn().mockResolvedValue({ data: null, error: null });
+    const eqMock = vi.fn().mockReturnValue({ maybeSingle: maybeSingleMock });
+    const selectMock = vi.fn().mockReturnValue({ eq: eqMock });
+    const fromMock = vi.fn().mockReturnValue({ select: selectMock });
+    getServiceSupabaseClientMock.mockReturnValue({ from: fromMock });
+
+    const response = await POST(createRequest(payload));
+    const json = await response.json();
+    expect(response.status).toBe(404);
+    expect(json.code).toBe('RESTAURANT_NOT_FOUND');
+    expect(createBookingWithCapacityCheckMock).not.toHaveBeenCalled();
+    expect(getRestaurantBySlugMock).not.toHaveBeenCalled();
   });
 });
 

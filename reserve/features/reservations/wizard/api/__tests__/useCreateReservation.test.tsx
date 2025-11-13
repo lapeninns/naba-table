@@ -133,4 +133,19 @@ describe('useCreateReservation', () => {
       | undefined;
     expect(secondHeaders?.['Idempotency-Key']).toBe('idempotency-key-2');
   });
+
+  it('includes restaurantSlug in the payload when provided', async () => {
+    postMock.mockResolvedValueOnce({});
+    const { result } = renderUseCreateReservation();
+
+    await act(async () => {
+      await result.current.mutateAsync({ draft: { ...draft, restaurantSlug: 'white-horse' } });
+    });
+
+    expect(postMock).toHaveBeenCalledWith(
+      '/bookings',
+      expect.objectContaining({ restaurantSlug: 'white-horse' }),
+      expect.any(Object),
+    );
+  });
 });

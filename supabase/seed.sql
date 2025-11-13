@@ -9,7 +9,8 @@ SET LOCAL search_path = public;
 -- -----------------------------------------------------------------------------
 -- Stage 0: reset derived configuration/state
 -- -----------------------------------------------------------------------------
-SELECT set_config('app.holds.strict_conflicts.enabled', 'off', true);
+-- Enable strict hold conflict enforcement to prevent race conditions
+SELECT set_config('app.holds.strict_conflicts.enabled', 'on', true);
 
 -- -----------------------------------------------------------------------------
 -- Stage 1: truncate existing data (idempotent reruns)

@@ -37,6 +37,7 @@ export const buildReservationDraft = (
       error: 'We could not determine which restaurant to book. Please refresh and try again.',
     };
   }
+  const normalizedRestaurantSlug = details.restaurantSlug?.trim().toLowerCase();
   const normalizedTime = normalizeTime(details.time);
 
   if (!normalizedTime) {
@@ -50,6 +51,7 @@ export const buildReservationDraft = (
     ok: true,
     draft: {
       restaurantId: normalizedRestaurantId,
+      restaurantSlug: normalizedRestaurantSlug ?? undefined,
       date: details.date,
       time: normalizedTime,
       party: Math.max(1, details.party),

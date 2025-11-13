@@ -36,6 +36,7 @@ import { sendBookingConfirmationEmail } from "@/server/emails/bookings";
 import { enqueueBookingCreatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
 import { getActiveLoyaltyProgram, calculateLoyaltyAward, applyLoyaltyAward } from "@/server/loyalty";
 import { recordObservabilityEvent } from "@/server/observability";
+import { getRestaurantBySlug } from "@/server/restaurants/getRestaurantBySlug";
 import { getRestaurantSchedule } from "@/server/restaurants/schedule";
 import { computeGuestLookupHash } from "@/server/security/guest-lookup";
 import { consumeRateLimit } from "@/server/security/rate-limit";
@@ -75,9 +76,11 @@ const myBookingsQuerySchema = baseQuerySchema.extend({
 });
 
 const bookingTypeEnum = z.enum(BOOKING_TYPES);
+const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/i;
 
 const bookingSchema = z.object({
   restaurantId: z.string().uuid().optional(),
+  restaurantSlug: z.string().regex(slugPattern).optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   time: z.string().regex(/^\d{2}:\d{2}$/),
   party: z.number().int().min(1),
@@ -101,6 +104,83 @@ function normalizeIdempotencyKey(value: string | null): string | null {
 function coerceUuid(value: string | null): string | null {
   if (!value) return null;
   return UUID_REGEX.test(value) ? value : null;
+}
+
+type RestaurantResolutionResult =
+  | { ok: true; restaurantId: string; source: "payload" | "slug" | "default" }
+  | { ok: false; status: number; code: string; error: string };
+
+async function resolveRestaurantId(options: {
+  restaurantId?: string | null;
+  restaurantSlug?: string | null;
+}): Promise<RestaurantResolutionResult> {
+  const directId = options.restaurantId?.trim();
+  if (directId) {
+    return { ok: true, restaurantId: directId, source: "payload" };
+  }
+
+  const slug = options.restaurantSlug?.trim().toLowerCase();
+  if (slug) {
+    try {
+      const restaurant = await getRestaurantBySlug(slug);
+      if (restaurant?.id) {
+        return { ok: true, restaurantId: restaurant.id, source: "slug" };
+      }
+      return {
+        ok: false,
+        status: 404,
+        code: "RESTAURANT_NOT_FOUND",
+        error: "Restaurant not found",
+      };
+    } catch (error) {
+      console.error("[bookings][POST][slug-lookup]", stringifyError(error));
+      return {
+        ok: false,
+        status: 500,
+        code: "RESTAURANT_LOOKUP_FAILED",
+        error: "Unable to resolve restaurant",
+      };
+    }
+  }
+
+  const fallbackId = await getDefaultRestaurantId();
+  try {
+    const supabase = getServiceSupabaseClient();
+    const { data, error } = await supabase
+      .from("restaurants")
+      .select("id")
+      .eq("id", fallbackId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("[bookings][POST][default-restaurant]", stringifyError(error));
+      return {
+        ok: false,
+        status: 500,
+        code: "RESTAURANT_LOOKUP_FAILED",
+        error: "Unable to resolve restaurant",
+      };
+    }
+
+    if (!data?.id) {
+      return {
+        ok: false,
+        status: 404,
+        code: "RESTAURANT_NOT_FOUND",
+        error: "Restaurant not found",
+      };
+    }
+
+    return { ok: true, restaurantId: data.id, source: "default" };
+  } catch (error) {
+    console.error("[bookings][POST][default-restaurant]", stringifyError(error));
+    return {
+      ok: false,
+      status: 500,
+      code: "RESTAURANT_LOOKUP_FAILED",
+      error: "Unable to resolve restaurant",
+    };
+  }
 }
 
 type PostgrestErrorLike = {
@@ -398,7 +478,19 @@ export async function POST(req: NextRequest) {
   }
 
   const data = parsed.data;
-  const restaurantId = data.restaurantId ?? await getDefaultRestaurantId();
+  const restaurantResolution = await resolveRestaurantId({
+    restaurantId: data.restaurantId,
+    restaurantSlug: data.restaurantSlug,
+  });
+
+  if (!restaurantResolution.ok) {
+    return NextResponse.json(
+      { error: restaurantResolution.error, code: restaurantResolution.code },
+      { status: restaurantResolution.status },
+    );
+  }
+
+  const restaurantId = restaurantResolution.restaurantId;
   const clientIp = extractClientIp(req);
 
   // Rate limiting for booking creation

@@ -25,6 +25,7 @@ describe('buildReservationDraft', () => {
     details.email = ' jane@example.com ';
     details.phone = ' +441234567890 ';
     details.rememberDetails = true;
+    details.restaurantSlug = ' White-Horse-Pub-Waterbeach ';
 
     const result = buildReservationDraft(details, 'customer');
 
@@ -35,6 +36,7 @@ describe('buildReservationDraft', () => {
       expect(result.draft.name).toBe('Jane Doe');
       expect(result.draft.email).toBe('jane@example.com');
       expect(result.draft.phone).toBe('+441234567890');
+      expect(result.draft.restaurantSlug).toBe('white-horse-pub-waterbeach');
     }
   });
 

@@ -517,6 +517,8 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
 
     const requestedWindowStart = toIsoUtc(window.block.start);
     const requestedWindowEnd = toIsoUtc(window.block.end);
+    const parsedWindowEnd = DateTime.fromISO(requestedWindowEnd ?? "");
+    const requestedWindowEndDate = parsedWindowEnd.isValid ? parsedWindowEnd : null;
 
     if (!isHoldStrictConflictsEnabled()) {
       const conflicts = await findHoldConflicts({
@@ -551,6 +553,9 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
       });
 
       const holdStart = highResNow();
+      const holdExpiryBase = (requestedWindowEndDate ?? DateTime.now()).toUTC();
+      const holdExpiresAt = holdExpiryBase.plus({ seconds: holdTtlSeconds });
+
       const hold = await createTableHold({
         bookingId,
         restaurantId: booking.restaurant_id,
@@ -558,7 +563,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
         tableIds: requestedTableIds,
         startAt: requestedWindowStart,
         endAt: requestedWindowEnd,
-        expiresAt: toIsoUtc(DateTime.now().plus({ seconds: holdTtlSeconds })),
+        expiresAt: toIsoUtc(holdExpiresAt),
         createdBy,
         metadata: {
           selection: {
