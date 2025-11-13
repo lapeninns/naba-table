@@ -1,3 +1,4 @@
+import "@testing-library/jest-dom/vitest";
 import React from "react";
 
 process.env.NODE_ENV = "test";

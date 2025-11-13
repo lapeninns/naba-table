@@ -1,12 +1,6 @@
-import { redirect } from "next/navigation";
-
-export const metadata = {
-  title: "Browse restaurants · SajiloReserveX",
-  description: "This page has moved. Please visit our restaurant partner experience.",
-};
+import RestaurantDirectoryPage, { metadata as restaurantMetadata } from "../restaurant/page";
 
 export const dynamic = "force-dynamic";
+export const metadata = restaurantMetadata;
 
-export default function BrowseRedirectPage() {
-  redirect("/");
-}
+export default RestaurantDirectoryPage;

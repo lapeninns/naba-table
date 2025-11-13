@@ -138,11 +138,6 @@ async function resolveRestaurantId(options: {
   restaurantId?: string | null;
   restaurantSlug?: string | null;
 }): Promise<RestaurantResolutionResult> {
-  const directId = options.restaurantId?.trim();
-  if (directId) {
-    return { ok: true, restaurantId: directId, source: "payload" };
-  }
-
   const slug = options.restaurantSlug?.trim().toLowerCase();
   if (slug) {
     try {
@@ -165,6 +160,11 @@ async function resolveRestaurantId(options: {
         error: "Unable to resolve restaurant",
       };
     }
+  }
+
+  const directId = options.restaurantId?.trim();
+  if (directId) {
+    return { ok: true, restaurantId: directId, source: "payload" };
   }
 
   const fallbackId = await getDefaultRestaurantId();

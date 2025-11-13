@@ -8,6 +8,7 @@ const baseUrl =
 const guestRoutes = [
   "/",
   "/browse",
+  "/restaurant",
   "/pricing",
   "/create",
   "/blog",

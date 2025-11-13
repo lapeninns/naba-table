@@ -38,7 +38,9 @@ type AccountLink = {
   label: string;
 };
 
-const PRIMARY_LINKS: PrimaryLink[] = [{ href: "/browse", label: "Restaurants" }];
+const RESTAURANT_DIRECTORY_PATH = "/restaurant";
+
+const PRIMARY_LINKS: PrimaryLink[] = [{ href: RESTAURANT_DIRECTORY_PATH, label: "Restaurants" }];
 
 const ACCOUNT_LINKS: AccountLink[] = [
   { href: "/my-bookings", label: "My bookings" },
