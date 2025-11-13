@@ -26,6 +26,7 @@
     "typecheck": "tsc --noEmit",
     "typecheck:strict": "tsc --noEmit -p tsconfig.strict.json",
     "validate:env": "tsx scripts/validate-env.ts",
+    "env:sync-example": "tsx scripts/generate-env-local-example.ts",
     "prebuild": "npm run validate:env",
     "predev": "npm run validate:env",
     "reserve:dev": "vite --config reserve/vite.config.ts",
