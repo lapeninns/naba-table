@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import TableInventoryClient from "@/components/features/tables/TableInventoryClient";
+import { withRedirectedFrom } from "@/lib/url/withRedirectedFrom";
 import { getServerComponentSupabaseClient } from "@/server/supabase";
 
 import type { Metadata } from "next";
@@ -28,7 +29,7 @@ export default async function TablesPage() {
   }
 
   if (!user) {
-    redirect('/signin?context=ops&redirectedFrom=/ops/tables');
+    redirect(withRedirectedFrom('/ops/login', '/ops/tables'));
   }
 
   return (

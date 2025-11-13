@@ -1,5 +1,8 @@
 'use client';
 
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { toast } from 'react-hot-toast';
+
 import { HelpTooltip } from '@/components/features/restaurant-settings/HelpTooltip';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -9,14 +12,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { useOpsOccasions, useOpsOperatingHours, useOpsServicePeriods, useOpsUpdateServicePeriods } from '@/hooks';
 import { cn } from '@/lib/utils';
-import { TooltipProvider } from '@/components/ui/tooltip';
-import { toast } from 'react-hot-toast';
-import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { buildServicePeriodPayload, buildServicePeriodState, type DayServiceConfig, type MealConfig, type WeeklyHoursEntry } from './servicePeriodsMapper';
 import { DAYS_OF_WEEK, type ServicePeriodRow } from './types';
+
 import type { OccasionDefinition } from '@reserve/shared/occasions';
 
 type ServicePeriodsSectionProps = {

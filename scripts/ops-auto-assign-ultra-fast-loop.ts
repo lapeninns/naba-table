@@ -1,18 +1,29 @@
 import { config as loadEnv } from "dotenv";
-import { resolve as resolvePath } from "node:path";
-import { randomUUID } from "node:crypto";
 import { DateTime } from "luxon";
+import { randomUUID } from "node:crypto";
+import { resolve as resolvePath } from "node:path";
 import { Pool } from "pg";
+
+import { ensureBookingType } from "@/lib/enums";
+import { createBookingWithCapacityCheck, type BookingRecord } from "@/server/capacity";
+import { releaseTableHold } from "@/server/capacity/holds";
+import {
+  isPlannerCacheEnabled,
+  buildPlannerCacheKey,
+  getPlannerCacheEntry,
+  setPlannerCacheEntry,
+} from "@/server/capacity/planner-cache";
+import { classifyPlannerReason } from "@/server/capacity/planner-reason";
+import { recordPlannerQuoteTelemetry } from "@/server/capacity/planner-telemetry";
+import { quoteTablesForBooking, confirmHoldAssignment } from "@/server/capacity/tables";
+import { getServiceSupabaseClient } from "@/server/supabase";
+import { Constants, type Database, type Tables } from "@/types/supabase";
 
 import { runUltraFastAssignment } from "./ops-auto-assign-ultra-fast";
 
-import { getServiceSupabaseClient } from "@/server/supabase";
-import { createBookingWithCapacityCheck, type BookingRecord } from "@/server/capacity";
-import { quoteTablesForBooking, confirmHoldAssignment } from "@/server/capacity/tables";
-import { releaseTableHold } from "@/server/capacity/holds";
+
 import type { CandidateSummary } from "@/server/capacity/telemetry";
-import { Constants, type Database, type Tables } from "@/types/supabase";
-import { ensureBookingType } from "@/lib/enums";
+
 
 loadEnv({ path: resolvePath(process.cwd(), ".env.local") });
 loadEnv({ path: resolvePath(process.cwd(), ".env.development") });
@@ -488,6 +499,7 @@ async function assignBookingSequentially(params: {
 }): Promise<boolean> {
   const { booking, supabase, strategies, job, usedTableIds } = params;
   let attempt = 0;
+  const plannerCacheEnabled = isPlannerCacheEnabled();
   const globalAvoid = job.avoidUsedTables ? new Set(usedTableIds) : null;
   const localAvoid = new Set<string>();
   if (globalAvoid) {
@@ -502,8 +514,37 @@ async function assignBookingSequentially(params: {
       `  [assign] Attempt ${attempt}/${strategies.length} · ${strategy.label} (booking ${booking.id.slice(0, 8)})`,
     );
 
+    let plannerStart = 0;
     try {
       const avoidTables = job.avoidUsedTables ? Array.from(localAvoid) : undefined;
+      const strategyContext = {
+        requireAdjacency: strategy.requireAdjacency,
+        maxTables: strategy.maxTables,
+      };
+      const plannerCacheKey =
+        plannerCacheEnabled && booking.restaurant_id
+          ? buildPlannerCacheKey({
+              restaurantId: booking.restaurant_id,
+              bookingDate: booking.booking_date ?? null,
+              startTime: booking.start_time ?? null,
+              partySize: booking.party_size ?? null,
+              strategy: {
+                requireAdjacency: strategyContext.requireAdjacency,
+                maxTables: strategyContext.maxTables,
+              },
+              trigger: job.mode,
+            })
+          : null;
+      if (plannerCacheKey) {
+        const cached = getPlannerCacheEntry(plannerCacheKey);
+        if (cached && cached.status === "failure" && cached.reasonCategory === "hard") {
+          console.log(
+            `    ⤷ cache skip (hard failure): ${cached.reason ?? cached.reasonCode ?? "unknown"}`,
+          );
+          continue;
+        }
+      }
+      plannerStart = Date.now();
       const quote = await quoteTablesForBooking({
         bookingId: booking.id,
         createdBy: "reserve-flow-loop",
@@ -512,6 +553,37 @@ async function assignBookingSequentially(params: {
         maxTables: strategy.maxTables,
         avoidTables,
       });
+      const plannerDurationMs = Date.now() - plannerStart;
+      const classification = classifyPlannerReason(quote.reason ?? null);
+      await recordPlannerQuoteTelemetry({
+        source: "auto_assign.ops_loop",
+        restaurantId: booking.restaurant_id,
+        bookingId: booking.id,
+        durationMs: plannerDurationMs,
+        success: Boolean(quote.hold),
+        reason: quote.reason ?? null,
+        reasonCode: classification.code,
+        reasonCategory: classification.category,
+        strategy: {
+          requireAdjacency: strategy.requireAdjacency,
+          maxTables: strategy.maxTables,
+        },
+        trigger: job.mode,
+        attemptIndex: attempt - 1,
+        extraContext: {
+          script: "ops-auto-assign-ultra-fast-loop",
+          job_slug: job.slug,
+        },
+        internalStats: quote.plannerStats ?? null,
+      });
+      if (plannerCacheKey && plannerCacheEnabled) {
+        setPlannerCacheEntry(plannerCacheKey, {
+          status: quote.hold ? "success" : "failure",
+          reason: quote.reason ?? null,
+          reasonCode: classification.code,
+          reasonCategory: classification.category,
+        });
+      }
 
       logCandidate("selected", quote.candidate);
       if (quote.alternates.length > 0) {
@@ -575,6 +647,50 @@ async function assignBookingSequentially(params: {
         await safeReleaseHold({ supabase, holdId: quote.hold.id });
       }
     } catch (error) {
+      const plannerDurationMs = plannerStart > 0 ? Date.now() - plannerStart : 0;
+      const errorReason = error instanceof Error && error.name ? error.name : "QUOTE_ERROR";
+      const classification = classifyPlannerReason(errorReason);
+      await recordPlannerQuoteTelemetry({
+        source: "auto_assign.ops_loop",
+        restaurantId: booking.restaurant_id,
+        bookingId: booking.id,
+        durationMs: plannerDurationMs,
+        success: false,
+        reason: errorReason,
+        reasonCode: classification.code,
+        reasonCategory: classification.category,
+        strategy: {
+          requireAdjacency: strategy.requireAdjacency,
+          maxTables: strategy.maxTables,
+        },
+        trigger: job.mode,
+        attemptIndex: attempt - 1,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        severity: "warning",
+        extraContext: {
+          script: "ops-auto-assign-ultra-fast-loop",
+          job_slug: job.slug,
+        },
+      });
+      if (plannerCacheEnabled && booking.restaurant_id) {
+        const cacheKey = buildPlannerCacheKey({
+          restaurantId: booking.restaurant_id,
+          bookingDate: booking.booking_date ?? null,
+          startTime: booking.start_time ?? null,
+          partySize: booking.party_size ?? null,
+          strategy: {
+            requireAdjacency: strategy.requireAdjacency,
+            maxTables: strategy.maxTables,
+          },
+          trigger: job.mode,
+        });
+        setPlannerCacheEntry(cacheKey, {
+          status: "failure",
+          reason: errorReason,
+          reasonCode: classification.code,
+          reasonCategory: classification.category,
+        });
+      }
       console.error(
         "    ⚠️ quoteTablesForBooking errored:",
         error instanceof Error ? error.message : String(error),

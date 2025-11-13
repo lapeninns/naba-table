@@ -27,7 +27,7 @@ const buildSearchParams = (filters: RestaurantFilters = {}): URLSearchParams => 
 export async function fetchRestaurants(filters: RestaurantFilters = {}) {
   const params = buildSearchParams(filters);
   const query = params.toString();
-  const url = query.length > 0 ? `/api/restaurants?${query}` : "/api/restaurants";
+  const url = query.length > 0 ? `/api/v1/restaurants?${query}` : "/api/v1/restaurants";
   const response = await fetchJson<RestaurantsResponse>(url);
   return response.data ?? [];
 }

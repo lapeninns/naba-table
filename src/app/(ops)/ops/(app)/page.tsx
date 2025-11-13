@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { BookingErrorBoundary } from "@/components/features/booking-state-machine";
 import { OpsDashboardClient } from "@/components/features/dashboard";
 import { BookingOfflineQueueProvider } from "@/contexts/booking-offline-queue";
+import { withRedirectedFrom } from "@/lib/url/withRedirectedFrom";
 import { getServerComponentSupabaseClient } from "@/server/supabase";
 import { sanitizeDateParam } from "@/utils/ops/dashboard";
 
@@ -30,7 +31,7 @@ export default async function OpsDashboardPage({ searchParams }: { searchParams?
   }
 
   if (!user) {
-    redirect(`/signin?context=ops&redirectedFrom=/ops`);
+    redirect(withRedirectedFrom("/ops/login", "/ops"));
   }
 
   return (

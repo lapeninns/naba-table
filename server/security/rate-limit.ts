@@ -21,11 +21,19 @@ type MemoryBucket = {
   resetAt: number;
 };
 
+class RateLimitConfigurationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RateLimitConfigurationError";
+  }
+}
+
 let redisClient: Redis | null | undefined;
 const memoryStore = new Map<string, MemoryBucket>();
 let warnedAboutMemoryStore = false;
 let warnedAboutMissingUpstash = false;
 const devMode = env.node.env === "development";
+const isProductionEnv = env.node.env === "production";
 
 const parseBooleanEnv = (value: string | undefined): boolean | undefined => {
   if (!value) return undefined;
@@ -44,10 +52,12 @@ function logMissingUpstashWarning() {
   if (warnedAboutMissingUpstash) {
     return;
   }
-  const envName = process.env.NODE_ENV ?? "development";
-  if (envName === "production") {
+
+  if (isProductionEnv) {
     warnedAboutMissingUpstash = true;
-    return;
+    throw new RateLimitConfigurationError(
+      "Upstash Redis credentials (UPSTASH_REDIS_REST_URL/UPSTASH_REDIS_REST_TOKEN) are required in production.",
+    );
   }
 
   console.warn(
@@ -72,11 +82,25 @@ function getRedisClient(): Redis | null {
     }
     logMissingUpstashWarning();
   } catch (error) {
-    console.warn("[rate-limit] unable to initialize Upstash client, falling back to in-memory store", error instanceof Error ? error.message : error);
+    if (isProductionEnv) {
+      throw new RateLimitConfigurationError(
+        `Failed to initialize Upstash client: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    console.warn(
+      "[rate-limit] unable to initialize Upstash client, falling back to in-memory store",
+      error instanceof Error ? error.message : error,
+    );
   }
 
   redisClient = null;
   return redisClient;
+}
+
+function assertMemoryFallbackAllowed(): void {
+  if (isProductionEnv && !shouldBypassRateLimit) {
+    throw new RateLimitConfigurationError("In-memory rate limiting is not permitted in production.");
+  }
 }
 
 function now(): number {
@@ -84,6 +108,7 @@ function now(): number {
 }
 
 function memoryStoreRateLimit(params: RateLimitParams): RateLimitResult {
+  assertMemoryFallbackAllowed();
   if (shouldBypassRateLimit) {
     const resetAt = now() + params.windowMs;
     return {

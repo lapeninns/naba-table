@@ -1,6 +1,7 @@
 import type { BookingDetails } from '../model/reducer';
 
 const DRAFT_STORAGE_KEY = 'reserve.wizard.draft';
+const CONTACT_STORAGE_KEY = 'reserve.wizard.contacts';
 export const WIZARD_DRAFT_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 type StoredDraft = {
@@ -11,6 +12,7 @@ type StoredDraft = {
 };
 
 const CURRENT_VERSION = 1;
+const CONTACT_VERSION = 1;
 
 const isBrowser = () => typeof window !== 'undefined';
 
@@ -25,6 +27,11 @@ const normalizeSlug = (value: string | null | undefined): string | null => {
 const buildStorageKey = (slug: string | null | undefined): string => {
   const normalized = normalizeSlug(slug);
   return normalized ? `${DRAFT_STORAGE_KEY}.${normalized}` : DRAFT_STORAGE_KEY;
+};
+
+const buildContactStorageKey = (slug: string | null | undefined): string => {
+  const normalized = normalizeSlug(slug);
+  return normalized ? `${CONTACT_STORAGE_KEY}.${normalized}` : CONTACT_STORAGE_KEY;
 };
 
 const parseStoredDraft = (raw: string | null): StoredDraft | null => {
@@ -45,6 +52,95 @@ const parseStoredDraft = (raw: string | null): StoredDraft | null => {
   }
 };
 
+const parseStoredContact = (raw: string | null): StoredContact | null => {
+  if (!raw) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw) as StoredContact | undefined;
+    if (!parsed || parsed.version !== CONTACT_VERSION || !parsed.data) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+const sanitizeContactValue = (value: string | null | undefined): string => value?.trim() ?? '';
+
+const saveContactDraft = (
+  details: Pick<BookingDetails, 'name' | 'email' | 'phone'>,
+  slug: string | null | undefined,
+  expiresAt: number,
+) => {
+  if (!isBrowser()) {
+    return;
+  }
+
+  const payload: StoredContact = {
+    version: CONTACT_VERSION,
+    savedAt: Date.now(),
+    expiresAt,
+    slug: normalizeSlug(slug),
+    data: {
+      name: sanitizeContactValue(details.name),
+      email: sanitizeContactValue(details.email),
+      phone: sanitizeContactValue(details.phone),
+    },
+  };
+
+  try {
+    window.sessionStorage.setItem(buildContactStorageKey(slug), JSON.stringify(payload));
+  } catch {
+    // Ignore session storage failures.
+  }
+};
+
+const loadContactDraft = (slug: string | null | undefined): StoredContact | null => {
+  if (!isBrowser()) {
+    return null;
+  }
+
+  const key = buildContactStorageKey(slug);
+  const parsed = parseStoredContact(window.sessionStorage.getItem(key));
+  if (!parsed) {
+    return null;
+  }
+
+  if (parsed.expiresAt <= Date.now()) {
+    try {
+      window.sessionStorage.removeItem(key);
+    } catch {
+      // ignore cleanup errors
+    }
+    return null;
+  }
+
+  return parsed;
+};
+
+const clearContactDraft = (slug: string | null | undefined, includeLegacy = true) => {
+  if (!isBrowser()) {
+    return;
+  }
+
+  const removeKey = (key: string) => {
+    try {
+      window.sessionStorage.removeItem(key);
+    } catch {
+      // ignore
+    }
+  };
+
+  if (slug) {
+    removeKey(buildContactStorageKey(slug));
+  }
+  if (includeLegacy) {
+    removeKey(CONTACT_STORAGE_KEY);
+  }
+};
+
 type DraftSource = 'namespaced' | 'legacy';
 
 export type LoadedDraft = {
@@ -58,6 +154,14 @@ export type LoadedDraft = {
   };
 };
 
+type StoredContact = {
+  version: typeof CONTACT_VERSION;
+  savedAt: number;
+  expiresAt: number;
+  slug: string | null;
+  data: Pick<BookingDetails, 'name' | 'email' | 'phone'>;
+};
+
 const readDraftFromKey = (key: string): LoadedDraft | null => {
   if (!isBrowser()) {
     return null;
@@ -65,6 +169,46 @@ const readDraftFromKey = (key: string): LoadedDraft | null => {
   const parsed = parseStoredDraft(window.localStorage.getItem(key));
   if (!parsed) {
     return null;
+  }
+
+  let needsRewrite = false;
+  if (parsed.details) {
+    const legacyContact = {
+      name: parsed.details.name,
+      email: parsed.details.email,
+      phone: parsed.details.phone,
+    };
+
+    if (legacyContact.name || legacyContact.email || legacyContact.phone) {
+      saveContactDraft(
+        {
+          name: legacyContact.name ?? '',
+          email: legacyContact.email ?? '',
+          phone: legacyContact.phone ?? '',
+        },
+        normalizeSlug(parsed.details.restaurantSlug),
+        parsed.expiresAt,
+      );
+      needsRewrite = true;
+    }
+
+    if (parsed.details.name) {
+      parsed.details.name = '';
+    }
+    if (parsed.details.email) {
+      parsed.details.email = '';
+    }
+    if (parsed.details.phone) {
+      parsed.details.phone = '';
+    }
+  }
+
+  if (needsRewrite) {
+    try {
+      window.localStorage.setItem(key, JSON.stringify(parsed));
+    } catch {
+      // ignore rewrite failures
+    }
   }
 
   return {
@@ -86,7 +230,7 @@ export function loadWizardDraft(expectedSlug?: string | null): LoadedDraft | nul
   if (namespacedKey) {
     const namespacedDraft = readDraftFromKey(namespacedKey);
     if (namespacedDraft) {
-      return namespacedDraft;
+      return mergeDraftWithContacts(namespacedDraft, normalizedExpectedSlug);
     }
   }
 
@@ -108,7 +252,7 @@ export function loadWizardDraft(expectedSlug?: string | null): LoadedDraft | nul
     }
   }
 
-  return legacyDraft;
+  return mergeDraftWithContacts(legacyDraft, normalizedExpectedSlug);
 }
 
 export function saveWizardDraft(details: BookingDetails): void {
@@ -121,10 +265,16 @@ export function saveWizardDraft(details: BookingDetails): void {
     version: CURRENT_VERSION,
     savedAt: Date.now(),
     expiresAt: Date.now() + WIZARD_DRAFT_TTL_MS,
-    details,
+    details: {
+      ...details,
+      name: '',
+      email: '',
+      phone: '',
+    },
   };
   try {
     window.localStorage.setItem(key, JSON.stringify(payload));
+    saveContactDraft(details, normalizedSlug, payload.expiresAt);
     if (key !== DRAFT_STORAGE_KEY) {
       window.localStorage.removeItem(DRAFT_STORAGE_KEY);
     }
@@ -150,9 +300,11 @@ export function clearWizardDraft(slug?: string | null, options?: ClearOptions): 
   try {
     if (normalizedSlug) {
       window.localStorage.removeItem(buildStorageKey(normalizedSlug));
+      clearContactDraft(normalizedSlug, false);
     }
     if (includeLegacy) {
       window.localStorage.removeItem(DRAFT_STORAGE_KEY);
+      clearContactDraft(null, true);
     }
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') {
@@ -160,3 +312,19 @@ export function clearWizardDraft(slug?: string | null, options?: ClearOptions): 
     }
   }
 }
+
+const mergeDraftWithContacts = (draft: LoadedDraft, expectedSlug: string | null): LoadedDraft => {
+  const contactSlug = normalizeSlug(draft.details.restaurantSlug) ?? expectedSlug;
+  const storedContacts = loadContactDraft(contactSlug);
+  if (!storedContacts) {
+    return draft;
+  }
+
+  return {
+    ...draft,
+    details: {
+      ...draft.details,
+      ...storedContacts.data,
+    },
+  };
+};

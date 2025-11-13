@@ -7,7 +7,6 @@ import { useEffect, useState } from "react";
 import { Toaster as HotToaster } from "react-hot-toast";
 import { Tooltip } from "react-tooltip";
 
-import { CustomerNavbar } from "@/components/customer/navigation";
 import { Toaster as UiToaster } from "@/components/ui/toaster";
 import config from "@/config";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -67,6 +66,8 @@ const CrispChat = (): null => {
   return null;
 };
 
+const LEGACY_TOASTER_BLOCKLIST = [/^\/checkout(?:$|\/)/];
+
 // All the client wrappers are here (they can't be in server components)
 // 1. NextTopLoader: Show a progress bar at the top when navigating between pages
 // 2. Toaster: Show Success/Error messages anywhere from the app with toast()
@@ -74,24 +75,26 @@ const CrispChat = (): null => {
 // 4. CrispChat: Set Crisp customer chat support (see above)
 const ClientLayout = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
-  const isOpsRoute = pathname?.startsWith("/ops") ?? false;
+  const suppressLegacyToaster = pathname
+    ? LEGACY_TOASTER_BLOCKLIST.some((pattern) => pattern.test(pathname))
+    : false;
 
   return (
     <>
       {/* Show a progress bar at the top when navigating between pages */}
       <NextTopLoader color={config.colors.main} showSpinner={false} />
 
-      {!isOpsRoute && <CustomerNavbar />}
-
       {/* Content inside app/page.js files  */}
       {children}
 
       {/* Legacy toast notifications (react-hot-toast) */}
-      <HotToaster
-        toastOptions={{
-          duration: 3000,
-        }}
-      />
+      {!suppressLegacyToaster ? (
+        <HotToaster
+          toastOptions={{
+            duration: 3000,
+          }}
+        />
+      ) : null}
 
       {/* Shadcn toast stack for ops dashboards */}
       <UiToaster />

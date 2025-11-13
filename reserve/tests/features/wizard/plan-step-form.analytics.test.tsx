@@ -4,7 +4,10 @@ import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { wizardStateFixture } from '@/tests/fixtures/wizard';
+import { WizardProvider } from '@features/reservations/wizard/context/WizardContext';
 import { usePlanStepForm } from '@features/reservations/wizard/hooks/usePlanStepForm';
+
+import type { WizardActions } from '@features/reservations/wizard/model/store';
 
 const getMock = vi.fn();
 
@@ -117,7 +120,23 @@ const scheduleFixture = {
   ],
 };
 
-function createWrapper() {
+const createWizardActions = (overrides: Partial<WizardActions> = {}): WizardActions => ({
+  goToStep: vi.fn(),
+  updateDetails: vi.fn(),
+  setSubmitting: vi.fn(),
+  setLoading: vi.fn(),
+  setError: vi.fn(),
+  clearError: vi.fn(),
+  setBookings: vi.fn(),
+  applyConfirmation: vi.fn(),
+  startEdit: vi.fn(),
+  resetForm: vi.fn(),
+  hydrateContacts: vi.fn(),
+  hydrateDetails: vi.fn(),
+  ...overrides,
+});
+
+function createWrapper(state: ReturnType<typeof wizardStateFixture>, actions: WizardActions) {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
@@ -127,7 +146,11 @@ function createWrapper() {
   });
 
   return ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <QueryClientProvider client={queryClient}>
+      <WizardProvider state={state} actions={actions}>
+        {children}
+      </WizardProvider>
+    </QueryClientProvider>
   );
 }
 
@@ -146,16 +169,14 @@ describe('usePlanStepForm analytics', () => {
   it('tracks select_date when choosing a date', async () => {
     const onTrack = vi.fn();
     const state = createPlanState();
-    const updateDetails = vi.fn();
-    const goToStep = vi.fn();
-
-    const wrapper = createWrapper();
+    const actions = createWizardActions();
+    const wrapper = createWrapper(state, actions);
 
     const { result } = renderHook(
       () =>
         usePlanStepForm({
           state,
-          actions: { updateDetails, goToStep },
+          actions: { updateDetails: actions.updateDetails, goToStep: actions.goToStep },
           onActionsChange: vi.fn(),
           onTrack,
           minDate: new Date('2025-05-01T00:00:00Z'),
@@ -176,16 +197,14 @@ describe('usePlanStepForm analytics', () => {
   it('tracks select_party when changing party size', async () => {
     const onTrack = vi.fn();
     const state = createPlanState();
-    const updateDetails = vi.fn();
-    const goToStep = vi.fn();
-
-    const wrapper = createWrapper();
+    const actions = createWizardActions();
+    const wrapper = createWrapper(state, actions);
 
     const { result } = renderHook(
       () =>
         usePlanStepForm({
           state,
-          actions: { updateDetails, goToStep },
+          actions: { updateDetails: actions.updateDetails, goToStep: actions.goToStep },
           onActionsChange: vi.fn(),
           onTrack,
           minDate: new Date('2025-05-01T00:00:00Z'),
@@ -205,16 +224,14 @@ describe('usePlanStepForm analytics', () => {
       date: '2025-05-12',
       time: '18:00',
     });
-    const updateDetails = vi.fn();
-    const goToStep = vi.fn();
-
-    const wrapper = createWrapper();
+    const actions = createWizardActions();
+    const wrapper = createWrapper(state, actions);
 
     const { result } = renderHook(
       () =>
         usePlanStepForm({
           state,
-          actions: { updateDetails, goToStep },
+          actions: { updateDetails: actions.updateDetails, goToStep: actions.goToStep },
           onActionsChange: vi.fn(),
           minDate: new Date('2025-05-01T00:00:00Z'),
         }),
@@ -232,14 +249,14 @@ describe('usePlanStepForm analytics', () => {
       date: '2025-05-12',
       time: '18:00',
     });
-
-    const wrapper = createWrapper();
+    const actions = createWizardActions();
+    const wrapper = createWrapper(state, actions);
 
     const { result } = renderHook(
       () =>
         usePlanStepForm({
           state,
-          actions: { updateDetails: vi.fn(), goToStep: vi.fn() },
+          actions: { updateDetails: actions.updateDetails, goToStep: actions.goToStep },
           onActionsChange: vi.fn(),
           onTrack,
           minDate: new Date('2025-05-01T00:00:00Z'),

@@ -1,3 +1,5 @@
+import { CSRF_HEADER_NAME, getBrowserCsrfToken } from '@/lib/security/csrf';
+
 import { HttpError, normalizeError } from './errors';
 
 export type FetchJsonInit = RequestInit & {
@@ -17,6 +19,10 @@ function ensureHeaders(initHeaders?: HeadersInit): Headers {
 export async function fetchJson<T>(input: RequestInfo | URL, init: FetchJsonInit = {}): Promise<T> {
   const { parseJson = defaultParseJson, ...rest } = init;
   const headers = ensureHeaders(rest.headers);
+  const csrfToken = getBrowserCsrfToken();
+  if (csrfToken && !headers.has(CSRF_HEADER_NAME)) {
+    headers.set(CSRF_HEADER_NAME, csrfToken);
+  }
 
   const response = await fetch(input, {
     ...rest,

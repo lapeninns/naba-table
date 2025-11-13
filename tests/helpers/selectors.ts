@@ -14,7 +14,7 @@ export const wizardSelectors = {
 export const profileSelectors = {
   uploadInput: (page: Page): Locator => page.locator('input[type="file"]'),
   saveButton: (page: Page): Locator => page.getByRole('button', { name: /Save changes/i }),
-  statusToast: (page: Page): Locator => page.getByRole('status'),
+  statusToast: (page: Page): Locator => page.getByTestId('profile-status'),
 };
 
 export const pricingSelectors = {

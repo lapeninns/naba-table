@@ -8,7 +8,6 @@ import {
   type RestaurantDetailsFormValues,
   COMMON_TIMEZONES,
 } from '@/components/ops/restaurants/RestaurantDetailsForm';
-import type { UpdateRestaurantInput } from '@/app/api/ops/restaurants/schema';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,6 +15,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useOpsRestaurantDetails, useOpsUpdateRestaurantDetails } from '@/hooks';
 
 import { RestaurantLogoUploader } from './RestaurantLogoUploader';
+
+import type { UpdateRestaurantInput } from '@/app/api/ops/restaurants/schema';
 
 const EMPTY_VALUES: RestaurantDetailsFormValues = {
   name: '',

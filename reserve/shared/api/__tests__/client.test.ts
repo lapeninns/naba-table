@@ -41,15 +41,17 @@ describe('apiClient', () => {
     const apiClient = await loadClient();
     await apiClient.get('/bookings');
 
-    expect(fetchMock).toHaveBeenCalledWith('https://api.example.com/bookings', {
+    expect(fetchMock).toHaveBeenCalledWith('https://api.example.com/bookings', expect.any(Object));
+
+    const [, init] = fetchMock.mock.calls[0] ?? [];
+    expect(init).toMatchObject({
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: undefined,
       credentials: 'include',
-      signal: expect.any(AbortSignal),
     });
+    expect(init?.headers).toBeInstanceOf(Headers);
+    expect((init?.headers as Headers).get('Content-Type')).toBe('application/json');
+    expect(init?.signal).toBeInstanceOf(AbortSignal);
   });
 
   it('normalizes error responses', async () => {

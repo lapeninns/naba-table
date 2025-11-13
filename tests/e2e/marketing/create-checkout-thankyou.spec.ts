@@ -364,8 +364,9 @@ test.describe('Marketing Journey - Accessibility', () => {
     await expect(h1).toHaveCount(1);
 
     // Check list is properly structured
-    const list = page.locator('ol');
-    await expect(list).toBeVisible();
+    const stepsRegion = page.getByRole('region', { name: /How checkout works/i });
+    await expect(stepsRegion).toBeVisible();
+    await expect(stepsRegion.getByRole('list')).toBeVisible();
   });
 
   test('links have accessible text', async ({ page }, testInfo) => {

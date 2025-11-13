@@ -1,5 +1,6 @@
 import { DateTime } from "luxon";
 
+import { env } from "@/lib/env";
 import { resolveDemandMultiplier, type DemandMultiplierResult } from "@/server/capacity/demand-profiles";
 import { createTableHold, releaseTableHold, findHoldConflicts, HoldConflictError, type HoldConflictInfo, type TableHold } from "@/server/capacity/holds";
 import { getVenuePolicy, getSelectorScoringConfig, getYieldManagementScarcityWeight, type SelectorScoringConfig, type ServiceKey } from "@/server/capacity/policy";
@@ -51,7 +52,7 @@ import {
   type DbClient,
   type ContextBookingRow,
 } from "./supabase";
-import { type Table, type QuoteTablesOptions, type QuoteTablesResult } from "./types";
+import { type Table, type QuoteTablesOptions, type QuoteTablesResult, type QuotePlannerStats } from "./types";
 import { highResNow, buildTiming, toIsoUtc, summarizeSelection, roundMilliseconds } from "./utils";
 
 
@@ -247,13 +248,21 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     client,
     signal,
   } = options;
+  if (signal?.aborted) {
+    const abortError = new Error("Planner aborted");
+    abortError.name = "AbortError";
+    throw abortError;
+  }
 
   const operationStart = highResNow();
   const supabase = ensureClient(client);
   const booking = await loadBooking(bookingId, supabase, signal);
+  const restaurantTimezonePromise = loadRestaurantTimezone(booking.restaurant_id, supabase, signal).catch(() => null);
+  const tablesPromise = loadTablesForRestaurant(booking.restaurant_id, supabase, signal);
+  const restaurantTimezoneLookup = await restaurantTimezonePromise;
   const restaurantTimezone =
     (booking.restaurants && !Array.isArray(booking.restaurants) ? booking.restaurants.timezone : null) ??
-    (await loadRestaurantTimezone(booking.restaurant_id, supabase, signal)) ??
+    restaurantTimezoneLookup ??
     getVenuePolicy().timezone;
   const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
   const policyVersion = hashPolicyVersion(policy);
@@ -268,8 +277,41 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     partySize: booking.party_size,
     policy,
   });
+  const shouldEmitPlannerStats = env.featureFlags.planner.debugProfiling ?? false;
+  const attachPlannerStats = (result: QuoteTablesResult, stats?: QuotePlannerStats | null) => {
+    if (shouldEmitPlannerStats && stats) {
+      result.plannerStats = stats;
+    }
+    return result;
+  };
+  const buildFailureResult = (reason: string, stats?: QuotePlannerStats | null): QuoteTablesResult =>
+    attachPlannerStats(
+      {
+        hold: null,
+        candidate: null,
+        alternates: [],
+        nextTimes: [],
+        reason,
+        skipped: [],
+        metadata: {
+          usedFallback: bookingWindowUsedFallback,
+          fallbackService: bookingWindowFallbackService,
+        },
+      },
+      stats ?? null,
+    );
 
-  const tables = await loadTablesForRestaurant(booking.restaurant_id, supabase, signal);
+  const strategicOptions = { restaurantId: booking.restaurant_id ?? null } as const;
+  const strategicConfigPromise = loadStrategicConfig({ ...strategicOptions, client: supabase });
+  const demandMultiplierPromise = resolveDemandMultiplier({
+    restaurantId: booking.restaurant_id,
+    serviceStart: window.block.start,
+    serviceKey: window.service,
+    timezone: policy.timezone,
+    client: supabase,
+  });
+
+  const tables = await tablesPromise;
   const adjacency = await loadAdjacency(
     booking.restaurant_id,
     tables.map((table) => table.id),
@@ -285,7 +327,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
   let holdsForDay: TableHold[] = [];
 
   if (timePruningEnabled || lookaheadEnabled) {
-    contextBookings = await loadContextBookings(
+    const contextPromise = loadContextBookings(
       booking.restaurant_id,
       booking.booking_date ?? null,
       supabase,
@@ -295,24 +337,27 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
       },
       signal,
     );
-    if (isHoldsEnabled()) {
-      try {
-        holdsForDay = await loadActiveHoldsForDate(booking.restaurant_id, booking.booking_date ?? null, policy, supabase, signal);
-      } catch (error: unknown) {
-        const code = extractErrorCode(error);
-        if (code === "42P01") {
-          console.warn("[capacity.quote] holds table unavailable; skipping hold hydration", {
-            restaurantId: booking.restaurant_id,
-          });
-        } else {
-          console.warn("[capacity.quote] failed to load active holds", {
-            restaurantId: booking.restaurant_id,
-            error,
-          });
-        }
-        holdsForDay = [];
-      }
-    }
+
+    const holdsPromise = isHoldsEnabled()
+      ? loadActiveHoldsForDate(booking.restaurant_id, booking.booking_date ?? null, policy, supabase, signal).catch((error: unknown) => {
+          const code = extractErrorCode(error);
+          if (code === "42P01") {
+            console.warn("[capacity.quote] holds table unavailable; skipping hold hydration", {
+              restaurantId: booking.restaurant_id,
+            });
+          } else {
+            console.warn("[capacity.quote] failed to load active holds", {
+              restaurantId: booking.restaurant_id,
+              error,
+            });
+          }
+          return [] as TableHold[];
+        })
+      : Promise.resolve([] as TableHold[]);
+
+    const [contextResult, holdsResult] = await Promise.all([contextPromise, holdsPromise]);
+    contextBookings = contextResult;
+    holdsForDay = holdsResult;
   }
 
   if (timePruningEnabled) {
@@ -325,11 +370,20 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     });
   }
 
-  // Load config early so we can use combinationEnabled for filtering
-  const strategicOptions = { restaurantId: booking.restaurant_id ?? null } as const;
-  await loadStrategicConfig({ ...strategicOptions, client: supabase });
+  await strategicConfigPromise;
   const combinationEnabled = isCombinationPlannerEnabled();
-  
+  const totalVenueCapacity = tables.reduce((sum, table) => sum + (table.capacity ?? 0), 0);
+  if (booking.party_size > totalVenueCapacity) {
+    await demandMultiplierPromise.catch(() => null);
+    return buildFailureResult("Insufficient global capacity", {
+      totalTables: tables.length,
+      filteredTables: 0,
+      combinationEnabled,
+      demandMultiplier: 0,
+      plannerDurationMs: roundMilliseconds(highResNow() - operationStart),
+    });
+  }
+
   const filtered = filterAvailableTables(
     tables,
     booking.party_size,
@@ -352,17 +406,32 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
           : undefined,
     },
   );
+  const filteredCapacity = filtered.reduce((sum, table) => sum + (table.capacity ?? 0), 0);
+  if (filtered.length === 0) {
+    await demandMultiplierPromise.catch(() => null);
+    return buildFailureResult("No tables available for requested window", {
+      totalTables: tables.length,
+      filteredTables: 0,
+      combinationEnabled,
+      demandMultiplier: 0,
+      plannerDurationMs: roundMilliseconds(highResNow() - operationStart),
+    });
+  }
+  if (filteredCapacity < booking.party_size) {
+    await demandMultiplierPromise.catch(() => null);
+    return buildFailureResult("Insufficient filtered capacity", {
+      totalTables: tables.length,
+      filteredTables: filtered.length,
+      combinationEnabled,
+      demandMultiplier: 0,
+      plannerDurationMs: roundMilliseconds(highResNow() - operationStart),
+    });
+  }
 
   const baseScoringConfig = getSelectorScoringConfig(strategicOptions);
   const selectorLimits = getSelectorPlannerLimits();
   const combinationLimit = maxTables ?? getAllocatorCombinationLimit();
-  const demandMultiplierResult = await resolveDemandMultiplier({
-    restaurantId: booking.restaurant_id,
-    serviceStart: window.block.start,
-    serviceKey: window.service,
-    timezone: policy.timezone,
-    client: supabase,
-  });
+  const demandMultiplierResult = await demandMultiplierPromise.catch(() => null);
   const demandMultiplier = demandMultiplierResult?.multiplier ?? 1;
   const demandRule = demandMultiplierResult?.rule;
   const tableScarcityScores = await loadTableScarcityScores({
@@ -500,6 +569,21 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
       conflicts,
     });
   };
+
+  const collectPlannerStats = (): QuotePlannerStats => ({
+    totalTables: tables.length,
+    filteredTables: filtered.length,
+    generatedPlans: plans.plans.length,
+    alternatesGenerated: alternates.length,
+    skippedCandidates: skippedCandidates.length,
+    holdConflictSkips: holdConflictSkipCount,
+    timePruned: timePruningStats?.prunedByTime,
+    candidatesAfterTimePrune: timePruningStats?.candidatesAfterTimePrune,
+    combinationEnabled,
+    requireAdjacency: requireAdjacencyUsed,
+    demandMultiplier,
+    plannerDurationMs: roundMilliseconds(plannerDurationMs),
+  });
 
   for (let index = 0; index < plans.plans.length; index += 1) {
     const plan = plans.plans[index]!;
@@ -698,7 +782,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
         expiresAt: hold.expiresAt,
       });
 
-      return {
+      const successResult: QuoteTablesResult = {
         hold,
         candidate: candidateSummary,
         alternates,
@@ -709,6 +793,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
           fallbackService: bookingWindowFallbackService,
         },
       };
+      return attachPlannerStats(successResult, collectPlannerStats());
     } catch (error) {
       if (error instanceof HoldConflictError) {
         const refreshedConflicts = await findHoldConflicts({
@@ -746,7 +831,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     holdConflictSkipCount > 0
       ? 'Hold conflicts prevented all candidates'
       : plans.fallbackReason ?? 'No suitable tables available';
-  return {
+  const failureResult: QuoteTablesResult = {
     hold: null,
     candidate: null,
     alternates,
@@ -758,6 +843,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
       fallbackService: bookingWindowFallbackService,
     },
   };
+  return attachPlannerStats(failureResult, collectPlannerStats());
 }
 
 export async function findSuitableTables(options: {

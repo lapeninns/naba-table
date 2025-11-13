@@ -15,6 +15,7 @@ export const ANALYTICS_EVENTS = [
   'booking_created',
   'wizard_offline_detected',
   'wizard_submit_failed',
+  'booking_timeout_unrecovered',
 ] as const;
 
 export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[number];

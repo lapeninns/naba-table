@@ -1,4 +1,5 @@
 import { env } from "@/lib/env";
+import { isAssignmentPipelineRuntimeDisabled } from "@/server/assignments/runtime-guard";
 import { getFeatureFlagOverride, type FeatureFlagKey } from "@/server/feature-flags-overrides";
 
 const loyaltyPilotIds = new Set(
@@ -172,6 +173,24 @@ export function getContextQueryPaddingMinutes(): number {
   return 60;
 }
 
+export function isAssignmentPipelineV3Enabled(): boolean {
+  if (isAssignmentPipelineRuntimeDisabled()) {
+    return false;
+  }
+  return env.featureFlags.assignmentPipeline?.enabled ?? false;
+}
+
+export function isAssignmentPipelineV3ShadowMode(): boolean {
+  if (isAssignmentPipelineRuntimeDisabled()) {
+    return false;
+  }
+  return env.featureFlags.assignmentPipeline?.shadow ?? false;
+}
+
+export function getAssignmentPipelineMaxConcurrentPerRestaurant(): number {
+  return env.featureFlags.assignmentPipeline?.maxConcurrentPerRestaurant ?? 3;
+}
+
 export function getHoldMinTtlSeconds(): number {
   const value = env.featureFlags.holds?.minTtlSeconds ?? 60;
   return Math.max(1, Math.min(value, 3600));
@@ -251,4 +270,8 @@ export function getAutoAssignStartCutoffMinutes(): number {
 
 export function getAutoAssignCreatedEmailDeferMinutes(): number {
   return env.featureFlags.autoAssign?.createdEmailDeferMinutes ?? 0;
+}
+
+export function isAutoAssignRetryPolicyV2Enabled(): boolean {
+  return env.featureFlags.autoAssign?.retryPolicyV2 ?? false;
 }

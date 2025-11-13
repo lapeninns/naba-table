@@ -13,8 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useOpsSession } from '@/contexts/ops-session';
-import { cn } from '@/lib/utils';
 import { useOpsTableTimeline } from '@/hooks/ops/useOpsTableTimeline';
+import { cn } from '@/lib/utils';
 
 import type { TableTimelineResponse, TableTimelineSegment } from '@/types/ops';
 

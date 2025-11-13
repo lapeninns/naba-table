@@ -1,3 +1,4 @@
+import { CSRF_HEADER_NAME, getBrowserCsrfToken } from '@/lib/security/csrf';
 import { env } from '@shared/config/env';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -12,6 +13,17 @@ export type ApiError = {
 const defaultHeaders: HeadersInit = {
   'Content-Type': 'application/json',
 };
+
+function composeHeaders(init?: HeadersInit): Headers {
+  const headers = new Headers(defaultHeaders);
+  if (init) {
+    const incoming = new Headers(init);
+    incoming.forEach((value, key) => {
+      headers.set(key, value);
+    });
+  }
+  return headers;
+}
 
 type RequestOptions = RequestInit & { method?: HttpMethod; timeoutMs?: number };
 
@@ -53,6 +65,11 @@ async function request<TResponse>(
 ): Promise<TResponse> {
   const controller = new AbortController();
   const removeExternalListener = mergeSignals(controller, signal);
+  const requestHeaders = composeHeaders(headers);
+  const csrfToken = getBrowserCsrfToken();
+  if (csrfToken && !requestHeaders.has(CSRF_HEADER_NAME)) {
+    requestHeaders.set(CSRF_HEADER_NAME, csrfToken);
+  }
 
   const resolvedTimeout = inferTimeoutMs(timeoutMs);
   const timeoutHandle =
@@ -65,7 +82,7 @@ async function request<TResponse>(
   try {
     const response = await fetch(`${env.API_BASE_URL}${path}`, {
       method,
-      headers: { ...defaultHeaders, ...headers },
+      headers: requestHeaders,
       body,
       signal: controller.signal,
       credentials: 'include',

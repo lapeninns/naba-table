@@ -2,7 +2,7 @@
 
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
 
-const EVENT_ENDPOINT = '/api/events';
+const EVENT_ENDPOINT = '/api/v1/events';
 const STORAGE_KEY = 'srx.analytics.anonId';
 const FLUSH_INTERVAL_MS = 5_000;
 const MAX_BATCH_SIZE = 10;

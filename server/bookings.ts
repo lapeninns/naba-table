@@ -78,6 +78,7 @@ export type UpdateBookingPayload = {
   auth_user_id?: string | null;
   details?: Json | null;
   idempotency_key?: string | null;
+  auto_assign_last_result?: Json | null;
 };
 
 const BOOKING_SELECT = "*";
@@ -420,7 +421,7 @@ export async function softCancelBooking(client: DbClient, bookingId: string): Pr
     cancelledAt: booking.updated_at,
   });
 
-  void invalidateAvailabilitySnapshot(booking.restaurant_id, booking.booking_date);
+  await invalidateAvailabilitySnapshot(booking.restaurant_id, booking.booking_date);
 
   return booking;
 }
@@ -462,7 +463,7 @@ export async function updateBookingRecord(
 
   const booking = data as BookingRecord;
 
-  void invalidateAvailabilitySnapshot(booking.restaurant_id, booking.booking_date);
+  await invalidateAvailabilitySnapshot(booking.restaurant_id, booking.booking_date);
 
   return booking;
 }
@@ -575,7 +576,7 @@ export async function insertBookingRecord(
     status: booking.status,
   });
 
-  void invalidateAvailabilitySnapshot(booking.restaurant_id, booking.booking_date);
+  await invalidateAvailabilitySnapshot(booking.restaurant_id, booking.booking_date);
 
   return booking;
 }

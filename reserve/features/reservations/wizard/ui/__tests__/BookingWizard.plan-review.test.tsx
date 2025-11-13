@@ -151,6 +151,9 @@ describe('BookingWizard plan to review flow', () => {
       name: '',
       email: '',
       phone: '',
+      restaurantName: 'Test Kitchen',
+      restaurantSlug: 'test-kitchen',
+      restaurantId: 'rest-test',
     });
 
     renderWithProviders(
@@ -229,6 +232,9 @@ describe('BookingWizard plan to review flow', () => {
       name: '',
       email: '',
       phone: '',
+      restaurantName: 'Test Kitchen',
+      restaurantSlug: 'test-kitchen',
+      restaurantId: 'rest-test',
     });
 
     renderWithProviders(

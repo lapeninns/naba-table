@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { invitationAcceptResponseSchema } from '@/lib/owner/team/schema';
+import { CSRF_HEADER_NAME, getBrowserCsrfToken } from '@/lib/security/csrf';
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
 
 const acceptanceSchema = z.object({
@@ -53,11 +54,17 @@ export function InviteAcceptanceClient({ token, invite }: InviteAcceptanceClient
     setErrorMessage(null);
     setIsSubmitting(true);
     try {
+      const requestHeaders: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      const csrfToken = getBrowserCsrfToken();
+      if (csrfToken) {
+        requestHeaders[CSRF_HEADER_NAME] = csrfToken;
+      }
+
       const response = await fetch(`/api/team/invitations/${encodeURIComponent(token)}/accept`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: requestHeaders,
         body: JSON.stringify(values),
       });
 

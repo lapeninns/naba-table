@@ -49,34 +49,33 @@ export function useCreateReservation() {
           ? crypto.randomUUID()
           : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
       idempotencyKeyRef.current = idempotencyKey;
-      try {
-        const response = await method<{
-          booking?: unknown;
-          bookings?: unknown;
-        }>(path, payload, {
-          headers: { 'Idempotency-Key': idempotencyKey },
-          timeoutMs: submissionTimeoutMs,
-        });
+      const response = await method<{
+        booking?: unknown;
+        bookings?: unknown;
+      }>(path, payload, {
+        headers: { 'Idempotency-Key': idempotencyKey },
+        timeoutMs: submissionTimeoutMs,
+      });
 
-        const booking = response?.booking ? reservationAdapter(response.booking) : null;
-        const bookings = response?.bookings ? reservationListAdapter(response.bookings) : [];
+      const booking = response?.booking ? reservationAdapter(response.booking) : null;
+      const bookings = response?.bookings ? reservationListAdapter(response.bookings) : [];
 
-        return {
-          booking,
-          bookings,
-        } satisfies ReservationSubmissionResult;
-      } finally {
-        idempotencyKeyRef.current = null;
-      }
+      return {
+        booking,
+        bookings,
+      } satisfies ReservationSubmissionResult;
     },
     onSuccess: (result) => {
+      idempotencyKeyRef.current = null;
       queryClient.invalidateQueries({ queryKey: reservationKeys.all() });
       if (result.booking) {
         queryClient.setQueryData(reservationKeys.detail(result.booking.id), result.booking);
       }
     },
     onError: (error, variables) => {
-      idempotencyKeyRef.current = null;
+      if (error?.code !== 'TIMEOUT') {
+        idempotencyKeyRef.current = null;
+      }
       if (error?.code === 'REQUEST_ABORTED') {
         return;
       }

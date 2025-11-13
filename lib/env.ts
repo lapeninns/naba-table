@@ -82,7 +82,7 @@ export const env = {
   get reserve() {
     const parsed = parseEnv();
     return {
-      apiBaseUrl: parsed.RESERVE_API_BASE_URL ?? "/api",
+      apiBaseUrl: parsed.RESERVE_API_BASE_URL ?? "/api/v1",
       apiTimeoutMs: parsed.RESERVE_API_TIMEOUT_MS ?? 15_000,
       routerBasePath: parsed.RESERVE_ROUTER_BASE_PATH ?? "/reserve",
       buildOutDir: parsed.RESERVE_BUILD_OUT_DIR,
@@ -113,6 +113,10 @@ export const env = {
     const allocatorMergesDefault = parsed.FEATURE_ALLOCATOR_MERGES_ENABLED ?? !isProduction;
     const combinationPlannerDefault = parsed.FEATURE_COMBINATION_PLANNER ?? allocatorMergesDefault;
     const plannerTimePruningDefault = parsed.FEATURE_PLANNER_TIME_PRUNING_ENABLED ?? false;
+    const plannerCacheTtlMs =
+      typeof parsed.PLANNER_CACHE_TTL_MS === "number"
+        ? Math.max(1_000, Math.min(parsed.PLANNER_CACHE_TTL_MS, 600_000))
+        : 60_000;
     const adjacencyMinPartySize =
       typeof parsed.FEATURE_ALLOCATOR_ADJACENCY_MIN_PARTY_SIZE === "number"
         ? Math.max(1, Math.min(parsed.FEATURE_ALLOCATOR_ADJACENCY_MIN_PARTY_SIZE, 20))
@@ -169,6 +173,9 @@ export const env = {
       realtimeFloorplan: parsed.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN ?? false,
       planner: {
         timePruningEnabled: plannerTimePruningDefault,
+        cacheEnabled: parsed.PLANNER_CACHE_ENABLED ?? false,
+        cacheTtlMs: plannerCacheTtlMs,
+        debugProfiling: parsed.DEBUG_CAPACITY_PROFILING ?? false,
       },
       allocatorV2: {
         enabled: parsed.FEATURE_ALLOCATOR_V2_ENABLED ?? true,
@@ -204,6 +211,14 @@ export const env = {
       adjacency: {
         queryUndirected: adjacencyQueryUndirectedDefault,
       },
+      assignmentPipeline: {
+        enabled: parsed.FEATURE_ASSIGNMENT_PIPELINE_V3 ?? false,
+        shadow: parsed.FEATURE_ASSIGNMENT_PIPELINE_V3_SHADOW ?? false,
+        maxConcurrentPerRestaurant: Math.max(
+          1,
+          Math.min(parsed.FEATURE_ASSIGNMENT_PIPELINE_V3_MAX_PARALLEL ?? 3, 20),
+        ),
+      },
       // Booking auto-assignment
       autoAssignOnBooking: parsed.FEATURE_AUTO_ASSIGN_ON_BOOKING ?? false,
       inlineAutoAssignTimeoutMs: (() => {
@@ -221,6 +236,7 @@ export const env = {
           : undefined,
         startCutoffMinutes: Math.max(0, Math.min(parsed.FEATURE_AUTO_ASSIGN_START_CUTOFF_MINUTES ?? 10, 240)),
         createdEmailDeferMinutes: Math.max(0, Math.min(parsed.FEATURE_AUTO_ASSIGN_CREATED_EMAIL_DEFER_MINUTES ?? 5, 120)),
+        retryPolicyV2: parsed.FEATURE_AUTO_ASSIGN_RETRY_POLICY_V2 ?? false,
       },
       emailQueueEnabled: parsed.FEATURE_EMAIL_QUEUE_ENABLED ?? false,
       policyRequoteEnabled: parsed.FEATURE_POLICY_REQUOTE_ENABLED ?? true,

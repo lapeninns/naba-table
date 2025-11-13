@@ -57,19 +57,20 @@ function BookingCard({
 
   return (
     <Card
-      role="article"
+      role="row"
       aria-labelledby={headingId}
       aria-describedby={detailsId}
       className="space-y-4 border-border/80 bg-card/95 p-4 shadow-sm backdrop-blur-sm"
+      data-testid="mobile-booking-row"
     >
-      <div className="flex flex-wrap items-baseline justify-between gap-y-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-y-2" role="cell">
         <div>
           <p className="text-sm font-medium text-muted-foreground">{formatDate(booking.startIso)}</p>
           <p className="text-sm text-muted-foreground/80">{formatTime(booking.startIso)}</p>
         </div>
         <StatusChip status={displayStatus} />
       </div>
-      <div id={headingId} className="space-y-1 text-lg font-semibold text-foreground">
+      <div id={headingId} className="space-y-1 text-lg font-semibold text-foreground" role="rowheader">
         <div>{headingLabel}</div>
         {variant === 'ops' && emailLabel ? (
           <p className="text-sm font-normal text-muted-foreground" title={emailLabel}>
@@ -77,7 +78,7 @@ function BookingCard({
           </p>
         ) : null}
       </div>
-      <dl id={detailsId} className="space-y-1 text-sm text-muted-foreground">
+      <dl id={detailsId} className="space-y-1 text-sm text-muted-foreground" role="cell">
         <div className="flex items-center justify-between text-foreground">
           <dt className="font-medium">Party</dt>
           <dd>Party of {booking.partySize}</dd>
@@ -100,7 +101,7 @@ function BookingCard({
           </div>
         ) : null}
       </dl>
-      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end" role="cell">
         <Button
           type="button"
           variant="outline"
@@ -119,9 +120,10 @@ function BookingCard({
           onClick={() => onCancel(booking)}
           disabled={disableActions}
           aria-disabled={disableActions}
-          aria-label={`Cancel booking ${variant === 'ops' ? `for ${customerLabel}` : `at ${restaurantLabel}`}`}
+          aria-label="Cancel"
+          aria-description={`Cancel booking ${variant === 'ops' ? `for ${customerLabel}` : `at ${restaurantLabel}`}`}
         >
-          Cancel booking
+          Cancel
         </Button>
       </div>
     </Card>
@@ -176,7 +178,7 @@ export function BookingsListMobile({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" role="table" aria-label="Bookings list (mobile view)">
       {bookings.map((booking) => (
         <BookingCard
           key={booking.id}

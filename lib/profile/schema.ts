@@ -87,7 +87,7 @@ const profilePhoneValueSchema = profilePhoneSchema.refine((value) => value.lengt
 });
 
 export const profileResponseSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().min(1),
   email: z.string().email(),
   name: z.string().min(2).max(80).nullable(),
   phone: profilePhoneValueSchema.nullable(),

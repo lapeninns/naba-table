@@ -14,6 +14,7 @@ import { mapValidationFailure, withValidationHeaders } from "@/server/booking/ht
 import { buildBookingAuditSnapshot, logAuditEvent, softCancelBooking, updateBookingRecord } from "@/server/bookings";
 import { beginBookingModificationFlow } from "@/server/bookings/modification-flow";
 import { PastBookingError, assertBookingNotInPast, canOverridePastBooking } from "@/server/bookings/pastTimeValidation";
+import { mapDbErrorToConstraint, isRetryableConstraintError } from "@/server/db-errors";
 import { enqueueBookingCancelledSideEffects, enqueueBookingUpdatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
 import { recordObservabilityEvent } from "@/server/observability";
 import { getRestaurantSchedule } from "@/server/restaurants/schedule";
@@ -21,7 +22,6 @@ import { getRouteHandlerSupabaseClient, getServiceSupabaseClient, getTenantServi
 import { requireMembershipForRestaurant, fetchUserMemberships } from "@/server/team/access";
 import { formatDateForInput } from "@reserve/shared/formatting/booking";
 import { fromMinutes } from "@reserve/shared/time";
-import { mapDbErrorToConstraint, isRetryableConstraintError } from "@/server/db-errors";
 
 import type { BookingRecord } from "@/server/bookings";
 import type { Json, Tables } from "@/types/supabase";

@@ -3714,6 +3714,7 @@ CREATE TABLE public.bookings (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     booking_type text DEFAULT 'dinner'::text NOT NULL,
     auto_assign_idempotency_key text,
+    auto_assign_last_result jsonb,
     idempotency_key text,
     client_request_id text DEFAULT (gen_random_uuid())::text NOT NULL,
     pending_ref text,

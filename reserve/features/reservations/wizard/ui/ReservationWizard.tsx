@@ -6,7 +6,17 @@ import { useNavigate } from 'react-router-dom';
 import { WizardDependenciesProvider } from '../di';
 import { BookingWizard } from './BookingWizard';
 
-export function ReservationWizard() {
+import type { BookingDetails, BookingWizardMode } from '../model/reducer';
+
+type ReservationWizardProps = {
+  initialDetails?: Partial<BookingDetails>;
+  mode?: BookingWizardMode;
+};
+
+export function ReservationWizard({
+  initialDetails,
+  mode = 'customer',
+}: ReservationWizardProps = {}) {
   const navigate = useNavigate();
   const navigatorDeps = useMemo(
     () => ({
@@ -21,7 +31,7 @@ export function ReservationWizard() {
 
   return (
     <WizardDependenciesProvider value={navigatorDeps}>
-      <BookingWizard />
+      <BookingWizard initialDetails={initialDetails} mode={mode} />
     </WizardDependenciesProvider>
   );
 }

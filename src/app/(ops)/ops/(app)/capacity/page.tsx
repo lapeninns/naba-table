@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 
 import { TableTimelineClient } from '@/components/features/tables/timeline';
+import { withRedirectedFrom } from '@/lib/url/withRedirectedFrom';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
 
 import type { Metadata } from 'next';
@@ -22,7 +23,7 @@ export default async function OpsCapacityPage() {
   }
 
   if (!user) {
-    redirect('/signin?context=ops&redirectedFrom=/ops/capacity');
+    redirect(withRedirectedFrom('/ops/login', '/ops/capacity'));
   }
 
   return (

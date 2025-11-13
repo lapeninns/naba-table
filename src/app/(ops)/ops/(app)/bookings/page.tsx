@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { BookingErrorBoundary } from "@/components/features/booking-state-machine";
 import { OpsBookingsClient } from "@/components/features/bookings";
 import { BookingOfflineQueueProvider } from "@/contexts/booking-offline-queue";
+import { withRedirectedFrom } from "@/lib/url/withRedirectedFrom";
 import { getServerComponentSupabaseClient } from "@/server/supabase";
 
 import type { OpsStatusFilter } from "@/hooks";
@@ -82,7 +83,7 @@ export default async function OpsBookingsPage({
   }
 
   if (!user) {
-    redirect("/signin?context=ops&redirectedFrom=/ops/bookings");
+    redirect(withRedirectedFrom("/ops/login", "/ops/bookings"));
   }
 
   const initialFilter = parseStatusFilter(resolvedParams.filter ?? resolvedParams.status);

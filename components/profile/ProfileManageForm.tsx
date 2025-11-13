@@ -165,7 +165,6 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
     });
     setAvatarState({ file: null, previewUrl: null, removed: false });
     setAvatarError(null);
-    setStatus(null);
   }, [currentProfile.email, currentProfile.image, currentProfile.name, form]);
 
   // Focus first error when validation fails.
@@ -182,11 +181,61 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
   // Clean up preview blob URLs.
   useEffect(() => {
     return () => {
-      if (avatarState.previewUrl) {
+      if (avatarState.previewUrl && avatarState.previewUrl.startsWith('blob:')) {
         URL.revokeObjectURL(avatarState.previewUrl);
       }
     };
   }, [avatarState.previewUrl]);
+
+  const releasePreview = (url: string | null) => {
+    if (url && url.startsWith('blob:')) {
+      URL.revokeObjectURL(url);
+    }
+  };
+
+  const uploadAvatarFile = async (file: File) => {
+    const previewUrl = URL.createObjectURL(file);
+    setAvatarState((prev) => {
+      releasePreview(prev.previewUrl);
+      return {
+        file,
+        previewUrl,
+        removed: false,
+      };
+    });
+    setAvatarError(null);
+
+    try {
+      const uploadResult = await uploadAvatar.mutateAsync(file);
+      setAvatarState((prev) => {
+        releasePreview(prev.previewUrl);
+        return {
+          file: null,
+          previewUrl: uploadResult.url ?? null,
+          removed: false,
+        };
+      });
+      form.setValue('image', uploadResult.url ?? '', { shouldDirty: true });
+      setAvatarError(null);
+      announceStatus({
+        message: 'Avatar uploaded — save changes to apply it everywhere.',
+        tone: 'info',
+      });
+    } catch (error) {
+      console.error('[profile/manage] avatar upload failed', error);
+      const message = 'We couldn’t upload your image. Please try again.';
+      setAvatarState((prev) => {
+        releasePreview(prev.previewUrl);
+        return { file: null, previewUrl: null, removed: false };
+      });
+      setAvatarError(message);
+      announceStatus({
+        message,
+        tone: 'error',
+        live: 'assertive',
+      });
+    }
+  };
 
   const onAvatarChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
@@ -205,33 +254,19 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
       emit('profile_upload_error', payload);
       setAvatarError(validation.message);
       setAvatarState((prev) => {
-        if (prev.previewUrl) {
-          URL.revokeObjectURL(prev.previewUrl);
-        }
+        releasePreview(prev.previewUrl);
         return { file: null, previewUrl: null, removed: false };
       });
       return;
     }
 
-    setAvatarError(null);
-    setAvatarState((prev) => {
-      if (prev.previewUrl) {
-        URL.revokeObjectURL(prev.previewUrl);
-      }
-      return {
-        file,
-        previewUrl: URL.createObjectURL(file),
-        removed: false,
-      };
-    });
+    void uploadAvatarFile(file);
   };
 
   const handleRemoveAvatar = () => {
     setAvatarError(null);
     setAvatarState((prev) => {
-      if (prev.previewUrl) {
-        URL.revokeObjectURL(prev.previewUrl);
-      }
+      releasePreview(prev.previewUrl);
       return { file: null, previewUrl: null, removed: true };
     });
     form.setValue('image', '', { shouldDirty: true });
@@ -239,6 +274,7 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
 
   const watchedName = form.watch('name');
   const watchedPhone = form.watch('phone');
+  const watchedImage = form.watch('image');
   const hasNameChanged = useMemo(() => {
     const trimmed = watchedName.trim();
     const baseline = currentProfile.name ?? '';
@@ -251,7 +287,13 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
     return trimmed !== (baseline ?? '').trim();
   }, [currentProfile.phone, watchedPhone]);
 
-  const hasAvatarChanged = avatarState.removed || Boolean(avatarState.file);
+  const hasImageChanged = useMemo(() => {
+    const trimmed = watchedImage?.trim() ?? '';
+    const baseline = currentProfile.image ?? '';
+    return trimmed !== (baseline ?? '').trim();
+  }, [currentProfile.image, watchedImage]);
+
+  const hasAvatarChanged = avatarState.removed || Boolean(avatarState.file) || hasImageChanged;
   const isSubmitting = updateProfile.isPending || uploadAvatar.isPending;
   const disableSubmit = isSubmitting || (!hasNameChanged && !hasPhoneChanged && !hasAvatarChanged);
   const hasUnsavedChanges = !disableSubmit;
@@ -301,24 +343,20 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
     const baselinePhone = currentProfile.phone ?? '';
     const phoneHasChanged = trimmedPhone !== baselinePhone.trim();
 
-    let desiredImage: string | null | undefined = undefined;
-
-    if (avatarState.removed) {
-      desiredImage = null;
-    } else if (avatarState.file) {
-      try {
-        const uploadResult = await uploadAvatar.mutateAsync(avatarState.file);
-        desiredImage = uploadResult.url;
-      } catch (error) {
-        console.error('[profile/manage] avatar upload failed', error);
-        setAvatarError('We couldn’t upload your image. Please try again.');
-        return;
-      }
+    if (avatarState.file) {
+      announceStatus({
+        message: 'Please wait for your avatar upload to finish before saving.',
+        tone: 'info',
+      });
+      return;
     }
 
-    if (desiredImage === undefined) {
-      const baselineImage = currentProfile.image ?? null;
-      desiredImage = baselineImage;
+    let desiredImage: string | null;
+    if (avatarState.removed) {
+      desiredImage = null;
+    } else {
+      const currentImageValue = form.getValues('image')?.trim();
+      desiredImage = currentImageValue && currentImageValue.length > 0 ? currentImageValue : currentProfile.image ?? null;
     }
 
     const draft: Record<string, string | null> = {};
@@ -357,7 +395,7 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
         image: updated.image ?? '',
       });
       setAvatarState((prev) => {
-        if (prev.previewUrl) {
+        if (prev.previewUrl && prev.previewUrl.startsWith('blob:')) {
           URL.revokeObjectURL(prev.previewUrl);
         }
         return { file: null, previewUrl: null, removed: false };
@@ -465,7 +503,12 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
                 )}
               </div>
               {avatarError ? (
-                <p className="text-sm text-red-600" role="alert" aria-live="assertive">
+                <p
+                  className="text-sm text-red-600"
+                  role="alert"
+                  aria-live="assertive"
+                  aria-label={avatarError}
+                >
                   {avatarError}
                 </p>
               ) : null}
@@ -539,6 +582,8 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
             role="status"
             aria-live={status?.live ?? 'polite'}
             aria-atomic="true"
+            aria-label={status?.message ?? 'profile status'}
+            data-testid="profile-status"
           >
             {status?.message ?? ''}
           </p>
@@ -550,7 +595,7 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
               onClick={() => {
                 form.reset();
                 setAvatarState((prev) => {
-                  if (prev.previewUrl) {
+                  if (prev.previewUrl && prev.previewUrl.startsWith('blob:')) {
                     URL.revokeObjectURL(prev.previewUrl);
                   }
                   return { file: null, previewUrl: null, removed: false };

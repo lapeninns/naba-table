@@ -3,7 +3,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
 import { DateTime } from 'luxon';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useId } from 'react';
 
 import { cn } from '@/lib/utils';
 import { fetchReservationSchedule, scheduleQueryKey } from '@reserve/features/reservations/wizard/services/schedule';
@@ -130,6 +130,9 @@ export function ScheduleAwareTimestampPicker({
   timeAccordion = false,
   timeScrollArea = false,
 }: ScheduleAwareTimestampPickerProps) {
+  const timeRegionLabelId = useId();
+  const timeAccordionHeadingId = useId();
+  const timeAccordionSummaryId = useId();
   const queryClient = useQueryClient();
 
   const [scheduleStateByDate, setScheduleStateByDate] = useState<Map<string, ScheduleRecord>>(() => new Map());
@@ -723,10 +726,21 @@ export function ScheduleAwareTimestampPicker({
         >
           <AccordionItem value="times">
             <AccordionTrigger className="flex flex-col items-start gap-1 text-left">
-              <span className="text-base font-semibold text-foreground">Available times</span>
-              <span className="text-sm font-normal text-muted-foreground">{accordionSummary}</span>
+              <span id={timeAccordionHeadingId} className="text-base font-semibold text-foreground">
+                Available times
+              </span>
+              <span
+                id={timeAccordionSummaryId}
+                className="text-sm font-normal text-muted-foreground"
+              >
+                {accordionSummary}
+              </span>
             </AccordionTrigger>
-            <AccordionContent forceMount className="pt-4">
+            <AccordionContent
+              forceMount
+              className="pt-4"
+              aria-labelledby={`${timeAccordionHeadingId} ${timeAccordionSummaryId}`}
+            >
               <div className="space-y-4">{renderTimeContent()}</div>
             </AccordionContent>
           </AccordionItem>
@@ -736,8 +750,11 @@ export function ScheduleAwareTimestampPicker({
           <div
             className="max-h-72 space-y-4 overflow-y-auto pr-1 sm:max-h-80 sm:pr-2"
             role="region"
-            aria-label="Available time options"
+            aria-labelledby={timeRegionLabelId}
           >
+            <span id={timeRegionLabelId} className="sr-only">
+              Available time options
+            </span>
             {renderTimeContent()}
           </div>
         ) : (
