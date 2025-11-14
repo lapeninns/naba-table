@@ -73,7 +73,7 @@ export type CandidateSummary = {
   tableCount: number;
   slack?: number;
   score?: number;
-  adjacencyStatus?: "single" | "connected" | "disconnected";
+  adjacencyStatus?: "single" | "connected" | "neighbors" | "pairwise" | "disconnected";
   scoreBreakdown?: CandidateScoreBreakdown;
 };
 
@@ -502,7 +502,7 @@ export function summarizeCandidate(input: {
   tableCount: number;
   slack?: number;
   score?: number;
-  adjacencyStatus?: "single" | "connected" | "disconnected";
+  adjacencyStatus?: "single" | "connected" | "neighbors" | "pairwise" | "disconnected";
   scoreBreakdown?: ScoreBreakdown;
 }): CandidateSummary {
   let scoreBreakdown: CandidateScoreBreakdown | undefined;

@@ -7,12 +7,12 @@
 
 ## Immediate Actions
 
-- Trigger hold sweeper job (if available) or wait for scheduled sweep.
+- Trigger hold sweeper job via `pnpm jobs:hold-sweeper` (runs `server/jobs/capacity-holds`).
 - Verify `table_holds` entries for the booking and check `expires_at`.
 
 ## Technical Checks
 
-- Confirm `runHoldSweeper` runs and logs count of expired holds removed.
+- Confirm `runHoldSweeper` runs and logs count of expired holds removed (`holds.sweeper.run` event in observability backend).
 - Inspect Realtime subscriptions for `table_holds` to ensure UI refetch triggers.
 
 ## Remediation
@@ -22,5 +22,5 @@
 
 ## Preventative
 
-- Review sweeper schedule and adjust interval.
+- Cron: run `pnpm jobs:hold-sweeper` every minute (or faster during events). Monitor `holds.sweeper.run` metrics for drift.
 - Ensure confirm path releases hold synchronously; fallback to sweeper remains in place.

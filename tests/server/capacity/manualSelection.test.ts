@@ -685,6 +685,30 @@ describe("evaluateManualSelection", () => {
     expect(capacityCheck?.status).toBe("error");
     expect(result.ok).toBe(false);
   });
+
+  it("fails when slack exceeds configured budget", async () => {
+    const slackSpy = vi.spyOn(featureFlagsModule, "getManualAssignmentMaxSlack").mockReturnValue(0);
+    const roomyTable = { ...TABLE_A, id: "table-roomy", table_number: "T99", capacity: 6 };
+    const client = createMockSupabaseClient({
+      booking: { ...BASE_BOOKING, party_size: 2 },
+      tables: [roomyTable],
+    });
+
+    vi.spyOn(holdsModule, "findHoldConflicts").mockResolvedValue([]);
+
+    const result = await evaluateManualSelection({
+      bookingId: BASE_BOOKING.id,
+      tableIds: [roomyTable.id],
+      client,
+    } satisfies ManualSelectionOptions);
+
+    const slackCheck = result.checks.find((check) => check.id === "slack");
+    expect(slackCheck?.status).toBe("error");
+    expect(result.ok).toBe(false);
+    expect(result.slackBudget).toBe(0);
+
+    slackSpy.mockRestore();
+  });
 });
 
 describe("manual selection invariants", () => {

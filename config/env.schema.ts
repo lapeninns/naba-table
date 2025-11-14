@@ -47,6 +47,8 @@ const baseEnvSchema = z
     FEATURE_ALLOCATOR_REQUIRE_ADJACENCY: booleanStringOptional,
     FEATURE_ALLOCATOR_K_MAX: z.coerce.number().int().min(1).max(5).optional(),
     FEATURE_ALLOCATOR_ADJACENCY_MIN_PARTY_SIZE: z.coerce.number().int().min(1).max(20).optional(),
+    FEATURE_ALLOCATOR_ADJACENCY_MODE: z.enum(["connected", "pairwise", "neighbors"]).optional(),
+    FEATURE_MANUAL_ASSIGNMENT_MAX_SLACK: z.coerce.number().int().min(0).max(12).optional(),
     FEATURE_HOLDS_ENABLED: booleanStringOptional,
     FEATURE_HOLDS_STRICT_CONFLICTS_ENABLED: booleanStringOptional,
     FEATURE_DB_STRICT_CONSTRAINTS: booleanStringOptional,
@@ -116,6 +118,7 @@ const baseEnvSchema = z
     QUEUE_REDIS_TLS: booleanStringOptional,
     AVAILABILITY_CACHE_TTL_SECONDS: z.coerce.number().int().positive().optional(),
     ENABLE_AVAILABILITY_CACHE: booleanStringOptional,
+    ALLOCATIONS_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).optional(),
     STRATEGIC_DEMAND_PROFILE_PATH: z.string().optional(),
     // Auto-assignment feature: run allocator after booking creation and suppress initial pending email
     FEATURE_AUTO_ASSIGN_ON_BOOKING: booleanStringOptional,

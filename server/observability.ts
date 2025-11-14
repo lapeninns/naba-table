@@ -2,7 +2,7 @@ import { getServiceSupabaseClient } from "@/server/supabase";
 
 import type { Json } from "@/types/supabase";
 
-export type ObservabilitySeverity = "info" | "warning" | "error" | "critical";
+export type ObservabilitySeverity = "info" | "notice" | "warning" | "error" | "critical";
 
 export async function recordObservabilityEvent(params: {
   source: string;
@@ -14,7 +14,7 @@ export async function recordObservabilityEvent(params: {
 }): Promise<void> {
   try {
     const supabase = getServiceSupabaseClient();
-    await (supabase as any).from("observability_events").insert({
+    await supabase.from("observability_events").insert({
       source: params.source,
       event_type: params.eventType,
       severity: params.severity ?? "info",

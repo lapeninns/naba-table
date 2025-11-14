@@ -54,6 +54,8 @@
     "flags:audit": "tsx scripts/feature-flags/audit.ts",
     "email:check": "tsx scripts/email/check-resend-status.ts",
     "email:preview": "tsx -r tsconfig-paths/register scripts/preview-booking-email.ts",
+    "jobs:hold-sweeper": "tsx -r tsconfig-paths/register scripts/jobs/run-hold-sweeper.ts",
+    "jobs:allocations-pruner": "tsx -r tsconfig-paths/register scripts/jobs/run-allocations-pruner.ts",
     "queue:email-worker": "tsx -r tsconfig-paths/register scripts/queues/email-worker.ts",
     "assign:loop": "tsx -r tsconfig-paths/register scripts/ops-auto-assign-ultra-fast-loop.ts --slug white-horse-pub-waterbeach --date 2025-11-10",
     "db:reset": "echo '🔄 Resetting remote database...' && source .env.local && psql \"$SUPABASE_DB_URL\" -v ON_ERROR_STOP=1 -f supabase/utilities/init-database.sql && psql \"$SUPABASE_DB_URL\" -v ON_ERROR_STOP=1 -f supabase/utilities/init-seeds.sql && echo '✅ Reset complete!'",

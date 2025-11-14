@@ -121,6 +121,12 @@ export const env = {
       typeof parsed.FEATURE_ALLOCATOR_ADJACENCY_MIN_PARTY_SIZE === "number"
         ? Math.max(1, Math.min(parsed.FEATURE_ALLOCATOR_ADJACENCY_MIN_PARTY_SIZE, 20))
         : null;
+    const adjacencyModeRaw = parsed.FEATURE_ALLOCATOR_ADJACENCY_MODE;
+    const adjacencyMode = adjacencyModeRaw === "pairwise" || adjacencyModeRaw === "neighbors" ? adjacencyModeRaw : "connected";
+    const manualAssignmentMaxSlack =
+      typeof parsed.FEATURE_MANUAL_ASSIGNMENT_MAX_SLACK === "number"
+        ? Math.max(0, Math.min(parsed.FEATURE_MANUAL_ASSIGNMENT_MAX_SLACK, 12))
+        : null;
     const selectorMaxPlansPerSlack =
       typeof parsed.FEATURE_SELECTOR_MAX_PLANS_PER_SLACK === "number"
         ? Math.max(1, Math.min(parsed.FEATURE_SELECTOR_MAX_PLANS_PER_SLACK, 500))
@@ -187,9 +193,13 @@ export const env = {
         requireAdjacency: parsed.FEATURE_ALLOCATOR_REQUIRE_ADJACENCY ?? true,
         kMax: allocatorKMax,
         adjacencyMinPartySize,
+        adjacencyMode,
         service: {
           failHard: parsed.FEATURE_ALLOCATOR_SERVICE_FAIL_HARD ?? false,
         },
+      },
+      manualAssignments: {
+        maxSlack: manualAssignmentMaxSlack,
       },
       selector: {
         maxPlansPerSlack: selectorMaxPlansPerSlack,

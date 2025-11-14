@@ -301,6 +301,57 @@ export type Database = {
             columns: ["merge_group_allocation_id"]
             isOneToOne: false
             referencedRelation: "allocations"
+          referencedColumns: ["id"]
+        },
+      ]
+      }
+      booking_confirmation_results: {
+        Row: {
+          actor_id: string | null
+          assignment_window: unknown
+          booking_id: string
+          created_at: string
+          hold_id: string
+          idempotency_key: string
+          metadata: Json
+          restaurant_id: string
+          table_ids: string[]
+        }
+        Insert: {
+          actor_id?: string | null
+          assignment_window: unknown
+          booking_id: string
+          created_at?: string
+          hold_id: string
+          idempotency_key: string
+          metadata?: Json
+          restaurant_id: string
+          table_ids: string[]
+        }
+        Update: {
+          actor_id?: string | null
+          assignment_window?: unknown
+          booking_id?: string
+          created_at?: string
+          hold_id?: string
+          idempotency_key?: string
+          metadata?: Json
+          restaurant_id?: string
+          table_ids?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_confirmation_results_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_confirmation_results_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
         ]
@@ -2392,6 +2443,13 @@ export type Database = {
           p_table_id: string
         }
         Returns: boolean
+      }
+      prune_allocations_history: {
+        Args: { p_cutoff: string; p_limit?: number }
+        Returns: {
+          archived_count: number
+          deleted_count: number
+        }[]
       }
       refresh_table_status: { Args: { p_table_id: string }; Returns: undefined }
       release_hold_and_emit: {

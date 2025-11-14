@@ -2,7 +2,7 @@
 
 ## Symptoms
 
-- Operators see errors on Confirm (e.g., HOLD_CONFLICT, POLICY_CHANGED, STALE_CONTEXT).
+- Operators see errors on Confirm (e.g., HOLD_CONFLICT, POLICY_DRIFT, STALE_CONTEXT).
 - UI may show staleness banner or explicit conflict details.
 
 ## Immediate Actions
@@ -18,7 +18,7 @@
 
 ## Remediation
 
-- For POLICY_CHANGED: revalidate selection; ask operator to re-run Validate and Hold.
+- For POLICY_DRIFT: revalidate selection; ask operator to re-run Validate and Hold.
 - For HOLD_CONFLICT: resolve blocking hold(s), then re-run.
 - For STALE_CONTEXT: refresh context; ensure Realtime events are flowing.
 

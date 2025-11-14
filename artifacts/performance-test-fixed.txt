@@ -1,0 +1,13 @@
+                                                                  QUERY PLAN                                                                  
+----------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.20..2.42 rows=1 width=129) (actual time=0.005..0.005 rows=0 loops=1)
+   InitPlan 1
+     ->  Limit  (cost=0.00..0.05 rows=1 width=16) (never executed)
+           ->  Seq Scan on restaurants  (cost=0.00..12.70 rows=270 width=16) (never executed)
+   ->  Index Scan using allocations_resource_idx on allocations  (cost=0.15..2.37 rows=1 width=129) (actual time=0.003..0.003 rows=0 loops=1)
+         Index Cond: (resource_type = 'table'::text)
+         Filter: (("window" && '["2025-11-15 18:00:00+00","2025-11-15 20:00:00+00")'::tstzrange) AND (restaurant_id = (InitPlan 1).col1))
+ Planning Time: 0.240 ms
+ Execution Time: 0.032 ms
+(9 rows)
+

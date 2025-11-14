@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { confirmHold } from "@/server/capacity/engine";
 import { AssignTablesRpcError, HoldNotFoundError } from "@/server/capacity/holds";
+import { mapAssignTablesErrorToHttp } from "@/app/api/staff/_utils/assign-tables-error";
 import { getRouteHandlerSupabaseClient, getTenantServiceSupabaseClient } from "@/server/supabase";
 
 import type { NextRequest } from "next/server";
@@ -84,15 +85,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (error instanceof AssignTablesRpcError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint,
-        },
-        { status: 409 },
-      );
+      const { status, payload } = mapAssignTablesErrorToHttp(error);
+      return NextResponse.json(payload, { status });
     }
 
     console.error("[staff/auto/confirm] unexpected error", { error, holdId, bookingId });

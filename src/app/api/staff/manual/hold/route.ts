@@ -22,6 +22,21 @@ const holdReleaseSchema = z.object({
   bookingId: z.string().uuid(),
 });
 
+const VALIDATION_CODE_MAP: Record<string, string> = {
+  capacity: "CAPACITY_INSUFFICIENT",
+  slack: "SLACK_BUDGET_EXCEEDED",
+  zone: "ZONE_MISMATCH",
+  movable: "TABLE_IMMUTABLE",
+  adjacency: "ADJACENCY_INVALID",
+  conflict: "ASSIGNMENT_CONFLICT",
+  holds: "HOLD_CONFLICT",
+};
+
+function deriveValidationCode(validation: { checks: Array<{ id: string; status: string }> }): string {
+  const failing = validation.checks.find((check) => check.status === "error");
+  return failing ? VALIDATION_CODE_MAP[failing.id] ?? "VALIDATION_FAILED" : "VALIDATION_FAILED";
+}
+
 export async function POST(req: NextRequest) {
   const supabase = await getRouteHandlerSupabaseClient();
 
@@ -112,10 +127,22 @@ export async function POST(req: NextRequest) {
 
     if (!result.hold) {
       const summary = result.validation.summary;
+      const code = deriveValidationCode(result.validation);
+      const status = code === "HOLD_CONFLICT" ? 409 : 422;
+
+      await emitManualHold({
+        ok: false,
+        bookingId,
+        restaurantId: bookingRow.restaurant_id,
+        policyVersion: result.validation.policyVersion ?? null,
+        adjacencyRequired: contextAdjacencyRequired ?? (typeof requireAdjacency === 'boolean' ? requireAdjacency : null),
+        code,
+      });
+
       return NextResponse.json(
         {
           error: "Validation failed",
-          code: "VALIDATION_FAILED",
+          code,
           validation: result.validation,
           summary,
           details: {
@@ -123,7 +150,7 @@ export async function POST(req: NextRequest) {
             summary,
           },
         },
-        { status: 409 },
+        { status },
       );
     }
 

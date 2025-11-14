@@ -2,7 +2,7 @@
 
 ## Symptoms
 
-- Confirm fails with `POLICY_CHANGED` after hold; operators cannot proceed.
+- Confirm fails with `POLICY_DRIFT` after hold; operators cannot proceed.
 - Policy flags changed between hold and confirm (e.g., adjacency rules, zones).
 
 ## Immediate Actions

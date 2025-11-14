@@ -1,8 +1,10 @@
+import { invalidateRestaurantCapacityCaches } from "@/server/ops/capacity-cache";
+
 import type { Database, Tables, TablesInsert, TablesUpdate } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 
-type PublicClient = SupabaseClient<Database, "public", any>;
+type PublicClient = SupabaseClient<Database>;
 
 export type ZoneRow = Tables<"zones">;
 
@@ -45,7 +47,9 @@ export async function createZone(client: PublicClient, input: CreateZoneInput): 
     throw error;
   }
 
-  return data as ZoneRow;
+  const record = data as ZoneRow;
+  invalidateRestaurantCapacityCaches(record.restaurant_id);
+  return record;
 }
 
 export async function updateZone(client: PublicClient, zoneId: string, input: UpdateZoneInput): Promise<ZoneRow> {
@@ -65,13 +69,17 @@ export async function updateZone(client: PublicClient, zoneId: string, input: Up
     throw error;
   }
 
-  return data as ZoneRow;
+  const record = data as ZoneRow;
+  invalidateRestaurantCapacityCaches(record.restaurant_id);
+  return record;
 }
 
 export async function deleteZone(client: PublicClient, zoneId: string): Promise<void> {
-  const { error } = await client.from("zones").delete().eq("id", zoneId);
+  const { data, error } = await client.from("zones").delete().eq("id", zoneId).select("restaurant_id").single();
 
   if (error) {
     throw error;
   }
+
+  invalidateRestaurantCapacityCaches(data?.restaurant_id ?? undefined);
 }
