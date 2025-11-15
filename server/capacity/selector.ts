@@ -135,6 +135,8 @@ export type BuildCandidatesOptions = {
   requireAdjacency?: boolean;
   demandMultiplier?: number;
   tableScarcityScores?: Map<string, number>;
+  allowCapacityOverflow?: boolean;
+  allowMinPartySizeViolation?: boolean;
 };
 
 export type BuildCandidatesResult = {
@@ -176,6 +178,8 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
     requireAdjacency = true,
     demandMultiplier: inputDemandMultiplier,
     tableScarcityScores: providedScarcityScores,
+    allowCapacityOverflow = false,
+    allowMinPartySizeViolation = false,
   } = options;
   const { maxOverage, weights } = config;
   const demandMultiplier = normalizeDemandMultiplier(inputDemandMultiplier);
@@ -183,6 +187,7 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
   const adjacencyMode = getAllocatorAdjacencyMode();
 
   const maxAllowedCapacity = partySize + Math.max(maxOverage, 0);
+  const effectiveCapacityCap = allowCapacityOverflow ? Number.POSITIVE_INFINITY : maxAllowedCapacity;
   const combinationCap = Math.max(1, Math.min(kMax ?? config.maxTables ?? 1, tables.length || 1));
   const perSlackLimit = Math.max(1, maxPlansPerSlack ?? DEFAULT_MAX_PLANS_PER_SLACK);
   const combinationEvaluationLimit = Math.max(1, maxCombinationEvaluations ?? DEFAULT_MAX_COMBINATION_EVALUATIONS);
@@ -213,7 +218,12 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
       continue;
     }
 
-    if (typeof table.minPartySize === "number" && table.minPartySize > 0 && partySize < table.minPartySize) {
+    if (
+      !allowMinPartySizeViolation &&
+      typeof table.minPartySize === "number" &&
+      table.minPartySize > 0 &&
+      partySize < table.minPartySize
+    ) {
       incrementCounter(diagnostics.skipped, "capacity");
       continue;
     }
@@ -230,7 +240,7 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
       continue;
     }
 
-    if (capacity > maxAllowedCapacity) {
+    if (capacity > effectiveCapacityCap) {
       incrementCounter(diagnostics.skipped, "overage");
       continue;
     }
@@ -287,7 +297,7 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
       partySize,
       weights,
       adjacency,
-      maxAllowedCapacity,
+      maxAllowedCapacity: effectiveCapacityCap,
       kMax: combinationCap,
       bucketLimit: perSlackLimit,
       evaluationLimit: combinationEvaluationLimit,

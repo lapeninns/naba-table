@@ -167,6 +167,8 @@ export type QuoteTablesResult = {
   metadata?: {
     usedFallback: boolean;
     fallbackService: ServiceKey | null;
+    relaxedMinPartySize?: boolean;
+    capacityOverflowFallback?: boolean;
   };
   plannerStats?: QuotePlannerStats | null;
 };

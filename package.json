@@ -58,6 +58,7 @@
     "jobs:allocations-pruner": "tsx -r tsconfig-paths/register scripts/jobs/run-allocations-pruner.ts",
     "queue:email-worker": "tsx -r tsconfig-paths/register scripts/queues/email-worker.ts",
     "assign:loop": "tsx -r tsconfig-paths/register scripts/ops-auto-assign-ultra-fast-loop.ts --slug white-horse-pub-waterbeach --date 2025-11-10",
+    "booking:flow": "tsx -r tsconfig-paths/register scripts/run-booking-flow.ts",
     "db:reset": "echo '🔄 Resetting remote database...' && source .env.local && psql \"$SUPABASE_DB_URL\" -v ON_ERROR_STOP=1 -f supabase/utilities/init-database.sql && psql \"$SUPABASE_DB_URL\" -v ON_ERROR_STOP=1 -f supabase/utilities/init-seeds.sql && echo '✅ Reset complete!'",
     "db:migrate": "echo '📊 Applying migrations to remote...' && source .env.local && psql \"$SUPABASE_DB_URL\" -v ON_ERROR_STOP=1 -f supabase/utilities/init-database.sql && echo '✅ Migrations applied!'",
     "db:seed-only": "echo '🌱 Seeding remote database...' && source .env.local && psql \"$SUPABASE_DB_URL\" -v ON_ERROR_STOP=1 -f supabase/utilities/init-seeds.sql && echo '✅ Seeds applied!'",

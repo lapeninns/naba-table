@@ -115,15 +115,17 @@ export function filterAvailableTables(
   adjacency: Map<string, Set<string>>,
   avoidTables?: Set<string>,
   zoneId?: string | null,
-  options?: { 
-    allowInsufficientCapacity?: boolean; 
-    allowMaxPartySizeViolation?: boolean;  // NEW: allow tables that violate maxPartySize (for combinations)
-    timeFilter?: TimeFilterOptions 
+  options?: {
+    allowInsufficientCapacity?: boolean;
+    allowMaxPartySizeViolation?: boolean;
+    allowMinPartySizeViolation?: boolean;
+    timeFilter?: TimeFilterOptions;
   },
 ): Table[] {
   const DEBUG = process.env.CAPACITY_DEBUG === '1' || process.env.CAPACITY_DEBUG === 'true';
   const allowPartial = options?.allowInsufficientCapacity ?? false;
   const allowMaxPartySizeViolation = options?.allowMaxPartySizeViolation ?? false;
+  const allowMinPartySizeViolation = options?.allowMinPartySizeViolation ?? false;
   const avoid = avoidTables ?? new Set<string>();
 
   if (DEBUG) {
@@ -134,6 +136,7 @@ export function filterAvailableTables(
       windowEnd: toIsoUtc(window.block.end),
       allowPartial,
       allowMaxPartySizeViolation,
+      allowMinPartySizeViolation,
       zoneId: zoneId ?? null,
       avoidCount: avoid.size,
     });
@@ -148,13 +151,22 @@ export function filterAvailableTables(
     const capacity = table.capacity ?? 0;
     if (!Number.isFinite(capacity) || capacity <= 0) return false;
     if (!allowPartial && capacity < partySize) return false;
-    
-    // FIX: Only enforce maxPartySize if not allowing violations (for combinations)
-    if (!allowMaxPartySizeViolation && typeof table.maxPartySize === "number" && table.maxPartySize > 0 && partySize > table.maxPartySize) {
+
+    if (
+      !allowMaxPartySizeViolation &&
+      typeof table.maxPartySize === "number" &&
+      table.maxPartySize > 0 &&
+      partySize > table.maxPartySize
+    ) {
       return false;
     }
-    
-    if (typeof table.minPartySize === "number" && table.minPartySize > 0 && partySize < table.minPartySize) {
+
+    if (
+      !allowMinPartySizeViolation &&
+      typeof table.minPartySize === "number" &&
+      table.minPartySize > 0 &&
+      partySize < table.minPartySize
+    ) {
       return false;
     }
     // Require explicit adjacency info when enforcement is on; missing entry means we cannot validate.

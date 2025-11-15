@@ -112,7 +112,7 @@ export const env = {
     const allocatorKMax = Math.max(1, Math.min(parsed.FEATURE_ALLOCATOR_K_MAX ?? 3, 5));
     const allocatorMergesDefault = parsed.FEATURE_ALLOCATOR_MERGES_ENABLED ?? !isProduction;
     const combinationPlannerDefault = parsed.FEATURE_COMBINATION_PLANNER ?? allocatorMergesDefault;
-    const plannerTimePruningDefault = parsed.FEATURE_PLANNER_TIME_PRUNING_ENABLED ?? false;
+    const plannerTimePruningDefault = parsed.FEATURE_PLANNER_TIME_PRUNING_ENABLED ?? true;
     const plannerCacheTtlMs =
       typeof parsed.PLANNER_CACHE_TTL_MS === "number"
         ? Math.max(1_000, Math.min(parsed.PLANNER_CACHE_TTL_MS, 600_000))
