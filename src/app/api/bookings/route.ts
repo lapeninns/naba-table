@@ -571,12 +571,14 @@ export async function POST(req: NextRequest) {
     let startTime = data.time;
     let scheduleTimezone: string | null = null;
 
+    let lastSchedule: Awaited<ReturnType<typeof getRestaurantSchedule>> | null = null;
+
     try {
       const schedule = await getRestaurantSchedule(restaurantId, {
         date: data.date,
         client: supabase,
       });
-
+      lastSchedule = schedule;
       scheduleTimezone = schedule.timezone;
 
       const { time } = assertBookingWithinOperatingWindow({
@@ -628,7 +630,28 @@ export async function POST(req: NextRequest) {
       }
     } catch (validationError) {
       if (validationError instanceof OperatingHoursError) {
-        return NextResponse.json({ error: validationError.message }, { status: 400 });
+        const firstOpenSlot = lastSchedule?.slots.find((slot) => !slot.disabled)?.value ?? null;
+        const lastOpenSlot = lastSchedule?.slots
+          .slice()
+          .reverse()
+          .find((slot) => !slot.disabled)?.value ?? null;
+        return NextResponse.json(
+          {
+            error: validationError.message,
+            code: "OPERATING_HOURS_CLOSED",
+            details: {
+              reason: validationError.reason,
+              requestedTime: data.time,
+              bookingType: normalizedBookingType,
+              opensAt: lastSchedule?.window.opensAt,
+              closesAt: lastSchedule?.window.closesAt,
+              firstAvailableSlot: firstOpenSlot,
+              lastAvailableSlot: lastOpenSlot,
+              timezone: lastSchedule?.timezone,
+            },
+          },
+          { status: 400 }
+        );
       }
       throw validationError;
     }
