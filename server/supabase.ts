@@ -36,14 +36,20 @@ type CookieWriter = {
 
 type NextCookies = Awaited<ReturnType<typeof cookies>>;
 
+function isCookieWriter(candidate: unknown): candidate is CookieWriter {
+  return Boolean(candidate && typeof (candidate as CookieWriter).set === "function");
+}
+
 function createCookieAdapter(store: CookieReader, writer?: CookieWriter) {
+  const cookieWriter = writer ?? (isCookieWriter(store) ? store : undefined);
+
   return {
     getAll: () => store.getAll().map(({ name, value }) => ({ name, value })),
-    ...(writer
+    ...(cookieWriter
       ? {
           setAll: (cookiesToSet: { name: string; value: string; options: Record<string, unknown> }[]) => {
             cookiesToSet.forEach(({ name, value, options }) => {
-              writer.set({ name, value, ...options });
+              cookieWriter.set({ name, value, ...options });
             });
           },
         }

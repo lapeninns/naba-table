@@ -35,6 +35,7 @@ const baseEnvSchema = z
     NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG_FALLBACK: z.string().optional(),
     RESEND_API_KEY: z.string().optional(),
     RESEND_FROM: z.string().email().optional(),
+    RESEND_USE_MOCK: booleanStringOptional,
     LOYALTY_PILOT_RESTAURANT_IDS: z.string().optional(),
     ENABLE_TEST_API: booleanStringOptional,
     FEATURE_GUEST_LOOKUP_POLICY: booleanStringOptional,

@@ -37,6 +37,7 @@ import {
   type AvailabilityMap,
   type TimeFilterStats,
   type LookaheadConfig,
+  type TimeFilterMode,
 } from "./availability";
 import { computeBookingWindowWithFallback } from "./booking-window";
 import { DEFAULT_HOLD_TTL_SECONDS } from "./constants";
@@ -397,7 +398,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
       busyForPlanner && timePruningEnabled
         ? {
             busy: busyForPlanner,
-            mode: "strict",
+            mode: "strict" as TimeFilterMode,
             captureStats: (stats: TimeFilterStats) => {
               timePruningStats = stats;
             },

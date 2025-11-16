@@ -100,9 +100,15 @@ export const env = {
 
   get resend() {
     const parsed = parseEnv();
+    const explicitMock =
+      typeof parsed.RESEND_USE_MOCK === "boolean" ? parsed.RESEND_USE_MOCK : null;
+    const hasCredentials = Boolean(parsed.RESEND_API_KEY && parsed.RESEND_FROM);
+    const defaultUseMock =
+      explicitMock ?? (parsed.NODE_ENV !== "production" && !hasCredentials);
     return {
       apiKey: parsed.RESEND_API_KEY,
       from: parsed.RESEND_FROM,
+      useMock: defaultUseMock,
     } as const;
   },
 

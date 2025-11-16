@@ -28,7 +28,7 @@
     "validate:env": "tsx scripts/validate-env.ts",
     "env:sync-example": "tsx scripts/generate-env-local-example.ts",
     "prebuild": "npm run validate:env",
-    "predev": "npm run validate:env",
+    "predev": "npm run validate:env && tsx scripts/ensure-dev-port.ts",
     "reserve:dev": "vite --config reserve/vite.config.ts",
     "reserve:build": "vite build --config reserve/vite.config.ts",
     "test": "vitest run --config reserve/vitest.config.ts",

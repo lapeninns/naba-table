@@ -37,7 +37,6 @@ import { buildInlineLastResult } from "@/server/capacity/auto-assign-last-result
 import { classifyPlannerReason } from "@/server/capacity/planner-reason";
 import { recordPlannerQuoteTelemetry } from "@/server/capacity/planner-telemetry";
 import { normalizeEmail, upsertCustomer } from "@/server/customers";
-import { sendBookingConfirmationEmail } from "@/server/emails/bookings";
 import { isAssignmentPipelineV3Enabled } from "@/server/feature-flags";
 import { enqueueBookingCreatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
 import { getActiveLoyaltyProgram, calculateLoyaltyAward, applyLoyaltyAward } from "@/server/loyalty";
@@ -957,18 +956,13 @@ export async function POST(req: NextRequest) {
             if (reloaded) {
               finalBooking = reloaded as BookingRecord;
             }
-            try {
-              await sendBookingConfirmationEmail(finalBooking);
-            } catch (mailError) {
-              console.error("[bookings][POST][inline-confirm-email]", mailError);
-            }
 
             await persistInlinePlanResult({
               success: true,
               reason: null,
               alternates: 0,
               durationMs,
-              emailSent: true,
+              emailSent: false,
               emailVariant: inlineEmailVariant,
             });
 
@@ -1258,11 +1252,6 @@ export async function POST(req: NextRequest) {
 
             if (reloaded) {
               finalBooking = reloaded as BookingRecord;
-              try {
-                await sendBookingConfirmationEmail(finalBooking);
-              } catch (mailError) {
-                console.error("[bookings][POST][inline-confirm-email]", mailError);
-              }
             }
 
             await persistInlinePlanResult({
@@ -1270,7 +1259,7 @@ export async function POST(req: NextRequest) {
               reason: quote.reason ?? null,
               alternates: quote?.alternates?.length ?? 0,
               durationMs: quoteDurationMs,
-              emailSent: true,
+              emailSent: false,
               emailVariant: inlineEmailVariant,
             });
 

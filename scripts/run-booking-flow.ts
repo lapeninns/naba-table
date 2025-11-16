@@ -12,7 +12,7 @@ import { DateTime } from "luxon";
 import { parseAutoAssignLastResult } from "@/server/capacity/auto-assign-last-result";
 import { autoAssignAndConfirmIfPossible } from "@/server/jobs/auto-assign";
 import { BOOKING_BLOCKING_STATUSES, getServiceSupabaseClient } from "@/server/supabase";
-import { isBookingType, isSeatingPreference, type BookingType, type SeatingPreference } from "@/lib/enums";
+import { isBookingType, isSeatingPreference, type BookingType, type SeatingPreference, type BookingStatus } from "@/lib/enums";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Tables } from "@/types/supabase";
@@ -27,7 +27,7 @@ type AssignmentRow = Tables<"booking_table_assignments"> & {
 };
 type AssignmentStateHistoryRow = Tables<"booking_assignment_state_history">;
 
-const BLOCKING_STATUS_SET = new Set(BOOKING_BLOCKING_STATUSES);
+const BLOCKING_STATUS_SET = new Set(BOOKING_BLOCKING_STATUSES as BookingStatus[]);
 const DEFAULT_MAX_TIMEOUT_MS = 90_000;
 const DEFAULT_INLINE_WINDOW_MS = 25_000;
 const DEFAULT_POLL_INTERVAL_MS = 2_000;
@@ -750,7 +750,7 @@ async function loadAssignmentDiagnostics(
 ): Promise<AssignmentStateHistoryRow[]> {
   const { data, error } = await supabase
     .from("booking_assignment_state_history")
-    .select("from_state,to_state,reason,metadata,created_at")
+    .select("id,booking_id,actor_id,from_state,to_state,reason,metadata,created_at")
     .eq("booking_id", bookingId)
     .order("created_at", { ascending: false })
     .limit(limit);

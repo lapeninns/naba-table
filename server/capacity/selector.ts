@@ -585,9 +585,12 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
 
   const seenKeys = new Set<string>();
   const buckets = new Map<number, RankedTablePlan[]>();
-  // Sort by capacity asc for deterministic ordering
+  // Sort by capacity DESC so larger tables (which can satisfy the party alone)
+  // are evaluated before the search explores many small-table combinations.
+  // This dramatically reduces the DFS branching factor when multiple workers
+  // are competing for 6–8 tops, preventing long inline polling loops.
   const sortedCandidates = [...candidates].sort((a, b) => {
-    const capacityDiff = (a.capacity ?? 0) - (b.capacity ?? 0);
+    const capacityDiff = (b.capacity ?? 0) - (a.capacity ?? 0);
     if (capacityDiff !== 0) return capacityDiff;
     const nameA = a.tableNumber ?? a.id;
     const nameB = b.tableNumber ?? b.id;
