@@ -1,4 +1,4 @@
-import ReserveApp from "../../_components/ReserveApp";
+import { ReservationWizardClient } from "../../_components/ReservationWizardClient";
 
 import type { Metadata } from "next";
 
@@ -19,6 +19,5 @@ export async function generateMetadata({ params }: { params: RouteParams }): Pro
 export default async function ReserveRestaurantPage({ params }: { params: RouteParams }) {
   const { slug } = await params;
   const normalized = slug?.trim() ?? "";
-  const initialPath = normalized ? `/r/${normalized}` : "/";
-  return <ReserveApp initialPath={initialPath} />;
+  return <ReservationWizardClient restaurantSlug={normalized || null} />;
 }

@@ -15,15 +15,15 @@ Each group provides its own `layout.tsx`, `error.tsx`, and `not-found.tsx`, so f
 
 ## 2. Guest Public Flow (`/…`)
 
-| Path                                                                    | Notes                                                                                    |
-| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `/`                                                                     | Hero + restaurant teaser grid.                                                           |
-| `/browse`, `/create`, `/checkout`, `/thank-you`                         | Marketing funnel entry points.                                                           |
-| `/pricing`, `/privacy-policy`, `/terms`                                 | Canonical legal/marketing pages (legacy `/tos` and `/terms/{venue,togo}` redirect here). |
-| `/blog` + `/blog/author`, `/blog/category`, dynamic `/blog/[articleId]` | Explicit index routes avoid collisions with post slugs.                                  |
-| `/signin`                                                               | Mode switcher between magic-link and password flows.                                     |
-| `/reserve`, `/reserve/[reservationId]`, `/reserve/r/[slug]`             | All mount the Vite SPA via `ReserveApp`, forwarding initial path state.                  |
-| `/item/:slug`                                                           | Permanently redirects to `/reserve/r/:slug`.                                             |
+| Path                                                                    | Notes                                                                                                                                                                            |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`                                                                     | Hero + restaurant teaser grid.                                                                                                                                                   |
+| `/browse`, `/create`, `/checkout`, `/thank-you`                         | Marketing funnel entry points.                                                                                                                                                   |
+| `/pricing`, `/privacy-policy`, `/terms`                                 | Canonical legal/marketing pages (legacy `/tos` and `/terms/{venue,togo}` redirect here).                                                                                         |
+| `/blog` + `/blog/author`, `/blog/category`, dynamic `/blog/[articleId]` | Explicit index routes avoid collisions with post slugs.                                                                                                                          |
+| `/signin`                                                               | Mode switcher between magic-link and password flows.                                                                                                                             |
+| `/reserve`, `/reserve/[reservationId]`, `/reserve/r/[slug]`             | Next.js App Router pages rendering the booking wizard (client components); set `NEXT_PUBLIC_FEATURE_GUEST_WIZARD_NEXT=false` to fall back to the legacy Vite/React Router shell. |
+| `/item/:slug`                                                           | Permanently redirects to `/reserve/r/:slug`.                                                                                                                                     |
 
 ## 3. Guest Account Flow (`/my-bookings`, `/profile`, `/invite`)
 

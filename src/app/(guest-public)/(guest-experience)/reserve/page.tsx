@@ -1,4 +1,4 @@
-import ReserveApp from "./_components/ReserveApp";
+import { ReservationWizardClient } from "./_components/ReservationWizardClient";
 
 import type { Metadata } from "next";
 
@@ -15,5 +15,5 @@ export const metadata: Metadata = {
 };
 
 export default function ReserveEntryPage() {
-  return <ReserveApp initialPath="/" />;
+  return <ReservationWizardClient />;
 }
