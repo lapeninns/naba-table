@@ -829,7 +829,6 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
         if (runningCapacity + capacityUpperBound < partySize) {
           // Record both the tight upper-bound failure (search pruning) and a capacity skip
           incrementCounter(diagnostics.skipped, "capacity_upper_bound");
-          incrementCounter(diagnostics.skipped, "capacity");
           return;
         }
       }
