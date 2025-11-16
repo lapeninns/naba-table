@@ -139,6 +139,32 @@ async function synchronizeAssignments(params: AssignmentSyncParams): Promise<Tab
   } = params;
   const uniqueTableIds = Array.from(new Set(tableIds));
   const loadAssignments = () => loadTableAssignmentsForTables(booking.id, uniqueTableIds, supabase);
+
+  // Prune allocations that belong to this booking but no longer match the requested tables to prevent
+  // stale exclusion conflicts (e.g., after reschedules/reassignments).
+  try {
+    const { data: existingAllocations, error: allocationLoadError } = await supabase
+      .from("allocations")
+      .select("id, resource_id")
+      .eq("booking_id", booking.id)
+      .eq("resource_type", TABLE_RESOURCE_TYPE);
+
+    if (!allocationLoadError && existingAllocations?.length) {
+      const staleAllocationIds = existingAllocations
+        .filter((allocation) => !uniqueTableIds.includes(allocation.resource_id))
+        .map((allocation) => allocation.id);
+
+      if (staleAllocationIds.length > 0) {
+        await supabase.from("allocations").delete().in("id", staleAllocationIds);
+      }
+    }
+  } catch (error) {
+    console.warn("[capacity.assignments] prune stale allocations failed", {
+      bookingId: booking.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
   let assignmentRows = await loadAssignments();
   const windowRange = `[${startIso},${endIso})`;
 
