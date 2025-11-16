@@ -37,6 +37,7 @@ import {
   type AvailabilityMap,
   type TimeFilterStats,
   type LookaheadConfig,
+  type TimeFilterMode,
 } from "./availability";
 import { computeBookingWindowWithFallback } from "./booking-window";
 import { DEFAULT_HOLD_TTL_SECONDS } from "./constants";
@@ -284,7 +285,11 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     }
     return result;
   };
-  const buildFailureResult = (reason: string, stats?: QuotePlannerStats | null): QuoteTablesResult =>
+  const buildFailureResult = (
+    reason: string,
+    stats?: QuotePlannerStats | null,
+    metadataOverrides?: Partial<NonNullable<QuoteTablesResult["metadata"]>>,
+  ): QuoteTablesResult =>
     attachPlannerStats(
       {
         hold: null,
@@ -296,6 +301,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
         metadata: {
           usedFallback: bookingWindowUsedFallback,
           fallbackService: bookingWindowFallbackService,
+          ...metadataOverrides,
         },
       },
       stats ?? null,
@@ -384,48 +390,76 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     });
   }
 
-  const filtered = filterAvailableTables(
-    tables,
-    booking.party_size,
-    window,
-    adjacency,
-    new Set(avoidTables),
-    zoneId ?? null,
-    {
-      allowInsufficientCapacity: true,
-      allowMaxPartySizeViolation: combinationEnabled,  // Allow maxPartySize violations when combinations enabled
-      timeFilter:
-        busyForPlanner && timePruningEnabled
-          ? {
-              busy: busyForPlanner,
-              mode: "strict",
-              captureStats: (stats) => {
-                timePruningStats = stats;
-              },
-            }
-          : undefined,
-    },
-  );
-  const filteredCapacity = filtered.reduce((sum, table) => sum + (table.capacity ?? 0), 0);
+  const buildFilterOptions = (overrides?: { allowMinPartySizeViolation?: boolean }) => ({
+    allowInsufficientCapacity: true,
+    allowMaxPartySizeViolation: combinationEnabled,
+    allowMinPartySizeViolation: overrides?.allowMinPartySizeViolation ?? false,
+    timeFilter:
+      busyForPlanner && timePruningEnabled
+        ? {
+            busy: busyForPlanner,
+            mode: "strict" as TimeFilterMode,
+            captureStats: (stats: TimeFilterStats) => {
+              timePruningStats = stats;
+            },
+          }
+        : undefined,
+  });
+
+  const computeCapacity = (list: Table[]) => list.reduce((sum, table) => sum + (table.capacity ?? 0), 0);
+
+  const computeFilteredTables = (allowMinPartySizeViolation: boolean) =>
+    filterAvailableTables(
+      tables,
+      booking.party_size,
+      window,
+      adjacency,
+      new Set(avoidTables),
+      zoneId ?? null,
+      buildFilterOptions({ allowMinPartySizeViolation }),
+    );
+
+  let filtered = computeFilteredTables(false);
+  let filteredCapacity = computeCapacity(filtered);
+  let relaxedMinPartySize = false;
+
+  if ((filtered.length === 0 || filteredCapacity < booking.party_size) && booking.party_size > 0) {
+    const relaxed = computeFilteredTables(true);
+    const relaxedCapacity = computeCapacity(relaxed);
+    if (relaxed.length > 0 && relaxedCapacity >= booking.party_size) {
+      filtered = relaxed;
+      filteredCapacity = relaxedCapacity;
+      relaxedMinPartySize = true;
+    }
+  }
+
   if (filtered.length === 0) {
     await demandMultiplierPromise.catch(() => null);
-    return buildFailureResult("No tables available for requested window", {
-      totalTables: tables.length,
-      filteredTables: 0,
-      combinationEnabled,
-      demandMultiplier: 0,
-      plannerDurationMs: roundMilliseconds(highResNow() - operationStart),
-    });
+    return buildFailureResult(
+      "No tables available for requested window",
+      {
+        totalTables: tables.length,
+        filteredTables: 0,
+        combinationEnabled,
+        demandMultiplier: 0,
+        plannerDurationMs: roundMilliseconds(highResNow() - operationStart),
+      },
+      { relaxedMinPartySize },
+    );
   }
   if (filteredCapacity < booking.party_size) {
     await demandMultiplierPromise.catch(() => null);
-    return buildFailureResult("Insufficient filtered capacity", {
-      totalTables: tables.length,
-      filteredTables: filtered.length,
-      combinationEnabled,
-      demandMultiplier: 0,
-      plannerDurationMs: roundMilliseconds(highResNow() - operationStart),
-    });
+    return buildFailureResult(
+      "Insufficient filtered capacity",
+      {
+        totalTables: tables.length,
+        filteredTables: filtered.length,
+        combinationEnabled,
+        demandMultiplier: 0,
+        plannerDurationMs: roundMilliseconds(highResNow() - operationStart),
+      },
+      { relaxedMinPartySize },
+    );
   }
 
   const baseScoringConfig = getSelectorScoringConfig(strategicOptions);
@@ -434,7 +468,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
   const demandMultiplierResult = await demandMultiplierPromise.catch(() => null);
   const demandMultiplier = demandMultiplierResult?.multiplier ?? 1;
   const demandRule = demandMultiplierResult?.rule;
-  const tableScarcityScores = await loadTableScarcityScores({
+  let tableScarcityScores = await loadTableScarcityScores({
     restaurantId: booking.restaurant_id,
     tables: filtered,
     client: supabase,
@@ -447,25 +481,14 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     },
   };
   const plannerStart = highResNow();
-  let plans = buildScoredTablePlans({
-    tables: filtered,
-    partySize: booking.party_size,
-    adjacency,
-    config: scoringConfig,
-    enableCombinations: combinationEnabled,
-    kMax: combinationLimit,
-    maxPlansPerSlack: selectorLimits.maxPlansPerSlack,
-    maxCombinationEvaluations: selectorLimits.maxCombinationEvaluations,
-    enumerationTimeoutMs: selectorLimits.enumerationTimeoutMs,
-    requireAdjacency,
-    demandMultiplier,
-    tableScarcityScores,
-  });
-  // Fallback: if no plans found and adjacency was required, retry without adjacency constraint
-  let requireAdjacencyUsed = requireAdjacency;
-  if (plans.plans.length === 0 && requireAdjacency) {
-    const relaxed = buildScoredTablePlans({
-      tables: filtered,
+  let plannerTables = filtered;
+  const runPlanner = (
+    candidateTables: Table[],
+    adjacencyRequired: boolean,
+    options?: { allowCapacityOverflow?: boolean; allowMinPartySizeViolation?: boolean },
+  ) =>
+    buildScoredTablePlans({
+      tables: candidateTables,
       partySize: booking.party_size,
       adjacency,
       config: scoringConfig,
@@ -474,13 +497,58 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
       maxPlansPerSlack: selectorLimits.maxPlansPerSlack,
       maxCombinationEvaluations: selectorLimits.maxCombinationEvaluations,
       enumerationTimeoutMs: selectorLimits.enumerationTimeoutMs,
-      requireAdjacency: false,
+      requireAdjacency: adjacencyRequired,
       demandMultiplier,
       tableScarcityScores,
+      allowCapacityOverflow: options?.allowCapacityOverflow ?? false,
+      allowMinPartySizeViolation: options?.allowMinPartySizeViolation ?? false,
     });
+
+  let plans = runPlanner(plannerTables, requireAdjacency);
+  // Fallback: if no plans found and adjacency was required, retry without adjacency constraint
+  let requireAdjacencyUsed = requireAdjacency;
+  if (plans.plans.length === 0 && requireAdjacency) {
+    const relaxed = runPlanner(plannerTables, false);
     if (relaxed.plans.length > 0) {
       plans = relaxed;
       requireAdjacencyUsed = false;
+    }
+  }
+
+  if (plans.plans.length === 0 && !relaxedMinPartySize && booking.party_size > 0) {
+    const relaxed = computeFilteredTables(true);
+    const relaxedCapacity = computeCapacity(relaxed);
+    if (relaxed.length > 0 && relaxedCapacity >= booking.party_size) {
+      filtered = relaxed;
+      filteredCapacity = relaxedCapacity;
+      relaxedMinPartySize = true;
+      plannerTables = relaxed;
+      tableScarcityScores = await loadTableScarcityScores({
+        restaurantId: booking.restaurant_id,
+        tables: plannerTables,
+        client: supabase,
+      });
+      plans = runPlanner(plannerTables, requireAdjacency, { allowMinPartySizeViolation: true });
+      requireAdjacencyUsed = requireAdjacency;
+      if (plans.plans.length === 0 && requireAdjacencyUsed) {
+        const relaxedAdjacency = runPlanner(plannerTables, false, { allowMinPartySizeViolation: true });
+        if (relaxedAdjacency.plans.length > 0) {
+          plans = relaxedAdjacency;
+          requireAdjacencyUsed = false;
+        }
+      }
+    }
+  }
+
+  let capacityOverflowFallbackUsed = false;
+  if (plans.plans.length === 0) {
+    const overflowResult = runPlanner(plannerTables, requireAdjacencyUsed, {
+      allowCapacityOverflow: true,
+      allowMinPartySizeViolation: relaxedMinPartySize,
+    });
+    if (overflowResult.plans.length > 0) {
+      plans = overflowResult;
+      capacityOverflowFallbackUsed = true;
     }
   }
   // const topRankedPlan = plans.plans[0] ?? null;
@@ -791,6 +859,8 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
         metadata: {
           usedFallback: bookingWindowUsedFallback,
           fallbackService: bookingWindowFallbackService,
+          relaxedMinPartySize,
+          capacityOverflowFallback: capacityOverflowFallbackUsed,
         },
       };
       return attachPlannerStats(successResult, collectPlannerStats());
@@ -841,6 +911,8 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     metadata: {
       usedFallback: bookingWindowUsedFallback,
       fallbackService: bookingWindowFallbackService,
+      relaxedMinPartySize,
+      capacityOverflowFallback: capacityOverflowFallbackUsed,
     },
   };
   return attachPlannerStats(failureResult, collectPlannerStats());
@@ -876,15 +948,37 @@ export async function findSuitableTables(options: {
     policy,
   });
 
-  const filtered = filterAvailableTables(
+  const computeCapacity = (list: Table[]) => list.reduce((sum, table) => sum + (table.capacity ?? 0), 0);
+  const filterOptions = (allowMinPartySizeViolation: boolean) => ({
+    allowInsufficientCapacity: true,
+    allowMinPartySizeViolation,
+  });
+
+  let filtered = filterAvailableTables(
     tables,
     booking.party_size,
     window,
     adjacency,
     undefined,
     undefined,
-    { allowInsufficientCapacity: true },
+    filterOptions(false),
   );
+  let relaxedMinPartyForFind = false;
+  if ((filtered.length === 0 || computeCapacity(filtered) < booking.party_size) && booking.party_size > 0) {
+    const relaxed = filterAvailableTables(
+      tables,
+      booking.party_size,
+      window,
+      adjacency,
+      undefined,
+      undefined,
+      filterOptions(true),
+    );
+    if (relaxed.length > 0 && computeCapacity(relaxed) >= booking.party_size) {
+      filtered = relaxed;
+      relaxedMinPartyForFind = true;
+    }
+  }
   const strategicOptions = { restaurantId: booking.restaurant_id ?? null } as const;
   await loadStrategicConfig({ ...strategicOptions, client: supabase });
   const baseScoringConfig = getSelectorScoringConfig(strategicOptions);
@@ -910,7 +1004,7 @@ export async function findSuitableTables(options: {
       scarcity: getYieldManagementScarcityWeight(strategicOptions),
     },
   };
-  const plans = buildScoredTablePlans({
+  let plans = buildScoredTablePlans({
     tables: filtered,
     partySize: booking.party_size,
     adjacency,
@@ -923,7 +1017,27 @@ export async function findSuitableTables(options: {
     requireAdjacency,
     demandMultiplier,
     tableScarcityScores,
+    allowMinPartySizeViolation: relaxedMinPartyForFind,
   });
+
+  if (plans.plans.length === 0) {
+    plans = buildScoredTablePlans({
+      tables: filtered,
+      partySize: booking.party_size,
+      adjacency,
+      config: scoringConfig,
+      enableCombinations: isCombinationPlannerEnabled(),
+      kMax: getAllocatorCombinationLimit(),
+      maxPlansPerSlack: selectorLimits.maxPlansPerSlack,
+      maxCombinationEvaluations: selectorLimits.maxCombinationEvaluations,
+      enumerationTimeoutMs: selectorLimits.enumerationTimeoutMs,
+      requireAdjacency,
+      demandMultiplier,
+      tableScarcityScores,
+      allowCapacityOverflow: true,
+      allowMinPartySizeViolation: relaxedMinPartyForFind,
+    });
+  }
 
   return plans.plans;
 }

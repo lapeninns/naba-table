@@ -25,6 +25,8 @@ const FEEDBACK_ICON_MAP = {
   info: Info,
 } as const;
 
+const AUTO_REDIRECT_SECONDS = 15;
+
 export function ConfirmationStep(props: ConfirmationStepProps) {
   const controller = useConfirmationStep(props);
   const { status, handleClose } = controller;
@@ -69,7 +71,7 @@ export function ConfirmationStep(props: ConfirmationStepProps) {
     }
 
     setRedirectCanceled(false);
-    setRedirectIn(5);
+    setRedirectIn(AUTO_REDIRECT_SECONDS);
 
     const interval = window.setInterval(() => {
       setRedirectIn((prev) => {
@@ -84,7 +86,7 @@ export function ConfirmationStep(props: ConfirmationStepProps) {
       if (autoRedirectEnabled) {
         handleClose();
       }
-    }, 5000);
+    }, AUTO_REDIRECT_SECONDS * 1000);
 
     return () => {
       clearInterval(interval);
@@ -116,17 +118,24 @@ export function ConfirmationStep(props: ConfirmationStepProps) {
                 <div className="relative h-1.5 w-full overflow-hidden rounded bg-muted/50">
                   <div
                     className="h-full bg-blue-600 transition-[width] duration-1000 ease-linear"
-                    style={{ width: `${((5 - (redirectIn ?? 5)) / 5) * 100}%` }}
+                    style={{
+                      width: `${
+                        ((AUTO_REDIRECT_SECONDS - (redirectIn ?? AUTO_REDIRECT_SECONDS)) /
+                          AUTO_REDIRECT_SECONDS) *
+                        100
+                      }%`,
+                    }}
                     role="progressbar"
                     aria-label="Auto-redirect progress"
                     aria-valuemin={0}
-                    aria-valuemax={5}
-                    aria-valuenow={5 - (redirectIn ?? 5)}
+                    aria-valuemax={AUTO_REDIRECT_SECONDS}
+                    aria-valuenow={AUTO_REDIRECT_SECONDS - (redirectIn ?? AUTO_REDIRECT_SECONDS)}
                   />
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-xs text-muted-foreground">
-                    Redirecting to summary in <strong>{redirectIn ?? 5}s</strong>
+                    Redirecting to summary in{' '}
+                    <strong>{redirectIn ?? AUTO_REDIRECT_SECONDS}s</strong>
                   </p>
                   <Button
                     variant="ghost"
@@ -138,8 +147,8 @@ export function ConfirmationStep(props: ConfirmationStepProps) {
                   </Button>
                 </div>
                 <div className="sr-only" role="status" aria-live="polite">
-                  Automatically redirecting in {redirectIn ?? 5} seconds. Press cancel redirect to
-                  stay on this page.
+                  Automatically redirecting in {redirectIn ?? AUTO_REDIRECT_SECONDS} seconds. Press
+                  cancel redirect to stay on this page.
                 </div>
               </>
             ) : redirectCanceled ? (

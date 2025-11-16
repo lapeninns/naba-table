@@ -40,7 +40,7 @@ export function WizardLayout({
       <Container
         style={mainStyle}
         className={cn(
-          'min-h-screen w-full bg-muted/[0.15] px-4 pb-20 pt-6 font-sans text-foreground transition-[padding-bottom] duration-200 sm:pt-12 md:px-6 lg:px-10',
+          'min-h-screen w-full bg-muted/[0.15] px-4 pb-24 pt-6 font-sans text-foreground transition-[padding-bottom] duration-200 sm:pt-12 md:px-6 lg:px-10',
         )}
       >
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 sm:gap-12">

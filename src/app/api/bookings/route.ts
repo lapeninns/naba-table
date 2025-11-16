@@ -37,7 +37,6 @@ import { buildInlineLastResult } from "@/server/capacity/auto-assign-last-result
 import { classifyPlannerReason } from "@/server/capacity/planner-reason";
 import { recordPlannerQuoteTelemetry } from "@/server/capacity/planner-telemetry";
 import { normalizeEmail, upsertCustomer } from "@/server/customers";
-import { sendBookingConfirmationEmail } from "@/server/emails/bookings";
 import { isAssignmentPipelineV3Enabled } from "@/server/feature-flags";
 import { enqueueBookingCreatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
 import { getActiveLoyaltyProgram, calculateLoyaltyAward, applyLoyaltyAward } from "@/server/loyalty";
@@ -572,12 +571,14 @@ export async function POST(req: NextRequest) {
     let startTime = data.time;
     let scheduleTimezone: string | null = null;
 
+    let lastSchedule: Awaited<ReturnType<typeof getRestaurantSchedule>> | null = null;
+
     try {
       const schedule = await getRestaurantSchedule(restaurantId, {
         date: data.date,
         client: supabase,
       });
-
+      lastSchedule = schedule;
       scheduleTimezone = schedule.timezone;
 
       const { time } = assertBookingWithinOperatingWindow({
@@ -629,7 +630,28 @@ export async function POST(req: NextRequest) {
       }
     } catch (validationError) {
       if (validationError instanceof OperatingHoursError) {
-        return NextResponse.json({ error: validationError.message }, { status: 400 });
+        const firstOpenSlot = lastSchedule?.slots.find((slot) => !slot.disabled)?.value ?? null;
+        const lastOpenSlot = lastSchedule?.slots
+          .slice()
+          .reverse()
+          .find((slot) => !slot.disabled)?.value ?? null;
+        return NextResponse.json(
+          {
+            error: validationError.message,
+            code: "OPERATING_HOURS_CLOSED",
+            details: {
+              reason: validationError.reason,
+              requestedTime: data.time,
+              bookingType: normalizedBookingType,
+              opensAt: lastSchedule?.window.opensAt,
+              closesAt: lastSchedule?.window.closesAt,
+              firstAvailableSlot: firstOpenSlot,
+              lastAvailableSlot: lastOpenSlot,
+              timezone: lastSchedule?.timezone,
+            },
+          },
+          { status: 400 }
+        );
       }
       throw validationError;
     }
@@ -957,18 +979,13 @@ export async function POST(req: NextRequest) {
             if (reloaded) {
               finalBooking = reloaded as BookingRecord;
             }
-            try {
-              await sendBookingConfirmationEmail(finalBooking);
-            } catch (mailError) {
-              console.error("[bookings][POST][inline-confirm-email]", mailError);
-            }
 
             await persistInlinePlanResult({
               success: true,
               reason: null,
               alternates: 0,
               durationMs,
-              emailSent: true,
+              emailSent: false,
               emailVariant: inlineEmailVariant,
             });
 
@@ -1258,11 +1275,6 @@ export async function POST(req: NextRequest) {
 
             if (reloaded) {
               finalBooking = reloaded as BookingRecord;
-              try {
-                await sendBookingConfirmationEmail(finalBooking);
-              } catch (mailError) {
-                console.error("[bookings][POST][inline-confirm-email]", mailError);
-              }
             }
 
             await persistInlinePlanResult({
@@ -1270,7 +1282,7 @@ export async function POST(req: NextRequest) {
               reason: quote.reason ?? null,
               alternates: quote?.alternates?.length ?? 0,
               durationMs: quoteDurationMs,
-              emailSent: true,
+              emailSent: false,
               emailVariant: inlineEmailVariant,
             });
 

@@ -171,9 +171,9 @@ export const getInitialDetails = (overrides?: Partial<BookingDetails>): BookingD
     name: '',
     email: '',
     phone: '',
-    rememberDetails: true,
+    rememberDetails: false,
     agree: true,
-    marketingOptIn: true,
+    marketingOptIn: false,
   };
 
   if (!overrides) {
@@ -317,7 +317,7 @@ export function reducer(state: State, action: Action): State {
           name: action.payload.name,
           email: action.payload.email,
           phone: action.payload.phone,
-          rememberDetails: action.payload.rememberDetails ?? true,
+          rememberDetails: action.payload.rememberDetails ?? false,
         },
       };
     case 'HYDRATE_DETAILS':

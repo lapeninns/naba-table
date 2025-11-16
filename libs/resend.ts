@@ -1,11 +1,17 @@
-import { Resend } from "resend";
+import {
+  Resend,
+  type CreateEmailOptions,
+  type CreateEmailResponse,
+} from "resend";
 
 import config from "@/config";
 import { env } from "@/lib/env";
 
 const resendApiKey = env.resend.apiKey;
 const resendFrom = env.resend.from;
+const resendUseMock = env.resend.useMock;
 const configuredSupportEmail = config.email.supportEmail?.trim();
+const DEFAULT_MOCK_FROM_ADDRESS = "mock@shipfast.local";
 
 const PLACEHOLDER_EMAIL_REGEX = /@example\.(com|org|net)$/i;
 
@@ -63,12 +69,16 @@ let resendClient: Resend | null = null;
 
 if (resendApiKey) {
   resendClient = new Resend(resendApiKey);
-} else if (env.node.env === "development") {
-  console.warn("[resend] RESEND_API_KEY is missing. Emails will not be sent.");
+} else if (!resendUseMock) {
+  console.warn(
+    "[resend] RESEND_API_KEY is missing and mock transport is disabled. Emails will not be sent.",
+  );
 }
 
-if (!resendFrom && env.node.env === "development") {
-  console.warn("[resend] RESEND_FROM is missing. Emails will not be sent.");
+if (!resendFrom && !resendUseMock) {
+  console.warn(
+    "[resend] RESEND_FROM is missing and mock transport is disabled. Emails will not be sent.",
+  );
 }
 
 export type EmailAttachment = {
@@ -77,11 +87,13 @@ export type EmailAttachment = {
   type?: string;
 };
 
-export type SendEmailParams = {
+type EmailBody =
+  | { html: string; text?: string }
+  | { html?: string; text: string };
+
+export type SendEmailParams = EmailBody & {
   to: string | string[];
   subject: string;
-  html?: string;
-  text?: string;
   replyTo?: string;
   cc?: string | string[];
   bcc?: string | string[];
@@ -107,17 +119,28 @@ export async function sendEmail({
   fromName,
   attachments,
 }: SendEmailParams): Promise<void> {
-  if (!resendClient || !resendFrom) {
-    throw new Error("Resend is not configured. Set RESEND_API_KEY and RESEND_FROM.");
+  if (!html && !text) {
+    throw new Error("Resend email payloads must include HTML or text content.");
+  }
+
+  const normalizedTo = normalize(to);
+  if (!normalizedTo?.length) {
+    throw new Error("At least one recipient is required to send an email.");
+  }
+
+  const baseFromAddress = resendFrom ?? (resendUseMock ? DEFAULT_MOCK_FROM_ADDRESS : undefined);
+
+  if (!baseFromAddress) {
+    throw new Error("Resend is not configured. Set RESEND_API_KEY/RESEND_FROM or enable RESEND_USE_MOCK.");
   }
 
   // Format the from address with custom name if provided
-  const fromAddress = fromName ? `${fromName} <${resendFrom}>` : resendFrom;
+  const fromAddress = fromName ? `${fromName} <${baseFromAddress}>` : baseFromAddress;
 
   const replyToResolution = resolveReplyToAddress({
     requested: replyTo,
     configured: configuredSupportEmail,
-    fallback: resendFrom,
+    fallback: baseFromAddress,
   });
 
   if (replyToResolution.reason && !replyToWarningLogged) {
@@ -128,7 +151,25 @@ export async function sendEmail({
     replyToWarningLogged = true;
   }
 
-  console.log(`[resend] Sending email to: ${Array.isArray(to) ? to.join(', ') : to}, subject: "${subject}", from: "${fromAddress}"`);
+  const logPrefix = resendUseMock ? "[resend] (mock)" : "[resend]";
+  console.log(
+    `${logPrefix} Sending email to: ${Array.isArray(to) ? to.join(', ') : to}, subject: "${subject}", from: "${fromAddress}"`,
+  );
+
+  if (resendUseMock) {
+    console.log("[resend] (mock) Email delivery skipped.", {
+      to: normalizedTo,
+      subject,
+      hasHtml: Boolean(html),
+      hasText: Boolean(text),
+      attachmentCount: attachments?.length ?? 0,
+    });
+    return;
+  }
+
+  if (!resendClient) {
+    throw new Error("Resend is not configured. Set RESEND_API_KEY and RESEND_FROM.");
+  }
 
   try {
     const normalizedAttachments = attachments?.map((attachment) => {
@@ -144,25 +185,40 @@ export async function sendEmail({
       };
     });
 
-    const payload = {
+    const normalizedCc = normalize(cc);
+    const normalizedBcc = normalize(bcc);
+
+    const bodyFields =
+      html && text
+        ? { html, text }
+        : html
+          ? { html }
+          : { text: text! };
+
+    const payload: CreateEmailOptions = {
       from: fromAddress,
-      to: normalize(to)!,
+      to: normalizedTo,
       subject,
-      html,
-      text,
-      cc: normalize(cc),
-      bcc: normalize(bcc),
       replyTo: replyToResolution.address,
-      attachments: normalizedAttachments,
-    } satisfies Record<string, unknown>;
+      ...bodyFields,
+      ...(normalizedCc ? { cc: normalizedCc } : {}),
+      ...(normalizedBcc ? { bcc: normalizedBcc } : {}),
+      ...(normalizedAttachments?.length ? { attachments: normalizedAttachments } : {}),
+    };
 
-    const sendEmail = resendClient.emails.send.bind(resendClient.emails) as unknown as (
-      body: Record<string, unknown>,
-    ) => Promise<{ data?: { id?: string } | null }>; 
+    const result = (await resendClient.emails.send(payload)) as CreateEmailResponse;
+    const providerError = result.error ?? null;
+    const emailId = result.data?.id ?? null;
 
-    const result = await sendEmail(payload);
+    if (providerError || !emailId) {
+      const normalizedError = providerError ?? {
+        name: "missing_id",
+        message: "Resend send call succeeded without returning an email id.",
+      };
+      throw new Error(`Resend API error (${normalizedError.name}): ${normalizedError.message}`);
+    }
 
-    console.log(`[resend] Email sent successfully. ID: ${result.data?.id}`);
+    console.log(`[resend] Email sent successfully. ID: ${emailId}`);
   } catch (error) {
     console.error("[resend] Failed to send email:", {
       to: Array.isArray(to) ? to : [to],

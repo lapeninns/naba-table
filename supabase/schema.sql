@@ -1394,10 +1394,29 @@ COMMENT ON FUNCTION public.booking_status_summary(p_restaurant_id uuid, p_start_
 -- Name: confirm_hold_assignment_tx(uuid, uuid, text, boolean, uuid, timestamp with time zone, timestamp with time zone, text, text, public.booking_status, text, jsonb, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.confirm_hold_assignment_tx(p_hold_id uuid, p_booking_id uuid, p_idempotency_key text, p_require_adjacency boolean DEFAULT false, p_assigned_by uuid DEFAULT NULL::uuid, p_window_start timestamp with time zone DEFAULT NULL::timestamp with time zone, p_window_end timestamp with time zone DEFAULT NULL::timestamp with time zone, p_expected_policy_version text DEFAULT NULL::text, p_expected_adjacency_hash text DEFAULT NULL::text, p_target_status public.booking_status DEFAULT NULL::public.booking_status, p_history_reason text DEFAULT 'auto_assign_confirm'::text, p_history_metadata jsonb DEFAULT '{}'::jsonb, p_history_changed_by uuid DEFAULT NULL::uuid) RETURNS TABLE(assignment_id uuid, table_id uuid, start_at timestamp with time zone, end_at timestamp with time zone, merge_group_id uuid)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public'
-    AS $$
+CREATE FUNCTION public.confirm_hold_assignment_tx(
+  p_hold_id uuid,
+  p_booking_id uuid,
+  p_idempotency_key text,
+  p_require_adjacency boolean DEFAULT false,
+  p_assigned_by uuid DEFAULT NULL::uuid,
+  p_window_start timestamptz DEFAULT NULL,
+  p_window_end timestamptz DEFAULT NULL,
+  p_expected_policy_version text DEFAULT NULL,
+  p_expected_adjacency_hash text DEFAULT NULL,
+  p_target_status public.booking_status DEFAULT NULL,
+  p_history_reason text DEFAULT 'auto_assign_confirm',
+  p_history_metadata jsonb DEFAULT '{}'::jsonb,
+  p_history_changed_by uuid DEFAULT NULL::uuid
+) RETURNS TABLE (
+  assignment_id uuid,
+  table_id uuid,
+  start_at timestamptz,
+  end_at timestamptz,
+  merge_group_id uuid
+) LANGUAGE plpgsql SECURITY DEFINER
+  SET search_path TO 'public'
+AS $$
 DECLARE
   v_hold public.table_holds%ROWTYPE;
   v_now timestamptz := timezone('utc', now());
@@ -1617,6 +1636,41 @@ BEGIN
   EXCEPTION
     WHEN undefined_table THEN NULL;
   END;
+
+  IF p_idempotency_key IS NOT NULL THEN
+    BEGIN
+      INSERT INTO public.booking_confirmation_results (
+        booking_id,
+        hold_id,
+        restaurant_id,
+        idempotency_key,
+        table_ids,
+        assignment_window,
+        actor_id,
+        metadata
+      ) VALUES (
+        p_booking_id,
+        p_hold_id,
+        v_hold.restaurant_id,
+        p_idempotency_key,
+        v_table_ids,
+        v_window,
+        p_assigned_by,
+        v_hold.metadata
+      )
+      ON CONFLICT (booking_id, idempotency_key) DO UPDATE
+        SET table_ids = EXCLUDED.table_ids,
+            assignment_window = EXCLUDED.assignment_window,
+            restaurant_id = EXCLUDED.restaurant_id,
+            hold_id = EXCLUDED.hold_id,
+            actor_id = EXCLUDED.actor_id,
+            metadata = EXCLUDED.metadata,
+            created_at = EXCLUDED.created_at;
+    EXCEPTION
+      WHEN undefined_table THEN NULL;
+      WHEN undefined_column THEN NULL;
+    END;
+  END IF;
 
   DELETE FROM public.table_holds WHERE id = p_hold_id;
 
@@ -2644,6 +2698,76 @@ $$;
 
 
 --
+-- Name: prune_allocations_history(timestamp with time zone, integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.prune_allocations_history(p_cutoff timestamp with time zone, p_limit integer DEFAULT 500) RETURNS TABLE(archived_count integer, deleted_count integer)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  WITH candidates AS (
+    SELECT
+      id,
+      booking_id,
+      resource_type,
+      resource_id,
+      created_at,
+      updated_at,
+      shadow,
+      restaurant_id,
+      "window",
+      created_by,
+      is_maintenance
+    FROM public.allocations
+    WHERE upper("window") < p_cutoff
+    ORDER BY updated_at
+    LIMIT p_limit
+  ), inserted AS (
+    INSERT INTO public.allocations_archive (
+      id,
+      booking_id,
+      resource_type,
+      resource_id,
+      created_at,
+      updated_at,
+      shadow,
+      restaurant_id,
+      "window",
+      created_by,
+      is_maintenance,
+      archived_at
+    )
+    SELECT
+      c.id,
+      c.booking_id,
+      c.resource_type,
+      c.resource_id,
+      c.created_at,
+      c.updated_at,
+      c.shadow,
+      c.restaurant_id,
+      c."window",
+      c.created_by,
+      c.is_maintenance,
+      timezone('utc'::text, now())
+    FROM candidates c
+    ON CONFLICT (id) DO NOTHING
+    RETURNING id
+  ), deleted AS (
+    DELETE FROM public.allocations a
+    USING inserted i
+    WHERE a.id = i.id
+    RETURNING a.id
+  )
+  RETURN QUERY
+  SELECT
+    COALESCE((SELECT count(*) FROM inserted), 0)::integer AS archived_count,
+    COALESCE((SELECT count(*) FROM deleted), 0)::integer AS deleted_count;
+END;
+$$;
+
+
+--
 -- Name: FUNCTION set_hold_conflict_enforcement(enabled boolean); Type: COMMENT; Schema: public; Owner: -
 --
 
@@ -3581,6 +3705,27 @@ CREATE TABLE public.allocations (
 
 
 --
+-- Name: allocations_archive; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.allocations_archive (
+    id uuid NOT NULL,
+    booking_id uuid,
+    resource_type text NOT NULL,
+    resource_id uuid NOT NULL,
+    created_at timestamp with time zone NOT NULL,
+    updated_at timestamp with time zone NOT NULL,
+    shadow boolean DEFAULT false NOT NULL,
+    restaurant_id uuid NOT NULL,
+    "window" tstzrange NOT NULL,
+    created_by uuid,
+    is_maintenance boolean DEFAULT false NOT NULL,
+    archived_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    CONSTRAINT allocations_archive_resource_type_check CHECK ((resource_type = ANY (ARRAY['table'::text, 'hold'::text, 'merge_group'::text])))
+);
+
+
+--
 -- Name: COLUMN allocations.shadow; Type: COMMENT; Schema: public; Owner: -
 --
 
@@ -3678,6 +3823,23 @@ CREATE TABLE public.booking_assignment_idempotency (
 --
 
 COMMENT ON COLUMN public.booking_assignment_idempotency.table_set_hash IS 'MD5 hash of sorted table ids used to dedupe idempotency payloads.';
+
+
+--
+-- Name: booking_confirmation_results; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.booking_confirmation_results (
+    booking_id uuid NOT NULL,
+    hold_id uuid NOT NULL,
+    restaurant_id uuid NOT NULL,
+    idempotency_key text NOT NULL,
+    table_ids uuid[] NOT NULL,
+    assignment_window tstzrange NOT NULL,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    actor_id uuid,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL
+);
 
 
 --
@@ -9664,6 +9826,14 @@ COPY public.booking_assignment_idempotency (booking_id, idempotency_key, table_i
 
 
 --
+-- Data for Name: booking_confirmation_results; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.booking_confirmation_results (booking_id, hold_id, restaurant_id, idempotency_key, table_ids, assignment_window, created_at, actor_id, metadata) FROM stdin;
+\.
+
+
+--
 -- Data for Name: booking_assignment_state_history; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -10046,7 +10216,14 @@ ALTER TABLE ONLY public.allocations
 --
 
 ALTER TABLE ONLY public.allocations
-    ADD CONSTRAINT allocations_no_overlap EXCLUDE USING gist (resource_type WITH =, resource_id WITH =, "window" WITH &&) WHERE ((NOT shadow)) DEFERRABLE;
+    ADD CONSTRAINT allocations_no_overlap EXCLUDE USING gist (
+        restaurant_id WITH =,
+        resource_type WITH =,
+        resource_id WITH =,
+        "window" WITH &&
+    )
+    WHERE ((NOT shadow))
+    DEFERRABLE;
 
 
 --
@@ -10058,11 +10235,11 @@ ALTER TABLE ONLY public.allocations
 
 
 --
--- Name: allocations allocations_resource_window_excl; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: allocations_archive allocations_archive_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.allocations
-    ADD CONSTRAINT allocations_resource_window_excl EXCLUDE USING gist (resource_type WITH =, resource_id WITH =, "window" WITH &&) DEFERRABLE INITIALLY DEFERRED;
+ALTER TABLE ONLY public.allocations_archive
+    ADD CONSTRAINT allocations_archive_pkey PRIMARY KEY (id);
 
 
 --
@@ -10103,6 +10280,22 @@ ALTER TABLE ONLY public.booking_assignment_attempts
 
 ALTER TABLE ONLY public.booking_assignment_idempotency
     ADD CONSTRAINT booking_assignment_idempotency_pkey PRIMARY KEY (booking_id, idempotency_key);
+
+
+--
+-- Name: booking_confirmation_results booking_confirmation_results_hold_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.booking_confirmation_results
+    ADD CONSTRAINT booking_confirmation_results_hold_id_key UNIQUE (hold_id);
+
+
+--
+-- Name: booking_confirmation_results booking_confirmation_results_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.booking_confirmation_results
+    ADD CONSTRAINT booking_confirmation_results_pkey PRIMARY KEY (booking_id, idempotency_key);
 
 
 --
@@ -10552,13 +10745,6 @@ CREATE INDEX allocations_resource_idx ON public.allocations USING btree (resourc
 
 
 --
--- Name: allocations_resource_window_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX allocations_resource_window_idx ON public.allocations USING gist (resource_type, resource_id, "window");
-
-
---
 -- Name: allocations_restaurant_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -10570,6 +10756,20 @@ CREATE INDEX allocations_restaurant_id_idx ON public.allocations USING btree (re
 --
 
 CREATE INDEX allocations_window_gist_idx ON public.allocations USING gist ("window");
+
+
+--
+-- Name: allocations_archive_booking_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX allocations_archive_booking_idx ON public.allocations_archive USING btree (booking_id);
+
+
+--
+-- Name: allocations_archive_restaurant_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX allocations_archive_restaurant_idx ON public.allocations_archive USING btree (restaurant_id);
 
 
 --
@@ -10626,6 +10826,20 @@ CREATE UNIQUE INDEX booking_assignment_idempotency_booking_hash_key ON public.bo
 --
 
 CREATE INDEX booking_assignment_idempotency_created_idx ON public.booking_assignment_idempotency USING btree (created_at DESC);
+
+
+--
+-- Name: booking_confirmation_results_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX booking_confirmation_results_created_idx ON public.booking_confirmation_results USING btree (created_at DESC);
+
+
+--
+-- Name: booking_confirmation_results_hold_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX booking_confirmation_results_hold_idx ON public.booking_confirmation_results USING btree (hold_id);
 
 
 --
@@ -11997,6 +12211,22 @@ ALTER TABLE ONLY public.booking_assignment_idempotency
 
 
 --
+-- Name: booking_confirmation_results booking_confirmation_results_booking_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.booking_confirmation_results
+    ADD CONSTRAINT booking_confirmation_results_booking_id_fkey FOREIGN KEY (booking_id) REFERENCES public.bookings(id) ON DELETE CASCADE;
+
+
+--
+-- Name: booking_confirmation_results booking_confirmation_results_restaurant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.booking_confirmation_results
+    ADD CONSTRAINT booking_confirmation_results_restaurant_id_fkey FOREIGN KEY (restaurant_id) REFERENCES public.restaurants(id) ON DELETE CASCADE;
+
+
+--
 -- Name: booking_assignment_state_history booking_assignment_state_history_booking_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -12819,6 +13049,13 @@ CREATE POLICY "Tenant service role can manage allocations" ON public.allocations
 
 
 --
+-- Name: allocations_archive Tenant service role can manage allocations archive; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Tenant service role can manage allocations archive" ON public.allocations_archive TO service_role USING ((restaurant_id = public.require_restaurant_context())) WITH CHECK ((restaurant_id = public.require_restaurant_context()));
+
+
+--
 -- Name: bookings Tenant service role can manage bookings; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -12866,6 +13103,13 @@ CREATE POLICY "Tenant service role can manage table hold members" ON public.tabl
   WHERE ((h.id = table_hold_members.hold_id) AND (h.restaurant_id = public.require_restaurant_context()))))) WITH CHECK ((EXISTS ( SELECT 1
    FROM public.table_holds h
   WHERE ((h.id = table_hold_members.hold_id) AND (h.restaurant_id = public.require_restaurant_context())))));
+
+
+--
+-- Name: booking_confirmation_results Tenant service role can manage booking confirmation results; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Tenant service role can manage booking confirmation results" ON public.booking_confirmation_results TO service_role USING ((restaurant_id = public.require_restaurant_context())) WITH CHECK ((restaurant_id = public.require_restaurant_context()));
 
 
 --
@@ -12929,6 +13173,13 @@ CREATE POLICY "Users can view strategic configs for their restaurants" ON public
 
 ALTER TABLE public.allocations ENABLE ROW LEVEL SECURITY;
 
+
+--
+-- Name: allocations_archive; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.allocations_archive ENABLE ROW LEVEL SECURITY;
+
 --
 -- Name: allowed_capacities; Type: ROW SECURITY; Schema: public; Owner: -
 --
@@ -12979,6 +13230,12 @@ ALTER TABLE public.booking_slots ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.booking_table_assignments ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: booking_confirmation_results; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.booking_confirmation_results ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: booking_versions; Type: ROW SECURITY; Schema: public; Owner: -
@@ -13191,4 +13448,3 @@ ALTER TABLE public.zones ENABLE ROW LEVEL SECURITY;
 --
 
 \unrestrict gSDhXXehSSF3NV8FTrs8e8o7N9SccgeqeYBZJQrgdVj4u9EfcFokZnlGtCiHJXH
-

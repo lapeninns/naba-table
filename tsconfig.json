@@ -62,6 +62,7 @@
     "reserve/tests/**/*",
     "**/*.test.ts",
     "**/*.test.tsx",
-    "**/__tests__/**/*"
+    "**/__tests__/**/*",
+    ".next/dev/types/routes.d.ts"
   ]
 }

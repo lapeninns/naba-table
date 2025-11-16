@@ -2,6 +2,8 @@ import { env } from "@/lib/env";
 import { isAssignmentPipelineRuntimeDisabled } from "@/server/assignments/runtime-guard";
 import { getFeatureFlagOverride, type FeatureFlagKey } from "@/server/feature-flags-overrides";
 
+export type AdjacencyMode = "connected" | "pairwise" | "neighbors";
+
 const loyaltyPilotIds = new Set(
   (env.featureFlags.loyaltyPilotRestaurantIds ?? "")
     .split(",")
@@ -131,6 +133,19 @@ export function getAllocatorKMax(): number {
 
 export function getAllocatorAdjacencyMinPartySize(): number | null {
   const value = env.featureFlags.allocator.adjacencyMinPartySize;
+  return typeof value === "number" ? value : null;
+}
+
+export function getAllocatorAdjacencyMode(): AdjacencyMode {
+  const value = env.featureFlags.allocator.adjacencyMode;
+  if (value === "pairwise" || value === "neighbors") {
+    return value;
+  }
+  return "connected";
+}
+
+export function getManualAssignmentMaxSlack(): number | null {
+  const value = env.featureFlags.manualAssignments?.maxSlack;
   return typeof value === "number" ? value : null;
 }
 

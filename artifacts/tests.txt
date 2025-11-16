@@ -1,0 +1,14 @@
+
+> ship-fast-code@0.1.0 test /Users/amankumarshrestha/Downloads/SajiloReserveX
+> vitest run --config reserve/vitest.config.ts tests/server/capacity/assignTablesAtomic.test.ts
+
+
+ RUN  v3.2.4 /Users/amankumarshrestha/Downloads/SajiloReserveX/reserve
+
+No test files found, exiting with code 1
+
+filter: tests/server/capacity/assignTablesAtomic.test.ts
+include: **/*.{test,spec}.?(c|m)[jt]s?(x)
+exclude:  tests/e2e/**
+
+ ELIFECYCLE  Test failed. See above for more details.

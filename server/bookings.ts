@@ -473,6 +473,15 @@ type TableAssignmentRow = {
 };
 
 export async function clearBookingTableAssignments(client: DbClient, bookingId: string): Promise<number> {
+  const stringify = (error: unknown) => {
+    if (error instanceof Error) return error.message;
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return String(error);
+    }
+  };
+
   try {
     const { data, error } = await client
       .from("booking_table_assignments")
@@ -496,15 +505,26 @@ export async function clearBookingTableAssignments(client: DbClient, bookingId: 
       p_table_ids: tableIds,
     });
 
-    if (rpcError) {
-      throw rpcError;
+    if (!rpcError) {
+      return tableIds.length;
     }
 
-    return tableIds.length;
+    console.warn("[bookings] unassign_tables_atomic failed; falling back to delete", {
+      bookingId,
+      tableIds,
+      error: stringify(rpcError),
+    });
+
+    const { error: deleteError } = await client.from("booking_table_assignments").delete().eq("booking_id", bookingId);
+    if (!deleteError) {
+      return tableIds.length;
+    }
+
+    throw deleteError;
   } catch (error) {
     console.warn("[bookings] failed to clear table assignments", {
       bookingId,
-      error: error instanceof Error ? error.message : String(error),
+      error: stringify(error),
     });
     return 0;
   }

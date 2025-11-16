@@ -100,9 +100,15 @@ export const env = {
 
   get resend() {
     const parsed = parseEnv();
+    const explicitMock =
+      typeof parsed.RESEND_USE_MOCK === "boolean" ? parsed.RESEND_USE_MOCK : null;
+    const hasCredentials = Boolean(parsed.RESEND_API_KEY && parsed.RESEND_FROM);
+    const defaultUseMock =
+      explicitMock ?? (parsed.NODE_ENV !== "production" && !hasCredentials);
     return {
       apiKey: parsed.RESEND_API_KEY,
       from: parsed.RESEND_FROM,
+      useMock: defaultUseMock,
     } as const;
   },
 
@@ -112,7 +118,7 @@ export const env = {
     const allocatorKMax = Math.max(1, Math.min(parsed.FEATURE_ALLOCATOR_K_MAX ?? 3, 5));
     const allocatorMergesDefault = parsed.FEATURE_ALLOCATOR_MERGES_ENABLED ?? !isProduction;
     const combinationPlannerDefault = parsed.FEATURE_COMBINATION_PLANNER ?? allocatorMergesDefault;
-    const plannerTimePruningDefault = parsed.FEATURE_PLANNER_TIME_PRUNING_ENABLED ?? false;
+    const plannerTimePruningDefault = parsed.FEATURE_PLANNER_TIME_PRUNING_ENABLED ?? true;
     const plannerCacheTtlMs =
       typeof parsed.PLANNER_CACHE_TTL_MS === "number"
         ? Math.max(1_000, Math.min(parsed.PLANNER_CACHE_TTL_MS, 600_000))
@@ -120,6 +126,12 @@ export const env = {
     const adjacencyMinPartySize =
       typeof parsed.FEATURE_ALLOCATOR_ADJACENCY_MIN_PARTY_SIZE === "number"
         ? Math.max(1, Math.min(parsed.FEATURE_ALLOCATOR_ADJACENCY_MIN_PARTY_SIZE, 20))
+        : null;
+    const adjacencyModeRaw = parsed.FEATURE_ALLOCATOR_ADJACENCY_MODE;
+    const adjacencyMode = adjacencyModeRaw === "pairwise" || adjacencyModeRaw === "neighbors" ? adjacencyModeRaw : "connected";
+    const manualAssignmentMaxSlack =
+      typeof parsed.FEATURE_MANUAL_ASSIGNMENT_MAX_SLACK === "number"
+        ? Math.max(0, Math.min(parsed.FEATURE_MANUAL_ASSIGNMENT_MAX_SLACK, 12))
         : null;
     const selectorMaxPlansPerSlack =
       typeof parsed.FEATURE_SELECTOR_MAX_PLANS_PER_SLACK === "number"
@@ -187,9 +199,13 @@ export const env = {
         requireAdjacency: parsed.FEATURE_ALLOCATOR_REQUIRE_ADJACENCY ?? true,
         kMax: allocatorKMax,
         adjacencyMinPartySize,
+        adjacencyMode,
         service: {
           failHard: parsed.FEATURE_ALLOCATOR_SERVICE_FAIL_HARD ?? false,
         },
+      },
+      manualAssignments: {
+        maxSlack: manualAssignmentMaxSlack,
       },
       selector: {
         maxPlansPerSlack: selectorMaxPlansPerSlack,

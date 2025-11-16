@@ -71,7 +71,7 @@ export class PolicyDriftError extends AssignTablesRpcError {
     const serializedDetails = params.details ? JSON.stringify(params.details) : null;
     super({
       message: params.message,
-      code: "POLICY_CHANGED",
+      code: "POLICY_DRIFT",
       details: serializedDetails,
       hint: params.hint ?? "Refresh and revalidate selection before confirming.",
     });
@@ -88,7 +88,7 @@ export type TableAssignmentGroup = {
 };
 
 export type ManualSelectionCheck = {
-  id: "capacity" | "zone" | "movable" | "adjacency" | "conflict" | "holds";
+  id: "capacity" | "slack" | "zone" | "movable" | "adjacency" | "conflict" | "holds";
   status: "ok" | "warning" | "error";
   message: string;
   details?: Record<string, unknown>;
@@ -108,6 +108,7 @@ export type ManualValidationResult = {
   summary: ManualSelectionSummary;
   checks: ManualSelectionCheck[];
   policyVersion?: string;
+  slackBudget?: number;
 };
 
 export type ManualSelectionOptions = {
@@ -166,6 +167,8 @@ export type QuoteTablesResult = {
   metadata?: {
     usedFallback: boolean;
     fallbackService: ServiceKey | null;
+    relaxedMinPartySize?: boolean;
+    capacityOverflowFallback?: boolean;
   };
   plannerStats?: QuotePlannerStats | null;
 };

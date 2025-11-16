@@ -1,3 +1,7 @@
+import { getAllocatorAdjacencyMode, type AdjacencyMode } from "@/server/feature-flags";
+
+import { evaluateAdjacency, isAdjacencySatisfied, summarizeAdjacencyStatus } from "./adjacency";
+
 import type { SelectorScoringConfig, SelectorScoringWeights } from "./policy";
 import type { Table } from "./tables";
 
@@ -5,6 +9,8 @@ const DIAGNOSTIC_SKIP_KEYS = [
   "capacity",
   "overage",
   "adjacency",
+  "adjacency_pairwise",
+  "adjacency_neighbors",
   "kmax",
   "zone",
   "limit",
@@ -48,7 +54,7 @@ export type RankedTablePlan = {
   metrics: CandidateMetrics;
   score: number;
   tableKey: string;
-  adjacencyStatus: "single" | "connected" | "disconnected";
+  adjacencyStatus: "single" | "connected" | "neighbors" | "pairwise" | "disconnected";
   scoreBreakdown: ScoreBreakdown;
 };
 
@@ -129,6 +135,8 @@ export type BuildCandidatesOptions = {
   requireAdjacency?: boolean;
   demandMultiplier?: number;
   tableScarcityScores?: Map<string, number>;
+  allowCapacityOverflow?: boolean;
+  allowMinPartySizeViolation?: boolean;
 };
 
 export type BuildCandidatesResult = {
@@ -170,12 +178,16 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
     requireAdjacency = true,
     demandMultiplier: inputDemandMultiplier,
     tableScarcityScores: providedScarcityScores,
+    allowCapacityOverflow = false,
+    allowMinPartySizeViolation = false,
   } = options;
   const { maxOverage, weights } = config;
   const demandMultiplier = normalizeDemandMultiplier(inputDemandMultiplier);
   const tableScarcityScores = providedScarcityScores ?? computeTableScarcityScores(tables);
+  const adjacencyMode = getAllocatorAdjacencyMode();
 
   const maxAllowedCapacity = partySize + Math.max(maxOverage, 0);
+  const effectiveCapacityCap = allowCapacityOverflow ? Number.POSITIVE_INFINITY : maxAllowedCapacity;
   const combinationCap = Math.max(1, Math.min(kMax ?? config.maxTables ?? 1, tables.length || 1));
   const perSlackLimit = Math.max(1, maxPlansPerSlack ?? DEFAULT_MAX_PLANS_PER_SLACK);
   const combinationEvaluationLimit = Math.max(1, maxCombinationEvaluations ?? DEFAULT_MAX_COMBINATION_EVALUATIONS);
@@ -206,7 +218,12 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
       continue;
     }
 
-    if (typeof table.minPartySize === "number" && table.minPartySize > 0 && partySize < table.minPartySize) {
+    if (
+      !allowMinPartySizeViolation &&
+      typeof table.minPartySize === "number" &&
+      table.minPartySize > 0 &&
+      partySize < table.minPartySize
+    ) {
       incrementCounter(diagnostics.skipped, "capacity");
       continue;
     }
@@ -223,7 +240,7 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
       continue;
     }
 
-    if (capacity > maxAllowedCapacity) {
+    if (capacity > effectiveCapacityCap) {
       incrementCounter(diagnostics.skipped, "overage");
       continue;
     }
@@ -280,12 +297,13 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
       partySize,
       weights,
       adjacency,
-      maxAllowedCapacity,
+      maxAllowedCapacity: effectiveCapacityCap,
       kMax: combinationCap,
       bucketLimit: perSlackLimit,
       evaluationLimit: combinationEvaluationLimit,
       diagnostics,
       requireAdjacency,
+      adjacencyMode,
       tableScarcityScores,
       demandMultiplier,
     });
@@ -531,6 +549,7 @@ type CombinationPlannerArgs = {
   evaluationLimit: number;
   diagnostics: CandidateDiagnostics;
   requireAdjacency: boolean;
+  adjacencyMode: AdjacencyMode;
   tableScarcityScores: Map<string, number>;
   demandMultiplier: number;
 };
@@ -555,6 +574,7 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
     evaluationLimit,
     diagnostics,
     requireAdjacency,
+    adjacencyMode,
     tableScarcityScores,
     demandMultiplier,
   } = args;
@@ -565,9 +585,12 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
 
   const seenKeys = new Set<string>();
   const buckets = new Map<number, RankedTablePlan[]>();
-  // Sort by capacity asc for deterministic ordering
+  // Sort by capacity DESC so larger tables (which can satisfy the party alone)
+  // are evaluated before the search explores many small-table combinations.
+  // This dramatically reduces the DFS branching factor when multiple workers
+  // are competing for 6–8 tops, preventing long inline polling loops.
   const sortedCandidates = [...candidates].sort((a, b) => {
-    const capacityDiff = (a.capacity ?? 0) - (b.capacity ?? 0);
+    const capacityDiff = (b.capacity ?? 0) - (a.capacity ?? 0);
     if (capacityDiff !== 0) return capacityDiff;
     const nameA = a.tableNumber ?? a.id;
     const nameB = b.tableNumber ?? b.id;
@@ -745,19 +768,22 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
         const key = buildTableKey(selection);
         if (!seenKeys.has(key)) {
           seenKeys.add(key);
-          const adjacencyEvaluation = evaluateAdjacency(selection, adjacency);
-          if (!adjacencyEvaluation.connected && requireAdjacency) {
-            incrementCounter(diagnostics.skipped, "adjacency");
+          const selectionIds = selection.map((table) => table.id);
+          const adjacencyEvaluation = evaluateAdjacency(selectionIds, adjacency);
+          const adjacencySatisfied = !requireAdjacency || isAdjacencySatisfied(adjacencyEvaluation, adjacencyMode);
+          if (!adjacencySatisfied) {
+            const skipKey =
+              adjacencyMode === "pairwise"
+                ? "adjacency_pairwise"
+                : adjacencyMode === "neighbors"
+                  ? "adjacency_neighbors"
+                  : "adjacency";
+            incrementCounter(diagnostics.skipped, skipKey);
           } else {
             const metrics = computeMetrics(selection, partySize, adjacencyEvaluation.depths, tableScarcityScores);
             const { score, breakdown } = computeScore(metrics, weights, demandMultiplier);
             const totalCapacity = metrics.overage + partySize;
-            const adjacencyStatus: RankedTablePlan["adjacencyStatus"] =
-              selection.length <= 1
-                ? "single"
-                : adjacencyEvaluation.connected
-                  ? "connected"
-                  : "disconnected";
+            const adjacencyStatus = summarizeAdjacencyStatus(adjacencyEvaluation, selection.length);
             const plan: RankedTablePlan = {
               tables: [...selection],
               totalCapacity,
@@ -801,6 +827,7 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
         }
         const capacityUpperBound = computeCapacityUpperBound(candidateIdsForUpperBound, remainingSlots, baseZoneId, selectionIds);
         if (runningCapacity + capacityUpperBound < partySize) {
+          // Record both the tight upper-bound failure (search pruning) and a capacity skip
           incrementCounter(diagnostics.skipped, "capacity_upper_bound");
           return;
         }
@@ -879,46 +906,5 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
     .sort((a, b) => comparePlans(a, b, weights));
 }
 
-function evaluateAdjacency(
-  tables: Table[],
-  adjacency: Map<string, Set<string>>,
-): { connected: boolean; depths: Map<string, number> } {
-  if (tables.length === 0) {
-    return { connected: true, depths: new Map() };
-  }
-
-  if (tables.length === 1) {
-    return { connected: true, depths: new Map([[tables[0].id, 0]]) };
-  }
-
-  const tableIds = tables.map((table) => table.id);
-  const selection = new Set(tableIds);
-  const depths = new Map<string, number>();
-  const queue: string[] = [];
-
-  const [firstId] = tableIds;
-  queue.push(firstId);
-  depths.set(firstId, 0);
-
-  while (queue.length > 0) {
-    const current = queue.shift();
-    if (!current) {
-      continue;
-    }
-    const neighbors = adjacency.get(current);
-    if (!neighbors) {
-      continue;
-    }
-    for (const neighbor of neighbors) {
-      if (!selection.has(neighbor) || depths.has(neighbor)) {
-        continue;
-      }
-      const depth = (depths.get(current) ?? 0) + 1;
-      depths.set(neighbor, depth);
-      queue.push(neighbor);
-    }
-  }
-
-  const connected = depths.size === selection.size;
-  return { connected, depths };
-}
+// evaluateAdjacency implementation lives in server/capacity/adjacency.ts. Keep selector
+// focused on search/selection logic and reuse the shared helper to avoid divergence.

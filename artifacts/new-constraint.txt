@@ -1,0 +1,5 @@
+        conname         | contype | condeferrable | condeferred |                                                              definition                                                               
+------------------------+---------+---------------+-------------+---------------------------------------------------------------------------------------------------------------------------------------
+ allocations_no_overlap | x       | t             | f           | EXCLUDE USING gist (restaurant_id WITH =, resource_type WITH =, resource_id WITH =, "window" WITH &&) WHERE ((NOT shadow)) DEFERRABLE
+(1 row)
+

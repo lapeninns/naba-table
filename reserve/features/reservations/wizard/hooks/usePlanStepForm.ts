@@ -458,6 +458,8 @@ function useUnavailableDateTracking({
   useEffect(() => {
     const initialMonth = parseDateKey(date) ?? normalizedMinDate;
     prefetchVisibleMonth(initialMonth);
+    const nextMonth = new Date(initialMonth.getFullYear(), initialMonth.getMonth() + 1, 1);
+    prefetchVisibleMonth(nextMonth);
   }, [date, normalizedMinDate, prefetchVisibleMonth]);
 
   useEffect(() => {
@@ -755,6 +757,10 @@ export function usePlanStepForm({
       if (formatted) {
         onTrack?.('select_date', { date: formatted });
       }
+      if (!formatted) {
+        form.setValue('time', '', { shouldDirty: true, shouldValidate: true });
+        updateField('time', '');
+      }
     },
     [form, onTrack, updateField],
   );
@@ -762,6 +768,8 @@ export function usePlanStepForm({
   const selectTime = useCallback(
     (value: string, options?: { commit?: boolean }) => {
       if (!hasAvailableSlots) {
+        form.setValue('time', '', { shouldDirty: true, shouldValidate: true });
+        updateField('time', '');
         return;
       }
 
@@ -928,13 +936,13 @@ export function usePlanStepForm({
         label: 'Continue',
         icon: 'ChevronDown',
         variant: 'default',
-        disabled: form.formState.isSubmitting || !form.formState.isValid,
+        disabled: form.formState.isSubmitting || !form.formState.isValid || !hasAvailableSlots,
         loading: form.formState.isSubmitting,
         onClick: handleContinue,
         role: 'primary',
       },
     ],
-    [form.formState.isSubmitting, form.formState.isValid, handleContinue],
+    [form.formState.isSubmitting, form.formState.isValid, handleContinue, hasAvailableSlots],
   );
 
   useEffect(() => {

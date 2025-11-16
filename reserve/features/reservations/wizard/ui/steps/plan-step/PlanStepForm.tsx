@@ -24,7 +24,8 @@ type PlanStepFormContentProps = {
   state: PlanStepFormState;
 };
 
-const UNKNOWN_AVAILABILITY_COPY = 'Schedule not loaded yet—scroll to load month.';
+const UNKNOWN_AVAILABILITY_COPY =
+  'Loading availability for this month… if it stalls, change the date or refresh.';
 
 function PlanStepFormContent({ state }: PlanStepFormContentProps) {
   const { control, formState, handleSubmit, getValues } = state.form;

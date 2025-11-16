@@ -165,7 +165,7 @@ type AutoQuoteCandidate = {
   tableCount: number;
   slack?: number;
   score?: number;
-  adjacencyStatus?: 'single' | 'connected' | 'disconnected';
+  adjacencyStatus?: 'single' | 'connected' | 'neighbors' | 'pairwise' | 'disconnected';
 };
 
 type AutoQuoteResponse = {

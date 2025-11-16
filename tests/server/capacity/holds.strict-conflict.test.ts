@@ -91,20 +91,24 @@ function createSupabaseClientWithConflicts(conflicts: SupabaseHoldRow[]) {
             maybeSingle: async () => ({ data: null, error: null }),
           }),
         }),
+        select: () => createChainableQuery({ data: [], error: null }),
       };
     },
   };
 }
 
 describe("createTableHold strict conflicts", () => {
-  beforeEach(() => {
-    vi.resetModules();
-    vi.clearAllMocks();
-    process.env.NODE_ENV = "test";
-    for (const [key, value] of Object.entries(REQUIRED_ENV)) {
-      process.env[key] = value;
-    }
-  });
+beforeEach(async () => {
+  vi.resetModules();
+  vi.clearAllMocks();
+  process.env.NODE_ENV = "test";
+  for (const [key, value] of Object.entries(REQUIRED_ENV)) {
+    process.env[key] = value;
+  }
+  // Force strict conflicts on for these tests
+  const featureFlagsModule = await import("@/server/feature-flags");
+  vi.spyOn(featureFlagsModule, "isHoldStrictConflictsEnabled").mockReturnValue(true);
+});
 
   it("throws when strict conflicts are present", async () => {
     const telemetry = await import("@/server/capacity/telemetry");

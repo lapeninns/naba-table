@@ -236,7 +236,7 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                                     Save contact details for next time
                                   </span>
                                   <p className="text-sm text-muted-foreground">
-                                    We’ll pre-fill your info the next time you book on this device.
+                                    Stores on this device for 6 hours; uncheck to remove sooner.
                                   </p>
                                 </div>
                               </Label>

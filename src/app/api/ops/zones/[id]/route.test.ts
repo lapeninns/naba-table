@@ -98,14 +98,21 @@ function createSupabaseStub(options: SupabaseStubOptions = {}) {
           }),
           delete: () => ({
             eq: (_column: string, zoneId: string) => {
-              if (options.deleteError) {
-                return Promise.resolve({ error: options.deleteError });
-              }
-              const index = zones.findIndex((zone) => zone.id === zoneId);
-              if (index !== -1) {
-                zones.splice(index, 1);
-              }
-              return Promise.resolve({ error: null });
+              const zone = zones.find((item) => item.id === zoneId);
+              return {
+                select: () => ({
+                  single: async () => {
+                    if (options.deleteError) {
+                      return { data: null, error: options.deleteError };
+                    }
+                    const index = zones.findIndex((item) => item.id === zoneId);
+                    if (index !== -1) {
+                      zones.splice(index, 1);
+                    }
+                    return { data: zone ? { restaurant_id: zone.restaurant_id } : null, error: null };
+                  },
+                }),
+              };
             },
           }),
         };

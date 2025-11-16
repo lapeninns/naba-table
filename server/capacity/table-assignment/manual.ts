@@ -1,9 +1,10 @@
 import { DateTime } from "luxon";
 
+import { evaluateAdjacency as evaluateAdjacencyGraph, isAdjacencySatisfied, summarizeAdjacencyStatus } from "@/server/capacity/adjacency";
 import { listActiveHoldsForBooking, createTableHold, findHoldConflicts, type HoldConflictInfo, type TableHold, type CreateTableHoldInput } from "@/server/capacity/holds";
-import { getVenuePolicy, ServiceOverrunError } from "@/server/capacity/policy";
+import { getSelectorScoringConfig, getVenuePolicy, ServiceOverrunError } from "@/server/capacity/policy";
 import { computePayloadChecksum, hashPolicyVersion } from "@/server/capacity/v2";
-import { isHoldsEnabled, isHoldStrictConflictsEnabled, isAllocatorAdjacencyRequired, isAdjacencyQueryUndirected } from "@/server/feature-flags";
+import { getAllocatorAdjacencyMode, getManualAssignmentMaxSlack, isHoldsEnabled, isHoldStrictConflictsEnabled, isAllocatorAdjacencyRequired, isAdjacencyQueryUndirected } from "@/server/feature-flags";
 
 import { buildBusyMaps, extractConflictsForTables, resolveRequireAdjacency } from "./availability";
 import { computeBookingWindowWithFallback } from "./booking-window";
@@ -12,29 +13,15 @@ import { ensureClient, loadBooking, loadTablesByIds, loadTablesForRestaurant, lo
 import { ManualSelectionInputError, type ManualSelectionOptions, type ManualValidationResult, type ManualHoldOptions, type ManualHoldResult, type ManualSelectionSummary, type ManualSelectionCheck, type ManualAssignmentConflict, type ManualAssignmentContext, type ManualAssignmentContextHold, type Table, type BookingWindow } from "./types";
 import { toIsoUtc, summarizeSelection } from "./utils";
 
+const DEFAULT_MANUAL_SLACK_BUDGET = 4;
 
-function evaluateAdjacency(
-  tableIds: string[],
-  adjacency: Map<string, Set<string>>,
-): { connected: boolean } {
-  if (tableIds.length <= 1) {
-    return { connected: true };
+function resolveManualSlackBudget(): number {
+  const override = getManualAssignmentMaxSlack();
+  if (typeof override === "number") {
+    return override;
   }
-  const queue = [tableIds[0]!];
-  const visited = new Set<string>([tableIds[0]!]);
-  while (queue.length > 0) {
-    const current = queue.shift();
-    if (!current) continue;
-    const neighbors = adjacency.get(current);
-    if (!neighbors) continue;
-    for (const neighbor of neighbors) {
-      if (!tableIds.includes(neighbor)) continue;
-      if (visited.has(neighbor)) continue;
-      visited.add(neighbor);
-      queue.push(neighbor);
-    }
-  }
-  return { connected: visited.size === tableIds.length };
+  const selectorConfig = getSelectorScoringConfig();
+  return Math.max(0, selectorConfig.maxOverage ?? DEFAULT_MANUAL_SLACK_BUDGET);
 }
 
 function buildManualChecks(params: {
@@ -44,9 +31,10 @@ function buildManualChecks(params: {
   adjacency: Map<string, Set<string>>;
   conflicts: ManualAssignmentConflict[];
   holdConflicts: HoldConflictInfo[];
+  slackBudget: number;
 }): ManualSelectionCheck[] {
   const checks: ManualSelectionCheck[] = [];
-  const { summary, tables, requireAdjacency, adjacency, conflicts, holdConflicts } = params;
+  const { summary, tables, requireAdjacency, adjacency, conflicts, holdConflicts, slackBudget } = params;
 
   checks.push({
     id: "capacity",
@@ -59,6 +47,19 @@ function buildManualChecks(params: {
       totalCapacity: summary.totalCapacity,
       partySize: summary.partySize,
       slack: summary.slack,
+    },
+  });
+
+  const slackOk = summary.slack <= slackBudget;
+  checks.push({
+    id: "slack",
+    status: slackOk ? "ok" : "error",
+    message: slackOk
+      ? `Slack within budget (${summary.slack} <= ${slackBudget})`
+      : `Selection exceeds slack budget (allowed ${slackBudget}, actual ${summary.slack})`,
+    details: {
+      slack: summary.slack,
+      allowedSlack: slackBudget,
     },
   });
 
@@ -94,22 +95,37 @@ function buildManualChecks(params: {
   }
 
   if (requireAdjacency && tables.length > 1) {
-    const evaluation = evaluateAdjacency(
+    const adjacencyMode = getAllocatorAdjacencyMode();
+    const evaluation = evaluateAdjacencyGraph(
       tables.map((table) => table.id),
       adjacency,
     );
+    const adjacencyOk = isAdjacencySatisfied(evaluation, adjacencyMode);
+    const failureMessage =
+      adjacencyMode === "pairwise"
+        ? "Tables must be adjacent to every other selected table"
+        : adjacencyMode === "neighbors"
+          ? "Tables must share a common neighbor/hub to be merged"
+          : "Tables must remain connected when adjacency enforcement is enabled";
     checks.push({
       id: "adjacency",
-      status: evaluation.connected ? "ok" : "error",
-      message: evaluation.connected
-        ? "Tables are connected"
-        : "Tables must be adjacent when adjacency enforcement is enabled",
+      status: adjacencyOk ? "ok" : "error",
+      message: adjacencyOk
+        ? `Tables satisfy ${summarizeAdjacencyStatus(evaluation, tables.length)} adjacency`
+        : failureMessage,
+      details: {
+        mode: adjacencyMode,
+        status: summarizeAdjacencyStatus(evaluation, tables.length),
+      },
     });
   } else {
     checks.push({
       id: "adjacency",
       status: "ok",
       message: "Adjacency not required",
+      details: {
+        mode: requireAdjacency ? getAllocatorAdjacencyMode() : "off",
+      },
     });
   }
 
@@ -224,6 +240,7 @@ export async function evaluateManualSelection(options: ManualSelectionOptions): 
 
   const requireAdjacency = resolveRequireAdjacency(booking.party_size, requireAdjacencyOverride);
   const summary = summarizeSelection(selectionTables, booking.party_size);
+  const slackBudget = resolveManualSlackBudget();
   const checks = buildManualChecks({
     summary,
     tables: selectionTables,
@@ -231,6 +248,7 @@ export async function evaluateManualSelection(options: ManualSelectionOptions): 
     adjacency,
     conflicts,
     holdConflicts,
+    slackBudget,
   });
 
   const ok = checks.every((check) => check.status !== "error");
@@ -240,6 +258,7 @@ export async function evaluateManualSelection(options: ManualSelectionOptions): 
     summary,
     checks,
     policyVersion,
+    slackBudget,
   };
 }
 

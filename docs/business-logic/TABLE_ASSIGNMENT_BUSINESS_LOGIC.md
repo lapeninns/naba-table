@@ -451,6 +451,8 @@ const acceptable = ratio >= 1.0 && ratio <= 1.3;
 ALTER TABLE allocations
   ADD CONSTRAINT allocations_no_overlap
   EXCLUDE USING gist (
+    restaurant_id WITH =,
+    resource_type WITH =,
     resource_id WITH =,
     window WITH &&
   )
@@ -637,13 +639,14 @@ CREATE TABLE allocations (
 
   -- Ensure no overlapping allocations per resource
   CONSTRAINT allocations_no_overlap
-    EXCLUDE USING gist (resource_id WITH =, window WITH &&)
+    EXCLUDE USING gist (
+      restaurant_id WITH =,
+      resource_type WITH =,
+      resource_id WITH =,
+      window WITH &&
+    )
     WHERE (shadow = false)
 );
-
--- Optimize overlap queries
-CREATE INDEX allocations_resource_window_idx
-  ON allocations USING gist (resource_id, window);
 ```
 
 #### `table_holds`
@@ -939,7 +942,7 @@ class AssignmentConflictError extends Error {
 
 ```typescript
 class PolicyDriftError extends Error {
-  code: 'POLICY_CHANGED';
+  code: 'POLICY_DRIFT';
   kind: 'policy' | 'adjacency' | 'zones';
   driftDetails: {
     expectedHash?: string;
@@ -1040,7 +1043,7 @@ const RETRY_CONFIG = {
   retryableErrors: [
     'ASSIGNMENT_CONFLICT',
     'ASSIGNMENT_REPOSITORY_ERROR',
-    'POLICY_CHANGED', // Auto-requote
+    'POLICY_DRIFT', // Auto-requote
   ],
 
   nonRetryableErrors: ['ASSIGNMENT_VALIDATION', 'HOLD_NOT_FOUND', 'TABLES_REQUIRED'],

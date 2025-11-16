@@ -53,6 +53,7 @@ const routeContext: {
 vi.mock("@/server/supabase", () => ({
   getRouteHandlerSupabaseClient: vi.fn(async () => routeClient),
   getServiceSupabaseClient: vi.fn(() => serviceClient),
+  getTenantServiceSupabaseClient: vi.fn(() => serviceClient),
 }));
 
 vi.mock("@/server/emails/bookings", () => ({
@@ -263,6 +264,43 @@ describe("POST /api/staff/manual/hold", () => {
         createdBy: "user-1",
       }),
     );
+  });
+
+  it("returns 422 when manual validation fails", async () => {
+    mockCreateManualHold.mockResolvedValue({
+      hold: null,
+      validation: {
+        ok: false,
+        summary: {
+          tableCount: 1,
+          totalCapacity: 6,
+          slack: 3,
+          zoneId: "zone-1",
+          tableNumbers: ["T1"],
+          partySize: 3,
+        },
+        checks: [
+          {
+            id: "slack",
+            status: "error",
+            message: "Selection exceeds slack budget",
+          },
+        ],
+        policyVersion: "v1",
+      },
+    });
+
+    const request = new Request("http://localhost/api/staff/manual/hold", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bookingId: BOOKING_ID, tableIds: [TABLE_ID], contextVersion: "ctx-1" }),
+    }) as unknown as NextRequest;
+
+    const response = await holdPost(request);
+    const payload = await response.json();
+    expect(response.status).toBe(422);
+    expect(payload.code).toBe("SLACK_BUDGET_EXCEEDED");
+    expect(payload.validation.checks[0]?.id).toBe("slack");
   });
 });
 

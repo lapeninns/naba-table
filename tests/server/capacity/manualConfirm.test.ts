@@ -138,6 +138,10 @@ type SupabaseOverride = {
     details?: unknown;
     hint?: string | null;
   };
+  confirmationResult?: {
+    idempotency_key: string;
+    table_ids?: string[];
+  } | null;
 };
 
 function createSupabaseClient(overrides?: SupabaseOverride) {
@@ -178,6 +182,7 @@ function createSupabaseClient(overrides?: SupabaseOverride) {
     restaurants: [{ timezone: "Europe/London" }],
   };
   const bookingRow = { ...baseBookingRow, ...(overrides?.booking ?? {}) };
+  const confirmationRow = overrides?.confirmationResult ?? null;
 
   const deleteHandler =
     overrides?.holdDelete ??
@@ -290,11 +295,24 @@ function createSupabaseClient(overrides?: SupabaseOverride) {
         case "booking_table_assignments":
           return {
             select() {
-              return {
+              const builder = {
                 eq() {
-                  return Promise.resolve({ data: assignmentRows, error: null });
+                  return builder;
+                },
+                match() {
+                  return builder;
+                },
+                abortSignal() {
+                  return builder;
+                },
+                then(
+                  resolve: (value: { data: typeof assignmentRows; error: null }) => void,
+                  reject?: (reason: unknown) => void,
+                ) {
+                  return Promise.resolve({ data: assignmentRows, error: null }).then(resolve, reject);
                 },
               };
+              return builder;
             },
             update: assignmentUpdateRecorder.update,
           };
@@ -323,6 +341,27 @@ function createSupabaseClient(overrides?: SupabaseOverride) {
                   };
                 },
               };
+            },
+          };
+        case "booking_confirmation_results":
+          return {
+            select() {
+              const builder = {
+                eq() {
+                  return builder;
+                },
+                match() {
+                  return builder;
+                },
+                limit() {
+                  return builder;
+                },
+                abortSignal() {
+                  return builder;
+                },
+                maybeSingle: async () => ({ data: confirmationRow, error: null }),
+              };
+              return builder;
             },
           };
         default:
@@ -396,6 +435,20 @@ describe('confirmHoldAssignment', () => {
     expect(rpcCall?.args.p_hold_id).toBe(HOLD_ID);
   });
 
+  it('returns cached confirmation without invoking RPC', async () => {
+    const client = createSupabaseClient({
+      confirmationResult: { idempotency_key: 'cached-key', table_ids: [TABLE_ID] },
+    });
+    const result = await confirmHoldAssignment({
+      holdId: HOLD_ID,
+      bookingId: BOOKING_ID,
+      idempotencyKey: 'cached-key',
+      client,
+    });
+    expect(result).toHaveLength(1);
+    expect(client.__rpcCalls.find((call: { name: string }) => call.name === 'confirm_hold_assignment_tx')).toBeUndefined();
+  });
+
   it('propagates RPC errors', async () => {
     const client = createSupabaseClient({
       rpcError: { message: 'rpc failed', code: 'RPC_FAIL' },
@@ -440,7 +493,7 @@ describe('confirmHoldAssignment', () => {
         idempotencyKey: 'policy-drift',
         client,
       }),
-    ).rejects.toMatchObject({ code: 'POLICY_CHANGED' });
+    ).rejects.toMatchObject({ code: 'POLICY_DRIFT' });
   });
 
   it('rejects when adjacency snapshot hash changes', async () => {
@@ -457,6 +510,6 @@ describe('confirmHoldAssignment', () => {
         idempotencyKey: 'adjacency-drift',
         client,
       }),
-    ).rejects.toMatchObject({ code: 'POLICY_CHANGED' });
+    ).rejects.toMatchObject({ code: 'POLICY_DRIFT' });
   });
 });

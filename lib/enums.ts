@@ -5,10 +5,10 @@ export type BookingType = OccasionKey;
 
 export const BOOKING_TYPES_UI = ["lunch", "dinner", "drinks"] as const satisfies readonly OccasionKey[];
 
-export const BOOKING_STATUSES = ["pending", "pending_allocation", "confirmed", "cancelled"] as const;
+export const BOOKING_STATUSES = ["pending", "pending_allocation", "confirmed", "cancelled", "completed", "no_show", "checked_in"] as const;
 export type BookingStatus = (typeof BOOKING_STATUSES)[number];
 
-export const BOOKING_BLOCKING_STATUSES = ["pending", "pending_allocation", "confirmed"] as const satisfies readonly BookingStatus[];
+export const BOOKING_BLOCKING_STATUSES: BookingStatus[] = ["pending", "pending_allocation", "confirmed"];
 
 export const SEATING_PREFERENCES = ["any", "indoor", "outdoor", "window", "booth", "bar", "quiet"] as const;
 export type SeatingPreference = (typeof SEATING_PREFERENCES)[number];

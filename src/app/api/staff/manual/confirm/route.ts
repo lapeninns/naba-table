@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { mapAssignTablesErrorToHttp } from "@/app/api/staff/_utils/assign-tables-error";
 import { AssignTablesRpcError, HoldNotFoundError } from "@/server/capacity/holds";
 import { confirmHoldAssignment, getManualAssignmentContext } from "@/server/capacity/tables";
 import { emitManualConfirm } from "@/server/capacity/telemetry";
@@ -234,32 +235,16 @@ export async function POST(req: NextRequest) {
     }
 
     if (error instanceof AssignTablesRpcError) {
-      const status =
-        error.code === "ASSIGNMENT_VALIDATION"
-          ? 422
-          : error.code === "ASSIGNMENT_REPOSITORY_ERROR"
-            ? 503
-            : error.code === "HOLD_LOOKUP_FAILED"
-              ? 500
-              : 409;
+      const { status, payload } = mapAssignTablesErrorToHttp(error);
       await emitManualConfirm({
         ok: false,
         bookingId,
         restaurantId: holdRow.restaurant_id,
         policyVersion: null,
         adjacencyRequired: contextAdjacencyRequired ?? (typeof requireAdjacency === 'boolean' ? requireAdjacency : null),
-        code: error.code ?? "ASSIGNMENT_CONFLICT",
+        code: payload.code,
       });
-      return NextResponse.json(
-        {
-          message: error.message,
-          error: error.message,
-          code: error.code ?? "ASSIGNMENT_CONFLICT",
-          details: error.details ?? null,
-          hint: error.hint ?? null,
-        },
-        { status },
-      );
+      return NextResponse.json(payload, { status });
     }
 
     console.error("[staff/manual/confirm] unexpected error", { error, holdId, bookingId, userId: user.id });

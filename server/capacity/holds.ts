@@ -250,22 +250,37 @@ export async function createTableHold(input: CreateTableHoldInput): Promise<Tabl
     : null;
   await configureHoldStrictConflictSession(supabase);
 
-  // Enforce minimum TTL policy (clamp up)
+  const parseUtc = (value: string) => DateTime.fromISO(value, { zone: "utc" }).toUTC();
+
+  let normalizedExpiry = parseUtc(expiresAt);
+  const nowUtc = DateTime.now().toUTC();
+  const minTtl = getHoldMinTtlSeconds();
+
+  if (!normalizedExpiry.isValid) {
+    normalizedExpiry = nowUtc.plus({ seconds: minTtl });
+  }
+
   try {
-    const minTtl = getHoldMinTtlSeconds();
-    const nowIso = DateTime.now().toUTC();
-    const requested = DateTime.fromISO(expiresAt).toUTC();
-    if (requested.isValid) {
-      const ttlSec = Math.max(0, Math.floor(requested.diff(nowIso, "seconds").seconds));
-      if (ttlSec < minTtl) {
-        const clamped = nowIso.plus({ seconds: minTtl }).toISO();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (input as any).expiresAt = clamped;
-      }
+    const ttlSec = Math.max(0, Math.floor(normalizedExpiry.diff(nowUtc, "seconds").seconds));
+    if (ttlSec < minTtl) {
+      normalizedExpiry = nowUtc.plus({ seconds: minTtl });
     }
   } catch {
-    // ignore TTL enforcement errors to avoid blocking
+    normalizedExpiry = nowUtc.plus({ seconds: minTtl });
   }
+
+  try {
+    const endUtc = parseUtc(endAt);
+    if (endUtc.isValid && normalizedExpiry < endUtc) {
+      normalizedExpiry = endUtc.plus({ seconds: minTtl });
+    }
+  } catch {
+    // ignore; fallback expiry already enforced
+  }
+
+  const normalizedExpiryIso = normalizedExpiry.toISO();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (input as any).expiresAt = normalizedExpiryIso;
 
   // Rate limit per user per booking within window
   if (createdBy && bookingId) {
@@ -308,7 +323,7 @@ export async function createTableHold(input: CreateTableHoldInput): Promise<Tabl
     zone_id: zoneId,
     start_at: startAt,
     end_at: endAt,
-    expires_at: expiresAt,
+    expires_at: normalizedExpiryIso,
     created_by: createdByUuid,
     metadata,
     table_hold_members: {
@@ -384,7 +399,7 @@ export async function createTableHold(input: CreateTableHoldInput): Promise<Tabl
           zone_id: zoneId,
           start_at: startAt,
           end_at: endAt,
-          expires_at: expiresAt,
+          expires_at: normalizedExpiryIso,
           created_by: createdByUuid,
           metadata,
         })

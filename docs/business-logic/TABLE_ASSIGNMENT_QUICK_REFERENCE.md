@@ -172,7 +172,7 @@ key = hash({
 | Error               | Code                    | Cause                           | Resolution                |
 | ------------------- | ----------------------- | ------------------------------- | ------------------------- |
 | Assignment Conflict | `ASSIGNMENT_CONFLICT`   | Table already allocated         | Retry with new tables     |
-| Policy Drift        | `POLICY_CHANGED`        | Policy/zones/adjacency changed  | Auto-requote (if enabled) |
+| Policy Drift        | `POLICY_DRIFT`          | Policy/zones/adjacency changed  | Auto-requote (if enabled) |
 | Validation Error    | `ASSIGNMENT_VALIDATION` | Insufficient capacity/adjacency | Select different tables   |
 | Hold Expired        | `HOLD_EXPIRED`          | TTL exceeded                    | Create new hold           |
 | Repository Error    | `REPOSITORY_ERROR`      | Database failure                | Retry with backoff        |

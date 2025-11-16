@@ -1,3 +1,5 @@
+import { invalidateRestaurantCapacityCaches } from "@/server/ops/capacity-cache";
+
 import type {
   Database,
   Tables,
@@ -7,7 +9,7 @@ import type {
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 
-type PublicClient = SupabaseClient<Database, "public", any>;
+type PublicClient = SupabaseClient<Database>;
 
 export type TableRow = Tables<"table_inventory">;
 export type ZoneRow = Pick<Tables<"zones">, "id" | "name">;
@@ -543,7 +545,9 @@ export async function insertTable(
     throw error;
   }
 
-  return toTableRecord(data as RawTableRecord);
+  const record = toTableRecord(data as RawTableRecord);
+  invalidateRestaurantCapacityCaches(record.restaurant_id);
+  return record;
 }
 
 export async function updateTable(
@@ -562,12 +566,20 @@ export async function updateTable(
     throw error;
   }
 
-  return toTableRecord(data as RawTableRecord);
+  const record = toTableRecord(data as RawTableRecord);
+  invalidateRestaurantCapacityCaches(record.restaurant_id);
+  return record;
 }
 
 export async function deleteTable(client: PublicClient, tableId: string): Promise<void> {
-  const { error } = await client.from("table_inventory").delete().eq("id", tableId);
+  const { data, error } = await client
+    .from("table_inventory")
+    .delete()
+    .eq("id", tableId)
+    .select("restaurant_id")
+    .single();
   if (error) {
     throw error;
   }
+  invalidateRestaurantCapacityCaches(data?.restaurant_id ?? undefined);
 }
