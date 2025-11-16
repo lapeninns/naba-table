@@ -112,7 +112,8 @@ export const useRememberedContacts = ({
       const phone = typeof data.phone === 'string' ? data.phone : '';
 
       if (name || email || phone) {
-        actions.hydrateContacts({ name, email, phone, rememberDetails: remember ?? true });
+        const shouldRemember = remember === true;
+        actions.hydrateContacts({ name, email, phone, rememberDetails: shouldRemember });
       }
     } catch (error) {
       errorReporter.capture(error, { scope: 'rememberedContacts.hydrate' });

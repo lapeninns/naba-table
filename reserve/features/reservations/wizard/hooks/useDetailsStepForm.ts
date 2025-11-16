@@ -36,8 +36,8 @@ export function useDetailsStepForm({
       name: state.details.name ?? '',
       email: state.details.email ?? '',
       phone: state.details.phone ?? '',
-      rememberDetails: state.details.rememberDetails ?? true,
-      marketingOptIn: state.details.marketingOptIn ?? true,
+      rememberDetails: state.details.rememberDetails ?? false,
+      marketingOptIn: state.details.marketingOptIn ?? false,
       agree: state.details.agree ?? false,
     },
   });
@@ -45,8 +45,8 @@ export function useDetailsStepForm({
   const normalizeValues = useCallback(
     (values: DetailsFormInputValues): DetailsFormValues => ({
       ...values,
-      rememberDetails: values.rememberDetails ?? true,
-      marketingOptIn: values.marketingOptIn ?? true,
+      rememberDetails: values.rememberDetails ?? false,
+      marketingOptIn: values.marketingOptIn ?? false,
       agree: values.agree ?? false,
     }),
     [],
@@ -58,8 +58,8 @@ export function useDetailsStepForm({
       name: state.details.name ?? '',
       email: state.details.email ?? '',
       phone: state.details.phone ?? '',
-      rememberDetails: state.details.rememberDetails ?? true,
-      marketingOptIn: state.details.marketingOptIn ?? true,
+      rememberDetails: state.details.rememberDetails ?? false,
+      marketingOptIn: state.details.marketingOptIn ?? false,
       agree: state.details.agree ?? false,
     };
     const next = normalizeValues(nextInput);

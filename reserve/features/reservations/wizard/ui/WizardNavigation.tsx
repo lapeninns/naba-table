@@ -73,7 +73,7 @@ export function WizardNavigation({
   return (
     <div
       className={cn(
-        'pointer-events-none fixed inset-x-0 bottom-0 z-50 px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] sm:px-4 lg:px-10',
+        'pointer-events-none fixed inset-x-0 bottom-0 z-50 px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.85rem)] sm:px-4 lg:px-10',
         className,
       )}
       aria-hidden={false}
@@ -83,7 +83,7 @@ export function WizardNavigation({
         className="pointer-events-auto mx-auto flex w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-[color:var(--color-border)] bg-[color:var(--color-surface,#ffffff)]/98 text-foreground shadow-card backdrop-blur supports-[backdrop-filter]:backdrop-blur-lg"
         aria-label="Wizard navigation"
       >
-        <div className="flex flex-col gap-3 px-3 py-3 sm:px-5 sm:py-4">
+        <div className="flex flex-col gap-4 px-3 py-3 sm:px-5 sm:py-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <WizardProgress
               steps={steps}
@@ -98,7 +98,7 @@ export function WizardNavigation({
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div
-              className="flex flex-col gap-2 sm:flex-row sm:flex-wrap"
+              className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center"
               aria-label="Secondary actions"
             >
               {secondary.map((action) => renderActionButton(action, 'secondary'))}

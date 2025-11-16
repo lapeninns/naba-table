@@ -101,11 +101,13 @@ describe("booking side-effects processing", () => {
     expect(queueMocks.enqueueEmailJob).toHaveBeenCalledWith(
       expect.objectContaining({
         bookingId: "booking-123",
-        type: "request_received",
+        type: "confirmation",
+        restaurantId: RESTAURANT_ID,
+        scheduledFor: null,
       }),
       expect.objectContaining({
-        jobId: "request_received:booking-123",
-        delayMs: 0,
+        jobId: "confirmation:booking-123",
+        delayMs: expect.any(Number),
       }),
     );
     expect(emailMocks.sendBookingConfirmationEmail).not.toHaveBeenCalled();

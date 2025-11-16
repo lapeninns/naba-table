@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon';
 
-import { windowsOverlap } from '@/server/capacity/tables';
+import { windowsOverlap } from '@/server/capacity/time-windows';
 
 describe('windowsOverlap edge cases', () => {
   it('treats touching windows as non-overlapping ([start, end) semantics)', () => {

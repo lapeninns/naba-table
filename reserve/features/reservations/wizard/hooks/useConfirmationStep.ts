@@ -165,12 +165,21 @@ export function useConfirmationStep({
         ? 'Booking updated'
         : 'Booking confirmed';
 
-  const description =
-    status === 'pending'
-      ? `Your request has been received. You'll shortly get a confirmation email at ${details.email}.`
-      : status === 'updated'
-        ? `Your reservation was updated. A confirmation email has been sent to ${details.email}.`
-        : `A confirmation email has been sent to ${details.email}.`;
+  const description = (() => {
+    const emailText = details.email?.trim();
+    const fallback = 'We will keep this page updated with the latest status.';
+    if (status === 'pending') {
+      return emailText
+        ? `Your request has been received. We will email ${emailText} when it is confirmed.`
+        : 'Your request has been received. We will confirm shortly.';
+    }
+    if (status === 'updated') {
+      return emailText
+        ? `Your reservation was updated. A confirmation email has been sent to ${emailText}.`
+        : 'Your reservation was updated.';
+    }
+    return emailText ? `A confirmation email has been sent to ${emailText}.` : fallback;
+  })();
 
   const reservationWindow = useMemo(() => buildReservationWindow(state), [state]);
 

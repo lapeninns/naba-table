@@ -267,6 +267,17 @@ function createSupabaseClient() {
             },
           };
         }
+        case "allocations": {
+          return {
+            select() {
+              return {
+                in() {
+                  return Promise.resolve({ data: [], error: null });
+                },
+              };
+            },
+          };
+        }
         case "profiles": {
           return {
             select() {

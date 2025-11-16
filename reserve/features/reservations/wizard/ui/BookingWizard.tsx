@@ -40,6 +40,7 @@ type BookingWizardContentProps = {
   mode?: BookingWizardMode;
   layoutElement?: 'main' | 'div';
   initialCalendarMask?: CalendarMask | null;
+  returnPath?: string;
 };
 
 function BookingWizardContent({
@@ -47,6 +48,7 @@ function BookingWizardContent({
   mode = 'customer',
   layoutElement = 'main',
   initialCalendarMask,
+  returnPath,
 }: BookingWizardContentProps) {
   const {
     state,
@@ -63,7 +65,7 @@ function BookingWizardContent({
     handleNewBooking,
     handleClose,
     planAlert,
-  } = useReservationWizard(initialDetails, mode);
+  } = useReservationWizard(initialDetails, mode, { returnPath });
   const { analytics } = useWizardDependencies();
   const { user, status: sessionStatus } = useSupabaseSession();
   const isSessionReady = sessionStatus === 'ready';
@@ -170,24 +172,24 @@ function BookingWizardContent({
     wasOfflineRef.current = isOffline;
   }, [hasHydrated, isOffline]);
 
-  const disableAllActions = isOffline || (state.loading && state.step !== 4);
+  const shouldDisablePrimaryActions = isOffline || (state.loading && state.step !== 4);
 
   const effectiveActions = useMemo(() => {
-    if (!disableAllActions) {
-      return stickyActions;
-    }
-
-    return stickyActions.map((action) => ({
-      ...action,
-      disabled: true,
-    }));
-  }, [disableAllActions, stickyActions]);
+    return stickyActions.map((action) => {
+      const disableForState =
+        shouldDisablePrimaryActions && (action.role ?? 'primary') === 'primary';
+      return {
+        ...action,
+        disabled: action.disabled || disableForState,
+      };
+    });
+  }, [shouldDisablePrimaryActions, stickyActions]);
 
   const banner =
     hasHydrated && isOffline ? (
       <WizardOfflineBanner
         ref={offlineBannerRef}
-        description="You’re offline. We’ll keep your progress and send requests automatically when you reconnect."
+        description="You’re offline. You can edit details, but confirming requires a connection."
       />
     ) : null;
 
@@ -213,7 +215,9 @@ function BookingWizardContent({
           <PlanStep
             onActionsChange={handleActionsChange}
             onTrack={analytics.track}
-            planAlert={planAlert}
+            planAlert={
+              planAlert ?? (isOffline ? 'Reconnect to confirm; edits are saved locally.' : null)
+            }
             initialCalendarMask={initialCalendarMask}
           />
         );
@@ -265,6 +269,7 @@ type BookingWizardProps = {
   mode?: BookingWizardMode;
   layoutElement?: 'main' | 'div';
   initialCalendarMask?: CalendarMask | null;
+  returnPath?: string;
 };
 
 export function BookingWizard({
@@ -272,6 +277,7 @@ export function BookingWizard({
   mode = 'customer',
   layoutElement = 'main',
   initialCalendarMask,
+  returnPath,
 }: BookingWizardProps = {}) {
   return (
     <Suspense fallback={<LoadingFallback />}>
@@ -280,6 +286,7 @@ export function BookingWizard({
         mode={mode}
         layoutElement={layoutElement}
         initialCalendarMask={initialCalendarMask}
+        returnPath={returnPath}
       />
     </Suspense>
   );

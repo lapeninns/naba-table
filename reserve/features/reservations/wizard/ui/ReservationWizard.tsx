@@ -11,13 +11,16 @@ import type { BookingDetails, BookingWizardMode } from '../model/reducer';
 type ReservationWizardProps = {
   initialDetails?: Partial<BookingDetails>;
   mode?: BookingWizardMode;
+  returnPath?: string;
 };
 
 export function ReservationWizard({
   initialDetails,
   mode = 'customer',
+  returnPath,
 }: ReservationWizardProps = {}) {
   const navigate = useNavigate();
+  const normalizedReturnPath = useMemo(() => returnPath ?? '/thank-you', [returnPath]);
   const navigatorDeps = useMemo(
     () => ({
       navigator: {
@@ -31,7 +34,11 @@ export function ReservationWizard({
 
   return (
     <WizardDependenciesProvider value={navigatorDeps}>
-      <BookingWizard initialDetails={initialDetails} mode={mode} />
+      <BookingWizard
+        initialDetails={initialDetails}
+        mode={mode}
+        returnPath={normalizedReturnPath}
+      />
     </WizardDependenciesProvider>
   );
 }

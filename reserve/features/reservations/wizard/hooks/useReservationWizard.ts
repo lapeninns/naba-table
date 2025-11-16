@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { emit } from '@/lib/analytics/emit';
 import { BOOKING_IN_PAST_CUSTOMER_MESSAGE } from '@/lib/bookings/messages';
 import { mapErrorToMessage } from '@reserve/shared/error';
@@ -47,7 +48,7 @@ const hasMeaningfulDraft = (details: BookingDetails): boolean => {
   );
 };
 
-const OFFLINE_QUEUE_MESSAGE = 'You’re offline. We’ll submit this booking as soon as you reconnect.';
+const OFFLINE_ALERT_MESSAGE = 'You’re offline—reconnect to confirm. Your edits are saved locally.';
 
 type BookingError = { code?: string | number | null | undefined };
 
@@ -81,6 +82,7 @@ const TIMEOUT_RECOVERY_DELAY_MS = 2_000;
 export function useReservationWizard(
   initialDetails?: Partial<BookingDetails>,
   mode: BookingWizardMode = 'customer',
+  options?: { returnPath?: string },
 ) {
   const { state, actions } = useWizardStore(initialDetails);
   const draftHydratedRef = useRef(false);
@@ -90,6 +92,13 @@ export function useReservationWizard(
   const [stickyActions, setStickyActions] = useState<StepAction[]>(EMPTY_ACTIONS);
   const [stickyHeight, setStickyHeight] = useState(0);
   const { analytics, haptics, navigator, errorReporter } = useWizardDependencies();
+  const isOnline = useOnlineStatus();
+  const returnPath = options?.returnPath;
+  const safeReturnPath =
+    returnPath ||
+    (initialDetails?.restaurantSlug ? `/reserve/r/${initialDetails.restaurantSlug}` : null) ||
+    (initialDetails?.bookingId ? `/reserve/${initialDetails.bookingId}` : null) ||
+    '/thank-you';
 
   useRememberedContacts({ details: state.details, actions, enabled: mode === 'customer' });
 
@@ -232,22 +241,22 @@ export function useReservationWizard(
     if (mode !== 'customer') {
       return;
     }
-    if (mutation.isPaused) {
+    if (mutation.isPaused || !isOnline) {
       if (!offlineEventRef.current) {
         emit('mutation.retry.offline', {
           bookingId: state.details.bookingId,
         });
         offlineEventRef.current = true;
       }
-      setPlanAlert((prev) => prev ?? OFFLINE_QUEUE_MESSAGE);
+      setPlanAlert(OFFLINE_ALERT_MESSAGE);
     } else {
       offlineEventRef.current = false;
-      setPlanAlert((prev) => (prev === OFFLINE_QUEUE_MESSAGE ? null : prev));
+      setPlanAlert((prev) => (prev === OFFLINE_ALERT_MESSAGE ? null : prev));
     }
-  }, [mode, mutation.isPaused, state.details.bookingId]);
+  }, [isOnline, mode, mutation.isPaused, state.details.bookingId]);
 
   const handleConfirm = useCallback(async () => {
-    if (submitting || state.loading) {
+    if (submitting || state.loading || !isOnline || mutation.isPending) {
       return;
     }
 
@@ -384,6 +393,7 @@ export function useReservationWizard(
     actions,
     analytics,
     errorReporter,
+    isOnline,
     mode,
     mutation,
     state.details,
@@ -403,16 +413,28 @@ export function useReservationWizard(
     actions.clearError();
     actions.resetForm();
     setPlanAlert(null);
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('autoRedirectEnabled');
+    }
   }, [actions]);
 
   const handleClose = useCallback(() => {
     if (mode === 'ops') {
-      navigator.push('/ops');
+      if (typeof window !== 'undefined') {
+        window.location.assign('/ops');
+      } else {
+        navigator.push('/ops');
+      }
+      setPlanAlert(null);
       return;
     }
-    navigator.push('/thank-you');
+    if (typeof window !== 'undefined') {
+      window.location.assign(safeReturnPath);
+    } else {
+      navigator.push(safeReturnPath);
+    }
     setPlanAlert(null);
-  }, [mode, navigator]);
+  }, [mode, navigator, safeReturnPath]);
 
   return {
     state,

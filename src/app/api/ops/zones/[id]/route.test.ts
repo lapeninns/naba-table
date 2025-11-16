@@ -60,6 +60,16 @@ function createSupabaseStub(options: SupabaseStubOptions = {}) {
         };
       }
 
+      if (table === "table_inventory") {
+        return {
+          select: () => ({
+            eq: () => ({
+              select: async () => ({ data: [{ id: "table-1" }], error: null }),
+            }),
+          }),
+        };
+      }
+
       if (table === "zones") {
         return {
           select: () => ({
