@@ -64,9 +64,9 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
       {
         title: 'Customers',
         description: 'Review guest history and contact details',
-        href: '/ops/customer-details',
+        href: '/ops/customers',
         icon: Users,
-        match: (pathname) => pathname.startsWith('/ops/customer-details'),
+        match: (pathname) => pathname.startsWith('/ops/customers'),
       },
       {
         title: 'Walk-in booking',
@@ -97,9 +97,9 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
       {
         title: 'Restaurant settings',
         description: 'Configure hours and service periods',
-        href: '/ops/restaurant-settings',
+        href: '/ops/settings/restaurant',
         icon: SlidersHorizontal,
-        match: (pathname) => pathname.startsWith('/ops/restaurant-settings'),
+        match: (pathname) => pathname.startsWith('/ops/settings'),
       },
     ],
   },

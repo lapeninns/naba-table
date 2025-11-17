@@ -9,7 +9,7 @@ import {
 import type { RestaurantRole } from '@/lib/owner/auth/roles';
 import type { OpsServiceError } from '@/types/ops';
 
-const TEAM_INVITES_BASE = '/api/owner/team/invitations';
+const TEAM_INVITES_BASE = '/api/ops/team/invitations';
 
 export type TeamInviteStatus = 'pending' | 'accepted' | 'revoked' | 'expired' | 'all';
 

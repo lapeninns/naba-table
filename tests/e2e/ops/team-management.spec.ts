@@ -29,10 +29,10 @@ test.describe('Ops Team Management - Creating Invites', () => {
     await roleSelect.selectOption('host');
 
     // Submit form
-    const [response] = await Promise.all([
-      authedPage.waitForResponse((resp) => resp.url().includes('/api/owner/team/invitations') && resp.request().method() === 'POST'),
-      authedPage.getByRole('button', { name: /Send invite/i }).click(),
-    ]);
+      const [response] = await Promise.all([
+        authedPage.waitForResponse((resp) => resp.url().includes('/api/ops/team/invitations') && resp.request().method() === 'POST'),
+        authedPage.getByRole('button', { name: /Send invite/i }).click(),
+      ]);
 
     expect(response.ok()).toBeTruthy();
 
@@ -347,7 +347,7 @@ test.describe('Ops Team Management - Revoking Invites', () => {
     await expect(inviteRow).toBeVisible({ timeout: 10000 });
 
     const [revokeResponse] = await Promise.all([
-      authedPage.waitForResponse((resp) => resp.url().includes('/api/owner/team/invitations/') && resp.request().method() === 'DELETE'),
+      authedPage.waitForResponse((resp) => resp.url().includes('/api/ops/team/invitations/') && resp.request().method() === 'DELETE'),
       inviteRow.getByRole('button', { name: /Revoke/i }).click(),
     ]);
 
@@ -493,7 +493,7 @@ test.describe('Ops Team Management - UI States', () => {
     await authedPage.waitForLoadState('networkidle');
 
     // Slow down the network to see loading state
-    await authedPage.route('**/api/owner/team/invitations', async (route) => {
+    await authedPage.route('**/api/ops/team/invitations', async (route) => {
       await authedPage.waitForTimeout(2000);
       await route.continue();
     });

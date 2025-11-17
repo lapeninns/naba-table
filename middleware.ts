@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { CSRF_COOKIE_MAX_AGE_SECONDS, CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from "@/lib/security/csrf";
+import { RESTAURANT_ADMIN_ROLES, isRestaurantAdminRole } from "@/lib/owner/auth/roles";
+import { getMiddlewareSupabaseClient } from "@/server/supabase";
+import { fetchUserMemberships } from "@/server/team/access";
 
 import type { NextRequest } from "next/server";
 
@@ -16,6 +19,8 @@ const SAFE_REDIRECT_PREFIXES = [
 ];
 
 const OPS_PUBLIC_PATHS = ["/ops/login"];
+const OPS_ROLE_HEADER = "X-Ops-Role";
+const OPS_ROLE_SOURCE_HEADER = "X-Ops-Role-Source";
 
 const ACCOUNT_PROTECTED = [/^\/my-bookings(\/|$)/, /^\/profile(\/|$)/, /^\/invite(\/|$)/];
 
@@ -31,14 +36,6 @@ function isSafeRedirectPath(path: string | null): boolean {
       path.startsWith(`${prefix}/`) ||
       path.startsWith(`${prefix}?`) ||
       path.startsWith(`${prefix}#`),
-  );
-}
-
-function hasSupabaseSession(request: NextRequest): boolean {
-  return Boolean(
-    request.cookies.get("sb-access-token")?.value ??
-      request.cookies.get("supabase-auth-token")?.value ??
-      request.cookies.get("sb-access-token-v2")?.value,
   );
 }
 
@@ -120,11 +117,59 @@ function ensureCsrfCookie(request: NextRequest, response: NextResponse) {
   });
 }
 
-export function middleware(request: NextRequest) {
+type OpsRoleResolution = {
+  role: "owner" | "staff";
+  source: "membership" | "fallback" | "error";
+};
+
+async function resolveOpsRole(request: NextRequest, response: NextResponse): Promise<OpsRoleResolution | null> {
+  try {
+    const supabase = getMiddlewareSupabaseClient(request, response);
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+
+    if (error || !user) {
+      return null;
+    }
+
+    try {
+      const memberships = await fetchUserMemberships(user.id, supabase);
+      const hasAdminRole = memberships.some((membership) => isRestaurantAdminRole(membership.role));
+      return {
+        role: hasAdminRole ? "owner" : "staff",
+        source: "membership",
+      };
+    } catch (membershipError) {
+      console.error("[middleware][ops-role] membership lookup failed", membershipError);
+      return {
+        role: "staff",
+        source: "error",
+      };
+    }
+  } catch (error) {
+    console.error("[middleware][ops-role] unexpected failure", error);
+    return {
+      role: "staff",
+      source: "error",
+    };
+  }
+}
+
+function attachOpsRoleHeaders(response: NextResponse, resolution: OpsRoleResolution | null) {
+  if (!resolution) return;
+  response.headers.set(OPS_ROLE_HEADER, resolution.role);
+  response.headers.set(OPS_ROLE_SOURCE_HEADER, resolution.source);
+}
+
+export async function middleware(request: NextRequest) {
   const url = request.nextUrl.clone();
   const pathname = url.pathname;
   const method = request.method.toUpperCase();
   const isApiRequest = pathname.startsWith("/api/");
+  const isOpsSurfaceApi = pathname.startsWith("/api/ops/") || pathname.startsWith("/api/v1/ops/");
+  const isOpsSurfaceUi = pathname.startsWith("/ops");
 
   if (isApiRequest) {
     const csrfFailure = validateCsrf(request, method);
@@ -159,28 +204,45 @@ export function middleware(request: NextRequest) {
       response.headers.set("Link", "</api/v1>; rel=\"successor-version\"");
     }
 
+    if (isOpsSurfaceApi) {
+      const role = await resolveOpsRole(request, response);
+      attachOpsRoleHeaders(response, role);
+    }
+
     return response;
   }
 
   const redirectedFrom = url.searchParams.get("redirectedFrom") ?? `${pathname}${url.search}`;
-  const hasSession = hasSupabaseSession(request);
   const wantsGuestAccount = isGuestAccountPath(pathname);
   const wantsOps = isOpsProtectedPath(pathname);
 
-  if (wantsGuestAccount && !hasSession) {
-    const redirect = buildRedirect("/signin", redirectedFrom, url);
-    ensureCsrfCookie(request, redirect);
-    return redirect;
-  }
+  if (wantsGuestAccount || wantsOps) {
+    const supabase = getMiddlewareSupabaseClient(request, NextResponse.next());
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  if (wantsOps && !hasSession) {
-    const redirect = buildRedirect("/ops/login", redirectedFrom, url);
-    ensureCsrfCookie(request, redirect);
-    return redirect;
+    if (wantsGuestAccount && !user) {
+      const redirect = buildRedirect("/signin", redirectedFrom, url);
+      ensureCsrfCookie(request, redirect);
+      return redirect;
+    }
+
+    if (wantsOps && !user) {
+      const redirect = buildRedirect("/ops/login", redirectedFrom, url);
+      ensureCsrfCookie(request, redirect);
+      return redirect;
+    }
   }
 
   const response = NextResponse.next();
   ensureCsrfCookie(request, response);
+
+  if (isOpsSurfaceUi) {
+    const role = await resolveOpsRole(request, response);
+    attachOpsRoleHeaders(response, role);
+  }
+
   if (pathname === "/thank-you") {
     response.headers.set("Referrer-Policy", "no-referrer");
   }

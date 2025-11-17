@@ -13,6 +13,19 @@ const bodySchema = z.object({
   status: z.enum(["completed", "no_show"]),
 });
 
+const STATUS_DEPRECATION_HEADERS = {
+  Deprecation: "true",
+  Sunset: "Mon, 01 Jun 2026 00:00:00 GMT",
+  Link: "</api/ops/bookings/[id]>; rel=\"successor-version\"",
+} as const;
+
+function withStatusDeprecation(response: NextResponse): NextResponse {
+  response.headers.set("Deprecation", STATUS_DEPRECATION_HEADERS.Deprecation);
+  response.headers.set("Sunset", STATUS_DEPRECATION_HEADERS.Sunset);
+  response.headers.set("Link", STATUS_DEPRECATION_HEADERS.Link);
+  return response;
+}
+
 type RouteParams = {
   params: Promise<{
     id: string | string[];
@@ -31,7 +44,7 @@ async function resolveBookingId(paramsPromise: Promise<{ id: string | string[] }
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
   const id = await resolveBookingId(params);
   if (!id) {
-    return NextResponse.json({ error: "Missing booking id" }, { status: 400 });
+    return withStatusDeprecation(NextResponse.json({ error: "Missing booking id" }, { status: 400 }));
   }
 
   let payload: z.infer<typeof bodySchema>;
@@ -39,12 +52,11 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     payload = bodySchema.parse(await req.json());
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: "Invalid payload", details: error.flatten() },
-        { status: 400 },
+      return withStatusDeprecation(
+        NextResponse.json({ error: "Invalid payload", details: error.flatten() }, { status: 400 }),
       );
     }
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    return withStatusDeprecation(NextResponse.json({ error: "Invalid payload" }, { status: 400 }));
   }
 
   const tenantSupabase = await getRouteHandlerSupabaseClient();
@@ -55,11 +67,11 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
   if (authError) {
     console.error("[ops][booking-status] failed to resolve auth", authError.message);
-    return NextResponse.json({ error: "Unable to verify session" }, { status: 401 });
+    return withStatusDeprecation(NextResponse.json({ error: "Unable to verify session" }, { status: 401 }));
   }
 
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return withStatusDeprecation(NextResponse.json({ error: "Unauthorized" }, { status: 401 }));
   }
 
   const serviceSupabase = getServiceSupabaseClient();
@@ -72,24 +84,24 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
   if (bookingError) {
     console.error("[ops][booking-status] failed to load booking", bookingError.message);
-    return NextResponse.json({ error: "Unable to load booking" }, { status: 500 });
+    return withStatusDeprecation(NextResponse.json({ error: "Unable to load booking" }, { status: 500 }));
   }
 
   const bookingRow = booking as Tables<"bookings"> | null;
 
   if (!bookingRow) {
-    return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+    return withStatusDeprecation(NextResponse.json({ error: "Booking not found" }, { status: 404 }));
   }
 
   try {
     const memberships = await fetchUserMemberships(user.id, tenantSupabase);
     const hasAccess = memberships.some((membership) => membership.restaurant_id === bookingRow.restaurant_id);
     if (!hasAccess) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return withStatusDeprecation(NextResponse.json({ error: "Forbidden" }, { status: 403 }));
     }
   } catch (error) {
     console.error("[ops][booking-status] membership lookup failed", error);
-    return NextResponse.json({ error: "Unable to verify permissions" }, { status: 500 });
+    return withStatusDeprecation(NextResponse.json({ error: "Unable to verify permissions" }, { status: 500 }));
   }
 
   try {
@@ -160,15 +172,19 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
     const resultRow = transitionResult?.[0];
 
-    return NextResponse.json({
-      status: resultRow?.status ?? targetStatus,
-    });
+    return withStatusDeprecation(
+      NextResponse.json({
+        status: resultRow?.status ?? targetStatus,
+      }),
+    );
   } catch (validationError) {
     if (validationError instanceof BookingLifecycleError) {
       const statusCode = validationError.code === "TIMESTAMP_INVALID" ? 400 : 409;
-      return NextResponse.json({ error: validationError.message }, { status: statusCode });
+      return withStatusDeprecation(
+        NextResponse.json({ error: validationError.message }, { status: statusCode }),
+      );
     }
     console.error("[ops][booking-status] unexpected validation error", validationError);
-    return NextResponse.json({ error: "Unable to update booking" }, { status: 500 });
+    return withStatusDeprecation(NextResponse.json({ error: "Unable to update booking" }, { status: 500 }));
   }
 }

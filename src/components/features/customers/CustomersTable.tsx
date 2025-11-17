@@ -1,6 +1,9 @@
 'use client';
 
+import Link from 'next/link';
+
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 
 import type { OpsCustomer } from '@/types/ops';
@@ -33,8 +36,15 @@ function EmptyState() {
 }
 
 function CustomerCard({ customer }: { customer: OpsCustomer }) {
+  const bookingHref = `/ops/bookings/new?prefillName=${encodeURIComponent(customer.name ?? '')}&prefillEmail=${encodeURIComponent(customer.email ?? '')}&prefillPhone=${encodeURIComponent(customer.phone ?? '')}`;
+
   return (
-    <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
+    <div
+      className="rounded-lg border border-border bg-card p-4 shadow-sm"
+      data-customer-id={customer.id}
+      data-customer-email={(customer.email ?? '').toLowerCase()}
+      tabIndex={-1}
+    >
       <div className="space-y-3">
         <div>
           <h3 className="font-semibold text-foreground">{customer.name}</h3>
@@ -62,6 +72,12 @@ function CustomerCard({ customer }: { customer: OpsCustomer }) {
             Marketing Opt-in
           </Badge>
         )}
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild variant="outline" size="sm" className="touch-manipulation">
+            <Link href={bookingHref}>New booking</Link>
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -148,6 +164,12 @@ export function CustomersTable({ customers, isLoading }: CustomersTableProps) {
                 >
                   Marketing
                 </th>
+                <th
+                  scope="col"
+                  className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                >
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/70">
@@ -175,10 +197,19 @@ export function CustomersTable({ customers, isLoading }: CustomersTableProps) {
                       <td className="px-4 py-4 text-center">
                         <Skeleton className="mx-auto h-5 w-16" />
                       </td>
+                      <td className="px-4 py-4 text-center">
+                        <Skeleton className="mx-auto h-9 w-24" />
+                      </td>
                     </tr>
                   ))
                 : customers.map((customer) => (
-                    <tr key={customer.id} className="hover:bg-muted/50">
+                    <tr
+                      key={customer.id}
+                      className="hover:bg-muted/50"
+                      data-customer-id={customer.id}
+                      data-customer-email={(customer.email ?? '').toLowerCase()}
+                      tabIndex={-1}
+                    >
                       <td className="px-4 py-4 font-medium text-foreground">{customer.name}</td>
                       <td className="px-4 py-4 text-sm text-muted-foreground">{customer.email}</td>
                       <td className="px-4 py-4 text-sm text-muted-foreground">{customer.phone}</td>
@@ -195,6 +226,15 @@ export function CustomersTable({ customers, isLoading }: CustomersTableProps) {
                         ) : (
                           <span className="text-sm text-muted-foreground">No</span>
                         )}
+                      </td>
+                      <td className="px-4 py-4 text-center">
+                        <Button asChild variant="outline" size="sm" className="touch-manipulation">
+                          <Link
+                            href={`/ops/bookings/new?prefillName=${encodeURIComponent(customer.name ?? '')}&prefillEmail=${encodeURIComponent(customer.email ?? '')}&prefillPhone=${encodeURIComponent(customer.phone ?? '')}`}
+                          >
+                            New booking
+                          </Link>
+                        </Button>
                       </td>
                     </tr>
                   ))}

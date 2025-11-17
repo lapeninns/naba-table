@@ -5,7 +5,6 @@ import type { OpsRestaurantOption, OpsServiceError } from '@/types/ops';
 import type { OccasionKey } from '@reserve/shared/occasions';
 
 const OPS_RESTAURANTS_BASE = '/api/ops/restaurants';
-const OWNER_RESTAURANTS_BASE = '/api/owner/restaurants';
 
 type RestaurantsListResponse = {
   items: Array<{
@@ -209,11 +208,11 @@ export function createBrowserRestaurantService(): RestaurantService {
     },
 
     async getOperatingHours(restaurantId: string) {
-      return fetchJson<OperatingHoursSnapshot>(`${OWNER_RESTAURANTS_BASE}/${restaurantId}/hours`);
+      return fetchJson<OperatingHoursSnapshot>(`${OPS_RESTAURANTS_BASE}/${restaurantId}/hours`);
     },
 
     async updateOperatingHours(restaurantId: string, snapshot: OperatingHoursSnapshot) {
-      return fetchJson<OperatingHoursSnapshot>(`${OWNER_RESTAURANTS_BASE}/${restaurantId}/hours`, {
+      return fetchJson<OperatingHoursSnapshot>(`${OPS_RESTAURANTS_BASE}/${restaurantId}/hours`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(snapshot),
@@ -221,12 +220,12 @@ export function createBrowserRestaurantService(): RestaurantService {
     },
 
     async getServicePeriods(restaurantId: string) {
-      const response = await fetchJson<ServicePeriodsResponse>(`${OWNER_RESTAURANTS_BASE}/${restaurantId}/service-periods`);
+      const response = await fetchJson<ServicePeriodsResponse>(`${OPS_RESTAURANTS_BASE}/${restaurantId}/service-periods`);
       return response.periods;
     },
 
     async updateServicePeriods(restaurantId: string, rows: ServicePeriodRow[]) {
-      const response = await fetchJson<ServicePeriodsResponse>(`${OWNER_RESTAURANTS_BASE}/${restaurantId}/service-periods`, {
+      const response = await fetchJson<ServicePeriodsResponse>(`${OPS_RESTAURANTS_BASE}/${restaurantId}/service-periods`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(rows),

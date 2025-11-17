@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 import BookingFlowPage from '@/components/reserve/booking-flow';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,7 @@ import { useOpsRestaurantsList } from '@/hooks';
 export function OpsWalkInBookingClient() {
   const { memberships, activeRestaurantId, setActiveRestaurantId } = useOpsSession();
   const { data: restaurants, isLoading, isError } = useOpsRestaurantsList({ enabled: memberships.length > 0 });
+  const searchParams = useSearchParams();
 
   const accessibleRestaurantIds = useMemo(() => new Set(memberships.map((membership) => membership.restaurantId)), [memberships]);
 
@@ -49,12 +51,19 @@ export function OpsWalkInBookingClient() {
   const selectedRestaurant =
     availableRestaurants.find((restaurant) => restaurant.id === selectedRestaurantId) ?? availableRestaurants[0];
 
+  const prefillName = searchParams?.get('prefillName') ?? '';
+  const prefillEmail = searchParams?.get('prefillEmail') ?? '';
+  const prefillPhone = searchParams?.get('prefillPhone') ?? '';
+
   const initialDetails = {
     restaurantId: selectedRestaurant.id,
     restaurantSlug: selectedRestaurant.slug ?? selectedRestaurant.id,
     restaurantName: selectedRestaurant.name,
     restaurantAddress: selectedRestaurant.address ?? '',
     restaurantTimezone: selectedRestaurant.timezone ?? 'UTC',
+    name: prefillName,
+    email: prefillEmail,
+    phone: prefillPhone,
     rememberDetails: false,
     marketingOptIn: false,
     agree: true,

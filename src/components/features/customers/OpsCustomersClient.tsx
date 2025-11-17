@@ -15,9 +15,10 @@ import { ExportCustomersButton } from './ExportCustomersButton';
 
 export type OpsCustomersClientProps = {
   defaultRestaurantId?: string | null;
+  focusCustomer?: string | null;
 };
 
-export function OpsCustomersClient({ defaultRestaurantId }: OpsCustomersClientProps) {
+export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCustomersClientProps) {
   const { memberships, activeRestaurantId, setActiveRestaurantId, accountSnapshot } = useOpsSession();
   const activeMembership = useOpsActiveMembership();
   const [page, setPage] = useState(1);
@@ -52,6 +53,19 @@ export function OpsCustomersClient({ defaultRestaurantId }: OpsCustomersClientPr
   const handlePageChange = useCallback((nextPage: number) => {
     setPage(nextPage);
   }, []);
+
+  useEffect(() => {
+    if (!focusCustomer || !data?.items?.length) return;
+    const selector = `[data-customer-id=\"${focusCustomer}\"]`;
+    const emailSelector = `[data-customer-email=\"${focusCustomer.toLowerCase()}\"]`;
+    const target =
+      (typeof document !== 'undefined' && (document.querySelector<HTMLElement>(selector) ?? document.querySelector<HTMLElement>(emailSelector))) ||
+      null;
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target.focus({ preventScroll: true });
+    }
+  }, [data?.items, focusCustomer]);
 
   if (memberships.length === 0) {
     return (

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import {
   AlertTriangle,
   CalendarDays,
@@ -15,6 +16,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { BookingStatusBadge, StatusTransitionAnimator } from '@/components/features/booking-state-machine';
 import { BookingActionButton } from '@/components/features/booking-state-machine';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { BookingStateMachineProvider, useBookingState, useBookingStateMachine } from '@/contexts/booking-state-machine';
@@ -382,8 +384,13 @@ function BookingCard({
       )
       : null;
 
+  const customerSearch = booking.customerEmail ?? booking.customerPhone ?? booking.customerName ?? '';
+  const customerHref = customerSearch ? `/ops/customers?focus=${encodeURIComponent(customerSearch)}` : '/ops/customers';
+
   return (
     <Card
+      data-booking-id={booking.id}
+      tabIndex={-1}
       className={cn(
         'border-border/60 transition-colors',
         temporalInfo.state === 'past' && 'border-slate-200 bg-slate-50',
@@ -478,6 +485,9 @@ function BookingCard({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <Button asChild variant="ghost" size="sm" className="touch-manipulation">
+            <Link href={customerHref}>View customer</Link>
+          </Button>
           <BookingActionButton
             booking={booking}
             pendingAction={lifecyclePending ?? null}

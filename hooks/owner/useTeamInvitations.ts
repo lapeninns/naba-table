@@ -42,7 +42,7 @@ export function useTeamInvitations({
       if (status && status !== 'pending') {
         search.set('status', status);
       }
-      const data = await fetchJson<unknown>(`/api/owner/team/invitations?${search.toString()}`);
+      const data = await fetchJson<unknown>(`/api/ops/team/invitations?${search.toString()}`);
       const parsed = invitationListResponseSchema.parse(data);
       return parsed.invites;
     },
@@ -62,7 +62,7 @@ export function useCreateTeamInvite(): UseMutationResult<
   return useMutation({
     mutationFn: async (variables) => {
       const payload = invitationCreatePayloadSchema.parse(variables);
-      const data = await fetchJson<unknown>('/api/owner/team/invitations', {
+      const data = await fetchJson<unknown>('/api/ops/team/invitations', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -95,7 +95,7 @@ export function useRevokeTeamInvite(): UseMutationResult<RestaurantInvite, HttpE
   return useMutation({
     mutationFn: async ({ restaurantId, inviteId }) => {
       const search = new URLSearchParams({ restaurantId });
-      const data = await fetchJson<unknown>(`/api/owner/team/invitations/${inviteId}?${search.toString()}`, {
+      const data = await fetchJson<unknown>(`/api/ops/team/invitations/${inviteId}?${search.toString()}`, {
         method: 'DELETE',
       });
       const parsed = z

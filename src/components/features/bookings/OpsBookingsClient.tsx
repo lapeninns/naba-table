@@ -58,6 +58,7 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
   const searchParams = useSearchParams();
   const { memberships, activeRestaurantId, setActiveRestaurantId, accountSnapshot } = useOpsSession();
   const activeMembership = useOpsActiveMembership();
+  const focusBookingId = searchParams?.get('focus') ?? null;
 
   const effectiveFilter = initialFilter ?? DEFAULT_FILTER;
   const effectivePage = initialPage ?? DEFAULT_PAGE;
@@ -241,6 +242,17 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
   );
 
   const bookings = useMemo(() => bookingsPage.items.map(mapToBookingDTO), [bookingsPage.items, mapToBookingDTO]);
+
+  useEffect(() => {
+    if (!focusBookingId) return;
+    const exists = bookingsPage.items.some((item) => item.id === focusBookingId);
+    if (!exists) return;
+    const row = document.querySelector<HTMLElement>(`[data-booking-id=\"${focusBookingId}\"]`);
+    if (row) {
+      row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      row.focus({ preventScroll: true });
+    }
+  }, [bookingsPage.items, focusBookingId]);
 
   const statusOptions = useMemo(() => {
     const totals = statusSummaryQuery.data?.totals ?? null;
