@@ -102,9 +102,12 @@ export function InviteAcceptanceClient({ token, invite }: InviteAcceptanceClient
     }
   };
 
+  const containerClassName = 'space-y-6';
+  const cardClassName = 'w-full max-w-xl border border-slate-200 shadow-sm';
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-6 py-16">
-      <Card className="w-full max-w-lg border border-slate-200 shadow-lg">
+    <div className={containerClassName}>
+      <Card className={cardClassName}>
         <CardHeader className="space-y-2 text-center">
           <CardTitle className="text-2xl font-semibold text-slate-900">Join {invite.restaurantName}</CardTitle>
           <CardDescription className="text-slate-600">
@@ -165,6 +168,6 @@ export function InviteAcceptanceClient({ token, invite }: InviteAcceptanceClient
           </Form>
         </CardContent>
       </Card>
-    </main>
+    </div>
   );
 }

@@ -63,23 +63,7 @@ const nextConfig = {
     remotePatterns: imageRemotePatterns,
   },
   async redirects() {
-    return [
-      {
-        source: '/tos',
-        destination: '/terms',
-        permanent: true,
-      },
-      {
-        source: '/terms/venue',
-        destination: '/terms',
-        permanent: true,
-      },
-      {
-        source: '/terms/togo',
-        destination: '/terms',
-        permanent: true,
-      },
-    ];
+    return [];
   },
   turbopack: {
     resolveAlias: aliasEntries,

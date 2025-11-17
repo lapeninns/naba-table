@@ -2,6 +2,7 @@ import Link from "next/link";
 import { cache } from "react";
 
 import BookingFlowPage from "@/components/reserve/booking-flow";
+import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getRestaurantBySlug } from "@/server/restaurants";
@@ -39,23 +40,16 @@ export default async function RestaurantItemPage({ params }: { params: RoutePara
 
   if (!restaurant) {
     return (
-      <section
-        className="sr-stack-lg flex min-h-[60vh] items-center justify-center bg-[var(--sr-color-background)] px-[var(--sr-space-6)] py-[var(--sr-space-8)] text-center"
-      >
-        <div className="sr-stack-md max-w-xl">
-          <h1 className="text-[var(--sr-font-size-2xl)] font-semibold leading-[var(--sr-line-height-tight)]">
-            We can't find that restaurant
-          </h1>
-          <p className="text-[var(--sr-font-size-md)] leading-[var(--sr-line-height-relaxed)] text-[var(--sr-color-text-secondary)]">
+      <section className="flex min-h-[60vh] items-center justify-center bg-slate-50 px-6 py-16 text-center">
+        <div className="space-y-4">
+          <h1 className="text-3xl font-semibold text-slate-900">We can’t find that restaurant</h1>
+          <p className="text-base text-slate-600">
             Double-check the link or return to the browse page to pick a different venue.
           </p>
           <div className="flex justify-center">
             <Link
               href="/browse"
-              className={cn(
-                buttonVariants({ variant: "default", size: "lg" }),
-                "min-w-[12rem] touch-manipulation"
-              )}
+              className={cn(buttonVariants({ variant: "default", size: "lg" }), "min-w-[12rem] touch-manipulation")}
             >
               Browse restaurants
             </Link>
@@ -81,61 +75,51 @@ export default async function RestaurantItemPage({ params }: { params: RoutePara
   });
 
   return (
-    <div className="bg-[var(--sr-color-background)]">
-      <nav className="border-b border-[var(--sr-color-border)] bg-[var(--sr-color-surface)]/80 backdrop-blur supports-[backdrop-filter]:bg-[var(--sr-color-surface)]/65">
-        <div className="sr-container flex items-center justify-between gap-[var(--sr-space-3)] px-[var(--sr-space-6)] py-[var(--sr-space-3)]">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100">
+      <nav className="border-b border-slate-200 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/70">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-6 py-4 sm:px-8 lg:px-10">
           <Link
             href="/browse"
-            className={cn(
-              buttonVariants({ variant: "ghost", size: "sm" }),
-              "touch-manipulation text-[var(--sr-color-text-secondary)] hover:text-[var(--sr-color-text-primary)]"
-            )}
+            className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "touch-manipulation text-slate-700")}
           >
             ← All restaurants
           </Link>
-          <span className="text-sm text-[var(--sr-color-text-secondary)]">
-            Local time zone
-          </span>
+          <span className="text-sm text-slate-500">Local timezone</span>
         </div>
       </nav>
 
-      <section className="sr-container sr-stack-lg px-[var(--sr-space-6)] py-[var(--sr-space-8)]">
-        <div
-          className="sr-stack-md text-left"
-          role="region"
-          aria-labelledby="restaurant-heading"
-        >
-          <div className="sr-stack-sm">
-            <span className="inline-flex w-fit items-center justify-center rounded-full bg-primary/10 px-[var(--sr-space-3)] py-[var(--sr-space-1)] text-sm font-medium text-primary">
+      <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-10 sm:px-8 lg:px-10 lg:py-14">
+        <header className="space-y-4" role="region" aria-labelledby="restaurant-heading">
+          <div className="flex flex-wrap items-center gap-3">
+            <Badge variant="secondary" className="bg-primary/10 text-primary">
               Book this venue
-            </span>
-            <h1
-              id="restaurant-heading"
-              className="text-balance text-[var(--sr-font-size-3xl)] font-semibold leading-[var(--sr-line-height-tight)]"
-            >
+            </Badge>
+            <span className="text-sm text-slate-500">Instant confirmation</span>
+          </div>
+          <div className="space-y-2">
+            <h1 id="restaurant-heading" className="text-balance text-4xl font-bold leading-tight text-slate-900 sm:text-5xl">
               {restaurant.name}
             </h1>
+            <p className="max-w-2xl text-base text-slate-700 sm:text-lg">
+              Reserve a table with live availability and instant confirmation so you can lock the perfect time in moments.
+            </p>
           </div>
-          <p className="max-w-2xl text-[var(--sr-font-size-md)] leading-[var(--sr-line-height-relaxed)] text-[var(--sr-color-text-secondary)]">
-            Reserve a table with live availability and instant confirmation so
-            you can confirm the perfect time in moments.
-          </p>
-          <dl className="flex flex-wrap gap-[var(--sr-space-4)] text-sm text-[var(--sr-color-text-secondary)]">
+          <dl className="flex flex-wrap gap-6 text-sm text-slate-600">
             <div>
-              <dt className="font-medium text-[var(--sr-color-text-primary)]">Capacity</dt>
+              <dt className="font-medium text-slate-900">Capacity</dt>
               <dd>{restaurant.capacity ? `${restaurant.capacity} seats` : "Contact for group size"}</dd>
             </div>
             <div>
-              <dt className="font-medium text-[var(--sr-color-text-primary)]">Timezone</dt>
+              <dt className="font-medium text-slate-900">Timezone</dt>
               <dd>{restaurant.timezone ?? DEFAULT_VENUE.timezone}</dd>
             </div>
           </dl>
-        </div>
+        </header>
 
         <div
           aria-labelledby="booking-flow-heading"
           role="region"
-          className="rounded-3xl border border-[var(--sr-color-border)] bg-[var(--sr-color-surface)] p-[var(--sr-space-6)] shadow-[var(--sr-shadow-lg)]"
+          className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
         >
           <h2 id="booking-flow-heading" className="sr-only" aria-describedby="restaurant-heading">
             Booking flow

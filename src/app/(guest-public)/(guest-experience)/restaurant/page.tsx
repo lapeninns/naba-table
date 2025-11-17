@@ -2,6 +2,7 @@ import { HydrationBoundary, QueryClient, dehydrate } from "@tanstack/react-query
 import Link from "next/link";
 
 import { RestaurantBrowser } from "@/components/marketing/RestaurantBrowser";
+import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { queryKeys } from "@/lib/query/keys";
 import { cn } from "@/lib/utils";
@@ -15,7 +16,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Browse partner restaurants · SajiloReserveX",
   description:
-    "Scroll through SajiloReserveX partner venues, filter by timezone or party size, and jump straight into the booking flow.",
+    "Search SajiloReserveX partner venues, filter by party size or timezone, and open the booking flow instantly.",
 };
 
 async function loadRestaurants() {
@@ -48,30 +49,34 @@ export default async function RestaurantDirectoryPage() {
 
   return (
     <HydrationBoundary state={dehydratedState}>
-      <div className="bg-[var(--sr-color-background)]">
-        <div className="sr-container sr-stack-xl min-h-screen px-[var(--sr-space-6)] py-[var(--sr-space-10)]">
-          <header className="sr-stack-md text-left">
-            <span className="inline-flex w-fit items-center justify-center rounded-full bg-primary/10 px-[var(--sr-space-3)] py-[var(--sr-space-1)] text-sm font-medium text-primary">
-              Discover & book
-            </span>
-            <div className="sr-stack-sm">
-              <h1 className="text-balance text-[var(--sr-font-size-3xl)] font-semibold leading-[var(--sr-line-height-tight)]">
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-6 py-12 sm:px-8 lg:px-10 lg:py-16">
+          <header className="space-y-5 text-left">
+            <div className="flex flex-wrap items-center gap-3">
+              <Badge variant="secondary" className="bg-primary/10 text-primary">
+                Discover & book
+              </Badge>
+              <span className="text-sm text-slate-500">Live availability · Instant confirmation</span>
+            </div>
+            <div className="space-y-3">
+              <h1 className="text-balance text-4xl font-bold leading-tight text-slate-900 sm:text-5xl">
                 Browse partner restaurants
               </h1>
-              <p className="max-w-2xl text-[var(--sr-font-size-md)] leading-[var(--sr-line-height-relaxed)] text-[var(--sr-color-text-secondary)]">
-                Search by name, timezone, or party size. Select a venue to open the booking flow and confirm your table in seconds.
+              <p className="max-w-2xl text-base text-slate-700 sm:text-lg">
+                Search by name, timezone, or party size. Select a venue to launch the booking flow and confirm your table
+                in seconds.
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-[var(--sr-space-3)]">
+            <div className="flex flex-wrap items-center gap-3">
               <Link
                 href="#restaurant-directory"
-                className={cn(buttonVariants({ variant: "default", size: "sm" }), "touch-manipulation")}
+                className={cn(buttonVariants({ variant: "default", size: "lg" }), "touch-manipulation")}
               >
                 Jump to directory
               </Link>
               <Link
                 href="/reserve"
-                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "touch-manipulation")}
+                className={cn(buttonVariants({ variant: "outline", size: "lg" }), "touch-manipulation")}
               >
                 Go straight to booking
               </Link>
@@ -80,21 +85,24 @@ export default async function RestaurantDirectoryPage() {
 
           <section
             id="restaurant-directory"
-            className="sr-stack-lg rounded-3xl border border-[var(--sr-color-border)] bg-[var(--sr-color-surface)] p-[var(--sr-space-6)] shadow-[var(--sr-shadow-lg)]"
+            className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8 lg:p-10"
             aria-labelledby="restaurant-directory-heading"
           >
-            <div className="sr-stack-sm text-left">
+            <div className="space-y-2 text-left">
               <h2
                 id="restaurant-directory-heading"
-                className="text-[var(--sr-font-size-2xl)] font-semibold leading-[var(--sr-line-height-tight)]"
+                className="text-2xl font-semibold leading-tight text-slate-900 sm:text-3xl"
               >
                 Find a table
               </h2>
-              <p className="max-w-2xl text-[var(--sr-font-size-sm)] text-[var(--sr-color-text-secondary)]">
-                Availability updates in real time. Use the filters below, then select a restaurant to launch the SajiloReserveX checkout experience.
+              <p className="max-w-2xl text-sm text-slate-600 sm:text-base">
+                Availability updates in real time. Use the filters below, then select a restaurant to launch the
+                SajiloReserveX checkout experience.
               </p>
             </div>
-            <RestaurantBrowser initialData={restaurants} initialError={loadError} />
+            <div className="mt-6">
+              <RestaurantBrowser initialData={restaurants} initialError={loadError} />
+            </div>
           </section>
         </div>
       </div>

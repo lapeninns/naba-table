@@ -15,7 +15,7 @@ export default function GuestExperienceLayout({ children }: GuestExperienceLayou
       <main id="main-content" className="flex-1 focus:outline-none">
         {children}
       </main>
-      <Footer />
+      <Footer variant="compact" />
     </div>
   );
 }

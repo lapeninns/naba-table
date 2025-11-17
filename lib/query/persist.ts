@@ -63,7 +63,11 @@ export function configureQueryPersistence(
     buster: options.buster ?? STORAGE_VERSION,
     maxAge: options.maxAge ?? DEFAULT_MAX_AGE,
     dehydrateOptions: {
-      shouldDehydrateQuery: (query) => query.meta?.persist !== false,
+      shouldDehydrateQuery: (query) => {
+        // Avoid persisting transient/pending queries to prevent hydration errors.
+        if (query.state.status === 'pending') return false;
+        return query.meta?.persist !== false;
+      },
     },
   });
 
