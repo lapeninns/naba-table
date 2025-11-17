@@ -1,4 +1,3 @@
-
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import config from "@/config";
@@ -9,7 +8,7 @@ import type { Metadata } from "next";
 const HIGHLIGHTS = [
   { title: "Book in seconds", copy: "Pick a time, confirm guests, and get an instant reference." },
   { title: "Stay in sync", copy: "Calendar-safe updates with email confirmations and reminders." },
-  { title: "Your bookings, organized", copy: "View, edit, or cancel from My bookings on any device." },
+  { title: "Your bookings, organized", copy: "View, edit, or cancel from bookings on any device." },
 ];
 
 const STEPS = [
@@ -19,16 +18,16 @@ const STEPS = [
 ];
 
 export const metadata: Metadata = {
-  title: `${config.appName} · Book great tables fast`,
+  title: `${config.appName} - Book great tables fast`,
   description: "Reserve at SajiloReserveX partner restaurants with instant confirmation and easy changes.",
   openGraph: {
-    title: `${config.appName} · Book great tables fast`,
+    title: `${config.appName} - Book great tables fast`,
     description: "Browse venues, hold your time, and manage bookings from one place.",
     type: "website",
   },
 };
 
-export default function HomePage() {
+export default function MarketingHomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100">
       <header className="relative overflow-hidden">
@@ -42,26 +41,30 @@ export default function HomePage() {
               Reserve the best tables without the back-and-forth.
             </h1>
             <p className="text-lg text-slate-700 sm:text-xl">
-              Browse partner restaurants, book in seconds, and manage every reservation from one place—mobile first,
+              Browse partner restaurants, book in seconds, and manage every reservation from one place - mobile first,
               keyboard friendly, and instant confirmations included.
             </p>
             <div className="flex flex-wrap items-center gap-3 sm:gap-4">
               <a
                 className={cn(buttonVariants({ variant: "default", size: "lg" }), "touch-manipulation")}
-                href="/reserve"
+                href="/restaurants"
               >
-                Start a booking
+                Find a restaurant
               </a>
               <a
                 className={cn(buttonVariants({ variant: "outline", size: "lg" }), "touch-manipulation")}
-                href="/browse"
+                href="/auth/signin"
               >
-                Browse restaurants
+                Sign in to manage bookings
               </a>
             </div>
-            <p className="text-sm text-slate-600">
-              Instant confirmation · Email reminders · Easy changes
-            </p>
+            <p className="text-sm text-slate-600">Instant confirmation - Email reminders - Easy changes</p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <NavCard title="Explore restaurants" href="/restaurants" copy="Browse venues and check availability." />
+            <NavCard title="Already booked?" href="/auth/signin?redirect=/bookings" copy="Access or manage reservations." />
+            <NavCard title="Product" href="/product" copy="See how SajiloReserveX works for guests." />
           </div>
         </div>
       </header>
@@ -121,7 +124,7 @@ export default function HomePage() {
                 <span className="mt-1 inline-flex h-2 w-2 rounded-full bg-primary" aria-hidden />
                 <div>
                   <p className="font-medium text-slate-900">Easy changes</p>
-                  <p className="text-slate-600">Modify or cancel through My bookings without calling ahead.</p>
+                  <p className="text-slate-600">Modify or cancel through Bookings without calling ahead.</p>
                 </div>
               </li>
               <li className="flex items-start gap-3">
@@ -135,13 +138,13 @@ export default function HomePage() {
             <div className="mt-8 flex flex-wrap gap-3">
               <a
                 className={cn(buttonVariants({ variant: "default", size: "lg" }), "touch-manipulation")}
-                href="/reserve"
+                href="/restaurants"
               >
-                Book now
+                Find a restaurant
               </a>
               <a
                 className={cn(buttonVariants({ variant: "ghost", size: "lg" }), "touch-manipulation")}
-                href="/my-bookings"
+                href="/bookings"
               >
                 View my bookings
               </a>
@@ -171,5 +174,17 @@ export default function HomePage() {
         </section>
       </main>
     </div>
+  );
+}
+
+function NavCard({ title, href, copy }: { title: string; href: string; copy: string }) {
+  return (
+    <a
+      href={href}
+      className="flex h-full flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+    >
+      <span className="text-base font-semibold text-slate-900">{title}</span>
+      <span className="text-sm text-slate-600">{copy}</span>
+    </a>
   );
 }

@@ -46,6 +46,7 @@ const PRIMARY_LINKS: PrimaryLink[] = [
 ];
 
 const ACCOUNT_LINKS: AccountLink[] = [
+  { href: "/dashboard", label: "Dashboard" },
   { href: "/my-bookings", label: "My bookings" },
   { href: "/profile/manage", label: "Manage profile" },
 ];
@@ -126,10 +127,6 @@ type PrimaryNavProps = {
 };
 
 function PrimaryNav({ links, currentPath }: PrimaryNavProps) {
-  if (links.length === 0) {
-    return <nav aria-label="Primary navigation" />;
-  }
-
   const isActive = useCallback(
     (href: string) => {
       if (!currentPath) return false;
@@ -138,6 +135,10 @@ function PrimaryNav({ links, currentPath }: PrimaryNavProps) {
     },
     [currentPath],
   );
+
+  if (links.length === 0) {
+    return <nav aria-label="Primary navigation" />;
+  }
 
   return (
     <nav

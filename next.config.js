@@ -63,7 +63,19 @@ const nextConfig = {
     remotePatterns: imageRemotePatterns,
   },
   async redirects() {
-    return [];
+    return [
+      { source: "/my-bookings", destination: "/bookings", permanent: true },
+      { source: "/profile/manage", destination: "/account/profile", permanent: true },
+      { source: "/invite/:token", destination: "/account/invite/:token", permanent: true },
+      { source: "/signin", destination: "/auth/signin", permanent: true },
+      { source: "/browse", destination: "/restaurants", permanent: true },
+      { source: "/restaurant", destination: "/restaurants", permanent: true },
+      { source: "/item/:slug", destination: "/restaurants/:slug", permanent: true },
+      { source: "/reserve", destination: "/bookings/new", permanent: true },
+      { source: "/reserve/r/:slug", destination: "/restaurants/:slug/book", permanent: true },
+      { source: "/reserve/:reservationId", destination: "/bookings/:reservationId", permanent: true },
+      { source: "/thank-you", has: [{ type: "query", key: "bookingId", value: "(?<bookingId>.*)" }], destination: "/bookings/:bookingId/thank-you", permanent: true },
+    ];
   },
   turbopack: {
     resolveAlias: aliasEntries,
