@@ -73,8 +73,14 @@ const nextConfig = {
       { source: "/item/:slug", destination: "/restaurants/:slug", permanent: true },
       { source: "/reserve", destination: "/bookings/new", permanent: true },
       { source: "/reserve/r/:slug", destination: "/restaurants/:slug/book", permanent: true },
-      { source: "/reserve/:reservationId", destination: "/bookings/:reservationId", permanent: true },
+      // Reservation detail lives at /bookings/[bookingId]; align param name to avoid redirect config errors.
+      { source: "/reserve/:bookingId", destination: "/bookings/:bookingId", permanent: true },
       { source: "/thank-you", has: [{ type: "query", key: "bookingId", value: "(?<bookingId>.*)" }], destination: "/bookings/:bookingId/thank-you", permanent: true },
+      // Legal fallbacks
+      { source: "/privacy-policy", destination: "/privacy-policy", permanent: true },
+      { source: "/terms", destination: "/terms", permanent: true },
+      { source: "/tos", destination: "/terms", permanent: true },
+      { source: "/terms/:path*", destination: "/terms", permanent: true },
     ];
   },
   turbopack: {
