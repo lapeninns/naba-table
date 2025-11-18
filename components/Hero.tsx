@@ -1,5 +1,6 @@
 import Image from "next/image";
 
+import { Button } from "@/components/ui/button";
 import config from "@/config";
 
 import TestimonialsAvatars from "./TestimonialsAvatars";
@@ -30,9 +31,9 @@ const Hero = () => {
           The NextJS boilerplate with all you need to build your SaaS, AI tool,
           or any other web app. From idea to production in 5 minutes.
         </p>
-        <button className="btn btn-primary btn-wide">
+        <Button size="lg" className="w-full px-8 md:w-auto">
           Get {config.appName}
-        </button>
+        </Button>
 
         <TestimonialsAvatars priority={true} />
       </div>

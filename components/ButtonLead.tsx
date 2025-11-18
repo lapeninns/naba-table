@@ -3,6 +3,9 @@
 import React, { useState, useRef } from "react";
 import { toast } from "react-hot-toast";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import apiClient from "@/libs/api";
 
 // This component is used to collect the emails from the landing page
@@ -35,35 +38,40 @@ const ButtonLead = ({ extraStyle }: { extraStyle?: string }) => {
     }
   };
   return (
-    <form
-      className={`w-full max-w-xs space-y-3 ${extraStyle ? extraStyle : ""}`}
-      onSubmit={handleSubmit}
-    >
-      <input
+    <form className={cn("w-full max-w-xs space-y-3", extraStyle)} onSubmit={handleSubmit}>
+      <Input
         required
         type="email"
         value={email}
         ref={inputRef}
         autoComplete="email"
         placeholder="tom@cruise.com"
-        className="input input-bordered w-full placeholder:opacity-60"
         onChange={(e) => setEmail(e.target.value)}
       />
 
-      <button
-        className="btn btn-primary btn-block"
-        type="submit"
-        disabled={isDisabled}
-      >
+      <Button className="w-full" type="submit" disabled={isDisabled} aria-busy={isLoading}>
         Join waitlist
         {isLoading ? (
-          <span className="loading loading-spinner loading-xs"></span>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className="h-5 w-5 animate-spin"
+            aria-hidden
+          >
+            <path
+              fillRule="evenodd"
+              d="M10 3.5a.75.75 0 01.75-.75 6.75 6.75 0 016.5 6.75.75.75 0 01-1.5 0A5.25 5.25 0 0010.75 4.25.75.75 0 0110 3.5z"
+              clipRule="evenodd"
+            />
+          </svg>
         ) : (
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 20 20"
             fill="currentColor"
-            className="w-5 h-5"
+            className="h-5 w-5"
+            aria-hidden
           >
             <path
               fillRule="evenodd"
@@ -72,7 +80,7 @@ const ButtonLead = ({ extraStyle }: { extraStyle?: string }) => {
             />
           </svg>
         )}
-      </button>
+      </Button>
     </form>
   );
 };

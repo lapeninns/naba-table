@@ -30,6 +30,7 @@ const detailsSchema = z.object({
   phone: z.string().max(80).nullable().optional(),
   email: z.string().email().nullable().optional(),
   address: z.string().max(240).nullable().optional(),
+  googleMapUrl: z.string().url().max(2048).nullable().optional(),
   bookingPolicy: z.string().max(800).nullable().optional(),
   logoUrl: z.string().url().nullable().optional(),
 });
@@ -119,6 +120,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       contactPhone: parsed.phone ?? null,
       contactEmail: parsed.email ?? null,
       address: parsed.address ?? null,
+      googleMapUrl: parsed.googleMapUrl ?? null,
       bookingPolicy: parsed.bookingPolicy ?? null,
       logoUrl: parsed.logoUrl ?? null,
     };

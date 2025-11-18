@@ -18,8 +18,12 @@ export type CreateRestaurantInput = {
   contactEmail?: string | null;
   contactPhone?: string | null;
   address?: string | null;
+  googleMapUrl?: string | null;
   bookingPolicy?: string | null;
   logoUrl?: string | null;
+  emailSendReminder24h?: boolean;
+  emailSendReminderShort?: boolean;
+  emailSendReviewRequest?: boolean;
   reservationIntervalMinutes?: number;
   reservationDefaultDurationMinutes?: number;
   reservationLastSeatingBufferMinutes?: number;
@@ -34,8 +38,12 @@ export type CreatedRestaurant = {
   contactEmail: string | null;
   contactPhone: string | null;
   address: string | null;
+  googleMapUrl: string | null;
   bookingPolicy: string | null;
   logoUrl: string | null;
+  emailSendReminder24h: boolean;
+  emailSendReminderShort: boolean;
+  emailSendReviewRequest: boolean;
   reservationIntervalMinutes: number;
   reservationDefaultDurationMinutes: number;
   reservationLastSeatingBufferMinutes: number;
@@ -120,8 +128,12 @@ export async function createRestaurant(
     contact_email: input.contactEmail ?? null,
     contact_phone: input.contactPhone ?? null,
     address: input.address ?? null,
+    google_map_url: input.googleMapUrl ?? null,
     booking_policy: input.bookingPolicy ?? null,
     logo_url: input.logoUrl ?? null,
+    email_send_reminder_24h: input.emailSendReminder24h ?? true,
+    email_send_reminder_short: input.emailSendReminderShort ?? true,
+    email_send_review_request: input.emailSendReviewRequest ?? true,
     reservation_interval_minutes: intervalMinutes,
     reservation_default_duration_minutes: defaultDurationMinutes,
     ...(lastSeatingBufferMinutes !== undefined
@@ -179,8 +191,12 @@ export async function createRestaurant(
     contactEmail: restaurant.contact_email,
     contactPhone: restaurant.contact_phone,
     address: restaurant.address,
+    googleMapUrl: restaurant.google_map_url,
     bookingPolicy: restaurant.booking_policy,
     logoUrl: restaurant.logo_url,
+    emailSendReminder24h: restaurant.email_send_reminder_24h ?? true,
+    emailSendReminderShort: restaurant.email_send_reminder_short ?? true,
+    emailSendReviewRequest: restaurant.email_send_review_request ?? true,
     reservationIntervalMinutes: restaurant.reservation_interval_minutes,
     reservationDefaultDurationMinutes: restaurant.reservation_default_duration_minutes,
     reservationLastSeatingBufferMinutes: restaurant.reservation_last_seating_buffer_minutes,

@@ -1,7 +1,6 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 import type { StatusFilter } from '@/hooks/useBookingsTableState';
 
@@ -18,20 +17,29 @@ export type StatusFilterGroupProps = {
 
 export function StatusFilterGroup({ value, options, onChange }: StatusFilterGroupProps) {
   return (
-    <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filter by status">
+    <ToggleGroup
+      type="single"
+      value={value}
+      aria-label="Filter by status"
+      onValueChange={(next) => {
+        if (next) {
+          onChange(next as StatusFilter);
+        }
+      }}
+      className="flex flex-wrap items-center gap-2"
+    >
       {options.map((option) => (
-        <Button
+        <ToggleGroupItem
           key={option.value}
-          type="button"
-          size="sm"
-          variant={option.value === value ? 'default' : 'outline'}
-          onClick={() => onChange(option.value)}
+          value={option.value}
           aria-pressed={option.value === value}
-          className={cn('min-w-[72px]')}
+          variant="outline"
+          size="sm"
+          className="min-w-[72px]"
         >
           {option.label}
-        </Button>
+        </ToggleGroupItem>
       ))}
-    </div>
+    </ToggleGroup>
   );
 }

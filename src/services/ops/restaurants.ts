@@ -16,6 +16,7 @@ type RestaurantsListResponse = {
     contactEmail: string | null;
     contactPhone: string | null;
     address: string | null;
+    googleMapUrl: string | null;
     bookingPolicy: string | null;
     createdAt: string;
     updatedAt: string;
@@ -39,12 +40,16 @@ type RestaurantResponse = {
     contactEmail: string | null;
     contactPhone: string | null;
     address: string | null;
-  bookingPolicy: string | null;
-  logoUrl: string | null;
-  reservationIntervalMinutes: number | null;
-  reservationDefaultDurationMinutes: number | null;
-  reservationLastSeatingBufferMinutes: number | null;
-  createdAt: string;
+    googleMapUrl: string | null;
+    bookingPolicy: string | null;
+    logoUrl: string | null;
+    emailSendReminder24h: boolean;
+    emailSendReminderShort: boolean;
+    emailSendReviewRequest: boolean;
+    reservationIntervalMinutes: number | null;
+    reservationDefaultDurationMinutes: number | null;
+    reservationLastSeatingBufferMinutes: number | null;
+    createdAt: string;
     updatedAt: string;
     role: RestaurantRole;
   };
@@ -64,8 +69,12 @@ export type RestaurantProfile = {
   contactEmail: string | null;
   contactPhone: string | null;
   address: string | null;
+  googleMapUrl: string | null;
   bookingPolicy: string | null;
   logoUrl: string | null;
+  emailSendReminder24h: boolean;
+  emailSendReminderShort: boolean;
+  emailSendReviewRequest: boolean;
   reservationIntervalMinutes: number;
   reservationDefaultDurationMinutes: number;
   reservationLastSeatingBufferMinutes: number;
@@ -171,8 +180,12 @@ function mapRestaurant(dto: RestaurantResponse['restaurant']): RestaurantProfile
     contactEmail: dto.contactEmail ?? null,
     contactPhone: dto.contactPhone ?? null,
     address: dto.address ?? null,
+    googleMapUrl: dto.googleMapUrl ?? null,
     bookingPolicy: dto.bookingPolicy ?? null,
     logoUrl: dto.logoUrl ?? null,
+    emailSendReminder24h: dto.emailSendReminder24h ?? true,
+    emailSendReminderShort: dto.emailSendReminderShort ?? true,
+    emailSendReviewRequest: dto.emailSendReviewRequest ?? true,
     reservationIntervalMinutes: dto.reservationIntervalMinutes ?? 15,
     reservationDefaultDurationMinutes: dto.reservationDefaultDurationMinutes ?? 90,
     reservationLastSeatingBufferMinutes: dto.reservationLastSeatingBufferMinutes ?? 15,

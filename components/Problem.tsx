@@ -1,3 +1,5 @@
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
 const Arrow = ({ extraStyle }: { extraStyle: string }) => {
   return (
     <svg
@@ -41,17 +43,21 @@ const Step = ({ emoji, text }: { emoji: string; text: string }) => {
 // - Features: "ShipFast has user auth, Stripe, emails all set up for you"
 const Problem = () => {
   return (
-    <section className="bg-neutral text-neutral-content">
-      <div className="max-w-7xl mx-auto px-8 py-16 md:py-32 text-center">
-        <h2 className="max-w-3xl mx-auto font-extrabold text-4xl md:text-5xl tracking-tight mb-6 md:mb-8">
-          80% of startups fail because founders never launch
-        </h2>
-        <p className="max-w-xl mx-auto text-lg opacity-90 leading-relaxed mb-12 md:mb-20">
-          Emails, DNS records, user authentication... There&apos;s so much going
-          on.
+    <Alert
+      variant="warning"
+      className="border-transparent bg-neutral px-8 py-16 text-neutral-content md:py-32"
+      role="status"
+      aria-live="polite"
+    >
+      <AlertTitle className="mx-auto mb-6 max-w-3xl text-center text-4xl font-extrabold tracking-tight md:mb-8 md:text-5xl">
+        80% of startups fail because founders never launch
+      </AlertTitle>
+      <AlertDescription className="mx-auto max-w-5xl text-center">
+        <p className="mx-auto mb-12 max-w-xl text-lg leading-relaxed opacity-90 md:mb-20">
+          Emails, DNS records, user authentication... There&apos;s so much going on.
         </p>
 
-        <div className="flex flex-col md:flex-row justify-center items-center md:items-start gap-6">
+        <div className="flex flex-col items-center justify-center gap-6 md:flex-row md:items-start">
           <Step emoji="🧑‍💻" text="8 hrs to add Stripe" />
 
           <Arrow extraStyle="max-md:-scale-x-100 md:-rotate-90" />
@@ -62,8 +68,8 @@ const Problem = () => {
 
           <Step emoji="😔" text="Quit project" />
         </div>
-      </div>
-    </section>
+      </AlertDescription>
+    </Alert>
   );
 };
 

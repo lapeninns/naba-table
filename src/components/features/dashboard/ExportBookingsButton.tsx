@@ -97,6 +97,8 @@ export function ExportBookingsButton({ restaurantId, restaurantName, date, disab
     <Button
       onClick={handleExport}
       disabled={isDisabled}
+      aria-busy={isExporting}
+      type="button"
       variant="outline"
       size="sm"
       className="h-11 touch-manipulation"

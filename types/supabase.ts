@@ -1508,6 +1508,10 @@ export type Database = {
           contact_email: string | null
           contact_phone: string | null
           created_at: string
+          google_map_url: string | null
+          email_send_reminder_24h: boolean
+          email_send_reminder_short: boolean
+          email_send_review_request: boolean
           logo_url: string | null
           id: string
           is_active: boolean
@@ -1526,6 +1530,10 @@ export type Database = {
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
+          google_map_url?: string | null
+          email_send_reminder_24h?: boolean
+          email_send_reminder_short?: boolean
+          email_send_review_request?: boolean
           logo_url?: string | null
           id?: string
           is_active?: boolean
@@ -1544,6 +1552,10 @@ export type Database = {
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
+          google_map_url?: string | null
+          email_send_reminder_24h?: boolean
+          email_send_reminder_short?: boolean
+          email_send_review_request?: boolean
           logo_url?: string | null
           id?: string
           is_active?: boolean

@@ -20,6 +20,7 @@ export type RestaurantDetails = {
   contactEmail: string | null;
   contactPhone: string | null;
   address: string | null;
+  googleMapUrl: string | null;
   bookingPolicy: string | null;
   logoUrl: string | null;
 };
@@ -32,6 +33,7 @@ export type UpdateRestaurantDetailsInput = {
   contactEmail?: string | null;
   contactPhone?: string | null;
   address?: string | null;
+  googleMapUrl?: string | null;
   bookingPolicy?: string | null;
   logoUrl?: string | null;
 };
@@ -54,6 +56,7 @@ type NormalizedDetailsInput = {
   contactEmail: string | null;
   contactPhone: string | null;
   address: string | null;
+  googleMapUrl: string | null;
   bookingPolicy: string | null;
   logoUrl: string | null;
 };
@@ -87,6 +90,7 @@ function validateDetailsInput(input: NormalizedDetailsInput): NormalizedDetailsI
     contactEmail: sanitizeString(input.contactEmail),
     contactPhone: sanitizeString(input.contactPhone),
     address: sanitizeString(input.address),
+    googleMapUrl: sanitizeString(input.googleMapUrl),
     bookingPolicy: sanitizeString(input.bookingPolicy),
     logoUrl: sanitizeString(input.logoUrl),
   };
@@ -129,6 +133,7 @@ export async function getRestaurantDetails(
     contactEmail: restaurant.contact_email,
     contactPhone: restaurant.contact_phone,
     address: restaurant.address,
+    googleMapUrl: restaurant.google_map_url,
     bookingPolicy: restaurant.booking_policy,
     logoUrl: restaurant.logo_url,
   };
@@ -148,6 +153,7 @@ export async function updateRestaurantDetails(
     contactEmail: input.contactEmail ?? current.contactEmail,
     contactPhone: input.contactPhone ?? current.contactPhone,
     address: input.address ?? current.address,
+    googleMapUrl: input.googleMapUrl ?? current.googleMapUrl,
     bookingPolicy: input.bookingPolicy ?? current.bookingPolicy,
     logoUrl: input.logoUrl ?? current.logoUrl,
   };
@@ -164,6 +170,7 @@ export async function updateRestaurantDetails(
     contactEmail: updated.contactEmail,
     contactPhone: updated.contactPhone,
     address: updated.address,
+    googleMapUrl: updated.googleMapUrl,
     bookingPolicy: updated.bookingPolicy,
     logoUrl: updated.logoUrl,
   };

@@ -20,10 +20,14 @@ export type RestaurantDetailsFormValues = {
   contactEmail: string | null;
   contactPhone: string | null;
   address: string | null;
+  googleMapUrl: string | null;
   bookingPolicy: string | null;
   reservationIntervalMinutes: number;
   reservationDefaultDurationMinutes: number;
   reservationLastSeatingBufferMinutes: number;
+  emailSendReminder24h?: boolean;
+  emailSendReminderShort?: boolean;
+  emailSendReviewRequest?: boolean;
 };
 
 export type RestaurantDetailsFormProps = PropsWithChildren<{
@@ -42,10 +46,14 @@ type FormState = {
   contactEmail: string;
   contactPhone: string;
   address: string;
+  googleMapUrl: string;
   bookingPolicy: string;
   reservationIntervalMinutes: string;
   reservationDefaultDurationMinutes: string;
   reservationLastSeatingBufferMinutes: string;
+  emailSendReminder24h: boolean;
+  emailSendReminderShort: boolean;
+  emailSendReviewRequest: boolean;
 };
 
 type FormErrors = Partial<Record<keyof FormState, string>>;
@@ -63,6 +71,7 @@ const FIELD_TOOLTIPS = {
     'Minutes before closing when you stop seating guests so everyone can finish before the kitchen closes.',
   bookingPolicy:
     'Optional message shown to guests during booking and in confirmations (e.g., deposits, grace periods).',
+  googleMapUrl: 'Link for customers to leave a Google review. This is sent in post-visit emails.',
 } as const;
 
 export const COMMON_TIMEZONES = [
@@ -99,6 +108,10 @@ function mapInitialValues(values: RestaurantDetailsFormValues): FormState {
       values.reservationLastSeatingBufferMinutes !== undefined && values.reservationLastSeatingBufferMinutes !== null
         ? String(values.reservationLastSeatingBufferMinutes)
         : '',
+    emailSendReminder24h: values.emailSendReminder24h ?? true,
+    emailSendReminderShort: values.emailSendReminderShort ?? true,
+    emailSendReviewRequest: values.emailSendReviewRequest ?? true,
+    googleMapUrl: values.googleMapUrl ?? '',
   };
 }
 
@@ -110,6 +123,7 @@ function sanitizePayload(state: FormState): UpdateRestaurantInput {
   const trimmedEmail = trim(state.contactEmail);
   const trimmedPhone = trim(state.contactPhone);
   const trimmedAddress = trim(state.address);
+  const trimmedMapUrl = trim(state.googleMapUrl);
   const trimmedPolicy = trim(state.bookingPolicy);
   const intervalMinutes = Number.parseInt(state.reservationIntervalMinutes, 10);
   const defaultDurationMinutes = Number.parseInt(state.reservationDefaultDurationMinutes, 10);
@@ -122,10 +136,14 @@ function sanitizePayload(state: FormState): UpdateRestaurantInput {
     contactEmail: trimmedEmail.length > 0 ? trimmedEmail : null,
     contactPhone: trimmedPhone.length > 0 ? trimmedPhone : null,
     address: trimmedAddress.length > 0 ? trimmedAddress : null,
+    googleMapUrl: trimmedMapUrl.length > 0 ? trimmedMapUrl : null,
     bookingPolicy: trimmedPolicy.length > 0 ? trimmedPolicy : null,
     reservationIntervalMinutes: intervalMinutes,
     reservationDefaultDurationMinutes: defaultDurationMinutes,
     reservationLastSeatingBufferMinutes: lastSeatingBufferMinutes,
+    emailSendReminder24h: state.emailSendReminder24h,
+    emailSendReminderShort: state.emailSendReminderShort,
+    emailSendReviewRequest: state.emailSendReviewRequest,
   };
 }
 
@@ -194,6 +212,15 @@ function validate(state: FormState): FormErrors {
     errors.contactPhone = 'Phone number must be at least 5 characters';
   }
 
+  const mapUrl = state.googleMapUrl.trim();
+  if (mapUrl) {
+    try {
+      new URL(mapUrl);
+    } catch (error) {
+      errors.googleMapUrl = 'Enter a valid URL (e.g., https://maps.google.com/...)';
+    }
+  }
+
   return errors;
 }
 
@@ -222,6 +249,10 @@ export function RestaurantDetailsForm({
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
+  };
+
+  const handleToggle = (field: 'emailSendReminder24h' | 'emailSendReminderShort' | 'emailSendReviewRequest', value: boolean) => {
+    setState((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -484,6 +515,37 @@ export function RestaurantDetailsForm({
 
         <div className="space-y-1.5 sm:col-span-2">
           <div className="flex items-center gap-1">
+            <Label htmlFor="restaurant-google-map">Google Maps Review Link</Label>
+            <HelpTooltip
+              description={FIELD_TOOLTIPS.googleMapUrl}
+              ariaLabel="Why add a Google Maps review link?"
+            />
+          </div>
+          <Input
+            id="restaurant-google-map"
+            type="url"
+            inputMode="url"
+            placeholder="https://g.page/r/YourRestaurant/review"
+            value={state.googleMapUrl}
+            onChange={(event) => handleChange('googleMapUrl', event.target.value)}
+            aria-invalid={Boolean(errors.googleMapUrl)}
+            aria-describedby={
+              errors.googleMapUrl ? 'restaurant-google-map-error' : 'restaurant-google-map-help'
+            }
+            className={cn(errors.googleMapUrl && 'border-destructive focus-visible:ring-destructive/60')}
+          />
+          <p id="restaurant-google-map-help" className="text-xs text-muted-foreground">
+            Optional link sent to customers to ask for a review.
+          </p>
+          {errors.googleMapUrl && (
+            <p id="restaurant-google-map-error" className="text-xs text-destructive" role="alert">
+              {errors.googleMapUrl}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-1.5 sm:col-span-2">
+          <div className="flex items-center gap-1">
             <Label htmlFor="restaurant-policy">Booking Policy</Label>
             <HelpTooltip description={FIELD_TOOLTIPS.bookingPolicy} ariaLabel="Booking policy guidance" />
           </div>
@@ -493,6 +555,54 @@ export function RestaurantDetailsForm({
             onChange={(event) => handleChange('bookingPolicy', event.target.value)}
             rows={3}
           />
+        </div>
+
+        <div className="space-y-2 rounded-lg border border-border/80 p-3 sm:col-span-2">
+          <div className="flex items-center gap-2">
+            <Label className="text-sm font-semibold">Guest Emails</Label>
+            <HelpTooltip
+              description="Control which automated guest emails are sent for this restaurant (reminders, reviews)."
+              ariaLabel="Guest email settings help"
+            />
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <label className="flex items-start gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4"
+                checked={state.emailSendReminder24h}
+                onChange={(e) => handleToggle('emailSendReminder24h', e.target.checked)}
+              />
+              <span>
+                Send 24h reminder
+                <p className="text-xs text-muted-foreground">Pre-visit reminder roughly one day before arrival.</p>
+              </span>
+            </label>
+            <label className="flex items-start gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4"
+                checked={state.emailSendReminderShort}
+                onChange={(e) => handleToggle('emailSendReminderShort', e.target.checked)}
+              />
+              <span>
+                Send same-day reminder
+                <p className="text-xs text-muted-foreground">Short heads-up closer to arrival time.</p>
+              </span>
+            </label>
+            <label className="flex items-start gap-2 text-sm text-foreground sm:col-span-2">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4"
+                checked={state.emailSendReviewRequest}
+                onChange={(e) => handleToggle('emailSendReviewRequest', e.target.checked)}
+              />
+              <span>
+                Send post-visit review request
+                <p className="text-xs text-muted-foreground">Quick feedback ask after the visit is completed.</p>
+              </span>
+            </label>
+          </div>
         </div>
       </div>
 

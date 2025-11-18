@@ -55,12 +55,22 @@ export const createRestaurantSchema = z.object({
     .nullable()
     .optional()
     .transform((val) => val || null),
+  googleMapUrl: z
+    .string()
+    .trim()
+    .url('Google Map link must be a valid URL')
+    .nullable()
+    .optional()
+    .transform((val) => val || null),
   bookingPolicy: z
     .string()
     .trim()
     .nullable()
     .optional()
     .transform((val) => val || null),
+  emailSendReminder24h: z.boolean().optional(),
+  emailSendReminderShort: z.boolean().optional(),
+  emailSendReviewRequest: z.boolean().optional(),
   logoUrl: optionalLogoUrlSchema,
   reservationIntervalMinutes: INTERVAL_SCHEMA.optional(),
   reservationDefaultDurationMinutes: DURATION_SCHEMA.optional(),
@@ -99,12 +109,22 @@ export const updateRestaurantSchema = z.object({
     .nullable()
     .optional()
     .transform((val) => val || null),
+  googleMapUrl: z
+    .string()
+    .trim()
+    .url('Google Map link must be a valid URL')
+    .nullable()
+    .optional()
+    .transform((val) => val || null),
   bookingPolicy: z
     .string()
     .trim()
     .nullable()
     .optional()
     .transform((val) => val || null),
+  emailSendReminder24h: z.boolean().optional(),
+  emailSendReminderShort: z.boolean().optional(),
+  emailSendReviewRequest: z.boolean().optional(),
   logoUrl: optionalLogoUrlSchema,
   reservationIntervalMinutes: INTERVAL_SCHEMA.optional(),
   reservationDefaultDurationMinutes: DURATION_SCHEMA.optional(),
@@ -122,8 +142,12 @@ export type RestaurantDTO = {
   contactEmail: string | null;
   contactPhone: string | null;
   address: string | null;
+  googleMapUrl: string | null;
   bookingPolicy: string | null;
   logoUrl: string | null;
+  emailSendReminder24h: boolean;
+  emailSendReminderShort: boolean;
+  emailSendReviewRequest: boolean;
   reservationIntervalMinutes: number;
   reservationDefaultDurationMinutes: number;
   reservationLastSeatingBufferMinutes: number;

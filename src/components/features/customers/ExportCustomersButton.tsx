@@ -96,6 +96,8 @@ export function ExportCustomersButton({ restaurantId, restaurantName, disabled, 
     <Button
       onClick={handleExport}
       disabled={isDisabled}
+      aria-busy={isExporting}
+      type="button"
       variant="outline"
       size="sm"
       aria-label={isExporting ? 'Exporting customers...' : 'Export customers to CSV'}

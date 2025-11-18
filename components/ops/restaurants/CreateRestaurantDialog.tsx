@@ -32,6 +32,7 @@ type FormData = {
   contactEmail: string;
   contactPhone: string;
   address: string;
+  googleMapUrl: string;
   bookingPolicy: string;
 };
 
@@ -69,6 +70,7 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
     contactEmail: '',
     contactPhone: '',
     address: '',
+    googleMapUrl: '',
     bookingPolicy: '',
   });
   const [errors, setErrors] = useState<FormErrors>({});
@@ -86,6 +88,7 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
         contactEmail: '',
         contactPhone: '',
         address: '',
+        googleMapUrl: '',
         bookingPolicy: '',
       });
       setErrors({});
@@ -153,6 +156,14 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
       newErrors.contactPhone = 'Phone number must be at least 5 characters';
     }
 
+    if (formData.googleMapUrl.trim()) {
+      try {
+        new URL(formData.googleMapUrl.trim());
+      } catch (error) {
+        newErrors.googleMapUrl = 'Enter a valid URL (e.g., https://maps.google.com/...)';
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -172,6 +183,7 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
       contactEmail: formData.contactEmail.trim() || null,
       contactPhone: formData.contactPhone.trim() || null,
       address: formData.address.trim() || null,
+      googleMapUrl: formData.googleMapUrl.trim() || null,
       bookingPolicy: formData.bookingPolicy.trim() || null,
       logoUrl: null,
     };
@@ -332,6 +344,29 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
                 onChange={(e) => handleChange('address', e.target.value)}
                 placeholder="123 Main Street, City, Country"
               />
+            </div>
+
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="create-restaurant-map">Google Maps link</Label>
+              <Input
+                id="create-restaurant-map"
+                type="url"
+                inputMode="url"
+                placeholder="https://maps.google.com/..."
+                value={formData.googleMapUrl}
+                onChange={(e) => handleChange('googleMapUrl', e.target.value)}
+                aria-invalid={Boolean(errors.googleMapUrl)}
+                aria-describedby={errors.googleMapUrl ? 'create-restaurant-map-error' : 'create-restaurant-map-help'}
+                className={cn(errors.googleMapUrl && 'border-destructive focus-visible:ring-destructive/60')}
+              />
+              <p id="create-restaurant-map-help" className="text-xs text-muted-foreground">
+                Optional link shared in guest emails for directions.
+              </p>
+              {errors.googleMapUrl && (
+                <p id="create-restaurant-map-error" className="text-xs text-destructive" role="alert">
+                  {errors.googleMapUrl}
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5 sm:col-span-2">
