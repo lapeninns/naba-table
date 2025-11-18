@@ -149,6 +149,10 @@ export function getManualAssignmentMaxSlack(): number | null {
   return typeof value === "number" ? value : null;
 }
 
+export function isManualAssignmentSessionEnabled(): boolean {
+  return env.featureFlags.manualAssignments?.sessionEnabled ?? false;
+}
+
 export function getSelectorPlannerLimits(): {
   maxPlansPerSlack?: number;
   maxCombinationEvaluations?: number;

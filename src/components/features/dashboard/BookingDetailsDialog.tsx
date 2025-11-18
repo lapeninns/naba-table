@@ -35,6 +35,7 @@ import type {
   ManualSelectionPayload,
   ManualHoldPayload,
   ManualValidationResult,
+  ConfirmHoldAssignment,
 } from '@/services/ops/bookings';
 import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
 
@@ -134,6 +135,7 @@ export function BookingDetailsDialog({
   onUnassignTable,
   tableActionState,
 }: BookingDetailsDialogProps) {
+  const manualSessionEnabled = true;
   const [isOpen, setIsOpen] = useState(false);
   const [selectedTables, setSelectedTables] = useState<string[]>([]);
   const [userModifiedSelection, setUserModifiedSelection] = useState(false);
@@ -149,6 +151,8 @@ export function BookingDetailsDialog({
   const [onlyAvailable, setOnlyAvailable] = useState(true);
   const [staleContext, setStaleContext] = useState(false);
   const [lastApiError, setLastApiError] = useState<null | { scope: 'validate'|'hold'|'confirm', code: string | null, message: string, details?: any }>(null);
+  const [manualSessionId, setManualSessionId] = useState<string | null>(null);
+  const [manualSelectionVersionState, setManualSelectionVersionState] = useState<number | null>(null);
   const lifecycleAvailability = useMemo(
     () => ({ isToday: getTodayInTimezone(summary.timezone) === summary.date }),
     [summary.date, summary.timezone],
@@ -186,16 +190,35 @@ export function BookingDetailsDialog({
     refetch: refetchManualContext,
   } = manualContextQuery;
   const manualContext = manualContextData ?? null;
+  const manualSession = (manualContext as (typeof manualContext & { session?: { id?: string | null; selectionVersion?: number | null } | null }))?.session ?? null;
+  const manualSelectionVersion = manualSelectionVersionState ?? manualSession?.selectionVersion ?? null;
 
   const holdMutation = useMutation({
-    mutationFn: (payload: ManualHoldPayload) => bookingService.manualHoldSelection(payload),
-    onSuccess: (result) => {
+    mutationFn: async (payload: ManualHoldPayload & { selectionVersion?: number | null }) => {
+      return bookingService.manualHoldSelection({
+        bookingId: payload.bookingId,
+        tableIds: payload.tableIds,
+        requireAdjacency: payload.requireAdjacency,
+        excludeHoldId: payload.excludeHoldId,
+        holdTtlSeconds: payload.holdTtlSeconds,
+        contextVersion: payload.contextVersion,
+        selectionVersion: payload.selectionVersion ?? undefined,
+      });
+    },
+    onSuccess: (result, variables) => {
       setStaleContext(false);
-      setValidationResult(result.validation);
+      const response: any = result;
+      const validation = ('validation' in response ? response.validation : null) ?? null;
+      const hold = ('hold' in response ? response.hold : null) as any;
+      const sessionUpdate = ('session' in response ? response.session : null) as { selectionVersion?: number | null } | null;
+      if (sessionUpdate && typeof sessionUpdate.selectionVersion === 'number') {
+        setManualSelectionVersionState(sessionUpdate.selectionVersion);
+      }
+      setValidationResult(validation ?? null);
       setLastValidatedAt(Date.now());
-      const holdKey = result.hold ? result.hold.tableIds.slice().sort().join(',') : null;
+      const holdKey = hold && Array.isArray(hold.tableIds) ? hold.tableIds.slice().sort().join(',') : null;
       setLastHoldKey(holdKey);
-      if (result.hold) {
+      if (hold) {
         setUserModifiedSelection(false);
         void queryClient.invalidateQueries({ queryKey: queryKeys.manualAssign.context(booking.id) });
       } else {
@@ -203,8 +226,10 @@ export function BookingDetailsDialog({
       }
     },
     onError: async (error, variables) => {
-      if ((error as any)?.code === 'STALE_CONTEXT') {
+      const code = (error as any)?.code ?? null;
+      if (code === 'STALE_CONTEXT' || code === 'SELECTION_VERSION_MISMATCH' || code === 'HOLD_EXPIRED' || code === 'HOLD_INACTIVE') {
         setStaleContext(true);
+        void refetchManualContext();
         return;
       }
       if (isManualHoldValidationError(error)) {
@@ -235,7 +260,6 @@ export function BookingDetailsDialog({
         return;
       }
 
-      const code = (error as any)?.code ?? null;
       const rawDetails = (error as any)?.details ?? null;
       let details: any = rawDetails;
       if (typeof rawDetails === 'string') {
@@ -255,11 +279,12 @@ export function BookingDetailsDialog({
       setLastValidatedAt(Date.now());
     },
     onError: (error) => {
-      if ((error as any)?.code === 'STALE_CONTEXT') {
+      const code = (error as any)?.code ?? null;
+      if (code === 'STALE_CONTEXT' || code === 'SELECTION_VERSION_MISMATCH' || code === 'HOLD_EXPIRED' || code === 'HOLD_INACTIVE') {
         setStaleContext(true);
+        void refetchManualContext();
         return;
       }
-      const code = (error as any)?.code ?? null;
       const rawDetails = (error as any)?.details ?? null;
       let details: any = rawDetails;
       if (typeof rawDetails === 'string') {
@@ -282,12 +307,20 @@ export function BookingDetailsDialog({
         bookingId: booking.id,
         idempotencyKey: key,
         requireAdjacency,
+        contextVersion: manualContext?.contextVersion ?? undefined,
+        selectionVersion: manualSelectionVersion ?? undefined,
       });
     },
     onSuccess: (result) => {
       setStaleContext(false);
+      const response: any = result;
+      const sessionUpdate = ('session' in response ? response.session : null) as { selectionVersion?: number | null } | null;
+      if (sessionUpdate && typeof sessionUpdate.selectionVersion === 'number') {
+        setManualSelectionVersionState(sessionUpdate.selectionVersion);
+      }
+      const assignments = ('assignments' in response ? response.assignments : response.assignments) as ConfirmHoldAssignment[];
       const tableMap = new Map(manualContext?.tables.map((table) => [table.id, table]) ?? []);
-      const nextAssignments = result.assignments.map((assignment) => {
+      const nextAssignments = assignments.map((assignment) => {
         const meta = tableMap.get(assignment.tableId);
         return {
           groupId: null,
@@ -302,7 +335,7 @@ export function BookingDetailsDialog({
           ],
         };
       });
-      setAssignments(nextAssignments);
+      setAssignments(nextAssignments as any);
       setSelectedTables([]);
       setValidationResult(null);
       setLastValidatedAt(null);
@@ -313,11 +346,12 @@ export function BookingDetailsDialog({
       void queryClient.invalidateQueries({ queryKey: queryKeys.opsDashboard.summary(summary.restaurantId, summary.date ?? null) });
     },
     onError: (error) => {
-      if ((error as any)?.code === 'STALE_CONTEXT') {
+      const code = (error as any)?.code ?? null;
+      if (code === 'STALE_CONTEXT' || code === 'SELECTION_VERSION_MISMATCH') {
         setStaleContext(true);
+        void refetchManualContext();
         return;
       }
-      const code = (error as any)?.code ?? null;
       const rawDetails = (error as any)?.details ?? null;
       let details: any = rawDetails;
       if (typeof rawDetails === 'string') {
@@ -368,6 +402,8 @@ export function BookingDetailsDialog({
     if (!manualContext) {
       return;
     }
+    setManualSessionId(manualSession?.id ?? null);
+    setManualSelectionVersionState(manualSession?.selectionVersion ?? null);
     const defaultSelection = manualContext.activeHold?.tableIds?.length
       ? manualContext.activeHold.tableIds
       : manualContext.bookingAssignments;
@@ -414,10 +450,11 @@ export function BookingDetailsDialog({
         holdTtlSeconds: MANUAL_HOLD_TTL_SECONDS,
         requireAdjacency,
         contextVersion: manualContext?.contextVersion ?? '',
+        selectionVersion: manualSelectionVersion ?? undefined,
       });
     }, 800);
     return () => clearTimeout(timeout);
-  }, [booking.id, holdMutation, isOpen, lastHoldKey, manualContext, requireAdjacency, selectedTables]);
+  }, [booking.id, holdMutation, isOpen, lastHoldKey, manualContext, requireAdjacency, selectedTables, manualSelectionVersion]);
 
   const {
     data: historyData,

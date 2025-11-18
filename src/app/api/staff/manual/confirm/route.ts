@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { mapAssignTablesErrorToHttp } from "@/app/api/staff/_utils/assign-tables-error";
 import { AssignTablesRpcError, HoldNotFoundError } from "@/server/capacity/holds";
-import { confirmHoldAssignment, getManualAssignmentContext } from "@/server/capacity/tables";
+import { confirmSessionHold, getOrCreateManualSession, SessionConflictError, StaleContextError } from "@/server/capacity/manual-session";
 import { emitManualConfirm } from "@/server/capacity/telemetry";
 import { sendBookingConfirmationEmail } from "@/server/emails/bookings";
 import { getRouteHandlerSupabaseClient, getTenantServiceSupabaseClient } from "@/server/supabase";
@@ -131,52 +131,35 @@ export async function POST(req: NextRequest) {
   }
   const alreadyConfirmed = bookingRow.status === "confirmed";
 
-  // Require fresh context before confirming
-  let contextAdjacencyRequired: boolean | null = null;
-  try {
-    const context = await getManualAssignmentContext({ bookingId, client: serviceClient });
-    contextAdjacencyRequired = Boolean(context.flags?.adjacencyRequired ?? null);
-    if (context.contextVersion && context.contextVersion !== contextVersion) {
-      return NextResponse.json(
-        {
-          message: "Stale context; please refresh",
-          error: "Stale context; please refresh",
-          code: "STALE_CONTEXT",
-          details: { expected: context.contextVersion, provided: contextVersion },
-        },
-        { status: 409 },
-      );
-    }
-  } catch {
-    // proceed; DB/allocator will still validate
-  }
+  const session = await getOrCreateManualSession({
+    bookingId,
+    restaurantId: holdRow.restaurant_id,
+    createdBy: user.id,
+    client: serviceClient,
+  });
 
   try {
-    const assignments = await confirmHoldAssignment({
-      holdId,
+    const result = await confirmSessionHold({
+      sessionId: session.id,
       bookingId,
+      restaurantId: holdRow.restaurant_id,
+      holdId,
       idempotencyKey,
       requireAdjacency,
+      contextVersion,
+      selectionVersion: session.selectionVersion,
       assignedBy: user.id,
       client: serviceClient,
-      transition: {
-        targetStatus: "confirmed",
-        historyReason: "manual_assign",
-        historyChangedBy: user.id ?? null,
-        historyMetadata: {
-          source: "ops_manual_confirm",
-          holdId,
-          previousStatus: bookingRow.status,
-          actorRole: membership.data?.role ?? null,
-        },
-      },
     });
+
+    const contextAdjacencyRequired = Boolean(result.context.flags?.adjacencyRequired ?? null);
+
     await emitManualConfirm({
       ok: true,
       bookingId,
       restaurantId: holdRow.restaurant_id,
-      policyVersion: null, // computed in allocator; omit here
-      adjacencyRequired: contextAdjacencyRequired ?? (typeof requireAdjacency === 'boolean' ? requireAdjacency : null),
+      policyVersion: result.context.policyVersion ?? null,
+      adjacencyRequired: contextAdjacencyRequired ?? (typeof requireAdjacency === "boolean" ? requireAdjacency : null),
     });
 
     if (!isEmailSuppressed() && !alreadyConfirmed) {
@@ -198,68 +181,41 @@ export async function POST(req: NextRequest) {
             console.warn("[staff/manual/confirm] booking disappeared before email send", { bookingId });
           } else if (updatedBooking.status === "confirmed" && updatedBooking.customer_email) {
             await sendBookingConfirmationEmail(updatedBooking);
-          } else if (updatedBooking.status !== "confirmed") {
-            console.warn("[staff/manual/confirm] booking not confirmed post-transition; skipping email", {
-              bookingId,
-              status: updatedBooking.status,
-            });
           }
         }
-      } catch (emailError) {
-        console.error("[staff/manual/confirm] failed sending confirmation email", {
-          bookingId,
-          error: emailError instanceof Error ? emailError.message : emailError,
-        });
+      } catch (error) {
+        console.error("[staff/manual/confirm] failed to send confirmation email", { bookingId, error });
       }
     }
 
-    return NextResponse.json({
-      holdId,
-      bookingId,
-      assignments,
-    });
+    return NextResponse.json({ assignments: result.assignments, session: result.session, context: result.context });
   } catch (error) {
     if (error instanceof HoldNotFoundError) {
-      await emitManualConfirm({
-        ok: false,
-        bookingId,
-        restaurantId: holdRow.restaurant_id,
-        policyVersion: null,
-        adjacencyRequired: contextAdjacencyRequired ?? (typeof requireAdjacency === 'boolean' ? requireAdjacency : null),
-        code: "HOLD_NOT_FOUND",
-      });
+      return NextResponse.json({ message: error.message, error: error.message, code: "HOLD_NOT_FOUND" }, { status: 404 });
+    }
+    if (error instanceof StaleContextError) {
       return NextResponse.json(
-        { message: error.message, error: error.message, code: "HOLD_NOT_FOUND" },
-        { status: 404 },
+        {
+          message: error.message,
+          error: error.message,
+          code: "STALE_CONTEXT",
+          details: { expected: error.expected, provided: error.provided },
+        },
+        { status: 409 },
       );
     }
-
+    if (error instanceof SessionConflictError) {
+      return NextResponse.json(
+        { message: error.message, error: error.message, code: error.code, details: error.details },
+        { status: 409 },
+      );
+    }
     if (error instanceof AssignTablesRpcError) {
       const { status, payload } = mapAssignTablesErrorToHttp(error);
-      await emitManualConfirm({
-        ok: false,
-        bookingId,
-        restaurantId: holdRow.restaurant_id,
-        policyVersion: null,
-        adjacencyRequired: contextAdjacencyRequired ?? (typeof requireAdjacency === 'boolean' ? requireAdjacency : null),
-        code: payload.code,
-      });
       return NextResponse.json(payload, { status });
     }
-
-    console.error("[staff/manual/confirm] unexpected error", { error, holdId, bookingId, userId: user.id });
-    await emitManualConfirm({
-      ok: false,
-      bookingId,
-      restaurantId: holdRow.restaurant_id,
-      policyVersion: null,
-      adjacencyRequired: contextAdjacencyRequired ?? (typeof requireAdjacency === 'boolean' ? requireAdjacency : null),
-      code: "INTERNAL_ERROR",
-    });
+    console.error("[staff/manual/confirm] unexpected error", { error, bookingId, userId: user.id });
     const message = error instanceof Error ? error.message : "Unexpected error";
-    return NextResponse.json(
-      { message, error: message, code: "INTERNAL_ERROR" },
-      { status: 500 },
-    );
+    return NextResponse.json({ message, error: message, code: "INTERNAL_ERROR" }, { status: 500 });
   }
 }

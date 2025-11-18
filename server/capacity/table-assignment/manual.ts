@@ -15,6 +15,64 @@ import { toIsoUtc, summarizeSelection } from "./utils";
 
 const DEFAULT_MANUAL_SLACK_BUDGET = 4;
 
+function normalizeTableForVersion(table: Table) {
+  return {
+    id: table.id,
+    zoneId: table.zoneId,
+    capacity: table.capacity,
+    mobility: table.mobility,
+    active: table.active,
+    category: table.category,
+    seatingType: table.seatingType,
+  };
+}
+
+function buildTableVersion(tables: Table[]) {
+  const payload = tables
+    .map(normalizeTableForVersion)
+    .sort((a, b) => a.id.localeCompare(b.id));
+  return computePayloadChecksum(payload);
+}
+
+function buildAdjacencyVersion(adjacency: Map<string, Set<string>>) {
+  const edges = Array.from(adjacency.entries())
+    .map(([id, neighbors]) => ({
+      id,
+      neighbors: Array.from(neighbors).sort(),
+    }))
+    .sort((a, b) => a.id.localeCompare(b.id));
+  return computePayloadChecksum(edges);
+}
+
+function buildFlagsVersion(flags: Record<string, unknown>) {
+  return computePayloadChecksum(flags);
+}
+
+function buildWindowVersion(window: BookingWindow) {
+  return computePayloadChecksum({
+    startAt: toIsoUtc(window.block.start),
+    endAt: toIsoUtc(window.block.end),
+  });
+}
+
+function buildHoldsVersion(holds: ManualAssignmentContextHold[]) {
+  const payload = holds
+    .map((h) => ({
+      id: h.id,
+      tableIds: [...h.tableIds].sort(),
+      startAt: h.startAt,
+      endAt: h.endAt,
+      expiresAt: h.expiresAt,
+      bookingId: h.bookingId,
+    }))
+    .sort((a, b) => a.id.localeCompare(b.id));
+  return computePayloadChecksum(payload);
+}
+
+function buildAssignmentsVersion(assignments: string[]) {
+  return computePayloadChecksum(assignments.slice().sort());
+}
+
 function resolveManualSlackBudget(): number {
   const override = getManualAssignmentMaxSlack();
   if (typeof override === "number") {
@@ -240,6 +298,13 @@ export async function evaluateManualSelection(options: ManualSelectionOptions): 
 
   const requireAdjacency = resolveRequireAdjacency(booking.party_size, requireAdjacencyOverride);
   const summary = summarizeSelection(selectionTables, booking.party_size);
+  if (booking.assigned_zone_id && summary.zoneId && booking.assigned_zone_id !== summary.zoneId) {
+    throw new ManualSelectionInputError(
+      `Booking is locked to zone ${booking.assigned_zone_id}; selected zone ${summary.zoneId} is not allowed`,
+      "ZONE_LOCKED",
+      409,
+    );
+  }
   const slackBudget = resolveManualSlackBudget();
   const checks = buildManualChecks({
     summary,
@@ -423,6 +488,11 @@ export async function getManualAssignmentContext(options: {
   }
 
   const tables = await loadTablesForRestaurant(booking.restaurant_id, supabase);
+  const adjacency = await loadAdjacency(
+    booking.restaurant_id,
+    tables.map((table) => table.id),
+    supabase,
+  );
   const contextBookings = await loadContextBookings(
     booking.restaurant_id,
     booking.booking_date ?? null,
@@ -479,16 +549,22 @@ export async function getManualAssignmentContext(options: {
     adjacencyRequired: isAllocatorAdjacencyRequired(),
     adjacencyUndirected: isAdjacencyQueryUndirected(),
   };
-  const contextVersionPayload = {
-    holds: holds.map((h) => ({ id: h.id, tableIds: h.tableIds, startAt: h.startAt, endAt: h.endAt })),
-    assignments: bookingAssignments.map((row) => row.table_id),
-    flags,
-    window: {
-      startAt: toIsoUtc(window.block.start),
-      endAt: toIsoUtc(window.block.end),
-    },
-  };
-  const contextVersion = computePayloadChecksum(contextVersionPayload);
+  const policyVersion = hashPolicyVersion(policy);
+  const tableVersion = buildTableVersion(tables);
+  const adjacencyVersion = buildAdjacencyVersion(adjacency);
+  const holdsVersion = buildHoldsVersion(holds);
+  const assignmentsVersion = buildAssignmentsVersion(bookingAssignments.map((row) => row.table_id));
+  const flagsVersion = buildFlagsVersion(flags);
+  const windowVersion = buildWindowVersion(window);
+  const contextVersion = computePayloadChecksum({
+    holds: holdsVersion,
+    assignments: assignmentsVersion,
+    flags: flagsVersion,
+    window: windowVersion,
+    policy: policyVersion,
+    adjacency: adjacencyVersion,
+    tables: tableVersion,
+  });
   const serverNow = toIsoUtc(DateTime.now());
 
   return {
@@ -504,6 +580,17 @@ export async function getManualAssignmentContext(options: {
     },
     flags,
     contextVersion,
+    policyVersion,
+    versions: {
+      context: contextVersion,
+      policy: policyVersion,
+      window: windowVersion,
+      flags: flagsVersion,
+      tables: tableVersion,
+      adjacency: adjacencyVersion,
+      holds: holdsVersion,
+      assignments: assignmentsVersion,
+    },
     serverNow,
   };
 }

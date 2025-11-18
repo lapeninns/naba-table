@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { ManualSelectionInputError, holdManualSelection, getManualContext } from "@/server/capacity/engine";
+import { ManualSelectionInputError } from "@/server/capacity/engine";
 import { HoldConflictError, releaseTableHold } from "@/server/capacity/holds";
+import { getOrCreateManualSession, proposeOrHoldSelection, StaleContextError, SessionConflictError } from "@/server/capacity/manual-session";
 import { emitManualHold } from "@/server/capacity/telemetry";
 import { getRouteHandlerSupabaseClient, getTenantServiceSupabaseClient } from "@/server/supabase";
 
@@ -95,35 +96,31 @@ export async function POST(req: NextRequest) {
 
   const serviceClient = getTenantServiceSupabaseClient(bookingRow.restaurant_id);
 
-  // Require fresh context
+  const session = await getOrCreateManualSession({
+    bookingId,
+    restaurantId: bookingRow.restaurant_id,
+    createdBy: user.id,
+    client: serviceClient,
+  });
+
   let contextAdjacencyRequired: boolean | null = null;
-  try {
-    const context = await getManualContext({ bookingId, client: serviceClient });
-    contextAdjacencyRequired = Boolean(context.flags?.adjacencyRequired ?? null);
-    if (context.contextVersion && context.contextVersion !== contextVersion) {
-      return NextResponse.json(
-        {
-          error: "Stale context; please refresh",
-          code: "STALE_CONTEXT",
-          details: { expected: context.contextVersion, provided: contextVersion },
-        },
-        { status: 409 },
-      );
-    }
-  } catch {
-    // soft-fail
-  }
 
   try {
-    const result = await holdManualSelection({
+    const result = await proposeOrHoldSelection({
+      sessionId: session.id,
       bookingId,
+      restaurantId: bookingRow.restaurant_id,
       tableIds,
-      holdTtlSeconds,
+      mode: "hold",
       requireAdjacency,
       excludeHoldId,
+      contextVersion,
+      selectionVersion: session.selectionVersion,
       createdBy: user.id,
+      holdTtlSeconds,
       client: serviceClient,
     });
+    contextAdjacencyRequired = Boolean(result.context.flags?.adjacencyRequired ?? null);
 
     if (!result.hold) {
       const summary = result.validation.summary;
@@ -158,7 +155,7 @@ export async function POST(req: NextRequest) {
       ok: true,
       bookingId,
       restaurantId: bookingRow.restaurant_id,
-      policyVersion: result.validation.policyVersion ?? null,
+      policyVersion: result.validation.policyVersion ?? result.context.policyVersion ?? null,
       adjacencyRequired: contextAdjacencyRequired ?? (typeof requireAdjacency === 'boolean' ? requireAdjacency : null),
     });
 
@@ -174,8 +171,26 @@ export async function POST(req: NextRequest) {
       serverNow: new Date().toISOString(),
       summary: result.validation.summary,
       validation: result.validation,
+      session: result.session,
+      contextVersion: result.context.contextVersion ?? null,
     });
   } catch (error) {
+    if (error instanceof StaleContextError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          code: "STALE_CONTEXT",
+          details: { expected: error.expected, provided: error.provided },
+        },
+        { status: 409 },
+      );
+    }
+    if (error instanceof SessionConflictError) {
+      return NextResponse.json(
+        { error: error.message, code: error.code, details: error.details },
+        { status: 409 },
+      );
+    }
     if (error instanceof ManualSelectionInputError) {
       await emitManualHold({
         ok: false,

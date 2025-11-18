@@ -1,24 +1,33 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { ManualSelectionInputError } from "@/server/capacity/engine";
-import { getOrCreateManualSession, proposeOrHoldSelection, StaleContextError, SessionConflictError } from "@/server/capacity/manual-session";
-import { emitManualValidate } from "@/server/capacity/telemetry";
+import {
+  ManualSessionDisabledError,
+  SessionConflictError,
+  SessionNotFoundError,
+  StaleContextError,
+  proposeOrHoldSelection,
+  loadManualSession,
+} from "@/server/capacity/manual-session";
+import { ManualSelectionInputError } from "@/server/capacity/table-assignment";
 import { getRouteHandlerSupabaseClient, getTenantServiceSupabaseClient } from "@/server/supabase";
 
 import type { NextRequest } from "next/server";
 
-const validatePayloadSchema = z.object({
+const selectionSchema = z.object({
   bookingId: z.string().uuid(),
   tableIds: z.array(z.string().uuid()).min(1),
+  mode: z.enum(["propose", "hold"]).default("hold"),
   requireAdjacency: z.boolean().optional(),
   excludeHoldId: z.string().uuid().optional(),
-  contextVersion: z.string(),
+  contextVersion: z.string().optional(),
+  selectionVersion: z.number().int().nonnegative().optional(),
+  holdTtlSeconds: z.number().int().min(30).max(600).optional(),
 });
 
-export async function POST(req: NextRequest) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ sessionId: string }> }) {
+  const { sessionId } = await params;
   const supabase = await getRouteHandlerSupabaseClient();
-
   const {
     data: { user },
     error: authError,
@@ -29,8 +38,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => null);
-  const parsed = validatePayloadSchema.safeParse(body);
-
+  const parsed = selectionSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Invalid request payload", code: "INVALID_PAYLOAD", details: parsed.error.flatten() },
@@ -38,7 +46,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { bookingId, tableIds, requireAdjacency, excludeHoldId, contextVersion } = parsed.data;
+  const { bookingId, tableIds, mode, requireAdjacency, excludeHoldId, contextVersion, selectionVersion, holdTtlSeconds } =
+    parsed.data;
 
   const bookingLookup = await supabase
     .from("bookings")
@@ -47,10 +56,8 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
 
   if (bookingLookup.error) {
-    console.error("[staff/manual/validate] booking lookup failed", { bookingId, error: bookingLookup.error });
     return NextResponse.json({ error: "Failed to load booking", code: "BOOKING_LOOKUP_FAILED" }, { status: 500 });
   }
-
   const bookingRow = bookingLookup.data;
   if (!bookingRow?.restaurant_id) {
     return NextResponse.json({ error: "Booking not found", code: "BOOKING_NOT_FOUND" }, { status: 404 });
@@ -64,62 +71,50 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
 
   if (membership.error) {
-    console.error("[staff/manual/validate] membership lookup failed", { bookingId, error: membership.error });
     return NextResponse.json({ error: "Failed to verify access", code: "ACCESS_LOOKUP_FAILED" }, { status: 500 });
   }
-
   if (!membership.data) {
     return NextResponse.json({ error: "Access denied", code: "ACCESS_DENIED" }, { status: 403 });
   }
 
   const serviceClient = getTenantServiceSupabaseClient(bookingRow.restaurant_id);
 
-  const session = await getOrCreateManualSession({
-    bookingId,
-    restaurantId: bookingRow.restaurant_id,
-    createdBy: user.id,
-    client: serviceClient,
-  });
-
-  let contextAdjacencyRequired: boolean | null = null;
-  let expectedContextVersion: string | null = null;
-
   try {
+    const session = await loadManualSession({ sessionId, client: serviceClient });
+    if (session.bookingId !== bookingId) {
+      return NextResponse.json(
+        { error: "Session belongs to a different booking", code: "SESSION_BOOKING_MISMATCH" },
+        { status: 409 },
+      );
+    }
     const result = await proposeOrHoldSelection({
-      sessionId: session.id,
+      sessionId,
       bookingId,
       restaurantId: bookingRow.restaurant_id,
       tableIds,
-      mode: "propose",
+      mode,
       requireAdjacency,
       excludeHoldId,
       contextVersion,
-      selectionVersion: session.selectionVersion,
+      selectionVersion,
+      holdTtlSeconds,
       createdBy: user.id,
       client: serviceClient,
     });
-    const validation = result.validation;
-    const contextVersionUsed = result.context.contextVersion ?? null;
-    contextAdjacencyRequired = Boolean(result.context.flags?.adjacencyRequired ?? null);
-
-    // Emit manual.validate outcome
-    await emitManualValidate({
-      ok: true,
-      bookingId,
-      restaurantId: bookingRow.restaurant_id,
-      policyVersion: (validation as { policyVersion?: string }).policyVersion ?? result.context.policyVersion ?? null,
-      adjacencyRequired: contextAdjacencyRequired ?? (typeof requireAdjacency === 'boolean' ? requireAdjacency : null),
-    });
-
     return NextResponse.json({
-      ok: validation.ok,
-      checks: validation.checks,
-      summary: validation.summary,
-      contextVersion: contextVersionUsed,
+      session: result.session,
+      validation: result.validation,
+      hold: result.hold ?? null,
+      context: result.context,
     });
   } catch (error) {
+    if (error instanceof ManualSessionDisabledError) {
+      return NextResponse.json({ error: error.message, code: "SESSION_DISABLED" }, { status: 404 });
+    }
+    if (error instanceof SessionNotFoundError) {
+      return NextResponse.json({ error: error.message, code: "SESSION_NOT_FOUND" }, { status: 404 });
+    }
     if (error instanceof StaleContextError) {
-      expectedContextVersion = error.expected ?? null;
       return NextResponse.json(
         {
           error: error.message,
@@ -136,29 +131,9 @@ export async function POST(req: NextRequest) {
       );
     }
     if (error instanceof ManualSelectionInputError) {
-      await emitManualValidate({
-        ok: false,
-        bookingId,
-        restaurantId: bookingRow.restaurant_id,
-        policyVersion: null,
-        adjacencyRequired: contextAdjacencyRequired ?? (typeof requireAdjacency === 'boolean' ? requireAdjacency : null),
-        code: error.code,
-      });
-      return NextResponse.json(
-        { error: error.message, code: error.code },
-        { status: error.status },
-      );
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
     }
-
-    console.error("[staff/manual/validate] unexpected error", { error, bookingId, userId: user.id });
-    await emitManualValidate({
-      ok: false,
-      bookingId,
-      restaurantId: bookingRow.restaurant_id,
-      policyVersion: null,
-      adjacencyRequired: contextAdjacencyRequired ?? (typeof requireAdjacency === 'boolean' ? requireAdjacency : null),
-      code: "INTERNAL_ERROR",
-    });
+    console.error("[staff/manual/session/selection] unexpected error", { error, sessionId, bookingId, userId: user.id });
     const message = error instanceof Error ? error.message : "Unexpected error";
     return NextResponse.json({ error: message, code: "INTERNAL_ERROR" }, { status: 500 });
   }
