@@ -9,13 +9,13 @@ const RESEND_WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET;
 
 type ResendWebhookEvent = {
   type:
-    | "email.sent"
-    | "email.delivered"
-    | "email.delivery_delayed"
-    | "email.complaint"
-    | "email.bounced"
-    | "email.opened"
-    | "email.clicked";
+  | "email.sent"
+  | "email.delivered"
+  | "email.delivery_delayed"
+  | "email.complaint"
+  | "email.bounced"
+  | "email.opened"
+  | "email.clicked";
   created_at: string;
   data: {
     email_id: string;
@@ -53,11 +53,13 @@ export async function POST(req: NextRequest) {
         const supabase = getServiceSupabaseClient();
 
         // Find the user profile by email (case-insensitive due to citext)
-        const { data: profile, error } = await supabase
+        const { data: profileData, error } = await supabase
           .from("user_profiles")
           .select("id, is_email_suppressed")
           .eq("email", recipientEmail)
           .maybeSingle();
+
+        const profile = profileData as any;
 
         if (error) {
           throw new Error(`Failed to query user_profiles: ${error.message}`);
@@ -67,7 +69,7 @@ export async function POST(req: NextRequest) {
           // 3. --- Update Suppression Flag ---
           const { error: updateError } = await supabase
             .from("user_profiles")
-            .update({ is_email_suppressed: true, updated_at: new Date().toISOString() })
+            .update({ is_email_suppressed: true, updated_at: new Date().toISOString() } as any)
             .eq("id", profile.id);
 
           if (updateError) {

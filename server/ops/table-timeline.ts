@@ -40,7 +40,9 @@ type TimelineBookingRow = Pick<
   | 'booking_date'
   | 'customer_name'
   | 'customer_email'
+  | 'customer_email'
   | 'customer_phone'
+  | 'notes'
 > & {
   booking_table_assignments: Array<{ table_id: string | null }> | null;
 };
@@ -67,6 +69,9 @@ type BookingMeta = {
   status: OpsBookingStatus;
   startAt: string;
   endAt: string;
+  customerEmail: string | null;
+  customerPhone: string | null;
+  notes: string | null;
 };
 
 type BusyWindow = {
@@ -165,7 +170,7 @@ async function loadTimelineBookings(
   const { data, error } = await supabase
     .from('bookings')
     .select(
-      `id, party_size, status, start_time, end_time, start_at, end_at, booking_date, customer_name, customer_email, customer_phone, booking_table_assignments(table_id)`,
+      `id, party_size, status, start_time, end_time, start_at, end_at, booking_date, customer_name, customer_email, customer_phone, notes, booking_table_assignments(table_id)`,
     )
     .eq('restaurant_id', restaurantId)
     .eq('booking_date', date)
@@ -213,6 +218,9 @@ function enrichBookings(bookings: TimelineBookingRow[], policy: ReturnType<typeo
         status: normalizeOpsStatus(booking.status),
         startAt: window.block.start.toISO() ?? booking.start_at ?? '',
         endAt: window.block.end.toISO() ?? booking.end_at ?? '',
+        customerEmail: booking.customer_email ?? null,
+        customerPhone: booking.customer_phone ?? null,
+        notes: booking.notes ?? null,
       });
     } catch (error) {
       console.warn('[ops][tables][timeline] unable to compute booking window', {
@@ -446,13 +454,16 @@ function buildSegmentsFromBusyWindows({
       serviceKey: resolveServiceKey(window.start, services),
       booking: booking
         ? {
-            id: booking.id,
-            customerName: booking.customerName,
-            partySize: booking.partySize,
-            status: booking.status,
-            startAt: booking.startAt,
-            endAt: booking.endAt,
-          }
+          id: booking.id,
+          customerName: booking.customerName,
+          partySize: booking.partySize,
+          status: booking.status,
+          startAt: booking.startAt,
+          endAt: booking.endAt,
+          customerEmail: booking.customerEmail,
+          customerPhone: booking.customerPhone,
+          notes: booking.notes,
+        }
         : null,
       hold: hold,
     });

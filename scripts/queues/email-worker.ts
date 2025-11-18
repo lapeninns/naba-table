@@ -1,65 +1,3 @@
-import { Job, QueueEvents, Worker } from "bullmq";
-
-import { closeRedisConnection, getRedisConnection } from "@/lib/queue/redis";
-import {
-  sendBookingConfirmationEmail,
-  sendBookingReminderEmail,
-  sendBookingReviewRequestEmail,
-} from "@/server/emails/bookings";
-import { recordObservabilityEvent } from "@/server/observability";
-import { EMAIL_QUEUE_NAME, type EmailJobPayload, getEmailDlq } from "@/server/queue/email";
-import { getServiceSupabaseClient } from "@/server/supabase";
-
-import type { BookingRecord } from "@/server/bookings";
-
-// A simple structured logger for demonstration purposes
-const logger = {
-  info: (msg: string, context: object = {}) => console.log(JSON.stringify({ level: "info", msg, ...context })),
-  warn: (msg: string, context: object = {}) => console.warn(JSON.stringify({ level: "warn", msg, ...context })),
-  error: (msg: string, context: object = {}) => console.error(JSON.stringify({ level: "error", msg, ...context })),
-};
-
-const SUPPRESS_EMAILS =
-  process.env.LOAD_TEST_DISABLE_EMAILS === "true" || process.env.SUPPRESS_EMAILS === "true";
-
-const concurrency = (() => {
-  const configured = Number.parseInt(process.env.EMAIL_QUEUE_CONCURRENCY ?? "", 10);
-  return Number.isFinite(configured) && configured > 0 ? configured : 5;
-})();
-
-type EmailPrefs = {
-  sendReminder24h: boolean;
-  sendReminderShort: boolean;
-  sendReviewRequest: boolean;
-};
-
-async function fetchRestaurantEmailPrefs(
-  restaurantId: string | null,
-  supabase = getServiceSupabaseClient(),
-): Promise<EmailPrefs> {
-  if (!restaurantId) return { sendReminder24h: true, sendReminderShort: true, sendReviewRequest: true };
-  const { data, error } = await supabase
-    .from("restaurants")
-    .select("email_send_reminder_24h,email_send_reminder_short,email_send_review_request")
-    .eq("id", restaurantId)
-    .maybeSingle();
-
-  if (error || !data) {
-    return { sendReminder24h: true, sendReminderShort: true, sendReviewRequest: true };
-  }
-
-  return {
-    sendReminder24h: data.email_send_reminder_24h ?? true,
-    sendReminderShort: data.email_send_reminder_short ?? true,
-    sendReviewRequest: data.email_send_review_request ?? true,
-  };
-}
-
-function isPast(dateIso?: string | null, bufferMs = 0): boolean {
-  if (!dateIso) return true;
-  const ts = new Date(dateIso).getTime();
-  return Number.isNaN(ts) || ts + bufferMs < Date.now();
-}
 
 import { Job, QueueEvents, Worker } from "bullmq";
 
@@ -129,7 +67,7 @@ function isPast(dateIso?: string | null, bufferMs = 0): boolean {
 async function processEmailJob(job: Job<EmailJobPayload>): Promise<void> {
   const { id: jobId, data: jobData } = job;
   const logContext = { jobId, bookingId: jobData.bookingId, jobType: jobData.type };
-  
+
   logger.info("Processing email job", logContext);
 
   if (SUPPRESS_EMAILS) {
@@ -244,7 +182,7 @@ async function processEmailJob(job: Job<EmailJobPayload>): Promise<void> {
         throw new Error(`Unsupported email job type: ${(jobData as any).type}`);
       }
     }
-    
+
     // 5. MARK AS PROCESSED for idempotency
     // Set key with a 48-hour expiry to be safe.
     await redis.set(idempotencyKey, "true", "EX", 60 * 60 * 48);
@@ -279,7 +217,7 @@ async function main(): Promise<void> {
     }
     const attemptsAllowed = bullJob.opts.attempts ?? 1;
     const attemptsMade = bullJob.attemptsMade;
-    
+
     // This event is still useful for detailed logging
     await recordObservabilityEvent({
       source: "queue.email",

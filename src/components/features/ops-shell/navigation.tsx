@@ -5,6 +5,7 @@ import {
   CircleHelp,
   GanttChart,
   LayoutGrid,
+  Map,
   OctagonAlert,
   SlidersHorizontal,
   Users,
@@ -38,6 +39,13 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         href: '/ops',
         icon: BarChart3,
         match: (pathname) => pathname === '/ops',
+      },
+      {
+        title: 'Floor Plan',
+        description: 'Visual table management',
+        href: '/ops/floor-plan',
+        icon: Map,
+        match: (pathname) => pathname.startsWith('/ops/floor-plan'),
       },
       {
         title: 'Capacity',

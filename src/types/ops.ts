@@ -223,6 +223,9 @@ export type TableTimelineBookingRef = {
   status: OpsBookingStatus;
   startAt: string;
   endAt: string;
+  customerEmail?: string | null;
+  customerPhone?: string | null;
+  notes?: string | null;
 };
 
 export type TableTimelineHoldRef = {

@@ -393,6 +393,7 @@ export interface BookingService {
   undoNoShowBooking(input: UndoNoShowInput): Promise<LifecycleResponse>;
   getStatusSummary(params: StatusSummaryParams): Promise<StatusSummaryResponse>;
   getBookingHistory(bookingId: string): Promise<BookingHistoryResponse>;
+  getBooking(bookingId: string): Promise<OpsBookingListItem>;
   cancelBooking(input: CancelBookingInput): Promise<{ id: string; status: string }>;
   createWalkInBooking(input: WalkInInput): Promise<WalkInResponse>;
   assignTable(input: AssignTableInput): Promise<TableAssignmentsResponse>;
@@ -579,6 +580,9 @@ export function createBrowserBookingService(): BookingService {
     },
     async getBookingHistory(bookingId) {
       return fetchJson<BookingHistoryResponse>(`${OPS_BOOKINGS_BASE}/${bookingId}/history`);
+    },
+    async getBooking(bookingId) {
+      return fetchJson<OpsBookingListItem>(`${OPS_BOOKINGS_BASE}/${bookingId}`);
     },
     async cancelBooking({ id }) {
       return fetchJson<{ id: string; status: string }>(`${OPS_BOOKINGS_BASE}/${id}`, {
@@ -868,6 +872,10 @@ export class NotImplementedBookingService implements BookingService {
 
   getBookingHistory(): Promise<BookingHistoryResponse> {
     this.error('getBookingHistory not implemented');
+  }
+
+  getBooking(): Promise<OpsBookingListItem> {
+    this.error('getBooking not implemented');
   }
 
   cancelBooking(): Promise<{ id: string; status: string }> {
