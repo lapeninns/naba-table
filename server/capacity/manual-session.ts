@@ -60,6 +60,7 @@ type ManualAssignmentSessionTable = {
       "id" | "booking_id" | "restaurant_id" | "created_at" | "created_by"
     >
   >;
+  Relationships: [];
 };
 
 type ExtendedTableHoldsTable = Database["public"]["Tables"]["table_holds"] & {
@@ -454,7 +455,7 @@ export async function proposeOrHoldSelection(params: {
         selection_version: nextSelectionVersion,
         state: validation.ok ? "proposed" : "conflicted",
         ...buildVersionPatch({
-          contextVersion: context.contextVersion ?? null,
+          contextVersion: context.contextVersion ?? undefined,
           policyVersion: (validation as { policyVersion?: string }).policyVersion ?? null,
           versions: context.versions,
         }),
@@ -529,7 +530,7 @@ export async function proposeOrHoldSelection(params: {
       hold_id: hold.id,
       expires_at: hold.expiresAt ?? null,
       ...buildVersionPatch({
-        contextVersion: context.contextVersion ?? null,
+        contextVersion: context.contextVersion ?? undefined,
         policyVersion,
         versions: context.versions,
       }),
@@ -540,15 +541,16 @@ export async function proposeOrHoldSelection(params: {
 
   // Recompute context to capture the newly created hold in the hash we return/store
   const postHoldContext = await computeManualContext({ bookingId: params.bookingId, client: supabase });
-  const contextVersion = postHoldContext.contextVersion ?? context.contextVersion ?? null;
-  const policyVersion = postHoldContext.policyVersion ?? (holdResult.validation as { policyVersion?: string })?.policyVersion ?? null;
+  const contextVersion = postHoldContext.contextVersion ?? context.contextVersion ?? undefined;
+  const postHoldPolicyVersion =
+    postHoldContext.policyVersion ?? (holdResult.validation as { policyVersion?: string })?.policyVersion ?? null;
 
   const patchedAfterContext = await updateSession({
     sessionId: session.id,
     patch: {
       ...buildVersionPatch({
         contextVersion,
-        policyVersion,
+        policyVersion: postHoldPolicyVersion,
         versions: postHoldContext.versions ?? context.versions,
       }),
     },
@@ -663,7 +665,7 @@ export async function confirmSessionHold(params: {
       state: "confirmed",
       selection_version: nextSelectionVersion,
       ...buildVersionPatch({
-        contextVersion: context.contextVersion ?? null,
+        contextVersion: context.contextVersion ?? undefined,
         policyVersion: context.policyVersion ?? null,
         versions: context.versions,
       }),
