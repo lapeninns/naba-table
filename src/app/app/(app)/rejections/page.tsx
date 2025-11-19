@@ -32,7 +32,7 @@ export default async function OpsRejectionsPage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-6 py-6">
+    <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
       <OpsRejectionDashboard />
     </div>
   );

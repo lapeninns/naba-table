@@ -56,7 +56,7 @@ export function OpsSidebarLayout({ children, defaultSidebarOpen = true, headerSl
             <div className="flex-1 truncate text-sm font-medium text-muted-foreground">{headerSlot}</div>
           ) : null}
         </div>
-        <div id="ops-content" tabIndex={-1} className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
+        <div id="ops-content" tabIndex={-1} className="flex flex-1 flex-col overflow-auto">
           {children}
         </div>
       </SidebarInset>

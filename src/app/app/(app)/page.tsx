@@ -35,12 +35,10 @@ export default async function OpsDashboardPage({ searchParams }: { searchParams?
   }
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-8 py-6">
-      <BookingErrorBoundary>
-        <BookingOfflineQueueProvider>
-          <OpsDashboardClient initialDate={sanitizeDateParam(resolvedParams.date)} />
-        </BookingOfflineQueueProvider>
-      </BookingErrorBoundary>
-    </div>
+    <BookingErrorBoundary>
+      <BookingOfflineQueueProvider>
+        <OpsDashboardClient initialDate={sanitizeDateParam(resolvedParams.date)} />
+      </BookingOfflineQueueProvider>
+    </BookingErrorBoundary>
   );
 }

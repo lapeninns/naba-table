@@ -29,7 +29,7 @@ export default async function TeamManagementPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-10 py-6">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-10 px-4 py-6 sm:px-6 lg:px-8">
       <OpsTeamManagementClient />
     </div>
   );

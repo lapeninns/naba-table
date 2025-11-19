@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { Mail, Phone, Clock, Users, Calendar as CalendarIcon, AlertTriangle, Award, CheckCircle2, XCircle, Loader2, LogIn, LogOut, History, ArrowRight, Keyboard } from 'lucide-react';
+import { MoreHorizontal } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState, type ComponentType } from 'react';
 
 import { BookingActionButton, BookingStatusBadge, StatusTransitionAnimator } from '@/components/features/booking-state-machine';
@@ -17,6 +18,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -150,7 +158,7 @@ export function BookingDetailsDialog({
   const [activeTab, setActiveTab] = useState<BookingDetailsTab>('overview');
   const [onlyAvailable, setOnlyAvailable] = useState(true);
   const [staleContext, setStaleContext] = useState(false);
-  const [lastApiError, setLastApiError] = useState<null | { scope: 'validate'|'hold'|'confirm', code: string | null, message: string, details?: any }>(null);
+  const [lastApiError, setLastApiError] = useState<null | { scope: 'validate' | 'hold' | 'confirm', code: string | null, message: string, details?: any }>(null);
   const [manualSessionId, setManualSessionId] = useState<string | null>(null);
   const [manualSelectionVersionState, setManualSelectionVersionState] = useState<number | null>(null);
   const lifecycleAvailability = useMemo(
@@ -798,10 +806,21 @@ export function BookingDetailsDialog({
           </Button>
         </DialogTrigger>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center justify-between gap-3 text-xl font-semibold text-foreground">
-              <span>{booking.customerName}</span>
-              <div className="flex flex-wrap items-center gap-2">
+          <DialogHeader className="space-y-4 pb-4 border-b border-border/40">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1.5">
+                <DialogTitle className="text-2xl font-bold tracking-tight text-foreground">
+                  {booking.customerName}
+                </DialogTitle>
+                <DialogDescription className="flex items-center gap-2 text-base text-muted-foreground">
+                  <CalendarIcon className="h-4 w-4" />
+                  <span>{serviceDateReadable}</span>
+                  <span>·</span>
+                  <Clock className="h-4 w-4" />
+                  <span>{serviceTime}</span>
+                </DialogDescription>
+              </div>
+              <div className="flex items-center gap-2">
                 <StatusTransitionAnimator
                   status={bookingState.status}
                   effectiveStatus={bookingState.effectiveStatus}
@@ -809,43 +828,45 @@ export function BookingDetailsDialog({
                   className="inline-flex rounded-full"
                   overlayClassName="inline-flex"
                 >
-                  <BookingStatusBadge status={effectiveStatus} />
+                  <BookingStatusBadge status={effectiveStatus} className="h-8 px-3 text-sm" />
                 </StatusTransitionAnimator>
-                {showLifecycleBadges && booking.checkedInAt ? (
-                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700">
-                    Checked in
-                  </Badge>
-                ) : null}
-                {showLifecycleBadges && booking.checkedOutAt ? (
-                  <Badge variant="outline" className="bg-slate-100 text-slate-700">
-                    Checked out
-                  </Badge>
-                ) : null}
-                {supportsTableAssignment ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 rounded-full px-3 text-xs font-semibold"
-                    onClick={() => setShowShortcuts(true)}
-                  >
-                    <Keyboard className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                    Shortcuts
-                  </Button>
-                ) : null}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 rounded-full px-3 text-xs font-semibold"
-                  onClick={handleOpenHistory}
-                >
-                  <History className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                  View history
-                </Button>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <MoreHorizontal className="h-4 w-4" />
+                      <span className="sr-only">More options</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={handleOpenHistory}>
+                      <History className="mr-2 h-4 w-4" />
+                      View history
+                    </DropdownMenuItem>
+                    {supportsTableAssignment && (
+                      <DropdownMenuItem onClick={() => setShowShortcuts(true)}>
+                        <Keyboard className="mr-2 h-4 w-4" />
+                        Keyboard shortcuts
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
-            </DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground">
-              {serviceDateReadable} · {serviceTime}
-            </DialogDescription>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {showLifecycleBadges && booking.checkedInAt ? (
+                <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+                  <CheckCircle2 className="mr-1 h-3 w-3" /> Checked in
+                </Badge>
+              ) : null}
+              {showLifecycleBadges && booking.checkedOutAt ? (
+                <Badge variant="secondary" className="bg-slate-100 text-slate-700 hover:bg-slate-100">
+                  <LogOut className="mr-1 h-3 w-3" /> Checked out
+                </Badge>
+              ) : null}
+            </div>
           </DialogHeader>
 
           <Tabs
@@ -866,12 +887,13 @@ export function BookingDetailsDialog({
               ) : null}
             </TabsList>
 
-            <TabsContent value="overview" className="focus-visible:outline-none">
-              <div className="space-y-6">
-                <Card>
-                  <CardHeader className="space-y-1">
-                    <CardTitle className="text-base">Quick actions</CardTitle>
-                    <CardDescription>Record arrivals or no-shows to keep the team in sync.</CardDescription>
+            <TabsContent value="overview" className="focus-visible:outline-none animate-in fade-in-50 slide-in-from-bottom-2">
+              <div className="grid gap-6">
+                {/* Quick Actions Card */}
+                <Card className="border-none bg-secondary/30 shadow-none">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base font-medium">Quick Actions</CardTitle>
+                    <CardDescription>Manage arrival status and booking lifecycle.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <BookingActionButton
@@ -885,126 +907,123 @@ export function BookingDetailsDialog({
                       lifecycleAvailability={lifecycleAvailability}
                     />
                     {isCancelled ? (
-                      <Alert variant="destructive" className="rounded-xl border border-destructive/40">
+                      <Alert variant="destructive" className="border-destructive/20 bg-destructive/5">
                         <AlertTitle>Booking cancelled</AlertTitle>
                         <AlertDescription>Status changes are disabled for cancelled reservations.</AlertDescription>
                       </Alert>
                     ) : null}
                     {!supportsTableAssignment ? (
-                      <Alert className="rounded-xl border border-slate-200 bg-slate-50">
+                      <Alert className="border-muted bg-muted/50">
                         <AlertTitle>Past service date</AlertTitle>
-                        <AlertDescription>Table assignment changes are locked after the service has passed.</AlertDescription>
+                        <AlertDescription>Table assignment changes are locked.</AlertDescription>
                       </Alert>
                     ) : null}
                   </CardContent>
                 </Card>
 
-                <section className="grid gap-3 sm:grid-cols-2">
-                  <InfoRow icon={Clock} label="Time" value={serviceTime} />
-                  <InfoRow icon={Users} label="Guests" value={`${booking.partySize}`} />
-                  <InfoRow icon={CalendarIcon} label="Service date" value={serviceDateReadable} />
-                  <InfoRow icon={Mail} label="Email" value={booking.customerEmail ?? 'Not provided'} href={mailHref ?? undefined} />
-                  <InfoRow icon={Phone} label="Phone" value={booking.customerPhone ?? 'Not provided'} href={phoneHref ?? undefined} />
-                  <InfoRow icon={LogIn} label="Checked in" value={formatLifecycleTimestamp(booking.checkedInAt)} />
-                  <InfoRow icon={LogOut} label="Checked out" value={formatLifecycleTimestamp(booking.checkedOutAt)} />
-                </section>
+                {/* Booking Details Grid */}
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <DetailCard icon={Users} label="Guests" value={`${booking.partySize} people`} />
+                  <DetailCard icon={CalendarIcon} label="Date" value={serviceDateReadable} />
+                  <DetailCard icon={Clock} label="Time" value={serviceTime} />
+                  <DetailCard
+                    icon={Mail}
+                    label="Email"
+                    value={booking.customerEmail ?? 'Not provided'}
+                    href={mailHref ?? undefined}
+                    actionLabel="Email"
+                  />
+                  <DetailCard
+                    icon={Phone}
+                    label="Phone"
+                    value={booking.customerPhone ?? 'Not provided'}
+                    href={phoneHref ?? undefined}
+                    actionLabel="Call"
+                  />
+                  <DetailCard icon={LogIn} label="Checked In" value={formatLifecycleTimestamp(booking.checkedInAt)} />
+                </div>
 
+                {/* Notes Section */}
                 {booking.notes ? (
-                  <section className="space-y-2">
-                    <h3 className="text-sm font-semibold text-foreground">Booking notes</h3>
-                    <p className="rounded-2xl border border-border/60 bg-muted/10 px-4 py-3 text-sm text-foreground">
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Notes</h3>
+                    <div className="rounded-lg border bg-card p-4 text-sm shadow-sm">
                       {booking.notes}
-                    </p>
-                  </section>
+                    </div>
+                  </div>
                 ) : null}
 
+                {/* Guest Profile Section */}
                 {(booking.loyaltyTier ||
                   booking.allergies ||
                   booking.dietaryRestrictions ||
                   booking.seatingPreference ||
                   booking.profileNotes ||
                   booking.marketingOptIn !== null) ? (
-                  <section className="space-y-3">
-                    <h3 className="text-sm font-semibold text-foreground">Guest profile</h3>
-                    <div className="space-y-3 rounded-2xl border border-border/60 bg-muted/10 px-4 py-4">
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Guest Profile</h3>
+                    <div className="grid gap-3 sm:grid-cols-2">
                       {booking.loyaltyTier ? (
-                        <div className="flex items-center gap-3">
-                          <Award className="h-4 w-4 text-muted-foreground" aria-hidden />
+                        <ProfileCard
+                          icon={Award}
+                          label="Loyalty Tier"
+                          className={TIER_COLORS[booking.loyaltyTier]}
+                        >
                           <div className="flex items-center gap-2">
-                            <span className="text-sm text-muted-foreground">Loyalty:</span>
-                            <Badge variant="outline" className={cn('text-xs font-semibold', TIER_COLORS[booking.loyaltyTier])}>
-                              {booking.loyaltyTier}
-                            </Badge>
-                            {booking.loyaltyPoints !== null && booking.loyaltyPoints !== undefined ? (
-                              <span className="text-xs text-muted-foreground">({booking.loyaltyPoints} points)</span>
-                            ) : null}
+                            <span className="font-semibold capitalize">{booking.loyaltyTier}</span>
+                            {booking.loyaltyPoints !== null && (
+                              <span className="text-xs opacity-80">({booking.loyaltyPoints} pts)</span>
+                            )}
                           </div>
-                        </div>
+                        </ProfileCard>
                       ) : null}
 
                       {booking.allergies && booking.allergies.length > 0 ? (
-                        <div className="flex items-start gap-3">
-                          <AlertTriangle className="mt-0.5 h-4 w-4 text-orange-600" aria-hidden />
-                          <div className="flex-1">
-                            <span className="text-sm font-medium text-orange-600">Allergies:</span>
-                            <div className="mt-1 flex flex-wrap gap-2">
-                              {booking.allergies.map((allergy, idx) => (
-                                <Badge key={idx} variant="outline" className="border-orange-600 text-orange-600">
-                                  {allergy}
-                                </Badge>
-                              ))}
-                            </div>
+                        <ProfileCard icon={AlertTriangle} label="Allergies" className="border-orange-200 bg-orange-50 text-orange-800">
+                          <div className="flex flex-wrap gap-1.5">
+                            {booking.allergies.map((allergy, idx) => (
+                              <Badge key={idx} variant="outline" className="border-orange-300 bg-white text-orange-700 hover:bg-orange-50">
+                                {allergy}
+                              </Badge>
+                            ))}
                           </div>
-                        </div>
+                        </ProfileCard>
                       ) : null}
 
                       {booking.dietaryRestrictions && booking.dietaryRestrictions.length > 0 ? (
-                        <div className="flex items-start gap-3">
-                          <Users className="mt-0.5 h-4 w-4 text-muted-foreground" aria-hidden />
-                          <div className="flex-1">
-                            <span className="text-sm text-muted-foreground">Dietary restrictions:</span>
-                            <div className="mt-1 flex flex-wrap gap-2">
-                              {booking.dietaryRestrictions.map((restriction, idx) => (
-                                <Badge key={idx} variant="secondary">
-                                  {restriction}
-                                </Badge>
-                              ))}
-                            </div>
+                        <ProfileCard icon={Users} label="Dietary Restrictions">
+                          <div className="flex flex-wrap gap-1.5">
+                            {booking.dietaryRestrictions.map((restriction, idx) => (
+                              <Badge key={idx} variant="secondary" className="bg-secondary/50">
+                                {restriction}
+                              </Badge>
+                            ))}
                           </div>
-                        </div>
+                        </ProfileCard>
                       ) : null}
 
                       {booking.seatingPreference ? (
-                        <div className="flex items-center gap-3">
-                          <CalendarIcon className="h-4 w-4 text-muted-foreground" aria-hidden />
-                          <div>
-                            <span className="text-sm text-muted-foreground">Seating preference:</span>
-                            <span className="ml-2 text-sm text-foreground">{booking.seatingPreference}</span>
-                          </div>
-                        </div>
+                        <ProfileCard icon={CalendarIcon} label="Seating Preference">
+                          <span className="font-medium">{booking.seatingPreference}</span>
+                        </ProfileCard>
                       ) : null}
 
-                      {booking.marketingOptIn !== null && booking.marketingOptIn !== undefined ? (
-                        <div className="flex items-center gap-3">
-                          {booking.marketingOptIn ? (
-                            <CheckCircle2 className="h-4 w-4 text-green-600" aria-hidden />
-                          ) : (
-                            <XCircle className="h-4 w-4 text-muted-foreground" aria-hidden />
-                          )}
-                          <span className="text-sm text-muted-foreground">
-                            Marketing: {booking.marketingOptIn ? 'Opted in' : 'Opted out'}
+                      {booking.marketingOptIn !== null && (
+                        <ProfileCard icon={booking.marketingOptIn ? CheckCircle2 : XCircle} label="Marketing">
+                          <span className={cn("font-medium", booking.marketingOptIn ? "text-green-700" : "text-muted-foreground")}>
+                            {booking.marketingOptIn ? 'Subscribed' : 'Unsubscribed'}
                           </span>
-                        </div>
-                      ) : null}
-
-                      {booking.profileNotes ? (
-                        <div className="space-y-1">
-                          <span className="text-sm font-medium text-foreground">Profile notes:</span>
-                          <p className="text-sm text-muted-foreground">{booking.profileNotes}</p>
-                        </div>
-                      ) : null}
+                        </ProfileCard>
+                      )}
                     </div>
-                  </section>
+
+                    {booking.profileNotes ? (
+                      <div className="rounded-lg border bg-muted/30 p-4">
+                        <span className="mb-1 block text-xs font-medium text-muted-foreground">Profile Notes</span>
+                        <p className="text-sm">{booking.profileNotes}</p>
+                      </div>
+                    ) : null}
+                  </div>
                 ) : null}
               </div>
             </TabsContent>
@@ -1271,31 +1290,65 @@ export function BookingDetailsDialog({
   );
 }
 
-type InfoRowProps = {
+type DetailCardProps = {
   icon: ComponentType<{ className?: string }>;
   label: string;
   value: string;
   href?: string;
+  actionLabel?: string;
 };
 
-function InfoRow({ icon: Icon, label, value, href }: InfoRowProps) {
+function DetailCard({ icon: Icon, label, value, href, actionLabel }: DetailCardProps) {
   const content = (
-    <div className="flex flex-col">
-      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
-      <span className="text-sm text-foreground">{value}</span>
+    <div className="flex items-start gap-3 p-3">
+      <div className="rounded-md bg-muted/50 p-2">
+        <Icon className="h-4 w-4 text-muted-foreground" aria-hidden />
+      </div>
+      <div className="flex flex-col">
+        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
+        <span className="font-medium text-foreground">{value}</span>
+        {href && actionLabel ? (
+          <span className="mt-1 text-xs font-medium text-primary group-hover:underline">{actionLabel}</span>
+        ) : null}
+      </div>
     </div>
   );
 
+  if (href) {
+    return (
+      <a
+        href={href}
+        className="group block rounded-xl border bg-card shadow-sm transition-all hover:border-primary/50 hover:shadow-md"
+      >
+        {content}
+      </a>
+    );
+  }
+
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-border/60 bg-muted/10 px-4 py-3">
-      <Icon className="h-4 w-4 text-muted-foreground" aria-hidden />
-      {href ? (
-        <a href={href} className="text-sm text-primary underline-offset-4 hover:underline">
-          {content}
-        </a>
-      ) : (
-        content
-      )}
+    <div className="rounded-xl border bg-card shadow-sm">
+      {content}
+    </div>
+  );
+}
+
+type ProfileCardProps = {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+};
+
+function ProfileCard({ icon: Icon, label, children, className }: ProfileCardProps) {
+  return (
+    <div className={cn("flex flex-col gap-2 rounded-xl border bg-card p-4 shadow-sm", className)}>
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Icon className="h-4 w-4" aria-hidden />
+        <span className="text-xs font-medium uppercase tracking-wider">{label}</span>
+      </div>
+      <div className="text-sm text-foreground">
+        {children}
+      </div>
     </div>
   );
 }

@@ -31,7 +31,7 @@ export default async function OpsSettingsServicePeriodsPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 py-6">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-foreground">Service periods</h1>
         <Button asChild variant="outline" className="touch-manipulation">
