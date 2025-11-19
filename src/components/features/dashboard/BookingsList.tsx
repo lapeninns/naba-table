@@ -80,9 +80,9 @@ function getBookingTemporalInfo(
   if (!booking.startTime) {
     const end = booking.endTime
       ? DateTime.fromISO(
-          /^[0-9]{4}-[0-9]{2}-[0-9]{2}T/.test(booking.endTime ?? '') ? booking.endTime! : `${summary.date}T${booking.endTime}`,
-          { zone: summary.timezone },
-        )
+        /^[0-9]{4}-[0-9]{2}-[0-9]{2}T/.test(booking.endTime ?? '') ? booking.endTime! : `${summary.date}T${booking.endTime}`,
+        { zone: summary.timezone },
+      )
       : null;
     return { state: 'unknown', diffMinutes: null, start: null, end: end?.isValid ? end : null };
   }
@@ -96,9 +96,9 @@ function getBookingTemporalInfo(
   const endValue = booking.endTime;
   const end = endValue
     ? DateTime.fromISO(
-        /^[0-9]{4}-[0-9]{2}-[0-9]{2}T/.test(endValue ?? '') ? endValue! : `${summary.date}T${endValue}`,
-        { zone: summary.timezone },
-      )
+      /^[0-9]{4}-[0-9]{2}-[0-9]{2}T/.test(endValue ?? '') ? endValue! : `${summary.date}T${endValue}`,
+      { zone: summary.timezone },
+    )
     : null;
 
   if (!start.isValid) {
@@ -354,10 +354,10 @@ function BookingCard({
   const minutesSinceStart = minutesDelta !== null ? Math.abs(Math.round(minutesDelta)) : null;
   const timeStatusBadge = temporalInfo.state === 'past'
     ? (
-        <Badge variant="outline" className="border-slate-300 bg-slate-200 text-slate-700">
-          {minutesSinceStart ? `Started ${minutesSinceStart} min ago` : 'Service started'}
-        </Badge>
-      )
+      <Badge variant="outline" className="border-slate-300 bg-slate-200 text-slate-700">
+        {minutesSinceStart ? `Started ${minutesSinceStart} min ago` : 'Service started'}
+      </Badge>
+    )
     : temporalInfo.state === 'imminent'
       ? (
         <Badge variant="outline" className="border-amber-300 bg-amber-100 text-amber-800">
@@ -372,10 +372,10 @@ function BookingCard({
   const requiresCheckOut = temporalInfo.end !== null && temporalInfo.end <= now && statusForActions === 'checked_in';
   const actionBadge = requiresCheckIn
     ? (
-        <Badge variant="outline" className="border-amber-500 bg-amber-100 text-amber-900">
-          <LogIn className="mr-1 h-3.5 w-3.5" aria-hidden /> Check-in required
-        </Badge>
-      )
+      <Badge variant="outline" className="border-amber-500 bg-amber-100 text-amber-900">
+        <LogIn className="mr-1 h-3.5 w-3.5" aria-hidden /> Check-in required
+      </Badge>
+    )
     : requiresCheckOut
       ? (
         <Badge variant="outline" className="border-rose-300 bg-rose-50 text-rose-700">
@@ -385,7 +385,7 @@ function BookingCard({
       : null;
 
   const customerSearch = booking.customerEmail ?? booking.customerPhone ?? booking.customerName ?? '';
-  const customerHref = customerSearch ? `/ops/customers?focus=${encodeURIComponent(customerSearch)}` : '/ops/customers';
+  const customerHref = customerSearch ? `/customers?focus=${encodeURIComponent(customerSearch)}` : '/customers';
 
   return (
     <Card
@@ -444,7 +444,7 @@ function BookingCard({
                     ? 'border-slate-200 bg-slate-100 text-slate-700'
                     : tableAssignmentDisplay.state === 'imminent'
                       ? 'border-amber-300 bg-amber-100 text-amber-800'
-                    : 'border-amber-200 bg-amber-100 text-amber-800',
+                      : 'border-amber-200 bg-amber-100 text-amber-800',
               )}
               aria-label={tableAssignmentDisplay.text}
             >

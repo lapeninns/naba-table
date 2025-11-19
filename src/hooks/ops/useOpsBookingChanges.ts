@@ -26,7 +26,7 @@ export function useOpsBookingChanges({ restaurantId, targetDate, limit = 50, ena
       }
 
       const params = new URLSearchParams({ restaurantId, date: targetDate, limit: limit.toString() });
-      return fetchJson<BookingChangeFeedResponse>(`/api/ops/dashboard/changes?${params.toString()}`);
+      return fetchJson<BookingChangeFeedResponse>(`/api/dashboard/changes?${params.toString()}`);
     },
     enabled: enabled && Boolean(restaurantId) && Boolean(targetDate),
     staleTime: 1000 * 30,

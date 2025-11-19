@@ -46,11 +46,11 @@ const STATUS_OPTIONS: Array<{
   dot: string;
   pill: string;
 }> = [
-  { value: 'reserved', label: 'Reserved', dot: 'bg-emerald-500', pill: 'bg-emerald-600 text-white shadow-sm' },
-  { value: 'hold', label: 'Hold', dot: 'bg-amber-500', pill: 'bg-amber-500 text-slate-950 shadow-sm' },
-  { value: 'available', label: 'Available', dot: 'bg-slate-300', pill: 'bg-white border border-border text-foreground' },
-  { value: 'out_of_service', label: 'Out of service', dot: 'bg-slate-500', pill: 'bg-slate-500 text-white shadow-sm' },
-];
+    { value: 'reserved', label: 'Reserved', dot: 'bg-emerald-500', pill: 'bg-emerald-600 text-white shadow-sm' },
+    { value: 'hold', label: 'Hold', dot: 'bg-amber-500', pill: 'bg-amber-500 text-slate-950 shadow-sm' },
+    { value: 'available', label: 'Available', dot: 'bg-slate-300', pill: 'bg-white border border-border text-foreground' },
+    { value: 'out_of_service', label: 'Out of service', dot: 'bg-slate-500', pill: 'bg-slate-500 text-white shadow-sm' },
+  ];
 
 const DEFAULT_STATUS_FILTERS: TableTimelineSegmentState[] = ['reserved', 'hold', 'available', 'out_of_service'];
 
@@ -712,7 +712,7 @@ function SegmentDialog({
         <div className="flex flex-wrap gap-2 pt-1">
           {segment.booking ? (
             <Button asChild className="flex-1">
-              <a href={`/ops/bookings?query=${encodeURIComponent(segment.booking.customerName ?? '')}`}>
+              <a href={`/bookings?query=${encodeURIComponent(segment.booking.customerName ?? '')}`}>
                 View booking
                 <ChevronRight className="ml-2 h-4 w-4" />
               </a>

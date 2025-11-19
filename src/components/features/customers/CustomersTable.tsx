@@ -36,7 +36,7 @@ function EmptyState() {
 }
 
 function CustomerCard({ customer }: { customer: OpsCustomer }) {
-  const bookingHref = `/ops/bookings/new?prefillName=${encodeURIComponent(customer.name ?? '')}&prefillEmail=${encodeURIComponent(customer.email ?? '')}&prefillPhone=${encodeURIComponent(customer.phone ?? '')}`;
+  const bookingHref = `/bookings/new?prefillName=${encodeURIComponent(customer.name ?? '')}&prefillEmail=${encodeURIComponent(customer.email ?? '')}&prefillPhone=${encodeURIComponent(customer.phone ?? '')}`;
 
   return (
     <div
@@ -175,69 +175,69 @@ export function CustomersTable({ customers, isLoading }: CustomersTableProps) {
             <tbody className="divide-y divide-border/70">
               {showSkeleton
                 ? skeletonRows.map((row) => (
-                    <tr key={`skeleton-${row}`}>
-                      <td className="px-4 py-4">
-                        <Skeleton className="h-4 w-32" />
-                      </td>
-                      <td className="px-4 py-4">
-                        <Skeleton className="h-4 w-48" />
-                      </td>
-                      <td className="px-4 py-4">
-                        <Skeleton className="h-4 w-32" />
-                      </td>
-                      <td className="px-4 py-4 text-right">
-                        <Skeleton className="ml-auto h-4 w-8" />
-                      </td>
-                      <td className="px-4 py-4 text-right">
-                        <Skeleton className="ml-auto h-4 w-8" />
-                      </td>
-                      <td className="px-4 py-4">
-                        <Skeleton className="h-4 w-24" />
-                      </td>
-                      <td className="px-4 py-4 text-center">
-                        <Skeleton className="mx-auto h-5 w-16" />
-                      </td>
-                      <td className="px-4 py-4 text-center">
-                        <Skeleton className="mx-auto h-9 w-24" />
-                      </td>
-                    </tr>
-                  ))
+                  <tr key={`skeleton-${row}`}>
+                    <td className="px-4 py-4">
+                      <Skeleton className="h-4 w-32" />
+                    </td>
+                    <td className="px-4 py-4">
+                      <Skeleton className="h-4 w-48" />
+                    </td>
+                    <td className="px-4 py-4">
+                      <Skeleton className="h-4 w-32" />
+                    </td>
+                    <td className="px-4 py-4 text-right">
+                      <Skeleton className="ml-auto h-4 w-8" />
+                    </td>
+                    <td className="px-4 py-4 text-right">
+                      <Skeleton className="ml-auto h-4 w-8" />
+                    </td>
+                    <td className="px-4 py-4">
+                      <Skeleton className="h-4 w-24" />
+                    </td>
+                    <td className="px-4 py-4 text-center">
+                      <Skeleton className="mx-auto h-5 w-16" />
+                    </td>
+                    <td className="px-4 py-4 text-center">
+                      <Skeleton className="mx-auto h-9 w-24" />
+                    </td>
+                  </tr>
+                ))
                 : customers.map((customer) => (
-                    <tr
-                      key={customer.id}
-                      className="hover:bg-muted/50"
-                      data-customer-id={customer.id}
-                      data-customer-email={(customer.email ?? '').toLowerCase()}
-                      tabIndex={-1}
-                    >
-                      <td className="px-4 py-4 font-medium text-foreground">{customer.name}</td>
-                      <td className="px-4 py-4 text-sm text-muted-foreground">{customer.email}</td>
-                      <td className="px-4 py-4 text-sm text-muted-foreground">{customer.phone}</td>
-                      <td className="px-4 py-4 text-right text-sm text-foreground">{customer.totalBookings}</td>
-                      <td className="px-4 py-4 text-right text-sm text-foreground">{customer.totalCovers}</td>
-                      <td className="px-4 py-4 text-sm text-muted-foreground">
-                        {formatDate(customer.lastBookingAt)}
-                      </td>
-                      <td className="px-4 py-4 text-center">
-                        {customer.marketingOptIn ? (
-                          <Badge variant="secondary" className="text-xs">
-                            Yes
-                          </Badge>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">No</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-4 text-center">
-                        <Button asChild variant="outline" size="sm" className="touch-manipulation">
-                          <Link
-                            href={`/ops/bookings/new?prefillName=${encodeURIComponent(customer.name ?? '')}&prefillEmail=${encodeURIComponent(customer.email ?? '')}&prefillPhone=${encodeURIComponent(customer.phone ?? '')}`}
-                          >
-                            New booking
-                          </Link>
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                  <tr
+                    key={customer.id}
+                    className="hover:bg-muted/50"
+                    data-customer-id={customer.id}
+                    data-customer-email={(customer.email ?? '').toLowerCase()}
+                    tabIndex={-1}
+                  >
+                    <td className="px-4 py-4 font-medium text-foreground">{customer.name}</td>
+                    <td className="px-4 py-4 text-sm text-muted-foreground">{customer.email}</td>
+                    <td className="px-4 py-4 text-sm text-muted-foreground">{customer.phone}</td>
+                    <td className="px-4 py-4 text-right text-sm text-foreground">{customer.totalBookings}</td>
+                    <td className="px-4 py-4 text-right text-sm text-foreground">{customer.totalCovers}</td>
+                    <td className="px-4 py-4 text-sm text-muted-foreground">
+                      {formatDate(customer.lastBookingAt)}
+                    </td>
+                    <td className="px-4 py-4 text-center">
+                      {customer.marketingOptIn ? (
+                        <Badge variant="secondary" className="text-xs">
+                          Yes
+                        </Badge>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">No</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-4 text-center">
+                      <Button asChild variant="outline" size="sm" className="touch-manipulation">
+                        <Link
+                          href={`/bookings/new?prefillName=${encodeURIComponent(customer.name ?? '')}&prefillEmail=${encodeURIComponent(customer.email ?? '')}&prefillPhone=${encodeURIComponent(customer.phone ?? '')}`}
+                        >
+                          New booking
+                        </Link>
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>

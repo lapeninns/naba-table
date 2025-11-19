@@ -80,7 +80,7 @@ export function OpsWalkInBookingClient() {
             </p>
           </div>
           <Button asChild variant="outline" className="touch-manipulation">
-            <Link href="/ops">← Back to dashboard</Link>
+            <Link href="/">← Back to dashboard</Link>
           </Button>
         </div>
       </div>
@@ -117,7 +117,7 @@ function NoAccessState() {
           <p>Your account is not linked to any restaurants yet.</p>
           <p>Please ask an owner or manager to add you to their team.</p>
           <Button asChild variant="secondary">
-            <Link href="/ops">Return to dashboard</Link>
+            <Link href="/">Return to dashboard</Link>
           </Button>
         </CardContent>
       </Card>
@@ -135,7 +135,7 @@ function NoRestaurantsState() {
         <CardContent className="space-y-4 text-sm text-muted-foreground">
           <p>We couldn’t load your restaurant list right now. Please refresh or try again later.</p>
           <Button asChild variant="secondary">
-            <Link href="/ops">Return to dashboard</Link>
+            <Link href="/">Return to dashboard</Link>
           </Button>
         </CardContent>
       </Card>

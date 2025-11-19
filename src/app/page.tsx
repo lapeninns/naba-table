@@ -1,1 +1,1 @@
-export { default, metadata } from "./(guest-public)/page";
+export { default, metadata } from "./guest/(guest)/page";

@@ -16,9 +16,9 @@ import type {
 } from '@/types/ops';
 import type { Tables } from '@/types/supabase';
 
-const OPS_BOOKINGS_BASE = '/api/ops/bookings';
-const OPS_DASHBOARD_BASE = '/api/ops/dashboard';
-const OPS_SETTINGS_BASE = '/api/ops/settings';
+const OPS_BOOKINGS_BASE = '/api/bookings';
+const OPS_DASHBOARD_BASE = '/api/dashboard';
+const OPS_SETTINGS_BASE = '/api/settings';
 const STAFF_AUTO_BASE = '/api/staff/auto';
 const STAFF_MANUAL_BASE = '/api/staff/manual';
 const STAFF_MANUAL_SESSION_BASE = '/api/staff/manual/session';

@@ -73,7 +73,7 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
         <h2 className="text-xl font-semibold text-foreground">No restaurant access yet</h2>
         <p className="text-sm text-muted-foreground">Ask an owner or manager to send you an invitation so you can view customer data.</p>
         <Button asChild variant="secondary">
-          <Link href="/ops">Back to dashboard</Link>
+          <Link href="/">Back to dashboard</Link>
         </Button>
       </section>
     );

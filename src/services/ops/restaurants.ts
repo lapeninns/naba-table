@@ -4,7 +4,7 @@ import type { RestaurantRole } from '@/lib/owner/auth/roles';
 import type { OpsRestaurantOption, OpsServiceError } from '@/types/ops';
 import type { OccasionKey } from '@reserve/shared/occasions';
 
-const OPS_RESTAURANTS_BASE = '/api/ops/restaurants';
+const OPS_RESTAURANTS_BASE = '/api/restaurants';
 
 type RestaurantsListResponse = {
   items: Array<{

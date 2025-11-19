@@ -119,7 +119,7 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
     }
 
     const query = params.toString();
-    router.replace(`/ops/bookings${query ? `?${query}` : ''}`, { scroll: false });
+    router.replace(`/bookings${query ? `?${query}` : ''}`, { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeRestaurantId]);
 
@@ -168,7 +168,7 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
         }
       });
       const query = params.toString();
-      router.replace(`/ops/bookings${query ? `?${query}` : ''}`, { scroll: false });
+      router.replace(`/bookings${query ? `?${query}` : ''}`, { scroll: false });
     },
     [router, searchParams],
   );
@@ -461,7 +461,7 @@ function NoRestaurantAccess() {
         Ask an owner or manager to send you an invitation so you can manage bookings.
       </p>
       <Button asChild variant="secondary">
-        <Link href="/ops">Back to dashboard</Link>
+        <Link href="/">Back to dashboard</Link>
       </Button>
     </section>
   );

@@ -99,7 +99,7 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
     }
 
     startTransition(() => {
-      router.replace(`/ops${params.size > 0 ? `?${params.toString()}` : ''}`);
+      router.replace(`/${params.size > 0 ? `?${params.toString()}` : ''}`);
     });
   };
 
@@ -468,7 +468,7 @@ function NoAccessState() {
         Ask an owner or manager to send you an invitation so you can manage bookings.
       </p>
       <Button variant="outline" size="sm" asChild>
-        <Link href="/ops">Back to dashboard</Link>
+        <Link href="/">Back to dashboard</Link>
       </Button>
     </Card>
   );

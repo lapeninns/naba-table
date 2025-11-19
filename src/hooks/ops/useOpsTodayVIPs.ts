@@ -25,7 +25,7 @@ export function useOpsTodayVIPs({ restaurantId, targetDate, enabled = true }: Us
       }
 
       const params = new URLSearchParams({ restaurantId, date: targetDate });
-      return fetchJson<VIPGuestsResponse>(`/api/ops/dashboard/vips?${params.toString()}`);
+      return fetchJson<VIPGuestsResponse>(`/api/dashboard/vips?${params.toString()}`);
     },
     enabled: enabled && Boolean(restaurantId) && Boolean(targetDate),
     staleTime: 1000 * 60,

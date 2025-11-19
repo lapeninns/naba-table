@@ -3,8 +3,8 @@ import { fetchJson } from '@/lib/http/fetchJson';
 import type { OpsServiceError, TableTimelineResponse } from '@/types/ops';
 import type { Tables } from '@/types/supabase';
 
-const OPS_TABLES_BASE = '/api/ops/tables';
-const OPS_TABLE_TIMELINE_BASE = '/api/ops/tables/timeline';
+const OPS_TABLES_BASE = '/api/tables';
+const OPS_TABLE_TIMELINE_BASE = '/api/tables/timeline';
 
 type TableInventoryRow = Tables<'table_inventory'>;
 

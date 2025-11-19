@@ -3,7 +3,7 @@ import { fetchJson } from '@/lib/http/fetchJson';
 import type { HttpError } from '@/lib/http/errors';
 import type { OpsCustomersPage, OpsServiceError } from '@/types/ops';
 
-const OPS_CUSTOMERS_BASE = '/api/ops/customers';
+const OPS_CUSTOMERS_BASE = '/api/customers';
 
 export type CustomerListParams = {
   restaurantId: string;
