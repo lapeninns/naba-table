@@ -48,8 +48,12 @@ export default async function proxy(req: NextRequest) {
   if (hostname === `app.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}` || hostname === "app.localhost") {
     // API Rewrites for Ops
     if (url.pathname.startsWith("/api/")) {
-      const service = url.pathname.split("/")[2];
-      if (OPS_API_SERVICES.includes(service)) {
+      const [, , service, ...rest] = url.pathname.split("/");
+      const pathAfterService = `/${rest.join("/")}`;
+      const isPublicRestaurantSchedule =
+        service === "restaurants" && /^\/[^/]+\/(schedule|calendar-mask)(\/|$)/.test(pathAfterService);
+
+      if (OPS_API_SERVICES.includes(service) && !isPublicRestaurantSchedule) {
         return NextResponse.rewrite(
           new URL(
             url.pathname.replace(`/api/${service}`, `/api/ops/${service}`) +

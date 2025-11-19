@@ -8,6 +8,7 @@ import {
   sendBookingReminderEmail,
   sendBookingReviewRequestEmail,
   sendBookingUpdateEmail,
+  sendRestaurantCancellationEmail,
 } from "@/server/emails/bookings";
 import {
   getAutoAssignCreatedEmailDeferMinutes,
@@ -428,7 +429,9 @@ async function processBookingCancelledSideEffects(
 
   if (!SUPPRESS_EMAILS && cancelled.customer_email && cancelled.customer_email.trim().length > 0) {
     try {
-      await sendBookingCancellationEmail(cancelled as BookingRecord);
+      const sendFn =
+        cancelledBy === "customer" ? sendBookingCancellationEmail : sendRestaurantCancellationEmail;
+      await sendFn(cancelled as BookingRecord);
     } catch (error) {
       console.error("[jobs][booking.cancelled][email]", error);
     }

@@ -40,7 +40,7 @@ export function useOpsCancelBooking() {
       const detail = queryClient.getQueryData<BookingDTO>(queryKeys.opsBookings.detail(id));
 
       lists.forEach(([key, data]) => {
-        if (!data) return;
+        if (!data || !Array.isArray(data.items)) return;
         queryClient.setQueryData<BookingsPage>(key, {
           ...data,
           items: data.items.map((booking) =>

@@ -10,9 +10,16 @@ import { DASHBOARD_DEFAULT_PAGE_SIZE } from '@/components/dashboard/constants';
 import { EditBookingDialog } from '@/components/dashboard/EditBookingDialog';
 import { BookingOfflineBanner } from '@/components/features/booking-state-machine';
 import { OpsStatusFilter as OpsStatusesControl } from '@/components/features/bookings/OpsStatusFilter';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
-import { useOpsBookingsTableState, type OpsStatusFilter, useOpsBookingsList, useOpsBookingStatusSummary } from '@/hooks';
+import {
+  useOpsBookingsTableState,
+  type OpsStatusFilter,
+  useOpsBookingsList,
+  useOpsBookingStatusSummary,
+} from '@/hooks';
 import { useOpsBookingLifecycleActions } from '@/hooks/ops/useOpsBookingStatusActions';
 import { useOpsCancelBooking } from '@/hooks/useOpsCancelBooking';
 import { useOpsUpdateBooking } from '@/hooks/useOpsUpdateBooking';
@@ -390,51 +397,109 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
     activeMembership?.restaurantName ?? accountSnapshot.restaurantName ?? 'This restaurant';
 
   return (
-    <section className="space-y-6">
-      <header className="space-y-2">
-        <h2 className="text-lg md:text-xl lg:text-2xl font-semibold tracking-tight text-foreground">Manage bookings</h2>
-        <p className="text-sm text-muted-foreground">
-          Review reservations for {currentRestaurantName}. Adjust details or cancel on behalf of guests.
-        </p>
-      </header>
+    <section className="space-y-6 lg:space-y-8">
+      <div className="overflow-hidden rounded-2xl border bg-gradient-to-br from-background via-background to-muted/40 p-5 shadow-sm sm:p-6 lg:p-8">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold leading-tight text-foreground sm:text-2xl">Manage bookings</h2>
+            <p className="text-sm text-muted-foreground sm:max-w-2xl">
+              Review and act on reservations without losing context. Mobile-friendly controls keep filters, search, and status
+              changes usable on the floor.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="secondary" className="rounded-full">
+                {currentRestaurantName}
+              </Badge>
+              <Badge variant="outline" className="rounded-full">Ops console</Badge>
+              {pendingLifecycle.bookingId ? (
+                <Badge variant="default" className="rounded-full">
+                  Updating {pendingLifecycle.action?.replace('-', ' ')}
+                </Badge>
+              ) : null}
+            </div>
+          </div>
+          <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+            <Button asChild size="sm" variant="secondary" className="h-9 px-4">
+              <Link href="/bookings/new">New booking</Link>
+            </Button>
+            <Button asChild size="sm" variant="outline" className="h-9 px-4">
+              <Link href="/">Back to dashboard</Link>
+            </Button>
+          </div>
+        </div>
 
-      <BookingOfflineBanner />
+        <Separator className="my-4" />
 
-      <OpsStatusesControl
-        options={statusOptions}
-        selected={selectedStatuses}
-        onToggle={handleToggleStatusFilter}
-        onClear={handleClearStatusFilters}
-        isLoading={statusSummaryQuery.isLoading}
-      />
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)]">
+          <BookingOfflineBanner />
+          <div className="rounded-xl border bg-card/60 p-4 shadow-sm backdrop-blur">
+            <div className="flex items-start justify-between gap-3 pb-3">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Status visibility</p>
+                <p className="text-xs text-muted-foreground">
+                  Combine status chips for precise triage. Clear with one tap.
+                </p>
+              </div>
+              <Badge variant="outline" className="rounded-full text-xs">
+                Live count
+              </Badge>
+            </div>
+            <OpsStatusesControl
+              options={statusOptions}
+              selected={selectedStatuses}
+              onToggle={handleToggleStatusFilter}
+              onClear={handleClearStatusFilters}
+              isLoading={statusSummaryQuery.isLoading}
+            />
+          </div>
+        </div>
+      </div>
 
-      <BookingsTable
-        bookings={bookings}
-        page={bookingsPage.pageInfo.page}
-        pageSize={bookingsPage.pageInfo.pageSize}
-        total={bookingsPage.pageInfo.total}
-        statusFilter={statusFilter as StatusFilter}
-        isLoading={bookingsQuery.isLoading}
-        isFetching={bookingsQuery.isFetching}
-        error={bookingsQuery.error ?? null}
-        searchTerm={search}
-        onSearchChange={handleSearchInput}
-        onStatusFilterChange={(next) => handleStatusChange(next as OpsStatusFilter)}
-        onPageChange={handlePageRequest}
-        onRetry={() => bookingsQuery.refetch()}
-        onEdit={handleEdit}
-        onCancel={handleCancel}
-        variant="ops"
-        statusOptions={OPS_STATUS_TABS}
-        opsLifecycle={{
-          pendingBookingId: pendingLifecycle.bookingId,
-          pendingAction: pendingLifecycle.action,
-          onCheckIn: handleLifecycleCheckIn,
-          onCheckOut: handleLifecycleCheckOut,
-          onMarkNoShow: handleLifecycleMarkNoShow,
-          onUndoNoShow: handleLifecycleUndoNoShow,
-        }}
-      />
+      <div className="rounded-2xl border bg-card shadow-sm">
+        <div className="flex flex-col gap-3 border-b px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-1">
+              <h3 className="text-base font-semibold text-foreground sm:text-lg">Booking queue</h3>
+              <p className="text-sm text-muted-foreground">
+                Search, filter, and paginate without losing your place. Status toggles stay in sync with the list.
+              </p>
+            </div>
+            <Badge variant="secondary" className="self-start rounded-full">
+              {bookingsPage.pageInfo.total ?? 0} results
+            </Badge>
+          </div>
+        </div>
+
+        <div className="px-2 pb-4 pt-2 sm:px-4 sm:pb-6 sm:pt-3 lg:px-6">
+          <BookingsTable
+            bookings={bookings}
+            page={bookingsPage.pageInfo.page}
+            pageSize={bookingsPage.pageInfo.pageSize}
+            total={bookingsPage.pageInfo.total}
+            statusFilter={statusFilter as StatusFilter}
+            isLoading={bookingsQuery.isLoading}
+            isFetching={bookingsQuery.isFetching}
+            error={bookingsQuery.error ?? null}
+            searchTerm={search}
+            onSearchChange={handleSearchInput}
+            onStatusFilterChange={(next) => handleStatusChange(next as OpsStatusFilter)}
+            onPageChange={handlePageRequest}
+            onRetry={() => bookingsQuery.refetch()}
+            onEdit={handleEdit}
+            onCancel={handleCancel}
+            variant="ops"
+            statusOptions={OPS_STATUS_TABS}
+            opsLifecycle={{
+              pendingBookingId: pendingLifecycle.bookingId,
+              pendingAction: pendingLifecycle.action,
+              onCheckIn: handleLifecycleCheckIn,
+              onCheckOut: handleLifecycleCheckOut,
+              onMarkNoShow: handleLifecycleMarkNoShow,
+              onUndoNoShow: handleLifecycleUndoNoShow,
+            }}
+          />
+        </div>
+      </div>
 
       <EditBookingDialog
         booking={editBooking}
@@ -456,7 +521,7 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
 
 function NoRestaurantAccess() {
   return (
-    <section className="mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border/60 bg-muted/20 p-8 text-center">
+    <section className="mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-border/60 bg-muted/20 p-8 text-center shadow-sm">
       <h2 className="text-xl font-semibold text-foreground">No restaurant access yet</h2>
       <p className="text-sm text-muted-foreground">
         Ask an owner or manager to send you an invitation so you can manage bookings.
@@ -470,7 +535,7 @@ function NoRestaurantAccess() {
 
 function SelectingRestaurantFallback() {
   return (
-    <section className="mx-auto flex min-h-[40vh] max-w-2xl flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border/60 bg-muted/20 p-8 text-center">
+    <section className="mx-auto flex min-h-[40vh] max-w-2xl flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-border/60 bg-muted/30 p-8 text-center shadow-sm">
       <h2 className="text-lg font-semibold text-foreground">Loading restaurant access…</h2>
       <p className="text-sm text-muted-foreground">We’re preparing your bookings. This will only take a moment.</p>
     </section>

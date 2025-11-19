@@ -10,6 +10,7 @@ const emailMocks = {
   sendBookingConfirmationEmail: vi.fn(),
   sendBookingCancellationEmail: vi.fn(),
   sendBookingUpdateEmail: vi.fn(),
+  sendRestaurantCancellationEmail: vi.fn(),
 };
 vi.mock("@/server/emails/bookings", () => emailMocks);
 
@@ -132,7 +133,17 @@ describe("booking side-effects processing", () => {
       bookingId: "booking-123",
       cancelledBy: "staff",
     }));
+    expect(emailMocks.sendRestaurantCancellationEmail).toHaveBeenCalledWith(expect.objectContaining({ id: "booking-123" }));
+  });
+
+  it("uses guest-facing cancellation copy when customer cancels", async () => {
+    const previous = bookingPayload();
+    const cancelled = { ...previous, status: "cancelled" };
+
+    await processBookingCancelledSideEffects({ previous, cancelled, restaurantId: RESTAURANT_ID, cancelledBy: "customer" });
+
     expect(emailMocks.sendBookingCancellationEmail).toHaveBeenCalledWith(expect.objectContaining({ id: "booking-123" }));
+    expect(emailMocks.sendRestaurantCancellationEmail).not.toHaveBeenCalled();
   });
 });
 
@@ -168,6 +179,6 @@ describe("enqueue booking side-effects", () => {
       cancelledBy: "system",
     });
 
-    expect(emailMocks.sendBookingCancellationEmail).toHaveBeenCalled();
+    expect(emailMocks.sendRestaurantCancellationEmail).toHaveBeenCalled();
   });
 });
