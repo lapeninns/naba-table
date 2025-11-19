@@ -8,12 +8,8 @@ import { MoreHorizontal } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState, type ComponentType } from 'react';
 
 import { BookingActionButton, BookingStatusBadge, StatusTransitionAnimator } from '@/components/features/booking-state-machine';
-import {
-  ManualAssignmentActions,
-  ManualAssignmentSummaryCard,
-  ManualAssignmentValidationPanel,
-} from '@/components/features/dashboard/manual-assignment';
-import { TableFloorPlan } from '@/components/features/dashboard/TableFloorPlan';
+import { BookingAssignmentTabContent } from '@/components/features/dashboard/booking-details/BookingAssignmentTabContent';
+
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,7 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CopyButton } from '@/components/ui/copy-button';
 import { useBookingState } from '@/contexts/booking-state-machine';
 import { useBookingService } from '@/contexts/ops-services';
-import { useManualAssignmentContext } from '@/hooks/ops/useManualAssignmentContext';
+
 import { useCountdown } from '@/hooks/use-countdown';
 import { useToast } from '@/hooks/use-toast';
 import { queryKeys } from '@/lib/query/keys';
@@ -40,15 +36,8 @@ import { cn } from '@/lib/utils';
 import { formatDateReadable, formatTimeRange, getTodayInTimezone } from '@/lib/utils/datetime';
 import { formatRelativeTime, formatCountdown } from '@/lib/utils/relative-time';
 
-import { extractManualHoldValidation, isManualHoldValidationError } from './manualHoldHelpers';
 
 import type { BookingAction } from '@/components/features/booking-state-machine';
-import type {
-  ManualSelectionPayload,
-  ManualHoldPayload,
-  ManualValidationResult,
-  ConfirmHoldAssignment,
-} from '@/services/ops/bookings';
 import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
 
 const TIER_COLORS: Record<string, string> = {
@@ -58,60 +47,7 @@ const TIER_COLORS: Record<string, string> = {
   bronze: 'bg-amber-700 text-white border-amber-700',
 };
 
-function expandAssignmentGroups(groups: OpsTodayBooking['tableAssignments']) {
-  const expanded: Array<{
-    tableId: string;
-    tableNumber: string;
-    capacity: number | null;
-    section: string | null;
-  }> = [];
 
-  for (const group of groups ?? []) {
-    const members = group?.members ?? [];
-    if (members.length === 0) {
-      continue;
-    }
-
-    for (const member of members) {
-      expanded.push({
-        tableId: member.tableId,
-        tableNumber: member.tableNumber ?? '—',
-        capacity: member.capacity ?? null,
-        section: member.section ?? null,
-      });
-    }
-  }
-
-  return expanded;
-}
-
-function formatSlack(slack: number): string {
-  if (slack === 0) {
-    return 'exact fit';
-  }
-  if (slack > 0) {
-    return `+${slack} over`;
-  }
-  return `${slack} short`;
-}
-
-function formatCountdownFromIso(expiresAt: string | null, nowTs: number): string | null {
-  if (!expiresAt) {
-    return null;
-  }
-  const target = Date.parse(expiresAt);
-  if (Number.isNaN(target)) {
-    return null;
-  }
-  const diffSeconds = Math.max(0, Math.floor((target - nowTs) / 1000));
-  const minutes = Math.floor(diffSeconds / 60)
-    .toString()
-    .padStart(2, '0');
-  const seconds = Math.floor(diffSeconds % 60)
-    .toString()
-    .padStart(2, '0');
-  return `${minutes}:${seconds}`;
-}
 
 type BookingDetailsDialogProps = {
   booking: OpsTodayBooking;
@@ -132,7 +68,7 @@ type BookingDetailsDialogProps = {
 
 type BookingDetailsTab = 'overview' | 'tables';
 
-const MANUAL_HOLD_TTL_SECONDS = 180;
+
 
 export function BookingDetailsDialog({
   booking,
@@ -147,24 +83,13 @@ export function BookingDetailsDialog({
   onUnassignTable,
   tableActionState,
 }: BookingDetailsDialogProps) {
-  const manualSessionEnabled = true;
+
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedTables, setSelectedTables] = useState<string[]>([]);
-  const [userModifiedSelection, setUserModifiedSelection] = useState(false);
-  const [validationResult, setValidationResult] = useState<ManualValidationResult | null>(null);
-  const [lastValidatedAt, setLastValidatedAt] = useState<number | null>(null);
-  const [requireAdjacency, setRequireAdjacency] = useState(true);
-  const [lastHoldKey, setLastHoldKey] = useState<string | null>(null);
-  const [currentTimestamp, setCurrentTimestamp] = useState(() => Date.now());
-  const [assignments, setAssignments] = useState<OpsTodayBooking['tableAssignments']>(booking.tableAssignments);
+
   const [localPendingAction, setLocalPendingAction] = useState<BookingAction | null>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [activeTab, setActiveTab] = useState<BookingDetailsTab>('overview');
-  const [onlyAvailable, setOnlyAvailable] = useState(true);
-  const [staleContext, setStaleContext] = useState(false);
-  const [lastApiError, setLastApiError] = useState<null | { scope: 'validate' | 'hold' | 'confirm', code: string | null, message: string, details?: any }>(null);
-  const [manualSessionId, setManualSessionId] = useState<string | null>(null);
-  const [manualSelectionVersionState, setManualSelectionVersionState] = useState<number | null>(null);
+
   const lifecycleAvailability = useMemo(
     () => ({ isToday: getTodayInTimezone(summary.timezone) === summary.date }),
     [summary.date, summary.timezone],
@@ -213,223 +138,7 @@ export function BookingDetailsDialog({
   const supportsTableAssignment = allowTableAssignments;
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
-  const manualContextQuery = useManualAssignmentContext({
-    bookingId: isOpen ? booking.id : null,
-    restaurantId: summary.restaurantId,
-    targetDate: summary.date,
-    enabled: supportsTableAssignment && isOpen,
-  });
 
-  const {
-    data: manualContextData,
-    isLoading: manualContextLoading,
-    isFetching: manualContextFetching,
-    isError: manualContextIsError,
-    error: manualContextError,
-    refetch: refetchManualContext,
-  } = manualContextQuery;
-  const manualContext = manualContextData ?? null;
-  const manualSession = (manualContext as (typeof manualContext & { session?: { id?: string | null; selectionVersion?: number | null } | null }))?.session ?? null;
-  const manualSelectionVersion = manualSelectionVersionState ?? manualSession?.selectionVersion ?? null;
-
-  const holdMutation = useMutation({
-    mutationFn: async (payload: ManualHoldPayload & { selectionVersion?: number | null }) => {
-      return bookingService.manualHoldSelection({
-        bookingId: payload.bookingId,
-        tableIds: payload.tableIds,
-        requireAdjacency: payload.requireAdjacency,
-        excludeHoldId: payload.excludeHoldId,
-        holdTtlSeconds: payload.holdTtlSeconds,
-        contextVersion: payload.contextVersion,
-        selectionVersion: payload.selectionVersion ?? undefined,
-      });
-    },
-    onSuccess: (result, variables) => {
-      setStaleContext(false);
-      const response: any = result;
-      const validation = ('validation' in response ? response.validation : null) ?? null;
-      const hold = ('hold' in response ? response.hold : null) as any;
-      const sessionUpdate = ('session' in response ? response.session : null) as { selectionVersion?: number | null } | null;
-      if (sessionUpdate && typeof sessionUpdate.selectionVersion === 'number') {
-        setManualSelectionVersionState(sessionUpdate.selectionVersion);
-      }
-      setValidationResult(validation ?? null);
-      setLastValidatedAt(Date.now());
-      const holdKey = hold && Array.isArray(hold.tableIds) ? hold.tableIds.slice().sort().join(',') : null;
-      setLastHoldKey(holdKey);
-      if (hold) {
-        setUserModifiedSelection(false);
-        void queryClient.invalidateQueries({ queryKey: queryKeys.manualAssign.context(booking.id) });
-      } else {
-        setUserModifiedSelection(true);
-      }
-    },
-    onError: async (error, variables) => {
-      const code = (error as any)?.code ?? null;
-      if (code === 'STALE_CONTEXT' || code === 'SELECTION_VERSION_MISMATCH' || code === 'HOLD_EXPIRED' || code === 'HOLD_INACTIVE') {
-        setStaleContext(true);
-        void refetchManualContext();
-        return;
-      }
-      if (isManualHoldValidationError(error)) {
-        const validation = extractManualHoldValidation(error);
-        if (validation) {
-          setValidationResult(validation);
-        } else if (variables) {
-          try {
-            const result = await bookingService.manualValidateSelection({
-              bookingId: variables.bookingId,
-              tableIds: variables.tableIds,
-              requireAdjacency: variables.requireAdjacency,
-              excludeHoldId: variables.excludeHoldId,
-              contextVersion: manualContext?.contextVersion ?? '',
-            });
-            setValidationResult(result);
-          } catch (validationError) {
-            const message =
-              validationError instanceof Error ? validationError.message : 'Unable to validate selection';
-            toast({ title: 'Validation failed', description: message, variant: 'destructive' });
-          }
-        }
-        setUserModifiedSelection(true);
-        const selectionKey = Array.isArray(variables?.tableIds)
-          ? [...variables.tableIds].sort().join(',')
-          : null;
-        setLastHoldKey(selectionKey);
-        return;
-      }
-
-      const rawDetails = (error as any)?.details ?? null;
-      let details: any = rawDetails;
-      if (typeof rawDetails === 'string') {
-        try { details = JSON.parse(rawDetails); } catch { /* ignore */ }
-      }
-      const message = error instanceof Error ? error.message : 'Unable to place hold';
-      toast({ title: 'Hold failed', description: message, variant: 'destructive' });
-      setLastApiError({ scope: 'hold', code, message, details });
-    },
-  });
-
-  const validateMutation = useMutation({
-    mutationFn: (payload: ManualSelectionPayload) => bookingService.manualValidateSelection(payload),
-    onSuccess: (result) => {
-      setStaleContext(false);
-      setValidationResult(result);
-      setLastValidatedAt(Date.now());
-    },
-    onError: (error) => {
-      const code = (error as any)?.code ?? null;
-      if (code === 'STALE_CONTEXT' || code === 'SELECTION_VERSION_MISMATCH' || code === 'HOLD_EXPIRED' || code === 'HOLD_INACTIVE') {
-        setStaleContext(true);
-        void refetchManualContext();
-        return;
-      }
-      const rawDetails = (error as any)?.details ?? null;
-      let details: any = rawDetails;
-      if (typeof rawDetails === 'string') {
-        try { details = JSON.parse(rawDetails); } catch { /* ignore */ }
-      }
-      const message = error instanceof Error ? error.message : 'Validation failed';
-      toast({ title: 'Validation failed', description: message, variant: 'destructive' });
-      setLastApiError({ scope: 'validate', code, message, details });
-    },
-  });
-
-  const confirmMutation = useMutation({
-    mutationFn: async (holdId: string) => {
-      const key =
-        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-      return bookingService.manualConfirmHold({
-        holdId,
-        bookingId: booking.id,
-        idempotencyKey: key,
-        requireAdjacency,
-        contextVersion: manualContext?.contextVersion ?? undefined,
-        selectionVersion: manualSelectionVersion ?? undefined,
-      });
-    },
-    onSuccess: (result) => {
-      setStaleContext(false);
-      const response: any = result;
-      const sessionUpdate = ('session' in response ? response.session : null) as { selectionVersion?: number | null } | null;
-      if (sessionUpdate && typeof sessionUpdate.selectionVersion === 'number') {
-        setManualSelectionVersionState(sessionUpdate.selectionVersion);
-      }
-      const assignments = ('assignments' in response ? response.assignments : response.assignments) as ConfirmHoldAssignment[];
-      const tableMap = new Map(manualContext?.tables.map((table) => [table.id, table]) ?? []);
-      const nextAssignments = assignments.map((assignment) => {
-        const meta = tableMap.get(assignment.tableId);
-        return {
-          groupId: null,
-          capacitySum: meta?.capacity ?? null,
-          members: [
-            {
-              tableId: assignment.tableId,
-              tableNumber: meta?.tableNumber ?? assignment.tableId,
-              capacity: meta?.capacity ?? null,
-              section: meta?.section ?? null,
-            },
-          ],
-        };
-      });
-      setAssignments(nextAssignments as any);
-      setSelectedTables([]);
-      setValidationResult(null);
-      setLastValidatedAt(null);
-      setUserModifiedSelection(false);
-      setLastHoldKey(null);
-      toast({ title: 'Tables assigned', description: 'Manual assignment confirmed successfully.' });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.manualAssign.context(booking.id) });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.opsDashboard.summary(summary.restaurantId, summary.date ?? null) });
-    },
-    onError: (error) => {
-      const code = (error as any)?.code ?? null;
-      if (code === 'STALE_CONTEXT' || code === 'SELECTION_VERSION_MISMATCH') {
-        setStaleContext(true);
-        void refetchManualContext();
-        return;
-      }
-      const rawDetails = (error as any)?.details ?? null;
-      let details: any = rawDetails;
-      if (typeof rawDetails === 'string') {
-        try { details = JSON.parse(rawDetails); } catch { /* ignore */ }
-      }
-      const message = error instanceof Error ? error.message : 'Assignment failed';
-      toast({ title: 'Assignment failed', description: message, variant: 'destructive' });
-      setLastApiError({ scope: 'confirm', code, message, details });
-    },
-  });
-
-  const handleToggleTable = useCallback((tableId: string) => {
-    setSelectedTables((prev) => {
-      if (prev.includes(tableId)) {
-        return prev.filter((id) => id !== tableId);
-      }
-      return [...prev, tableId];
-    });
-    setUserModifiedSelection(true);
-  }, []);
-
-  useEffect(() => {
-    if (!isOpen) {
-      setSelectedTables([]);
-      setValidationResult(null);
-      setUserModifiedSelection(false);
-      setLastHoldKey(null);
-      setStaleContext(false);
-      setActiveTab('overview');
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-    const interval = setInterval(() => setCurrentTimestamp(Date.now()), 1000);
-    return () => clearInterval(interval);
-  }, [isOpen]);
 
   useEffect(() => {
     if (!supportsTableAssignment && activeTab !== 'overview') {
@@ -437,63 +146,7 @@ export function BookingDetailsDialog({
     }
   }, [supportsTableAssignment, activeTab]);
 
-  useEffect(() => {
-    if (!manualContext) {
-      return;
-    }
-    setManualSessionId(manualSession?.id ?? null);
-    setManualSelectionVersionState(manualSession?.selectionVersion ?? null);
-    const defaultSelection = manualContext.activeHold?.tableIds?.length
-      ? manualContext.activeHold.tableIds
-      : manualContext.bookingAssignments;
-    if (!userModifiedSelection) {
-      const normalized = Array.from(new Set(defaultSelection));
-      const nextKey = normalized.slice().sort().join(',');
-      const currentKey = selectedTables.slice().sort().join(',');
-      if (nextKey !== currentKey) {
-        setSelectedTables(normalized);
-      }
-    }
-    if (manualContext.activeHold) {
-      setLastHoldKey(manualContext.activeHold.tableIds.slice().sort().join(','));
-      if (!validationResult) {
-        const metadata = manualContext.activeHold.metadata;
-        const selectionMeta = metadata && typeof metadata === 'object' ? (metadata as Record<string, unknown>).selection : null;
-        if (selectionMeta && typeof selectionMeta === 'object') {
-          const summary = (selectionMeta as { summary?: ManualValidationResult['summary'] }).summary;
-          if (summary) {
-            setValidationResult({ ok: true, summary, checks: [] });
-            setLastValidatedAt(Date.now());
-          }
-        }
-      }
-    }
-  }, [manualContext, selectedTables, userModifiedSelection, validationResult]);
 
-  useEffect(() => {
-    if (!isOpen || !manualContext) {
-      return;
-    }
-    if (selectedTables.length === 0) {
-      setValidationResult(null);
-      return;
-    }
-    const selectionKey = [...selectedTables].sort().join(',');
-    if (selectionKey === lastHoldKey || holdMutation.isPending) {
-      return;
-    }
-    const timeout = setTimeout(() => {
-      holdMutation.mutate({
-        bookingId: booking.id,
-        tableIds: selectedTables,
-        holdTtlSeconds: MANUAL_HOLD_TTL_SECONDS,
-        requireAdjacency,
-        contextVersion: manualContext?.contextVersion ?? '',
-        selectionVersion: manualSelectionVersion ?? undefined,
-      });
-    }, 800);
-    return () => clearTimeout(timeout);
-  }, [booking.id, holdMutation, isOpen, lastHoldKey, manualContext, requireAdjacency, selectedTables, manualSelectionVersion]);
 
   const {
     data: historyData,
@@ -542,138 +195,7 @@ export function BookingDetailsDialog({
     return typeof value === 'string' && value.length > 0 ? value : null;
   };
 
-  useEffect(() => {
-    setAssignments(booking.tableAssignments);
-  }, [booking.tableAssignments]);
 
-  const normalizedAssignments = useMemo(() => expandAssignmentGroups(assignments), [assignments]);
-
-  const selectionSummary = useMemo(() => {
-    if (validationResult) {
-      return validationResult.summary;
-    }
-    if (!manualContext) {
-      return null;
-    }
-    if (selectedTables.length === 0) {
-      return null;
-    }
-    const tableMap = new Map(manualContext.tables.map((table) => [table.id, table]));
-    let totalCapacity = 0;
-    const tableNumbers: string[] = [];
-    let zoneId: string | null = null;
-    let zoneMismatch = false;
-    for (const tableId of selectedTables) {
-      const meta = tableMap.get(tableId);
-      if (!meta) {
-        continue;
-      }
-      totalCapacity += meta.capacity ?? 0;
-      tableNumbers.push(meta.tableNumber ?? meta.id);
-      if (zoneId === null) {
-        zoneId = meta.zoneId ?? null;
-      } else if (zoneId !== meta.zoneId) {
-        zoneMismatch = true;
-      }
-    }
-    if (tableNumbers.length === 0) {
-      return null;
-    }
-    if (zoneMismatch) {
-      zoneId = null;
-    }
-    const partySize = manualContext.booking.partySize ?? 0;
-    return {
-      tableCount: tableNumbers.length,
-      totalCapacity,
-      slack: totalCapacity - partySize,
-      zoneId,
-      tableNumbers,
-      partySize,
-    };
-  }, [manualContext, selectedTables, validationResult]);
-
-  const validationChecks = validationResult?.checks ?? [];
-  const hasBlockingErrors = validationChecks.some((check) => check.status === 'error');
-  const activeHold = manualContext?.activeHold ?? null;
-  const otherHolds = useMemo(
-    () => (manualContext ? manualContext.holds.filter((hold) => hold.bookingId && hold.bookingId !== booking.id) : []),
-    [manualContext, booking.id],
-  );
-  const selectedTableNumbers = useMemo(() => {
-    if (!manualContext) {
-      return [] as string[];
-    }
-    const mapping = new Map(manualContext.tables.map((table) => [table.id, table.tableNumber ?? table.id]));
-    return selectedTables.map((tableId) => mapping.get(tableId) ?? tableId);
-  }, [manualContext, selectedTables]);
-
-  const slackLabel = selectionSummary ? formatSlack(selectionSummary.slack) : null;
-  const hasSelection = selectedTables.length > 0;
-  const selectionPartySize = selectionSummary?.partySize ?? manualContext?.booking.partySize ?? booking.partySize;
-  const holdCountdownLabel = activeHold ? formatCountdownFromIso(activeHold.expiresAt, currentTimestamp) : null;
-  const selectionDisabled = manualContextLoading || manualContextFetching || holdMutation.isPending || confirmMutation.isPending;
-  const manualContextErrorMessage = manualContextError instanceof Error ? manualContextError.message : 'Unable to load manual assignment context.';
-  const confirmDisabled = selectionDisabled || !hasSelection || !activeHold || hasBlockingErrors;
-  let confirmDisabledReason: string | null = null;
-  if (!hasSelection) {
-    confirmDisabledReason = 'Select at least one table before confirming the assignment.';
-  } else if (!activeHold) {
-    confirmDisabledReason = 'Validate the selection to create a hold before confirming.';
-  } else if (hasBlockingErrors) {
-    confirmDisabledReason = 'Resolve blocking validation errors before confirming.';
-  } else if (selectionDisabled && (manualContextLoading || manualContextFetching)) {
-    confirmDisabledReason = 'Loading the latest availability…';
-  }
-  const validateDisabled = !hasSelection || selectionDisabled;
-  const clearDisabled = !hasSelection || holdMutation.isPending || confirmMutation.isPending;
-
-  const handleValidateSelection = useCallback(() => {
-    if (selectedTables.length === 0) {
-      toast({ title: 'Select tables', description: 'Choose one or more tables before validating.', variant: 'destructive' });
-      return;
-    }
-    validateMutation.mutate({
-      bookingId: booking.id,
-      tableIds: selectedTables,
-      requireAdjacency,
-      excludeHoldId: manualContext?.activeHold?.id,
-      contextVersion: manualContext?.contextVersion ?? '',
-    });
-  }, [booking.id, manualContext?.activeHold?.id, requireAdjacency, selectedTables, toast, validateMutation]);
-
-  const handleConfirmSelection = useCallback(() => {
-    if (!manualContext?.activeHold) {
-      toast({ title: 'No active hold', description: 'Create a hold before confirming assignment.', variant: 'destructive' });
-      return;
-    }
-    if (selectedTables.length === 0) {
-      toast({ title: 'Select tables', description: 'Choose tables to assign before confirming.', variant: 'destructive' });
-      return;
-    }
-    if (hasBlockingErrors) {
-      toast({ title: 'Resolve validation errors', description: 'Fix blocking checks before assigning tables.', variant: 'destructive' });
-      return;
-    }
-    confirmMutation.mutate(manualContext.activeHold.id);
-  }, [confirmMutation, hasBlockingErrors, manualContext?.activeHold, selectedTables.length, toast]);
-
-  const handleClearSelection = useCallback(async () => {
-    if (manualContext?.activeHold) {
-      try {
-        await bookingService.manualReleaseHold({ holdId: manualContext.activeHold.id, bookingId: booking.id });
-        await refetchManualContext();
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unable to release hold';
-        toast({ title: 'Release failed', description: message, variant: 'destructive' });
-      }
-    }
-    setSelectedTables([]);
-    setValidationResult(null);
-    setLastValidatedAt(null);
-    setUserModifiedSelection(true);
-    setLastHoldKey(null);
-  }, [booking.id, bookingService, manualContext?.activeHold, refetchManualContext, toast]);
 
 
   useEffect(() => {
@@ -682,38 +204,7 @@ export function BookingDetailsDialog({
     }
   }, [isOpen]);
 
-  // Persist onlyAvailable toggle to localStorage for user convenience
-  useEffect(() => {
-    if (!isOpen) return;
-    try {
-      const stored = localStorage.getItem('manualAssign.onlyAvailable');
-      if (stored === 'true') setOnlyAvailable(true);
-      else if (stored === 'false') setOnlyAvailable(false);
-    } catch {
-      // ignore storage errors
-    }
-  }, [isOpen]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem('manualAssign.onlyAvailable', String(onlyAvailable));
-    } catch {
-      // ignore storage errors
-    }
-  }, [onlyAvailable]);
-
-  const handleUnassignTable = async (tableId: string) => {
-    if (!onUnassignTable) {
-      return;
-    }
-    try {
-      const updated = await onUnassignTable(tableId);
-      setAssignments(updated);
-      await manualContextQuery.refetch();
-    } catch {
-      // Toast handled by mutation hook
-    }
-  };
 
   const handleCheckInAction = useCallback(async () => {
     if (!onCheckIn) return;
@@ -1093,179 +584,13 @@ export function BookingDetailsDialog({
                   </TabsContent>
 
                   {supportsTableAssignment ? (
-                    <TabsContent value="tables" className="focus-visible:outline-none">
-                      <div className="space-y-6">
-                        <section className="space-y-6 rounded-2xl border border-border/60 bg-muted/10 px-4 py-5">
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                            <div>
-                              <h3 className="text-sm font-semibold text-foreground">Manual assignment</h3>
-                              <p className="text-xs text-muted-foreground">
-                                Choose tables on the floor plan, review checks, then confirm to lock them in.
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Label htmlFor="only-available-switch" className="text-xs text-muted-foreground">
-                                Only show available
-                              </Label>
-                              <Switch
-                                id="only-available-switch"
-                                checked={onlyAvailable}
-                                onCheckedChange={setOnlyAvailable}
-                                aria-label="Toggle only showing available tables"
-                              />
-                            </div>
-                          </div>
-
-                          {manualContextIsError ? (
-                            <Alert variant="destructive" className="rounded-xl border border-destructive/40 bg-destructive/10">
-                              <AlertTitle>Unable to load manual assignment</AlertTitle>
-                              <AlertDescription>{manualContextErrorMessage}</AlertDescription>
-                            </Alert>
-                          ) : (
-                            <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr),minmax(0,1fr)]">
-                              <div className="relative space-y-3">
-                                <TableFloorPlan
-                                  bookingId={booking.id}
-                                  tables={manualContext?.tables ?? []}
-                                  holds={manualContext?.holds ?? []}
-                                  conflicts={manualContext?.conflicts ?? []}
-                                  bookingAssignments={manualContext?.bookingAssignments ?? []}
-                                  selectedTableIds={selectedTables}
-                                  onToggle={handleToggleTable}
-                                  onlyAvailable={onlyAvailable}
-                                  disabled={selectionDisabled}
-                                />
-                                {manualContextLoading || manualContextFetching ? (
-                                  <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-background/70 backdrop-blur-sm">
-                                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
-                                  </div>
-                                ) : null}
-                              </div>
-                              <div className="space-y-4">
-                                <ManualAssignmentSummaryCard
-                                  summary={selectionSummary}
-                                  slackLabel={slackLabel}
-                                  partySize={selectionPartySize}
-                                  tableNumbers={selectedTableNumbers}
-                                  requireAdjacency={requireAdjacency}
-                                  onAdjacencyChange={setRequireAdjacency}
-                                  isLoading={manualContextLoading && !manualContext}
-                                  activeHold={activeHold}
-                                  holdCountdownLabel={holdCountdownLabel}
-                                  otherHolds={otherHolds}
-                                />
-                                {staleContext ? (
-                                  <Alert variant="destructive" role="alert" aria-live="polite">
-                                    <AlertTriangle className="h-4 w-4" aria-hidden />
-                                    <AlertTitle>Refresh needed — context changed</AlertTitle>
-                                    <AlertDescription>
-                                      The booking context has changed (holds or assignments). Please refresh to continue.
-                                      <Button
-                                        size="sm"
-                                        variant="secondary"
-                                        className="ml-2"
-                                        onClick={async () => {
-                                          try {
-                                            await refetchManualContext();
-                                            setStaleContext(false);
-                                          } catch {
-                                            // swallow errors; toast is handled elsewhere
-                                          }
-                                        }}
-                                      >
-                                        Refresh
-                                      </Button>
-                                    </AlertDescription>
-                                  </Alert>
-                                ) : null}
-                                {lastApiError ? (
-                                  <Alert variant="destructive" className="rounded-xl border border-destructive/40 bg-destructive/10">
-                                    <AlertTriangle className="h-4 w-4" aria-hidden />
-                                    <AlertTitle>
-                                      {lastApiError.code ? `${lastApiError.code}` : 'Manual action failed'}
-                                    </AlertTitle>
-                                    <AlertDescription>
-                                      <div className="space-y-2">
-                                        <p className="text-sm">{lastApiError.message}</p>
-                                        {lastApiError.details ? (
-                                          <pre className="whitespace-pre-wrap text-xs text-muted-foreground">
-                                            {JSON.stringify(lastApiError.details, null, 2)}
-                                          </pre>
-                                        ) : null}
-                                      </div>
-                                    </AlertDescription>
-                                  </Alert>
-                                ) : null}
-
-                                <ManualAssignmentValidationPanel
-                                  checks={validationChecks}
-                                  lastValidatedAt={lastValidatedAt}
-                                  isPending={holdMutation.isPending || validateMutation.isPending}
-                                  hasSelection={hasSelection}
-                                />
-                                <ManualAssignmentActions
-                                  onValidate={handleValidateSelection}
-                                  onConfirm={handleConfirmSelection}
-                                  onClear={handleClearSelection}
-                                  disableValidate={validateDisabled}
-                                  disableConfirm={confirmDisabled}
-                                  disableClear={clearDisabled}
-                                  validating={holdMutation.isPending || validateMutation.isPending}
-                                  confirming={confirmMutation.isPending}
-                                  confirmDisabledReason={confirmDisabledReason}
-                                />
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="space-y-2">
-                            <h4 className="text-sm font-semibold text-foreground">Assigned tables</h4>
-                            {normalizedAssignments.length > 0 ? (
-                              normalizedAssignments.map((assignment) => {
-                                const isUnassigning =
-                                  tableActionState?.type === 'unassign' && tableActionState?.tableId === assignment.tableId;
-                                const capacityLabel =
-                                  assignment.capacity && assignment.capacity > 0
-                                    ? `${assignment.capacity} seat${assignment.capacity === 1 ? '' : 's'}`
-                                    : null;
-                                const meta = [capacityLabel, assignment.section ? `Section ${assignment.section}` : null]
-                                  .filter(Boolean)
-                                  .join(' · ');
-
-                                return (
-                                  <div
-                                    key={assignment.tableId}
-                                    className="flex items-center justify-between rounded-xl border border-border/60 bg-white px-3 py-2"
-                                  >
-                                    <div className="flex flex-col">
-                                      <span className="text-sm font-semibold text-foreground">Table {assignment.tableNumber}</span>
-                                      {meta ? <span className="text-xs text-muted-foreground">{meta}</span> : null}
-                                    </div>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-8"
-                                      onClick={() => handleUnassignTable(assignment.tableId)}
-                                      disabled={isUnassigning || confirmMutation.isPending}
-                                    >
-                                      {isUnassigning ? (
-                                        <>
-                                          <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-                                          Removing…
-                                        </>
-                                      ) : (
-                                        'Remove'
-                                      )}
-                                    </Button>
-                                  </div>
-                                );
-                              })
-                            ) : (
-                              <p className="text-sm text-muted-foreground">No tables assigned yet.</p>
-                            )}
-                          </div>
-                        </section>
-                      </div>
+                    <TabsContent value="tables" className="mt-0 h-full flex-col overflow-hidden data-[state=active]:flex">
+                      <BookingAssignmentTabContent
+                        booking={booking}
+                        restaurantId={summary.restaurantId}
+                        date={summary.date}
+                        onUnassignTable={onUnassignTable}
+                      />
                     </TabsContent>
                   ) : null}
                 </Tabs>
