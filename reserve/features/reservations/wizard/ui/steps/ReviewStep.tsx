@@ -16,6 +16,8 @@ import type { ReviewStepProps } from './review-step/types';
 export function ReviewStep(props: ReviewStepProps) {
   const { details, summary, error } = useReviewStep(props);
   const { goToStep } = useWizardNavigation();
+  const emailDisplay = details.email?.trim() ? details.email : 'Not provided';
+  const phoneDisplay = details.phone?.trim() ? details.phone : 'Not provided';
 
   return (
     <StepErrorBoundary
@@ -67,11 +69,11 @@ export function ReviewStep(props: ReviewStepProps) {
             </div>
             <div className="space-y-1">
               <dt className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Email</dt>
-              <dd className="text-sm font-medium text-foreground">{details.email}</dd>
+              <dd className="text-sm font-medium text-foreground">{emailDisplay}</dd>
             </div>
             <div className="space-y-1">
               <dt className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Phone</dt>
-              <dd className="text-sm font-medium text-foreground">{details.phone}</dd>
+              <dd className="text-sm font-medium text-foreground">{phoneDisplay}</dd>
             </div>
             <div className="space-y-1">
               <dt className="text-xs uppercase tracking-[0.18em] text-muted-foreground">

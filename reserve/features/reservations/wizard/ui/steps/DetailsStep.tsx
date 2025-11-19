@@ -78,6 +78,11 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
     }
   }, [errors.agree]);
 
+  const description =
+    mode === 'ops'
+      ? 'Add contact details if you want confirmations. Leave blank for in-venue walk-ins.'
+      : 'We’ll send confirmation and any updates to the contact details below.';
+
   return (
     <StepErrorBoundary
       stepName="Tell us how to reach you"
@@ -88,7 +93,7 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
       <WizardStep
         step={2}
         title="Tell us how to reach you"
-        description="We’ll send confirmation and any updates to the contact details below."
+        description={description}
         contentClassName="space-y-6 md:space-y-8"
       >
         <Form {...form}>

@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event';
 import * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { OpsWalkInBookingClient, OpsTeamManagementClient, OpsBookingsClient, OpsCustomersClient, OpsDashboardClient } from '@/components/features';
+import { OpsTeamManagementClient, OpsBookingsClient, OpsCustomersClient, OpsDashboardClient } from '@/components/features';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { OpsServicesProvider } from '@/contexts/ops-services';
 import { OpsSessionProvider } from '@/contexts/ops-session';
@@ -144,35 +144,6 @@ describe('Ops feature clients', () => {
   afterEach(() => {
     replaceMock.mockReset();
     refreshMock.mockReset();
-  });
-  it('renders walk-in fallback when user has no restaurant access', () => {
-    renderWithProviders(<OpsWalkInBookingClient />, {
-      memberships: [],
-      restaurantService: createRestaurantServiceStub([]),
-    });
-
-    expect(screen.getByText(/no restaurant access/i)).toBeVisible();
-  });
-
-  it('renders walk-in booking flow when restaurant data available', async () => {
-    const memberships: OpsMembership[] = [
-      {
-        restaurantId: 'rest-1',
-        restaurantName: 'Alinea',
-        restaurantSlug: 'alinea',
-        role: 'owner',
-        createdAt: null,
-      },
-    ];
-
-    renderWithProviders(<OpsWalkInBookingClient />, {
-      memberships,
-      restaurantService: createRestaurantServiceStub([
-        { id: 'rest-1', name: 'Alinea', slug: 'alinea', timezone: 'America/Chicago', address: 'Chicago', role: 'owner' },
-      ]),
-    });
-
-    await waitFor(() => expect(screen.getByRole('heading', { name: /create walk-in booking/i })).toBeVisible());
   });
 
   it('shows limited permissions notice for non-admin team members', async () => {

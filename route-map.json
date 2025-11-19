@@ -314,17 +314,6 @@
       "config": {}
     },
     {
-      "path": "/ops/bookings/new",
-      "methods": [],
-      "dynamic": false,
-      "groups": ["ops", "app"],
-      "guards": ["admin"],
-      "source": "(ops)/ops/(app)/bookings/new/page.tsx",
-      "description": "New page",
-      "params": [],
-      "config": {}
-    },
-    {
       "path": "/blog/author/:authorId",
       "methods": [],
       "dynamic": true,

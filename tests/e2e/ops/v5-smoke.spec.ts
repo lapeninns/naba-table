@@ -22,17 +22,6 @@ async function ensureAuthenticated(page: Page, testInfo: import('@playwright/tes
 }
 
 test.describe('Ops v5 UI smoke', () => {
-  test('walk-in booking flow renders primary heading', async ({ authedPage }, testInfo) => {
-    if (!SHOULD_RUN) {
-      test.skip(true, 'Set PLAYWRIGHT_OPS_V5=true to enable Ops v5 smoke checks.');
-    }
-    const authed = await ensureAuthenticated(authedPage, testInfo);
-    if (!authed) return;
-
-    await authedPage.goto('/ops/bookings/new');
-    await expect(authedPage.getByRole('heading', { name: /create walk-in booking/i })).toBeVisible();
-  });
-
   test('team management shows limited permissions notice for non-admin staff', async ({ authedPage }, testInfo) => {
     if (!SHOULD_RUN) {
       test.skip(true, 'Set PLAYWRIGHT_OPS_V5=true to enable Ops v5 smoke checks.');

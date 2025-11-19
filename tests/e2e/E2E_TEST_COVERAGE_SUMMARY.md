@@ -182,7 +182,7 @@ Created comprehensive end-to-end test coverage for critical user flows that were
 
 #### Known Issues
 
-- Page loads correctly at `/ops/bookings/new` ✅
+- Walk-in booking page was removed (`/ops/bookings/new` now redirects away)
 - Wizard elements use dynamic selectors that need adjustment
 - Form navigation flow needs to match actual BookingFlowPage implementation
 
@@ -288,18 +288,8 @@ Apply this change to all 12 tests in the file.
 
 #### 3. Walk-In Booking Tests
 
-**Priority: MEDIUM**  
-**Effort: 45 minutes**
-
-- Page route is correct (`/ops/bookings/new`) ✅
-- Needs selector updates for:
-  - Date picker
-  - Time slot buttons
-  - Party size controls
-  - Contact form fields
-  - Review/confirm buttons
-
-- The wizard uses `BookingFlowPage` component - review actual rendered structure
+**Status: Removed**  
+**Note:** Walk-in booking page (`/ops/bookings/new`) has been retired; related specs are no longer applicable.
 
 #### 4. Invite Acceptance Minor Fixes
 

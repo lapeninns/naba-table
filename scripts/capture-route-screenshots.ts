@@ -26,7 +26,6 @@ const ROUTES: Array<{
   { path: '/profile/manage', label: 'profile-manage', auth: 'user' },
   { path: '/ops', label: 'ops-dashboard', auth: 'admin' },
   { path: '/ops/bookings', label: 'ops-bookings', auth: 'admin' },
-  { path: '/ops/bookings/new', label: 'ops-bookings-new', auth: 'admin' },
   { path: '/ops/customer-details', label: 'ops-customer-details', auth: 'admin' },
   { path: '/ops/rejections', label: 'ops-rejections', auth: 'admin' },
   { path: '/ops/restaurant-settings', label: 'ops-restaurant-settings', auth: 'admin' },

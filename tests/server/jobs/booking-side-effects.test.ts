@@ -87,6 +87,23 @@ describe("booking side-effects processing", () => {
     expect(emailMocks.sendBookingConfirmationEmail).not.toHaveBeenCalled();
   });
 
+  it("skips confirmation email when contact email was not provided even if a placeholder exists", async () => {
+    const payload = {
+      booking: makeBookingRecord({
+        restaurant_id: RESTAURANT_ID,
+        customer_email: "walkin+abc123@system.local",
+      }),
+      idempotencyKey: null,
+      restaurantId: RESTAURANT_ID,
+      emailProvided: false,
+    } as const;
+
+    const queued = await processBookingCreatedSideEffects(payload);
+
+    expect(queued).toBe(false);
+    expect(emailMocks.sendBookingConfirmationEmail).not.toHaveBeenCalled();
+  });
+
   it("enqueues email job when queue enabled", async () => {
     featureFlagMocks.isEmailQueueEnabled.mockReturnValueOnce(true);
 

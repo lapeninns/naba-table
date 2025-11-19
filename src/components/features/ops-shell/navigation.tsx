@@ -1,7 +1,6 @@
 import {
   BarChart3,
   CalendarDays,
-  CalendarPlus,
   CircleHelp,
   GanttChart,
   LayoutGrid,
@@ -45,14 +44,7 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         description: 'Manage reservations',
         href: '/bookings',
         icon: CalendarDays,
-        match: (pathname) => pathname === '/bookings',
-      },
-      {
-        title: 'Walk-in booking',
-        description: 'Record guests on arrival',
-        href: '/bookings/new',
-        icon: CalendarPlus,
-        match: (pathname) => pathname.startsWith('/bookings/new'),
+        match: (pathname) => pathname === '/bookings' || pathname.startsWith('/bookings/'),
       },
       {
         title: 'Customers',

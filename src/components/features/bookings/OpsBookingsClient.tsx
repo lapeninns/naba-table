@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Plus } from 'lucide-react';
 
 import { BookingsTable } from '@/components/dashboard/BookingsTable';
 import { CancelBookingDialog } from '@/components/dashboard/CancelBookingDialog';
@@ -419,8 +420,11 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
             </div>
           </div>
           <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
-            <Button asChild size="sm" variant="secondary" className="h-9 px-4">
-              <Link href="/bookings/new">New booking</Link>
+            <Button asChild size="sm" className="h-9 px-4">
+              <Link href="/bookings/new" className="flex items-center gap-2">
+                <Plus className="h-4 w-4" aria-hidden />
+                <span>New walk-in</span>
+              </Link>
             </Button>
             <Button asChild size="sm" variant="outline" className="h-9 px-4">
               <Link href="/">Back to dashboard</Link>

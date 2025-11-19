@@ -1,9 +1,6 @@
 'use client';
 
-import Link from 'next/link';
-
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 
 import type { OpsCustomer } from '@/types/ops';
@@ -36,8 +33,6 @@ function EmptyState() {
 }
 
 function CustomerCard({ customer }: { customer: OpsCustomer }) {
-  const bookingHref = `/bookings/new?prefillName=${encodeURIComponent(customer.name ?? '')}&prefillEmail=${encodeURIComponent(customer.email ?? '')}&prefillPhone=${encodeURIComponent(customer.phone ?? '')}`;
-
   return (
     <div
       className="rounded-lg border border-border bg-card p-4 shadow-sm"
@@ -73,11 +68,6 @@ function CustomerCard({ customer }: { customer: OpsCustomer }) {
           </Badge>
         )}
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button asChild variant="outline" size="sm" className="touch-manipulation">
-            <Link href={bookingHref}>New booking</Link>
-          </Button>
-        </div>
       </div>
     </div>
   );
@@ -164,12 +154,6 @@ export function CustomersTable({ customers, isLoading }: CustomersTableProps) {
                 >
                   Marketing
                 </th>
-                <th
-                  scope="col"
-                  className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-                >
-                  Actions
-                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/70">
@@ -197,9 +181,6 @@ export function CustomersTable({ customers, isLoading }: CustomersTableProps) {
                     <td className="px-4 py-4 text-center">
                       <Skeleton className="mx-auto h-5 w-16" />
                     </td>
-                    <td className="px-4 py-4 text-center">
-                      <Skeleton className="mx-auto h-9 w-24" />
-                    </td>
                   </tr>
                 ))
                 : customers.map((customer) => (
@@ -226,15 +207,6 @@ export function CustomersTable({ customers, isLoading }: CustomersTableProps) {
                       ) : (
                         <span className="text-sm text-muted-foreground">No</span>
                       )}
-                    </td>
-                    <td className="px-4 py-4 text-center">
-                      <Button asChild variant="outline" size="sm" className="touch-manipulation">
-                        <Link
-                          href={`/bookings/new?prefillName=${encodeURIComponent(customer.name ?? '')}&prefillEmail=${encodeURIComponent(customer.email ?? '')}&prefillPhone=${encodeURIComponent(customer.phone ?? '')}`}
-                        >
-                          New booking
-                        </Link>
-                      </Button>
                     </td>
                   </tr>
                 ))}

@@ -61,6 +61,7 @@ export type BookingCreatedSideEffectsPayload = {
   booking: BookingPayload;
   idempotencyKey: string | null;
   restaurantId: string;
+  emailProvided?: boolean;
 };
 
 export type BookingUpdatedSideEffectsPayload = {
@@ -206,6 +207,8 @@ async function processBookingCreatedSideEffects(
   const client = resolveSupabase(_supabase);
   const { booking, idempotencyKey, restaurantId } = payload;
   let queuedViaQueue = false;
+  const normalizedEmail = booking.customer_email?.trim?.() ?? '';
+  const shouldSendEmail = (payload.emailProvided ?? true) && normalizedEmail.length > 0;
   const emailPrefs = await fetchRestaurantEmailPrefs(restaurantId, client);
 
   try {
@@ -228,7 +231,7 @@ async function processBookingCreatedSideEffects(
     console.error("[jobs][booking.created][analytics]", error);
   }
 
-  if (!SUPPRESS_EMAILS && booking.customer_email && booking.customer_email.trim().length > 0) {
+  if (!SUPPRESS_EMAILS && shouldSendEmail) {
     const isPending = booking.status === "pending" || booking.status === "pending_allocation";
     const deferMinutes = isAutoAssignOnBookingEnabled() ? getAutoAssignCreatedEmailDeferMinutes() : 0;
     const shouldDeferPending = deferMinutes > 0 && isPending;
@@ -300,7 +303,7 @@ async function processBookingCreatedSideEffects(
   }
 
   // Schedule pre-visit reminders if already confirmed at creation.
-  if (!SUPPRESS_EMAILS && booking.status === "confirmed") {
+  if (!SUPPRESS_EMAILS && shouldSendEmail && booking.status === "confirmed") {
     await scheduleReminderJob(
       booking as BookingRecord,
       restaurantId,
@@ -318,7 +321,7 @@ async function processBookingCreatedSideEffects(
   }
 
   // Edge: if created as completed (rare), schedule review.
-  if (!SUPPRESS_EMAILS && booking.status === "completed" && emailPrefs.sendReviewRequest) {
+  if (!SUPPRESS_EMAILS && shouldSendEmail && booking.status === "completed" && emailPrefs.sendReviewRequest) {
     await scheduleReviewJob(booking as BookingRecord, restaurantId);
   }
 

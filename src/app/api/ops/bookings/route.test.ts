@@ -83,6 +83,7 @@ const fetchBookingsForContactMock = vi.fn();
 const enqueueBookingCreatedSideEffectsMock = vi.fn();
 const consumeRateLimitMock = vi.fn();
 const recordObservabilityEventMock = vi.fn();
+const autoAssignAndConfirmIfPossibleMock = vi.fn();
 
 const RESTAURANT_ID = "123e4567-e89b-12d3-a456-426614174000";
 
@@ -191,6 +192,10 @@ vi.mock("@/server/jobs/booking-side-effects", () => ({
   safeBookingPayload: (record: unknown) => record,
 }));
 
+vi.mock("@/server/jobs/auto-assign", () => ({
+  autoAssignAndConfirmIfPossible: (...args: unknown[]) => autoAssignAndConfirmIfPossibleMock(...args),
+}));
+
 vi.mock("@/server/security/rate-limit", () => ({
   consumeRateLimit: (...args: unknown[]) => consumeRateLimitMock(...args),
 }));
@@ -277,12 +282,19 @@ describe("POST /api/ops/bookings", () => {
       customer_phone: "",
       notes: null,
       marketing_opt_in: false,
-      source: "system",
+      source: "walk-in",
       client_request_id: "uuid-test",
       idempotency_key: null,
       pending_ref: null,
       details: {
         channel: "ops.walkin",
+        created_by: "walk-in",
+        provided_contact: {
+          email: false,
+          phone: false,
+          email_value: "",
+          phone_value: "",
+        },
       },
       created_at: createdAt,
       updated_at: createdAt,
@@ -332,14 +344,16 @@ describe("POST /api/ops/bookings", () => {
     expect(insertBookingRecordMock).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        source: "system",
+        source: "walk-in",
         customer_email: "",
         customer_phone: "",
         end_time: "19:00",
       }),
     );
     expect(fetchBookingsForContactMock).toHaveBeenCalled();
-    expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalled();
+    expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalledWith(
+      expect.objectContaining({ emailProvided: false, restaurantId: RESTAURANT_ID })
+    );
     expect(json.booking).toEqual(bookingRecord);
     schemaSpy.mockRestore();
   });

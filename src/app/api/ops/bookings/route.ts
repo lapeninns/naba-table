@@ -24,7 +24,9 @@ import {
 import { PastBookingError, assertBookingNotInPast, canOverridePastBooking } from "@/server/bookings/pastTimeValidation";
 import { validateBookingWindow } from "@/server/capacity";
 import { normalizeEmail, upsertCustomer } from "@/server/customers";
+import { autoAssignAndConfirmIfPossible } from "@/server/jobs/auto-assign";
 import { enqueueBookingCreatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
+import { isAutoAssignOnBookingEnabled } from "@/server/feature-flags";
 import { recordObservabilityEvent } from "@/server/observability";
 import { getRestaurantSchedule } from "@/server/restaurants/schedule";
 import { consumeRateLimit } from "@/server/security/rate-limit";
@@ -40,7 +42,7 @@ import type { Json, Tables } from "@/types/supabase";
 import type { NextRequest} from "next/server";
 
 const OPS_CHANNEL = "ops.walkin";
-const SYSTEM_SOURCE = "system";
+const OPS_WALK_IN_SOURCE = "walk-in";
 
 type BookingPayload = OpsWalkInBookingPayload;
 
@@ -99,7 +101,7 @@ function buildRequestDetails(params: {
       id: params.staffId,
       email: params.staffEmail,
     },
-    created_by: SYSTEM_SOURCE,
+    created_by: OPS_WALK_IN_SOURCE,
     provided_contact: {
       email: params.emailProvided,
       phone: params.phoneProvided,
@@ -690,18 +692,16 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const customerEmailForRecord = (payload.email ?? "").trim();
-  const customerPhoneForRecord = (payload.phone ?? "").trim();
-  const emailProvided = customerEmailForRecord.length > 0;
-  const phoneProvided = customerPhoneForRecord.length > 0;
+  const rawCustomerEmail = (payload.email ?? "").trim();
+  const rawCustomerPhone = (payload.phone ?? "").trim();
+  const emailProvided = rawCustomerEmail.length > 0;
+  const phoneProvided = rawCustomerPhone.length > 0;
 
   const fallbackEmail = ensureFallbackContact(payload.email, clientRequestId, "email");
   const fallbackPhone = ensureFallbackContact(payload.phone, clientRequestId, "phone");
-  const fallbackEmailNormalized = normalizeEmail(fallbackEmail);
   const normalizedRestaurantEmail = restaurantContacts.email ? normalizeEmail(restaurantContacts.email) : null;
-  const resolvedCustomerEmail =
-    emailProvided ? normalizeEmail(customerEmailForRecord) : normalizedRestaurantEmail ?? fallbackEmailNormalized;
-  const resolvedCustomerPhone = phoneProvided ? customerPhoneForRecord : "";
+  const resolvedCustomerEmail = emailProvided ? normalizeEmail(rawCustomerEmail) : "";
+  const resolvedCustomerPhone = phoneProvided ? rawCustomerPhone : "";
 
   const customer = await upsertCustomer(service, {
     restaurantId: payload.restaurantId,
@@ -751,8 +751,8 @@ export async function POST(req: NextRequest) {
         staffEmail: user.email ?? null,
         emailProvided,
         phoneProvided,
-        emailValue: emailProvided ? customerEmailForRecord : "",
-        phoneValue: phoneProvided ? customerPhoneForRecord : "",
+        emailValue: emailProvided ? rawCustomerEmail : normalizedRestaurantEmail ?? "",
+        phoneValue: phoneProvided ? rawCustomerPhone : "",
       });
 
       booking = await insertBookingRecord(service, {
@@ -771,7 +771,7 @@ export async function POST(req: NextRequest) {
         customer_phone: resolvedCustomerPhone,
         notes: payload.notes ?? null,
         marketing_opt_in: payload.marketingOptIn ?? false,
-        source: SYSTEM_SOURCE,
+        source: OPS_WALK_IN_SOURCE,
         client_request_id: clientRequestId,
         idempotency_key: normalizedIdempotencyKey ?? null,
         details: details as Json,
@@ -824,6 +824,7 @@ export async function POST(req: NextRequest) {
     booking: safeBookingPayload(booking),
     idempotencyKey: normalizedIdempotencyKey,
     restaurantId: payload.restaurantId,
+    emailProvided,
   });
 
   const responseBody = {
@@ -832,6 +833,10 @@ export async function POST(req: NextRequest) {
     idempotencyKey: normalizedIdempotencyKey,
     clientRequestId,
   };
+
+  if (isAutoAssignOnBookingEnabled()) {
+    void autoAssignAndConfirmIfPossible(booking.id, { reason: "creation" });
+  }
 
   void recordObservabilityEvent({
     source: "api.ops",
@@ -882,12 +887,8 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
 
   const fallbackEmail = ensureFallbackContact(payload.email, clientRequestId, "email");
   const fallbackPhone = ensureFallbackContact(payload.phone, clientRequestId, "phone");
-  const normalizedRestaurantEmail = contactEmail && contactEmail.trim().length > 0 ? normalizeEmail(contactEmail) : null;
-  const fallbackEmailNormalized = normalizeEmail(fallbackEmail);
-  const customerEmailForStorage = emailProvided
-    ? normalizeEmail(rawCustomerEmail)
-    : normalizedRestaurantEmail ?? fallbackEmailNormalized;
-  const customerPhoneForStorage = phoneProvided ? rawCustomerPhone : fallbackPhone;
+  const customerEmailForStorage = emailProvided ? normalizeEmail(rawCustomerEmail) : "";
+  const customerPhoneForStorage = phoneProvided ? rawCustomerPhone : "";
 
   const customer = await upsertCustomer(service, {
     restaurantId: payload.restaurantId,
@@ -929,7 +930,7 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
     customerEmail: customerEmailForStorage,
     customerPhone: customerPhoneForStorage,
     marketingOptIn: payload.marketingOptIn ?? false,
-    source: SYSTEM_SOURCE,
+    source: OPS_WALK_IN_SOURCE,
     idempotencyKey: normalizedIdempotencyKey ?? null,
     override: overrideRequest,
   };
@@ -963,7 +964,12 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
         booking: safeBookingPayload(booking),
         idempotencyKey: normalizedIdempotencyKey,
         restaurantId: payload.restaurantId,
+        emailProvided,
       });
+    }
+
+    if (!reusedExisting && isAutoAssignOnBookingEnabled()) {
+      void autoAssignAndConfirmIfPossible(booking.id, { reason: "creation" });
     }
 
     if (validationResponse.overridden) {

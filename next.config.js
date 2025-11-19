@@ -71,7 +71,7 @@ const nextConfig = {
       { source: "/browse", destination: "/restaurants", permanent: true },
       { source: "/restaurant", destination: "/restaurants", permanent: true },
       { source: "/item/:slug", destination: "/restaurants/:slug", permanent: true },
-      { source: "/reserve", destination: "/bookings/new", permanent: true },
+      { source: "/reserve", destination: "/bookings", permanent: true },
       { source: "/reserve/r/:slug", destination: "/restaurants/:slug/book", permanent: true },
       // Reservation detail lives at /bookings/[bookingId]; align param name to avoid redirect config errors.
       { source: "/reserve/:bookingId", destination: "/bookings/:bookingId", permanent: true },
