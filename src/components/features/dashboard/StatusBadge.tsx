@@ -58,6 +58,12 @@ const STATUS_CONFIG: Record<OpsBookingStatus, StatusConfig> = {
     className: 'border-rose-200 bg-rose-50 text-rose-700',
     icon: AlertTriangle,
   },
+  PRIORITY_WAITLIST: {
+    label: 'Priority Waitlist',
+    variant: 'secondary',
+    className: 'border-purple-200 bg-purple-50 text-purple-800',
+    icon: Clock,
+  },
 };
 
 type StatusBadgeProps = {

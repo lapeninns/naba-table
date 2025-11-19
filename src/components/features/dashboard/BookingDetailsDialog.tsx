@@ -138,6 +138,12 @@ export function BookingDetailsDialog({
   const supportsTableAssignment = allowTableAssignments;
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
+  // Callback to refetch booking data after assignment changes
+  const handleAssignmentComplete = useCallback(() => {
+    // Invalidate the current booking detail to show updated assignments
+    void queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(booking.id) });
+  }, [queryClient, booking.id]);
+
 
 
   useEffect(() => {
@@ -208,13 +214,19 @@ export function BookingDetailsDialog({
 
   const handleCheckInAction = useCallback(async () => {
     if (!onCheckIn) return;
+    // If the booking is in PRIORITY_WAITLIST, switch to the tables tab instead of checking in
+    if (effectiveStatus === 'PRIORITY_WAITLIST') {
+      setActiveTab('tables'); // Switch to tables tab to allow host to assign
+      setLocalPendingAction(null); // Clear pending action, as no actual check-in happened yet
+      return;
+    }
     setLocalPendingAction('check-in');
     try {
       await onCheckIn();
     } finally {
       setLocalPendingAction(null);
     }
-  }, [onCheckIn]);
+  }, [onCheckIn, effectiveStatus, setActiveTab]);
 
   const handleCheckOutAction = useCallback(async () => {
     if (!onCheckOut) return;
@@ -590,6 +602,7 @@ export function BookingDetailsDialog({
                         restaurantId={summary.restaurantId}
                         date={summary.date}
                         onUnassignTable={onUnassignTable}
+                        onAssignmentComplete={handleAssignmentComplete}
                       />
                     </TabsContent>
                   ) : null}

@@ -52,6 +52,7 @@ const OPS_STATUS_ORDER: OpsBookingStatus[] = [
   'pending_allocation',
   'no_show',
   'cancelled',
+  'PRIORITY_WAITLIST',
 ];
 
 export function OpsBookingsClient({ initialFilter, initialPage, initialRestaurantId, initialQuery, initialStatuses }: OpsBookingsClientProps) {

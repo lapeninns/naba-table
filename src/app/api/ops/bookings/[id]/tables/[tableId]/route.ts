@@ -82,11 +82,39 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: message }, { status: 409 });
   }
 
+  // Check remaining table assignments
+  let tableAssignments;
   try {
-    const tableAssignments = await getBookingTableAssignments(bookingId, serviceClient);
-    return NextResponse.json({ tableAssignments });
+    tableAssignments = await getBookingTableAssignments(bookingId, serviceClient);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to load table assignments";
     return NextResponse.json({ error: message }, { status: 500 });
   }
+
+  // BUSINESS RULE: If all tables are unassigned, revert status to 'pending'
+  // A booking with zero tables should not be 'confirmed'
+  if (tableAssignments.length === 0) {
+    const { data: currentBooking } = await serviceClient
+      .from("bookings")
+      .select("status")
+      .eq("id", bookingId)
+      .single();
+
+    if (currentBooking?.status === "confirmed") {
+      await serviceClient
+        .from("bookings")
+        .update({
+          status: "pending",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", bookingId);
+
+      console.info("[ops][bookings][unassign-table] reverted to pending - no tables assigned", {
+        bookingId,
+        removedTableId: tableId,
+      });
+    }
+  }
+
+  return NextResponse.json({ tableAssignments });
 }

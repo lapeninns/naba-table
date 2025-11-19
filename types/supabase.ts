@@ -2552,6 +2552,7 @@ export type Database = {
         | "no_show"
         | "pending_allocation"
         | "checked_in"
+        | "PRIORITY_WAITLIST"
       loyalty_tier: "bronze" | "silver" | "gold" | "platinum"
       seating_preference_type:
         | "any"

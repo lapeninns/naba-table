@@ -40,7 +40,8 @@ export type OpsBookingStatus =
   | 'checked_in'
   | 'cancelled'
   | 'completed'
-  | 'no_show';
+  | 'no_show'
+  | 'PRIORITY_WAITLIST';
 
 export type OpsTodayBooking = {
   id: string;

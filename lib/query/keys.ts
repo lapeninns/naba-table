@@ -11,6 +11,7 @@ export const queryKeys = {
     all: ['ops', 'bookings'] as const,
     list: (params: Record<string, unknown> = {}) => ['ops', 'bookings', 'list', params] as const,
     detail: (id: string) => ['ops', 'bookings', 'detail', id] as const,
+    assignmentContext: (id: string) => ['ops', 'bookings', 'assignment-context', id] as const,
   },
   opsDashboard: {
     summary: (restaurantId: string, date?: string | null) =>
@@ -81,6 +82,7 @@ export type QueryKey =
   | ReturnType<(typeof queryKeys)['bookings']['history']>
   | ReturnType<(typeof queryKeys)['opsBookings']['list']>
   | ReturnType<(typeof queryKeys)['opsBookings']['detail']>
+  | ReturnType<(typeof queryKeys)['opsBookings']['assignmentContext']>
   | ReturnType<(typeof queryKeys)['opsDashboard']['summary']>
   | ReturnType<(typeof queryKeys)['opsDashboard']['heatmap']>
   | ReturnType<(typeof queryKeys)['opsDashboard']['rejections']>

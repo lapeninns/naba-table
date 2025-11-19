@@ -80,7 +80,8 @@ export function useOpsBookingStatusSummary({
               completed: 0,
               cancelled: 0,
               no_show: 0,
-            },
+              PRIORITY_WAITLIST: 0,
+            } as Record<OpsBookingStatus, number>,
             generatedAt: new Date().toISOString(),
           };
         }

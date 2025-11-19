@@ -134,6 +134,7 @@ export const env = {
         ? Math.max(0, Math.min(parsed.FEATURE_MANUAL_ASSIGNMENT_MAX_SLACK, 12))
         : null;
     const manualAssignmentSessionEnabled = parsed.FEATURE_MANUAL_ASSIGNMENT_SESSION_ENABLED ?? false;
+    const manualAssignmentSnapshotValidation = parsed.FEATURE_MANUAL_ASSIGNMENT_SNAPSHOT_VALIDATION !== false;
     const selectorMaxPlansPerSlack =
       typeof parsed.FEATURE_SELECTOR_MAX_PLANS_PER_SLACK === "number"
         ? Math.max(1, Math.min(parsed.FEATURE_SELECTOR_MAX_PLANS_PER_SLACK, 500))
@@ -208,6 +209,7 @@ export const env = {
       manualAssignments: {
         maxSlack: manualAssignmentMaxSlack,
         sessionEnabled: manualAssignmentSessionEnabled,
+        snapshotValidation: manualAssignmentSnapshotValidation,
       },
       selector: {
         maxPlansPerSlack: selectorMaxPlansPerSlack,

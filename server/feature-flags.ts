@@ -153,6 +153,10 @@ export function isManualAssignmentSessionEnabled(): boolean {
   return env.featureFlags.manualAssignments?.sessionEnabled ?? false;
 }
 
+export function isManualAssignmentSnapshotValidationEnabled(): boolean {
+  return env.featureFlags.manualAssignments?.snapshotValidation ?? true;
+}
+
 export function getSelectorPlannerLimits(): {
   maxPlansPerSlack?: number;
   maxCombinationEvaluations?: number;

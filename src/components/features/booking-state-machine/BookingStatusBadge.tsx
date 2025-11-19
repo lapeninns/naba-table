@@ -72,6 +72,12 @@ export const BOOKING_STATUS_CONFIG: Record<OpsBookingStatus, StatusBadgeConfig> 
     icon: AlertTriangle,
     className: "border-rose-200 bg-rose-50 text-rose-700",
   },
+  PRIORITY_WAITLIST: {
+    label: "Priority Waitlist",
+    description: "Guest is late. Seat at the next available table.",
+    icon: AlertTriangle,
+    className: "border-orange-200 bg-orange-50 text-orange-700",
+  },
 };
 
 const SIZE_VARIANTS: Record<BadgeSize, string> = {

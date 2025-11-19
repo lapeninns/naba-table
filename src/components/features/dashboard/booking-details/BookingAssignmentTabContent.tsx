@@ -1,17 +1,29 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Loader2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AlertCircle, Loader2, RefreshCw } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AssignmentToolbar } from '@/components/features/dashboard/manual-assignment/AssignmentToolbar';
+import { ValidationChecks } from '@/components/features/dashboard/manual-assignment/ValidationChecks';
 import { TableFloorPlan } from '@/components/features/dashboard/TableFloorPlan';
 import { Button } from '@/components/ui/button';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useBookingService } from '@/contexts/ops-services';
-import { useManualAssignmentContext } from '@/hooks/ops/useManualAssignmentContext';
+import { useAssignmentContext } from '@/hooks/ops/useAssignmentContext';
 import { useToast } from '@/hooks/use-toast';
 import { queryKeys } from '@/lib/query/keys';
-import { extractManualHoldValidation, isManualHoldValidationError } from '../manualHoldHelpers';
+import { generateIdempotencyKey } from '@/lib/utils/idempotency';
+import { HttpError } from '@/lib/http/errors';
 
 import type { OpsTodayBooking } from '@/types/ops';
 import type { ManualSelectionCheck, ManualValidationResult } from '@/services/ops/bookings';
@@ -21,9 +33,10 @@ type BookingAssignmentTabContentProps = {
     restaurantId: string;
     date: string;
     onUnassignTable?: (tableId: string) => Promise<unknown>;
+    onAssignmentComplete?: () => void;
 };
 
-export function BookingAssignmentTabContent({ booking, restaurantId, date, onUnassignTable }: BookingAssignmentTabContentProps) {
+export function BookingAssignmentTabContent({ booking, restaurantId, date, onUnassignTable, onAssignmentComplete }: BookingAssignmentTabContentProps) {
     const { toast } = useToast();
     const bookingService = useBookingService();
     const queryClient = useQueryClient();
@@ -32,119 +45,127 @@ export function BookingAssignmentTabContent({ booking, restaurantId, date, onUna
     const [selectedTables, setSelectedTables] = useState<string[]>([]);
     const [validationResult, setValidationResult] = useState<ManualValidationResult | null>(null);
     const [onlyAvailable, setOnlyAvailable] = useState(false);
+    const [unassignTableId, setUnassignTableId] = useState<string | null>(null);
+
+    // Track previous selection to detect changes
+    const prevSelectedTablesRef = useRef<string[]>([]);
 
     // -- Context --
     const {
-        data: manualContext,
-        isLoading: manualContextLoading,
-        error: manualContextError,
-        refetch: refetchManualContext,
-    } = useManualAssignmentContext({
+        data: assignmentContext,
+        isLoading: assignmentContextLoading,
+        error: assignmentContextError,
+        refetch: refetchAssignmentContext,
+    } = useAssignmentContext({
         bookingId: booking.id,
-        restaurantId: restaurantId,
-        targetDate: date,
         enabled: true,
     });
 
     // -- Derived State --
-    const activeHold = manualContext?.activeHold ?? null;
-
-    // We only have validation checks from the latest operation (validate or hold)
-    // If the page reloads, we might lose them, but that's okay for now.
+    // Simplified logic for the new direct assignment context
     const validationChecks = useMemo(() => {
-        return validationResult?.checks ?? ([] as ManualSelectionCheck[]);
-    }, [validationResult]);
-
-    const hasBlockingErrors = useMemo(() => {
-        return validationChecks.some((check) => check.status === 'error');
-    }, [validationChecks]);
+        // Validation is now primarily handled by the backend on assignment.
+        // This can be used for simple client-side checks if needed in the future.
+        return [] as ManualSelectionCheck[];
+    }, []);
 
     const selectedCapacity = useMemo(() => {
-        if (!manualContext) return 0;
+        if (!assignmentContext) return 0;
         return selectedTables.reduce((sum, id) => {
-            const table = manualContext.tables.find(t => t.id === id);
+            const table = assignmentContext.tables.find(t => t.id === id);
             return sum + (table?.capacity ?? 0);
         }, 0);
-    }, [manualContext, selectedTables]);
+    }, [assignmentContext, selectedTables]);
 
-    // Map assigned table IDs to table objects
+    const tableMap = useMemo(() => {
+        if (!assignmentContext) return new Map();
+        return new Map(assignmentContext.tables.map(t => [t.id, t]));
+    }, [assignmentContext?.tables]);
+
     const assignedTables = useMemo(() => {
-        if (!manualContext) return [];
-        const tableMap = new Map(manualContext.tables.map(t => [t.id, t]));
-        return manualContext.bookingAssignments
+        if (!assignmentContext) return [];
+        return assignmentContext.bookingAssignments
             .map(id => tableMap.get(id))
             .filter((t): t is NonNullable<typeof t> => !!t);
-    }, [manualContext]);
+    }, [assignmentContext?.bookingAssignments, tableMap]);
 
     // -- Mutations --
-    const holdMutation = useMutation({
-        mutationFn: async (payload: { bookingId: string; tableIds: string[]; contextVersion: string }) => {
-            return bookingService.manualHoldSelection({
-                ...payload,
+    // SIMPLIFIED: Direct table assignment - single atomic operation
+    const directAssignMutation = useMutation({
+        mutationFn: async () => {
+            return await bookingService.assignTablesDirect({
+                bookingId: booking.id,
+                tableIds: selectedTables,
+                idempotencyKey: generateIdempotencyKey(),
                 requireAdjacency: false,
             });
         },
-        onSuccess: (data) => {
-            void refetchManualContext();
-            // The hold response contains 'validation' which is ManualValidationResult
-            setValidationResult(data.validation);
-            toast({ title: 'Tables held', description: 'Selection is held for 3 minutes.' });
-        },
-        onError: (error) => {
-            if (isManualHoldValidationError(error)) {
-                const extracted = extractManualHoldValidation(error);
-                if (extracted) {
-                    setValidationResult(extracted);
-                    toast({ title: 'Validation failed', description: 'Please review the issues.', variant: 'destructive' });
-                    return;
-                }
-            }
-            const message = error instanceof Error ? error.message : 'Hold failed';
-            toast({ title: 'Hold failed', description: message, variant: 'destructive' });
-        },
-    });
-
-    const validateMutation = useMutation({
-        mutationFn: async (payload: { bookingId: string; tableIds: string[]; requireAdjacency: boolean; excludeHoldId?: string; contextVersion: string }) => {
-            return bookingService.manualValidateSelection(payload);
-        },
-        onSuccess: (data) => {
-            setValidationResult(data);
-            if (data.checks.some(c => c.status === 'error')) {
-                toast({ title: 'Issues found', description: 'Please resolve errors before confirming.', variant: 'destructive' });
-            } else {
-                toast({ title: 'Validation passed', description: 'Selection looks good.' });
-            }
-        },
-        onError: (error) => {
-            const message = error instanceof Error ? error.message : 'Validation failed';
-            toast({ title: 'Validation error', description: message, variant: 'destructive' });
-        },
-    });
-
-    const confirmMutation = useMutation({
-        mutationFn: async (holdId: string) => {
-            const key = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-                ? crypto.randomUUID()
-                : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-
-            return bookingService.manualConfirmHold({
-                holdId,
-                bookingId: booking.id,
-                idempotencyKey: key,
-                contextVersion: manualContext?.contextVersion ?? undefined,
-            });
-        },
-        onSuccess: () => {
-            toast({ title: 'Tables assigned', description: 'Booking updated successfully.' });
+        onSuccess: async () => {
+            // Clear local state
             setSelectedTables([]);
             setValidationResult(null);
-            void refetchManualContext();
-            void queryClient.invalidateQueries({ queryKey: queryKeys.bookings.list({}) });
+
+            // Invalidate all related queries to ensure fresh data
+            await Promise.all([
+                // Refresh the manual assignment context
+                refetchAssignmentContext(),
+                // Invalidate the specific booking detail
+                queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(booking.id) }),
+                // Invalidate the bookings list
+                queryClient.invalidateQueries({ queryKey: queryKeys.bookings.list({}) }),
+                // Invalidate ops bookings list
+                queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.list({}) }),
+            ]);
+
+            // Notify parent component
+            onAssignmentComplete?.();
+
+            // Show success message
+            toast({
+                title: 'Tables assigned',
+                description: `Successfully assigned ${selectedTables.length} table(s) to booking.`,
+                duration: 3000,
+            });
         },
-        onError: (error) => {
+        onError: (error: unknown) => {
+            console.error('[BookingAssignmentTabContent] Assignment failed:', error);
+
+            // Handle HttpError with validation details
+            if (error instanceof HttpError) {
+                if (error.status === 422 && error.details) {
+                    const details = error.details as { checks?: Array<{ id: string; passed: boolean; message: string }> };
+
+                    if (details.checks) {
+                        // Show validation errors
+                        const failedChecks = details.checks.filter((c) => !c.passed);
+                        const errorMessages = failedChecks.map((c) => `• ${c.message}`).join('\n');
+
+                        toast({
+                            title: 'Cannot assign tables',
+                            description: errorMessages || error.message,
+                            variant: 'destructive',
+                            duration: 8000,
+                        });
+                        return;
+                    }
+                }
+
+                // Other HTTP errors
+                toast({
+                    title: 'Assignment failed',
+                    description: error.message,
+                    variant: 'destructive',
+                });
+                return;
+            }
+
+            // Generic error handling
             const message = error instanceof Error ? error.message : 'Assignment failed';
-            toast({ title: 'Assignment failed', description: message, variant: 'destructive' });
+            toast({
+                title: 'Assignment failed',
+                description: message,
+                variant: 'destructive',
+            });
         },
     });
 
@@ -156,52 +177,127 @@ export function BookingAssignmentTabContent({ booking, restaurantId, date, onUna
         });
     }, []);
 
-    const handleValidate = useCallback(() => {
-        validateMutation.mutate({
-            bookingId: booking.id,
-            tableIds: selectedTables,
-            requireAdjacency: false,
-            excludeHoldId: activeHold?.id,
-            contextVersion: manualContext?.contextVersion ?? '',
-        });
-    }, [booking.id, selectedTables, activeHold?.id, manualContext?.contextVersion, validateMutation]);
-
-    const handleConfirm = useCallback(() => {
-        if (activeHold) {
-            confirmMutation.mutate(activeHold.id);
-        } else {
-            // If no hold, create one first
-            holdMutation.mutate({
-                bookingId: booking.id,
-                tableIds: selectedTables,
-                contextVersion: manualContext?.contextVersion ?? '',
-            });
+    // SIMPLIFIED: Single handler for direct assignment
+    const handleAssign = useCallback(() => {
+        if (selectedTables.length === 0) {
+            toast({ title: 'No tables selected', description: 'Please select tables to assign.', variant: 'destructive' });
+            return;
         }
-    }, [activeHold, confirmMutation, holdMutation, booking.id, selectedTables, manualContext?.contextVersion]);
+
+        directAssignMutation.mutate();
+    }, [selectedTables.length, directAssignMutation, toast]);
 
     const handleClear = useCallback(() => {
         setSelectedTables([]);
         setValidationResult(null);
-        if (activeHold) {
-            bookingService.manualReleaseHold({ holdId: activeHold.id, bookingId: booking.id }).catch(console.error);
-            void refetchManualContext();
+        // No holds in direct assignment system - just clear selection
+    }, []);
+
+    // No holds in direct assignment system - handleHoldExpired removed
+
+    const handleUnassignConfirm = useCallback(async () => {
+        if (!unassignTableId || !onUnassignTable) return;
+
+        try {
+            await onUnassignTable(unassignTableId);
+
+            // Invalidate all related queries to ensure fresh data
+            await Promise.all([
+                refetchAssignmentContext(),
+                queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(booking.id) }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.bookings.list({}) }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.list({}) }),
+            ]);
+
+            // Notify parent component
+            onAssignmentComplete?.();
+
+            toast({
+                title: 'Table removed',
+                description: 'Table unassigned successfully. Data refreshed.',
+            });
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to unassign table';
+            toast({ title: 'Unassign failed', description: message, variant: 'destructive' });
+        } finally {
+            setUnassignTableId(null);
         }
-    }, [activeHold, bookingService, booking.id, refetchManualContext]);
+    }, [unassignTableId, onUnassignTable, refetchAssignmentContext, queryClient, booking.id, onAssignmentComplete, toast]);
+
+    // Handle removing ALL assigned tables (for merged table groups)
+    const handleRemoveAllTables = useCallback(async () => {
+        if (assignedTables.length === 0) return;
+
+        const tableIds = assignedTables.map(t => t.id);
+
+        try {
+            // Use bulk unassign API
+            await bookingService.unassignTablesDirect({
+                bookingId: booking.id,
+                tableIds,
+            });
+
+            // Invalidate all related queries
+            await Promise.all([
+                refetchAssignmentContext(),
+                queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(booking.id) }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.bookings.list({}) }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.list({}) }),
+            ]);
+
+            // Notify parent component
+            onAssignmentComplete?.();
+
+            toast({
+                title: 'All tables removed',
+                description: `Successfully removed ${assignedTables.length} table(s). You can now re-assign fresh tables.`,
+            });
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to remove tables';
+            toast({ title: 'Remove failed', description: message, variant: 'destructive' });
+        }
+    }, [assignedTables, bookingService, booking.id, refetchAssignmentContext, queryClient, onAssignmentComplete, toast]);
 
     // -- Render Helpers --
-    const isPending = manualContextLoading || holdMutation.isPending || validateMutation.isPending || confirmMutation.isPending;
-    const canConfirm = selectedTables.length > 0 && !hasBlockingErrors && !isPending;
+    const isPending = assignmentContextLoading || directAssignMutation.isPending;
+    const canAssign = selectedTables.length > 0 && !isPending;
 
-    // Sync selected tables with active hold if we have one and user hasn't changed selection
+    // Clear validation when selection changes
     useEffect(() => {
-        if (activeHold && selectedTables.length === 0) {
-            setSelectedTables(activeHold.tableIds);
-        }
-    }, [activeHold]); // eslint-disable-line react-hooks/exhaustive-deps
+        const prevSelection = prevSelectedTablesRef.current;
+        const selectionChanged =
+            prevSelection.length !== selectedTables.length ||
+            !prevSelection.every(id => selectedTables.includes(id));
 
-    if (manualContextError) {
-        const message = manualContextError instanceof Error ? manualContextError.message : 'Unknown error';
-        return <div className="p-4 text-destructive">Error loading floor plan: {message}</div>;
+        if (selectionChanged && validationResult) {
+            setValidationResult(null);
+        }
+
+        prevSelectedTablesRef.current = selectedTables;
+    }, [selectedTables, validationResult]);
+
+    // No active holds to sync in direct assignment system
+
+    if (assignmentContextError) {
+        const message = assignmentContextError instanceof Error ? assignmentContextError.message : 'Unknown error';
+        return (
+            <div className="flex flex-col items-center justify-center gap-4 p-8 rounded-xl border bg-destructive/5">
+                <div className="flex items-center gap-2 text-destructive">
+                    <AlertCircle className="h-5 w-5" />
+                    <span className="font-medium">Error loading floor plan</span>
+                </div>
+                <p className="text-sm text-muted-foreground">{message}</p>
+                <Button
+                    onClick={() => refetchAssignmentContext()}
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                >
+                    <RefreshCw className="h-4 w-4" />
+                    Retry
+                </Button>
+            </div>
+        );
     }
 
     return (
@@ -210,36 +306,57 @@ export function BookingAssignmentTabContent({ booking, restaurantId, date, onUna
             <AssignmentToolbar
                 selectedCount={selectedTables.length}
                 selectedCapacity={selectedCapacity}
+                partySize={booking.partySize}
+                zoneId={validationResult?.summary?.zoneId}
                 validationChecks={validationChecks}
-                onValidate={handleValidate}
-                onConfirm={handleConfirm}
+                onAssign={handleAssign}
                 onClear={handleClear}
                 isPending={isPending}
-                isValidating={validateMutation.isPending || holdMutation.isPending}
-                isConfirming={confirmMutation.isPending}
-                canConfirm={canConfirm}
-                confirmDisabledReason={hasBlockingErrors ? "Resolve errors first" : null}
+                isAssigning={directAssignMutation.isPending}
+                canAssign={canAssign}
+                assignDisabledReason={
+                    selectedTables.length === 0
+                        ? 'Select tables to assign'
+                        : null
+                }
+                onlyAvailable={onlyAvailable}
+                onOnlyAvailableChange={setOnlyAvailable}
             />
 
+            {/* Validation Checks */}
+            {validationChecks.length > 0 && <ValidationChecks checks={validationChecks} />}
+
             {/* Floor Plan */}
-            <div className="flex-1 overflow-hidden rounded-xl border bg-muted/10 relative min-h-[400px]">
-                {manualContextLoading ? (
-                    <div className="flex h-full items-center justify-center">
+            <div
+                className="flex-1 overflow-hidden rounded-xl border bg-muted/10 relative min-h-[400px]"
+                role="region"
+                aria-label="Table floor plan"
+            >
+                {assignmentContextLoading ? (
+                    <div className="flex h-full items-center justify-center" role="status" aria-live="polite">
                         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                        <span className="sr-only">Loading floor plan...</span>
+                    </div>
+                ) : assignmentContext && assignmentContext.tables.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full gap-4 p-8">
+                        <div className="text-muted-foreground text-center">
+                            <p className="text-lg font-medium">No tables available</p>
+                            <p className="text-sm mt-2">There are no tables configured for this restaurant.</p>
+                        </div>
                     </div>
                 ) : (
-                    <div className="absolute inset-0 overflow-auto p-4">
+                    <div className="absolute inset-0 overflow-auto p-2 sm:p-4">
                         <TableFloorPlan
                             bookingId={booking.id}
-                            tables={manualContext?.tables ?? []}
-                            holds={manualContext?.holds ?? []}
-                            conflicts={manualContext?.conflicts ?? []}
-                            bookingAssignments={manualContext?.bookingAssignments ?? []}
+                            tables={assignmentContext?.tables ?? []}
+                            holds={assignmentContext?.holds ?? []}
+                            conflicts={assignmentContext?.conflicts ?? []}
+                            bookingAssignments={assignmentContext?.bookingAssignments ?? []}
                             selectedTableIds={selectedTables}
                             onToggle={handleToggleTable}
                             disabled={isPending}
                             onlyAvailable={onlyAvailable}
-                            className="min-w-[600px]"
+                            className="min-w-[320px] sm:min-w-[500px] md:min-w-[600px]"
                         />
                     </div>
                 )}
@@ -247,21 +364,40 @@ export function BookingAssignmentTabContent({ booking, restaurantId, date, onUna
 
             {/* Assigned Tables List */}
             {assignedTables.length > 0 && (
-                <div className="space-y-2">
-                    <h4 className="text-sm font-semibold">Assigned Tables</h4>
-                    <div className="grid gap-2 sm:grid-cols-2">
+                <div className="space-y-2" role="region" aria-label="Currently assigned tables">
+                    <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-semibold">Assigned Tables</h4>
+                        {/* MERGED TABLES: Show single "Remove All" button */}
+                        {assignedTables.length > 1 && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={handleRemoveAllTables}
+                                aria-label="Remove all assigned tables"
+                            >
+                                Remove All Tables
+                            </Button>
+                        )}
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                         {assignedTables.map((table) => (
-                            <div key={table.id} className="flex items-center justify-between rounded-lg border bg-card px-3 py-2 shadow-sm">
+                            <div
+                                key={table.id}
+                                className="flex items-center justify-between rounded-lg border bg-card px-3 py-2 shadow-sm"
+                            >
                                 <div className="flex flex-col">
                                     <span className="text-sm font-medium">Table {table.tableNumber}</span>
                                     <span className="text-xs text-muted-foreground">{table.capacity} seats</span>
                                 </div>
-                                {onUnassignTable && (
+                                {/* SINGLE TABLE: Show individual "Remove" button */}
+                                {assignedTables.length === 1 && onUnassignTable && (
                                     <Button
                                         variant="ghost"
                                         size="sm"
                                         className="h-7 text-xs text-destructive hover:text-destructive"
-                                        onClick={() => onUnassignTable(table.id).then(() => refetchManualContext())}
+                                        onClick={() => setUnassignTableId(table.id)}
+                                        aria-label={`Remove table ${table.tableNumber} from booking`}
                                     >
                                         Remove
                                     </Button>
@@ -269,8 +405,32 @@ export function BookingAssignmentTabContent({ booking, restaurantId, date, onUna
                             </div>
                         ))}
                     </div>
+                    {/* Helper text for merged tables */}
+                    {assignedTables.length > 1 && (
+                        <p className="text-xs text-muted-foreground">
+                            💡 Merged tables are removed as a group to maintain capacity requirements. Click "Remove All Tables" to unassign and re-select fresh tables.
+                        </p>
+                    )}
                 </div>
             )}
+
+            {/* Unassign Confirmation Dialog */}
+            <AlertDialog open={Boolean(unassignTableId)} onOpenChange={(open) => !open && setUnassignTableId(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Remove table assignment?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to remove this table from the booking? This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleUnassignConfirm} className="bg-destructive hover:bg-destructive/90">
+                            Remove
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

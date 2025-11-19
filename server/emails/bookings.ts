@@ -175,6 +175,13 @@ const STATUS_PRESENTATION: Record<BookingRecord["status"], StatusPresentation> =
     border: "#ef4444",
     note: "We missed you this time. Reach out if you'd like to rebook.",
   },
+  PRIORITY_WAITLIST: {
+    label: "Priority Waitlist",
+    badgeBg: "#f3e8ff",
+    badgeText: "#6b21a8",
+    border: "#a855f7",
+    note: "You are on the priority waitlist. We will notify you as soon as a table becomes available.",
+  },
 };
 
 function getStatusPresentation(status: BookingRecord["status"] | string): StatusPresentation {
@@ -444,11 +451,10 @@ function renderHtml({
 
                           <p style="margin:0 0 6px;font-size:11px;color:#94a3b8;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;">Address</p>
                           <p style="margin:0 0 16px;font-size:14px;color:#334155;line-height:1.6;">${escapeHtml(venue.address)}</p>
-                          ${
-                            venue.googleMapUrl
-                              ? `<p style="margin:0 0 16px;font-size:13px;"><a href="${escapeHtml(venue.googleMapUrl)}" style="color:#4338ca;text-decoration:none;">View on Google Maps</a></p>`
-                              : ''
-                          }
+                          ${venue.googleMapUrl
+      ? `<p style="margin:0 0 16px;font-size:13px;"><a href="${escapeHtml(venue.googleMapUrl)}" style="color:#4338ca;text-decoration:none;">View on Google Maps</a></p>`
+      : ''
+    }
 
                           ${venuePhone ? `<p style="margin:0 0 6px;font-size:11px;color:#94a3b8;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;">Phone</p><p style="margin:0 0 16px;font-size:14px;"><a href="${venuePhoneHref}" style="color:#4338ca;text-decoration:none;">${escapeHtml(venuePhone)}</a></p>` : ''}
 

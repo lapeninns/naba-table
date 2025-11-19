@@ -56,6 +56,12 @@ const STATUS_CONFIG: Record<BookingStatus, StatusChipConfig> = {
     className: 'border-slate-200 bg-slate-100 text-slate-700',
     dotClassName: 'before:bg-slate-500',
   },
+  PRIORITY_WAITLIST: {
+    label: 'Priority Waitlist',
+    variant: 'secondary',
+    className: 'border-purple-200 bg-purple-50 text-purple-800',
+    dotClassName: 'before:bg-purple-600',
+  },
 };
 
 export function StatusChip({ status }: { status: BookingStatus }) {

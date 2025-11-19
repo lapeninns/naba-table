@@ -5,7 +5,7 @@ export type BookingType = OccasionKey;
 
 export const BOOKING_TYPES_UI = ["lunch", "dinner", "drinks"] as const satisfies readonly OccasionKey[];
 
-export const BOOKING_STATUSES = ["pending", "pending_allocation", "confirmed", "cancelled", "completed", "no_show", "checked_in"] as const;
+export const BOOKING_STATUSES = ["pending", "pending_allocation", "confirmed", "cancelled", "completed", "no_show", "checked_in", "PRIORITY_WAITLIST"] as const;
 export type BookingStatus = (typeof BOOKING_STATUSES)[number];
 
 export const BOOKING_BLOCKING_STATUSES: BookingStatus[] = ["pending", "pending_allocation", "confirmed"];

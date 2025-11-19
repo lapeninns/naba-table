@@ -20,8 +20,6 @@ const OPS_BOOKINGS_BASE = '/api/bookings';
 const OPS_DASHBOARD_BASE = '/api/dashboard';
 const OPS_SETTINGS_BASE = '/api/settings';
 const STAFF_AUTO_BASE = '/api/staff/auto';
-const STAFF_MANUAL_BASE = '/api/staff/manual';
-const STAFF_MANUAL_SESSION_BASE = '/api/staff/manual/session';
 
 type SummaryParams = {
   restaurantId: string;
@@ -400,32 +398,34 @@ export interface BookingService {
   unassignTable(input: AssignTableInput): Promise<TableAssignmentsResponse>;
   autoQuoteTables(input: AutoQuoteInput): Promise<AutoQuoteResponse>;
   confirmHoldAssignment(input: ConfirmHoldInput): Promise<ConfirmHoldResponse>;
-  manualValidateSelection(input: ManualSelectionPayload): Promise<ManualValidationResult>;
-  manualHoldSelection(input: ManualHoldPayload): Promise<ManualHoldResponse>;
-  manualConfirmHold(input: ConfirmHoldInput): Promise<{ session: ManualAssignmentSession | null; assignments: ConfirmHoldAssignment[]; context: ManualAssignmentContext }>;
   getManualAssignmentContext(bookingId: string, options?: { preferSession?: boolean }): Promise<ManualAssignmentContextWithSession>;
-  manualEnsureSession(input: { bookingId: string }): Promise<ManualAssignmentContextWithSession>;
-  manualSessionUpdateSelection(input: {
-    sessionId: string;
+  assignTablesDirect(input: {
     bookingId: string;
     tableIds: string[];
-    mode: 'propose' | 'hold';
-    requireAdjacency?: boolean;
-    excludeHoldId?: string | null;
-    contextVersion?: string | null;
-    selectionVersion?: number;
-    holdTtlSeconds?: number;
-  }): Promise<{ session: ManualAssignmentSession; validation: ManualValidationResult; hold?: { id: string; expiresAt: string | null } | null; context: ManualAssignmentContext }>;
-  manualSessionConfirm(input: {
-    sessionId: string;
-    bookingId: string;
-    holdId: string;
     idempotencyKey: string;
     requireAdjacency?: boolean;
-    contextVersion?: string | null;
-    selectionVersion?: number;
-  }): Promise<{ session: ManualAssignmentSession; assignments: ConfirmHoldAssignment[]; context: ManualAssignmentContext }>;
-  manualReleaseHold(input: ManualReleaseHoldPayload): Promise<void>;
+  }): Promise<{
+    success: true;
+    assignments: Array<{
+      id: string;
+      booking_id: string;
+      table_id: string;
+      assigned_at: string;
+      assigned_by: string | null;
+    }>;
+    booking: {
+      id: string;
+      status: string;
+      party_size: number;
+    };
+    summary: {
+      tableCount: number;
+      totalCapacity: number;
+      partySize: number;
+      slack: number;
+    };
+  }>;
+  unassignTablesDirect(input: { bookingId: string; tableIds: string[] }): Promise<{ success: true; removedCount: number }>;
 }
 
 function toIsoParam(value: Date | string | null | undefined): string | undefined {
@@ -484,8 +484,7 @@ function createIdempotencyKey(): string {
 
 async function fetchContextVersion(bookingId: string): Promise<string | null> {
   try {
-    const params = new URLSearchParams({ bookingId });
-    const res = await fetchJson<ManualAssignmentContext>(`${STAFF_MANUAL_BASE}/context?${params.toString()}`);
+    const res = await fetchJson<ManualAssignmentContext>(`/api/ops/bookings/${bookingId}/manual-context`);
     return res?.contextVersion ?? null;
   } catch {
     return null;
@@ -650,164 +649,48 @@ export function createBrowserBookingService(): BookingService {
         body: JSON.stringify(payload),
       });
     },
-    async manualValidateSelection({ bookingId, tableIds, requireAdjacency, excludeHoldId, contextVersion }) {
-      const { session, context } = await this.manualEnsureSession({ bookingId });
-      const version = contextVersion ?? context.contextVersion ?? '';
-      const selectionVersion = session?.selectionVersion ?? undefined;
-      const payload: Record<string, unknown> = {
-        bookingId,
-        tableIds,
-        mode: 'propose',
-        contextVersion: version,
-        selectionVersion,
-      };
-      if (typeof requireAdjacency === 'boolean') payload.requireAdjacency = requireAdjacency;
-      if (excludeHoldId) payload.excludeHoldId = excludeHoldId;
-
-      const res = await fetchJson<{
-        session: ManualAssignmentSession;
-        validation: ManualValidationResult;
-        context: ManualAssignmentContext;
-      }>(`${STAFF_MANUAL_SESSION_BASE}/${session?.id}/selection`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      return res.validation;
-    },
-    async manualHoldSelection({ bookingId, tableIds, requireAdjacency, excludeHoldId, holdTtlSeconds, contextVersion }) {
-      const { session, context } = await this.manualEnsureSession({ bookingId });
-      const version = contextVersion ?? context.contextVersion ?? '';
-      const selectionVersion = session?.selectionVersion ?? undefined;
-      const payload: Record<string, unknown> = {
-        bookingId,
-        tableIds,
-        mode: 'hold',
-        contextVersion: version,
-        selectionVersion,
-      };
-      if (typeof requireAdjacency === 'boolean') payload.requireAdjacency = requireAdjacency;
-      if (excludeHoldId) payload.excludeHoldId = excludeHoldId;
-      if (typeof holdTtlSeconds === 'number') payload.holdTtlSeconds = holdTtlSeconds;
-
-      return fetchJson<ManualHoldResponse>(`${STAFF_MANUAL_SESSION_BASE}/${session?.id}/selection`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-    },
-    async manualConfirmHold({ holdId, bookingId, idempotencyKey, requireAdjacency, contextVersion }) {
-      const { session, context } = await this.manualEnsureSession({ bookingId });
-      const version = contextVersion ?? context.contextVersion ?? '';
-      const selectionVersion = session?.selectionVersion ?? undefined;
-      const payload: Record<string, unknown> = {
-        bookingId,
-        holdId,
-        idempotencyKey,
-        contextVersion: version,
-      };
-      if (typeof requireAdjacency === 'boolean') payload.requireAdjacency = requireAdjacency;
-      if (typeof selectionVersion === 'number') payload.selectionVersion = selectionVersion;
-
-      return fetchJson<{
-        session: ManualAssignmentSession;
-        assignments: ConfirmHoldAssignment[];
-        context: ManualAssignmentContext;
-      }>(`${STAFF_MANUAL_SESSION_BASE}/${session?.id}/confirm`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-    },
     async getManualAssignmentContext(bookingId, _options) {
-      const payload = { bookingId };
-      const res = await fetchJson<{ session: ManualAssignmentSession; context: ManualAssignmentContext }>(
-        `${STAFF_MANUAL_SESSION_BASE}`,
+      const context = await fetchJson<ManualAssignmentContext>(
+        `/api/ops/bookings/${bookingId}/manual-context`,
         {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+          method: 'GET',
         },
       );
-      return { ...res.context, session: res.session };
+      // Return context with null session (session-based approach no longer used)
+      return { ...context, session: null };
     },
-    async manualEnsureSession({ bookingId }) {
-      const res = await fetchJson<{ session: ManualAssignmentSession; context: ManualAssignmentContext }>(
-        `${STAFF_MANUAL_SESSION_BASE}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bookingId }),
-        },
-      );
-      return { ...res.context, session: res.session };
-    },
-    async manualSessionUpdateSelection({
-      sessionId,
-      bookingId,
-      tableIds,
-      mode,
-      requireAdjacency,
-      excludeHoldId,
-      contextVersion,
-      selectionVersion,
-      holdTtlSeconds,
-    }) {
-      const payload: Record<string, unknown> = {
-        bookingId,
-        tableIds,
-        mode,
-      };
-      if (typeof requireAdjacency === 'boolean') payload.requireAdjacency = requireAdjacency;
-      if (excludeHoldId) payload.excludeHoldId = excludeHoldId;
-      if (typeof selectionVersion === 'number') payload.selectionVersion = selectionVersion;
-      if (typeof contextVersion === 'string') payload.contextVersion = contextVersion;
-      if (typeof holdTtlSeconds === 'number') payload.holdTtlSeconds = holdTtlSeconds;
-
+    async assignTablesDirect({ bookingId, tableIds, idempotencyKey, requireAdjacency }) {
       return fetchJson<{
-        session: ManualAssignmentSession;
-        validation: ManualValidationResult;
-        hold?: { id: string; expiresAt: string | null } | null;
-        context: ManualAssignmentContext;
-      }>(`${STAFF_MANUAL_SESSION_BASE}/${sessionId}/selection`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-    },
-    async manualSessionConfirm({
-      sessionId,
-      bookingId,
-      holdId,
-      idempotencyKey,
-      requireAdjacency,
-      contextVersion,
-      selectionVersion,
-    }) {
-      const payload: Record<string, unknown> = {
-        bookingId,
-        holdId,
-        idempotencyKey,
-      };
-      if (typeof requireAdjacency === 'boolean') payload.requireAdjacency = requireAdjacency;
-      if (typeof contextVersion === 'string') payload.contextVersion = contextVersion;
-      if (typeof selectionVersion === 'number') payload.selectionVersion = selectionVersion;
-
-      return fetchJson<{
-        session: ManualAssignmentSession;
-        assignments: ConfirmHoldAssignment[];
-        context: ManualAssignmentContext;
-      }>(`${STAFF_MANUAL_SESSION_BASE}/${sessionId}/confirm`, {
+        success: true;
+        assignments: Array<{
+          id: string;
+          booking_id: string;
+          table_id: string;
+          assigned_at: string;
+          assigned_by: string | null;
+        }>;
+        booking: {
+          id: string;
+          status: string;
+          party_size: number;
+        };
+        summary: {
+          tableCount: number;
+          totalCapacity: number;
+          partySize: number;
+          slack: number;
+        };
+      }>(`/api/ops/bookings/${bookingId}/assign-tables`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ tableIds, idempotencyKey, requireAdjacency }),
       });
     },
-    async manualReleaseHold({ holdId, bookingId }) {
-      await fetchJson<{ holdId: string; released: boolean }>(`${STAFF_MANUAL_BASE}/hold`, {
+    async unassignTablesDirect({ bookingId, tableIds }) {
+      return fetchJson<{ success: true; removedCount: number }>(`/api/ops/bookings/${bookingId}/assign-tables`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ holdId, bookingId }),
+        body: JSON.stringify({ tableIds }),
       });
     },
   } satisfies BookingService;
@@ -902,45 +785,36 @@ export class NotImplementedBookingService implements BookingService {
     this.error('confirmHoldAssignment not implemented');
   }
 
-  manualValidateSelection(): Promise<ManualValidationResult> {
-    this.error('manualValidateSelection not implemented');
-  }
-
-  manualHoldSelection(): Promise<ManualHoldResponse> {
-    this.error('manualHoldSelection not implemented');
-  }
-
-  manualConfirmHold(): Promise<{ session: ManualAssignmentSession; assignments: ConfirmHoldAssignment[]; context: ManualAssignmentContext }> {
-    this.error('manualConfirmHold not implemented');
-  }
-
   getManualAssignmentContext(): Promise<ManualAssignmentContextWithSession> {
     this.error('getManualAssignmentContext not implemented');
   }
 
-  manualEnsureSession(): Promise<ManualAssignmentContextWithSession> {
-    this.error('manualEnsureSession not implemented');
-  }
-
-  manualSessionUpdateSelection(): Promise<{
-    session: ManualAssignmentSession;
-    validation: ManualValidationResult;
-    hold?: { id: string; expiresAt: string | null } | null;
-    context: ManualAssignmentContext;
+  assignTablesDirect(): Promise<{
+    success: true;
+    assignments: Array<{
+      id: string;
+      booking_id: string;
+      table_id: string;
+      assigned_at: string;
+      assigned_by: string | null;
+    }>;
+    booking: {
+      id: string;
+      status: string;
+      party_size: number;
+    };
+    summary: {
+      tableCount: number;
+      totalCapacity: number;
+      partySize: number;
+      slack: number;
+    };
   }> {
-    this.error('manualSessionUpdateSelection not implemented');
+    this.error('assignTablesDirect not implemented');
   }
 
-  manualSessionConfirm(): Promise<{
-    session: ManualAssignmentSession;
-    assignments: ConfirmHoldAssignment[];
-    context: ManualAssignmentContext;
-  }> {
-    this.error('manualSessionConfirm not implemented');
-  }
-
-  manualReleaseHold(): Promise<void> {
-    this.error('manualReleaseHold not implemented');
+  unassignTablesDirect(): Promise<{ success: true; removedCount: number }> {
+    this.error('unassignTablesDirect not implemented');
   }
 }
 
