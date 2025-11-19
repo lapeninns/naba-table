@@ -2,7 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Mail, Phone, Clock, Users, Calendar as CalendarIcon, AlertTriangle, Award, CheckCircle2, XCircle, Loader2, LogIn, LogOut, History, ArrowRight, Keyboard } from 'lucide-react';
+import { DateTime } from 'luxon';
+import { Mail, Phone, Clock, Users, Calendar as CalendarIcon, AlertTriangle, Award, CheckCircle2, XCircle, Loader2, LogIn, LogOut, History, ArrowRight, Keyboard, Copy, ExternalLink } from 'lucide-react';
 import { MoreHorizontal } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState, type ComponentType } from 'react';
 
@@ -28,13 +29,16 @@ import {
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CopyButton } from '@/components/ui/copy-button';
 import { useBookingState } from '@/contexts/booking-state-machine';
 import { useBookingService } from '@/contexts/ops-services';
 import { useManualAssignmentContext } from '@/hooks/ops/useManualAssignmentContext';
+import { useCountdown } from '@/hooks/use-countdown';
 import { useToast } from '@/hooks/use-toast';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
 import { formatDateReadable, formatTimeRange, getTodayInTimezone } from '@/lib/utils/datetime';
+import { formatRelativeTime, formatCountdown } from '@/lib/utils/relative-time';
 
 import { extractManualHoldValidation, isManualHoldValidationError } from './manualHoldHelpers';
 
@@ -174,6 +178,33 @@ export function BookingDetailsDialog({
   const bookingState = useBookingState(booking.id);
   const effectiveStatus = bookingState.effectiveStatus ?? booking.status;
   const lifecyclePending = pendingLifecycleAction ?? localPendingAction;
+
+  // Time intelligence
+  const bookingStartTime = useMemo(() => {
+    if (!booking.startTime) return null;
+    const startValue = booking.startTime;
+    const dateTime = DateTime.fromISO(
+      /^[0-9]{4}-[0-9]{2}-[0-9]{2}T/.test(startValue) ? startValue : `${summary.date}T${startValue}`,
+      { zone: summary.timezone }
+    );
+    return dateTime.isValid ? dateTime : null;
+  }, [booking.startTime, summary.date, summary.timezone]);
+
+  const { minutesRemaining, timeStatus } = useCountdown(bookingStartTime);
+
+  const relativeStartTime = useMemo(() => {
+    if (!bookingStartTime) return null;
+    const now = DateTime.now().setZone(summary.timezone);
+    return formatRelativeTime(bookingStartTime, now, { style: 'long' });
+  }, [bookingStartTime, summary.timezone]);
+
+  const checkedInRelativeTime = useMemo(() => {
+    if (!booking.checkedInAt) return null;
+    const checkedInTime = DateTime.fromISO(booking.checkedInAt);
+    if (!checkedInTime.isValid) return null;
+    const now = DateTime.now();
+    return formatRelativeTime(checkedInTime, now, { style: 'long' });
+  }, [booking.checkedInAt]);
   const isCancelled = effectiveStatus === 'cancelled';
   const showLifecycleBadges = effectiveStatus !== 'checked_in' && effectiveStatus !== 'completed';
   const bookingService = useBookingService();
@@ -805,406 +836,442 @@ export function BookingDetailsDialog({
             Details
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader className="space-y-4 pb-4 border-b border-border/40">
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-1.5">
-                <DialogTitle className="text-2xl font-bold tracking-tight text-foreground">
-                  {booking.customerName}
-                </DialogTitle>
-                <DialogDescription className="flex items-center gap-2 text-base text-muted-foreground">
-                  <CalendarIcon className="h-4 w-4" />
-                  <span>{serviceDateReadable}</span>
-                  <span>·</span>
-                  <Clock className="h-4 w-4" />
-                  <span>{serviceTime}</span>
-                </DialogDescription>
-              </div>
-              <div className="flex items-center gap-2">
-                <StatusTransitionAnimator
-                  status={bookingState.status}
-                  effectiveStatus={bookingState.effectiveStatus}
-                  isTransitioning={bookingState.isTransitioning}
-                  className="inline-flex rounded-full"
-                  overlayClassName="inline-flex"
-                >
-                  <BookingStatusBadge status={effectiveStatus} className="h-8 px-3 text-sm" />
-                </StatusTransitionAnimator>
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-4 w-4" />
-                      <span className="sr-only">More options</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                    <DropdownMenuItem onClick={handleOpenHistory}>
-                      <History className="mr-2 h-4 w-4" />
-                      View history
-                    </DropdownMenuItem>
-                    {supportsTableAssignment && (
-                      <DropdownMenuItem onClick={() => setShowShortcuts(true)}>
-                        <Keyboard className="mr-2 h-4 w-4" />
-                        Keyboard shortcuts
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {showLifecycleBadges && booking.checkedInAt ? (
-                <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
-                  <CheckCircle2 className="mr-1 h-3 w-3" /> Checked in
-                </Badge>
-              ) : null}
-              {showLifecycleBadges && booking.checkedOutAt ? (
-                <Badge variant="secondary" className="bg-slate-100 text-slate-700 hover:bg-slate-100">
-                  <LogOut className="mr-1 h-3 w-3" /> Checked out
-                </Badge>
-              ) : null}
-            </div>
-          </DialogHeader>
-
-          <Tabs
-            value={activeTab}
-            onValueChange={(value) => setActiveTab(value as BookingDetailsTab)}
-            className="space-y-5 py-4"
-          >
-            <TabsList
-              className={cn('grid w-full gap-2', supportsTableAssignment ? 'grid-cols-2' : 'grid-cols-1')}
-            >
-              <TabsTrigger value="overview" className="text-sm font-medium">
-                Overview
-              </TabsTrigger>
-              {supportsTableAssignment ? (
-                <TabsTrigger value="tables" className="text-sm font-medium">
-                  Tables
-                </TabsTrigger>
-              ) : null}
-            </TabsList>
-
-            <TabsContent value="overview" className="focus-visible:outline-none animate-in fade-in-50 slide-in-from-bottom-2">
-              <div className="grid gap-6">
-                {/* Quick Actions Card */}
-                <Card className="border-none bg-secondary/30 shadow-none">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base font-medium">Quick Actions</CardTitle>
-                    <CardDescription>Manage arrival status and booking lifecycle.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <BookingActionButton
-                      booking={booking}
-                      pendingAction={lifecyclePending}
-                      onCheckIn={handleCheckInAction}
-                      onCheckOut={handleCheckOutAction}
-                      onMarkNoShow={handleMarkNoShowAction}
-                      onUndoNoShow={handleUndoNoShowAction}
-                      showConfirmation
-                      lifecycleAvailability={lifecycleAvailability}
-                    />
-                    {isCancelled ? (
-                      <Alert variant="destructive" className="border-destructive/20 bg-destructive/5">
-                        <AlertTitle>Booking cancelled</AlertTitle>
-                        <AlertDescription>Status changes are disabled for cancelled reservations.</AlertDescription>
-                      </Alert>
-                    ) : null}
-                    {!supportsTableAssignment ? (
-                      <Alert className="border-muted bg-muted/50">
-                        <AlertTitle>Past service date</AlertTitle>
-                        <AlertDescription>Table assignment changes are locked.</AlertDescription>
-                      </Alert>
-                    ) : null}
-                  </CardContent>
-                </Card>
-
-                {/* Booking Details Grid */}
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  <DetailCard icon={Users} label="Guests" value={`${booking.partySize} people`} />
-                  <DetailCard icon={CalendarIcon} label="Date" value={serviceDateReadable} />
-                  <DetailCard icon={Clock} label="Time" value={serviceTime} />
-                  <DetailCard
-                    icon={Mail}
-                    label="Email"
-                    value={booking.customerEmail ?? 'Not provided'}
-                    href={mailHref ?? undefined}
-                    actionLabel="Email"
-                  />
-                  <DetailCard
-                    icon={Phone}
-                    label="Phone"
-                    value={booking.customerPhone ?? 'Not provided'}
-                    href={phoneHref ?? undefined}
-                    actionLabel="Call"
-                  />
-                  <DetailCard icon={LogIn} label="Checked In" value={formatLifecycleTimestamp(booking.checkedInAt)} />
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden p-0 gap-0">
+          <div className="grid h-full max-h-[90vh] lg:grid-cols-12">
+            {/* LEFT SIDEBAR: Guest Context */}
+            <div className="flex flex-col gap-6 border-r bg-muted/10 p-6 lg:col-span-4 overflow-y-auto">
+              {/* Guest Header */}
+              <div className="flex items-center gap-4">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-xl font-bold text-primary">
+                  {booking.customerName
+                    .split(' ')
+                    .map((n) => n[0])
+                    .join('')
+                    .slice(0, 2)
+                    .toUpperCase()}
                 </div>
+                <div className="space-y-1">
+                  <DialogTitle className="text-xl font-bold tracking-tight text-foreground">
+                    {booking.customerName}
+                  </DialogTitle>
+                  {booking.loyaltyTier ? (
+                    <Badge
+                      variant="secondary"
+                      className={cn('capitalize', TIER_COLORS[booking.loyaltyTier])}
+                    >
+                      {(booking.loyaltyTier === 'platinum' || booking.loyaltyTier === 'gold') && '⭐ '}
+                      {booking.loyaltyTier}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-muted-foreground">
+                      Guest
+                    </Badge>
+                  )}
+                </div>
+              </div>
 
-                {/* Notes Section */}
-                {booking.notes ? (
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Notes</h3>
-                    <div className="rounded-lg border bg-card p-4 text-sm shadow-sm">
+              {/* Contact Info */}
+              <div className="space-y-3">
+                <DetailCard
+                  icon={Mail}
+                  label="Email"
+                  value={booking.customerEmail ?? 'Not provided'}
+                  href={mailHref ?? undefined}
+                  actionLabel="Email"
+                  copyable={true}
+                  compact
+                />
+                <DetailCard
+                  icon={Phone}
+                  label="Phone"
+                  value={booking.customerPhone ?? 'Not provided'}
+                  href={phoneHref ?? undefined}
+                  actionLabel="Call"
+                  copyable={true}
+                  compact
+                />
+              </div>
+
+              {/* Critical Tags (Allergies, etc) */}
+              {(booking.allergies?.length || booking.dietaryRestrictions?.length || booking.seatingPreference) ? (
+                <div className="space-y-3">
+                  <h4 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Preferences</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {booking.allergies?.map((allergy, idx) => (
+                      <Badge key={`alg-${idx}`} variant="destructive" className="bg-red-100 text-red-800 hover:bg-red-200 border-red-200">
+                        {allergy}
+                      </Badge>
+                    ))}
+                    {booking.dietaryRestrictions?.map((diet, idx) => (
+                      <Badge key={`diet-${idx}`} variant="secondary" className="bg-orange-100 text-orange-800 hover:bg-orange-200 border-orange-200">
+                        {diet}
+                      </Badge>
+                    ))}
+                    {booking.seatingPreference && (
+                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                        {booking.seatingPreference}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Notes */}
+              {booking.notes || booking.profileNotes ? (
+                <div className="space-y-3">
+                  <h4 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Notes</h4>
+                  {booking.notes && (
+                    <div className="rounded-lg border bg-background p-3 text-sm shadow-sm">
+                      <span className="mb-1 block text-xs font-medium text-muted-foreground">Booking Note</span>
                       {booking.notes}
                     </div>
-                  </div>
-                ) : null}
+                  )}
+                  {booking.profileNotes && (
+                    <div className="rounded-lg border bg-yellow-50/50 p-3 text-sm shadow-sm">
+                      <span className="mb-1 block text-xs font-medium text-amber-700">Profile Note</span>
+                      {booking.profileNotes}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
 
-                {/* Guest Profile Section */}
-                {(booking.loyaltyTier ||
-                  booking.allergies ||
-                  booking.dietaryRestrictions ||
-                  booking.seatingPreference ||
-                  booking.profileNotes ||
-                  booking.marketingOptIn !== null) ? (
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Guest Profile</h3>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {booking.loyaltyTier ? (
-                        <ProfileCard
-                          icon={Award}
-                          label="Loyalty Tier"
-                          className={TIER_COLORS[booking.loyaltyTier]}
+            {/* RIGHT CONTENT: Operations */}
+            <div className="flex flex-col lg:col-span-8 h-full overflow-hidden">
+              {/* Header */}
+              <div className="flex flex-col gap-4 border-b p-6">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-lg font-medium text-foreground">
+                      <CalendarIcon className="h-5 w-5 text-muted-foreground" />
+                      <span>{serviceDateReadable}</span>
+                      <span className="text-muted-foreground">·</span>
+                      <Clock className="h-5 w-5 text-muted-foreground" />
+                      <span>{serviceTime}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {/* Countdown Timer */}
+                      {minutesRemaining !== null && timeStatus !== 'past' && minutesRemaining <= 60 ? (
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            'font-medium',
+                            timeStatus === 'imminent'
+                              ? 'animate-pulse border-orange-500 bg-orange-100 text-orange-900'
+                              : 'border-blue-500 bg-blue-100 text-blue-900'
+                          )}
                         >
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold capitalize">{booking.loyaltyTier}</span>
-                            {booking.loyaltyPoints !== null && (
-                              <span className="text-xs opacity-80">({booking.loyaltyPoints} pts)</span>
-                            )}
-                          </div>
-                        </ProfileCard>
+                          Starts in {formatCountdown(minutesRemaining)}
+                        </Badge>
                       ) : null}
 
-                      {booking.allergies && booking.allergies.length > 0 ? (
-                        <ProfileCard icon={AlertTriangle} label="Allergies" className="border-orange-200 bg-orange-50 text-orange-800">
-                          <div className="flex flex-wrap gap-1.5">
-                            {booking.allergies.map((allergy, idx) => (
-                              <Badge key={idx} variant="outline" className="border-orange-300 bg-white text-orange-700 hover:bg-orange-50">
-                                {allergy}
-                              </Badge>
-                            ))}
-                          </div>
-                        </ProfileCard>
-                      ) : null}
-
-                      {booking.dietaryRestrictions && booking.dietaryRestrictions.length > 0 ? (
-                        <ProfileCard icon={Users} label="Dietary Restrictions">
-                          <div className="flex flex-wrap gap-1.5">
-                            {booking.dietaryRestrictions.map((restriction, idx) => (
-                              <Badge key={idx} variant="secondary" className="bg-secondary/50">
-                                {restriction}
-                              </Badge>
-                            ))}
-                          </div>
-                        </ProfileCard>
-                      ) : null}
-
-                      {booking.seatingPreference ? (
-                        <ProfileCard icon={CalendarIcon} label="Seating Preference">
-                          <span className="font-medium">{booking.seatingPreference}</span>
-                        </ProfileCard>
-                      ) : null}
-
-                      {booking.marketingOptIn !== null && (
-                        <ProfileCard icon={booking.marketingOptIn ? CheckCircle2 : XCircle} label="Marketing">
-                          <span className={cn("font-medium", booking.marketingOptIn ? "text-green-700" : "text-muted-foreground")}>
-                            {booking.marketingOptIn ? 'Subscribed' : 'Unsubscribed'}
-                          </span>
-                        </ProfileCard>
+                      {checkedInRelativeTime && (
+                        <span className="text-sm text-muted-foreground">
+                          Checked in {checkedInRelativeTime}
+                        </span>
                       )}
                     </div>
-
-                    {booking.profileNotes ? (
-                      <div className="rounded-lg border bg-muted/30 p-4">
-                        <span className="mb-1 block text-xs font-medium text-muted-foreground">Profile Notes</span>
-                        <p className="text-sm">{booking.profileNotes}</p>
-                      </div>
-                    ) : null}
                   </div>
-                ) : null}
-              </div>
-            </TabsContent>
 
-            {supportsTableAssignment ? (
-              <TabsContent value="tables" className="focus-visible:outline-none">
-                <div className="space-y-6">
-                  <section className="space-y-6 rounded-2xl border border-border/60 bg-muted/10 px-4 py-5">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <h3 className="text-sm font-semibold text-foreground">Manual assignment</h3>
-                        <p className="text-xs text-muted-foreground">
-                          Choose tables on the floor plan, review checks, then confirm to lock them in.
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="only-available-switch" className="text-xs text-muted-foreground">
-                          Only show available
-                        </Label>
-                        <Switch
-                          id="only-available-switch"
-                          checked={onlyAvailable}
-                          onCheckedChange={setOnlyAvailable}
-                          aria-label="Toggle only showing available tables"
+                  <div className="flex items-center gap-2">
+                    <StatusTransitionAnimator
+                      status={bookingState.status}
+                      effectiveStatus={bookingState.effectiveStatus}
+                      isTransitioning={bookingState.isTransitioning}
+                      className="inline-flex rounded-full"
+                      overlayClassName="inline-flex"
+                    >
+                      <BookingStatusBadge status={effectiveStatus} className="h-8 px-3 text-sm" />
+                    </StatusTransitionAnimator>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">More options</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={handleOpenHistory}>
+                          <History className="mr-2 h-4 w-4" />
+                          View history
+                        </DropdownMenuItem>
+                        {supportsTableAssignment && (
+                          <DropdownMenuItem onClick={() => setShowShortcuts(true)}>
+                            <Keyboard className="mr-2 h-4 w-4" />
+                            Keyboard shortcuts
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              </div>
+
+              {/* Scrollable Content Area */}
+              <div className="flex-1 overflow-y-auto p-6">
+
+                <Tabs
+                  value={activeTab}
+                  onValueChange={(value) => setActiveTab(value as BookingDetailsTab)}
+                  className="space-y-5 py-4"
+                >
+                  <TabsList
+                    className={cn('grid w-full gap-2', supportsTableAssignment ? 'grid-cols-2' : 'grid-cols-1')}
+                  >
+                    <TabsTrigger value="overview" className="text-sm font-medium">
+                      Overview
+                    </TabsTrigger>
+                    {supportsTableAssignment ? (
+                      <TabsTrigger value="tables" className="text-sm font-medium">
+                        Tables
+                      </TabsTrigger>
+                    ) : null}
+                  </TabsList>
+
+                  <TabsContent value="overview" className="focus-visible:outline-none animate-in fade-in-50 slide-in-from-bottom-2">
+                    <div className="grid gap-6">
+                      {/* Quick Actions Card */}
+                      <Card className="border-none bg-secondary/30 shadow-none">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-base font-medium">Quick Actions</CardTitle>
+                          <CardDescription>Manage arrival status and booking lifecycle.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <BookingActionButton
+                            booking={booking}
+                            pendingAction={lifecyclePending}
+                            onCheckIn={handleCheckInAction}
+                            onCheckOut={handleCheckOutAction}
+                            onMarkNoShow={handleMarkNoShowAction}
+                            onUndoNoShow={handleUndoNoShowAction}
+                            showConfirmation
+                            lifecycleAvailability={lifecycleAvailability}
+                          />
+                          {isCancelled ? (
+                            <Alert variant="destructive" className="border-destructive/20 bg-destructive/5">
+                              <AlertTitle>Booking cancelled</AlertTitle>
+                              <AlertDescription>Status changes are disabled for cancelled reservations.</AlertDescription>
+                            </Alert>
+                          ) : null}
+                          {!supportsTableAssignment ? (
+                            <Alert className="border-muted bg-muted/50">
+                              <AlertTitle>Past service date</AlertTitle>
+                              <AlertDescription>Table assignment changes are locked.</AlertDescription>
+                            </Alert>
+                          ) : null}
+                        </CardContent>
+                      </Card>
+
+                      {/* Booking Details Grid */}
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <DetailCard
+                          icon={Users}
+                          label="Guests"
+                          value={`${booking.partySize} ${booking.partySize === 1 ? 'guest' : 'guests'}`}
+                        />
+                        <DetailCard
+                          icon={CalendarIcon}
+                          label="Date"
+                          value={serviceDateReadable}
+                        />
+                        <DetailCard
+                          icon={Clock}
+                          label="Time"
+                          value={serviceTime}
+                          relativeTime={relativeStartTime || undefined}
+                        />
+                        <DetailCard
+                          icon={LogIn}
+                          label="Checked In"
+                          value={formatLifecycleTimestamp(booking.checkedInAt)}
+                          relativeTime={checkedInRelativeTime || undefined}
                         />
                       </div>
                     </div>
+                  </TabsContent>
 
-                    {manualContextIsError ? (
-                      <Alert variant="destructive" className="rounded-xl border border-destructive/40 bg-destructive/10">
-                        <AlertTitle>Unable to load manual assignment</AlertTitle>
-                        <AlertDescription>{manualContextErrorMessage}</AlertDescription>
-                      </Alert>
-                    ) : (
-                      <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr),minmax(0,1fr)]">
-                        <div className="relative space-y-3">
-                          <TableFloorPlan
-                            bookingId={booking.id}
-                            tables={manualContext?.tables ?? []}
-                            holds={manualContext?.holds ?? []}
-                            conflicts={manualContext?.conflicts ?? []}
-                            bookingAssignments={manualContext?.bookingAssignments ?? []}
-                            selectedTableIds={selectedTables}
-                            onToggle={handleToggleTable}
-                            onlyAvailable={onlyAvailable}
-                            disabled={selectionDisabled}
-                          />
-                          {manualContextLoading || manualContextFetching ? (
-                            <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-background/70 backdrop-blur-sm">
-                              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
+                  {supportsTableAssignment ? (
+                    <TabsContent value="tables" className="focus-visible:outline-none">
+                      <div className="space-y-6">
+                        <section className="space-y-6 rounded-2xl border border-border/60 bg-muted/10 px-4 py-5">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <h3 className="text-sm font-semibold text-foreground">Manual assignment</h3>
+                              <p className="text-xs text-muted-foreground">
+                                Choose tables on the floor plan, review checks, then confirm to lock them in.
+                              </p>
                             </div>
-                          ) : null}
-                        </div>
-                        <div className="space-y-4">
-                          <ManualAssignmentSummaryCard
-                            summary={selectionSummary}
-                            slackLabel={slackLabel}
-                            partySize={selectionPartySize}
-                            tableNumbers={selectedTableNumbers}
-                            requireAdjacency={requireAdjacency}
-                            onAdjacencyChange={setRequireAdjacency}
-                            isLoading={manualContextLoading && !manualContext}
-                            activeHold={activeHold}
-                            holdCountdownLabel={holdCountdownLabel}
-                            otherHolds={otherHolds}
-                          />
-                          {staleContext ? (
-                            <Alert variant="destructive" role="alert" aria-live="polite">
-                              <AlertTriangle className="h-4 w-4" aria-hidden />
-                              <AlertTitle>Refresh needed — context changed</AlertTitle>
-                              <AlertDescription>
-                                The booking context has changed (holds or assignments). Please refresh to continue.
-                                <Button
-                                  size="sm"
-                                  variant="secondary"
-                                  className="ml-2"
-                                  onClick={async () => {
-                                    try {
-                                      await refetchManualContext();
-                                      setStaleContext(false);
-                                    } catch {
-                                      // swallow errors; toast is handled elsewhere
-                                    }
-                                  }}
-                                >
-                                  Refresh
-                                </Button>
-                              </AlertDescription>
-                            </Alert>
-                          ) : null}
-                          {lastApiError ? (
+                            <div className="flex items-center gap-2">
+                              <Label htmlFor="only-available-switch" className="text-xs text-muted-foreground">
+                                Only show available
+                              </Label>
+                              <Switch
+                                id="only-available-switch"
+                                checked={onlyAvailable}
+                                onCheckedChange={setOnlyAvailable}
+                                aria-label="Toggle only showing available tables"
+                              />
+                            </div>
+                          </div>
+
+                          {manualContextIsError ? (
                             <Alert variant="destructive" className="rounded-xl border border-destructive/40 bg-destructive/10">
-                              <AlertTriangle className="h-4 w-4" aria-hidden />
-                              <AlertTitle>
-                                {lastApiError.code ? `${lastApiError.code}` : 'Manual action failed'}
-                              </AlertTitle>
-                              <AlertDescription>
-                                <div className="space-y-2">
-                                  <p className="text-sm">{lastApiError.message}</p>
-                                  {lastApiError.details ? (
-                                    <pre className="whitespace-pre-wrap text-xs text-muted-foreground">
-                                      {JSON.stringify(lastApiError.details, null, 2)}
-                                    </pre>
-                                  ) : null}
-                                </div>
-                              </AlertDescription>
+                              <AlertTitle>Unable to load manual assignment</AlertTitle>
+                              <AlertDescription>{manualContextErrorMessage}</AlertDescription>
                             </Alert>
-                          ) : null}
-
-                          <ManualAssignmentValidationPanel
-                            checks={validationChecks}
-                            lastValidatedAt={lastValidatedAt}
-                            isPending={holdMutation.isPending || validateMutation.isPending}
-                            hasSelection={hasSelection}
-                          />
-                          <ManualAssignmentActions
-                            onValidate={handleValidateSelection}
-                            onConfirm={handleConfirmSelection}
-                            onClear={handleClearSelection}
-                            disableValidate={validateDisabled}
-                            disableConfirm={confirmDisabled}
-                            disableClear={clearDisabled}
-                            validating={holdMutation.isPending || validateMutation.isPending}
-                            confirming={confirmMutation.isPending}
-                            confirmDisabledReason={confirmDisabledReason}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-semibold text-foreground">Assigned tables</h4>
-                      {normalizedAssignments.length > 0 ? (
-                        normalizedAssignments.map((assignment) => {
-                          const isUnassigning =
-                            tableActionState?.type === 'unassign' && tableActionState?.tableId === assignment.tableId;
-                          const capacityLabel =
-                            assignment.capacity && assignment.capacity > 0
-                              ? `${assignment.capacity} seat${assignment.capacity === 1 ? '' : 's'}`
-                              : null;
-                          const meta = [capacityLabel, assignment.section ? `Section ${assignment.section}` : null]
-                            .filter(Boolean)
-                            .join(' · ');
-
-                          return (
-                            <div
-                              key={assignment.tableId}
-                              className="flex items-center justify-between rounded-xl border border-border/60 bg-white px-3 py-2"
-                            >
-                              <div className="flex flex-col">
-                                <span className="text-sm font-semibold text-foreground">Table {assignment.tableNumber}</span>
-                                {meta ? <span className="text-xs text-muted-foreground">{meta}</span> : null}
+                          ) : (
+                            <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr),minmax(0,1fr)]">
+                              <div className="relative space-y-3">
+                                <TableFloorPlan
+                                  bookingId={booking.id}
+                                  tables={manualContext?.tables ?? []}
+                                  holds={manualContext?.holds ?? []}
+                                  conflicts={manualContext?.conflicts ?? []}
+                                  bookingAssignments={manualContext?.bookingAssignments ?? []}
+                                  selectedTableIds={selectedTables}
+                                  onToggle={handleToggleTable}
+                                  onlyAvailable={onlyAvailable}
+                                  disabled={selectionDisabled}
+                                />
+                                {manualContextLoading || manualContextFetching ? (
+                                  <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-background/70 backdrop-blur-sm">
+                                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
+                                  </div>
+                                ) : null}
                               </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8"
-                                onClick={() => handleUnassignTable(assignment.tableId)}
-                                disabled={isUnassigning || confirmMutation.isPending}
-                              >
-                                {isUnassigning ? (
-                                  <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-                                    Removing…
-                                  </>
-                                ) : (
-                                  'Remove'
-                                )}
-                              </Button>
+                              <div className="space-y-4">
+                                <ManualAssignmentSummaryCard
+                                  summary={selectionSummary}
+                                  slackLabel={slackLabel}
+                                  partySize={selectionPartySize}
+                                  tableNumbers={selectedTableNumbers}
+                                  requireAdjacency={requireAdjacency}
+                                  onAdjacencyChange={setRequireAdjacency}
+                                  isLoading={manualContextLoading && !manualContext}
+                                  activeHold={activeHold}
+                                  holdCountdownLabel={holdCountdownLabel}
+                                  otherHolds={otherHolds}
+                                />
+                                {staleContext ? (
+                                  <Alert variant="destructive" role="alert" aria-live="polite">
+                                    <AlertTriangle className="h-4 w-4" aria-hidden />
+                                    <AlertTitle>Refresh needed — context changed</AlertTitle>
+                                    <AlertDescription>
+                                      The booking context has changed (holds or assignments). Please refresh to continue.
+                                      <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        className="ml-2"
+                                        onClick={async () => {
+                                          try {
+                                            await refetchManualContext();
+                                            setStaleContext(false);
+                                          } catch {
+                                            // swallow errors; toast is handled elsewhere
+                                          }
+                                        }}
+                                      >
+                                        Refresh
+                                      </Button>
+                                    </AlertDescription>
+                                  </Alert>
+                                ) : null}
+                                {lastApiError ? (
+                                  <Alert variant="destructive" className="rounded-xl border border-destructive/40 bg-destructive/10">
+                                    <AlertTriangle className="h-4 w-4" aria-hidden />
+                                    <AlertTitle>
+                                      {lastApiError.code ? `${lastApiError.code}` : 'Manual action failed'}
+                                    </AlertTitle>
+                                    <AlertDescription>
+                                      <div className="space-y-2">
+                                        <p className="text-sm">{lastApiError.message}</p>
+                                        {lastApiError.details ? (
+                                          <pre className="whitespace-pre-wrap text-xs text-muted-foreground">
+                                            {JSON.stringify(lastApiError.details, null, 2)}
+                                          </pre>
+                                        ) : null}
+                                      </div>
+                                    </AlertDescription>
+                                  </Alert>
+                                ) : null}
+
+                                <ManualAssignmentValidationPanel
+                                  checks={validationChecks}
+                                  lastValidatedAt={lastValidatedAt}
+                                  isPending={holdMutation.isPending || validateMutation.isPending}
+                                  hasSelection={hasSelection}
+                                />
+                                <ManualAssignmentActions
+                                  onValidate={handleValidateSelection}
+                                  onConfirm={handleConfirmSelection}
+                                  onClear={handleClearSelection}
+                                  disableValidate={validateDisabled}
+                                  disableConfirm={confirmDisabled}
+                                  disableClear={clearDisabled}
+                                  validating={holdMutation.isPending || validateMutation.isPending}
+                                  confirming={confirmMutation.isPending}
+                                  confirmDisabledReason={confirmDisabledReason}
+                                />
+                              </div>
                             </div>
-                          );
-                        })
-                      ) : (
-                        <p className="text-sm text-muted-foreground">No tables assigned yet.</p>
-                      )}
-                    </div>
-                  </section>
-                </div>
-              </TabsContent>
-            ) : null}
-          </Tabs>
+                          )}
+
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-semibold text-foreground">Assigned tables</h4>
+                            {normalizedAssignments.length > 0 ? (
+                              normalizedAssignments.map((assignment) => {
+                                const isUnassigning =
+                                  tableActionState?.type === 'unassign' && tableActionState?.tableId === assignment.tableId;
+                                const capacityLabel =
+                                  assignment.capacity && assignment.capacity > 0
+                                    ? `${assignment.capacity} seat${assignment.capacity === 1 ? '' : 's'}`
+                                    : null;
+                                const meta = [capacityLabel, assignment.section ? `Section ${assignment.section}` : null]
+                                  .filter(Boolean)
+                                  .join(' · ');
+
+                                return (
+                                  <div
+                                    key={assignment.tableId}
+                                    className="flex items-center justify-between rounded-xl border border-border/60 bg-white px-3 py-2"
+                                  >
+                                    <div className="flex flex-col">
+                                      <span className="text-sm font-semibold text-foreground">Table {assignment.tableNumber}</span>
+                                      {meta ? <span className="text-xs text-muted-foreground">{meta}</span> : null}
+                                    </div>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8"
+                                      onClick={() => handleUnassignTable(assignment.tableId)}
+                                      disabled={isUnassigning || confirmMutation.isPending}
+                                    >
+                                      {isUnassigning ? (
+                                        <>
+                                          <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                                          Removing…
+                                        </>
+                                      ) : (
+                                        'Remove'
+                                      )}
+                                    </Button>
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              <p className="text-sm text-muted-foreground">No tables assigned yet.</p>
+                            )}
+                          </div>
+                        </section>
+                      </div>
+                    </TabsContent>
+                  ) : null}
+                </Tabs>
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
       <Dialog
@@ -1296,21 +1363,42 @@ type DetailCardProps = {
   value: string;
   href?: string;
   actionLabel?: string;
+  copyable?: boolean;
+  relativeTime?: string;
+  compact?: boolean;
 };
 
-function DetailCard({ icon: Icon, label, value, href, actionLabel }: DetailCardProps) {
+function DetailCard({ icon: Icon, label, value, href, actionLabel, copyable, relativeTime, compact }: DetailCardProps) {
+  const showCopyButton = copyable && value && value !== 'Not provided';
+  const isExternal = href?.startsWith('http');
+
   const content = (
-    <div className="flex items-start gap-3 p-3">
-      <div className="rounded-md bg-muted/50 p-2">
-        <Icon className="h-4 w-4 text-muted-foreground" aria-hidden />
+    <div className={cn("flex items-start gap-3", compact ? "p-3" : "p-4")}>
+      <div className={cn("rounded-lg bg-primary/10", compact ? "p-2" : "p-2.5")}>
+        <Icon className={cn("text-primary", compact ? "h-3.5 w-3.5" : "h-4 w-4")} aria-hidden />
       </div>
-      <div className="flex flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
-        <span className="font-medium text-foreground">{value}</span>
+        <span className={cn("truncate font-semibold text-foreground", compact ? "text-sm" : "text-base")}>{value}</span>
+        {relativeTime ? (
+          <span className="mt-0.5 text-xs text-muted-foreground">{relativeTime}</span>
+        ) : null}
         {href && actionLabel ? (
-          <span className="mt-1 text-xs font-medium text-primary group-hover:underline">{actionLabel}</span>
+          <span className="mt-1 flex items-center gap-1 text-xs font-medium text-primary group-hover:underline">
+            {actionLabel}
+            {isExternal ? <ExternalLink className="h-3 w-3" /> : null}
+          </span>
         ) : null}
       </div>
+      {showCopyButton ? (
+        <CopyButton
+          text={value}
+          label={label}
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8 shrink-0"
+        />
+      ) : null}
     </div>
   );
 
@@ -1318,7 +1406,12 @@ function DetailCard({ icon: Icon, label, value, href, actionLabel }: DetailCardP
     return (
       <a
         href={href}
-        className="group block rounded-xl border bg-card shadow-sm transition-all hover:border-primary/50 hover:shadow-md"
+        target={isExternal ? '_blank' : undefined}
+        rel={isExternal ? 'noopener noreferrer' : undefined}
+        className={cn(
+          "group block rounded-xl border bg-card shadow-sm transition-all hover:border-primary/50 hover:shadow-md",
+          compact ? "bg-background" : ""
+        )}
       >
         {content}
       </a>
@@ -1326,32 +1419,13 @@ function DetailCard({ icon: Icon, label, value, href, actionLabel }: DetailCardP
   }
 
   return (
-    <div className="rounded-xl border bg-card shadow-sm">
+    <div className={cn("rounded-xl border bg-card shadow-sm", compact ? "bg-background" : "")}>
       {content}
     </div>
   );
 }
 
-type ProfileCardProps = {
-  icon: ComponentType<{ className?: string }>;
-  label: string;
-  children: React.ReactNode;
-  className?: string;
-};
 
-function ProfileCard({ icon: Icon, label, children, className }: ProfileCardProps) {
-  return (
-    <div className={cn("flex flex-col gap-2 rounded-xl border bg-card p-4 shadow-sm", className)}>
-      <div className="flex items-center gap-2 text-muted-foreground">
-        <Icon className="h-4 w-4" aria-hidden />
-        <span className="text-xs font-medium uppercase tracking-wider">{label}</span>
-      </div>
-      <div className="text-sm text-foreground">
-        {children}
-      </div>
-    </div>
-  );
-}
 
 type ShortcutHintProps = {
   keys: string[];
