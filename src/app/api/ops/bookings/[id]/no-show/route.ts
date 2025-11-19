@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { env } from "@/lib/env";
 import { getTodayInTimezone } from "@/lib/utils/datetime";
+import { clearBookingTableAssignments } from "@/server/bookings";
 import { prepareNoShowTransition } from "@/server/ops/booking-lifecycle/actions";
 import { BookingLifecycleError } from "@/server/ops/booking-lifecycle/stateMachine";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
@@ -177,6 +178,16 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   if (transitionError) {
     console.error("[ops][booking-no-show] failed to persist transition", transitionError.message);
     return NextResponse.json({ error: "Unable to mark booking as no-show" }, { status: 500 });
+  }
+
+  // Release any table assignments now that the booking is marked as no-show
+  try {
+    await clearBookingTableAssignments(serviceSupabase, bookingRow.id);
+  } catch (clearError) {
+    console.warn("[ops][booking-no-show] failed to clear table assignments", {
+      bookingId: bookingRow.id,
+      error: clearError instanceof Error ? clearError.message : clearError,
+    });
   }
 
   const resultRow = transitionResult?.[0];
