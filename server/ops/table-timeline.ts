@@ -72,6 +72,7 @@ type BookingMeta = {
   customerEmail: string | null;
   customerPhone: string | null;
   notes: string | null;
+  tableIds: string[];
 };
 
 type BusyWindow = {
@@ -211,6 +212,12 @@ function enrichBookings(bookings: TimelineBookingRow[], policy: ReturnType<typeo
         partySize: booking.party_size ?? 0,
         policy,
       });
+
+      // Collect assigned table IDs
+      const tableIds = (booking.booking_table_assignments ?? [])
+        .map(a => a.table_id)
+        .filter((id): id is string => id !== null);
+
       bookingMeta.set(booking.id, {
         id: booking.id,
         customerName: booking.customer_name ?? null,
@@ -221,6 +228,7 @@ function enrichBookings(bookings: TimelineBookingRow[], policy: ReturnType<typeo
         customerEmail: booking.customer_email ?? null,
         customerPhone: booking.customer_phone ?? null,
         notes: booking.notes ?? null,
+        tableIds,
       });
     } catch (error) {
       console.warn('[ops][tables][timeline] unable to compute booking window', {
@@ -463,6 +471,7 @@ function buildSegmentsFromBusyWindows({
           customerEmail: booking.customerEmail,
           customerPhone: booking.customerPhone,
           notes: booking.notes,
+          tableIds: booking.tableIds,
         }
         : null,
       hold: hold,

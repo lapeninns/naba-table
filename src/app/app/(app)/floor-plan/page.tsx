@@ -343,6 +343,31 @@ export default function FloorPlanApp() {
         });
     }, [tables, timelineData, currentTimestamp, selectedZoneId]);
 
+    // Identify merged table groups (tables assigned to the same booking)
+    const mergedGroups = useMemo(() => {
+        const groups = new Map<string, typeof tablesWithStatus>();
+
+        tablesWithStatus.forEach(table => {
+            const booking = table.currentStatus.booking;
+            if (booking && booking.tableIds && booking.tableIds.length > 1) {
+                if (!groups.has(booking.id)) {
+                    groups.set(booking.id, []);
+                }
+                groups.get(booking.id)!.push(table);
+            }
+        });
+
+        // Filter to only include groups where multiple tables are visible on this floor plan
+        const visibleGroups = new Map<string, typeof tablesWithStatus>();
+        groups.forEach((groupTables, bookingId) => {
+            if (groupTables.length > 1) {
+                visibleGroups.set(bookingId, groupTables);
+            }
+        });
+
+        return visibleGroups;
+    }, [tablesWithStatus]);
+
     const selectedTableData = useMemo(() => {
         if (!selectedTableId) return null;
         const table = tablesWithStatus.find(t => t.id === selectedTableId);
@@ -497,11 +522,48 @@ export default function FloorPlanApp() {
                         style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
                     >
 
+                        {/* Render Merged Table Connection Lines */}
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 5 }}>
+                            {Array.from(mergedGroups.entries()).map(([bookingId, groupTables]) => {
+                                // Draw lines connecting all tables in the group
+                                const lines = [];
+                                const theme = getStatusTheme('reserved');
+
+                                for (let i = 0; i < groupTables.length - 1; i++) {
+                                    for (let j = i + 1; j < groupTables.length; j++) {
+                                        const table1 = groupTables[i];
+                                        const table2 = groupTables[j];
+
+                                        lines.push(
+                                            <line
+                                                key={`${bookingId}-${table1.id}-${table2.id}`}
+                                                x1={`${table1.xPercent}%`}
+                                                y1={`${table1.yPercent}%`}
+                                                x2={`${table2.xPercent}%`}
+                                                y2={`${table2.yPercent}%`}
+                                                stroke="currentColor"
+                                                strokeWidth="2"
+                                                strokeDasharray="4 4"
+                                                className={cn("opacity-40", theme.text)}
+                                            />
+                                        );
+                                    }
+                                }
+
+                                return lines;
+                            })}
+                        </svg>
+
                         {/* Render Tables */}
                         {tablesWithStatus.map((table) => {
                             const status = table.currentStatus;
                             const isSelected = selectedTableId === table.id;
                             const theme = getStatusTheme(status.state);
+
+                            // Check if this table is part of a merged group
+                            const booking = status.booking;
+                            const isMerged = booking && booking.tableIds && booking.tableIds.length > 1;
+                            const mergedTableCount = isMerged && booking?.tableIds ? booking.tableIds.length : 0;
 
                             // User Request: Movable = Rect/Square, Fixed = Circle/Oval
                             const isRound = table.mobility === 'fixed';
@@ -556,7 +618,8 @@ export default function FloorPlanApp() {
                                         isRound ? "rounded-full" : "rounded-lg",
                                         theme.bg,
                                         theme.border,
-                                        "border-2"
+                                        "border-2",
+                                        isMerged && "ring-2 ring-offset-1 ring-current/30"
                                     )}>
                                         {/* Inner Gradient/Fill */}
                                         <div className={cn(
@@ -570,10 +633,25 @@ export default function FloorPlanApp() {
                                             theme.text
                                         )}>
                                             <span className="text-[8px] sm:text-[10px] font-bold leading-none">{table.tableNumber}</span>
-                                            {status.state === 'reserved' && (
+                                            {status.state === 'reserved' && !isMerged && (
                                                 <div className={cn("w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full mt-0.5", theme.fill)} />
                                             )}
+                                            {isMerged && (
+                                                <div className="text-[7px] sm:text-[8px] font-bold mt-0.5 px-1 py-0.5 rounded-full bg-white/30">
+                                                    {mergedTableCount}x
+                                                </div>
+                                            )}
                                         </div>
+
+                                        {/* Merge Indicator Badge (top-right corner) */}
+                                        {isMerged && (
+                                            <div className="absolute -top-1 -right-1 w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-white border-2 border-current flex items-center justify-center shadow-sm">
+                                                <svg className="w-1.5 h-1.5 sm:w-2 sm:h-2" fill="currentColor" viewBox="0 0 16 16">
+                                                    <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM2 2a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1H2z"/>
+                                                    <path d="M2.5 4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5V4z"/>
+                                                </svg>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* 2. The Chairs */}
@@ -801,7 +879,7 @@ export default function FloorPlanApp() {
                                     </Button>
                                 </div>
 
-                                <div className="flex gap-3 mt-4">
+                                <div className="flex gap-3 mt-4 flex-wrap">
                                     <div className="flex items-center gap-1.5 text-xs font-medium bg-white px-2.5 py-1.5 rounded border border-slate-200 text-slate-600">
                                         <Users className="h-3.5 w-3.5" />
                                         {selectedTableData.capacity} Seats
@@ -810,6 +888,15 @@ export default function FloorPlanApp() {
                                         <Armchair className="h-3.5 w-3.5" />
                                         <span className="capitalize">{selectedTableData.seatingType.replace('_', ' ')}</span>
                                     </div>
+                                    {selectedTableData.currentStatus.booking?.tableIds && selectedTableData.currentStatus.booking.tableIds.length > 1 && (
+                                        <div className="flex items-center gap-1.5 text-xs font-medium bg-rose-100 px-2.5 py-1.5 rounded border border-rose-300 text-rose-700">
+                                            <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 16 16">
+                                                <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM2 2a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1H2z"/>
+                                                <path d="M2.5 4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5V4z"/>
+                                            </svg>
+                                            Merged ({selectedTableData.currentStatus.booking.tableIds.length} tables)
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -871,6 +958,33 @@ export default function FloorPlanApp() {
                                                         <p className="text-xs text-rose-800 italic bg-rose-50/50 p-2 rounded border border-rose-100">
                                                             "{selectedTableData.currentStatus.booking.notes}"
                                                         </p>
+                                                    </div>
+                                                )}
+
+                                                {/* Merged Tables List */}
+                                                {selectedTableData.currentStatus.booking?.tableIds && selectedTableData.currentStatus.booking.tableIds.length > 1 && (
+                                                    <div className="pt-2 border-t border-rose-100/50">
+                                                        <div className="text-xs font-medium text-rose-500 mb-2">Merged Tables ({selectedTableData.currentStatus.booking.tableIds.length})</div>
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {selectedTableData.currentStatus.booking.tableIds.map((tableId) => {
+                                                                const mergedTable = tablesWithStatus.find(t => t.id === tableId);
+                                                                const isCurrentTable = tableId === selectedTableData.id;
+                                                                return mergedTable ? (
+                                                                    <button
+                                                                        key={tableId}
+                                                                        onClick={() => !isCurrentTable && setSelectedTableId(tableId)}
+                                                                        className={cn(
+                                                                            "px-2 py-1 text-xs font-semibold rounded border transition-colors",
+                                                                            isCurrentTable
+                                                                                ? "bg-rose-500 text-white border-rose-600 cursor-default"
+                                                                                : "bg-white text-rose-700 border-rose-200 hover:bg-rose-50 hover:border-rose-300"
+                                                                        )}
+                                                                    >
+                                                                        {mergedTable.tableNumber} ({mergedTable.capacity})
+                                                                    </button>
+                                                                ) : null;
+                                                            })}
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>

@@ -226,6 +226,7 @@ export type TableTimelineBookingRef = {
   customerEmail?: string | null;
   customerPhone?: string | null;
   notes?: string | null;
+  tableIds?: string[];
 };
 
 export type TableTimelineHoldRef = {
