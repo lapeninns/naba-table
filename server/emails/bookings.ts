@@ -104,6 +104,7 @@ async function resolveVenueDetails(restaurantId: string | null | undefined): Pro
     email: restaurant.contact_email || "",
     policy: restaurant.booking_policy || "",
     logoUrl: restaurant.logo_url || null,
+    googleMapUrl: restaurant.google_map_url || null,
   };
 }
 
@@ -173,6 +174,13 @@ const STATUS_PRESENTATION: Record<BookingRecord["status"], StatusPresentation> =
     badgeText: "#b91c1c",
     border: "#ef4444",
     note: "We missed you this time. Reach out if you'd like to rebook.",
+  },
+  PRIORITY_WAITLIST: {
+    label: "Priority Waitlist",
+    badgeBg: "#f3e8ff",
+    badgeText: "#6b21a8",
+    border: "#a855f7",
+    note: "You are on the priority waitlist. We will notify you as soon as a table becomes available.",
   },
 };
 
@@ -443,6 +451,10 @@ function renderHtml({
 
                           <p style="margin:0 0 6px;font-size:11px;color:#94a3b8;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;">Address</p>
                           <p style="margin:0 0 16px;font-size:14px;color:#334155;line-height:1.6;">${escapeHtml(venue.address)}</p>
+                          ${venue.googleMapUrl
+      ? `<p style="margin:0 0 16px;font-size:13px;"><a href="${escapeHtml(venue.googleMapUrl)}" style="color:#4338ca;text-decoration:none;">View on Google Maps</a></p>`
+      : ''
+    }
 
                           ${venuePhone ? `<p style="margin:0 0 6px;font-size:11px;color:#94a3b8;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;">Phone</p><p style="margin:0 0 16px;font-size:14px;"><a href="${venuePhoneHref}" style="color:#4338ca;text-decoration:none;">${escapeHtml(venuePhone)}</a></p>` : ''}
 
@@ -720,30 +732,33 @@ function renderText(
     "",
     `Restaurant: ${venue.name}`,
     `Address: ${venue.address}`,
+    venue.googleMapUrl ? `Google Maps: ${venue.googleMapUrl}` : null,
     `Phone: ${venue.phone}`,
     `Email: ${venue.email}`,
     `Policy: ${venue.policy}`,
   ];
 
+  const filteredLines = lines.filter((line): line is string => Boolean(line && line.length > 0));
+
   if (notes) {
-    lines.push("", `Guest notes: ${notes}`);
+    filteredLines.push("", `Guest notes: ${notes}`);
   }
 
-  lines.push("", `Manage this booking: ${manageUrl}`);
+  filteredLines.push("", `Manage this booking: ${manageUrl}`);
 
   if (options?.calendarActionUrl) {
-    lines.push("", `Add to calendar: ${options.calendarActionUrl}`);
+    filteredLines.push("", `Add to calendar: ${options.calendarActionUrl}`);
   }
 
   if (options?.calendarAttachmentName) {
-    lines.push(`Calendar file attached: ${options.calendarAttachmentName}`);
+    filteredLines.push(`Calendar file attached: ${options.calendarAttachmentName}`);
   }
 
   if (options?.walletActionUrl) {
-    lines.push("", `Add to wallet/share: ${options.walletActionUrl}`);
+    filteredLines.push("", `Add to wallet/share: ${options.walletActionUrl}`);
   }
 
-  return lines.join("\n");
+  return filteredLines.join("\n");
 }
 
 type BookingEmailType =
@@ -751,7 +766,9 @@ type BookingEmailType =
   | "updated"
   | "cancelled"
   | "modification_pending"
-  | "modification_confirmed";
+  | "modification_confirmed"
+  | "booking_rejected"
+  | "restaurant_cancellation";
 
 async function dispatchEmail(
   type: BookingEmailType,
@@ -827,9 +844,23 @@ async function dispatchEmail(
       ctaLabel = undefined;
       ctaUrl = undefined;
       break;
+    case "booking_rejected":
+      subject = `Update on your request – ${venue.name}`;
+      headline = `Unable to confirm your request`;
+      intro = `Unfortunately, we were unable to confirm your reservation request for ${summary.date} at ${summary.startTime}. We apologize for the inconvenience. Please try another time or contact us directly.`;
+      ctaLabel = "Check other times";
+      ctaUrl = siteUrl; // Or a more specific booking page URL
+      break;
+    case "restaurant_cancellation":
+      subject = `Important update on your booking – ${venue.name}`;
+      headline = `Your reservation has been cancelled`;
+      intro = `We're sorry, but due to unforeseen circumstances, we've had to cancel your upcoming reservation for ${summary.date} at ${summary.startTime}. We sincerely apologize and hope to welcome you another time.`;
+      ctaLabel = "Book again";
+      ctaUrl = siteUrl; // Or a more specific booking page URL
+      break;
   }
 
-  if (type !== "cancelled") {
+  if (type !== "cancelled" && type !== "booking_rejected" && type !== "restaurant_cancellation") {
     walletActionUrl = buildActionUrl(manageUrl, "wallet");
     if (calendarEventContent) {
       calendarActionUrl = buildActionUrl(manageUrl, "calendar");
@@ -883,4 +914,163 @@ export async function sendBookingModificationPendingEmail(booking: BookingRecord
 
 export async function sendBookingModificationConfirmedEmail(booking: BookingRecord) {
   await dispatchEmail("modification_confirmed", booking);
+}
+
+export async function sendBookingRejectedEmail(booking: BookingRecord) {
+  await dispatchEmail("booking_rejected", booking);
+}
+
+export async function sendRestaurantCancellationEmail(booking: BookingRecord) {
+  await dispatchEmail("restaurant_cancellation", booking);
+}
+
+// ------------------------------
+// Reminders & Review Requests
+// ------------------------------
+
+type ReminderVariant = "standard" | "short";
+
+export async function sendBookingReminderEmail(booking: BookingRecord, options?: { variant?: ReminderVariant }) {
+  const variant = options?.variant ?? "standard";
+  const startAt = parseTimestamp(booking.start_at);
+  if (!startAt) {
+    throw new Error("[emails][bookings] reminder missing start_at");
+  }
+  const venue = await resolveVenueDetails(booking.restaurant_id);
+  const statusPresentation = getStatusPresentation(booking.status ?? "confirmed");
+
+  const dateLabel =
+    booking.booking_date ?? formatReservationDateShort(formatDateForInput(startAt));
+  const timeLabel = booking.start_time
+    ? formatReservationTime(booking.start_time)
+    : formatReservationTimeFromDate(startAt);
+  const manageUrl = buildManageUrl(booking);
+
+  const subject =
+    variant === "short"
+      ? `You're up soon at ${venue.name ?? "the restaurant"}`
+      : `${venue.name ?? "Your reservation"} on ${dateLabel} at ${timeLabel}`;
+
+  const title = variant === "short" ? "You're up soon" : "We’re ready for your visit";
+  const intro =
+    variant === "short"
+      ? `Your table is coming up at ${venue.name ?? "the restaurant"}.`
+      : `We’re looking forward to welcoming you on ${dateLabel} at ${timeLabel}.`;
+
+  const badgeHtml = `
+    <div style="border:1px solid ${statusPresentation.border};border-radius:999px;padding:8px 14px;display:inline-flex;gap:8px;align-items:center;background:${statusPresentation.badgeBg};color:${statusPresentation.badgeText};font-weight:600;font-size:13px;">
+      <span>${escapeHtml(statusPresentation.label)}</span>
+    </div>
+  `;
+
+  const contentHtml = `
+    <div class="card">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="padding:24px 24px 8px;">
+            <div style="margin-bottom:12px;">${badgeHtml}</div>
+            <h1 style="margin:0 0 8px;font-size:22px;line-height:1.35;color:#0f172a;">${escapeHtml(title)}</h1>
+            <p style="margin:0 0 12px;font-size:15px;color:#334155;">${escapeHtml(intro)}</p>
+            <p style="margin:0 0 12px;font-size:14px;color:#475569;">
+              <strong>When:</strong> ${escapeHtml(dateLabel)} at ${escapeHtml(timeLabel)}<br/>
+              <strong>Party:</strong> ${escapeHtml(String(booking.party_size ?? ""))}<br/>
+              ${booking.seating_preference ? `<strong>Seating:</strong> ${escapeHtml(formatSeatingLabel(booking.seating_preference))}<br/>` : ""}
+              ${venue.address ? `<strong>Address:</strong> ${escapeHtml(venue.address)}` : ""}
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td align="center" style="padding:8px 24px 16px;">
+            ${renderButton('View or change booking', manageUrl, { variant: 'primary', align: 'center' })}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 24px 24px;">
+            <p style="margin:0 0 8px;font-size:14px;color:#475569;">Running late or need to adjust? You can update your booking from the link above.</p>
+          </td>
+        </tr>
+      </table>
+    </div>`;
+
+  const html = renderEmailBase({
+    title,
+    preheader: `${venue.name ?? "Your restaurant"} on ${dateLabel} at ${timeLabel}`,
+    contentHtml,
+  });
+
+  const text = [
+    `${title} at ${venue.name ?? "the restaurant"}`,
+    `When: ${dateLabel} at ${timeLabel}`,
+    `Party: ${booking.party_size ?? ""}`,
+    `Manage: ${manageUrl}`,
+  ].join("\n");
+
+  await sendEmail({
+    to: booking.customer_email,
+    subject,
+    html,
+    text,
+    replyTo: config.email.supportEmail,
+    fromName: venue.name || config.appName || "SajiloReserveX",
+  });
+}
+
+export async function sendBookingReviewRequestEmail(booking: BookingRecord) {
+  const venue = await resolveVenueDetails(booking.restaurant_id);
+  const startAt = parseTimestamp(booking.start_at);
+  const dateLabel =
+    booking.booking_date ??
+    (startAt ? formatReservationDateShort(formatDateForInput(startAt)) : "your recent visit");
+  const manageUrl = buildManageUrl(booking);
+
+  const subject = `How was your visit at ${venue.name ?? "our restaurant"}?`;
+  const title = "We'd love your feedback";
+  const intro = `Thanks for dining with us${venue.name ? ` at ${venue.name}` : ""}. It takes one minute to share how it went.`;
+
+  const ctaUrl = venue.googleMapUrl || manageUrl;
+  const ctaLabel = venue.googleMapUrl ? "Leave a Google Review" : "Share quick feedback";
+
+  const contentHtml = `
+    <div class="card">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="padding:24px 24px 8px;">
+            <h1 style="margin:0 0 8px;font-size:22px;line-height:1.35;color:#0f172a;">${escapeHtml(title)}</h1>
+            <p style="margin:0 0 12px;font-size:15px;color:#334155;">${escapeHtml(intro)}</p>
+            <p style="margin:0 0 12px;font-size:14px;color:#475569;">Visit: ${escapeHtml(dateLabel)}</p>
+          </td>
+        </tr>
+        <tr>
+          <td align="center" style="padding:8px 24px 16px;">
+            ${renderButton(ctaLabel, ctaUrl, { variant: 'primary', align: 'center' })}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 24px 24px;">
+            <p style="margin:0 0 8px;font-size:13px;color:#64748b;">Only if you have a moment—your note helps us improve.</p>
+          </td>
+        </tr>
+      </table>
+    </div>`;
+
+  const html = renderEmailBase({
+    title,
+    preheader: `Quick feedback about your visit at ${venue.name ?? "our restaurant"}`,
+    contentHtml,
+  });
+
+  const text = [
+    `${title}`,
+    `Visit: ${dateLabel}`,
+    `Share feedback: ${ctaUrl}`,
+  ].join("\n");
+
+  await sendEmail({
+    to: booking.customer_email,
+    subject,
+    html,
+    text,
+    replyTo: config.email.supportEmail,
+    fromName: venue.name || config.appName || "SajiloReserveX",
+  });
 }

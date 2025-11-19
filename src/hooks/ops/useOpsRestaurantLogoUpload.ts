@@ -23,7 +23,7 @@ export function useOpsRestaurantLogoUpload(
       const formData = new FormData();
       formData.append('file', file);
 
-      return fetchJson<RestaurantLogoUploadResult>(`/api/ops/restaurants/${restaurantId}/logo`, {
+      return fetchJson<RestaurantLogoUploadResult>(`/api/restaurants/${restaurantId}/logo`, {
         method: 'POST',
         body: formData,
       });

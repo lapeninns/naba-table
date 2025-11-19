@@ -64,7 +64,7 @@ describe('<CustomerNavbar />', () => {
     render(<CustomerNavbar />);
 
     expect(screen.getByRole('link', { name: /sign in/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /restaurants/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /browse/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /account/i })).not.toBeInTheDocument();
   });
 

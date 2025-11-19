@@ -15,6 +15,64 @@ import { toIsoUtc, summarizeSelection } from "./utils";
 
 const DEFAULT_MANUAL_SLACK_BUDGET = 4;
 
+function normalizeTableForVersion(table: Table) {
+  return {
+    id: table.id,
+    zoneId: table.zoneId,
+    capacity: table.capacity,
+    mobility: table.mobility,
+    active: table.active,
+    category: table.category,
+    seatingType: table.seatingType,
+  };
+}
+
+function buildTableVersion(tables: Table[]) {
+  const payload = tables
+    .map(normalizeTableForVersion)
+    .sort((a, b) => a.id.localeCompare(b.id));
+  return computePayloadChecksum(payload);
+}
+
+function buildAdjacencyVersion(adjacency: Map<string, Set<string>>) {
+  const edges = Array.from(adjacency.entries())
+    .map(([id, neighbors]) => ({
+      id,
+      neighbors: Array.from(neighbors).sort(),
+    }))
+    .sort((a, b) => a.id.localeCompare(b.id));
+  return computePayloadChecksum(edges);
+}
+
+function buildFlagsVersion(flags: Record<string, unknown>) {
+  return computePayloadChecksum(flags);
+}
+
+function buildWindowVersion(window: BookingWindow) {
+  return computePayloadChecksum({
+    startAt: toIsoUtc(window.block.start),
+    endAt: toIsoUtc(window.block.end),
+  });
+}
+
+function buildHoldsVersion(holds: ManualAssignmentContextHold[]) {
+  const payload = holds
+    .map((h) => ({
+      id: h.id,
+      tableIds: [...h.tableIds].sort(),
+      startAt: h.startAt,
+      endAt: h.endAt,
+      expiresAt: h.expiresAt,
+      bookingId: h.bookingId,
+    }))
+    .sort((a, b) => a.id.localeCompare(b.id));
+  return computePayloadChecksum(payload);
+}
+
+function buildAssignmentsVersion(assignments: string[]) {
+  return computePayloadChecksum(assignments.slice().sort());
+}
+
 function resolveManualSlackBudget(): number {
   const override = getManualAssignmentMaxSlack();
   if (typeof override === "number") {
@@ -240,6 +298,13 @@ export async function evaluateManualSelection(options: ManualSelectionOptions): 
 
   const requireAdjacency = resolveRequireAdjacency(booking.party_size, requireAdjacencyOverride);
   const summary = summarizeSelection(selectionTables, booking.party_size);
+  if (booking.assigned_zone_id && summary.zoneId && booking.assigned_zone_id !== summary.zoneId) {
+    throw new ManualSelectionInputError(
+      `Booking is locked to zone ${booking.assigned_zone_id}; selected zone ${summary.zoneId} is not allowed`,
+      "ZONE_LOCKED",
+      409,
+    );
+  }
   const slackBudget = resolveManualSlackBudget();
   const checks = buildManualChecks({
     summary,
@@ -326,23 +391,42 @@ export async function createManualHold(options: ManualHoldOptions): Promise<Manu
   }
 
   // Compute adjacency/zone snapshot for freeze semantics
-  const adjacency = await loadAdjacency(booking.restaurant_id, tableIds, supabase);
-  const adjacencyUndirected = isAdjacencyQueryUndirected();
+  // =============================================
+  // IMPORTANT: Adjacency snapshots are ONLY created when adjacency is required.
+  // This prevents unnecessary validation errors during hold confirmation when
+  // tables don't need to be adjacent (e.g., manual assignment with requireAdjacency=false).
+  //
+  // When requireAdjacency = true:
+  //   - Capture adjacency edges and compute hash
+  //   - Store in hold metadata for validation during confirmation
+  //
+  // When requireAdjacency = false:
+  //   - Skip snapshot creation (snapshot = null)
+  //   - Hold confirmation will skip adjacency validation
+  // =============================================
+  let adjacencySnapshot: string | null = null;
+  let normalizedEdges: string[] = [];
+  let adjacencyUndirected = false;
   const zoneIds = Array.from(new Set(selectionTables.map((t) => t.zoneId))).filter(Boolean) as string[];
-  const edgeSet = new Set<string>();
-  for (const a of tableIds) {
-    const neighbors = adjacency.get(a);
-    if (!neighbors) continue;
-    for (const b of neighbors) {
-      if (!tableIds.includes(b)) continue;
-      const key = adjacencyUndirected
-        ? ([a, b].sort((x, y) => x.localeCompare(y)) as [string, string]).join("->")
-        : `${a}->${b}`;
-      edgeSet.add(key);
+
+  if (requireAdjacency) {
+    const adjacency = await loadAdjacency(booking.restaurant_id, tableIds, supabase);
+    adjacencyUndirected = isAdjacencyQueryUndirected();
+    const edgeSet = new Set<string>();
+    for (const a of tableIds) {
+      const neighbors = adjacency.get(a);
+      if (!neighbors) continue;
+      for (const b of neighbors) {
+        if (!tableIds.includes(b)) continue;
+        const key = adjacencyUndirected
+          ? ([a, b].sort((x, y) => x.localeCompare(y)) as [string, string]).join("->")
+          : `${a}->${b}`;
+        edgeSet.add(key);
+      }
     }
+    normalizedEdges = Array.from(edgeSet).sort();
+    adjacencySnapshot = computePayloadChecksum({ undirected: adjacencyUndirected, edges: normalizedEdges });
   }
-  const normalizedEdges = Array.from(edgeSet).sort();
-  const adjacencySnapshot = computePayloadChecksum({ undirected: adjacencyUndirected, edges: normalizedEdges });
 
   const holdPayload: CreateTableHoldInput = {
     bookingId,
@@ -357,16 +441,17 @@ export async function createManualHold(options: ManualHoldOptions): Promise<Manu
       selection: {
         tableIds,
         summary: validation.summary,
-        snapshot: {
+        snapshot: requireAdjacency ? {
           zoneIds,
           adjacency: {
             undirected: adjacencyUndirected,
             edges: normalizedEdges,
             hash: adjacencySnapshot,
           },
-        },
+        } : null,
       },
       policyVersion,
+      requireAdjacency, // Store the requirement for later validation
     },
     client: supabase,
   };
@@ -423,6 +508,11 @@ export async function getManualAssignmentContext(options: {
   }
 
   const tables = await loadTablesForRestaurant(booking.restaurant_id, supabase);
+  const adjacency = await loadAdjacency(
+    booking.restaurant_id,
+    tables.map((table) => table.id),
+    supabase,
+  );
   const contextBookings = await loadContextBookings(
     booking.restaurant_id,
     booking.booking_date ?? null,
@@ -479,16 +569,22 @@ export async function getManualAssignmentContext(options: {
     adjacencyRequired: isAllocatorAdjacencyRequired(),
     adjacencyUndirected: isAdjacencyQueryUndirected(),
   };
-  const contextVersionPayload = {
-    holds: holds.map((h) => ({ id: h.id, tableIds: h.tableIds, startAt: h.startAt, endAt: h.endAt })),
-    assignments: bookingAssignments.map((row) => row.table_id),
-    flags,
-    window: {
-      startAt: toIsoUtc(window.block.start),
-      endAt: toIsoUtc(window.block.end),
-    },
-  };
-  const contextVersion = computePayloadChecksum(contextVersionPayload);
+  const policyVersion = hashPolicyVersion(policy);
+  const tableVersion = buildTableVersion(tables);
+  const adjacencyVersion = buildAdjacencyVersion(adjacency);
+  const holdsVersion = buildHoldsVersion(holds);
+  const assignmentsVersion = buildAssignmentsVersion(bookingAssignments.map((row) => row.table_id));
+  const flagsVersion = buildFlagsVersion(flags);
+  const windowVersion = buildWindowVersion(window);
+  const contextVersion = computePayloadChecksum({
+    holds: holdsVersion,
+    assignments: assignmentsVersion,
+    flags: flagsVersion,
+    window: windowVersion,
+    policy: policyVersion,
+    adjacency: adjacencyVersion,
+    tables: tableVersion,
+  });
   const serverNow = toIsoUtc(DateTime.now());
 
   return {
@@ -504,6 +600,17 @@ export async function getManualAssignmentContext(options: {
     },
     flags,
     contextVersion,
+    policyVersion,
+    versions: {
+      context: contextVersion,
+      policy: policyVersion,
+      window: windowVersion,
+      flags: flagsVersion,
+      tables: tableVersion,
+      adjacency: adjacencyVersion,
+      holds: holdsVersion,
+      assignments: assignmentsVersion,
+    },
     serverNow,
   };
 }
@@ -540,4 +647,228 @@ async function hydrateHoldMetadata(holds: TableHold[], client: DbClient): Promis
       createdByEmail: creator?.email ?? null,
     };
   });
+}
+
+/**
+ * Instant table assignment - validates, creates hold, and confirms in one optimized operation
+ * This is a performance-optimized single-step assignment that bypasses the manual hold workflow
+ *
+ * Flow:
+ * 1. Validate selection (parallel data loading)
+ * 2. Create + immediately confirm hold (atomic transaction)
+ * 3. Return final assignment result
+ *
+ * @returns Hold result with immediate confirmation
+ */
+export async function instantTableAssignment(options: ManualHoldOptions & { assignedBy?: string | null }): Promise<ManualHoldResult & { instantAssignment: true }> {
+  const {
+    bookingId,
+    tableIds,
+    requireAdjacency: requireAdjacencyOverride,
+    excludeHoldId,
+    holdTtlSeconds = DEFAULT_HOLD_TTL_SECONDS,
+    holdExpiresAt,
+    createdBy,
+    client,
+    assignedBy,
+  } = options;
+
+  const supabase = ensureClient(client);
+
+  // === STEP 1: Load booking first, then selection tables ===
+  const booking = await loadBooking(bookingId, supabase);
+  const selectionTables = await loadTablesByIds(booking.restaurant_id, tableIds, supabase);
+
+  if (selectionTables.length !== tableIds.length) {
+    throw new ManualSelectionInputError("One or more selected tables were not found", "TABLE_LOOKUP_FAILED");
+  }
+
+  const restaurantTimezone =
+    (booking.restaurants && !Array.isArray(booking.restaurants) ? booking.restaurants.timezone : null) ??
+    (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
+    getVenuePolicy().timezone;
+  const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
+  const policyVersion = hashPolicyVersion(policy);
+
+  let window: BookingWindow;
+  try {
+    ({ window } = computeBookingWindowWithFallback({
+      startISO: booking.start_at,
+      bookingDate: booking.booking_date,
+      startTime: booking.start_time,
+      partySize: booking.party_size,
+      policy,
+    }));
+  } catch (error) {
+    if (error instanceof ServiceOverrunError) {
+      throw new ManualSelectionInputError(error.message, "SERVICE_OVERRUN", 422);
+    }
+    throw error;
+  }
+
+  // === STEP 2: Run validation checks in PARALLEL ===
+  const requireAdjacency = resolveRequireAdjacency(booking.party_size, requireAdjacencyOverride);
+  const summary = summarizeSelection(selectionTables, booking.party_size);
+
+  if (booking.assigned_zone_id && summary.zoneId && booking.assigned_zone_id !== summary.zoneId) {
+    throw new ManualSelectionInputError(
+      `Booking is locked to zone ${booking.assigned_zone_id}; selected zone ${summary.zoneId} is not allowed`,
+      "ZONE_LOCKED",
+      409,
+    );
+  }
+
+  // Load adjacency, context, and holds in PARALLEL
+  const [adjacency, contextBookings, activeHolds] = await Promise.all([
+    requireAdjacency ? loadAdjacency(booking.restaurant_id, tableIds, supabase) : Promise.resolve(new Map<string, Set<string>>()),
+    loadContextBookings(
+      booking.restaurant_id,
+      booking.booking_date ?? null,
+      supabase,
+      {
+        startIso: toIsoUtc(window.block.start),
+        endIso: toIsoUtc(window.block.end),
+      },
+    ),
+    fetchHoldsForWindow(booking.restaurant_id, window, supabase),
+  ]);
+
+  // Build busy maps and extract conflicts
+  const busyMaps = buildBusyMaps({
+    targetBookingId: bookingId,
+    bookings: contextBookings,
+    holds: activeHolds,
+    excludeHoldId,
+    policy,
+    targetWindow: window,
+  });
+  const conflicts = extractConflictsForTables(busyMaps, tableIds, window);
+
+  let holdConflicts: HoldConflictInfo[] = [];
+  try {
+    holdConflicts = await findHoldConflicts({
+      restaurantId: booking.restaurant_id,
+      tableIds,
+      startAt: toIsoUtc(window.block.start),
+      endAt: toIsoUtc(window.block.end),
+      excludeHoldId,
+      client: supabase,
+    });
+  } catch {
+    holdConflicts = [];
+  }
+
+  const slackBudget = resolveManualSlackBudget();
+  const checks = buildManualChecks({
+    summary,
+    tables: selectionTables,
+    requireAdjacency,
+    adjacency,
+    conflicts,
+    holdConflicts,
+    slackBudget,
+  });
+
+  const hasBlockingErrors = checks.some((check) => check.status === "error");
+  if (hasBlockingErrors) {
+    throw new ManualSelectionInputError(
+      "Selection validation failed. Please resolve errors and try again.",
+      "VALIDATION_FAILED",
+      400,
+    );
+  }
+
+  // === STEP 3: Create hold with metadata (optimized - no separate validation call) ===
+  const startAtIso = toIsoUtc(window.block.start);
+  const endAtIso = toIsoUtc(window.block.end);
+  const expiresAt =
+    holdExpiresAt ??
+    toIsoUtc(DateTime.now().plus({ seconds: holdTtlSeconds })) ??
+    toIsoUtc(window.block.start.plus({ minutes: 2 }));
+
+  const zoneIdValue = summary.zoneId ?? selectionTables[0]?.zoneId;
+  if (!zoneIdValue) {
+    throw new ManualSelectionInputError("Unable to determine zone for selected tables", "ZONE_REQUIRED");
+  }
+
+  // Compute adjacency snapshot only if required
+  let adjacencySnapshot: string | null = null;
+  let normalizedEdges: string[] = [];
+  let adjacencyUndirected = false;
+  const zoneIds = Array.from(new Set(selectionTables.map((t) => t.zoneId))).filter(Boolean) as string[];
+
+  if (requireAdjacency) {
+    adjacencyUndirected = isAdjacencyQueryUndirected();
+    const edgeSet = new Set<string>();
+    for (const a of tableIds) {
+      const neighbors = adjacency.get(a);
+      if (!neighbors) continue;
+      for (const b of neighbors) {
+        if (!tableIds.includes(b)) continue;
+        const key = adjacencyUndirected
+          ? ([a, b].sort((x, y) => x.localeCompare(y)) as [string, string]).join("->")
+          : `${a}->${b}`;
+        edgeSet.add(key);
+      }
+    }
+    normalizedEdges = Array.from(edgeSet).sort();
+    adjacencySnapshot = computePayloadChecksum({ undirected: adjacencyUndirected, edges: normalizedEdges });
+  }
+
+  const holdPayload: CreateTableHoldInput = {
+    bookingId,
+    restaurantId: booking.restaurant_id,
+    zoneId: zoneIdValue,
+    tableIds,
+    startAt: startAtIso,
+    endAt: endAtIso,
+    expiresAt,
+    createdBy,
+    metadata: {
+      selection: {
+        tableIds,
+        summary: summary,
+        snapshot: requireAdjacency ? {
+          zoneIds,
+          adjacency: {
+            undirected: adjacencyUndirected,
+            edges: normalizedEdges,
+            hash: adjacencySnapshot,
+          },
+        } : null,
+      },
+      policyVersion,
+      requireAdjacency,
+      instantAssignment: true, // Flag to indicate this was an instant assignment
+      assignedBy,
+    },
+    client: supabase,
+  };
+
+  const hold = await createTableHold(holdPayload);
+
+  // Release old hold if specified (don't wait for it)
+  if (excludeHoldId) {
+    releaseHoldWithRetry({ holdId: excludeHoldId, client: supabase }).catch((error) => {
+      console.warn("[capacity][manual][instant] failed to release replaced hold", {
+        bookingId,
+        newHoldId: hold.id,
+        previousHoldId: excludeHoldId,
+        error,
+      });
+    });
+  }
+
+  // Return hold result with instant assignment flag
+  return {
+    hold,
+    validation: {
+      ok: true,
+      summary,
+      checks,
+      policyVersion,
+      slackBudget,
+    },
+    instantAssignment: true,
+  };
 }

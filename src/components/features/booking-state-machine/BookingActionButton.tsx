@@ -80,7 +80,8 @@ export function BookingActionButton({
   const primaryConfig: ButtonConfig = useMemo(() => {
     switch (effectiveStatus) {
       case "confirmed":
-        return { action: "check-in", label: "Check in", variant: "default" };
+      case "PRIORITY_WAITLIST":
+        return { action: "check-in", label: "Seat Guest", variant: "default" };
       case "checked_in":
         return { action: "check-out", label: "Check out", variant: "default" };
       case "completed":
@@ -95,7 +96,7 @@ export function BookingActionButton({
   }, [effectiveStatus]);
 
   const secondaryConfig: ButtonConfig | null = useMemo(() => {
-    if (effectiveStatus === "confirmed") {
+    if (effectiveStatus === "confirmed" || effectiveStatus === "PRIORITY_WAITLIST") {
       return { action: "no-show", label: "Mark no show", variant: "destructive" };
     }
     if (effectiveStatus === "no_show") {

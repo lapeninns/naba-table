@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
 
+import { Toggle } from "@/components/ui/toggle";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -13,13 +14,15 @@ type Props = {
 
 export default function CategoryTab({ icon, label, active, onClick, className }: Props) {
   return (
-    <button
+    <Toggle
       role="tab"
       aria-selected={!!active}
-      onClick={onClick}
+      pressed={!!active}
+      onPressedChange={() => {
+        onClick?.();
+      }}
       className={cn(
-        "category-tab",
-        "flex flex-col items-center gap-2 px-4 py-3 min-h-[var(--touch-target)]",
+        "category-tab flex min-h-[var(--touch-target)] flex-col items-center gap-2 px-4 py-3",
         active ? "text-[color:var(--color-text-primary)]" : "text-[color:var(--color-text-secondary)]",
         className,
       )}
@@ -33,7 +36,6 @@ export default function CategoryTab({ icon, label, active, onClick, className }:
           active ? "bg-[color:var(--color-primary)]" : "bg-transparent",
         )}
       />
-    </button>
+    </Toggle>
   );
 }
-

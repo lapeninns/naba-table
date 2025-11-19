@@ -19,6 +19,31 @@ const safeParse = <T>(value: string | null): T | undefined => {
   }
 };
 
+const dropPendingQueries = (client: PersistedClient | undefined): PersistedClient | undefined => {
+  if (!client?.clientState?.queries) {
+    return client;
+  }
+
+  const filtered = client.clientState.queries.filter((query) => query?.state?.status !== 'pending');
+  if (filtered.length === client.clientState.queries.length) {
+    return client;
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn('[query-persist] removed pending queries from persisted cache', {
+      removed: client.clientState.queries.length - filtered.length,
+    });
+  }
+
+  return {
+    ...client,
+    clientState: {
+      ...client.clientState,
+      queries: filtered,
+    },
+  };
+};
+
 const createLocalStoragePersister = (key: string): Persister => ({
   persistClient: async (client) => {
     try {
@@ -29,7 +54,22 @@ const createLocalStoragePersister = (key: string): Persister => ({
       }
     }
   },
-  restoreClient: async () => safeParse<PersistedClient>(window.localStorage.getItem(key)),
+  restoreClient: async () => {
+    const parsed = safeParse<PersistedClient>(window.localStorage.getItem(key));
+    const sanitized = dropPendingQueries(parsed);
+
+    if (sanitized && sanitized !== parsed) {
+      try {
+        window.localStorage.setItem(key, JSON.stringify(sanitized));
+      } catch (error) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('[query-persist] failed to rewrite sanitized cache', error);
+        }
+      }
+    }
+
+    return sanitized;
+  },
   removeClient: async () => {
     window.localStorage.removeItem(key);
   },
@@ -56,15 +96,24 @@ export function configureQueryPersistence(
   }
 
   const persister = createLocalStoragePersister(options.storageKey ?? STORAGE_KEY);
-
-  void persistQueryClient({
+  const [unsubscribePersistence, restorePromise] = persistQueryClient({
     queryClient: queryClient as CoreQueryClient,
     persister,
     buster: options.buster ?? STORAGE_VERSION,
     maxAge: options.maxAge ?? DEFAULT_MAX_AGE,
     dehydrateOptions: {
-      shouldDehydrateQuery: (query) => query.meta?.persist !== false,
+      shouldDehydrateQuery: (query) => {
+        // Avoid persisting transient/pending queries to prevent hydration errors.
+        if (query.state.status === 'pending') return false;
+        return query.meta?.persist !== false;
+      },
     },
+  });
+
+  void restorePromise.catch((error) => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[query-persist] failed to restore persisted cache', error);
+    }
   });
 
   const unsubscribe = onlineManager.setEventListener((setOnline) => {
@@ -78,6 +127,7 @@ export function configureQueryPersistence(
   });
 
   return () => {
+    (unsubscribePersistence as (() => void) | undefined)?.();
     (unsubscribe as (() => void) | undefined)?.();
   };
 }

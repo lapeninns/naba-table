@@ -10,6 +10,8 @@ import type { BookingDTO } from '@/hooks/useBookings';
 
 type OpsBookingDetailsDialogProps = {
   booking: BookingDTO;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   formatDate: (iso: string) => string;
   formatTime: (iso: string) => string;
 };
@@ -39,7 +41,7 @@ function InfoItem({ label, value, href }: InfoItemProps) {
   );
 }
 
-export function OpsBookingDetailsDialog({ booking, formatDate, formatTime }: OpsBookingDetailsDialogProps) {
+export function OpsBookingDetailsDialog({ booking, open, onOpenChange, formatDate, formatTime }: OpsBookingDetailsDialogProps) {
   const serviceDate = formatDate(booking.startIso);
   const startTime = formatTime(booking.startIso);
   const endTime = booking.endIso ? formatTime(booking.endIso) : null;
@@ -53,12 +55,7 @@ export function OpsBookingDetailsDialog({ booking, formatDate, formatTime }: Ops
   const restaurantLabel = booking.restaurantName?.trim() || '—';
 
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button type="button" size="sm" variant="outline">
-          Details
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md space-y-5">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between gap-3 text-left text-lg font-semibold text-foreground">

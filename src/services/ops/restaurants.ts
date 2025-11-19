@@ -4,8 +4,7 @@ import type { RestaurantRole } from '@/lib/owner/auth/roles';
 import type { OpsRestaurantOption, OpsServiceError } from '@/types/ops';
 import type { OccasionKey } from '@reserve/shared/occasions';
 
-const OPS_RESTAURANTS_BASE = '/api/ops/restaurants';
-const OWNER_RESTAURANTS_BASE = '/api/owner/restaurants';
+const OPS_RESTAURANTS_BASE = '/api/restaurants';
 
 type RestaurantsListResponse = {
   items: Array<{
@@ -17,6 +16,7 @@ type RestaurantsListResponse = {
     contactEmail: string | null;
     contactPhone: string | null;
     address: string | null;
+    googleMapUrl: string | null;
     bookingPolicy: string | null;
     createdAt: string;
     updatedAt: string;
@@ -40,12 +40,16 @@ type RestaurantResponse = {
     contactEmail: string | null;
     contactPhone: string | null;
     address: string | null;
-  bookingPolicy: string | null;
-  logoUrl: string | null;
-  reservationIntervalMinutes: number | null;
-  reservationDefaultDurationMinutes: number | null;
-  reservationLastSeatingBufferMinutes: number | null;
-  createdAt: string;
+    googleMapUrl: string | null;
+    bookingPolicy: string | null;
+    logoUrl: string | null;
+    emailSendReminder24h: boolean;
+    emailSendReminderShort: boolean;
+    emailSendReviewRequest: boolean;
+    reservationIntervalMinutes: number | null;
+    reservationDefaultDurationMinutes: number | null;
+    reservationLastSeatingBufferMinutes: number | null;
+    createdAt: string;
     updatedAt: string;
     role: RestaurantRole;
   };
@@ -65,8 +69,12 @@ export type RestaurantProfile = {
   contactEmail: string | null;
   contactPhone: string | null;
   address: string | null;
+  googleMapUrl: string | null;
   bookingPolicy: string | null;
   logoUrl: string | null;
+  emailSendReminder24h: boolean;
+  emailSendReminderShort: boolean;
+  emailSendReviewRequest: boolean;
   reservationIntervalMinutes: number;
   reservationDefaultDurationMinutes: number;
   reservationLastSeatingBufferMinutes: number;
@@ -172,8 +180,12 @@ function mapRestaurant(dto: RestaurantResponse['restaurant']): RestaurantProfile
     contactEmail: dto.contactEmail ?? null,
     contactPhone: dto.contactPhone ?? null,
     address: dto.address ?? null,
+    googleMapUrl: dto.googleMapUrl ?? null,
     bookingPolicy: dto.bookingPolicy ?? null,
     logoUrl: dto.logoUrl ?? null,
+    emailSendReminder24h: dto.emailSendReminder24h ?? true,
+    emailSendReminderShort: dto.emailSendReminderShort ?? true,
+    emailSendReviewRequest: dto.emailSendReviewRequest ?? true,
     reservationIntervalMinutes: dto.reservationIntervalMinutes ?? 15,
     reservationDefaultDurationMinutes: dto.reservationDefaultDurationMinutes ?? 90,
     reservationLastSeatingBufferMinutes: dto.reservationLastSeatingBufferMinutes ?? 15,
@@ -209,11 +221,11 @@ export function createBrowserRestaurantService(): RestaurantService {
     },
 
     async getOperatingHours(restaurantId: string) {
-      return fetchJson<OperatingHoursSnapshot>(`${OWNER_RESTAURANTS_BASE}/${restaurantId}/hours`);
+      return fetchJson<OperatingHoursSnapshot>(`${OPS_RESTAURANTS_BASE}/${restaurantId}/hours`);
     },
 
     async updateOperatingHours(restaurantId: string, snapshot: OperatingHoursSnapshot) {
-      return fetchJson<OperatingHoursSnapshot>(`${OWNER_RESTAURANTS_BASE}/${restaurantId}/hours`, {
+      return fetchJson<OperatingHoursSnapshot>(`${OPS_RESTAURANTS_BASE}/${restaurantId}/hours`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(snapshot),
@@ -221,12 +233,12 @@ export function createBrowserRestaurantService(): RestaurantService {
     },
 
     async getServicePeriods(restaurantId: string) {
-      const response = await fetchJson<ServicePeriodsResponse>(`${OWNER_RESTAURANTS_BASE}/${restaurantId}/service-periods`);
+      const response = await fetchJson<ServicePeriodsResponse>(`${OPS_RESTAURANTS_BASE}/${restaurantId}/service-periods`);
       return response.periods;
     },
 
     async updateServicePeriods(restaurantId: string, rows: ServicePeriodRow[]) {
-      const response = await fetchJson<ServicePeriodsResponse>(`${OWNER_RESTAURANTS_BASE}/${restaurantId}/service-periods`, {
+      const response = await fetchJson<ServicePeriodsResponse>(`${OPS_RESTAURANTS_BASE}/${restaurantId}/service-periods`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(rows),

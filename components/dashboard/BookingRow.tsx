@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { BookingActionButton, BookingStatusBadge, StatusTransitionAnimator, type BookingActionSubject, type BookingAction } from '@/components/features/booking-state-machine';
 import { Button } from '@/components/ui/button';
@@ -64,6 +64,7 @@ export function BookingRow({
   variant = 'guest',
   opsLifecycle,
 }: BookingRowProps) {
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const isCancelled = booking.status === 'cancelled';
   const { displayStatus, isPast } = deriveBookingDisplayState(booking, { isPastView });
   const isOpsVariant = variant === 'ops';
@@ -147,10 +148,22 @@ export function BookingRow({
                 showConfirmation
                 lifecycleAvailability={lifecycleAvailability}
               />
-              <OpsBookingDetailsDialog booking={booking} formatDate={formatDate} formatTime={formatTime} />
+              <OpsBookingDetailsDialog
+                booking={booking}
+                formatDate={formatDate}
+                formatTime={formatTime}
+                open={isDetailsOpen}
+                onOpenChange={setIsDetailsOpen}
+              />
             </>
           ) : isOpsVariant ? (
-            <OpsBookingDetailsDialog booking={booking} formatDate={formatDate} formatTime={formatTime} />
+            <OpsBookingDetailsDialog
+              booking={booking}
+              formatDate={formatDate}
+              formatTime={formatTime}
+              open={isDetailsOpen}
+              onOpenChange={setIsDetailsOpen}
+            />
           ) : null}
           <Button
             type="button"

@@ -64,6 +64,13 @@ function parseArgs(): { id: string; out?: string } {
   return { id, out };
 }
 
+function buildGoogleMapUrl(address: string | null | undefined): string | null {
+  if (!address) return null;
+  const trimmed = address.trim();
+  if (!trimmed) return null;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(trimmed)}`;
+}
+
 async function resolveVenueDetails(restaurantId: string): Promise<VenueDetails> {
   const supabase = getServiceSupabaseClient();
   const execute = (includeLogo: boolean) =>
@@ -83,6 +90,7 @@ async function resolveVenueDetails(restaurantId: string): Promise<VenueDetails> 
 
   if (error || !data) throw new Error('Restaurant not found or DB error');
   const restaurant = ensureLogoColumnOnRow(data);
+  const googleMapUrl = restaurant.google_map_url || buildGoogleMapUrl(restaurant.address);
   return {
     id: restaurant.id,
     name: restaurant.name || 'Restaurant',
@@ -92,6 +100,7 @@ async function resolveVenueDetails(restaurantId: string): Promise<VenueDetails> 
     email: restaurant.contact_email || '',
     policy: restaurant.booking_policy || '',
     logoUrl: restaurant.logo_url || null,
+    googleMapUrl: googleMapUrl || null,
   };
 }
 

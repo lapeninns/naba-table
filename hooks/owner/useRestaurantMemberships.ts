@@ -16,7 +16,7 @@ export function useRestaurantMemberships(): UseQueryResult<RestaurantMembership[
   return useQuery<RestaurantMembership[], HttpError>({
     queryKey: queryKeys.team.memberships(),
     queryFn: async () => {
-      const data = await fetchJson<unknown>('/api/owner/team/memberships');
+      const data = await fetchJson<unknown>('/api/ops/team/memberships');
       const parsed = restaurantMembershipResponseSchema.parse(data);
       return parsed.memberships;
     },

@@ -19,8 +19,12 @@ export type UpdateRestaurantInput = {
   contactEmail?: string | null;
   contactPhone?: string | null;
   address?: string | null;
+  googleMapUrl?: string | null;
   bookingPolicy?: string | null;
   logoUrl?: string | null;
+  emailSendReminder24h?: boolean;
+  emailSendReminderShort?: boolean;
+  emailSendReviewRequest?: boolean;
   reservationIntervalMinutes?: number;
   reservationDefaultDurationMinutes?: number;
   reservationLastSeatingBufferMinutes?: number;
@@ -35,8 +39,12 @@ export type UpdatedRestaurant = {
   contactEmail: string | null;
   contactPhone: string | null;
   address: string | null;
+  googleMapUrl: string | null;
   bookingPolicy: string | null;
   logoUrl: string | null;
+  emailSendReminder24h: boolean;
+  emailSendReminderShort: boolean;
+  emailSendReviewRequest: boolean;
   reservationIntervalMinutes: number;
   reservationDefaultDurationMinutes: number;
   reservationLastSeatingBufferMinutes: number;
@@ -98,6 +106,11 @@ export async function updateRestaurant(
     updateData.address = input.address;
   }
 
+  if (input.googleMapUrl !== undefined) {
+    const trimmed = input.googleMapUrl?.trim();
+    updateData.google_map_url = trimmed && trimmed.length > 0 ? trimmed : null;
+  }
+
   if (input.bookingPolicy !== undefined) {
     updateData.booking_policy = input.bookingPolicy;
   }
@@ -129,6 +142,18 @@ export async function updateRestaurant(
       throw new Error('Last seating buffer must be an integer between 15 and 300 minutes.');
     }
     updateData.reservation_last_seating_buffer_minutes = value;
+  }
+
+  if (input.emailSendReminder24h !== undefined) {
+    updateData.email_send_reminder_24h = input.emailSendReminder24h;
+  }
+
+  if (input.emailSendReminderShort !== undefined) {
+    updateData.email_send_reminder_short = input.emailSendReminderShort;
+  }
+
+  if (input.emailSendReviewRequest !== undefined) {
+    updateData.email_send_review_request = input.emailSendReviewRequest;
   }
 
   const runUpdate = (includeLogo: boolean, payload: RestaurantUpdate) =>
@@ -167,8 +192,12 @@ export async function updateRestaurant(
     contactEmail: data.contact_email,
     contactPhone: data.contact_phone,
     address: data.address,
+    googleMapUrl: data.google_map_url,
     bookingPolicy: data.booking_policy,
     logoUrl: data.logo_url,
+    emailSendReminder24h: data.email_send_reminder_24h ?? true,
+    emailSendReminderShort: data.email_send_reminder_short ?? true,
+    emailSendReviewRequest: data.email_send_review_request ?? true,
     reservationIntervalMinutes: data.reservation_interval_minutes,
     reservationDefaultDurationMinutes: data.reservation_default_duration_minutes,
     reservationLastSeatingBufferMinutes: data.reservation_last_seating_buffer_minutes,

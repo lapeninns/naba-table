@@ -18,7 +18,7 @@
     ]
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbo",
     "build": "next build",
     "postbuild": "next-sitemap",
     "start": "next start",
@@ -119,7 +119,7 @@
     "ioredis": "^5.8.2",
     "lucide-react": "^0.544.0",
     "luxon": "^3.7.2",
-    "next": "^16.0.0",
+    "next": "^16.0.3",
     "next-plausible": "^3.12.4",
     "next-sitemap": "^4.2.3",
     "nextjs-toploader": "^3.9.17",

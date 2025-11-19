@@ -21,8 +21,12 @@ export type RestaurantListItem = {
   contactEmail: string | null;
   contactPhone: string | null;
   address: string | null;
+  googleMapUrl: string | null;
   bookingPolicy: string | null;
   logoUrl: string | null;
+  emailSendReminder24h: boolean;
+  emailSendReminderShort: boolean;
+  emailSendReviewRequest: boolean;
   reservationIntervalMinutes: number;
   reservationDefaultDurationMinutes: number;
   reservationLastSeatingBufferMinutes: number;
@@ -121,8 +125,12 @@ export async function listRestaurantsForOps(
       contactEmail: row.contact_email,
       contactPhone: row.contact_phone,
       address: row.address,
+      googleMapUrl: row.google_map_url,
       bookingPolicy: row.booking_policy,
       logoUrl: row.logo_url,
+      emailSendReminder24h: row.email_send_reminder_24h ?? true,
+      emailSendReminderShort: row.email_send_reminder_short ?? true,
+      emailSendReviewRequest: row.email_send_review_request ?? true,
       reservationIntervalMinutes: row.reservation_interval_minutes,
       reservationDefaultDurationMinutes: row.reservation_default_duration_minutes,
       reservationLastSeatingBufferMinutes: row.reservation_last_seating_buffer_minutes,

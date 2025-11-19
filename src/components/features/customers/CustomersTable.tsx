@@ -1,6 +1,9 @@
 'use client';
 
+import Link from 'next/link';
+
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 
 import type { OpsCustomer } from '@/types/ops';
@@ -33,8 +36,15 @@ function EmptyState() {
 }
 
 function CustomerCard({ customer }: { customer: OpsCustomer }) {
+  const bookingHref = `/bookings/new?prefillName=${encodeURIComponent(customer.name ?? '')}&prefillEmail=${encodeURIComponent(customer.email ?? '')}&prefillPhone=${encodeURIComponent(customer.phone ?? '')}`;
+
   return (
-    <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
+    <div
+      className="rounded-lg border border-border bg-card p-4 shadow-sm"
+      data-customer-id={customer.id}
+      data-customer-email={(customer.email ?? '').toLowerCase()}
+      tabIndex={-1}
+    >
       <div className="space-y-3">
         <div>
           <h3 className="font-semibold text-foreground">{customer.name}</h3>
@@ -62,6 +72,12 @@ function CustomerCard({ customer }: { customer: OpsCustomer }) {
             Marketing Opt-in
           </Badge>
         )}
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild variant="outline" size="sm" className="touch-manipulation">
+            <Link href={bookingHref}>New booking</Link>
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -148,56 +164,80 @@ export function CustomersTable({ customers, isLoading }: CustomersTableProps) {
                 >
                   Marketing
                 </th>
+                <th
+                  scope="col"
+                  className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                >
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/70">
               {showSkeleton
                 ? skeletonRows.map((row) => (
-                    <tr key={`skeleton-${row}`}>
-                      <td className="px-4 py-4">
-                        <Skeleton className="h-4 w-32" />
-                      </td>
-                      <td className="px-4 py-4">
-                        <Skeleton className="h-4 w-48" />
-                      </td>
-                      <td className="px-4 py-4">
-                        <Skeleton className="h-4 w-32" />
-                      </td>
-                      <td className="px-4 py-4 text-right">
-                        <Skeleton className="ml-auto h-4 w-8" />
-                      </td>
-                      <td className="px-4 py-4 text-right">
-                        <Skeleton className="ml-auto h-4 w-8" />
-                      </td>
-                      <td className="px-4 py-4">
-                        <Skeleton className="h-4 w-24" />
-                      </td>
-                      <td className="px-4 py-4 text-center">
-                        <Skeleton className="mx-auto h-5 w-16" />
-                      </td>
-                    </tr>
-                  ))
+                  <tr key={`skeleton-${row}`}>
+                    <td className="px-4 py-4">
+                      <Skeleton className="h-4 w-32" />
+                    </td>
+                    <td className="px-4 py-4">
+                      <Skeleton className="h-4 w-48" />
+                    </td>
+                    <td className="px-4 py-4">
+                      <Skeleton className="h-4 w-32" />
+                    </td>
+                    <td className="px-4 py-4 text-right">
+                      <Skeleton className="ml-auto h-4 w-8" />
+                    </td>
+                    <td className="px-4 py-4 text-right">
+                      <Skeleton className="ml-auto h-4 w-8" />
+                    </td>
+                    <td className="px-4 py-4">
+                      <Skeleton className="h-4 w-24" />
+                    </td>
+                    <td className="px-4 py-4 text-center">
+                      <Skeleton className="mx-auto h-5 w-16" />
+                    </td>
+                    <td className="px-4 py-4 text-center">
+                      <Skeleton className="mx-auto h-9 w-24" />
+                    </td>
+                  </tr>
+                ))
                 : customers.map((customer) => (
-                    <tr key={customer.id} className="hover:bg-muted/50">
-                      <td className="px-4 py-4 font-medium text-foreground">{customer.name}</td>
-                      <td className="px-4 py-4 text-sm text-muted-foreground">{customer.email}</td>
-                      <td className="px-4 py-4 text-sm text-muted-foreground">{customer.phone}</td>
-                      <td className="px-4 py-4 text-right text-sm text-foreground">{customer.totalBookings}</td>
-                      <td className="px-4 py-4 text-right text-sm text-foreground">{customer.totalCovers}</td>
-                      <td className="px-4 py-4 text-sm text-muted-foreground">
-                        {formatDate(customer.lastBookingAt)}
-                      </td>
-                      <td className="px-4 py-4 text-center">
-                        {customer.marketingOptIn ? (
-                          <Badge variant="secondary" className="text-xs">
-                            Yes
-                          </Badge>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">No</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  <tr
+                    key={customer.id}
+                    className="hover:bg-muted/50"
+                    data-customer-id={customer.id}
+                    data-customer-email={(customer.email ?? '').toLowerCase()}
+                    tabIndex={-1}
+                  >
+                    <td className="px-4 py-4 font-medium text-foreground">{customer.name}</td>
+                    <td className="px-4 py-4 text-sm text-muted-foreground">{customer.email}</td>
+                    <td className="px-4 py-4 text-sm text-muted-foreground">{customer.phone}</td>
+                    <td className="px-4 py-4 text-right text-sm text-foreground">{customer.totalBookings}</td>
+                    <td className="px-4 py-4 text-right text-sm text-foreground">{customer.totalCovers}</td>
+                    <td className="px-4 py-4 text-sm text-muted-foreground">
+                      {formatDate(customer.lastBookingAt)}
+                    </td>
+                    <td className="px-4 py-4 text-center">
+                      {customer.marketingOptIn ? (
+                        <Badge variant="secondary" className="text-xs">
+                          Yes
+                        </Badge>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">No</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-4 text-center">
+                      <Button asChild variant="outline" size="sm" className="touch-manipulation">
+                        <Link
+                          href={`/bookings/new?prefillName=${encodeURIComponent(customer.name ?? '')}&prefillEmail=${encodeURIComponent(customer.email ?? '')}&prefillPhone=${encodeURIComponent(customer.phone ?? '')}`}
+                        >
+                          New booking
+                        </Link>
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>

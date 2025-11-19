@@ -7,6 +7,7 @@ export type VenueDetails = {
   policy: string;
   timezone: string;
   logoUrl: string | null;
+  googleMapUrl: string | null;
 };
 
 export const DEFAULT_RESTAURANT_ID =
@@ -22,4 +23,5 @@ export const DEFAULT_VENUE: VenueDetails = {
     "You can cancel or amend up to 24 hours before your reservation. After that window please call the venue and we’ll do our best to help.",
   timezone: "Europe/London",
   logoUrl: null,
+  googleMapUrl: null,
 };

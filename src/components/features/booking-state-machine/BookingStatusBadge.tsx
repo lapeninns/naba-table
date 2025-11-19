@@ -24,9 +24,7 @@ export type StatusBadgeConfig = {
   label: string;
   description: string;
   icon: LucideIcon;
-  foreground: string;
-  background: string;
-  border: string;
+  className: string;
   pulse?: boolean;
 };
 
@@ -35,58 +33,50 @@ export const BOOKING_STATUS_CONFIG: Record<OpsBookingStatus, StatusBadgeConfig> 
     label: "Pending",
     description: "Awaiting confirmation or allocation.",
     icon: Clock,
-    foreground: "#92400E",
-    background: "#FEF3C7",
-    border: "#FDE68A",
+    className: "border-amber-200 bg-amber-50 text-amber-800",
   },
   pending_allocation: {
     label: "Pending allocation",
     description: "Needs table allocation.",
     icon: Square,
-    foreground: "#1F2937",
-    background: "#E5E7EB",
-    border: "#D1D5DB",
+    className: "border-slate-200 bg-slate-100 text-slate-800",
   },
   confirmed: {
     label: "Confirmed",
     description: "Guest is confirmed to arrive.",
     icon: CheckCircle2,
-    foreground: "#3B82F6",
-    background: "#DBEAFE",
-    border: "#BFDBFE",
+    className: "border-sky-200 bg-sky-50 text-sky-700",
   },
   checked_in: {
     label: "Checked in",
     description: "Guest has arrived and is seated.",
     icon: LogIn,
-    foreground: "#10B981",
-    background: "#D1FAE5",
-    border: "#6EE7B7",
+    className: "border-emerald-200 bg-emerald-50 text-emerald-700",
     pulse: true,
   },
   completed: {
     label: "Completed",
     description: "Visit is finished and closed out.",
     icon: Circle,
-    foreground: "#6B7280",
-    background: "#E5E7EB",
-    border: "#D1D5DB",
+    className: "border-slate-200 bg-slate-100 text-slate-700",
   },
   cancelled: {
     label: "Cancelled",
     description: "Booking was cancelled.",
     icon: Ban,
-    foreground: "#374151",
-    background: "#E5E7EB",
-    border: "#9CA3AF",
+    className: "border-slate-300 bg-slate-100 text-slate-700",
   },
   no_show: {
     label: "No show",
     description: "Guest did not arrive for the booking.",
     icon: AlertTriangle,
-    foreground: "#EF4444",
-    background: "#FEE2E2",
-    border: "#FCA5A5",
+    className: "border-rose-200 bg-rose-50 text-rose-700",
+  },
+  PRIORITY_WAITLIST: {
+    label: "Priority Waitlist",
+    description: "Guest is late. Seat at the next available table.",
+    icon: AlertTriangle,
+    className: "border-orange-200 bg-orange-50 text-orange-700",
   },
 };
 
@@ -134,11 +124,6 @@ export function BookingStatusBadge({
 }: BookingStatusBadgeProps) {
   const config = BOOKING_STATUS_CONFIG[status] ?? BOOKING_STATUS_CONFIG.confirmed;
   const { icon, label } = renderBadgeContent(status, size, showIcon);
-  const style = {
-    color: config.foreground,
-    backgroundColor: config.background,
-    borderColor: config.border,
-  } as CSSProperties;
 
   const badge = (
     <Badge
@@ -150,9 +135,9 @@ export function BookingStatusBadge({
         "inline-flex items-center gap-1.5 rounded-full font-semibold tracking-wide focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-ring",
         SIZE_VARIANTS[size],
         config.pulse ? "motion-safe:animate-pulse" : "",
+        config.className,
         className,
       )}
-      style={style}
     >
       {icon}
       <span>{label}</span>

@@ -8,6 +8,7 @@ export const BOOKING_STATE_TRANSITIONS = {
   pending: ['pending', 'pending_allocation', 'confirmed', 'cancelled'],
   pending_allocation: ['pending_allocation', 'confirmed', 'cancelled'],
   confirmed: ['confirmed', 'checked_in', 'cancelled', 'no_show'],
+  PRIORITY_WAITLIST: ['PRIORITY_WAITLIST', 'checked_in', 'cancelled', 'no_show'],
   checked_in: ['checked_in', 'completed', 'no_show'],
   completed: ['completed'],
   cancelled: ['cancelled'],

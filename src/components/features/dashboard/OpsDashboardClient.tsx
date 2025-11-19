@@ -99,7 +99,7 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
     }
 
     startTransition(() => {
-      router.replace(`/ops${params.size > 0 ? `?${params.toString()}` : ''}`);
+      router.replace(`/${params.size > 0 ? `?${params.toString()}` : ''}`);
     });
   };
 
@@ -279,47 +279,38 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
   const showVipModule = Boolean(vipData && vipData.vips.length > 0);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-white">
-      <main className="mx-auto max-w-7xl space-y-4 px-3 py-4 sm:space-y-6 sm:px-6 sm:py-6 lg:space-y-8 lg:px-8 lg:py-10">
-        <header className="space-y-1">
-          <h1 className="text-xl font-semibold leading-tight text-slate-900 sm:text-2xl sm:leading-normal lg:text-3xl">Operations Dashboard</h1>
-          <p className="text-sm text-slate-600">{restaurantName}</p>
+    <div className="min-h-screen bg-slate-50/50">
+      <main className="mx-auto max-w-[1600px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+        {/* Header Section */}
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Operations Dashboard</h1>
+            <p className="text-sm text-slate-500">{restaurantName}</p>
+          </div>
+          <div className="flex items-center gap-3 rounded-lg border bg-white p-1 shadow-sm">
+            <DateNavigationButton direction="prev" onClick={() => handleShiftDate(-1)} />
+            <div className="flex items-center gap-2 px-2">
+              <CalendarIcon className="h-4 w-4 text-slate-500" />
+              <HeatmapCalendar
+                summary={summary}
+                heatmap={heatmapQuery.data}
+                selectedDate={summary.date}
+                onSelectDate={handleSelectDate}
+                isLoading={heatmapQuery.isLoading}
+              />
+            </div>
+            <DateNavigationButton direction="next" onClick={() => handleShiftDate(1)} />
+          </div>
         </header>
+
         <section aria-label="Connection status">
           <BookingOfflineBanner />
         </section>
 
-        <section
-          aria-label="Service date"
-          className="rounded-2xl border border-white/60 bg-white/80 p-3 shadow-sm backdrop-blur-sm sm:p-4 lg:p-6"
-        >
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100">
-                <CalendarIcon className="h-5 w-5 text-slate-600" aria-hidden />
-              </div>
-              <div className="flex items-center gap-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Service Date</p>
-                {/* Modified: keep heatmap calendar via popover trigger for quick date change */}
-                <HeatmapCalendar
-                  summary={summary}
-                  heatmap={heatmapQuery.data}
-                  selectedDate={summary.date}
-                  onSelectDate={handleSelectDate}
-                  isLoading={heatmapQuery.isLoading}
-                />
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <DateNavigationButton direction="prev" onClick={() => handleShiftDate(-1)} />
-              <DateNavigationButton direction="next" onClick={() => handleShiftDate(1)} />
-            </div>
-          </div>
-        </section>
-
+        {/* Stats Grid */}
         {statCards.length > 0 ? (
           <section aria-label="Key performance indicators">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
               {statCards.map((card) => (
                 <StatCard key={card.id} config={card} />
               ))}
@@ -327,30 +318,39 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
           </section>
         ) : null}
 
-        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,_2fr)_minmax(0,_1fr)] lg:items-start">
-          <section
-            aria-label="Reservations"
-            className="rounded-2xl border border-white/60 bg-white/90 shadow-sm backdrop-blur-sm"
-          >
-            <div className="px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold text-slate-900">Reservations</h2>
-                  <p className="text-sm text-slate-600">Manage today&apos;s bookings for {restaurantName}</p>
+        {/* Main Content Grid */}
+        <div className="grid gap-6 lg:grid-cols-12">
+          {/* Main Reservations Column */}
+          <div className="lg:col-span-8 xl:col-span-9">
+            <section
+              aria-label="Reservations"
+              className="flex h-full flex-col overflow-hidden rounded-xl border bg-white shadow-sm"
+            >
+              <div className="border-b bg-slate-50/50 px-6 py-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2 className="font-semibold text-slate-900">Reservations</h2>
+                    <p className="text-sm text-slate-500">Manage today&apos;s bookings</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {!allowTableAssignments ? (
+                      <p className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
+                        Past date - Assignments locked
+                      </p>
+                    ) : null}
+                    <ExportBookingsButton
+                      restaurantId={restaurantId}
+                      restaurantName={restaurantName}
+                      date={summary.date}
+                    />
+                  </div>
                 </div>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                  {!allowTableAssignments ? (
-                    <p className="text-xs text-slate-500">Table assignments locked for past service dates.</p>
-                  ) : null}
-                  <ExportBookingsButton
-                    restaurantId={restaurantId}
-                    restaurantName={restaurantName}
-                    date={summary.date}
-                  />
+                <div className="mt-4">
+                  <BookingsFilterBar value={filter} onChange={setFilter} />
                 </div>
               </div>
-              <div className="mt-6 space-y-6">
-                <BookingsFilterBar value={filter} onChange={setFilter} />
+
+              <div className="flex-1 p-6">
                 <BookingsList
                   bookings={summary.bookings}
                   filter={filter}
@@ -366,46 +366,61 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
                   tableActionState={tableActionState}
                 />
               </div>
-            </div>
-          </section>
+            </section>
+          </div>
 
-          <aside className="flex flex-col gap-4" aria-label="Supplementary insights" role="complementary">
-            {/* VIP Guests always visible with empty state */}
+          {/* Sidebar Column */}
+          <aside className="space-y-6 lg:col-span-4 xl:col-span-3">
+            {/* VIP Guests */}
             <section
               aria-label="VIP guests"
-              className="rounded-2xl border border-white/60 bg-white/80 p-3 shadow-sm backdrop-blur-sm sm:p-4 lg:p-6"
+              className="overflow-hidden rounded-xl border bg-white shadow-sm"
             >
-              {showVipModule ? (
-                <VIPGuestsModule
-                  vips={vipData!.vips}
-                  totalVipCovers={vipData!.totalVipCovers}
-                  loading={vipsQuery.isLoading}
-                />
-              ) : (
-                <div className="flex items-center justify-between">
-                  <h3 className="text-base font-semibold text-slate-900">VIP Guests</h3>
-                  {vipsQuery.isLoading ? null : <span className="text-xs text-slate-500">No VIP arrivals today</span>}
-                </div>
-              )}
+              <div className="border-b bg-slate-50/50 px-4 py-3">
+                <h3 className="font-semibold text-slate-900">VIP Guests</h3>
+              </div>
+              <div className="p-4">
+                {showVipModule ? (
+                  <VIPGuestsModule
+                    vips={vipData!.vips}
+                    totalVipCovers={vipData!.totalVipCovers}
+                    loading={vipsQuery.isLoading}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <div className="mb-2 rounded-full bg-slate-100 p-3">
+                      <UserRound className="h-5 w-5 text-slate-400" />
+                    </div>
+                    <p className="text-sm text-slate-500">No VIP arrivals today</p>
+                  </div>
+                )}
+              </div>
             </section>
 
-            {/* Change feed always visible with empty state */}
+            {/* Change Feed */}
             <section
               aria-label="Booking changes"
-              className="rounded-2xl border border-white/60 bg-white/80 p-3 shadow-sm backdrop-blur-sm sm:p-4 lg:p-6"
+              className="overflow-hidden rounded-xl border bg-white shadow-sm"
             >
-              {showChangeFeed ? (
-                <BookingChangeFeed
-                  changes={changeFeedData}
-                  totalChanges={changeFeedTotal}
-                  loading={changesQuery.isLoading}
-                />
-              ) : (
-                <div className="flex items-center justify-between">
-                  <h3 className="text-base font-semibold text-slate-900">Recent Changes</h3>
-                  {changesQuery.isLoading ? null : <span className="text-xs text-slate-500">No changes today</span>}
-                </div>
-              )}
+              <div className="border-b bg-slate-50/50 px-4 py-3">
+                <h3 className="font-semibold text-slate-900">Recent Changes</h3>
+              </div>
+              <div className="p-4">
+                {showChangeFeed ? (
+                  <BookingChangeFeed
+                    changes={changeFeedData}
+                    totalChanges={changeFeedTotal}
+                    loading={changesQuery.isLoading}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <div className="mb-2 rounded-full bg-slate-100 p-3">
+                      <Clock className="h-5 w-5 text-slate-400" />
+                    </div>
+                    <p className="text-sm text-slate-500">No changes today</p>
+                  </div>
+                )}
+              </div>
             </section>
           </aside>
         </div>
@@ -427,14 +442,16 @@ function StatCard({ config }: { config: StatCardConfig }) {
   const Icon = config.icon;
 
   return (
-    <div className="rounded-2xl border border-white/60 bg-white/90 p-4 shadow-sm transition-shadow hover:shadow-md sm:p-5">
-      <div className="flex items-start justify-between">
-        <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl', config.accentBg)}>
+    <div className="group relative overflow-hidden rounded-xl border bg-white p-4 shadow-sm transition-all hover:shadow-md">
+      <div className="flex items-center justify-between">
+        <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg transition-colors', config.accentBg)}>
           <Icon className={cn('h-5 w-5', config.iconColor)} aria-hidden />
         </div>
       </div>
-      <p className="mt-4 text-2xl font-bold text-slate-900 sm:mt-5 sm:text-3xl">{config.value}</p>
-      <p className="text-sm text-slate-600">{config.title}</p>
+      <div className="mt-4">
+        <p className="text-2xl font-bold text-slate-900">{config.value}</p>
+        <p className="text-sm font-medium text-slate-500">{config.title}</p>
+      </div>
     </div>
   );
 }
@@ -452,10 +469,10 @@ function DateNavigationButton({ direction, onClick }: DateNavigationButtonProps)
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex h-11 w-11 touch-manipulation items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 active:bg-slate-200"
+      className="inline-flex h-8 w-8 touch-manipulation items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 active:bg-slate-200"
       aria-label={label}
     >
-      <Icon className="h-5 w-5" aria-hidden />
+      <Icon className="h-4 w-4" aria-hidden />
     </button>
   );
 }
@@ -468,7 +485,7 @@ function NoAccessState() {
         Ask an owner or manager to send you an invitation so you can manage bookings.
       </p>
       <Button variant="outline" size="sm" asChild>
-        <Link href="/ops">Back to dashboard</Link>
+        <Link href="/">Back to dashboard</Link>
       </Button>
     </Card>
   );

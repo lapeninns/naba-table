@@ -15,6 +15,7 @@ const bookingStatusSchema = z.enum([
   "completed",
   "cancelled",
   "no_show",
+  "PRIORITY_WAITLIST",
 ]);
 
 const querySchema = z.object({
@@ -55,9 +56,9 @@ export async function GET(request: NextRequest) {
 
   const normalisedStatuses = params.statuses
     ? params.statuses
-        .split(",")
-        .map((status) => status.trim())
-        .filter((status) => status.length > 0)
+      .split(",")
+      .map((status) => status.trim())
+      .filter((status) => status.length > 0)
     : [];
 
   for (const status of normalisedStatuses) {
@@ -109,6 +110,7 @@ export async function GET(request: NextRequest) {
       completed: 0,
       cancelled: 0,
       no_show: 0,
+      PRIORITY_WAITLIST: 0,
     };
 
     for (const row of summaryRows) {

@@ -2,7 +2,7 @@
 
 import { WifiOff, RefreshCcw } from "lucide-react";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertIcon, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useBookingOfflineQueue } from "@/contexts/booking-offline-queue";
 
@@ -30,12 +30,17 @@ export function BookingOfflineBanner() {
       : "Resuming online operations.";
 
   return (
-    <Alert variant="warning" role="status" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <Alert
+      variant="warning"
+      role="status"
+      aria-live="polite"
+      className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+    >
       <div className="flex items-start gap-3">
-        <span className="rounded-full bg-amber-100 p-1.5 text-amber-700">
+        <AlertIcon>
           <WifiOff className="h-4 w-4" aria-hidden />
-        </span>
-        <div>
+        </AlertIcon>
+        <div className="space-y-1">
           <AlertTitle className="text-sm font-semibold text-amber-800">{title}</AlertTitle>
           <AlertDescription className="text-sm text-amber-900/80">
             {description}

@@ -1,6 +1,9 @@
 /* eslint-disable @next/next/no-img-element */
 import React from "react";
 
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
 const features = [
   {
     title: "Collect user feedback",
@@ -25,9 +28,13 @@ const features = [
               <span>Terms & privacy pages don&apos;t need them</span>
               <span className="w-[2px] h-6 bg-primary animate-pulse"></span>
             </div>
-            <button className="btn shadow-lg btn-primary absolute right-4 bottom-6 opacity-0 group-hover:opacity-100 duration-1000">
+            <Button
+              type="button"
+              size="sm"
+              className="absolute right-4 bottom-6 opacity-0 shadow-lg duration-1000 group-hover:opacity-100"
+            >
               Submit
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -67,8 +74,10 @@ const features = [
                 {feature.secondaryText}
               </p>
             </div>
-            <button
-              className={`px-4 py-2 rounded-box group text-center text-lg duration-150 border border-transparent bg-primary text-primary-content`}
+            <Button
+              type="button"
+              size="sm"
+              className="group rounded-box border border-transparent bg-primary px-4 py-2 text-lg text-primary-foreground duration-150"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -81,11 +90,11 @@ const features = [
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 className={`w-5 h-5 ease-in-out duration-150 -translate-y-0.5 group-hover:translate-y-0`}
-              >
-                <path d="m18 15-6-6-6 6" />
-              </svg>
+                >
+                  <path d="m18 15-6-6-6 6" />
+                </svg>
               {feature.votes}
-            </button>
+            </Button>
           </div>
         ))}
       </div>
@@ -130,8 +139,13 @@ const features = [
                     <p className="font-semibold mb-1">Clickable cards</p>
                     <p className="opacity-80">Make cards more accessible</p>
                   </div>
-                  <button
-                    className={`px-4 py-2 rounded-box group text-center text-lg duration-150 border border-transparent ${theme.buttonStyles}`}
+                  <Button
+                    type="button"
+                    size="sm"
+                    className={cn(
+                      "group rounded-box border border-transparent px-4 py-2 text-center text-lg duration-150",
+                      theme.buttonStyles,
+                    )}
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -148,15 +162,20 @@ const features = [
                       <path d="m18 15-6-6-6 6" />
                     </svg>
                     8
-                  </button>
+                  </Button>
                 </div>
                 <div className="p-4 bg-base-100 rounded-box flex justify-between ">
                   <div>
                     <p className="font-semibold mb-1">Bigger images</p>
                     <p className="opacity-80">Make cards more accessible</p>
                   </div>
-                  <button
-                    className={`px-4 py-2 rounded-box group text-center text-lg duration-150 border border-transparent ${theme.buttonStyles}`}
+                  <Button
+                    type="button"
+                    size="sm"
+                    className={cn(
+                      "group rounded-box border border-transparent px-4 py-2 text-center text-lg duration-150",
+                      theme.buttonStyles,
+                    )}
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -173,7 +192,7 @@ const features = [
                       <path d="m18 15-6-6-6 6" />
                     </svg>
                     5
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>

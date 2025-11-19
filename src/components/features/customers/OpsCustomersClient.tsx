@@ -15,9 +15,10 @@ import { ExportCustomersButton } from './ExportCustomersButton';
 
 export type OpsCustomersClientProps = {
   defaultRestaurantId?: string | null;
+  focusCustomer?: string | null;
 };
 
-export function OpsCustomersClient({ defaultRestaurantId }: OpsCustomersClientProps) {
+export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCustomersClientProps) {
   const { memberships, activeRestaurantId, setActiveRestaurantId, accountSnapshot } = useOpsSession();
   const activeMembership = useOpsActiveMembership();
   const [page, setPage] = useState(1);
@@ -53,13 +54,26 @@ export function OpsCustomersClient({ defaultRestaurantId }: OpsCustomersClientPr
     setPage(nextPage);
   }, []);
 
+  useEffect(() => {
+    if (!focusCustomer || !data?.items?.length) return;
+    const selector = `[data-customer-id=\"${focusCustomer}\"]`;
+    const emailSelector = `[data-customer-email=\"${focusCustomer.toLowerCase()}\"]`;
+    const target =
+      (typeof document !== 'undefined' && (document.querySelector<HTMLElement>(selector) ?? document.querySelector<HTMLElement>(emailSelector))) ||
+      null;
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target.focus({ preventScroll: true });
+    }
+  }, [data?.items, focusCustomer]);
+
   if (memberships.length === 0) {
     return (
       <section className="mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border/60 bg-muted/20 p-8 text-center">
         <h2 className="text-xl font-semibold text-foreground">No restaurant access yet</h2>
         <p className="text-sm text-muted-foreground">Ask an owner or manager to send you an invitation so you can view customer data.</p>
         <Button asChild variant="secondary">
-          <Link href="/ops">Back to dashboard</Link>
+          <Link href="/">Back to dashboard</Link>
         </Button>
       </section>
     );

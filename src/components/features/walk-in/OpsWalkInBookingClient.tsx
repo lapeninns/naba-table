@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 import BookingFlowPage from '@/components/reserve/booking-flow';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,7 @@ import { useOpsRestaurantsList } from '@/hooks';
 export function OpsWalkInBookingClient() {
   const { memberships, activeRestaurantId, setActiveRestaurantId } = useOpsSession();
   const { data: restaurants, isLoading, isError } = useOpsRestaurantsList({ enabled: memberships.length > 0 });
+  const searchParams = useSearchParams();
 
   const accessibleRestaurantIds = useMemo(() => new Set(memberships.map((membership) => membership.restaurantId)), [memberships]);
 
@@ -49,12 +51,19 @@ export function OpsWalkInBookingClient() {
   const selectedRestaurant =
     availableRestaurants.find((restaurant) => restaurant.id === selectedRestaurantId) ?? availableRestaurants[0];
 
+  const prefillName = searchParams?.get('prefillName') ?? '';
+  const prefillEmail = searchParams?.get('prefillEmail') ?? '';
+  const prefillPhone = searchParams?.get('prefillPhone') ?? '';
+
   const initialDetails = {
     restaurantId: selectedRestaurant.id,
     restaurantSlug: selectedRestaurant.slug ?? selectedRestaurant.id,
     restaurantName: selectedRestaurant.name,
     restaurantAddress: selectedRestaurant.address ?? '',
     restaurantTimezone: selectedRestaurant.timezone ?? 'UTC',
+    name: prefillName,
+    email: prefillEmail,
+    phone: prefillPhone,
     rememberDetails: false,
     marketingOptIn: false,
     agree: true,
@@ -71,7 +80,7 @@ export function OpsWalkInBookingClient() {
             </p>
           </div>
           <Button asChild variant="outline" className="touch-manipulation">
-            <Link href="/ops">← Back to dashboard</Link>
+            <Link href="/">← Back to dashboard</Link>
           </Button>
         </div>
       </div>
@@ -108,7 +117,7 @@ function NoAccessState() {
           <p>Your account is not linked to any restaurants yet.</p>
           <p>Please ask an owner or manager to add you to their team.</p>
           <Button asChild variant="secondary">
-            <Link href="/ops">Return to dashboard</Link>
+            <Link href="/">Return to dashboard</Link>
           </Button>
         </CardContent>
       </Card>
@@ -126,7 +135,7 @@ function NoRestaurantsState() {
         <CardContent className="space-y-4 text-sm text-muted-foreground">
           <p>We couldn’t load your restaurant list right now. Please refresh or try again later.</p>
           <Button asChild variant="secondary">
-            <Link href="/ops">Return to dashboard</Link>
+            <Link href="/">Return to dashboard</Link>
           </Button>
         </CardContent>
       </Card>

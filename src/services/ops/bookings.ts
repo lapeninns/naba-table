@@ -16,11 +16,10 @@ import type {
 } from '@/types/ops';
 import type { Tables } from '@/types/supabase';
 
-const OPS_BOOKINGS_BASE = '/api/ops/bookings';
-const OPS_DASHBOARD_BASE = '/api/ops/dashboard';
-const OPS_SETTINGS_BASE = '/api/ops/settings';
+const OPS_BOOKINGS_BASE = '/api/bookings';
+const OPS_DASHBOARD_BASE = '/api/dashboard';
+const OPS_SETTINGS_BASE = '/api/settings';
 const STAFF_AUTO_BASE = '/api/staff/auto';
-const STAFF_MANUAL_BASE = '/api/staff/manual';
 
 type SummaryParams = {
   restaurantId: string;
@@ -199,9 +198,10 @@ type ConfirmHoldInput = {
   idempotencyKey: string;
   requireAdjacency?: boolean;
   contextVersion?: string;
+  selectionVersion?: number | null;
 };
 
-type ConfirmHoldAssignment = {
+export type ConfirmHoldAssignment = {
   tableId: string;
   assignmentId?: string;
   startAt?: string | null;
@@ -261,7 +261,8 @@ export type ManualSelectionPayload = {
   tableIds: string[];
   requireAdjacency?: boolean;
   excludeHoldId?: string;
-  contextVersion: string;
+  contextVersion?: string;
+  selectionVersion?: number | null;
 };
 
 export type ManualHoldPayload = ManualSelectionPayload & {
@@ -327,6 +328,17 @@ export type ManualAssignmentContext = {
     startAt: string | null;
     endAt: string | null;
   };
+  policyVersion?: string | null;
+  versions?: {
+    context?: string | null;
+    policy?: string | null;
+    window?: string | null;
+    flags?: string | null;
+    tables?: string | null;
+    adjacency?: string | null;
+    holds?: string | null;
+    assignments?: string | null;
+  };
   contextVersion?: string;
   serverNow?: string | null;
 };
@@ -334,6 +346,34 @@ export type ManualAssignmentContext = {
 export type ManualReleaseHoldPayload = {
   holdId: string;
   bookingId: string;
+};
+
+export type ManualAssignmentSession = {
+  id: string;
+  bookingId: string;
+  restaurantId: string;
+  state: 'none' | 'proposed' | 'held' | 'confirmed' | 'expired' | 'conflicted' | 'cancelled';
+  selection?: {
+    tableIds: string[];
+    requireAdjacency?: boolean | null;
+    summary?: ManualValidationResult['summary'] | null;
+  } | null;
+  selectionVersion: number;
+  contextVersion?: string | null;
+  policyVersion?: string | null;
+  snapshotHash?: string | null;
+  holdId?: string | null;
+  expiresAt?: string | null;
+  tableVersion?: string | null;
+  adjacencyVersion?: string | null;
+  flagsVersion?: string | null;
+  windowVersion?: string | null;
+  holdsVersion?: string | null;
+  assignmentsVersion?: string | null;
+};
+
+export type ManualAssignmentContextWithSession = ManualAssignmentContext & {
+  session?: ManualAssignmentSession | null;
 };
 
 export interface BookingService {
@@ -351,17 +391,41 @@ export interface BookingService {
   undoNoShowBooking(input: UndoNoShowInput): Promise<LifecycleResponse>;
   getStatusSummary(params: StatusSummaryParams): Promise<StatusSummaryResponse>;
   getBookingHistory(bookingId: string): Promise<BookingHistoryResponse>;
+  getBooking(bookingId: string): Promise<OpsBookingListItem>;
   cancelBooking(input: CancelBookingInput): Promise<{ id: string; status: string }>;
   createWalkInBooking(input: WalkInInput): Promise<WalkInResponse>;
   assignTable(input: AssignTableInput): Promise<TableAssignmentsResponse>;
   unassignTable(input: AssignTableInput): Promise<TableAssignmentsResponse>;
   autoQuoteTables(input: AutoQuoteInput): Promise<AutoQuoteResponse>;
   confirmHoldAssignment(input: ConfirmHoldInput): Promise<ConfirmHoldResponse>;
-  manualValidateSelection(input: ManualSelectionPayload): Promise<ManualValidationResult>;
-  manualHoldSelection(input: ManualHoldPayload): Promise<ManualHoldResponse>;
-  manualConfirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldResponse>;
-  getManualAssignmentContext(bookingId: string): Promise<ManualAssignmentContext>;
-  manualReleaseHold(input: ManualReleaseHoldPayload): Promise<void>;
+  getManualAssignmentContext(bookingId: string, options?: { preferSession?: boolean }): Promise<ManualAssignmentContextWithSession>;
+  assignTablesDirect(input: {
+    bookingId: string;
+    tableIds: string[];
+    idempotencyKey: string;
+    requireAdjacency?: boolean;
+  }): Promise<{
+    success: true;
+    assignments: Array<{
+      id: string;
+      booking_id: string;
+      table_id: string;
+      assigned_at: string;
+      assigned_by: string | null;
+    }>;
+    booking: {
+      id: string;
+      status: string;
+      party_size: number;
+    };
+    summary: {
+      tableCount: number;
+      totalCapacity: number;
+      partySize: number;
+      slack: number;
+    };
+  }>;
+  unassignTablesDirect(input: { bookingId: string; tableIds: string[] }): Promise<{ success: true; removedCount: number }>;
 }
 
 function toIsoParam(value: Date | string | null | undefined): string | undefined {
@@ -420,8 +484,7 @@ function createIdempotencyKey(): string {
 
 async function fetchContextVersion(bookingId: string): Promise<string | null> {
   try {
-    const params = new URLSearchParams({ bookingId });
-    const res = await fetchJson<ManualAssignmentContext>(`${STAFF_MANUAL_BASE}/context?${params.toString()}`);
+    const res = await fetchJson<ManualAssignmentContext>(`/api/ops/bookings/${bookingId}/manual-context`);
     return res?.contextVersion ?? null;
   } catch {
     return null;
@@ -517,6 +580,9 @@ export function createBrowserBookingService(): BookingService {
     async getBookingHistory(bookingId) {
       return fetchJson<BookingHistoryResponse>(`${OPS_BOOKINGS_BASE}/${bookingId}/history`);
     },
+    async getBooking(bookingId) {
+      return fetchJson<OpsBookingListItem>(`${OPS_BOOKINGS_BASE}/${bookingId}`);
+    },
     async cancelBooking({ id }) {
       return fetchJson<{ id: string; status: string }>(`${OPS_BOOKINGS_BASE}/${id}`, {
         method: 'DELETE',
@@ -583,70 +649,48 @@ export function createBrowserBookingService(): BookingService {
         body: JSON.stringify(payload),
       });
     },
-    async manualValidateSelection({ bookingId, tableIds, requireAdjacency, excludeHoldId, contextVersion }) {
-      if (!contextVersion) {
-        contextVersion = await fetchContextVersion(bookingId) ?? '';
-      }
-      const payload: Record<string, unknown> = {
-        bookingId,
-        tableIds,
-        contextVersion,
-      };
-      if (typeof requireAdjacency === 'boolean') payload.requireAdjacency = requireAdjacency;
-      if (excludeHoldId) payload.excludeHoldId = excludeHoldId;
-
-      return fetchJson<ManualValidationResult>(`${STAFF_MANUAL_BASE}/validate`, {
+    async getManualAssignmentContext(bookingId, _options) {
+      const context = await fetchJson<ManualAssignmentContext>(
+        `/api/ops/bookings/${bookingId}/manual-context`,
+        {
+          method: 'GET',
+        },
+      );
+      // Return context with null session (session-based approach no longer used)
+      return { ...context, session: null };
+    },
+    async assignTablesDirect({ bookingId, tableIds, idempotencyKey, requireAdjacency }) {
+      return fetchJson<{
+        success: true;
+        assignments: Array<{
+          id: string;
+          booking_id: string;
+          table_id: string;
+          assigned_at: string;
+          assigned_by: string | null;
+        }>;
+        booking: {
+          id: string;
+          status: string;
+          party_size: number;
+        };
+        summary: {
+          tableCount: number;
+          totalCapacity: number;
+          partySize: number;
+          slack: number;
+        };
+      }>(`/api/ops/bookings/${bookingId}/assign-tables`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ tableIds, idempotencyKey, requireAdjacency }),
       });
     },
-    async manualHoldSelection({ bookingId, tableIds, requireAdjacency, excludeHoldId, holdTtlSeconds, contextVersion }) {
-      if (!contextVersion) {
-        contextVersion = await fetchContextVersion(bookingId) ?? '';
-      }
-      const payload: Record<string, unknown> = {
-        bookingId,
-        tableIds,
-        contextVersion,
-      };
-      if (typeof requireAdjacency === 'boolean') payload.requireAdjacency = requireAdjacency;
-      if (excludeHoldId) payload.excludeHoldId = excludeHoldId;
-      if (typeof holdTtlSeconds === 'number') payload.holdTtlSeconds = holdTtlSeconds;
-
-      return fetchJson<ManualHoldResponse>(`${STAFF_MANUAL_BASE}/hold`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-    },
-    async manualConfirmHold({ holdId, bookingId, idempotencyKey, requireAdjacency, contextVersion }) {
-      if (!contextVersion) {
-        contextVersion = await fetchContextVersion(bookingId) ?? '';
-      }
-      const payload: Record<string, unknown> = {
-        holdId,
-        bookingId,
-        idempotencyKey,
-        contextVersion,
-      };
-      if (typeof requireAdjacency === 'boolean') payload.requireAdjacency = requireAdjacency;
-
-      return fetchJson<ConfirmHoldResponse>(`${STAFF_MANUAL_BASE}/confirm`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-    },
-    async getManualAssignmentContext(bookingId) {
-      const params = new URLSearchParams({ bookingId });
-      return fetchJson<ManualAssignmentContext>(`${STAFF_MANUAL_BASE}/context?${params.toString()}`);
-    },
-    async manualReleaseHold({ holdId, bookingId }) {
-      await fetchJson<{ holdId: string; released: boolean }>(`${STAFF_MANUAL_BASE}/hold`, {
+    async unassignTablesDirect({ bookingId, tableIds }) {
+      return fetchJson<{ success: true; removedCount: number }>(`/api/ops/bookings/${bookingId}/assign-tables`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ holdId, bookingId }),
+        body: JSON.stringify({ tableIds }),
       });
     },
   } satisfies BookingService;
@@ -713,6 +757,10 @@ export class NotImplementedBookingService implements BookingService {
     this.error('getBookingHistory not implemented');
   }
 
+  getBooking(): Promise<OpsBookingListItem> {
+    this.error('getBooking not implemented');
+  }
+
   cancelBooking(): Promise<{ id: string; status: string }> {
     this.error('cancelBooking not implemented');
   }
@@ -737,24 +785,36 @@ export class NotImplementedBookingService implements BookingService {
     this.error('confirmHoldAssignment not implemented');
   }
 
-  manualValidateSelection(): Promise<ManualValidationResult> {
-    this.error('manualValidateSelection not implemented');
-  }
-
-  manualHoldSelection(): Promise<ManualHoldResponse> {
-    this.error('manualHoldSelection not implemented');
-  }
-
-  manualConfirmHold(): Promise<ConfirmHoldResponse> {
-    this.error('manualConfirmHold not implemented');
-  }
-
-  getManualAssignmentContext(): Promise<ManualAssignmentContext> {
+  getManualAssignmentContext(): Promise<ManualAssignmentContextWithSession> {
     this.error('getManualAssignmentContext not implemented');
   }
 
-  manualReleaseHold(): Promise<void> {
-    this.error('manualReleaseHold not implemented');
+  assignTablesDirect(): Promise<{
+    success: true;
+    assignments: Array<{
+      id: string;
+      booking_id: string;
+      table_id: string;
+      assigned_at: string;
+      assigned_by: string | null;
+    }>;
+    booking: {
+      id: string;
+      status: string;
+      party_size: number;
+    };
+    summary: {
+      tableCount: number;
+      totalCapacity: number;
+      partySize: number;
+      slack: number;
+    };
+  }> {
+    this.error('assignTablesDirect not implemented');
+  }
+
+  unassignTablesDirect(): Promise<{ success: true; removedCount: number }> {
+    this.error('unassignTablesDirect not implemented');
   }
 }
 

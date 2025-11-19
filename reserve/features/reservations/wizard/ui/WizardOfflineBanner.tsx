@@ -3,7 +3,7 @@
 import { WifiOff } from 'lucide-react';
 import React, { forwardRef } from 'react';
 
-import { Alert, AlertDescription, AlertIcon, AlertTitle } from '@shared/ui/alert';
+import { Alert, AlertDescription, AlertIcon, AlertTitle } from '@/components/ui/alert';
 
 export type WizardOfflineBannerProps = {
   title?: string;

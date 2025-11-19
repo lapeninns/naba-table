@@ -2,6 +2,9 @@
 
 import React from "react";
 
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
 const ButtonGradient = ({
   title = "Gradient Button",
   onClick = () => {},
@@ -10,9 +13,13 @@ const ButtonGradient = ({
   onClick?: () => void;
 }) => {
   return (
-    <button className="btn btn-gradient animate-shimmer" onClick={onClick}>
+    <Button
+      className={cn("btn-gradient animate-shimmer")}
+      onClick={onClick}
+      type="button"
+    >
       {title}
-    </button>
+    </Button>
   );
 };
 

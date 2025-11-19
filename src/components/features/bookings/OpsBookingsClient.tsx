@@ -16,6 +16,7 @@ import { useOpsBookingsTableState, type OpsStatusFilter, useOpsBookingsList, use
 import { useOpsBookingLifecycleActions } from '@/hooks/ops/useOpsBookingStatusActions';
 import { useOpsCancelBooking } from '@/hooks/useOpsCancelBooking';
 import { useOpsUpdateBooking } from '@/hooks/useOpsUpdateBooking';
+import { useOpsBooking } from '@/hooks/ops/useOpsBooking';
 
 import type { StatusOption } from '@/components/dashboard/StatusFilterGroup';
 import type { BookingAction } from '@/components/features/booking-state-machine';
@@ -51,6 +52,7 @@ const OPS_STATUS_ORDER: OpsBookingStatus[] = [
   'pending_allocation',
   'no_show',
   'cancelled',
+  'PRIORITY_WAITLIST',
 ];
 
 export function OpsBookingsClient({ initialFilter, initialPage, initialRestaurantId, initialQuery, initialStatuses }: OpsBookingsClientProps) {
@@ -58,6 +60,7 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
   const searchParams = useSearchParams();
   const { memberships, activeRestaurantId, setActiveRestaurantId, accountSnapshot } = useOpsSession();
   const activeMembership = useOpsActiveMembership();
+  const focusBookingId = searchParams?.get('focus') ?? null;
 
   const effectiveFilter = initialFilter ?? DEFAULT_FILTER;
   const effectivePage = initialPage ?? DEFAULT_PAGE;
@@ -117,7 +120,7 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
     }
 
     const query = params.toString();
-    router.replace(`/ops/bookings${query ? `?${query}` : ''}`, { scroll: false });
+    router.replace(`/bookings${query ? `?${query}` : ''}`, { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeRestaurantId]);
 
@@ -166,7 +169,7 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
         }
       });
       const query = params.toString();
-      router.replace(`/ops/bookings${query ? `?${query}` : ''}`, { scroll: false });
+      router.replace(`/bookings${query ? `?${query}` : ''}`, { scroll: false });
     },
     [router, searchParams],
   );
@@ -241,6 +244,35 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
   );
 
   const bookings = useMemo(() => bookingsPage.items.map(mapToBookingDTO), [bookingsPage.items, mapToBookingDTO]);
+
+  // Fetch focused booking if it exists (in case it's not in the current list)
+  const { data: focusedBookingData } = useOpsBooking(focusBookingId);
+  const focusedBooking = useMemo(() =>
+    focusedBookingData ? mapToBookingDTO(focusedBookingData) : null
+    , [focusedBookingData, mapToBookingDTO]);
+
+  useEffect(() => {
+    if (!focusBookingId) return;
+
+    // Check if it's in the list
+    const foundInList = bookings.find((b) => b.id === focusBookingId);
+    const target = foundInList || focusedBooking;
+
+    if (target) {
+      // Open the dialog immediately
+      setEditBooking(target);
+      setIsEditOpen(true);
+
+      // Also scroll to row as backup/context if it exists in the DOM
+      // Use setTimeout to allow render cycle to complete if needed
+      setTimeout(() => {
+        const row = document.querySelector<HTMLElement>(`[data-booking-id="${focusBookingId}"]`);
+        if (row) {
+          row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }
+      }, 100);
+    }
+  }, [bookings, focusBookingId, focusedBooking]);
 
   const statusOptions = useMemo(() => {
     const totals = statusSummaryQuery.data?.totals ?? null;
@@ -327,8 +359,12 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
     setIsEditOpen(open);
     if (!open) {
       setEditBooking(null);
+      // Clear focus param if it exists
+      if (focusBookingId) {
+        updateSearchParams({ focus: null });
+      }
     }
-  }, []);
+  }, [focusBookingId, updateSearchParams]);
 
   const handleCancel = useCallback((booking: BookingDTO) => {
     setCancelBooking(booking);
@@ -426,7 +462,7 @@ function NoRestaurantAccess() {
         Ask an owner or manager to send you an invitation so you can manage bookings.
       </p>
       <Button asChild variant="secondary">
-        <Link href="/ops">Back to dashboard</Link>
+        <Link href="/">Back to dashboard</Link>
       </Button>
     </section>
   );

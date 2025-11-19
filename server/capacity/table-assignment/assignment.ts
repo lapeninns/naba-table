@@ -1,7 +1,7 @@
 import { AssignTablesRpcError, HoldNotFoundError } from "@/server/capacity/holds";
 import { getVenuePolicy } from "@/server/capacity/policy";
 import { emitRpcConflict } from "@/server/capacity/telemetry";
-import { isAllocatorV2Enabled, isPolicyRequoteEnabled } from "@/server/feature-flags";
+import { isAllocatorV2Enabled, isPolicyRequoteEnabled, isManualAssignmentSnapshotValidationEnabled } from "@/server/feature-flags";
 import { recordObservabilityEvent } from "@/server/observability";
 
 import { resolveRequireAdjacency } from "./availability";
@@ -650,6 +650,7 @@ export async function confirmHoldAssignment(options: ConfirmHoldAssignmentOption
   const holdMetadata = (typedHoldRow.metadata ?? null) as
     | {
         policyVersion?: string | null;
+        requireAdjacency?: boolean;
         selection?: {
           snapshot?: {
             zoneIds?: string[];
@@ -754,10 +755,28 @@ export async function confirmHoldAssignment(options: ConfirmHoldAssignmentOption
   const startIso = toIsoUtc(window.block.start);
   const endIso = toIsoUtc(window.block.end);
   const normalizedTableIds = normalizeTableIds(tableIds);
+
   // Verify adjacency/zone snapshot freeze
+  // =============================================
+  // This validation ensures table adjacency relationships haven't changed between
+  // hold creation and confirmation. This prevents assignment of tables that are
+  // no longer adjacent or have moved zones.
+  //
+  // Validation only runs when ALL of the following are true:
+  // 1. A snapshot was captured during hold creation (selectionSnapshot exists)
+  // 2. Adjacency was required when the hold was created (wasAdjacencyRequired = true)
+  // 3. Snapshot validation is enabled via feature flag (snapshotValidationEnabled = true)
+  //
+  // If adjacency was NOT required during hold creation (manual assignment with requireAdjacency=false),
+  // the snapshot will be null and this validation is skipped entirely.
+  // =============================================
   let adjacencySnapshotHash: string | null = null;
   const selectionSnapshot = holdMetadata?.selection?.snapshot ?? null;
-  if (selectionSnapshot) {
+  const wasAdjacencyRequired = Boolean(holdMetadata?.requireAdjacency);
+  const snapshotValidationEnabled = isManualAssignmentSnapshotValidationEnabled();
+  const shouldValidateSnapshot = selectionSnapshot && wasAdjacencyRequired && snapshotValidationEnabled;
+
+  if (shouldValidateSnapshot) {
     const currentTables = await loadTablesByIds(booking.restaurant_id, normalizedTableIds, supabase, signal);
     const currentZoneIds = Array.from(new Set(currentTables.map((t) => t.zoneId))).filter(Boolean) as string[];
     const zonesMatch = JSON.stringify([...currentZoneIds].sort()) === JSON.stringify([...(selectionSnapshot.zoneIds ?? [])].sort());
@@ -785,7 +804,7 @@ export async function confirmHoldAssignment(options: ConfirmHoldAssignmentOption
       throw new PolicyDriftError({
         message: !zonesMatch
           ? "Zone assignment changed since hold was created"
-          : "Adjacency definition changed since hold was created",
+          : "Adjacency definition changed since hold was created. This indicates table relationships were modified after the hold was placed.",
         kind: "adjacency",
         details: {
           zones: {
@@ -807,6 +826,9 @@ export async function confirmHoldAssignment(options: ConfirmHoldAssignmentOption
               expectedEdges: selectionSnapshot.adjacency?.edges ?? [],
               actualEdges: nowEdges,
             },
+            wasAdjacencyRequired,
+            requireAdjacency,
+            snapshotValidationEnabled,
           },
         },
       });

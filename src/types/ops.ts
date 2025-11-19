@@ -40,7 +40,8 @@ export type OpsBookingStatus =
   | 'checked_in'
   | 'cancelled'
   | 'completed'
-  | 'no_show';
+  | 'no_show'
+  | 'PRIORITY_WAITLIST';
 
 export type OpsTodayBooking = {
   id: string;
@@ -223,6 +224,10 @@ export type TableTimelineBookingRef = {
   status: OpsBookingStatus;
   startAt: string;
   endAt: string;
+  customerEmail?: string | null;
+  customerPhone?: string | null;
+  notes?: string | null;
+  tableIds?: string[];
 };
 
 export type TableTimelineHoldRef = {

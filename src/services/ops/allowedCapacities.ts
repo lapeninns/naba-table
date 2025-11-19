@@ -2,7 +2,7 @@ import { fetchJson } from "@/lib/http/fetchJson";
 
 import type { OpsServiceError } from "@/types/ops";
 
-const OPS_ALLOWED_CAPACITIES_BASE = "/api/ops/allowed-capacities";
+const OPS_ALLOWED_CAPACITIES_BASE = "/api/allowed-capacities";
 
 export type AllowedCapacitiesResponse = {
   capacities: number[];

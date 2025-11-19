@@ -10,6 +10,7 @@ export type VenueDetails = {
   policy: string;
   timezone: string;
   logoUrl: string | null;
+  googleMapUrl: string | null;
 };
 
 const defaultRestaurantId =
@@ -59,6 +60,7 @@ export const DEFAULT_VENUE: VenueDetails = {
       fallback: 'Europe/London',
     }) ?? 'Europe/London',
   logoUrl: runtime.readString('RESERVE_DEFAULT_VENUE_LOGO_URL') ?? null,
+  googleMapUrl: runtime.readString('RESERVE_DEFAULT_VENUE_GOOGLE_MAP_URL') ?? null,
 };
 
 export const resolveVenueDetails = (overrides?: Partial<VenueDetails>): VenueDetails => ({

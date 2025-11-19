@@ -13,10 +13,17 @@ import {
 import { DateTime } from 'luxon';
 import { useEffect, useMemo, useState } from 'react';
 
-import { BookingStatusBadge, StatusTransitionAnimator } from '@/components/features/booking-state-machine';
-import { BookingActionButton } from '@/components/features/booking-state-machine';
+import { Pagination } from '@/components/dashboard/Pagination';
+import { BookingActionButton, BookingStatusBadge, StatusTransitionAnimator } from '@/components/features/booking-state-machine';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { BookingStateMachineProvider, useBookingState, useBookingStateMachine } from '@/contexts/booking-state-machine';
 import { useBookingRealtime } from '@/hooks';
 import { cn } from '@/lib/utils';
@@ -78,9 +85,9 @@ function getBookingTemporalInfo(
   if (!booking.startTime) {
     const end = booking.endTime
       ? DateTime.fromISO(
-          /^[0-9]{4}-[0-9]{2}-[0-9]{2}T/.test(booking.endTime ?? '') ? booking.endTime! : `${summary.date}T${booking.endTime}`,
-          { zone: summary.timezone },
-        )
+        /^[0-9]{4}-[0-9]{2}-[0-9]{2}T/.test(booking.endTime ?? '') ? booking.endTime! : `${summary.date}T${booking.endTime}`,
+        { zone: summary.timezone },
+      )
       : null;
     return { state: 'unknown', diffMinutes: null, start: null, end: end?.isValid ? end : null };
   }
@@ -94,9 +101,9 @@ function getBookingTemporalInfo(
   const endValue = booking.endTime;
   const end = endValue
     ? DateTime.fromISO(
-        /^[0-9]{4}-[0-9]{2}-[0-9]{2}T/.test(endValue ?? '') ? endValue! : `${summary.date}T${endValue}`,
-        { zone: summary.timezone },
-      )
+      /^[0-9]{4}-[0-9]{2}-[0-9]{2}T/.test(endValue ?? '') ? endValue! : `${summary.date}T${endValue}`,
+      { zone: summary.timezone },
+    )
     : null;
 
   if (!start.isValid) {
@@ -204,6 +211,33 @@ export function BookingsList(props: BookingsListProps) {
   );
 }
 
+
+
+// Helper function for sorting
+function sortBookings(
+  bookings: OpsTodayBooking[],
+  sortKey: 'time' | 'party' | 'name',
+  sortDir: 'asc' | 'desc'
+) {
+  return [...bookings].sort((a, b) => {
+    let comparison = 0;
+
+    if (sortKey === 'time') {
+      // Sort by start time. Nulls (no time) go last in asc, first in desc (or always last? usually last)
+      // Let's put nulls last for 'asc' (earliest first)
+      const tA = a.startTime ? new Date(`1970-01-01T${a.startTime}`).getTime() : Number.MAX_SAFE_INTEGER;
+      const tB = b.startTime ? new Date(`1970-01-01T${b.startTime}`).getTime() : Number.MAX_SAFE_INTEGER;
+      comparison = tA - tB;
+    } else if (sortKey === 'party') {
+      comparison = a.partySize - b.partySize;
+    } else if (sortKey === 'name') {
+      comparison = a.customerName.localeCompare(b.customerName);
+    }
+
+    return sortDir === 'asc' ? comparison : -comparison;
+  });
+}
+
 function BookingsListContent({
   bookings,
   filter,
@@ -220,6 +254,12 @@ function BookingsListContent({
 }: BookingsListProps) {
   const { registerBookings } = useBookingStateMachine();
   const [now, setNow] = useState(() => DateTime.now().setZone(summary.timezone));
+
+  // Pagination and Sorting State
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(10);
+  const [sortKey, setSortKey] = useState<'time' | 'party' | 'name'>('time');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
     registerBookings(
@@ -239,9 +279,22 @@ function BookingsListContent({
     return () => clearInterval(interval);
   }, [summary.timezone, summary.date]);
 
+  // Reset page when filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [filter, sortKey, sortDir]);
+
   const filtered = useMemo(() => filterBookings(bookings, filter), [bookings, filter]);
+
+  const sorted = useMemo(() => sortBookings(filtered, sortKey, sortDir), [filtered, sortKey, sortDir]);
+
+  const paginated = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return sorted.slice(start, start + pageSize);
+  }, [sorted, page, pageSize]);
+
   const bookingIds = useMemo(() => bookings.map((booking) => booking.id), [bookings]);
-  const visibleBookingIds = useMemo(() => filtered.map((booking) => booking.id), [filtered]);
+  const visibleBookingIds = useMemo(() => paginated.map((booking) => booking.id), [paginated]);
 
   useBookingRealtime({
     restaurantId: summary.restaurantId,
@@ -272,30 +325,72 @@ function BookingsListContent({
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      {filtered.map((booking) => {
-        const temporalInfo = getBookingTemporalInfo(booking, summary, now);
-        const allowAssignmentsForBooking = allowTableAssignments && hasAssignmentHandlers && temporalInfo.state !== 'past';
-        return (
-          <BookingCard
-            key={booking.id}
-            booking={booking}
-            summary={summary}
-            temporalInfo={temporalInfo}
-            allowTableAssignments={allowAssignmentsForBooking}
-            hasAssignmentHandlers={hasAssignmentHandlers}
-            now={now}
-            pendingLifecycleAction={pendingLifecycleAction}
-            onCheckIn={onCheckIn}
-            onCheckOut={onCheckOut}
-            onMarkNoShow={onMarkNoShow}
-            onUndoNoShow={onUndoNoShow}
-            onAssignTable={onAssignTable}
-            onUnassignTable={onUnassignTable}
-            tableActionState={tableActionState}
-          />
-        );
-      })}
+    <div className="flex flex-col gap-4">
+      {/* Sort Controls */}
+      <div className="flex items-center justify-end gap-2">
+        <span className="text-sm text-muted-foreground">Sort by:</span>
+        <Select
+          value={sortKey}
+          onValueChange={(val) => setSortKey(val as 'time' | 'party' | 'name')}
+        >
+          <SelectTrigger className="h-8 w-[140px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="time">Time</SelectItem>
+            <SelectItem value="party">Party Size</SelectItem>
+            <SelectItem value="name">Guest Name</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select
+          value={sortDir}
+          onValueChange={(val) => setSortDir(val as 'asc' | 'desc')}
+        >
+          <SelectTrigger className="h-8 w-[110px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="asc">Ascending</SelectItem>
+            <SelectItem value="desc">Descending</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        {paginated.map((booking) => {
+          const temporalInfo = getBookingTemporalInfo(booking, summary, now);
+          const allowAssignmentsForBooking = allowTableAssignments && hasAssignmentHandlers && temporalInfo.state !== 'past';
+          return (
+            <BookingCard
+              key={booking.id}
+              booking={booking}
+              summary={summary}
+              temporalInfo={temporalInfo}
+              allowTableAssignments={allowAssignmentsForBooking}
+              hasAssignmentHandlers={hasAssignmentHandlers}
+              now={now}
+              pendingLifecycleAction={pendingLifecycleAction}
+              onCheckIn={onCheckIn}
+              onCheckOut={onCheckOut}
+              onMarkNoShow={onMarkNoShow}
+              onUndoNoShow={onUndoNoShow}
+              onAssignTable={onAssignTable}
+              onUnassignTable={onUnassignTable}
+              tableActionState={tableActionState}
+            />
+          );
+        })}
+      </div>
+
+      {/* Pagination */}
+      {sorted.length > pageSize ? (
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          total={sorted.length}
+          onPageChange={setPage}
+        />
+      ) : null}
     </div>
   );
 }
@@ -340,8 +435,6 @@ function BookingCard({
   const serviceTime = formatTimeRange(booking.startTime, booking.endTime, summary.timezone);
   const allowAssignmentsForBooking = allowTableAssignments && hasAssignmentHandlers;
   const tableAssignmentDisplay = formatTableAssignmentDisplay(booking.tableAssignments, allowAssignmentsForBooking, temporalInfo);
-  const isTableActionPending =
-    allowAssignmentsForBooking && tableActionState?.bookingId === booking.id ? tableActionState?.type : null;
   const lifecyclePending = pendingLifecycleAction?.bookingId === booking.id ? pendingLifecycleAction.action : null;
   const lifecycleAvailability = useMemo(
     () => ({ isToday: getTodayInTimezone(summary.timezone) === summary.date }),
@@ -352,10 +445,10 @@ function BookingCard({
   const minutesSinceStart = minutesDelta !== null ? Math.abs(Math.round(minutesDelta)) : null;
   const timeStatusBadge = temporalInfo.state === 'past'
     ? (
-        <Badge variant="outline" className="border-slate-300 bg-slate-200 text-slate-700">
-          {minutesSinceStart ? `Started ${minutesSinceStart} min ago` : 'Service started'}
-        </Badge>
-      )
+      <Badge variant="outline" className="border-slate-300 bg-slate-200 text-slate-700">
+        {minutesSinceStart ? `Started ${minutesSinceStart} min ago` : 'Service started'}
+      </Badge>
+    )
     : temporalInfo.state === 'imminent'
       ? (
         <Badge variant="outline" className="border-amber-300 bg-amber-100 text-amber-800">
@@ -370,10 +463,10 @@ function BookingCard({
   const requiresCheckOut = temporalInfo.end !== null && temporalInfo.end <= now && statusForActions === 'checked_in';
   const actionBadge = requiresCheckIn
     ? (
-        <Badge variant="outline" className="border-amber-500 bg-amber-100 text-amber-900">
-          <LogIn className="mr-1 h-3.5 w-3.5" aria-hidden /> Check-in required
-        </Badge>
-      )
+      <Badge variant="outline" className="border-amber-500 bg-amber-100 text-amber-900">
+        <LogIn className="mr-1 h-3.5 w-3.5" aria-hidden /> Check-in required
+      </Badge>
+    )
     : requiresCheckOut
       ? (
         <Badge variant="outline" className="border-rose-300 bg-rose-50 text-rose-700">
@@ -382,8 +475,12 @@ function BookingCard({
       )
       : null;
 
+
+
   return (
     <Card
+      data-booking-id={booking.id}
+      tabIndex={-1}
       className={cn(
         'border-border/60 transition-colors',
         temporalInfo.state === 'past' && 'border-slate-200 bg-slate-50',
@@ -437,7 +534,7 @@ function BookingCard({
                     ? 'border-slate-200 bg-slate-100 text-slate-700'
                     : tableAssignmentDisplay.state === 'imminent'
                       ? 'border-amber-300 bg-amber-100 text-amber-800'
-                    : 'border-amber-200 bg-amber-100 text-amber-800',
+                      : 'border-amber-200 bg-amber-100 text-amber-800',
               )}
               aria-label={tableAssignmentDisplay.text}
             >
@@ -478,6 +575,7 @@ function BookingCard({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+
           <BookingActionButton
             booking={booking}
             pendingAction={lifecyclePending ?? null}

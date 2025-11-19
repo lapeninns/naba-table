@@ -3,9 +3,9 @@
 import Link from 'next/link';
 import React, { useEffect, useRef } from 'react';
 
-import { buttonVariants } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { emit } from '@/lib/analytics/emit';
-import { cn } from '@/lib/utils';
 
 export type EmptyStateProps = {
   title?: string;
@@ -33,12 +33,21 @@ export function EmptyState({
   }, [analyticsEvent]);
 
   return (
-    <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center" aria-live="polite">
-      <h3 className="text-base font-medium text-foreground">{title}</h3>
-      <p className="max-w-md text-sm text-muted-foreground">{description}</p>
-      <Link href={ctaHref} className={cn(buttonVariants({ variant: 'default' }), 'inline-flex')}>
-        {ctaLabel}
-      </Link>
-    </div>
+    <Alert
+      variant="info"
+      role="status"
+      aria-live="polite"
+      className="flex flex-col items-center justify-center gap-4 px-6 py-10 text-center"
+    >
+      <AlertTitle className="text-base font-semibold text-foreground">{title}</AlertTitle>
+      <AlertDescription className="flex flex-col items-center gap-3 text-sm text-muted-foreground">
+        <span className="max-w-md">{description}</span>
+        <Button asChild size="sm">
+          <Link href={ctaHref} className="inline-flex">
+            {ctaLabel}
+          </Link>
+        </Button>
+      </AlertDescription>
+    </Alert>
   );
 }

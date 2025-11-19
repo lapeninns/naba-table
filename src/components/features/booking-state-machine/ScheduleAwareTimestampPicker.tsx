@@ -278,6 +278,7 @@ export function ScheduleAwareTimestampPicker({
           queryKey: scheduleQueryKey(slug, dateKey),
           queryFn: ({ signal }) => fetchReservationSchedule(slug, dateKey, signal),
           staleTime: 60_000,
+          meta: { persist: false },
         });
 
         setScheduleStateByDate((prev) => {

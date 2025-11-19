@@ -1,0 +1,84 @@
+{
+  "manual_table_assignment": {
+    "backend": {
+      "api_endpoints": [
+        {
+          "file": "src/app/api/staff/manual/context/route.ts",
+          "role": "Loads manual assignment context for a booking with auth/RBAC + contextVersion; surfaces feature flags affecting adjacency."
+        },
+        {
+          "file": "src/app/api/staff/manual/validate/route.ts",
+          "role": "Validates manual selection with contextVersion guard; emits telemetry and surfaces structured validation/errors."
+        },
+        {
+          "file": "src/app/api/staff/manual/hold/route.ts",
+          "role": "Auth/RBAC + contextVersion guard; calls holdManualSelection to validate + place holds; emits telemetry and returns hold + validation/conflicts."
+        },
+        {
+          "file": "src/app/api/staff/manual/confirm/route.ts",
+          "role": "Confirms a manual hold with idempotency; enforces contextVersion before persisting assignments."
+        }
+      ],
+      "session_endpoints": [
+        {
+          "file": "src/app/api/staff/manual/session/route.ts",
+          "role": "Creates or returns a manual assignment session plus fresh context; enforces auth, membership, and session feature gate."
+        },
+        {
+          "file": "src/app/api/staff/manual/session/[sessionId]/selection/route.ts",
+          "role": "Updates session selection with validation + contextVersion guard; refreshes context and hold payloads."
+        },
+        {
+          "file": "src/app/api/staff/manual/session/[sessionId]/confirm/route.ts",
+          "role": "Confirms a session-driven hold/selection with idempotency and adjacency toggles; returns updated assignments/context."
+        }
+      ],
+      "engine_exports": [
+        {
+          "file": "server/capacity/engine/public-api.ts",
+          "role": "Public engine surface for manual flows (validateManualSelection, holdManualSelection, confirmHold, getManualContext)."
+        }
+      ],
+      "core_logic": [
+        {
+          "file": "server/capacity/table-assignment/manual.ts",
+          "role": "Manual selection validation (capacity/slack/zone/movable/adjacency/conflicts), hold creation/snapshots, policy hashing, and manual context computation."
+        },
+        {
+          "file": "server/capacity/table-assignment/supabase.ts",
+          "role": "Data loaders for bookings, tables, adjacency graphs, context bookings, holds, assignments, and timezone resolution used by manual flows; includes releaseHoldWithRetry."
+        }
+      ],
+      "session_logic": [
+        {
+          "file": "server/capacity/manual-session.ts",
+          "role": "Manual assignment session lifecycle + Supabase persistence; computes session-scoped context and handles feature toggles/transition guards."
+        }
+      ]
+    },
+    "frontend": {
+      "services": [
+        {
+          "file": "src/services/ops/bookings.ts",
+          "role": "Browser booking service for manualValidateSelection/manualHoldSelection/manualConfirmHold/manualContext plus manual session create/update/confirm/release helpers."
+        }
+      ],
+      "hooks": [
+        {
+          "file": "src/hooks/ops/useManualAssignmentContext.ts",
+          "role": "React Query hook that fetches manual assignment context and subscribes to realtime assignment/hold changes; coordinates session-aware refetching."
+        }
+      ],
+      "ui_flow": [
+        {
+          "file": "src/components/features/dashboard/BookingDetailsDialog.tsx",
+          "role": "Orchestrates manual assignment interactions: selection state, debounce hold/validate/confirm mutations, stale context handling, and session toggles."
+        },
+        {
+          "file": "src/components/features/dashboard/manual-assignment/*.tsx",
+          "role": "UI building blocks for manual assignment (summary card, validation panel, actions) rendered within BookingDetailsDialog."
+        }
+      ]
+    }
+  }
+}

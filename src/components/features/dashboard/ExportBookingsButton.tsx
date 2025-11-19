@@ -57,7 +57,7 @@ export function ExportBookingsButton({ restaurantId, restaurantName, date, disab
     try {
       const params = new URLSearchParams({ restaurantId, date });
 
-      const response = await fetch(`/api/ops/bookings/export?${params.toString()}`, {
+      const response = await fetch(`/api/bookings/export?${params.toString()}`, {
         method: 'GET',
         headers: {
           accept: 'text/csv',
@@ -97,6 +97,8 @@ export function ExportBookingsButton({ restaurantId, restaurantName, date, disab
     <Button
       onClick={handleExport}
       disabled={isDisabled}
+      aria-busy={isExporting}
+      type="button"
       variant="outline"
       size="sm"
       className="h-11 touch-manipulation"

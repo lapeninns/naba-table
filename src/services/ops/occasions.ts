@@ -14,7 +14,7 @@ export type OccasionServiceFactory = () => OccasionService;
 
 class DefaultOccasionService implements OccasionService {
   async listOccasions(): Promise<OccasionDefinition[]> {
-    const response = await fetchJson<OccasionListResponse>('/api/ops/occasions');
+    const response = await fetchJson<OccasionListResponse>('/api/occasions');
     return response.occasions;
   }
 }

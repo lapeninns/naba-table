@@ -28,12 +28,15 @@ const MESSAGE_MAP: Record<InviteInvalidReason, { title: string; description: str
 export function InviteInvalidState({ reason }: InviteInvalidProps) {
   const message = MESSAGE_MAP[reason];
 
+  const containerClassName = 'space-y-4';
+  const textAlignment = 'text-left';
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-6 py-16">
-      <div className="max-w-md space-y-4 text-center">
-        <h1 className="text-3xl font-semibold text-slate-900">{message.title}</h1>
-        <p className="text-sm text-slate-600">{message.description}</p>
+    <div className={containerClassName}>
+      <div className="max-w-md space-y-3">
+        <h1 className={`text-3xl font-semibold text-slate-900 ${textAlignment}`}>{message.title}</h1>
+        <p className={`text-sm text-slate-600 ${textAlignment}`}>{message.description}</p>
       </div>
-    </main>
+    </div>
   );
 }

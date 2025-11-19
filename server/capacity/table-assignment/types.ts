@@ -204,6 +204,21 @@ export type ManualAssignmentContext = {
     adjacencyUndirected: boolean;
   };
   contextVersion?: string;
+  /**
+   * Optional breakdown of version components used to compute contextVersion.
+   * Adds visibility into topology/policy changes that can invalidate a session.
+   */
+  versions?: {
+    context?: string | null;
+    policy?: string | null;
+    window?: string | null;
+    flags?: string | null;
+    tables?: string | null;
+    adjacency?: string | null;
+    holds?: string | null;
+    assignments?: string | null;
+  };
+  policyVersion?: string | null;
   serverNow?: string;
 };
 

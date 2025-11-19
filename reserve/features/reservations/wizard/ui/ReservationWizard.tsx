@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 
-import { WizardDependenciesProvider } from '../di';
+import { WizardDependenciesProvider, type WizardDependencies } from '../di';
 import { BookingWizard } from './BookingWizard';
 
 import type { BookingDetails, BookingWizardMode } from '../model/reducer';
@@ -12,28 +11,23 @@ type ReservationWizardProps = {
   initialDetails?: Partial<BookingDetails>;
   mode?: BookingWizardMode;
   returnPath?: string;
+  /**
+   * Optional dependency overrides (navigation, analytics, etc.). If omitted,
+   * defaults are used, which rely on window navigation.
+   */
+  dependencies?: Partial<WizardDependencies>;
 };
 
 export function ReservationWizard({
   initialDetails,
   mode = 'customer',
   returnPath,
+  dependencies,
 }: ReservationWizardProps = {}) {
-  const navigate = useNavigate();
   const normalizedReturnPath = useMemo(() => returnPath ?? '/thank-you', [returnPath]);
-  const navigatorDeps = useMemo(
-    () => ({
-      navigator: {
-        push: (path: string) => navigate(path),
-        replace: (path: string) => navigate(path, { replace: true }),
-        back: () => navigate(-1),
-      },
-    }),
-    [navigate],
-  );
 
   return (
-    <WizardDependenciesProvider value={navigatorDeps}>
+    <WizardDependenciesProvider value={dependencies}>
       <BookingWizard
         initialDetails={initialDetails}
         mode={mode}

@@ -1,5 +1,6 @@
 import Image from "next/image";
 
+import { Button } from "@/components/ui/button";
 import config from "@/config";
 
 const CTA = () => {
@@ -22,9 +23,9 @@ const CTA = () => {
             section...
           </p>
 
-          <button className="btn btn-primary btn-wide">
+          <Button size="lg" className="w-full px-8 md:w-auto">
             Get {config.appName}
-          </button>
+          </Button>
         </div>
       </div>
     </section>

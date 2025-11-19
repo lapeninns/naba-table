@@ -17,16 +17,8 @@ const ROUTES: Array<{
 }> = [
   { path: '/', label: 'home' },
   { path: '/browse', label: 'browse' },
-  { path: '/blog', label: 'blog' },
-  { path: '/pricing', label: 'pricing' },
-  { path: '/privacy-policy', label: 'privacy-policy' },
-  { path: '/terms/togo', label: 'terms-togo' },
-  { path: '/terms/venue', label: 'terms-venue' },
   { path: '/reserve', label: 'reserve' },
-  { path: '/create', label: 'create' },
-  { path: '/checkout', label: 'checkout' },
   { path: '/thank-you', label: 'thank-you' },
-  { path: '/tos', label: 'tos' },
   { path: '/signin', label: 'signin' },
   { path: '/reserve/r/white-horse-pub-waterbeach', label: 'reserve-restaurant' },
   { path: '/item/white-horse-pub-waterbeach', label: 'item-detail' },
@@ -43,9 +35,6 @@ const ROUTES: Array<{
 ];
 
 const SKIPPED_ROUTES: Array<{ path: string; reason: string }> = [
-  { path: '/blog/:articleId', reason: 'Requires a real article slug' },
-  { path: '/blog/author/:authorId', reason: 'Requires a real author identifier' },
-  { path: '/blog/category/:categoryId', reason: 'Requires a real category identifier' },
   { path: '/invite/:token', reason: 'Requires a valid invite token' },
   { path: '/item/:slug', reason: 'Requires a catalog slug beyond the default fixture' },
   { path: '/reserve/:reservationId', reason: 'Requires a real reservation identifier' },

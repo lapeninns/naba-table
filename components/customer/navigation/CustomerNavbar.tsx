@@ -38,11 +38,15 @@ type AccountLink = {
   label: string;
 };
 
-const RESTAURANT_DIRECTORY_PATH = "/restaurant";
+const BROWSE_PATH = "/browse";
 
-const PRIMARY_LINKS: PrimaryLink[] = [{ href: RESTAURANT_DIRECTORY_PATH, label: "Restaurants" }];
+const PRIMARY_LINKS: PrimaryLink[] = [
+  { href: BROWSE_PATH, label: "Browse" },
+  { href: "/reserve", label: "Reserve" },
+];
 
 const ACCOUNT_LINKS: AccountLink[] = [
+  { href: "/dashboard", label: "Dashboard" },
   { href: "/my-bookings", label: "My bookings" },
   { href: "/profile/manage", label: "Manage profile" },
 ];
@@ -119,9 +123,19 @@ function BrandMark() {
 
 type PrimaryNavProps = {
   links: PrimaryLink[];
+  currentPath: string | null;
 };
 
-function PrimaryNav({ links }: PrimaryNavProps) {
+function PrimaryNav({ links, currentPath }: PrimaryNavProps) {
+  const isActive = useCallback(
+    (href: string) => {
+      if (!currentPath) return false;
+      if (href === "/") return currentPath === "/";
+      return currentPath === href || currentPath.startsWith(`${href}/`);
+    },
+    [currentPath],
+  );
+
   if (links.length === 0) {
     return <nav aria-label="Primary navigation" />;
   }
@@ -135,7 +149,11 @@ function PrimaryNav({ links }: PrimaryNavProps) {
         <Link
           key={link.href}
           href={link.href}
-          className="rounded-full px-4 py-2 text-sm font-medium text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          aria-current={isActive(link.href) ? "page" : undefined}
+          className={cn(
+            "rounded-full px-4 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            isActive(link.href) ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground",
+          )}
         >
           {link.label}
         </Link>
@@ -253,6 +271,14 @@ function MobileMenu({
   pathname,
 }: MobileMenuProps) {
   const sessionActions = isAuthenticated ? accountLinks : [{ href: "/signin", label: "Sign in" }];
+  const isActive = useCallback(
+    (href: string) => {
+      if (!pathname) return false;
+      if (href === "/") return pathname === "/";
+      return pathname === href || pathname.startsWith(`${href}/`);
+    },
+    [pathname],
+  );
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -297,7 +323,7 @@ function MobileMenu({
                 href={link.href}
                 className={cn(
                   "rounded-lg px-3 py-2 text-base font-medium transition",
-                  pathname === link.href ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted",
+                  isActive(link.href) ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted",
                 )}
               >
                 {link.label}
@@ -391,7 +417,7 @@ export function CustomerNavbar() {
           <BrandMark />
 
           <div className="flex items-center gap-3">
-            <PrimaryNav links={PRIMARY_LINKS} />
+            <PrimaryNav links={PRIMARY_LINKS} currentPath={pathname ?? null} />
             <DesktopActions
               isLoading={isLoading || (isAuthenticated && isProfileLoading)}
               isAuthenticated={isAuthenticated}

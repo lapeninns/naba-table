@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { clearBookingTableAssignments } from "@/server/bookings";
 import { prepareCheckOutTransition } from "@/server/ops/booking-lifecycle/actions";
 import { BookingLifecycleError } from "@/server/ops/booking-lifecycle/stateMachine";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
@@ -160,6 +161,16 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   if (transitionError) {
     console.error("[ops][booking-check-out] failed to persist transition", transitionError.message);
     return NextResponse.json({ error: "Unable to check out booking" }, { status: 500 });
+  }
+ 
+  // Release any table assignments once the booking has been checked out/completed
+  try {
+    await clearBookingTableAssignments(serviceSupabase, bookingRow.id);
+  } catch (clearError) {
+    console.warn("[ops][booking-check-out] failed to clear table assignments", {
+      bookingId: bookingRow.id,
+      error: clearError instanceof Error ? clearError.message : clearError,
+    });
   }
 
   const resultRow = transitionResult?.[0];

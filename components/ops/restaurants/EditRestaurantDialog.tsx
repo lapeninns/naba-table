@@ -52,6 +52,7 @@ export function EditRestaurantDialog({ open, onOpenChange, restaurant }: EditRes
             contactEmail: restaurant.contactEmail,
             contactPhone: restaurant.contactPhone,
             address: restaurant.address,
+            googleMapUrl: restaurant.googleMapUrl,
             bookingPolicy: restaurant.bookingPolicy,
             reservationIntervalMinutes: restaurant.reservationIntervalMinutes,
             reservationDefaultDurationMinutes: restaurant.reservationDefaultDurationMinutes,

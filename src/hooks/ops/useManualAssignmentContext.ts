@@ -7,7 +7,7 @@ import { useBookingService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
 import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
 
-import type { ManualAssignmentContext } from '@/services/ops/bookings';
+import type { ManualAssignmentContextWithSession } from '@/services/ops/bookings';
 
 type UseManualAssignmentContextOptions = {
   bookingId: string | null;
@@ -22,16 +22,17 @@ export function useManualAssignmentContext({
   targetDate,
   enabled = true,
 }: UseManualAssignmentContextOptions) {
+  const manualSessionEnabled = process.env.NEXT_PUBLIC_FEATURE_MANUAL_SESSION_ENABLED === 'true';
   const bookingService = useBookingService();
   const shouldEnable = enabled && Boolean(bookingId);
 
-  const query = useQuery<ManualAssignmentContext>({
+  const query = useQuery<ManualAssignmentContextWithSession>({
     queryKey: bookingId ? queryKeys.manualAssign.context(bookingId) : ['manualAssign', 'context', 'none'],
     queryFn: async () => {
       if (!bookingId) {
         throw new Error('manual assignment context requires bookingId');
       }
-      return bookingService.getManualAssignmentContext(bookingId);
+      return bookingService.getManualAssignmentContext(bookingId, { preferSession: manualSessionEnabled });
     },
     enabled: shouldEnable,
     staleTime: 5_000,

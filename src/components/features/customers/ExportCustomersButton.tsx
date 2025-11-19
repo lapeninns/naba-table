@@ -55,7 +55,7 @@ export function ExportCustomersButton({ restaurantId, restaurantName, disabled, 
     try {
       const params = new URLSearchParams({ restaurantId, sort });
 
-      const response = await fetch(`/api/ops/customers/export?${params.toString()}`, {
+      const response = await fetch(`/api/customers/export?${params.toString()}`, {
         method: 'GET',
         headers: {
           accept: 'text/csv',
@@ -96,6 +96,8 @@ export function ExportCustomersButton({ restaurantId, restaurantName, disabled, 
     <Button
       onClick={handleExport}
       disabled={isDisabled}
+      aria-busy={isExporting}
+      type="button"
       variant="outline"
       size="sm"
       aria-label={isExporting ? 'Exporting customers...' : 'Export customers to CSV'}

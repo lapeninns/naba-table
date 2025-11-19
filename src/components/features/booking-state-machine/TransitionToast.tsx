@@ -58,10 +58,19 @@ export function useTransitionToast() {
     ({ action, bookingLabel, performedAtLabel }: TransitionToastSuccessOptions) => {
       const label = bookingLabel ? `Booking ${bookingLabel}` : "Booking";
       const actionLabel = formatActionLabel(action);
+      let description: string | undefined;
+
+      if (action === "no-show") {
+        const base = performedAtLabel ? `Effective ${performedAtLabel}.` : null;
+        const hint = "Any assigned tables have been released.";
+        description = [base, hint].filter(Boolean).join(" ");
+      } else if (performedAtLabel) {
+        description = `Effective ${performedAtLabel}.`;
+      }
 
       toast({
         title: `${label} ${actionLabel}`,
-        description: performedAtLabel ? `Effective ${performedAtLabel}.` : undefined,
+        description,
         className: "border-emerald-200 bg-emerald-50 text-emerald-900",
       });
     },

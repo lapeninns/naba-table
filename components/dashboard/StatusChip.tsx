@@ -1,40 +1,84 @@
 import React from 'react';
 
-
 import { Badge } from '@/components/ui/badge';
+import type { BadgeProps } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 import type { BookingStatus } from '@/hooks/useBookings';
-import type { CSSProperties } from 'react';
 
-const STATUS_LABEL: Record<BookingStatus, string> = {
-  confirmed: 'Confirmed',
-  checked_in: 'Checked in',
-  pending: 'Pending',
-  pending_allocation: 'Pending allocation',
-  cancelled: 'Cancelled',
-  completed: 'Completed',
-  no_show: 'No show',
+type StatusChipConfig = {
+  label: string;
+  variant: BadgeProps['variant'];
+  className: string;
+  dotClassName: string;
 };
 
-const STATUS_ACCENT: Record<BookingStatus, string> = {
-  confirmed: '#047857',
-  checked_in: '#047857',
-  pending: '#b45309',
-  pending_allocation: '#0369a1',
-  cancelled: '#b91c1c',
-  completed: '#6b7280',
-  no_show: '#6b7280',
+const STATUS_CONFIG: Record<BookingStatus, StatusChipConfig> = {
+  confirmed: {
+    label: 'Confirmed',
+    variant: 'secondary',
+    className: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+    dotClassName: 'before:bg-emerald-600',
+  },
+  checked_in: {
+    label: 'Checked in',
+    variant: 'secondary',
+    className: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+    dotClassName: 'before:bg-emerald-600',
+  },
+  pending: {
+    label: 'Pending',
+    variant: 'outline',
+    className: 'border-amber-200 bg-amber-50 text-amber-800',
+    dotClassName: 'before:bg-amber-500',
+  },
+  pending_allocation: {
+    label: 'Pending allocation',
+    variant: 'outline',
+    className: 'border-sky-200 bg-sky-50 text-sky-700',
+    dotClassName: 'before:bg-sky-500',
+  },
+  cancelled: {
+    label: 'Cancelled',
+    variant: 'destructive',
+    className: 'border-rose-200 bg-rose-50 text-rose-700',
+    dotClassName: 'before:bg-rose-600',
+  },
+  completed: {
+    label: 'Completed',
+    variant: 'outline',
+    className: 'border-slate-200 bg-slate-100 text-slate-700',
+    dotClassName: 'before:bg-slate-500',
+  },
+  no_show: {
+    label: 'No show',
+    variant: 'outline',
+    className: 'border-slate-200 bg-slate-100 text-slate-700',
+    dotClassName: 'before:bg-slate-500',
+  },
+  PRIORITY_WAITLIST: {
+    label: 'Priority Waitlist',
+    variant: 'secondary',
+    className: 'border-purple-200 bg-purple-50 text-purple-800',
+    dotClassName: 'before:bg-purple-600',
+  },
 };
 
 export function StatusChip({ status }: { status: BookingStatus }) {
+  const { label, variant, className, dotClassName } = STATUS_CONFIG[status];
+
   return (
     <Badge
-      variant="secondary"
-      aria-label={`Booking status: ${STATUS_LABEL[status]}`}
-      style={{ '--status-accent': STATUS_ACCENT[status] } as CSSProperties}
-      className="relative flex items-center gap-2 border-transparent bg-muted/60 px-3 py-1 text-xs font-medium capitalize text-foreground before:block before:h-2 before:w-2 before:rounded-full before:bg-[color:var(--status-accent)]"
+      variant={variant}
+      aria-label={`Booking status: ${label}`}
+      className={cn(
+        'relative flex items-center gap-2 px-3 py-1 text-xs font-medium capitalize',
+        'before:block before:h-2 before:w-2 before:rounded-full before:content-[""]',
+        className,
+        dotClassName,
+      )}
     >
-      {STATUS_LABEL[status]}
+      {label}
     </Badge>
   );
 }
