@@ -50,6 +50,7 @@ export function useTimeSlots({
     },
     staleTime: 60_000,
     refetchOnWindowFocus: false,
+    meta: { persist: false },
   });
 
   const slots = useMemo<TimeSlotDescriptor[]>(() => {
