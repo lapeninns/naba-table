@@ -66,8 +66,9 @@ export default async function proxy(req: NextRequest) {
       return NextResponse.next();
     }
 
-    // Rewrite to the (app) folder for non-API routes
-    return NextResponse.rewrite(new URL(`/app${path}`, req.url));
+    // Rewrite to the (app) folder for non-API routes; avoid double-prefixing when clients include /app.
+    const targetPath = path.startsWith("/app") ? path : `/app${path}`;
+    return NextResponse.rewrite(new URL(targetPath, req.url));
   }
 
   // 2. Guest/Root Domain Logic
