@@ -10,6 +10,14 @@ import { getServiceSupabaseClient } from "@/server/supabase";
 import type { Database, Tables } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+// Use `unknown` instead of `any` to satisfy `@typescript-eslint/no-explicit-any`.
+// The third generic on SupabaseClient represents the schema record type; we don't
+// need a loose `any` here and prefer `unknown` so callers still provide correctly
+// typed clients or narrow as needed.
+// The SupabaseClient third generic is a schema record type; using `any` here
+// matches the rest of the codebase. Disable the explicit-any lint rule for
+// this line so we keep the broad client shape while avoiding lint warnings.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DbClient = SupabaseClient<Database, "public", any>;
 
 export type RestaurantInvite = Tables<"restaurant_invites">;
@@ -209,6 +217,9 @@ export async function revokeRestaurantInvite(params: RevokeInviteParams): Promis
     .single();
 
   if (error) {
+    if (error.code === "PGRST116") {
+      throw Object.assign(new Error("Invite not found"), { code: "INVITE_NOT_FOUND" as const });
+    }
     throw error;
   }
 

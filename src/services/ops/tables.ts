@@ -83,7 +83,7 @@ export type CreateTablePayload = {
   seatingType: TableInventoryDto['seating_type'];
   mobility: TableInventoryDto['mobility'];
   zoneId: string;
-  status: TableInventoryDto['status'];
+  status?: TableInventoryDto['status'];
   active: boolean;
   position?: Record<string, unknown> | null;
   notes?: string | null;
@@ -246,7 +246,7 @@ export function createBrowserTableInventoryService(): TableInventoryService {
           seatingType: payload.seatingType,
           mobility: payload.mobility,
           zoneId: payload.zoneId,
-          status: payload.status,
+          status: payload.status ?? 'available',
           active: payload.active,
           position: payload.position ?? null,
           notes: payload.notes ?? null,

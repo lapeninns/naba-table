@@ -8,6 +8,12 @@ import { resolveInviteContext } from "@/server/team/invitations";
 
 import type { RestaurantInvite } from "@/server/team/invitations";
 
+function extractDisplayName(raw?: string | null): string | null {
+  if (!raw) return null;
+  const cleaned = raw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  return cleaned.length > 0 ? cleaned : null;
+}
+
 function formatExpiry(timestamp: string): { date: string; time: string } {
   const date = new Date(timestamp);
   return {
@@ -75,6 +81,6 @@ export async function sendTeamInviteEmail(params: { invite: RestaurantInvite; to
     subject,
     html,
     text,
-    fromName: config.email.fromSupport ?? "SajiloReserveX",
+    fromName: extractDisplayName(config.email.fromSupport) ?? "SajiloReserveX",
   });
 }
