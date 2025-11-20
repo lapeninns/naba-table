@@ -1,17 +1,12 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 
 import { generateCSV } from "@/lib/export/csv";
 import { getAllCustomersWithProfiles, type CustomerWithProfile } from "@/server/ops/customers";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 import { fetchUserMemberships } from "@/server/team/access";
+import { parseOpsCustomersQuery } from "../schema";
 
 import type { NextRequest} from "next/server";
-
-const exportQuerySchema = z.object({
-  restaurantId: z.string().uuid(),
-  sort: z.enum(["asc", "desc"]).default("desc").optional(),
-});
 
 function formatDate(value: string | null): string {
   if (!value) {
@@ -73,11 +68,16 @@ export async function GET(req: NextRequest) {
   }
 
   const rawParams = {
-    restaurantId: req.nextUrl.searchParams.get("restaurantId"),
+    restaurantId: req.nextUrl.searchParams.get("restaurantId") ?? undefined,
     sort: req.nextUrl.searchParams.get("sort") ?? undefined,
+    sortBy: req.nextUrl.searchParams.get("sortBy") ?? undefined,
+    search: req.nextUrl.searchParams.get("search") ?? undefined,
+    marketingOptIn: req.nextUrl.searchParams.get("marketingOptIn") ?? undefined,
+    lastVisit: req.nextUrl.searchParams.get("lastVisit") ?? undefined,
+    minBookings: req.nextUrl.searchParams.get("minBookings") ?? undefined,
   };
 
-  const parsed = exportQuerySchema.safeParse(rawParams);
+  const parsed = parseOpsCustomersQuery(rawParams);
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Invalid query", details: parsed.error.flatten() },
@@ -95,18 +95,34 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unable to verify memberships" }, { status: 500 });
   }
 
-  const membership = memberships.find((item) => item.restaurant_id === params.restaurantId);
-  if (!membership) {
+  const membershipIds = memberships
+    .map((membership) => membership.restaurant_id)
+    .filter((id): id is string => typeof id === "string" && id.length > 0);
+
+  const targetRestaurantId = params.restaurantId ?? membershipIds[0] ?? null;
+
+  const membership = targetRestaurantId
+    ? memberships.find((item) => item.restaurant_id === targetRestaurantId)
+    : null;
+
+  if (!membership || !targetRestaurantId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const serviceSupabase = getServiceSupabaseClient();
+  const sortOrder = params.sort;
+  const sortBy = params.sortBy ?? "last_visit";
 
   let customers: CustomerWithProfile[];
   try {
     customers = await getAllCustomersWithProfiles({
-      restaurantId: params.restaurantId,
-      sortOrder: params.sort ?? "desc",
+      restaurantId: targetRestaurantId,
+      sortOrder,
+      sortBy,
+      search: params.search ?? null,
+      marketingOptIn: params.marketingOptIn,
+      lastVisit: params.lastVisit,
+      minBookings: params.minBookings,
       client: serviceSupabase,
     });
   } catch (error) {

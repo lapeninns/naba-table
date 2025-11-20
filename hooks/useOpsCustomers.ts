@@ -19,11 +19,16 @@ export function useOpsCustomers(filters: CustomerFilters | null) {
 
     const params: CustomerListParams = {
       restaurantId: filters.restaurantId,
+      page: filters.page ?? 1,
+      pageSize: filters.pageSize,
+      sort: filters.sort ?? "desc",
+      sortBy: filters.sortBy ?? "last_visit",
+      marketingOptIn: filters.marketingOptIn ?? "all",
+      lastVisit: filters.lastVisit ?? "any",
+      minBookings: filters.minBookings ?? 0,
     };
-
-    if (filters.page) params.page = filters.page;
-    if (filters.pageSize) params.pageSize = filters.pageSize;
-    if (filters.sort) params.sort = filters.sort;
+    const trimmedSearch = filters.search?.trim();
+    if (trimmedSearch) params.search = trimmedSearch;
 
     return params;
   }, [filters]);

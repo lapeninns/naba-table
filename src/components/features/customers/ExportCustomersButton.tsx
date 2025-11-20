@@ -5,12 +5,14 @@ import { useState } from 'react';
 import { toast } from 'react-hot-toast';
 
 import { Button } from '@/components/ui/button';
+import type { CustomerListParams } from '@/services/ops/customers';
 
 type ExportCustomersButtonProps = {
   restaurantId: string | null;
   restaurantName: string;
   disabled?: boolean;
   sort?: 'asc' | 'desc';
+  filters?: Pick<CustomerListParams, 'sortBy' | 'search' | 'marketingOptIn' | 'lastVisit' | 'minBookings'>;
 };
 
 function buildFallbackFilename(restaurantName: string): string {
@@ -42,7 +44,7 @@ function extractFilename(headerValue: string | null, fallback: string): string {
   return fallback;
 }
 
-export function ExportCustomersButton({ restaurantId, restaurantName, disabled, sort = 'desc' }: ExportCustomersButtonProps) {
+export function ExportCustomersButton({ restaurantId, restaurantName, disabled, sort = 'desc', filters }: ExportCustomersButtonProps) {
   const [isExporting, setIsExporting] = useState(false);
 
   const handleExport = async () => {
@@ -55,7 +57,15 @@ export function ExportCustomersButton({ restaurantId, restaurantName, disabled, 
     try {
       const params = new URLSearchParams({ restaurantId, sort });
 
-      const response = await fetch(`/api/customers/export?${params.toString()}`, {
+      if (filters?.sortBy) params.set('sortBy', filters.sortBy);
+      if (filters?.search) params.set('search', filters.search);
+      if (filters?.marketingOptIn && filters.marketingOptIn !== 'all') params.set('marketingOptIn', filters.marketingOptIn);
+      if (filters?.lastVisit && filters.lastVisit !== 'any') params.set('lastVisit', filters.lastVisit);
+      if (typeof filters?.minBookings === 'number' && filters.minBookings > 0) {
+        params.set('minBookings', String(filters.minBookings));
+      }
+
+      const response = await fetch(`/api/ops/customers/export?${params.toString()}`, {
         method: 'GET',
         headers: {
           accept: 'text/csv',
