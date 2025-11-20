@@ -3,8 +3,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { env } from "@/lib/env";
-import { AssignmentCoordinator } from "@/server/assignments";
-import { disableAssignmentPipelineRuntime, isAssignmentPipelineSchemaError } from "@/server/assignments/runtime-guard";
 import {
   createBookingValidationService,
   BookingValidationError,
@@ -37,7 +35,6 @@ import { buildInlineLastResult } from "@/server/capacity/auto-assign-last-result
 import { classifyPlannerReason } from "@/server/capacity/planner-reason";
 import { recordPlannerQuoteTelemetry } from "@/server/capacity/planner-telemetry";
 import { normalizeEmail, upsertCustomer } from "@/server/customers";
-import { isAssignmentPipelineV3Enabled } from "@/server/feature-flags";
 import { enqueueBookingCreatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
 import { getActiveLoyaltyProgram, calculateLoyaltyAward, applyLoyaltyAward } from "@/server/loyalty";
 import { recordObservabilityEvent } from "@/server/observability";
@@ -53,7 +50,6 @@ import {
   getTenantServiceSupabaseClient,
 } from "@/server/supabase";
 
-import type { AssignmentCoordinatorResult } from "@/server/assignments";
 import type { BookingRecord } from "@/server/bookings";
 import type { Json } from "@/types/supabase";
 import type { NextRequest} from "next/server";
@@ -101,22 +97,6 @@ const bookingSchema = z.object({
 });
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-let inlineAssignmentCoordinatorInstance: AssignmentCoordinator | null | undefined;
-function getInlineAssignmentCoordinator(): AssignmentCoordinator | null {
-  if (inlineAssignmentCoordinatorInstance !== undefined) {
-    return inlineAssignmentCoordinatorInstance;
-  }
-  try {
-    inlineAssignmentCoordinatorInstance = new AssignmentCoordinator();
-  } catch (error) {
-    inlineAssignmentCoordinatorInstance = null;
-    console.warn("[bookings][inline-auto-assign] coordinator unavailable, falling back to legacy flow", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
-  return inlineAssignmentCoordinatorInstance;
-}
 
 function normalizeIdempotencyKey(value: string | null): string | null {
   if (!value) return null;
@@ -945,8 +925,6 @@ export async function POST(req: NextRequest) {
       try {
         const { CancellableAutoAssign } = await import("@/server/booking/auto-assign/cancellable-auto-assign");
         const inlineIdempotencyKey = finalBooking.auto_assign_idempotency_key ?? `api-${finalBooking.id}`;
-        let assignmentPipelineEnabled = isAssignmentPipelineV3Enabled();
-        let inlineCoordinator = assignmentPipelineEnabled ? getInlineAssignmentCoordinator() : null;
         const autoAssign = new CancellableAutoAssign(inlineTimeoutMs);
         inlineAttemptStartedAt = Date.now();
 
@@ -981,135 +959,23 @@ export async function POST(req: NextRequest) {
           inlineTimeoutPersisted = true;
         };
 
-        const handleCoordinatorOutcome = async (result: AssignmentCoordinatorResult): Promise<void> => {
-          const durationMs = inlineAttemptStartedAt > 0 ? Date.now() - inlineAttemptStartedAt : 0;
-          if (result.outcome === "confirmed") {
-            const { data: reloaded } = await supabase
-              .from("bookings")
-              .select("*")
-              .eq("id", finalBooking.id)
-              .maybeSingle();
-            if (reloaded) {
-              finalBooking = reloaded as BookingRecord;
-            }
-
-            await persistInlinePlanResult({
-              success: true,
-              reason: null,
-              alternates: 0,
-              durationMs,
-              emailSent: false,
-              emailVariant: inlineEmailVariant,
-            });
-
-            await recordObservabilityEvent({
-              source: "bookings.inline_auto_assign",
-              eventType: "inline_auto_assign.confirm_succeeded",
-              restaurantId,
-              bookingId: finalBooking.id,
-              context: {
-                attemptId: inlineAttemptId,
-                holdId: result.holdId,
-                durationMs,
-                mode: "coordinator",
-              },
-            });
-
-            await recordObservabilityEvent({
-              source: "bookings.inline_auto_assign",
-              eventType: "inline_auto_assign.succeeded",
-              restaurantId,
-              bookingId: finalBooking.id,
-              context: {
-                holdId: result.holdId,
-                idempotencyKey: inlineIdempotencyKey,
-                attemptId: inlineAttemptId,
-                durationMs,
-                mode: "coordinator",
-              },
-            });
-            return;
-          }
-
-          const failureReason = result.reason ?? result.outcome;
-          await persistInlinePlanResult({
-            success: false,
-            reason: failureReason,
-            durationMs,
-            alternates: 0,
-            emailSent: false,
-            emailVariant: inlineEmailVariant,
-          });
-
-          await recordObservabilityEvent({
-            source: "bookings.inline_auto_assign",
-            eventType: `inline_auto_assign.coordinator_${result.outcome}`,
-            restaurantId,
-            bookingId: finalBooking.id,
-            context: {
-              attemptId: inlineAttemptId,
-              reason: failureReason,
-              ...(result.outcome === "retry" ? { delay_ms: result.delayMs } : {}),
-            },
-            severity: result.outcome === "retry" ? "warning" : undefined,
-          });
-        };
-
-        if (assignmentPipelineEnabled && inlineCoordinator) {
-          try {
-            await autoAssign.runWithTimeout(
-              async (_signal) => {
-                const coordinatorResult = await inlineCoordinator!.processBooking(
-                  finalBooking.id,
-                  inlinePlannerTrigger,
-                );
-                await handleCoordinatorOutcome(coordinatorResult);
-              },
-              handleInlineTimeout,
-            );
-            return;
-          } catch (coordinatorError) {
-            if (coordinatorError instanceof Error && coordinatorError.name === "AbortError") {
-              throw coordinatorError;
-            }
-            if (isAssignmentPipelineSchemaError(coordinatorError)) {
-              disableAssignmentPipelineRuntime("schema_incompatible", coordinatorError);
-              assignmentPipelineEnabled = false;
-              inlineCoordinator = null;
-              console.warn(
-                "[bookings][POST][inline-auto-assign] coordinator schema error, falling back to legacy planner",
-                {
-                  bookingId: finalBooking.id,
-                },
-              );
-            } else {
-              throw coordinatorError;
-            }
-          }
-        }
-
-        if (assignmentPipelineEnabled && !inlineCoordinator) {
-          console.warn("[bookings][POST][inline-auto-assign] coordinator unavailable, using legacy planner");
-        }
-
-        {
-          const { quoteTablesForBooking, atomicConfirmAndTransition } = await import("@/server/capacity/tables");
-          await autoAssign.runWithTimeout(
-            async (signal) => {
-              const quoteStartedAt = Date.now();
-              let quoteDurationMs = 0;
-              let quote: Awaited<ReturnType<typeof quoteTablesForBooking>> | null = null;
-              try {
-                quote = await quoteTablesForBooking({
-                  bookingId: finalBooking.id,
-                  createdBy: "api-booking",
-                  holdTtlSeconds: 120,
-                  signal,
-                });
-                quoteDurationMs = Date.now() - quoteStartedAt;
-                const classification = classifyPlannerReason(quote?.reason ?? null);
-                await recordPlannerQuoteTelemetry({
-                  restaurantId,
+        const { quoteTablesForBooking, atomicConfirmAndTransition } = await import("@/server/capacity/tables");
+        await autoAssign.runWithTimeout(
+          async (signal) => {
+            const quoteStartedAt = Date.now();
+            let quoteDurationMs = 0;
+            let quote: Awaited<ReturnType<typeof quoteTablesForBooking>> | null = null;
+            try {
+              quote = await quoteTablesForBooking({
+                bookingId: finalBooking.id,
+                createdBy: "api-booking",
+                holdTtlSeconds: 120,
+                signal,
+              });
+              quoteDurationMs = Date.now() - quoteStartedAt;
+              const classification = classifyPlannerReason(quote?.reason ?? null);
+              await recordPlannerQuoteTelemetry({
+                restaurantId,
                 bookingId: finalBooking.id,
                 durationMs: quoteDurationMs,
                 success: Boolean(quote?.hold),
@@ -1313,9 +1179,8 @@ export async function POST(req: NextRequest) {
               },
             });
           },
-            handleInlineTimeout,
-          );
-        }
+          handleInlineTimeout,
+        );
       } catch (inlineError) {
         if (inlineError instanceof Error && inlineError.name === "AbortError") {
           const durationMs = inlineAttemptStartedAt > 0 ? Date.now() - inlineAttemptStartedAt : undefined;

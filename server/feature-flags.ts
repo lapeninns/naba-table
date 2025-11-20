@@ -1,5 +1,4 @@
 import { env } from "@/lib/env";
-import { isAssignmentPipelineRuntimeDisabled } from "@/server/assignments/runtime-guard";
 import { getFeatureFlagOverride, type FeatureFlagKey } from "@/server/feature-flags-overrides";
 
 export type AdjacencyMode = "connected" | "pairwise" | "neighbors";
@@ -194,24 +193,6 @@ export function getContextQueryPaddingMinutes(): number {
     return Math.floor(value);
   }
   return 60;
-}
-
-export function isAssignmentPipelineV3Enabled(): boolean {
-  if (isAssignmentPipelineRuntimeDisabled()) {
-    return false;
-  }
-  return env.featureFlags.assignmentPipeline?.enabled ?? false;
-}
-
-export function isAssignmentPipelineV3ShadowMode(): boolean {
-  if (isAssignmentPipelineRuntimeDisabled()) {
-    return false;
-  }
-  return env.featureFlags.assignmentPipeline?.shadow ?? false;
-}
-
-export function getAssignmentPipelineMaxConcurrentPerRestaurant(): number {
-  return env.featureFlags.assignmentPipeline?.maxConcurrentPerRestaurant ?? 3;
 }
 
 export function getHoldMinTtlSeconds(): number {
