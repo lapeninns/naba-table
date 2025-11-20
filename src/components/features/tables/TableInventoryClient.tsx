@@ -75,7 +75,15 @@ const MOBILITY_OPTIONS: { value: TableInventory['mobility']; label: string }[] =
   { value: 'fixed', label: 'Fixed' },
 ];
 
-type TableFormState = Omit<CreateTablePayload, 'position' | 'status'>;
+const STATUS_OPTIONS: { value: TableInventory['status']; label: string }[] = [
+  { value: 'available', label: 'Available' },
+  { value: 'reserved', label: 'Reserved' },
+  { value: 'occupied', label: 'Occupied' },
+  { value: 'out_of_service', label: 'Out of service' },
+];
+
+
+type TableFormState = Omit<CreateTablePayload, 'position'>;
 
 // A separate component for the form to manage its own state cleanly
 function TableForm({
@@ -98,6 +106,7 @@ function TableForm({
   const [category, setCategory] = useState<TableInventory['category']>(table?.category ?? 'dining');
   const [seatingType, setSeatingType] = useState<TableInventory['seatingType']>(table?.seatingType ?? 'standard');
   const [mobility, setMobility] = useState<TableInventory['mobility']>(table?.mobility ?? 'movable');
+  const [status, setStatus] = useState<TableInventory['status']>(table?.status ?? 'available');
   const [active, setActive] = useState<boolean>(table?.active ?? true);
 
   const { toast } = useToast();
@@ -110,6 +119,7 @@ function TableForm({
     setCategory(table?.category ?? 'dining');
     setSeatingType(table?.seatingType ?? 'standard');
     setMobility(table?.mobility ?? 'movable');
+    setStatus(table?.status ?? 'available');
     setActive(table?.active ?? true);
   }, [table, zones]);
 
@@ -173,6 +183,7 @@ function TableForm({
       category,
       seatingType,
       mobility,
+      status,
       active,
     };
 
@@ -297,14 +308,33 @@ function TableForm({
             </div>
         </div>
 
-        <div className="grid gap-2">
-          <Label htmlFor="active">Service status</Label>
-          <div className="flex items-center space-x-2 rounded-md border p-3">
-            <Switch id="active-switch" checked={active} onCheckedChange={setActive} />
-            <Label htmlFor="active-switch" className="flex-grow text-sm text-muted-foreground">
-              {active ? 'Active in service' : 'Inactive / Decommissioned'}
-            </Label>
-          </div>
+        <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-2">
+                <Label htmlFor="status">Status</Label>
+                <Select value={status} onValueChange={(v) => setStatus(v as any)}>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Set status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {STATUS_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                        </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                 {/* REVISION: Add helper text for clarity on status semantics */}
+                <p className="text-xs text-muted-foreground">'Out of service' blocks assignments. Other statuses are informational.</p>
+            </div>
+            <div className="grid gap-2">
+                <Label htmlFor="active">Service status</Label>
+                <div className="flex items-center space-x-2 rounded-md border p-3">
+                    <Switch id="active-switch" checked={active} onCheckedChange={setActive} />
+                    <Label htmlFor="active-switch" className="flex-grow text-sm text-muted-foreground">
+                        {active ? 'Active in service' : 'Inactive / Decommissioned'}
+                    </Label>
+                </div>
+            </div>
         </div>
         <div className="grid gap-2">
             <Label htmlFor="notes">Notes</Label>
@@ -839,6 +869,7 @@ export default function TableInventoryClient() {
               <TableHead>Party size</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Seating</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Active</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -846,7 +877,7 @@ export default function TableInventoryClient() {
           <TableBody>
             {isLoading || isFetching ? (
               <TableRow>
-                <TableCell colSpan={8} className="py-6 text-center text-muted-foreground">
+                <TableCell colSpan={9} className="py-6 text-center text-muted-foreground">
                   <div className="flex items-center justify-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     <span>Loading tables…</span>
@@ -855,7 +886,7 @@ export default function TableInventoryClient() {
               </TableRow>
             ) : filteredTables.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
                   {tables.length === 0
                     ? 'No tables configured yet. Add your first table to get started.'
                     : 'No tables in this section.'}
@@ -877,6 +908,11 @@ export default function TableInventoryClient() {
                   <TableCell className="capitalize">
                     {table.seatingType.replace('_', ' ')}
                     <span className="text-muted-foreground"> · {table.mobility}</span>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={table.status === 'available' ? 'default' : 'secondary'}>
+                      {table.status.replace('_', ' ')}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     {table.active ? (

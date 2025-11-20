@@ -3,7 +3,6 @@ import { z } from "zod";
 
 import { RESTAURANT_ROLE_OPTIONS } from "@/lib/owner/auth/roles";
 import { ensureProfileRow } from "@/lib/profile/server";
-import { ResendEmailError } from "@/libs/resend";
 import { getRouteHandlerSupabaseClient } from "@/server/supabase";
 import { requireAdminMembership } from "@/server/team/access";
 import { createRestaurantInvite, listRestaurantInvites } from "@/server/team/invitations";
@@ -170,15 +169,6 @@ export async function POST(request: NextRequest) {
       if (code === "INVALID_INVITE_ROLE") {
         return NextResponse.json({ error: "Unsupported role" }, { status: 422 });
       }
-    }
-
-    if (error instanceof ResendEmailError) {
-      const status = error.status ?? 500;
-      const details = error.details ? { details: error.details } : {};
-      return NextResponse.json(
-        { error: error.message, code: error.code, ...details },
-        { status },
-      );
     }
 
     console.error("[team/invitations][POST] failed", error);

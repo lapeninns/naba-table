@@ -35,7 +35,6 @@ const MONTH_KEY_FORMATTER = (value: Date) =>
   `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}`;
 
 const toMonthStart = (value: Date) => new Date(value.getFullYear(), value.getMonth(), 1);
-const MAX_PREFETCH_DATES_PER_MONTH = 10; // limits network burst during calendar prefetch
 
 const deriveUnavailableReason = (
   nextSchedule: { isClosed: boolean; slots: { disabled: boolean }[] } | null,
@@ -381,7 +380,7 @@ function useUnavailableDateTracking({
 
         prefetchedMonthsRef.current.add(monthKey);
 
-        const dateKeys = buildMonthDateKeys(month, normalizedMinDate, MAX_PREFETCH_DATES_PER_MONTH);
+        const dateKeys = buildMonthDateKeys(month, normalizedMinDate);
         if (dateKeys.length === 0) {
           return;
         }
