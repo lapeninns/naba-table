@@ -8,7 +8,7 @@ test.describe('Ops Team Management - Creating Invites', () => {
   test('creates invite for host role and displays invite URL', async ({ authedPage }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Ops flows verified on Chromium-based projects.');
 
-    await authedPage.goto('/ops/team');
+    await authedPage.goto('/app/management/team');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable; skipping team management.');
@@ -47,7 +47,7 @@ test.describe('Ops Team Management - Creating Invites', () => {
   test('creates invite for manager role', async ({ authedPage }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Ops flows verified on Chromium-based projects.');
 
-    await authedPage.goto('/ops/team');
+    await authedPage.goto('/app/management/team');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable.');
@@ -73,7 +73,7 @@ test.describe('Ops Team Management - Creating Invites', () => {
   test('creates invite for server role', async ({ authedPage }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Ops flows verified on Chromium-based projects.');
 
-    await authedPage.goto('/ops/team');
+    await authedPage.goto('/app/management/team');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable.');
@@ -99,7 +99,7 @@ test.describe('Ops Team Management - Creating Invites', () => {
   test('copies invite URL to clipboard', async ({ authedPage, context }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Ops flows verified on Chromium-based projects.');
 
-    await authedPage.goto('/ops/team');
+    await authedPage.goto('/app/management/team');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable.');
@@ -130,7 +130,7 @@ test.describe('Ops Team Management - Creating Invites', () => {
   test('validates email format', async ({ authedPage }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Ops flows verified on Chromium-based projects.');
 
-    await authedPage.goto('/ops/team');
+    await authedPage.goto('/app/management/team');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable.');
@@ -150,7 +150,7 @@ test.describe('Ops Team Management - Creating Invites', () => {
   test('validates required fields', async ({ authedPage }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Ops flows verified on Chromium-based projects.');
 
-    await authedPage.goto('/ops/team');
+    await authedPage.goto('/app/management/team');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable.');
@@ -170,7 +170,7 @@ test.describe('Ops Team Management - Creating Invites', () => {
   test('clears form after successful submission', async ({ authedPage }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Ops flows verified on Chromium-based projects.');
 
-    await authedPage.goto('/ops/team');
+    await authedPage.goto('/app/management/team');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable.');
@@ -197,7 +197,7 @@ test.describe('Ops Team Management - Filtering Invites', () => {
   test('filters invites by pending status', async ({ authedPage }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Ops flows verified on Chromium-based projects.');
 
-    await authedPage.goto('/ops/team');
+    await authedPage.goto('/app/management/team');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable.');
@@ -224,7 +224,7 @@ test.describe('Ops Team Management - Filtering Invites', () => {
   test('filters invites by all statuses', async ({ authedPage }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Ops flows verified on Chromium-based projects.');
 
-    await authedPage.goto('/ops/team');
+    await authedPage.goto('/app/management/team');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable.');
@@ -250,7 +250,7 @@ test.describe('Ops Team Management - Filtering Invites', () => {
   test('filters invites by accepted status', async ({ authedPage }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Ops flows verified on Chromium-based projects.');
 
-    await authedPage.goto('/ops/team');
+    await authedPage.goto('/app/management/team');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable.');
@@ -274,7 +274,7 @@ test.describe('Ops Team Management - Filtering Invites', () => {
   test('filters invites by revoked status', async ({ authedPage }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Ops flows verified on Chromium-based projects.');
 
-    await authedPage.goto('/ops/team');
+    await authedPage.goto('/app/management/team');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable.');
@@ -297,7 +297,7 @@ test.describe('Ops Team Management - Filtering Invites', () => {
   test('filters invites by expired status', async ({ authedPage }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Ops flows verified on Chromium-based projects.');
 
-    await authedPage.goto('/ops/team');
+    await authedPage.goto('/app/management/team');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable.');
@@ -322,7 +322,7 @@ test.describe('Ops Team Management - Revoking Invites', () => {
   test('revokes a pending invite', async ({ authedPage }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Ops flows verified on Chromium-based projects.');
 
-    await authedPage.goto('/ops/team');
+    await authedPage.goto('/app/management/team');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable.');
@@ -360,7 +360,7 @@ test.describe('Ops Team Management - Revoking Invites', () => {
   test('shows no revoke button for accepted invites', async ({ authedPage }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Ops flows verified on Chromium-based projects.');
 
-    await authedPage.goto('/ops/team');
+    await authedPage.goto('/app/management/team');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable.');
@@ -388,7 +388,7 @@ test.describe('Ops Team Management - Revoking Invites', () => {
   test('shows no revoke button for revoked invites', async ({ authedPage }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Ops flows verified on Chromium-based projects.');
 
-    await authedPage.goto('/ops/team');
+    await authedPage.goto('/app/management/team');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable.');
@@ -418,7 +418,7 @@ test.describe('Ops Team Management - UI States', () => {
   test('displays empty state for pending invites', async ({ authedPage }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Ops flows verified on Chromium-based projects.');
 
-    await authedPage.goto('/ops/team');
+    await authedPage.goto('/app/management/team');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable.');
@@ -446,7 +446,7 @@ test.describe('Ops Team Management - UI States', () => {
   test('displays invite details in table', async ({ authedPage }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Ops flows verified on Chromium-based projects.');
 
-    await authedPage.goto('/ops/team');
+    await authedPage.goto('/app/management/team');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable.');
@@ -483,7 +483,7 @@ test.describe('Ops Team Management - UI States', () => {
   test('shows loading state during operations', async ({ authedPage }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Ops flows verified on Chromium-based projects.');
 
-    await authedPage.goto('/ops/team');
+    await authedPage.goto('/app/management/team');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable.');

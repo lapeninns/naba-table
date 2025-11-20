@@ -83,7 +83,8 @@ export default async function proxy(req: NextRequest) {
         return NextResponse.next();
       }
       if (url.pathname.startsWith("/ops")) {
-        return NextResponse.rewrite(new URL(`/app${path}`, req.url));
+        const opsStrippedPath = path.replace(/^\/ops/, "") || "/";
+        return NextResponse.rewrite(new URL(`/app${opsStrippedPath}`, req.url));
       }
       return NextResponse.rewrite(new URL(`/guest${path}`, req.url));
     }

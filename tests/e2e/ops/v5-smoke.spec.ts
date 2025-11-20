@@ -12,7 +12,7 @@ async function ensureAuthenticated(page: Page, testInfo: import('@playwright/tes
     testInfo.skip(true, 'Ops flows verified on Chromium-based projects.');
     return false;
   }
-  await page.goto('/ops');
+  await page.goto('/app');
   const currentUrl = page.url();
   if (currentUrl.includes('/signin')) {
     testInfo.skip(true, 'Authenticated storage state unavailable; skipping Ops v5 smoke.');
@@ -29,7 +29,7 @@ test.describe('Ops v5 UI smoke', () => {
     const authed = await ensureAuthenticated(authedPage, testInfo);
     if (!authed) return;
 
-    await authedPage.goto('/ops/team');
+    await authedPage.goto('/app/management/team');
     await expect(authedPage.getByRole('heading', { name: /team management/i })).toBeVisible();
   });
 
@@ -40,7 +40,7 @@ test.describe('Ops v5 UI smoke', () => {
     const authed = await ensureAuthenticated(authedPage, testInfo);
     if (!authed) return;
 
-    await authedPage.goto('/ops/restaurant-settings');
+    await authedPage.goto('/app/settings/restaurant');
     await expect(authedPage.getByRole('heading', { name: /restaurant settings/i })).toBeVisible();
   });
 });

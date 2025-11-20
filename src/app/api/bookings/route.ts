@@ -517,9 +517,20 @@ export async function POST(req: NextRequest) {
 
   const restaurantId = restaurantResolution.restaurantId;
   const clientIp = extractClientIp(req);
+  const idempotencyKey = normalizeIdempotencyKey(req.headers.get("Idempotency-Key"));
+  const clientRequestId = coerceUuid(idempotencyKey) ?? randomUUID();
+  const userAgent = req.headers.get("user-agent");
+  const opsEmailProvidedHeader = req.headers.get("x-ops-email-provided") === "true";
   const isOpsWalkIn = req.headers.get("x-ops-walk-in") === "true";
   const requestSource = isOpsWalkIn ? "ops.walkin" : "api.bookings";
   const bookingSource = isOpsWalkIn ? "ops.walkin" : "api";
+  const bookingDetails = isOpsWalkIn
+    ? ({
+        channel: bookingSource,
+        created_by: "ops.walkin",
+        staff_request_id: clientRequestId,
+      } satisfies Json)
+    : null;
 
   // Rate limiting for booking creation
   const rateResult = await consumeRateLimit({
@@ -563,11 +574,6 @@ export async function POST(req: NextRequest) {
       },
     );
   }
-
-  const idempotencyKey = normalizeIdempotencyKey(req.headers.get("Idempotency-Key"));
-  const clientRequestId = coerceUuid(idempotencyKey) ?? randomUUID();
-  const userAgent = req.headers.get("user-agent");
-  const opsEmailProvidedHeader = req.headers.get("x-ops-email-provided") === "true";
 
   try {
     const supabase = getServiceSupabaseClient();
@@ -699,6 +705,7 @@ export async function POST(req: NextRequest) {
         marketingOptIn: data.marketingOptIn ?? false,
         source: bookingSource,
         idempotencyKey,
+        details: bookingDetails,
       };
 
       const context = {
@@ -746,6 +753,7 @@ export async function POST(req: NextRequest) {
         source: bookingSource,
         authUserId: null,
         clientRequestId,
+        details: bookingDetails,
       });
 
       booking = bookingResult.booking as BookingRecord | undefined;
@@ -833,28 +841,6 @@ export async function POST(req: NextRequest) {
     }
 
     let finalBooking = booking;
-
-    // Apply ops walk-in source metadata after creation so reporting can distinguish origin.
-    if (isOpsWalkIn && booking) {
-      const baseDetails =
-        booking.details && typeof booking.details === "object" ? (booking.details as Record<string, unknown>) : {};
-      const enrichedDetails = {
-        ...baseDetails,
-        channel: bookingSource,
-        created_by: "ops.walkin",
-        staff_request_id: clientRequestId,
-      } as Json;
-
-      try {
-        const updated = await updateBookingRecord(supabase, booking.id, {
-          source: bookingSource,
-          details: enrichedDetails,
-        });
-        finalBooking = updated as BookingRecord;
-      } catch (metadataError) {
-        console.error("[bookings][POST][ops-walk-in-metadata]", metadataError);
-      }
-    }
     let loyaltyAward = 0;
 
     if (!reusedExisting && loyaltyProgram) {

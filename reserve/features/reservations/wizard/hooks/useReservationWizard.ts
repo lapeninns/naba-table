@@ -421,9 +421,9 @@ export function useReservationWizard(
   const handleClose = useCallback(() => {
     if (mode === 'ops') {
       if (typeof window !== 'undefined') {
-        window.location.assign('/ops');
+        window.location.assign('/app');
       } else {
-        navigator.push('/ops');
+        navigator.push('/app');
       }
       setPlanAlert(null);
       return;

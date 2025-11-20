@@ -24,7 +24,7 @@ import {
 import type { Database } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-type DbClient = SupabaseClient<Database, "public", any>;
+type DbClient = SupabaseClient<Database, "public">;
 
 type ServiceFactoryOptions = {
   client?: DbClient;
@@ -103,7 +103,8 @@ class SupabaseCapacityService implements CapacityService {
       const matchingPeriod = selectMatchingPeriod(periods, input.startTime, dayOfWeek);
 
       const { data: ruleRows, error: ruleError } = await this.client
-        .from("restaurant_capacity_rules")
+        // Table not present in generated Database types; cast to suppress schema mismatch.
+        .from("restaurant_capacity_rules" as never)
         .select("id,service_period_id,day_of_week,effective_date,max_covers,max_parties")
         .eq("restaurant_id", input.restaurantId);
 
@@ -214,7 +215,7 @@ class SupabaseCapacityService implements CapacityService {
       authUserId: input.authUserId ?? undefined,
       clientRequestId: input.clientRequestId ?? undefined,
       loyaltyPointsAwarded: input.loyaltyPointsAwarded ?? undefined,
-      details: undefined,
+      details: input.details ?? undefined,
     }, this.client);
 
     return toCommitResult(result);
@@ -257,7 +258,7 @@ function assertValue<T>(value: T | null | undefined, field: string): T {
 function toCommitResult(result: CapacityBookingResult): CapacityCommitResult {
   return {
     success: result.success,
-    booking: (result.booking ?? undefined) as any,
+    booking: (result.booking ?? undefined) as CapacityCommitResult["booking"],
     duplicate: result.duplicate ?? false,
     error: result.error ? mapCapacityErrorCode(result.error) : undefined,
     details: (result.details ?? undefined) as Record<string, unknown> | undefined,

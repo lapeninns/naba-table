@@ -89,7 +89,7 @@ export function InviteAcceptanceClient({ token, invite }: InviteAcceptanceClient
         toast.success('Invitation accepted. Sign in with your new password to continue.');
       } else {
         toast.success('Invitation accepted. Welcome aboard!');
-        router.push('/ops');
+        router.push('/app');
         router.refresh();
       }
     } catch (error) {

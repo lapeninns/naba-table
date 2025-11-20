@@ -24,13 +24,13 @@ const ROUTES: Array<{
   { path: '/item/white-horse-pub-waterbeach', label: 'item-detail' },
   { path: '/my-bookings', label: 'my-bookings', auth: 'user' },
   { path: '/profile/manage', label: 'profile-manage', auth: 'user' },
-  { path: '/ops', label: 'ops-dashboard', auth: 'admin' },
-  { path: '/ops/bookings', label: 'ops-bookings', auth: 'admin' },
-  { path: '/ops/customer-details', label: 'ops-customer-details', auth: 'admin' },
-  { path: '/ops/rejections', label: 'ops-rejections', auth: 'admin' },
-  { path: '/ops/restaurant-settings', label: 'ops-restaurant-settings', auth: 'admin' },
-  { path: '/ops/tables', label: 'ops-tables', auth: 'admin' },
-  { path: '/ops/team', label: 'ops-team', auth: 'admin' },
+  { path: '/app', label: 'ops-dashboard', auth: 'admin' },
+  { path: '/app/bookings', label: 'ops-bookings', auth: 'admin' },
+  { path: '/app/customer-details', label: 'ops-customer-details', auth: 'admin' },
+  { path: '/app/rejections', label: 'ops-rejections', auth: 'admin' },
+  { path: '/app/settings/restaurant', label: 'ops-restaurant-settings', auth: 'admin' },
+  { path: '/app/seating/tables', label: 'ops-tables', auth: 'admin' },
+  { path: '/app/management/team', label: 'ops-team', auth: 'admin' },
 ];
 
 const SKIPPED_ROUTES: Array<{ path: string; reason: string }> = [

@@ -23,7 +23,7 @@ const refreshMock = vi.fn();
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: replaceMock, push: vi.fn(), refresh: refreshMock }),
-  usePathname: () => '/ops/bookings',
+  usePathname: () => '/app/bookings',
   useSearchParams: () => new URLSearchParams(),
 }));
 

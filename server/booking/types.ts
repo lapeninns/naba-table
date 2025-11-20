@@ -5,6 +5,7 @@ import type {
   BookingErrorCode as CapacityErrorCode,
 } from "@/server/capacity";
 import type { RestaurantSchedule } from "@/server/restaurants/schedule";
+import type { Json } from "@/types/supabase";
 
 export type BookingErrorCode =
   | "PAST_TIME"
@@ -56,6 +57,7 @@ export interface BookingInput {
   loyaltyPointsAwarded?: number | null;
   bookingId?: string;
   override?: OverrideRequest | null;
+  details?: Json | null;
 }
 
 export interface BookingPatchInput extends Omit<BookingInput, "start" | "durationMinutes" | "serviceId" | "restaurantId"> {
@@ -135,6 +137,7 @@ export interface CapacityCommitInput extends CapacityCheckInput {
   idempotencyKey?: string | null;
   authUserId?: string | null;
   clientRequestId?: string | null;
+  details?: Json | null;
 }
 
 export interface CapacityCommitResult {
