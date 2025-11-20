@@ -104,7 +104,7 @@ export function WalkInWizardClient() {
         </div>
       </div>
 
-      <Card className="overflow-hidden border shadow-sm">
+      <Card className="border shadow-sm">
         {restaurantQuery.isLoading ? (
           <div className="flex items-center gap-2 border-b border-border/70 bg-card/60 px-4 py-3 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -117,6 +117,9 @@ export function WalkInWizardClient() {
             initialDetails={initialDetails ?? undefined}
             returnPath="/app/bookings"
             dependencies={{ navigator }}
+            navigationClassName="sticky bottom-0"
+            className="min-h-0 bg-transparent p-0 pb-20 sm:pt-0 md:px-0 lg:px-0"
+            contentClassName="gap-6 sm:gap-8"
           />
         </div>
       </Card>
