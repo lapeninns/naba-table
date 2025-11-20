@@ -345,6 +345,7 @@ async function recoverBookingRecord(
 
 export async function GET(req: NextRequest) {
   try {
+    const requestSource = "api.bookings";
     const meParam = req.nextUrl.searchParams.get("me");
 
     if (meParam === "1") {
@@ -423,7 +424,7 @@ export async function GET(req: NextRequest) {
 
           if (!guestError && Array.isArray(guestRows)) {
             void recordObservabilityEvent({
-              source: "api.bookings",
+              source: requestSource,
               eventType: "guest_lookup.allowed",
               context: {
                 restaurant_id: targetRestaurantId,
@@ -516,6 +517,9 @@ export async function POST(req: NextRequest) {
 
   const restaurantId = restaurantResolution.restaurantId;
   const clientIp = extractClientIp(req);
+  const isOpsWalkIn = req.headers.get("x-ops-walk-in") === "true";
+  const requestSource = isOpsWalkIn ? "ops.walkin" : "api.bookings";
+  const bookingSource = isOpsWalkIn ? "ops.walkin" : "api";
 
   // Rate limiting for booking creation
   const rateResult = await consumeRateLimit({
@@ -529,7 +533,7 @@ export async function POST(req: NextRequest) {
 
     // Log rate limit event
     void recordObservabilityEvent({
-      source: "api.bookings",
+      source: requestSource,
       eventType: "booking_creation.rate_limited",
       severity: "warning",
       context: {
@@ -563,6 +567,7 @@ export async function POST(req: NextRequest) {
   const idempotencyKey = normalizeIdempotencyKey(req.headers.get("Idempotency-Key"));
   const clientRequestId = coerceUuid(idempotencyKey) ?? randomUUID();
   const userAgent = req.headers.get("user-agent");
+  const opsEmailProvidedHeader = req.headers.get("x-ops-email-provided") === "true";
 
   try {
     const supabase = getServiceSupabaseClient();
@@ -604,7 +609,7 @@ export async function POST(req: NextRequest) {
           if (pastTimeError instanceof PastBookingError) {
             // Log blocked attempt
             void recordObservabilityEvent({
-              source: "api.bookings",
+              source: requestSource,
               eventType: "booking.past_time.blocked",
               severity: "warning",
               context: {
@@ -692,7 +697,7 @@ export async function POST(req: NextRequest) {
         customerEmail: normalizeEmail(data.email),
         customerPhone: data.phone.trim(),
         marketingOptIn: data.marketingOptIn ?? false,
-        source: "api",
+        source: bookingSource,
         idempotencyKey,
       };
 
@@ -738,7 +743,7 @@ export async function POST(req: NextRequest) {
         notes: data.notes ?? null,
         marketingOptIn: data.marketingOptIn ?? false,
         idempotencyKey,
-        source: "api",
+        source: bookingSource,
         authUserId: null,
         clientRequestId,
       });
@@ -759,7 +764,7 @@ export async function POST(req: NextRequest) {
         if (recovered) {
           booking = recovered;
           void recordObservabilityEvent({
-            source: "api.bookings",
+            source: requestSource,
             eventType: "booking.create.recovered",
             severity: "warning",
             context: {
@@ -797,7 +802,7 @@ export async function POST(req: NextRequest) {
 
             booking = created as BookingRecord;
             void recordObservabilityEvent({
-              source: "api.bookings",
+              source: requestSource,
               eventType: "booking.create.insert_fallback",
               severity: "warning",
               context: {
@@ -828,6 +833,28 @@ export async function POST(req: NextRequest) {
     }
 
     let finalBooking = booking;
+
+    // Apply ops walk-in source metadata after creation so reporting can distinguish origin.
+    if (isOpsWalkIn && booking) {
+      const baseDetails =
+        booking.details && typeof booking.details === "object" ? (booking.details as Record<string, unknown>) : {};
+      const enrichedDetails = {
+        ...baseDetails,
+        channel: bookingSource,
+        created_by: "ops.walkin",
+        staff_request_id: clientRequestId,
+      } as Json;
+
+      try {
+        const updated = await updateBookingRecord(supabase, booking.id, {
+          source: bookingSource,
+          details: enrichedDetails,
+        });
+        finalBooking = updated as BookingRecord;
+      } catch (metadataError) {
+        console.error("[bookings][POST][ops-walk-in-metadata]", metadataError);
+      }
+    }
     let loyaltyAward = 0;
 
     if (!reusedExisting && loyaltyProgram) {
@@ -1348,6 +1375,7 @@ export async function POST(req: NextRequest) {
             booking: safeBookingPayload(finalBooking),
             idempotencyKey,
             restaurantId,
+            emailProvided: isOpsWalkIn ? opsEmailProvidedHeader : true,
           },
           { supabase },
         );

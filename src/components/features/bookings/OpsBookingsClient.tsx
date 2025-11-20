@@ -417,10 +417,13 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
                 </Badge>
               ) : null}
             </div>
-          </div>
+        </div>
           <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+            <Button asChild size="sm" className="h-9 px-4">
+              <Link href="/app/walk-in">Log walk-in</Link>
+            </Button>
             <Button asChild size="sm" variant="outline" className="h-9 px-4">
-              <Link href="/">Back to dashboard</Link>
+              <Link href="/app">Back to dashboard</Link>
             </Button>
           </div>
         </div>

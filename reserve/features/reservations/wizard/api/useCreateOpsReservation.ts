@@ -4,13 +4,36 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef } from 'react';
 
 import { emit } from '@/lib/analytics/emit';
+import { fetchJson } from '@/lib/http/fetchJson';
 import { reservationAdapter, reservationListAdapter } from '@entities/reservation/adapter';
-import { apiClient, type ApiError } from '@shared/api/client';
 import { reservationKeys } from '@shared/api/queryKeys';
 import { track } from '@shared/lib/analytics';
 
 import type { ReservationSubmissionResult } from './types';
 import type { ReservationDraft } from '../model/reducer';
+
+type OpsReservationError = {
+  code?: string;
+  message?: string;
+  status?: number;
+};
+
+function ensureFallbackContact(
+  value: string | null | undefined,
+  clientRequestId: string,
+  kind: 'email' | 'phone',
+): string {
+  const trimmed = (value ?? '').trim();
+  if (trimmed) {
+    return trimmed;
+  }
+
+  const slug = clientRequestId.replace(/[^a-z0-9]/gi, '').slice(0, 24) || `${Date.now()}`;
+  if (kind === 'email') {
+    return `walkin+${slug}@system.local`;
+  }
+  return `000-${slug}`;
+}
 
 export function useCreateOpsReservation() {
   const queryClient = useQueryClient();
@@ -18,7 +41,7 @@ export function useCreateOpsReservation() {
 
   return useMutation<
     ReservationSubmissionResult,
-    ApiError,
+    OpsReservationError,
     { draft: ReservationDraft; bookingId?: string }
   >({
     networkMode: 'offlineFirst',
@@ -52,24 +75,37 @@ export function useCreateOpsReservation() {
           : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
       idempotencyKeyRef.current = idempotencyKey;
 
-      try {
-        const response = await apiClient.post<{
-          booking?: unknown;
-          bookings?: unknown;
-        }>('/ops/bookings', payload, {
-          headers: { 'Idempotency-Key': idempotencyKey },
-        });
+      const emailProvided = Boolean((draft.email ?? '').trim());
+      const email = ensureFallbackContact(draft.email, idempotencyKey, 'email');
+      const phone = ensureFallbackContact(draft.phone, idempotencyKey, 'phone');
 
-        const booking = response?.booking ? reservationAdapter(response.booking) : null;
-        const bookings = response?.bookings ? reservationListAdapter(response.bookings) : [];
+      const response = await fetchJson<{
+        booking?: unknown;
+        bookings?: unknown;
+      }>('/api/bookings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey,
+          'X-Ops-Walk-In': 'true',
+          'X-Ops-Email-Provided': emailProvided ? 'true' : 'false',
+        },
+        body: JSON.stringify({
+          ...payload,
+          email,
+          phone,
+        }),
+      });
 
-        return {
-          booking,
-          bookings,
-        } satisfies ReservationSubmissionResult;
-      } finally {
-        idempotencyKeyRef.current = null;
-      }
+      const booking = response?.booking ? reservationAdapter(response.booking) : null;
+      const bookings = response?.bookings ? reservationListAdapter(response.bookings) : [];
+
+      idempotencyKeyRef.current = null;
+
+      return {
+        booking,
+        bookings,
+      } satisfies ReservationSubmissionResult;
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: reservationKeys.all() });

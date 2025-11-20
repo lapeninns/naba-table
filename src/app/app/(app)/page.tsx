@@ -31,7 +31,7 @@ export default async function OpsDashboardPage({ searchParams }: { searchParams?
   }
 
   if (!user) {
-    redirect(withRedirectedFrom("/login", "/"));
+    redirect(withRedirectedFrom("/app/login", "/app/walk-in"));
   }
 
   return (
