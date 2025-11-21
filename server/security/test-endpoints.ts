@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
 import { env } from "@/lib/env";
 import { recordObservabilityEvent } from "@/server/observability";
@@ -13,37 +13,59 @@ import { recordObservabilityEvent } from "@/server/observability";
  * 
  * In development/test environments, returns null to allow normal operation.
  * 
- * @returns NextResponse with 404 error in production, null otherwise
+ * @returns NextResponse with 403 error when blocked, null otherwise
  * 
  * @example
  * ```typescript
  * export async function POST(req: NextRequest) {
- *   const guard = guardTestEndpoint();
+ *   const guard = guardTestEndpoint(req);
  *   if (guard) return guard;
  *   
  *   // Proceed with test endpoint logic...
  * }
  * ```
  */
-export function guardTestEndpoint(): NextResponse | null {
-  const isProd = env.node.env === "production";
+export function guardTestEndpoint(req: Pick<NextRequest, "headers" | "nextUrl">): NextResponse | null {
+  const testConfig = env.testEndpoints;
+  const isProd = env.node.appEnv === "production";
 
-  if (isProd) {
+  const forbidden = (reason: string) => {
     // Log unauthorized test endpoint access attempt
     void recordObservabilityEvent({
       source: "security.test_endpoints",
       eventType: "test_endpoint.access_blocked",
       severity: "warning",
       context: {
-        environment: "production",
+        environment: isProd ? "production" : env.node.appEnv,
+        reason,
       },
     });
 
-    // Return 404 to be indistinguishable from non-existent route
+    // Return 403 to avoid leaking presence of test endpoints
     return NextResponse.json(
-      { error: "Not found" },
-      { status: 404 }
+      { error: "forbidden" },
+      { status: 403 }
     );
+  };
+
+  if (!testConfig.enabled) {
+    return forbidden("flag_disabled");
+  }
+
+  const headerToken = req.headers.get("x-test-token");
+  const searchToken = req.nextUrl?.searchParams?.get?.("test_token");
+  const providedToken = headerToken ?? searchToken;
+
+  if (!testConfig.token) {
+    return forbidden("token_not_configured");
+  }
+
+  if (!providedToken) {
+    return forbidden("token_missing");
+  }
+
+  if (providedToken !== testConfig.token) {
+    return forbidden("token_mismatch");
   }
 
   // Allow access in development/test environments

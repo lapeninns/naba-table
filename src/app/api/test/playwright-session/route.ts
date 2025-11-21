@@ -94,7 +94,7 @@ async function ensureAuthUser(
 }
 
 export async function POST(req: NextRequest) {
-  const guard = guardTestEndpoint();
+  const guard = guardTestEndpoint(req);
   if (guard) return guard;
 
   const body = await req.json();

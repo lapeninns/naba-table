@@ -718,6 +718,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
         expiresAt: toIsoUtc(holdExpiresAt),
         createdBy,
         metadata: {
+          requireAdjacency: requireAdjacencyUsed,
           selection: {
             tableIds: requestedTableIds,
             summary,

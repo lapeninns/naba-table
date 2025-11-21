@@ -13,7 +13,7 @@ const payloadSchema = z.object({
 });
 
 export async function DELETE(req: NextRequest) {
-  const guard = guardTestEndpoint();
+  const guard = guardTestEndpoint(req);
   if (guard) return guard;
 
   const parsed = payloadSchema.safeParse(await req.json());

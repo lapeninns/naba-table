@@ -13,7 +13,7 @@ type RouteParams = {
 };
 
 export async function GET(req: NextRequest, context: RouteParams) {
-  const guard = guardTestEndpoint();
+  const guard = guardTestEndpoint(req);
   if (guard) return guard;
 
   const { reservationId } = await context.params;

@@ -1,42 +1,85 @@
 == PAGES ==
 /
-├─ my-bookings (auth)
-├─ ops (admin)
-│  ├─ bookings (admin)
-│  │  └─ new (admin)
-│  ├─ customer-details (admin)
-│  ├─ rejections (admin)
-│  ├─ restaurant-settings (admin)
-│  ├─ tables (admin)
-│  ├─ team (admin)
-│  └─ login
-├─ blog
-│  ├─ :articleId
-│  ├─ author
-│  │  └─ :authorId
-│  └─ category
-│     └─ :categoryId
-├─ browse
-├─ checkout
-├─ create
-├─ pricing
+├─ partners
+├─ app
+│  ├─ analytics
+│  │  └─ rejections
+│  ├─ bookings
+│  ├─ customers
+│  ├─ login
+│  ├─ management
+│  │  └─ team
+│  ├─ seating
+│  │  ├─ capacity
+│  │  ├─ floor-plan
+│  │  └─ tables
+│  ├─ settings
+│  │  └─ restaurant
+│  └─ walk-in
+├─ bookings
+│  └─ :bookingId
+│     └─ thank-you
+├─ contact
+├─ guest
+│  ├─ bookings
+│  │  ├─ :bookingId
+│  │  │  └─ thank-you
+│  │  └─ new
+│  ├─ dashboard
+│  ├─ my-bookings
+│  ├─ browse
+│  ├─ reserve
+│  │  ├─ :reservationId
+│  │  └─ r
+│  │     └─ :slug
+│  ├─ restaurant
+│  ├─ signin
+│  ├─ thank-you
+│  ├─ contact
+│  ├─ privacy-policy
+│  ├─ product
+│  ├─ terms
+│  ├─ restaurants
+│  │  └─ :slug
+│  │     └─ book
+│  ├─ invite
+│  │  └─ :token
+│  ├─ profile
+│  │  └─ manage
+│  ├─ item
+│  │  └─ :slug
+│  ├─ auth
+│  │  └─ signin
+│  └─ account
+│     ├─ bookings
+│     ├─ dashboard
+│     ├─ my-bookings
+│     ├─ profile
+│     └─ invite
+│        └─ :token
 ├─ privacy-policy
+├─ product
 ├─ reserve
 │  ├─ :reservationId
 │  └─ r
 │     └─ :slug
-├─ signin
-├─ thank-you
-├─ tos
-├─ profile
-│  └─ manage (auth)
-├─ invite
-│  └─ :token
-├─ item
+├─ restaurants
 │  └─ :slug
-└─ terms
-   ├─ togo
-   └─ venue
+│     └─ book
+├─ terms
+├─ thank-you
+├─ walk-in
+├─ account
+│  ├─ bookings
+│  ├─ my-bookings
+│  ├─ profile
+│  │  └─ manage
+│  └─ invite
+│     └─ :token
+├─ auth
+│  └─ signin
+└─ item
+   └─ :slug
 
 
 == API ROUTES ==
@@ -52,6 +95,7 @@
 │  └─ image [POST]
 ├─ restaurants [GET]
 │  └─ :slug
+│     ├─ calendar-mask [GET]
 │     └─ schedule [GET]
 ├─ test-email [POST, GET]
 ├─ auth
@@ -63,9 +107,12 @@
 │  ├─ allowed-capacities [GET, PUT]
 │  ├─ bookings [GET, POST]
 │  │  ├─ :id [PATCH, DELETE]
+│  │  │  ├─ assign-tables [POST, DELETE]
+│  │  │  ├─ assignment-context [GET]
 │  │  │  ├─ check-in [POST]
 │  │  │  ├─ check-out [POST]
 │  │  │  ├─ history [GET]
+│  │  │  ├─ manual-context [GET]
 │  │  │  ├─ no-show [POST]
 │  │  │  ├─ status [PATCH]
 │  │  │  ├─ tables [POST]
@@ -78,8 +125,13 @@
 │  ├─ occasions [GET]
 │  ├─ restaurants [GET, POST]
 │  │  └─ :id [GET, PATCH, DELETE]
+│  │     ├─ details [GET, PUT]
+│  │     ├─ hours [GET, PUT]
+│  │     ├─ logo [POST]
+│  │     └─ service-periods [GET, PUT]
 │  ├─ tables [GET, POST]
-│  │  └─ :id [PATCH, DELETE]
+│  │  ├─ :id [PATCH, DELETE]
+│  │  └─ timeline [GET]
 │  ├─ zones [GET, POST]
 │  │  └─ :id [PATCH, DELETE]
 │  ├─ dashboard
@@ -90,8 +142,12 @@
 │  │  └─ vips [GET]
 │  ├─ settings
 │  │  └─ strategic-config [GET, POST]
-│  └─ strategies
-│     └─ simulate [POST, GET]
+│  ├─ strategies
+│  │  └─ simulate [POST, GET]
+│  └─ team
+│     ├─ invitations [GET, POST]
+│     │  └─ :inviteId [DELETE]
+│     └─ memberships [GET]
 ├─ test
 │  ├─ bookings [POST]
 │  ├─ invitations [POST, DELETE]
@@ -109,6 +165,28 @@
 │  ├─ restaurants [GET]
 │  │  └─ :slug
 │  │     └─ schedule [GET]
+│  ├─ ops
+│  │  ├─ bookings [GET, POST]
+│  │  │  ├─ :id [PATCH, DELETE]
+│  │  │  ├─ export [GET]
+│  │  │  └─ status-summary [GET]
+│  │  ├─ customers [GET]
+│  │  │  └─ export [GET]
+│  │  ├─ restaurants [GET, POST]
+│  │  │  └─ :id [GET, PATCH]
+│  │  │     ├─ details [GET, PUT]
+│  │  │     ├─ hours [GET, PUT]
+│  │  │     └─ service-periods [GET, PUT]
+│  │  ├─ dashboard
+│  │  │  ├─ changes [GET]
+│  │  │  ├─ heatmap [GET]
+│  │  │  ├─ rejections [GET]
+│  │  │  ├─ summary [GET]
+│  │  │  └─ vips [GET]
+│  │  └─ team
+│  │     ├─ invitations [GET, POST]
+│  │     │  └─ :inviteId [DELETE]
+│  │     └─ memberships [GET]
 │  └─ test
 │     ├─ bookings [POST]
 │     ├─ leads [DELETE]
@@ -116,6 +194,8 @@
 │     └─ reservations
 │        └─ :reservationId
 │           └─ confirmation [GET]
+├─ webhook
+│  └─ resend [POST]
 ├─ owner
 │  ├─ team
 │  │  ├─ invitations [GET, POST]
@@ -126,15 +206,13 @@
 │        ├─ details [GET, PUT]
 │        ├─ hours [GET, PUT]
 │        └─ service-periods [GET, PUT]
+├─ reservations
+│  └─ :reservationId
+│     └─ confirmation [GET]
 ├─ staff
-│  ├─ auto
-│  │  ├─ confirm [POST]
-│  │  └─ quote [POST]
-│  └─ manual
+│  └─ auto
 │     ├─ confirm [POST]
-│     ├─ context [GET]
-│     ├─ hold [POST, DELETE]
-│     └─ validate [POST]
+│     └─ quote [POST]
 └─ team
    └─ invitations
       └─ :token [GET]

@@ -16,14 +16,19 @@ export const REQUIRED_ENV_VARS = [
   'SUPABASE_SERVICE_ROLE_KEY',
 ];
 export const OPTIONAL_ENV_VARS = ['SUPABASE_DB_URL', 'RESEND_API_KEY', 'NEXT_PUBLIC_PLAUSIBLE_DOMAIN'];
+const ALLOWED_APP_ENVS = ['development', 'staging', 'production', 'test'] as const;
+type AppEnv = (typeof ALLOWED_APP_ENVS)[number];
 
 type Logger = Pick<typeof console, 'log' | 'warn' | 'error'>;
 
 export interface ValidationSummary {
   nodeEnv: string;
+  appEnv: AppEnv;
   totalChecked: number;
   missingRequired: string[];
   missingOptional: string[];
+  safetyErrors: string[];
+  guardOverride: boolean;
   hasErrors: boolean;
   warningCount: number;
 }
@@ -47,10 +52,71 @@ export function loadEnvironmentFiles(files: string[] = ENV_FILES): string[] {
   return loadedFiles;
 }
 
+function toBooleanFlag(value: unknown): boolean {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') return value.toLowerCase() === 'true';
+  return false;
+}
+
+function normalizeAppEnv(raw?: string | null): { appEnv: AppEnv; warning?: string } {
+  const normalized = (raw ?? '').toLowerCase().trim();
+  if (ALLOWED_APP_ENVS.includes(normalized as AppEnv)) {
+    return { appEnv: normalized as AppEnv };
+  }
+  return {
+    appEnv: 'development',
+    warning: normalized.length > 0 ? `Unknown APP_ENV "${normalized}" — defaulting to development.` : undefined,
+  };
+}
+
+function safeDescribe(name: string, value: string): string {
+  const length = value.length;
+  return `${name}(len=${length})`;
+}
+
+function collectProdResourceSafety(
+  env: NodeJS.ProcessEnv,
+  appEnv: AppEnv,
+  nodeEnv: string,
+  allowProdResourcesOverride: boolean,
+): string[] {
+  const errors: string[] = [];
+
+  if (appEnv === 'production' && nodeEnv !== 'production') {
+    errors.push(`APP_ENV=production but NODE_ENV=${nodeEnv} — align environments before running.`);
+  }
+
+  const guardable = appEnv !== 'production' && !allowProdResourcesOverride;
+
+  if (guardable) {
+    const checks: Array<[string, string | undefined, string | undefined]> = [
+      ['NEXT_PUBLIC_SUPABASE_URL', env.NEXT_PUBLIC_SUPABASE_URL, env.PRODUCTION_SUPABASE_URL],
+      ['NEXT_PUBLIC_SUPABASE_ANON_KEY', env.NEXT_PUBLIC_SUPABASE_ANON_KEY, env.PRODUCTION_SUPABASE_ANON_KEY],
+      ['SUPABASE_SERVICE_ROLE_KEY', env.SUPABASE_SERVICE_ROLE_KEY, env.PRODUCTION_SUPABASE_SERVICE_ROLE_KEY],
+      ['RESERVE_API_BASE_URL', env.RESERVE_API_BASE_URL, env.PRODUCTION_BOOKING_API_BASE_URL],
+    ];
+
+    for (const [currentKey, current, prodValue] of checks) {
+      if (current && prodValue && current === prodValue) {
+        errors.push(
+          `${currentKey} matches provided production value ${safeDescribe(
+            prodValue.length ? currentKey : 'prod',
+            prodValue,
+          )}; set a non-production credential or export ALLOW_PROD_RESOURCES_IN_NONPROD=true (not recommended).`,
+        );
+      }
+    }
+  }
+
+  return errors;
+}
+
 export function validateEnvironment(options: ValidateEnvironmentOptions = {}): ValidationSummary {
   const env = options.env ?? process.env;
   const nodeEnv = options.nodeEnv ?? env.NODE_ENV ?? 'development';
   const logger = options.logger ?? console;
+  const { appEnv, warning: appEnvWarning } = normalizeAppEnv(env.APP_ENV ?? nodeEnv);
+  const guardOverride = toBooleanFlag(env.ALLOW_PROD_RESOURCES_IN_NONPROD);
 
   const missingRequired: string[] = [];
   const missingOptional: string[] = [];
@@ -71,9 +137,18 @@ export function validateEnvironment(options: ValidateEnvironmentOptions = {}): V
     }
   }
 
+  const safetyErrors = collectProdResourceSafety(env, appEnv, nodeEnv, guardOverride);
+  for (const message of safetyErrors) {
+    logger.error(`❌ Environment safety guard: ${message}`);
+  }
+
   const totalChecked = Object.keys(env).length;
-  const warningCount = missingOptional.length;
-  const hasErrors = missingRequired.length > 0;
+  const warningCount = missingOptional.length + (appEnvWarning ? 1 : 0);
+  const hasErrors = missingRequired.length > 0 || safetyErrors.length > 0;
+
+  if (appEnvWarning) {
+    logger.warn(`⚠️  ${appEnvWarning}`);
+  }
 
   if (hasErrors) {
     logger.error('\n❌ Environment validation failed. Please check your .env.local file.');
@@ -81,9 +156,12 @@ export function validateEnvironment(options: ValidateEnvironmentOptions = {}): V
 
   return {
     nodeEnv,
+    appEnv,
     totalChecked,
     missingRequired,
     missingOptional,
+    safetyErrors,
+    guardOverride,
     hasErrors,
     warningCount,
   };
