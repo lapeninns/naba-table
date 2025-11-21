@@ -1,1 +1,0 @@
-export { GET as handler } from './handler';
