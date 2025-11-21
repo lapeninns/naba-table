@@ -39,6 +39,14 @@ function parseTimestamp(value: string | null | undefined): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+function isValidEmailAddress(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const trimmed = value.trim();
+  if (!trimmed.includes("@")) return false;
+  // Basic guard against obvious placeholders
+  return !/@example\.(com|org|net)$/i.test(trimmed);
+}
+
 function titleize(value: string | null | undefined) {
   if (!value) return "";
   return value
@@ -922,6 +930,89 @@ export async function sendBookingRejectedEmail(booking: BookingRecord) {
 
 export async function sendRestaurantCancellationEmail(booking: BookingRecord) {
   await dispatchEmail("restaurant_cancellation", booking);
+}
+
+export async function sendBookingPendingAttentionEmail(
+  booking: BookingRecord,
+  options?: { reason?: string | null; adminEmail?: string | null },
+) {
+  const venue = await resolveVenueDetails(booking.restaurant_id);
+  const adminEmail = options?.adminEmail?.trim() || venue.email || config.email.supportEmail;
+
+  if (!adminEmail || !isValidEmailAddress(adminEmail)) {
+    console.warn("[emails][bookings] pending attention email skipped (no admin email)", {
+      bookingId: booking.id,
+      adminEmail,
+    });
+    return;
+  }
+
+  const startAt = parseTimestamp(booking.start_at);
+  const dateLabel = booking.booking_date ?? (startAt ? formatReservationDateShort(formatDateForInput(startAt)) : "Requested date");
+  const timeLabel = booking.start_time
+    ? formatReservationTime(booking.start_time)
+    : startAt
+      ? formatReservationTimeFromDate(startAt)
+      : "Requested time";
+  const reason = titleize(options?.reason ?? "Insufficient capacity");
+  const manageUrl = booking.restaurant_id
+    ? `${siteUrl}/dashboard/bookings?restaurantId=${booking.restaurant_id}`
+    : `${siteUrl}/dashboard/bookings`;
+
+  const subject = `Action needed: booking ${booking.reference} pending`;
+  const title = "Booking needs manual attention";
+  const intro = `Auto-assignment could not secure a table for ${escapeHtml(booking.customer_name ?? "the guest")}.`;
+  const summaryHtml = `
+    <div class="card">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="padding:24px 24px 12px;">
+            <h1 style="margin:0 0 8px;font-size:22px;line-height:1.4;color:#0f172a;">${escapeHtml(title)}</h1>
+            <p style="margin:0 0 12px;font-size:15px;color:#334155;">${escapeHtml(intro)} Please review and assign a table.</p>
+            <ul style="margin:0 0 12px;padding-left:18px;color:#334155;font-size:14px;line-height:1.6;">
+              <li><strong>Reference:</strong> ${escapeHtml(booking.reference ?? "")}</li>
+              <li><strong>Date:</strong> ${escapeHtml(dateLabel)}</li>
+              <li><strong>Time:</strong> ${escapeHtml(timeLabel)}</li>
+              <li><strong>Party size:</strong> ${escapeHtml(String(booking.party_size ?? ""))}</li>
+              <li><strong>Guest:</strong> ${escapeHtml(booking.customer_name ?? "")} (${escapeHtml(booking.customer_email ?? "")}${booking.customer_phone ? `, ${escapeHtml(booking.customer_phone)}` : ""})</li>
+              ${booking.notes ? `<li><strong>Notes:</strong> ${escapeHtml(booking.notes)}</li>` : ""}
+              <li><strong>Reason:</strong> ${escapeHtml(reason)}</li>
+            </ul>
+          </td>
+        </tr>
+        <tr>
+          <td align="center" style="padding:0 24px 20px;">
+            ${renderButton("Open bookings dashboard", manageUrl, { variant: "primary", align: "center" })}
+          </td>
+        </tr>
+      </table>
+    </div>
+  `;
+
+  const html = renderEmailBase({
+    title,
+    preheader: `${venue.name ?? "Restaurant"} booking pending (${booking.reference})`,
+    contentHtml: summaryHtml,
+  });
+
+  const text = [
+    title,
+    `Reference: ${booking.reference ?? ""}`,
+    `When: ${dateLabel} at ${timeLabel}`,
+    `Party size: ${booking.party_size ?? ""}`,
+    `Guest: ${booking.customer_name ?? ""} (${booking.customer_email ?? ""}${booking.customer_phone ? `, ${booking.customer_phone}` : ""})`,
+    `Reason: ${reason}`,
+    `Dashboard: ${manageUrl}`,
+  ].join("\n");
+
+  await sendEmail({
+    to: adminEmail,
+    subject,
+    html,
+    text,
+    replyTo: config.email.supportEmail,
+    fromName: venue.name || config.appName || "SajiloReserveX",
+  });
 }
 
 // ------------------------------

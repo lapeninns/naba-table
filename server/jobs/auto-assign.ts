@@ -14,7 +14,11 @@ import {
 import { classifyPlannerReason } from "@/server/capacity/planner-reason";
 import { recordPlannerQuoteTelemetry } from "@/server/capacity/planner-telemetry";
 import { quoteTablesForBooking, atomicConfirmAndTransition } from "@/server/capacity/tables";
-import { sendBookingConfirmationEmail, sendBookingModificationConfirmedEmail } from "@/server/emails/bookings";
+import {
+  sendBookingConfirmationEmail,
+  sendBookingModificationConfirmedEmail,
+  sendBookingPendingAttentionEmail,
+} from "@/server/emails/bookings";
 import {
   isAutoAssignOnBookingEnabled,
   getAutoAssignMaxRetries,
@@ -25,6 +29,7 @@ import {
 import { recordObservabilityEvent } from "@/server/observability";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
+import type { BookingRecord } from "@/server/bookings";
 import type { PlannerStrategyContext } from "@/server/capacity/planner-telemetry";
 import type { Tables } from "@/types/supabase";
 
@@ -39,6 +44,75 @@ type AutoAssignOptions = {
 };
 
 type AutoAssignSummaryResult = "succeeded" | "cutoff" | "already_confirmed" | "exhausted" | "error";
+type SupabaseServiceClient = ReturnType<typeof getServiceSupabaseClient>;
+
+function toRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return { ...(value as Record<string, unknown>) };
+}
+
+async function maybeNotifyAdminPending(params: {
+  booking: Tables<"bookings">;
+  supabase: SupabaseServiceClient;
+  reason: string | null;
+  suppressEmails: boolean;
+  logJob: (stage: string, payload?: Record<string, unknown>) => void;
+}) {
+  const status = String(params.booking.status ?? "");
+  if (["confirmed", "cancelled", "no_show", "completed"].includes(status)) {
+    params.logJob("pending_admin.notify_skipped_status", { bookingId: params.booking.id, status });
+    return;
+  }
+
+  const details = toRecord(params.booking.details);
+  const alreadyNotified =
+    typeof details.pending_admin_notified_at === "string" && details.pending_admin_notified_at.length > 0;
+
+  if (alreadyNotified) {
+    params.logJob("pending_admin.notify_skipped_existing", { bookingId: params.booking.id });
+    return;
+  }
+
+  if (params.suppressEmails) {
+    params.logJob("pending_admin.notify_skipped_suppressed", { bookingId: params.booking.id });
+    return;
+  }
+
+  const nowIso = new Date().toISOString();
+  const nextDetails = {
+    ...details,
+    pending_admin_notified_at: nowIso,
+    pending_admin_reason: params.reason ?? null,
+  };
+
+  const { data, error } = await params.supabase
+    .from("bookings")
+    .update({ details: nextDetails })
+    .eq("id", params.booking.id)
+    .is("details->>pending_admin_notified_at", null)
+    .select("*")
+    .maybeSingle();
+
+  if (error) {
+    console.error("[auto-assign] failed marking pending admin notification", {
+      bookingId: params.booking.id,
+      error,
+    });
+    return;
+  }
+
+  const targetBooking = (data ?? params.booking) as BookingRecord;
+
+  try {
+    await sendBookingPendingAttentionEmail(targetBooking, { reason: params.reason ?? "Insufficient capacity" });
+    params.logJob("pending_admin.notified", { bookingId: params.booking.id, reason: params.reason ?? null });
+  } catch (notifyError) {
+    console.error("[auto-assign] failed to send pending admin email", {
+      bookingId: params.booking.id,
+      error: notifyError,
+    });
+  }
+}
 
 /**
  * Attempts to automatically assign tables for a booking and flips status to confirmed.
@@ -559,6 +633,23 @@ export async function autoAssignAndConfirmIfPossible(
       await emitAutoAssignSummary("exhausted", attempt);
     }
     logJob("exhausted", { attempts: attempt, maxAttempts });
+
+    const { data: latestBooking } = await supabase
+      .from("bookings")
+      .select("*")
+      .eq("id", bookingId)
+      .maybeSingle();
+
+    const bookingForNotification = (latestBooking ?? booking) as Tables<"bookings">;
+    const notificationReason = hardStopReason ?? inlineLastResult?.reason ?? null;
+
+    await maybeNotifyAdminPending({
+      booking: bookingForNotification,
+      supabase,
+      reason: notificationReason,
+      suppressEmails: SUPPRESS_EMAILS,
+      logJob,
+    });
   } catch (e) {
     if (emitAutoAssignSummary) {
       await emitAutoAssignSummary("error", attempt);
