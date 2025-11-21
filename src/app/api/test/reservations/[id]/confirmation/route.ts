@@ -9,15 +9,15 @@ import type { NextRequest} from 'next/server';
 export const dynamic = 'force-dynamic';
 
 type RouteParams = {
-  params: Promise<{ reservationId: string | string[] }>;
+  params: Promise<{ id: string | string[] }>;
 };
 
 export async function GET(req: NextRequest, context: RouteParams) {
   const guard = guardTestEndpoint(req);
   if (guard) return guard;
 
-  const { reservationId } = await context.params;
-  const normalizedReservationId = Array.isArray(reservationId) ? reservationId[0] : reservationId;
+  const { id } = await context.params;
+  const normalizedReservationId = Array.isArray(id) ? id[0] : id;
 
   const service = getServiceSupabaseClient();
   const { data, error } = await service

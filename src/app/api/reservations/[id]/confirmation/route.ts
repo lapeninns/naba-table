@@ -8,15 +8,15 @@ import type { NextRequest } from 'next/server';
 export const dynamic = 'force-dynamic';
 
 type RouteParams = {
-  params: Promise<{ reservationId: string | string[] }>;
+  params: Promise<{ id: string | string[] }>;
 };
 
 const unauthorized = NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 const forbidden = NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
 export async function GET(_req: NextRequest, context: RouteParams) {
-  const { reservationId } = await context.params;
-  const normalized = Array.isArray(reservationId) ? reservationId[0] : reservationId;
+  const { id } = await context.params;
+  const normalized = Array.isArray(id) ? id[0] : id;
 
   if (!normalized) {
     return NextResponse.json({ error: 'Reservation id required' }, { status: 400 });
