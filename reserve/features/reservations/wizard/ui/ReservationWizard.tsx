@@ -16,6 +16,9 @@ type ReservationWizardProps = {
    * defaults are used, which rely on window navigation.
    */
   dependencies?: Partial<WizardDependencies>;
+  navigationClassName?: string;
+  className?: string;
+  contentClassName?: string;
 };
 
 export function ReservationWizard({
@@ -23,6 +26,9 @@ export function ReservationWizard({
   mode = 'customer',
   returnPath,
   dependencies,
+  navigationClassName,
+  className,
+  contentClassName,
 }: ReservationWizardProps = {}) {
   const normalizedReturnPath = useMemo(() => returnPath ?? '/thank-you', [returnPath]);
 
@@ -32,6 +38,9 @@ export function ReservationWizard({
         initialDetails={initialDetails}
         mode={mode}
         returnPath={normalizedReturnPath}
+        navigationClassName={navigationClassName}
+        className={className}
+        contentClassName={contentClassName}
       />
     </WizardDependenciesProvider>
   );

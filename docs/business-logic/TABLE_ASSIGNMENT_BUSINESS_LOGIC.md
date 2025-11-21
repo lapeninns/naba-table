@@ -1767,7 +1767,7 @@ FEATURE_POLICY_REQUOTE_ENABLED=true
 FEATURE_HOLD_STRICT_CONFLICTS_ENABLED=true
 
 # Assignment pipeline (background job)
-FEATURE_ASSIGNMENT_PIPELINE_ENABLED=false  # Future: auto-assign on booking creation
+# Retired; legacy planner is the default and related flags have been removed.
 ```
 
 ### Appendix D: Migration History
@@ -1793,7 +1793,7 @@ FEATURE_ASSIGNMENT_PIPELINE_ENABLED=false  # Future: auto-assign on booking crea
 - [AGENTS.md](../../AGENTS.md) — SDLC workflow and policies
 - [Supabase Schema](../../supabase/schema.sql) — Database DDL
 - [Assignment Implementation](../../server/capacity/table-assignment/assignment.ts) — Core TypeScript logic
-- [Assignment Engine](../../server/assignments/assignment-engine.ts) — Strategy orchestration
+- Assignment Engine (retired): coordinator/pipeline code was removed; legacy planner orchestration now lives under `server/capacity/` (e.g., `table-assignment`).
 - [API Routes](../../src/app/api/ops/bookings/) — REST endpoints
 
 ---

@@ -16,6 +16,8 @@ interface WizardLayoutProps {
   children: React.ReactNode;
   footer?: React.ReactNode;
   elementType?: 'main' | 'div';
+  className?: string;
+  contentClassName?: string;
 }
 
 export function WizardLayout({
@@ -26,6 +28,8 @@ export function WizardLayout({
   children,
   footer,
   elementType = 'main',
+  className,
+  contentClassName,
 }: WizardLayoutProps) {
   const mainStyle = stickyVisible
     ? {
@@ -41,9 +45,15 @@ export function WizardLayout({
         style={mainStyle}
         className={cn(
           'min-h-screen w-full bg-muted/[0.15] px-4 pb-24 pt-6 font-sans text-foreground transition-[padding-bottom] duration-200 sm:pt-12 md:px-6 lg:px-10',
+          className,
         )}
       >
-        <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 sm:gap-12">
+        <div
+          className={cn(
+            'mx-auto flex w-full max-w-5xl flex-col gap-10 sm:gap-12',
+            contentClassName,
+          )}
+        >
           <span ref={heroRef} aria-hidden className="block h-px w-full" />
           {banner ? <div>{banner}</div> : null}
           {children}

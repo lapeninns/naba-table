@@ -195,7 +195,7 @@ Total:                                    2,220 lines
 ### Code References
 
 - **Assignment Logic**: `server/capacity/table-assignment/assignment.ts`
-- **Strategy Engine**: `server/assignments/assignment-engine.ts`
+- **Strategy Engine**: Coordinator pipeline removed; legacy planner now lives under `server/capacity/` modules.
 - **Database RPCs**: `supabase/schema.sql` (lines 570-1800)
 - **API Routes**: `src/app/api/ops/bookings/[id]/tables/`
 

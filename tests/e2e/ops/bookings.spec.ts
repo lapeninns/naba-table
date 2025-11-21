@@ -13,7 +13,7 @@ async function ensureAuthenticated(page: Page, testInfo: import('@playwright/tes
     testInfo.skip(true, 'Ops flows verified on Chromium-based projects.');
     return false;
   }
-  await page.goto('/ops');
+  await page.goto('/app');
   const url = page.url();
   if (url.includes('/signin')) {
     testInfo.skip(true, 'Authenticated storage state unavailable; skipping bookings scenario.');

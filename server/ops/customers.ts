@@ -4,7 +4,11 @@ import type { Database, Tables } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 
-type DbClient = SupabaseClient<Database, "public", any>;
+type DbClient = SupabaseClient<Database, "public">;
+
+type MarketingOptInFilter = "all" | "opted_in" | "opted_out";
+type LastVisitFilter = "any" | "30d" | "90d" | "365d" | "never";
+type CustomerSortBy = "last_visit" | "bookings";
 
 export type CustomerWithProfile = {
   id: string;
@@ -57,11 +61,39 @@ function mapCustomerRow(row: CustomerRow): CustomerWithProfile {
   };
 }
 
+function escapeIlikeTerm(term: string): string | null {
+  const trimmed = term.trim();
+  if (!trimmed) return null;
+
+  const escaped = trimmed.replace(/[%_]/g, "\\$&");
+  return `%${escaped}%`;
+}
+
+function resolveLastVisitCutoff(lastVisit: LastVisitFilter): string | null {
+  const daysLookup: Record<Exclude<LastVisitFilter, "any" | "never">, number> = {
+    "30d": 30,
+    "90d": 90,
+    "365d": 365,
+  };
+
+  const days = daysLookup[lastVisit as keyof typeof daysLookup];
+  if (!days) return null;
+
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString();
+}
+
 type GetCustomersOptions = {
   restaurantId: string;
   page?: number;
   pageSize?: number;
   sortOrder?: "asc" | "desc";
+  sortBy?: CustomerSortBy;
+  search?: string | null;
+  marketingOptIn?: MarketingOptInFilter;
+  lastVisit?: LastVisitFilter;
+  minBookings?: number;
   client?: DbClient;
   maxPageSize?: number;
 };
@@ -83,10 +115,14 @@ export async function getCustomersWithProfiles(
   const maxPageSize = options.maxPageSize ?? 50;
   const pageSize = Math.min(requestedPageSize, Math.max(1, maxPageSize));
   const sortOrder = options.sortOrder ?? "desc";
+  const sortBy = options.sortBy ?? "last_visit";
+  const marketingOptIn = options.marketingOptIn ?? "all";
+  const lastVisit = options.lastVisit ?? "any";
+  const minBookings = Math.max(0, options.minBookings ?? 0);
   const offset = (page - 1) * pageSize;
 
   // Query customers with their profiles
-  const query = client
+  let query = client
     .from("customers")
     .select(
       `
@@ -110,9 +146,36 @@ export async function getCustomersWithProfiles(
     )
     .eq("restaurant_id", options.restaurantId);
 
+  if (marketingOptIn === "opted_in") {
+    query = query.eq("marketing_opt_in", true);
+  } else if (marketingOptIn === "opted_out") {
+    query = query.eq("marketing_opt_in", false);
+  }
+
+  if (minBookings > 0) {
+    query = query.gte("customer_profiles.total_bookings", minBookings);
+  }
+
+  if (lastVisit === "never") {
+    query = query.is("customer_profiles.last_booking_at", null);
+  } else {
+    const cutoff = resolveLastVisitCutoff(lastVisit);
+    if (cutoff) {
+      query = query.gte("customer_profiles.last_booking_at", cutoff);
+    }
+  }
+
+  const searchPattern = escapeIlikeTerm(options.search ?? "");
+  if (searchPattern) {
+    query = query.or(
+      `full_name.ilike.${searchPattern},email.ilike.${searchPattern},phone.ilike.${searchPattern}`,
+    );
+  }
+
   // Apply pagination
+  const orderColumn = sortBy === "bookings" ? "total_bookings" : "last_booking_at";
   const { data, error, count } = await query
-    .order("last_booking_at", {
+    .order(orderColumn, {
       ascending: sortOrder === "asc",
       nullsFirst: false,
       foreignTable: "customer_profiles",
@@ -162,6 +225,11 @@ export async function getAllCustomersWithProfiles(
       pageSize: batchSize,
       maxPageSize: batchSize,
       sortOrder,
+      sortBy: options.sortBy,
+      marketingOptIn: options.marketingOptIn,
+      lastVisit: options.lastVisit,
+      minBookings: options.minBookings,
+      search: options.search,
       client,
     });
 

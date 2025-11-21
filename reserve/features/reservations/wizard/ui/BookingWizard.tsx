@@ -41,6 +41,9 @@ type BookingWizardContentProps = {
   layoutElement?: 'main' | 'div';
   initialCalendarMask?: CalendarMask | null;
   returnPath?: string;
+  navigationClassName?: string;
+  className?: string;
+  contentClassName?: string;
 };
 
 function BookingWizardContent({
@@ -49,6 +52,9 @@ function BookingWizardContent({
   layoutElement = 'main',
   initialCalendarMask,
   returnPath,
+  navigationClassName,
+  className,
+  contentClassName,
 }: BookingWizardContentProps) {
   const {
     state,
@@ -257,6 +263,9 @@ function BookingWizardContent({
         onStickyHeightChange={handleStickyHeightChange}
         banner={banner}
         layoutElement={layoutElement}
+        navigationClassName={navigationClassName}
+        className={className}
+        contentClassName={contentClassName}
       >
         {stepContent}
       </WizardContainer>
@@ -270,6 +279,9 @@ type BookingWizardProps = {
   layoutElement?: 'main' | 'div';
   initialCalendarMask?: CalendarMask | null;
   returnPath?: string;
+  navigationClassName?: string;
+  className?: string;
+  contentClassName?: string;
 };
 
 export function BookingWizard({
@@ -278,6 +290,9 @@ export function BookingWizard({
   layoutElement = 'main',
   initialCalendarMask,
   returnPath,
+  navigationClassName,
+  className,
+  contentClassName,
 }: BookingWizardProps = {}) {
   return (
     <Suspense fallback={<LoadingFallback />}>
@@ -287,6 +302,9 @@ export function BookingWizard({
         layoutElement={layoutElement}
         initialCalendarMask={initialCalendarMask}
         returnPath={returnPath}
+        navigationClassName={navigationClassName}
+        className={className}
+        contentClassName={contentClassName}
       />
     </Suspense>
   );

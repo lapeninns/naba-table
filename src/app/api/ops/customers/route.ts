@@ -5,7 +5,7 @@ import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/serve
 import { fetchUserMemberships } from "@/server/team/access";
 
 import {
-  opsCustomersQuerySchema,
+  parseOpsCustomersQuery,
   type CustomerDTO,
   type OpsCustomersResponse,
 } from "./schema";
@@ -33,9 +33,14 @@ export async function GET(req: NextRequest) {
     page: req.nextUrl.searchParams.get("page") ?? undefined,
     pageSize: req.nextUrl.searchParams.get("pageSize") ?? undefined,
     sort: req.nextUrl.searchParams.get("sort") ?? undefined,
+    sortBy: req.nextUrl.searchParams.get("sortBy") ?? undefined,
+    search: req.nextUrl.searchParams.get("search") ?? undefined,
+    marketingOptIn: req.nextUrl.searchParams.get("marketingOptIn") ?? undefined,
+    lastVisit: req.nextUrl.searchParams.get("lastVisit") ?? undefined,
+    minBookings: req.nextUrl.searchParams.get("minBookings") ?? undefined,
   };
 
-  const parsed = opsCustomersQuerySchema.safeParse(rawParams);
+  const parsed = parseOpsCustomersQuery(rawParams);
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Invalid query", details: parsed.error.flatten() },
@@ -102,6 +107,11 @@ export async function GET(req: NextRequest) {
       page: params.page,
       pageSize: params.pageSize,
       sortOrder: params.sort,
+      sortBy: params.sortBy,
+      search: params.search,
+      marketingOptIn: params.marketingOptIn,
+      lastVisit: params.lastVisit,
+      minBookings: params.minBookings,
       client: serviceSupabase,
     });
 

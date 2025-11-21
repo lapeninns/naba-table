@@ -19,18 +19,34 @@ const safeParse = <T>(value: string | null): T | undefined => {
   }
 };
 
-const dropPendingQueries = (client: PersistedClient | undefined): PersistedClient | undefined => {
+type PersistableQueryLike = {
+  state?: {
+    status?: string;
+    fetchStatus?: string;
+  };
+  meta?: Record<string, unknown>;
+};
+
+const isPersistableQuery = (query: PersistableQueryLike | undefined): boolean => {
+  if (!query) return false;
+  if (query.meta?.persist === false) return false;
+  if (query.state?.status === 'pending') return false;
+  if (query.state?.fetchStatus && query.state.fetchStatus !== 'idle') return false;
+  return true;
+};
+
+const sanitizePersistedClient = (client: PersistedClient | undefined): PersistedClient | undefined => {
   if (!client?.clientState?.queries) {
     return client;
   }
 
-  const filtered = client.clientState.queries.filter((query) => query?.state?.status !== 'pending');
+  const filtered = client.clientState.queries.filter((query) => isPersistableQuery(query));
   if (filtered.length === client.clientState.queries.length) {
     return client;
   }
 
   if (process.env.NODE_ENV !== 'production') {
-    console.warn('[query-persist] removed pending queries from persisted cache', {
+    console.warn('[query-persist] removed unsafe queries from persisted cache', {
       removed: client.clientState.queries.length - filtered.length,
     });
   }
@@ -56,7 +72,7 @@ const createLocalStoragePersister = (key: string): Persister => ({
   },
   restoreClient: async () => {
     const parsed = safeParse<PersistedClient>(window.localStorage.getItem(key));
-    const sanitized = dropPendingQueries(parsed);
+    const sanitized = sanitizePersistedClient(parsed);
 
     if (sanitized && sanitized !== parsed) {
       try {
@@ -102,11 +118,8 @@ export function configureQueryPersistence(
     buster: options.buster ?? STORAGE_VERSION,
     maxAge: options.maxAge ?? DEFAULT_MAX_AGE,
     dehydrateOptions: {
-      shouldDehydrateQuery: (query) => {
-        // Avoid persisting transient/pending queries to prevent hydration errors.
-        if (query.state.status === 'pending') return false;
-        return query.meta?.persist !== false;
-      },
+      // Avoid persisting transient, in-flight, or opt-out queries to prevent hydration errors.
+      shouldDehydrateQuery: (query) => isPersistableQuery(query),
     },
   });
 

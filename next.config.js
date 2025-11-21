@@ -76,6 +76,8 @@ const nextConfig = {
       // Reservation detail lives at /bookings/[bookingId]; align param name to avoid redirect config errors.
       { source: "/reserve/:bookingId", destination: "/bookings/:bookingId", permanent: true },
       { source: "/thank-you", has: [{ type: "query", key: "bookingId", value: "(?<bookingId>.*)" }], destination: "/bookings/:bookingId/thank-you", permanent: true },
+      // Ops walk-in entry
+      { source: "/walk-in", destination: "/app/walk-in", permanent: true },
       // Legal fallbacks
       { source: "/privacy-policy", destination: "/privacy-policy", permanent: true },
       { source: "/terms", destination: "/terms", permanent: true },

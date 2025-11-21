@@ -162,6 +162,7 @@ export class BookingValidationService {
       idempotencyKey: input.idempotencyKey ?? null,
       authUserId: ctx.actorId ?? null,
       clientRequestId,
+      details: input.details ?? null,
     };
 
     const commitResult = await this.commitBooking(commitPayload, outcome.response);
@@ -218,6 +219,7 @@ export class BookingValidationService {
       idempotencyKey: input.idempotencyKey ?? existing.idempotency_key ?? null,
       authUserId: ctx.actorId ?? null,
       clientRequestId,
+      details: input.details ?? existing.details ?? null,
     };
 
     const commitResult = await this.commitBooking(commitPayload, outcome.response, existing.id);

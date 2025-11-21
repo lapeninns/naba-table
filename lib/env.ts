@@ -231,14 +231,6 @@ export const env = {
       adjacency: {
         queryUndirected: adjacencyQueryUndirectedDefault,
       },
-      assignmentPipeline: {
-        enabled: parsed.FEATURE_ASSIGNMENT_PIPELINE_V3 ?? false,
-        shadow: parsed.FEATURE_ASSIGNMENT_PIPELINE_V3_SHADOW ?? false,
-        maxConcurrentPerRestaurant: Math.max(
-          1,
-          Math.min(parsed.FEATURE_ASSIGNMENT_PIPELINE_V3_MAX_PARALLEL ?? 3, 20),
-        ),
-      },
       // Booking auto-assignment
       autoAssignOnBooking: parsed.FEATURE_AUTO_ASSIGN_ON_BOOKING ?? false,
       inlineAutoAssignTimeoutMs: (() => {

@@ -409,6 +409,7 @@ function useUnavailableDateTracking({
                   return fetchReservationSchedule(slug, dateKey, controller.signal);
                 },
                 staleTime: 60_000,
+                meta: { persist: false },
               });
 
               if (!controller.signal.aborted) {

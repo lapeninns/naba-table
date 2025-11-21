@@ -23,18 +23,41 @@ describe('configureQueryPersistence', () => {
     window.localStorage.clear();
   });
 
-  it('drops pending queries from persisted cache before hydrating', async () => {
+  it('drops unsafe queries (pending, non-idle, or persist=false) before hydrating', async () => {
     const seedClient = createSilentClient();
-    const queryKey = ['reservations', 'schedule', 'white-horse', '2025-11-18'] as const;
+    const safeKey = ['reservations', 'schedule', 'white-horse', '2025-11-18'] as const;
+    const pendingKey = ['reservations', 'schedule', 'white-horse', '2025-11-19'] as const;
+    const inflightKey = ['reservations', 'schedule', 'white-horse', '2025-11-20'] as const;
+    const noPersistKey = ['reservations', 'schedule', 'white-horse', '2025-11-21'] as const;
 
-    seedClient.setQueryData(queryKey, { slots: [] });
+    seedClient.setQueryData(safeKey, { slots: [] });
+    seedClient.setQueryData(pendingKey, { slots: [] });
+    seedClient.setQueryData(inflightKey, { slots: [] });
+    seedClient.setQueryData(noPersistKey, { slots: [] });
+
     const persistedState = dehydrate(seedClient);
 
-    const pendingQuery = persistedState.queries[0];
+    const findQuery = (key: readonly unknown[]) =>
+      persistedState.queries.find(
+        (query) => JSON.stringify(query.queryKey) === JSON.stringify(key),
+      );
+
+    const pendingQuery = findQuery(pendingKey);
+    const inflightQuery = findQuery(inflightKey);
+    const persistDisabledQuery = findQuery(noPersistKey);
+
     if (pendingQuery) {
       pendingQuery.state.status = 'pending';
       pendingQuery.state.fetchStatus = 'fetching';
       pendingQuery.state.data = undefined;
+    }
+
+    if (inflightQuery) {
+      inflightQuery.state.fetchStatus = 'fetching';
+    }
+
+    if (persistDisabledQuery) {
+      persistDisabledQuery.meta = { persist: false };
     }
 
     const persistedClient = {
@@ -53,11 +76,18 @@ describe('configureQueryPersistence', () => {
 
     await flushPromises();
 
-    const restored = queryClient.getQueryCache().find({ queryKey });
-    expect(restored).toBeUndefined();
+    const restoredSafe = queryClient.getQueryCache().find({ queryKey: safeKey });
+    const restoredPending = queryClient.getQueryCache().find({ queryKey: pendingKey });
+    const restoredInflight = queryClient.getQueryCache().find({ queryKey: inflightKey });
+    const restoredNoPersist = queryClient.getQueryCache().find({ queryKey: noPersistKey });
+
+    expect(restoredSafe).toBeDefined();
+    expect(restoredPending).toBeUndefined();
+    expect(restoredInflight).toBeUndefined();
+    expect(restoredNoPersist).toBeUndefined();
 
     const stored = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? '{}');
-    expect(stored.clientState?.queries ?? []).toHaveLength(0);
+    expect(stored.clientState?.queries ?? []).toHaveLength(1);
 
     cleanup();
   });

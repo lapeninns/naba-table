@@ -8,7 +8,7 @@ test.describe('Ops Restaurant Settings - Restaurant Profile', () => {
   test('displays restaurant profile form', async ({ authedPage }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Ops flows verified on Chromium-based projects.');
 
-    await authedPage.goto('/ops/restaurant-settings');
+    await authedPage.goto('/app/settings/restaurant');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable; skipping settings.');
@@ -27,7 +27,7 @@ test.describe('Ops Restaurant Settings - Restaurant Profile', () => {
   test('updates restaurant name', async ({ authedPage }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Ops flows verified on Chromium-based projects.');
 
-    await authedPage.goto('/ops/restaurant-settings');
+    await authedPage.goto('/app/settings/restaurant');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable.');
@@ -72,7 +72,7 @@ test.describe('Ops Restaurant Settings - Restaurant Profile', () => {
   test('updates restaurant timezone', async ({ authedPage }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Ops flows verified on Chromium-based projects.');
 
-    await authedPage.goto('/ops/restaurant-settings');
+    await authedPage.goto('/app/settings/restaurant');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable.');
@@ -108,7 +108,7 @@ test.describe('Ops Restaurant Settings - Restaurant Profile', () => {
   test('updates restaurant capacity', async ({ authedPage }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Ops flows verified on Chromium-based projects.');
 
-    await authedPage.goto('/ops/restaurant-settings');
+    await authedPage.goto('/app/settings/restaurant');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable.');
@@ -144,7 +144,7 @@ test.describe('Ops Restaurant Settings - Restaurant Profile', () => {
   test('updates contact email', async ({ authedPage }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Ops flows verified on Chromium-based projects.');
 
-    await authedPage.goto('/ops/restaurant-settings');
+    await authedPage.goto('/app/settings/restaurant');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable.');
@@ -183,7 +183,7 @@ test.describe('Ops Restaurant Settings - Restaurant Profile', () => {
   test('validates required fields', async ({ authedPage }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Ops flows verified on Chromium-based projects.');
 
-    await authedPage.goto('/ops/restaurant-settings');
+    await authedPage.goto('/app/settings/restaurant');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable.');
@@ -213,7 +213,7 @@ test.describe('Ops Restaurant Settings - Restaurant Profile', () => {
   test('shows loading state during save', async ({ authedPage }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Ops flows verified on Chromium-based projects.');
 
-    await authedPage.goto('/ops/restaurant-settings');
+    await authedPage.goto('/app/settings/restaurant');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable.');
@@ -257,7 +257,7 @@ test.describe('Ops Restaurant Settings - Operating Hours', () => {
   test('displays operating hours section', async ({ authedPage }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Ops flows verified on Chromium-based projects.');
 
-    await authedPage.goto('/ops/restaurant-settings');
+    await authedPage.goto('/app/settings/restaurant');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable.');
@@ -273,7 +273,7 @@ test.describe('Ops Restaurant Settings - Operating Hours', () => {
   test('displays days of week', async ({ authedPage }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Ops flows verified on Chromium-based projects.');
 
-    await authedPage.goto('/ops/restaurant-settings');
+    await authedPage.goto('/app/settings/restaurant');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable.');
@@ -295,7 +295,7 @@ test.describe('Ops Restaurant Settings - Service Periods', () => {
   test('displays service periods section', async ({ authedPage }, testInfo) => {
     test.skip(!ALLOWED_PROJECTS.has(testInfo.project.name), 'Ops flows verified on Chromium-based projects.');
 
-    await authedPage.goto('/ops/restaurant-settings');
+    await authedPage.goto('/app/settings/restaurant');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable.');
@@ -313,7 +313,7 @@ test.describe('Ops Restaurant Settings - Mobile viewport', () => {
   test('displays and edits settings on mobile', async ({ authedPage }, testInfo) => {
     test.skip(testInfo.project.name !== 'mobile-chrome', 'Mobile viewport test runs only on mobile-chrome project.');
 
-    await authedPage.goto('/ops/restaurant-settings');
+    await authedPage.goto('/app/settings/restaurant');
 
     if (authedPage.url().includes('/signin')) {
       testInfo.skip(true, 'Authenticated storage state unavailable.');

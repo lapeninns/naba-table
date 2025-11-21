@@ -28,6 +28,9 @@ export interface WizardContainerProps {
   banner?: React.ReactNode;
   children: React.ReactNode;
   layoutElement?: 'main' | 'div';
+  navigationClassName?: string;
+  className?: string;
+  contentClassName?: string;
 }
 
 export function WizardContainer({
@@ -42,6 +45,9 @@ export function WizardContainer({
   banner,
   children,
   layoutElement = 'main',
+  navigationClassName,
+  className,
+  contentClassName,
 }: WizardContainerProps) {
   const totalSteps = steps.length || 1;
   const clampedStep = Math.min(Math.max(currentStep, 1), totalSteps);
@@ -65,6 +71,8 @@ export function WizardContainer({
         stickyVisible={stickyVisible}
         banner={banner}
         elementType={layoutElement}
+        className={className}
+        contentClassName={contentClassName}
         footer={
           <WizardNavigation
             steps={steps}
@@ -73,6 +81,7 @@ export function WizardContainer({
             actions={actions}
             visible={stickyVisible}
             onHeightChange={onStickyHeightChange}
+            className={navigationClassName}
           />
         }
       >

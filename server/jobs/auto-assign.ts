@@ -1,5 +1,3 @@
-import { AssignmentCoordinator } from "@/server/assignments";
-import { disableAssignmentPipelineRuntime, isAssignmentPipelineSchemaError } from "@/server/assignments/runtime-guard";
 import {
   parseAutoAssignLastResult,
   isInlineResultRecent,
@@ -23,15 +21,12 @@ import {
   getAutoAssignRetryDelaysMs,
   getAutoAssignStartCutoffMinutes,
   isAutoAssignRetryPolicyV2Enabled,
-  isAssignmentPipelineV3Enabled,
 } from "@/server/feature-flags";
 import { recordObservabilityEvent } from "@/server/observability";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
-import type { AssignmentCoordinatorResult } from "@/server/assignments";
 import type { PlannerStrategyContext } from "@/server/capacity/planner-telemetry";
-import type { Database, Tables } from "@/types/supabase";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Tables } from "@/types/supabase";
 
 
 type AutoAssignReason = "creation" | "modification";
@@ -44,22 +39,6 @@ type AutoAssignOptions = {
 };
 
 type AutoAssignSummaryResult = "succeeded" | "cutoff" | "already_confirmed" | "exhausted" | "error";
-
-let assignmentCoordinatorInstance: AssignmentCoordinator | null | undefined;
-function getAssignmentCoordinator(): AssignmentCoordinator | null {
-  if (assignmentCoordinatorInstance !== undefined) {
-    return assignmentCoordinatorInstance;
-  }
-  try {
-    assignmentCoordinatorInstance = new AssignmentCoordinator();
-  } catch (error) {
-    assignmentCoordinatorInstance = null;
-    console.warn("[auto-assign][coordinator] unavailable, falling back to legacy planner", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
-  return assignmentCoordinatorInstance;
-}
 
 /**
  * Attempts to automatically assign tables for a booking and flips status to confirmed.
@@ -99,40 +78,24 @@ export async function autoAssignAndConfirmIfPossible(
   let attempt = 0;
 
   try {
-    const bookingSelect = await supabase
+    const { data: bookingRow, error: bookingError } = await supabase
       .from("bookings")
-      .select(
-        "id, restaurant_id, status, booking_date, start_time, end_time, start_at, end_at, party_size, customer_email, customer_name, reference, seating_preference, booking_type, notes, source, loyalty_points_awarded, created_at, updated_at, auto_assign_idempotency_key, auto_assign_last_result, assignment_state, assignment_state_version, assignment_strategy",
-      )
+      .select("*")
       .eq("id", bookingId)
       .maybeSingle();
 
     let booking: Tables<"bookings"> | null = null;
 
-    if (bookingSelect.error) {
-      if (isAssignmentPipelineSchemaError(bookingSelect.error)) {
-        disableAssignmentPipelineRuntime("schema_incompatible_select", bookingSelect.error);
-        const { data: fallbackRow, error: fallbackError } = await supabase.from("bookings").select("*").eq("id", bookingId).maybeSingle();
-        if (fallbackError || !fallbackRow) {
-          console.error("[auto-assign] booking lookup failed", {
-            bookingId,
-            error: fallbackError?.message ?? fallbackError ?? bookingSelect.error?.message ?? bookingSelect.error,
-          });
-          logJob("failed.lookup", { error: fallbackError?.message ?? fallbackError ?? bookingSelect.error?.message ?? bookingSelect.error });
-          return;
-        }
-        booking = fallbackRow as Tables<"bookings">;
-      } else {
-        console.error("[auto-assign] booking lookup failed", { bookingId, error: bookingSelect.error?.message ?? bookingSelect.error });
-        logJob("failed.lookup", { error: bookingSelect.error?.message ?? bookingSelect.error });
-        return;
-      }
-    } else if (!bookingSelect.data) {
+    if (bookingError) {
+      console.error("[auto-assign] booking lookup failed", { bookingId, error: bookingError?.message ?? bookingError });
+      logJob("failed.lookup", { error: bookingError?.message ?? bookingError });
+      return;
+    } else if (!bookingRow) {
       console.error("[auto-assign] booking lookup failed", { bookingId, error: "not_found" });
       logJob("failed.lookup", { error: "not_found" });
       return;
     } else {
-      booking = bookingSelect.data as Tables<"bookings">;
+      booking = bookingRow as Tables<"bookings">;
     }
 
     const inlineLastResult = parseAutoAssignLastResult(booking.auto_assign_last_result ?? null);
@@ -267,35 +230,6 @@ export async function autoAssignAndConfirmIfPossible(
       });
     }
 
-    if (isAssignmentPipelineV3Enabled()) {
-      const coordinator = getAssignmentCoordinator();
-      if (coordinator) {
-        try {
-          const coordinatorResult = await coordinator.processBooking(booking.id, reason);
-          await handleCoordinatorResult({
-            bookingId,
-            booking,
-            result: coordinatorResult,
-            logJob,
-            suppressEmails: SUPPRESS_EMAILS,
-            inlineEmailAlreadySent,
-            emailVariant,
-            emitAutoAssignSummary,
-            supabase,
-          });
-          return;
-        } catch (coordinatorError) {
-          if (isAssignmentPipelineSchemaError(coordinatorError)) {
-            disableAssignmentPipelineRuntime("schema_incompatible_process", coordinatorError);
-            logJob("coordinator.schema_disabled", { error: coordinatorError instanceof Error ? coordinatorError.message : String(coordinatorError) });
-          } else {
-            throw coordinatorError;
-          }
-        }
-      } else {
-        logJob("coordinator.unavailable_fallback", { reason: "missing_redis_config" });
-      }
-    }
     if (retryPolicyV2Enabled && inlineLastResult?.reason === "INLINE_TIMEOUT") {
       plannerStrategy.requireAdjacency = false;
       plannerStrategy.maxTables = plannerStrategy.maxTables ?? 4;
@@ -631,102 +565,5 @@ export async function autoAssignAndConfirmIfPossible(
     }
     console.error("[auto-assign] unexpected error", { bookingId, error: e });
     logJob("failed.unexpected", { error: e instanceof Error ? e.message : String(e) });
-  }
-}
-
-type CoordinatorHandlerParams = {
-  bookingId: string;
-  booking: Tables<"bookings">;
-  result: AssignmentCoordinatorResult;
-  logJob: (stage: string, payload?: Record<string, unknown>) => void;
-  suppressEmails: boolean;
-  inlineEmailAlreadySent: boolean;
-  emailVariant: AutoAssignEmailVariant;
-  emitAutoAssignSummary: ((result: AutoAssignSummaryResult, attemptsUsed: number) => Promise<void>) | null;
-  supabase: SupabaseClient<Database>;
-};
-
-async function handleCoordinatorResult(params: CoordinatorHandlerParams): Promise<void> {
-  const {
-    bookingId,
-    booking,
-    result,
-    logJob,
-    suppressEmails,
-    inlineEmailAlreadySent,
-    emailVariant,
-    emitAutoAssignSummary,
-    supabase,
-  } = params;
-
-  const attemptsUsed = 1;
-
-  if (result.outcome === "confirmed") {
-    if (!suppressEmails) {
-      const { data: updated } = await supabase.from("bookings").select("*").eq("id", bookingId).maybeSingle();
-      const bookingRecord = (updated ?? booking) as unknown as Tables<"bookings">;
-      try {
-        if (inlineEmailAlreadySent) {
-          logJob("email.skipped_inline_success");
-        } else if (emailVariant === "modified") {
-          await sendBookingModificationConfirmedEmail(bookingRecord);
-        } else {
-          await sendBookingConfirmationEmail(bookingRecord);
-        }
-      } catch (error) {
-        console.error("[auto-assign] coordinator email failure", { bookingId, error });
-      }
-    }
-
-    await recordObservabilityEvent({
-      source: "auto_assign",
-      eventType: "auto_assign.succeeded",
-      restaurantId: booking.restaurant_id,
-      bookingId,
-      context: { attempt_index: 0, trigger: "coordinator" },
-    });
-    if (emitAutoAssignSummary) {
-      await emitAutoAssignSummary("succeeded", attemptsUsed);
-    }
-    logJob("coordinator.success", { holdId: result.holdId });
-    return;
-  }
-
-  if (result.outcome === "manual_review") {
-    await recordObservabilityEvent({
-      source: "auto_assign",
-      eventType: "auto_assign.manual_review",
-      restaurantId: booking.restaurant_id,
-      bookingId,
-      context: { trigger: "coordinator", reason: result.reason },
-    });
-    if (emitAutoAssignSummary) {
-      await emitAutoAssignSummary("exhausted", attemptsUsed);
-    }
-    logJob("coordinator.manual_review", { reason: result.reason });
-    return;
-  }
-
-  if (result.outcome === "retry") {
-    await recordObservabilityEvent({
-      source: "auto_assign",
-      eventType: "auto_assign.retry_scheduled",
-      restaurantId: booking.restaurant_id,
-      bookingId,
-      context: { delayMs: result.delayMs, trigger: "coordinator" },
-    });
-    logJob("coordinator.retry", { delayMs: result.delayMs, reason: result.reason });
-    if (result.delayMs > 0) {
-      await new Promise((resolve) => setTimeout(resolve, result.delayMs));
-    }
-    if (emitAutoAssignSummary) {
-      await emitAutoAssignSummary("error", attemptsUsed);
-    }
-    return;
-  }
-
-  logJob("coordinator.noop", { reason: result.reason });
-  if (emitAutoAssignSummary) {
-    await emitAutoAssignSummary("error", attemptsUsed);
   }
 }

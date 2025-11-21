@@ -3,13 +3,18 @@ import { fetchJson } from '@/lib/http/fetchJson';
 import type { HttpError } from '@/lib/http/errors';
 import type { OpsCustomersPage, OpsServiceError } from '@/types/ops';
 
-const OPS_CUSTOMERS_BASE = '/api/customers';
+const OPS_CUSTOMERS_BASE = '/api/ops/customers';
 
 export type CustomerListParams = {
   restaurantId: string;
   page?: number;
   pageSize?: number;
   sort?: 'asc' | 'desc';
+  sortBy?: 'last_visit' | 'bookings';
+  search?: string;
+  marketingOptIn?: 'all' | 'opted_in' | 'opted_out';
+  lastVisit?: 'any' | '30d' | '90d' | '365d' | 'never';
+  minBookings?: number;
 };
 
 export interface CustomerService {
@@ -34,6 +39,11 @@ function buildSearch(params: CustomerListParams): string {
   if (params.page) searchParams.set('page', String(params.page));
   if (params.pageSize) searchParams.set('pageSize', String(params.pageSize));
   if (params.sort) searchParams.set('sort', params.sort);
+  if (params.sortBy) searchParams.set('sortBy', params.sortBy);
+  if (params.search) searchParams.set('search', params.search);
+  if (params.marketingOptIn && params.marketingOptIn !== 'all') searchParams.set('marketingOptIn', params.marketingOptIn);
+  if (params.lastVisit && params.lastVisit !== 'any') searchParams.set('lastVisit', params.lastVisit);
+  if (typeof params.minBookings === 'number' && params.minBookings > 0) searchParams.set('minBookings', String(params.minBookings));
   return searchParams.toString();
 }
 
