@@ -99,6 +99,7 @@ describe('useWizardStore', () => {
     const { result } = renderHook(() => useWizardStore());
 
     act(() => {
+      result.current.actions.updateDetails('rememberDetails', true);
       result.current.actions.updateDetails('name', 'Reset Tester');
       result.current.actions.goToStep(3);
       result.current.actions.resetForm();
