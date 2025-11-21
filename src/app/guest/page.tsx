@@ -1,8 +1,5 @@
 import { permanentRedirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-export default function BookingsIndexRedirect() {
+export default function GuestDashboardRedirect() {
   permanentRedirect("/guest/bookings");
 }
-

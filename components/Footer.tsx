@@ -4,13 +4,14 @@ import logo from "@/app/icon.png";
 import config from "@/config";
 
 interface FooterProps {
-  variant?: "default" | "compact";
+  variant?: "marketing" | "app" | "auth" | "compact" | "default";
 }
 
-export default function Footer({ variant = "default" }: FooterProps) {
+export default function Footer({ variant = "marketing" }: FooterProps) {
   const currentYear = new Date().getFullYear();
+  const isCompact = variant === "compact" || variant === "auth" || variant === "app";
 
-  if (variant === "compact") {
+  if (isCompact) {
     return (
       <footer className="border-t border-slate-200 bg-slate-50/50 py-8">
         <div className="container mx-auto flex flex-col items-center gap-4 px-4 text-center md:px-6">

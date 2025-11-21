@@ -96,7 +96,7 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
     clientEnv.flags.forcePasswordSignIn ? AUTH_MODES.PASSWORD : AUTH_MODES.MAGIC_LINK,
   );
 
-  const targetPath = redirectedFrom && redirectedFrom.startsWith('/') ? redirectedFrom : '/my-bookings';
+  const targetPath = redirectedFrom && redirectedFrom.startsWith('/') ? redirectedFrom : '/guest/bookings';
 
   useEffect(() => {
     track('auth_signin_viewed', { redirectedFrom: targetPath });
