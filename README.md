@@ -1,86 +1,65 @@
-# CLI Proxy API
+# SajiloReserveX
 
-English | [中文](README_CN.md)
+Modern reservations and capacity management built with Next.js 16 (App Router), React 19, Supabase, and pnpm workspaces.
 
-A proxy server that provides OpenAI/Gemini/Claude/Codex compatible API interfaces for CLI.
+## Stack
 
-It now also supports OpenAI Codex (GPT models) and Claude Code via OAuth.
+- Next.js 16 (app directory) · React 19 · TypeScript
+- Supabase (Postgres, Auth, Storage) — remote only
+- Vite/Storybook for the `reserve` package
+- Testing: Vitest (targeted security/ops smoke tests)
 
-So you can use local or multi-account CLI access with OpenAI(include Responses)/Gemini/Claude-compatible clients and SDKs.
+## Quick start
 
-## Sponsor
+1. Install deps: `pnpm install`
+2. Copy env template: `cp .env.example .env.local` and fill with **non‑production** Supabase/Resend credentials.
+3. Run safety check + dev server:
+   - `pnpm validate:env` (env guard will block prod creds in non‑prod by default)
+   - `pnpm dev`
 
-[![z.ai](https://assets.router-for.me/english.png)](https://z.ai/subscribe?ic=8JVLJQFSKB)
+## Environment model
 
-This project is sponsored by Z.ai, supporting us with their GLM CODING PLAN.
+- `APP_ENV`: `development` | `staging` | `production` | `test` (defaults to `development`)
+- Guardrails:
+  - If `APP_ENV` ≠ `production`, the safety check fails when Supabase/booking URLs match the provided production values unless explicitly overridden.
+  - Set `PRODUCTION_SUPABASE_URL`/`PRODUCTION_SUPABASE_ANON_KEY`/`PRODUCTION_SUPABASE_SERVICE_ROLE_KEY`/`PRODUCTION_BOOKING_API_BASE_URL` for detection.
+  - Override (not recommended): `ALLOW_PROD_RESOURCES_IN_NONPROD=true`.
+- Test endpoints: `ENABLE_TEST_ENDPOINTS` (default false) + `TEST_ENDPOINT_TOKEN` are required; missing/invalid token returns 403.
 
-GLM CODING PLAN is a subscription service designed for AI coding, starting at just $3/month. It provides access to their flagship GLM-4.6 model across 10+ popular AI coding tools (Claude Code, Cline, Roo Code, etc.), offering developers top-tier, fast, and stable coding experiences.
+## Database scripts (remote only)
 
-Get 10% OFF GLM CODING PLAN：https://z.ai/subscribe?ic=8JVLJQFSKB
+Destructive scripts are guarded by `scripts/db/safe-run.ts`.
 
-## Overview
+- `pnpm db:reset` — apply init schema + seeds
+- `pnpm db:migrate` — apply init schema/migrations
+- `pnpm db:seed-only` — apply seeds only
+- `pnpm db:wipe` — drop public schema
+- Safety:
+  - Requires `SUPABASE_DB_URL`.
+  - Blocks `DB_TARGET_ENV=production` unless `ALLOW_PROD_DB_WIPE=true`.
+  - Blocks when non‑prod target uses production DB URL unless override set.
+  - TTY prompt to type the target env before continuing.
 
-- OpenAI/Gemini/Claude compatible API endpoints for CLI models
-- OpenAI Codex support (GPT models) via OAuth login
-- Claude Code support via OAuth login
-- Qwen Code support via OAuth login
-- iFlow support via OAuth login
-- Streaming and non-streaming responses
-- Function calling/tools support
-- Multimodal input support (text and images)
-- Multiple accounts with round-robin load balancing (Gemini, OpenAI, Claude, Qwen and iFlow)
-- Simple CLI authentication flows (Gemini, OpenAI, Claude, Qwen and iFlow)
-- Generative Language API Key support
-- AI Studio Build multi-account load balancing
-- Gemini CLI multi-account load balancing
-- Claude Code multi-account load balancing
-- Qwen Code multi-account load balancing
-- iFlow multi-account load balancing
-- OpenAI Codex multi-account load balancing
-- OpenAI-compatible upstream providers via config (e.g., OpenRouter)
-- Reusable Go SDK for embedding the proxy (see `docs/sdk-usage.md`)
+## Scripts
 
-## Getting Started
+- `pnpm lint` — ESLint (limited scope; expand as follow‑up)
+- `pnpm typecheck` — TypeScript
+- `pnpm test` — vitest (security/safety suite)
+- `pnpm build` — Next.js build
+- `pnpm secret:scan` — gitleaks + trufflehog
+- `pnpm audit --prod --audit-level=high` — dependency audit
 
-CLIProxyAPI Guides: [https://help.router-for.me/](https://help.router-for.me/)
+## CI
 
-## Management API
+`.github/workflows/ci.yml` runs lint → typecheck → tests → build, then secret scan and `pnpm audit --prod --audit-level=high`. Branch protection should require these jobs.
 
-see [MANAGEMENT_API.md](https://help.router-for.me/management/api)
+## Security notes
 
-## SDK Docs
+- Never commit `.env*`; templates only (`.env.example`, `.env.local.example`).
+- Supabase is remote only; do not run local migrations against production.
+- Test-only APIs require `ENABLE_TEST_ENDPOINTS=true` **and** `TEST_ENDPOINT_TOKEN` in header `x-test-token` or query `test_token`.
 
-- Usage: [docs/sdk-usage.md](docs/sdk-usage.md)
-- Advanced (executors & translators): [docs/sdk-advanced.md](docs/sdk-advanced.md)
-- Access: [docs/sdk-access.md](docs/sdk-access.md)
-- Watcher: [docs/sdk-watcher.md](docs/sdk-watcher.md)
-- Custom Provider Example: `examples/custom-provider`
+## Docs index
 
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## Who is with us?
-
-Those projects are based on CLIProxyAPI:
-
-### [vibeproxy](https://github.com/automazeio/vibeproxy)
-
-Native macOS menu bar app to use your Claude Code & ChatGPT subscriptions with AI coding tools - no API keys needed
-
-### [Subtitle Translator](https://github.com/VjayC/SRT-Subtitle-Translator-Validator)
-
-Browser-based tool to translate SRT subtitles using your Gemini subscription via CLIProxyAPI with automatic validation/error correction - no API keys needed
-
-> [!NOTE]  
-> If you developed a project based on CLIProxyAPI, please open a PR to add it to this list.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+- `docs/environments.md` — environment profiles, safety flags, test-endpoint usage.
+- Legacy docs were removed during cleanup; add new runbooks in `docs/` as they are produced.

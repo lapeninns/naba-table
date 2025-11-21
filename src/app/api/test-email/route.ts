@@ -9,7 +9,7 @@ import type { BookingRecord } from "@/server/bookings";
 import type { NextRequest} from "next/server";
 
 export async function POST(req: NextRequest) {
-  const guard = guardTestEndpoint();
+  const guard = guardTestEndpoint(req);
   if (guard) return guard;
 
   try {
@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  const guard = guardTestEndpoint();
+  const guard = guardTestEndpoint(req);
   if (guard) return guard;
 
   return NextResponse.json({

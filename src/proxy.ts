@@ -77,7 +77,7 @@ export default async function proxy(req: NextRequest) {
     hostname === process.env.NEXT_PUBLIC_ROOT_DOMAIN ||
     hostname === "localhost"
   ) {
-    // Rewrite to the (guest) folder, but NOT for API routes
+    // Routes on root domain are handled directly, no rewrite needed
     if (!url.pathname.startsWith("/api/")) {
       // Allow ops/app-prefixed routes when running on localhost without the app subdomain
       if (url.pathname.startsWith("/app")) {
@@ -87,7 +87,8 @@ export default async function proxy(req: NextRequest) {
         const opsStrippedPath = path.replace(/^\/ops/, "") || "/";
         return NextResponse.rewrite(new URL(`/app${opsStrippedPath}`, req.url));
       }
-      return NextResponse.rewrite(new URL(`/guest${path}`, req.url));
+      // All other routes handled directly
+      return NextResponse.next();
     }
   }
 

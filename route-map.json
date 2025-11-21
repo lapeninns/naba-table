@@ -1,78 +1,63 @@
 {
   "pages": [
     {
-      "path": "/my-bookings",
+      "path": "/partners",
       "methods": [],
       "dynamic": false,
-      "groups": ["authed"],
-      "guards": ["auth"],
-      "source": "(authed)/my-bookings/page.tsx",
-      "description": "My-bookings page",
+      "groups": ["restaurant-partners"],
+      "guards": [],
+      "source": "(restaurant-partners)/partners/page.tsx",
+      "description": "Partners page",
       "params": [],
       "config": {
-        "dynamic": "force-dynamic"
+        "revalidate": 0
       }
     },
     {
-      "path": "/ops",
+      "path": "/app",
       "methods": [],
       "dynamic": false,
-      "groups": ["ops", "app"],
-      "guards": ["admin"],
-      "source": "(ops)/ops/(app)/page.tsx",
-      "description": "Ops page",
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/page.tsx",
+      "description": "App page",
       "params": [],
       "config": {}
     },
     {
-      "path": "/blog",
+      "path": "/bookings",
       "methods": [],
       "dynamic": false,
       "groups": [],
       "guards": [],
-      "source": "blog/page.tsx",
-      "description": "Blog page",
+      "source": "bookings/page.tsx",
+      "description": "Bookings page",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/contact",
+      "methods": [],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "contact/page.tsx",
+      "description": "Contact page",
       "params": [],
       "config": {}
     },
     {
-      "path": "/browse",
+      "path": "/guest",
       "methods": [],
       "dynamic": false,
-      "groups": [],
+      "groups": ["guest"],
       "guards": [],
-      "source": "browse/page.tsx",
-      "description": "Browse page",
+      "source": "guest/(guest)/page.tsx",
+      "description": "Guest page",
       "params": [],
-      "config": {
-        "dynamic": "force-dynamic"
-      }
-    },
-    {
-      "path": "/checkout",
-      "methods": [],
-      "dynamic": false,
-      "groups": [],
-      "guards": [],
-      "source": "checkout/page.tsx",
-      "description": "Checkout page",
-      "params": [],
-      "config": {
-        "dynamic": "force-dynamic"
-      }
-    },
-    {
-      "path": "/create",
-      "methods": [],
-      "dynamic": false,
-      "groups": [],
-      "guards": [],
-      "source": "create/page.tsx",
-      "description": "Create page",
-      "params": [],
-      "config": {
-        "dynamic": "force-dynamic"
-      }
+      "config": {}
     },
     {
       "path": "/",
@@ -82,19 +67,6 @@
       "guards": [],
       "source": "page.tsx",
       "description": "Homepage",
-      "params": [],
-      "config": {
-        "dynamic": "force-dynamic"
-      }
-    },
-    {
-      "path": "/pricing",
-      "methods": [],
-      "dynamic": false,
-      "groups": [],
-      "guards": [],
-      "source": "pricing/page.tsx",
-      "description": "Pricing page",
       "params": [],
       "config": {}
     },
@@ -110,6 +82,17 @@
       "config": {}
     },
     {
+      "path": "/product",
+      "methods": [],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "product/page.tsx",
+      "description": "Product page",
+      "params": [],
+      "config": {}
+    },
+    {
       "path": "/reserve",
       "methods": [],
       "dynamic": false,
@@ -118,18 +101,27 @@
       "source": "reserve/page.tsx",
       "description": "Reserve page",
       "params": [],
-      "config": {
-        "dynamic": "force-dynamic"
-      }
+      "config": {}
     },
     {
-      "path": "/signin",
+      "path": "/restaurants",
       "methods": [],
       "dynamic": false,
       "groups": [],
       "guards": [],
-      "source": "signin/page.tsx",
-      "description": "Signin page",
+      "source": "restaurants/page.tsx",
+      "description": "Restaurants page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/terms",
+      "methods": [],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "terms/page.tsx",
+      "description": "Terms page",
       "params": [],
       "config": {}
     },
@@ -145,124 +137,310 @@
       "config": {}
     },
     {
-      "path": "/tos",
+      "path": "/walk-in",
       "methods": [],
       "dynamic": false,
       "groups": [],
       "guards": [],
-      "source": "tos/page.tsx",
-      "description": "Tos page",
+      "source": "walk-in/page.tsx",
+      "description": "Walk-in page",
       "params": [],
       "config": {}
     },
     {
-      "path": "/profile/manage",
+      "path": "/account/bookings",
       "methods": [],
       "dynamic": false,
-      "groups": ["authed"],
-      "guards": ["auth"],
-      "source": "(authed)/profile/manage/page.tsx",
-      "description": "Manage page",
-      "params": [],
-      "config": {}
-    },
-    {
-      "path": "/ops/bookings",
-      "methods": [],
-      "dynamic": false,
-      "groups": ["ops", "app"],
-      "guards": ["admin"],
-      "source": "(ops)/ops/(app)/bookings/page.tsx",
+      "groups": [],
+      "guards": [],
+      "source": "account/bookings/page.tsx",
       "description": "Bookings page",
       "params": [],
       "config": {}
     },
     {
-      "path": "/ops/customer-details",
+      "path": "/account/my-bookings",
       "methods": [],
       "dynamic": false,
-      "groups": ["ops", "app"],
-      "guards": ["admin"],
-      "source": "(ops)/ops/(app)/customer-details/page.tsx",
-      "description": "Customer-details page",
-      "params": [],
-      "config": {}
-    },
-    {
-      "path": "/ops/rejections",
-      "methods": [],
-      "dynamic": false,
-      "groups": ["ops", "app"],
-      "guards": ["admin"],
-      "source": "(ops)/ops/(app)/rejections/page.tsx",
-      "description": "Rejections page",
-      "params": [],
-      "config": {}
-    },
-    {
-      "path": "/ops/restaurant-settings",
-      "methods": [],
-      "dynamic": false,
-      "groups": ["ops", "app"],
-      "guards": ["admin"],
-      "source": "(ops)/ops/(app)/restaurant-settings/page.tsx",
-      "description": "Restaurant-settings page",
-      "params": [],
-      "config": {}
-    },
-    {
-      "path": "/ops/tables",
-      "methods": [],
-      "dynamic": false,
-      "groups": ["ops", "app"],
-      "guards": ["admin"],
-      "source": "(ops)/ops/(app)/tables/page.tsx",
-      "description": "Tables page",
-      "params": [],
-      "config": {}
-    },
-    {
-      "path": "/ops/team",
-      "methods": [],
-      "dynamic": false,
-      "groups": ["ops", "app"],
-      "guards": ["admin"],
-      "source": "(ops)/ops/(app)/team/page.tsx",
-      "description": "Team page",
-      "params": [],
-      "config": {}
-    },
-    {
-      "path": "/ops/login",
-      "methods": [],
-      "dynamic": false,
-      "groups": ["ops", "public"],
+      "groups": [],
       "guards": [],
-      "source": "(ops)/ops/(public)/login/page.tsx",
+      "source": "account/my-bookings/page.tsx",
+      "description": "My-bookings page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/account/profile",
+      "methods": [],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "account/profile/page.tsx",
+      "description": "Profile page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/analytics",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/analytics/page.tsx",
+      "description": "Analytics page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/bookings",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/bookings/page.tsx",
+      "description": "Bookings page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/customers",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/customers/page.tsx",
+      "description": "Customers page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/login",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/login/page.tsx",
       "description": "Login page",
       "params": [],
       "config": {}
     },
     {
-      "path": "/blog/:articleId",
+      "path": "/app/management",
       "methods": [],
-      "dynamic": true,
-      "groups": [],
+      "dynamic": false,
+      "groups": ["app"],
       "guards": [],
-      "source": "blog/[articleId]/page.tsx",
-      "description": "Page",
-      "params": ["articleId"],
+      "source": "app/(app)/management/page.tsx",
+      "description": "Management page",
+      "params": [],
       "config": {}
     },
     {
-      "path": "/invite/:token",
+      "path": "/app/seating",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/seating/page.tsx",
+      "description": "Seating page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/settings",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/settings/page.tsx",
+      "description": "Settings page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/walk-in",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/walk-in/page.tsx",
+      "description": "Walk-in page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/auth/signin",
+      "methods": [],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "auth/signin/page.tsx",
+      "description": "Signin page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/bookings/:bookingId",
       "methods": [],
       "dynamic": true,
       "groups": [],
       "guards": [],
-      "source": "invite/[token]/page.tsx",
+      "source": "bookings/[bookingId]/page.tsx",
       "description": "Page",
-      "params": ["token"],
+      "params": ["bookingId"],
+      "config": {}
+    },
+    {
+      "path": "/guest/bookings",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["guest", "account"],
+      "guards": [],
+      "source": "guest/(guest)/(account)/bookings/page.tsx",
+      "description": "Bookings page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/guest/dashboard",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["guest", "account"],
+      "guards": [],
+      "source": "guest/(guest)/(account)/dashboard/page.tsx",
+      "description": "Dashboard page",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/guest/my-bookings",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["guest", "account"],
+      "guards": [],
+      "source": "guest/(guest)/(account)/my-bookings/page.tsx",
+      "description": "My-bookings page",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/guest/browse",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["guest", "guest-experience"],
+      "guards": [],
+      "source": "guest/(guest)/(guest-experience)/browse/page.tsx",
+      "description": "Browse page",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/guest/reserve",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["guest", "guest-experience"],
+      "guards": [],
+      "source": "guest/(guest)/(guest-experience)/reserve/page.tsx",
+      "description": "Reserve page",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/guest/restaurant",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["guest", "guest-experience"],
+      "guards": [],
+      "source": "guest/(guest)/(guest-experience)/restaurant/page.tsx",
+      "description": "Restaurant page",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/guest/signin",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["guest", "guest-experience"],
+      "guards": [],
+      "source": "guest/(guest)/(guest-experience)/signin/page.tsx",
+      "description": "Signin page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/guest/thank-you",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["guest", "guest-experience"],
+      "guards": [],
+      "source": "guest/(guest)/(guest-experience)/thank-you/page.tsx",
+      "description": "Thank-you page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/guest/contact",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["guest", "marketing"],
+      "guards": [],
+      "source": "guest/(guest)/(marketing)/contact/page.tsx",
+      "description": "Contact page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/guest/privacy-policy",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["guest", "marketing"],
+      "guards": [],
+      "source": "guest/(guest)/(marketing)/privacy-policy/page.tsx",
+      "description": "Privacy-policy page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/guest/product",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["guest", "marketing"],
+      "guards": [],
+      "source": "guest/(guest)/(marketing)/product/page.tsx",
+      "description": "Product page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/guest/terms",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["guest", "marketing"],
+      "guards": [],
+      "source": "guest/(guest)/(marketing)/terms/page.tsx",
+      "description": "Terms page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/guest/restaurants",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["guest"],
+      "guards": [],
+      "source": "guest/(guest)/restaurants/page.tsx",
+      "description": "Restaurants page",
+      "params": [],
       "config": {}
     },
     {
@@ -274,9 +452,7 @@
       "source": "item/[slug]/page.tsx",
       "description": "Page",
       "params": ["slug"],
-      "config": {
-        "dynamic": "force-dynamic"
-      }
+      "config": {}
     },
     {
       "path": "/reserve/:reservationId",
@@ -287,53 +463,261 @@
       "source": "reserve/[reservationId]/page.tsx",
       "description": "Page",
       "params": ["reservationId"],
+      "config": {}
+    },
+    {
+      "path": "/restaurants/:slug",
+      "methods": [],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "restaurants/[slug]/page.tsx",
+      "description": "Page",
+      "params": ["slug"],
+      "config": {}
+    },
+    {
+      "path": "/account/invite/:token",
+      "methods": [],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "account/invite/[token]/page.tsx",
+      "description": "Page",
+      "params": ["token"],
+      "config": {}
+    },
+    {
+      "path": "/account/profile/manage",
+      "methods": [],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "account/profile/manage/page.tsx",
+      "description": "Manage page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/analytics/rejections",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/analytics/rejections/page.tsx",
+      "description": "Rejections page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/management/team",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/management/team/page.tsx",
+      "description": "Team page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/seating/capacity",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/seating/capacity/page.tsx",
+      "description": "Capacity page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/seating/floor-plan",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/seating/floor-plan/page.tsx",
+      "description": "Floor-plan page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/seating/tables",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/seating/tables/page.tsx",
+      "description": "Tables page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/settings/restaurant",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/settings/restaurant/page.tsx",
+      "description": "Restaurant page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/bookings/:bookingId/thank-you",
+      "methods": [],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "bookings/[bookingId]/thank-you/page.tsx",
+      "description": "Thank-you page",
+      "params": ["bookingId"],
+      "config": {}
+    },
+    {
+      "path": "/guest/invite/:token",
+      "methods": [],
+      "dynamic": true,
+      "groups": ["guest", "account"],
+      "guards": [],
+      "source": "guest/(guest)/(account)/invite/[token]/page.tsx",
+      "description": "Page",
+      "params": ["token"],
+      "config": {}
+    },
+    {
+      "path": "/guest/profile/manage",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["guest", "account"],
+      "guards": [],
+      "source": "guest/(guest)/(account)/profile/manage/page.tsx",
+      "description": "Manage page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/guest/item/:slug",
+      "methods": [],
+      "dynamic": true,
+      "groups": ["guest", "guest-experience"],
+      "guards": [],
+      "source": "guest/(guest)/(guest-experience)/item/[slug]/page.tsx",
+      "description": "Page",
+      "params": ["slug"],
       "config": {
         "dynamic": "force-dynamic"
       }
     },
     {
-      "path": "/terms/togo",
+      "path": "/guest/reserve/:reservationId",
+      "methods": [],
+      "dynamic": true,
+      "groups": ["guest", "guest-experience"],
+      "guards": [],
+      "source": "guest/(guest)/(guest-experience)/reserve/[reservationId]/page.tsx",
+      "description": "Page",
+      "params": ["reservationId"],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/guest/auth/signin",
       "methods": [],
       "dynamic": false,
-      "groups": [],
+      "groups": ["guest"],
       "guards": [],
-      "source": "terms/togo/page.tsx",
-      "description": "Togo page",
+      "source": "guest/(guest)/auth/signin/page.tsx",
+      "description": "Signin page",
       "params": [],
       "config": {}
     },
     {
-      "path": "/terms/venue",
+      "path": "/guest/bookings/:bookingId",
+      "methods": [],
+      "dynamic": true,
+      "groups": ["guest"],
+      "guards": [],
+      "source": "guest/(guest)/bookings/[bookingId]/page.tsx",
+      "description": "Page",
+      "params": ["bookingId"],
+      "config": {}
+    },
+    {
+      "path": "/guest/bookings/new",
       "methods": [],
       "dynamic": false,
-      "groups": [],
+      "groups": ["guest"],
       "guards": [],
-      "source": "terms/venue/page.tsx",
-      "description": "Venue page",
+      "source": "guest/(guest)/bookings/new/page.tsx",
+      "description": "New page",
       "params": [],
       "config": {}
     },
     {
-      "path": "/blog/author/:authorId",
+      "path": "/guest/restaurants/:slug",
       "methods": [],
       "dynamic": true,
-      "groups": [],
+      "groups": ["guest"],
       "guards": [],
-      "source": "blog/author/[authorId]/page.tsx",
+      "source": "guest/(guest)/restaurants/[slug]/page.tsx",
       "description": "Page",
-      "params": ["authorId"],
+      "params": ["slug"],
       "config": {}
     },
     {
-      "path": "/blog/category/:categoryId",
+      "path": "/guest/account/bookings",
       "methods": [],
-      "dynamic": true,
+      "dynamic": false,
       "groups": [],
       "guards": [],
-      "source": "blog/category/[categoryId]/page.tsx",
-      "description": "Page",
-      "params": ["categoryId"],
-      "config": {}
+      "source": "guest/account/bookings/page.tsx",
+      "description": "Bookings page",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/guest/account/dashboard",
+      "methods": [],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "guest/account/dashboard/page.tsx",
+      "description": "Dashboard page",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/guest/account/my-bookings",
+      "methods": [],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "guest/account/my-bookings/page.tsx",
+      "description": "My-bookings page",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/guest/account/profile",
+      "methods": [],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "guest/account/profile/page.tsx",
+      "description": "Profile page",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
     },
     {
       "path": "/reserve/r/:slug",
@@ -344,6 +728,63 @@
       "source": "reserve/r/[slug]/page.tsx",
       "description": "Page",
       "params": ["slug"],
+      "config": {}
+    },
+    {
+      "path": "/restaurants/:slug/book",
+      "methods": [],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "restaurants/[slug]/book/page.tsx",
+      "description": "Book page",
+      "params": ["slug"],
+      "config": {}
+    },
+    {
+      "path": "/guest/reserve/r/:slug",
+      "methods": [],
+      "dynamic": true,
+      "groups": ["guest", "guest-experience"],
+      "guards": [],
+      "source": "guest/(guest)/(guest-experience)/reserve/r/[slug]/page.tsx",
+      "description": "Page",
+      "params": ["slug"],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/guest/bookings/:bookingId/thank-you",
+      "methods": [],
+      "dynamic": true,
+      "groups": ["guest"],
+      "guards": [],
+      "source": "guest/(guest)/bookings/[bookingId]/thank-you/page.tsx",
+      "description": "Thank-you page",
+      "params": ["bookingId"],
+      "config": {}
+    },
+    {
+      "path": "/guest/restaurants/:slug/book",
+      "methods": [],
+      "dynamic": true,
+      "groups": ["guest"],
+      "guards": [],
+      "source": "guest/(guest)/restaurants/[slug]/book/page.tsx",
+      "description": "Book page",
+      "params": ["slug"],
+      "config": {}
+    },
+    {
+      "path": "/guest/account/invite/:token",
+      "methods": [],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "guest/account/invite/[token]/page.tsx",
+      "description": "Page",
+      "params": ["token"],
       "config": {
         "dynamic": "force-dynamic"
       }
@@ -476,6 +917,28 @@
       "config": {}
     },
     {
+      "path": "/api/ops/bookings/:id/assign-tables",
+      "methods": ["POST", "DELETE"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/bookings/[id]/assign-tables/route.ts",
+      "description": "assign-tables API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/bookings/:id/assignment-context",
+      "methods": ["GET"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/bookings/[id]/assignment-context/route.ts",
+      "description": "assignment-context API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
       "path": "/api/ops/bookings/:id/check-in",
       "methods": ["POST"],
       "dynamic": true,
@@ -505,6 +968,17 @@
       "guards": [],
       "source": "api/ops/bookings/[id]/history/route.ts",
       "description": "history API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/bookings/:id/manual-context",
+      "methods": ["GET"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/bookings/[id]/manual-context/route.ts",
+      "description": "manual-context API endpoint",
       "params": ["id"],
       "config": {}
     },
@@ -696,6 +1170,41 @@
       "config": {}
     },
     {
+      "path": "/api/ops/restaurants/:id/details",
+      "methods": ["GET", "PUT"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/restaurants/[id]/details/route.ts",
+      "description": "details API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/restaurants/:id/hours",
+      "methods": ["GET", "PUT"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/restaurants/[id]/hours/route.ts",
+      "description": "hours API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/restaurants/:id/logo",
+      "methods": ["POST"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/restaurants/[id]/logo/route.ts",
+      "description": "logo API endpoint",
+      "params": ["id"],
+      "config": {
+        "runtime": "nodejs"
+      }
+    },
+    {
       "path": "/api/ops/restaurants/:id",
       "methods": ["GET", "PATCH", "DELETE"],
       "dynamic": true,
@@ -703,6 +1212,17 @@
       "guards": [],
       "source": "api/ops/restaurants/[id]/route.ts",
       "description": "API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/restaurants/:id/service-periods",
+      "methods": ["GET", "PUT"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/restaurants/[id]/service-periods/route.ts",
+      "description": "service-periods API endpoint",
       "params": ["id"],
       "config": {}
     },
@@ -760,6 +1280,54 @@
       "description": "tables API endpoint",
       "params": [],
       "config": {}
+    },
+    {
+      "path": "/api/ops/tables/timeline",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/tables/timeline/route.ts",
+      "description": "timeline API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/team/invitations/:inviteId",
+      "methods": ["DELETE"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/team/invitations/[inviteId]/route.ts",
+      "description": "API endpoint",
+      "params": ["inviteId"],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/team/invitations",
+      "methods": ["GET", "POST"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/team/invitations/route.ts",
+      "description": "invitations API endpoint",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/api/ops/team/memberships",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/team/memberships/route.ts",
+      "description": "memberships API endpoint",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
     },
     {
       "path": "/api/ops/zones/:id",
@@ -878,6 +1446,30 @@
       "config": {}
     },
     {
+      "path": "/api/reservations/:reservationId/confirmation",
+      "methods": ["GET"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/reservations/[reservationId]/confirmation/route.ts",
+      "description": "confirmation API endpoint",
+      "params": ["reservationId"],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/api/restaurants/:slug/calendar-mask",
+      "methods": ["GET"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/restaurants/[slug]/calendar-mask/route.ts",
+      "description": "calendar-mask API endpoint",
+      "params": ["slug"],
+      "config": {}
+    },
+    {
       "path": "/api/restaurants/:slug/schedule",
       "methods": ["GET"],
       "dynamic": true,
@@ -918,50 +1510,6 @@
       "guards": [],
       "source": "api/staff/auto/quote/route.ts",
       "description": "quote API endpoint",
-      "params": [],
-      "config": {}
-    },
-    {
-      "path": "/api/staff/manual/confirm",
-      "methods": ["POST"],
-      "dynamic": false,
-      "groups": [],
-      "guards": [],
-      "source": "api/staff/manual/confirm/route.ts",
-      "description": "confirm API endpoint",
-      "params": [],
-      "config": {}
-    },
-    {
-      "path": "/api/staff/manual/context",
-      "methods": ["GET"],
-      "dynamic": false,
-      "groups": [],
-      "guards": [],
-      "source": "api/staff/manual/context/route.ts",
-      "description": "context API endpoint",
-      "params": [],
-      "config": {}
-    },
-    {
-      "path": "/api/staff/manual/hold",
-      "methods": ["POST", "DELETE"],
-      "dynamic": false,
-      "groups": [],
-      "guards": [],
-      "source": "api/staff/manual/hold/route.ts",
-      "description": "hold API endpoint",
-      "params": [],
-      "config": {}
-    },
-    {
-      "path": "/api/staff/manual/validate",
-      "methods": ["POST"],
-      "dynamic": false,
-      "groups": [],
-      "guards": [],
-      "source": "api/staff/manual/validate/route.ts",
-      "description": "validate API endpoint",
       "params": [],
       "config": {}
     },
@@ -1097,6 +1645,219 @@
       "config": {}
     },
     {
+      "path": "/api/v1/ops/bookings/:id",
+      "methods": ["PATCH", "DELETE"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/v1/ops/bookings/[id]/route.ts",
+      "description": "API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/v1/ops/bookings/export",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/v1/ops/bookings/export/route.ts",
+      "description": "export API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/v1/ops/bookings",
+      "methods": ["GET", "POST"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/v1/ops/bookings/route.ts",
+      "description": "bookings API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/v1/ops/bookings/status-summary",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/v1/ops/bookings/status-summary/route.ts",
+      "description": "status-summary API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/v1/ops/customers/export",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/v1/ops/customers/export/route.ts",
+      "description": "export API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/v1/ops/customers",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/v1/ops/customers/route.ts",
+      "description": "customers API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/v1/ops/dashboard/changes",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/v1/ops/dashboard/changes/route.ts",
+      "description": "changes API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/v1/ops/dashboard/heatmap",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/v1/ops/dashboard/heatmap/route.ts",
+      "description": "heatmap API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/v1/ops/dashboard/rejections",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/v1/ops/dashboard/rejections/route.ts",
+      "description": "rejections API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/v1/ops/dashboard/summary",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/v1/ops/dashboard/summary/route.ts",
+      "description": "summary API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/v1/ops/dashboard/vips",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/v1/ops/dashboard/vips/route.ts",
+      "description": "vips API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/v1/ops/restaurants/:id/details",
+      "methods": ["GET", "PUT"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/v1/ops/restaurants/[id]/details/route.ts",
+      "description": "details API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/v1/ops/restaurants/:id/hours",
+      "methods": ["GET", "PUT"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/v1/ops/restaurants/[id]/hours/route.ts",
+      "description": "hours API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/v1/ops/restaurants/:id",
+      "methods": ["GET", "PATCH"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/v1/ops/restaurants/[id]/route.ts",
+      "description": "API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/v1/ops/restaurants/:id/service-periods",
+      "methods": ["GET", "PUT"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/v1/ops/restaurants/[id]/service-periods/route.ts",
+      "description": "service-periods API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/v1/ops/restaurants",
+      "methods": ["GET", "POST"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/v1/ops/restaurants/route.ts",
+      "description": "restaurants API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/v1/ops/team/invitations/:inviteId",
+      "methods": ["DELETE"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/v1/ops/team/invitations/[inviteId]/route.ts",
+      "description": "API endpoint",
+      "params": ["inviteId"],
+      "config": {}
+    },
+    {
+      "path": "/api/v1/ops/team/invitations",
+      "methods": ["GET", "POST"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/v1/ops/team/invitations/route.ts",
+      "description": "invitations API endpoint",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/api/v1/ops/team/memberships",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/v1/ops/team/memberships/route.ts",
+      "description": "memberships API endpoint",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
       "path": "/api/v1/profile/image",
       "methods": ["POST"],
       "dynamic": false,
@@ -1183,14 +1944,260 @@
       "description": "confirmation API endpoint",
       "params": ["reservationId"],
       "config": {}
+    },
+    {
+      "path": "/api/webhook/resend",
+      "methods": ["POST"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/webhook/resend/route.ts",
+      "description": "resend API endpoint",
+      "params": [],
+      "config": {}
     }
   ],
   "other": [],
   "meta": {
     "frameworks_detected": ["Next.js 15 App Router"],
-    "total_routes": 105,
+    "total_routes": 172,
     "scanning_notes": [],
-    "warnings": [],
-    "timestamp": "2025-11-03T17:25:04.505Z"
+    "warnings": [
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"restaurant-partners\" in (restaurant-partners)/partners/page.tsx",
+        "file": "(restaurant-partners)/partners/page.tsx",
+        "group": "restaurant-partners"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest\" in guest/(guest)/(account)/bookings/page.tsx",
+        "file": "guest/(guest)/(account)/bookings/page.tsx",
+        "group": "guest"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"account\" in guest/(guest)/(account)/bookings/page.tsx",
+        "file": "guest/(guest)/(account)/bookings/page.tsx",
+        "group": "account"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest\" in guest/(guest)/(account)/dashboard/page.tsx",
+        "file": "guest/(guest)/(account)/dashboard/page.tsx",
+        "group": "guest"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"account\" in guest/(guest)/(account)/dashboard/page.tsx",
+        "file": "guest/(guest)/(account)/dashboard/page.tsx",
+        "group": "account"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest\" in guest/(guest)/(account)/invite/[token]/page.tsx",
+        "file": "guest/(guest)/(account)/invite/[token]/page.tsx",
+        "group": "guest"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"account\" in guest/(guest)/(account)/invite/[token]/page.tsx",
+        "file": "guest/(guest)/(account)/invite/[token]/page.tsx",
+        "group": "account"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest\" in guest/(guest)/(account)/my-bookings/page.tsx",
+        "file": "guest/(guest)/(account)/my-bookings/page.tsx",
+        "group": "guest"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"account\" in guest/(guest)/(account)/my-bookings/page.tsx",
+        "file": "guest/(guest)/(account)/my-bookings/page.tsx",
+        "group": "account"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest\" in guest/(guest)/(account)/profile/manage/page.tsx",
+        "file": "guest/(guest)/(account)/profile/manage/page.tsx",
+        "group": "guest"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"account\" in guest/(guest)/(account)/profile/manage/page.tsx",
+        "file": "guest/(guest)/(account)/profile/manage/page.tsx",
+        "group": "account"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest\" in guest/(guest)/(guest-experience)/browse/page.tsx",
+        "file": "guest/(guest)/(guest-experience)/browse/page.tsx",
+        "group": "guest"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest-experience\" in guest/(guest)/(guest-experience)/browse/page.tsx",
+        "file": "guest/(guest)/(guest-experience)/browse/page.tsx",
+        "group": "guest-experience"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest\" in guest/(guest)/(guest-experience)/item/[slug]/page.tsx",
+        "file": "guest/(guest)/(guest-experience)/item/[slug]/page.tsx",
+        "group": "guest"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest-experience\" in guest/(guest)/(guest-experience)/item/[slug]/page.tsx",
+        "file": "guest/(guest)/(guest-experience)/item/[slug]/page.tsx",
+        "group": "guest-experience"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest\" in guest/(guest)/(guest-experience)/reserve/[reservationId]/page.tsx",
+        "file": "guest/(guest)/(guest-experience)/reserve/[reservationId]/page.tsx",
+        "group": "guest"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest-experience\" in guest/(guest)/(guest-experience)/reserve/[reservationId]/page.tsx",
+        "file": "guest/(guest)/(guest-experience)/reserve/[reservationId]/page.tsx",
+        "group": "guest-experience"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest\" in guest/(guest)/(guest-experience)/reserve/page.tsx",
+        "file": "guest/(guest)/(guest-experience)/reserve/page.tsx",
+        "group": "guest"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest-experience\" in guest/(guest)/(guest-experience)/reserve/page.tsx",
+        "file": "guest/(guest)/(guest-experience)/reserve/page.tsx",
+        "group": "guest-experience"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest\" in guest/(guest)/(guest-experience)/reserve/r/[slug]/page.tsx",
+        "file": "guest/(guest)/(guest-experience)/reserve/r/[slug]/page.tsx",
+        "group": "guest"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest-experience\" in guest/(guest)/(guest-experience)/reserve/r/[slug]/page.tsx",
+        "file": "guest/(guest)/(guest-experience)/reserve/r/[slug]/page.tsx",
+        "group": "guest-experience"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest\" in guest/(guest)/(guest-experience)/restaurant/page.tsx",
+        "file": "guest/(guest)/(guest-experience)/restaurant/page.tsx",
+        "group": "guest"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest-experience\" in guest/(guest)/(guest-experience)/restaurant/page.tsx",
+        "file": "guest/(guest)/(guest-experience)/restaurant/page.tsx",
+        "group": "guest-experience"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest\" in guest/(guest)/(guest-experience)/signin/page.tsx",
+        "file": "guest/(guest)/(guest-experience)/signin/page.tsx",
+        "group": "guest"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest-experience\" in guest/(guest)/(guest-experience)/signin/page.tsx",
+        "file": "guest/(guest)/(guest-experience)/signin/page.tsx",
+        "group": "guest-experience"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest\" in guest/(guest)/(guest-experience)/thank-you/page.tsx",
+        "file": "guest/(guest)/(guest-experience)/thank-you/page.tsx",
+        "group": "guest"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest-experience\" in guest/(guest)/(guest-experience)/thank-you/page.tsx",
+        "file": "guest/(guest)/(guest-experience)/thank-you/page.tsx",
+        "group": "guest-experience"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest\" in guest/(guest)/(marketing)/contact/page.tsx",
+        "file": "guest/(guest)/(marketing)/contact/page.tsx",
+        "group": "guest"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest\" in guest/(guest)/(marketing)/privacy-policy/page.tsx",
+        "file": "guest/(guest)/(marketing)/privacy-policy/page.tsx",
+        "group": "guest"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest\" in guest/(guest)/(marketing)/product/page.tsx",
+        "file": "guest/(guest)/(marketing)/product/page.tsx",
+        "group": "guest"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest\" in guest/(guest)/(marketing)/terms/page.tsx",
+        "file": "guest/(guest)/(marketing)/terms/page.tsx",
+        "group": "guest"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest\" in guest/(guest)/auth/signin/page.tsx",
+        "file": "guest/(guest)/auth/signin/page.tsx",
+        "group": "guest"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest\" in guest/(guest)/bookings/[bookingId]/page.tsx",
+        "file": "guest/(guest)/bookings/[bookingId]/page.tsx",
+        "group": "guest"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest\" in guest/(guest)/bookings/[bookingId]/thank-you/page.tsx",
+        "file": "guest/(guest)/bookings/[bookingId]/thank-you/page.tsx",
+        "group": "guest"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest\" in guest/(guest)/bookings/new/page.tsx",
+        "file": "guest/(guest)/bookings/new/page.tsx",
+        "group": "guest"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest\" in guest/(guest)/page.tsx",
+        "file": "guest/(guest)/page.tsx",
+        "group": "guest"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest\" in guest/(guest)/restaurants/[slug]/book/page.tsx",
+        "file": "guest/(guest)/restaurants/[slug]/book/page.tsx",
+        "group": "guest"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest\" in guest/(guest)/restaurants/[slug]/page.tsx",
+        "file": "guest/(guest)/restaurants/[slug]/page.tsx",
+        "group": "guest"
+      },
+      {
+        "type": "unknown_group",
+        "message": "Unknown route group \"guest\" in guest/(guest)/restaurants/page.tsx",
+        "file": "guest/(guest)/restaurants/page.tsx",
+        "group": "guest"
+      }
+    ],
+    "timestamp": "2025-11-21T14:41:11.738Z"
   }
 }

@@ -29,7 +29,7 @@ const deleteInviteSchema = z.object({
  * Creates a test invitation for e2e testing
  */
 export async function POST(req: NextRequest) {
-  const guard = guardTestEndpoint();
+  const guard = guardTestEndpoint(req);
   if (guard) return guard;
 
   const body = await req.json();
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
  * Deletes test invitations by email or token
  */
 export async function DELETE(req: NextRequest) {
-  const guard = guardTestEndpoint();
+  const guard = guardTestEndpoint(req);
   if (guard) return guard;
 
   const body = await req.json();

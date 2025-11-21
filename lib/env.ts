@@ -49,6 +49,10 @@ export function getEnv(): Env {
   return parseEnv();
 }
 
+export function resetEnvCache() {
+  cachedEnv = null;
+}
+
 export const env = {
   get raw(): Env {
     return parseEnv();
@@ -58,6 +62,7 @@ export const env = {
     const parsed = parseEnv();
     return {
       env: parsed.NODE_ENV,
+      appEnv: parsed.APP_ENV,
     } as const;
   },
 
@@ -68,6 +73,27 @@ export const env = {
       anonKey: parsed.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       serviceKey: parsed.SUPABASE_SERVICE_ROLE_KEY,
     } as const;
+  },
+
+  get safety() {
+    const parsed = parseEnv();
+    return {
+      allowProdResourcesInNonProd: parsed.ALLOW_PROD_RESOURCES_IN_NONPROD ?? false,
+      productionSupabaseUrl: parsed.PRODUCTION_SUPABASE_URL,
+      productionSupabaseAnonKey: parsed.PRODUCTION_SUPABASE_ANON_KEY,
+      productionSupabaseServiceRoleKey: parsed.PRODUCTION_SUPABASE_SERVICE_ROLE_KEY,
+      productionBookingApiBaseUrl: parsed.PRODUCTION_BOOKING_API_BASE_URL,
+      appEnv: parsed.APP_ENV,
+      nodeEnv: parsed.NODE_ENV,
+    } as const;
+  },
+
+  get testEndpoints() {
+    const parsed = parseEnv();
+    return {
+      enabled: parsed.ENABLE_TEST_ENDPOINTS ?? false,
+      token: parsed.TEST_ENDPOINT_TOKEN ?? null,
+    };
   },
 
   get app() {

@@ -31,10 +31,10 @@
     "predev": "npm run validate:env && tsx scripts/ensure-dev-port.ts",
     "reserve:dev": "vite --config reserve/vite.config.ts",
     "reserve:build": "vite build --config reserve/vite.config.ts",
-    "test": "echo \"tests removed\" && exit 0",
-    "test:watch": "echo \"tests removed\" && exit 0",
-    "test:ops": "echo \"tests removed\" && exit 0",
-    "test:e2e": "echo \"tests removed\" && exit 0",
+    "test": "vitest run tests/server/security/test-endpoints.test.ts tests/scripts/db-safety.test.ts",
+    "test:watch": "vitest watch tests/server/security/test-endpoints.test.ts tests/scripts/db-safety.test.ts",
+    "test:ops": "vitest run tests/server/security/test-endpoints.test.ts tests/scripts/db-safety.test.ts",
+    "test:e2e": "vitest run tests/server/security/test-endpoints.test.ts tests/scripts/db-safety.test.ts",
     "storybook": "storybook dev -p 6006 -c reserve/.storybook",
     "storybook:build": "storybook build -c reserve/.storybook -o reserve/storybook-static",
     "analyze": "vite build --config reserve/vite.config.ts --mode analyze",
@@ -59,12 +59,12 @@
     "queue:email-worker": "tsx -r tsconfig-paths/register scripts/queues/email-worker.ts",
     "assign:loop": "tsx -r tsconfig-paths/register scripts/ops-auto-assign-ultra-fast-loop.ts --slug white-horse-pub-waterbeach --date 2025-11-10",
     "booking:flow": "tsx -r tsconfig-paths/register scripts/run-booking-flow.ts",
-    "db:reset": "echo '🔄 Resetting remote database...' && source .env.local && psql \"$SUPABASE_DB_URL\" -v ON_ERROR_STOP=1 -f supabase/utilities/init-database.sql && psql \"$SUPABASE_DB_URL\" -v ON_ERROR_STOP=1 -f supabase/utilities/init-seeds.sql && echo '✅ Reset complete!'",
-    "db:migrate": "echo '📊 Applying migrations to remote...' && source .env.local && psql \"$SUPABASE_DB_URL\" -v ON_ERROR_STOP=1 -f supabase/utilities/init-database.sql && echo '✅ Migrations applied!'",
-    "db:seed-only": "echo '🌱 Seeding remote database...' && source .env.local && psql \"$SUPABASE_DB_URL\" -v ON_ERROR_STOP=1 -f supabase/utilities/init-seeds.sql && echo '✅ Seeds applied!'",
+    "db:reset": "tsx scripts/db/safe-run.ts reset",
+    "db:migrate": "tsx scripts/db/safe-run.ts migrate",
+    "db:seed-only": "tsx scripts/db/safe-run.ts seed-only",
     "db:run-allocation-test": "./scripts/run-allocation-stress-test.sh",
-    "db:full-reset": "echo '🔄 Full reset: applying migrations and seeds...' && pnpm run db:reset",
-    "db:wipe": "echo '⚠️  WARNING: Dropping public schema on REMOTE. Ensure you have a backup!' && source .env.local && psql \"$SUPABASE_DB_URL\" -v ON_ERROR_STOP=1 -f supabase/utilities/wipe-public-schema.sql && echo '✅ Schema wiped'",
+    "db:full-reset": "tsx scripts/db/safe-run.ts full-reset",
+    "db:wipe": "tsx scripts/db/safe-run.ts wipe",
     "db:verify": "./scripts/verify-database.sh",
     "db:test": "./scripts/test-connection.sh",
     "db:push": "echo '📤 Pushing migrations to Supabase remote...' && supabase db push",
@@ -123,7 +123,7 @@
     "next-plausible": "^3.12.4",
     "next-sitemap": "^4.2.3",
     "nextjs-toploader": "^3.9.17",
-    "nodemailer": "^7.0.6",
+    "nodemailer": "^7.0.7",
     "react": "^19.2.0",
     "react-day-picker": "^9.11.0",
     "react-dom": "^19.2.0",
@@ -200,6 +200,11 @@
     "patchedDependencies": {
       "tr46@0.0.3": "patches/tr46@0.0.3.patch",
       "whatwg-url@5.0.0": "patches/whatwg-url@5.0.0.patch"
+    },
+    "overrides": {
+      "tar": "^7.5.2",
+      "prismjs": "^1.30.0",
+      "nodemailer": "^7.0.7"
     }
   }
 }

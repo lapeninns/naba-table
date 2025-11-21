@@ -750,7 +750,11 @@ export async function confirmHoldAssignment(options: ConfirmHoldAssignmentOption
     partySize: booking.party_size,
     policy,
   });
-  const requireAdjacency = resolveRequireAdjacency(booking.party_size, requireAdjacencyOverride);
+  const holdRequireAdjacency =
+    typeof holdMetadata?.requireAdjacency === "boolean" ? holdMetadata.requireAdjacency : undefined;
+  const effectiveRequireAdjacencyOverride =
+    typeof requireAdjacencyOverride === "boolean" ? requireAdjacencyOverride : holdRequireAdjacency;
+  const requireAdjacency = resolveRequireAdjacency(booking.party_size, effectiveRequireAdjacencyOverride);
 
   const startIso = toIsoUtc(window.block.start);
   const endIso = toIsoUtc(window.block.end);

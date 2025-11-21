@@ -7,11 +7,19 @@ const booleanStringOptional = booleanString.optional();
 const normalizeOptionalUrl = (value: unknown) =>
   typeof value === "string" && value.trim().length === 0 ? undefined : value;
 
+const appEnvSchema = z.enum(["development", "staging", "production", "test"]);
+
 const baseEnvSchema = z
   .object({
+    APP_ENV: appEnvSchema.default("development"),
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+    ALLOW_PROD_RESOURCES_IN_NONPROD: booleanStringOptional,
     NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
     NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
+    PRODUCTION_SUPABASE_URL: z.string().url().optional(),
+    PRODUCTION_SUPABASE_ANON_KEY: z.string().min(1).optional(),
+    PRODUCTION_SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
+    PRODUCTION_BOOKING_API_BASE_URL: z.string().url().optional(),
     SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
     NEXT_PUBLIC_APP_URL: z.string().url().optional(),
     NEXT_PUBLIC_SITE_URL: z.string().url().optional(),
@@ -36,6 +44,8 @@ const baseEnvSchema = z
     RESEND_API_KEY: z.string().optional(),
     RESEND_FROM: z.string().email().optional(),
     RESEND_USE_MOCK: booleanStringOptional,
+    ENABLE_TEST_ENDPOINTS: booleanStringOptional,
+    TEST_ENDPOINT_TOKEN: z.string().optional(),
     LOYALTY_PILOT_RESTAURANT_IDS: z.string().optional(),
     ENABLE_TEST_API: booleanStringOptional,
     FEATURE_GUEST_LOOKUP_POLICY: booleanStringOptional,
