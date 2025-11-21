@@ -1,228 +1,75 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { useState, useEffect, useMemo } from "react";
-
-
+import Image from "next/image";
+import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 import logo from "@/app/icon.png";
 import config from "@/config";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { Button } from "@/components/ui/button";
+import { Menu, X } from "lucide-react";
 
-import ButtonSignin from "./ButtonSignin";
+export default function Header() {
+  const [isOpen, setIsOpen] = useState(false);
+  const pathname = usePathname();
 
-import type { JSX } from "react";
-
-const links: {
-  href: string;
-  label: string;
-}[] = [
-  {
-    href: "/#pricing",
-    label: "Pricing",
-  },
-  {
-    href: "/#testimonials",
-    label: "Reviews",
-  },
-  {
-    href: "/#faq",
-    label: "FAQ",
-  },
-];
-
-const cta: JSX.Element = <ButtonSignin extraStyle="btn-primary" />;
-
-// A header with a logo on the left, links in the center (like Pricing, etc...), and a CTA (like Get Started or Login) on the right.
-// The header is responsive, and on mobile, the links are hidden behind a burger button.
-const Header = () => {
-  const searchParams = useSearchParams();
-  const [isOpen, setIsOpen] = useState<boolean>(false);
-  const [hasSession, setHasSession] = useState<boolean>(false);
-  const supabase = getSupabaseBrowserClient();
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const syncSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (isMounted) {
-        setHasSession((prev) => {
-          const next = Boolean(session);
-          return prev === next ? prev : next;
-        });
-      }
-    };
-
-    void syncSession();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setHasSession(Boolean(session));
-    });
-
-    return () => {
-      isMounted = false;
-      subscription.unsubscribe();
-    };
-  }, [supabase]);
-
-  const navLinks = useMemo(() => {
-    if (hasSession) {
-      return [...links, { href: "/my-bookings", label: "My bookings" }];
-    }
-
-    return links;
-  }, [hasSession]);
-
-  // setIsOpen(false) when the route changes (i.e: when the user clicks on a link on mobile)
+  // Close mobile menu when route changes
   useEffect(() => {
     setIsOpen(false);
-  }, [searchParams]);
+  }, [pathname]);
 
   return (
-    <header className="bg-base-200">
-      <nav
-        className="container flex items-center justify-between px-8 py-4 mx-auto"
-        aria-label="Global"
-      >
-        {/* Your logo/name on large screens */}
-        <div className="flex lg:flex-1">
-          <Link
-            className="flex items-center gap-2 shrink-0 "
-            href="/"
-            title={`${config.appName} homepage`}
-          >
-            <Image
-              src={logo}
-              alt={`${config.appName} logo`}
-              className="w-8"
-              placeholder="blur"
-              priority={true}
-              width={32}
-              height={32}
-            />
-            <span className="font-extrabold text-lg">{config.appName}</span>
-          </Link>
-        </div>
-        {/* Burger button to open menu on mobile */}
-        <div className="flex lg:hidden">
-          <button
-            type="button"
-            className="-m-2.5 inline-flex items-center justify-center rounded-md p-2.5"
-            onClick={() => setIsOpen(true)}
-          >
-            <span className="sr-only">Open main menu</span>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.5}
-              stroke="currentColor"
-              className="w-6 h-6 text-base-content"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
-              />
-            </svg>
-          </button>
-        </div>
+    <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/80 backdrop-blur-md supports-[backdrop-filter]:bg-white/60">
+      <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
+        <Link href="/" className="flex items-center gap-2 font-bold text-xl tracking-tight">
+          <Image src={logo} alt={config.appName} width={32} height={32} className="rounded-sm" />
+          <span>{config.appName}</span>
+        </Link>
 
-        {/* Your links on large screens */}
-        <div className="hidden lg:flex lg:justify-center lg:gap-12 lg:items-center">
-          {navLinks.map((link) => (
-            <Link
-              href={link.href}
-              key={link.href}
-              className="link link-hover"
-              title={link.label}
-            >
-              {link.label}
+        {/* Desktop Nav */}
+        <nav className="hidden md:flex items-center gap-8">
+            <Link href="/restaurants" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
+              Restaurants
             </Link>
-          ))}
-        </div>
-
-        {/* CTA on large screens */}
-        <div className="hidden lg:flex lg:justify-end lg:flex-1">{cta}</div>
-      </nav>
-
-      {/* Mobile menu, show/hide based on menu state. */}
-      <div className={`relative z-50 ${isOpen ? "" : "hidden"}`}>
-        <div
-          className={`fixed inset-y-0 right-0 z-10 w-full px-8 py-4 overflow-y-auto bg-base-200 sm:max-w-sm sm:ring-1 sm:ring-neutral/10 transform origin-right transition ease-in-out duration-300`}
-        >
-          {/* Your logo/name on small screens */}
-          <div className="flex items-center justify-between">
-            <Link
-              className="flex items-center gap-2 shrink-0 "
-              title={`${config.appName} homepage`}
-              href="/"
-            >
-              <Image
-                src={logo}
-                alt={`${config.appName} logo`}
-                className="w-8"
-                placeholder="blur"
-                priority={true}
-                width={32}
-                height={32}
-              />
-              <span className="font-extrabold text-lg">{config.appName}</span>
+            <Link href="/product" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
+              How it works
             </Link>
-            <button
-              type="button"
-              className="-m-2.5 rounded-md p-2.5"
-              onClick={() => setIsOpen(false)}
-            >
-              <span className="sr-only">Close menu</span>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={1.5}
-                stroke="currentColor"
-                className="w-6 h-6"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
-
-          {/* Your links on small screens */}
-          <div className="flow-root mt-6">
-            <div className="py-4">
-              <div className="flex flex-col gap-y-4 items-start">
-                {navLinks.map((link) => (
-                  <Link
-                    href={link.href}
-                    key={link.href}
-                    className="link link-hover"
-                    title={link.label}
-                  >
-                    {link.label}
-                  </Link>
-                ))}
-              </div>
+            <div className="flex items-center gap-2 pl-2">
+               <Link href="/auth/signin">
+                  <Button variant="ghost" size="sm" className="text-slate-600 hover:text-slate-900">Sign in</Button>
+               </Link>
+               <Link href="/restaurants">
+                  <Button size="sm">Find a table</Button>
+               </Link>
             </div>
-            <div className="divider"></div>
-            {/* Your CTA on small screens */}
-            <div className="flex flex-col">{cta}</div>
-          </div>
-        </div>
+        </nav>
+
+        {/* Mobile Menu Toggle */}
+        <button className="md:hidden p-2 text-slate-700 hover:bg-slate-100 rounded-md" onClick={() => setIsOpen(!isOpen)}>
+          {isOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
       </div>
+
+      {/* Mobile Nav */}
+      {isOpen && (
+        <div className="md:hidden border-t border-slate-100 bg-white px-4 py-6 space-y-4 shadow-lg absolute w-full left-0">
+           <Link href="/restaurants" className="block text-base font-medium text-slate-700 hover:text-primary px-2 py-1">
+              Restaurants
+           </Link>
+           <Link href="/product" className="block text-base font-medium text-slate-700 hover:text-primary px-2 py-1">
+              How it works
+           </Link>
+           <div className="pt-4 flex flex-col gap-3">
+             <Link href="/auth/signin" className="w-full">
+                <Button variant="outline" className="w-full justify-center">Sign in</Button>
+             </Link>
+             <Link href="/restaurants" className="w-full">
+                <Button className="w-full justify-center">Find a table</Button>
+             </Link>
+           </div>
+        </div>
+      )}
     </header>
   );
-};
+}
 
-export default Header;

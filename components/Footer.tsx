@@ -1,53 +1,56 @@
-import Image from "next/image";
 import Link from "next/link";
-
+import Image from "next/image";
 import logo from "@/app/icon.png";
 import config from "@/config";
 
-type FooterProps = {
+interface FooterProps {
   variant?: "default" | "compact";
-};
-
-function BrandMark() {
-  return (
-    <Link
-      href="/"
-      aria-current="page"
-      className="flex items-center gap-2 text-base font-semibold tracking-tight text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-    >
-      <Image
-        src={logo}
-        alt={`${config.appName} logo`}
-        priority
-        className="h-6 w-6"
-        width={24}
-        height={24}
-      />
-      <strong className="font-extrabold tracking-tight text-base md:text-lg">
-        {config.appName}
-      </strong>
-    </Link>
-  );
 }
 
-const Footer = ({ variant = "default" }: FooterProps) => {
+export default function Footer({ variant = "default" }: FooterProps) {
   const currentYear = new Date().getFullYear();
-  const isCompact = variant === "compact" || variant === "default";
 
-  if (isCompact) {
+  if (variant === "compact") {
     return (
-      <footer className="border-t border-border/70 bg-background/90">
-        <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-3 px-6 py-10 text-center text-sm text-muted-foreground">
-          <BrandMark />
-          <p className="text-xs text-muted-foreground/80">
-            © {currentYear} {config.appName}. All rights reserved.
-          </p>
+      <footer className="border-t border-slate-200 bg-slate-50/50 py-8">
+        <div className="container mx-auto flex flex-col items-center gap-4 px-4 text-center md:px-6">
+           <Link href="/" className="flex items-center gap-2 opacity-80 hover:opacity-100 transition-opacity">
+              <Image src={logo} alt={config.appName} width={24} height={24} />
+              <span className="font-semibold text-slate-700">{config.appName}</span>
+           </Link>
+           <p className="text-xs text-slate-500">
+             © {currentYear} {config.appName}. All rights reserved.
+           </p>
         </div>
       </footer>
     );
   }
+  
+  return (
+    <footer className="border-t border-slate-200 bg-slate-50/50">
+      <div className="container mx-auto px-4 py-12 md:px-6">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+           <Link href="/" className="flex items-center gap-2">
+              <Image src={logo} alt={config.appName} width={24} height={24} className="opacity-80 hover:opacity-100 transition-opacity"/>
+              <span className="font-semibold text-slate-700">{config.appName}</span>
+           </Link>
+           
+           <div className="flex gap-6 text-sm text-slate-600">
+              <Link href="/restaurants" className="hover:text-slate-900 transition-colors">Restaurants</Link>
+              <Link href="/auth/signin" className="hover:text-slate-900 transition-colors">Sign in</Link>
+              <Link href="/product" className="hover:text-slate-900 transition-colors">About</Link>
+           </div>
+        </div>
+        
+        <div className="mt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-slate-500 border-t border-slate-200 pt-8">
+           <p>© {currentYear} {config.appName}. All rights reserved.</p>
+           <div className="flex gap-4">
+              <Link href="/privacy-policy" className="hover:text-slate-700">Privacy</Link>
+              <Link href="/terms" className="hover:text-slate-700">Terms</Link>
+           </div>
+        </div>
+      </div>
+    </footer>
+  );
+}
 
-  return null;
-};
-
-export default Footer;

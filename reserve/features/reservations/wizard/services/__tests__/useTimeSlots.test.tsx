@@ -167,4 +167,21 @@ describe('useTimeSlots hook', () => {
     expect(result.current.serviceAvailability.services.lunch).toBeUndefined();
     expect(getMock).not.toHaveBeenCalled();
   });
+
+  it('does not fetch when date is missing even if the slug is present', () => {
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useTimeSlots({
+          restaurantSlug: 'white-horse-pub-waterbeach',
+          date: null,
+          selectedTime: null,
+        }),
+      { wrapper },
+    );
+
+    expect(result.current.slots).toHaveLength(0);
+    expect(result.current.isLoading).toBe(false);
+    expect(getMock).not.toHaveBeenCalled();
+  });
 });

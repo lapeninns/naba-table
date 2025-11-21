@@ -10,8 +10,6 @@ import { emit } from '@/lib/analytics/emit';
 import { MAX_ONLINE_PARTY_SIZE, MIN_ONLINE_PARTY_SIZE } from '@/lib/bookings/partySize';
 import { useTimeSlots } from '@reserve/features/reservations/wizard/services';
 import {
-  fetchReservationSchedule,
-  scheduleQueryKey,
   fetchCalendarMask,
   calendarMaskQueryKey,
   type CalendarMask,
@@ -49,33 +47,26 @@ const deriveUnavailableReason = (
   return hasEnabledSlot ? null : 'no-slots';
 };
 
-const buildMonthDateKeys = (
-  monthStart: Date,
-  minSelectableDate: Date,
-  limit?: number,
-): string[] => {
-  const start = toMonthStart(monthStart);
-  const end = new Date(start.getFullYear(), start.getMonth() + 1, 0);
-  const keys: string[] = [];
-
-  const normalizedMin = new Date(minSelectableDate);
-  normalizedMin.setHours(0, 0, 0, 0);
-  const maxEntries =
-    typeof limit === 'number' && Number.isFinite(limit) && limit > 0
-      ? Math.floor(limit)
-      : Number.POSITIVE_INFINITY;
-
-  for (let cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
-    if (cursor < normalizedMin) {
-      continue;
-    }
-    keys.push(formatDateForInput(new Date(cursor)));
-    if (maxEntries > 0 && keys.length >= maxEntries) {
-      break;
-    }
+export const buildMonthPrefetchTargets = (
+  value: Date | null | undefined,
+  normalizedMinTimestamp: number,
+): Date[] => {
+  if (!value) {
+    return [];
   }
 
-  return keys;
+  const monthStart = toMonthStart(value);
+  const monthStarts: Date[] = [monthStart];
+
+  const previousMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() - 1, 1);
+  if (previousMonth.getTime() >= normalizedMinTimestamp) {
+    monthStarts.push(previousMonth);
+  }
+
+  const nextMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1);
+  monthStarts.push(nextMonth);
+
+  return monthStarts;
 };
 
 const parseDateKey = (value: string | null | undefined): Date | null => {
@@ -93,92 +84,43 @@ const parseDateKey = (value: string | null | undefined): Date | null => {
   return Number.isNaN(next.getTime()) ? null : next;
 };
 
-const isAbortError = (error: unknown): boolean => {
-  if (!error) {
-    return false;
-  }
-  if (error instanceof DOMException) {
-    return error.name === 'AbortError';
-  }
-  if (error instanceof Error) {
-    const normalizedName = error.name?.toLowerCase() ?? '';
-    if (
-      normalizedName === 'aborterror' ||
-      normalizedName === 'cancellederror' ||
-      normalizedName === 'cancelederror'
-    ) {
-      return true;
-    }
-    const normalizedMessage = error.message?.toLowerCase() ?? '';
-    if (
-      normalizedMessage.includes('abort') ||
-      normalizedMessage.includes('cancelled') ||
-      normalizedMessage.includes('canceled')
-    ) {
-      return true;
-    }
-  }
-  if (typeof error === 'object') {
-    const { name, code, message } = error as { name?: unknown; code?: unknown; message?: unknown };
-    if (typeof name === 'string') {
-      const normalizedName = name.toLowerCase();
-      if (
-        normalizedName === 'aborterror' ||
-        normalizedName.includes('cancelled') ||
-        normalizedName.includes('canceled')
-      ) {
-        return true;
-      }
-    }
-    if (typeof code === 'string') {
-      const normalizedCode = code.toUpperCase();
-      if (
-        normalizedCode === 'REQUEST_ABORTED' ||
-        normalizedCode === 'CANCELLED' ||
-        normalizedCode === 'CANCELED'
-      ) {
-        return true;
-      }
-    }
-    if (typeof message === 'string') {
-      const normalizedMessage = message.toLowerCase();
-      if (
-        normalizedMessage.includes('abort') ||
-        normalizedMessage.includes('cancelled') ||
-        normalizedMessage.includes('canceled')
-      ) {
-        return true;
-      }
-    }
-  }
-  if (typeof error === 'string') {
-    const normalized = error.toLowerCase();
-    if (
-      normalized.includes('abort') ||
-      normalized.includes('cancelled') ||
-      normalized.includes('canceled')
-    ) {
-      return true;
-    }
-  }
-  return false;
-};
+export const deriveMaskAvailability = (
+  mask: CalendarMask,
+  normalizedMinTimestamp: number,
+): Map<string, PlanStepUnavailableReason | null> => {
+  const results = new Map<string, PlanStepUnavailableReason | null>();
 
-const linkAbortSignals = (controller: AbortController, querySignal?: AbortSignal) => {
-  if (!querySignal) {
-    return undefined;
-  }
-  if (querySignal.aborted) {
-    controller.abort();
-    return undefined;
+  const zone = mask.timezone?.trim() || 'UTC';
+  const start = DateTime.fromISO(mask.from, { zone }).startOf('day');
+  const end = DateTime.fromISO(mask.to, { zone }).startOf('day');
+  if (!start.isValid || !end.isValid) {
+    return results;
   }
 
-  const abortHandler = () => controller.abort();
-  querySignal.addEventListener('abort', abortHandler, { once: true });
+  const closedDateSet = new Set(mask.closedDates ?? []);
+  const closedDaySet = new Set((mask.closedDaysOfWeek ?? []).map((value) => ((value % 7) + 7) % 7));
 
-  return () => {
-    querySignal.removeEventListener('abort', abortHandler);
-  };
+  for (let cursor = start; cursor <= end; cursor = cursor.plus({ days: 1 })) {
+    const isoKey = cursor.toISODate();
+    if (!isoKey) {
+      continue;
+    }
+
+    const timestamp = new Date(cursor.year, cursor.month - 1, cursor.day).getTime();
+    if (timestamp < normalizedMinTimestamp) {
+      continue;
+    }
+
+    const weekday = cursor.weekday % 7;
+
+    if (closedDateSet.has(isoKey) || closedDaySet.has(weekday)) {
+      results.set(isoKey, 'closed');
+    } else {
+      results.set(isoKey, null);
+    }
+  }
+
+  return results;
 };
 
 type UnavailableDateTrackingArgs = {
@@ -204,10 +146,7 @@ function useUnavailableDateTracking({
   initialCalendarMask,
 }: UnavailableDateTrackingArgs): UnavailableDateTrackingResult {
   const queryClient = useQueryClient();
-  const prefetchedMonthsRef = useRef<Set<string>>(new Set());
   const maskPrefetchedMonthsRef = useRef<Set<string>>(new Set());
-  const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
-  const pendingFetchesRef = useRef<Map<string, Promise<void>>>(new Map());
   const [unavailableDates, setUnavailableDates] = useState<Map<string, PlanStepUnavailableReason>>(
     () => new Map(),
   );
@@ -252,34 +191,9 @@ function useUnavailableDateTracking({
 
   const applyCalendarMask = useCallback(
     (mask: CalendarMask) => {
-      const zone = mask.timezone?.trim() || 'UTC';
-      const start = DateTime.fromISO(mask.from, { zone }).startOf('day');
-      const end = DateTime.fromISO(mask.to, { zone }).startOf('day');
-      if (!start.isValid || !end.isValid) {
-        return;
-      }
-
-      const closedDateSet = new Set(mask.closedDates ?? []);
-      const closedDaySet = new Set(
-        (mask.closedDaysOfWeek ?? []).map((value) => ((value % 7) + 7) % 7),
-      );
-
-      for (let cursor = start; cursor <= end; cursor = cursor.plus({ days: 1 })) {
-        const isoKey = cursor.toISODate();
-        if (!isoKey) {
-          continue;
-        }
-
-        const timestamp = new Date(cursor.year, cursor.month - 1, cursor.day).getTime();
-        if (timestamp < normalizedMinTimestamp) {
-          continue;
-        }
-
-        const weekday = cursor.weekday % 7;
-        if (closedDateSet.has(isoKey) || closedDaySet.has(weekday)) {
-          updateUnavailableDate(isoKey, 'closed');
-        }
-      }
+      deriveMaskAvailability(mask, normalizedMinTimestamp).forEach((reason, isoKey) => {
+        updateUnavailableDate(isoKey, reason);
+      });
     },
     [normalizedMinTimestamp, updateUnavailableDate],
   );
@@ -350,110 +264,16 @@ function useUnavailableDateTracking({
 
   const prefetchVisibleMonth = useCallback(
     (value: Date | null | undefined) => {
-      if (!value) {
-        return;
-      }
-
       const slug = restaurantSlug?.trim();
-      if (!slug) {
+      if (!value || !slug) {
         return;
       }
 
-      const monthStart = toMonthStart(value);
-      const monthStarts: Date[] = [monthStart];
-
-      const previousMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() - 1, 1);
-      if (previousMonth.getTime() >= normalizedMinTimestamp) {
-        monthStarts.push(previousMonth);
-      }
-
-      const nextMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1);
-      monthStarts.push(nextMonth);
-
-      monthStarts.forEach((month) => {
+      buildMonthPrefetchTargets(value, normalizedMinTimestamp).forEach((month) => {
         prefetchCalendarMask(month);
-
-        const monthKey = MONTH_KEY_FORMATTER(month);
-        if (prefetchedMonthsRef.current.has(monthKey)) {
-          return;
-        }
-
-        prefetchedMonthsRef.current.add(monthKey);
-
-        const dateKeys = buildMonthDateKeys(month, normalizedMinDate);
-        if (dateKeys.length === 0) {
-          return;
-        }
-
-        dateKeys.forEach((dateKey) => {
-          if (pendingFetchesRef.current.has(dateKey)) {
-            return;
-          }
-
-          const controller = new AbortController();
-          abortControllersRef.current.set(dateKey, controller);
-
-          setLoadingDates((prev) => {
-            const next = new Set(prev);
-            next.add(dateKey);
-            return next;
-          });
-
-          const fetchPromise = (async () => {
-            let unlinkAbort: (() => void) | undefined;
-            try {
-              const scheduleResult = await queryClient.fetchQuery({
-                queryKey: scheduleQueryKey(slug, dateKey),
-                queryFn: ({ signal: querySignal }) => {
-                  unlinkAbort = linkAbortSignals(controller, querySignal);
-                  return fetchReservationSchedule(slug, dateKey, controller.signal);
-                },
-                staleTime: 60_000,
-                meta: { persist: false },
-              });
-
-              if (!controller.signal.aborted) {
-                const reason = deriveUnavailableReason(scheduleResult);
-                updateUnavailableDate(dateKey, reason);
-              }
-            } catch (error) {
-              if (controller.signal.aborted || isAbortError(error)) {
-                return;
-              }
-
-              if (process.env.NODE_ENV !== 'production') {
-                console.error('[plan-step] failed to prefetch schedule', { date: dateKey, error });
-              }
-
-              emit('schedule.fetch.miss', { restaurantSlug: slug, date: dateKey });
-              updateUnavailableDate(dateKey, 'unknown');
-            } finally {
-              unlinkAbort?.();
-              if (!controller.signal.aborted) {
-                setLoadingDates((prev) => {
-                  const next = new Set(prev);
-                  next.delete(dateKey);
-                  return next;
-                });
-              }
-
-              abortControllersRef.current.delete(dateKey);
-              pendingFetchesRef.current.delete(dateKey);
-            }
-          })();
-
-          pendingFetchesRef.current.set(dateKey, fetchPromise);
-        });
       });
     },
-    [
-      normalizedMinDate,
-      normalizedMinTimestamp,
-      prefetchCalendarMask,
-      queryClient,
-      restaurantSlug,
-      updateUnavailableDate,
-    ],
+    [normalizedMinTimestamp, prefetchCalendarMask, restaurantSlug],
   );
 
   useEffect(() => {
@@ -464,24 +284,6 @@ function useUnavailableDateTracking({
   }, [date, normalizedMinDate, prefetchVisibleMonth]);
 
   useEffect(() => {
-    const abortControllers = abortControllersRef.current;
-    const pendingFetches = pendingFetchesRef.current;
-
-    return () => {
-      abortControllers.forEach((controller) => controller.abort());
-      abortControllers.clear();
-      pendingFetches.clear();
-    };
-  }, []);
-
-  useEffect(() => {
-    const abortControllers = abortControllersRef.current;
-    const pendingFetches = pendingFetchesRef.current;
-    const prefetchedMonths = prefetchedMonthsRef.current;
-    abortControllers.forEach((controller) => controller.abort());
-    abortControllers.clear();
-    pendingFetches.clear();
-    prefetchedMonths.clear();
     maskPrefetchedMonthsRef.current.clear();
     setLoadingDates(new Set());
     setUnavailableDates(new Map());
@@ -867,7 +669,7 @@ export function usePlanStepForm({
             ? 'We’re closed on the selected date. Please choose a different day.'
             : derivedReason === 'no-slots'
               ? 'No reservation times are available for the selected date. Please choose another day.'
-              : 'Schedule not loaded yet—scroll to load month.';
+              : 'We couldn’t load availability for this date. Please choose another day.';
         form.setError('date', { type: 'manual', message: dateMessage });
         form.setError('time', {
           type: 'manual',

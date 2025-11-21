@@ -39,14 +39,15 @@ export function useTimeSlots({
   date,
   selectedTime,
 }: UseTimeSlotsOptions): UseTimeSlotsResult {
+  const normalizedSlug = restaurantSlug?.trim() ?? null;
   const scheduleQuery = useQuery<ReservationSchedule>({
-    queryKey: scheduleQueryKey(restaurantSlug, date ?? null),
-    enabled: Boolean(restaurantSlug),
+    queryKey: scheduleQueryKey(normalizedSlug, date ?? null),
+    enabled: Boolean(normalizedSlug && date),
     queryFn: ({ signal }) => {
-      if (!restaurantSlug) {
-        throw new Error('Missing restaurant slug');
+      if (!normalizedSlug || !date) {
+        throw new Error('Missing restaurant slug or date');
       }
-      return fetchReservationSchedule(restaurantSlug, date ?? undefined, signal);
+      return fetchReservationSchedule(normalizedSlug, date, signal);
     },
     staleTime: 60_000,
     refetchOnWindowFocus: false,

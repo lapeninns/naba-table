@@ -25,7 +25,7 @@ type PlanStepFormContentProps = {
 };
 
 const UNKNOWN_AVAILABILITY_COPY =
-  'Loading availability for this month… if it stalls, change the date or refresh.';
+  'Availability is still loading. Please try another date or retry in a moment.';
 
 function PlanStepFormContent({ state }: PlanStepFormContentProps) {
   const { control, formState, handleSubmit, getValues } = state.form;
@@ -65,7 +65,7 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
     (day: Date) => {
       const key = formatDateForInput(day);
       const reason = state.unavailableDates.get(key) ?? null;
-      return reason === 'closed' || reason === 'no-slots';
+      return reason === 'closed';
     },
     [state.unavailableDates],
   );
