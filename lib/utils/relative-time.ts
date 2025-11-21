@@ -1,4 +1,4 @@
-import { DateTime } from 'luxon';
+import type { DateTime } from "luxon";
 
 /**
  * Formats a DateTime as a relative time string (e.g., "in 2 hours", "5 minutes ago")

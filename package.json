@@ -10,6 +10,15 @@
     "server/**/*.{ts,tsx,js,jsx}": [
       "eslint --fix --max-warnings=0"
     ],
+    "src/**/*.{ts,tsx,js,jsx}": [
+      "eslint --fix --max-warnings=0"
+    ],
+    "lib/**/*.{ts,tsx,js,jsx}": [
+      "eslint --fix --max-warnings=0"
+    ],
+    "scripts/**/*.{ts,tsx,js,jsx}": [
+      "eslint --fix --max-warnings=0"
+    ],
     "tests/server/**/*.{ts,tsx,js,jsx}": [
       "eslint --fix --max-warnings=0"
     ],
@@ -22,7 +31,7 @@
     "build": "next build",
     "postbuild": "next-sitemap",
     "start": "next start",
-    "lint": "eslint server/capacity/tables.ts server/capacity/telemetry.ts server/capacity/selector.ts --ext .ts,.tsx,.js",
+    "lint": "eslint --ext .ts,.tsx,.js server lib scripts",
     "typecheck": "tsc --noEmit",
     "typecheck:strict": "tsc --noEmit -p tsconfig.strict.json",
     "validate:env": "tsx scripts/validate-env.ts",
@@ -31,10 +40,10 @@
     "predev": "npm run validate:env && tsx scripts/ensure-dev-port.ts",
     "reserve:dev": "vite --config reserve/vite.config.ts",
     "reserve:build": "vite build --config reserve/vite.config.ts",
-    "test": "vitest run tests/server/security/test-endpoints.test.ts tests/scripts/db-safety.test.ts",
-    "test:watch": "vitest watch tests/server/security/test-endpoints.test.ts tests/scripts/db-safety.test.ts",
-    "test:ops": "vitest run tests/server/security/test-endpoints.test.ts tests/scripts/db-safety.test.ts",
-    "test:e2e": "vitest run tests/server/security/test-endpoints.test.ts tests/scripts/db-safety.test.ts",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "test:ops": "vitest run",
+    "test:e2e": "vitest run",
     "storybook": "storybook dev -p 6006 -c reserve/.storybook",
     "storybook:build": "storybook build -c reserve/.storybook -o reserve/storybook-static",
     "analyze": "vite build --config reserve/vite.config.ts --mode analyze",
@@ -67,6 +76,7 @@
     "db:wipe": "tsx scripts/db/safe-run.ts wipe",
     "db:verify": "./scripts/verify-database.sh",
     "db:test": "./scripts/test-connection.sh",
+    "db:check-drift": "tsx scripts/db/check-drift.ts",
     "db:push": "echo '📤 Pushing migrations to Supabase remote...' && supabase db push",
     "db:pull": "echo '📥 Pulling schema from Supabase remote...' && supabase db pull",
     "db:status": "supabase migration list"

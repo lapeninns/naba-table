@@ -312,8 +312,28 @@ function buildSlotMetadata(schedule: RestaurantSchedule, serviceFilter: 'lunch' 
     entry.slotCount += 1;
   }
 
-  const windowStart = slots.length > 0 ? DateTime.fromISO(slots[0]!.start) : null;
-  const windowEnd = slots.length > 0 ? DateTime.fromISO(slots[slots.length - 1]!.end) : null;
+  let windowStart = slots.length > 0 ? DateTime.fromISO(slots[0]!.start) : null;
+  let windowEnd = slots.length > 0 ? DateTime.fromISO(slots[slots.length - 1]!.end) : null;
+
+  // If viewing all services, ensure the window covers the full operating hours
+  // This prevents bookings from being visually truncated at the last seating time
+  if (serviceFilter === 'all' && schedule.window.opensAt && schedule.window.closesAt) {
+    const schedStart = toDateTime(schedule.date, schedule.window.opensAt, timezone);
+    let schedEnd = toDateTime(schedule.date, schedule.window.closesAt, timezone);
+
+    if (schedStart && schedEnd) {
+      if (schedEnd < schedStart) {
+        schedEnd = schedEnd.plus({ days: 1 });
+      }
+
+      if (!windowStart || schedStart < windowStart) {
+        windowStart = schedStart;
+      }
+      if (!windowEnd || schedEnd > windowEnd) {
+        windowEnd = schedEnd;
+      }
+    }
+  }
   const services = Array.from(servicesMap.entries()).map(([key, value]) => ({
     key,
     label: SERVICE_LABELS[key] ?? 'Service',

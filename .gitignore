@@ -30,12 +30,17 @@ playwright-*/
 *.tar.gz
 *.tgz
 .turbo
+cli-proxy-api
+cli-proxy-api.*
 
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# stress/load artifacts
+stress-test-*.log
 
 # local env files
 .env

@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { getAllocatorAdjacencyMode, type AdjacencyMode } from "@/server/feature-flags";
 
 import { evaluateAdjacency, isAdjacencySatisfied, summarizeAdjacencyStatus } from "./adjacency";
@@ -23,6 +24,10 @@ const DIAGNOSTIC_SKIP_KEYS = [
 ] as const;
 
 const DEFAULT_ENUMERATION_TIMEOUT_MS = 1_000;
+
+const selectorLogger = logger.child({ module: "capacity.selector" });
+const debugLogger = selectorLogger.child({ channel: "debug" });
+const perfLogger = selectorLogger.child({ channel: "perf" });
 
 type DiagnosticSkipKey = (typeof DIAGNOSTIC_SKIP_KEYS)[number];
 
@@ -257,11 +262,13 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
   diagnostics.singlesConsidered = singleTableCandidates.length;
 
   if (DEBUG) {
-    console.log('[selector] Party size:', partySize);
-    console.log('[selector] Valid tables for combinations:', validTables.length);
-    console.log('[selector] Single-table candidates:', singleTableCandidates.length);
-    console.log('[selector] Enable combinations:', enableCombinations);
-    console.log('[selector] k-max:', combinationCap);
+    debugLogger.debug("selector snapshot", {
+      partySize,
+      validTables: validTables.length,
+      singleTableCandidates: singleTableCandidates.length,
+      enableCombinations,
+      combinationCap,
+    });
   }
 
   const plans: RankedTablePlan[] = [];
@@ -359,7 +366,7 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
   };
 
   if (DEBUG) {
-    console.warn('[capacity.debug][selector] plans built', {
+    debugLogger.debug("selector plans built", {
       inputTables: tables.length,
       partySize,
       validTables: diagnostics.performance.inputSize.validTablesCount,
@@ -376,7 +383,7 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
   // Log performance warning if selector exceeds threshold (Sprint 0 - T0.2)
   const SELECTOR_PERF_THRESHOLD_MS = 500;
   if (totalDurationMs > SELECTOR_PERF_THRESHOLD_MS) {
-    console.warn("[PERF] buildScoredTablePlans exceeded threshold", {
+    perfLogger.warn("buildScoredTablePlans exceeded threshold", {
       durationMs: totalDurationMs,
       threshold: SELECTOR_PERF_THRESHOLD_MS,
       inputSize: diagnostics.performance.inputSize,
@@ -893,7 +900,7 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
   }
 
   if (timedOut) {
-    console.warn("[selector] combination enumeration timed out", {
+    perfLogger.warn("combination enumeration timed out", {
       partySize,
       tableCount: sortedCandidates.length,
       timeoutMs: diagnostics.limits.enumerationTimeoutMs ?? DEFAULT_ENUMERATION_TIMEOUT_MS,

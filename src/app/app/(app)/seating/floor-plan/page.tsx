@@ -1,27 +1,23 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { format } from 'date-fns';
 import {
     Armchair,
     Calendar as CalendarIcon,
     Clock,
-    Info,
     Loader2,
     MapPin,
-    Plus,
     Minus,
+    Plus,
+    RotateCcw,
     Users,
     Utensils,
-    X,
-    ChevronLeft,
-    ChevronRight,
-    RotateCcw,
-    ExternalLink
+    X
 } from 'lucide-react';
-import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { format } from 'date-fns';
+import { useRouter } from 'next/navigation';
+import React, { useMemo, useRef, useState } from 'react';
 
-import { useRestaurantService, useTableInventoryService, useZoneService } from '@/contexts/ops-services';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import {
@@ -29,11 +25,12 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
-import { useOpsSession, useOpsActiveMembership } from '@/contexts/ops-session';
+import { useRestaurantService, useTableInventoryService, useZoneService } from '@/contexts/ops-services';
+import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsTableTimeline } from '@/hooks/ops/useOpsTableTimeline';
 import { queryKeys } from '@/lib/query/keys';
-import type { TableInventory } from '@/services/ops/tables';
+import { cn } from '@/lib/utils';
+
 import type { TableTimelineSegment } from '@/types/ops';
 
 // --- Utilities ---
@@ -133,11 +130,11 @@ function getStatusTheme(state: string) {
 // --- Main Component ---
 
 export default function FloorPlanApp() {
+    const router = useRouter();
     const { activeRestaurantId } = useOpsSession();
     const tableService = useTableInventoryService();
     const zoneService = useZoneService();
     const restaurantService = useRestaurantService();
-    const activeMembership = useOpsActiveMembership();
 
     const [currentTimeVal, setCurrentTimeVal] = useState(18.5 * 60); // Default start
     const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
@@ -203,7 +200,7 @@ export default function FloorPlanApp() {
     React.useEffect(() => {
         if (currentTimeVal < timelineConfig.min) setCurrentTimeVal(timelineConfig.min);
         if (currentTimeVal > timelineConfig.max) setCurrentTimeVal(timelineConfig.max);
-    }, [timelineConfig.min, timelineConfig.max]);
+    }, [currentTimeVal, timelineConfig.max, timelineConfig.min]);
 
     // Fetch Zones
     const { data: zones = [] } = useQuery({
@@ -225,7 +222,10 @@ export default function FloorPlanApp() {
         enabled: !!activeRestaurantId
     });
 
-    const tables = tablesListResult?.tables ?? [];
+    const tables = useMemo(
+        () => tablesListResult?.tables ?? [],
+        [tablesListResult?.tables]
+    );
 
     // Fetch Timeline (for status)
     const { data: timelineData, isLoading: isLoadingTimeline } = useOpsTableTimeline({
@@ -647,8 +647,8 @@ export default function FloorPlanApp() {
                                         {isMerged && (
                                             <div className="absolute -top-1 -right-1 w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-white border-2 border-current flex items-center justify-center shadow-sm">
                                                 <svg className="w-1.5 h-1.5 sm:w-2 sm:h-2" fill="currentColor" viewBox="0 0 16 16">
-                                                    <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM2 2a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1H2z"/>
-                                                    <path d="M2.5 4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5V4z"/>
+                                                    <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM2 2a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1H2z" />
+                                                    <path d="M2.5 4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5V4z" />
                                                 </svg>
                                             </div>
                                         )}
@@ -891,8 +891,8 @@ export default function FloorPlanApp() {
                                     {selectedTableData.currentStatus.booking?.tableIds && selectedTableData.currentStatus.booking.tableIds.length > 1 && (
                                         <div className="flex items-center gap-1.5 text-xs font-medium bg-rose-100 px-2.5 py-1.5 rounded border border-rose-300 text-rose-700">
                                             <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 16 16">
-                                                <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM2 2a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1H2z"/>
-                                                <path d="M2.5 4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5V4z"/>
+                                                <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM2 2a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1H2z" />
+                                                <path d="M2.5 4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5V4z" />
                                             </svg>
                                             Merged ({selectedTableData.currentStatus.booking.tableIds.length} tables)
                                         </div>
@@ -956,7 +956,7 @@ export default function FloorPlanApp() {
                                                     <div className="pt-2 border-t border-rose-100/50">
                                                         <div className="text-xs font-medium text-rose-500 mb-1">Notes</div>
                                                         <p className="text-xs text-rose-800 italic bg-rose-50/50 p-2 rounded border border-rose-100">
-                                                            "{selectedTableData.currentStatus.booking.notes}"
+                                                            &quot;{selectedTableData.currentStatus.booking.notes}&quot;
                                                         </p>
                                                     </div>
                                                 )}
@@ -998,7 +998,24 @@ export default function FloorPlanApp() {
                                             <p className="text-sm text-emerald-600/80 mt-1 mb-4 px-4">
                                                 This table is free at {timeString}.
                                             </p>
-                                            <Button className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                                            <Button
+                                                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                                onClick={() => {
+                                                    const params = new URLSearchParams();
+                                                    params.set('date', selectedDate);
+
+                                                    const time = new Date(currentTimestamp);
+                                                    const hours = time.getHours().toString().padStart(2, '0');
+                                                    const minutes = time.getMinutes().toString().padStart(2, '0');
+                                                    params.set('time', `${hours}:${minutes}`);
+
+                                                    if (selectedTableData?.capacity) {
+                                                        params.set('partySize', selectedTableData.capacity.toString());
+                                                    }
+
+                                                    router.push(`/app/walk-in?${params.toString()}`);
+                                                }}
+                                            >
                                                 Walk-in Seating
                                             </Button>
                                         </div>

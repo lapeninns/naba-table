@@ -34,6 +34,7 @@ export default [
       "next.config.js",
       "next-sitemap.config.js",
       "tests/load/**/*.js",
+      "scripts/**/*.mjs",
     ],
   },
   ...compat.config({
@@ -110,6 +111,12 @@ export default [
           message: "Use the shared windowsOverlap helper from '@/server/capacity/tables'.",
         },
       ],
+    },
+  },
+  {
+    files: ["scripts/**/*.{js,ts}"],
+    rules: {
+      "import/order": "off",
     },
   },
 ];

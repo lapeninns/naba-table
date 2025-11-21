@@ -2,8 +2,8 @@
 
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
-import { useRouter } from "next/navigation";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,8 @@ export function WalkInWizardClient() {
   const activeMembership = useOpsActiveMembership();
   const restaurantQuery = useOpsRestaurantDetails(activeRestaurantId ?? undefined);
 
+  const searchParams = useSearchParams();
+
   const initialDetails = useMemo(() => {
     if (!activeMembership || !activeRestaurantId) {
       return null;
@@ -30,6 +32,10 @@ export function WalkInWizardClient() {
     const profile = restaurantQuery.data;
     const reservationDurationMinutes = profile?.reservationDefaultDurationMinutes;
 
+    const dateParam = searchParams.get('date');
+    const timeParam = searchParams.get('time');
+    const partyParam = searchParams.get('partySize');
+
     return {
       restaurantId: activeRestaurantId,
       restaurantSlug: activeMembership.restaurantSlug ?? DEFAULT_VENUE.slug,
@@ -37,8 +43,11 @@ export function WalkInWizardClient() {
       restaurantAddress: profile?.address ?? DEFAULT_VENUE.address,
       restaurantTimezone: profile?.timezone ?? DEFAULT_VENUE.timezone,
       ...(reservationDurationMinutes ? { reservationDurationMinutes } : {}),
+      ...(dateParam ? { date: dateParam } : {}),
+      ...(timeParam ? { time: timeParam } : {}),
+      ...(partyParam && !isNaN(Number(partyParam)) ? { party: Number(partyParam) } : {}),
     } satisfies Partial<BookingDetails>;
-  }, [activeMembership, activeRestaurantId, restaurantQuery.data]);
+  }, [activeMembership, activeRestaurantId, restaurantQuery.data, searchParams]);
 
   const navigator = useMemo(
     () => ({

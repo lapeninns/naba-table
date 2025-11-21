@@ -41,3 +41,32 @@
 - Fill **non‑production** Supabase URL/keys and booking API URLs.
 - Set `APP_ENV=development|staging` for local/staging; `NODE_ENV` should remain `development` for local runs.
 - Keep `ENABLE_TEST_ENDPOINTS=false` unless explicitly testing with a token.
+
+## Secret rotation & history cleanup
+
+> Run these steps inside a scheduled maintenance window. Never paste secrets into task artifacts or git history.
+
+1. **Inventory secrets**
+   - Supabase: anon key, service role key, DB password, JWT secret, connection string.
+   - Resend: API key(s) per environment.
+   - Any other third-party keys referenced in `.env.example`.
+2. **Rotate in staging first**
+   - Generate new values via provider dashboards.
+   - Update staging hosting/CI secrets and `.env.staging`.
+   - Run `pnpm validate:env`, smoke tests, and staging health checks.
+3. **Promote to production**
+   - Set `APP_ENV=production`, `NODE_ENV=production` in hosting provider.
+   - Update production secrets and verify health.
+4. **Update repo artifacts**
+   - Refresh `.env.example` placeholders (never real secrets).
+   - Document hashes or metadata in `tasks/<slug>/artifacts/secret-rotation.md`.
+5. **Purge leaked secrets from git history**
+   - `brew install git-filter-repo` (or use BFG).
+   - `git filter-repo --path .env.local --invert-paths` or target individual files containing leaked values.
+   - Force-push and notify collaborators to `git fetch --all --prune` + `git reset --hard origin/<branch>`.
+6. **Re-run validation**
+   - `pnpm validate:env`
+   - `pnpm test`
+   - `pnpm db:status`
+
+If any provider restricts immediate rotation, capture the exception in `tasks/.../todo.md` and schedule a follow-up.

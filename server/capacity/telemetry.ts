@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { recordObservabilityEvent } from "@/server/observability";
 
 import type { SelectorScoringWeights, ServiceKey } from "./policy";
@@ -65,6 +66,12 @@ function sanitizeTelemetryValue(value: unknown, key?: string): Json {
 function sanitizeTelemetryContext<T extends Json>(input: T): T {
   return sanitizeTelemetryValue(input) as T;
 }
+
+const telemetryLogger = logger.child({ module: "capacity.telemetry" });
+const selectorLog = telemetryLogger.child({ scope: "selector" });
+const holdLog = telemetryLogger.child({ scope: "hold" });
+const manualLog = telemetryLogger.child({ scope: "manual" });
+const rpcLog = telemetryLogger.child({ scope: "rpc" });
 
 export type CandidateSummary = {
   tableIds: string[];
@@ -225,13 +232,9 @@ export async function emitSelectorDecision(event: SelectorDecisionEvent): Promis
   const sanitizedPayload = buildSelectorDecisionPayload(event);
 
   try {
-    console.log(JSON.stringify(sanitizedPayload));
+    selectorLog.info("selector decision captured", { payload: sanitizedPayload });
   } catch (error) {
-    console.error("[capacity.selector] failed to serialize log payload", {
-      error,
-      bookingId: event.bookingId,
-      restaurantId: event.restaurantId,
-    });
+    selectorLog.error("failed to serialize selector payload", { error, bookingId: event.bookingId, restaurantId: event.restaurantId });
   }
 
   try {
@@ -244,11 +247,7 @@ export async function emitSelectorDecision(event: SelectorDecisionEvent): Promis
       bookingId: event.bookingId,
     });
   } catch (error) {
-    console.error("[capacity.selector] failed to persist observability event", {
-      error,
-      bookingId: event.bookingId,
-      restaurantId: event.restaurantId,
-    });
+    selectorLog.error("failed to persist observability event", { error, bookingId: event.bookingId, restaurantId: event.restaurantId });
   }
 }
 
@@ -275,11 +274,7 @@ export async function emitSelectorQuote(event: SelectorQuoteEvent): Promise<void
       bookingId: event.bookingId,
     });
   } catch (error) {
-    console.error("[capacity.selector.quote] failed to record telemetry", {
-      error,
-      bookingId: event.bookingId,
-      restaurantId: event.restaurantId,
-    });
+    selectorLog.error("failed to record selector quote telemetry", { error, bookingId: event.bookingId, restaurantId: event.restaurantId });
   }
 }
 
@@ -314,11 +309,7 @@ async function emitHoldEvent(eventType: string, payload: HoldTelemetryEvent): Pr
       bookingId: payload.bookingId ?? undefined,
     });
   } catch (error) {
-    console.error(`[capacity.hold] failed to emit ${eventType}`, {
-      error,
-      holdId: payload.holdId,
-      bookingId: payload.bookingId,
-    });
+    holdLog.error("failed to emit hold telemetry", { error, eventType, holdId: payload.holdId, bookingId: payload.bookingId });
   }
 }
 
@@ -378,11 +369,7 @@ export async function emitHoldStrictConflict(event: HoldStrictConflictEvent): Pr
       bookingId: event.bookingId ?? undefined,
     });
   } catch (error) {
-    console.error("[capacity.hold] failed to record strict conflict telemetry", {
-      error,
-      bookingId: event.bookingId,
-      restaurantId: event.restaurantId,
-    });
+    holdLog.error("failed to record strict conflict telemetry", { error, bookingId: event.bookingId, restaurantId: event.restaurantId });
   }
 }
 
@@ -412,7 +399,7 @@ export async function emitManualValidate(event: ManualActionBase & { ok: boolean
       bookingId: event.bookingId,
     });
   } catch (error) {
-    console.error("[capacity.manual.validate] telemetry failed", { error, bookingId: event.bookingId });
+    manualLog.error("manual validate telemetry failed", { error, bookingId: event.bookingId });
   }
 }
 
@@ -434,7 +421,7 @@ export async function emitManualHold(event: ManualActionBase & { ok: boolean; co
       bookingId: event.bookingId,
     });
   } catch (error) {
-    console.error("[capacity.manual.hold] telemetry failed", { error, bookingId: event.bookingId });
+    manualLog.error("manual hold telemetry failed", { error, bookingId: event.bookingId });
   }
 }
 
@@ -456,7 +443,7 @@ export async function emitManualConfirm(event: ManualActionBase & { ok: boolean;
       bookingId: event.bookingId,
     });
   } catch (error) {
-    console.error("[capacity.manual.confirm] telemetry failed", { error, bookingId: event.bookingId });
+    manualLog.error("manual confirm telemetry failed", { error, bookingId: event.bookingId });
   }
 }
 
@@ -487,11 +474,7 @@ export async function emitRpcConflict(event: RpcConflictEvent): Promise<void> {
       bookingId: event.bookingId,
     });
   } catch (error) {
-    console.error("[capacity.rpc] failed to record conflict telemetry", {
-      error,
-      bookingId: event.bookingId,
-      restaurantId: event.restaurantId,
-    });
+    rpcLog.error("failed to record RPC conflict telemetry", { error, bookingId: event.bookingId, restaurantId: event.restaurantId });
   }
 }
 

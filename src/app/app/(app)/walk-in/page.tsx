@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
 import { BookingErrorBoundary } from "@/components/features/booking-state-machine";
 import { withRedirectedFrom } from "@/lib/url/withRedirectedFrom";
@@ -31,7 +32,9 @@ export default async function WalkInPage() {
   return (
     <div className="flex flex-col gap-6 px-3 py-6 sm:px-4 lg:px-6">
       <BookingErrorBoundary>
-        <WalkInWizardClient />
+        <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Loading walk-in wizard...</div>}>
+          <WalkInWizardClient />
+        </Suspense>
       </BookingErrorBoundary>
     </div>
   );

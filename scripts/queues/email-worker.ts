@@ -1,7 +1,8 @@
 
-import { Job, QueueEvents, Worker } from "bullmq";
+import { QueueEvents, Worker } from "bullmq";
 
 import { closeRedisConnection, getRedisConnection } from "@/lib/queue/redis";
+import { logger } from "@/lib/logger";
 import {
   sendBookingConfirmationEmail,
   sendBookingRejectedEmail,
@@ -14,13 +15,9 @@ import { EMAIL_QUEUE_NAME, type EmailJobPayload, getEmailDlq } from "@/server/qu
 import { getServiceSupabaseClient } from "@/server/supabase";
 
 import type { BookingRecord } from "@/server/bookings";
+import type { Job } from "bullmq";
 
-// A simple structured logger for demonstration purposes
-const logger = {
-  info: (msg: string, context: object = {}) => console.log(JSON.stringify({ level: "info", msg, ...context })),
-  warn: (msg: string, context: object = {}) => console.warn(JSON.stringify({ level: "warn", msg, ...context })),
-  error: (msg: string, context: object = {}) => console.error(JSON.stringify({ level: "error", msg, ...context })),
-};
+const emailLogger = logger.child({ module: "queue.email" });
 
 const SUPPRESS_EMAILS =
   process.env.LOAD_TEST_DISABLE_EMAILS === "true" || process.env.SUPPRESS_EMAILS === "true";
@@ -34,6 +31,14 @@ type EmailPrefs = {
   sendReminder24h: boolean;
   sendReminderShort: boolean;
   sendReviewRequest: boolean;
+};
+
+type BookingCustomerSuppression = {
+  customers?: {
+    user_profiles?: {
+      is_email_suppressed?: boolean | null;
+    } | null;
+  } | null;
 };
 
 async function fetchRestaurantEmailPrefs(
@@ -68,10 +73,10 @@ async function processEmailJob(job: Job<EmailJobPayload>): Promise<void> {
   const { id: jobId, data: jobData } = job;
   const logContext = { jobId, bookingId: jobData.bookingId, jobType: jobData.type };
 
-  logger.info("Processing email job", logContext);
+  emailLogger.info("processing email job", logContext);
 
   if (SUPPRESS_EMAILS) {
-    logger.warn("Emails are suppressed via environment variable", logContext);
+    emailLogger.warn("emails are suppressed via environment variable", logContext);
     await recordObservabilityEvent({
       source: "queue.email",
       eventType: "email_queue.suppressed",
@@ -89,7 +94,7 @@ async function processEmailJob(job: Job<EmailJobPayload>): Promise<void> {
     // 1. IDEMPOTENCY CHECK
     const alreadySent = await redis.get(idempotencyKey);
     if (alreadySent) {
-      logger.warn("Idempotency key found, skipping email to prevent duplicate.", logContext);
+      emailLogger.warn("idempotency key found, skipping email to prevent duplicate", logContext);
       return;
     }
 
@@ -111,9 +116,10 @@ async function processEmailJob(job: Job<EmailJobPayload>): Promise<void> {
 
     // 3. SUPPRESSION LIST CHECK
     // Access the nested data from the query
-    const isSuppressed = (booking as any).customers?.user_profiles?.is_email_suppressed ?? false;
+    const bookingWithSuppression = booking as BookingRecord & BookingCustomerSuppression;
+    const isSuppressed = bookingWithSuppression.customers?.user_profiles?.is_email_suppressed ?? false;
     if (isSuppressed) {
-      logger.warn("User is on suppression list, skipping email.", logContext);
+      emailLogger.warn("user is on suppression list, skipping email", logContext);
       return;
     }
 
@@ -126,7 +132,7 @@ async function processEmailJob(job: Job<EmailJobPayload>): Promise<void> {
         if (bookingRecord.status === "pending" || bookingRecord.status === "pending_allocation") {
           await sendBookingConfirmationEmail(bookingRecord);
         } else {
-          logger.info("Skipping request_received, booking no longer pending.", { ...logContext, status: bookingRecord.status });
+          emailLogger.info("skipping request_received, booking no longer pending", { ...logContext, status: bookingRecord.status });
         }
         break;
       }
@@ -134,7 +140,7 @@ async function processEmailJob(job: Job<EmailJobPayload>): Promise<void> {
         if (bookingRecord.status === "confirmed") {
           await sendBookingConfirmationEmail(bookingRecord);
         } else {
-          logger.info("Skipping confirmation, booking not confirmed.", { ...logContext, status: bookingRecord.status });
+          emailLogger.info("skipping confirmation, booking not confirmed", { ...logContext, status: bookingRecord.status });
         }
         break;
       }
@@ -142,15 +148,15 @@ async function processEmailJob(job: Job<EmailJobPayload>): Promise<void> {
       case "reminder_short": {
         const prefCheck = jobData.type === "reminder_24h" ? prefs.sendReminder24h : prefs.sendReminderShort;
         if (!prefCheck) {
-          logger.info("Skipping reminder, disabled by restaurant.", logContext);
+          emailLogger.info("skipping reminder, disabled by restaurant", logContext);
           break;
         }
         if (bookingRecord.status !== "confirmed") {
-          logger.info("Skipping reminder, booking not confirmed.", { ...logContext, status: bookingRecord.status });
+          emailLogger.info("skipping reminder, booking not confirmed", { ...logContext, status: bookingRecord.status });
           break;
         }
         if (isPast(bookingRecord.start_at, -15 * 60_000)) {
-          logger.info("Skipping reminder, start time is in the past.", logContext);
+          emailLogger.info("skipping reminder, start time is in the past", logContext);
           break;
         }
         await sendBookingReminderEmail(bookingRecord, { variant: jobData.type === "reminder_short" ? "short" : "standard" });
@@ -158,11 +164,11 @@ async function processEmailJob(job: Job<EmailJobPayload>): Promise<void> {
       }
       case "review_request": {
         if (!prefs.sendReviewRequest) {
-          logger.info("Skipping review_request, disabled by restaurant.", logContext);
+          emailLogger.info("skipping review_request, disabled by restaurant", logContext);
           break;
         }
         if (bookingRecord.status !== "completed") {
-          logger.info("Skipping review_request, booking not completed.", { ...logContext, status: bookingRecord.status });
+          emailLogger.info("skipping review_request, booking not completed", { ...logContext, status: bookingRecord.status });
           break;
         }
         await sendBookingReviewRequestEmail(bookingRecord);
@@ -179,7 +185,8 @@ async function processEmailJob(job: Job<EmailJobPayload>): Promise<void> {
         break;
       }
       default: {
-        throw new Error(`Unsupported email job type: ${(jobData as any).type}`);
+        const unreachableType: never = jobData.type;
+        throw new Error(`Unsupported email job type: ${unreachableType}`);
       }
     }
 
@@ -188,7 +195,7 @@ async function processEmailJob(job: Job<EmailJobPayload>): Promise<void> {
     await redis.set(idempotencyKey, "true", "EX", 60 * 60 * 48);
 
   } catch (error) {
-    logger.error("Email job failed", { ...logContext, error: error instanceof Error ? error.message : String(error) });
+    emailLogger.error("email job failed", { ...logContext, error: error instanceof Error ? error.message : String(error) });
     // Re-throw the error to let BullMQ handle the retry/failure and move to DLQ
     throw error;
   }
@@ -236,7 +243,7 @@ async function main(): Promise<void> {
 
     // Manually moving to DLQ when all retries are exhausted
     if (attemptsMade >= attemptsAllowed) {
-      logger.error("Job failed all retries, moving to DLQ", { jobId: bullJob.id, bookingId: bullJob.data.bookingId });
+      emailLogger.error("job failed all retries, moving to DLQ", { jobId: bullJob.id, bookingId: bullJob.data.bookingId });
       const dlq = getEmailDlq();
       await dlq.add(
         "email-dlq",

@@ -7,7 +7,7 @@ function readCookieValue(source: string, name: string): string | null {
     return null;
   }
 
-  const escaped = name.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
+  const escaped = name.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
   const pattern = new RegExp(`(?:^|;\\s*)${escaped}\\s*=\\s*([^;]+)`);
   const match = source.match(pattern);
   return match?.[1] ? decodeURIComponent(match[1]) : null;

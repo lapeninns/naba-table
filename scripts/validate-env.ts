@@ -28,6 +28,7 @@ export interface ValidationSummary {
   missingRequired: string[];
   missingOptional: string[];
   safetyErrors: string[];
+  productionMarkerErrors: string[];
   guardOverride: boolean;
   hasErrors: boolean;
   warningCount: number;
@@ -74,6 +75,13 @@ function safeDescribe(name: string, value: string): string {
   return `${name}(len=${length})`;
 }
 
+const PRODUCTION_MARKER_MAP = [
+  ['NEXT_PUBLIC_SUPABASE_URL', 'PRODUCTION_SUPABASE_URL'],
+  ['NEXT_PUBLIC_SUPABASE_ANON_KEY', 'PRODUCTION_SUPABASE_ANON_KEY'],
+  ['SUPABASE_SERVICE_ROLE_KEY', 'PRODUCTION_SUPABASE_SERVICE_ROLE_KEY'],
+  ['RESERVE_API_BASE_URL', 'PRODUCTION_BOOKING_API_BASE_URL'],
+] as const;
+
 function collectProdResourceSafety(
   env: NodeJS.ProcessEnv,
   appEnv: AppEnv,
@@ -89,14 +97,9 @@ function collectProdResourceSafety(
   const guardable = appEnv !== 'production' && !allowProdResourcesOverride;
 
   if (guardable) {
-    const checks: Array<[string, string | undefined, string | undefined]> = [
-      ['NEXT_PUBLIC_SUPABASE_URL', env.NEXT_PUBLIC_SUPABASE_URL, env.PRODUCTION_SUPABASE_URL],
-      ['NEXT_PUBLIC_SUPABASE_ANON_KEY', env.NEXT_PUBLIC_SUPABASE_ANON_KEY, env.PRODUCTION_SUPABASE_ANON_KEY],
-      ['SUPABASE_SERVICE_ROLE_KEY', env.SUPABASE_SERVICE_ROLE_KEY, env.PRODUCTION_SUPABASE_SERVICE_ROLE_KEY],
-      ['RESERVE_API_BASE_URL', env.RESERVE_API_BASE_URL, env.PRODUCTION_BOOKING_API_BASE_URL],
-    ];
-
-    for (const [currentKey, current, prodValue] of checks) {
+    for (const [currentKey, markerKey] of PRODUCTION_MARKER_MAP) {
+      const current = env[currentKey];
+      const prodValue = env[markerKey];
       if (current && prodValue && current === prodValue) {
         errors.push(
           `${currentKey} matches provided production value ${safeDescribe(
@@ -105,6 +108,34 @@ function collectProdResourceSafety(
           )}; set a non-production credential or export ALLOW_PROD_RESOURCES_IN_NONPROD=true (not recommended).`,
         );
       }
+    }
+  }
+
+  return errors;
+}
+
+function collectProductionMarkerAlignment(env: NodeJS.ProcessEnv, appEnv: AppEnv): string[] {
+  if (appEnv !== 'production') return [];
+
+  const errors: string[] = [];
+  for (const [liveKey, markerKey] of PRODUCTION_MARKER_MAP) {
+    const liveValue = env[liveKey];
+    const markerValue = env[markerKey];
+
+    if (!markerValue) {
+      errors.push(`Missing ${markerKey} — required in production so environment guards can detect credential drift.`);
+      continue;
+    }
+
+    if (!liveValue) {
+      errors.push(`Missing ${liveKey} while ${markerKey} is set — export active production credentials.`);
+      continue;
+    }
+
+    if (liveValue !== markerValue) {
+      errors.push(
+        `${markerKey} does not match live ${liveKey}; set the marker to the active production credential so non-production safeguards remain accurate.`,
+      );
     }
   }
 
@@ -138,13 +169,14 @@ export function validateEnvironment(options: ValidateEnvironmentOptions = {}): V
   }
 
   const safetyErrors = collectProdResourceSafety(env, appEnv, nodeEnv, guardOverride);
-  for (const message of safetyErrors) {
+  const productionMarkerErrors = collectProductionMarkerAlignment(env, appEnv);
+  for (const message of [...safetyErrors, ...productionMarkerErrors]) {
     logger.error(`❌ Environment safety guard: ${message}`);
   }
 
   const totalChecked = Object.keys(env).length;
   const warningCount = missingOptional.length + (appEnvWarning ? 1 : 0);
-  const hasErrors = missingRequired.length > 0 || safetyErrors.length > 0;
+  const hasErrors = missingRequired.length > 0 || safetyErrors.length > 0 || productionMarkerErrors.length > 0;
 
   if (appEnvWarning) {
     logger.warn(`⚠️  ${appEnvWarning}`);
@@ -161,6 +193,7 @@ export function validateEnvironment(options: ValidateEnvironmentOptions = {}): V
     missingRequired,
     missingOptional,
     safetyErrors,
+    productionMarkerErrors,
     guardOverride,
     hasErrors,
     warningCount,

@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { type NextRequest } from "next/server";
 
 import { env, getEnv } from "@/lib/env";
+import { logger } from "@/lib/logger";
 
 import type { Database } from "@/types/supabase";
 import type { NextResponse} from "next/server";
@@ -14,9 +15,11 @@ let serviceClient: SupabaseClient<Database> | null = null;
 const tenantClientCache = new Map<string, SupabaseClient<Database>>();
 let strictHoldInitStarted = false;
 let strictHoldEnforcementActive: boolean | null = null;
+const supabaseLogger = logger.child({ module: "supabase" });
 
 const runtimeEnv = getEnv();
 const { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY, serviceKey: SUPABASE_SERVICE_ROLE_KEY } = env.supabase;
+const shouldRunStrictHoldCheck = ["production", "staging"].includes(env.node.appEnv);
 const RESTAURANT_CONTEXT_HEADER = "X-Restaurant-Id";
 const DEFAULT_RESTAURANT_FALLBACK_ID = "b70decfe-8ad3-487e-bdbb-43aa7bd016ca";
 const DEFAULT_RESTAURANT_SLUG =
@@ -68,7 +71,7 @@ export function getServiceSupabaseClient(): SupabaseClient<Database> {
     // Best-effort startup initialization for strict hold conflict enforcement.
     // This config sets the session GUC and verifies it is honored.
     // We intentionally do not await here to avoid blocking cold starts.
-    if (!strictHoldInitStarted) {
+    if (!strictHoldInitStarted && shouldRunStrictHoldCheck) {
       strictHoldInitStarted = true;
       void (async () => {
         try {
@@ -78,21 +81,21 @@ export function getServiceSupabaseClient(): SupabaseClient<Database> {
           const { data, error } = await serviceClient!.rpc("is_holds_strict_conflicts_enabled");
           if (error) {
             strictHoldEnforcementActive = false;
-            console.error("[supabase] strict hold enforcement self-check failed", {
+            supabaseLogger.warn("strict hold enforcement self-check failed", {
               code: error.code ?? null,
               message: error.message ?? String(error),
             });
           } else {
             strictHoldEnforcementActive = Boolean(data);
             if (!strictHoldEnforcementActive) {
-              console.error("[supabase] strict hold enforcement not honored by server (GUC off)");
+              supabaseLogger.error("strict hold enforcement not honored by server (GUC off)");
             } else {
-              console.info("[supabase] strict hold enforcement active");
+              supabaseLogger.info("strict hold enforcement active");
             }
           }
         } catch (err) {
           strictHoldEnforcementActive = false;
-          console.error("[supabase] strict hold enforcement init error", {
+          supabaseLogger.warn("strict hold enforcement init error", {
             error: err instanceof Error ? err.message : String(err),
           });
         }
