@@ -44,6 +44,7 @@ export {
   isTableAvailableV2,
   isTableAvailable,
 } from "./table-assignment";
+export { windowsOverlap } from "./time-windows";
 
 export type { IntervalLike } from "./time-windows";
 

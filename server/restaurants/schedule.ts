@@ -424,8 +424,9 @@ export async function getRestaurantSchedule(
     Boolean(period) && Boolean(period.start_time) && Boolean(period.end_time) && isPeriodActiveForDay(period, dayOfWeek),
   );
   const coverage = buildCoverage(relevantPeriods);
-  // Use service client for occasion catalog to avoid RLS/permission issues while leaving other queries scoped.
-  const catalog = await getOccasionCatalog({ client: getServiceSupabaseClient(), disableServiceRetry: true });
+  // Prefer provided client for catalog lookups; fall back to service client if none was passed.
+  const catalogClient = options.client ?? getServiceSupabaseClient();
+  const catalog = await getOccasionCatalog({ client: catalogClient, disableServiceRetry: true });
   const orderedKeys = Array.from(new Set<OccasionKey>([...catalog.orderedKeys, ...coverage.keys()]));
 
   const slots = isClosed

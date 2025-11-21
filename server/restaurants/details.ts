@@ -159,7 +159,9 @@ export async function updateRestaurantDetails(
   };
 
   const validated = validateDetailsInput(merged);
-  const updated = await updateRestaurant(restaurantId, validated, client);
+  const payload =
+    validated.googleMapUrl === null ? (({ googleMapUrl: _googleMapUrl, ...rest }) => rest)(validated) : validated;
+  const updated = await updateRestaurant(restaurantId, payload, client);
 
   return {
     restaurantId: updated.id,

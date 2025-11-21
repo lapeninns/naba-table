@@ -1,8 +1,8 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { MyBookingsClient } from '@/app/(guest-account)/my-bookings/MyBookingsClient';
+import { MyBookingsClient } from '@/app/guest/(guest)/(account)/my-bookings/MyBookingsClient';
 import * as bookingsTableModule from '@/components/dashboard/BookingsTable';
 import * as useBookingsModule from '@/hooks/useBookings';
 import * as tableStateModule from '@/hooks/useBookingsTableState';
@@ -117,8 +117,10 @@ describe('MyBookingsClient analytics', () => {
       filter: 'upcoming',
     });
 
+    const tableCancelBtn = within(screen.getByTestId('my-bookings-table')).getByText('Cancel');
+
     await act(async () => {
-      await screen.getByText('Cancel').click();
+      await tableCancelBtn.click();
     });
 
     expect(trackSpy).toHaveBeenCalledWith('dashboard_cancel_opened', {

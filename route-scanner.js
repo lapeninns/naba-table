@@ -240,12 +240,16 @@ class RouteScanner {
     const hasOps = groups.includes('ops');
     const hasAuthed = groups.includes('authed');
     const hasOwner = groups.includes('owner');
-    if (!sawPublic && ((hasOps && hasAuthed) || (hasOwner && (hasOps || hasAuthed)))) {
+    const hasConflict = (hasOps && hasAuthed) || (hasOwner && (hasOps || hasAuthed));
+    if (hasConflict) {
       this.meta.warnings.push({
         type: 'guard_conflict',
-        message: `Conflicting guarded groups [${groups.join(', ')}] in ${relativePath}`,
+        message: sawPublic
+          ? `Conflicting guarded groups overridden by public group [${groups.join(', ')}] in ${relativePath}`
+          : `Conflicting guarded groups [${groups.join(', ')}] in ${relativePath}`,
         file: relativePath,
-        groups
+        groups,
+        overridden: sawPublic || undefined
       });
     }
 

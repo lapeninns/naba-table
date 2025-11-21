@@ -22,7 +22,7 @@
     "build": "next build",
     "postbuild": "next-sitemap",
     "start": "next start",
-    "lint": "eslint server/capacity/tables.ts server/capacity/telemetry.ts server/capacity/selector.ts tests/server/capacity/telemetry.sanitization.test.ts --ext .ts,.tsx,.js",
+    "lint": "eslint server/capacity/tables.ts server/capacity/telemetry.ts server/capacity/selector.ts --ext .ts,.tsx,.js",
     "typecheck": "tsc --noEmit",
     "typecheck:strict": "tsc --noEmit -p tsconfig.strict.json",
     "validate:env": "tsx scripts/validate-env.ts",
