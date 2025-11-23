@@ -30,6 +30,8 @@ export async function GET(req: NextRequest) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
       console.error("[auth/callback] failed to exchange session", error.message);
+    } else {
+      console.log("[auth/callback] session exchanged successfully", { redirectedFrom });
     }
   } else {
     console.warn("[auth/callback] received request without code parameter");

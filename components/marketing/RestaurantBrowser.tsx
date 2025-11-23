@@ -1,21 +1,11 @@
 "use client";
 
-import React, {
-  useCallback,
-  useDeferredValue,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ChangeEvent,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import toast from "react-hot-toast";
 
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import config from "@/config";
 import { track } from "@/lib/analytics";
@@ -47,110 +37,48 @@ export function RestaurantBrowser({
   fetchRestaurants,
   analytics = track,
 }: RestaurantBrowserProps) {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [timezoneFilter, setTimezoneFilter] = useState<string>("all");
-  const [minCapacityInput, setMinCapacityInput] = useState("");
-  const deferredSearch = useDeferredValue(searchTerm);
-  const deferredMinCapacity = useDeferredValue(minCapacityInput);
-
-  const normalizedFilters = useMemo<RestaurantFilters>(() => {
-    const search = deferredSearch.trim();
-    const parsedCapacity = Number.parseInt(deferredMinCapacity, 10);
-    const normalizedMinCapacity =
-      Number.isFinite(parsedCapacity) && parsedCapacity > 0 ? parsedCapacity : undefined;
-    return {
-      search: search.length > 0 ? search : undefined,
-      timezone: timezoneFilter !== "all" ? timezoneFilter : undefined,
-      minCapacity: normalizedMinCapacity,
-    };
-  }, [deferredMinCapacity, deferredSearch, timezoneFilter]);
-
-  const filterKey = useMemo(
-    () =>
-      JSON.stringify({
-        search: normalizedFilters.search ?? null,
-        timezone: normalizedFilters.timezone ?? "all",
-        minCapacity: normalizedFilters.minCapacity ?? null,
-      }),
-    [normalizedFilters],
-  );
-
+  // Fetch all restaurants; filters removed per latest requirements.
   const fetcher = useCallback(
     (filters: RestaurantFilters) => (fetchRestaurants ?? fetchRestaurantsApi)(filters),
     [fetchRestaurants],
   );
 
-  const { data, error, isLoading, isFetching, refetch } = useRestaurants(normalizedFilters, {
-    queryFn: fetcher,
-    initialData,
-  });
+  const { data, error, isLoading, isFetching, refetch } = useRestaurants(
+    {},
+    {
+      queryFn: fetcher,
+      initialData,
+    },
+  );
 
   const restaurants = data ?? [];
   const supportEmail = config.email?.supportEmail ?? "support@example.com";
-
-  const errorTrackedRef = useRef(false);
-  const emptyTrackedKeyRef = useRef<string | null>(null);
   const resolvedInitialData = initialData ?? [];
   const isInitialLoad = isLoading && resolvedInitialData.length === 0;
-  const isFiltering = isFetching && !isInitialLoad;
-
-  const uniqueTimezones = useMemo(() => {
-    const source = restaurants.length > 0 ? restaurants : resolvedInitialData;
-    const set = new Set<string>();
-    source.forEach((restaurant) => {
-      if (restaurant.timezone) {
-        set.add(restaurant.timezone);
-      }
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [restaurants, resolvedInitialData]);
-
-  const filteredRestaurants = useMemo(() => {
-    if (restaurants.length === 0) {
-      return [];
-    }
-
-    const searchLower = normalizedFilters.search?.toLowerCase() ?? "";
-    return restaurants.filter((restaurant) => {
-      if (searchLower && !restaurant.name.toLowerCase().includes(searchLower)) {
-        return false;
-      }
-      if (normalizedFilters.timezone && restaurant.timezone !== normalizedFilters.timezone) {
-        return false;
-      }
-      if (
-        typeof normalizedFilters.minCapacity === "number" &&
-        (restaurant.capacity ?? 0) < normalizedFilters.minCapacity
-      ) {
-        return false;
-      }
-      return true;
-    });
-  }, [restaurants, normalizedFilters]);
-
   const hasInitialError = initialError && resolvedInitialData.length === 0 && restaurants.length === 0;
   const showError = Boolean(error) || hasInitialError;
 
+  const errorTrackedRef = useRef(false);
+  const emptyTrackedRef = useRef(false);
   const hasTrackedView = useRef(false);
+
   useEffect(() => {
     if (hasTrackedView.current) return;
     if (restaurants.length === 0) return;
     analytics("restaurant_list_viewed", {
-      timezone: normalizedFilters.timezone ?? "all",
-      minCapacity: normalizedFilters.minCapacity ?? null,
+      timezone: null,
+      minCapacity: null,
       total: restaurants.length,
     });
     hasTrackedView.current = true;
-  }, [analytics, restaurants.length, normalizedFilters.minCapacity, normalizedFilters.timezone, restaurants]);
+  }, [analytics, restaurants.length]);
 
   useEffect(() => {
     if (!showError) {
       errorTrackedRef.current = false;
       return;
     }
-    if (errorTrackedRef.current) {
-      return;
-    }
+    if (errorTrackedRef.current) return;
 
     const status =
       typeof (error as { status?: number } | undefined)?.status === "number"
@@ -164,49 +92,15 @@ export function RestaurantBrowser({
   }, [analytics, error, showError]);
 
   useEffect(() => {
-    if (isInitialLoad || showError) {
-      return;
+    if (isInitialLoad || showError) return;
+    if (restaurants.length === 0 && !emptyTrackedRef.current) {
+      analytics("restaurants_empty", { search: null, timezone: "all", minCapacity: null });
+      emptyTrackedRef.current = true;
     }
-
-    if (filteredRestaurants.length > 0) {
-      emptyTrackedKeyRef.current = null;
-      return;
+    if (restaurants.length > 0) {
+      emptyTrackedRef.current = false;
     }
-
-    if (emptyTrackedKeyRef.current === filterKey) {
-      return;
-    }
-
-    analytics("restaurants_empty", {
-      search: normalizedFilters.search ?? null,
-      timezone: normalizedFilters.timezone ?? "all",
-      minCapacity: normalizedFilters.minCapacity ?? null,
-    });
-
-    emptyTrackedKeyRef.current = filterKey;
-  }, [
-    analytics,
-    filterKey,
-    filteredRestaurants.length,
-    isInitialLoad,
-    normalizedFilters.minCapacity,
-    normalizedFilters.search,
-    normalizedFilters.timezone,
-    showError,
-  ]);
-
-  const handleSearchChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(event.target.value);
-  };
-
-  const handleTimezoneChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    setTimezoneFilter(event.target.value);
-  };
-
-  const handleMinCapacityChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const next = event.target.value.replace(/[^0-9]/g, "");
-    setMinCapacityInput(next);
-  };
+  }, [analytics, isInitialLoad, restaurants.length, showError]);
 
   const handleRetry = useCallback(() => {
     errorTrackedRef.current = false;
@@ -220,178 +114,217 @@ export function RestaurantBrowser({
     });
   };
 
-  return (
-    <div className="flex flex-col gap-[var(--sr-space-5)]">
-      <div className="grid gap-[var(--sr-space-4)] rounded-xl border border-border/60 bg-card/60 p-[var(--sr-space-4)] shadow-sm sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] sm:gap-[var(--sr-space-5)] lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
-        <div className="flex flex-col gap-[var(--sr-space-2)]">
-          <Label htmlFor="restaurant-search" className="text-sm font-medium text-muted-foreground">
-            Search
-          </Label>
-          <Input
-            id="restaurant-search"
-            inputMode="search"
-            placeholder="Search restaurants…"
-            value={searchTerm}
-            onChange={handleSearchChange}
-            autoComplete="off"
-            aria-controls="restaurant-results"
-            className="h-11 text-base md:text-sm"
-          />
-        </div>
-        <div className="flex flex-col gap-[var(--sr-space-2)]">
-          <Label htmlFor="restaurant-timezone" className="text-sm font-medium text-muted-foreground">
-            Timezone
-          </Label>
-          <select
-            id="restaurant-timezone"
-            value={timezoneFilter}
-            onChange={handleTimezoneChange}
-            className="h-11 w-full rounded-md border border-input bg-background px-3 text-base text-foreground shadow-sm transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:text-sm"
-          >
-            <option value="all">All timezones</option>
-            {uniqueTimezones.map((timezone) => (
-              <option key={timezone} value={timezone}>
-                {timezone}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex flex-col gap-[var(--sr-space-2)]">
-          <Label
-            htmlFor="restaurant-min-capacity"
-            className="text-sm font-medium text-muted-foreground"
-          >
-            Minimum seats
-          </Label>
-          <Input
-            id="restaurant-min-capacity"
-            type="number"
-            inputMode="numeric"
-            min={1}
-            step={1}
-            placeholder="e.g. 4"
-            value={minCapacityInput}
-            onChange={handleMinCapacityChange}
-            autoComplete="off"
-            aria-describedby="restaurant-min-capacity-helper"
-            className="h-11 text-base md:text-sm"
-          />
-          <p
-            id="restaurant-min-capacity-helper"
-            className="text-xs text-muted-foreground"
-          >
-            Enter your party size to filter results.
-          </p>
-        </div>
-      </div>
+  const restaurantCountText = useMemo(() => {
+    const count = restaurants.length;
+    if (count === 0) return "No venues live";
+    if (count === 1) return "1 venue live";
+    return `${count} venues live`;
+  }, [restaurants.length]);
 
-      {isFiltering ? (
-        <p className="text-sm text-muted-foreground" role="status" aria-live="polite">
-          Updating availability…
-        </p>
-      ) : null}
+  const statusText = isFetching && !isInitialLoad ? "Refreshing live details…" : "Live data direct from partners.";
+
+  return (
+    <div className="flex flex-col gap-6">
+      <section className="rounded-xl border border-border/70 bg-white/95 px-5 py-4 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Directory</p>
+            <p className="text-sm text-slate-700">A concise list of partner venues with details pulled straight from our database.</p>
+          </div>
+          <Badge variant="secondary" className="bg-primary/10 text-primary">
+            {restaurantCountText}
+          </Badge>
+        </div>
+        <div className="mt-2 text-sm text-muted-foreground" role="status" aria-live="polite">
+          {statusText}
+        </div>
+      </section>
 
       {showError ? (
         <div
           role="alert"
           aria-live="assertive"
-          className="space-y-[var(--sr-space-3)] rounded-lg border border-destructive/40 bg-destructive/10 p-[var(--sr-space-4)] text-sm text-destructive"
+          className="space-y-3 rounded-xl border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive"
         >
-          <p className="font-semibold">We couldn’t load restaurants right now.</p>
-          <p className="text-destructive/90">
-            Check your connection and try again. If the problem continues, contact our support team.
-          </p>
-          <div className="flex flex-wrap items-center gap-[var(--sr-space-3)]">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleRetry}
-              disabled={isFetching}
-            >
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-1">
+              <p className="text-base font-semibold">We couldn’t load restaurants right now.</p>
+              <p className="text-destructive/90">Retry in a moment or contact support if it keeps happening.</p>
+            </div>
+            <Badge variant="secondary" className="border border-destructive/50 bg-white text-destructive">
+              Issue
+            </Badge>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="button" variant="outline" size="sm" onClick={handleRetry} disabled={isFetching}>
               Retry
             </Button>
             <a
-              className="text-sm font-medium text-destructive underline underline-offset-4 hover:text-destructive/80"
+              className="text-sm font-semibold underline underline-offset-4 hover:text-destructive/80"
               href={`mailto:${supportEmail}`}
             >
               Contact support
             </a>
           </div>
-          {error instanceof Error ? (
-            <span className="sr-only">Error details: {error.message}</span>
-          ) : null}
+          {error instanceof Error ? <span className="sr-only">Error details: {error.message}</span> : null}
         </div>
       ) : null}
 
-      <div id="restaurant-results">
+      <div id="restaurant-results" className="space-y-4">
         {isInitialLoad ? (
-          <ul
-            className="grid gap-[var(--sr-space-5)] sm:grid-cols-2 lg:grid-cols-3"
-            aria-hidden="true"
-          >
-            {Array.from({ length: 6 }).map((_, index) => (
+          <ul className="space-y-3" aria-hidden="true">
+            {Array.from({ length: 5 }).map((_, index) => (
               <li key={`skeleton-${index}`}>
-                <Card className="h-full border-[var(--sr-color-border)] bg-[var(--sr-color-surface)] shadow-none">
-                  <CardHeader className="space-y-[var(--sr-space-4)]">
-                    <Skeleton className="h-7 w-3/4" />
-                    <Skeleton className="h-4 w-1/2" />
-                  </CardHeader>
-                  <CardContent>
-                    <Skeleton className="h-11 w-full rounded-lg" />
-                  </CardContent>
+                <Card className="border-border/70 bg-white/70 p-4 shadow-sm">
+                  <div className="space-y-3">
+                    <Skeleton className="h-5 w-2/3" />
+                    <Skeleton className="h-4 w-1/3" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-9 w-32" />
+                  </div>
                 </Card>
               </li>
             ))}
           </ul>
-        ) : filteredRestaurants.length > 0 ? (
-          <ul
-            className="grid gap-[var(--sr-space-5)] sm:grid-cols-2 lg:grid-cols-3"
-            aria-label="Partner restaurants"
-            id="restaurants-grid"
-          >
-            {filteredRestaurants.map((restaurant, index) => (
-              <li key={restaurant.id} data-testid={`restaurant-card-${restaurant.slug ?? index}`}>
-                <Card
-                  role="article"
-                  aria-label={restaurant.name}
-                  className="group h-full scroll-m-24 border-[var(--sr-color-border)] bg-[var(--sr-color-surface)] shadow-[var(--sr-shadow-sm)] transition-transform duration-[var(--sr-duration-medium)] hover:-translate-y-0.5 hover:shadow-[var(--sr-shadow-md)] focus-within:-translate-y-0.5 focus-within:border-ring focus-within:shadow-[var(--sr-shadow-md)] focus-within:ring-2 focus-within:ring-ring/60"
-                >
-                  <CardHeader className="space-y-[var(--sr-space-3)]">
-                    <div className="flex items-center justify-between gap-[var(--sr-space-3)]">
-                      <CardTitle className="text-lg font-semibold text-foreground">
-                        {restaurant.name}
-                      </CardTitle>
-                      <Badge variant="secondary" className="font-medium uppercase tracking-wide">
-                        {restaurant.timezone}
+        ) : restaurants.length > 0 ? (
+          <ul className="space-y-3" aria-label="Partner restaurants" id="restaurants-list">
+            {restaurants.map((restaurant, index) => {
+              const address = restaurant.address?.trim();
+              const mapUrl = restaurant.googleMapUrl?.trim();
+              const bookingPolicy = restaurant.bookingPolicy?.trim();
+              const contactEmail = restaurant.contactEmail?.trim();
+              const contactPhone = restaurant.contactPhone?.trim();
+              const interval = restaurant.reservationIntervalMinutes;
+              const defaultDuration = restaurant.reservationDefaultDurationMinutes;
+              const isPaused = restaurant.isActive === false;
+
+              return (
+                <li key={restaurant.id} data-testid={`restaurant-card-${restaurant.slug ?? index}`}>
+                  <Card
+                    role="article"
+                    aria-label={restaurant.name}
+                    className="group relative overflow-hidden rounded-xl border border-border/70 bg-white/95 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus-within:-translate-y-0.5 focus-within:shadow-md"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <h3 className="text-lg font-semibold leading-tight text-foreground">{restaurant.name}</h3>
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                          <Badge variant="secondary" className="bg-primary/10 text-primary">
+                            {restaurant.timezone}
+                          </Badge>
+                          <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground">
+                            {formatCapacity(restaurant.capacity)}
+                          </Badge>
+                          {interval ? (
+                            <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground">
+                              {interval} min slots
+                            </Badge>
+                          ) : null}
+                          {defaultDuration ? (
+                            <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground">
+                              {defaultDuration} min tables
+                            </Badge>
+                          ) : null}
+                        </div>
+                      </div>
+                      <Badge
+                        variant={isPaused ? "outline" : "secondary"}
+                        className={cn(
+                          "font-semibold",
+                          isPaused ? "border-amber-500 text-amber-700" : "bg-emerald-50 text-emerald-700",
+                        )}
+                      >
+                        {isPaused ? "Paused" : "Live"}
                       </Badge>
                     </div>
-                    <CardDescription className="text-sm text-muted-foreground">
-                      {formatCapacity(restaurant.capacity)} · Select to open the booking flow.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <a
-                      href={`/reserve/r/${restaurant.slug}`}
-                      className={cn(buttonVariants({ variant: "default", size: "lg" }), "w-full")}
-                      onClick={() => handleRestaurantClick(restaurant, index)}
-                      aria-label={`Start booking at ${restaurant.name}`}
-                      data-analytics="restaurant-select"
-                    >
-                      Book this restaurant
-                    </a>
-                  </CardContent>
-                </Card>
-              </li>
-            ))}
+
+                    <dl className="mt-3 space-y-2 text-sm text-muted-foreground">
+                      {address ? (
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+                          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Address</dt>
+                          <dd className="flex flex-wrap items-center gap-2 text-slate-800">
+                            <span>{address}</span>
+                            {mapUrl ? (
+                              <a
+                                className="text-primary underline-offset-4 hover:underline"
+                                href={mapUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                Map
+                              </a>
+                            ) : null}
+                          </dd>
+                        </div>
+                      ) : null}
+
+                      {bookingPolicy ? (
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:gap-2">
+                          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Policy</dt>
+                          <dd className="text-slate-800 line-clamp-2" title={bookingPolicy}>
+                            {bookingPolicy}
+                          </dd>
+                        </div>
+                      ) : null}
+
+                      {contactEmail || contactPhone ? (
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+                          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Contact</dt>
+                          <dd className="flex flex-wrap items-center gap-3 text-slate-800">
+                            {contactPhone ? (
+                              <a className="underline-offset-4 hover:underline" href={`tel:${contactPhone}`}>
+                                Call {contactPhone}
+                              </a>
+                            ) : null}
+                            {contactEmail ? (
+                              <a className="underline-offset-4 hover:underline" href={`mailto:${contactEmail}`}>
+                                Email
+                              </a>
+                            ) : null}
+                          </dd>
+                        </div>
+                      ) : null}
+                    </dl>
+
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                      <a
+                        href={`/reserve/r/${restaurant.slug}`}
+                        className={cn(buttonVariants({ variant: "default", size: "sm" }), "touch-manipulation")}
+                        onClick={() => handleRestaurantClick(restaurant, index)}
+                        aria-label={`Start booking at ${restaurant.name}`}
+                        data-analytics="restaurant-select"
+                      >
+                        Book now
+                      </a>
+                      {mapUrl ? (
+                        <a
+                          href={mapUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "text-primary underline-offset-4")}
+                        >
+                          Directions
+                        </a>
+                      ) : null}
+                      <p className="text-xs text-muted-foreground">
+                        Instant confirmation · Live availability
+                      </p>
+                    </div>
+                  </Card>
+                </li>
+              );
+            })}
           </ul>
         ) : (
-          <div className="rounded-xl border border-[var(--sr-color-border)] bg-[var(--sr-color-surface)] p-[var(--sr-space-6)] text-center text-muted-foreground shadow-[var(--sr-shadow-sm)]">
-            <h3 className="text-lg font-semibold text-foreground">No restaurants available</h3>
-            <p className="mt-[var(--sr-space-2)] text-sm">
+          <div className="rounded-2xl border border-border/70 bg-white/90 p-6 text-center shadow-sm">
+            <h3 className="text-xl font-semibold text-foreground">No restaurants available</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
               Check back soon or reach out to our concierge team for personalised assistance.
             </p>
-            <div className="mt-[var(--sr-space-4)] flex justify-center">
+            <div className="mt-4 flex flex-wrap justify-center gap-3">
+              <Button type="button" variant="secondary" size="sm" onClick={handleRetry}>
+                Refresh
+              </Button>
               <a
                 href={`mailto:${supportEmail}`}
                 className={cn(buttonVariants({ variant: "outline", size: "sm" }), "px-4")}

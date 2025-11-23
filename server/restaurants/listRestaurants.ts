@@ -1,6 +1,7 @@
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { RestaurantFilters, RestaurantSummary } from '@/lib/restaurants/types';
+import type { Database } from '@/types/supabase';
 
 export class ListRestaurantsError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {
@@ -17,9 +18,29 @@ export async function listRestaurants(filters: RestaurantFilters = {}): Promise<
 
   try {
     const normalizedSearch = filters.search?.trim();
+    const columns = [
+      'id',
+      'name',
+      'slug',
+      'timezone',
+      'capacity',
+      'address',
+      'booking_policy',
+      'contact_email',
+      'contact_phone',
+      'google_map_url',
+      'logo_url',
+      'is_active',
+      'reservation_interval_minutes',
+      'reservation_default_duration_minutes',
+      'reservation_last_seating_buffer_minutes',
+      'created_at',
+      'updated_at',
+    ].join(',');
+
     let query = supabase
       .from('restaurants')
-      .select('id,name,slug,timezone,capacity')
+      .select(columns)
       .order('name', { ascending: true });
 
     if (normalizedSearch) {
@@ -54,7 +75,30 @@ export async function listRestaurants(filters: RestaurantFilters = {}): Promise<
       );
     }
 
-    return (data ?? []) as RestaurantSummary[];
+    type RestaurantRow = Database['public']['Tables']['restaurants']['Row'];
+    const rows = (data ?? []) as RestaurantRow[];
+
+    const mapped: RestaurantSummary[] = rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      timezone: row.timezone,
+      capacity: row.capacity,
+      address: row.address,
+      bookingPolicy: row.booking_policy,
+      contactEmail: row.contact_email,
+      contactPhone: row.contact_phone,
+      googleMapUrl: row.google_map_url,
+      logoUrl: row.logo_url,
+      isActive: row.is_active,
+      reservationIntervalMinutes: row.reservation_interval_minutes,
+      reservationDefaultDurationMinutes: row.reservation_default_duration_minutes,
+      reservationLastSeatingBufferMinutes: row.reservation_last_seating_buffer_minutes,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+
+    return mapped;
   } catch (error) {
     if (error instanceof ListRestaurantsError) {
       throw error;
