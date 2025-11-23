@@ -2,6 +2,7 @@ import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { RestaurantFilters, RestaurantSummary } from '@/lib/restaurants/types';
 import type { Database } from '@/types/supabase';
+import type { PostgrestResponse } from '@supabase/supabase-js';
 
 export class ListRestaurantsError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {
@@ -56,7 +57,10 @@ export async function listRestaurants(filters: RestaurantFilters = {}): Promise<
       query = query.gte('capacity', Math.max(0, filters.minCapacity));
     }
 
-    const { data, error } = await query;
+    type RestaurantRow = Database['public']['Tables']['restaurants']['Row'];
+    type RestaurantsResponse = PostgrestResponse<RestaurantRow>;
+
+    const { data, error } = (await query) as RestaurantsResponse;
 
     if (error) {
       // Enhanced error logging to help diagnose the issue
@@ -75,7 +79,6 @@ export async function listRestaurants(filters: RestaurantFilters = {}): Promise<
       );
     }
 
-    type RestaurantRow = Database['public']['Tables']['restaurants']['Row'];
     const rows = (data ?? []) as RestaurantRow[];
 
     const mapped: RestaurantSummary[] = rows.map((row) => ({
