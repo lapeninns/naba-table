@@ -6,6 +6,18 @@
 - `NODE_ENV` should mirror `APP_ENV` in production (`NODE_ENV=production`).
 - `DB_TARGET_ENV` defaults to `APP_ENV` for DB scripts.
 
+## Supabase email (Resend SMTP)
+
+- Supabase dashboard is configured to send auth/transactional emails via Resend SMTP.
+- Provider setup (per env):
+  - Resend API key name: **Supabase Integration** (create under Resend → API Keys; store secret in the hosting secret manager, not git).
+  - Sender name: **Lapen Inns**
+  - Sender email: **team@resend.adtechgrow.com**
+  - SMTP host/port/user: `smtp.resend.com` / `465` / `resend`
+  - SMTP password: use the generated secret from Resend; inject only in Supabase dashboard (not committed).
+- In Supabase: go to **Settings → Email** and paste the above values; confirm the integration from the Supabase dashboard as prompted.
+- App-side Resend usage remains via `RESEND_API_KEY` + `RESEND_FROM` in `.env.example`; keep those populated for API-based emails.
+
 ## Guardrails
 
 - Env validation (`pnpm validate:env`) fails when:

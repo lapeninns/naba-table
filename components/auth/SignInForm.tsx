@@ -245,20 +245,21 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
       : 'Sign in with password';
 
   return (
-    <Card id="signin-form" className="w-full max-w-md border-border/70 bg-white/90 shadow-lg">
-      <CardHeader className="space-y-2">
-        <CardTitle className="text-2xl font-semibold tracking-tight text-foreground">
-          Welcome back
-        </CardTitle>
+    <Card
+      id="signin-form"
+      className="w-full max-w-full border-border/70 bg-white/95 shadow-lg shadow-primary/5 sm:max-w-md"
+    >
+      <CardHeader className="space-y-1.5 sm:space-y-2">
+        <CardTitle className="text-2xl font-semibold tracking-tight text-foreground">Welcome back</CardTitle>
         <CardDescription className="text-sm text-muted-foreground">
-          Sign in with a one-time magic link sent to your inbox.
+          Sign in with a one-time magic link or switch to password.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-5 sm:space-y-6">
         <div
           role="tablist"
           aria-label="Choose sign-in method"
-          className="grid grid-cols-2 gap-2 rounded-xl bg-muted/40 p-1"
+          className="grid grid-cols-2 gap-2 rounded-xl bg-muted/50 p-1"
         >
           {AUTH_MODE_OPTIONS.map((option) => {
             const active = mode === option.id;
@@ -285,7 +286,7 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
         </div>
 
         <Form {...form}>
-          <form className="space-y-5" onSubmit={onSubmit} noValidate>
+          <form className="space-y-4 sm:space-y-5" onSubmit={onSubmit} noValidate>
             <FormField
               control={form.control}
               name="email"

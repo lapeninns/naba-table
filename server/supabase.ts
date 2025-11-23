@@ -15,6 +15,7 @@ let serviceClient: SupabaseClient<Database> | null = null;
 const tenantClientCache = new Map<string, SupabaseClient<Database>>();
 let strictHoldInitStarted = false;
 let strictHoldEnforcementActive: boolean | null = null;
+let cookieWriteSuppressedLogged = false;
 const supabaseLogger = logger.child({ module: "supabase" });
 
 const runtimeEnv = getEnv();
@@ -51,9 +52,18 @@ function createCookieAdapter(store: CookieReader, writer?: CookieWriter) {
     ...(cookieWriter
       ? {
           setAll: (cookiesToSet: { name: string; value: string; options: Record<string, unknown> }[]) => {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieWriter.set({ name, value, ...options });
-            });
+            try {
+              cookiesToSet.forEach(({ name, value, options }) => {
+                cookieWriter.set({ name, value, ...options });
+              });
+            } catch (error) {
+              if (!cookieWriteSuppressedLogged) {
+                cookieWriteSuppressedLogged = true;
+                supabaseLogger.debug("cookie write suppressed (likely server component render)", {
+                  error: error instanceof Error ? error.message : String(error),
+                });
+              }
+            }
           },
         }
       : {}),

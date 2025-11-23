@@ -39,10 +39,11 @@ type AccountLink = {
 };
 
 const BROWSE_PATH = "/browse";
+const RESERVE_PATH = "/reserve";
 
 const PRIMARY_LINKS: PrimaryLink[] = [
   { href: BROWSE_PATH, label: "Browse" },
-  { href: "/reserve", label: "Reserve" },
+  { href: RESERVE_PATH, label: "Reserve" },
 ];
 
 const ACCOUNT_LINKS: AccountLink[] = [
@@ -143,7 +144,7 @@ function PrimaryNav({ links, currentPath }: PrimaryNavProps) {
   return (
     <nav
       aria-label="Primary navigation"
-      className="hidden items-center gap-1 md:flex"
+      className="hidden items-center gap-2 rounded-full border border-border/60 bg-background/70 px-1.5 py-1 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/60 md:flex"
     >
       {links.map((link) => (
         <Link
@@ -151,8 +152,10 @@ function PrimaryNav({ links, currentPath }: PrimaryNavProps) {
           href={link.href}
           aria-current={isActive(link.href) ? "page" : undefined}
           className={cn(
-            "rounded-full px-4 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-            isActive(link.href) ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground",
+            "rounded-full px-3.5 py-2 text-sm font-semibold leading-5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            isActive(link.href)
+              ? "bg-foreground text-background shadow-sm ring-0"
+              : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
           )}
         >
           {link.label}
@@ -167,6 +170,7 @@ type DesktopActionsProps = {
   isAuthenticated: boolean;
   account: AccountSnapshot | null;
   accountLinks: AccountLink[];
+  primaryCta: PrimaryLink;
   onSignOut: () => Promise<void>;
   isSigningOut: boolean;
 };
@@ -176,11 +180,22 @@ function DesktopActions({
   isAuthenticated,
   account,
   accountLinks,
+  primaryCta,
   onSignOut,
   isSigningOut,
 }: DesktopActionsProps) {
   return (
     <div className="hidden items-center gap-2 md:flex">
+      <Link
+        href={primaryCta.href}
+        className={cn(
+          buttonVariants({ variant: "default", size: "sm" }),
+          "bg-gradient-to-r from-primary to-primary/85 text-primary-foreground shadow-md shadow-primary/15 transition hover:shadow-lg focus-visible:ring-offset-2",
+        )}
+      >
+        {primaryCta.label}
+      </Link>
+
       {isLoading ? <Skeleton className="h-10 w-10 rounded-full" /> : null}
 
       {!isLoading && !isAuthenticated ? (
@@ -285,7 +300,7 @@ function MobileMenu({
       <SheetTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border/70 bg-background text-foreground transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background touch-manipulation md:hidden"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border/70 bg-background text-foreground shadow-sm transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background touch-manipulation md:hidden"
           aria-label="Open navigation menu"
           aria-expanded={open}
           aria-controls="customer-navigation-drawer"
@@ -299,7 +314,40 @@ function MobileMenu({
         aria-label="Customer navigation"
         className="flex flex-col gap-8 px-6 py-8"
       >
-        <BrandMark />
+        <div className="flex items-center justify-between gap-3">
+          <BrandMark />
+          <SheetClose asChild>
+            <Link
+              href={RESERVE_PATH}
+              className={cn(
+                buttonVariants({ variant: "default", size: "sm" }),
+                "bg-foreground text-background shadow-sm transition hover:shadow",
+              )}
+            >
+              Reserve
+            </Link>
+          </SheetClose>
+        </div>
+
+        <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary to-primary/80 px-4 py-5 text-primary-foreground shadow-md shadow-primary/25">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col gap-1 text-left">
+              <span className="text-xs font-semibold uppercase tracking-[0.08em]">Plan your visit</span>
+              <span className="text-sm leading-relaxed opacity-90">Browse live tables and reserve in seconds.</span>
+            </div>
+            <SheetClose asChild>
+              <Link
+                href={RESERVE_PATH}
+                className={cn(
+                  buttonVariants({ variant: "secondary", size: "sm" }),
+                  "text-primary shadow-sm shadow-primary/25",
+                )}
+              >
+                Start
+              </Link>
+            </SheetClose>
+          </div>
+        </div>
 
         {isLoading ? <Skeleton className="h-10 w-10 rounded-full" /> : null}
 
@@ -316,50 +364,56 @@ function MobileMenu({
           </div>
         ) : null}
 
-        <nav className="flex flex-col gap-2" aria-label="Primary navigation">
-          {links.map((link) => (
-            <SheetClose asChild key={link.href}>
-              <Link
-                href={link.href}
+        <section className="flex flex-col gap-3" aria-label="Explore">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Explore</p>
+          <nav className="flex flex-col gap-2" aria-label="Primary navigation">
+            {links.map((link) => (
+              <SheetClose asChild key={link.href}>
+                <Link
+                  href={link.href}
+                  className={cn(
+                    "rounded-xl px-3.5 py-2.5 text-base font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                    isActive(link.href) ? "bg-primary/10 text-primary shadow-inner" : "text-foreground hover:bg-muted",
+                  )}
+                >
+                  {link.label}
+                </Link>
+              </SheetClose>
+            ))}
+          </nav>
+        </section>
+
+        <section className="flex flex-col gap-3" aria-label="Account">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Account</p>
+          <div className="flex flex-col gap-2">
+            {sessionActions.map((action) => (
+              <SheetClose asChild key={action.href}>
+                <Link
+                  href={action.href}
+                  className="rounded-xl px-3.5 py-2.5 text-base font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                >
+                  {action.label}
+                </Link>
+              </SheetClose>
+            ))}
+
+            {isAuthenticated ? (
+              <button
+                type="button"
                 className={cn(
-                  "rounded-lg px-3 py-2 text-base font-medium transition",
-                  isActive(link.href) ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted",
+                  buttonVariants({ variant: "outline", size: "default" }),
+                  "justify-center touch-manipulation",
                 )}
+                onClick={() => {
+                  void onSignOut({ onSuccess: () => onOpenChange(false) });
+                }}
+                disabled={isSigningOut}
               >
-                {link.label}
-              </Link>
-            </SheetClose>
-          ))}
-        </nav>
-
-        <div className="flex flex-col gap-2">
-          {sessionActions.map((action) => (
-            <SheetClose asChild key={action.href}>
-              <Link
-                href={action.href}
-                className="rounded-lg px-3 py-2 text-base font-medium text-foreground transition hover:bg-muted"
-              >
-                {action.label}
-              </Link>
-            </SheetClose>
-          ))}
-
-          {isAuthenticated ? (
-            <button
-              type="button"
-              className={cn(
-                buttonVariants({ variant: "outline", size: "default" }),
-                "justify-center touch-manipulation",
-              )}
-              onClick={() => {
-                void onSignOut({ onSuccess: () => onOpenChange(false) });
-              }}
-              disabled={isSigningOut}
-            >
-              {isSigningOut ? "Signing out…" : "Sign out"}
-            </button>
-          ) : null}
-        </div>
+                {isSigningOut ? "Signing out…" : "Sign out"}
+              </button>
+            ) : null}
+          </div>
+        </section>
       </SheetContent>
     </Sheet>
   );
@@ -412,32 +466,53 @@ export function CustomerNavbar() {
       >
         Skip to content
       </a>
-      <header className="border-b border-border/60 bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/75">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-4">
-          <BrandMark />
+      <header className="border-b border-border/60 bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
+          <div className="flex items-center justify-between gap-3 py-3 md:py-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <BrandMark />
+              <div className="hidden min-w-0 flex-col leading-tight sm:flex">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-primary/70">Book smarter</span>
+                <span className="truncate text-sm text-muted-foreground">Find tables without the back-and-forth.</span>
+              </div>
+            </div>
 
-          <div className="flex items-center gap-3">
-            <PrimaryNav links={PRIMARY_LINKS} currentPath={pathname ?? null} />
-            <DesktopActions
-              isLoading={isLoading || (isAuthenticated && isProfileLoading)}
-              isAuthenticated={isAuthenticated}
-              account={accountSnapshot}
-              accountLinks={ACCOUNT_LINKS}
-              onSignOut={() => signOut()}
-              isSigningOut={isSigningOut}
-            />
-            <MobileMenu
-              open={isMobileOpen}
-              onOpenChange={setIsMobileOpen}
-              links={PRIMARY_LINKS}
-              isLoading={isLoading || (isAuthenticated && isProfileLoading)}
-              isAuthenticated={isAuthenticated}
-              account={accountSnapshot}
-              accountLinks={ACCOUNT_LINKS}
-              onSignOut={signOut}
-              isSigningOut={isSigningOut}
-              pathname={pathname ?? ""}
-            />
+            <div className="flex items-center gap-2 md:hidden">
+              <Link
+                href={RESERVE_PATH}
+                className={cn(
+                  buttonVariants({ variant: "default", size: "sm" }),
+                  "shadow-sm touch-manipulation",
+                )}
+              >
+                Reserve
+              </Link>
+              <MobileMenu
+                open={isMobileOpen}
+                onOpenChange={setIsMobileOpen}
+                links={PRIMARY_LINKS}
+                isLoading={isLoading || (isAuthenticated && isProfileLoading)}
+                isAuthenticated={isAuthenticated}
+                account={accountSnapshot}
+                accountLinks={ACCOUNT_LINKS}
+                onSignOut={signOut}
+                isSigningOut={isSigningOut}
+                pathname={pathname ?? ""}
+              />
+            </div>
+
+            <div className="hidden flex-1 items-center justify-end gap-4 md:flex">
+              <PrimaryNav links={PRIMARY_LINKS} currentPath={pathname ?? null} />
+              <DesktopActions
+                isLoading={isLoading || (isAuthenticated && isProfileLoading)}
+                isAuthenticated={isAuthenticated}
+                account={accountSnapshot}
+                accountLinks={ACCOUNT_LINKS}
+                primaryCta={{ href: RESERVE_PATH, label: "Reserve" }}
+                onSignOut={() => signOut()}
+                isSigningOut={isSigningOut}
+              />
+            </div>
           </div>
         </div>
       </header>
