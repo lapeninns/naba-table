@@ -38,6 +38,7 @@ export type Calendar24FieldProps = {
   unavailableMessage?: string;
   onMonthChange?: (month: Date) => void;
   loadingDates?: Set<string>;
+  isTimeLoading?: boolean;
 };
 
 export function Calendar24Field({
@@ -50,6 +51,7 @@ export function Calendar24Field({
   unavailableMessage,
   onMonthChange,
   loadingDates,
+  isTimeLoading = false,
 }: Calendar24FieldProps) {
   const resolvedIntervalMinutes =
     typeof intervalMinutes === 'number' && intervalMinutes > 0 ? intervalMinutes : undefined;
@@ -195,7 +197,12 @@ export function Calendar24Field({
         ) : null}
       </div>
 
-      <div className="flex flex-1 flex-col gap-3">
+      <div
+        className={cn(
+          'flex flex-1 flex-col gap-3 transition-opacity duration-300',
+          isTimeLoading && 'opacity-50',
+        )}
+      >
         <Label htmlFor={timeInputId} className="px-1">
           Time
         </Label>
@@ -231,9 +238,14 @@ export function Calendar24Field({
                 'bg-background text-base font-normal appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none',
                 !inputValue ? 'text-foreground' : undefined,
               )}
-              disabled={isTimeDisabled}
+              disabled={isTimeDisabled || isTimeLoading}
             />
-            {!inputValue ? (
+            {isTimeLoading && !inputValue ? (
+              <div className="absolute inset-0 flex items-center px-3">
+                <div className="h-5 w-20 animate-pulse rounded bg-muted" />
+              </div>
+            ) : null}
+            {!inputValue && !isTimeLoading ? (
               <span
                 aria-hidden="true"
                 className={cn(

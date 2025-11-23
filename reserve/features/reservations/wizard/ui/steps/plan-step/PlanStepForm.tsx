@@ -149,6 +149,7 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
           unavailableMessage={unavailableCopy ?? undefined}
           onMonthChange={state.handlers.prefetchMonth}
           loadingDates={state.loadingDates}
+          isTimeLoading={state.isScheduleFetching || state.isScheduleLoading}
         />
 
         <FormField
@@ -192,7 +193,7 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
               <TimeSlotGrid
                 slots={timeDisabled ? [] : state.slots}
                 value={timeField.value}
-                loading={state.isScheduleFetching}
+                loading={state.isScheduleFetching || state.isScheduleLoading}
                 onSelect={(next) => {
                   state.handlers.selectTime(next);
                   timeField.onBlur?.();
