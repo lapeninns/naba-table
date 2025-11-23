@@ -6,20 +6,14 @@ This document defines the canonical guest-facing routes within the application, 
 
 These routes are generally accessible to all users and cover informational and general interaction pages.
 
-- `/` (Home Page)
-- `/contact` (Contact Us Page)
-- `/privacy-policy` (Privacy Policy Document)
-- `/product` (Product Information Page)
-- `/terms` (Terms and Conditions Document)
 - `/thank-you` (General Thank You/Confirmation Page)
-- `/item/[slug]` (Details page for a specific menu item or offering)
+- `/item/[slug]` (Restaurant-specific booking entry that renders the booking flow for a given slug)
 
 ## 2. Discovery & Booking Flows
 
-These routes facilitate restaurant discovery and the booking process.
+These routes facilitate restaurant discovery and the booking process. Entry for guests is expected via a restaurant CTA: `/restaurants/:slug/book`.
 
-- `/restaurants` (Browse available restaurants/venues)
-  - `/restaurants/[slug]` (Specific Restaurant Profile Page)
+- `/restaurants/[slug]` (Specific Restaurant Profile Page)
   - `/restaurants/[slug]/book` (Direct booking interface for a specific restaurant)
 - `/bookings/[bookingId]` (View details for a specific booking)
 - `/bookings/[bookingId]/thank-you` (Booking Confirmation Page)

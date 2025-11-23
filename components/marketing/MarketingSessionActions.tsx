@@ -84,15 +84,11 @@ function resolveActions(mode: Mode, isAuthenticated: boolean): ResolveResult {
 
     return {
       primary: {
-        href: "/ops/login",
-        label: "Access operations console",
-        ariaLabel: "Access the restaurant operations console",
-      },
-      secondary: {
         href: `mailto:${partnerContactEmail}`,
         label: "Talk to partnerships",
         ariaLabel: `Contact SajiloReserveX partnerships at ${partnerContactEmail}`,
       },
+      secondary: undefined,
     };
   }
 

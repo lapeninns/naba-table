@@ -50,9 +50,9 @@ export function BookingListClient() {
           You don’t have any active reservations. Browse our partner restaurants to find your next table.
         </p>
         <div className="mt-8">
-          <Link href="/restaurants">
-            <Button size="lg">Find a restaurant</Button>
-          </Link>
+          <Button size="lg" disabled>
+            Find a restaurant
+          </Button>
         </div>
       </div>
     );
@@ -69,9 +69,9 @@ export function BookingListClient() {
     <div className="mx-auto w-full max-w-4xl space-y-6">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">My Bookings</h1>
-        <Link href="/restaurants">
-          <Button variant="outline">New Booking</Button>
-        </Link>
+        <Button variant="outline" disabled>
+          New Booking
+        </Button>
       </header>
 
       <ul className="space-y-4">

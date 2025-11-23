@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 import config from "@/config";
 
 const SUPPORT_EMAIL = config.email?.supportEmail ?? "support@example.com";
@@ -17,27 +15,7 @@ export function OwnerMarketingFooter() {
             Transform your owned channels into a high-converting booking engine while keeping every guest relationship on your terms.
           </p>
         </div>
-        <div className="grid flex-1 gap-8 sm:grid-cols-2">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Explore</p>
-            <ul className="mt-4 space-y-2 text-sm">
-              <li>
-                <Link href="/product" className="text-foreground transition hover:text-primary">
-                  Product
-                </Link>
-              </li>
-              <li>
-                <Link href="/pricing" className="text-foreground transition hover:text-primary">
-                  Pricing
-                </Link>
-              </li>
-              <li>
-                <Link href="/contact" className="text-foreground transition hover:text-primary">
-                  Contact
-                </Link>
-              </li>
-            </ul>
-          </div>
+        <div className="grid flex-1 gap-8 sm:grid-cols-1">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Reach us</p>
             <ul className="mt-4 space-y-2 text-sm">
@@ -45,16 +23,6 @@ export function OwnerMarketingFooter() {
                 <a href={`mailto:${SUPPORT_EMAIL}`} className="text-foreground transition hover:text-primary">
                   Email partnerships
                 </a>
-              </li>
-              <li>
-                <Link href="/terms" className="text-foreground transition hover:text-primary">
-                  Terms
-                </Link>
-              </li>
-              <li>
-                <Link href="/privacy-policy" className="text-foreground transition hover:text-primary">
-                  Privacy
-                </Link>
               </li>
             </ul>
           </div>
