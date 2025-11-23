@@ -60,6 +60,26 @@ export function TimeSlotGrid({
   }, [scrollToValue, slots]);
 
   if (slots.length === 0) {
+    if (loading) {
+      return (
+        <section className="flex flex-col gap-3 rounded-xl border border-border bg-card/80 p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="h-5 w-24 animate-pulse rounded bg-muted" />
+            <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+          </div>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <div className="h-4 w-20 animate-pulse rounded bg-muted" />
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="h-12 rounded-lg bg-muted animate-pulse" />
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      );
+    }
     return null;
   }
 
@@ -68,7 +88,7 @@ export function TimeSlotGrid({
       aria-label="Available times"
       className={cn(
         'flex flex-col gap-3 rounded-xl border border-border bg-card/80 p-4 shadow-sm transition-opacity duration-300',
-        loading && 'opacity-50 pointer-events-none',
+        loading && 'opacity-50',
       )}
       ref={containerRef}
     >
