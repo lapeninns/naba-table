@@ -94,20 +94,21 @@ export type OpsCustomersClientProps = {
 export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCustomersClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const searchParamsKey = searchParams?.toString() ?? '';
+  const searchParamsKey = useMemo(() => searchParams?.toString() ?? '', [searchParams]);
   const { memberships, activeRestaurantId, setActiveRestaurantId, accountSnapshot } = useOpsSession();
   const activeMembership = useOpsActiveMembership();
   const previousRestaurantId = useRef<string | null>(null);
 
   const parsedFromQuery = useMemo(() => {
-    const marketingParam = searchParams?.get('marketingOptIn');
-    const lastVisitParam = searchParams?.get('lastVisit');
-    const sortParam = searchParams?.get('sort');
-    const sortByParam = searchParams?.get('sortBy');
-    const searchQuery = searchParams?.get('search') ?? '';
-    const minBookingsParam = Number.parseInt(searchParams?.get('minBookings') ?? '0', 10);
-    const pageParam = Number.parseInt(searchParams?.get('page') ?? '1', 10);
-
+    const sp = new URLSearchParams(searchParamsKey);
+    const marketingParam = sp.get('marketingOptIn');
+    const lastVisitParam = sp.get('lastVisit');
+    const sortParam = sp.get('sort');
+    const sortByParam = sp.get('sortBy');
+    const searchQuery = sp.get('search') ?? '';
+    const minBookingsParam = Number.parseInt(sp.get('minBookings') ?? '0', 10);
+    const pageParam = Number.parseInt(sp.get('page') ?? '1', 10);
+  
     return {
       search: searchQuery,
       marketingOptIn: isMarketingFilter(marketingParam) ? marketingParam : 'all',
@@ -264,12 +265,12 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
     setPage(1);
   }, []);
 
-  const sortOption = encodeSortOption(sortBy, sort);
+  const sortOption = useMemo(() => encodeSortOption(sortBy, sort), [sortBy, sort]);
 
   useEffect(() => {
     if (!focusCustomer || !data?.items?.length) return;
-    const selector = `[data-customer-id=\"${focusCustomer}\"]`;
-    const emailSelector = `[data-customer-email=\"${focusCustomer.toLowerCase()}\"]`;
+    const selector = `[data-customer-id="${focusCustomer}"]`;
+    const emailSelector = `[data-customer-email="${focusCustomer.toLowerCase()}"]`;
     const target =
       (typeof document !== 'undefined' && (document.querySelector<HTMLElement>(selector) ?? document.querySelector<HTMLElement>(emailSelector))) ||
       null;
@@ -278,27 +279,6 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
       target.focus({ preventScroll: true });
     }
   }, [data?.items, focusCustomer]);
-
-  if (memberships.length === 0) {
-    return (
-      <section className="mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border/60 bg-muted/20 p-8 text-center">
-        <h2 className="text-xl font-semibold text-foreground">No restaurant access yet</h2>
-        <p className="text-sm text-muted-foreground">Ask an owner or manager to send you an invitation so you can view customer data.</p>
-        <Button asChild variant="secondary">
-          <Link href="/">Back to dashboard</Link>
-        </Button>
-      </section>
-    );
-  }
-
-  if (!activeRestaurantId) {
-    return (
-      <section className="mx-auto flex min-h-[40vh] max-w-2xl flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border/60 bg-muted/20 p-8 text-center">
-        <h2 className="text-lg font-semibold text-foreground">Loading restaurant access…</h2>
-        <p className="text-sm text-muted-foreground">We’re preparing your customers. This will only take a moment.</p>
-      </section>
-    );
-  }
 
   const pageInfo = data?.pageInfo ?? {
     page,
@@ -356,6 +336,27 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
   );
 
   const hasActiveFilters = activeFilterBadges.length > 0 || sortBy !== 'last_visit' || sort !== 'desc';
+
+  if (memberships.length === 0) {
+    return (
+      <section className="mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border/60 bg-muted/20 p-8 text-center">
+        <h2 className="text-xl font-semibold text-foreground">No restaurant access yet</h2>
+        <p className="text-sm text-muted-foreground">Ask an owner or manager to send you an invitation so you can view customer data.</p>
+        <Button asChild variant="secondary">
+          <Link href="/guest/dashboard">Back to dashboard</Link>
+        </Button>
+      </section>
+    );
+  }
+
+  if (!activeRestaurantId) {
+    return (
+      <section className="mx-auto flex min-h-[40vh] max-w-2xl flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border/60 bg-muted/20 p-8 text-center">
+        <h2 className="text-lg font-semibold text-foreground">Loading restaurant access…</h2>
+        <p className="text-sm text-muted-foreground">We’re preparing your customers. This will only take a moment.</p>
+      </section>
+    );
+  }
 
   return (
     <section className="space-y-6">

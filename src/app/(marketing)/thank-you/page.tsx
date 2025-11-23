@@ -1,13 +1,17 @@
 'use client';
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+
+import { useSupabaseSession } from "@/hooks/useSupabaseSession";
 
 type BookingDetails = {
   id: string;
   reference: string;
   restaurantName: string;
+  restaurantSlug?: string | null;
   date: string;
   startTime: string;
   endTime: string;
@@ -50,21 +54,21 @@ function LoadingScreen() {
 
 function ThankYouPageContent() {
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const router = useRouter();
   const rawToken = searchParams?.get("token")?.trim() ?? null;
   const token = rawToken && rawToken.length > 0 ? rawToken : null;
+  const { user } = useSupabaseSession();
+  const restaurantSlugParam = searchParams?.get("restaurantSlug")?.trim() ?? null;
 
   const [pageState, setPageState] = useState<PageState>(() => (token ? { state: "loading" } : { state: "idle" }));
 
   useEffect(() => {
-    if (!token) {
-      setPageState((prev) => (prev.state === "idle" ? prev : { state: "idle" }));
-      return;
-    }
+    if (!token) return;
 
     const fetchBooking = async () => {
       try {
-        const url = `/api/v1/bookings/confirm?token=${encodeURIComponent(token)}`;
+        const url = `/api/bookings/confirm?token=${encodeURIComponent(token)}`;
         const response = await fetch(url, { credentials: "same-origin" });
 
         if (!response.ok) {
@@ -121,13 +125,13 @@ function ThankYouPageContent() {
           ) : null}
           <div className="flex flex-col items-center gap-3 pt-4 sm:flex-row sm:justify-center">
             <Link
-              href="/"
+              href="/guest/dashboard"
               className="inline-flex w-full items-center justify-center rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 sm:w-auto"
             >
               Return home
             </Link>
             <Link
-              href="/my-bookings"
+              href="/guest/bookings"
               className="inline-flex w-full items-center justify-center rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 sm:w-auto"
             >
               View my bookings
@@ -141,6 +145,7 @@ function ThankYouPageContent() {
   if (pageState.state === "success") {
     const { booking } = pageState;
     const isPending = booking.status === "pending" || booking.status === "pending_allocation";
+    const restaurantSlug = resolveRestaurantSlug(booking.restaurantSlug, restaurantSlugParam, pathname);
 
     return (
       <PageShell>
@@ -194,22 +199,20 @@ function ThankYouPageContent() {
 
           <div className="flex flex-col items-center gap-3 pt-2 sm:flex-row sm:justify-center">
             <Link
-              href="/"
+              href={
+                user
+                  ? `/guest/bookings/${booking.id}`
+                  : `/auth/signin?redirectedFrom=${encodeURIComponent(`/guest/bookings/${booking.id}`)}`
+              }
               className="inline-flex w-full items-center justify-center rounded-md bg-slate-900 px-6 py-3 text-sm font-medium text-white transition hover:bg-slate-800 sm:w-auto"
             >
-              Return home
+              Manage booking
             </Link>
             <Link
-              href="/reserve"
+              href={restaurantSlug ? `/restaurants/${restaurantSlug}/book` : '/restaurants'}
               className="inline-flex w-full items-center justify-center rounded-md border border-slate-300 px-6 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 sm:w-auto"
             >
-              Make another booking
-            </Link>
-            <Link
-              href="/my-bookings"
-              className="inline-flex w-full items-center justify-center rounded-md border border-slate-300 px-6 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 sm:w-auto"
-            >
-              View my bookings
+              Make a new booking
             </Link>
           </div>
         </div>
@@ -228,13 +231,13 @@ function ThankYouPageContent() {
         </p>
         <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <Link
-            href="/"
+            href="/guest/dashboard"
             className="inline-flex w-full items-center justify-center rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 sm:w-auto"
           >
             Return home
           </Link>
           <Link
-            href="/reserve"
+            href={resolveRestaurantSlug(null, restaurantSlugParam, pathname) ? `/restaurants/${resolveRestaurantSlug(null, restaurantSlugParam, pathname)}/book` : '/restaurants'}
             className="inline-flex w-full items-center justify-center rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 sm:w-auto"
           >
             Make another booking
@@ -260,4 +263,20 @@ function PageShell({ children }: { children: React.ReactNode }) {
       <div className="w-full">{children}</div>
     </section>
   );
+}
+
+function deriveRestaurantSlugFromPath(pathname: string | null): string | null {
+  if (!pathname) return null;
+  const match = pathname.match(/\/restaurants\/([^/]+)\/book/);
+  return match?.[1] ? decodeURIComponent(match[1]) : null;
+}
+
+function resolveRestaurantSlug(
+  preferred: string | null | undefined,
+  queryParam: string | null,
+  pathname: string | null,
+): string | null {
+  if (preferred && preferred.trim().length > 0) return preferred.trim();
+  if (queryParam && queryParam.trim().length > 0) return queryParam.trim();
+  return deriveRestaurantSlugFromPath(pathname);
 }

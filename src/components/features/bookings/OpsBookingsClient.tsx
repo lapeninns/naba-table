@@ -20,10 +20,10 @@ import {
   useOpsBookingsList,
   useOpsBookingStatusSummary,
 } from '@/hooks';
+import { useOpsBooking } from '@/hooks/ops/useOpsBooking';
 import { useOpsBookingLifecycleActions } from '@/hooks/ops/useOpsBookingStatusActions';
 import { useOpsCancelBooking } from '@/hooks/useOpsCancelBooking';
 import { useOpsUpdateBooking } from '@/hooks/useOpsUpdateBooking';
-import { useOpsBooking } from '@/hooks/ops/useOpsBooking';
 
 import type { StatusOption } from '@/components/dashboard/StatusFilterGroup';
 import type { BookingAction } from '@/components/features/booking-state-machine';
@@ -527,7 +527,7 @@ function NoRestaurantAccess() {
         Ask an owner or manager to send you an invitation so you can manage bookings.
       </p>
       <Button asChild variant="secondary">
-        <Link href="/">Back to dashboard</Link>
+        <Link href="/guest/dashboard">Back to dashboard</Link>
       </Button>
     </section>
   );

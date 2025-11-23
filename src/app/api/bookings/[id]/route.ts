@@ -24,6 +24,7 @@ import {
   softCancelBooking,
   updateBookingRecord,
 } from "@/server/bookings";
+import { TokenValidationError, validateConfirmationToken } from "@/server/bookings/confirmation-token";
 import { beginBookingModificationFlow } from "@/server/bookings/modification-flow";
 import { PastBookingError, assertBookingNotInPast } from "@/server/bookings/pastTimeValidation";
 import {
@@ -611,7 +612,43 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "Missing booking id", code: "MISSING_BOOKING_ID" }, { status: 400 });
   }
 
-  // Require authentication to view booking details
+  const token = req.nextUrl.searchParams.get("token") ?? req.cookies.get("sr_confirm")?.value ?? null;
+
+  // Public token-based access (read-only) for guest flows
+  if (token) {
+    try {
+      const booking = await validateConfirmationToken(token, { allowUsed: true });
+      if (booking.id !== bookingId) {
+        return NextResponse.json({ error: "Token does not match booking", code: "TOKEN_MISMATCH" }, { status: 403 });
+      }
+
+      const serviceSupabase = getServiceSupabaseClient();
+      const { data: restaurant } = await serviceSupabase
+        .from("restaurants")
+        .select("name, slug")
+        .eq("id", booking.restaurant_id)
+        .maybeSingle();
+
+      return NextResponse.json({
+        booking: {
+          ...booking,
+          restaurants: {
+            name: restaurant?.name ?? null,
+            slug: (restaurant?.slug as string | null | undefined) ?? null,
+          },
+        },
+      });
+    } catch (error: unknown) {
+      if (error instanceof TokenValidationError) {
+        const status = error.code === "TOKEN_NOT_FOUND" ? 404 : error.code === "TOKEN_EXPIRED" ? 410 : 401;
+        return NextResponse.json({ error: error.message, code: error.code }, { status });
+      }
+      console.error("[bookings][GET:id][token]", stringifyError(error));
+      return NextResponse.json({ error: "Unable to load booking", code: "UNKNOWN" }, { status: 500 });
+    }
+  }
+
+  // Require authentication to view booking details (default path)
   const tenantSupabase = await getRouteHandlerSupabaseClient();
   const { data: { user }, error: authError } = await tenantSupabase.auth.getUser();
 

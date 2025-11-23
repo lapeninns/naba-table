@@ -15,6 +15,7 @@ These routes facilitate restaurant discovery and the booking process. Entry for 
 
 - `/restaurants/[slug]` (Specific Restaurant Profile Page)
   - `/restaurants/[slug]/book` (Direct booking interface for a specific restaurant)
+  - `/restaurants/[slug]/book/thank-you` (Booking confirmation for that restaurant)
 - `/bookings/[bookingId]` (View details for a specific booking)
 - `/bookings/[bookingId]/thank-you` (Booking Confirmation Page)
 
@@ -22,9 +23,11 @@ These routes facilitate restaurant discovery and the booking process. Entry for 
 
 These routes are typically accessed by logged-in guests and provide personalized experiences and account management. Access to these routes generally requires authentication.
 
-- `/guest` (Guest Dashboard/Home)
+- `/guest/dashboard` (Guest dashboard / home)
 - `/guest/bookings` (List of the logged-in user's bookings)
+- `/guest/bookings/[bookingId]` (Manage a specific booking)
 - `/guest/profile` (Manage logged-in user's profile)
+- `/guest` → redirects to `/guest/dashboard`
 
 ## 4. Authentication
 
@@ -53,4 +56,5 @@ The following routes are permanently redirected to their canonical counterparts:
 - `/guest/restaurant` → `/restaurants`
 - `/guest/thank-you` → `/thank-you`
 - `/account` → `/guest`
+- `/guest` → `/guest/dashboard`
 - `/my-bookings` → `/guest/bookings`

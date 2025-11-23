@@ -40,6 +40,7 @@ const MARKETING_LINKS: NavLink[] = [
 ];
 
 const APP_LINKS: NavLink[] = [
+  { href: "/guest/dashboard", label: "Dashboard" },
   { href: "/guest/bookings", label: "My bookings" },
 ];
 
@@ -48,8 +49,8 @@ const ACCOUNT_LINKS: NavLink[] = [
   { href: "/guest/bookings", label: "My bookings" },
 ];
 
-const CTA_LOGGED_OUT = { href: "/guest/bookings", label: "Find a table" } satisfies NavLink;
-const CTA_LOGGED_IN = { href: "/guest/bookings", label: "Book now" } satisfies NavLink;
+const CTA_LOGGED_OUT: NavLink | null = null; // hide primary CTA for unauthenticated guest-facing view
+const CTA_LOGGED_IN: NavLink | null = null; // remove navbar CTA per request
 
 type AccountSnapshot = {
   displayName: string;
@@ -80,7 +81,7 @@ function resolveFallback(name: string | null | undefined, email: string | null |
 function BrandMark() {
   return (
     <Link
-      href="/"
+      href="/guest/dashboard"
       className="group flex items-center gap-3 rounded-full px-2 py-1 text-left transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
       <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/90 to-primary text-sm font-bold text-primary-foreground shadow-sm shadow-primary/25">
@@ -141,7 +142,7 @@ type DesktopActionsProps = {
   isLoggedIn: boolean;
   account: AccountSnapshot | null;
   accountLinks: NavLink[];
-  cta: NavLink;
+  cta: NavLink | null;
   onSignOut: () => Promise<void>;
   isSigningOut: boolean;
 };
@@ -149,15 +150,17 @@ type DesktopActionsProps = {
 function DesktopActions({ isLoading, isLoggedIn, account, accountLinks, cta, onSignOut, isSigningOut }: DesktopActionsProps) {
   return (
     <div className="hidden items-center gap-3 md:flex">
-      <Link
-        href={cta.href}
-        className={cn(
-          buttonVariants({ variant: "default", size: "sm" }),
-          "bg-gradient-to-r from-primary to-primary/85 text-primary-foreground shadow-md shadow-primary/15 transition hover:shadow-lg focus-visible:ring-offset-2",
-        )}
-      >
-        {cta.label}
-      </Link>
+      {cta ? (
+        <Link
+          href={cta.href}
+          className={cn(
+            buttonVariants({ variant: "default", size: "sm" }),
+            "bg-gradient-to-r from-primary to-primary/85 text-primary-foreground shadow-md shadow-primary/15 transition hover:shadow-lg focus-visible:ring-offset-2",
+          )}
+        >
+          {cta.label}
+        </Link>
+      ) : null}
 
       {isLoading ? <Skeleton className="h-10 w-10 rounded-full" /> : null}
 
@@ -228,7 +231,7 @@ type MobileMenuProps = {
   open: boolean;
   onOpenChange: (next: boolean) => void;
   pathname: string;
-  cta: NavLink;
+  cta: NavLink | null;
 };
 
 function MobileMenu({ navLinks, sessionActions, account, isLoggedIn, isSigningOut, onSignOut, open, onOpenChange, pathname, cta }: MobileMenuProps) {
@@ -268,37 +271,43 @@ function MobileMenu({ navLinks, sessionActions, account, isLoggedIn, isSigningOu
         <div className="flex items-center justify-between gap-3">
           <BrandMark />
           <SheetClose asChild>
-            <Link
-              href={cta.href}
-              className={cn(
-                buttonVariants({ variant: "default", size: "sm" }),
-                "shadow-sm touch-manipulation",
-              )}
-            >
-              {cta.label}
-            </Link>
-          </SheetClose>
-        </div>
-
-        <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary to-primary/80 px-4 py-5 text-primary-foreground shadow-md shadow-primary/25">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex flex-col gap-1 text-left">
-              <span className="text-xs font-semibold uppercase tracking-[0.08em]">Plan your visit</span>
-              <span className="text-sm leading-relaxed opacity-90">Browse live tables and reserve in seconds.</span>
-            </div>
-            <SheetClose asChild>
+            {cta ? (
               <Link
                 href={cta.href}
                 className={cn(
-                  buttonVariants({ variant: "secondary", size: "sm" }),
-                  "text-primary shadow-sm shadow-primary/25",
+                  buttonVariants({ variant: "default", size: "sm" }),
+                  "shadow-sm touch-manipulation",
                 )}
               >
-                Start
+                {cta.label}
               </Link>
-            </SheetClose>
-          </div>
+            ) : (
+              <span className="text-sm font-semibold text-muted-foreground">Guest</span>
+            )}
+          </SheetClose>
         </div>
+
+        {cta ? (
+          <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary to-primary/80 px-4 py-5 text-primary-foreground shadow-md shadow-primary/25">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-col gap-1 text-left">
+                <span className="text-xs font-semibold uppercase tracking-[0.08em]">Plan your visit</span>
+                <span className="text-sm leading-relaxed opacity-90">Browse live tables and reserve in seconds.</span>
+              </div>
+              <SheetClose asChild>
+                <Link
+                  href={cta.href}
+                  className={cn(
+                    buttonVariants({ variant: "secondary", size: "sm" }),
+                    "text-primary shadow-sm shadow-primary/25",
+                  )}
+                >
+                  Start
+                </Link>
+              </SheetClose>
+            </div>
+          </div>
+        ) : null}
 
         {isLoggedIn && account ? (
           <div className="flex items-center gap-4 rounded-xl border border-border/60 bg-muted/40 px-4 py-4">
@@ -379,7 +388,7 @@ export default function Header({ variant = "marketing" }: HeaderProps) {
   const supabase = getSupabaseBrowserClient();
 
   const isLoggedIn = status === "ready" && Boolean(user);
-  const navLinks = variant === "marketing" && !isLoggedIn ? MARKETING_LINKS : APP_LINKS;
+  const navLinks = !isLoggedIn ? [] : APP_LINKS;
   const sessionActions = isLoggedIn ? ACCOUNT_LINKS : [{ href: "/auth/signin", label: "Sign in" }];
   const cta = isLoggedIn ? CTA_LOGGED_IN : CTA_LOGGED_OUT;
 
@@ -424,7 +433,7 @@ export default function Header({ variant = "marketing" }: HeaderProps) {
         <div className="container mx-auto flex h-16 items-center justify-between gap-3 px-4 md:px-6">
           <BrandMark />
           <Link
-            href="/"
+            href="/guest/dashboard"
             className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "text-muted-foreground hover:text-foreground")}
           >
             Back home
@@ -454,15 +463,17 @@ export default function Header({ variant = "marketing" }: HeaderProps) {
           </div>
 
           <div className="flex items-center gap-2 md:hidden">
-            <Link
-              href={cta.href}
-              className={cn(
-                buttonVariants({ variant: "default", size: "sm" }),
-                "shadow-sm touch-manipulation",
-              )}
-            >
-              {cta.label}
-            </Link>
+            {cta ? (
+              <Link
+                href={cta.href}
+                className={cn(
+                  buttonVariants({ variant: "default", size: "sm" }),
+                  "shadow-sm touch-manipulation",
+                )}
+              >
+                {cta.label}
+              </Link>
+            ) : null}
             <MobileMenu
               navLinks={navLinks}
               sessionActions={sessionActions}

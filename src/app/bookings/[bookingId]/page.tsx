@@ -14,6 +14,7 @@ import type { Metadata } from "next";
 export const dynamic = "force-dynamic";
 
 type RouteParams = Promise<{ bookingId: string }>;
+type SearchParams = { token?: string };
 
 const shortenId = (value: string): string => (value.length > 8 ? value.slice(0, 8) : value);
 
@@ -33,14 +34,19 @@ const resolveOrigin = (requestHeaders: Headers): string => {
   return process.env.NEXT_PUBLIC_SITE_URL ?? getCanonicalSiteUrl();
 };
 
-async function prefetchReservation(queryClient: QueryClient, reservationId: string) {
+async function prefetchReservation(queryClient: QueryClient, reservationId: string, token?: string | null) {
   const requestHeaders = await headers();
   const cookieStore = await cookies();
   const cookieHeader = cookieHeaderFromStore(cookieStore);
   const origin = resolveOrigin(requestHeaders);
 
+  const url = new URL(`${origin}/api/bookings/${reservationId}`);
+  if (token) {
+    url.searchParams.set("token", token);
+  }
+
   try {
-    const response = await fetch(`${origin}/api/bookings/${reservationId}`, {
+    const response = await fetch(url.toString(), {
       headers: {
         accept: "application/json",
         ...(cookieHeader ? { cookie: cookieHeader } : {}),
@@ -73,9 +79,16 @@ export async function generateMetadata({ params }: { params: RouteParams }): Pro
   };
 }
 
-export default async function BookingDetailPage({ params }: { params: RouteParams }) {
+export default async function BookingDetailPage({
+  params,
+  searchParams,
+}: {
+  params: RouteParams;
+  searchParams?: SearchParams;
+}) {
   const { bookingId } = await params;
   const normalized = bookingId?.trim();
+  const token = searchParams?.token ?? null;
 
   if (!normalized) {
     redirect("/bookings");
@@ -86,18 +99,20 @@ export default async function BookingDetailPage({ params }: { params: RouteParam
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    // Redirect to auth, returning to this booking page
+  if (!user && !token) {
     redirect(withRedirectedFrom("/auth/signin", `/bookings/${normalized}`));
   }
 
   const queryClient = new QueryClient();
-  await prefetchReservation(queryClient, normalized);
+  // Prefetch only when authenticated or token provided
+  if (user || token) {
+    await prefetchReservation(queryClient, normalized, token);
+  }
   const dehydratedState = dehydrate(queryClient);
 
   return (
     <HydrationBoundary state={dehydratedState}>
-      <ReservationDetailClient reservationId={normalized} restaurantName={null} />
+      <ReservationDetailClient reservationId={normalized} restaurantName={null} token={token} canManage={Boolean(user)} />
     </HydrationBoundary>
   );
 }

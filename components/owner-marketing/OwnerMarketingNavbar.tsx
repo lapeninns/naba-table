@@ -27,8 +27,8 @@ export function OwnerMarketingNavbar() {
   const brandName = config.appName ?? "SajiloReserveX";
 
   const isActive = (href: string) => {
-    if (href === "/") {
-      return pathname === "/";
+    if (href === "/guest/dashboard") {
+      return pathname === "/guest/dashboard" || pathname === "/";
     }
     return pathname === href || pathname.startsWith(`${href}/`);
   };
@@ -37,7 +37,7 @@ export function OwnerMarketingNavbar() {
     <header className="sticky top-0 z-40 border-b border-border bg-white/85 backdrop-blur supports-[backdrop-filter]:bg-white/75">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-4">
         <Link
-          href="/"
+          href="/guest/dashboard"
           className="flex items-center gap-3 text-base font-semibold tracking-tight text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-white"
         >
           <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary shadow-sm">

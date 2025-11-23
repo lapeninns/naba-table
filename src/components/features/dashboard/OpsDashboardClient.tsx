@@ -485,7 +485,7 @@ function NoAccessState() {
         Ask an owner or manager to send you an invitation so you can manage bookings.
       </p>
       <Button variant="outline" size="sm" asChild>
-        <Link href="/">Back to dashboard</Link>
+        <Link href="/guest/dashboard">Back to dashboard</Link>
       </Button>
     </Card>
   );

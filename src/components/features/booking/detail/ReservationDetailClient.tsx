@@ -105,6 +105,8 @@ export type ReservationDetailClientProps = {
   restaurantName: string | null;
   structuredData?: string | null;
   venue?: ReservationVenue | null;
+  token?: string | null;
+  canManage?: boolean;
 };
 
 export function ReservationDetailClient({
@@ -112,6 +114,8 @@ export function ReservationDetailClient({
   restaurantName,
   structuredData,
   venue: providedVenue,
+  token = null,
+  canManage = false,
 }: ReservationDetailClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -141,7 +145,7 @@ export function ReservationDetailClient({
   const supportEmail = config.email?.supportEmail ?? 'support@example.com';
   const [clockNow, setClockNow] = useState(() => Date.now());
 
-  const { data: reservation, error, isError, isLoading, refetch, isFetching } = useReservation(reservationId);
+  const { data: reservation, error, isError, isLoading, refetch, isFetching } = useReservation(reservationId, token ?? undefined);
 
   // Calculate venue info before any early returns
   const venue = useMemo<ReservationVenue>(() => {
@@ -346,16 +350,16 @@ export function ReservationDetailClient({
   }, [searchParams]);
 
   const handleEdit = useCallback(() => {
-    if (!reservation || pendingLock.locked) return;
+    if (!reservation || pendingLock.locked || !canManage) return;
     void emit('reservation_detail_edit_clicked', { reservationId });
     setIsEditOpen(true);
-  }, [pendingLock.locked, reservation, reservationId]);
+  }, [canManage, pendingLock.locked, reservation, reservationId]);
 
   const handleCancel = useCallback(() => {
-    if (!reservation || pendingLock.locked) return;
+    if (!reservation || pendingLock.locked || !canManage) return;
     void emit('reservation_detail_cancel_clicked', { reservationId });
     setIsCancelOpen(true);
-  }, [pendingLock.locked, reservation, reservationId]);
+  }, [canManage, pendingLock.locked, reservation, reservationId]);
 
   const handleRebook = useCallback(() => {
     if (!reservation) return;
@@ -374,7 +378,7 @@ export function ReservationDetailClient({
     setIsCancelOpen(open);
   }, []);
 
-  const actionDisabled = reservation ? reservation.status === 'cancelled' || pendingLock.locked : true;
+  const actionDisabled = reservation ? reservation.status === 'cancelled' || pendingLock.locked || !canManage : true;
 
   if (isLoading && !reservation) {
     return (
@@ -401,7 +405,7 @@ export function ReservationDetailClient({
             <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
               Retry
             </Button>
-            <Link href="/" className={buttonVariants({ variant: 'default' })}>
+            <Link href="/guest/dashboard" className={buttonVariants({ variant: 'default' })}>
               Back to booking
             </Link>
           </div>
@@ -488,7 +492,7 @@ export function ReservationDetailClient({
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-2">
-            <Link href="/my-bookings" className="text-sm text-primary underline-offset-4 hover:underline">
+            <Link href="/guest/dashboard" className="text-sm text-primary underline-offset-4 hover:underline">
               ← Back to dashboard
             </Link>
             <h1 className="text-3xl font-semibold text-foreground">Reservation details</h1>
@@ -498,6 +502,20 @@ export function ReservationDetailClient({
           </div>
           <StatusChip status={reservation.status as BookingDTO['status']} />
         </div>
+
+        {!canManage ? (
+          <Alert variant="info">
+            <div>
+              <AlertTitle>Viewing as guest</AlertTitle>
+              <AlertDescription>
+                You can review the details below. Sign in to edit or cancel this booking.
+              </AlertDescription>
+            </div>
+            <Link href={`/auth/signin?redirectedFrom=/bookings/${reservationId}`} className={buttonVariants({ variant: 'outline' })}>
+              Sign in
+            </Link>
+          </Alert>
+        ) : null}
 
       {warnings.map((warning) => (
         <Alert key={warning.id} variant={warning.variant}>
@@ -539,7 +557,7 @@ export function ReservationDetailClient({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <Button variant="default" onClick={handleRebook} disabled={isFetching}>
+            <Button variant="default" onClick={handleRebook} disabled={!canManage || isFetching}>
               Rebook
             </Button>
             <Button variant="outline" onClick={handleEdit} disabled={actionDisabled}>
@@ -621,7 +639,7 @@ export function ReservationDetailClient({
         </div>
       </div>
 
-      <ReservationHistory reservationId={reservationId} />
+      {canManage ? <ReservationHistory reservationId={reservationId} /> : null}
 
       {bookingDto ? (
         <>
