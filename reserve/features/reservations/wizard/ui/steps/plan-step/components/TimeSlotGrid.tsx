@@ -12,6 +12,7 @@ type TimeSlotGridProps = {
   value: string;
   onSelect: (value: string) => void;
   scrollToValue?: string | null;
+  loading?: boolean;
 };
 
 function buildGroups(slots: TimeSlotDescriptor[]) {
@@ -27,7 +28,13 @@ function buildGroups(slots: TimeSlotDescriptor[]) {
   return groups;
 }
 
-export function TimeSlotGrid({ slots, value, onSelect, scrollToValue }: TimeSlotGridProps) {
+export function TimeSlotGrid({
+  slots,
+  value,
+  onSelect,
+  scrollToValue,
+  loading,
+}: TimeSlotGridProps) {
   const groupedSlots = useMemo(() => buildGroups(slots), [slots]);
   const activeValue = value;
   const containerRef = useRef<HTMLDivElement>(null);
@@ -59,7 +66,10 @@ export function TimeSlotGrid({ slots, value, onSelect, scrollToValue }: TimeSlot
   return (
     <section
       aria-label="Available times"
-      className="flex flex-col gap-3 rounded-xl border border-border bg-card/80 p-4 shadow-sm"
+      className={cn(
+        'flex flex-col gap-3 rounded-xl border border-border bg-card/80 p-4 shadow-sm transition-opacity duration-300',
+        loading && 'opacity-50 pointer-events-none',
+      )}
       ref={containerRef}
     >
       <div className="flex items-center justify-between">

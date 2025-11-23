@@ -319,6 +319,7 @@ type PlanSlotDataResult = {
   schedule: ReturnType<typeof useTimeSlots>['schedule'];
   availableBookingOptions: ReturnType<typeof useTimeSlots>['availableBookingOptions'];
   isScheduleLoading: boolean;
+  isScheduleFetching: boolean;
   enabledSlots: ReturnType<typeof useTimeSlots>['slots'];
   hasAvailableSlots: boolean;
   intervalMinutes: number | null;
@@ -333,6 +334,7 @@ function usePlanSlotData({ restaurantSlug, date, time }: PlanSlotDataArgs): Plan
     schedule,
     availableBookingOptions,
     isLoading: isScheduleLoading,
+    isFetching: isScheduleFetching,
   } = useTimeSlots({
     restaurantSlug,
     date,
@@ -374,6 +376,7 @@ function usePlanSlotData({ restaurantSlug, date, time }: PlanSlotDataArgs): Plan
     schedule,
     availableBookingOptions,
     isScheduleLoading,
+    isScheduleFetching,
     enabledSlots,
     hasAvailableSlots,
     intervalMinutes,
@@ -434,6 +437,49 @@ export function usePlanStepForm({
     initialPrefetchSlugRef.current = slug;
   }, [normalizedMinDate, prefetchVisibleMonth, state.details.date, state.details.restaurantSlug]);
 
+  useEffect(() => {
+    const currentDate = state.details.date;
+    if (!currentDate) {
+      return;
+    }
+
+    const isDirty = form.getFieldState('date').isDirty;
+    if (isDirty) {
+      return;
+    }
+
+    const reason = unavailableDates.get(currentDate);
+    if (reason !== 'closed') {
+      return;
+    }
+
+    // Auto-advance to next available date
+    let cursor = parseDateKey(currentDate);
+    if (!cursor) {
+      return;
+    }
+
+    // Limit search to 60 days to avoid infinite loops
+    for (let i = 0; i < 60; i += 1) {
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);
+      const isoKey = formatDateForInput(cursor);
+      const nextReason = unavailableDates.get(isoKey);
+
+      // If we don't have data for this date yet (undefined), we assume it might be open
+      // or wait for mask to load. However, since we prefetch masks, undefined usually means
+      // out of range or not yet loaded.
+      // But if we are within the prefetched range, undefined means "open".
+      // To be safe, we only switch if we explicitly know it is NOT closed.
+      // If nextReason is undefined, it effectively means "not closed" in the current mask logic.
+
+      if (nextReason !== 'closed') {
+        form.setValue('date', isoKey, { shouldDirty: false, shouldValidate: true });
+        actions.updateDetails('date', isoKey);
+        break;
+      }
+    }
+  }, [actions, form, state.details.date, unavailableDates]);
+
   const {
     slots,
     serviceAvailability,
@@ -441,6 +487,7 @@ export function usePlanStepForm({
     schedule,
     availableBookingOptions,
     isScheduleLoading,
+    isScheduleFetching,
     enabledSlots,
     hasAvailableSlots,
     intervalMinutes,
@@ -774,6 +821,7 @@ export function usePlanStepForm({
     loadingDates,
     hasAvailableSlots,
     isScheduleLoading,
+    isScheduleFetching,
     schedule,
     currentUnavailabilityReason,
     isSubmitting: form.formState.isSubmitting,

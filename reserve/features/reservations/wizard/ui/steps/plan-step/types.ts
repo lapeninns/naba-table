@@ -48,6 +48,7 @@ export type PlanStepFormState = {
   loadingDates: Set<string>;
   hasAvailableSlots: boolean;
   isScheduleLoading: boolean;
+  isScheduleFetching: boolean;
   schedule: ReservationSchedule | null;
   currentUnavailabilityReason: PlanStepUnavailableReason | null;
   isSubmitting: boolean;
