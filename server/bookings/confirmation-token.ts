@@ -44,7 +44,10 @@ export class TokenValidationError extends Error {
  * @returns Booking record if valid
  * @throws TokenValidationError
  */
-export async function validateConfirmationToken(token: string): Promise<Tables<'bookings'>> {
+export async function validateConfirmationToken(
+  token: string,
+  options: { allowUsed?: boolean } = {},
+): Promise<Tables<'bookings'>> {
   const supabase = getServiceSupabaseClient();
 
   const { data, error } = await supabase
@@ -71,7 +74,7 @@ export async function validateConfirmationToken(token: string): Promise<Tables<'
   }
 
   // Check if token has already been used
-  if (data.confirmation_token_used_at) {
+  if (data.confirmation_token_used_at && !options.allowUsed) {
     throw new TokenValidationError('Token has already been used', 'TOKEN_USED');
   }
 
@@ -134,6 +137,7 @@ export type PublicBookingConfirmation = {
   id: string;
   reference: string;
   restaurantName: string;
+  restaurantSlug: string | null;
   date: string;
   startTime: string;
   endTime: string;
@@ -155,11 +159,13 @@ export type PublicBookingConfirmation = {
 export function toPublicConfirmation(
   booking: Tables<'bookings'>,
   restaurantName: string,
+  restaurantSlug: string | null,
 ): PublicBookingConfirmation {
   return {
     id: booking.id,
     reference: booking.reference,
     restaurantName,
+    restaurantSlug,
     date: booking.booking_date,
     startTime: booking.start_time,
     endTime: booking.end_time,

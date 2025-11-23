@@ -47,9 +47,9 @@ const PRIMARY_LINKS: PrimaryLink[] = [
 ];
 
 const ACCOUNT_LINKS: AccountLink[] = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/my-bookings", label: "My bookings" },
-  { href: "/profile/manage", label: "Manage profile" },
+  { href: "/guest/dashboard", label: "Dashboard" },
+  { href: "/guest/bookings", label: "My bookings" },
+  { href: "/guest/profile", label: "Manage profile" },
 ];
 
 type AccountSnapshot = {
@@ -93,7 +93,7 @@ function useSignOut() {
         await signOutFromSupabase();
         toast.success("Signed out");
         onSuccess?.();
-        router.push("/");
+        router.push("/guest/dashboard");
         router.refresh();
       } catch (error) {
         console.error("[customer-navbar] sign out failed", error);
@@ -111,7 +111,7 @@ function useSignOut() {
 function BrandMark() {
   return (
     <Link
-      href="/"
+      href="/guest/dashboard"
       className="flex items-center gap-3 text-base font-semibold tracking-tight text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
       <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-primary/80 via-primary/90 to-primary text-sm font-bold text-primary-foreground shadow-sm">

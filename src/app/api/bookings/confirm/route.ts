@@ -87,14 +87,15 @@ export async function GET(req: NextRequest) {
     const supabase = getServiceSupabaseClient();
     const { data: restaurant } = await supabase
       .from('restaurants')
-      .select('name')
+      .select('name, slug')
       .eq('id', booking.restaurant_id)
       .single();
 
     const restaurantName = restaurant?.name ?? 'Restaurant';
+    const restaurantSlug = (restaurant?.slug as string | null | undefined) ?? null;
 
     // Transform to public-safe data (no PII)
-    const publicBooking = toPublicConfirmation(booking, restaurantName);
+    const publicBooking = toPublicConfirmation(booking, restaurantName, restaurantSlug);
 
     const res = NextResponse.json({ booking: publicBooking });
     // Clear the ephemeral confirmation cookie if present

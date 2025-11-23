@@ -1,5 +1,3 @@
-import { permanentRedirect } from "next/navigation";
-
-export default function GuestDashboardRedirect() {
-  permanentRedirect("/guest/bookings");
+export default function GuestHome() {
+  return null;
 }
