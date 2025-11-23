@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 
 import { normalizeTime } from '@reserve/shared/time';
@@ -29,6 +29,7 @@ export type UseTimeSlotsResult = {
   availableBookingOptions: BookingOption[];
   occasionCatalog: OccasionDefinition[];
   isLoading: boolean;
+  isFetching: boolean;
   isError: boolean;
 };
 
@@ -51,6 +52,7 @@ export function useTimeSlots({
     },
     staleTime: 60_000,
     refetchOnWindowFocus: false,
+    placeholderData: keepPreviousData,
     meta: { persist: false },
   });
 
@@ -105,6 +107,7 @@ export function useTimeSlots({
     availableBookingOptions: scheduleQuery.data?.availableBookingOptions ?? [],
     occasionCatalog: scheduleQuery.data?.occasionCatalog ?? [],
     isLoading: scheduleQuery.isLoading,
+    isFetching: scheduleQuery.isFetching,
     isError: scheduleQuery.isError,
   };
 }

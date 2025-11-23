@@ -192,6 +192,7 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
               <TimeSlotGrid
                 slots={timeDisabled ? [] : state.slots}
                 value={timeField.value}
+                loading={state.isScheduleFetching}
                 onSelect={(next) => {
                   state.handlers.selectTime(next);
                   timeField.onBlur?.();

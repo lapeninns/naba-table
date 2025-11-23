@@ -201,6 +201,7 @@ export type OccasionAvailabilityContext = {
   date: string;
   time?: string | null;
   timezone: string;
+  month?: number;
 };
 
 const getMonthInTimezone = (date: string, timezone: string): number => {
@@ -252,7 +253,7 @@ export function isOccasionAvailable(
       case 'time_window':
         return isWithinTimeWindow(context.time ?? null, rule);
       case 'month_only': {
-        const month = getMonthInTimezone(context.date, context.timezone);
+        const month = context.month ?? getMonthInTimezone(context.date, context.timezone);
         return rule.months.includes(month);
       }
       case 'date_range':

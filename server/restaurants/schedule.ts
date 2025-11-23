@@ -110,6 +110,24 @@ function resolveDayOfWeek(date: string, timezone: string): number {
   return Number.isNaN(fallback.getDay()) ? 0 : fallback.getDay();
 }
 
+function resolveMonth(date: string, timezone: string): number {
+  try {
+    const base = new Date(`${date}T12:00:00Z`);
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      month: 'numeric',
+      timeZone: timezone,
+    });
+    const month = Number.parseInt(formatter.format(base), 10);
+    if (Number.isFinite(month)) {
+      return month;
+    }
+  } catch (error) {
+    console.warn('[schedule] failed to resolve month', { date, timezone, error });
+  }
+  const fallback = new Date(`${date}T00:00:00`);
+  return fallback.getMonth() + 1;
+}
+
 function normalizeMaybeTime(value: string | null | undefined): ReservationTime | null {
   const normalized = normalizeTime(value ?? null);
   return normalized;
@@ -156,6 +174,7 @@ type AvailabilityParams = {
   catalog: OccasionCatalog;
   date: string;
   timezone: string;
+  month: number;
 };
 
 function buildAvailability({
@@ -167,6 +186,7 @@ function buildAvailability({
   catalog,
   date,
   timezone,
+  month,
 }: AvailabilityParams): ServiceAvailability {
   const keys = Array.from(new Set<OccasionKey>([...orderedKeys, ...coverage.keys(), primaryOption]));
   const services: Record<OccasionKey, ServiceState> = {};
@@ -176,7 +196,7 @@ function buildAvailability({
     if (enabled) {
       const definition = catalog.byKey.get(key);
       if (definition) {
-        enabled = isOccasionAvailable(definition, { date, time: slot, timezone });
+        enabled = isOccasionAvailable(definition, { date, time: slot, timezone, month });
       }
     }
     services[key] = enabled ? 'enabled' : 'disabled';
@@ -226,6 +246,7 @@ function computeSlots(
   timezone: string,
   defaultDurationMinutes: number,
   lastSeatingBufferMinutes: number,
+  month: number,
 ): RestaurantScheduleSlot[] {
   if (!opensAt || !closesAt || toMinutes(closesAt) <= toMinutes(opensAt)) {
     return [];
@@ -318,6 +339,7 @@ function computeSlots(
       catalog,
       date,
       timezone,
+      month,
     });
     const defaultBookingOption = bookingOption;
     const optionDefinition = catalog.byKey.get(bookingOption);
@@ -380,6 +402,7 @@ export async function getRestaurantSchedule(
     restaurant.reservation_last_seating_buffer_minutes ?? defaultDurationMinutes;
   const date = sanitizeDate(options.date, restaurant.timezone);
   const dayOfWeek = resolveDayOfWeek(date, restaurant.timezone);
+  const month = resolveMonth(date, restaurant.timezone);
 
   const [{ data: overrideRow, error: overrideError }, { data: weeklyRow, error: weeklyError }, { data: periods, error: periodsError }] =
     await Promise.all([
@@ -432,19 +455,20 @@ export async function getRestaurantSchedule(
   const slots = isClosed
     ? []
     : computeSlots(
-        opensAt,
-        closesAt,
-        intervalMinutes,
-        relevantPeriods,
-        dayOfWeek,
-        coverage,
-        orderedKeys,
-        catalog,
-        date,
-        restaurant.timezone,
-        defaultDurationMinutes,
-        lastSeatingBufferMinutes,
-      );
+      opensAt,
+      closesAt,
+      intervalMinutes,
+      relevantPeriods,
+      dayOfWeek,
+      coverage,
+      orderedKeys,
+      catalog,
+      date,
+      restaurant.timezone,
+      defaultDurationMinutes,
+      lastSeatingBufferMinutes,
+      month,
+    );
 
   const availableOptionsSet = new Set<OccasionKey>();
   slots.forEach((slot) => {
