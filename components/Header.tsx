@@ -36,12 +36,10 @@ type NavLink = {
 };
 
 const MARKETING_LINKS: NavLink[] = [
-  { href: "/restaurants", label: "Restaurants" },
-  { href: "/product", label: "How it works" },
+  // marketing browse entry removed; guests enter via slugged booking
 ];
 
 const APP_LINKS: NavLink[] = [
-  { href: "/restaurants", label: "Browse" },
   { href: "/guest/bookings", label: "My bookings" },
 ];
 
@@ -50,8 +48,8 @@ const ACCOUNT_LINKS: NavLink[] = [
   { href: "/guest/bookings", label: "My bookings" },
 ];
 
-const CTA_LOGGED_OUT = { href: "/restaurants", label: "Find a table" } satisfies NavLink;
-const CTA_LOGGED_IN = { href: "/restaurants", label: "Book now" } satisfies NavLink;
+const CTA_LOGGED_OUT = { href: "/guest/bookings", label: "Find a table" } satisfies NavLink;
+const CTA_LOGGED_IN = { href: "/guest/bookings", label: "Book now" } satisfies NavLink;
 
 type AccountSnapshot = {
   displayName: string;

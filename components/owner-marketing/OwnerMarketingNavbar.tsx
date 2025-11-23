@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { buttonVariants } from "@/components/ui/button";
 import config from "@/config";
 import { cn } from "@/lib/utils";
 
@@ -15,15 +14,7 @@ type NavLink = {
 };
 
 const NAV_LINKS: NavLink[] = [
-  { href: "/product", label: "Product" },
-  { href: "/pricing", label: "Pricing" },
-  { href: "/contact", label: "Contact" },
 ];
-
-const CTA = {
-  href: "/ops/login",
-  label: "Sign in to console",
-};
 
 export function OwnerMarketingNavbar() {
   const pathname = usePathname();
@@ -70,15 +61,6 @@ export function OwnerMarketingNavbar() {
           ))}
         </nav>
 
-        <div className="hidden items-center gap-3 md:flex">
-          <Link
-            href={CTA.href}
-            className={cn(buttonVariants({ variant: "default", size: "sm" }), "touch-manipulation")}
-          >
-            {CTA.label}
-          </Link>
-        </div>
-
         <button
           type="button"
           className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border text-foreground transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-white md:hidden"
@@ -110,15 +92,6 @@ export function OwnerMarketingNavbar() {
               {link.label}
             </Link>
           ))}
-          <Link
-            href={CTA.href}
-            className={cn(
-              buttonVariants({ variant: "default", size: "default" }),
-              "justify-center",
-            )}
-          >
-            {CTA.label}
-          </Link>
         </div>
       </div>
     </header>

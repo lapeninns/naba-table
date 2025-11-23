@@ -21,7 +21,7 @@ export default function Hero() {
           </p>
           
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-            <Link href="/restaurants">
+            <Link href="/guest/bookings">
                <Button size="lg" className="h-12 px-8 text-base shadow-md hover:shadow-lg transition-shadow">Find a restaurant</Button>
             </Link>
              <Link href="/auth/signin">

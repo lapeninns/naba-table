@@ -47,12 +47,12 @@ export default async function RestaurantItemPage({ params }: { params: RoutePara
             Double-check the link or return to the browse page to pick a different venue.
           </p>
           <div className="flex justify-center">
-            <Link
-              href="/restaurants"
-              className={cn(buttonVariants({ variant: "default", size: "lg" }), "min-w-[12rem] touch-manipulation")}
-            >
-              Browse restaurants
-            </Link>
+          <Link
+            href="/guest/bookings"
+            className={cn(buttonVariants({ variant: "default", size: "lg" }), "min-w-[12rem] touch-manipulation")}
+          >
+            View bookings
+          </Link>
           </div>
         </div>
       </section>
@@ -78,12 +78,7 @@ export default async function RestaurantItemPage({ params }: { params: RoutePara
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100">
       <nav className="border-b border-slate-200 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/70">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-6 py-4 sm:px-8 lg:px-10">
-          <Link
-            href="/restaurants"
-            className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "touch-manipulation text-slate-700")}
-          >
-            ← All restaurants
-          </Link>
+          <span className="text-sm text-slate-500">Booking flow</span>
           <span className="text-sm text-slate-500">Local timezone</span>
         </div>
       </nav>

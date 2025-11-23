@@ -1,6 +1,6 @@
 == PAGES ==
 /
-├─ partners
+├─ thank-you
 ├─ app
 │  ├─ analytics
 │  │  └─ rejections
@@ -19,67 +19,17 @@
 ├─ bookings
 │  └─ :bookingId
 │     └─ thank-you
-├─ contact
 ├─ guest
 │  ├─ bookings
-│  │  ├─ :bookingId
-│  │  │  └─ thank-you
-│  │  └─ new
-│  ├─ dashboard
-│  ├─ my-bookings
-│  ├─ browse
-│  ├─ reserve
-│  │  ├─ :reservationId
-│  │  └─ r
-│  │     └─ :slug
-│  ├─ restaurant
-│  ├─ signin
-│  ├─ thank-you
-│  ├─ contact
-│  ├─ privacy-policy
-│  ├─ product
-│  ├─ terms
-│  ├─ restaurants
-│  │  └─ :slug
-│  │     └─ book
-│  ├─ invite
-│  │  └─ :token
-│  ├─ profile
-│  │  └─ manage
-│  ├─ item
-│  │  └─ :slug
-│  ├─ auth
-│  │  └─ signin
-│  └─ account
-│     ├─ bookings
-│     ├─ dashboard
-│     ├─ my-bookings
-│     ├─ profile
-│     └─ invite
-│        └─ :token
-├─ privacy-policy
-├─ product
-├─ reserve
-│  ├─ :reservationId
-│  └─ r
-│     └─ :slug
+│  └─ profile
+├─ walk-in
+├─ item
+│  └─ :slug
 ├─ restaurants
 │  └─ :slug
 │     └─ book
-├─ terms
-├─ thank-you
-├─ walk-in
-├─ account
-│  ├─ bookings
-│  ├─ my-bookings
-│  ├─ profile
-│  │  └─ manage
-│  └─ invite
-│     └─ :token
-├─ auth
-│  └─ signin
-└─ item
-   └─ :slug
+└─ auth
+   └─ signin
 
 
 == API ROUTES ==
@@ -146,7 +96,7 @@
 │  │  └─ simulate [POST, GET]
 │  └─ team
 │     ├─ invitations [GET, POST]
-│     │  └─ :inviteId [DELETE]
+│     │  └─ :id [DELETE]
 │     └─ memberships [GET]
 ├─ test
 │  ├─ bookings [POST]
@@ -154,60 +104,14 @@
 │  ├─ leads [DELETE]
 │  ├─ playwright-session [POST]
 │  └─ reservations
-│     └─ :reservationId
+│     └─ :id
 │        └─ confirmation [GET]
 ├─ v1
-│  ├─ bookings [GET, POST]
-│  ├─ events [GET, POST]
-│  ├─ lead [POST]
-│  ├─ profile [GET, PUT]
-│  │  └─ image [POST]
-│  ├─ restaurants [GET]
-│  │  └─ :slug
-│  │     └─ schedule [GET]
-│  ├─ ops
-│  │  ├─ bookings [GET, POST]
-│  │  │  ├─ :id [PATCH, DELETE]
-│  │  │  ├─ export [GET]
-│  │  │  └─ status-summary [GET]
-│  │  ├─ customers [GET]
-│  │  │  └─ export [GET]
-│  │  ├─ restaurants [GET, POST]
-│  │  │  └─ :id [GET, PATCH]
-│  │  │     ├─ details [GET, PUT]
-│  │  │     ├─ hours [GET, PUT]
-│  │  │     └─ service-periods [GET, PUT]
-│  │  ├─ dashboard
-│  │  │  ├─ changes [GET]
-│  │  │  ├─ heatmap [GET]
-│  │  │  ├─ rejections [GET]
-│  │  │  ├─ summary [GET]
-│  │  │  └─ vips [GET]
-│  │  └─ team
-│  │     ├─ invitations [GET, POST]
-│  │     │  └─ :inviteId [DELETE]
-│  │     └─ memberships [GET]
-│  └─ test
-│     ├─ bookings [POST]
-│     ├─ leads [DELETE]
-│     ├─ playwright-session [POST]
-│     └─ reservations
-│        └─ :reservationId
-│           └─ confirmation [GET]
+│  └─ events [POST, GET]
 ├─ webhook
 │  └─ resend [POST]
-├─ owner
-│  ├─ team
-│  │  ├─ invitations [GET, POST]
-│  │  │  └─ :inviteId [DELETE]
-│  │  └─ memberships [GET]
-│  └─ restaurants
-│     └─ :id
-│        ├─ details [GET, PUT]
-│        ├─ hours [GET, PUT]
-│        └─ service-periods [GET, PUT]
 ├─ reservations
-│  └─ :reservationId
+│  └─ :id
 │     └─ confirmation [GET]
 ├─ staff
 │  └─ auto

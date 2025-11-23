@@ -35,14 +35,6 @@ export default function Footer({ variant = "default" }: FooterProps) {
 
         <div className="flex flex-col items-center gap-3 text-sm text-slate-600 sm:flex-row sm:gap-5">
           <span className="text-xs sm:text-sm">© {currentYear} {config.appName}. All rights reserved.</span>
-          <div className="flex items-center gap-4">
-            <Link href="/privacy-policy" className="hover:text-slate-900 transition-colors">
-              Privacy
-            </Link>
-            <Link href="/terms" className="hover:text-slate-900 transition-colors">
-              Terms
-            </Link>
-          </div>
         </div>
       </div>
     </footer>
