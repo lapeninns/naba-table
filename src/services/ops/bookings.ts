@@ -272,6 +272,7 @@ export type ManualHoldPayload = ManualSelectionPayload & {
 export type ManualAssignmentTable = {
   id: string;
   tableNumber: string;
+  name?: string | null; // Optional table name (e.g., "Patio Corner", "Window Seat")
   capacity: number;
   minPartySize: number;
   maxPartySize: number | null;

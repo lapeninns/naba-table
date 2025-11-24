@@ -56,7 +56,7 @@ function normalizePosition(value: unknown): { x: number; y: number; rotation: nu
 function formatTableTitle(entry: DerivedTable): string {
   const { table, holdOwned, holdOther, conflicts } = entry;
   const lines: string[] = [
-    `Table ${table.tableNumber}`,
+    table.name ? `Table ${table.tableNumber} - ${table.name}` : `Table ${table.tableNumber}`,
     `${table.capacity} seats`,
   ];
   if (holdOwned) {
@@ -77,7 +77,11 @@ function formatTableTitle(entry: DerivedTable): string {
 function formatTableAriaLabel(entry: DerivedTable, isSelected: boolean, isBlocked: boolean): string {
   const parts: string[] = [];
   // Start with the table number to keep accessible name compatible with tests and screen reader expectations
-  parts.push(`${entry.table.tableNumber}`);
+  if (entry.table.name) {
+    parts.push(`Table ${entry.table.tableNumber}, ${entry.table.name}`);
+  } else {
+    parts.push(`Table ${entry.table.tableNumber}`);
+  }
   parts.push(`${entry.table.capacity} seats`);
   if (isSelected) parts.push('selected');
   if (isBlocked) parts.push('unavailable');
@@ -172,7 +176,10 @@ function computeLayout(
       conflicts: conflictMap.get(table.id) ?? [],
       isAssignedToBooking: bookingAssignments.has(table.id),
       isSelected: selectedTableIds.has(table.id),
-      isInactive: !table.active || (table.status ? table.status !== 'available' : false),
+      isInactive:
+        !table.active ||
+        table.zoneActive === false ||
+        ((table.status ?? '').toString().toLowerCase() !== 'available'),
     };
   });
 
@@ -243,7 +250,10 @@ export const TableFloorPlan = memo(function TableFloorPlan({
     });
 
     const filteredUnpositioned = computed.unpositioned.filter((table) => {
-      const isInactive = !table.active || (table.status ? table.status !== 'available' : false);
+      const isInactive =
+        !table.active ||
+        table.zoneActive === false ||
+        ((table.status ?? '').toString().toLowerCase() !== 'available');
       const tableHolds = holds.filter((hold) => hold.tableIds.includes(table.id));
       const holdOwned = tableHolds.find((hold) => hold.bookingId === bookingId) ?? null;
       const holdOther = tableHolds.find((hold) => hold.bookingId && hold.bookingId !== bookingId) ?? null;
@@ -291,8 +301,8 @@ export const TableFloorPlan = memo(function TableFloorPlan({
               const countdown = entry.holdOwned
                 ? formatCountdown(entry.holdOwned.countdownSeconds)
                 : entry.holdOther
-                ? formatCountdown(entry.holdOther.countdownSeconds)
-                : null;
+                  ? formatCountdown(entry.holdOther.countdownSeconds)
+                  : null;
               const isBlocked =
                 disabled || entry.isInactive || Boolean(entry.holdOther) || entry.conflicts.length > 0;
 
@@ -343,8 +353,8 @@ export const TableFloorPlan = memo(function TableFloorPlan({
       </div>
 
       {groupedUnpositioned.length > 0 ? (
-        <div className="space-y-3">
-          <p className="text-xs font-semibold uppercase text-muted-foreground">Tables without coordinates</p>
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Tables without coordinates</h3>
           {groupedUnpositioned.map((group) => {
             const zoneLabel = group.zoneId ? `Zone ${group.zoneId.slice(0, 8)}` : 'Zone not set';
             const sectionLabel = group.section ? `Section ${group.section}` : 'Section not set';
@@ -376,11 +386,11 @@ export const TableFloorPlan = memo(function TableFloorPlan({
                         key={table.id}
                         type="button"
                         className={cn(
-                          'flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition',
+                          'flex flex-col items-start gap-0.5 rounded-xl border-2 px-4 py-2.5 text-left transition-all hover:shadow-md',
                           isSelected
-                            ? 'bg-primary text-primary-foreground border-primary'
-                            : 'bg-background text-foreground border-border',
-                          isBlocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+                            ? 'bg-primary/10 text-primary border-primary shadow-sm'
+                            : 'bg-background text-foreground border-border hover:border-primary/30',
+                          isBlocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:-translate-y-0.5',
                         )}
                         onClick={() => {
                           if (isBlocked) {
@@ -388,22 +398,42 @@ export const TableFloorPlan = memo(function TableFloorPlan({
                           }
                           onToggle(table.id);
                         }}
-                        title={`Table ${table.tableNumber} · ${table.capacity} seats`}
-                        aria-label={`${table.tableNumber}, ${table.capacity} seats${isSelected ? ', selected' : ''}${isBlocked ? ', unavailable' : ''}${holdOther ? ', held' : ''}${hasConflict ? ', conflict' : ''}${!table.active || (table.status && table.status !== 'available') ? ', inactive' : ''}`}
+                        title={table.name ? `Table ${table.tableNumber} - ${table.name} · ${table.capacity} seats` : `Table ${table.tableNumber} · ${table.capacity} seats`}
+                        aria-label={`Table ${table.tableNumber}${table.name ? `, ${table.name}` : ''}, ${table.capacity} seats${isSelected ? ', selected' : ''}${isBlocked ? ', unavailable' : ''}${holdOther ? ', held' : ''}${hasConflict ? ', conflict' : ''}${!table.active || (table.status && table.status !== 'available') ? ', inactive' : ''}`}
                         aria-pressed={isSelected ? true : undefined}
                         disabled={isBlocked}
                         aria-disabled={isBlocked || undefined}
                       >
-                        <span>{table.tableNumber}</span>
-                        <span className="text-[11px] font-medium">{table.capacity}</span>
-                        {/* Inline reason labels */}
-                        {holdOther ? (
-                          <span className="text-[10px] font-semibold">Held</span>
-                        ) : hasConflict ? (
-                          <span className="text-[10px] font-semibold">Conflict</span>
-                        ) : !table.active || (table.status && table.status !== 'available') ? (
-                          <span className="text-[10px] font-semibold">Inactive</span>
-                        ) : null}
+                        {/* Table Name */}
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Table</span>
+                          <span className="text-lg font-bold tabular-nums">{table.tableNumber}</span>
+                        </div>
+
+                        {/* Optional Table Name (e.g., "Patio Corner") */}
+                        {table.name && (
+                          <div className="flex items-center gap-1 text-xs font-medium text-foreground">
+                            <span>{table.name}</span>
+                          </div>
+                        )}
+
+                        {/* Capacity */}
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <span className="font-medium">{table.capacity} seats</span>
+                        </div>
+
+                        {/* Status badges */}
+                        {(holdOther || hasConflict || !table.active || (table.status && table.status !== 'available')) && (
+                          <div className="mt-1 flex items-center gap-1">
+                            {holdOther ? (
+                              <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-900">Held</span>
+                            ) : hasConflict ? (
+                              <span className="rounded-md bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-900">Conflict</span>
+                            ) : !table.active || (table.status && table.status !== 'available') ? (
+                              <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-700">Inactive</span>
+                            ) : null}
+                          </div>
+                        )}
                       </button>
                     );
                   })}

@@ -1,19 +1,21 @@
 'use client';
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { DateTime } from 'luxon';
 import { Mail, Phone, Clock, Users, Calendar as CalendarIcon, AlertTriangle, Award, CheckCircle2, XCircle, Loader2, LogIn, LogOut, History, ArrowRight, Keyboard, Copy, ExternalLink } from 'lucide-react';
 import { MoreHorizontal } from 'lucide-react';
+import { DateTime } from 'luxon';
 import { useCallback, useEffect, useMemo, useState, type ComponentType } from 'react';
 
 import { BookingActionButton, BookingStatusBadge, StatusTransitionAnimator } from '@/components/features/booking-state-machine';
 import { BookingAssignmentTabContent } from '@/components/features/dashboard/booking-details/BookingAssignmentTabContent';
-
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { CopyButton } from '@/components/ui/copy-button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import {
   DropdownMenu,
@@ -25,10 +27,8 @@ import {
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CopyButton } from '@/components/ui/copy-button';
 import { useBookingState } from '@/contexts/booking-state-machine';
 import { useBookingService } from '@/contexts/ops-services';
-
 import { useCountdown } from '@/hooks/use-countdown';
 import { useToast } from '@/hooks/use-toast';
 import { queryKeys } from '@/lib/query/keys';
@@ -82,6 +82,7 @@ export function BookingDetailsDialog({
   onAssignTable: _onAssignTable,
   onUnassignTable,
   tableActionState,
+   
 }: BookingDetailsDialogProps) {
 
   const [isOpen, setIsOpen] = useState(false);
@@ -339,13 +340,13 @@ export function BookingDetailsDialog({
             Details
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden p-0 gap-0">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden p-0 gap-0">
           <div className="grid h-full max-h-[90vh] lg:grid-cols-12">
             {/* LEFT SIDEBAR: Guest Context */}
             <div className="flex flex-col gap-6 border-r bg-muted/10 p-6 lg:col-span-4 overflow-y-auto">
               {/* Guest Header */}
               <div className="flex items-center gap-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-xl font-bold text-primary">
+                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 via-primary/15 to-primary/10 border-2 border-primary/30 text-2xl font-bold text-primary shadow-sm">
                   {booking.customerName
                     .split(' ')
                     .map((n) => n[0])
@@ -353,20 +354,27 @@ export function BookingDetailsDialog({
                     .slice(0, 2)
                     .toUpperCase()}
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <DialogTitle className="text-xl font-bold tracking-tight text-foreground">
                     {booking.customerName}
                   </DialogTitle>
                   {booking.loyaltyTier ? (
                     <Badge
                       variant="secondary"
-                      className={cn('capitalize', TIER_COLORS[booking.loyaltyTier])}
+                      className={cn(
+                        'capitalize px-3 py-1.5 text-sm font-semibold shadow-sm',
+                        TIER_COLORS[booking.loyaltyTier],
+                        (booking.loyaltyTier === 'platinum' || booking.loyaltyTier === 'gold') && 'bg-gradient-to-r'
+                      )}
                     >
-                      {(booking.loyaltyTier === 'platinum' || booking.loyaltyTier === 'gold') && '⭐ '}
+                      {booking.loyaltyTier === 'platinum' && '💎 '}
+                      {booking.loyaltyTier === 'gold' && '👑 '}
+                      {booking.loyaltyTier === 'silver' && '🥈 '}
+                      {booking.loyaltyTier === 'bronze' && '🥉 '}
                       {booking.loyaltyTier}
                     </Badge>
                   ) : (
-                    <Badge variant="outline" className="text-muted-foreground">
+                    <Badge variant="outline" className="text-muted-foreground px-3 py-1">
                       Guest
                     </Badge>
                   )}

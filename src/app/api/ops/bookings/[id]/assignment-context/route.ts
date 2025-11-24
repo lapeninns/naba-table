@@ -1,11 +1,11 @@
-import { NextResponse } from "next/server";
 import { DateTime } from "luxon";
+import { NextResponse } from "next/server";
 
-import { getServiceSupabaseClient, getTenantServiceSupabaseClient } from "@/server/supabase";
-import { toIsoUtc } from "@/server/capacity/table-assignment/utils";
+import { getVenuePolicy } from "@/server/capacity/policy";
 import { buildBusyMaps, extractConflictsForTables } from "@/server/capacity/table-assignment/availability";
 import { computeBookingWindowWithFallback } from "@/server/capacity/table-assignment/booking-window";
-import { getVenuePolicy } from "@/server/capacity/policy";
+import { toIsoUtc } from "@/server/capacity/table-assignment/utils";
+import { getServiceSupabaseClient, getTenantServiceSupabaseClient } from "@/server/supabase";
 
 
 import type { NextRequest } from "next/server";
@@ -59,7 +59,10 @@ export async function GET(
 
   // 3. Load all necessary data in parallel
   const [tablesResult, contextBookingsResult, bookingAssignmentsResult] = await Promise.all([
-    restaurantClient.from("table_inventory").select("*"),
+    restaurantClient
+      .from("table_inventory")
+      .select("*, zone:zones(active)")
+      .order("table_number", { ascending: true }),
     restaurantClient
       .from("bookings")
       .select("id, start_at, end_at, status, party_size, start_time, end_time, booking_date, booking_table_assignments(table_id)")
@@ -72,7 +75,31 @@ export async function GET(
     return NextResponse.json({ error: "Failed to load assignment context", code: "CONTEXT_LOAD_FAILED" }, { status: 500 });
   }
 
-  const tables = tablesResult.data;
+  const tables = tablesResult.data.map((table) => {
+    const zoneActive = (table as unknown as { zone?: { active?: boolean | null } }).zone?.active ?? null;
+    const status = (table as { status?: string | null }).status ?? null;
+    const normalizedStatus = typeof status === "string" ? status.toLowerCase() : null;
+
+    // Explicitly map snake_case database fields to camelCase
+    const raw = table as Record<string, unknown>;
+    return {
+      id: raw.id as string,
+      tableNumber: raw.table_number as string,
+      name: raw.name as string | null | undefined,
+      capacity: raw.capacity as number,
+      minPartySize: raw.min_party_size as number,
+      maxPartySize: raw.max_party_size as number | null,
+      section: raw.section as string | null,
+      category: raw.category as string,
+      seatingType: raw.seating_type as string,
+      mobility: raw.mobility as string,
+      zoneId: raw.zone_id as string,
+      zoneActive,
+      status: normalizedStatus,
+      active: raw.active as boolean,
+      position: raw.position as Record<string, unknown> | null,
+    };
+  });
   const contextBookings = contextBookingsResult.data;
   const bookingAssignments = bookingAssignmentsResult.data.map(a => a.table_id);
 

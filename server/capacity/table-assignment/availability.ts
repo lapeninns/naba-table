@@ -148,7 +148,8 @@ export function filterAvailableTables(
     if (zoneId && table.zoneId !== zoneId) return false;
     if (table.zoneActive === false) return false;
     if (table.active === false) return false;
-    if (typeof table.status === "string" && table.status.toLowerCase() === "out_of_service") return false;
+    const status = (table.status ?? "").toString().toLowerCase();
+    if (status !== "available") return false;
     const capacity = table.capacity ?? 0;
     if (!Number.isFinite(capacity) || capacity <= 0) return false;
     if (!allowPartial && capacity < partySize) return false;
