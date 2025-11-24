@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
       // Test simple email sending
       await sendEmail({
         to: email,
-        subject: "Test Email from SajiloReserveX",
+        subject: "Test Email from Nab a Table",
         html: `
           <div style="font-family: Arial, sans-serif; padding: 20px;">
             <h1>Test Email</h1>

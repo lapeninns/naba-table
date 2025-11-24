@@ -12,11 +12,13 @@ export type CreateZoneInput = {
   restaurantId: string;
   name: string;
   sortOrder?: number | null;
+  active?: boolean;
 };
 
 export type UpdateZoneInput = {
   name?: string;
   sortOrder?: number | null;
+  active?: boolean;
 };
 
 export async function listZones(client: PublicClient, restaurantId: string): Promise<ZoneRow[]> {
@@ -39,6 +41,7 @@ export async function createZone(client: PublicClient, input: CreateZoneInput): 
     restaurant_id: input.restaurantId,
     name: input.name,
     sort_order: input.sortOrder ?? 0,
+    active: input.active ?? true,
   };
 
   const { data, error } = await client.from("zones").insert(insertPayload).select("*").single();
@@ -61,6 +64,10 @@ export async function updateZone(client: PublicClient, zoneId: string, input: Up
 
   if (input.sortOrder !== undefined) {
     payload.sort_order = input.sortOrder ?? 0;
+  }
+
+  if (input.active !== undefined) {
+    payload.active = input.active;
   }
 
   const { data, error } = await client.from("zones").update(payload).eq("id", zoneId).select("*").single();

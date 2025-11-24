@@ -38,12 +38,14 @@ const apiReservationSchema = z
         z
           .object({
             name: z.string().optional().nullable(),
+            slug: z.string().optional().nullable(),
           })
           .passthrough(),
         z.array(
           z
             .object({
               name: z.string().optional().nullable(),
+              slug: z.string().optional().nullable(),
             })
             .passthrough(),
         ),
@@ -134,6 +136,17 @@ const extractRestaurantName = (input: unknown): string | null => {
   return typeof name === 'string' ? name : null;
 };
 
+const extractRestaurantSlug = (input: unknown): string | null => {
+  if (!input) return null;
+  if (Array.isArray(input)) {
+    return extractRestaurantSlug(input[0]);
+  }
+  const record = isRecord(input);
+  if (!record) return null;
+  const { slug } = record;
+  return typeof slug === 'string' ? slug : null;
+};
+
 const normalizeReservation = (input: z.infer<typeof apiReservationSchema>) => {
   const metadata = parseMetadata(input.details);
   const startAt =
@@ -151,6 +164,7 @@ const normalizeReservation = (input: z.infer<typeof apiReservationSchema>) => {
     id: input.id,
     restaurantId: input.restaurant_id,
     restaurantName: extractRestaurantName(input.restaurants),
+    restaurantSlug: extractRestaurantSlug(input.restaurants),
     bookingDate: input.booking_date,
     startTime: input.start_time,
     endTime: input.end_time ?? undefined,

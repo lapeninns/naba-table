@@ -9,7 +9,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Edit, Loader2, Plus, Trash2 } from 'lucide-react';
+import { Edit, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -98,7 +98,7 @@ function TableForm({
   onClose: () => void;
   onSubmit: (payload: TableFormState) => void;
   isSaving: boolean;
-  zones: { id: string; name: string }[];
+  zones: { id: string; name: string; active: boolean }[];
   isZonesLoading: boolean;
 }) {
   // REVISION: Use controlled components for all form fields to prevent data loss
@@ -114,7 +114,7 @@ function TableForm({
   const isZoneSelectDisabled = zones.length === 0;
 
   useEffect(() => {
-    const defaultZone = table?.zoneId ?? zones[0]?.id;
+    const defaultZone = table?.zoneId ?? zones.find((zone) => zone.active)?.id ?? zones[0]?.id;
     setZoneId(defaultZone);
     setCategory(table?.category ?? 'dining');
     setSeatingType(table?.seatingType ?? 'standard');
@@ -122,6 +122,8 @@ function TableForm({
     setStatus(table?.status ?? 'available');
     setActive(table?.active ?? true);
   }, [table, zones]);
+
+  const selectedZone = zones.find((zone) => zone.id === zoneId);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -219,132 +221,136 @@ function TableForm({
         </div>
 
         <div className="grid gap-2">
-            <Label htmlFor="section">Section</Label>
-            <Input
-              id="section"
-              name="section"
-              defaultValue={table?.section ?? ''}
-              placeholder="Main Dining, Patio, Bar"
-            />
+          <Label htmlFor="section">Section</Label>
+          <Input
+            id="section"
+            name="section"
+            defaultValue={table?.section ?? ''}
+            placeholder="Main Dining, Patio, Bar"
+          />
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-            <div className="grid gap-2">
-                <Label htmlFor="zoneId">Zone *</Label>
-                <Select
-                    value={zoneId}
-                    onValueChange={setZoneId}
-                    disabled={isZoneSelectDisabled || isZonesLoading}
-                >
-                    <SelectTrigger id="zoneId">
-                    <SelectValue placeholder="Select a zone" />
-                    </SelectTrigger>
-                    <SelectContent>
-                    {isZonesLoading ? (
-                        <SelectLabel>Loading zones...</SelectLabel>
-                    ) : isZoneSelectDisabled ? (
-                        <SelectGroup>
-                        <SelectLabel className="text-muted-foreground">No zones configured</SelectLabel>
-                        </SelectGroup>
-                    ) : (
-                        zones.map((zone) => (
-                        <SelectItem key={zone.id} value={zone.id}>
-                            {zone.name}
-                        </SelectItem>
-                        ))
-                    )}
-                    </SelectContent>
-                </Select>
-            </div>
-            <div className="grid gap-2">
-                <Label htmlFor="category">Category</Label>
-                <Select value={category} onValueChange={(v) => setCategory(v as any)}>
-                    <SelectTrigger id="category">
-                    <SelectValue placeholder="Choose category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                    {CATEGORY_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                        </SelectItem>
-                    ))}
-                    </SelectContent>
-                </Select>
-                {/* REVISION: Add helper text for clarity */}
-                <p className="text-xs text-muted-foreground">For organizational purposes only. Does not affect allocation.</p>
-            </div>
+          <div className="grid gap-2">
+            <Label htmlFor="zoneId">Zone *</Label>
+            <Select
+              value={zoneId}
+              onValueChange={setZoneId}
+              disabled={isZoneSelectDisabled || isZonesLoading}
+            >
+              <SelectTrigger id="zoneId">
+                <SelectValue placeholder="Select a zone" />
+              </SelectTrigger>
+              <SelectContent>
+                {isZonesLoading ? (
+                  <SelectLabel>Loading zones...</SelectLabel>
+                ) : isZoneSelectDisabled ? (
+                  <SelectGroup>
+                    <SelectLabel className="text-muted-foreground">No zones configured</SelectLabel>
+                  </SelectGroup>
+                ) : (
+                  zones.map((zone) => (
+                    <SelectItem key={zone.id} value={zone.id}>
+                      {zone.name}
+                      {!zone.active ? ' (inactive)' : ''}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+            {selectedZone && selectedZone.active === false && (
+              <p className="text-xs text-amber-600">Zone is inactive. Reactivate it to bring these tables back into service.</p>
+            )}
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="category">Category</Label>
+            <Select value={category} onValueChange={(v) => setCategory(v as TableInventory['category'])}>
+              <SelectTrigger id="category">
+                <SelectValue placeholder="Choose category" />
+              </SelectTrigger>
+              <SelectContent>
+                {CATEGORY_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {/* REVISION: Add helper text for clarity */}
+            <p className="text-xs text-muted-foreground">For organizational purposes only. Does not affect allocation.</p>
+          </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-            <div className="grid gap-2">
-                <Label htmlFor="seatingType">Seating</Label>
-                <Select value={seatingType} onValueChange={(v) => setSeatingType(v as any)}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Choose seating" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {SEATING_TYPE_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                        </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </div>
-            <div className="grid gap-2">
-                <Label htmlFor="mobility">Mobility</Label>
-                <Select value={mobility} onValueChange={(v) => setMobility(v as any)}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Choose mobility" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {MOBILITY_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                        </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </div>
+          <div className="grid gap-2">
+            <Label htmlFor="seatingType">Seating</Label>
+            <Select value={seatingType} onValueChange={(v) => setSeatingType(v as TableInventory['seatingType'])}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choose seating" />
+              </SelectTrigger>
+              <SelectContent>
+                {SEATING_TYPE_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="mobility">Mobility</Label>
+            <Select value={mobility} onValueChange={(v) => setMobility(v as TableInventory['mobility'])}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choose mobility" />
+              </SelectTrigger>
+              <SelectContent>
+                {MOBILITY_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-            <div className="grid gap-2">
-                <Label htmlFor="status">Status</Label>
-                <Select value={status} onValueChange={(v) => setStatus(v as any)}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Set status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {STATUS_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                        </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-                 {/* REVISION: Add helper text for clarity on status semantics */}
-                <p className="text-xs text-muted-foreground">'Out of service' blocks assignments. Other statuses are informational.</p>
+          <div className="grid gap-2">
+            <Label htmlFor="status">Status</Label>
+            <Select value={status} onValueChange={(v) => setStatus(v as TableInventory['status'])}>
+              <SelectTrigger>
+                <SelectValue placeholder="Set status" />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {/* REVISION: Add helper text for clarity on status semantics */}
+            <p className="text-xs text-muted-foreground">&apos;Out of service&apos; blocks assignments. Other statuses are informational.</p>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="active">Service status</Label>
+            <div className="flex items-center space-x-2 rounded-md border p-3">
+              <Switch id="active-switch" checked={active} onCheckedChange={setActive} />
+              <Label htmlFor="active-switch" className="flex-grow text-sm text-muted-foreground">
+                {active ? 'Active in service' : 'Inactive / Decommissioned'}
+              </Label>
             </div>
-            <div className="grid gap-2">
-                <Label htmlFor="active">Service status</Label>
-                <div className="flex items-center space-x-2 rounded-md border p-3">
-                    <Switch id="active-switch" checked={active} onCheckedChange={setActive} />
-                    <Label htmlFor="active-switch" className="flex-grow text-sm text-muted-foreground">
-                        {active ? 'Active in service' : 'Inactive / Decommissioned'}
-                    </Label>
-                </div>
-            </div>
+          </div>
         </div>
         <div className="grid gap-2">
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea
-                id="notes"
-                name="notes"
-                defaultValue={table?.notes ?? ''}
-                placeholder="Optional internal notes about this table"
-                rows={3}
-            />
+          <Label htmlFor="notes">Notes</Label>
+          <Textarea
+            id="notes"
+            name="notes"
+            defaultValue={table?.notes ?? ''}
+            placeholder="Optional internal notes about this table"
+            rows={3}
+          />
         </div>
 
       </div>
@@ -413,7 +419,8 @@ export default function TableInventoryClient() {
     staleTime: 30_000,
   });
 
-  const tables = tableQueryResult?.tables ?? [];
+
+  const tables = useMemo(() => tableQueryResult?.tables ?? [], [tableQueryResult?.tables]);
   const summary = tableQueryResult?.summary ?? null;
 
   const {
@@ -436,20 +443,20 @@ export default function TableInventoryClient() {
   // REVISION: Ensure zones are always sorted consistently
   const zones = useMemo(() => {
     return (zonesData ?? []).slice().sort((a, b) => {
-        const orderA = a.sortOrder ?? 0;
-        const orderB = b.sortOrder ?? 0;
-        if (orderA !== orderB) {
-            return orderA - orderB;
-        }
-        return a.name.localeCompare(b.name);
+      const orderA = a.sortOrder ?? 0;
+      const orderB = b.sortOrder ?? 0;
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+      return a.name.localeCompare(b.name);
     });
   }, [zonesData]);
 
   const zoneOptions = useMemo(() => {
     // REVISION: Base options on the authoritative, sorted `zones` list
-    return zones.map((zone) => ({ id: zone.id, name: zone.name }));
+    return zones.map((zone) => ({ id: zone.id, name: zone.name, active: zone.active }));
   }, [zones]);
-  
+
   const isZoneSelectDisabled = zoneOptions.length === 0;
 
   const filteredTables = useMemo(() => {
@@ -472,8 +479,9 @@ export default function TableInventoryClient() {
       description?: string;
     };
 
-    const activeTables = tables.filter((table) => table.active).length;
-    const inactiveTables = Math.max(summary.totalTables - activeTables, 0);
+    const serviceReadyTables = tables.filter((table) => table.active && table.zoneActive).length;
+    const inactiveTables = Math.max(summary.totalTables - serviceReadyTables, 0);
+    const inactiveZones = summary.zones.filter((zone) => zone.active === false).length;
 
     const cards: SummaryCardDescriptor[] = [
       {
@@ -490,13 +498,14 @@ export default function TableInventoryClient() {
       {
         key: 'active-tables',
         label: 'Active for service',
-        value: `${activeTables.toLocaleString()} tables`,
+        value: `${serviceReadyTables.toLocaleString()} tables`,
         description: inactiveTables > 0 ? `${inactiveTables.toLocaleString()} inactive` : undefined,
       },
       {
         key: 'zones-configured',
         label: 'Zones configured',
         value: summary.zones.length.toLocaleString(),
+        description: inactiveZones > 0 ? `${inactiveZones} inactive` : undefined,
       },
     ];
 
@@ -580,14 +589,18 @@ export default function TableInventoryClient() {
   });
 
   const zoneUpdateMutation = useMutation({
-    mutationFn: ({ zoneId, name, sortOrder }: { zoneId: string; name?: string; sortOrder?: number }) =>
-      zoneService.update(zoneId, { name, sortOrder }),
-    onSuccess: (zone) => {
+    mutationFn: ({ zoneId, name, sortOrder, active }: { zoneId: string; name?: string; sortOrder?: number; active?: boolean }) =>
+      zoneService.update(zoneId, { name, sortOrder, active }),
+    onSuccess: (zone, variables) => {
       queryClient.invalidateQueries({ queryKey: zonesQueryKey });
       queryClient.invalidateQueries({ queryKey: ['ops', 'tables'] });
       setIsZoneDialogOpen(false);
       setEditingZone(null);
-      toast({ title: 'Zone updated', description: 'Changes saved.' });
+      const toggled = variables.active !== undefined;
+      toast({
+        title: toggled ? (variables.active ? 'Zone enabled' : 'Zone disabled') : 'Zone updated',
+        description: toggled ? `${zone.name} ${variables.active ? 'is back in service.' : 'is now out of service.'}` : 'Changes saved.',
+      });
       setFilterZone((current) => (current === zone.id ? zone.id : current));
     },
     onError: (error) => {
@@ -629,7 +642,7 @@ export default function TableInventoryClient() {
       zoneDeleteMutation.mutate({ zoneId: zone.id });
     }
   };
-  
+
   const handleTableSubmit = (payload: TableFormState) => {
     if (!activeRestaurantId) return;
 
@@ -743,87 +756,113 @@ export default function TableInventoryClient() {
       {/* ... (Zones section JSX updated to use the safe delete handler) ... */}
       <section className="rounded-lg border p-4 space-y-4">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div className="space-y-1">
-                <h2 className="text-lg font-semibold">Zones</h2>
-                <p className="text-sm text-muted-foreground">
-                Group tables by areas of your floor plan. Add or rename zones as your layout changes.
-                </p>
-            </div>
-            <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                setEditingZone(null);
-                setIsZoneDialogOpen(true);
-                }}
-            >
-                <Plus className="mr-2 h-4 w-4" />
-                Add zone
-            </Button>
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold">Zones</h2>
+            <p className="text-sm text-muted-foreground">
+              Group tables by areas of your floor plan. Add or rename zones as your layout changes.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setEditingZone(null);
+              setIsZoneDialogOpen(true);
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add zone
+          </Button>
         </div>
 
         {isLoadingZones ? (
-            <div className="flex flex-wrap gap-2">
-                <Skeleton className="h-9 w-32" />
-                <Skeleton className="h-9 w-28" />
-                <Skeleton className="h-9 w-24" />
-            </div>
+          <div className="flex flex-wrap gap-2">
+            <Skeleton className="h-9 w-32" />
+            <Skeleton className="h-9 w-28" />
+            <Skeleton className="h-9 w-24" />
+          </div>
         ) : isZonesError ? (
-            <Alert variant="destructive">
-                <AlertTitle>Zones unavailable</AlertTitle>
-                <AlertDescription>
-                    {zonesError instanceof Error ? zonesError.message : 'Unable to load zones right now.'}
-                </AlertDescription>
-            </Alert>
+          <Alert variant="destructive">
+            <AlertTitle>Zones unavailable</AlertTitle>
+            <AlertDescription>
+              {zonesError instanceof Error ? zonesError.message : 'Unable to load zones right now.'}
+            </AlertDescription>
+          </Alert>
         ) : zones.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-                No zones configured yet. Create your first zone to start organizing tables.
-            </p>
+          <p className="text-sm text-muted-foreground">
+            No zones configured yet. Create your first zone to start organizing tables.
+          </p>
         ) : (
-            <ul className="flex flex-wrap gap-2">
-                {zones.map((zone) => {
-                const isActive = filterZone === zone.id;
-                return (
-                    <li key={zone.id}>
-                    <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-2">
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {zones.map((zone) => {
+              const isActiveFilter = filterZone === zone.id;
+              return (
+                <li key={zone.id}>
+                  <div
+                    className={`flex flex-col gap-2 rounded-md border px-3 py-2 ${zone.active ? 'bg-background' : 'bg-muted/60'
+                      }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
                         <Button
-                        type="button"
-                        size="sm"
-                        variant={isActive ? 'default' : 'ghost'}
-                        onClick={() => setFilterZone(isActive ? ALL_ZONES_VALUE : zone.id)}
+                          type="button"
+                          size="sm"
+                          variant={isActiveFilter ? 'default' : 'ghost'}
+                          onClick={() => setFilterZone(isActiveFilter ? ALL_ZONES_VALUE : zone.id)}
                         >
-                        {zone.name}
+                          {zone.name}
                         </Button>
+                        <Badge variant={zone.active ? 'outline' : 'secondary'}>
+                          {zone.active ? 'Active' : 'Inactive'}
+                        </Badge>
                         <span className="text-xs text-muted-foreground">#{zone.sortOrder ?? 0}</span>
-                        <div className="flex items-center gap-1">
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                            setEditingZone(zone);
-                            setIsZoneDialogOpen(true);
-                            }}
-                            aria-label={`Edit zone ${zone.name}`}
-                        >
-                            <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            disabled={zoneDeleteMutation.isPending}
-                            onClick={() => handleZoneDelete(zone)} // REVISION: Use safe delete handler
-                            aria-label={`Delete zone ${zone.name}`}
-                        >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={zone.active}
+                          onCheckedChange={(checked) =>
+                            zoneUpdateMutation.mutate({ zoneId: zone.id, active: checked })
+                          }
+                          aria-label={`Toggle ${zone.name} zone availability`}
+                          disabled={zoneUpdateMutation.isPending}
+                        />
+                        <span className="hidden text-xs text-muted-foreground md:inline">Seasonal toggle</span>
+                      </div>
                     </div>
-                    </li>
-                );
-                })}
-            </ul>
+                    <p className="text-xs text-muted-foreground">
+                      {zone.active
+                        ? 'Included in capacity and assignments.'
+                        : 'Tables stay visible but are excluded from service until re-enabled.'}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setEditingZone(zone);
+                          setIsZoneDialogOpen(true);
+                        }}
+                        aria-label={`Edit zone ${zone.name}`}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        disabled={zoneDeleteMutation.isPending}
+                        onClick={() => handleZoneDelete(zone)}
+                        aria-label={`Delete zone ${zone.name}`}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </section>
 
@@ -840,6 +879,7 @@ export default function TableInventoryClient() {
               {zoneOptions.map((zone) => (
                 <SelectItem key={zone.id} value={zone.id}>
                   {zone.name}
+                  {zone.active ? '' : ' (inactive)'}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -894,11 +934,14 @@ export default function TableInventoryClient() {
               </TableRow>
             ) : (
               filteredTables.map((table) => (
-                <TableRow key={table.id}>
+                <TableRow key={table.id} className={table.zoneActive ? undefined : 'bg-muted/60'}>
                   <TableCell className="font-medium">
                     <span>{table.tableNumber}</span>
                   </TableCell>
-                  <TableCell>{table.zoneName ?? '—'}</TableCell>
+                  <TableCell className="flex items-center gap-2">
+                    <span>{table.zoneName ?? '—'}</span>
+                    {table.zoneActive === false && <Badge variant="secondary">Zone off</Badge>}
+                  </TableCell>
                   <TableCell>{table.capacity}</TableCell>
                   <TableCell>
                     {table.minPartySize}
@@ -915,8 +958,10 @@ export default function TableInventoryClient() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {table.active ? (
+                    {table.active && table.zoneActive !== false ? (
                       <Badge variant="outline">Active</Badge>
+                    ) : table.active ? (
+                      <Badge variant="secondary">Blocked by zone</Badge>
                     ) : (
                       <Badge variant="secondary">Inactive</Badge>
                     )}
@@ -979,7 +1024,7 @@ export default function TableInventoryClient() {
           />
         </DialogContent>
       </Dialog>
-      
+
       {/* ... (Zone dialog remains the same) ... */}
       <Dialog
         open={isZoneDialogOpen}

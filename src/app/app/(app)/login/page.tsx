@@ -1,4 +1,4 @@
-import Link from "next/link";
+
 import { redirect } from "next/navigation";
 
 import { SignInForm } from "@/components/auth/SignInForm";
@@ -7,7 +7,7 @@ import { getServerComponentSupabaseClient } from "@/server/supabase";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Sign in to operations · SajiloReserveX",
+  title: "Sign in to operations · Nab a Table",
   description: "Access the restaurant operations console to manage bookings and your team.",
 };
 

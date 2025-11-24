@@ -117,7 +117,7 @@ function BrandMark() {
       <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-primary/80 via-primary/90 to-primary text-sm font-bold text-primary-foreground shadow-sm">
         SRX
       </span>
-      <span>SajiloReserveX</span>
+      <span>Nab a Table</span>
     </Link>
   );
 }

@@ -8,7 +8,7 @@ import { getServerComponentSupabaseClient } from "@/server/supabase";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Team management · SajiloReserveX",
+  title: "Team management · Nab a Table",
   description: "Invite teammates and oversee restaurant staff access.",
 };
 

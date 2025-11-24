@@ -12,7 +12,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 type PublicClient = SupabaseClient<Database>;
 
 export type TableRow = Tables<"table_inventory">;
-export type ZoneRow = Pick<Tables<"zones">, "id" | "name">;
+export type ZoneRow = Pick<Tables<"zones">, "id" | "name" | "active">;
 export type TableRecord = TableRow & {
   zone?: ZoneRow | null;
 };
@@ -95,6 +95,7 @@ function normalizeZone(zone: RawTableRecord["zone"]): ZoneRow | null {
   return {
     id: normalized.id,
     name: normalized.name,
+    active: normalized.active ?? true,
   };
 }
 
@@ -128,7 +129,8 @@ const TABLE_SELECT = `
   active,
   zone:zones (
     id,
-    name
+    name,
+    active
   )
 `;
 
@@ -312,9 +314,12 @@ async function computeSummary(
   tables: TableRecord[],
   zones: ZoneRow[],
 ): Promise<TableSummary> {
-  const totalTables = tables.length;
-  const totalCapacity = tables.reduce((sum, table) => sum + (table.capacity ?? 0), 0);
-  const availableTables = tables.filter((table) => table.status === "available").length;
+  const activeZoneIds = new Set(zones.filter((zone) => zone.active ?? true).map((zone) => zone.id));
+  const tablesInActiveZones = tables.filter((table) => !table.zone || activeZoneIds.has(table.zone.id));
+
+  const totalTables = tablesInActiveZones.length;
+  const totalCapacity = tablesInActiveZones.reduce((sum, table) => sum + (table.capacity ?? 0), 0);
+  const availableTables = tablesInActiveZones.filter((table) => table.status === "available").length;
 
   if (totalTables === 0) {
     return {
@@ -326,7 +331,7 @@ async function computeSummary(
     };
   }
 
-  const eligibleTables = tables.filter(
+  const eligibleTables = tablesInActiveZones.filter(
     (table) => table.active && table.capacity > 0 && table.status !== "out_of_service",
   );
   const seatsPerTurn = eligibleTables.reduce((sum, table) => sum + Math.max(table.capacity ?? 0, 0), 0);
@@ -435,7 +440,7 @@ export async function listTablesWithSummary(
 
   const zonesQuery = client
     .from("zones")
-    .select("id, name")
+    .select("id, name, active")
     .eq("restaurant_id", restaurantId)
     .order("sort_order", { ascending: true })
     .order("name", { ascending: true });
@@ -454,6 +459,7 @@ export async function listTablesWithSummary(
   const zones = (zonesResult.data ?? []).map((zone) => ({
     id: zone.id,
     name: zone.name,
+    active: zone.active ?? true,
   })) as ZoneRow[];
 
   return {

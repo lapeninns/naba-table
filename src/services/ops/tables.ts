@@ -9,7 +9,7 @@ const OPS_TABLE_TIMELINE_BASE = '/api/tables/timeline';
 type TableInventoryRow = Tables<'table_inventory'>;
 
 type TableInventoryDto = TableInventoryRow & {
-  zone?: { id: string; name: string | null } | null;
+  zone?: { id: string; name: string | null; active?: boolean | null } | null;
 };
 
 type ServiceCapacitySummaryDto = {
@@ -31,7 +31,7 @@ type TableInventorySummaryDto = {
   totalTables: number;
   totalCapacity: number;
   availableTables: number;
-  zones: { id: string; name: string }[];
+  zones: { id: string; name: string; active?: boolean | null }[];
   serviceCapacities?: ServiceCapacitySummaryDto[];
 };
 
@@ -53,6 +53,7 @@ export type TableInventory = {
   mobility: TableInventoryDto['mobility'];
   zoneId: string;
   zoneName: string | null;
+  zoneActive: boolean;
   active: boolean;
   status: TableInventoryDto['status'];
   position: Record<string, unknown> | null;
@@ -63,7 +64,7 @@ export type TableInventorySummary = {
   totalTables: number;
   totalCapacity: number;
   availableTables: number;
-  zones: { id: string; name: string }[];
+  zones: { id: string; name: string; active: boolean }[];
   serviceCapacities: ServiceCapacitySummaryDto[];
 };
 
@@ -168,6 +169,7 @@ function mapTableInventory(dto: TableInventoryDto): TableInventory {
     mobility: dto.mobility,
     zoneId: dto.zone_id,
     zoneName: dto.zone?.name ?? null,
+    zoneActive: dto.zone?.active ?? true,
     active: dto.active,
     status: dto.status,
     position,
@@ -205,7 +207,7 @@ function mapSummary(dto: TableInventorySummaryDto | undefined): TableInventorySu
     totalTables: dto.totalTables,
     totalCapacity: dto.totalCapacity,
     availableTables: dto.availableTables,
-    zones: dto.zones ?? [],
+    zones: (dto.zones ?? []).map((zone) => ({ id: zone.id, name: zone.name, active: zone.active ?? true })),
     serviceCapacities: dto.serviceCapacities ?? [],
   };
 }

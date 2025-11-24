@@ -1,8 +1,8 @@
-# SajiloReserveX Routing Conventions
+# Nab a Table Routing Conventions
 
 ## Overview
 
-This document defines the standardized routing conventions used across SajiloReserveX to ensure consistency, discoverability, and maintainability of the application's API and page routes.
+This document defines the standardized routing conventions used across Nab a Table to ensure consistency, discoverability, and maintainability of the application's API and page routes.
 
 ## Table of Contents
 

@@ -27,6 +27,7 @@ export const reservationSchema = z.object({
   id: z.string().uuid(),
   restaurantId: z.string().uuid(),
   restaurantName: z.string().nullable().optional(),
+  restaurantSlug: z.string().nullable().optional(),
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   startTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/), // Allow HH:MM or HH:MM:SS
   endTime: z

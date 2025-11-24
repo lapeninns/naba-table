@@ -1,4 +1,4 @@
--- Seed dataset for SajiloReserveX (La Pen Inns)
+-- Seed dataset for Nab a Table (Lapen Inns)
 -- Generates restaurants, tables, bookings, assignments, holds, analytics, and supporting fixtures.
 
 BEGIN;

@@ -14,7 +14,7 @@ import type { OpsRestaurantOption } from '@/types/ops';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Customers · SajiloReserveX Ops',
+  title: 'Customers · Nab a Table Ops',
   description: 'View and export customer booking data for your restaurant.',
 };
 

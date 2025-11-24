@@ -125,7 +125,7 @@ export function OwnerLandingPage() {
           </Badge>
           <h2 className="text-balance text-3xl font-semibold md:text-4xl text-slate-900">Every direct channel in one console</h2>
           <p className="mx-auto max-w-3xl text-muted-foreground">
-            Keep the revenue you create. SajiloReserveX connects your owned channels with live pacing intelligence so no seat is wasted.
+            Keep the revenue you create. Nab a Table connects your owned channels with live pacing intelligence so no seat is wasted.
           </p>
         </div>
         <div className="grid gap-6 md:grid-cols-3">

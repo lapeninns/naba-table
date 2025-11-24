@@ -2044,6 +2044,7 @@ export type Database = {
       }
       zones: {
         Row: {
+          active: boolean
           area_type: Database["public"]["Enums"]["area_type"]
           created_at: string
           id: string
@@ -2053,6 +2054,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          active?: boolean
           area_type?: Database["public"]["Enums"]["area_type"]
           created_at?: string
           id?: string
@@ -2062,6 +2064,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          active?: boolean
           area_type?: Database["public"]["Enums"]["area_type"]
           created_at?: string
           id?: string

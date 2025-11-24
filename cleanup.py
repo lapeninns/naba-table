@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-SajiloReserveX Advanced Cleanup Script
+Nab a Table Advanced Cleanup Script
 ====================================
 
 Provides intelligent cleanup of legacy code, tests, and documentation.
@@ -251,7 +251,7 @@ class ProjectCleaner:
         """Execute the cleanup"""
         print()
         print(f"{self.COLORS['info']}╔════════════════════════════════════════════════════════╗{self.COLORS['reset']}")
-        print(f"{self.COLORS['info']}║    SajiloReserveX Advanced Cleanup Script              ║{self.COLORS['reset']}")
+        print(f"{self.COLORS['info']}║    Nab a Table Advanced Cleanup Script                ║{self.COLORS['reset']}")
         print(f"{self.COLORS['info']}╚════════════════════════════════════════════════════════╝{self.COLORS['reset']}")
         print()
         
@@ -322,7 +322,7 @@ def main():
     
     args = parser.parse_args()
     
-    project_root = '/Users/amankumarshrestha/Downloads/SajiloReserveX'
+    project_root = str(Path.cwd())
     
     if not Path(project_root).exists():
         print(f"Error: Project root not found: {project_root}")

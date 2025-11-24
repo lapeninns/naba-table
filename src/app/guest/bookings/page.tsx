@@ -10,7 +10,7 @@ import type { Metadata } from "next";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "My Bookings · SajiloReserveX",
+  title: "My Bookings · Nab a Table",
   description: "View upcoming and past bookings.",
 };
 

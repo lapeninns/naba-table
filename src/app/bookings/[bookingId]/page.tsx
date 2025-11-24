@@ -74,8 +74,8 @@ export async function generateMetadata({ params }: { params: RouteParams }): Pro
   const { bookingId } = await params;
   const safeId = bookingId?.trim() || "reservation";
   return {
-    title: `Booking ${shortenId(safeId)} · SajiloReserveX`,
-    description: "Review the latest status, timing, and actions for your SajiloReserveX booking.",
+    title: `Booking ${shortenId(safeId)} · Nab a Table`,
+    description: "Review the latest status, timing, and actions for your Nab a Table booking.",
   };
 }
 

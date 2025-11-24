@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 
 import { useSupabaseSession } from "@/hooks/useSupabaseSession";
+import { DEFAULT_RESTAURANT_SLUG } from "@shared/config/venue";
 
 type BookingDetails = {
   id: string;
@@ -61,43 +62,63 @@ function ThankYouPageContent() {
   const { user } = useSupabaseSession();
   const restaurantSlugParam = searchParams?.get("restaurantSlug")?.trim() ?? null;
 
-  const [pageState, setPageState] = useState<PageState>(() => (token ? { state: "loading" } : { state: "idle" }));
+  const initialTokenRef = useRef<string | null>(token);
+  const [pageState, setPageState] = useState<PageState>({ state: "loading" });
 
   useEffect(() => {
-    if (!token) return;
+    const effectiveToken = initialTokenRef.current;
+    const hasToken = Boolean(effectiveToken);
+    let canceled = false;
 
     const fetchBooking = async () => {
       try {
-        const url = `/api/bookings/confirm?token=${encodeURIComponent(token)}`;
+        const url = hasToken
+          ? `/api/bookings/confirm?token=${encodeURIComponent(effectiveToken ?? "")}`
+          : "/api/bookings/confirm";
         const response = await fetch(url, { credentials: "same-origin" });
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          setPageState({
-            state: "error",
-            message: errorData.error || "Unable to load booking confirmation",
-            code: errorData.code,
-          });
+          const code = errorData.code as string | undefined;
+          if (!hasToken && code === "INVALID_TOKEN") {
+            if (!canceled) setPageState({ state: "idle" });
+            return;
+          }
+          if (!canceled) {
+            setPageState({
+              state: "error",
+              message: errorData.error || "Unable to load booking confirmation",
+              code,
+            });
+          }
           return;
         }
 
         const data = await response.json();
 
         if (data.booking) {
-          setPageState({ state: "success", booking: data.booking });
+          if (!canceled) setPageState({ state: "success", booking: data.booking });
         } else {
-          setPageState({ state: "idle" });
+          if (!canceled) setPageState({ state: "idle" });
         }
       } catch (err) {
         console.error("[thank-you] Failed to fetch booking", err);
-        setPageState({ state: "error", message: "Network error. Please check your connection." });
+        if (!canceled) {
+          setPageState({ state: "error", message: "Network error. Please check your connection." });
+        }
       } finally {
-        router.replace("/thank-you");
+        if (hasToken && !canceled) {
+          router.replace("/thank-you");
+        }
       }
     };
 
     void fetchBooking();
-  }, [token, router]);
+
+    return () => {
+      canceled = true;
+    };
+  }, [router]);
 
   if (pageState.state === "loading") return <LoadingScreen />;
 
@@ -209,7 +230,7 @@ function ThankYouPageContent() {
               Manage booking
             </Link>
             <Link
-              href={restaurantSlug ? `/restaurants/${restaurantSlug}/book` : '/restaurants'}
+              href={restaurantSlug ? `/restaurants/${restaurantSlug}/book` : `/restaurants/${DEFAULT_RESTAURANT_SLUG}/book`}
               className="inline-flex w-full items-center justify-center rounded-md border border-slate-300 px-6 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 sm:w-auto"
             >
               Make a new booking
@@ -224,7 +245,7 @@ function ThankYouPageContent() {
     <PageShell>
       <div className="mx-auto max-w-xl space-y-4 text-center">
         <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-          Thanks for booking with SajiloReserveX
+          Thanks for booking with Nab a Table
         </h1>
         <p className="text-base text-slate-700">
           Your confirmation email is on its way. Keep your reference handy to update or cancel if plans change.
@@ -237,7 +258,9 @@ function ThankYouPageContent() {
             Return home
           </Link>
           <Link
-            href={resolveRestaurantSlug(null, restaurantSlugParam, pathname) ? `/restaurants/${resolveRestaurantSlug(null, restaurantSlugParam, pathname)}/book` : '/restaurants'}
+            href={resolveRestaurantSlug(null, restaurantSlugParam, pathname)
+              ? `/restaurants/${resolveRestaurantSlug(null, restaurantSlugParam, pathname)}/book`
+              : `/restaurants/${DEFAULT_RESTAURANT_SLUG}/book`}
             className="inline-flex w-full items-center justify-center rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 sm:w-auto"
           >
             Make another booking

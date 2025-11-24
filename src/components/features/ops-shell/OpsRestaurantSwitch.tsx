@@ -74,7 +74,7 @@ export function OpsRestaurantSwitch({ className }: OpsRestaurantSwitchProps) {
   }, [account.role, account.userEmail, activeMembership?.role]);
 
   const restaurantName =
-    activeMembership?.restaurantName ?? account.restaurantName ?? memberships[0]?.restaurantName ?? 'SajiloReserveX';
+    activeMembership?.restaurantName ?? account.restaurantName ?? memberships[0]?.restaurantName ?? 'Nab a Table';
 
   const filteredMemberships = useMemo(() => {
     if (!searchTerm.trim()) {

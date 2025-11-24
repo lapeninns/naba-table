@@ -483,7 +483,7 @@ function renderHtml({
                       <a href="${escapeHtml(manageUrl)}" style="color:#4338ca;text-decoration:none;word-break:break-all;">${escapeHtml(manageUrl)}</a>
                     </p>
                     ${supportLine ? `<p style="margin:18px 0 0;font-size:12px;line-height:1.6;color:#94a3b8;">Need help? ${supportLine}.</p>` : ''}
-                    <p style="margin:18px 0 0;font-size:11px;line-height:1.6;color:#b0b9d6;">You received this email because you made a reservation through SajiloReserveX. Times are local to the venue.</p>
+                    <p style="margin:18px 0 0;font-size:11px;line-height:1.6;color:#b0b9d6;">You received this email because you made a reservation through Nab a Table. Times are local to the venue.</p>
                   </td>
                 </tr>
               </table>
@@ -1011,7 +1011,7 @@ export async function sendBookingPendingAttentionEmail(
     html,
     text,
     replyTo: config.email.supportEmail,
-    fromName: venue.name || config.appName || "SajiloReserveX",
+    fromName: venue.name || config.appName || "Nab a Table",
   });
 }
 
@@ -1102,7 +1102,7 @@ export async function sendBookingReminderEmail(booking: BookingRecord, options?:
     html,
     text,
     replyTo: config.email.supportEmail,
-    fromName: venue.name || config.appName || "SajiloReserveX",
+    fromName: venue.name || config.appName || "Nab a Table",
   });
 }
 
@@ -1162,6 +1162,6 @@ export async function sendBookingReviewRequestEmail(booking: BookingRecord) {
     html,
     text,
     replyTo: config.email.supportEmail,
-    fromName: venue.name || config.appName || "SajiloReserveX",
+    fromName: venue.name || config.appName || "Nab a Table",
   });
 }

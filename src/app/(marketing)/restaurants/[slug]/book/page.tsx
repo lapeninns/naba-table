@@ -10,7 +10,7 @@ export async function generateMetadata({ params }: { params: RouteParams }): Pro
   const { slug } = await params;
   const safeSlug = slug?.replace(/-/g, " ").replace(/\s+/g, " ").trim() || "restaurant";
   return {
-    title: `Book ${safeSlug} · SajiloReserveX`,
+    title: `Book ${safeSlug} · Nab a Table`,
     description: "Reserve your table instantly with live availability and instant confirmation.",
   };
 }

@@ -1,7 +1,7 @@
 // import themes from "daisyui/src/theming/themes"; // Removed: not supported in latest daisyUI
 import type { ConfigProps } from "./types/config";
 
-const APP_NAME = "SajiloReserveX";
+const APP_NAME = "Nab a Table";
 const supportEmailEnv = process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim();
 const supportEmail = supportEmailEnv && supportEmailEnv.length > 0 ? supportEmailEnv : "support@example.com";
 const supportDomain = supportEmail.includes("@") ? supportEmail.split("@")[1] : "example.com";
@@ -14,9 +14,9 @@ const config = {
   appName: APP_NAME,
   // REQUIRED: a short description of your app for SEO tags (can be overwritten)
   appDescription:
-    "SajiloReserveX — modern reservations and capacity management for hospitality teams.",
+    "Nab a Table — Lapen Inns' intelligent reservations and capacity management platform for hospitality teams.",
   // REQUIRED (no https://, not trialing slash at the end, just the naked domain)
-  domainName: "sajiloreservex.com",
+  domainName: "nabatable.com",
   // REQUIRED — primary locale used for metadata and document language
   locale: "en-GB",
   crisp: {

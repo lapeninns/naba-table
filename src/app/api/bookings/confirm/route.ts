@@ -99,7 +99,7 @@ export async function GET(req: NextRequest) {
 
     const res = NextResponse.json({ booking: publicBooking });
     // Clear the ephemeral confirmation cookie if present
-    res.cookies.set('sr_confirm', '', { path: '/thank-you', maxAge: 0 });
+    res.cookies.set('sr_confirm', '', { path: '/api/bookings/confirm', maxAge: 0 });
     return res;
   } catch (error: unknown) {
     // Handle token validation errors

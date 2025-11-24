@@ -1,6 +1,6 @@
 ---
 title: Security & Compliance Controls
-description: Required security workflows for SajiloReserveX
+description: Required security workflows for Nab a Table
 ---
 
 # Security & Compliance Controls

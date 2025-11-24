@@ -24,7 +24,7 @@ export function OwnerMarketingNavbar() {
     setIsOpen(false);
   }, [pathname]);
 
-  const brandName = config.appName ?? "SajiloReserveX";
+  const brandName = config.appName ?? "Nab a Table";
 
   const isActive = (href: string) => {
     if (href === "/guest/dashboard") {

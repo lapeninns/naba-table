@@ -10,7 +10,7 @@ import { sanitizeDateParam } from "@/utils/ops/dashboard";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Ops Dashboard · SajiloReserveX",
+  title: "Ops Dashboard · Nab a Table",
   description: "Monitor today’s bookings and keep your front of house running smoothly.",
 };
 

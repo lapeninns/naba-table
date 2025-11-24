@@ -23,11 +23,11 @@ export type ReservationQueryResult = {
 };
 
 export type GetReservationOptions = {
-  supabase: SupabaseClient<Database, 'public', any>;
+  supabase: SupabaseClient<Database>;
 };
 
 const RESERVATION_SELECT =
-  'id,restaurant_id,booking_date,start_time,end_time,start_at,end_at,booking_type,seating_preference,status,party_size,customer_name,customer_email,customer_phone,marketing_opt_in,notes,reference,client_request_id,idempotency_key,pending_ref,details,created_at,updated_at,restaurants(name)';
+  'id,restaurant_id,booking_date,start_time,end_time,start_at,end_at,booking_type,seating_preference,status,party_size,customer_name,customer_email,customer_phone,marketing_opt_in,notes,reference,client_request_id,idempotency_key,pending_ref,details,created_at,updated_at,restaurants(name,slug)';
 
 export async function getReservation(
   id: string,

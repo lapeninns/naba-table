@@ -11,7 +11,7 @@ import type { OpsBookingStatus } from "@/types/ops";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Manage bookings · SajiloReserveX Ops",
+  title: "Manage bookings · Nab a Table Ops",
   description: "Review and update upcoming reservations for your restaurant team.",
 };
 

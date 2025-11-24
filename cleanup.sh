@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ##############################################################################
-# Project Cleanup Script - SajiloReserveX
+# Project Cleanup Script - Nab a Table
 # 
 # This script removes:
 # - All .md documentation files (except essential ones)
@@ -60,7 +60,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-PROJECT_ROOT="/Users/amankumarshrestha/Downloads/SajiloReserveX"
+PROJECT_ROOT="$(pwd)"
 cd "$PROJECT_ROOT"
 
 # Colors for status
@@ -142,7 +142,7 @@ delete_pattern() {
 
 echo ""
 echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║        SajiloReserveX Project Cleanup Script          ║${NC}"
+echo -e "${BLUE}║        Nab a Table Project Cleanup Script            ║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════╝${NC}"
 echo ""
 

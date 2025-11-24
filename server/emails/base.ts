@@ -119,7 +119,7 @@ export function renderEmailBase(options: EmailBaseOptions): string {
             <tr>
               <td align="center" style="padding-top:16px;">
                 <p style="margin:0;color:#94a3b8;font-size:12px;font-family:${EMAIL_FONT_STACK};line-height:1.6;">
-                  ${escapeHtml(config.appName ?? "SajiloReserveX")} · Do not reply to this automated message.
+                  ${escapeHtml(config.appName ?? "Nab a Table")} · Do not reply to this automated message.
                 </p>
               </td>
             </tr>

@@ -16,7 +16,6 @@ import {
   User,
 } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { useCallback, useMemo } from 'react';
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -32,6 +31,7 @@ import { useRestaurants } from '@/lib/restaurants/useRestaurants';
 import { cn } from '@/lib/utils';
 import { formatReservationDate, formatReservationTime } from '@reserve/shared/formatting/booking';
 import { normalizeTime } from '@reserve/shared/time';
+import { DEFAULT_RESTAURANT_SLUG } from '@shared/config/venue';
 
 import { deriveBookingState, type FavoriteRestaurant } from './booking-derivations';
 
@@ -39,6 +39,8 @@ import type { BookingDTO } from '@/hooks/useBookings';
 import type { RestaurantSummary } from '@/lib/restaurants/types';
 
 type HeroState = 'hungry' | 'upcoming' | 'live';
+
+const DISCOVERY_HREF = `/restaurants/${DEFAULT_RESTAURANT_SLUG}/book`;
 
 type HeroBannerProps = {
   state: HeroState;
@@ -63,7 +65,6 @@ export function GuestDashboardClient() {
   const restaurantsQuery = useRestaurants({}, { placeholderData: [], retry: false, refetchOnWindowFocus: false });
   const { user } = useSupabaseSession();
   const { toast } = useToast();
-  const pathname = usePathname();
 
   const derived = useMemo(() => deriveBookingState(data?.items ?? []), [data?.items]);
   const restaurants = restaurantsQuery.data ?? [];
@@ -149,7 +150,7 @@ export function GuestDashboardClient() {
         </aside>
       </div>
 
-      <BottomTabNav currentPath={pathname ?? ''} />
+
     </div>
   );
 }
@@ -174,23 +175,27 @@ function HeroBanner({ state, booking, userName, onShare }: HeroBannerProps) {
     return 'See tables nearby, trending lists, and your go-tos in one view.';
   })();
 
-  const primaryHref = state === 'hungry' ? '/restaurants' : booking ? `/bookings/${booking.id}` : '/restaurants';
-  const secondaryHref = state === 'hungry' ? '/restaurants?view=map' : booking?.restaurantSlug ? `/restaurants/${booking.restaurantSlug}` : '/restaurants';
+  const primaryHref = state === 'hungry' ? DISCOVERY_HREF : booking ? `/bookings/${booking.id}` : DISCOVERY_HREF;
+  const secondaryHref = state === 'hungry'
+    ? DISCOVERY_HREF
+    : booking?.restaurantSlug
+      ? `/restaurants/${booking.restaurantSlug}`
+      : DISCOVERY_HREF;
 
   const timing = booking ? describeTiming(booking.startIso) : null;
 
-    return (
-      <Card className="relative overflow-hidden border-none bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white shadow-xl">
-        <div
-          className="absolute inset-0 opacity-70"
-          style={{
-            backgroundImage:
-              'linear-gradient(to right, rgba(15,23,42,0.9), rgba(15,23,42,0.8), rgba(15,23,42,0.6)), url(https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1400&q=80)',
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-          }}
-          aria-hidden
-        />
+  return (
+    <Card className="relative overflow-hidden border-none bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white shadow-xl">
+      <div
+        className="absolute inset-0 opacity-70"
+        style={{
+          backgroundImage:
+            'linear-gradient(to right, rgba(15,23,42,0.9), rgba(15,23,42,0.8), rgba(15,23,42,0.6)), url(https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1400&q=80)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+        aria-hidden
+      />
       <CardContent className="relative flex flex-col gap-6 px-5 py-6 sm:px-8 sm:py-8 md:flex-row md:items-center md:justify-between">
         <div className="space-y-3 text-left md:max-w-2xl">
           <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-100">
@@ -282,7 +287,7 @@ function ActiveReservationCard({ booking, isLoading, onShare, onRunningLate }: A
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-3">
-          <Link href="/restaurants" className={buttonVariants({ variant: 'default', size: 'lg' })}>
+          <Link href={DISCOVERY_HREF} className={buttonVariants({ variant: 'default', size: 'lg' })}>
             Find a table now
           </Link>
           <Link href="/guest/bookings" className={buttonVariants({ variant: 'outline', size: 'lg' })}>
@@ -367,7 +372,7 @@ function FavoritesRail({ favorites }: FavoritesProps) {
           <p className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">Favorites</p>
           <h2 className="text-xl font-semibold text-slate-900">Eat it again</h2>
         </div>
-        <Link href="/restaurants" className="text-sm font-semibold text-primary hover:text-primary/80">
+        <Link href={DISCOVERY_HREF} className="text-sm font-semibold text-primary hover:text-primary/80">
           See all
         </Link>
       </div>
@@ -392,7 +397,7 @@ function FavoritesRail({ favorites }: FavoritesProps) {
 
 function FavoritePill({ favorite }: { favorite: FavoriteRestaurant }) {
   const initial = favorite.name.charAt(0).toUpperCase();
-  const href = favorite.slug ? `/restaurants/${favorite.slug}` : '/restaurants';
+  const href = favorite.slug ? `/restaurants/${favorite.slug}` : DISCOVERY_HREF;
 
   return (
     <Card className="min-w-[200px] snap-start bg-gradient-to-br from-white to-slate-50 shadow-sm">
@@ -422,7 +427,7 @@ function DiscoveryFeed({ restaurants, isLoading }: { restaurants: RestaurantSumm
           <p className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">Discover</p>
           <h2 className="text-xl font-semibold text-slate-900">Tables available now</h2>
         </div>
-        <Link href="/restaurants" className="text-sm font-semibold text-primary hover:text-primary/80">
+        <Link href={DISCOVERY_HREF} className="text-sm font-semibold text-primary hover:text-primary/80">
           Open map
         </Link>
       </div>
@@ -441,27 +446,27 @@ function DiscoveryFeed({ restaurants, isLoading }: { restaurants: RestaurantSumm
           </Card>
         ) : (
           restaurants.slice(0, 4).map((restaurant) => {
-            const href = restaurant.slug ? `/restaurants/${restaurant.slug}/book` : '/restaurants';
+            const href = restaurant.slug ? `/restaurants/${restaurant.slug}/book` : DISCOVERY_HREF;
             return (
-            <article key={restaurant.id} className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <div className="flex items-center gap-3 p-4">
-                <Avatar className="h-12 w-12 bg-primary/10 text-primary">
-                  <AvatarFallback>{restaurant.name.charAt(0).toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-slate-900">{restaurant.name}</p>
-                  <p className="truncate text-xs text-slate-600">
-                    {restaurant.address ?? restaurant.timezone ?? 'View details'}
-                  </p>
+              <article key={restaurant.id} className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="flex items-center gap-3 p-4">
+                  <Avatar className="h-12 w-12 bg-primary/10 text-primary">
+                    <AvatarFallback>{restaurant.name.charAt(0).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-900">{restaurant.name}</p>
+                    <p className="truncate text-xs text-slate-600">
+                      {restaurant.address ?? restaurant.timezone ?? 'View details'}
+                    </p>
+                  </div>
+                  <Link
+                    href={href}
+                    className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'shrink-0')}
+                  >
+                    Book
+                  </Link>
                 </div>
-                <Link
-                  href={href}
-                  className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'shrink-0')}
-                >
-                  Book
-                </Link>
-              </div>
-            </article>
+              </article>
             );
           })
         )}
@@ -470,7 +475,7 @@ function DiscoveryFeed({ restaurants, isLoading }: { restaurants: RestaurantSumm
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-lg font-semibold text-slate-900">Collections</h3>
-          <Link href="/restaurants" className="text-sm font-semibold text-primary hover:text-primary/80">
+          <Link href={DISCOVERY_HREF} className="text-sm font-semibold text-primary hover:text-primary/80">
             See more
           </Link>
         </div>
@@ -487,7 +492,7 @@ function DiscoveryFeed({ restaurants, isLoading }: { restaurants: RestaurantSumm
             </Card>
           ) : (
             restaurants.slice(0, 3).map((restaurant) => {
-              const href = restaurant.slug ? `/restaurants/${restaurant.slug}/book` : '/restaurants';
+              const href = restaurant.slug ? `/restaurants/${restaurant.slug}/book` : DISCOVERY_HREF;
               return (
                 <Link
                   href={href}
@@ -559,10 +564,10 @@ function NextStepsCard({ hasActive }: { hasActive: boolean }) {
       </CardHeader>
       <CardContent className="space-y-3 text-sm text-slate-700">
         <ActionRow icon={CalendarClock} label="See upcoming reservations" href="/guest/bookings" />
-        <ActionRow icon={Search} label="Browse map view" href="/restaurants?view=map" />
+        <ActionRow icon={Search} label="Browse map view" href={DISCOVERY_HREF} />
         <ActionRow icon={User} label="Update dietary preferences" href="/guest/profile" />
         {!hasActive ? (
-          <ActionRow icon={Heart} label="Build your saved list" href="/restaurants" />
+          <ActionRow icon={Heart} label="Build your saved list" href={DISCOVERY_HREF} />
         ) : null}
       </CardContent>
     </Card>
@@ -589,87 +594,7 @@ function ActionRow({ icon: Icon, label, href }: ActionRowProps) {
   );
 }
 
-type BottomNavProps = {
-  currentPath: string;
-};
 
-function BottomTabNav({ currentPath }: BottomNavProps) {
-  const { toast } = useToast();
-  const navItems = [
-    { label: 'Discover', href: '/guest/dashboard', icon: Sparkles },
-    { label: 'Search', href: '/restaurants', icon: Search },
-    { label: 'Reservations', href: '/guest/bookings', icon: CalendarClock },
-    {
-      label: 'Saved',
-      href: '#',
-      icon: Heart,
-      onClick: () => toast({ title: 'Saved lists coming soon', description: 'We will pin your picks here.' }),
-    },
-    { label: 'Profile', href: '/guest/profile', icon: User },
-  ];
-
-  const isActive = (href: string) => {
-    if (href === '#') return false;
-    return currentPath === href || currentPath.startsWith(`${href}/`);
-  };
-
-  return (
-    <nav
-      aria-label="Primary navigation"
-      className="fixed bottom-4 left-1/2 z-30 flex w-[94%] max-w-2xl -translate-x-1/2 items-center justify-between rounded-2xl border border-slate-200 bg-white/90 px-3 py-2 shadow-lg backdrop-blur md:hidden"
-    >
-      {navItems.map((item) => (
-        <LinkOrButton key={item.label} item={item} active={isActive(item.href)} />
-      ))}
-    </nav>
-  );
-}
-
-type NavItem = {
-  label: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  onClick?: () => void;
-};
-
-type LinkOrButtonProps = {
-  item: NavItem;
-  active: boolean;
-};
-
-function LinkOrButton({ item, active }: LinkOrButtonProps) {
-  const content = (
-    <span className="flex flex-col items-center gap-1">
-      <item.icon className={cn('h-5 w-5', active ? 'text-primary' : 'text-slate-600')} aria-hidden />
-      <span className={cn('text-[11px] font-semibold', active ? 'text-primary' : 'text-slate-600')}>{item.label}</span>
-    </span>
-  );
-
-  if (item.href === '#') {
-    return (
-      <button
-        type="button"
-        onClick={item.onClick}
-        className="flex flex-1 items-center justify-center rounded-xl px-2 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-      >
-        {content}
-      </button>
-    );
-  }
-
-  return (
-    <Link
-      href={item.href}
-      className={cn(
-        'flex flex-1 items-center justify-center rounded-xl px-2 py-1.5 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-        active ? 'bg-primary/10' : undefined,
-      )}
-      aria-current={active ? 'page' : undefined}
-    >
-      {content}
-    </Link>
-  );
-}
 
 function getGreeting(): string {
   const hour = new Date().getHours();

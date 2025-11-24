@@ -1,5 +1,6 @@
 'use client';
 
+import { SparklesIcon } from 'lucide-react';
 import React from 'react';
 
 import { FormDescription, FormItem, FormLabel, FormMessage } from '@shared/ui/form';
@@ -8,7 +9,7 @@ import { ToggleGroup, ToggleGroupItem } from '@shared/ui/toggle-group';
 import type { ServiceAvailability } from '@reserve/features/reservations/wizard/services';
 import type { OccasionKey } from '@reserve/shared/occasions';
 
-const DESCRIPTION = 'Let us know the occasion so we can tailor the experience.';
+const DESCRIPTION = 'Let us know the occasion so we can tailor your experience.';
 
 export type OccasionPickerOption = {
   key: OccasionKey;
@@ -41,10 +42,13 @@ export function OccasionPicker({
 
   return (
     <FormItem className="space-y-3">
-      <FormLabel>Occasion</FormLabel>
+      <FormLabel className="flex items-center gap-1.5 text-sm font-semibold sm:text-base">
+        <SparklesIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        <span>Occasion</span>
+      </FormLabel>
       <ToggleGroup
         type="single"
-        className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+        className="grid grid-cols-2 gap-2.5 sm:grid-cols-3"
         value={value}
         onValueChange={(next) => {
           if (next) onChange(next as OccasionKey);
@@ -60,14 +64,14 @@ export function OccasionPicker({
               value={option.key}
               aria-disabled={ariaDisabled}
               disabled={ariaDisabled}
-              className="h-11"
+              className="h-12 text-sm font-medium transition-all duration-200 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-md hover:bg-primary/10 active:scale-95"
             >
               {option.label}
             </ToggleGroupItem>
           );
         })}
       </ToggleGroup>
-      <FormDescription>{DESCRIPTION}</FormDescription>
+      <FormDescription className="text-xs sm:text-sm">{DESCRIPTION}</FormDescription>
       <FormMessage>{error}</FormMessage>
     </FormItem>
   );

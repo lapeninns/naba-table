@@ -37,7 +37,8 @@ function createEnumPredicate<const T extends readonly string[]>(values: T) {
   return (value: string): value is T[number] => set.has(value);
 }
 
-export const isBookingType = createEnumPredicate(BOOKING_TYPES);
+export const isBookingType = (value: string): value is BookingType =>
+  typeof value === 'string' && value.trim().length > 0;
 export const isBookingStatus = createEnumPredicate(BOOKING_STATUSES);
 export const isSeatingPreference = createEnumPredicate(SEATING_PREFERENCES);
 
@@ -46,12 +47,11 @@ function formatValidList(values: readonly string[]) {
 }
 
 export function ensureBookingType(value: string, fieldName = 'booking type'): BookingType {
-  if (!isBookingType(value)) {
-    throw new Error(
-      `Invalid ${fieldName}: ${value}. Valid values: ${formatValidList(BOOKING_TYPES)}.`,
-    );
+  const normalized = (value ?? '').trim();
+  if (!isBookingType(normalized)) {
+    throw new Error(`Invalid ${fieldName}: value is required.`);
   }
-  return value;
+  return normalized as BookingType;
 }
 
 export function ensureBookingStatus(value: string, fieldName = 'booking status'): BookingStatus {

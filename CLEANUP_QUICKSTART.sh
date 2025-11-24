@@ -2,7 +2,7 @@
 # CLEANUP QUICK REFERENCE - Copy and paste commands below
 
 # ╔═════════════════════════════════════════════════════════════════╗
-# ║   SajiloReserveX Cleanup Scripts - Quick Reference             ║
+# ║   Nab a Table Cleanup Scripts - Quick Reference                 ║
 # ╚═════════════════════════════════════════════════════════════════╝
 
 # 📋 USAGE GUIDE
@@ -55,7 +55,7 @@ cat CLEANUP_GUIDE.md
 # Copy and paste this entire section to execute full workflow:
 
 # Step 1: Navigate to project
-cd /Users/amankumarshrestha/Downloads/SajiloReserveX
+cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
 # Step 2: Create backup commit
 git add -A
