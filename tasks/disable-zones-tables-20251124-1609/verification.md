@@ -1,7 +1,7 @@
 ---
-task: zone-toggle
-timestamp_utc: 2025-11-24T14:37:40Z
-owner: github:@amankumarshrestha
+task: disable-zones-tables
+timestamp_utc: 2025-11-24T16:09:41Z
+owner: github:@assistant
 reviewers: [github:@maintainers]
 risk: medium
 flags: []
@@ -16,7 +16,7 @@ Tool: Chrome DevTools MCP
 
 ### Console & Network
 
-- [ ] No console errors
+- [ ] No Console errors
 - [ ] Network requests match contract
 
 ### DOM & Accessibility
@@ -37,9 +37,8 @@ Tool: Chrome DevTools MCP
 
 ## Test Outcomes
 
-- [x] Happy paths (API): `pnpm vitest src/app/api/ops/zones/route.test.ts src/app/api/ops/zones/[id]/route.test.ts`
-- [x] Auto-assign filtering: `pnpm vitest tests/server/capacity/supabase-table-assignment.test.ts`
-- [ ] Error handling
+- [x] Happy paths (unit: table inventory filtering)
+- [x] Error handling (disabled tables rejected in filters/validation)
 - [ ] A11y (axe): 0 critical/serious
 
 ## Artifacts
@@ -48,10 +47,11 @@ Tool: Chrome DevTools MCP
 - Network: `artifacts/network.har`
 - Traces/Screens: `artifacts/`
 - DB diff (if DB change): `artifacts/db-diff.txt`
+- Tests: `pnpm vitest tests/server/capacity/supabase-table-assignment.test.ts`
 
 ## Known Issues
 
-- [ ] Manual UI QA blocked due to auth redirect on app.localhost:3000/seating/tables (needs valid session)
+- [ ] <issue> (owner, priority)
 
 ## Sign-off
 

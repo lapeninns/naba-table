@@ -1,6 +1,6 @@
 ---
-task: zone-toggle
-timestamp_utc: 2025-11-24T14:37:40Z
+task: booking-table-delete-404
+timestamp_utc: 2025-11-24T16:40:38Z
 owner: github:@amankumarshrestha
 reviewers: [github:@maintainers]
 risk: medium
@@ -16,7 +16,7 @@ Tool: Chrome DevTools MCP
 
 ### Console & Network
 
-- [ ] No console errors
+- [ ] No Console errors
 - [ ] Network requests match contract
 
 ### DOM & Accessibility
@@ -28,7 +28,7 @@ Tool: Chrome DevTools MCP
 
 ### Performance (profiled; mobile; 4× CPU; 4G)
 
-- FCP: <value> s | LCP: <value> s | CLS: <value> | TBT: <value> ms
+- FCP: s | LCP: s | CLS: | TBT: ms
 - Budgets met: [ ] Yes [ ] No (notes)
 
 ### Device Emulation
@@ -37,8 +37,7 @@ Tool: Chrome DevTools MCP
 
 ## Test Outcomes
 
-- [x] Happy paths (API): `pnpm vitest src/app/api/ops/zones/route.test.ts src/app/api/ops/zones/[id]/route.test.ts`
-- [x] Auto-assign filtering: `pnpm vitest tests/server/capacity/supabase-table-assignment.test.ts`
+- [x] Happy paths (unit) — `pnpm vitest run tests/ops/bookings.service.test.tsx`
 - [ ] Error handling
 - [ ] A11y (axe): 0 critical/serious
 
@@ -51,7 +50,7 @@ Tool: Chrome DevTools MCP
 
 ## Known Issues
 
-- [ ] Manual UI QA blocked due to auth redirect on app.localhost:3000/seating/tables (needs valid session)
+- [ ] Manual UI QA via Chrome DevTools pending (owner: dev, priority: medium)
 
 ## Sign-off
 

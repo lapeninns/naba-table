@@ -351,6 +351,27 @@ async function validateSelection(params: {
   const checks: ValidationCheck[] = [];
   const summary = summarizeSelection(tables, booking.party_size);
 
+  const unavailableTables = tables.filter((table) => {
+    const outOfService = typeof table.status === "string" && table.status.toLowerCase() === "out_of_service";
+    return table.active === false || table.zoneActive === false || outOfService;
+  });
+
+  checks.push({
+    id: "inactive_table",
+    passed: unavailableTables.length === 0,
+    message:
+      unavailableTables.length === 0
+        ? "All selected tables are active"
+        : `Cannot assign to disabled or out-of-service tables: ${unavailableTables
+            .map((t) => t.tableNumber)
+            .join(", ")}`,
+    details: {
+      tableIds: unavailableTables.map((t) => t.id),
+      statuses: unavailableTables.map((t) => t.status ?? null),
+      zoneActive: unavailableTables.map((t) => t.zoneActive ?? null),
+    },
+  });
+
   // Check 1: Zone consistency - All tables must be in the same zone
   const zones = new Set(tables.map((t) => t.zoneId).filter(Boolean));
   const singleZone = zones.size <= 1;

@@ -19,6 +19,10 @@ export type Table = {
   seatingType?: Tables<"table_inventory">["seating_type"] | string | null;
   mobility?: Tables<"table_inventory">["mobility"] | string | null;
   zoneId: string;
+  /**
+   * Whether the parent zone is active. Optional so existing callers can ignore until needed.
+   */
+  zoneActive?: boolean | null;
   status?: Tables<"table_inventory">["status"] | string | null;
   active?: boolean | null;
   position?: Tables<"table_inventory">["position"] | null;
@@ -88,7 +92,7 @@ export type TableAssignmentGroup = {
 };
 
 export type ManualSelectionCheck = {
-  id: "capacity" | "slack" | "zone" | "movable" | "adjacency" | "conflict" | "holds";
+  id: "capacity" | "slack" | "zone" | "movable" | "adjacency" | "conflict" | "holds" | "active";
   status: "ok" | "warning" | "error";
   message: string;
   details?: Record<string, unknown>;

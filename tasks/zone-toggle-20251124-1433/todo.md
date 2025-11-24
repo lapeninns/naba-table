@@ -30,7 +30,7 @@ related_tickets: []
 ## Tests
 
 - [x] Add/adjust API tests for zones active flag.
-- [ ] Unit coverage for server summary filtering if present.
+- [x] Unit coverage for server summary filtering/auto-assign skip.
 - [ ] Manual QA via Chrome DevTools (mobile/desktop, console/a11y).
 
 ## Notes

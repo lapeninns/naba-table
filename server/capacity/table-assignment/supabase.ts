@@ -19,9 +19,10 @@ import type { Tables } from "@/types/supabase";
 export type { DbClient } from "./types";
 
 const TABLE_INVENTORY_SELECT =
-  "id,table_number,capacity,min_party_size,max_party_size,section,category,seating_type,mobility,zone_id,status,active,position" as const;
+  "id,table_number,capacity,min_party_size,max_party_size,section,category,seating_type,mobility,zone_id,status,active,position,zones(active)" as const;
 
-export type TableInventoryRow = Tables<"table_inventory">;
+type TableInventoryRow = Tables<"table_inventory">;
+type TableInventoryRowWithZone = TableInventoryRow & { zones?: { active: boolean | null } | null };
 
 export type BookingRow = Tables<"bookings"> & {
   restaurants?: { timezone: string | null } | { timezone: string | null }[];
@@ -174,22 +175,29 @@ export async function loadTablesForRestaurant(
     throw new ManualSelectionInputError(error?.message ?? "Failed to load table inventory", "TABLE_INVENTORY_LOOKUP_FAILED", 500);
   }
 
-  const rows = data as TableInventoryRow[];
-  const tables = rows.map<Table>((row) => ({
-    id: row.id,
-    tableNumber: row.table_number,
-    capacity: row.capacity ?? 0,
-    minPartySize: row.min_party_size ?? null,
-    maxPartySize: row.max_party_size ?? null,
-    section: row.section,
-    category: row.category,
-    seatingType: row.seating_type,
-    mobility: row.mobility,
-    zoneId: row.zone_id,
-    status: row.status,
-    active: row.active,
-    position: row.position,
-  }));
+  const rows = data as TableInventoryRowWithZone[];
+
+  const tables = rows.map<Table>((row) => {
+    const zoneActive = row.zones?.active ?? true;
+    const isActive = row.active !== false && zoneActive !== false;
+
+    return {
+      id: row.id,
+      tableNumber: row.table_number,
+      capacity: row.capacity ?? 0,
+      minPartySize: row.min_party_size ?? null,
+      maxPartySize: row.max_party_size ?? null,
+      section: row.section,
+      category: row.category,
+      seatingType: row.seating_type,
+      mobility: row.mobility,
+      zoneId: row.zone_id,
+      zoneActive,
+      status: row.status,
+      active: isActive,
+      position: row.position,
+    } satisfies Table;
+  });
 
   try {
     const { setInventoryCache } = await import("@/server/capacity/cache");
@@ -215,7 +223,7 @@ export async function loadTablesByIds(
   const tableQuery = applyAbortSignal(
     client
       .from("table_inventory")
-      .select<typeof TABLE_INVENTORY_SELECT, TableInventoryRow>(TABLE_INVENTORY_SELECT)
+      .select<typeof TABLE_INVENTORY_SELECT, TableInventoryRowWithZone>(TABLE_INVENTORY_SELECT)
       .eq("restaurant_id", restaurantId)
       .in("id", uniqueIds),
     signal,
@@ -227,27 +235,32 @@ export async function loadTablesByIds(
     return [];
   }
 
-  const rows = data as TableInventoryRow[];
+  const rows = data as TableInventoryRowWithZone[];
 
   const lookup = new Map(
-    rows.map((row) => [
-      row.id,
-      {
-        id: row.id,
-        tableNumber: row.table_number,
-        capacity: row.capacity ?? 0,
-        minPartySize: row.min_party_size ?? null,
-        maxPartySize: row.max_party_size ?? null,
-        section: row.section,
-        category: row.category,
-        seatingType: row.seating_type,
-        mobility: row.mobility,
-        zoneId: row.zone_id,
-        status: row.status,
-        active: row.active,
-        position: row.position,
-      } satisfies Table,
-    ]),
+    rows.map((row) => {
+      const zoneActive = row.zones?.active ?? true;
+      const isActive = row.active !== false && zoneActive !== false;
+      return [
+        row.id,
+        {
+          id: row.id,
+          tableNumber: row.table_number,
+          capacity: row.capacity ?? 0,
+          minPartySize: row.min_party_size ?? null,
+          maxPartySize: row.max_party_size ?? null,
+          section: row.section,
+          category: row.category,
+          seatingType: row.seating_type,
+          mobility: row.mobility,
+          zoneId: row.zone_id,
+          zoneActive,
+          status: row.status,
+          active: isActive,
+          position: row.position,
+        } satisfies Table,
+      ];
+    }),
   );
 
   return tableIds.reduce<Table[]>((acc, id) => {
