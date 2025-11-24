@@ -1,13 +1,13 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Loader2, RefreshCw } from 'lucide-react';
+import { AlertCircle, RefreshCw, LayoutGrid, Users, CheckCircle2, Trash2, X, Info, MapPin } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AssignmentToolbar } from '@/components/features/dashboard/manual-assignment/AssignmentToolbar';
 import { ValidationChecks } from '@/components/features/dashboard/manual-assignment/ValidationChecks';
 import { TableFloorPlan } from '@/components/features/dashboard/TableFloorPlan';
-import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -18,15 +18,17 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { useBookingService } from '@/contexts/ops-services';
 import { useAssignmentContext } from '@/hooks/ops/useAssignmentContext';
 import { useToast } from '@/hooks/use-toast';
+import { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
 import { generateIdempotencyKey } from '@/lib/utils/idempotency';
-import { HttpError } from '@/lib/http/errors';
 
-import type { OpsTodayBooking } from '@/types/ops';
 import type { ManualSelectionCheck, ManualValidationResult } from '@/services/ops/bookings';
+import type { OpsTodayBooking } from '@/types/ops';
 
 type BookingAssignmentTabContentProps = {
     booking: OpsTodayBooking;
@@ -36,7 +38,7 @@ type BookingAssignmentTabContentProps = {
     onAssignmentComplete?: () => void;
 };
 
-export function BookingAssignmentTabContent({ booking, restaurantId, date, onUnassignTable, onAssignmentComplete }: BookingAssignmentTabContentProps) {
+export function BookingAssignmentTabContent({ booking, restaurantId: _restaurantId, date: _date, onUnassignTable, onAssignmentComplete }: BookingAssignmentTabContentProps) {
     const { toast } = useToast();
     const bookingService = useBookingService();
     const queryClient = useQueryClient();
@@ -44,7 +46,7 @@ export function BookingAssignmentTabContent({ booking, restaurantId, date, onUna
     // -- Local State --
     const [selectedTables, setSelectedTables] = useState<string[]>([]);
     const [validationResult, setValidationResult] = useState<ManualValidationResult | null>(null);
-    const [onlyAvailable, setOnlyAvailable] = useState(false);
+    const [onlyAvailable, setOnlyAvailable] = useState(true);
     const [unassignTableId, setUnassignTableId] = useState<string | null>(null);
 
     // Track previous selection to detect changes
@@ -70,24 +72,23 @@ export function BookingAssignmentTabContent({ booking, restaurantId, date, onUna
     }, []);
 
     const selectedCapacity = useMemo(() => {
-        if (!assignmentContext) return 0;
-        return selectedTables.reduce((sum, id) => {
-            const table = assignmentContext.tables.find(t => t.id === id);
+        return selectedTables.reduce((sum, tableId) => {
+            const table = assignmentContext?.tables.find(t => t.id === tableId);
             return sum + (table?.capacity ?? 0);
         }, 0);
-    }, [assignmentContext, selectedTables]);
+    }, [selectedTables, assignmentContext]);
 
     const tableMap = useMemo(() => {
         if (!assignmentContext) return new Map();
         return new Map(assignmentContext.tables.map(t => [t.id, t]));
-    }, [assignmentContext?.tables]);
+    }, [assignmentContext]);
 
     const assignedTables = useMemo(() => {
         if (!assignmentContext) return [];
         return assignmentContext.bookingAssignments
             .map(id => tableMap.get(id))
             .filter((t): t is NonNullable<typeof t> => !!t);
-    }, [assignmentContext?.bookingAssignments, tableMap]);
+    }, [assignmentContext, tableMap]);
 
     // -- Mutations --
     // SIMPLIFIED: Direct table assignment - single atomic operation
@@ -333,16 +334,38 @@ export function BookingAssignmentTabContent({ booking, restaurantId, date, onUna
                 aria-label="Table floor plan"
             >
                 {assignmentContextLoading ? (
-                    <div className="flex h-full items-center justify-center" role="status" aria-live="polite">
-                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <div className="p-6" role="status" aria-live="polite">
+                        <div className="grid gap-4 grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+                            {Array.from({ length: 18 }).map((_, i) => (
+                                <div
+                                    key={i}
+                                    className="aspect-square rounded-xl bg-muted/50 animate-pulse"
+                                    style={{ animationDelay: `${i * 30}ms` }}
+                                />
+                            ))}
+                        </div>
                         <span className="sr-only">Loading floor plan...</span>
                     </div>
                 ) : assignmentContext && assignmentContext.tables.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full gap-4 p-8">
-                        <div className="text-muted-foreground text-center">
-                            <p className="text-lg font-medium">No tables available</p>
-                            <p className="text-sm mt-2">There are no tables configured for this restaurant.</p>
+                    <div className="flex flex-col items-center justify-center h-full gap-6 p-8">
+                        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-muted/50 to-muted/30 border-2 border-muted">
+                            <LayoutGrid className="h-10 w-10 text-muted-foreground" strokeWidth={1.5} />
                         </div>
+                        <div className="text-center space-y-2 max-w-md">
+                            <h3 className="text-xl font-semibold text-foreground">No tables available</h3>
+                            <p className="text-sm text-muted-foreground leading-relaxed">
+                                There are no tables configured for this restaurant. Contact your administrator to set up table inventory.
+                            </p>
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => refetchAssignmentContext()}
+                            className="gap-2"
+                        >
+                            <RefreshCw className="h-4 w-4" />
+                            Refresh
+                        </Button>
                     </div>
                 ) : (
                     <div className="absolute inset-0 overflow-auto p-2 sm:p-4">
@@ -364,52 +387,106 @@ export function BookingAssignmentTabContent({ booking, restaurantId, date, onUna
 
             {/* Assigned Tables List */}
             {assignedTables.length > 0 && (
-                <div className="space-y-2" role="region" aria-label="Currently assigned tables">
+                <div
+                    className="space-y-4 animate-in fade-in-50 slide-in-from-bottom-2"
+                    role="region"
+                    aria-label="Currently assigned tables"
+                >
                     <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-semibold">Assigned Tables</h4>
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-50 dark:from-emerald-900/40 dark:to-emerald-900/20 border-2 border-emerald-200/50 dark:border-emerald-800/50 shadow-sm">
+                                <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                            </div>
+                            <div>
+                                <h4 className="text-base font-semibold text-foreground">Assigned Tables</h4>
+                                <p className="text-xs text-muted-foreground">
+                                    {assignedTables.reduce((sum, t) => sum + t.capacity, 0)} total seats
+                                </p>
+                            </div>
+                            <Badge variant="outline" className="font-mono text-xs px-2 py-1">
+                                {assignedTables.length} {assignedTables.length === 1 ? 'table' : 'tables'}
+                            </Badge>
+                        </div>
+
                         {/* MERGED TABLES: Show single "Remove All" button */}
                         {assignedTables.length > 1 && (
                             <Button
                                 variant="outline"
-                                size="sm"
-                                className="h-8 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                                size="default"
+                                className="h-10 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 font-medium"
                                 onClick={handleRemoveAllTables}
                                 aria-label="Remove all assigned tables"
                             >
-                                Remove All Tables
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Remove All
                             </Button>
                         )}
                     </div>
-                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                        {assignedTables.map((table) => (
+
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {assignedTables.map((table, idx) => (
                             <div
                                 key={table.id}
-                                className="flex items-center justify-between rounded-lg border bg-card px-3 py-2 shadow-sm"
+                                className="group relative rounded-xl border-2 border-primary/20 bg-gradient-to-br from-primary/5 via-primary/3 to-transparent p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary/40 hover:-translate-y-0.5 animate-in fade-in-50 slide-in-from-bottom-2"
+                                style={{ animationDelay: `${idx * 50}ms` }}
                             >
-                                <div className="flex flex-col">
-                                    <span className="text-sm font-medium">Table {table.tableNumber}</span>
-                                    <span className="text-xs text-muted-foreground">{table.capacity} seats</span>
+                                {/* Table Icon Badge */}
+                                <div className="absolute top-3 right-3">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/20">
+                                        <LayoutGrid className="h-5 w-5 text-primary" strokeWidth={2} />
+                                    </div>
                                 </div>
-                                {/* SINGLE TABLE: Show individual "Remove" button */}
+
+                                {/* Table Info */}
+                                <div className="space-y-3 pr-14">
+                                    <div>
+                                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Table</p>
+                                        <p className="text-3xl font-bold text-foreground tabular-nums">{table.tableNumber}</p>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted/50">
+                                                <Users className="h-4 w-4" />
+                                            </div>
+                                            <span className="font-medium">{table.capacity} seats</span>
+                                        </div>
+                                        {table.section && (
+                                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted/50">
+                                                    <MapPin className="h-4 w-4" />
+                                                </div>
+                                                <span className="font-medium">{table.section}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Remove Button (Single Table Only) */}
                                 {assignedTables.length === 1 && onUnassignTable && (
                                     <Button
-                                        variant="ghost"
+                                        variant="outline"
                                         size="sm"
-                                        className="h-7 text-xs text-destructive hover:text-destructive"
+                                        className="mt-4 w-full h-9 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 font-medium"
                                         onClick={() => setUnassignTableId(table.id)}
                                         aria-label={`Remove table ${table.tableNumber} from booking`}
                                     >
-                                        Remove
+                                        <X className="mr-2 h-4 w-4" />
+                                        Remove Table
                                     </Button>
                                 )}
                             </div>
                         ))}
                     </div>
-                    {/* Helper text for merged tables */}
+
+                    {/* Helper Alert for Merged Tables */}
                     {assignedTables.length > 1 && (
-                        <p className="text-xs text-muted-foreground">
-                            💡 Merged tables are removed as a group to maintain capacity requirements. Click "Remove All Tables" to unassign and re-select fresh tables.
-                        </p>
+                        <Alert className="border-blue-200 bg-gradient-to-r from-blue-50 to-blue-50/50 dark:from-blue-900/20 dark:to-blue-900/10 dark:border-blue-800/50">
+                            <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                            <AlertDescription className="text-sm text-blue-900 dark:text-blue-100 leading-relaxed">
+                                💡 <strong>Merged tables:</strong> These tables are combined to meet capacity requirements. Use &quot;Remove All&quot; to unassign and select fresh tables.
+                            </AlertDescription>
+                        </Alert>
                     )}
                 </div>
             )}

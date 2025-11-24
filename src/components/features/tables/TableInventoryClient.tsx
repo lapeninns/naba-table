@@ -51,6 +51,25 @@ import type {
 } from '@/services/ops/tables';
 import type { Zone } from '@/services/ops/zones';
 
+type ZoneStatusFilter = 'all' | 'active' | 'inactive';
+type TableStatusFilter = 'all' | 'active' | 'inactive';
+
+export function filterZonesByStatus(zones: Zone[], filter: ZoneStatusFilter): Zone[] {
+  if (filter === 'active') return zones.filter((zone) => zone.active);
+  if (filter === 'inactive') return zones.filter((zone) => zone.active === false);
+  return zones;
+}
+
+export function filterTablesByStatus(tables: TableInventory[], filter: TableStatusFilter): TableInventory[] {
+  if (filter === 'active') {
+    return tables.filter((table) => table.active && table.zoneActive !== false);
+  }
+  if (filter === 'inactive') {
+    return tables.filter((table) => !table.active || table.zoneActive === false);
+  }
+  return tables;
+}
+
 
 const ALL_ZONES_VALUE = 'all-zones';
 
@@ -379,6 +398,8 @@ export default function TableInventoryClient() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTable, setEditingTable] = useState<TableInventory | null>(null);
   const [filterZone, setFilterZone] = useState<string>(ALL_ZONES_VALUE);
+  const [zoneStatusFilter, setZoneStatusFilter] = useState<ZoneStatusFilter>('active');
+  const [tableStatusFilter, setTableStatusFilter] = useState<TableStatusFilter>('active');
   const [isZoneDialogOpen, setIsZoneDialogOpen] = useState(false);
   const [editingZone, setEditingZone] = useState<Zone | null>(null);
 
@@ -386,6 +407,8 @@ export default function TableInventoryClient() {
 
   useEffect(() => {
     setFilterZone(ALL_ZONES_VALUE);
+    setZoneStatusFilter('active');
+    setTableStatusFilter('active');
     setEditingTable(null);
     setIsDialogOpen(false);
     setEditingZone(null);
@@ -452,6 +475,11 @@ export default function TableInventoryClient() {
     });
   }, [zonesData]);
 
+  const filteredZones = useMemo(
+    () => filterZonesByStatus(zones, zoneStatusFilter),
+    [zones, zoneStatusFilter]
+  );
+
   const zoneOptions = useMemo(() => {
     // REVISION: Base options on the authoritative, sorted `zones` list
     return zones.map((zone) => ({ id: zone.id, name: zone.name, active: zone.active }));
@@ -460,11 +488,11 @@ export default function TableInventoryClient() {
   const isZoneSelectDisabled = zoneOptions.length === 0;
 
   const filteredTables = useMemo(() => {
-    if (filterZone === ALL_ZONES_VALUE) {
-      return tables;
-    }
-    return tables.filter((table) => table.zoneId === filterZone);
-  }, [filterZone, tables]);
+    const zoneFiltered = filterZone === ALL_ZONES_VALUE
+      ? tables
+      : tables.filter((table) => table.zoneId === filterZone);
+    return filterTablesByStatus(zoneFiltered, tableStatusFilter);
+  }, [filterZone, tableStatusFilter, tables]);
 
   // ... (summaryCards useMemo hook remains largely the same)
   const summaryCards = useMemo(() => {
@@ -755,24 +783,42 @@ export default function TableInventoryClient() {
 
       {/* ... (Zones section JSX updated to use the safe delete handler) ... */}
       <section className="rounded-lg border p-4 space-y-4">
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
             <h2 className="text-lg font-semibold">Zones</h2>
             <p className="text-sm text-muted-foreground">
               Group tables by areas of your floor plan. Add or rename zones as your layout changes.
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setEditingZone(null);
-              setIsZoneDialogOpen(true);
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add zone
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Label htmlFor="zone-status-filter" className="text-sm text-muted-foreground">
+              Show
+            </Label>
+            <Select
+              value={zoneStatusFilter}
+              onValueChange={(value) => setZoneStatusFilter(value as ZoneStatusFilter)}
+            >
+              <SelectTrigger id="zone-status-filter" className="w-[170px]">
+                <SelectValue placeholder="All zones" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Active zones</SelectItem>
+                <SelectItem value="inactive">Inactive zones</SelectItem>
+                <SelectItem value="all">All zones</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setEditingZone(null);
+                setIsZoneDialogOpen(true);
+              }}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add zone
+            </Button>
+          </div>
         </div>
 
         {isLoadingZones ? (
@@ -788,13 +834,15 @@ export default function TableInventoryClient() {
               {zonesError instanceof Error ? zonesError.message : 'Unable to load zones right now.'}
             </AlertDescription>
           </Alert>
-        ) : zones.length === 0 ? (
+        ) : filteredZones.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No zones configured yet. Create your first zone to start organizing tables.
+            {zones.length === 0
+              ? 'No zones configured yet. Create your first zone to start organizing tables.'
+              : 'No zones match this filter. Show all to view inactive zones.'}
           </p>
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2">
-            {zones.map((zone) => {
+            {filteredZones.map((zone) => {
               const isActiveFilter = filterZone === zone.id;
               return (
                 <li key={zone.id}>
@@ -868,22 +916,41 @@ export default function TableInventoryClient() {
 
       {/* ... (Filter and Add Table section remains the same) ... */}
       <section className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-3">
-          <Label htmlFor="table-zone-filter" className="text-sm">Filter by Zone</Label>
-          <Select value={filterZone} onValueChange={setFilterZone}>
-            <SelectTrigger id="table-zone-filter" className="w-[220px]">
-              <SelectValue placeholder="All zones" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_ZONES_VALUE}>All zones</SelectItem>
-              {zoneOptions.map((zone) => (
-                <SelectItem key={zone.id} value={zone.id}>
-                  {zone.name}
-                  {zone.active ? '' : ' (inactive)'}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
+          <div className="flex items-center gap-3">
+            <Label htmlFor="table-zone-filter" className="text-sm">Filter by Zone</Label>
+            <Select value={filterZone} onValueChange={setFilterZone}>
+              <SelectTrigger id="table-zone-filter" className="w-[220px]">
+                <SelectValue placeholder="All zones" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_ZONES_VALUE}>All zones</SelectItem>
+                {zoneOptions.map((zone) => (
+                  <SelectItem key={zone.id} value={zone.id}>
+                    {zone.name}
+                    {zone.active ? '' : ' (inactive)'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Label htmlFor="table-status-filter" className="text-sm">Show</Label>
+            <Select
+              value={tableStatusFilter}
+              onValueChange={(value) => setTableStatusFilter(value as TableStatusFilter)}
+            >
+              <SelectTrigger id="table-status-filter" className="w-[200px]">
+                <SelectValue placeholder="All tables" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Active tables only</SelectItem>
+                <SelectItem value="inactive">Inactive tables only</SelectItem>
+                <SelectItem value="all">All tables</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <Button
@@ -929,7 +996,7 @@ export default function TableInventoryClient() {
                 <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
                   {tables.length === 0
                     ? 'No tables configured yet. Add your first table to get started.'
-                    : 'No tables in this section.'}
+                    : 'No tables match this filter. Try showing all zones or tables.'}
                 </TableCell>
               </TableRow>
             ) : (
