@@ -15,6 +15,13 @@ import { toIsoUtc, summarizeSelection } from "./utils";
 
 const DEFAULT_MANUAL_SLACK_BUDGET = 4;
 
+function findUnavailableTables(tables: Table[]): Table[] {
+  return tables.filter((table) => {
+    const outOfService = typeof table.status === "string" && table.status.toLowerCase() === "out_of_service";
+    return table.active === false || table.zoneActive === false || outOfService;
+  });
+}
+
 function normalizeTableForVersion(table: Table) {
   return {
     id: table.id,
@@ -93,6 +100,23 @@ function buildManualChecks(params: {
 }): ManualSelectionCheck[] {
   const checks: ManualSelectionCheck[] = [];
   const { summary, tables, requireAdjacency, adjacency, conflicts, holdConflicts, slackBudget } = params;
+
+  const unavailableTables = findUnavailableTables(tables);
+  checks.push({
+    id: "active",
+    status: unavailableTables.length === 0 ? "ok" : "error",
+    message:
+      unavailableTables.length === 0
+        ? "Tables are available"
+        : `Disabled or out-of-service tables: ${unavailableTables
+            .map((table) => table.tableNumber || table.id)
+            .join(", ")}`,
+    details: {
+      tableIds: unavailableTables.map((t) => t.id),
+      statuses: unavailableTables.map((t) => t.status ?? null),
+      zoneActive: unavailableTables.map((t) => t.zoneActive ?? null),
+    },
+  });
 
   checks.push({
     id: "capacity",
@@ -681,6 +705,16 @@ export async function instantTableAssignment(options: ManualHoldOptions & { assi
 
   if (selectionTables.length !== tableIds.length) {
     throw new ManualSelectionInputError("One or more selected tables were not found", "TABLE_LOOKUP_FAILED");
+  }
+
+  const unavailableTables = findUnavailableTables(selectionTables);
+  if (unavailableTables.length > 0) {
+    const names = unavailableTables.map((t) => t.tableNumber || t.id).join(", ");
+    throw new ManualSelectionInputError(
+      `Selected tables are inactive or in a disabled zone: ${names}`,
+      "RESOURCE_DISABLED",
+      409,
+    );
   }
 
   const restaurantTimezone =

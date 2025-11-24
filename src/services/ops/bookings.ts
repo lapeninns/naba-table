@@ -16,7 +16,7 @@ import type {
 } from '@/types/ops';
 import type { Tables } from '@/types/supabase';
 
-const OPS_BOOKINGS_BASE = '/api/bookings';
+const OPS_BOOKINGS_BASE = '/api/ops/bookings';
 const OPS_DASHBOARD_BASE = '/api/dashboard';
 const OPS_SETTINGS_BASE = '/api/settings';
 const STAFF_AUTO_BASE = '/api/staff/auto';
@@ -280,6 +280,7 @@ export type ManualAssignmentTable = {
   seatingType: string;
   mobility: string;
   zoneId: string;
+  zoneActive?: boolean | null;
   status: string;
   active: boolean;
   position: Record<string, unknown> | null;
@@ -376,6 +377,34 @@ export type ManualAssignmentContextWithSession = ManualAssignmentContext & {
   session?: ManualAssignmentSession | null;
 };
 
+export type DisabledAssignmentEntry = {
+  tableId: string;
+  tableNumber: string | null;
+  tableStatus: string | null;
+  tableActive: boolean | null;
+  zoneId: string | null;
+  zoneName: string | null;
+  zoneActive: boolean | null;
+  startAt: string | null;
+  endAt: string | null;
+};
+
+export type DisabledAssignmentsResponse = {
+  restaurantId: string;
+  disabledTableCount: number;
+  bookings: Array<{
+    id: string;
+    status: string | null;
+    partySize: number | null;
+    startIso: string | null;
+    endIso: string | null;
+    customerName: string | null;
+    customerEmail: string | null;
+    customerPhone: string | null;
+    assignments: DisabledAssignmentEntry[];
+  }>;
+};
+
 export interface BookingService {
   getTodaySummary(params: SummaryParams): Promise<OpsTodayBookingsSummary>;
   getBookingHeatmap(params: HeatmapParams): Promise<OpsBookingHeatmap>;
@@ -383,6 +412,7 @@ export interface BookingService {
   getStrategicSettings(params: StrategicSettingsParams): Promise<OpsStrategicSettings>;
   updateStrategicSettings(input: StrategicSettingsUpdate): Promise<OpsStrategicSettings>;
   listBookings(filters: OpsBookingsFilters): Promise<OpsBookingsPage>;
+  listDisabledAssignments(params: { restaurantId: string }): Promise<DisabledAssignmentsResponse>;
   updateBooking(input: UpdateBookingInput): Promise<OpsBookingListItem>;
   updateBookingStatus(input: UpdateStatusInput): Promise<{ status: OpsBookingStatus }>;
   checkInBooking(input: LifecycleInput): Promise<LifecycleResponse>;
@@ -527,6 +557,10 @@ export function createBrowserBookingService(): BookingService {
     async listBookings(filters) {
       const search = buildSearch(filters);
       return fetchJson<OpsBookingsPage>(`${OPS_BOOKINGS_BASE}?${search}`);
+    },
+    async listDisabledAssignments({ restaurantId }) {
+      const params = new URLSearchParams({ restaurantId });
+      return fetchJson<DisabledAssignmentsResponse>(`${OPS_BOOKINGS_BASE}/disabled?${params.toString()}`);
     },
     async updateBooking({ id, ...body }) {
       return fetchJson<OpsBookingListItem>(`${OPS_BOOKINGS_BASE}/${id}`, {
@@ -751,6 +785,10 @@ export class NotImplementedBookingService implements BookingService {
 
   getStatusSummary(): Promise<StatusSummaryResponse> {
     this.error('getStatusSummary not implemented');
+  }
+
+  listDisabledAssignments(): Promise<DisabledAssignmentsResponse> {
+    this.error('listDisabledAssignments not implemented');
   }
 
   getBookingHistory(): Promise<BookingHistoryResponse> {

@@ -146,6 +146,7 @@ export function filterAvailableTables(
     if (!table) return false;
     if (avoid.has(table.id)) return false;
     if (zoneId && table.zoneId !== zoneId) return false;
+    if (table.zoneActive === false) return false;
     if (table.active === false) return false;
     if (typeof table.status === "string" && table.status.toLowerCase() === "out_of_service") return false;
     const capacity = table.capacity ?? 0;
