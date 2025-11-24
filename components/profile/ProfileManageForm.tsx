@@ -10,8 +10,10 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Separator } from '@/components/ui/separator';
 import { useProfile, useUpdateProfile, useUploadProfileAvatar, coerceProfileUpdatePayload } from '@/hooks/useProfile';
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
@@ -454,169 +456,200 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
   return (
     <Form {...form}>
       <form onSubmit={onSubmit} className="space-y-8" noValidate>
-        <section className="rounded-2xl border border-base-300 bg-white/80 p-6 shadow-sm">
-          <div className="flex flex-wrap gap-6">
-            <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full bg-base-200">
-              {avatarPreviewSrc ? (
-                <Image
-                  src={avatarPreviewSrc}
-                  alt="Profile avatar preview"
-                  fill
-                  className="object-cover"
-                  sizes="96px"
-                  priority
+        <div className="grid gap-8 md:grid-cols-[1fr_300px] lg:grid-cols-[1fr_360px]">
+          <div className="space-y-8">
+            <Card>
+              <CardHeader>
+                <CardTitle>Personal Information</CardTitle>
+                <CardDescription>
+                  Update your personal details and how you can be reached.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Display Name</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Ada Lovelace"
+                          autoComplete="name"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        This is the name that will be displayed to restaurants.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-2xl font-semibold text-base-content/60">
-                  {currentProfile.name?.slice(0, 1) ?? currentProfile.email.slice(0, 1)}
-                </div>
-              )}
-            </div>
-            <div className="flex flex-1 flex-col gap-3">
-              <div>
-                <p className="text-base font-medium text-base-content">Avatar</p>
-                <p className="text-sm text-base-content/70">
-                  Upload a clear photo. Supported formats: JPEG, PNG, WEBP, SVG. Max size 2 MB.
+
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone Number</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="+1 415 555 0123"
+                          autoComplete="tel"
+                          inputMode="tel"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Used for booking confirmations and updates.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email Address</FormLabel>
+                      <FormControl>
+                        <Input readOnly disabled {...field} className="bg-muted" />
+                      </FormControl>
+                      <FormDescription>
+                        Managed via your account login and cannot be changed here.
+                      </FormDescription>
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+              <CardFooter className="flex flex-col items-start justify-between gap-4 border-t bg-muted/50 px-6 py-4 sm:flex-row sm:items-center">
+                <p
+                  ref={statusRef}
+                  tabIndex={status ? -1 : undefined}
+                  className={cn(
+                    'text-sm font-medium transition-colors',
+                    status ? statusToneClass[status.tone] : 'text-muted-foreground'
+                  )}
+                  role="status"
+                  aria-live={status?.live ?? 'polite'}
+                >
+                  {status?.message}
                 </p>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <label className="relative inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-[var(--radius-md)] border border-srx-border-strong bg-white px-4 py-2 text-sm font-medium text-srx-ink-strong shadow-sm transition hover:bg-srx-surface-positive-alt focus-within:outline-none focus-within:ring-2 focus-within:ring-srx-brand focus-within:ring-offset-2">
-                  <Upload className="h-4 w-4" aria-hidden />
-                  <span>Choose image</span>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/svg+xml"
-                    className="sr-only"
-                    onChange={onAvatarChange}
-                  />
-                </label>
-                {(currentProfile.image || avatarPreviewSrc) && (
+                <div className="flex w-full gap-3 sm:w-auto">
                   <Button
                     type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleRemoveAvatar}
+                    variant="ghost"
+                    onClick={() => {
+                      form.reset();
+                      setAvatarState((prev) => {
+                        if (prev.previewUrl && prev.previewUrl.startsWith('blob:')) {
+                          URL.revokeObjectURL(prev.previewUrl);
+                        }
+                        return { file: null, previewUrl: null, removed: false };
+                      });
+                      setAvatarError(null);
+                      announceStatus(null);
+                    }}
                     disabled={isSubmitting}
+                    className="flex-1 sm:flex-none"
                   >
-                    <X className="mr-2 h-4 w-4" aria-hidden /> Remove
+                    Reset
                   </Button>
-                )}
-              </div>
-              {avatarError ? (
-                <p
-                  className="text-sm text-red-600"
-                  role="alert"
-                  aria-live="assertive"
-                  aria-label={avatarError}
-                >
-                  {avatarError}
-                </p>
-              ) : null}
-            </div>
+                  <Button
+                    type="submit"
+                    disabled={disableSubmit}
+                    className="flex-1 sm:flex-none"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      'Save Changes'
+                    )}
+                  </Button>
+                </div>
+              </CardFooter>
+            </Card>
           </div>
-        </section>
 
-        <section className="space-y-6 rounded-2xl border border-base-300 bg-white/80 p-6 shadow-sm">
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="profile-name">Display name</FormLabel>
-                <FormControl>
-                  <Input
-                    id="profile-name"
-                    placeholder="Ada Lovelace"
-                    autoComplete="name"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage>{form.formState.errors.name?.message}</FormMessage>
-              </FormItem>
-            )}
-          />
+          <div className="order-first md:order-last">
+            <Card>
+              <CardHeader>
+                <CardTitle>Profile Picture</CardTitle>
+                <CardDescription>
+                  Upload a picture to make your profile recognizable.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col items-center gap-6">
+                <div className="relative h-40 w-40 overflow-hidden rounded-full border-4 border-muted bg-muted shadow-sm">
+                  {avatarPreviewSrc ? (
+                    <Image
+                      src={avatarPreviewSrc}
+                      alt="Profile avatar preview"
+                      fill
+                      className="object-cover"
+                      sizes="160px"
+                      priority
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-muted text-4xl font-semibold text-muted-foreground">
+                      {currentProfile.name?.slice(0, 1).toUpperCase() ?? currentProfile.email.slice(0, 1).toUpperCase()}
+                    </div>
+                  )}
+                </div>
 
-          <FormField
-            control={form.control}
-            name="phone"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="profile-phone">Phone</FormLabel>
-                <FormControl>
-                  <Input
-                    id="profile-phone"
-                    placeholder="+1 415 555 0123"
-                    autoComplete="tel"
-                    inputMode="tel"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage>{form.formState.errors.phone?.message}</FormMessage>
-              </FormItem>
-            )}
-          />
+                <div className="flex w-full flex-col gap-3">
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      disabled={isSubmitting}
+                      onClick={() => document.getElementById('avatar-upload')?.click()}
+                    >
+                      <Upload className="mr-2 h-4 w-4" />
+                      Upload
+                    </Button>
+                    <input
+                      id="avatar-upload"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/svg+xml"
+                      className="sr-only"
+                      onChange={onAvatarChange}
+                      disabled={isSubmitting}
+                    />
 
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="profile-email">Email</FormLabel>
-                <FormControl>
-                  <Input id="profile-email" readOnly disabled {...field} />
-                </FormControl>
-                <p className="text-sm text-base-content/70">Email is managed via Supabase Auth and cannot be changed.</p>
-              </FormItem>
-            )}
-          />
-        </section>
+                    {(currentProfile.image || avatarPreviewSrc) && (
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        onClick={handleRemoveAvatar}
+                        disabled={isSubmitting}
+                        title="Remove avatar"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p
-            ref={statusRef}
-            tabIndex={status ? -1 : undefined}
-            className={cn(
-              'min-h-[1.25rem] text-sm text-srx-ink-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-srx-brand/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-              status ? statusToneClass[status.tone] : 'text-srx-ink-soft',
-            )}
-            role="status"
-            aria-live={status?.live ?? 'polite'}
-            aria-atomic="true"
-            aria-label={status?.message ?? 'profile status'}
-            data-testid="profile-status"
-          >
-            {status?.message ?? ''}
-          </p>
-          <div className="flex gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="default"
-              onClick={() => {
-                form.reset();
-                setAvatarState((prev) => {
-                  if (prev.previewUrl && prev.previewUrl.startsWith('blob:')) {
-                    URL.revokeObjectURL(prev.previewUrl);
-                  }
-                  return { file: null, previewUrl: null, removed: false };
-                });
-                setAvatarError(null);
-                announceStatus(null);
-              }}
-              disabled={isSubmitting}
-            >
-              Reset
-            </Button>
-            <Button type="submit" disabled={disableSubmit} aria-disabled={disableSubmit}>
-              {isSubmitting ? (
-                <span className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                  Saving
-                </span>
-              ) : (
-                'Save changes'
-              )}
-            </Button>
+                  {avatarError && (
+                    <p className="text-center text-sm font-medium text-destructive">
+                      {avatarError}
+                    </p>
+                  )}
+
+                  <p className="text-center text-xs text-muted-foreground">
+                    JPEG, PNG, WEBP or SVG. Max 2MB.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </form>

@@ -11,7 +11,7 @@ const resendApiKey = env.resend.apiKey;
 const resendFrom = env.resend.from;
 const resendUseMock = env.resend.useMock;
 const configuredSupportEmail = config.email.supportEmail?.trim();
-const DEFAULT_MOCK_FROM_ADDRESS = "mock@shipfast.local";
+const DEFAULT_MOCK_FROM_ADDRESS = "mock@nabatable.local";
 
 const PLACEHOLDER_EMAIL_REGEX = /@example\.(com|org|net)$/i;
 

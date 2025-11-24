@@ -1,7 +1,7 @@
 'use client';
 
 import { endOfDay } from 'date-fns';
-import { ChevronDownIcon } from 'lucide-react';
+import { CalendarIcon, ChevronDownIcon, ClockIcon } from 'lucide-react';
 import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
 
 import { formatDateForInput, formatReservationDate } from '@reserve/shared/formatting/booking';
@@ -144,17 +144,26 @@ export function Calendar24Field({
   }, [loadingDates]);
 
   return (
-    <div className="flex flex-col gap-4 md:flex-row">
+    <div className="flex flex-col gap-4 sm:flex-row sm:gap-3">
+      {/* Date Section */}
       <div className="flex flex-1 flex-col gap-3">
-        <Label htmlFor={dateButtonId} className="px-1">
-          Date
+        <Label
+          htmlFor={dateButtonId}
+          className="flex items-center gap-1.5 px-1 text-sm font-semibold sm:text-base"
+        >
+          <CalendarIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          <span>Date</span>
         </Label>
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <Button
               id={dateButtonId}
               variant="outline"
-              className="w-full justify-between font-normal"
+              className={cn(
+                'w-full justify-between font-normal h-12 text-base',
+                !date.value && 'text-muted-foreground',
+                date.error && 'border-destructive focus-visible:ring-destructive',
+              )}
               aria-haspopup="dialog"
               aria-expanded={open}
               aria-invalid={Boolean(date.error)}
@@ -162,8 +171,8 @@ export function Calendar24Field({
                 [dateDescriptionId, dateErrorId].filter(Boolean).join(' ') || undefined
               }
             >
-              <span>{label}</span>
-              <ChevronDownIcon className="h-4 w-4" aria-hidden />
+              <span className="truncate">{label}</span>
+              <ChevronDownIcon className="h-4 w-4 shrink-0 opacity-50" aria-hidden />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto overflow-hidden p-0" align="start">
@@ -187,24 +196,39 @@ export function Calendar24Field({
             />
           </PopoverContent>
         </Popover>
-        <p id={dateDescriptionId} className="px-1 text-[0.8rem] text-muted-foreground">
+        <p id={dateDescriptionId} className="px-1 text-xs text-muted-foreground sm:text-[0.8rem]">
           {DATE_DESCRIPTION}
         </p>
         {date.error ? (
-          <p id={dateErrorId} className="px-1 text-[0.8rem] font-medium text-destructive">
-            {date.error}
-          </p>
+          <div
+            id={dateErrorId}
+            className="flex items-start gap-1.5 rounded-md bg-destructive/10 px-3 py-2 animate-fade-in"
+            role="alert"
+          >
+            <span className="text-destructive text-sm font-medium leading-tight">{date.error}</span>
+          </div>
         ) : null}
       </div>
 
+      {/* Visual Separator - only visible on tablet+ */}
+      <div
+        className="hidden sm:block sm:w-px sm:bg-border sm:self-stretch sm:my-8"
+        aria-hidden="true"
+      />
+
+      {/* Time Section */}
       <div
         className={cn(
           'flex flex-1 flex-col gap-3 transition-opacity duration-300',
           isTimeLoading && 'opacity-50',
         )}
       >
-        <Label htmlFor={timeInputId} className="px-1">
-          Time
+        <Label
+          htmlFor={timeInputId}
+          className="flex items-center gap-1.5 px-1 text-sm font-semibold sm:text-base"
+        >
+          <ClockIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          <span>Time</span>
         </Label>
         <div className="flex flex-col gap-2">
           <div className="relative">
@@ -235,14 +259,15 @@ export function Calendar24Field({
               list={showSuggestions ? timeListId : undefined}
               placeholder="--:--"
               className={cn(
-                'bg-background text-base font-normal appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none',
+                'h-12 bg-background text-base font-normal appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none',
                 !inputValue ? 'text-foreground' : undefined,
+                time.error && 'border-destructive focus-visible:ring-destructive',
               )}
               disabled={isTimeDisabled || isTimeLoading}
             />
             {isTimeLoading && !inputValue ? (
-              <div className="absolute inset-0 flex items-center px-3">
-                <div className="h-5 w-20 animate-pulse rounded bg-muted" />
+              <div className="absolute inset-0 flex items-center px-3 pointer-events-none">
+                <div className="h-5 w-20 animate-pulse rounded bg-muted/60" />
               </div>
             ) : null}
             {!inputValue && !isTimeLoading ? (
@@ -268,18 +293,22 @@ export function Calendar24Field({
               ))}
             </datalist>
           ) : (
-            <p className="px-1 text-[0.8rem] text-muted-foreground" aria-live="polite">
+            <p className="px-1 text-xs text-muted-foreground sm:text-[0.8rem]" aria-live="polite">
               {resolvedUnavailableMessage}
             </p>
           )}
         </div>
-        <p id={timeDescriptionId} className="px-1 text-[0.8rem] text-muted-foreground">
+        <p id={timeDescriptionId} className="px-1 text-xs text-muted-foreground sm:text-[0.8rem]">
           {TIME_DESCRIPTION}
         </p>
         {time.error ? (
-          <p id={timeErrorId} className="px-1 text-[0.8rem] font-medium text-destructive">
-            {time.error}
-          </p>
+          <div
+            id={timeErrorId}
+            className="flex items-start gap-1.5 rounded-md bg-destructive/10 px-3 py-2 animate-fade-in"
+            role="alert"
+          >
+            <span className="text-destructive text-sm font-medium leading-tight">{time.error}</span>
+          </div>
         ) : null}
       </div>
     </div>

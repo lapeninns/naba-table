@@ -1,6 +1,6 @@
-# SajiloReserveX
+# Nab a Table
 
-Modern reservations and capacity management built with Next.js 16 (App Router), React 19, Supabase, and pnpm workspaces.
+Modern reservations and capacity management built with Next.js 16 (App Router), React 19, Supabase, and pnpm workspaces. Parent company: Lapen Inns; platform brand: Nab a Table.
 
 ## Stack
 

@@ -5,7 +5,7 @@ import 'dotenv/config';
 import { Resend } from 'resend';
 
 const resendApiKey = process.env.RESEND_API_KEY;
-const resendFrom = process.env.RESEND_FROM ?? 'SajiloReserveX <noreply@example.com>';
+const resendFrom = process.env.RESEND_FROM ?? 'Nab a Table <noreply@example.com>';
 
 if (!resendApiKey) {
   console.error('❌ RESEND_API_KEY is not set. Provide it via environment variable.');
@@ -26,7 +26,7 @@ async function testEmailSending() {
     }
 
     const now = new Date().toISOString();
-    const subject = 'Test Email from SajiloReserveX';
+    const subject = 'Test Email from Nab a Table';
     const result = await resend.emails.send({
       from: resendFrom,
       to,

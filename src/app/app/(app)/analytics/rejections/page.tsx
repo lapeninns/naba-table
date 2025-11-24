@@ -8,7 +8,7 @@ import { getServerComponentSupabaseClient } from '@/server/supabase';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Rejection analytics · SajiloReserveX Ops',
+  title: 'Rejection analytics · Nab a Table Ops',
   description: 'Investigate why bookings are skipped and adjust strategic weights to optimise seating outcomes.',
 };
 

@@ -19,6 +19,7 @@ type ZoneRecord = {
   restaurant_id: string;
   name: string;
   sort_order: number;
+  active: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -35,6 +36,7 @@ function createSupabaseStub(options: SupabaseStubOptions = {}) {
       restaurant_id: RESTAURANT_ID,
       name: "Main",
       sort_order: 0,
+      active: true,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },
@@ -77,7 +79,7 @@ function createSupabaseStub(options: SupabaseStubOptions = {}) {
               }),
             }),
           }),
-          update: (payload: { name?: string | null; sort_order?: number | null }) => ({
+          update: (payload: { name?: string | null; sort_order?: number | null; active?: boolean | null }) => ({
             eq: (_column: string, zoneId: string) => ({
               select: () => ({
                 single: async () => {
@@ -89,6 +91,7 @@ function createSupabaseStub(options: SupabaseStubOptions = {}) {
                     ...zones[index],
                     name: payload.name ?? zones[index].name,
                     sort_order: payload.sort_order ?? zones[index].sort_order,
+                    active: payload.active ?? zones[index].active,
                     updated_at: new Date().toISOString(),
                   };
                   return { data: zones[index], error: null };
@@ -153,7 +156,25 @@ describe("/api/ops/zones/[id]", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.zone).toMatchObject({ id: ZONE_ID, name: "Patio" });
+    expect(body.zone).toMatchObject({ id: ZONE_ID, name: "Patio", active: true });
+  });
+
+  it("toggles zone active state", async () => {
+    const supabase = createSupabaseStub();
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(supabase);
+
+    const response = await PATCH(
+      createRequest(`http://localhost/api/ops/zones/${ZONE_ID}`, {
+        method: "PATCH",
+        body: JSON.stringify({ active: false }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      { params: Promise.resolve({ id: ZONE_ID }) },
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.zone).toMatchObject({ id: ZONE_ID, active: false });
   });
 
   it("returns 409 when deleting a zone in use", async () => {

@@ -46,7 +46,7 @@ export default defineConfig({
     },
   ],
   metadata: {
-    project: 'SajiloReserveX',
+    project: 'Nab a Table',
   },
   globalSetup: require.resolve('./tests/global-setup'),
   globalTeardown: require.resolve('./tests/global-teardown'),

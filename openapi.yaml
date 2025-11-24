@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: SajiloReserveX API
+  title: Nab a Table API
   version: 1.0.0
   description: Versioned API under /api/v1 with RESTful conventions.
 servers:

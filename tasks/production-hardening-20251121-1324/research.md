@@ -8,7 +8,7 @@ flags: []
 related_tickets: []
 ---
 
-# Research: Production Hardening – SajiloReserveX
+# Research: Production Hardening – Nab a Table
 
 ## Requirements
 

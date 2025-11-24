@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu, LogOut } from "lucide-react";
+import { Menu, LogOut, User, Calendar } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -39,14 +39,11 @@ const MARKETING_LINKS: NavLink[] = [
   // marketing browse entry removed; guests enter via slugged booking
 ];
 
-const APP_LINKS: NavLink[] = [
-  { href: "/guest/dashboard", label: "Dashboard" },
-  { href: "/guest/bookings", label: "My bookings" },
-];
+const APP_LINKS: NavLink[] = [];
 
-const ACCOUNT_LINKS: NavLink[] = [
-  { href: "/guest/profile", label: "Profile" },
-  { href: "/guest/bookings", label: "My bookings" },
+const ACCOUNT_LINKS: (NavLink & { icon: React.ComponentType<{ className?: string }> })[] = [
+  { href: "/guest/profile", label: "Profile", icon: User },
+  { href: "/guest/bookings", label: "My bookings", icon: Calendar },
 ];
 
 const CTA_LOGGED_OUT: NavLink | null = null; // hide primary CTA for unauthenticated guest-facing view
@@ -88,7 +85,7 @@ function BrandMark() {
         <Image src={logo} alt={config.appName} className="h-6 w-6" />
       </span>
       <span className="flex min-w-0 flex-col leading-tight">
-        <span className="truncate text-sm font-semibold text-foreground">{config.appName ?? "SajiloReserveX"}</span>
+        <span className="truncate text-sm font-semibold text-foreground">{config.appName ?? "Nab a Table"}</span>
         <span className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">Book great tables fast</span>
       </span>
     </Link>
@@ -141,7 +138,7 @@ type DesktopActionsProps = {
   isLoading: boolean;
   isLoggedIn: boolean;
   account: AccountSnapshot | null;
-  accountLinks: NavLink[];
+  accountLinks: (NavLink & { icon: React.ComponentType<{ className?: string }> })[];
   cta: NavLink | null;
   onSignOut: () => Promise<void>;
   isSigningOut: boolean;
@@ -178,41 +175,45 @@ function DesktopActions({ isLoading, isLoggedIn, account, accountLinks, cta, onS
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="flex h-11 w-11 items-center justify-center rounded-full border border-border/70 bg-background text-foreground transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="group relative h-10 w-10 rounded-full outline-none transition-all hover:ring-2 hover:ring-primary/20 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               aria-label={`${account.displayName} menu`}
             >
-              <Avatar className="h-10 w-10">
+              <Avatar className="h-10 w-10 border border-border/50 transition group-hover:border-primary/50">
                 {account.avatarUrl ? <AvatarImage src={account.avatarUrl} alt={account.displayName} /> : null}
-                <AvatarFallback aria-hidden>{account.fallback}</AvatarFallback>
+                <AvatarFallback className="bg-primary/5 text-primary font-medium" aria-hidden>{account.fallback}</AvatarFallback>
               </Avatar>
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56" forceMount>
-            <DropdownMenuLabel>
-              <span className="block text-sm font-medium text-foreground">{account.displayName}</span>
+          <DropdownMenuContent align="end" className="w-60 p-2" forceMount>
+            <div className="flex flex-col space-y-1 p-2">
+              <p className="text-sm font-semibold leading-none text-foreground">{account.displayName}</p>
               {account.email ? (
-                <span className="block text-xs font-normal text-muted-foreground">{account.email}</span>
+                <p className="text-xs leading-none text-muted-foreground">{account.email}</p>
               ) : null}
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
+            </div>
+            <DropdownMenuSeparator className="my-1" />
             {accountLinks.map((item) => (
-              <DropdownMenuItem asChild key={item.href}>
-                <Link href={item.href} className="flex w-full items-center justify-between px-2 py-1.5 text-sm">
+              <DropdownMenuItem asChild key={item.href} className="cursor-pointer rounded-md p-2 focus:bg-primary/5">
+                <Link href={item.href} className="flex w-full items-center gap-2.5 text-sm font-medium text-foreground/80">
+                  <item.icon className="h-4 w-4 text-muted-foreground" />
                   {item.label}
                 </Link>
               </DropdownMenuItem>
             ))}
-            <DropdownMenuSeparator />
+            <DropdownMenuSeparator className="my-1" />
             <DropdownMenuItem
               onSelect={(event) => {
                 event.preventDefault();
                 void onSignOut();
               }}
-              className="flex items-center justify-between px-2 py-1.5 text-sm text-destructive focus:text-destructive"
+              className="cursor-pointer rounded-md p-2 text-destructive focus:bg-destructive/5 focus:text-destructive"
               disabled={isSigningOut}
               aria-disabled={isSigningOut}
             >
-              <span className="inline-flex items-center gap-2"><LogOut className="h-4 w-4" /> Sign out</span>
+              <div className="flex w-full items-center gap-2.5 text-sm font-medium">
+                <LogOut className="h-4 w-4" />
+                <span>Sign out</span>
+              </div>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -322,24 +323,26 @@ function MobileMenu({ navLinks, sessionActions, account, isLoggedIn, isSigningOu
           </div>
         ) : null}
 
-        <section className="flex flex-col gap-3" aria-label="Explore">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Explore</p>
-          <nav className="flex flex-col gap-2" aria-label="Primary navigation">
-            {navLinks.map((link) => (
-              <SheetClose asChild key={link.href}>
-                <Link
-                  href={link.href}
-                  className={cn(
-                    "rounded-xl px-3.5 py-2.5 text-base font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                    isActive(link.href) ? "bg-primary/10 text-primary shadow-inner" : "text-foreground hover:bg-muted",
-                  )}
-                >
-                  {link.label}
-                </Link>
-              </SheetClose>
-            ))}
-          </nav>
-        </section>
+        {navLinks.length > 0 ? (
+          <section className="flex flex-col gap-3" aria-label="Explore">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Explore</p>
+            <nav className="flex flex-col gap-2" aria-label="Primary navigation">
+              {navLinks.map((link) => (
+                <SheetClose asChild key={link.href}>
+                  <Link
+                    href={link.href}
+                    className={cn(
+                      "rounded-xl px-3.5 py-2.5 text-base font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                      isActive(link.href) ? "bg-primary/10 text-primary shadow-inner" : "text-foreground hover:bg-muted",
+                    )}
+                  >
+                    {link.label}
+                  </Link>
+                </SheetClose>
+              ))}
+            </nav>
+          </section>
+        ) : null}
 
         <Separator className="bg-border/70" />
 

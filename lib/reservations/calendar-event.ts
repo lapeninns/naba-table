@@ -48,7 +48,7 @@ export function buildCalendarEvent(payload: ReservationCalendarPayload): string 
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//SajiloReserveX//EN",
+    "PRODID:-//Nab a Table//EN",
     "BEGIN:VEVENT",
     `UID:${payload.reservationId}@sajiloreservex`,
     `DTSTAMP:${toTimestamp(new Date())}`,

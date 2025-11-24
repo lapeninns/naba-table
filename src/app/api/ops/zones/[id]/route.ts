@@ -13,6 +13,7 @@ const routeParamsSchema = z.object({
 const updateSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   sortOrder: z.number().int().min(-1000).max(1000).optional(),
+  active: z.boolean().optional(),
 });
 
 type RouteContext = {
@@ -84,6 +85,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       const updated = await updateZone(supabase, id, {
         name: trimmedName ?? undefined,
         sortOrder: updates.sortOrder,
+        active: updates.active,
       });
 
       return NextResponse.json({ zone: updated });

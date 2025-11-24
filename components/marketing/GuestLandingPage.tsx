@@ -90,7 +90,7 @@ const HOW_IT_WORKS = [
 const TESTIMONIALS = [
   {
     quote:
-      "SajiloReserveX made finding and booking our anniversary dinner so easy. The instant confirmation gave us peace of mind.",
+      "Nab a Table made finding and booking our anniversary dinner so easy. The instant confirmation gave us peace of mind.",
     author: "Sarah Chen",
     context: "Regular diner, San Francisco",
   },
@@ -110,7 +110,7 @@ const TESTIMONIALS = [
 
 const FAQ_ITEMS = [
   {
-    question: "Is SajiloReserveX free for diners?",
+    question: "Is Nab a Table free for diners?",
     answer:
       "Yes! Creating an account and making reservations is completely free for diners. You only pay for your meal at the restaurant.",
   },
@@ -198,7 +198,7 @@ function FeaturesSection() {
         </Badge>
         <h2 className="text-balance text-3xl font-semibold md:text-4xl">Everything you need for great dining</h2>
         <p className="text-muted-foreground mx-auto max-w-3xl">
-          From discovering restaurants to managing your reservations, SajiloReserveX makes dining out effortless.
+          From discovering restaurants to managing your reservations, Nab a Table makes dining out effortless.
         </p>
       </div>
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -330,7 +330,7 @@ function FinalCTASection() {
             Ready to discover your next great meal?
           </h2>
           <p className="text-base text-primary-foreground/80 md:max-w-2xl">
-            Join thousands of diners who trust SajiloReserveX for hassle-free reservations. Browse restaurants or sign
+            Join thousands of diners who trust Nab a Table for hassle-free reservations. Browse restaurants or sign
             in to manage your bookings.
           </p>
         </div>

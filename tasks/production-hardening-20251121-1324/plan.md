@@ -8,11 +8,11 @@ flags: []
 related_tickets: []
 ---
 
-# Implementation Plan: Production Hardening – SajiloReserveX
+# Implementation Plan: Production Hardening – Nab a Table
 
 ## Objective
 
-Harden the codebase and delivery pipeline so dev/staging cannot impact production accidentally, secret exposure is stopped, CI enforces minimum quality/security, and documentation/logging reflect the SajiloReserveX state.
+Harden the codebase and delivery pipeline so dev/staging cannot impact production accidentally, secret exposure is stopped, CI enforces minimum quality/security, and documentation/logging reflect the Nab a Table state.
 
 ## Success Criteria
 

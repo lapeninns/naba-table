@@ -82,86 +82,69 @@ const list: {
   videoType?: "video/ogg" | "video/mp4" | "video/webm";
 }[] = [
   {
-    // Show @username for social media like Twitter. Does not link anywhere but cool to display
-    username: "marclou",
-    name: "Marc Lou",
-    text: "Really easy to use. The tutorials are really useful and explains how everything works. Hope to ship my next project really fast!",
-    // use refTypes.other if you don't want to display an icon
-    type: refTypes.twitter,
-    // Link to the person's testimonial. It's more trustable
-    link: "https://twitter.com/marc_louvion",
-    // A statically imported image (usually from your public folder—recommended) or a link to the person's avatar. Shows a fallback letter if not provided
-    img: "https://pbs.twimg.com/profile_images/1514863683574599681/9k7PqDTA_400x400.jpg",
-    // You can display video testimonials to build more trust. Just swap the type above to "video" and add at least the video source below
-    // videoSrc: "/jack.mp4"
-  },
-  {
-    username: "the_mcnaveen",
-    name: "Naveen",
-    text: "Setting up everything from the ground up is a really hard, and time consuming process. What you pay for will save your time for sure.",
-    type: refTypes.twitter,
-    link: "https://twitter.com/the_mcnaveen",
-  },
-  {
-    username: "wahab",
-    name: "Wahab Shaikh",
-    text: "Easily saves 15+ hrs for me setting up trivial stuff. Now, I can directly focus on shipping features rather than hours of setting up the same technologies from scratch. Feels like a super power! :D",
-    type: refTypes.productHunt,
-    link: "https://www.producthunt.com/products/shipfast-2/reviews?review=667971",
-  },
-  {
-    name: "Sean",
-    text: "Just purchased and cloned and *holy shit!* I realllyyy like what I'm seeing here!",
+    username: "lapeninns_ops",
+    name: "Amelia Carter",
+    text: "Rolling Nab a Table across Lapen Inns cut waitlist friction; hosts seat confidently with live pacing.",
     type: refTypes.other,
   },
   {
-    username: "krishna",
-    name: "Krishna Kant",
-    text: "Finally a good boilerplate for Nextjs, now I dont have to cry about it comparing with laravel ecosystem.",
-    type: refTypes.productHunt,
-    link: "https://www.producthunt.com/posts/shipfast-2?comment=2707061",
-  },
-  {
-    username: "imgyf",
-    name: "Yifan Goh",
-    text: "It's a game changer  🚀 Comes with easy to follow tutorial, and saves you a ton of time. What's not to love?",
-    type: refTypes.twitter,
-    link: "https://twitter.com/imgyf/status/1697549891080532236?s=20",
-  },
-  {
-    name: "Yazdun",
-    text: "Yo Marc, I got the boilerplate, it's fantastic man you just save me 10 hours on each project",
+    username: "chef_luis",
+    name: "Chef Luis Mendoza",
+    text: "Kitchen prep is calmer—the cover forecast from Nab a Table mirrors what actually hits the pass.",
     type: refTypes.other,
   },
   {
-    name: "Marc Lou",
-    text: "The tool is exactly what I didn't even know I needed.",
-    videoPoster: "https://d1wkquwg5s1b04.cloudfront.net/demo/marcPoster.jpg",
-    videoSrc: "https://d1wkquwg5s1b04.cloudfront.net/demo/marcVideo.mp4",
-    videoHeight: 250,
-    videoWidth: 500,
-    type: refTypes.video,
+    username: "gm_maya",
+    name: "Maya Patel",
+    text: "Group dashboards show which inn is nearing capacity so we can redirect guests before they’re disappointed.",
+    type: refTypes.other,
   },
   {
-    username: "zawwadx",
-    name: "Zawwad Ul Sami",
-    text: "It's an amazing minimalist, lightweight boilerplate with well-organized code. It has almost all the core features you would want in a SaaS boilerplate. As a new team last year it actually took us months to build a similar set of features at a stable level.",
-    type: refTypes.twitter,
+    name: "Sean Delaney",
+    text: "The onboarding team migrated our old holds and tags in an afternoon. Zero downtime for the floor.",
+    type: refTypes.other,
   },
   {
-    username: "dan",
-    name: "Dan Mindru",
-    text: "Probably one of the most powerful things you can 'npm install' that I've seen",
-    type: refTypes.productHunt,
-    link: "https://www.producthunt.com/posts/shipfast-2?comment=2706763",
+    username: "priya_guest",
+    name: "Priya Shah",
+    text: "As a frequent guest, confirmations and changes stay in one thread. It feels premium at every property.",
+    type: refTypes.other,
+  },
+  {
+    name: "Yazdun Farooqi",
+    text: "Auto-notifications reduced no-shows and let us open more walk-in slots on weekends.",
+    type: refTypes.other,
+  },
+  {
+    username: "danielle_ops",
+    name: "Danielle Kim",
+    text: "Seat maps + pacing rules keep FOH and BOH in sync without new hardware or a steep learning curve.",
+    type: refTypes.other,
+  },
+  {
+    username: "zoe_w",
+    name: "Zoe Wallace",
+    text: "Nab a Table integrates with our CRM so VIP notes show up before the host greets the guest.",
+    type: refTypes.other,
+  },
+  {
+    username: "victor_a",
+    name: "Victor Abeledo",
+    text: "We flipped from spreadsheets to Nab a Table and reclaimed hours every night. The team actually trusts the numbers now.",
+    type: refTypes.other,
+  },
+  {
+    username: "naveen_i",
+    name: "Naveen I.",
+    text: "Multi-venue switcher is perfect for area managers; no more juggling logins or exports.",
+    type: refTypes.other,
   },
   // The last testimonial is featured on big devices (span 2 columns + big font) 👇
   {
-    username: "VicPivots",
-    name: "Victor Abeledo",
-    text: "Marc, I got your boilerplate and having the payments setup with Stripe + user auth is a blessing. This will save me like a week of work for each new side project I spin up. I appreciate that is well documented, as well. 100% worth it 🚀🚀🚀",
-    type: refTypes.twitter,
-    link: "https://twitter.com/VicPivots/status/1697352442986250413?s=20",
+    username: "lapen_leadership",
+    name: "Lapen Inns Leadership",
+    text: "Nab a Table is now our guest platform of record—reliability and pace are night and day versus our legacy tool.",
+    type: refTypes.other,
   },
 ];
 
@@ -399,7 +382,7 @@ const Testimonials11 = () => {
         <div className="flex flex-col text-center w-full mb-20">
           <div className="mb-8">
             <h2 className="sm:text-5xl text-4xl font-extrabold text-base-content">
-              212 makers are already shipping faster!
+              Hospitality teams thrive with Nab a Table
             </h2>
           </div>
           <p className="lg:w-2/3 mx-auto leading-relaxed text-base text-base-content/80">

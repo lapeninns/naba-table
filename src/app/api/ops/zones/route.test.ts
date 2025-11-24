@@ -20,6 +20,7 @@ type ZoneRecord = {
   restaurant_id: string;
   name: string;
   sort_order: number;
+  active: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -39,6 +40,7 @@ function createSupabaseStub(options: SupabaseStubOptions = {}) {
       restaurant_id: RESTAURANT_ID,
       name: "Main",
       sort_order: 0,
+      active: true,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },
@@ -84,7 +86,12 @@ function createSupabaseStub(options: SupabaseStubOptions = {}) {
               }),
             }),
           }),
-          insert: (payload: { restaurant_id: string; name?: string | null; sort_order?: number | null }) => ({
+          insert: (payload: {
+            restaurant_id: string;
+            name?: string | null;
+            sort_order?: number | null;
+            active?: boolean | null;
+          }) => ({
             select: () => ({
               single: async () => {
                 if (options.insertError) {
@@ -96,6 +103,7 @@ function createSupabaseStub(options: SupabaseStubOptions = {}) {
                   restaurant_id: payload.restaurant_id,
                   name: payload.name ?? "",
                   sort_order: payload.sort_order ?? 0,
+                  active: payload.active ?? true,
                   created_at: new Date().toISOString(),
                   updated_at: new Date().toISOString(),
                 };
@@ -136,7 +144,7 @@ describe("/api/ops/zones", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.zones).toHaveLength(1);
-    expect(body.zones[0]).toMatchObject({ id: DEFAULT_ZONE_ID, name: "Main" });
+    expect(body.zones[0]).toMatchObject({ id: DEFAULT_ZONE_ID, name: "Main", active: true });
   });
 
   it("creates a zone", async () => {
@@ -153,6 +161,23 @@ describe("/api/ops/zones", () => {
 
     expect(response.status).toBe(201);
     const body = await response.json();
-    expect(body.zone).toMatchObject({ id: CREATED_ZONE_ID, name: "Patio", sort_order: 5 });
+    expect(body.zone).toMatchObject({ id: CREATED_ZONE_ID, name: "Patio", sort_order: 5, active: true });
+  });
+
+  it("creates an inactive zone when requested", async () => {
+    const supabase = createSupabaseStub({ initialZones: [] });
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(supabase);
+
+    const response = await POST(
+      createRequest(`/api/ops/zones`, {
+        method: "POST",
+        body: JSON.stringify({ restaurantId: RESTAURANT_ID, name: "Garden", active: false }),
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    expect(response.status).toBe(201);
+    const body = await response.json();
+    expect(body.zone).toMatchObject({ id: CREATED_ZONE_ID, name: "Garden", active: false });
   });
 });

@@ -13,24 +13,19 @@ const list: {
   img?: string | StaticImageData;
 }[] = [
   {
-    // Optional, use for social media like Twitter. Does not link anywhere but cool to display
-    username: "marclou",
-    // REQUIRED
-    name: "Marc Lou",
-    // REQUIRED
-    text: "Really easy to use. The tutorials are really useful and explains how everything works. Hope to ship my next project really fast!",
-    // Optional, a statically imported image (usually from your public folder—recommended) or a link to the person's avatar. Shows a fallback letter if not provided
-    img: "https://pbs.twimg.com/profile_images/1514863683574599681/9k7PqDTA_400x400.jpg",
+    username: "lapeninns_ops",
+    name: "Amelia Carter",
+    text: "Nab a Table keeps every inn on pace. We see holds, walk-ins, and online bookings in one view so hosts never double-seat a table.",
   },
   {
-    username: "the_mcnaveen",
-    name: "Naveen",
-    text: "Setting up everything from the ground up is a really hard, and time consuming process. What you pay for will save your time for sure.",
+    username: "chef_luis",
+    name: "Luis Mendoza",
+    text: "Pre-shift covers sync from Nab a Table let the kitchen prep smartly. We trimmed waste and still seat more guests on peak nights.",
   },
   {
-    username: "wahab",
-    name: "Wahab Shaikh",
-    text: "Easily saves 15+ hrs for me setting up trivial stuff. Now, I can directly focus on shipping features rather than hours of setting up the same technologies from scratch. Feels like a super power! :D",
+    username: "priya_travels",
+    name: "Priya Shah",
+    text: "Booking with Nab a Table is smooth, and updates hit my phone instantly. It feels like the brand knows me at every property.",
   },
 ];
 
@@ -90,12 +85,11 @@ const Testimonials3 = () => {
         <div className="flex flex-col text-center w-full mb-20">
           <div className="mb-8">
             <h2 className="sm:text-5xl text-4xl font-extrabold text-base-content">
-              212 makers are already shipping faster!
+              Operators and guests love Nab a Table
             </h2>
           </div>
           <p className="lg:w-2/3 mx-auto leading-relaxed text-base text-base-content/80">
-            Don&apos;t take our word for it. Here&apos;s what they have to say
-            about ShipFast.
+            Don&apos;t take our word for it. Here&apos;s what Lapen Inns teams and frequent diners say about Nab a Table.
           </p>
         </div>
 

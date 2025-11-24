@@ -281,7 +281,7 @@ export type TableTimelineResponse = {
     totalTables: number;
     totalCapacity: number;
     availableTables: number;
-    zones: { id: string; name: string }[];
+    zones: { id: string; name: string; active: boolean }[];
     serviceCapacities: Array<{
       key: 'lunch' | 'dinner';
       label: string;

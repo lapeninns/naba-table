@@ -6,13 +6,13 @@ import {
   BOOKING_TYPES_UI,
   SEATING_PREFERENCES_UI,
   ensureBookingStatus,
-  ensureBookingType,
   ensureSeatingPreference,
   type BookingStatus,
   type BookingType,
   type SeatingPreference,
 } from "@/lib/enums";
 import { getCachedOccasionCatalog } from '@/server/occasions/catalog';
+import { assertActiveOccasionKey } from '@/server/occasions/validateBookingType';
 
 import { invalidateAvailabilitySnapshot } from "./cache/availability";
 import {
@@ -434,7 +434,7 @@ export async function updateBookingRecord(
   const nextPayload: UpdateBookingPayload = { ...payload };
 
   if (nextPayload.booking_type) {
-    nextPayload.booking_type = ensureBookingType(nextPayload.booking_type);
+    nextPayload.booking_type = await assertActiveOccasionKey(nextPayload.booking_type);
   }
   if (nextPayload.seating_preference) {
     nextPayload.seating_preference = ensureSeatingPreference(nextPayload.seating_preference);
@@ -534,7 +534,7 @@ export async function insertBookingRecord(
   client: DbClient,
   payload: CreateBookingPayload,
 ): Promise<BookingRecord> {
-  const bookingType = ensureBookingType(payload.booking_type);
+  const bookingType = await assertActiveOccasionKey(payload.booking_type);
   const seatingPreference = ensureSeatingPreference(payload.seating_preference);
   const status = ensureBookingStatus(payload.status ?? "pending");
 

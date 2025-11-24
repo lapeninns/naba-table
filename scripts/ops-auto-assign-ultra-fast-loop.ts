@@ -4,7 +4,6 @@ import { randomUUID } from "node:crypto";
 import { resolve as resolvePath } from "node:path";
 import { Pool } from "pg";
 
-import { ensureBookingType } from "@/lib/enums";
 import { createBookingWithCapacityCheck, type BookingRecord } from "@/server/capacity";
 import { releaseTableHold } from "@/server/capacity/holds";
 import {
@@ -18,6 +17,8 @@ import { recordPlannerQuoteTelemetry } from "@/server/capacity/planner-telemetry
 import { quoteTablesForBooking, confirmHoldAssignment } from "@/server/capacity/tables";
 import { getServiceSupabaseClient } from "@/server/supabase";
 import { Constants, type Database, type Tables } from "@/types/supabase";
+import { assertActiveOccasionKey } from '@/server/occasions/validateBookingType';
+import type { BookingType } from "@/lib/enums";
 
 import { runUltraFastAssignment } from "./ops-auto-assign-ultra-fast";
 
@@ -445,9 +446,9 @@ async function cloneBooking(params: {
   supabase: ReturnType<typeof getServiceSupabaseClient>;
   targetDate: string;
 }): Promise<BookingRecord> {
-  const { source, restaurant, fallbackCustomer, supabase, targetDate } = params;
+  const { source, restaurant, fallbackCustomer, targetDate } = params;
   const customerPersona = buildCustomerPersona(source, fallbackCustomer);
-  const bookingType = safeBookingType(source.booking_type);
+  const bookingType = await safeBookingType(source.booking_type);
   const startTime = normalizeTime(source.start_time);
   const endTime = resolveEndTime({
     startTime,
@@ -765,11 +766,12 @@ function buildCustomerPersona(source: CloneSource, fallback: CustomerSummary) {
   };
 }
 
-function safeBookingType(value: string | null | undefined) {
+async function safeBookingType(value: string | null | undefined): Promise<BookingType> {
+  const fallback: BookingType = "dinner";
   try {
-    return ensureBookingType((value ?? "dinner") as string);
+    return await assertActiveOccasionKey((value ?? fallback) as string);
   } catch {
-    return "dinner";
+    return fallback;
   }
 }
 

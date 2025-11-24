@@ -1,5 +1,6 @@
 'use client';
 
+import { MessageSquareIcon } from 'lucide-react';
 import React, { useMemo } from 'react';
 
 import { FormControl, FormDescription, FormItem, FormLabel, FormMessage } from '@shared/ui/form';
@@ -17,10 +18,17 @@ export type NotesFieldProps = {
 
 export function NotesField({ value, onChange, onBlur, error }: NotesFieldProps) {
   const lengthLabel = useMemo(() => `${value.length} / ${MAX_LENGTH}`, [value.length]);
+  const isNearLimit = value.length > MAX_LENGTH * 0.9;
 
   return (
     <FormItem className="space-y-3">
-      <FormLabel htmlFor="notes">Notes</FormLabel>
+      <FormLabel
+        htmlFor="notes"
+        className="flex items-center gap-1.5 text-sm font-semibold sm:text-base"
+      >
+        <MessageSquareIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        <span>Notes</span>
+      </FormLabel>
       <FormControl>
         <Textarea
           id="notes"
@@ -32,11 +40,21 @@ export function NotesField({ value, onChange, onBlur, error }: NotesFieldProps) 
           }}
           rows={4}
           spellCheck
+          className="resize-none text-base sm:text-sm"
+          maxLength={MAX_LENGTH}
         />
       </FormControl>
-      <FormDescription>{DESCRIPTION}</FormDescription>
-      <div className="text-right text-xs text-srx-ink-soft" aria-live="polite">
-        {lengthLabel}
+      <div className="flex items-center justify-between gap-2">
+        <FormDescription className="text-xs sm:text-sm">{DESCRIPTION}</FormDescription>
+        <div
+          className={`text-xs font-medium tabular-nums transition-colors ${
+            isNearLimit ? 'text-destructive' : 'text-muted-foreground'
+          }`}
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {lengthLabel}
+        </div>
       </div>
       <FormMessage>{error}</FormMessage>
     </FormItem>

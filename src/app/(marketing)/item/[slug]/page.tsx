@@ -23,13 +23,13 @@ export async function generateMetadata({ params }: { params: RouteParams }): Pro
 
   if (!restaurant) {
     return {
-      title: "Restaurant not found · SajiloReserveX",
+      title: "Restaurant not found · Nab a Table",
       description: "The requested restaurant does not exist.",
     };
   }
 
   return {
-    title: `${restaurant.name} · SajiloReserveX`,
+    title: `${restaurant.name} · Nab a Table`,
     description: `Browse availability and start a reservation at ${restaurant.name}.`,
   };
 }

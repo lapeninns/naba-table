@@ -40,7 +40,7 @@ related_tickets: []
 
 ## Docs / Runbooks
 
-- [ ] Update `README.md` with SajiloReserveX branding, stack, env instructions, and run commands.
+- [ ] Update `README.md` with Nab a Table branding, stack, env instructions, and run commands.
 - [ ] Add `docs/environments.md` and `docs/README.md` index; mark legacy docs as deprecated.
 - [ ] Document DB script usage + prod safeguards; add security/audit remediation policy.
 - [ ] Record verification steps and artifacts in `verification.md`.

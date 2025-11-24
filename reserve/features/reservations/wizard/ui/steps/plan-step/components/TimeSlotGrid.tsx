@@ -62,17 +62,21 @@ export function TimeSlotGrid({
   if (slots.length === 0) {
     if (loading) {
       return (
-        <section className="flex flex-col gap-3 rounded-xl border border-border bg-card/80 p-4 shadow-sm">
+        <section className="flex flex-col gap-4 rounded-xl border border-border bg-card/80 p-4 shadow-md">
           <div className="flex items-center justify-between">
-            <div className="h-5 w-24 animate-pulse rounded bg-muted" />
-            <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+            <div className="h-5 w-24 animate-pulse rounded-md bg-muted/60" />
+            <div className="h-4 w-32 animate-pulse rounded-md bg-muted/60" />
           </div>
-          <div className="space-y-3">
-            <div className="space-y-2">
-              <div className="h-4 w-20 animate-pulse rounded bg-muted" />
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="space-y-4">
+            <div className="space-y-2.5">
+              <div className="h-4 w-20 animate-pulse rounded-md bg-muted/60" />
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
                 {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="h-12 rounded-lg bg-muted animate-pulse" />
+                  <div
+                    key={i}
+                    className="h-14 rounded-lg bg-muted/40 animate-pulse"
+                    style={{ animationDelay: `${i * 50}ms` }}
+                  />
                 ))}
               </div>
             </div>
@@ -87,40 +91,46 @@ export function TimeSlotGrid({
     <section
       aria-label="Available times"
       className={cn(
-        'flex flex-col gap-3 rounded-xl border border-border bg-card/80 p-4 shadow-sm transition-opacity duration-300',
-        loading && 'opacity-50',
+        'flex flex-col gap-4 rounded-xl border border-border bg-gradient-to-br from-card/95 to-card/80 p-4 shadow-md backdrop-blur-sm transition-all duration-300',
+        loading && 'opacity-50 pointer-events-none',
       )}
       ref={containerRef}
     >
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground">Pick a time</h3>
-        <p className="text-xs text-muted-foreground" aria-live="polite">
-          Showing {slots.length} {slots.length === 1 ? 'option' : 'options'}
+        <h3 className="text-sm font-semibold text-foreground sm:text-base">Pick a time</h3>
+        <p className="text-xs text-muted-foreground sm:text-sm" aria-live="polite">
+          {slots.length} {slots.length === 1 ? 'option' : 'options'}
         </p>
       </div>
-      <div className="space-y-3 overflow-x-auto pb-1">
+      <div className="space-y-4 overflow-x-auto pb-1">
         {[...groupedSlots.entries()].map(([label, entries]) => {
           const allHappyHour = entries.every((slot) => slot.availability.labels.happyHour);
           const allDrinksOnly = entries.every((slot) => slot.availability.labels.drinksOnly);
 
           return (
-            <div key={label} className="space-y-2 min-w-[260px]">
-              <div className="flex items-center gap-2">
-                <h4 className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+            <div key={label} className="space-y-2.5 min-w-[280px] animate-fade-in">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground sm:text-[0.7rem]">
                   {label}
                 </h4>
                 {allHappyHour ? (
-                  <Badge variant="secondary" className="text-[11px] font-medium">
-                    Happy hour
+                  <Badge
+                    variant="secondary"
+                    className="text-[10px] font-medium px-2 py-0.5 sm:text-[11px]"
+                  >
+                    🍹 Happy hour
                   </Badge>
                 ) : null}
                 {allDrinksOnly ? (
-                  <Badge variant="outline" className="text-[11px] font-medium">
-                    Drinks only
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] font-medium px-2 py-0.5 sm:text-[11px]"
+                  >
+                    🍷 Drinks only
                   </Badge>
                 ) : null}
               </div>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
                 {entries.map((slot) => {
                   const isActive = slot.value === activeValue;
                   return (
@@ -128,16 +138,26 @@ export function TimeSlotGrid({
                       key={slot.value}
                       type="button"
                       className={cn(
-                        'flex h-12 min-w-[112px] items-center justify-center rounded-lg border text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-                        'touch-manipulation',
-                        slot.disabled
-                          ? 'cursor-not-allowed border-border/60 bg-muted text-muted-foreground'
-                          : isActive
-                            ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90'
-                            : 'border-border bg-card hover:border-primary/60 hover:bg-primary/10',
+                        // Base styles - larger on mobile for better touch targets
+                        'group relative flex h-14 min-w-[120px] items-center justify-center rounded-lg border text-sm font-semibold transition-all duration-200',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                        'touch-manipulation select-none',
+                        // Disabled state
+                        slot.disabled &&
+                          'cursor-not-allowed border-border/60 bg-muted/40 text-muted-foreground/60',
+                        // Active/selected state - enhanced visual feedback
+                        !slot.disabled &&
+                          isActive &&
+                          'border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]',
+                        // Default interactive state
+                        !slot.disabled &&
+                          !isActive &&
+                          'border-border bg-card hover:border-primary/60 hover:bg-primary/10 hover:shadow-md active:scale-95',
+                        // Smooth scale animation on tap
+                        !slot.disabled && 'active:transition-transform active:duration-100',
                       )}
                       aria-pressed={isActive}
-                      aria-label={`${slot.display}, ${label}`}
+                      aria-label={`${slot.display}, ${label}${allHappyHour ? ', Happy hour' : ''}${allDrinksOnly ? ', Drinks only' : ''}`}
                       disabled={slot.disabled}
                       onClick={() => onSelect(slot.value)}
                       data-slot-value={slot.value}
@@ -146,7 +166,19 @@ export function TimeSlotGrid({
                         touchAction: 'manipulation',
                       }}
                     >
-                      {slot.display}
+                      {/* Subtle gradient overlay for depth */}
+                      {!slot.disabled && (
+                        <span
+                          className={cn(
+                            'absolute inset-0 rounded-lg opacity-0 transition-opacity duration-200',
+                            isActive
+                              ? 'bg-gradient-to-br from-white/10 to-transparent opacity-100'
+                              : 'group-hover:opacity-100 bg-gradient-to-br from-primary/5 to-transparent',
+                          )}
+                          aria-hidden="true"
+                        />
+                      )}
+                      <span className="relative z-10">{slot.display}</span>
                     </button>
                   );
                 })}

@@ -52,7 +52,7 @@ import {
 
 import type { BookingRecord } from "@/server/bookings";
 import type { Json } from "@/types/supabase";
-import type { NextRequest} from "next/server";
+import type { NextRequest } from "next/server";
 
 const baseQuerySchema = z.object({
   restaurantId: z.string().uuid().optional(),
@@ -186,26 +186,10 @@ async function resolveRestaurantId(options: {
   }
 }
 
-type PostgrestErrorLike = {
-  code?: string;
-  message?: string;
-};
-
 type BookingCreationError = Error & {
   code?: string;
   details?: Json | null;
 };
-
-function extractPostgrestError(error: unknown): PostgrestErrorLike {
-  if (typeof error === "object" && error !== null) {
-    const record = error as Record<string, unknown>;
-    return {
-      code: typeof record.code === "string" ? record.code : undefined,
-      message: typeof record.message === "string" ? record.message : undefined,
-    };
-  }
-  return {};
-}
 
 function stringifyError(error: unknown): string {
   if (error instanceof Error) {
@@ -261,20 +245,6 @@ function toIsoStringOrThrow(value: string): string {
   if (Number.isNaN(date.getTime())) {
     throw new Error("Invalid date");
   }
-  return date.toISOString();
-}
-
-function toIsoString(value: unknown): string {
-  if (typeof value !== "string" && !(value instanceof Date)) {
-    return "";
-  }
-
-  const date = value instanceof Date ? value : new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
   return date.toISOString();
 }
 
@@ -499,17 +469,16 @@ export async function POST(req: NextRequest) {
   const clientIp = extractClientIp(req);
   const idempotencyKey = normalizeIdempotencyKey(req.headers.get("Idempotency-Key"));
   const clientRequestId = coerceUuid(idempotencyKey) ?? randomUUID();
-  const userAgent = req.headers.get("user-agent");
   const opsEmailProvidedHeader = req.headers.get("x-ops-email-provided") === "true";
   const isOpsWalkIn = req.headers.get("x-ops-walk-in") === "true";
   const requestSource = isOpsWalkIn ? "ops.walkin" : "api.bookings";
   const bookingSource = isOpsWalkIn ? "ops.walkin" : "api";
   const bookingDetails = isOpsWalkIn
     ? ({
-        channel: bookingSource,
-        created_by: "ops.walkin",
-        staff_request_id: clientRequestId,
-      } satisfies Json)
+      channel: bookingSource,
+      created_by: "ops.walkin",
+      staff_request_id: clientRequestId,
+    } satisfies Json)
     : null;
 
   // Rate limiting for booking creation
@@ -800,8 +769,7 @@ export async function POST(req: NextRequest) {
             });
           } catch (createFallbackError) {
             throw new Error(
-              `Booking creation succeeded but booking record could not be retrieved or created: ${
-                stringifyError(createFallbackError)
+              `Booking creation succeeded but booking record could not be retrieved or created: ${stringifyError(createFallbackError)
               }`,
             );
           }
@@ -1280,14 +1248,16 @@ export async function POST(req: NextRequest) {
     if (confirmationToken) {
       try {
         // Ephemeral confirmation token cookie for PRG access on /thank-you (no URL leakage)
+        // Path is scoped to the confirm endpoint so it is available when the thank-you page
+        // calls `/api/bookings/confirm` without exposing it elsewhere.
         res.cookies.set('sr_confirm', confirmationToken, {
           httpOnly: true,
           sameSite: 'lax',
           secure: true,
-          path: '/thank-you',
+          path: '/api/bookings/confirm',
           maxAge: 60 * 60, // 1 hour
         });
-      } catch (e) {
+      } catch {
         // Non-fatal; continue without cookie
       }
     }
@@ -1367,7 +1337,7 @@ async function handleMyBookings(req: NextRequest) {
   try {
     fromIso = params.from ? toIsoStringOrThrow(params.from) : undefined;
     toIso = params.to ? toIsoStringOrThrow(params.to) : undefined;
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Invalid date range" }, { status: 400 });
   }
 
@@ -1375,19 +1345,19 @@ async function handleMyBookings(req: NextRequest) {
   let query =
     params.status === "active"
       ? client
-          .from("current_bookings")
-          .select(
-            "id, restaurant_id, start_at, end_at, party_size, status, notes, restaurants(id, name, slug, timezone, reservation_interval_minutes)",
-            { count: "exact" },
-          )
-          .eq("customer_email", email)
+        .from("current_bookings")
+        .select(
+          "id, restaurant_id, booking_date, start_time, end_time, party_size, status, notes, restaurants(id, name, slug, timezone, reservation_interval_minutes)",
+          { count: "exact" },
+        )
+        .eq("customer_email", email)
       : client
-          .from("bookings")
-          .select(
-            "id, restaurant_id, start_at, end_at, party_size, status, notes, restaurants(id, name, slug, timezone, reservation_interval_minutes)",
-            { count: "exact" },
-          )
-          .eq("customer_email", email);
+        .from("bookings")
+        .select(
+          "id, restaurant_id, booking_date, start_time, end_time, party_size, status, notes, restaurants(id, name, slug, timezone, reservation_interval_minutes)",
+          { count: "exact" },
+        )
+        .eq("customer_email", email);
 
   if (params.restaurantId) {
     query = query.eq("restaurant_id", params.restaurantId);
@@ -1398,39 +1368,40 @@ async function handleMyBookings(req: NextRequest) {
   }
 
   if (fromIso) {
-    query = query.gte("start_at", fromIso);
+    query = query.gte("booking_date", fromIso);
   }
 
   if (toIso) {
-    query = query.lt("start_at", toIso);
+    query = query.lt("booking_date", toIso);
   }
 
-  query = query.order("start_at", { ascending: params.sort === "asc" });
+  query = query.order("booking_date", { ascending: params.sort === "asc" }).order("start_time", { ascending: params.sort === "asc" });
 
   type BookingRow = {
     id: string;
     restaurant_id: string | null;
-    start_at: string | Date | null;
-    end_at: string | Date | null;
+    booking_date: string;
+    start_time: string;
+    end_time: string;
     party_size: number;
     status: BookingDTO["status"];
     notes: string | null;
     restaurants:
-      | {
-          id?: string | null;
-          name: string;
-          slug?: string | null;
-          timezone?: string | null;
-          reservation_interval_minutes?: number | null;
-        }
-      | {
-          id?: string | null;
-          name: string;
-          slug?: string | null;
-          timezone?: string | null;
-          reservation_interval_minutes?: number | null;
-        }[]
-      | null;
+    | {
+      id?: string | null;
+      name: string;
+      slug?: string | null;
+      timezone?: string | null;
+      reservation_interval_minutes?: number | null;
+    }
+    | {
+      id?: string | null;
+      name: string;
+      slug?: string | null;
+      timezone?: string | null;
+      reservation_interval_minutes?: number | null;
+    }[]
+    | null;
   };
 
   const { data, error, count } = await query.range(offset, offset + pageSize - 1);
@@ -1458,8 +1429,8 @@ async function handleMyBookings(req: NextRequest) {
       restaurantSlug: restaurant?.slug ?? null,
       restaurantTimezone: restaurant?.timezone ?? null,
       partySize: booking.party_size,
-      startIso: toIsoString(booking.start_at),
-      endIso: toIsoString(booking.end_at),
+      startIso: `${booking.booking_date}T${booking.start_time}`,
+      endIso: `${booking.booking_date}T${booking.end_time}`,
       status: booking.status,
       notes: booking.notes,
       customerName: null as BookingDTO["customerName"],

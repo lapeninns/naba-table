@@ -10,7 +10,7 @@ import { WalkInWizardClient } from "./_components/WalkInWizardClient";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Log a walk-in · SajiloReserveX Ops",
+  title: "Log a walk-in · Nab a Table Ops",
   description: "Create a walk-in reservation using the standard booking flow with ops controls.",
 };
 

@@ -23,18 +23,18 @@ export async function sendTeamInviteEmail(params: { invite: RestaurantInvite; to
   const { restaurantName, inviterName } = await resolveInviteContext(invite);
   const expiry = formatExpiry(invite.expires_at);
 
-  const subject = `You're invited to join ${restaurantName} on SajiloReserveX`;
+  const subject = `You're invited to join ${restaurantName} on Nab a Table`;
   const greeting = inviterName ? `${inviterName} has invited you` : "You're invited";
 
   const title = `${greeting}`;
-  const preheader = `Join ${restaurantName} on SajiloReserveX. Role: ${invite.role}. Expires ${expiry.date} ${expiry.time}`;
+  const preheader = `Join ${restaurantName} on Nab a Table. Role: ${invite.role}. Expires ${expiry.date} ${expiry.time}`;
   const contentHtml = `
     <div class="card">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
         <tr>
           <td style="padding:24px 24px 8px;">
             <h1 style="margin:0 0 8px;font-size:22px;line-height:1.35;color:#0f172a;">${escapeHtml(greeting)}</h1>
-            <p style="margin:0 0 12px;font-size:15px;color:#334155;">Join <strong>${escapeHtml(restaurantName)}</strong> on SajiloReserveX and manage bookings with the team.</p>
+            <p style="margin:0 0 12px;font-size:15px;color:#334155;">Join <strong>${escapeHtml(restaurantName)}</strong> on Nab a Table and manage bookings with the team.</p>
             <p style="margin:0 0 12px;font-size:14px;color:#475569;"><strong>Your role:</strong> ${escapeHtml(invite.role.charAt(0).toUpperCase() + invite.role.slice(1))}</p>
             <p style="margin:0 0 16px;font-size:14px;color:#475569;">This invitation expires on <strong>${escapeHtml(expiry.date)}</strong> at <strong>${escapeHtml(expiry.time)}</strong>.</p>
           </td>
@@ -53,7 +53,7 @@ export async function sendTeamInviteEmail(params: { invite: RestaurantInvite; to
         <tr>
           <td style="padding:0 24px 24px;">
             <hr style="border:none;border-top:1px solid #e2e8f0;margin:16px 0;" />
-            <p style="margin:0;font-size:12px;color:#64748b;">You received this because ${escapeHtml(restaurantName)} wants to collaborate with you on SajiloReserveX. If you weren't expecting this invite, you can ignore it.</p>
+            <p style="margin:0;font-size:12px;color:#64748b;">You received this because ${escapeHtml(restaurantName)} wants to collaborate with you on Nab a Table. If you weren't expecting this invite, you can ignore it.</p>
           </td>
         </tr>
       </table>
@@ -62,7 +62,7 @@ export async function sendTeamInviteEmail(params: { invite: RestaurantInvite; to
   const html = renderEmailBase({ title, preheader, contentHtml });
 
   const text = [
-    `${greeting} to join ${restaurantName} on SajiloReserveX.`,
+    `${greeting} to join ${restaurantName} on Nab a Table.`,
     `Your role: ${invite.role}`,
     `This invitation expires on ${expiry.date} at ${expiry.time}.`,
     `Accept the invite: ${inviteUrl}`,
@@ -75,6 +75,6 @@ export async function sendTeamInviteEmail(params: { invite: RestaurantInvite; to
     subject,
     html,
     text,
-    fromName: config.email.fromSupport ?? "SajiloReserveX",
+    fromName: config.email.fromSupport ?? "Nab a Table",
   });
 }

@@ -130,7 +130,7 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
 
 export const OPS_SUPPORT_ITEM: OpsNavigationItem = {
   title: 'Support',
-  description: 'Get help from SajiloReserveX',
+  description: 'Get help from Nab a Table',
   href: 'mailto:support@sajiloreservex.com',
   icon: CircleHelp,
   match: () => false,

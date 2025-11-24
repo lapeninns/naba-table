@@ -86,7 +86,7 @@ function resolveActions(mode: Mode, isAuthenticated: boolean): ResolveResult {
       primary: {
         href: `mailto:${partnerContactEmail}`,
         label: "Talk to partnerships",
-        ariaLabel: `Contact SajiloReserveX partnerships at ${partnerContactEmail}`,
+        ariaLabel: `Contact Nab a Table partnerships at ${partnerContactEmail}`,
       },
       secondary: undefined,
     };

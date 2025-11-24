@@ -14,6 +14,7 @@ const createSchema = z.object({
   restaurantId: z.string().uuid(),
   name: z.string().min(1).max(100),
   sortOrder: z.number().int().min(-1000).max(1000).optional(),
+  active: z.boolean().optional(),
 });
 
 export async function GET(req: NextRequest) {
@@ -128,6 +129,7 @@ export async function POST(req: NextRequest) {
         restaurantId: data.restaurantId,
         name: trimmedName,
         sortOrder: data.sortOrder ?? 0,
+        active: data.active ?? true,
       });
       return NextResponse.json({ zone }, { status: 201 });
     } catch (error) {

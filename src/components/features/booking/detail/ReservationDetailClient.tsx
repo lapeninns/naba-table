@@ -18,6 +18,7 @@ import { getPendingSelfServeGraceMinutes, isPendingSelfServeLocked } from '@/lib
 import { downloadCalendarEvent, shareReservationDetails, type ShareResult } from '@/lib/reservations/share';
 import { useReservation } from '@features/reservations/wizard/api/useReservation';
 import { DEFAULT_VENUE } from '@shared/config/venue';
+import { DEFAULT_RESTAURANT_SLUG } from '@shared/config/venue';
 
 import { ReservationHistory } from './ReservationHistory';
 
@@ -76,7 +77,7 @@ const buildBookingDto = (
     id: reservation.id,
     restaurantId: reservation.restaurantId,
     restaurantName: restaurantName ?? 'Reservation',
-    restaurantSlug: venue.slug ?? DEFAULT_VENUE.slug,
+    restaurantSlug: reservation.restaurantSlug ?? venue.slug ?? DEFAULT_VENUE.slug,
     restaurantTimezone: venue.timezone,
     partySize: reservation.partySize,
     startIso: reservation.startAt,
@@ -367,8 +368,9 @@ export function ReservationDetailClient({
       reservationId,
       party: reservation.partySize,
     });
-    router.push(`/?source=rebook&reservationId=${reservation.id}`);
-  }, [reservation, reservationId, router]);
+    const slug = reservation.restaurantSlug ?? venue.slug ?? DEFAULT_RESTAURANT_SLUG;
+    router.push(`/restaurants/${slug}/book?source=rebook&reservationId=${reservation.id}`);
+  }, [reservation, reservationId, router, venue.slug]);
 
   const closeEditDialog = useCallback((open: boolean) => {
     setIsEditOpen(open);

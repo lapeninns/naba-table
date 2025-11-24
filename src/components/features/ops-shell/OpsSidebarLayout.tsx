@@ -201,7 +201,7 @@ function OpsSupportLink() {
       <SidebarGroupContent>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Contact SajiloReserveX support" className="touch-manipulation">
+            <SidebarMenuButton asChild tooltip="Contact Nab a Table support" className="touch-manipulation">
               <a href={OPS_SUPPORT_ITEM.href}>
                 <SupportIcon className="size-4" aria-hidden />
                 <span className="truncate">{OPS_SUPPORT_ITEM.title}</span>
