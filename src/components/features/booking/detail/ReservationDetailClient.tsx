@@ -1,14 +1,39 @@
 'use client';
 
+import {
+  AlertCircle,
+  Calendar,
+  CalendarPlus,
+  CheckCircle2,
+  Clock,
+  Download,
+  Info,
+  Mail,
+  MapPin,
+  MessageSquare,
+  Phone,
+  Share2,
+  User,
+  Users,
+  Utensils,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { CancelBookingDialog } from '@/components/dashboard/CancelBookingDialog';
 import { EditBookingDialog } from '@/components/dashboard/EditBookingDialog';
-import { StatusChip } from '@/components/dashboard/StatusChip';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import config from '@/config';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
@@ -21,6 +46,7 @@ import { DEFAULT_VENUE } from '@shared/config/venue';
 import { DEFAULT_RESTAURANT_SLUG } from '@shared/config/venue';
 
 import { ReservationHistory } from './ReservationHistory';
+
 
 import type { BookingDTO } from '@/hooks/useBookings';
 import type { Reservation } from '@entities/reservation/reservation.schema';
@@ -145,6 +171,12 @@ export function ReservationDetailClient({
   const pendingGraceMinutes = useMemo(() => getPendingSelfServeGraceMinutes(), []);
   const supportEmail = config.email?.supportEmail ?? 'support@example.com';
   const [clockNow, setClockNow] = useState(() => Date.now());
+  const pastGraceMs = useMemo(() => {
+    const raw = process.env.NEXT_PUBLIC_BOOKING_PAST_TIME_GRACE_MINUTES;
+    const parsed = raw ? Number(raw) : Number.NaN;
+    const minutes = Number.isFinite(parsed) ? parsed : 5;
+    return Math.max(0, minutes) * 60_000;
+  }, []);
 
   const { data: reservation, error, isError, isLoading, refetch, isFetching } = useReservation(reservationId, token ?? undefined);
 
@@ -186,6 +218,13 @@ export function ReservationDetailClient({
       venueTimezone: venue.timezone,
     };
   }, [reservation, reservationId, venue.address, venue.name, venue.timezone]);
+
+  const isPastReservation = useMemo(() => {
+    if (!reservation?.startAt) return false;
+    const startMs = Date.parse(reservation.startAt);
+    if (!Number.isFinite(startMs)) return false;
+    return startMs < Date.now() - pastGraceMs;
+  }, [pastGraceMs, reservation?.startAt]);
 
   const handleDownloadConfirmation = useCallback(() => {
     if (typeof window === 'undefined') {
@@ -351,16 +390,16 @@ export function ReservationDetailClient({
   }, [searchParams]);
 
   const handleEdit = useCallback(() => {
-    if (!reservation || pendingLock.locked || !canManage) return;
+    if (!reservation || pendingLock.locked || !canManage || isPastReservation) return;
     void emit('reservation_detail_edit_clicked', { reservationId });
     setIsEditOpen(true);
-  }, [canManage, pendingLock.locked, reservation, reservationId]);
+  }, [canManage, isPastReservation, pendingLock.locked, reservation, reservationId]);
 
   const handleCancel = useCallback(() => {
-    if (!reservation || pendingLock.locked || !canManage) return;
+    if (!reservation || pendingLock.locked || !canManage || isPastReservation) return;
     void emit('reservation_detail_cancel_clicked', { reservationId });
     setIsCancelOpen(true);
-  }, [canManage, pendingLock.locked, reservation, reservationId]);
+  }, [canManage, isPastReservation, pendingLock.locked, reservation, reservationId]);
 
   const handleRebook = useCallback(() => {
     if (!reservation) return;
@@ -380,7 +419,9 @@ export function ReservationDetailClient({
     setIsCancelOpen(open);
   }, []);
 
-  const actionDisabled = reservation ? reservation.status === 'cancelled' || pendingLock.locked || !canManage : true;
+  const actionDisabled = reservation
+    ? reservation.status === 'cancelled' || pendingLock.locked || isPastReservation || !canManage
+    : true;
 
   if (isLoading && !reservation) {
     return (
@@ -425,6 +466,15 @@ export function ReservationDetailClient({
 
   const warnings: Array<{ id: string; title: string; description: string; variant: 'warning' | 'info' }> = [];
 
+  if (isPastReservation) {
+    warnings.push({
+      id: 'past',
+      title: 'This reservation has already passed',
+      description: 'Edits and cancellations are disabled for past reservations. You can rebook to create a new reservation.',
+      variant: 'info',
+    });
+  }
+
   if (reservation.status === 'pending_allocation') {
     warnings.push({
       id: 'allocation',
@@ -465,6 +515,23 @@ export function ReservationDetailClient({
     });
   }
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'confirmed':
+      case 'seated':
+      case 'completed':
+        return 'default'; // usually black/primary
+      case 'cancelled':
+      case 'no_show':
+        return 'destructive';
+      case 'pending':
+      case 'pending_allocation':
+        return 'secondary';
+      default:
+        return 'outline';
+    }
+  };
+
   return (
     <>
       {reservationJsonLdString ? (
@@ -474,188 +541,297 @@ export function ReservationDetailClient({
           dangerouslySetInnerHTML={{ __html: reservationJsonLdString }}
         />
       ) : null}
-      <section className="mx-auto w-full max-w-4xl space-y-8 px-4 py-12">
-        {!isOnline ? (
-          <Alert variant="warning" role="status" aria-live="polite">
-            <div>
+
+      <div className="min-h-[80vh] flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-500">
+        <div className="w-full max-w-3xl space-y-6">
+
+          {/* Navigation */}
+          <Link
+            href="/guest/dashboard"
+            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+          >
+            ← Back to dashboard
+          </Link>
+
+          {/* Offline Alert */}
+          {!isOnline && (
+            <Alert variant="warning" className="animate-in slide-in-from-top-2">
+              <AlertCircle className="h-4 w-4" />
               <AlertTitle>No internet connection</AlertTitle>
               <AlertDescription>
                 You&apos;re offline. Sharing actions are disabled until you reconnect.
               </AlertDescription>
-            </div>
-          </Alert>
-        ) : null}
+            </Alert>
+          )}
 
-        {shareFeedback ? (
-          <Alert variant={shareAlertVariant} role="status" aria-live="polite">
-            <AlertDescription>{shareFeedback.message}</AlertDescription>
-          </Alert>
-        ) : null}
+          {/* Feedback Alert */}
+          {shareFeedback && (
+            <Alert variant={shareAlertVariant} className="animate-in slide-in-from-top-2">
+              {shareFeedback.variant === 'success' ? <CheckCircle2 className="h-4 w-4" /> : <Info className="h-4 w-4" />}
+              <AlertDescription>{shareFeedback.message}</AlertDescription>
+            </Alert>
+          )}
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="space-y-2">
-            <Link href="/guest/dashboard" className="text-sm text-primary underline-offset-4 hover:underline">
-              ← Back to dashboard
-            </Link>
-            <h1 className="text-3xl font-semibold text-foreground">Reservation details</h1>
-            <p className="text-muted-foreground">
-              {reservation.reference ? `Reference ${reservation.reference}` : 'Manage your upcoming visit.'}
-            </p>
-          </div>
-          <StatusChip status={reservation.status as BookingDTO['status']} />
-        </div>
+          {/* Warnings */}
+          {warnings.map((warning) => (
+            <Alert key={warning.id} variant={warning.variant} className="animate-in slide-in-from-top-2">
+              <Info className="h-4 w-4" />
+              <AlertTitle>{warning.title}</AlertTitle>
+              <AlertDescription>{warning.description}</AlertDescription>
+            </Alert>
+          ))}
 
-        {!canManage ? (
-          <Alert variant="info">
-            <div>
-              <AlertTitle>Viewing as guest</AlertTitle>
-              <AlertDescription>
-                You can review the details below. Sign in to edit or cancel this booking.
-              </AlertDescription>
-            </div>
-            <Link href={`/auth/signin?redirectedFrom=/bookings/${reservationId}`} className={buttonVariants({ variant: 'outline' })}>
-              Sign in
-            </Link>
-          </Alert>
-        ) : null}
+          {/* Pending Lock Alert */}
+          {pendingLock.locked && (
+            <Alert variant="info" className="animate-in slide-in-from-top-2">
+              <Info className="h-4 w-4" />
+              <div className="space-y-2">
+                <div>
+                  <AlertTitle>Your request is pending review</AlertTitle>
+                  <AlertDescription>
+                    We temporarily pause self-serve edits while the restaurant reviews pending bookings.
+                    You can request a change below or wait until the booking is confirmed (typically within about {pendingGraceMinutes} minutes).
+                  </AlertDescription>
+                </div>
+                <Button asChild variant="outline" size="sm">
+                  <a href={pendingSupportHref} target="_blank" rel="noopener noreferrer">
+                    Request a change
+                  </a>
+                </Button>
+              </div>
+            </Alert>
+          )}
 
-      {warnings.map((warning) => (
-        <Alert key={warning.id} variant={warning.variant}>
-          <div>
-            <AlertTitle>{warning.title}</AlertTitle>
-            <AlertDescription>{warning.description}</AlertDescription>
-          </div>
-        </Alert>
-      ))}
+          {/* Main Card */}
+          <Card className="border-border/50 shadow-xl overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary/50 to-primary" />
 
-      {pendingLock.locked ? (
-        <Alert variant="info" role="status" aria-live="polite">
-          <div className="space-y-2">
-            <div>
-              <AlertTitle>Your request is pending review</AlertTitle>
-              <AlertDescription>
-                We temporarily pause self-serve edits while the restaurant reviews pending bookings.
-                You can request a change below or wait until the booking is confirmed (typically within about {pendingGraceMinutes} minutes).
-              </AlertDescription>
-            </div>
-            <Button asChild variant="outline">
-              <a href={pendingSupportHref} target="_blank" rel="noopener noreferrer">
-                Request a change
-              </a>
-            </Button>
-          </div>
-        </Alert>
-      ) : null}
+            <CardHeader className="text-center pb-8 pt-10 bg-muted/10 space-y-4">
+              <div className="flex justify-center">
+                <Badge variant={getStatusColor(reservation.status)} className="px-3 py-1 text-sm uppercase tracking-wider">
+                  {reservation.status.replace('_', ' ')}
+                </Badge>
+              </div>
 
-      <div className="rounded-[var(--radius-lg)] border border-border bg-card shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-border/80 p-6 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <h2 className="text-xl font-semibold text-foreground">
-              {restaurantName ?? 'Your reservation'}
-            </h2>
-            <p className="text-sm text-muted-foreground">{reservationDate}</p>
-            <p className="text-sm text-muted-foreground">
-              {reservationTime} · party of {reservation.partySize}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Button variant="default" onClick={handleRebook} disabled={!canManage || isFetching}>
-              Rebook
-            </Button>
-            <Button variant="outline" onClick={handleEdit} disabled={actionDisabled}>
-              Edit
-            </Button>
-            <Button variant="destructive" onClick={handleCancel} disabled={actionDisabled}>
-              Cancel
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (!sharePayload) {
-                  setShareFeedback({ variant: 'warning', message: 'Reservation details not ready yet.' });
-                  return;
-                }
-                void emit('reservation_detail_calendar_clicked', { reservationId });
-                setCalendarLoading(true);
-                const result = downloadCalendarEvent(sharePayload);
-                setCalendarLoading(false);
-                setShareFeedback(result);
-              }}
-              disabled={!sharePayload || calendarLoading}
-              ref={calendarButtonRef}
-            >
-              {calendarLoading ? 'Preparing…' : 'Add to calendar'}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={async () => {
-                if (!sharePayload) {
-                  setShareFeedback({ variant: 'warning', message: 'Reservation details not ready yet.' });
-                  return;
-                }
-                void emit('reservation_detail_share_clicked', { reservationId });
-                setShareLoading(true);
-                const result = await shareReservationDetails(sharePayload);
-                setShareLoading(false);
-                setShareFeedback(result);
-              }}
-              disabled={!isOnline || !sharePayload || shareLoading}
-              ref={shareButtonRef}
-            >
-              {shareLoading ? 'Sharing…' : 'Share details'}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleDownloadConfirmation}
-              disabled={downloadLoading || !reservation}
-            >
-              {downloadLoading ? 'Preparing…' : 'Download confirmation'}
-            </Button>
-          </div>
-        </div>
+              <div className="space-y-2">
+                <CardTitle className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">
+                  {restaurantName ?? 'Your Reservation'}
+                </CardTitle>
+                <p className="text-muted-foreground text-sm uppercase tracking-widest">
+                  Reference: {reservation.reference ?? reservation.id.slice(0, 8)}
+                </p>
+              </div>
 
-        <div className="grid gap-6 p-6 md:grid-cols-2">
-          <div className="space-y-1">
-            <h3 className="text-sm font-semibold text-muted-foreground">Guest name</h3>
-            <p className="text-base text-foreground">{reservation.customerName}</p>
-          </div>
-          <div className="space-y-1">
-            <h3 className="text-sm font-semibold text-muted-foreground">Contact</h3>
-            <p className="text-base text-foreground">{reservation.customerEmail}</p>
-            <p className="text-base text-muted-foreground">{reservation.customerPhone}</p>
-          </div>
-          <div className="space-y-1">
-            <h3 className="text-sm font-semibold text-muted-foreground">Seating preference</h3>
-            <p className="text-base text-foreground">{reservation.seatingPreference}</p>
-          </div>
-          <div className="space-y-1">
-            <h3 className="text-sm font-semibold text-muted-foreground">Booking type</h3>
-            <p className="text-base text-foreground">{reservation.bookingType}</p>
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <h3 className="text-sm font-semibold text-muted-foreground">Notes</h3>
-            <p className="text-base text-foreground">
-              {reservation.notes?.trim() ? reservation.notes : 'No special notes added.'}
-            </p>
-          </div>
+              <div className="flex flex-wrap items-center justify-center gap-4 text-sm md:text-base font-medium text-foreground/80 mt-4">
+                <div className="flex items-center gap-2 bg-background/50 px-3 py-1.5 rounded-full border border-border/50">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  {reservationDate}
+                </div>
+                <div className="flex items-center gap-2 bg-background/50 px-3 py-1.5 rounded-full border border-border/50">
+                  <Clock className="h-4 w-4 text-primary" />
+                  {reservationTime}
+                </div>
+                <div className="flex items-center gap-2 bg-background/50 px-3 py-1.5 rounded-full border border-border/50">
+                  <Users className="h-4 w-4 text-primary" />
+                  {reservation.partySize} Guests
+                </div>
+              </div>
+            </CardHeader>
+
+            <Separator />
+
+            <CardContent className="p-6 md:p-10 space-y-8">
+              {/* Guest Details */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                    <User className="h-4 w-4" /> Guest Details
+                  </h3>
+                  <div className="space-y-3 pl-1">
+                    <div className="flex items-start gap-3">
+                      <div className="bg-primary/10 p-2 rounded-full mt-0.5">
+                        <User className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{reservation.customerName}</p>
+                        <p className="text-sm text-muted-foreground">Primary Guest</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="bg-primary/10 p-2 rounded-full mt-0.5">
+                        <Mail className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium break-all">{reservation.customerEmail}</p>
+                        <p className="text-sm text-muted-foreground">Email Address</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="bg-primary/10 p-2 rounded-full mt-0.5">
+                        <Phone className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{reservation.customerPhone}</p>
+                        <p className="text-sm text-muted-foreground">Phone Number</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                    <Utensils className="h-4 w-4" /> Preferences & Notes
+                  </h3>
+                  <div className="space-y-3 pl-1">
+                    <div className="flex items-start gap-3">
+                      <div className="bg-primary/10 p-2 rounded-full mt-0.5">
+                        <MapPin className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{reservation.seatingPreference}</p>
+                        <p className="text-sm text-muted-foreground">Seating Preference</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="bg-primary/10 p-2 rounded-full mt-0.5">
+                        <MessageSquare className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium">
+                          {reservation.notes?.trim() ? reservation.notes : 'No special notes'}
+                        </p>
+                        <p className="text-sm text-muted-foreground">Special Requests</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+
+            <Separator />
+
+            <CardFooter className="flex flex-col gap-4 p-6 md:p-8 bg-muted/5">
+              <div className="flex flex-wrap items-center justify-center gap-3 w-full">
+                <Button
+                  variant="default"
+                  size="lg"
+                  onClick={handleRebook}
+                  disabled={!canManage || isFetching}
+                  className="w-full sm:w-auto min-w-[140px]"
+                >
+                  <CalendarPlus className="mr-2 h-4 w-4" /> Rebook
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={handleEdit}
+                  disabled={actionDisabled}
+                  className="w-full sm:w-auto min-w-[140px]"
+                >
+                  Edit Booking
+                </Button>
+
+                <Button
+                  variant="destructive"
+                  size="lg"
+                  onClick={handleCancel}
+                  disabled={actionDisabled}
+                  className="w-full sm:w-auto min-w-[140px]"
+                >
+                  Cancel
+                </Button>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-center gap-3 w-full pt-4 border-t border-border/50">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    if (!sharePayload) {
+                      setShareFeedback({ variant: 'warning', message: 'Reservation details not ready yet.' });
+                      return;
+                    }
+                    void emit('reservation_detail_calendar_clicked', { reservationId });
+                    setCalendarLoading(true);
+                    const result = downloadCalendarEvent(sharePayload);
+                    setCalendarLoading(false);
+                    setShareFeedback(result);
+                  }}
+                  disabled={!sharePayload || calendarLoading}
+                  ref={calendarButtonRef}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  {calendarLoading ? 'Preparing…' : <><CalendarPlus className="mr-2 h-4 w-4" /> Add to Calendar</>}
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={async () => {
+                    if (!sharePayload) {
+                      setShareFeedback({ variant: 'warning', message: 'Reservation details not ready yet.' });
+                      return;
+                    }
+                    void emit('reservation_detail_share_clicked', { reservationId });
+                    setShareLoading(true);
+                    const result = await shareReservationDetails(sharePayload);
+                    setShareLoading(false);
+                    setShareFeedback(result);
+                  }}
+                  disabled={!isOnline || !sharePayload || shareLoading}
+                  ref={shareButtonRef}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  {shareLoading ? 'Sharing…' : <><Share2 className="mr-2 h-4 w-4" /> Share</>}
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDownloadConfirmation}
+                  disabled={downloadLoading || !reservation}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  {downloadLoading ? 'Preparing…' : <><Download className="mr-2 h-4 w-4" /> Download PDF</>}
+                </Button>
+              </div>
+            </CardFooter>
+          </Card>
+
+          {!canManage && (
+            <Alert variant="info" className="bg-muted/50 border-dashed">
+              <Info className="h-4 w-4" />
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
+                <div>
+                  <AlertTitle>Viewing as guest</AlertTitle>
+                  <AlertDescription>
+                    Sign in to edit or cancel this booking.
+                  </AlertDescription>
+                </div>
+                <Link href={`/auth/signin?redirectedFrom=/bookings/${reservationId}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+                  Sign in
+                </Link>
+              </div>
+            </Alert>
+          )}
+
+          {canManage && <ReservationHistory reservationId={reservationId} />}
+
+          {bookingDto ? (
+            <>
+              <EditBookingDialog
+                booking={bookingDto}
+                open={isEditOpen}
+                onOpenChange={closeEditDialog}
+                restaurantSlug={venue.slug ?? bookingDto.restaurantSlug ?? null}
+                restaurantTimezone={venue.timezone ?? bookingDto.restaurantTimezone ?? null}
+              />
+              <CancelBookingDialog booking={bookingDto} open={isCancelOpen} onOpenChange={closeCancelDialog} />
+            </>
+          ) : null}
         </div>
       </div>
-
-      {canManage ? <ReservationHistory reservationId={reservationId} /> : null}
-
-      {bookingDto ? (
-        <>
-          <EditBookingDialog
-            booking={bookingDto}
-            open={isEditOpen}
-            onOpenChange={closeEditDialog}
-            restaurantSlug={venue.slug ?? bookingDto.restaurantSlug ?? null}
-            restaurantTimezone={venue.timezone ?? bookingDto.restaurantTimezone ?? null}
-          />
-          <CancelBookingDialog booking={bookingDto} open={isCancelOpen} onOpenChange={closeCancelDialog} />
-        </>
-      ) : null}
-      </section>
     </>
   );
 }

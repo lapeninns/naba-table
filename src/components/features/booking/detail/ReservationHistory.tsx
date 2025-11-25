@@ -4,6 +4,13 @@ import { useMemo } from 'react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useBookingHistory } from '@/hooks/useBookingHistory';
 import { cn } from '@/lib/utils';
@@ -126,96 +133,99 @@ export function ReservationHistory({ reservationId }: { reservationId: string })
 
   if (historyQuery.isLoading) {
     return (
-      <section className="rounded-[var(--radius-lg)] border border-border bg-card p-6 shadow-sm">
-        <header className="mb-4">
-          <h2 className="text-lg font-semibold text-foreground">History</h2>
-          <p className="text-sm text-muted-foreground">Loading recent changes…</p>
-        </header>
-        <div className="space-y-3">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">History</CardTitle>
+          <CardDescription>Loading recent changes…</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
           {Array.from({ length: 3 }).map((_, idx) => (
             <Skeleton key={idx} className="h-20 w-full" />
           ))}
-        </div>
-      </section>
+        </CardContent>
+      </Card>
     );
   }
 
   if (historyQuery.isError) {
     return (
-      <section className="rounded-[var(--radius-lg)] border border-border bg-card p-6 shadow-sm">
-        <header className="mb-4">
-          <h2 className="text-lg font-semibold text-foreground">History</h2>
-          <p className="text-sm text-muted-foreground">Review how this reservation changed over time.</p>
-        </header>
-        <Alert variant="destructive">
-          <AlertTitle>Unable to load history</AlertTitle>
-          <AlertDescription>{historyQuery.error?.message ?? 'Please try again later.'}</AlertDescription>
-        </Alert>
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">History</CardTitle>
+          <CardDescription>Review how this reservation changed over time.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="destructive">
+            <AlertTitle>Unable to load history</AlertTitle>
+            <AlertDescription>{historyQuery.error?.message ?? 'Please try again later.'}</AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
     );
   }
 
   const events = historyQuery.data?.events ?? [];
 
   return (
-    <section className="rounded-[var(--radius-lg)] border border-border bg-card p-6 shadow-sm">
-      <header className="mb-4">
-        <h2 className="text-lg font-semibold text-foreground">History</h2>
-        <p className="text-sm text-muted-foreground">Track edits and cancellations for this reservation.</p>
-      </header>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg">History</CardTitle>
+        <CardDescription>Track edits and cancellations for this reservation.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {events.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No changes recorded yet.</p>
+        ) : (
+          <ul className="space-y-4">
+            {events.map((event) => {
+              const actorLabel = event.actor && event.actor.trim().length > 0 ? event.actor.trim() : 'system';
+              const actorDisplay = actorLabel.toLowerCase() === 'system' ? 'System' : actorLabel;
 
-      {events.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No changes recorded yet.</p>
-      ) : (
-        <ul className="space-y-4">
-          {events.map((event) => {
-            const actorLabel = event.actor && event.actor.trim().length > 0 ? event.actor.trim() : 'system';
-            const actorDisplay = actorLabel.toLowerCase() === 'system' ? 'System' : actorLabel;
-
-            return (
-              <li key={event.versionId} className="space-y-3 rounded-lg border border-border/60 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">{event.summary}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatter.format(new Date(event.changedAt))}
-                    </p>
+              return (
+                <li key={event.versionId} className="space-y-3 rounded-lg border border-border/60 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{event.summary}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatter.format(new Date(event.changedAt))}
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="text-xs font-medium">
+                      {actorDisplay}
+                    </Badge>
                   </div>
-                  <Badge variant="outline" className="text-xs font-medium">
-                    {actorDisplay}
-                  </Badge>
-                </div>
 
-                {event.changes.length > 0 ? (
-                  <dl className="space-y-2">
-                    {event.changes.map((change) => (
-                      <div key={`${event.versionId}-${change.field}`} className="grid gap-3 sm:grid-cols-[180px,1fr]">
-                        <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                          {change.label}
-                        </dt>
-                        <dd className="text-sm text-foreground">
-                          <span
-                            className={cn(
-                              'inline-flex flex-wrap items-center gap-1',
-                              'rounded-full bg-muted px-2 py-1 text-xs font-medium text-muted-foreground',
-                            )}
-                          >
-                            <span>{formatBeforeValue(change)}</span>
-                            <span aria-hidden>→</span>
-                            <span className="text-foreground">{formatChangeValue(change)}</span>
-                          </span>
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No notable field changes recorded.</p>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </section>
+                  {event.changes.length > 0 ? (
+                    <dl className="space-y-2">
+                      {event.changes.map((change) => (
+                        <div key={`${event.versionId}-${change.field}`} className="grid gap-3 sm:grid-cols-[180px,1fr]">
+                          <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                            {change.label}
+                          </dt>
+                          <dd className="text-sm text-foreground">
+                            <span
+                              className={cn(
+                                'inline-flex flex-wrap items-center gap-1',
+                                'rounded-full bg-muted px-2 py-1 text-xs font-medium text-muted-foreground',
+                              )}
+                            >
+                              <span>{formatBeforeValue(change)}</span>
+                              <span aria-hidden>→</span>
+                              <span className="text-foreground">{formatChangeValue(change)}</span>
+                            </span>
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No notable field changes recorded.</p>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
   );
 }

@@ -90,6 +90,38 @@ function mapOperatingHoursReason(reason: OperatingHoursErrorReason): string {
 
 const pendingSelfServeGraceMinutes = env.featureFlags.pendingSelfServeGraceMinutes ?? 10;
 const pendingSelfServeGraceWindowMs = Math.max(0, pendingSelfServeGraceMinutes) * 60_000;
+const pastTimeGraceMinutes = env.featureFlags.bookingPastTimeGraceMinutes ?? 5;
+
+function respondWithPastBooking(error: PastBookingError) {
+  return NextResponse.json(
+    {
+      error: error.message,
+      code: error.code,
+      details: error.details,
+    },
+    { status: 422 },
+  );
+}
+
+function resolveBookingStart(
+  booking: Pick<Tables<"bookings">, "booking_date" | "start_time" | "start_at">,
+  timezone: string,
+): { bookingDate: string; startTime: string } | null {
+  if (booking.booking_date && booking.start_time) {
+    return { bookingDate: booking.booking_date, startTime: booking.start_time };
+  }
+
+  if (booking.start_at) {
+    try {
+      const venueStart = convertIsoToVenueDateTime(booking.start_at, timezone);
+      return { bookingDate: venueStart.date, startTime: venueStart.time };
+    } catch (error) {
+      console.error("[bookings][start-resolution] failed to convert start_at", error);
+    }
+  }
+
+  return null;
+}
 
 function isPendingBookingLocked(booking: Pick<Tables<"bookings">, "status" | "created_at"> | null | undefined): boolean {
   if (!booking || booking.status !== "pending") {
@@ -243,7 +275,6 @@ async function handleDashboardUpdate(params: {
     const isTimeChanged = bookingDate !== previousBookingDate || startTime !== previousStartTime;
 
     const needsScheduleForDuration = isTimeChanged || !explicitEndVenue;
-    const needsScheduleForPastCheck = env.featureFlags.bookingPastTimeBlocking && isTimeChanged;
 
     let normalizedStartDateTime = startVenue.dateTime.set({ second: 0, millisecond: 0 });
 
@@ -270,50 +301,36 @@ async function handleDashboardUpdate(params: {
       throw validationError;
     }
 
-    if ((needsScheduleForDuration || needsScheduleForPastCheck) && schedule.date !== bookingDate) {
+    if ((needsScheduleForDuration || schedule.date !== bookingDate) && schedule.date !== bookingDate) {
       schedule = await getRestaurantSchedule(restaurantId, {
         date: bookingDate,
         client: serviceSupabase,
       });
     }
 
-    if (needsScheduleForPastCheck) {
-      try {
-        assertBookingNotInPast(
-          schedule.timezone ?? scheduleTimezone,
-          bookingDate,
-          startTime,
-          {
-            graceMinutes: env.featureFlags.bookingPastTimeGraceMinutes,
+    try {
+      assertBookingNotInPast(schedule.timezone ?? scheduleTimezone, bookingDate, startTime, {
+        graceMinutes: pastTimeGraceMinutes,
+      });
+    } catch (pastTimeError) {
+      if (pastTimeError instanceof PastBookingError) {
+        void recordObservabilityEvent({
+          source: "api.bookings",
+          eventType: "booking.past_time.blocked",
+          severity: "warning",
+          context: {
+            bookingId,
+            restaurantId: existingBooking.restaurant_id,
+            endpoint: "bookings.update.dashboard",
+            actorId: actor.id,
+            actorEmail: actor.email,
+            ...pastTimeError.details,
           },
-        );
-      } catch (pastTimeError) {
-        if (pastTimeError instanceof PastBookingError) {
-          void recordObservabilityEvent({
-            source: "api.bookings",
-            eventType: "booking.past_time.blocked",
-            severity: "warning",
-            context: {
-              bookingId,
-              restaurantId: existingBooking.restaurant_id,
-              endpoint: "bookings.update.dashboard",
-              actorId: actor.id,
-              actorEmail: actor.email,
-              ...pastTimeError.details,
-            },
-          });
+        });
 
-          return NextResponse.json(
-            {
-              error: pastTimeError.message,
-              code: pastTimeError.code,
-              details: pastTimeError.details,
-            },
-            { status: 422 },
-          );
-        }
-        throw pastTimeError;
+        return respondWithPastBooking(pastTimeError);
       }
+      throw pastTimeError;
     }
 
     const scheduleDuration =
@@ -396,8 +413,8 @@ async function handleDashboardUpdate(params: {
         actorCapabilities: [],
         tz: resolvedScheduleTz ?? "Europe/London",
         flags: {
-          bookingPastTimeBlocking: env.featureFlags.bookingPastTimeBlocking ?? false,
-          bookingPastTimeGraceMinutes: env.featureFlags.bookingPastTimeGraceMinutes ?? 5,
+          bookingPastTimeBlocking: true,
+          bookingPastTimeGraceMinutes: pastTimeGraceMinutes,
           unified: true,
         },
         metadata: {
@@ -800,8 +817,10 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
     let startTime = data.time;
 
+    let schedule: Awaited<ReturnType<typeof getRestaurantSchedule>>;
+
     try {
-      const schedule = await getRestaurantSchedule(restaurantId, {
+      schedule = await getRestaurantSchedule(restaurantId, {
         date: data.date,
         client: serviceSupabase,
       });
@@ -824,6 +843,30 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     }
 
     const endTime = deriveEndTime(startTime, normalizedBookingType);
+
+    try {
+      assertBookingNotInPast(schedule.timezone ?? "Europe/London", data.date, startTime, {
+        graceMinutes: pastTimeGraceMinutes,
+      });
+    } catch (pastTimeError) {
+      if (pastTimeError instanceof PastBookingError) {
+        void recordObservabilityEvent({
+          source: "api.bookings",
+          eventType: "booking.past_time.blocked",
+          severity: "warning",
+          context: {
+            bookingId,
+            restaurantId,
+            endpoint: "bookings.update.selfserve",
+            actorEmail: normalizedEmail,
+            ...pastTimeError.details,
+          },
+        });
+
+        return respondWithPastBooking(pastTimeError);
+      }
+      throw pastTimeError;
+    }
 
     const requiresTableRealignment =
       existingBooking.booking_date !== data.date ||
@@ -965,6 +1008,39 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       return respondWithPendingLock();
     }
 
+    const restaurantId = existingBooking.restaurant_id ?? (await getDefaultRestaurantId());
+    const schedule = await getRestaurantSchedule(restaurantId, {
+      date: existingBooking.booking_date ?? undefined,
+      client: serviceSupabase,
+    });
+
+    const startParts = resolveBookingStart(existingBooking, schedule.timezone ?? "Europe/London");
+    if (startParts) {
+      try {
+        assertBookingNotInPast(schedule.timezone ?? "Europe/London", startParts.bookingDate, startParts.startTime, {
+          graceMinutes: pastTimeGraceMinutes,
+        });
+      } catch (pastTimeError) {
+        if (pastTimeError instanceof PastBookingError) {
+          void recordObservabilityEvent({
+            source: "api.bookings",
+            eventType: "booking.past_time.blocked",
+            severity: "warning",
+            context: {
+              bookingId,
+              restaurantId,
+              endpoint: "bookings.delete.selfserve",
+              actorEmail: normalizedEmail,
+              ...pastTimeError.details,
+            },
+          });
+
+          return respondWithPastBooking(pastTimeError);
+        }
+        throw pastTimeError;
+      }
+    }
+
     const cancelledRecord = await softCancelBooking(serviceSupabase, bookingId);
     await clearBookingTableAssignments(serviceSupabase, bookingId);
 
@@ -981,7 +1057,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       actor: user.email ?? user.id ?? null,
     });
 
-    const targetRestaurantId = existingBooking.restaurant_id ?? await getDefaultRestaurantId();
+    const targetRestaurantId = restaurantId;
     const bookings = await fetchBookingsForContact(tenantSupabase, targetRestaurantId, userEmail, existingBooking.customer_phone);
     try {
       await enqueueBookingCancelledSideEffects(
