@@ -77,6 +77,9 @@
     "db:verify": "./scripts/verify-database.sh",
     "db:test": "./scripts/test-connection.sh",
     "db:check-drift": "tsx scripts/db/check-drift.ts",
+    "apply:factory-config": "bash scripts/apply_factory_config.sh",
+    "vibeproxy:health": "bash scripts/vibeproxy_health_check.sh",
+    "vibeproxy:inject-test": "bash scripts/vibeproxy_injection_test.sh",
     "db:push": "echo '📤 Pushing migrations to Supabase remote...' && supabase db push",
     "db:pull": "echo '📥 Pulling schema from Supabase remote...' && supabase db pull",
     "db:status": "supabase migration list"

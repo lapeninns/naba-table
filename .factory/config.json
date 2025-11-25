@@ -1,0 +1,209 @@
+{
+  "custom_models": [
+    {
+      "model_display_name": "CC: Opus 4.5 (High)",
+      "model": "claude-opus-4-5-20251101-thinking-32000",
+      "base_url": "http://localhost:8317",
+      "api_key": "dummy-not-used",
+      "provider": "anthropic"
+    },
+    {
+      "model_display_name": "CC: Opus 4.5 (Medium)",
+      "model": "claude-opus-4-5-20251101-thinking-10000",
+      "base_url": "http://localhost:8317",
+      "api_key": "dummy-not-used",
+      "provider": "anthropic"
+    },
+    {
+      "model_display_name": "CC: Opus 4.5 (Low)",
+      "model": "claude-opus-4-5-20251101-thinking-4000",
+      "base_url": "http://localhost:8317",
+      "api_key": "dummy-not-used",
+      "provider": "anthropic"
+    },
+    {
+      "model_display_name": "CC: Opus 4.5",
+      "model": "claude-opus-4-5-20251101",
+      "base_url": "http://localhost:8317",
+      "api_key": "dummy-not-used",
+      "provider": "anthropic"
+    },
+    {
+      "model_display_name": "CC: Sonnet 4.5",
+      "model": "claude-sonnet-4-5-20250929",
+      "base_url": "http://localhost:8317",
+      "api_key": "dummy-not-used",
+      "provider": "anthropic"
+    },
+    {
+      "model_display_name": "CC: Sonnet 4.5 (Low)",
+      "model": "claude-sonnet-4-5-20250929-thinking-4000",
+      "base_url": "http://localhost:8317",
+      "api_key": "dummy-not-used",
+      "provider": "anthropic"
+    },
+    {
+      "model_display_name": "CC: Sonnet 4.5 (Medium)",
+      "model": "claude-sonnet-4-5-20250929-thinking-10000",
+      "base_url": "http://localhost:8317",
+      "api_key": "dummy-not-used",
+      "provider": "anthropic"
+    },
+    {
+      "model_display_name": "CC: Sonnet 4.5 (High)",
+      "model": "claude-sonnet-4-5-20250929-thinking-32000",
+      "base_url": "http://localhost:8317",
+      "api_key": "dummy-not-used",
+      "provider": "anthropic"
+    },
+
+    {
+      "model_display_name": "GPT-5 Codex",
+      "model": "gpt-5-codex",
+      "base_url": "http://localhost:8317/v1",
+      "api_key": "dummy-not-used",
+      "provider": "openai"
+    },
+    {
+      "model_display_name": "GPT-5 Codex (Low)",
+      "model": "gpt-5-codex-low",
+      "base_url": "http://localhost:8317/v1",
+      "api_key": "dummy-not-used",
+      "provider": "openai"
+    },
+    {
+      "model_display_name": "GPT-5 Codex (Medium)",
+      "model": "gpt-5-codex-medium",
+      "base_url": "http://localhost:8317/v1",
+      "api_key": "dummy-not-used",
+      "provider": "openai"
+    },
+    {
+      "model_display_name": "GPT-5 Codex (High)",
+      "model": "gpt-5-codex-high",
+      "base_url": "http://localhost:8317/v1",
+      "api_key": "dummy-not-used",
+      "provider": "openai"
+    },
+    {
+      "model_display_name": "GPT-5.1 Codex",
+      "model": "gpt-5.1-codex",
+      "base_url": "http://localhost:8317/v1",
+      "api_key": "dummy-not-used",
+      "provider": "openai"
+    },
+    {
+      "model_display_name": "GPT-5.1 Codex (Low)",
+      "model": "gpt-5.1-codex-low",
+      "base_url": "http://localhost:8317/v1",
+      "api_key": "dummy-not-used",
+      "provider": "openai"
+    },
+    {
+      "model_display_name": "GPT-5.1 Codex (Medium)",
+      "model": "gpt-5.1-codex-medium",
+      "base_url": "http://localhost:8317/v1",
+      "api_key": "dummy-not-used",
+      "provider": "openai"
+    },
+    {
+      "model_display_name": "GPT-5.1 Codex (High)",
+      "model": "gpt-5.1-codex-high",
+      "base_url": "http://localhost:8317/v1",
+      "api_key": "dummy-not-used",
+      "provider": "openai"
+    },
+    {
+      "model_display_name": "GPT-5.1",
+      "model": "gpt-5.1",
+      "base_url": "http://localhost:8317/v1",
+      "api_key": "dummy-not-used",
+      "provider": "openai"
+    },
+    {
+      "model_display_name": "GPT-5.1 (Minimal)",
+      "model": "gpt-5.1-minimal",
+      "base_url": "http://localhost:8317/v1",
+      "api_key": "dummy-not-used",
+      "provider": "openai"
+    },
+    {
+      "model_display_name": "GPT-5.1 (Low)",
+      "model": "gpt-5.1-low",
+      "base_url": "http://localhost:8317/v1",
+      "api_key": "dummy-not-used",
+      "provider": "openai"
+    },
+    {
+      "model_display_name": "GPT-5.1 (Medium)",
+      "model": "gpt-5.1-medium",
+      "base_url": "http://localhost:8317/v1",
+      "api_key": "dummy-not-used",
+      "provider": "openai"
+    },
+    {
+      "model_display_name": "GPT-5.1 (High)",
+      "model": "gpt-5.1-high",
+      "base_url": "http://localhost:8317/v1",
+      "api_key": "dummy-not-used",
+      "provider": "openai"
+    },
+    {
+      "model_display_name": "Gemini 3 Pro (High)",
+      "model": "gemini-3-pro-high",
+      "base_url": "http://localhost:8317/v1",
+      "api_key": "dummy-not-used",
+      "provider": "openai"
+    },
+    {
+      "model_display_name": "Gemini 3 Pro",
+      "model": "gemini-3-pro-low",
+      "base_url": "http://localhost:8317/v1",
+      "api_key": "dummy-not-used",
+      "provider": "openai"
+    },
+    {
+      "model_display_name": "Gemini 3 Pro (Image)",
+      "model": "gemini-3-pro-image",
+      "base_url": "http://localhost:8317/v1",
+      "api_key": "dummy-not-used",
+      "provider": "openai"
+    },
+    {
+      "model_display_name": "Gemini 2.5 Pro",
+      "model": "gemini-2.5-pro",
+      "base_url": "http://localhost:8317/v1",
+      "api_key": "dummy-not-used",
+      "provider": "openai"
+    },
+    {
+      "model_display_name": "Gemini 2.5 Flash",
+      "model": "gemini-2.5-flash",
+      "base_url": "http://localhost:8317/v1",
+      "api_key": "dummy-not-used",
+      "provider": "openai"
+    },
+    {
+      "model_display_name": "Gemini 2.5 Flash Lite",
+      "model": "gemini-2.5-flash-lite",
+      "base_url": "http://localhost:8317/v1",
+      "api_key": "dummy-not-used",
+      "provider": "openai"
+    },
+
+    {
+      "model_display_name": "Qwen3 Coder Plus",
+      "model": "qwen3-coder-plus",
+      "base_url": "http://localhost:8317/v1",
+      "api_key": "dummy-not-used",
+      "provider": "openai"
+    },
+    {
+      "model_display_name": "Qwen3 Coder Flash",
+      "model": "qwen3-coder-flash",
+      "base_url": "http://localhost:8317/v1",
+      "api_key": "dummy-not-used",
+      "provider": "openai"
+    }
+  ]
+}

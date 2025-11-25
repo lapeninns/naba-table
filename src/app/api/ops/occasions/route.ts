@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
       .from('booking_occasions')
       .select('key, deleted_at')
       .eq('key', normalizedKey)
-      .maybeSingle();
+      .maybeSingle<{ key: string; deleted_at: string | null }>();
     if (existingError) {
       throw existingError;
     }

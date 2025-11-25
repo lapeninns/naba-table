@@ -28,6 +28,19 @@ type AuditInsert = {
   changed_by: string | null;
 };
 
+type AuditEnabledDatabase = Database & {
+  public: Database['public'] & {
+    Tables: Database['public']['Tables'] & {
+      booking_occasions_audit: {
+        Row: AuditInsert & { created_at?: string | null; id?: string };
+        Insert: AuditInsert;
+        Update: Partial<AuditInsert>;
+        Relationships: [];
+      };
+    };
+  };
+};
+
 const ACTIVE_COLUMNS =
   'key, label, short_label, description, availability, default_duration_minutes, display_order, is_active, is_builtin, deleted_at, created_at, updated_at, created_by, updated_by';
 
@@ -56,7 +69,8 @@ export async function fetchAllOccasions(client = getServiceSupabaseClient()): Pr
     .select(ACTIVE_COLUMNS)
     .is('deleted_at', null)
     .order('display_order', { ascending: true })
-    .order('label', { ascending: true });
+    .order('label', { ascending: true })
+    .returns<OccasionRow[]>();
 
   if (error) {
     throw error;
@@ -66,7 +80,11 @@ export async function fetchAllOccasions(client = getServiceSupabaseClient()): Pr
 }
 
 export async function fetchOccasionByKey(key: string, client = getServiceSupabaseClient()): Promise<OccasionRow | null> {
-  const { data, error } = await client.from('booking_occasions').select(ACTIVE_COLUMNS).eq('key', key).maybeSingle();
+  const { data, error } = await client
+    .from('booking_occasions')
+    .select(ACTIVE_COLUMNS)
+    .eq('key', key)
+    .maybeSingle<OccasionRow>();
   if (error) {
     throw error;
   }
@@ -81,7 +99,9 @@ export async function insertAudit(entry: AuditInsert, client = getServiceSupabas
     after_change: entry.after_change,
     changed_by: entry.changed_by,
   };
-  const { error } = await client.from('booking_occasions_audit').insert(payload);
+  // Audit table is not present in generated types; widen client type to include it.
+  const auditClient = client as SupabaseClient<AuditEnabledDatabase>;
+  const { error } = await auditClient.from('booking_occasions_audit').insert(payload);
   if (error) {
     // Log but do not block request flow.
     console.warn('[ops/occasions] failed to insert audit log', error);

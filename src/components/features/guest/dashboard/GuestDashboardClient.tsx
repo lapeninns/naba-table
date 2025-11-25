@@ -1,19 +1,20 @@
 'use client';
 
 import {
-  AlarmClock,
   CalendarClock,
+  ChevronRight,
   Clock3,
   Crown,
   Heart,
-  LocateFixed,
+  Map as MapIcon,
   MapPin,
-  Navigation,
+  QrCode,
   Search,
   Share2,
   Sparkles,
   TimerReset,
   User,
+  UtensilsCrossed,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useMemo } from 'react';
@@ -22,15 +23,13 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useBookings } from '@/hooks/useBookings';
 import { useSupabaseSession } from '@/hooks/useSupabaseSession';
 import { useRestaurants } from '@/lib/restaurants/useRestaurants';
 import { cn } from '@/lib/utils';
-import { formatReservationDate, formatReservationTime } from '@reserve/shared/formatting/booking';
-import { normalizeTime } from '@reserve/shared/time';
+import { formatReservationDateFromDate, formatReservationTimeFromDate } from '@reserve/shared/formatting/booking';
 import { DEFAULT_RESTAURANT_SLUG } from '@shared/config/venue';
 
 import { deriveBookingState, type FavoriteRestaurant } from './booking-derivations';
@@ -75,8 +74,8 @@ export function GuestDashboardClient() {
   const shareInvite = useCallback(() => {
     if (!primaryBooking) return;
     const url = `${window.location.origin}/bookings/${primaryBooking.id}`;
-    const when = formatReservationTime(normalizeTime(primaryBooking.startIso) ?? primaryBooking.startIso);
-    const text = `Join me at ${primaryBooking.restaurantName} (${formatReservationDate(primaryBooking.startIso)} at ${when}).`;
+    const when = formatReservationTimeFromDate(new Date(primaryBooking.startIso), { timezone: primaryBooking.restaurantTimezone ?? undefined });
+    const text = `Join me at ${primaryBooking.restaurantName} (${formatReservationDateFromDate(new Date(primaryBooking.startIso), { timezone: primaryBooking.restaurantTimezone ?? undefined })} at ${when}).`;
 
     const sharePayload = { title: 'Dinner plans', text, url };
 
@@ -96,8 +95,9 @@ export function GuestDashboardClient() {
   const shareRunningLate = useCallback(() => {
     if (!primaryBooking) return;
     const url = `${window.location.origin}/bookings/${primaryBooking.id}`;
-    const message = `Running a few minutes late for ${primaryBooking.restaurantName}. ETA: ${formatReservationTime(
-      normalizeTime(primaryBooking.startIso) ?? primaryBooking.startIso,
+    const message = `Running a few minutes late for ${primaryBooking.restaurantName}. ETA: ${formatReservationTimeFromDate(
+      new Date(primaryBooking.startIso),
+      { timezone: primaryBooking.restaurantTimezone ?? undefined },
     )}.`;
 
     if (navigator.share) {
@@ -118,7 +118,7 @@ export function GuestDashboardClient() {
   }, [user]);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 pb-24 md:gap-8">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 pb-24">
       <HeroBanner state={heroState} booking={primaryBooking} userName={heroName} onShare={primaryBooking ? shareInvite : null} />
 
       {isError ? (
@@ -137,20 +137,18 @@ export function GuestDashboardClient() {
         </Card>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)] lg:gap-8">
-        <div className="space-y-6 md:space-y-7">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+        <div className="space-y-8">
           <ActiveReservationCard booking={primaryBooking} isLoading={isLoading} onShare={shareInvite} onRunningLate={shareRunningLate} />
           <FavoritesRail favorites={derived.favorites} />
           <DiscoveryFeed restaurants={restaurants} isLoading={restaurantsQuery.isLoading} />
         </div>
 
-        <aside className="space-y-6 md:space-y-7">
+        <aside className="space-y-8">
           <PerksCard totalBookings={derived.total} />
           <NextStepsCard hasActive={Boolean(primaryBooking)} />
         </aside>
       </div>
-
-
     </div>
   );
 }
@@ -164,15 +162,15 @@ function HeroBanner({ state, booking, userName, onShare }: HeroBannerProps) {
       return `Enjoy your meal at ${booking.restaurantName}`;
     }
     if (state === 'upcoming' && booking) {
-      return `${booking.restaurantName} is coming up soon`;
+      return `You have a table at ${booking.restaurantName}`;
     }
-    return 'What are you craving tonight?';
+    return 'Where are we eating tonight?';
   })();
 
   const subcopy = (() => {
-    if (state === 'live' && booking) return 'Peek the dessert menu or add a bottle while you dine.';
-    if (state === 'upcoming' && booking) return 'Confirm details, share the invite, or add a note for the host.';
-    return 'See tables nearby, trending lists, and your go-tos in one view.';
+    if (state === 'live' && booking) return 'View the menu, order drinks, or ask for the check.';
+    if (state === 'upcoming' && booking) return 'We’re holding your spot. See you soon.';
+    return 'Discover top-rated tables, new openings, and your personal favorites.';
   })();
 
   const primaryHref = state === 'hungry' ? DISCOVERY_HREF : booking ? `/bookings/${booking.id}` : DISCOVERY_HREF;
@@ -182,93 +180,70 @@ function HeroBanner({ state, booking, userName, onShare }: HeroBannerProps) {
       ? `/restaurants/${booking.restaurantSlug}`
       : DISCOVERY_HREF;
 
-  const timing = booking ? describeTiming(booking.startIso) : null;
-
   return (
-    <Card className="relative overflow-hidden border-none bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white shadow-xl">
+    <div className="relative overflow-hidden rounded-3xl bg-slate-900 text-white shadow-2xl">
+      {/* Background Image/Gradient */}
       <div
-        className="absolute inset-0 opacity-70"
+        className="absolute inset-0 opacity-60 mix-blend-overlay"
         style={{
           backgroundImage:
-            'linear-gradient(to right, rgba(15,23,42,0.9), rgba(15,23,42,0.8), rgba(15,23,42,0.6)), url(https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1400&q=80)',
+            'url(https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=1600&q=80)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         }}
         aria-hidden
       />
-      <CardContent className="relative flex flex-col gap-6 px-5 py-6 sm:px-8 sm:py-8 md:flex-row md:items-center md:justify-between">
-        <div className="space-y-3 text-left md:max-w-2xl">
-          <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-100">
-            <Sparkles className="h-4 w-4" aria-hidden />
+      <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-900/90 to-transparent" />
+
+      <div className="relative flex flex-col gap-6 px-6 py-10 sm:px-10 sm:py-12 md:flex-row md:items-center md:justify-between">
+        <div className="space-y-4 md:max-w-2xl">
+          <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-amber-300 backdrop-blur-sm">
+            <Sparkles className="h-3.5 w-3.5" />
             <span>
               {greeting}
               {name}
             </span>
           </div>
-          <h1 className="text-3xl font-bold leading-tight sm:text-4xl md:text-4xl">{headline}</h1>
-          <p className="text-base text-slate-200 sm:text-lg">{subcopy}</p>
-          <div className="flex flex-wrap items-center gap-3 pt-1">
+          <h1 className="text-4xl font-bold leading-tight tracking-tight sm:text-5xl">{headline}</h1>
+          <p className="text-lg text-slate-300 sm:text-xl">{subcopy}</p>
+          <div className="flex flex-wrap items-center gap-3 pt-2">
             <Link
               href={primaryHref}
-              className={cn(buttonVariants({ variant: 'default', size: 'lg' }), 'bg-white text-slate-900 hover:bg-slate-100')}
+              className={cn(buttonVariants({ variant: 'default', size: 'lg' }), 'h-12 rounded-full px-8 text-base font-semibold shadow-lg shadow-primary/20')}
             >
-              {state === 'hungry' ? 'Explore tables' : 'Open reservation'}
+              {state === 'hungry' ? 'Find a Table' : 'View Ticket'}
             </Link>
             <Link
               href={secondaryHref}
-              className={cn(buttonVariants({ variant: 'secondary', size: 'lg' }), 'border-white/30 bg-white/10 text-white hover:bg-white/20')}
+              className={cn(buttonVariants({ variant: 'secondary', size: 'lg' }), 'h-12 rounded-full bg-white/10 px-8 text-base text-white backdrop-blur-sm hover:bg-white/20')}
             >
-              {state === 'hungry' ? 'View on map' : 'View menu'}
+              {state === 'hungry' ? 'Open Map' : 'View Menu'}
             </Link>
-            {state !== 'hungry' && onShare ? (
-              <Button variant="ghost" className="text-slate-200 hover:bg-white/10" onClick={() => onShare()}>
-                <Share2 className="mr-2 h-4 w-4" aria-hidden /> Invite friends
+            {onShare && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onShare}
+                className="h-12 w-12 rounded-full bg-white/5 text-white hover:bg-white/10"
+              >
+                <Share2 className="h-5 w-5" />
               </Button>
-            ) : null}
+            )}
           </div>
         </div>
-
-        {booking ? (
-          <div className="w-full max-w-sm rounded-2xl border border-white/15 bg-white/10 p-4 text-left shadow-md backdrop-blur">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex flex-col gap-0.5">
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-200">Next up</p>
-                <p className="text-lg font-semibold text-white">{booking.restaurantName}</p>
-              </div>
-              <Badge variant="secondary" className="bg-white/20 text-white">
-                {timing ?? 'Soon'}
-              </Badge>
-            </div>
-            <Separator className="my-3 bg-white/15" />
-            <div className="space-y-2 text-sm text-slate-100">
-              <div className="flex items-center gap-2">
-                <Clock3 className="h-4 w-4" aria-hidden />
-                <span>{formatReservationDate(booking.startIso)}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <AlarmClock className="h-4 w-4" aria-hidden />
-                <span>{formatReservationTime(normalizeTime(booking.startIso) ?? booking.startIso)}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4" aria-hidden />
-                <span className="truncate">Table for {booking.partySize}</span>
-              </div>
-            </div>
-          </div>
-        ) : null}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
 function ActiveReservationCard({ booking, isLoading, onShare, onRunningLate }: ActiveCardProps) {
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="space-y-4 p-6">
-          <Skeleton className="h-6 w-40" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-36 w-full" />
+      <Card className="rounded-3xl border-0 shadow-lg">
+        <CardContent className="space-y-4 p-8">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-48 w-full rounded-xl" />
         </CardContent>
       </Card>
     );
@@ -276,22 +251,17 @@ function ActiveReservationCard({ booking, isLoading, onShare, onRunningLate }: A
 
   if (!booking) {
     return (
-      <Card className="border-dashed">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-slate-900">
-            <LocateFixed className="h-5 w-5" aria-hidden />
-            No active tables yet
-          </CardTitle>
-          <CardDescription className="text-slate-600">
-            Plan ahead or grab something nearby. We keep your recent favorites handy below.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-center gap-3">
-          <Link href={DISCOVERY_HREF} className={buttonVariants({ variant: 'default', size: 'lg' })}>
-            Find a table now
-          </Link>
-          <Link href="/guest/bookings" className={buttonVariants({ variant: 'outline', size: 'lg' })}>
-            View all bookings
+      <Card className="rounded-3xl border-dashed border-slate-200 bg-slate-50/50 shadow-none">
+        <CardContent className="flex flex-col items-center justify-center gap-4 py-12 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
+            <UtensilsCrossed className="h-8 w-8 text-slate-400" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-lg font-semibold text-slate-900">No active reservations</h3>
+            <p className="text-slate-500">You don&apos;t have any upcoming bookings at the moment.</p>
+          </div>
+          <Link href={DISCOVERY_HREF} className={cn(buttonVariants({ variant: 'outline' }), "mt-2")}>
+            Make a Reservation
           </Link>
         </CardContent>
       </Card>
@@ -302,316 +272,269 @@ function ActiveReservationCard({ booking, isLoading, onShare, onRunningLate }: A
   const googleMapsHref = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(booking.restaurantName)}`;
 
   return (
-    <Card className="overflow-hidden">
-      <div className="grid gap-0 md:grid-cols-[1.2fr_1fr]">
-        <div
-          className="relative min-h-[220px] bg-slate-100"
-          style={{
-            backgroundImage:
-              'linear-gradient(to top, rgba(15,23,42,0.8), rgba(15,23,42,0.2)), url(https://images.unsplash.com/photo-1521017432531-fbd92d768814?auto=format&fit=crop&w=1200&q=80)',
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-          }}
-        >
-          <div className="absolute bottom-4 left-4 right-4 flex flex-wrap items-center justify-between gap-3 text-white">
-            <div className="space-y-1">
-              <p className="text-sm uppercase tracking-[0.12em] text-white/80">Active table</p>
-              <p className="text-2xl font-semibold leading-snug">{booking.restaurantName}</p>
+    <div className="group relative overflow-hidden rounded-3xl bg-white shadow-xl ring-1 ring-slate-900/5 transition-all hover:shadow-2xl">
+      <div className="grid md:grid-cols-[1.5fr_1fr]">
+        {/* Left Side: Details */}
+        <div className="flex flex-col justify-between p-6 sm:p-8">
+          <div className="space-y-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <Badge variant="secondary" className="bg-amber-100 text-amber-800 hover:bg-amber-100">
+                  Upcoming
+                </Badge>
+                <h2 className="text-3xl font-bold tracking-tight text-slate-900">{booking.restaurantName}</h2>
+                <div className="flex items-center gap-2 text-sm text-slate-500">
+                  <MapPin className="h-4 w-4" />
+                  <span>Downtown • 2.4 mi</span>
+                </div>
+              </div>
             </div>
-            <Badge className="bg-white/20 text-white">Table for {booking.partySize}</Badge>
-          </div>
-        </div>
 
-        <CardContent className="space-y-4 p-6">
-          <div className="flex flex-wrap items-center gap-3">
-            <Badge variant="secondary" className="text-primary">
-              {formatReservationDate(booking.startIso)}
-            </Badge>
-            <Badge variant="outline">{formatReservationTime(normalizeTime(booking.startIso) ?? booking.startIso)}</Badge>
+            <div className="grid grid-cols-2 gap-6 rounded-2xl bg-slate-50 p-4 sm:grid-cols-3">
+              <div className="space-y-1">
+                <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Date</p>
+                <p className="font-semibold text-slate-900">{formatReservationDateFromDate(new Date(booking.startIso), { timezone: booking.restaurantTimezone ?? undefined })}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Time</p>
+                <p className="font-semibold text-slate-900">{formatReservationTimeFromDate(new Date(booking.startIso), { timezone: booking.restaurantTimezone ?? undefined })}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Guests</p>
+                <p className="font-semibold text-slate-900">{booking.partySize} People</p>
+              </div>
+            </div>
           </div>
-          <p className="text-slate-700">Keep your party synced, update arrival, and navigate without leaving the dashboard.</p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Link href={detailHref} className={buttonVariants({ variant: 'default' })}>
-              Modify party
-            </Link>
-            <Link href={`${detailHref}?intent=cancel`} className={buttonVariants({ variant: 'outline' })}>
-              Cancel
+
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <Link href={detailHref} className={cn(buttonVariants({ variant: 'default' }), 'rounded-full px-6 shadow-md shadow-primary/20')}>
+              Modify Booking
             </Link>
             <a
               href={googleMapsHref}
               target="_blank"
               rel="noreferrer"
-              className={cn(buttonVariants({ variant: 'secondary' }), 'flex items-center justify-center gap-2')}
+              className={cn(buttonVariants({ variant: 'outline' }), 'rounded-full px-6')}
             >
-              <Navigation className="h-4 w-4" aria-hidden /> Directions
+              Directions
             </a>
-            <Button variant="ghost" onClick={onShare} className="justify-start">
-              <Share2 className="mr-2 h-4 w-4" aria-hidden /> Share invite link
+            <Button variant="ghost" size="icon" onClick={onShare} className="rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900">
+              <Share2 className="h-5 w-5" />
             </Button>
           </div>
-          <Separator />
-          <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
-            <Button variant="link" className="px-0 text-primary" onClick={onRunningLate}>
-              <TimerReset className="mr-2 h-4 w-4" aria-hidden /> Running late
+          <div className="mt-4">
+            <Button variant="link" onClick={onRunningLate} className="h-auto p-0 text-xs text-slate-500 hover:text-amber-600">
+              <TimerReset className="mr-1 h-3 w-3" />
+              Running late?
             </Button>
-            <Link href={detailHref} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-800 hover:text-primary">
-              <Heart className="h-4 w-4" aria-hidden /> Add special requests
-            </Link>
           </div>
-        </CardContent>
+        </div>
+
+        {/* Right Side: Ticket/QR Stub */}
+        <div className="relative hidden flex-col items-center justify-center bg-slate-900 p-8 text-white md:flex">
+          <div className="absolute left-0 top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white" />
+          <div className="absolute inset-y-0 left-0 border-l-2 border-dashed border-slate-700" />
+
+          <div className="space-y-6 text-center">
+            <div className="mx-auto flex h-32 w-32 items-center justify-center rounded-xl bg-white p-2">
+              <QrCode className="h-full w-full text-slate-900" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-slate-400">Reservation ID</p>
+              <p className="font-mono text-xl tracking-widest text-white">{booking.id.slice(0, 8).toUpperCase()}</p>
+            </div>
+            <p className="text-xs text-slate-500">Show this to the host upon arrival</p>
+          </div>
+        </div>
       </div>
-    </Card>
+    </div>
   );
 }
 
 function FavoritesRail({ favorites }: FavoritesProps) {
+  if (favorites.length === 0) return null;
+
   return (
-    <section aria-label="Your favorites" className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="space-y-1">
-          <p className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">Favorites</p>
-          <h2 className="text-xl font-semibold text-slate-900">Eat it again</h2>
-        </div>
-        <Link href={DISCOVERY_HREF} className="text-sm font-semibold text-primary hover:text-primary/80">
-          See all
+    <section aria-label="Your favorites" className="space-y-4">
+      <div className="flex items-center justify-between px-1">
+        <h2 className="text-xl font-bold text-slate-900">Your Favorites</h2>
+        <Link href={DISCOVERY_HREF} className="group flex items-center gap-1 text-sm font-semibold text-primary hover:text-primary/80">
+          See all <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
         </Link>
       </div>
 
-      {favorites.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-wrap items-center gap-3 p-4 text-sm text-slate-600">
-            <Heart className="h-4 w-4" aria-hidden />
-            Once you dine a couple of times, we’ll pin your go-tos here for one-tap rebooking.
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2">
-          {favorites.map((item) => (
-            <FavoritePill key={item.name} favorite={item} />
-          ))}
-        </div>
-      )}
+      <div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0">
+        {favorites.map((item) => (
+          <FavoriteCard key={item.name} favorite={item} />
+        ))}
+      </div>
     </section>
   );
 }
 
-function FavoritePill({ favorite }: { favorite: FavoriteRestaurant }) {
+function FavoriteCard({ favorite }: { favorite: FavoriteRestaurant }) {
   const initial = favorite.name.charAt(0).toUpperCase();
   const href = favorite.slug ? `/restaurants/${favorite.slug}` : DISCOVERY_HREF;
 
   return (
-    <Card className="min-w-[200px] snap-start bg-gradient-to-br from-white to-slate-50 shadow-sm">
-      <CardContent className="flex flex-col gap-3 p-4">
-        <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10 bg-primary/10 text-primary">
-            <AvatarFallback>{initial}</AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col">
-            <span className="text-sm font-semibold text-slate-900">{favorite.name}</span>
-            <span className="text-xs text-slate-600">Booked {favorite.count}×</span>
-          </div>
-        </div>
-        <Link href={href} className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
-          Book again
-        </Link>
-      </CardContent>
-    </Card>
+    <Link
+      href={href}
+      className="group relative flex h-40 w-40 flex-none snap-start flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md"
+    >
+      <Avatar className="h-10 w-10 border border-amber-100 bg-amber-50 text-amber-700">
+        <AvatarFallback className="bg-amber-50 font-bold text-amber-700">{initial}</AvatarFallback>
+      </Avatar>
+      <div>
+        <h3 className="line-clamp-2 font-semibold text-slate-900 group-hover:text-primary">{favorite.name}</h3>
+        <p className="text-xs text-slate-500">{favorite.count} visits</p>
+      </div>
+    </Link>
   );
 }
 
 function DiscoveryFeed({ restaurants, isLoading }: { restaurants: RestaurantSummary[]; isLoading: boolean }) {
   return (
     <section aria-label="Discovery" className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="space-y-1">
-          <p className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">Discover</p>
-          <h2 className="text-xl font-semibold text-slate-900">Tables available now</h2>
-        </div>
-        <Link href={DISCOVERY_HREF} className="text-sm font-semibold text-primary hover:text-primary/80">
-          Open map
+      <div className="flex items-center justify-between px-1">
+        <h2 className="text-xl font-bold text-slate-900">Explore New Tables</h2>
+        <Link href={DISCOVERY_HREF} className="group flex items-center gap-1 text-sm font-semibold text-primary hover:text-primary/80">
+          Open Map <MapIcon className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
         </Link>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-6 sm:grid-cols-2">
         {isLoading ? (
           <>
-            <Skeleton className="h-44 w-full rounded-2xl" />
-            <Skeleton className="h-44 w-full rounded-2xl" />
+            <Skeleton className="h-64 w-full rounded-2xl" />
+            <Skeleton className="h-64 w-full rounded-2xl" />
           </>
         ) : restaurants.length === 0 ? (
-          <Card className="sm:col-span-2 border-dashed">
-            <CardContent className="p-4 text-sm text-slate-600">
-              No restaurants yet. Check back soon as partners come online.
+          <Card className="col-span-full border-dashed">
+            <CardContent className="flex flex-col items-center justify-center p-8 text-center">
+              <p className="text-slate-500">No restaurants available right now.</p>
             </CardContent>
           </Card>
         ) : (
-          restaurants.slice(0, 4).map((restaurant) => {
-            const href = restaurant.slug ? `/restaurants/${restaurant.slug}/book` : DISCOVERY_HREF;
-            return (
-              <article key={restaurant.id} className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div className="flex items-center gap-3 p-4">
-                  <Avatar className="h-12 w-12 bg-primary/10 text-primary">
-                    <AvatarFallback>{restaurant.name.charAt(0).toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-slate-900">{restaurant.name}</p>
-                    <p className="truncate text-xs text-slate-600">
-                      {restaurant.address ?? restaurant.timezone ?? 'View details'}
-                    </p>
-                  </div>
-                  <Link
-                    href={href}
-                    className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'shrink-0')}
-                  >
-                    Book
-                  </Link>
-                </div>
-              </article>
-            );
-          })
+          restaurants.slice(0, 4).map((restaurant) => (
+            <RestaurantCard key={restaurant.id} restaurant={restaurant} />
+          ))
         )}
       </div>
-
-      <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-lg font-semibold text-slate-900">Collections</h3>
-          <Link href={DISCOVERY_HREF} className="text-sm font-semibold text-primary hover:text-primary/80">
-            See more
-          </Link>
-        </div>
-        <div className="grid gap-3 md:grid-cols-3">
-          {isLoading ? (
-            <>
-              <Skeleton className="h-40 w-full rounded-2xl" />
-              <Skeleton className="h-40 w-full rounded-2xl" />
-              <Skeleton className="h-40 w-full rounded-2xl" />
-            </>
-          ) : restaurants.length === 0 ? (
-            <Card className="md:col-span-3 border-dashed">
-              <CardContent className="p-4 text-sm text-slate-600">Add restaurants to see collections.</CardContent>
-            </Card>
-          ) : (
-            restaurants.slice(0, 3).map((restaurant) => {
-              const href = restaurant.slug ? `/restaurants/${restaurant.slug}/book` : DISCOVERY_HREF;
-              return (
-                <Link
-                  href={href}
-                  key={restaurant.id}
-                  className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 shadow-sm"
-                >
-                  <div className="relative h-32 w-full bg-gradient-to-br from-primary/10 via-primary/5 to-slate-50" aria-hidden />
-                  <div className="absolute inset-0 flex flex-col justify-end gap-2 p-4">
-                    <Badge className="w-fit bg-primary/10 text-primary">Popular</Badge>
-                    <p className="text-lg font-semibold leading-snug text-slate-900">{restaurant.name}</p>
-                    <span className="inline-flex items-center gap-1 text-xs text-slate-600">
-                      {restaurant.timezone ?? 'See schedule'}
-                    </span>
-                  </div>
-                </Link>
-              );
-            })
-          )}
-        </div>
-      </div>
     </section>
+  );
+}
+
+function RestaurantCard({ restaurant }: { restaurant: RestaurantSummary }) {
+  const href = restaurant.slug ? `/restaurants/${restaurant.slug}/book` : DISCOVERY_HREF;
+
+  return (
+    <Link href={href} className="group block h-full">
+      <Card className="h-full overflow-hidden rounded-2xl border-0 shadow-sm transition-all hover:shadow-lg">
+        <div className="relative h-48 bg-slate-100">
+          {restaurant.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={restaurant.logoUrl} alt={restaurant.name} className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-slate-100 text-slate-300">
+              <UtensilsCrossed className="h-12 w-12" />
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60 transition-opacity group-hover:opacity-70" />
+          <div className="absolute bottom-4 left-4 right-4 text-white">
+            <h3 className="text-xl font-bold leading-tight">{restaurant.name}</h3>
+            <p className="text-sm text-white/90">{restaurant.address ?? 'Downtown'}</p>
+          </div>
+        </div>
+        <CardContent className="flex items-center justify-between p-4">
+          <div className="flex items-center gap-2 text-sm text-slate-600">
+            <Clock3 className="h-4 w-4" />
+            <span>Next available: Today</span>
+          </div>
+          <Badge variant="secondary" className="group-hover:bg-primary group-hover:text-white transition-colors">
+            Book Now
+          </Badge>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
 
 function PerksCard({ totalBookings }: { totalBookings: number }) {
   const progress = Math.min(totalBookings * 20, 100);
   const remaining = Math.max(0, Math.ceil((5 - totalBookings)));
+
   return (
-    <Card className="bg-gradient-to-br from-amber-50 via-white to-amber-50">
-      <CardHeader className="space-y-2">
-        <div className="flex items-center gap-2 text-amber-700">
-          <Crown className="h-5 w-5" aria-hidden />
-          <p className="text-sm font-semibold">Loyalty & Perks</p>
+    <Card className="overflow-hidden rounded-3xl border-0 bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-xl">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-amber-400">
+            <Crown className="h-5 w-5" />
+            <span className="text-xs font-bold uppercase tracking-widest">Membership</span>
+          </div>
+          <span className="font-mono text-xs text-slate-400">MEMBER ID • 9928</span>
         </div>
-        <CardTitle className="text-2xl text-slate-900">Dining progress</CardTitle>
-        <CardDescription className="text-amber-800">
-          {remaining > 0 ? `${remaining} more visit${remaining === 1 ? '' : 's'} until your next reward.` : 'Rewards unlocked—enjoy priority seating.'}
-        </CardDescription>
+        <CardTitle className="mt-2 text-2xl">Gold Status</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-3 gap-3 text-center text-sm text-slate-700">
-          <StatPill label="Visits" value={totalBookings} />
-          <StatPill label="Next perk" value={`${Math.min(progress, 100)}%`} />
-          <StatPill label="Status" value={totalBookings >= 5 ? 'Gold' : 'Starter'} />
+      <CardContent className="space-y-6">
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-300">Progress to Platinum</span>
+            <span className="font-bold text-amber-400">{Math.min(progress, 100)}%</span>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-700">
+            <div className="h-full bg-gradient-to-r from-amber-300 to-amber-500" style={{ width: `${progress}%` }} />
+          </div>
+          <p className="text-xs text-slate-400">
+            {remaining > 0 ? `${remaining} more visits to unlock priority seating.` : 'You have unlocked all rewards!'}
+          </p>
         </div>
-        <Link href="/guest/profile" className={buttonVariants({ variant: 'secondary' })}>
-          View rewards wallet
-        </Link>
+        <Button variant="outline" className="w-full border-slate-700 bg-transparent text-white hover:bg-slate-800 hover:text-white">
+          View Wallet
+        </Button>
       </CardContent>
     </Card>
-  );
-}
-
-function StatPill({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-lg border border-amber-100 bg-white px-3 py-2 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-amber-700">{label}</p>
-      <p className="text-base font-bold text-slate-900">{value}</p>
-    </div>
   );
 }
 
 function NextStepsCard({ hasActive }: { hasActive: boolean }) {
   return (
-    <Card>
+    <Card className="rounded-3xl border-0 shadow-lg">
       <CardHeader>
-        <CardTitle className="text-lg">Next steps</CardTitle>
-        <CardDescription>Quick actions to keep plans smooth.</CardDescription>
+        <CardTitle className="text-lg">Quick Actions</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3 text-sm text-slate-700">
-        <ActionRow icon={CalendarClock} label="See upcoming reservations" href="/guest/bookings" />
-        <ActionRow icon={Search} label="Browse map view" href={DISCOVERY_HREF} />
-        <ActionRow icon={User} label="Update dietary preferences" href="/guest/profile" />
-        {!hasActive ? (
-          <ActionRow icon={Heart} label="Build your saved list" href={DISCOVERY_HREF} />
-        ) : null}
+      <CardContent className="space-y-2">
+        <ActionRow icon={CalendarClock} label="Upcoming Reservations" href="/guest/bookings" />
+        <ActionRow icon={Search} label="Browse Map" href={DISCOVERY_HREF} />
+        <ActionRow icon={User} label="Dietary Preferences" href="/guest/profile" />
+        {!hasActive && (
+          <ActionRow icon={Heart} label="Saved Restaurants" href={DISCOVERY_HREF} />
+        )}
       </CardContent>
     </Card>
   );
 }
 
-type ActionRowProps = {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  href: string;
-};
-
-function ActionRow({ icon: Icon, label, href }: ActionRowProps) {
+function ActionRow({ icon: Icon, label, href }: { icon: React.ComponentType<{ className?: string }>; label: string; href: string }) {
   return (
-    <Link href={href} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 px-3 py-2 transition hover:border-primary/40 hover:bg-primary/5">
+    <Link
+      href={href}
+      className="flex items-center justify-between rounded-xl p-3 transition-colors hover:bg-slate-50"
+    >
       <div className="flex items-center gap-3">
-        <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-700">
-          <Icon className="h-4 w-4" aria-hidden />
-        </span>
-        <span className="text-slate-800">{label}</span>
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-600">
+          <Icon className="h-5 w-5" />
+        </div>
+        <span className="font-medium text-slate-700">{label}</span>
       </div>
-      <Navigation className="h-4 w-4 text-slate-500" aria-hidden />
+      <ChevronRight className="h-4 w-4 text-slate-400" />
     </Link>
   );
 }
-
-
 
 function getGreeting(): string {
   const hour = new Date().getHours();
   if (hour < 12) return 'Good morning';
   if (hour < 17) return 'Good afternoon';
   if (hour < 22) return 'Good evening';
-  return 'Late night plans?';
-}
-
-function describeTiming(iso: string): string {
-  const start = new Date(iso);
-  if (Number.isNaN(start.getTime())) return 'Soon';
-  const diffMs = start.getTime() - Date.now();
-  const diffMinutes = Math.round(diffMs / 60000);
-  if (diffMinutes <= 0) return 'Now';
-  if (diffMinutes < 60) return `in ${diffMinutes} min`;
-  const hours = Math.floor(diffMinutes / 60);
-  const mins = diffMinutes % 60;
-  return mins ? `in ${hours}h ${mins}m` : `in ${hours}h`;
+  return 'Late night';
 }
