@@ -6,12 +6,12 @@ import { useOccasionService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
 
 import type { HttpError } from '@/lib/http/errors';
-import type { OccasionDefinition } from '@reserve/shared/occasions';
+import type { OpsOccasion } from '@/services/ops/occasions';
 
-export function useOpsOccasions(): UseQueryResult<OccasionDefinition[], HttpError | Error> {
+export function useOpsOccasions(): UseQueryResult<OpsOccasion[], HttpError | Error> {
   const occasionService = useOccasionService();
 
-  return useQuery<OccasionDefinition[], HttpError | Error>({
+  return useQuery<OpsOccasion[], HttpError | Error>({
     queryKey: queryKeys.opsOccasions.list(),
     queryFn: () => occasionService.listOccasions(),
     staleTime: 60_000,

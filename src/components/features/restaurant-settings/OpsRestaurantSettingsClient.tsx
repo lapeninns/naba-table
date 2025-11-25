@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 
+import { OccasionsSection } from './OccasionsSection';
 import { OperatingHoursSection } from './OperatingHoursSection';
 import { RestaurantProfileSection } from './RestaurantProfileSection';
 import { ServicePeriodsSection } from './ServicePeriodsSection';
@@ -66,6 +67,8 @@ export function OpsRestaurantSettingsClient({ defaultRestaurantId }: OpsRestaura
       <RestaurantProfileSection restaurantId={selectedRestaurantId} />
 
       <OperatingHoursSection restaurantId={selectedRestaurantId} />
+
+      <OccasionsSection />
 
       <ServicePeriodsSection restaurantId={selectedRestaurantId} />
     </div>

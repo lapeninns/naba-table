@@ -1,7 +1,16 @@
-process.env.BASE_URL ??= "http://localhost:3000";
-
 import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { GuardError } from '@/server/auth/guards';
+import { OperatingHoursError } from '@/server/bookings/timeValidation';
+
+import { DELETE, GET, PUT } from './route';
+
+import type * as AuthGuardsModule from '@/server/auth/guards';
+import type * as BookingsModule from '@/server/bookings';
+import type * as BookingTimeValidationModule from '@/server/bookings/timeValidation';
+
+process.env.BASE_URL ??= "http://localhost:3000";
 
 vi.mock('@/lib/env', () => {
   return {
@@ -12,7 +21,7 @@ vi.mock('@/lib/env', () => {
           enableTestApi: true,
         guestLookupPolicy: false,
         opsGuardV2: false,
-        bookingPastTimeBlocking: false,
+        bookingPastTimeBlocking: true,
         bookingPastTimeGraceMinutes: 5,
         pendingSelfServeGraceMinutes: 10,
       } as const;
@@ -59,11 +68,6 @@ vi.mock('@/lib/env', () => {
   };
 });
 
-import { GuardError } from '@/server/auth/guards';
-import { OperatingHoursError } from '@/server/bookings/timeValidation';
-
-import { DELETE, GET, PUT } from './route';
-
 const assertBookingWithinOperatingWindowMock = vi.hoisted(() => vi.fn());
 const getRestaurantScheduleMock = vi.hoisted(() => vi.fn());
 const getDefaultRestaurantIdMock = vi.hoisted(() => vi.fn());
@@ -82,7 +86,7 @@ const listUserRestaurantMembershipsMock = vi.hoisted(() => vi.fn());
 const recordObservabilityEventMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/bookings/timeValidation', async () => {
-  const actual = await vi.importActual<typeof import('@/server/bookings/timeValidation')>(
+  const actual = await vi.importActual<typeof BookingTimeValidationModule>(
     '@/server/bookings/timeValidation',
   );
   return {
@@ -102,7 +106,7 @@ vi.mock('@/server/supabase', () => ({
 }));
 
 vi.mock('@/server/auth/guards', async () => {
-  const actual = await vi.importActual<typeof import('@/server/auth/guards')>('@/server/auth/guards');
+  const actual = await vi.importActual<typeof AuthGuardsModule>('@/server/auth/guards');
   return {
     ...actual,
     requireSession: (...args: unknown[]) => requireSessionMock(...args),
@@ -111,7 +115,7 @@ vi.mock('@/server/auth/guards', async () => {
 });
 
 vi.mock('@/server/bookings', async () => {
-  const actual = await vi.importActual<typeof import('@/server/bookings')>('@/server/bookings');
+  const actual = await vi.importActual<typeof BookingsModule>('@/server/bookings');
   return {
     ...actual,
     fetchBookingsForContact: (...args: unknown[]) => fetchBookingsForContactMock(...args),
@@ -143,6 +147,21 @@ vi.mock('@/server/observability', () => ({
 }));
 
 const RESTAURANT_ID = '11111111-1111-4111-8111-111111111111';
+
+const DEFAULT_SCHEDULE = {
+  defaultDurationMinutes: 90,
+  lastSeatingBufferMinutes: 90,
+  timezone: 'Europe/London',
+  intervalMinutes: 15,
+  isClosed: false,
+  date: '2025-10-10',
+  window: { opensAt: '09:00', closesAt: '23:00' },
+  availableBookingOptions: ['dinner'],
+  occasionCatalog: [],
+  slots: [],
+};
+
+const DEFAULT_NOW = new Date('2025-10-01T12:00:00Z');
 
 const existingBooking = {
   id: 'booking-1',
@@ -222,7 +241,14 @@ function createRequest(body: unknown) {
 }
 
 describe('/api/bookings/[id] GET', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(DEFAULT_NOW);
+    getRestaurantScheduleMock.mockResolvedValue(DEFAULT_SCHEDULE);
+  });
+
   afterEach(() => {
+    vi.useRealTimers();
     vi.clearAllMocks();
   });
 
@@ -393,10 +419,14 @@ describe('/api/bookings/[id] GET', () => {
 
 describe('/api/bookings/[id] PUT', () => {
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(DEFAULT_NOW);
+    getRestaurantScheduleMock.mockResolvedValue(DEFAULT_SCHEDULE);
     beginBookingModificationFlowMock.mockResolvedValue(existingBooking);
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.clearAllMocks();
   });
 
@@ -644,6 +674,38 @@ describe('/api/bookings/[id] PUT', () => {
     expect(updateBookingRecordMock).toHaveBeenCalledWith(expect.any(Object), existingBooking.id, expect.objectContaining({
       notes: 'Birthday',
     }));
+  });
+
+  it('rejects updates to past bookings', async () => {
+    vi.setSystemTime(new Date('2025-10-11T10:00:00.000Z'));
+
+    const payload = {
+      startIso: '2025-10-10T19:00:00.000Z',
+      endIso: '2025-10-10T21:00:00.000Z',
+      partySize: 2,
+    };
+
+    const request = createRequest(payload);
+    const params = { params: Promise.resolve({ id: existingBooking.id }) } as const;
+
+    const tenantSupabase = createTenantSupabase(existingBooking);
+    requireSessionMock.mockResolvedValue({
+      supabase: tenantSupabase,
+      user: { id: 'user-1', email: existingBooking.customer_email },
+    });
+    listUserRestaurantMembershipsMock.mockResolvedValue([
+      { restaurant_id: existingBooking.restaurant_id, role: 'manager', created_at: '', restaurants: null },
+    ]);
+
+    const serviceSupabase = createServiceSupabase({ booking: existingBooking });
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+
+    const response = await PUT(request, params);
+    const json = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(json.code).toBe('BOOKING_IN_PAST');
+    expect(beginBookingModificationFlowMock).not.toHaveBeenCalled();
   });
 
   it('returns 400 when booking time is outside operating hours', async () => {
@@ -895,10 +957,10 @@ describe('/api/bookings/[id] PUT', () => {
       user: { id: 'user-1', email: pendingBooking.customer_email },
     });
 
-    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2025-10-10T10:00:01.000Z'));
+    vi.setSystemTime(new Date('2025-10-10T10:00:01.000Z'));
 
     const response = await PUT(request, params);
-    nowSpy.mockRestore();
+    vi.setSystemTime(DEFAULT_NOW);
 
     expect(response.status).toBe(403);
     const json = await response.json();
@@ -909,7 +971,14 @@ describe('/api/bookings/[id] PUT', () => {
 });
 
 describe('/api/bookings/[id] DELETE', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(DEFAULT_NOW);
+    getRestaurantScheduleMock.mockResolvedValue(DEFAULT_SCHEDULE);
+  });
+
   afterEach(() => {
+    vi.useRealTimers();
     vi.clearAllMocks();
   });
 
@@ -937,14 +1006,43 @@ describe('/api/bookings/[id] DELETE', () => {
     getRouteHandlerSupabaseClientMock.mockResolvedValue(tenantSupabase);
     getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
 
-    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2025-10-10T10:00:01.000Z'));
+    vi.setSystemTime(new Date('2025-10-10T10:00:01.000Z'));
 
     const response = await DELETE(request, params);
-    nowSpy.mockRestore();
+    vi.setSystemTime(DEFAULT_NOW);
 
     expect(response.status).toBe(403);
     const json = await response.json();
     expect(json.code).toBe('PENDING_LOCKED');
+    expect(softCancelBookingMock).not.toHaveBeenCalled();
+    expect(clearBookingTableAssignmentsMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects cancellations for past bookings', async () => {
+    vi.setSystemTime(new Date('2025-10-11T10:00:00.000Z'));
+
+    const request = new NextRequest('http://localhost/api/bookings/booking-1', { method: 'DELETE' });
+    const params = { params: Promise.resolve({ id: existingBooking.id }) } as const;
+
+    const tenantSupabase = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { email: existingBooking.customer_email } },
+          error: null,
+        }),
+      },
+    };
+
+    const serviceSupabase = createServiceSupabase({ booking: existingBooking });
+
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(tenantSupabase);
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+
+    const response = await DELETE(request, params);
+    const json = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(json.code).toBe('BOOKING_IN_PAST');
     expect(softCancelBookingMock).not.toHaveBeenCalled();
     expect(clearBookingTableAssignmentsMock).not.toHaveBeenCalled();
   });

@@ -54,7 +54,7 @@ TRUNCATE TABLE auth.users CASCADE;
 -- -----------------------------------------------------------------------------
 -- Stage 2: static catalogues and feature configuration
 -- -----------------------------------------------------------------------------
-INSERT INTO public.booking_occasions (key, label, short_label, description, availability, default_duration_minutes, display_order, is_active, created_at, updated_at)
+INSERT INTO public.booking_occasions (key, label, short_label, description, availability, default_duration_minutes, display_order, is_builtin, is_active, created_at, updated_at)
 VALUES
     (
         'lunch',
@@ -64,6 +64,7 @@ VALUES
         '[{"kind":"time_window","start":"11:45","end":"15:30"}]'::jsonb,
         90,
         10,
+        true,
         true,
         timezone('utc', now()),
         timezone('utc', now())
@@ -77,6 +78,7 @@ VALUES
         60,
         20,
         true,
+        true,
         timezone('utc', now()),
         timezone('utc', now())
     ),
@@ -89,6 +91,7 @@ VALUES
         120,
         30,
         true,
+        true,
         timezone('utc', now()),
         timezone('utc', now())
     ),
@@ -100,6 +103,7 @@ VALUES
         '[{"kind":"month_only","months":[12]}]'::jsonb,
         150,
         40,
+        false,
         true,
         timezone('utc', now()),
         timezone('utc', now())
@@ -112,6 +116,7 @@ VALUES
         '[{"kind":"specific_dates","dates":["2025-12-15","2025-12-22"]}]'::jsonb,
         150,
         50,
+        false,
         true,
         timezone('utc', now()),
         timezone('utc', now())

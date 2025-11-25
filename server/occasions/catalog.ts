@@ -57,6 +57,7 @@ async function fetchCatalogWithClient(client: SupabaseClient<Database, 'public'>
   const { data, error } = await client
     .from('booking_occasions')
     .select('key, label, short_label, description, availability, default_duration_minutes, display_order, is_active')
+    .is('deleted_at', null)
     .order('display_order', { ascending: true })
     .order('label', { ascending: true });
 

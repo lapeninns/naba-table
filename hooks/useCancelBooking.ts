@@ -5,6 +5,7 @@ import { toast } from 'react-hot-toast';
 
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
+import { BOOKING_IN_PAST_CUSTOMER_MESSAGE } from '@/lib/bookings/messages';
 import { fetchJson } from '@/lib/http/fetchJson';
 import { queryKeys } from '@/lib/query/keys';
 
@@ -83,7 +84,9 @@ export function useCancelBooking() {
       }
       const message = error.code === 'PENDING_LOCKED'
         ? 'This booking is pending review and cannot be changed online. Please contact the venue.'
-        : error.message;
+        : error.code === 'BOOKING_IN_PAST'
+          ? BOOKING_IN_PAST_CUSTOMER_MESSAGE
+          : error.message;
       toast.error(message);
     },
     onSettled: (_data, _error, variables) => {
