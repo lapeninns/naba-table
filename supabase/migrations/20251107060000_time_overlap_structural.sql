@@ -13,9 +13,20 @@ ALTER TABLE public.table_hold_windows
   GENERATED ALWAYS AS (tstzrange(start_at, end_at, '[)')) STORED;
 
 -- Hold hygiene --------------------------------------------------------------
-ALTER TABLE public.table_holds
-  ADD CONSTRAINT IF NOT EXISTS th_times_consistent
-  CHECK (expires_at >= end_at);
+-- Ensure the th_times_consistent constraint exists (idempotent)
+DO $do$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'th_times_consistent'
+  ) THEN
+    EXECUTE 'ALTER TABLE public.table_holds
+      ADD CONSTRAINT th_times_consistent
+      CHECK (expires_at >= end_at)';
+  END IF;
+END
+$do$;
 
 -- Ensure allowed capacity FK matches (restaurant_id, capacity) -------------
 ALTER TABLE public.table_inventory
