@@ -1,7 +1,0 @@
-Subject: Action needed: booking <REFERENCE> pending
-To: <restaurant contact email>
-
-Body highlights:
-- Intro: auto-assignment could not secure a table; booking needs manual attention.
-- Details: reference, date, time, party size, guest contact, optional notes, reason (e.g., Insufficient capacity).
-- CTA: Button to open dashboard bookings with restaurantId query.

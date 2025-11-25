@@ -1,3 +1,0 @@
-Command: pnpm eslint server/reservations/getReservation.ts --max-warnings=0
-Result: success (no warnings, exit code 0)
-Timestamp (UTC): 2025-11-24T15:35:00Z
