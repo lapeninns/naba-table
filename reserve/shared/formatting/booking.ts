@@ -148,6 +148,36 @@ export function formatReservationTimeFromDate(date: Date, options?: FormattingOp
   }
 }
 
+export function formatReservationDateFromDate(date: Date, options?: FormattingOptions): string {
+  try {
+    const formatter = getFormatter(
+      'reservation-date-from-date',
+      {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      },
+      options?.timezone,
+    );
+    const parts = formatter.formatToParts(date);
+    const weekday = parts.find((part) => part.type === 'weekday')?.value ?? '';
+    const day = parts.find((part) => part.type === 'day')?.value ?? '';
+    const month = parts.find((part) => part.type === 'month')?.value ?? '';
+    const year = parts.find((part) => part.type === 'year')?.value ?? '';
+    const body = [day, month, year].filter(Boolean).join(' ');
+    return [weekday, body].filter(Boolean).join(', ');
+  } catch (error) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[formatReservationDateFromDate] failed to format date instance', {
+        date,
+        error,
+      });
+    }
+    return '';
+  }
+}
+
 export function formatReservationSummaryDate(
   value: string | ReservationDate | null | undefined,
   options?: FormattingOptions,

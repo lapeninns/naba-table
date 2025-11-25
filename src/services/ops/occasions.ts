@@ -37,7 +37,8 @@ export type CreateOccasionInput = {
   isActive?: boolean;
 };
 
-export type UpdateOccasionInput = Omit<CreateOccasionInput, 'key'>;
+// Updates may be partial; backend treats missing fields as unchanged.
+export type UpdateOccasionInput = Partial<Omit<CreateOccasionInput, 'key'>>;
 
 export type OccasionServiceFactory = () => OccasionService;
 

@@ -3,7 +3,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { countOccasionReferences, fetchOccasionByKey, insertAudit, toAdminOccasion } from '@/server/occasions/admin';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 
-export async function PATCH(request: NextRequest, { params }: { params: { key: string } }) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ key: string }> }) {
+  const { key } = await params;
   const supabase = await getRouteHandlerSupabaseClient();
   const {
     data: { user },
@@ -18,7 +19,6 @@ export async function PATCH(request: NextRequest, { params }: { params: { key: s
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
   }
 
-  const key = params.key;
   const body = await request.json().catch(() => null);
   if (!body) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
@@ -88,7 +88,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { key: s
   }
 }
 
-export async function DELETE(_request: NextRequest, { params }: { params: { key: string } }) {
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ key: string }> }) {
+  const { key } = await params;
   const supabase = await getRouteHandlerSupabaseClient();
   const {
     data: { user },
@@ -103,7 +104,6 @@ export async function DELETE(_request: NextRequest, { params }: { params: { key:
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
   }
 
-  const key = params.key;
   const serviceClient = getServiceSupabaseClient();
 
   try {
