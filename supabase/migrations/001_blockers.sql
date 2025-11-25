@@ -103,9 +103,19 @@ BEGIN
 END$$;
 
 -- Ensure allowed_capacities PK exists (composite)
-ALTER TABLE public.allowed_capacities
-  ADD CONSTRAINT IF NOT EXISTS allowed_capacities_pkey
-  PRIMARY KEY (restaurant_id, capacity);
+DO $do$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'allowed_capacities_pkey'
+  ) THEN
+    EXECUTE 'ALTER TABLE public.allowed_capacities
+      ADD CONSTRAINT allowed_capacities_pkey
+      PRIMARY KEY (restaurant_id, capacity)';
+  END IF;
+END
+$do$;
 
 -- Add composite FK (NOT VALID; to be validated after backfill)
 DO $$
