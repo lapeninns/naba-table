@@ -28,11 +28,16 @@ export function useOpsOperatingHours(
 
 export function useOpsUpdateOperatingHours(
   restaurantId?: string | null,
-): UseMutationResult<OperatingHoursSnapshot, HttpError | Error, OperatingHoursSnapshot> {
+): UseMutationResult<OperatingHoursSnapshot, HttpError | Error, OperatingHoursSnapshot, { previous?: OperatingHoursSnapshot }> {
   const restaurantService = useRestaurantService();
   const queryClient = useQueryClient();
 
-  return useMutation<OperatingHoursSnapshot, HttpError | Error, OperatingHoursSnapshot>({
+  return useMutation<
+    OperatingHoursSnapshot,
+    HttpError | Error,
+    OperatingHoursSnapshot,
+    { previous?: OperatingHoursSnapshot }
+  >({
     mutationFn: (payload) => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
