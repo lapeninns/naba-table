@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useOpsOperatingHours, useOpsUpdateOperatingHours } from '@/hooks';
+import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 import { cn } from '@/lib/utils';
 import { normalizeTime } from '@reserve/shared/time';
 
@@ -272,6 +273,24 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
     setIsDirty(false);
   };
 
+  const isDisabled = updateMutation.isPending;
+
+  useGlobalShortcuts([
+    {
+      key: 's',
+      meta: true,
+      ctrl: true,
+      preventDefault: true,
+      enabled: !isDisabled && isDirty,
+      when: () => true,
+      handler: () => {
+        if (!isDisabled && isDirty) {
+          void handleSave();
+        }
+      },
+    },
+  ]);
+
   if (!restaurantId) {
     return (
       <SettingsCard title="Operating Hours">
@@ -296,12 +315,18 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
   if (isLoading && !data) {
     return (
       <SettingsCard title="Operating Hours" description="Loading…">
-        <Skeleton className="h-64 w-full" />
+        <div className="space-y-4">
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-4 w-72" />
+          <div className="grid gap-3 sm:grid-cols-2">
+            {Array.from({ length: 4 }).map((_, idx) => (
+              <Skeleton key={idx} className="h-20 w-full rounded-lg" />
+            ))}
+          </div>
+        </div>
       </SettingsCard>
     );
   }
-
-  const isDisabled = updateMutation.isPending;
 
   return (
     <TooltipProvider delayDuration={100}>

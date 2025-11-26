@@ -1,17 +1,45 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useEffect, type ReactNode } from 'react';
 
+import { Skeleton } from '@/components/ui/skeleton';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 
-import { OccasionsSection } from './OccasionsSection';
-import { OperatingHoursSection } from './OperatingHoursSection';
-import { RestaurantProfileSection } from './RestaurantProfileSection';
 import { RESTAURANT_SETTINGS_ROUTE_MAP } from './routes';
-import { ServicePeriodsSection } from './ServicePeriodsSection';
-import { OpsTeamManagementClient } from '../team';
 
 import type { RestaurantSettingsView } from './types';
+
+const SettingsSectionSkeleton = ({ title }: { title: string }) => (
+  <div className="rounded-lg border border-border/60 bg-muted/30 p-6" aria-busy="true" role="status">
+    <p className="text-sm font-medium text-foreground">{title}</p>
+    <div className="mt-3 space-y-3">
+      <Skeleton className="h-4 w-40" />
+      <Skeleton className="h-10 w-full" />
+      <Skeleton className="h-10 w-3/4" />
+    </div>
+  </div>
+);
+
+const RestaurantProfileSection = dynamic(() => import('./RestaurantProfileSection').then((m) => m.RestaurantProfileSection), {
+  loading: () => <SettingsSectionSkeleton title="Loading profile" />,
+});
+
+const OperatingHoursSection = dynamic(() => import('./OperatingHoursSection').then((m) => m.OperatingHoursSection), {
+  loading: () => <SettingsSectionSkeleton title="Loading operating hours" />,
+});
+
+const OccasionsSection = dynamic(() => import('./OccasionsSection').then((m) => m.OccasionsSection), {
+  loading: () => <SettingsSectionSkeleton title="Loading occasions" />,
+});
+
+const ServicePeriodsSection = dynamic(() => import('./ServicePeriodsSection').then((m) => m.ServicePeriodsSection), {
+  loading: () => <SettingsSectionSkeleton title="Loading service periods" />,
+});
+
+const OpsTeamManagementClient = dynamic(() => import('../team').then((m) => m.OpsTeamManagementClient), {
+  loading: () => <SettingsSectionSkeleton title="Loading team" />,
+});
 
 export type OpsRestaurantSettingsClientProps = {
   defaultRestaurantId?: string | null;

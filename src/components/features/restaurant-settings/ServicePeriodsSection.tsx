@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useOpsOccasions, useOpsOperatingHours, useOpsServicePeriods, useOpsUpdateServicePeriods } from '@/hooks';
+import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 import { cn } from '@/lib/utils';
 
 import { buildServicePeriodPayload, buildServicePeriodState, type DayServiceConfig, type MealConfig, type WeeklyHoursEntry } from './servicePeriodsMapper';
@@ -370,6 +371,23 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
     initializeState();
   };
 
+  const isDisabled = updateMutation.isPending || !hasRequiredOccasions;
+
+  useGlobalShortcuts([
+    {
+      key: 's',
+      meta: true,
+      ctrl: true,
+      preventDefault: true,
+      enabled: !isDisabled && isDirty,
+      handler: () => {
+        if (!isDisabled && isDirty) {
+          void handleSave();
+        }
+      },
+    },
+  ]);
+
   if (!restaurantId) {
     return (
       <SettingsCard title="Service Periods">
@@ -401,12 +419,18 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
   ) {
     return (
       <SettingsCard title="Service Periods" description="Loading…">
-        <Skeleton className="h-80 w-full" />
+        <div className="space-y-4">
+          <Skeleton className="h-6 w-44" />
+          <Skeleton className="h-4 w-72" />
+          <div className="grid gap-3 sm:grid-cols-2">
+            {Array.from({ length: 6 }).map((_, idx) => (
+              <Skeleton key={idx} className="h-28 w-full rounded-lg" />
+            ))}
+          </div>
+        </div>
       </SettingsCard>
     );
   }
-
-  const isDisabled = updateMutation.isPending || !hasRequiredOccasions;
 
   return (
     <TooltipProvider delayDuration={100}>

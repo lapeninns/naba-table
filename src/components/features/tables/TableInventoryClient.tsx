@@ -42,6 +42,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useTableInventoryService, useZoneService } from '@/contexts/ops-services';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import { useToast } from '@/hooks/use-toast';
+import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
 import { queryKeys } from '@/lib/query/keys';
 
@@ -487,6 +488,29 @@ export default function TableInventoryClient() {
     return zones.map((zone) => ({ id: zone.id, name: zone.name, active: zone.active }));
   }, [zones]);
 
+  useGlobalShortcuts([
+    {
+      key: 'n',
+      meta: true,
+      ctrl: true,
+      preventDefault: true,
+      enabled: Boolean(activeRestaurantId),
+      handler: () => {
+        setEditingTable(null);
+        setIsDialogOpen(true);
+      },
+    },
+    {
+      key: 'escape',
+      preventDefault: false,
+      enabled: isDialogOpen || isZoneDialogOpen,
+      handler: () => {
+        if (isDialogOpen) setIsDialogOpen(false);
+        if (isZoneDialogOpen) setIsZoneDialogOpen(false);
+      },
+    },
+  ]);
+
   const isZoneSelectDisabled = zoneOptions.length === 0;
 
   const filteredTables = useMemo(() => {
@@ -618,9 +642,25 @@ export default function TableInventoryClient() {
     },
   });
 
-  const zoneUpdateMutation = useMutation({
-    mutationFn: ({ zoneId, name, sortOrder, active }: { zoneId: string; name?: string; sortOrder?: number; active?: boolean }) =>
-      zoneService.update(zoneId, { name, sortOrder, active }),
+  const zoneUpdateMutation = useMutation<
+    Zone,
+    unknown,
+    { zoneId: string; name?: string; sortOrder?: number; active?: boolean },
+    { previousZones?: Zone[] }
+  >({
+    mutationFn: ({ zoneId, name, sortOrder, active }) => zoneService.update(zoneId, { name, sortOrder, active }),
+    onMutate: async (variables) => {
+      await queryClient.cancelQueries({ queryKey: zonesQueryKey });
+      const previousZones = queryClient.getQueryData<Zone[]>(zonesQueryKey);
+      if (variables.active !== undefined) {
+        queryClient.setQueryData<Zone[]>(zonesQueryKey, (current) =>
+          (current ?? []).map((zone) =>
+            zone.id === variables.zoneId ? { ...zone, active: variables.active as boolean } : zone,
+          ),
+        );
+      }
+      return { previousZones };
+    },
     onSuccess: (zone, variables) => {
       queryClient.invalidateQueries({ queryKey: zonesQueryKey });
       queryClient.invalidateQueries({ queryKey: ['ops', 'tables'] });
@@ -633,9 +673,15 @@ export default function TableInventoryClient() {
       });
       setFilterZone((current) => (current === zone.id ? zone.id : current));
     },
-    onError: (error) => {
+    onError: (error, _variables, context) => {
+      if (context?.previousZones) {
+        queryClient.setQueryData(zonesQueryKey, context.previousZones);
+      }
       const message = error instanceof Error ? error.message : 'Failed to update zone.';
       toast({ title: 'Unable to update zone', description: message, variant: 'destructive' });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: zonesQueryKey });
     },
   });
 

@@ -13,11 +13,14 @@ const STALE_TIME_RULES: Array<{ match: (key: readonly unknown[]) => boolean; sta
   { match: (key) => key[0] === 'ops' && key[1] === 'tables', staleTime: 2 * MINUTE },
   { match: (key) => key[0] === 'ops' && key[1] === 'occasions', staleTime: 5 * MINUTE },
   // Operational data that changes often
-  { match: (key) => key[0] === 'bookings', staleTime: 30_000 },
-  { match: (key) => key[0] === 'ops' && key[1] === 'bookings', staleTime: 30_000 },
+  { match: (key) => key[0] === 'bookings', staleTime: 45_000 },
+  { match: (key) => key[0] === 'ops' && key[1] === 'bookings', staleTime: 45_000 },
   { match: (key) => key[0] === 'ops' && key[1] === 'dashboard', staleTime: 60_000 },
   { match: (key) => key[0] === 'ops' && key[1] === 'customers', staleTime: 2 * MINUTE },
   { match: (key) => key[0] === 'restaurants', staleTime: 2 * MINUTE },
+  // Guest reservations & availability
+  { match: (key) => key[0] === 'reservation', staleTime: 60_000 },
+  { match: (key) => key[0] === 'reservations' && key[1] === 'schedule', staleTime: 60_000 },
 ];
 
 const DEFAULT_STALE_TIME = 30_000;

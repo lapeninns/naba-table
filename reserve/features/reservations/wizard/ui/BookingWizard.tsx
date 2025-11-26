@@ -1,6 +1,7 @@
 'use client';
 
 import { Loader2 } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
@@ -12,12 +13,21 @@ import { WizardProvider } from '../context/WizardContext';
 import { useWizardDependencies } from '../di';
 import { useReservationWizard } from '../hooks/useReservationWizard';
 import { ConfirmationStep } from './steps/ConfirmationStep';
-import { DetailsStep } from './steps/DetailsStep';
-import { PlanStep } from './steps/PlanStep';
-import { ReviewStep } from './steps/ReviewStep';
 import { WizardContainer } from './WizardContainer';
 import { WizardOfflineBanner } from './WizardOfflineBanner';
 import { DetailsStepSkeleton, PlanStepSkeleton, ReviewStepSkeleton } from './WizardSkeletons';
+
+const PlanStep = dynamic(() => import('./steps/PlanStep').then((m) => m.PlanStep), {
+  loading: () => <PlanStepSkeleton />,
+});
+
+const DetailsStep = dynamic(() => import('./steps/DetailsStep').then((m) => m.DetailsStep), {
+  loading: () => <DetailsStepSkeleton />,
+});
+
+const ReviewStep = dynamic(() => import('./steps/ReviewStep').then((m) => m.ReviewStep), {
+  loading: () => <ReviewStepSkeleton />,
+});
 
 import type { BookingDetails, BookingWizardMode } from '../model/reducer';
 import type { CalendarMask } from '@reserve/features/reservations/wizard/services/schedule';

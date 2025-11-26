@@ -1,6 +1,7 @@
 'use client';
 
 import { Loader2 } from "lucide-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
@@ -11,8 +12,19 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useOpsActiveMembership, useOpsSession } from "@/contexts/ops-session";
 import { useOpsRestaurantDetails } from "@/hooks";
-import { ReservationWizard } from "@features/reservations/wizard/ui/ReservationWizard";
+import { PlanStepSkeleton } from "@features/reservations/wizard/ui/WizardSkeletons";
 import { DEFAULT_VENUE } from "@shared/config/venue";
+
+const ReservationWizard = dynamic(
+  () => import("@features/reservations/wizard/ui/ReservationWizard").then((m) => m.ReservationWizard),
+  {
+    loading: () => (
+      <div className="p-4" role="status" aria-busy>
+        <PlanStepSkeleton />
+      </div>
+    ),
+  },
+);
 
 import type { BookingDetails } from "@features/reservations/wizard/model/reducer";
 
