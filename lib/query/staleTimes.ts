@@ -1,4 +1,4 @@
-import type { Query } from '@tanstack/react-query';
+import type { Query, QueryKey } from '@tanstack/react-query';
 
 const MINUTE = 60_000;
 
@@ -22,15 +22,23 @@ const STALE_TIME_RULES: Array<{ match: (key: readonly unknown[]) => boolean; sta
 
 const DEFAULT_STALE_TIME = 30_000;
 
-export function getQueryStaleTime(query: Query): number {
-  const key = query.queryKey ?? [];
+type QueryKeyLike = Query | QueryKey | undefined;
+
+function toQueryKey(input: QueryKeyLike): readonly unknown[] {
+  if (!input) return [];
+  if (Array.isArray(input)) return input;
+  return 'queryKey' in input ? input.queryKey ?? [] : [];
+}
+
+export function getQueryStaleTime(query: QueryKeyLike): number {
+  const key = toQueryKey(query);
   for (const rule of STALE_TIME_RULES) {
     if (rule.match(key)) return rule.staleTime;
   }
   return DEFAULT_STALE_TIME;
 }
 
-export function getQueryGcTime(query: Query): number {
+export function getQueryGcTime(query: QueryKeyLike): number {
   const stale = getQueryStaleTime(query);
   // Keep cache around at least twice the stale window to allow quick back/forward navigations.
   return Math.max(stale * 2, 5 * MINUTE);

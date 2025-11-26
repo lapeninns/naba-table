@@ -28,11 +28,16 @@ export function useOpsServicePeriods(
 
 export function useOpsUpdateServicePeriods(
   restaurantId?: string | null,
-): UseMutationResult<ServicePeriodRow[], HttpError | Error, ServicePeriodRow[]> {
+): UseMutationResult<ServicePeriodRow[], HttpError | Error, ServicePeriodRow[], { previous?: ServicePeriodRow[] }> {
   const restaurantService = useRestaurantService();
   const queryClient = useQueryClient();
 
-  return useMutation<ServicePeriodRow[], HttpError | Error, ServicePeriodRow[]>({
+  return useMutation<
+    ServicePeriodRow[],
+    HttpError | Error,
+    ServicePeriodRow[],
+    { previous?: ServicePeriodRow[] }
+  >({
     mutationFn: (rows) => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
