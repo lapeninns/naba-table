@@ -32,7 +32,7 @@ export default async function OpsLoginPage({ searchParams }: OpsLoginPageProps) 
     typeof redirectedRaw === "string" && redirectedRaw.startsWith("/") ? redirectedRaw : undefined;
   const redirectTarget = redirectedFromParam ?? "/";
 
-  ensureCsrfCookie();
+  await ensureCsrfCookie();
 
   if (user) {
     redirect(redirectTarget);

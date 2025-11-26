@@ -7,7 +7,6 @@ import { HelpTooltip } from '@/components/features/restaurant-settings/HelpToolt
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -17,6 +16,7 @@ import { useOpsOccasions, useOpsOperatingHours, useOpsServicePeriods, useOpsUpda
 import { cn } from '@/lib/utils';
 
 import { buildServicePeriodPayload, buildServicePeriodState, type DayServiceConfig, type MealConfig, type WeeklyHoursEntry } from './servicePeriodsMapper';
+import { SettingsCard } from './shared/SettingsCard';
 import { DAYS_OF_WEEK, type ServicePeriodRow } from './types';
 
 import type { OccasionDefinition } from '@reserve/shared/occasions';
@@ -372,11 +372,11 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
 
   if (!restaurantId) {
     return (
-      <Card>
-        <CardContent className="flex min-h-[200px] items-center justify-center py-8">
+      <SettingsCard title="Service Periods">
+        <div className="flex min-h-[200px] items-center justify-center py-8">
           <p className="text-sm text-muted-foreground">Select a restaurant to manage service periods</p>
-        </CardContent>
-      </Card>
+        </div>
+      </SettingsCard>
     );
   }
 
@@ -384,17 +384,12 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
   if (loadError) {
     const message = loadError instanceof Error ? loadError.message : 'Unable to load service periods';
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Service Periods</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Alert variant="destructive">
-            <AlertTitle>Unable to load service periods</AlertTitle>
-            <AlertDescription>{message}</AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
+      <SettingsCard title="Service Periods">
+        <Alert variant="destructive">
+          <AlertTitle>Unable to load service periods</AlertTitle>
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
+      </SettingsCard>
     );
   }
 
@@ -405,15 +400,9 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
     dayConfigs.length === 0
   ) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Service Periods</CardTitle>
-          <CardDescription>Loading…</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-80 w-full" />
-        </CardContent>
-      </Card>
+      <SettingsCard title="Service Periods" description="Loading…">
+        <Skeleton className="h-80 w-full" />
+      </SettingsCard>
     );
   }
 
@@ -421,97 +410,96 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
 
   return (
     <TooltipProvider delayDuration={100}>
-      <Card>
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <CardTitle>Service Periods</CardTitle>
+      <SettingsCard
+        title="Service Periods"
+        description="Drinks automatically follow general opening hours. Configure kitchen windows for lunch and dinner per day."
+        headerAction={
           <HelpTooltip
             description="Lunch and dinner windows must stay inside each day's kitchen hours. Drinks inherit general operating hours."
             ariaLabel="Service periods help"
           />
-        </div>
-        <CardDescription>
-          Drinks automatically follow general opening hours. Configure kitchen windows for lunch and dinner per day.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {!hasRequiredOccasions && (
-          <Alert variant="destructive">
-            <AlertTitle>Missing booking occasions</AlertTitle>
-            <AlertDescription>Ensure lunch, dinner, and drinks occasions exist before editing service periods.</AlertDescription>
-          </Alert>
-        )}
-
-        {customRows.length > 0 && (
-          <Alert>
-            <AlertTitle>Additional service periods preserved</AlertTitle>
-            <AlertDescription>
-              {customRows.length} custom period{customRows.length === 1 ? '' : 's'} exist outside the lunch/dinner/drinks
-              layout. They will be saved unchanged.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <div className="space-y-4">
-          {dayConfigs.map((day, index) => (
-            <div
-              key={day.dayOfWeek}
-              className="rounded-xl border border-border/70 bg-card/30 p-4 shadow-sm"
-              aria-live="polite"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">{day.label}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {day.isClosed ? 'Closed' : `Kitchen can operate between ${formatRange(day.opensAt, day.closesAt)}`}
-                  </p>
-                </div>
-                <div>
-                  {day.isClosed || !day.drinks ? (
-                    <Badge variant="secondary" className="bg-muted text-muted-foreground">
-                      Drinks unavailable (closed)
-                    </Badge>
-                  ) : (
-                    <Badge variant="secondary">Drinks {day.opensAt} – {day.closesAt}</Badge>
-                  )}
-                </div>
-              </div>
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <MealEditor
-                  label={MEAL_LABELS.lunch}
-                  tooltip={MEAL_TOOLTIPS.lunch}
-                  meal={day.lunch}
-                  disabled={day.isClosed || isDisabled}
-                  errors={errors[day.dayOfWeek]?.lunch}
-                  onToggle={(value) => handleMealToggle(index, 'lunch', value)}
-                  onChange={(field, value) => handleMealTimeChange(index, 'lunch', field, value)}
-                />
-                <MealEditor
-                  label={MEAL_LABELS.dinner}
-                  tooltip={MEAL_TOOLTIPS.dinner}
-                  meal={day.dinner}
-                  disabled={day.isClosed || isDisabled}
-                  errors={errors[day.dayOfWeek]?.dinner}
-                  onToggle={(value) => handleMealToggle(index, 'dinner', value)}
-                  onChange={(field, value) => handleMealTimeChange(index, 'dinner', field, value)}
-                />
-              </div>
+        }
+        footer={
+          <div className="flex w-full flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">Lunch & dinner availability follows kitchen windows; drinks follow opening hours.</p>
+            <div className="flex items-center gap-2 ml-auto">
+              <Button type="button" variant="outline" onClick={handleReset} disabled={isDisabled || !isDirty}>
+                Reset
+              </Button>
+              <Button type="button" onClick={handleSave} disabled={isDisabled || !isDirty}>
+                Save changes
+              </Button>
             </div>
-          ))}
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          {!hasRequiredOccasions && (
+            <Alert variant="destructive">
+              <AlertTitle>Missing booking occasions</AlertTitle>
+              <AlertDescription>Ensure lunch, dinner, and drinks occasions exist before editing service periods.</AlertDescription>
+            </Alert>
+          )}
+
+          {customRows.length > 0 && (
+            <Alert>
+              <AlertTitle>Additional service periods preserved</AlertTitle>
+              <AlertDescription>
+                {customRows.length} custom period{customRows.length === 1 ? '' : 's'} exist outside the lunch/dinner/drinks
+                layout. They will be saved unchanged.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <div className="space-y-4">
+            {dayConfigs.map((day, index) => (
+              <div
+                key={day.dayOfWeek}
+                className="rounded-xl border border-border/70 bg-card/30 p-4 shadow-sm"
+                aria-live="polite"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{day.label}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {day.isClosed ? 'Closed' : `Kitchen can operate between ${formatRange(day.opensAt, day.closesAt)}`}
+                    </p>
+                  </div>
+                  <div>
+                    {day.isClosed || !day.drinks ? (
+                      <Badge variant="secondary" className="bg-muted text-muted-foreground">
+                        Drinks unavailable (closed)
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary">Drinks {day.opensAt} – {day.closesAt}</Badge>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <MealEditor
+                    label={MEAL_LABELS.lunch}
+                    tooltip={MEAL_TOOLTIPS.lunch}
+                    meal={day.lunch}
+                    disabled={day.isClosed || isDisabled}
+                    errors={errors[day.dayOfWeek]?.lunch}
+                    onToggle={(value) => handleMealToggle(index, 'lunch', value)}
+                    onChange={(field, value) => handleMealTimeChange(index, 'lunch', field, value)}
+                  />
+                  <MealEditor
+                    label={MEAL_LABELS.dinner}
+                    tooltip={MEAL_TOOLTIPS.dinner}
+                    meal={day.dinner}
+                    disabled={day.isClosed || isDisabled}
+                    errors={errors[day.dayOfWeek]?.dinner}
+                    onToggle={(value) => handleMealToggle(index, 'dinner', value)}
+                    onChange={(field, value) => handleMealTimeChange(index, 'dinner', field, value)}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      </CardContent>
-      <CardFooter className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 bg-muted/40 px-6 py-4">
-        <p className="text-xs text-muted-foreground">Lunch & dinner availability follows kitchen windows; drinks follow opening hours.</p>
-        <div className="flex items-center gap-2">
-          <Button type="button" variant="outline" onClick={handleReset} disabled={isDisabled || !isDirty}>
-            Reset
-          </Button>
-          <Button type="button" onClick={handleSave} disabled={isDisabled || !isDirty}>
-            Save changes
-          </Button>
-        </div>
-      </CardFooter>
-    </Card>
+      </SettingsCard>
     </TooltipProvider>
   );
 }

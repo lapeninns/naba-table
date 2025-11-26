@@ -6,7 +6,6 @@ import { toast } from 'react-hot-toast';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -24,6 +23,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useOccasionService } from '@/contexts/ops-services';
 import { useOpsOccasions } from '@/hooks/ops/useOccasions';
 import { queryKeys } from '@/lib/query/keys';
+
+import { SettingsCard } from './shared';
 
 import type { OpsOccasion } from '@/services/ops/occasions';
 
@@ -187,20 +188,19 @@ export function OccasionsSection() {
   };
 
   return (
-    <Card className="border-border/60">
-      <CardHeader className="flex flex-row items-start justify-between gap-3">
-        <div>
-          <CardTitle className="text-xl">Booking occasions</CardTitle>
-          <CardDescription>Control which booking occasions are available to staff and guests.</CardDescription>
-        </div>
+    <SettingsCard
+      title="Booking occasions"
+      description="Control which booking occasions are available to staff and guests."
+      headerAction={
         <Button onClick={openForCreate}>New occasion</Button>
-      </CardHeader>
-      <CardContent>
-        {occasionQuery.isLoading ? (
-          <LoadingRows />
-        ) : occasions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No occasions configured yet.</p>
-        ) : (
+      }
+    >
+      {occasionQuery.isLoading ? (
+        <LoadingRows />
+      ) : occasions.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No occasions configured yet.</p>
+      ) : (
+        <div className="rounded-lg border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -248,8 +248,8 @@ export function OccasionsSection() {
               ))}
             </TableBody>
           </Table>
-        )}
-      </CardContent>
+        </div>
+      )}
 
       <Dialog open={dialogOpen} onOpenChange={(open) => (!open ? closeDialog() : setDialogOpen(true))}>
         <DialogContent>
@@ -352,7 +352,7 @@ export function OccasionsSection() {
           </form>
         </DialogContent>
       </Dialog>
-    </Card>
+    </SettingsCard>
   );
 }
 
