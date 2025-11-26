@@ -1,0 +1,62 @@
+
+> nabatable-platform@0.1.0 db:seed-only /Users/amankumarshrestha/Downloads/SajiloReserveX
+> tsx scripts/db/safe-run.ts seed-only
+
+[dotenv@17.2.2] injecting env (46) from .env.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+⚠️  You are about to run "seed-only" against "development". Type the target environment to continue: 🌱 Loading seed data...
+BEGIN
+SET
+SET
+ set_config 
+------------
+ on
+(1 row)
+
+TRUNCATE TABLE
+TRUNCATE TABLE
+INSERT 0 5
+INSERT 0 1
+INSERT 0 3
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 7
+INSERT 0 15
+INSERT 0 5
+INSERT 0 5
+INSERT 0 40
+INSERT 0 79
+INSERT 0 120
+INSERT 0 1
+INSERT 0 180
+INSERT 0 198
+INSERT 0 180
+INSERT 0 120
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+ set_hold_conflict_enforcement 
+-------------------------------
+ t
+(1 row)
+
+INSERT 0 0
+ set_hold_conflict_enforcement 
+-------------------------------
+ f
+(1 row)
+
+INSERT 0 180
+INSERT 0 180
+INSERT 0 120
+INSERT 0 154
+INSERT 0 120
+INSERT 0 1
+INSERT 0 1
+DO
+INSERT 0 21
+INSERT 0 5
+COMMIT
+✅ Seed data loaded successfully!
+✅ Completed "seed-only" against development

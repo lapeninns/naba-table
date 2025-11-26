@@ -692,7 +692,8 @@ WITH first_bookings AS (
         b.end_at,
         b.party_size,
         b.booking_date,
-        b.start_time
+        b.start_time,
+        b.booking_type
     FROM public.bookings b
     WHERE b.status IN ('confirmed', 'checked_in')
     ORDER BY b.restaurant_id, b.start_at
@@ -712,6 +713,8 @@ suitable_tables AS (
       ON t.restaurant_id = fb.restaurant_id
      AND t.capacity >= fb.party_size
      AND t.active
+    JOIN public.zones z ON z.id = t.zone_id
+     AND (fb.booking_type = 'drinks' OR (t.category <> 'bar'::public.table_category AND z.name NOT ILIKE 'bar%'))
     ORDER BY fb.booking_id, t.capacity, t.table_number
 )
 INSERT INTO public.booking_table_assignments (id, booking_id, table_id, slot_id, assigned_at, assigned_by, notes, created_at, updated_at, start_at, end_at)
