@@ -32,6 +32,12 @@ export const RESTAURANT_SETTINGS_ROUTES: RestaurantSettingsRoute[] = [
     title: 'Booking occasions',
     description: 'Control available occasions and defaults.',
   },
+  {
+    view: 'team',
+    href: '/settings/restaurant/team',
+    title: 'Team',
+    description: 'Invite and manage restaurant staff access.',
+  },
 ];
 
 export type RestaurantSettingsNavItem = Pick<RestaurantSettingsRoute, 'href' | 'title' | 'description'>;
@@ -52,6 +58,7 @@ export const RESTAURANT_SETTINGS_NAV_ITEMS: RestaurantSettingsNavItem[] = [
     description: 'Manage table inventory, zones, and capacity.',
   },
   getRoute('occasions'),
+  getRoute('team'),
 ];
 
 export const RESTAURANT_SETTINGS_ROUTE_MAP: Record<RestaurantSettingsView, RestaurantSettingsRoute> =

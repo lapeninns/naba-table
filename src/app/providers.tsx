@@ -1,16 +1,18 @@
 'use client';
 
-import { QueryClient, QueryClientProvider, type DefaultOptions } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, type DefaultOptions, type Query } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { useEffect, useState, type ReactNode } from 'react';
 
 import { configureQueryPersistence } from '@/lib/query/persist';
+import { getQueryGcTime, getQueryStaleTime } from '@/lib/query/staleTimes';
 
 const defaultOptions: DefaultOptions = {
   queries: {
     retry: 1,
     refetchOnWindowFocus: false,
-    staleTime: 30_000,
+    staleTime: (query) => getQueryStaleTime(query as unknown as Query),
+    gcTime: (query) => getQueryGcTime(query as unknown as Query),
   },
 };
 

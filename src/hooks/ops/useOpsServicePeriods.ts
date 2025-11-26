@@ -22,7 +22,7 @@ export function useOpsServicePeriods(
       return restaurantService.getServicePeriods(restaurantId);
     },
     enabled: Boolean(restaurantId),
-    staleTime: 60 * 1000,
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -39,9 +39,26 @@ export function useOpsUpdateServicePeriods(
       }
       return restaurantService.updateServicePeriods(restaurantId, rows);
     },
+    onMutate: async (rows) => {
+      if (!restaurantId) return { previous: undefined };
+      await queryClient.cancelQueries({ queryKey: queryKeys.opsRestaurants.servicePeriods(restaurantId) });
+      const previous = queryClient.getQueryData<ServicePeriodRow[]>(
+        queryKeys.opsRestaurants.servicePeriods(restaurantId),
+      );
+      queryClient.setQueryData(queryKeys.opsRestaurants.servicePeriods(restaurantId), rows);
+      return { previous };
+    },
+    onError: (_error, _rows, context) => {
+      if (!restaurantId || !context?.previous) return;
+      queryClient.setQueryData(queryKeys.opsRestaurants.servicePeriods(restaurantId), context.previous);
+    },
     onSuccess: (periods) => {
       if (!restaurantId) return;
       queryClient.setQueryData(queryKeys.opsRestaurants.servicePeriods(restaurantId), periods);
+    },
+    onSettled: () => {
+      if (!restaurantId) return;
+      void queryClient.invalidateQueries({ queryKey: queryKeys.opsRestaurants.servicePeriods(restaurantId) });
     },
   });
 }

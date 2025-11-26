@@ -26,7 +26,7 @@ export default async function RestaurantSettingsLayout({ children }: { children:
   return (
     <RestaurantSettingsPageShell
       title="Restaurant"
-      description="Configure the restaurant profile, operating hours, service periods, booking occasions, and tables."
+      description="Configure the restaurant profile, operating hours, service periods, booking occasions, tables, and team access."
     >
       {children}
     </RestaurantSettingsPageShell>
