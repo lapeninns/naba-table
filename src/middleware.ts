@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import type { NextRequest} from "next/server";
+import type { NextRequest } from "next/server";
 
 export const config = {
   matcher: [
@@ -31,7 +31,9 @@ const OPS_API_SERVICES = [
   "zones",
 ];
 
-export default async function proxy(req: NextRequest) {
+const CSRF_COOKIE_NAME = "csrf_token";
+
+async function handleRouting(req: NextRequest): Promise<NextResponse> {
   const url = req.nextUrl;
 
   // Get hostname (e.g. app.sajiloreserve.com or localhost:3000)
@@ -59,7 +61,7 @@ export default async function proxy(req: NextRequest) {
         return NextResponse.rewrite(
           new URL(
             url.pathname.replace(`/api/${service}`, `/api/ops/${service}`) +
-              (searchParams.length > 0 ? `?${searchParams}` : ""),
+            (searchParams.length > 0 ? `?${searchParams}` : ""),
             req.url,
           ),
         );
@@ -96,4 +98,24 @@ export default async function proxy(req: NextRequest) {
 
   // Default
   return NextResponse.next();
+}
+
+export default async function middleware(req: NextRequest) {
+  const response = await handleRouting(req);
+
+  // CSRF Token Logic
+  const csrfToken = req.cookies.get(CSRF_COOKIE_NAME)?.value;
+  if (!csrfToken) {
+    const newCsrfToken = crypto.randomUUID().replace(/-/g, "");
+    response.cookies.set({
+      name: CSRF_COOKIE_NAME,
+      value: newCsrfToken,
+      httpOnly: false, // must be readable by the browser to echo in headers
+      sameSite: "lax",
+      secure: process.env.NODE_ENV !== "development",
+      path: "/",
+    });
+  }
+
+  return response;
 }

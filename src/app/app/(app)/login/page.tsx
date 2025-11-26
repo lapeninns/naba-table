@@ -2,7 +2,6 @@
 import { redirect } from "next/navigation";
 
 import { SignInForm } from "@/components/auth/SignInForm";
-import { ensureCsrfCookie } from "@/server/security/csrf";
 import { getServerComponentSupabaseClient } from "@/server/supabase";
 
 import type { Metadata } from "next";
@@ -31,8 +30,6 @@ export default async function OpsLoginPage({ searchParams }: OpsLoginPageProps) 
   const redirectedFromParam =
     typeof redirectedRaw === "string" && redirectedRaw.startsWith("/") ? redirectedRaw : undefined;
   const redirectTarget = redirectedFromParam ?? "/";
-
-  await ensureCsrfCookie();
 
   if (user) {
     redirect(redirectTarget);
