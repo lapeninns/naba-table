@@ -117,11 +117,36 @@ export function OccasionsSection() {
     },
   });
 
-  const toggleMutation = useMutation({
-    mutationFn: async ({ key, isActive }: { key: string; isActive: boolean }) =>
-      occasionService.updateOccasion(key, { isActive }),
-    onSuccess: invalidate,
-    onError: () => toast.error('Unable to update status'),
+  const toggleMutation = useMutation<
+    unknown,
+    unknown,
+    { key: string; isActive: boolean },
+    { previous?: OpsOccasion[] }
+  >({
+    mutationFn: async ({ key, isActive }) => occasionService.updateOccasion(key, { isActive }),
+    onMutate: async (variables) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.opsOccasions.list() });
+      const previous = queryClient.getQueryData<OpsOccasion[]>(queryKeys.opsOccasions.list());
+      if (previous) {
+        queryClient.setQueryData<OpsOccasion[]>(queryKeys.opsOccasions.list(), (current) =>
+          (current ?? []).map((occasion) =>
+            occasion.key === variables.key ? { ...occasion, isActive: variables.isActive } : occasion,
+          ),
+        );
+      }
+      return { previous };
+    },
+    onError: (error, variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.opsOccasions.list(), context.previous);
+      }
+      console.error('[occasions] toggle failed', error);
+      toast.error('Unable to update status');
+    },
+    onSuccess: (_data, variables) => {
+      toast.success(`Occasion ${variables.isActive ? 'activated' : 'deactivated'}`);
+    },
+    onSettled: invalidate,
   });
 
   const openForCreate = () => {

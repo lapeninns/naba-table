@@ -11,11 +11,13 @@ import {
   Users,
 } from 'lucide-react';
 import { DateTime } from 'luxon';
+import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState } from 'react';
 
 import { Pagination } from '@/components/dashboard/Pagination';
 import { BookingActionButton, BookingStatusBadge, StatusTransitionAnimator } from '@/components/features/booking-state-machine';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Select,
@@ -29,7 +31,13 @@ import { useBookingRealtime } from '@/hooks';
 import { cn } from '@/lib/utils';
 import { formatTimeRange, getTodayInTimezone } from '@/lib/utils/datetime';
 
-import { BookingDetailsDialog } from './BookingDetailsDialog';
+const BookingDetailsDialog = dynamic(() => import('./BookingDetailsDialog').then((m) => m.BookingDetailsDialog), {
+  loading: () => (
+    <Button variant="outline" size="sm" className="h-11 min-w-[120px]" disabled aria-busy>
+      Loading…
+    </Button>
+  ),
+});
 
 import type { BookingFilter } from './BookingsFilterBar';
 import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';

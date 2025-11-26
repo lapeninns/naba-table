@@ -16,8 +16,9 @@ import {
   User,
   UtensilsCrossed,
 } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
-import { useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -425,7 +426,7 @@ function DiscoveryFeed({ restaurants, isLoading }: { restaurants: RestaurantSumm
   );
 }
 
-function RestaurantCard({ restaurant }: { restaurant: RestaurantSummary }) {
+const RestaurantCard = memo(function RestaurantCard({ restaurant }: { restaurant: RestaurantSummary }) {
   const href = restaurant.slug ? `/restaurants/${restaurant.slug}/book` : DISCOVERY_HREF;
 
   return (
@@ -433,8 +434,15 @@ function RestaurantCard({ restaurant }: { restaurant: RestaurantSummary }) {
       <Card className="h-full overflow-hidden rounded-2xl border-0 shadow-sm transition-all hover:shadow-lg">
         <div className="relative h-48 bg-slate-100">
           {restaurant.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={restaurant.logoUrl} alt={restaurant.name} className="h-full w-full object-cover" />
+            <Image
+              src={restaurant.logoUrl}
+              alt={restaurant.name}
+              fill
+              sizes="(max-width: 768px) 100vw, 50vw"
+              className="object-cover"
+              priority={false}
+              unoptimized
+            />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-slate-100 text-slate-300">
               <UtensilsCrossed className="h-12 w-12" />
@@ -458,7 +466,7 @@ function RestaurantCard({ restaurant }: { restaurant: RestaurantSummary }) {
       </Card>
     </Link>
   );
-}
+});
 
 function PerksCard({ totalBookings }: { totalBookings: number }) {
   const progress = Math.min(totalBookings * 20, 100);

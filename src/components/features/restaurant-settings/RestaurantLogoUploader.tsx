@@ -1,6 +1,7 @@
 'use client';
 
 import { Loader2, Upload, Trash2 } from 'lucide-react';
+import Image from 'next/image';
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { toast } from 'react-hot-toast';
 
@@ -141,11 +142,14 @@ export function RestaurantLogoUploader({
         <div className="flex items-center gap-4">
           <div className="relative h-20 w-20 overflow-hidden rounded-md border border-border bg-background">
             {displayUrl ? (
-              <img
+              <Image
                 src={displayUrl}
                 alt={`${restaurantName} logo`}
-                className="h-full w-full object-cover"
-                aria-hidden={false}
+                fill
+                sizes="80px"
+                className="object-cover"
+                priority={false}
+                unoptimized
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-muted text-xl font-semibold text-muted-foreground">

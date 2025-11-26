@@ -12,7 +12,8 @@ type ExperimentalQueryDefaults = DefaultOptions['queries'] & {
 };
 
 const queryDefaults: ExperimentalQueryDefaults = {
-  retry: 1,
+  retry: 2,
+  retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 4000),
   refetchOnWindowFocus: false,
   // Provide baseline values; per-query adjustments happen in `_experimental_beforeQuery`.
   staleTime: getQueryStaleTime(undefined),

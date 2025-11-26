@@ -1,14 +1,77 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useCallback } from 'react';
 
+import { useOpsServices } from '@/contexts/ops-services';
+import { useOpsSession } from '@/contexts/ops-session';
+import { prefetchIfStale } from '@/lib/prefetchers';
+import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
 
 import { RESTAURANT_SETTINGS_NAV_ITEMS } from './routes';
 
 export function RestaurantSettingsSubnav() {
   const pathname = usePathname();
+  const queryClient = useQueryClient();
+  const { restaurantService, occasionService, teamService, tableInventoryService } = useOpsServices();
+  const { activeRestaurantId } = useOpsSession();
+
+  const prefetchSettingsView = useCallback(
+    (href: string) => {
+      const id = activeRestaurantId;
+      if (!id) return;
+      switch (href) {
+        case '/settings/restaurant/profile':
+          return prefetchIfStale({
+            queryClient,
+            queryKey: queryKeys.opsRestaurants.detail(id),
+            queryFn: () => restaurantService.getProfile(id),
+            enabled: true,
+          });
+        case '/settings/restaurant/operating-hours':
+          return prefetchIfStale({
+            queryClient,
+            queryKey: queryKeys.opsRestaurants.hours(id),
+            queryFn: () => restaurantService.getOperatingHours(id),
+            enabled: true,
+          });
+        case '/settings/restaurant/service-periods':
+          return prefetchIfStale({
+            queryClient,
+            queryKey: queryKeys.opsRestaurants.servicePeriods(id),
+            queryFn: () => restaurantService.getServicePeriods(id),
+            enabled: true,
+          });
+        case '/settings/restaurant/occasions':
+          return prefetchIfStale({
+            queryClient,
+            queryKey: queryKeys.opsOccasions.list(),
+            queryFn: () => occasionService.listOccasions(),
+            enabled: true,
+          });
+        case '/settings/restaurant/team':
+          return prefetchIfStale({
+            queryClient,
+            queryKey: queryKeys.team.invitations(id),
+            queryFn: () => teamService.listInvites(id, 'pending'),
+            enabled: true,
+          });
+        case '/settings/tables':
+          return prefetchIfStale({
+            queryClient,
+            queryKey: queryKeys.opsTables.list(id, {}),
+            queryFn: () => tableInventoryService.list(id),
+            enabled: true,
+          });
+        default:
+          return undefined;
+      }
+    },
+    [activeRestaurantId, occasionService, queryClient, restaurantService, tableInventoryService, teamService],
+  );
 
   return (
     <nav aria-label="Restaurant settings" className="overflow-x-auto">
@@ -20,6 +83,8 @@ export function RestaurantSettingsSubnav() {
               key={item.href}
               href={item.href}
               aria-current={active ? 'page' : undefined}
+              onMouseEnter={() => void prefetchSettingsView(item.href)}
+              onFocus={() => void prefetchSettingsView(item.href)}
               className={cn(
                 'group flex min-w-[180px] flex-col gap-1 rounded-md px-3 py-2 text-left text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                 active

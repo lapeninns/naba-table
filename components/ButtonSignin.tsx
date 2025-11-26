@@ -1,6 +1,6 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 
@@ -37,13 +37,15 @@ const ButtonSignin = ({
       <Button asChild className={cn(extraStyle)}>
         <Link href={config.auth.callbackUrl} className="flex items-center gap-2">
           {user?.user_metadata?.avatar_url ? (
-            <img
+            <Image
               src={user?.user_metadata?.avatar_url}
               alt={user?.user_metadata?.name || "Account"}
-              className="h-6 w-6 shrink-0 rounded-full"
-              referrerPolicy="no-referrer"
               width={24}
               height={24}
+              className="h-6 w-6 shrink-0 rounded-full object-cover"
+              referrerPolicy="no-referrer"
+              sizes="24px"
+              unoptimized
             />
           ) : (
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium">

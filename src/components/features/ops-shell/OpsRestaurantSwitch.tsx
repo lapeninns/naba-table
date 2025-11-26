@@ -15,6 +15,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useOpsAccountSnapshot, useOpsSession } from '@/contexts/ops-session';
 import { cn } from '@/lib/utils';
+import { debounce } from '@/utils/debounceThrottle';
 
 const FALLBACK_INITIALS = 'SR';
 
@@ -55,6 +56,15 @@ export function OpsRestaurantSwitch({ className }: OpsRestaurantSwitchProps) {
 
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  const updateSearch = useMemo(
+    () =>
+      debounce((value: string) => {
+        setDebouncedSearch(value);
+      }, 200),
+    [],
+  );
 
   const initials = useMemo(() => computeInitials(activeMembership?.restaurantName ?? account.restaurantName), [
     activeMembership?.restaurantName,
@@ -77,13 +87,13 @@ export function OpsRestaurantSwitch({ className }: OpsRestaurantSwitchProps) {
     activeMembership?.restaurantName ?? account.restaurantName ?? memberships[0]?.restaurantName ?? 'Nab a Table';
 
   const filteredMemberships = useMemo(() => {
-    if (!searchTerm.trim()) {
+    if (!debouncedSearch.trim()) {
       return memberships;
     }
 
-    const needle = searchTerm.trim().toLowerCase();
+    const needle = debouncedSearch.trim().toLowerCase();
     return memberships.filter((membership) => membership.restaurantName.toLowerCase().includes(needle));
-  }, [memberships, searchTerm]);
+  }, [debouncedSearch, memberships]);
 
   const handleSelect = (restaurantId: string) => {
     setActiveRestaurantId(restaurantId);
@@ -153,7 +163,11 @@ export function OpsRestaurantSwitch({ className }: OpsRestaurantSwitchProps) {
           <Search className="size-4 text-muted-foreground" aria-hidden />
           <Input
             value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
+            onChange={(event) => {
+              const value = event.target.value;
+              setSearchTerm(value);
+              updateSearch(value);
+            }}
             placeholder="Search by name"
             className="h-8 border-0 bg-transparent px-0 text-sm text-foreground shadow-none focus-visible:ring-0"
             aria-label="Search restaurants"

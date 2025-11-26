@@ -6,6 +6,7 @@ import { useMemo, type ComponentProps } from 'react';
 import { Button } from '@/components/ui/button';
 import { Calendar, CalendarDayButton } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { SkeletonCalendarGrid, SkeletonText } from '@/components/ui/skeletons';
 import { cn } from '@/lib/utils';
 import { formatDateKey, formatDateReadable } from '@/lib/utils/datetime';
 
@@ -42,6 +43,15 @@ export function HeatmapCalendar({ summary, heatmap, selectedDate, onSelectDate, 
   }, [selectedDate]);
 
   const heatmapMeta = useMemo(() => deriveHeatmapMeta(heatmap), [heatmap]);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        <SkeletonText className="w-32" />
+        <SkeletonCalendarGrid />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-wrap items-center gap-3">
