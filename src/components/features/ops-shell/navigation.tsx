@@ -86,18 +86,6 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
     ],
   },
   {
-    label: 'Management',
-    items: [
-      {
-        title: 'Team',
-        description: 'Manage staff invitations',
-        href: '/management/team',
-        icon: UsersRound,
-        match: (pathname) => pathname.startsWith('/management/team'),
-      },
-    ],
-  },
-  {
     label: 'Restaurant Settings',
     items: [
       {
@@ -134,6 +122,13 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         href: '/settings/tables',
         icon: LayoutGrid,
         match: (pathname) => pathname.startsWith('/settings/tables'),
+      },
+      {
+        title: 'Team',
+        description: 'Manage staff invitations',
+        href: '/settings/restaurant/team',
+        icon: UsersRound,
+        match: (pathname) => pathname.startsWith('/settings/restaurant/team'),
       },
     ],
   },

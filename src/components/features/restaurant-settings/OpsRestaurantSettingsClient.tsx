@@ -9,6 +9,7 @@ import { OperatingHoursSection } from './OperatingHoursSection';
 import { RestaurantProfileSection } from './RestaurantProfileSection';
 import { RESTAURANT_SETTINGS_ROUTE_MAP } from './routes';
 import { ServicePeriodsSection } from './ServicePeriodsSection';
+import { OpsTeamManagementClient } from '../team';
 
 import type { RestaurantSettingsView } from './types';
 
@@ -61,6 +62,7 @@ export function OpsRestaurantSettingsClient({ defaultRestaurantId, view }: OpsRe
     'operating-hours': ({ restaurantId }) => <OperatingHoursSection restaurantId={restaurantId} />,
     occasions: () => <OccasionsSection />,
     'service-periods': ({ restaurantId }) => <ServicePeriodsSection restaurantId={restaurantId} />,
+    team: () => <OpsTeamManagementClient />,
   };
 
   return (

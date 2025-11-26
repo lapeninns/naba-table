@@ -29,7 +29,7 @@ export function useOpsStrategicSettings({ restaurantId, enabled = true }: UseOps
       return bookingService.getStrategicSettings({ restaurantId: resolvedRestaurantId });
     },
     enabled: Boolean(resolvedRestaurantId) && enabled,
-    staleTime: 30_000,
+    staleTime: 5 * 60 * 1000,
   });
 }
 

@@ -22,7 +22,7 @@ export function useOpsOperatingHours(
       return restaurantService.getOperatingHours(restaurantId);
     },
     enabled: Boolean(restaurantId),
-    staleTime: 60 * 1000,
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -39,9 +39,24 @@ export function useOpsUpdateOperatingHours(
       }
       return restaurantService.updateOperatingHours(restaurantId, payload);
     },
+    onMutate: async (payload) => {
+      if (!restaurantId) return { previous: undefined };
+      await queryClient.cancelQueries({ queryKey: queryKeys.opsRestaurants.hours(restaurantId) });
+      const previous = queryClient.getQueryData<OperatingHoursSnapshot>(queryKeys.opsRestaurants.hours(restaurantId));
+      queryClient.setQueryData(queryKeys.opsRestaurants.hours(restaurantId), payload);
+      return { previous };
+    },
+    onError: (_error, _payload, context) => {
+      if (!restaurantId || !context?.previous) return;
+      queryClient.setQueryData(queryKeys.opsRestaurants.hours(restaurantId), context.previous);
+    },
     onSuccess: (snapshot) => {
       if (!restaurantId) return;
       queryClient.setQueryData(queryKeys.opsRestaurants.hours(restaurantId), snapshot);
+    },
+    onSettled: () => {
+      if (!restaurantId) return;
+      void queryClient.invalidateQueries({ queryKey: queryKeys.opsRestaurants.hours(restaurantId) });
     },
   });
 }

@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
+import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useOpsCustomers } from '@/hooks/useOpsCustomers';
 
 import { CustomersTable } from './CustomersTable';
@@ -527,15 +528,4 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
       )}
     </section>
   );
-}
-
-function useDebouncedValue<T>(value: T, delay: number): T {
-  const [debounced, setDebounced] = useState(value);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setDebounced(value), delay);
-    return () => window.clearTimeout(timer);
-  }, [value, delay]);
-
-  return debounced;
 }
