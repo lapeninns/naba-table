@@ -28,8 +28,11 @@ const ROUTES: Array<{
   { path: '/app/bookings', label: 'ops-bookings', auth: 'admin' },
   { path: '/app/customer-details', label: 'ops-customer-details', auth: 'admin' },
   { path: '/app/rejections', label: 'ops-rejections', auth: 'admin' },
-  { path: '/app/settings/restaurant', label: 'ops-restaurant-settings', auth: 'admin' },
-  { path: '/app/seating/tables', label: 'ops-tables', auth: 'admin' },
+  { path: '/app/settings/restaurant/profile', label: 'ops-restaurant-profile', auth: 'admin' },
+  { path: '/app/settings/restaurant/operating-hours', label: 'ops-restaurant-hours', auth: 'admin' },
+  { path: '/app/settings/restaurant/occasions', label: 'ops-restaurant-occasions', auth: 'admin' },
+  { path: '/app/settings/restaurant/service-periods', label: 'ops-restaurant-periods', auth: 'admin' },
+  { path: '/app/settings/tables', label: 'ops-tables', auth: 'admin' },
   { path: '/app/management/team', label: 'ops-team', auth: 'admin' },
 ];
 

@@ -36,6 +36,19 @@
       }
     },
     {
+      "path": "/dashboard",
+      "methods": [],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "dashboard/page.tsx",
+      "description": "Dashboard page",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
       "path": "/guest",
       "methods": [],
       "dynamic": false,
@@ -45,6 +58,19 @@
       "description": "Guest page",
       "params": [],
       "config": {}
+    },
+    {
+      "path": "/",
+      "methods": [],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "page.tsx",
+      "description": "Homepage",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
     },
     {
       "path": "/walk-in",
@@ -207,6 +233,19 @@
       }
     },
     {
+      "path": "/guest/dashboard",
+      "methods": [],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "guest/dashboard/page.tsx",
+      "description": "Dashboard page",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
       "path": "/guest/profile",
       "methods": [],
       "dynamic": false,
@@ -299,6 +338,17 @@
       "config": {}
     },
     {
+      "path": "/app/settings/tables",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/settings/tables/page.tsx",
+      "description": "Tables page",
+      "params": [],
+      "config": {}
+    },
+    {
       "path": "/bookings/:bookingId/thank-you",
       "methods": [],
       "dynamic": true,
@@ -307,6 +357,76 @@
       "source": "bookings/[bookingId]/thank-you/page.tsx",
       "description": "Thank-you page",
       "params": ["bookingId"],
+      "config": {}
+    },
+    {
+      "path": "/guest/bookings/:bookingId",
+      "methods": [],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "guest/bookings/[bookingId]/page.tsx",
+      "description": "Page",
+      "params": ["bookingId"],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/restaurants/:slug/book/thank-you",
+      "methods": [],
+      "dynamic": true,
+      "groups": ["marketing"],
+      "guards": [],
+      "source": "(marketing)/restaurants/[slug]/book/thank-you/page.tsx",
+      "description": "Thank-you page",
+      "params": ["slug"],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/app/settings/restaurant/occasions",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/settings/restaurant/occasions/page.tsx",
+      "description": "Occasions page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/settings/restaurant/operating-hours",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/settings/restaurant/operating-hours/page.tsx",
+      "description": "Operating-hours page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/settings/restaurant/profile",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/settings/restaurant/profile/page.tsx",
+      "description": "Profile page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/settings/restaurant/service-periods",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/settings/restaurant/service-periods/page.tsx",
+      "description": "Service-periods page",
+      "params": [],
       "config": {}
     }
   ],
@@ -319,6 +439,19 @@
       "guards": [],
       "source": "api/auth/callback/route.ts",
       "description": "callback API endpoint",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/api/auth/signin",
+      "methods": ["POST"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/auth/signin/route.ts",
+      "description": "signin API endpoint",
       "params": [],
       "config": {
         "dynamic": "force-dynamic"
@@ -569,6 +702,17 @@
       "config": {}
     },
     {
+      "path": "/api/ops/bookings/disabled",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/bookings/disabled/route.ts",
+      "description": "disabled API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
       "path": "/api/ops/bookings/export",
       "methods": ["GET"],
       "dynamic": false,
@@ -679,8 +823,19 @@
       "config": {}
     },
     {
+      "path": "/api/ops/occasions/:key",
+      "methods": ["PATCH", "DELETE"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/occasions/[key]/route.ts",
+      "description": "API endpoint",
+      "params": ["key"],
+      "config": {}
+    },
+    {
       "path": "/api/ops/occasions",
-      "methods": ["GET"],
+      "methods": ["GET", "POST"],
       "dynamic": false,
       "groups": [],
       "guards": [],
@@ -1075,6 +1230,17 @@
       }
     },
     {
+      "path": "/api/v1/restaurants",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/v1/restaurants/route.ts",
+      "description": "restaurants API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
       "path": "/api/webhook/resend",
       "methods": ["POST"],
       "dynamic": false,
@@ -1089,9 +1255,9 @@
   "other": [],
   "meta": {
     "frameworks_detected": ["Next.js 15 App Router"],
-    "total_routes": 95,
+    "total_routes": 109,
     "scanning_notes": [],
     "warnings": [],
-    "timestamp": "2025-11-23T18:57:10.633Z"
+    "timestamp": "2025-11-26T11:25:11.540Z"
   }
 }

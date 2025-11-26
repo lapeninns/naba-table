@@ -17,14 +17,20 @@ let strictHoldInitStarted = false;
 let strictHoldEnforcementActive: boolean | null = null;
 let cookieWriteSuppressedLogged = false;
 const supabaseLogger = logger.child({ module: "supabase" });
+const secureCookies = env.node.appEnv !== "development";
+
+export class MissingRestaurantContextError extends Error {
+  constructor(message = "Restaurant context is required") {
+    super(message);
+    this.name = "MissingRestaurantContextError";
+  }
+}
 
 const runtimeEnv = getEnv();
 const { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY, serviceKey: SUPABASE_SERVICE_ROLE_KEY } = env.supabase;
 const shouldRunStrictHoldCheck = ["production", "staging"].includes(env.node.appEnv);
 const RESTAURANT_CONTEXT_HEADER = "X-Restaurant-Id";
-const DEFAULT_RESTAURANT_FALLBACK_ID = "b70decfe-8ad3-487e-bdbb-43aa7bd016ca";
-const DEFAULT_RESTAURANT_SLUG =
-  runtimeEnv.NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG ?? "white-horse-pub-waterbeach";
+const DEFAULT_RESTAURANT_SLUG = runtimeEnv.NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG ?? null;
 
 let cachedDefaultRestaurantId: string | null =
   runtimeEnv.NEXT_PUBLIC_DEFAULT_RESTAURANT_ID ?? env.misc.bookingDefaultRestaurantId ?? null;
@@ -40,6 +46,16 @@ type CookieWriter = {
 
 type NextCookies = Awaited<ReturnType<typeof cookies>>;
 
+function applyCookieDefaults(options: Record<string, unknown> = {}) {
+  return {
+    ...options,
+    httpOnly: true,
+    secure: secureCookies,
+    sameSite: "lax" as const,
+    path: "/",
+  };
+}
+
 function isCookieWriter(candidate: unknown): candidate is CookieWriter {
   return Boolean(candidate && typeof (candidate as CookieWriter).set === "function");
 }
@@ -54,7 +70,7 @@ function createCookieAdapter(store: CookieReader, writer?: CookieWriter) {
           setAll: (cookiesToSet: { name: string; value: string; options: Record<string, unknown> }[]) => {
             try {
               cookiesToSet.forEach(({ name, value, options }) => {
-                cookieWriter.set({ name, value, ...options });
+                cookieWriter.set({ name, value, ...applyCookieDefaults(options) });
               });
             } catch (error) {
               if (!cookieWriteSuppressedLogged) {
@@ -185,28 +201,19 @@ export async function getDefaultRestaurantId(): Promise<string> {
     return cachedDefaultRestaurantId;
   }
 
+  if (!DEFAULT_RESTAURANT_SLUG) {
+    throw new MissingRestaurantContextError();
+  }
+
   if (!resolvingDefaultRestaurantId) {
     const service = getServiceSupabaseClient();
 
-    const resolve = async (): Promise<string> => {
+    const resolve = async (): Promise<string | null> => {
       try {
-        if (DEFAULT_RESTAURANT_SLUG) {
-          const { data, error } = await service
-            .from("restaurants")
-            .select("id")
-            .eq("slug", DEFAULT_RESTAURANT_SLUG)
-            .maybeSingle();
-
-          if (!error && data?.id) {
-            return data.id;
-          }
-        }
-
         const { data, error } = await service
           .from("restaurants")
           .select("id")
-          .order("created_at", { ascending: true })
-          .limit(1)
+          .eq("slug", DEFAULT_RESTAURANT_SLUG)
           .maybeSingle();
 
         if (!error && data?.id) {
@@ -216,16 +223,20 @@ export async function getDefaultRestaurantId(): Promise<string> {
         console.error("[supabase][default-restaurant] failed to resolve id", cause);
       }
 
-      return DEFAULT_RESTAURANT_FALLBACK_ID;
+      return null;
     };
 
     resolvingDefaultRestaurantId = resolve().then((value) => {
-      cachedDefaultRestaurantId = value ?? DEFAULT_RESTAURANT_FALLBACK_ID;
+      cachedDefaultRestaurantId = value ?? null;
       return cachedDefaultRestaurantId;
     });
   }
 
   const resolved = await resolvingDefaultRestaurantId;
-  cachedDefaultRestaurantId = resolved ?? DEFAULT_RESTAURANT_FALLBACK_ID;
+  if (!resolved) {
+    throw new MissingRestaurantContextError();
+  }
+
+  cachedDefaultRestaurantId = resolved;
   return cachedDefaultRestaurantId;
 }

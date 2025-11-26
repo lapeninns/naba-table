@@ -1,3 +1,7 @@
+import type { OccasionKey } from '@reserve/shared/occasions';
+
+export type RestaurantSettingsView = 'profile' | 'operating-hours' | 'occasions' | 'service-periods';
+
 export type WeeklyRow = {
   dayOfWeek: number;
   opensAt: string;
@@ -45,5 +49,3 @@ export const DAY_OPTIONS: Array<{ value: number | null; label: string }> = [
   { value: 5, label: 'Friday' },
   { value: 6, label: 'Saturday' },
 ];
-
-import type { OccasionKey } from '@reserve/shared/occasions';

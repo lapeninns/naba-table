@@ -156,8 +156,8 @@ export function toSeatingOption(value: SeatingPreference): SeatingOption {
 export const getInitialDetails = (overrides?: Partial<BookingDetails>): BookingDetails => {
   const base: BookingDetails = {
     bookingId: null,
-    restaurantId: DEFAULT_RESTAURANT_ID,
-    restaurantSlug: DEFAULT_RESTAURANT_SLUG,
+    restaurantId: DEFAULT_RESTAURANT_ID ?? '',
+    restaurantSlug: DEFAULT_RESTAURANT_SLUG ?? '',
     restaurantName: DEFAULT_VENUE.name,
     restaurantAddress: DEFAULT_VENUE.address,
     restaurantTimezone: DEFAULT_VENUE.timezone,

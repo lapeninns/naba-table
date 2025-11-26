@@ -14,13 +14,21 @@
 │  │  ├─ floor-plan
 │  │  └─ tables
 │  ├─ settings
-│  │  └─ restaurant
+│  │  ├─ restaurant
+│  │  │  ├─ occasions
+│  │  │  ├─ operating-hours
+│  │  │  ├─ profile
+│  │  │  └─ service-periods
+│  │  └─ tables
 │  └─ walk-in
 ├─ bookings
 │  └─ :bookingId
 │     └─ thank-you
+├─ dashboard
 ├─ guest
 │  ├─ bookings
+│  │  └─ :bookingId
+│  ├─ dashboard
 │  └─ profile
 ├─ walk-in
 ├─ item
@@ -28,6 +36,7 @@
 ├─ restaurants
 │  └─ :slug
 │     └─ book
+│        └─ thank-you
 └─ auth
    └─ signin
 
@@ -49,7 +58,8 @@
 │     └─ schedule [GET]
 ├─ test-email [POST, GET]
 ├─ auth
-│  └─ callback [GET]
+│  ├─ callback [GET]
+│  └─ signin [POST]
 ├─ config
 │  ├─ merge-rules [GET]
 │  └─ service-policy [GET]
@@ -68,11 +78,13 @@
 │  │  │  ├─ tables [POST]
 │  │  │  │  └─ :tableId [DELETE]
 │  │  │  └─ undo-no-show [POST]
+│  │  ├─ disabled [GET]
 │  │  ├─ export [GET]
 │  │  └─ status-summary [GET]
 │  ├─ customers [GET]
 │  │  └─ export [GET]
-│  ├─ occasions [GET]
+│  ├─ occasions [GET, POST]
+│  │  └─ :key [PATCH, DELETE]
 │  ├─ restaurants [GET, POST]
 │  │  └─ :id [GET, PATCH, DELETE]
 │  │     ├─ details [GET, PUT]
@@ -107,7 +119,8 @@
 │     └─ :id
 │        └─ confirmation [GET]
 ├─ v1
-│  └─ events [POST, GET]
+│  ├─ events [POST, GET]
+│  └─ restaurants [GET]
 ├─ webhook
 │  └─ resend [POST]
 ├─ reservations

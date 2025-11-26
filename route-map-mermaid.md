@@ -7,8 +7,11 @@ flowchart TD
         class app public;
         bookings["/bookings"]
         class bookings public;
+        dashboard["/dashboard"]
+        class dashboard public;
         guest["/guest"]
         class guest public;
+        root["/"]
         walk_in["/walk-in"]
         class walk_in public;
         item__slug["/item/:slug"]
@@ -37,6 +40,8 @@ flowchart TD
         class bookings__bookingId public;
         guest_bookings["/guest/bookings"]
         class guest_bookings public;
+        guest_dashboard["/guest/dashboard"]
+        class guest_dashboard public;
         guest_profile["/guest/profile"]
         class guest_profile public;
         restaurants__slug_book["/restaurants/:slug/book"]
@@ -53,8 +58,22 @@ flowchart TD
         class app_seating_tables public;
         app_settings_restaurant["/app/settings/restaurant"]
         class app_settings_restaurant public;
+        app_settings_tables["/app/settings/tables"]
+        class app_settings_tables public;
         bookings__bookingId_thank_you["/bookings/:bookingId/thank-you"]
         class bookings__bookingId_thank_you public;
+        guest_bookings__bookingId["/guest/bookings/:bookingId"]
+        class guest_bookings__bookingId public;
+        restaurants__slug_book_thank_you["/restaurants/:slug/book/thank-you"]
+        class restaurants__slug_book_thank_you public;
+        app_settings_restaurant_occasions["/app/settings/restaurant/occasions"]
+        class app_settings_restaurant_occasions public;
+        app_settings_restaurant_operating_hours["/app/settings/restaurant/operating-hours"]
+        class app_settings_restaurant_operating_hours public;
+        app_settings_restaurant_profile["/app/settings/restaurant/profile"]
+        class app_settings_restaurant_profile public;
+        app_settings_restaurant_service_periods["/app/settings/restaurant/service-periods"]
+        class app_settings_restaurant_service_periods public;
     end
 
     subgraph API
@@ -62,6 +81,8 @@ flowchart TD
         subgraph Core
             api_auth_callback["/api/auth/callback"]
             class api_auth_callback public;
+            api_auth_signin["/api/auth/signin"]
+            class api_auth_signin public;
             api_availability["/api/availability"]
             class api_availability public;
             api_bookings__id_history["/api/bookings/:id/history"]
@@ -106,6 +127,8 @@ flowchart TD
         subgraph v1
             api_v1_events["/api/v1/events"]
             class api_v1_events public;
+            api_v1_restaurants["/api/v1/restaurants"]
+            class api_v1_restaurants public;
         end
         subgraph Test
             api_test_bookings["/api/test/bookings"]
@@ -148,6 +171,8 @@ flowchart TD
             class api_ops_bookings__id_tables public;
             api_ops_bookings__id_undo_no_show["/api/ops/bookings/:id/undo-no-show"]
             class api_ops_bookings__id_undo_no_show public;
+            api_ops_bookings_disabled["/api/ops/bookings/disabled"]
+            class api_ops_bookings_disabled public;
             api_ops_bookings_export["/api/ops/bookings/export"]
             class api_ops_bookings_export public;
             api_ops_bookings["/api/ops/bookings"]
@@ -168,6 +193,8 @@ flowchart TD
             class api_ops_dashboard_summary public;
             api_ops_dashboard_vips["/api/ops/dashboard/vips"]
             class api_ops_dashboard_vips public;
+            api_ops_occasions__key["/api/ops/occasions/:key"]
+            class api_ops_occasions__key public;
             api_ops_occasions["/api/ops/occasions"]
             class api_ops_occasions public;
             api_ops_restaurants__id_details["/api/ops/restaurants/:id/details"]
@@ -204,6 +231,12 @@ flowchart TD
             class api_ops_zones public;
         end
     end
+    root --> app
+    root --> guest
+    root --> walk_in
+    root --> bookings
+    root --> thank_you
+    root --> dashboard
     app --> app_login
     app --> app_seating
     app --> app_walk_in
@@ -214,15 +247,23 @@ flowchart TD
     guest --> guest_profile
     app --> app_management
     guest --> guest_bookings
+    guest --> guest_dashboard
     app_seating --> app_seating_tables
     bookings --> bookings__bookingId
     app_management --> app_management_team
+    app_settings --> app_settings_tables
     app_seating --> app_seating_capacity
     restaurants__slug --> restaurants__slug_book
     app_seating --> app_seating_floor_plan
     app_settings --> app_settings_restaurant
     app_analytics --> app_analytics_rejections
+    guest_bookings --> guest_bookings__bookingId
     bookings__bookingId --> bookings__bookingId_thank_you
+    app_settings_restaurant --> app_settings_restaurant_profile
+    restaurants__slug_book --> restaurants__slug_book_thank_you
+    app_settings_restaurant --> app_settings_restaurant_occasions
+    app_settings_restaurant --> app_settings_restaurant_operating_hours
+    app_settings_restaurant --> app_settings_restaurant_service_periods
     api --> api_lead
     api --> api_events
     api --> api_profile
@@ -236,11 +277,13 @@ flowchart TD
     api_ops_tables --> api_ops_tables__id
     api_bookings --> api_bookings_confirm
     api_ops_bookings --> api_ops_bookings__id
+    api_ops_occasions --> api_ops_occasions__key
     api_ops_bookings --> api_ops_bookings_export
     api_ops_restaurants --> api_ops_restaurants__id
     api_ops_tables --> api_ops_tables_timeline
     api_bookings__id --> api_bookings__id_history
     api_ops_customers --> api_ops_customers_export
+    api_ops_bookings --> api_ops_bookings_disabled
     api_ops_bookings__id --> api_ops_bookings__id_status
     api_ops_bookings__id --> api_ops_bookings__id_tables
     api_ops_bookings__id --> api_ops_bookings__id_history

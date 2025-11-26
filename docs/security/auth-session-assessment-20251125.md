@@ -102,6 +102,13 @@
 1. Enforce HTTPS across environments, validate redirect origins, and document secure deployment defaults (est. 1 day).
 2. Add security-focused tests (rate limit, CSRF, auth flows) to CI and perform periodic dependency audits (est. 2-3 days).
 
+## IMPLEMENTED MITIGATIONS (2025-11-26)
+
+- Added server-side sign-in proxy at `POST /api/auth/signin` with CSRF validation and rate limiting (per IP+email) for password and magic-link requests.
+- Strengthened password policy to require 12+ characters with letters, numbers, and symbols; enforced client- and server-side.
+- Hardened Supabase auth cookies by applying `httpOnly`, `secure`, `sameSite=lax`, and path defaults via the cookie adapter.
+- Issued CSRF double-submit tokens on auth pages to protect cookie-backed POSTs.
+
 ## CODE EXAMPLES
 
 - **Password policy (example):** Extend the Zod schema to require 12+ characters with complexity and breach checks before calling Supabase.

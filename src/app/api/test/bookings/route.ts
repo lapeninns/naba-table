@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 
+import { HttpError } from '@/lib/http/errors';
 import { normalizePhone } from '@/server/customers';
 import { guardTestEndpoint } from '@/server/security/test-endpoints';
-import { getDefaultRestaurantId, getServiceSupabaseClient, getTenantServiceSupabaseClient } from '@/server/supabase';
+import { getServiceSupabaseClient, getTenantServiceSupabaseClient } from '@/server/supabase';
 
 import type { TablesInsert } from '@/types/supabase';
 import type { NextRequest} from 'next/server';
@@ -24,8 +25,6 @@ const payloadSchema = z.object({
   restaurantSlug: z.string().min(3).max(128).optional(),
 });
 
-const FALLBACK_RESTAURANT_SLUG = process.env.NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG ?? 'white-horse-pub-waterbeach';
-
 type RestaurantSeedOptions = {
   slug?: string | null;
   name?: string | null;
@@ -35,7 +34,7 @@ const normalizeSlug = (value?: string | null) => value?.trim().toLowerCase() ?? 
 
 function fallbackSlugFor(restaurantId: string) {
   const suffix = restaurantId.replace(/[^a-z0-9]/gi, '').slice(0, 8).toLowerCase();
-  return `${FALLBACK_RESTAURANT_SLUG}-${suffix || 'playwright'}`;
+  return `demo-${suffix || 'playwright'}`;
 }
 
 async function ensureRestaurantExists(restaurantId: string, options?: RestaurantSeedOptions) {
@@ -93,9 +92,11 @@ async function resolveRestaurantId(
     }
   }
 
-  const fallbackRestaurantId = await getDefaultRestaurantId();
-  await ensureRestaurantExists(fallbackRestaurantId);
-  return fallbackRestaurantId;
+  throw new HttpError({
+    message: 'restaurantId or restaurantSlug is required',
+    status: 400,
+    code: 'RESTAURANT_REQUIRED',
+  });
 }
 
 function addMinutesUtc(date: Date, minutes: number): Date {
@@ -122,6 +123,9 @@ export async function POST(req: NextRequest) {
   try {
     restaurantId = await resolveRestaurantId(requestedRestaurantId, restaurantSlug);
   } catch (error) {
+    if (error instanceof HttpError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
+    }
     console.error('[test/bookings] failed to resolve restaurant', error);
     return NextResponse.json({ error: 'Failed to resolve restaurant context' }, { status: 500 });
   }

@@ -26,6 +26,10 @@ export const metadata: Metadata = {
 };
 
 export default function Home() {
+  const bookingPath = DEFAULT_RESTAURANT_SLUG
+    ? `/restaurants/${DEFAULT_RESTAURANT_SLUG}/book`
+    : '/restaurants';
+
   return (
     <main className="min-h-screen bg-background">
       {/* Hero Section */}
@@ -34,7 +38,7 @@ export default function Home() {
         description="Discover and book tables at the best restaurants. Instant confirmation, easy management, unforgettable dining experiences."
         size="large"
       >
-        <Link href={`/restaurants/${DEFAULT_RESTAURANT_SLUG}/book`}>
+        <Link href={bookingPath}>
           <Button size="lg" className="h-14 px-8 text-base font-semibold shadow-lg">
             <CalendarCheck className="mr-2 h-5 w-5" aria-hidden="true" />
             Find a Table
@@ -115,7 +119,7 @@ export default function Home() {
             Join thousands of diners who trust {BRAND_NAME} for their reservations.
           </p>
           <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            <Link href={`/restaurants/${DEFAULT_RESTAURANT_SLUG}/book`}>
+            <Link href={bookingPath}>
               <Button size="lg" className="h-14 w-full px-10 text-base font-semibold shadow-lg sm:w-auto">
                 <CalendarCheck className="mr-2 h-5 w-5" aria-hidden="true" />
                 Book Now
@@ -136,7 +140,7 @@ export default function Home() {
               <ul className="space-y-2">
                 <li>
                   <Link
-                    href={`/restaurants/${DEFAULT_RESTAURANT_SLUG}/book`}
+                    href={bookingPath}
                     className="text-sm text-muted-foreground transition hover:text-foreground"
                   >
                     Make a Reservation

@@ -48,6 +48,7 @@ import {
   getRouteHandlerSupabaseClient,
   getServiceSupabaseClient,
   getTenantServiceSupabaseClient,
+  MissingRestaurantContextError,
 } from "@/server/supabase";
 
 import type { BookingRecord } from "@/server/bookings";
@@ -146,8 +147,8 @@ async function resolveRestaurantId(options: {
     return { ok: true, restaurantId: directId, source: "payload" };
   }
 
-  const fallbackId = await getDefaultRestaurantId();
   try {
+    const fallbackId = await getDefaultRestaurantId();
     const supabase = getServiceSupabaseClient();
     const { data, error } = await supabase
       .from("restaurants")
@@ -176,6 +177,15 @@ async function resolveRestaurantId(options: {
 
     return { ok: true, restaurantId: data.id, source: "default" };
   } catch (error) {
+    if (error instanceof MissingRestaurantContextError) {
+      return {
+        ok: false,
+        status: 400,
+        code: "RESTAURANT_REQUIRED",
+        error: "restaurantId or restaurantSlug is required",
+      };
+    }
+
     console.error("[bookings][POST][default-restaurant]", stringifyError(error));
     return {
       ok: false,
@@ -314,7 +324,15 @@ export async function GET(req: NextRequest) {
 
     const { email, phone, restaurantId } = parsedQuery.data;
     const supabase = await getRouteHandlerSupabaseClient();
-    const targetRestaurantId = restaurantId ?? (await getDefaultRestaurantId());
+    let targetRestaurantId: string;
+    try {
+      targetRestaurantId = restaurantId ?? (await getDefaultRestaurantId());
+    } catch (error) {
+      if (error instanceof MissingRestaurantContextError) {
+        return NextResponse.json({ error: "restaurantId is required" }, { status: 400 });
+      }
+      throw error;
+    }
     const tenantServiceClient = getTenantServiceSupabaseClient(targetRestaurantId);
     const clientIp = extractClientIp(req);
 
