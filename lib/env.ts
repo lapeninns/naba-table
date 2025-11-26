@@ -359,6 +359,22 @@ export const env = {
     } as const;
   },
 
+  get opsCache() {
+    const parsed = parseEnv();
+
+    const clamp = (value: number | undefined, min: number, max: number, fallback: number) => {
+      if (typeof value !== "number" || Number.isNaN(value)) return fallback;
+      return Math.min(max, Math.max(min, value));
+    };
+
+    return {
+      summaryTtlMs: clamp(parsed.OPS_SUMMARY_CACHE_TTL_MS, 0, 600_000, 5_000),
+      changesTtlMs: clamp(parsed.OPS_CHANGES_CACHE_TTL_MS, 0, 600_000, 3_000),
+      restaurantMetaTtlMs: clamp(parsed.OPS_RESTAURANT_META_CACHE_TTL_MS, 0, 3_600_000, 600_000),
+      maxEntries: clamp(parsed.OPS_CACHE_MAX_ENTRIES, 1, 500, 128),
+    } as const;
+  },
+
   get queue() {
     const parsed = parseEnv();
     return {

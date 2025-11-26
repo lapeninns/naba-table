@@ -35,7 +35,7 @@ export function OwnerMarketingNavbar() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-white/85 backdrop-blur supports-[backdrop-filter]:bg-white/75">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-4">
+      <div className="mx-auto flex w-full max-w-[80vw] items-center justify-between gap-4 px-6 py-4">
         <Link
           href="/guest/dashboard"
           className="flex items-center gap-3 text-base font-semibold tracking-tight text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-white"

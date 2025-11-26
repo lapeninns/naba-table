@@ -30,7 +30,7 @@ export default async function WalkInPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 px-3 py-6 sm:px-4 lg:px-6">
+    <div className="mx-auto flex w-full max-w-[80vw] flex-col gap-6 px-3 py-6 sm:px-4 lg:px-6">
       <BookingErrorBoundary>
         <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Loading walk-in wizard...</div>}>
           <WalkInWizardClient />

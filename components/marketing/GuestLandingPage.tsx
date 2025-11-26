@@ -147,7 +147,7 @@ function HeroSection() {
       id="hero"
       className="relative overflow-hidden border-b border-border/50 bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 text-slate-50"
     >
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-12 px-6 py-20 lg:flex-row lg:items-center lg:gap-16">
+      <div className="mx-auto flex w-full max-w-[80vw] flex-col gap-12 px-6 py-20 lg:flex-row lg:items-center lg:gap-16">
         <div className="space-y-6">
           <div className="flex flex-wrap items-center gap-3">
             <Badge variant="outline" className="border-white/30 text-xs uppercase tracking-[0.3em] text-white/80">
@@ -191,7 +191,7 @@ function HeroSection() {
 
 function FeaturesSection() {
   return (
-    <section id="features" className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-6 py-20">
+    <section id="features" className="mx-auto flex w-full max-w-[80vw] flex-col gap-10 px-6 py-20">
       <div className="space-y-3 text-center">
         <Badge variant="secondary" className="mx-auto w-fit uppercase tracking-[0.25em]">
           Features
@@ -234,7 +234,7 @@ function FeaturesSection() {
 function HowItWorksSection() {
   return (
     <section className="bg-muted/40 py-20">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-6">
+      <div className="mx-auto flex w-full max-w-[80vw] flex-col gap-10 px-6">
         <div className="space-y-3 text-center">
           <Badge variant="outline" className="mx-auto w-fit uppercase tracking-[0.25em]">
             How it works
@@ -264,7 +264,7 @@ function HowItWorksSection() {
 
 function TestimonialsSection() {
   return (
-    <section className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-6 py-20">
+    <section className="mx-auto flex w-full max-w-[80vw] flex-col gap-10 px-6 py-20">
       <div className="space-y-3 text-center">
         <Badge variant="secondary" className="mx-auto w-fit uppercase tracking-[0.25em]">
           Testimonials
@@ -290,7 +290,7 @@ function TestimonialsSection() {
 
 function FAQSection() {
   return (
-    <section id="faq" className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-20">
+    <section id="faq" className="mx-auto flex w-full max-w-[80vw] flex-col gap-6 px-6 py-20">
       <div className="space-y-3 text-center">
         <Badge variant="secondary" className="mx-auto w-fit uppercase tracking-[0.25em]">
           FAQ
@@ -321,7 +321,7 @@ function FAQSection() {
 function FinalCTASection() {
   return (
     <section className="pb-24">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 rounded-3xl bg-gradient-to-br from-primary/90 via-primary to-indigo-600 px-8 py-12 text-primary-foreground shadow-xl">
+      <div className="mx-auto flex w-full max-w-[80vw] flex-col gap-6 rounded-3xl bg-gradient-to-br from-primary/90 via-primary to-indigo-600 px-8 py-12 text-primary-foreground shadow-xl">
         <div className="space-y-3 text-center md:text-left">
           <Badge variant="secondary" className="bg-white/20 text-white">
             Ready to dine?

@@ -20,7 +20,7 @@ export function PageShell({
   description,
   actions,
   children,
-  maxWidthClassName = "max-w-6xl",
+  maxWidthClassName = "max-w-[80vw]",
   paddingClassName = "px-6 sm:px-8 lg:px-10",
 }: PageShellProps) {
   return (
@@ -75,4 +75,3 @@ export function HeaderActions({ primary, secondary }: HeaderActionsProps) {
     </div>
   );
 }
-

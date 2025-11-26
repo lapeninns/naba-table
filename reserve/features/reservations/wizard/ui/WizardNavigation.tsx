@@ -80,7 +80,7 @@ export function WizardNavigation({
     >
       <nav
         ref={containerRef}
-        className="pointer-events-auto mx-auto flex w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-[color:var(--color-border)] bg-[color:var(--color-surface,#ffffff)]/98 text-foreground shadow-card backdrop-blur supports-[backdrop-filter]:backdrop-blur-lg"
+        className="pointer-events-auto mx-auto flex w-full max-w-[80vw] flex-col overflow-hidden rounded-3xl border border-[color:var(--color-border)] bg-[color:var(--color-surface,#ffffff)]/98 text-foreground shadow-card backdrop-blur supports-[backdrop-filter]:backdrop-blur-lg"
         aria-label="Wizard navigation"
       >
         <div className="flex flex-col gap-4 px-3 py-3 sm:px-5 sm:py-4">

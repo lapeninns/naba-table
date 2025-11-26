@@ -16,7 +16,7 @@ const OpsRejectionDashboard = dynamic(
   () => import('@/components/features/dashboard/rejections').then((m) => m.OpsRejectionDashboard),
   {
     loading: () => (
-      <div className="mx-auto max-w-5xl space-y-4 px-4 py-6 sm:px-6 lg:px-8" role="status" aria-busy>
+      <div className="mx-auto max-w-[80vw] space-y-4 px-4 py-6 sm:px-6 lg:px-8" role="status" aria-busy>
         <div className="h-8 w-40 rounded-md bg-muted" />
         <div className="space-y-3 rounded-lg border border-dashed border-border/60 bg-muted/30 p-4">
           <div className="h-4 w-1/2 rounded bg-muted-foreground/20" />
@@ -48,7 +48,7 @@ export default async function OpsRejectionsPage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="mx-auto flex max-w-[80vw] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
       <OpsRejectionDashboard />
     </div>
   );

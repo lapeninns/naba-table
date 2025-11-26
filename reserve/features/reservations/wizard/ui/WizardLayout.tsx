@@ -50,7 +50,7 @@ export function WizardLayout({
       >
         <div
           className={cn(
-            'mx-auto flex w-full max-w-5xl flex-col gap-10 sm:gap-12',
+            'mx-auto flex w-full max-w-[80vw] flex-col gap-10 sm:gap-12',
             contentClassName,
           )}
         >

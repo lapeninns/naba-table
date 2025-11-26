@@ -141,7 +141,7 @@ export default async function OpsCustomersPage({ searchParams }: { searchParams?
 
   return (
     <HydrationBoundary state={dehydratedState}>
-      <div className="px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-[80vw] px-4 py-6 sm:px-6 lg:px-8">
         <OpsCustomersClient defaultRestaurantId={defaultRestaurant?.id ?? null} focusCustomer={focusCustomer} />
       </div>
     </HydrationBoundary>

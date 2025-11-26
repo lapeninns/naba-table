@@ -52,7 +52,7 @@ const Problem = () => {
       <AlertTitle className="mx-auto mb-6 max-w-3xl text-center text-4xl font-extrabold tracking-tight md:mb-8 md:text-5xl">
         80% of startups fail because founders never launch
       </AlertTitle>
-      <AlertDescription className="mx-auto max-w-5xl text-center">
+      <AlertDescription className="mx-auto max-w-[80vw] text-center">
         <p className="mx-auto mb-12 max-w-xl text-lg leading-relaxed opacity-90 md:mb-20">
           Emails, DNS records, user authentication... There&apos;s so much going on.
         </p>

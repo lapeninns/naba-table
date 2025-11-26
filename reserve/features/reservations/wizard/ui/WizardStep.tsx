@@ -52,7 +52,7 @@ export function WizardStep({
       aria-describedby={progressId}
       data-step={step}
       data-state={isActive ? 'active' : 'inactive'}
-      className="mx-auto w-full max-w-4xl lg:max-w-5xl animate-fade-in"
+      className="mx-auto w-full max-w-[80vw] animate-fade-in"
     >
       <Card
         ref={stepRef}

@@ -340,7 +340,7 @@ export function BookingDetailsDialog({
             Details
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden p-0 gap-0">
+        <DialogContent className="max-w-[80vw] max-h-[90vh] overflow-hidden p-0 gap-0">
           <div className="grid h-full max-h-[90vh] lg:grid-cols-12">
             {/* LEFT SIDEBAR: Guest Context */}
             <div className="flex flex-col gap-6 border-r bg-muted/10 p-6 lg:col-span-4 overflow-y-auto">

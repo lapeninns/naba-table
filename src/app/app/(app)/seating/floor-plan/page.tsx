@@ -430,7 +430,7 @@ export default function FloorPlanApp() {
     }
 
     return (
-        <div className="flex h-[calc(100dvh-4rem)] flex-col bg-slate-100 text-slate-900 overflow-hidden font-sans rounded-xl border border-slate-200 shadow-sm">
+        <div className="mx-auto flex h-[calc(100dvh-4rem)] w-full max-w-[80vw] flex-col bg-slate-100 text-slate-900 overflow-hidden font-sans rounded-xl border border-slate-200 shadow-sm">
             {/* Top Bar */}
             <header className="flex flex-col sm:flex-row sm:h-16 shrink-0 items-start sm:items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6 py-2 sm:py-0 shadow-sm z-10 gap-2 sm:gap-0">
                 <div className="flex items-center gap-4">
@@ -518,7 +518,7 @@ export default function FloorPlanApp() {
 
                     {/* Floor Container */}
                     <div
-                        className="relative w-full max-w-5xl aspect-[1.4/1] rounded-3xl shadow-2xl bg-white/40 backdrop-blur-sm border border-white/60 overflow-hidden select-none ring-1 ring-slate-900/5 transition-transform duration-75 ease-out"
+                        className="relative w-full max-w-[80vw] aspect-[1.4/1] rounded-3xl shadow-2xl bg-white/40 backdrop-blur-sm border border-white/60 overflow-hidden select-none ring-1 ring-slate-900/5 transition-transform duration-75 ease-out"
                         style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
                     >
 

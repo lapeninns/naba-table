@@ -111,7 +111,7 @@ export default function Home() {
 
       {/* CTA Section */}
       <PageSection className="bg-gradient-to-br from-primary/10 via-primary/5 to-background">
-        <div className="mx-auto max-w-3xl rounded-3xl border border-border bg-card p-8 text-center shadow-xl sm:p-12">
+        <div className="mx-auto max-w-[80vw] rounded-3xl border border-border bg-card p-8 text-center shadow-xl sm:p-12">
           <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             Ready to dine?
           </h2>
@@ -131,7 +131,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t border-border bg-muted/30 px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl">
+        <div className="mx-auto max-w-[80vw]">
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-foreground">
