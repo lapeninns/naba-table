@@ -209,9 +209,10 @@ SELECT
 FROM target
 CROSS JOIN (
   VALUES
-    ('Main Bar',      1, 'indoor'),
-    ('Dining Room',   2, 'indoor'),
-    ('Garden',        3, 'outdoor')
+    ('Main Dining 1 - Inside', 1, 'indoor'),
+    ('Main Dining 1 - Outside',2, 'outdoor'),
+    ('Main Dining 2',          3, 'indoor'),
+    ('Bar',                    4, 'indoor')
 ) AS z(name, sort_order, area_type);
 
 -- Insert allowed capacities (must be before tables due to FK constraint)
@@ -242,9 +243,20 @@ SELECT
   timezone('utc', now()),
   timezone('utc', now())
 FROM target
-CROSS JOIN (VALUES (2), (4), (6), (8)) AS caps(capacity);
+CROSS JOIN (VALUES (2), (4)) AS caps(capacity);
 
 -- Delete existing tables
+WITH target AS (
+  SELECT id
+  FROM public.restaurants
+  WHERE slug = 'white-horse-pub-waterbeach'
+  LIMIT 1
+)
+DELETE FROM public.booking_table_assignments
+WHERE table_id IN (
+  SELECT id FROM public.table_inventory WHERE restaurant_id IN (SELECT id FROM target)
+);
+
 WITH target AS (
   SELECT id
   FROM public.restaurants
@@ -293,7 +305,7 @@ SELECT
   t.max_party_size,
   t.category::table_category,
   t.seating_type::table_seating_type,
-  'movable'::table_mobility,
+  t.mobility::table_mobility,
   'available'::table_status,
   true,
   timezone('utc', now()),
@@ -301,17 +313,14 @@ SELECT
 FROM zone_lookup zl
 CROSS JOIN LATERAL (
   VALUES
-    -- Main Bar (zone 1) - 8 tables
-    ('B1',  2, 1, 2, 'bar', 'standard'),
-    ('B2',  2, 1, 2, 'bar', 'standard'),
-    ('B3',  4, 2, 4, 'bar', 'standard'),
-    ('B4',  4, 2, 4, 'bar', 'standard'),
-    ('B5',  6, 4, 6, 'bar', 'standard'),
-    ('B6',  6, 4, 6, 'bar', 'standard'),
-    ('B7',  4, 2, 4, 'bar', 'high_top'),
-    ('B8',  4, 2, 4, 'bar', 'high_top')
-) AS t(table_number, capacity, min_party_size, max_party_size, category, seating_type)
-WHERE zl.name = 'Main Bar'
+    -- Main Dining 1 - Inside
+    ('MD1-I-401', 4, 2, 4, 'dining', 'standard', 'movable'),
+    ('MD1-I-402', 4, 2, 4, 'dining', 'standard', 'movable'),
+    ('MD1-I-403', 4, 2, 4, 'dining', 'standard', 'movable'),
+    ('MD1-I-201', 2, 1, 2, 'dining', 'standard', 'movable'),
+    ('MD1-I-202', 2, 1, 2, 'dining', 'standard', 'movable')
+) AS t(table_number, capacity, min_party_size, max_party_size, category, seating_type, mobility)
+WHERE zl.name = 'Main Dining 1 - Inside'
 
 UNION ALL
 
@@ -325,7 +334,7 @@ SELECT
   t.max_party_size,
   t.category::table_category,
   t.seating_type::table_seating_type,
-  'movable'::table_mobility,
+  t.mobility::table_mobility,
   'available'::table_status,
   true,
   timezone('utc', now()),
@@ -333,21 +342,13 @@ SELECT
 FROM zone_lookup zl
 CROSS JOIN LATERAL (
   VALUES
-    -- Dining Room (zone 2) - 12 tables
-    ('D1',  2, 2, 2, 'dining', 'standard'),
-    ('D2',  2, 2, 2, 'dining', 'standard'),
-    ('D3',  2, 2, 2, 'dining', 'standard'),
-    ('D4',  2, 2, 2, 'dining', 'standard'),
-    ('D5',  4, 2, 4, 'dining', 'standard'),
-    ('D6',  4, 2, 4, 'dining', 'standard'),
-    ('D7',  4, 2, 4, 'dining', 'standard'),
-    ('D8',  4, 2, 4, 'dining', 'standard'),
-    ('D9',  6, 4, 6, 'dining', 'standard'),
-    ('D10', 6, 4, 6, 'dining', 'standard'),
-    ('D11', 8, 6, 8, 'dining', 'standard'),
-    ('D12', 8, 6, 8, 'dining', 'standard')
-) AS t(table_number, capacity, min_party_size, max_party_size, category, seating_type)
-WHERE zl.name = 'Dining Room'
+    -- Main Dining 1 - Outside
+    ('MD1-O-401', 4, 2, 4, 'patio', 'standard', 'movable'),
+    ('MD1-O-402', 4, 2, 4, 'patio', 'standard', 'movable'),
+    ('MD1-O-201', 2, 1, 2, 'patio', 'standard', 'movable'),
+    ('MD1-O-202', 2, 1, 2, 'patio', 'standard', 'movable')
+) AS t(table_number, capacity, min_party_size, max_party_size, category, seating_type, mobility)
+WHERE zl.name = 'Main Dining 1 - Outside'
 
 UNION ALL
 
@@ -361,7 +362,7 @@ SELECT
   t.max_party_size,
   t.category::table_category,
   t.seating_type::table_seating_type,
-  'movable'::table_mobility,
+  t.mobility::table_mobility,
   'available'::table_status,
   true,
   timezone('utc', now()),
@@ -369,14 +370,48 @@ SELECT
 FROM zone_lookup zl
 CROSS JOIN LATERAL (
   VALUES
-    -- Garden (zone 3) - 6 tables
-    ('G1', 4, 2, 4, 'patio', 'standard'),
-    ('G2', 4, 2, 4, 'patio', 'standard'),
-    ('G3', 4, 2, 4, 'patio', 'standard'),
-    ('G4', 6, 4, 6, 'patio', 'standard'),
-    ('G5', 6, 4, 6, 'patio', 'standard'),
-    ('G6', 8, 6, 8, 'patio', 'standard')
-) AS t(table_number, capacity, min_party_size, max_party_size, category, seating_type)
-WHERE zl.name = 'Garden';
+    -- Main Dining 2 (mix of movable and fixed)
+    ('MD2-201', 2, 1, 2, 'dining', 'standard', 'movable'),
+    ('MD2-202', 2, 1, 2, 'dining', 'standard', 'movable'),
+    ('MD2-203', 2, 1, 2, 'dining', 'standard', 'movable'),
+    ('MD2-204', 2, 1, 2, 'dining', 'standard', 'movable'),
+    ('MD2-205', 2, 1, 2, 'dining', 'standard', 'movable'),
+    ('MD2-401', 4, 2, 4, 'dining', 'standard', 'movable'),
+    ('MD2-402', 4, 2, 4, 'dining', 'standard', 'movable'),
+    ('MD2-4F01', 4, 2, 4, 'dining', 'standard', 'fixed'),
+    ('MD2-4F02', 4, 2, 4, 'dining', 'standard', 'fixed'),
+    ('MD2-2F01', 2, 1, 2, 'dining', 'standard', 'fixed')
+) AS t(table_number, capacity, min_party_size, max_party_size, category, seating_type, mobility)
+WHERE zl.name = 'Main Dining 2'
+
+UNION ALL
+
+SELECT
+  gen_random_uuid(),
+  zl.restaurant_id,
+  zl.id,
+  t.table_number,
+  t.capacity,
+  t.min_party_size,
+  t.max_party_size,
+  t.category::table_category,
+  t.seating_type::table_seating_type,
+  t.mobility::table_mobility,
+  'available'::table_status,
+  true,
+  timezone('utc', now()),
+  timezone('utc', now())
+FROM zone_lookup zl
+CROSS JOIN LATERAL (
+  VALUES
+    -- Bar (drinks-only)
+    ('BAR-4M01', 4, 2, 4, 'bar', 'high_top', 'movable'),
+    ('BAR-4M02', 4, 2, 4, 'bar', 'high_top', 'movable'),
+    ('BAR-2M01', 2, 1, 2, 'bar', 'high_top', 'movable'),
+    ('BAR-4F01', 4, 2, 4, 'bar', 'high_top', 'fixed'),
+    ('BAR-4F02', 4, 2, 4, 'bar', 'high_top', 'fixed'),
+    ('BAR-2F01', 2, 1, 2, 'bar', 'high_top', 'fixed')
+) AS t(table_number, capacity, min_party_size, max_party_size, category, seating_type, mobility)
+WHERE zl.name = 'Bar';
 
 COMMIT;
