@@ -775,6 +775,19 @@ export function usePlanStepForm({
     updateField('reservationDurationMinutes', duration);
   }, [schedule?.defaultDurationMinutes, state.details.reservationDurationMinutes, updateField]);
 
+  useEffect(() => {
+    const scheduleRestaurantId = schedule?.restaurantId?.trim();
+    const scheduleTimezone = schedule?.timezone?.trim();
+
+    if (scheduleRestaurantId) {
+      updateField('restaurantId', scheduleRestaurantId);
+    }
+
+    if (scheduleTimezone) {
+      updateField('restaurantTimezone', scheduleTimezone);
+    }
+  }, [schedule?.restaurantId, schedule?.timezone, updateField]);
+
   const handleContinue = useCallback(() => {
     form.handleSubmit(submitForm, handleError)();
   }, [form, handleError, submitForm]);

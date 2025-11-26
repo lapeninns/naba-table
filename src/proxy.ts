@@ -100,7 +100,7 @@ async function handleRouting(req: NextRequest): Promise<NextResponse> {
   return NextResponse.next();
 }
 
-export default async function middleware(req: NextRequest) {
+export default async function proxy(req: NextRequest) {
   const response = await handleRouting(req);
 
   // CSRF Token Logic

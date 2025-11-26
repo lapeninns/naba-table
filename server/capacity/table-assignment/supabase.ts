@@ -93,15 +93,16 @@ export async function loadBooking(bookingId: string, client: DbClient, signal?: 
           "booking_date",
           "start_time",
           "end_time",
-          "start_at",
-          "end_at",
-          "party_size",
-          "status",
-          "seating_preference",
-          "restaurants(timezone)",
-        ].join(","),
-      )
-      .eq("id", bookingId),
+      "start_at",
+      "end_at",
+      "party_size",
+      "status",
+      "seating_preference",
+      "booking_type",
+      "restaurants(timezone)",
+    ].join(","),
+  )
+  .eq("id", bookingId),
     signal,
   );
 

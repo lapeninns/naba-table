@@ -4,11 +4,13 @@ import userEvent from '@testing-library/user-event';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { wizardStateFixture } from '@/tests/fixtures/wizard';
 import { WizardProvider } from '@features/reservations/wizard/context/WizardContext';
+import { getInitialState } from '@features/reservations/wizard/model/reducer';
 import { PlanStepForm } from '@features/reservations/wizard/ui/steps/plan-step/PlanStepForm';
 
 import type { WizardActions } from '@features/reservations/wizard/model/store';
+
+import { wizardStateFixture } from '@/tests/fixtures/wizard';
 
 const MIN_DATE = new Date('2025-05-01T00:00:00Z');
 
@@ -296,6 +298,56 @@ describe('<PlanStepForm />', () => {
         return typeof path === 'string' && path.includes('date=2025-05-01');
       });
       expect(hasPrefetchCall).toBe(true);
+    });
+  });
+
+  it('hydrates the restaurant id (and timezone) from schedule responses when none is preset', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+        },
+      },
+    });
+
+    const updateDetails = vi.fn();
+    const goToStep = vi.fn();
+
+    const state = getInitialState({
+      restaurantId: '',
+      restaurantSlug: 'white-horse-pub-waterbeach',
+      date: '2025-05-15',
+      time: '18:00',
+    });
+
+    const actions = {
+      goToStep,
+      updateDetails,
+      setSubmitting: () => undefined,
+      setLoading: () => undefined,
+      setError: () => undefined,
+      clearError: () => undefined,
+      setBookings: () => undefined,
+      applyConfirmation: () => undefined,
+      startEdit: () => undefined,
+      resetForm: () => undefined,
+      hydrateContacts: () => undefined,
+      hydrateDetails: () => undefined,
+    } satisfies WizardActions;
+
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={queryClient}>
+        <WizardProvider state={state} actions={actions}>
+          {children}
+        </WizardProvider>
+      </QueryClientProvider>
+    );
+
+    render(<PlanStepForm onActionsChange={() => undefined} minDate={MIN_DATE} />, { wrapper });
+
+    await waitFor(() => {
+      expect(updateDetails).toHaveBeenCalledWith('restaurantId', scheduleFixture.restaurantId);
+      expect(updateDetails).toHaveBeenCalledWith('restaurantTimezone', scheduleFixture.timezone);
     });
   });
 
