@@ -53,8 +53,9 @@ function buildCallbackUrl(origin: string, redirectedFrom: string | undefined) {
 }
 
 function buildRateLimitId(req: NextRequest, email: string, mode: "password" | "magic_link") {
+  const realIp = req.headers.get("x-real-ip")?.trim();
   const forwardedFor = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  const ip = req.ip ?? forwardedFor ?? "unknown";
+  const ip = realIp ?? forwardedFor ?? "unknown";
   return `auth:${mode}:${ip}:${email}`;
 }
 

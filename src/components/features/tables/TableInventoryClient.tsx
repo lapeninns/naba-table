@@ -12,6 +12,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Edit, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
+import { SettingsCard } from '@/components/features/restaurant-settings/shared';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -43,6 +44,7 @@ import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import { useToast } from '@/hooks/use-toast';
 import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
 import { queryKeys } from '@/lib/query/keys';
+
 
 import type {
   CreateTablePayload,
@@ -782,14 +784,10 @@ export default function TableInventoryClient() {
       </section>
 
       {/* ... (Zones section JSX updated to use the safe delete handler) ... */}
-      <section className="rounded-lg border p-4 space-y-4">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="space-y-1">
-            <h2 className="text-lg font-semibold">Zones</h2>
-            <p className="text-sm text-muted-foreground">
-              Group tables by areas of your floor plan. Add or rename zones as your layout changes.
-            </p>
-          </div>
+      <SettingsCard
+        title="Zones"
+        description="Group tables by areas of your floor plan. Add or rename zones as your layout changes."
+        headerAction={
           <div className="flex flex-wrap items-center gap-2">
             <Label htmlFor="zone-status-filter" className="text-sm text-muted-foreground">
               Show
@@ -819,8 +817,8 @@ export default function TableInventoryClient() {
               Add zone
             </Button>
           </div>
-        </div>
-
+        }
+      >
         {isLoadingZones ? (
           <div className="flex flex-wrap gap-2">
             <Skeleton className="h-9 w-32" />
@@ -912,171 +910,176 @@ export default function TableInventoryClient() {
             })}
           </ul>
         )}
-      </section>
+      </SettingsCard>
 
       {/* ... (Filter and Add Table section remains the same) ... */}
-      <section className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
-          <div className="flex items-center gap-3">
-            <Label htmlFor="table-zone-filter" className="text-sm">Filter by Zone</Label>
-            <Select value={filterZone} onValueChange={setFilterZone}>
-              <SelectTrigger id="table-zone-filter" className="w-[220px]">
-                <SelectValue placeholder="All zones" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_ZONES_VALUE}>All zones</SelectItem>
-                {zoneOptions.map((zone) => (
-                  <SelectItem key={zone.id} value={zone.id}>
-                    {zone.name}
-                    {zone.active ? '' : ' (inactive)'}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      <SettingsCard
+        title="Table Inventory"
+        description="Manage your tables, capacities, and settings."
+        headerAction={
+          <Button
+            onClick={() => {
+              setEditingTable(null);
+              setIsDialogOpen(true);
+            }}
+            disabled={isZoneSelectDisabled && !isLoadingZones}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add table
+          </Button>
+        }
+      >
+        <div className="space-y-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
+            <div className="flex items-center gap-3">
+              <Label htmlFor="table-zone-filter" className="text-sm">Filter by Zone</Label>
+              <Select value={filterZone} onValueChange={setFilterZone}>
+                <SelectTrigger id="table-zone-filter" className="w-[220px]">
+                  <SelectValue placeholder="All zones" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_ZONES_VALUE}>All zones</SelectItem>
+                  {zoneOptions.map((zone) => (
+                    <SelectItem key={zone.id} value={zone.id}>
+                      {zone.name}
+                      {zone.active ? '' : ' (inactive)'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Label htmlFor="table-status-filter" className="text-sm">Show</Label>
+              <Select
+                value={tableStatusFilter}
+                onValueChange={(value) => setTableStatusFilter(value as TableStatusFilter)}
+              >
+                <SelectTrigger id="table-status-filter" className="w-[200px]">
+                  <SelectValue placeholder="All tables" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active tables only</SelectItem>
+                  <SelectItem value="inactive">Inactive tables only</SelectItem>
+                  <SelectItem value="all">All tables</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <Label htmlFor="table-status-filter" className="text-sm">Show</Label>
-            <Select
-              value={tableStatusFilter}
-              onValueChange={(value) => setTableStatusFilter(value as TableStatusFilter)}
-            >
-              <SelectTrigger id="table-status-filter" className="w-[200px]">
-                <SelectValue placeholder="All tables" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Active tables only</SelectItem>
-                <SelectItem value="inactive">Inactive tables only</SelectItem>
-                <SelectItem value="all">All tables</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Table</TableHead>
+                  <TableHead>Zone</TableHead>
+                  <TableHead>Capacity</TableHead>
+                  <TableHead>Party size</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Seating</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Active</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading || isFetching ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="py-6 text-center text-muted-foreground">
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Loading tables…</span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredTables.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
+                      {tables.length === 0
+                        ? 'No tables configured yet. Add your first table to get started.'
+                        : 'No tables match this filter. Try showing all zones or tables.'}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredTables.map((table) => (
+                    <TableRow key={table.id} className={table.zoneActive ? undefined : 'bg-muted/60'}>
+                      <TableCell className="font-medium">
+                        <span>{table.tableNumber}</span>
+                      </TableCell>
+                      <TableCell className="flex items-center gap-2">
+                        <span>{table.zoneName ?? '—'}</span>
+                        {table.zoneActive === false && <Badge variant="secondary">Zone off</Badge>}
+                      </TableCell>
+                      <TableCell>{table.capacity}</TableCell>
+                      <TableCell>
+                        {table.minPartySize}
+                        {table.maxPartySize ? `–${table.maxPartySize}` : '+'}
+                      </TableCell>
+                      <TableCell className="capitalize">{table.category}</TableCell>
+                      <TableCell className="capitalize">
+                        {table.seatingType.replace('_', ' ')}
+                        <span className="text-muted-foreground"> · {table.mobility}</span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={table.status === 'available' ? 'default' : 'secondary'}>
+                          {table.status.replace('_', ' ')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {table.active && table.zoneActive !== false ? (
+                          <Badge variant="outline">Active</Badge>
+                        ) : table.active ? (
+                          <Badge variant="secondary">Blocked by zone</Badge>
+                        ) : (
+                          <Badge variant="secondary">Inactive</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setEditingTable(table);
+                              setIsDialogOpen(true);
+                            }}
+                          >
+                            <Edit className="h-4 w-4" />
+                            <span className="sr-only">Edit table</span>
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            disabled={!canDeleteTables || deleteMutation.isPending}
+                            onClick={() => {
+                              if (!canDeleteTables) {
+                                toast({
+                                  title: 'Admins only',
+                                  description: 'Only owners or admins can delete tables.',
+                                  variant: 'destructive',
+                                });
+                                return;
+                              }
+                              if (confirm(`Delete table ${table.tableNumber}? This action cannot be undone.`)) {
+                                deleteMutation.mutate({ tableId: table.id });
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                            <span className="sr-only">Delete table</span>
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </div>
         </div>
-
-        <Button
-          onClick={() => {
-            setEditingTable(null);
-            setIsDialogOpen(true);
-          }}
-          disabled={isZoneSelectDisabled && !isLoadingZones}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Add table
-        </Button>
-      </section>
-
-      {/* ... (Table display section remains the same) ... */}
-      <section className="rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Table</TableHead>
-              <TableHead>Zone</TableHead>
-              <TableHead>Capacity</TableHead>
-              <TableHead>Party size</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Seating</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Active</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading || isFetching ? (
-              <TableRow>
-                <TableCell colSpan={9} className="py-6 text-center text-muted-foreground">
-                  <div className="flex items-center justify-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Loading tables…</span>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : filteredTables.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
-                  {tables.length === 0
-                    ? 'No tables configured yet. Add your first table to get started.'
-                    : 'No tables match this filter. Try showing all zones or tables.'}
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredTables.map((table) => (
-                <TableRow key={table.id} className={table.zoneActive ? undefined : 'bg-muted/60'}>
-                  <TableCell className="font-medium">
-                    <span>{table.tableNumber}</span>
-                  </TableCell>
-                  <TableCell className="flex items-center gap-2">
-                    <span>{table.zoneName ?? '—'}</span>
-                    {table.zoneActive === false && <Badge variant="secondary">Zone off</Badge>}
-                  </TableCell>
-                  <TableCell>{table.capacity}</TableCell>
-                  <TableCell>
-                    {table.minPartySize}
-                    {table.maxPartySize ? `–${table.maxPartySize}` : '+'}
-                  </TableCell>
-                  <TableCell className="capitalize">{table.category}</TableCell>
-                  <TableCell className="capitalize">
-                    {table.seatingType.replace('_', ' ')}
-                    <span className="text-muted-foreground"> · {table.mobility}</span>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={table.status === 'available' ? 'default' : 'secondary'}>
-                      {table.status.replace('_', ' ')}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {table.active && table.zoneActive !== false ? (
-                      <Badge variant="outline">Active</Badge>
-                    ) : table.active ? (
-                      <Badge variant="secondary">Blocked by zone</Badge>
-                    ) : (
-                      <Badge variant="secondary">Inactive</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setEditingTable(table);
-                          setIsDialogOpen(true);
-                        }}
-                      >
-                        <Edit className="h-4 w-4" />
-                        <span className="sr-only">Edit table</span>
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        disabled={!canDeleteTables || deleteMutation.isPending}
-                        onClick={() => {
-                          if (!canDeleteTables) {
-                            toast({
-                              title: 'Admins only',
-                              description: 'Only owners or admins can delete tables.',
-                              variant: 'destructive',
-                            });
-                            return;
-                          }
-                          if (confirm(`Delete table ${table.tableNumber}? This action cannot be undone.`)) {
-                            deleteMutation.mutate({ tableId: table.id });
-                          }
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                        <span className="sr-only">Delete table</span>
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </section>
+      </SettingsCard>
 
       {/* REVISION: The Dialog now renders the stateful TableForm component */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

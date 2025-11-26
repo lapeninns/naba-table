@@ -7,7 +7,6 @@ import { toast } from 'react-hot-toast';
 import { HelpTooltip } from '@/components/features/restaurant-settings/HelpTooltip';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -16,6 +15,7 @@ import { useOpsOperatingHours, useOpsUpdateOperatingHours } from '@/hooks';
 import { cn } from '@/lib/utils';
 import { normalizeTime } from '@reserve/shared/time';
 
+import { SettingsCard, SettingsSectionHeader } from './shared';
 import { DAYS_OF_WEEK } from './types';
 
 import type { OverrideErrors, OverrideRow, WeeklyErrors, WeeklyRow } from './types';
@@ -274,41 +274,30 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
 
   if (!restaurantId) {
     return (
-      <Card>
-        <CardContent className="flex min-h-[200px] items-center justify-center py-8">
+      <SettingsCard title="Operating Hours">
+        <div className="flex min-h-[200px] items-center justify-center py-8">
           <p className="text-sm text-muted-foreground">Select a restaurant to manage operating hours</p>
-        </CardContent>
-      </Card>
+        </div>
+      </SettingsCard>
     );
   }
 
   if (error) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Operating Hours</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Alert variant="destructive">
-            <AlertTitle>Unable to load operating hours</AlertTitle>
-            <AlertDescription>{error.message}</AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
+      <SettingsCard title="Operating Hours">
+        <Alert variant="destructive">
+          <AlertTitle>Unable to load operating hours</AlertTitle>
+          <AlertDescription>{error.message}</AlertDescription>
+        </Alert>
+      </SettingsCard>
     );
   }
 
   if (isLoading && !data) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Operating Hours</CardTitle>
-          <CardDescription>Loading…</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-64 w-full" />
-        </CardContent>
-      </Card>
+      <SettingsCard title="Operating Hours" description="Loading…">
+        <Skeleton className="h-64 w-full" />
+      </SettingsCard>
     );
   }
 
@@ -316,230 +305,230 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
 
   return (
     <TooltipProvider delayDuration={100}>
-      <Card>
-      <CardHeader>
-        <CardTitle>Operating Hours</CardTitle>
-        <CardDescription>Configure weekly schedule and holiday overrides</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Weekly Schedule */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-1">
-            <h3 className="text-sm font-semibold text-foreground">Weekly Schedule</h3>
-            <HelpTooltip
-              description="Set default open/close windows for each day. Mark a day closed to block bookings."
-              ariaLabel="Weekly schedule help"
-            />
+      <SettingsCard
+        title="Operating Hours"
+        description="Configure weekly schedule and holiday overrides"
+        footer={
+          <div className="flex w-full items-center justify-between">
+            <div className="text-xs text-muted-foreground hidden sm:block">
+              Changes are saved per restaurant. Remember to keep staff informed about special hours.
+            </div>
+            <div className="flex items-center gap-2 ml-auto">
+              <Button type="button" variant="outline" onClick={handleReset} disabled={isDisabled || !isDirty}>
+                Reset
+              </Button>
+              <Button type="button" onClick={handleSave} disabled={isDisabled || !isDirty}>
+                Save changes
+              </Button>
+            </div>
           </div>
-          <div className="overflow-hidden rounded-xl border">
-            <table className="min-w-full divide-y divide-border">
-              <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3 text-left">Day</th>
-                  <th className="px-4 py-3 text-left">Open</th>
-                  <th className="px-4 py-3 text-left">Close</th>
-                  <th className="px-4 py-3 text-left">Closed</th>
-                  <th className="px-4 py-3 text-left">Notes</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/70 text-sm">
-                {weeklyRows.map((row, index) => {
-                  const errors = weeklyErrors[row.dayOfWeek] ?? {};
+        }
+      >
+        <div className="space-y-8">
+          {/* Weekly Schedule */}
+          <div className="space-y-3">
+            <SettingsSectionHeader
+              title="Weekly Schedule"
+              description="Set default open/close windows for each day. Mark a day closed to block bookings."
+            />
+            <div className="overflow-hidden rounded-xl border">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-border">
+                  <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
+                    <tr>
+                      <th className="px-4 py-3 text-left">Day</th>
+                      <th className="px-4 py-3 text-left">Open</th>
+                      <th className="px-4 py-3 text-left">Close</th>
+                      <th className="px-4 py-3 text-left">Closed</th>
+                      <th className="px-4 py-3 text-left">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/70 text-sm">
+                    {weeklyRows.map((row, index) => {
+                      const errors = weeklyErrors[row.dayOfWeek] ?? {};
+                      return (
+                        <tr key={row.dayOfWeek} className={cn(row.isClosed && 'bg-muted/40')}>
+                          <th scope="row" className="px-4 py-3 font-medium text-foreground whitespace-nowrap">
+                            {DAYS_OF_WEEK[row.dayOfWeek]}
+                          </th>
+                          <td className="px-4 py-3">
+                            <Input
+                              type="time"
+                              value={row.opensAt}
+                              disabled={isDisabled || row.isClosed}
+                              onChange={(event) => handleWeeklyChange(index, { opensAt: event.target.value })}
+                              aria-invalid={Boolean(errors.opensAt)}
+                              className={cn('h-9 min-w-[100px]', errors.opensAt && 'border-destructive')}
+                            />
+                            {errors.opensAt && <p className="mt-1 text-xs text-destructive">{errors.opensAt}</p>}
+                          </td>
+                          <td className="px-4 py-3">
+                            <Input
+                              type="time"
+                              value={row.closesAt}
+                              disabled={isDisabled || row.isClosed}
+                              onChange={(event) => handleWeeklyChange(index, { closesAt: event.target.value })}
+                              aria-invalid={Boolean(errors.closesAt)}
+                              className={cn('h-9 min-w-[100px]', errors.closesAt && 'border-destructive')}
+                            />
+                            {errors.closesAt && <p className="mt-1 text-xs text-destructive">{errors.closesAt}</p>}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-center">
+                              <input
+                                id={`weekly-${row.dayOfWeek}-closed`}
+                                type="checkbox"
+                                checked={row.isClosed}
+                                disabled={isDisabled}
+                                onChange={(event) =>
+                                  handleWeeklyChange(index, {
+                                    isClosed: event.target.checked,
+                                    opensAt: event.target.checked ? '' : row.opensAt || '09:00',
+                                    closesAt: event.target.checked ? '' : row.closesAt || '18:00',
+                                  })
+                                }
+                                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                              />
+                              <Label htmlFor={`weekly-${row.dayOfWeek}-closed`} className="sr-only">
+                                Closed all day
+                              </Label>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Input
+                              value={row.notes}
+                              placeholder="Optional"
+                              disabled={isDisabled}
+                              onChange={(event) => handleWeeklyChange(index, { notes: event.target.value })}
+                              className="h-9 min-w-[150px]"
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* Overrides */}
+          <div className="space-y-3">
+            <SettingsSectionHeader
+              title="Overrides"
+              description="Create one-off changes for holidays or events. Overrides apply on their date only."
+              action={
+                <Button type="button" variant="outline" size="sm" onClick={addOverride} disabled={isDisabled}>
+                  <Plus className="mr-2 h-4 w-4" aria-hidden /> Add override
+                </Button>
+              }
+            />
+
+            {overrideRows.length === 0 ? (
+              <div className="rounded-lg border border-dashed p-8 text-center">
+                <p className="text-sm text-muted-foreground">
+                  No overrides configured. Use overrides to adjust hours for special events or holidays.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {overrideRows.map((row, index) => {
+                  const errors = overrideErrors[index] ?? {};
                   return (
-                    <tr key={row.dayOfWeek} className={cn(row.isClosed && 'bg-muted/40')}>
-                      <th scope="row" className="px-4 py-3 font-medium text-foreground">
-                        {DAYS_OF_WEEK[row.dayOfWeek]}
-                      </th>
-                      <td className="px-4 py-3">
+                    <div key={row.id ?? index} className="grid gap-3 rounded-lg border border-border/60 p-4 text-sm md:grid-cols-[repeat(5,minmax(0,1fr))_auto]">
+                      <div>
+                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">Date</Label>
+                        <Input
+                          type="date"
+                          value={row.effectiveDate}
+                          onChange={(event) => handleOverrideChange(index, { effectiveDate: event.target.value })}
+                          disabled={isDisabled}
+                          className={cn('mt-1 h-9', errors.effectiveDate && 'border-destructive')}
+                        />
+                        {errors.effectiveDate && <p className="mt-1 text-xs text-destructive">{errors.effectiveDate}</p>}
+                      </div>
+                      <div>
+                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">Open</Label>
                         <Input
                           type="time"
                           value={row.opensAt}
                           disabled={isDisabled || row.isClosed}
-                          onChange={(event) => handleWeeklyChange(index, { opensAt: event.target.value })}
-                          aria-invalid={Boolean(errors.opensAt)}
-                          className={cn('h-9', errors.opensAt && 'border-destructive')}
+                          onChange={(event) => handleOverrideChange(index, { opensAt: event.target.value })}
+                          className={cn('mt-1 h-9', errors.opensAt && 'border-destructive')}
                         />
                         {errors.opensAt && <p className="mt-1 text-xs text-destructive">{errors.opensAt}</p>}
-                      </td>
-                      <td className="px-4 py-3">
+                      </div>
+                      <div>
+                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">Close</Label>
                         <Input
                           type="time"
                           value={row.closesAt}
                           disabled={isDisabled || row.isClosed}
-                          onChange={(event) => handleWeeklyChange(index, { closesAt: event.target.value })}
-                          aria-invalid={Boolean(errors.closesAt)}
-                          className={cn('h-9', errors.closesAt && 'border-destructive')}
+                          onChange={(event) => handleOverrideChange(index, { closesAt: event.target.value })}
+                          className={cn('mt-1 h-9', errors.closesAt && 'border-destructive')}
                         />
                         {errors.closesAt && <p className="mt-1 text-xs text-destructive">{errors.closesAt}</p>}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center">
+                      </div>
+                      <div className="flex flex-col justify-center gap-2">
+                        <div className="flex items-center gap-1">
+                          <Label className="text-xs uppercase tracking-wide text-muted-foreground">Closed</Label>
+                          <HelpTooltip
+                            description="Enable to close the restaurant for the entire override date. Leave off to set custom hours."
+                            ariaLabel="Override closed help"
+                            align="center"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
                           <input
-                            id={`weekly-${row.dayOfWeek}-closed`}
+                            id={`override-${index}-closed`}
                             type="checkbox"
                             checked={row.isClosed}
                             disabled={isDisabled}
                             onChange={(event) =>
-                              handleWeeklyChange(index, {
+                              handleOverrideChange(index, {
                                 isClosed: event.target.checked,
                                 opensAt: event.target.checked ? '' : row.opensAt || '09:00',
                                 closesAt: event.target.checked ? '' : row.closesAt || '18:00',
                               })
                             }
-                            className="h-4 w-4"
+                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                           />
-                          <Label htmlFor={`weekly-${row.dayOfWeek}-closed`} className="sr-only">
+                          <Label htmlFor={`override-${index}-closed`} className="text-sm">
                             Closed all day
                           </Label>
                         </div>
-                      </td>
-                      <td className="px-4 py-3">
+                      </div>
+                      <div>
+                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">Notes</Label>
                         <Input
                           value={row.notes}
                           placeholder="Optional"
                           disabled={isDisabled}
-                          onChange={(event) => handleWeeklyChange(index, { notes: event.target.value })}
-                          className="h-9"
+                          onChange={(event) => handleOverrideChange(index, { notes: event.target.value })}
+                          className="mt-1 h-9"
                         />
-                      </td>
-                    </tr>
+                      </div>
+                      <div className="flex items-center justify-end">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeOverride(index)}
+                          disabled={isDisabled}
+                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" aria-hidden />
+                          <span className="sr-only">Remove override</span>
+                        </Button>
+                      </div>
+                    </div>
                   );
                 })}
-              </tbody>
-            </table>
+              </div>
+            )}
           </div>
         </div>
-
-        {/* Overrides */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-1">
-              <h3 className="text-sm font-semibold text-foreground">Overrides</h3>
-              <HelpTooltip
-                description="Create one-off changes for holidays or events. Overrides apply on their date only."
-                ariaLabel="Overrides help"
-              />
-            </div>
-            <Button type="button" variant="outline" size="sm" onClick={addOverride} disabled={isDisabled}>
-              <Plus className="mr-2 h-4 w-4" aria-hidden /> Add override
-            </Button>
-          </div>
-          {overrideRows.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Use overrides to adjust hours for special events or holidays.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {overrideRows.map((row, index) => {
-                const errors = overrideErrors[index] ?? {};
-                return (
-                  <div key={row.id ?? index} className="grid gap-3 rounded-lg border border-border/60 p-4 text-sm md:grid-cols-[repeat(5,minmax(0,1fr))_auto]">
-                    <div>
-                      <Label className="text-xs uppercase tracking-wide text-muted-foreground">Date</Label>
-                      <Input
-                        type="date"
-                        value={row.effectiveDate}
-                        onChange={(event) => handleOverrideChange(index, { effectiveDate: event.target.value })}
-                        disabled={isDisabled}
-                        className={cn('mt-1 h-9', errors.effectiveDate && 'border-destructive')}
-                      />
-                      {errors.effectiveDate && <p className="mt-1 text-xs text-destructive">{errors.effectiveDate}</p>}
-                    </div>
-                    <div>
-                      <Label className="text-xs uppercase tracking-wide text-muted-foreground">Open</Label>
-                      <Input
-                        type="time"
-                        value={row.opensAt}
-                        disabled={isDisabled || row.isClosed}
-                        onChange={(event) => handleOverrideChange(index, { opensAt: event.target.value })}
-                        className={cn('mt-1 h-9', errors.opensAt && 'border-destructive')}
-                      />
-                      {errors.opensAt && <p className="mt-1 text-xs text-destructive">{errors.opensAt}</p>}
-                    </div>
-                    <div>
-                      <Label className="text-xs uppercase tracking-wide text-muted-foreground">Close</Label>
-                      <Input
-                        type="time"
-                        value={row.closesAt}
-                        disabled={isDisabled || row.isClosed}
-                        onChange={(event) => handleOverrideChange(index, { closesAt: event.target.value })}
-                        className={cn('mt-1 h-9', errors.closesAt && 'border-destructive')}
-                      />
-                      {errors.closesAt && <p className="mt-1 text-xs text-destructive">{errors.closesAt}</p>}
-                    </div>
-                    <div className="flex flex-col justify-center gap-2">
-                      <div className="flex items-center gap-1">
-                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">Closed</Label>
-                        <HelpTooltip
-                          description="Enable to close the restaurant for the entire override date. Leave off to set custom hours."
-                          ariaLabel="Override closed help"
-                          align="center"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          id={`override-${index}-closed`}
-                          type="checkbox"
-                          checked={row.isClosed}
-                          disabled={isDisabled}
-                          onChange={(event) =>
-                            handleOverrideChange(index, {
-                              isClosed: event.target.checked,
-                              opensAt: event.target.checked ? '' : row.opensAt || '09:00',
-                              closesAt: event.target.checked ? '' : row.closesAt || '18:00',
-                            })
-                          }
-                          className="h-4 w-4"
-                        />
-                        <Label htmlFor={`override-${index}-closed`} className="text-sm">
-                          Closed all day
-                        </Label>
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-xs uppercase tracking-wide text-muted-foreground">Notes</Label>
-                      <Input
-                        value={row.notes}
-                        placeholder="Optional"
-                        disabled={isDisabled}
-                        onChange={(event) => handleOverrideChange(index, { notes: event.target.value })}
-                        className="mt-1 h-9"
-                      />
-                    </div>
-                    <div className="flex items-center justify-end">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeOverride(index)}
-                        disabled={isDisabled}
-                        className="text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" aria-hidden />
-                        <span className="sr-only">Remove override</span>
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </CardContent>
-      <CardFooter className="flex items-center justify-between border-t border-border/60 bg-muted/40 px-6 py-4">
-        <div className="text-xs text-muted-foreground">
-          Changes are saved per restaurant. Remember to keep staff informed about special hours.
-        </div>
-        <div className="flex items-center gap-2">
-          <Button type="button" variant="outline" onClick={handleReset} disabled={isDisabled || !isDirty}>
-            Reset
-          </Button>
-          <Button type="button" onClick={handleSave} disabled={isDisabled || !isDirty}>
-            Save changes
-          </Button>
-        </div>
-      </CardFooter>
-    </Card>
+      </SettingsCard>
     </TooltipProvider>
   );
 }

@@ -26,7 +26,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   const redirectedFromParam =
     typeof redirectedRaw === 'string' && redirectedRaw.length > 0 ? redirectedRaw : undefined;
 
-  ensureCsrfCookie();
+  await ensureCsrfCookie();
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/5 via-background to-primary/10 px-4 py-12 sm:px-6 lg:px-8">

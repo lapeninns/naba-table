@@ -10,11 +10,11 @@ import {
 } from '@/components/ops/restaurants/RestaurantDetailsForm';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOpsRestaurantDetails, useOpsUpdateRestaurantDetails } from '@/hooks';
 
 import { RestaurantLogoUploader } from './RestaurantLogoUploader';
+import { SettingsCard } from './shared/SettingsCard';
 
 import type { UpdateRestaurantInput } from '@/app/api/ops/restaurants/schema';
 
@@ -74,11 +74,11 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
         name: values.name,
         slug: values.slug,
         timezone: values.timezone,
-      contactEmail: values.contactEmail ?? null,
-      contactPhone: values.contactPhone ?? null,
-      address: values.address ?? null,
-      googleMapUrl: values.googleMapUrl ?? null,
-      bookingPolicy: values.bookingPolicy ?? null,
+        contactEmail: values.contactEmail ?? null,
+        contactPhone: values.contactPhone ?? null,
+        address: values.address ?? null,
+        googleMapUrl: values.googleMapUrl ?? null,
+        bookingPolicy: values.bookingPolicy ?? null,
         reservationIntervalMinutes: values.reservationIntervalMinutes,
         reservationDefaultDurationMinutes: values.reservationDefaultDurationMinutes,
         reservationLastSeatingBufferMinutes: values.reservationLastSeatingBufferMinutes,
@@ -95,64 +95,56 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
 
   if (!restaurantId) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Restaurant Profile</CardTitle>
-          <CardDescription>Select a restaurant to manage its profile details.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Choose a restaurant using the sidebar switcher to view and update its name, slug, contact information, and booking policy.
-          </p>
-        </CardContent>
-      </Card>
+      <SettingsCard
+        title="Restaurant Profile"
+        description="Select a restaurant to manage its profile details."
+      >
+        <p className="text-sm text-muted-foreground">
+          Choose a restaurant using the sidebar switcher to view and update its name, slug, contact information, and booking policy.
+        </p>
+      </SettingsCard>
     );
   }
 
   if (isLoading && !data) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Restaurant Profile</CardTitle>
-          <CardDescription>Update core details, contact information, and booking policy.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <SettingsCard
+        title="Restaurant Profile"
+        description="Update core details, contact information, and booking policy."
+      >
+        <div className="space-y-4">
           <Skeleton className="h-6 w-40" />
           <Skeleton className="h-24 w-full" />
-        </CardContent>
-      </Card>
+        </div>
+      </SettingsCard>
     );
   }
 
   if (error) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Restaurant Profile</CardTitle>
-          <CardDescription>Update core details, contact information, and booking policy.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Alert variant="destructive">
-            <AlertTitle>Unable to load restaurant details</AlertTitle>
-            <AlertDescription className="flex items-center justify-between gap-4">
-              <span>{error.message}</span>
-              <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
-                Retry
-              </Button>
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
+      <SettingsCard
+        title="Restaurant Profile"
+        description="Update core details, contact information, and booking policy."
+      >
+        <Alert variant="destructive">
+          <AlertTitle>Unable to load restaurant details</AlertTitle>
+          <AlertDescription className="flex items-center justify-between gap-4">
+            <span>{error.message}</span>
+            <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </SettingsCard>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Restaurant Profile</CardTitle>
-        <CardDescription>Update core restaurant details and contact information.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+    <SettingsCard
+      title="Restaurant Profile"
+      description="Update core restaurant details and contact information."
+    >
+      <div className="space-y-6">
         <RestaurantLogoUploader
           restaurantId={restaurantId}
           restaurantName={derivedRestaurantName}
@@ -165,7 +157,7 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
           onSubmit={handleSubmit}
           isSubmitting={updateMutation.isPending}
         />
-      </CardContent>
-    </Card>
+      </div>
+    </SettingsCard>
   );
 }

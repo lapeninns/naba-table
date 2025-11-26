@@ -34,7 +34,7 @@ const DEFAULT_RESTAURANT_SLUG = runtimeEnv.NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG ?
 
 let cachedDefaultRestaurantId: string | null =
   runtimeEnv.NEXT_PUBLIC_DEFAULT_RESTAURANT_ID ?? env.misc.bookingDefaultRestaurantId ?? null;
-let resolvingDefaultRestaurantId: Promise<string> | null = null;
+let resolvingDefaultRestaurantId: Promise<string | null> | null = null;
 
 type CookieReader = {
   getAll: () => { name: string; value: string }[];
