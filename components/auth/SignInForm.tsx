@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -14,19 +14,24 @@ import { Input } from '@/components/ui/input';
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
 import { clientEnv } from '@/lib/env-client';
-import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
+import { HttpError } from '@/lib/http/errors';
+import { fetchJson } from '@/lib/http/fetchJson';
+import { passwordPolicySchema, validatePasswordStrength } from '@/lib/security/passwordPolicy';
 import { cn } from '@/lib/utils';
 
-import type { AuthApiError } from '@supabase/supabase-js';
+const passwordFieldSchema = z
+  .union([passwordPolicySchema, z.literal('').transform(() => undefined)])
+  .optional();
 
 const formSchema = z.object({
   email: z.string().trim().min(1, 'Enter your email address').email('Enter a valid email address'),
-  password: z
-    .string()
-    .max(256, 'Password is too long')
-    .optional()
-    .or(z.literal('').transform(() => undefined)),
+  password: passwordFieldSchema,
 });
+
+type AuthSuccess = { status: 'ok'; redirectTo: string } | { status: 'magic_link_sent'; redirectTo: string };
+type AuthResponse = AuthSuccess;
+
+const AUTH_ENDPOINT = '/api/auth/signin';
 
 export type SignInFormProps = {
   redirectedFrom?: string;
@@ -76,7 +81,6 @@ const AUTH_MODE_OPTIONS: Array<{
 
 export function SignInForm({ redirectedFrom }: SignInFormProps) {
   const router = useRouter();
-  const supabase = useMemo(() => getSupabaseBrowserClient(), []);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -118,18 +122,58 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
   const focusStatus = () => {
     setTimeout(() => statusRef.current?.focus(), 0);
   };
+  const callAuthEndpoint = (payload: {
+    mode: AuthMode;
+    email: string;
+    password?: string;
+    redirectedFrom: string;
+  }) =>
+    fetchJson<AuthResponse>(AUTH_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
 
-  const resolveCallbackUrl = (destination: string) => {
-    const origin =
-      typeof window !== 'undefined' && window.location?.origin
-        ? window.location.origin
-        : clientEnv.app.siteUrl;
-
-    const url = new URL('/api/auth/callback', origin);
-    if (destination && destination.startsWith('/')) {
-      url.searchParams.set('redirectedFrom', destination);
+  const mapErrorToStatus = (error: unknown, mode: AuthMode): StatusState => {
+    if (error instanceof HttpError) {
+      if (error.status === 429) {
+        return {
+          message: 'Too many attempts. Please try again in a few minutes.',
+          tone: 'error',
+          live: 'assertive',
+        };
+      }
+      if (error.status === 403) {
+        return {
+          message: 'Session expired. Refresh and try again.',
+          tone: 'error',
+          live: 'assertive',
+        };
+      }
+      if (error.status === 401 && mode === AUTH_MODES.PASSWORD) {
+        return {
+          message: 'Invalid email or password.',
+          tone: 'error',
+          live: 'assertive',
+        };
+      }
+      if (error.status === 400) {
+        return {
+          message: error.message || 'Please check your input and try again.',
+          tone: 'error',
+          live: 'assertive',
+        };
+      }
+      return {
+        message: error.message || 'Something went wrong. Please try again.',
+        tone: 'error',
+        live: 'assertive',
+      };
     }
-    return url.toString();
+
+    return { message: 'Something went wrong. Please try again.', tone: 'error', live: 'assertive' };
   };
 
   const handleMagicLink = async (values: FormValues) => {
@@ -142,19 +186,14 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
     track('auth_signin_attempt', { method: 'magic_link', redirectedFrom: targetPath });
 
     try {
-      const { error } = await supabase.auth.signInWithOtp({
+      const response = await callAuthEndpoint({
+        mode: AUTH_MODES.MAGIC_LINK,
         email: values.email,
-        options: {
-          emailRedirectTo: resolveCallbackUrl(targetPath),
-        },
+        redirectedFrom: targetPath,
       });
 
-      if (error) {
-        throw error;
-      }
-
-      track('auth_magiclink_sent', { redirectedFrom: targetPath });
-      emit('auth_magiclink_sent', { redirectedFrom: targetPath });
+      track('auth_magiclink_sent', { redirectedFrom: response.redirectTo ?? targetPath });
+      emit('auth_magiclink_sent', { redirectedFrom: response.redirectTo ?? targetPath });
 
       setStatus({
         message: 'Magic link sent! Check your inbox to finish signing in.',
@@ -164,19 +203,17 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
       setMagicCooldown(MAGIC_LINK_COOLDOWN_SECONDS);
       focusStatus();
     } catch (error) {
-      const authError = error as Partial<AuthApiError> | undefined;
+      const code = error instanceof HttpError ? error.code : 'UNKNOWN';
       track('auth_signin_error', {
         method: 'magic_link',
-        code: (authError?.name ?? authError?.status ?? 'UNKNOWN').toString(),
+        code,
       });
       emit('auth_signin_error', {
         method: 'magic_link',
-        code: (authError?.name ?? authError?.status ?? 'UNKNOWN').toString(),
+        code,
       });
 
-      const message =
-        authError?.message ?? 'We couldn’t send a magic link right now. Please try again shortly.';
-      setStatus({ message, tone: 'error', live: 'assertive' });
+      setStatus(mapErrorToStatus(error, AUTH_MODES.MAGIC_LINK));
       focusStatus();
     } finally {
       setIsSubmitting(false);
@@ -193,8 +230,10 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
 
   const handlePasswordSignIn = async (values: FormValues) => {
     const password = values.password?.trim();
-    if (!password) {
-      form.setError('password', { type: 'manual', message: 'Enter your password' });
+    const validation = validatePasswordStrength(password);
+    if (!validation.success) {
+      form.setError('password', { type: 'manual', message: validation.error });
+      focusStatus();
       return;
     }
 
@@ -203,14 +242,12 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
     track('auth_signin_attempt', { method: 'password', redirectedFrom: targetPath });
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const response = await callAuthEndpoint({
+        mode: AUTH_MODES.PASSWORD,
         email: values.email,
-        password,
+        password: validation.value,
+        redirectedFrom: targetPath,
       });
-
-      if (error) {
-        throw error;
-      }
 
       track('auth_signin_success', { method: 'password', redirectedFrom: targetPath });
       emit('auth_signin_success', { method: 'password', redirectedFrom: targetPath });
@@ -220,16 +257,27 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
         live: 'assertive',
       });
       focusStatus();
-      router.replace(targetPath);
+      router.replace(response.redirectTo ?? targetPath);
       router.refresh();
     } catch (error) {
-      const authError = error as Partial<AuthApiError> | undefined;
-      const code = (authError?.name ?? authError?.status ?? 'UNKNOWN').toString();
+      const code = error instanceof HttpError ? error.code : 'UNKNOWN';
       track('auth_signin_error', { method: 'password', code });
       emit('auth_signin_error', { method: 'password', code });
-      const message =
-        authError?.message ?? 'We couldn’t sign you in with that password. Please try again.';
-      setStatus({ message, tone: 'error', live: 'assertive' });
+
+      if (error instanceof HttpError && error.status === 400) {
+        const field = typeof error.details === 'object' && error.details && 'field' in error.details
+          ? (error.details as { field?: string }).field
+          : undefined;
+        if (field === 'password') {
+          form.setError('password', { type: 'manual', message: error.message });
+        }
+      }
+
+      if (error instanceof HttpError && error.status === 401) {
+        form.setError('password', { type: 'manual', message: 'Invalid email or password' });
+      }
+
+      setStatus(mapErrorToStatus(error, AUTH_MODES.PASSWORD));
       focusStatus();
     } finally {
       setIsSubmitting(false);

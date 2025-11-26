@@ -80,6 +80,8 @@ export function BookingListClient() {
     );
   }
 
+  const bookingPath = DEFAULT_RESTAURANT_SLUG ? `/restaurants/${DEFAULT_RESTAURANT_SLUG}/book` : '/restaurants';
+
   const hasAnyBookings = (bookings?.items?.length ?? 0) > 0;
 
   if (!hasAnyBookings) {
@@ -95,7 +97,7 @@ export function BookingListClient() {
           You don&apos;t have any reservations. Browse our partner restaurants to find your next table.
         </p>
         <div className="mt-10">
-          <Link href={`/restaurants/${DEFAULT_RESTAURANT_SLUG}/book`}>
+          <Link href={bookingPath}>
             <Button size="lg" className="h-12 px-8 text-base">
               <CalendarClock className="mr-2 h-5 w-5" aria-hidden="true" />
               Find a Restaurant
@@ -118,7 +120,7 @@ export function BookingListClient() {
             Manage your upcoming and past reservations
           </p>
         </div>
-        <Link href={`/restaurants/${DEFAULT_RESTAURANT_SLUG}/book`}>
+        <Link href={bookingPath}>
           <Button size="lg" className="w-full shadow-sm sm:w-auto">
             <CalendarClock className="mr-2 h-5 w-5" aria-hidden="true" />
             New Booking

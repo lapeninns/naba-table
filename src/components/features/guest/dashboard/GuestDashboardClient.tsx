@@ -38,8 +38,9 @@ import type { BookingDTO } from '@/hooks/useBookings';
 import type { RestaurantSummary } from '@/lib/restaurants/types';
 
 type HeroState = 'hungry' | 'upcoming' | 'live';
-
-const DISCOVERY_HREF = `/restaurants/${DEFAULT_RESTAURANT_SLUG}/book`;
+const DISCOVERY_HREF = DEFAULT_RESTAURANT_SLUG
+  ? `/restaurants/${DEFAULT_RESTAURANT_SLUG}/book`
+  : '/restaurants';
 
 type HeroBannerProps = {
   state: HeroState;

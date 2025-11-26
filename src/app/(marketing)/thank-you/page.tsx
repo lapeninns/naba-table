@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
 
 import { useSupabaseSession } from "@/hooks/useSupabaseSession";
-import { DEFAULT_RESTAURANT_SLUG } from "@shared/config/venue";
 
 type BookingDetails = {
   id: string;
@@ -230,7 +229,7 @@ function ThankYouPageContent() {
               Manage booking
             </Link>
             <Link
-              href={restaurantSlug ? `/restaurants/${restaurantSlug}/book` : `/restaurants/${DEFAULT_RESTAURANT_SLUG}/book`}
+              href={restaurantSlug ? `/restaurants/${restaurantSlug}/book` : `/restaurants`}
               className="inline-flex w-full items-center justify-center rounded-md border border-slate-300 px-6 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 sm:w-auto"
             >
               Make a new booking
@@ -260,7 +259,7 @@ function ThankYouPageContent() {
           <Link
             href={resolveRestaurantSlug(null, restaurantSlugParam, pathname)
               ? `/restaurants/${resolveRestaurantSlug(null, restaurantSlugParam, pathname)}/book`
-              : `/restaurants/${DEFAULT_RESTAURANT_SLUG}/book`}
+              : `/restaurants`}
             className="inline-flex w-full items-center justify-center rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 sm:w-auto"
           >
             Make another booking

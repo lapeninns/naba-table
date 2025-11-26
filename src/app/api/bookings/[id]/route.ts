@@ -44,7 +44,12 @@ import {
 } from "@/server/jobs/booking-side-effects";
 import { recordObservabilityEvent } from "@/server/observability";
 import { getRestaurantSchedule } from "@/server/restaurants/schedule";
-import { getDefaultRestaurantId, getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
+import {
+  getDefaultRestaurantId,
+  getRouteHandlerSupabaseClient,
+  getServiceSupabaseClient,
+  MissingRestaurantContextError,
+} from "@/server/supabase";
 import { formatDateForInput } from "@reserve/shared/formatting/booking";
 
 import type { BookingType } from "@/lib/enums";
@@ -155,6 +160,20 @@ function respondWithPendingLock() {
   );
 }
 
+async function requireRestaurantContext(restaurantId?: string | null): Promise<string> {
+  if (restaurantId) {
+    return restaurantId;
+  }
+  try {
+    return await getDefaultRestaurantId();
+  } catch (error) {
+    if (error instanceof MissingRestaurantContextError) {
+      throw new HttpError({ message: "restaurantId is required", status: 400, code: "RESTAURANT_REQUIRED" });
+    }
+    throw error;
+  }
+}
+
 
 
 type RouteParams = {
@@ -235,7 +254,7 @@ async function handleDashboardUpdate(params: {
       return NextResponse.json({ error: "Invalid date values", code: "INVALID_DATE" }, { status: 400 });
     }
 
-    const restaurantId = existingBooking.restaurant_id ?? (await getDefaultRestaurantId());
+    const restaurantId = await requireRestaurantContext(existingBooking.restaurant_id);
     const initialSchedule = await getRestaurantSchedule(restaurantId, {
       date: formatDateForInput(startInstant),
       client: serviceSupabase,
@@ -468,7 +487,7 @@ async function handleDashboardUpdate(params: {
     }
 
     const targetRestaurantId =
-      updated.restaurant_id ?? existingBooking.restaurant_id ?? (await getDefaultRestaurantId());
+      await requireRestaurantContext(updated.restaurant_id ?? existingBooking.restaurant_id);
 
     const auditMetadata = {
       actor_user_id: actor.id,
@@ -812,7 +831,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "You can only update your own reservation", code: "FORBIDDEN" }, { status: 403 });
     }
 
-    const restaurantId = data.restaurantId ?? existingBooking.restaurant_id ?? await getDefaultRestaurantId();
+    const restaurantId = await requireRestaurantContext(data.restaurantId ?? existingBooking.restaurant_id);
     const normalizedBookingType = data.bookingType === "drinks" ? "drinks" : inferMealTypeFromTime(data.time);
 
     let startTime = data.time;
@@ -1008,7 +1027,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       return respondWithPendingLock();
     }
 
-    const restaurantId = existingBooking.restaurant_id ?? (await getDefaultRestaurantId());
+    const restaurantId = await requireRestaurantContext(existingBooking.restaurant_id);
     const schedule = await getRestaurantSchedule(restaurantId, {
       date: existingBooking.booking_date ?? undefined,
       client: serviceSupabase,

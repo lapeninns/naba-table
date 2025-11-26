@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
 
 export default function SettingsIndexPage() {
-  redirect('/settings/restaurant');
+  redirect('/settings/restaurant/profile');
 }

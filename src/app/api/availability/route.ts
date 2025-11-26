@@ -12,11 +12,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { HttpError } from "@/lib/http/errors";
 import { checkSlotAvailability, findAlternativeSlots } from "@/server/capacity";
 import { recordObservabilityEvent } from "@/server/observability";
 import { consumeRateLimit } from "@/server/security/rate-limit";
 import { extractClientIp, anonymizeIp } from "@/server/security/request";
-import { getDefaultRestaurantId } from "@/server/supabase";
+import { getDefaultRestaurantId, MissingRestaurantContextError } from "@/server/supabase";
 
 import type { NextRequest} from "next/server";
 
@@ -66,7 +67,14 @@ export async function GET(req: NextRequest) {
     }
 
     const { restaurantId: rawRestaurantId, date, time, partySize, seating, includeAlternatives } = parsed.data;
-    const restaurantId = rawRestaurantId ?? await getDefaultRestaurantId();
+
+    const restaurantId = rawRestaurantId
+      ?? (await getDefaultRestaurantId().catch((error) => {
+        if (error instanceof MissingRestaurantContextError) {
+          throw new HttpError({ message: "restaurantId is required", status: 400, code: "RESTAURANT_REQUIRED" });
+        }
+        throw error;
+      }));
 
     // =====================================================
     // Step 2: Rate Limiting
@@ -219,6 +227,10 @@ export async function GET(req: NextRequest) {
     // return NextResponse.json({ restaurantId, date, partySize, slots });
 
   } catch (error: unknown) {
+    if (error instanceof HttpError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
+    }
+
     console.error("[availability][GET] Unexpected error", { error });
 
     void recordObservabilityEvent({

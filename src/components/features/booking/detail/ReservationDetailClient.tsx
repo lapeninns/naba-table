@@ -408,7 +408,8 @@ export function ReservationDetailClient({
       party: reservation.partySize,
     });
     const slug = reservation.restaurantSlug ?? venue.slug ?? DEFAULT_RESTAURANT_SLUG;
-    router.push(`/restaurants/${slug}/book?source=rebook&reservationId=${reservation.id}`);
+    const path = slug ? `/restaurants/${slug}/book` : '/restaurants';
+    router.push(`${path}?source=rebook&reservationId=${reservation.id}`);
   }, [reservation, reservationId, router, venue.slug]);
 
   const closeEditDialog = useCallback((open: boolean) => {

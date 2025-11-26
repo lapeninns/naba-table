@@ -1,19 +1,23 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 
 import { OccasionsSection } from './OccasionsSection';
 import { OperatingHoursSection } from './OperatingHoursSection';
 import { RestaurantProfileSection } from './RestaurantProfileSection';
+import { RESTAURANT_SETTINGS_ROUTE_MAP } from './routes';
 import { ServicePeriodsSection } from './ServicePeriodsSection';
+
+import type { RestaurantSettingsView } from './types';
 
 export type OpsRestaurantSettingsClientProps = {
   defaultRestaurantId?: string | null;
+  view: RestaurantSettingsView;
 };
 
-export function OpsRestaurantSettingsClient({ defaultRestaurantId }: OpsRestaurantSettingsClientProps) {
+export function OpsRestaurantSettingsClient({ defaultRestaurantId, view }: OpsRestaurantSettingsClientProps) {
   const { memberships, activeRestaurantId, setActiveRestaurantId } = useOpsSession();
   const activeMembership = useOpsActiveMembership();
 
@@ -51,26 +55,29 @@ export function OpsRestaurantSettingsClient({ defaultRestaurantId }: OpsRestaura
 
   const restaurantName = selectedMembership?.restaurantName ?? 'Selected restaurant';
 
+  const viewConfig = RESTAURANT_SETTINGS_ROUTE_MAP[view];
+  const renderByView: Record<RestaurantSettingsView, (context: { restaurantId: string | null; restaurantName: string }) => ReactNode> = {
+    profile: ({ restaurantId }) => <RestaurantProfileSection restaurantId={restaurantId} />,
+    'operating-hours': ({ restaurantId }) => <OperatingHoursSection restaurantId={restaurantId} />,
+    occasions: () => <OccasionsSection />,
+    'service-periods': ({ restaurantId }) => <ServicePeriodsSection restaurantId={restaurantId} />,
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-2">
-        <h2 className="text-2xl font-semibold tracking-tight text-foreground">Restaurant Settings</h2>
-        <p className="text-sm text-muted-foreground">
-          Configure your restaurant profile, operating hours, and service periods.
-        </p>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Restaurant Settings</p>
+          <h2 className="text-2xl font-semibold tracking-tight text-foreground">{viewConfig.title}</h2>
+        </div>
+        <p className="text-sm text-muted-foreground">{viewConfig.description}</p>
         <p className="text-xs text-muted-foreground">
           Currently editing settings for <span className="font-medium text-foreground">{restaurantName}</span>. Use the
           sidebar switcher to change restaurants.
         </p>
       </div>
 
-      <RestaurantProfileSection restaurantId={selectedRestaurantId} />
-
-      <OperatingHoursSection restaurantId={selectedRestaurantId} />
-
-      <OccasionsSection />
-
-      <ServicePeriodsSection restaurantId={selectedRestaurantId} />
+      {renderByView[view]({ restaurantId: selectedRestaurantId, restaurantName })}
     </div>
   );
 }
