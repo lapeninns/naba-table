@@ -317,7 +317,15 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     client: supabase,
   });
 
-  const tables = await tablesPromise;
+  const tables = (await tablesPromise).filter((table) => {
+    const category = (table.category ?? "").toString().toLowerCase();
+    const bookingType = (booking.booking_type ?? "").toString().toLowerCase();
+    // Bar tables are drinks-only; avoid them for non-drinks bookings to prevent DB constraint failures.
+    if (category === "bar" && bookingType && bookingType !== "drinks") {
+      return false;
+    }
+    return true;
+  });
   const adjacency = await loadAdjacency(
     booking.restaurant_id,
     tables.map((table) => table.id),

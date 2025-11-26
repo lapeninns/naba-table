@@ -150,6 +150,8 @@ export function filterAvailableTables(
     if (table.active === false) return false;
     const status = (table.status ?? "").toString().toLowerCase();
     if (status !== "available") return false;
+    // If more capacity than a single table is needed, only movable tables can be merged.
+    if (table.mobility !== "movable" && (table.capacity ?? 0) < partySize) return false;
     const capacity = table.capacity ?? 0;
     if (!Number.isFinite(capacity) || capacity <= 0) return false;
     if (!allowPartial && capacity < partySize) return false;

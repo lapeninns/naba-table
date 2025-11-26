@@ -6,6 +6,7 @@ import { buildReservationDraft } from '../transformers';
 describe('buildReservationDraft', () => {
   it('fails when time is missing', () => {
     const details = getInitialDetails();
+    details.restaurantId = 'restaurant-1';
     details.time = '';
 
     const result = buildReservationDraft(details, 'customer');
@@ -18,6 +19,7 @@ describe('buildReservationDraft', () => {
 
   it('returns normalized draft when details are valid', () => {
     const details = getInitialDetails();
+    details.restaurantId = 'restaurant-1';
     details.time = '18:00';
     details.party = 2;
     details.bookingType = 'dinner';
@@ -55,6 +57,7 @@ describe('buildReservationDraft', () => {
 
   it('allows missing email/phone in ops mode', () => {
     const details = getInitialDetails();
+    details.restaurantId = 'restaurant-1';
     details.time = '12:30';
     details.party = 3;
     details.bookingType = 'lunch';
