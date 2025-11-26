@@ -426,7 +426,7 @@ export function ReservationDetailClient({
 
   if (isLoading && !reservation) {
     return (
-      <section className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-12" aria-busy>
+      <section className="mx-auto flex w-full max-w-[80vw] flex-col gap-6 px-4 py-12" aria-busy>
         <Skeleton className="h-5 w-24" />
         <Skeleton className="h-10 w-2/3" />
         <Skeleton className="h-32 w-full" />
@@ -437,7 +437,7 @@ export function ReservationDetailClient({
 
   if (isError && !reservation) {
     return (
-      <section className="mx-auto w-full max-w-3xl space-y-6 px-4 py-12">
+      <section className="mx-auto w-full max-w-[80vw] space-y-6 px-4 py-12">
         <Alert variant="destructive">
           <div className="space-y-2">
             <AlertTitle>Unable to load reservation</AlertTitle>
@@ -544,7 +544,7 @@ export function ReservationDetailClient({
       ) : null}
 
       <div className="min-h-[80vh] flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-500">
-        <div className="w-full max-w-3xl space-y-6">
+        <div className="w-full max-w-[80vw] space-y-6">
 
           {/* Navigation */}
           <Link

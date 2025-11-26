@@ -49,7 +49,7 @@ export function BookingListClient() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto w-full max-w-5xl space-y-8 py-8">
+      <div className="mx-auto w-full max-w-[80vw] space-y-8 py-8">
         <div className="flex items-center justify-between">
           <Skeleton className="h-10 w-48" />
           <Skeleton className="h-10 w-32" />
@@ -65,7 +65,7 @@ export function BookingListClient() {
 
   if (isError) {
     return (
-      <div className="mx-auto w-full max-w-5xl py-16 text-center">
+      <div className="mx-auto w-full max-w-[80vw] py-16 text-center">
         <div className="mx-auto mb-6 inline-flex h-20 w-20 items-center justify-center rounded-full bg-destructive/10">
           <CalendarX className="h-10 w-10 text-destructive" aria-hidden="true" />
         </div>
@@ -86,7 +86,7 @@ export function BookingListClient() {
 
   if (!hasAnyBookings) {
     return (
-      <div className="mx-auto w-full max-w-5xl py-24 text-center">
+      <div className="mx-auto w-full max-w-[80vw] py-24 text-center">
         <div className="mx-auto mb-6 inline-flex h-24 w-24 items-center justify-center rounded-full bg-primary/5">
           <CalendarClock className="h-12 w-12 text-primary" aria-hidden="true" />
         </div>
@@ -109,7 +109,7 @@ export function BookingListClient() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-8 py-8">
+    <div className="mx-auto w-full max-w-[80vw] space-y-8 py-8">
       {/* Header */}
       <header className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">

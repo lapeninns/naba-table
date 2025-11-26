@@ -77,13 +77,13 @@ export default async function RestaurantItemPage({ params }: { params: RoutePara
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100">
       <nav className="border-b border-slate-200 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/70">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-6 py-4 sm:px-8 lg:px-10">
+        <div className="mx-auto flex w-full max-w-[80vw] items-center justify-between gap-3 px-6 py-4 sm:px-8 lg:px-10">
           <span className="text-sm text-slate-500">Booking flow</span>
           <span className="text-sm text-slate-500">Local timezone</span>
         </div>
       </nav>
 
-      <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-10 sm:px-8 lg:px-10 lg:py-14">
+      <section className="mx-auto flex w-full max-w-[80vw] flex-col gap-8 px-6 py-10 sm:px-8 lg:px-10 lg:py-14">
         <header className="space-y-4" role="region" aria-labelledby="restaurant-heading">
           <div className="flex flex-wrap items-center gap-3">
             <Badge variant="secondary" className="bg-primary/10 text-primary">

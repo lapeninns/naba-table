@@ -130,6 +130,10 @@ const baseEnvSchema = z
     ENABLE_AVAILABILITY_CACHE: booleanStringOptional,
     ALLOCATIONS_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).optional(),
     STRATEGIC_DEMAND_PROFILE_PATH: z.string().optional(),
+    OPS_SUMMARY_CACHE_TTL_MS: z.coerce.number().int().min(0).max(600000).optional(),
+    OPS_CHANGES_CACHE_TTL_MS: z.coerce.number().int().min(0).max(600000).optional(),
+    OPS_RESTAURANT_META_CACHE_TTL_MS: z.coerce.number().int().min(0).max(3600000).optional(),
+    OPS_CACHE_MAX_ENTRIES: z.coerce.number().int().min(1).max(500).optional(),
     // Auto-assignment feature: run allocator after booking creation and suppress initial pending email
     FEATURE_AUTO_ASSIGN_ON_BOOKING: booleanStringOptional,
     FEATURE_AUTO_ASSIGN_MAX_RETRIES: z.coerce.number().int().min(0).max(10).optional(),

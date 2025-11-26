@@ -46,7 +46,7 @@ export default async function OpsLoginPage({ searchParams }: OpsLoginPageProps) 
       >
         Skip to content
       </a>
-      <div className="flex w-full max-w-5xl flex-1 flex-col items-center justify-center gap-10 px-6 py-16">
+      <div className="flex w-full max-w-[80vw] flex-1 flex-col items-center justify-center gap-10 px-6 py-16">
         <div className="space-y-3 text-center">
           <a href="https://www.sajiloreserve.com" className="text-sm font-semibold text-primary hover:underline">
             ← Back to marketing site

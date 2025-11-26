@@ -13,7 +13,7 @@ export interface PageSectionProps {
 export function PageSection({ title, description, children, className, id }: PageSectionProps) {
     return (
         <section id={id} className={cn('px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20', className)}>
-            <div className="mx-auto max-w-7xl">
+            <div className="mx-auto max-w-[80vw]">
                 {title || description ? (
                     <div className="mb-12 text-center sm:mb-16">
                         {title ? (

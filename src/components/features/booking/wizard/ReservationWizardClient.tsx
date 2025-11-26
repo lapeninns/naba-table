@@ -11,7 +11,7 @@ const ReservationWizard = dynamic(
   {
     loading: () => (
       <div className="flex min-h-[40vh] items-center justify-center bg-muted/30 p-6" role="status" aria-busy>
-        <div className="w-full max-w-2xl space-y-6 rounded-xl border border-dashed border-border/70 bg-background/80 p-6">
+        <div className="w-full max-w-[80vw] space-y-6 rounded-xl border border-dashed border-border/70 bg-background/80 p-6">
           <PlanStepSkeleton />
         </div>
       </div>

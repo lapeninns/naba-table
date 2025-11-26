@@ -467,7 +467,7 @@ export function CustomerNavbar() {
         Skip to content
       </a>
       <header className="border-b border-border/60 bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/70">
-        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
+        <div className="mx-auto w-full max-w-[80vw] px-4 sm:px-6">
           <div className="flex items-center justify-between gap-3 py-3 md:py-4">
             <div className="flex min-w-0 items-center gap-3">
               <BrandMark />

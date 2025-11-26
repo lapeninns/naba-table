@@ -4,7 +4,7 @@
 const WithWithout = () => {
   return (
     <section className="bg-base-100">
-      <div className="max-w-5xl mx-auto px-8 py-16 md:py-32 ">
+      <div className="max-w-[80vw] mx-auto px-8 py-16 md:py-32 ">
         <h2 className="text-center font-extrabold text-3xl md:text-5xl tracking-tight mb-12 md:mb-20">
           Tired of managing Stripe invoices?
         </h2>

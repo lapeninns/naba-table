@@ -169,7 +169,7 @@ function ThankYouPageContent() {
 
     return (
       <PageShell>
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+        <div className="mx-auto flex w-full max-w-[80vw] flex-col gap-6">
           <div className="space-y-3 text-center">
             <div className={`mx-auto w-fit rounded-full p-3 ${isPending ? "bg-blue-100" : "bg-green-100"}`}>
               {isPending ? (

@@ -28,7 +28,7 @@ export function PageHero({
                 className,
             )}
         >
-            <div className="relative mx-auto max-w-7xl">
+            <div className="relative mx-auto max-w-[80vw]">
                 <div className="mx-auto max-w-3xl text-center">
                     <h1
                         className={cn(

@@ -7,7 +7,7 @@ export function OwnerMarketingFooter() {
 
   return (
     <footer className="border-t border-border bg-slate-50 text-muted-foreground">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-6 py-16 md:flex-row md:items-start md:justify-between">
+      <div className="mx-auto flex w-full max-w-[80vw] flex-col gap-10 px-6 py-16 md:flex-row md:items-start md:justify-between">
         <div className="space-y-4 md:max-w-sm">
           <p className="text-xs font-semibold uppercase tracking-[0.35em] text-primary/70">Nab a Table</p>
           <h2 className="text-2xl font-semibold text-foreground">Built for restaurants, not marketplaces.</h2>
@@ -29,7 +29,7 @@ export function OwnerMarketingFooter() {
         </div>
       </div>
       <div className="border-t border-border">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-6 py-6 text-xs text-muted-foreground md:flex-row md:items-center md:justify-between">
+        <div className="mx-auto flex w-full max-w-[80vw] flex-col gap-3 px-6 py-6 text-xs text-muted-foreground md:flex-row md:items-center md:justify-between">
           <p>© {currentYear} {config.appName ?? "Nab a Table"}. All rights reserved.</p>
           <p className="text-muted-foreground">Lowering no-shows, lifting cover pacing, one service at a time.</p>
         </div>

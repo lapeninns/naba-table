@@ -38,7 +38,7 @@ export default async function ProfilePage() {
 
   return (
     <HydrationBoundary state={dehydratedState}>
-      <div className="mx-auto w-full max-w-5xl space-y-8 py-8">
+      <div className="mx-auto w-full max-w-[80vw] space-y-8 py-8">
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Your Profile</h1>
           <p className="text-muted-foreground">

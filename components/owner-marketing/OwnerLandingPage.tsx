@@ -79,7 +79,7 @@ export function OwnerLandingPage() {
   return (
     <div className="bg-background text-foreground">
       <section className="relative overflow-hidden border-b border-border bg-gradient-to-b from-white via-slate-50 to-white">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-12 px-6 py-20 lg:flex-row lg:items-center">
+        <div className="mx-auto flex w-full max-w-[80vw] flex-col gap-12 px-6 py-20 lg:flex-row lg:items-center">
           <div className="space-y-6">
             <div className="flex flex-wrap items-center gap-3 text-sm text-primary/70">
               <Badge variant="outline" className="border-border text-xs uppercase tracking-[0.3em] text-primary/70">
@@ -118,7 +118,7 @@ export function OwnerLandingPage() {
         <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-white" />
       </section>
 
-      <section className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-6 py-20">
+      <section className="mx-auto flex w-full max-w-[80vw] flex-col gap-10 px-6 py-20">
         <div className="space-y-3 text-center">
           <Badge variant="secondary" className="mx-auto w-fit uppercase tracking-[0.25em]">
             Why operators switch
@@ -154,7 +154,7 @@ export function OwnerLandingPage() {
       </section>
 
       <section className="bg-slate-50 py-20">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-6 lg:flex-row lg:items-center">
+        <div className="mx-auto flex w-full max-w-[80vw] flex-col gap-10 px-6 lg:flex-row lg:items-center">
           <div className="space-y-4 lg:w-1/2">
             <Badge variant="outline" className="w-fit border-border text-xs uppercase tracking-[0.25em] text-primary/70">
               Go live playbook
@@ -180,7 +180,7 @@ export function OwnerLandingPage() {
         </div>
       </section>
 
-      <section className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-6 py-20">
+      <section className="mx-auto flex w-full max-w-[80vw] flex-col gap-10 px-6 py-20">
         <div className="space-y-3 text-center">
           <Badge variant="secondary" className="mx-auto w-fit uppercase tracking-[0.25em]">
             Console superpowers
@@ -216,7 +216,7 @@ export function OwnerLandingPage() {
       </section>
 
       <section className="px-6 pb-24">
-        <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 rounded-3xl border border-border bg-white px-8 py-12 shadow-[0_45px_90px_-40px_rgba(15,23,42,0.35)]">
+        <div className="mx-auto flex w-full max-w-[80vw] flex-col gap-6 rounded-3xl border border-border bg-white px-8 py-12 shadow-[0_45px_90px_-40px_rgba(15,23,42,0.35)]">
           <Badge variant="secondary" className="w-fit uppercase tracking-[0.2em]">
             Ready when you are
           </Badge>

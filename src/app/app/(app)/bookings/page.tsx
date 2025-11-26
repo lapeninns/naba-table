@@ -95,7 +95,7 @@ export default async function OpsBookingsPage({
   const initialStatuses = parseStatuses(resolvedParams.statuses);
 
   return (
-    <div className="flex w-full flex-col gap-8 px-3 py-6 sm:px-4 lg:px-6">
+    <div className="mx-auto flex w-full max-w-[80vw] flex-col gap-8 px-3 py-6 sm:px-4 lg:px-6">
       <BookingErrorBoundary>
         <BookingOfflineQueueProvider>
           <OpsBookingsClient

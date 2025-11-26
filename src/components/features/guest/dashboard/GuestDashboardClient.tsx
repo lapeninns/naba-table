@@ -120,7 +120,7 @@ export function GuestDashboardClient() {
   }, [user]);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 pb-24">
+    <div className="mx-auto flex w-full max-w-[80vw] flex-col gap-8 pb-24">
       <HeroBanner state={heroState} booking={primaryBooking} userName={heroName} onShare={primaryBooking ? shareInvite : null} />
 
       {isError ? (
