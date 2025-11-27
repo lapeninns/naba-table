@@ -332,6 +332,7 @@ export async function GET(req: NextRequest) {
     from: req.nextUrl.searchParams.get("from") ?? undefined,
     to: req.nextUrl.searchParams.get("to") ?? undefined,
     sort: req.nextUrl.searchParams.get("sort") ?? undefined,
+    sortBy: req.nextUrl.searchParams.get("sortBy") ?? undefined,
     page: req.nextUrl.searchParams.get("page") ?? undefined,
     pageSize: req.nextUrl.searchParams.get("pageSize") ?? undefined,
     query: req.nextUrl.searchParams.get("query") ?? undefined,
