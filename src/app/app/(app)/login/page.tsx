@@ -2,7 +2,6 @@
 import { redirect } from "next/navigation";
 
 import { SignInForm } from "@/components/auth/SignInForm";
-import { ensureCsrfCookie } from "@/server/security/csrf";
 import { getServerComponentSupabaseClient } from "@/server/supabase";
 
 import type { Metadata } from "next";
@@ -21,7 +20,6 @@ type OpsLoginPageProps = {
 };
 
 export default async function OpsLoginPage({ searchParams }: OpsLoginPageProps) {
-  await ensureCsrfCookie();
   const supabase = await getServerComponentSupabaseClient();
   const {
     data: { user },
