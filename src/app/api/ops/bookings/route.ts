@@ -24,9 +24,9 @@ import {
 import { PastBookingError, assertBookingNotInPast, canOverridePastBooking } from "@/server/bookings/pastTimeValidation";
 import { validateBookingWindow } from "@/server/capacity";
 import { normalizeEmail, upsertCustomer } from "@/server/customers";
+import { isAutoAssignOnBookingEnabled } from "@/server/feature-flags";
 import { autoAssignAndConfirmIfPossible } from "@/server/jobs/auto-assign";
 import { enqueueBookingCreatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
-import { isAutoAssignOnBookingEnabled } from "@/server/feature-flags";
 import { recordObservabilityEvent } from "@/server/observability";
 import { getRestaurantSchedule } from "@/server/restaurants/schedule";
 import { consumeRateLimit } from "@/server/security/rate-limit";
@@ -39,7 +39,7 @@ import { opsWalkInBookingSchema, type OpsWalkInBookingPayload } from "./schema";
 import type { BookingType } from "@/lib/enums";
 import type { BookingRecord } from "@/server/bookings";
 import type { Json, Tables } from "@/types/supabase";
-import type { NextRequest} from "next/server";
+import type { NextRequest } from "next/server";
 
 const OPS_CHANNEL = "ops.walkin";
 const OPS_WALK_IN_SOURCE = "walk-in";
@@ -218,13 +218,18 @@ type OpsBookingRow = Pick<
   Tables<"bookings">,
   "id" | "start_at" | "end_at" | "booking_date" | "start_time" | "end_time" | "party_size" | "status" | "notes" | "restaurant_id" | "customer_name" | "customer_email" | "customer_phone" | "created_at"
 > & {
-  restaurants?: { name: string | null; reservation_interval_minutes?: number | null } | { name: string | null; reservation_interval_minutes?: number | null }[] | null;
+  restaurants?:
+  | { name: string | null; slug?: string | null; timezone?: string | null; reservation_interval_minutes?: number | null }
+  | { name: string | null; slug?: string | null; timezone?: string | null; reservation_interval_minutes?: number | null }[]
+  | null;
 };
 
 type BookingDTO = {
   id: string;
-  restaurantId: string;
+  restaurantId: string | null;
   restaurantName: string;
+  restaurantSlug: string | null;
+  restaurantTimezone: string | null;
   partySize: number;
   startIso: string;
   endIso: string;
@@ -397,7 +402,7 @@ export async function GET(req: NextRequest) {
   let query = serviceSupabase
     .from("bookings")
     .select(
-      "id, start_at, end_at, booking_date, start_time, end_time, party_size, status, notes, restaurant_id, customer_name, customer_email, customer_phone, created_at, restaurants(name, reservation_interval_minutes)",
+      "id, start_at, end_at, booking_date, start_time, end_time, party_size, status, notes, restaurant_id, customer_name, customer_email, customer_phone, created_at, restaurants(name, slug, timezone, reservation_interval_minutes)",
       { count: "exact" },
     )
     .eq("restaurant_id", targetRestaurantId);
@@ -451,6 +456,8 @@ export async function GET(req: NextRequest) {
       id: row.id,
       restaurantId: row.restaurant_id,
       restaurantName: restaurantRelation?.name ?? "",
+      restaurantSlug: restaurantRelation?.slug ?? null,
+      restaurantTimezone: restaurantRelation?.timezone ?? null,
       partySize: row.party_size,
       startIso,
       endIso,
@@ -861,7 +868,6 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
     clientRequestId,
     userAgent,
     clientIp,
-    contactEmail,
   } = params;
 
   const schedule = await getRestaurantSchedule(payload.restaurantId, {

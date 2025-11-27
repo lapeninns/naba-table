@@ -140,6 +140,9 @@ export type OpsBookingListItem = {
   id: string;
   restaurantId: string | null;
   restaurantName: string;
+  restaurantSlug: string | null;
+  restaurantTimezone?: string | null;
+  reservationIntervalMinutes?: number | null;
   partySize: number;
   startIso: string;
   endIso: string;
