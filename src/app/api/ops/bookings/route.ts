@@ -422,7 +422,18 @@ export async function GET(req: NextRequest) {
   }
 
   const orderColumn = params.sortBy === "created_at" ? "created_at" : "start_at";
-  query = query.order(orderColumn, { ascending: params.sort === "asc" });
+  const isCreatedAtSort = orderColumn === "created_at";
+  const sortAscending = isCreatedAtSort ? false : params.sort === "asc";
+
+  query = query.order(orderColumn, {
+    ascending: sortAscending,
+    nullsLast: isCreatedAtSort,
+  });
+
+  if (isCreatedAtSort) {
+    // Ensure deterministic ordering when creation timestamps tie
+    query = query.order("id", { ascending: false });
+  }
 
   if (params.query) {
     const escaped = sanitizeSearchTerm(params.query);
