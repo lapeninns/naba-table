@@ -186,7 +186,7 @@ test_confirm_same_tenant() {
 test_bookings_tenant_filtered() {
     log_info "Test 5: Bookings query respects tenant context"
     
-    if api_request GET "/api/ops/bookings?restaurantId=test-restaurant-1" "" 200; then
+    if api_request GET "/api/app/bookings?restaurantId=test-restaurant-1" "" 200; then
         log_success "Tenant-filtered bookings query succeeded"
         ((PASSED++))
         return 0

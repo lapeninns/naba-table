@@ -20,7 +20,7 @@ import { SettingsCard, SettingsSectionHeader } from './shared';
 import { DAYS_OF_WEEK } from './types';
 
 import type { OverrideErrors, OverrideRow, WeeklyErrors, WeeklyRow } from './types';
-import type { OperatingHoursSnapshot } from '@/services/ops/restaurants';
+import type { OperatingHoursSnapshot } from '@/services/app/restaurants';
 
 
 type OperatingHoursSectionProps = {

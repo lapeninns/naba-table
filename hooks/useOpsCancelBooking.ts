@@ -29,7 +29,7 @@ export function useOpsCancelBooking() {
 
   return useMutation<OpsCancelBookingResponse, HttpError, OpsCancelBookingInput, OpsCancelContext>({
     mutationFn: ({ id }) =>
-      fetchJson<OpsCancelBookingResponse>(`/api/ops/bookings/${id}`, {
+      fetchJson<OpsCancelBookingResponse>(`/api/app/bookings/${id}`, {
         method: 'DELETE',
       }),
     onMutate: async ({ id }) => {

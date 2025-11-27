@@ -23,7 +23,7 @@ export function useOpsUpdateBooking() {
 
   return useMutation<BookingDTO, HttpError, OpsUpdateBookingInput>({
     mutationFn: async ({ id, ...body }) =>
-      fetchJson<BookingDTO>(`/api/ops/bookings/${id}`, {
+      fetchJson<BookingDTO>(`/api/app/bookings/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

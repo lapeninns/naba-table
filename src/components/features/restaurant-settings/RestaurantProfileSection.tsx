@@ -16,7 +16,7 @@ import { useOpsRestaurantDetails, useOpsUpdateRestaurantDetails } from '@/hooks'
 import { RestaurantLogoUploader } from './RestaurantLogoUploader';
 import { SettingsCard } from './shared/SettingsCard';
 
-import type { UpdateRestaurantInput } from '@/app/api/ops/restaurants/schema';
+import type { UpdateRestaurantInput } from '@/app/api/app/restaurants/schema';
 
 const EMPTY_VALUES: RestaurantDetailsFormValues = {
   name: '',

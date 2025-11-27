@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/http/fetchJson';
 import { queryKeys } from '@/lib/query/keys';
 
-import type { RestaurantsListResponse } from '@/app/api/ops/restaurants/schema';
+import type { RestaurantsListResponse } from '@/app/api/app/restaurants/schema';
 
 export type RestaurantsFilters = {
   page?: number;
@@ -19,7 +19,7 @@ async function fetchRestaurants(filters: RestaurantsFilters): Promise<Restaurant
   if (filters.search) params.set('search', filters.search);
   if (filters.sort) params.set('sort', filters.sort);
 
-  const response = await fetchJson<RestaurantsListResponse>(`/api/ops/restaurants?${params.toString()}`);
+  const response = await fetchJson<RestaurantsListResponse>(`/api/app/restaurants?${params.toString()}`);
 
   return response;
 }

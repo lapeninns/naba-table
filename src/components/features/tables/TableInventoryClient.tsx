@@ -51,8 +51,8 @@ import type {
   CreateTablePayload,
   TableInventory,
   UpdateTablePayload,
-} from '@/services/ops/tables';
-import type { Zone } from '@/services/ops/zones';
+} from '@/services/app/tables';
+import type { Zone } from '@/services/app/zones';
 
 type ZoneStatusFilter = 'all' | 'active' | 'inactive';
 type TableStatusFilter = 'all' | 'active' | 'inactive';

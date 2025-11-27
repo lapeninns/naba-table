@@ -11,7 +11,7 @@ import { useUpdateRestaurant } from '@/hooks/ops/useUpdateRestaurant';
 
 import { RestaurantDetailsForm } from './RestaurantDetailsForm';
 
-import type { RestaurantDTO, UpdateRestaurantInput } from '@/app/api/ops/restaurants/schema';
+import type { RestaurantDTO, UpdateRestaurantInput } from '@/app/api/app/restaurants/schema';
 
 type EditRestaurantDialogProps = {
   open: boolean;
