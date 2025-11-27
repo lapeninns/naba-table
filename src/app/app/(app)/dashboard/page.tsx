@@ -1,5 +1,5 @@
 export const dynamic = "force-dynamic";
 
-export default function DashboardLanding() {
+export default function OpsDashboardLanding() {
   return null;
 }
