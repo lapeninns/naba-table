@@ -9,8 +9,9 @@ import type { NextRequest } from "next/server";
 
 const TOKEN_LENGTH_BYTES = 32;
 
-function shouldUseSecureCookie() {
-  const proto = headers().get("x-forwarded-proto");
+async function shouldUseSecureCookie() {
+  const headerList = await headers();
+  const proto = headerList.get("x-forwarded-proto");
   if (proto) {
     return proto.split(",")[0]?.trim().toLowerCase() === "https";
   }
@@ -21,7 +22,7 @@ export async function ensureCsrfCookie(): Promise<string> {
   const cookieStore = await cookies();
   const existingToken = cookieStore.get(CSRF_COOKIE_NAME)?.value;
   const token = existingToken ?? randomBytes(TOKEN_LENGTH_BYTES).toString("hex");
-  const secure = shouldUseSecureCookie();
+  const secure = await shouldUseSecureCookie();
 
   if (!existingToken) {
     cookieStore.set({
