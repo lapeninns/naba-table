@@ -11,7 +11,7 @@ import { useOpsRestaurantLogoUpload } from '@/hooks';
 import { cn } from '@/lib/utils';
 
 import type { HttpError } from '@/lib/http/errors';
-import type { RestaurantProfile } from '@/services/app/restaurants';
+import type { RestaurantProfile } from '@/services/ops/restaurants';
 import type { UseMutationResult } from '@tanstack/react-query';
 
 const ALLOWED_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];

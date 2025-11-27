@@ -20,8 +20,8 @@ import {
   useOpsBookingsList,
   useOpsBookingStatusSummary,
 } from '@/hooks';
-import { useOpsBooking } from '@/hooks/app/useOpsBooking';
-import { useOpsBookingLifecycleActions } from '@/hooks/app/useOpsBookingStatusActions';
+import { useOpsBooking } from '@/hooks/ops/useOpsBooking';
+import { useOpsBookingLifecycleActions } from '@/hooks/ops/useOpsBookingStatusActions';
 import { useOpsCancelBooking } from '@/hooks/useOpsCancelBooking';
 import { useOpsUpdateBooking } from '@/hooks/useOpsUpdateBooking';
 
@@ -418,7 +418,7 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
                 </Badge>
               ) : null}
             </div>
-          </div>
+        </div>
           <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
             <Button asChild size="sm" className="h-9 px-4">
               <Link href="/walk-in">Log walk-in</Link>

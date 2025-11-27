@@ -10,7 +10,7 @@ import type {
   DeleteRestaurantResponse,
   RestaurantDTO,
   RestaurantsListResponse,
-} from '@/app/api/app/restaurants/schema';
+} from '@/app/api/ops/restaurants/schema';
 import type { HttpError } from '@/lib/http/errors';
 
 
@@ -29,7 +29,7 @@ export function useDeleteRestaurant() {
 
   return useMutation<DeleteRestaurantResponse, HttpError, DeleteRestaurantInput, DeleteRestaurantContext>({
     mutationFn: ({ id }) =>
-      fetchJson<DeleteRestaurantResponse>(`/api/app/restaurants/${id}`, {
+      fetchJson<DeleteRestaurantResponse>(`/api/ops/restaurants/${id}`, {
         method: 'DELETE',
       }),
     onMutate: async ({ id }) => {

@@ -56,7 +56,7 @@ async function prefetchOpsCustomers(queryClient: QueryClient, params: URLSearchP
     .map(({ name, value }) => `${name}=${value}`)
     .join('; ');
   const origin = resolveOrigin(requestHeaders);
-  const url = `${origin}/api/app/customers?${params.toString()}`;
+  const url = `${origin}/api/ops/customers?${params.toString()}`;
   const keyParams = Object.fromEntries(params.entries());
 
   try {

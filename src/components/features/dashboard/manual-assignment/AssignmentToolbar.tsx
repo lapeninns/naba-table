@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
-import type { ManualSelectionCheck } from '@/services/app/bookings';
+import type { ManualSelectionCheck } from '@/services/ops/bookings';
 
 type AssignmentToolbarProps = {
     selectedCount: number;

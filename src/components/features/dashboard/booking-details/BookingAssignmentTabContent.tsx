@@ -21,13 +21,13 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useBookingService } from '@/contexts/ops-services';
-import { useAssignmentContext } from '@/hooks/app/useAssignmentContext';
+import { useAssignmentContext } from '@/hooks/ops/useAssignmentContext';
 import { useToast } from '@/hooks/use-toast';
 import { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
 import { generateIdempotencyKey } from '@/lib/utils/idempotency';
 
-import type { ManualSelectionCheck, ManualValidationResult } from '@/services/app/bookings';
+import type { ManualSelectionCheck, ManualValidationResult } from '@/services/ops/bookings';
 import type { OpsTodayBooking } from '@/types/ops';
 
 type BookingAssignmentTabContentProps = {

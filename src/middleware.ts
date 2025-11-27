@@ -60,7 +60,7 @@ async function handleRouting(req: NextRequest): Promise<NextResponse> {
       if (OPS_API_SERVICES.includes(service) && !isPublicRestaurantSchedule) {
         return NextResponse.rewrite(
           new URL(
-            url.pathname.replace(`/api/${service}`, `/api/app/${service}`) +
+            url.pathname.replace(`/api/${service}`, `/api/ops/${service}`) +
             (searchParams.length > 0 ? `?${searchParams}` : ""),
             req.url,
           ),
