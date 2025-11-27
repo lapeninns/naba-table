@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 
-import type { RestaurantDTO } from '@/app/api/app/restaurants/schema';
+import type { RestaurantDTO } from '@/app/api/ops/restaurants/schema';
 
 type RestaurantsTableProps = {
   restaurants: RestaurantDTO[];

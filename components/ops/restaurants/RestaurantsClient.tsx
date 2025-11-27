@@ -16,7 +16,7 @@ import { DeleteRestaurantDialog } from './DeleteRestaurantDialog';
 import { EditRestaurantDialog } from './EditRestaurantDialog';
 import { RestaurantsTable } from './RestaurantsTable';
 
-import type { RestaurantDTO } from '@/app/api/app/restaurants/schema';
+import type { RestaurantDTO } from '@/app/api/ops/restaurants/schema';
 
 export function RestaurantsClient() {
   const [page, setPage] = useState(1);

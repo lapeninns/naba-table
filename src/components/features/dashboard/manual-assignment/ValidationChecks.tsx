@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-import type { ManualSelectionCheck } from '@/services/app/bookings';
+import type { ManualSelectionCheck } from '@/services/ops/bookings';
 
 type ValidationChecksProps = {
   checks: ManualSelectionCheck[];

@@ -1,28 +1,27 @@
 'use client';
 
-import { format, parseISO } from 'date-fns';
-import { AlertCircle, Calendar as CalendarIcon, ChevronRight, Clock, MapPin, RotateCw, Search, Users } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useOpsSession } from '@/contexts/ops-session';
-import { useOpsTableTimeline } from '@/hooks/app/useOpsTableTimeline';
+import { useOpsTableTimeline } from '@/hooks/ops/useOpsTableTimeline';
 import { cn } from '@/lib/utils';
 
 import type { TableTimelineResponse, TableTimelineSegment, TableTimelineSegmentState } from '@/types/ops';
 
-
+import { AlertCircle, Calendar as CalendarIcon, ChevronRight, Clock, MapPin, RotateCw, Search, Users } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 type SelectedSegment = {
   table: TableTimelineResponse['tables'][number]['table'];

@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useCustomerService } from "@/contexts/ops-services";
 import { queryKeys } from "@/lib/query/keys";
 
-import type { CustomerListParams } from "@/services/app/customers";
+import type { CustomerListParams } from "@/services/ops/customers";
 import type { OpsCustomersPage } from "@/types/ops";
 
 export type CustomerFilters = CustomerListParams;

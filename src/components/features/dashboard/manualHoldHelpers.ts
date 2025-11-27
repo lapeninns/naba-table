@@ -1,6 +1,6 @@
 import { HttpError } from '@/lib/http/errors';
 
-import type { ManualValidationResult } from '@/services/app/bookings';
+import type { ManualValidationResult } from '@/services/ops/bookings';
 
 export function isManualHoldValidationError(error: unknown): error is HttpError {
   return error instanceof HttpError && error.status === 409 && error.code === 'VALIDATION_FAILED';

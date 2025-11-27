@@ -70,7 +70,7 @@ export function useOpsBookings(filters: OpsBookingsFilters): UseQueryResult<Book
 
   return useQuery<BookingsPage, HttpError, BookingsPage, OpsBookingsListKey>({
     queryKey: queryKeys.opsBookings.list(queryKeyParams),
-    queryFn: () => fetchJson<BookingsPage>(`/api/app/bookings?${search}`),
+    queryFn: () => fetchJson<BookingsPage>(`/api/ops/bookings?${search}`),
     placeholderData: keepPreviousData,
     enabled: Boolean(filters.restaurantId),
   });

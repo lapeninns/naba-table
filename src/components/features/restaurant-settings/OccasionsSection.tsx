@@ -21,12 +21,12 @@ import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { useOccasionService } from '@/contexts/ops-services';
-import { useOpsOccasions } from '@/hooks/app/useOccasions';
+import { useOpsOccasions } from '@/hooks/ops/useOccasions';
 import { queryKeys } from '@/lib/query/keys';
 
 import { SettingsCard } from './shared';
 
-import type { OpsOccasion } from '@/services/app/occasions';
+import type { OpsOccasion } from '@/services/ops/occasions';
 
 const defaultAvailability = '[\n  {"kind": "anytime"}\n]';
 

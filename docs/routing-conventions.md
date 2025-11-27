@@ -28,7 +28,7 @@ All API routes follow a hierarchical structure under `/src/app/api/`. Routes are
 ├── availability/          # Availability checking
 ├── profile/              # User profile management
 ├── team/                 # Team member invitations
-├── app/                  # Operations/staff management
+├── ops/                  # Operations/staff management
 │   ├── bookings/         # Staff booking management
 │   ├── restaurants/      # Restaurant management
 │   ├── tables/           # Table management
@@ -60,7 +60,7 @@ API routes follow this pattern:
 - `GET /api/bookings/[id]` - Get booking details
 - `PUT /api/bookings/[id]` - Update booking
 - `DELETE /api/bookings/[id]` - Delete booking
-- `POST /api/app/bookings/[id]/check-in` - Check-in action
+- `POST /api/ops/bookings/[id]/check-in` - Check-in action
 
 ### Versioning
 
@@ -151,7 +151,7 @@ For nested resources, use generic `[id]` at each level:
 
 ```
 ✓ /api/bookings/[id]/tables/[id]
-✓ /api/app/restaurants/[id]/details
+✓ /api/ops/restaurants/[id]/details
 
 ✗ /api/bookings/[bookingId]/tables/[tableId]
 ✗ /api/bookings/[id]/reservations/[reservationId]
@@ -179,7 +179,7 @@ Authorization is **NOT** enforced at the route level through path structure. Ins
 
 **Protected routes** (auth required):
 
-- `/api/app/*` - All operations routes
+- `/api/ops/*` - All operations routes
 - `/api/profile` - User profile
 - `/api/team/invitations` - Team management
 
@@ -207,12 +207,12 @@ DELETE /api/resource/[id]    - Delete resource
 For non-CRUD operations, use descriptive action names:
 
 ```
-POST   /api/app/bookings/[id]/check-in          - Action: Check in
-POST   /api/app/bookings/[id]/check-out         - Action: Check out
-POST   /api/app/bookings/[id]/assign-tables    - Action: Assign tables
-DELETE /api/app/bookings/[id]/tables/[id]      - Action: Unassign table
-POST   /api/app/bookings/[id]/no-show          - Action: Mark no-show
-PATCH  /api/app/bookings/[id]/status           - Action: Update status
+POST   /api/ops/bookings/[id]/check-in          - Action: Check in
+POST   /api/ops/bookings/[id]/check-out         - Action: Check out
+POST   /api/ops/bookings/[id]/assign-tables    - Action: Assign tables
+DELETE /api/ops/bookings/[id]/tables/[id]      - Action: Unassign table
+POST   /api/ops/bookings/[id]/no-show          - Action: Mark no-show
+PATCH  /api/ops/bookings/[id]/status           - Action: Update status
 ```
 
 ### Query Parameters
@@ -222,7 +222,7 @@ Use query parameters for filtering, pagination, and sorting:
 ```
 GET /api/bookings?email=user@example.com&phone=07123456789
 GET /api/bookings?me=1&page=1&pageSize=10&sort=asc&status=confirmed
-GET /api/app/bookings?restaurantId=uuid&from=2024-01-01&to=2024-12-31
+GET /api/ops/bookings?restaurantId=uuid&from=2024-01-01&to=2024-12-31
 ```
 
 ---
@@ -239,11 +239,11 @@ GET /api/app/bookings?restaurantId=uuid&from=2024-01-01&to=2024-12-31
 ### File Structure
 
 ```
-✓ /api/app/bookings/[id]/check-in/route.ts
+✓ /api/ops/bookings/[id]/check-in/route.ts
 ✓ /api/restaurants/[slug]/schedule/route.ts
 ✓ /app/seating/floor-plan/page.tsx
 
-✗ /api/app/bookings/[id]/checkIn/route.ts
+✗ /api/ops/bookings/[id]/checkIn/route.ts
 ✗ /api/restaurants/[slug]/Schedule/route.ts
 ✗ /app/seating/floorPlan/page.tsx
 ```
@@ -284,17 +284,17 @@ POST /api/bookings
 
 // Retrieve
 GET /api/bookings/[id]
-GET /api/app/bookings?filters...
+GET /api/ops/bookings?filters...
 → Returns: { items: Booking[], pageInfo: PageInfo }
 
 // Update
-PATCH /api/app/bookings/[id]/status
-PUT /api/app/restaurants/[id]/details
+PATCH /api/ops/bookings/[id]/status
+PUT /api/ops/restaurants/[id]/details
 → Returns: Updated resource
 
 // Delete
-DELETE /api/app/bookings/[id]
-DELETE /api/app/bookings/[id]/tables/[id]
+DELETE /api/ops/bookings/[id]
+DELETE /api/ops/bookings/[id]/tables/[id]
 → Returns: { success: true } or error
 ```
 
@@ -335,7 +335,7 @@ If you encounter old route patterns, migrate as follows:
 | Old                     | New                                   | Notes                          |
 | ----------------------- | ------------------------------------- | ------------------------------ |
 | `/api/v1/*`             | `/api/*`                              | Consolidated in latest version |
-| `/api/ops/*`            | `/api/app/*`                          | Operations routes consolidated |
+| `/api/owner/*`          | `/api/ops/*`                          | Owner routes now use ops       |
 | `/api/internal/test/*`  | `/api/test/*`                         | Test routes consolidated       |
 | `/(guest-experience)/*` | `/guest/(guest)/(guest-experience)/*` | Moved to guest portal          |
 | `[reservationId]`       | `[id]`                                | Standardized parameter naming  |
@@ -391,7 +391,7 @@ Guard: Protected by `guardTestEndpoint()` - only available in development/test e
 ### Complete API Endpoint
 
 ```typescript
-// /api/app/bookings/[id]/check-in/route.ts
+// /api/ops/bookings/[id]/check-in/route.ts
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 

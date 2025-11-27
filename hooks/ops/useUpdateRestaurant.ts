@@ -11,7 +11,7 @@ import type {
   RestaurantResponse,
   RestaurantDTO,
   RestaurantsListResponse,
-} from '@/app/api/app/restaurants/schema';
+} from '@/app/api/ops/restaurants/schema';
 import type { HttpError } from '@/lib/http/errors';
 
 
@@ -30,7 +30,7 @@ export function useUpdateRestaurant() {
 
   return useMutation<RestaurantResponse, HttpError, UpdateRestaurantMutationInput, UpdateRestaurantContext>({
     mutationFn: ({ id, data }) =>
-      fetchJson<RestaurantResponse>(`/api/app/restaurants/${id}`, {
+      fetchJson<RestaurantResponse>(`/api/ops/restaurants/${id}`, {
         method: 'PATCH',
         body: JSON.stringify(data),
       }),

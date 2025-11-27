@@ -8,7 +8,7 @@ import type {
   ManualAssignmentConflict,
   ManualAssignmentContextHold,
   ManualAssignmentTable,
-} from '@/services/app/bookings';
+} from '@/services/ops/bookings';
 
 type TableFloorPlanProps = {
   bookingId: string;

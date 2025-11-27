@@ -13,7 +13,7 @@ import { useOpsCreateTeamInvite } from '@/hooks';
 import { RESTAURANT_ROLE_OPTIONS } from '@/lib/owner/auth/roles';
 
 import type { RestaurantRole } from '@/lib/owner/auth/roles';
-import type { TeamInvite } from '@/services/app/team';
+import type { TeamInvite } from '@/services/ops/team';
 
 type TeamInviteFormProps = {
   restaurantId: string;
@@ -52,7 +52,7 @@ export function TeamInviteForm({ restaurantId }: TeamInviteFormProps) {
       });
       setLastInvite(result);
       form.reset({ email: '', role: values.role });
-    } catch {
+    } catch (error) {
       // errors surfaced via toast in mutation hook
     }
   };

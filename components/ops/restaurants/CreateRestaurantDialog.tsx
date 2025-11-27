@@ -17,7 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useCreateRestaurant } from '@/hooks/ops/useCreateRestaurant';
 import { cn } from '@/lib/utils';
 
-import type { CreateRestaurantInput } from '@/app/api/app/restaurants/schema';
+import type { CreateRestaurantInput } from '@/app/api/ops/restaurants/schema';
 
 type CreateRestaurantDialogProps = {
   open: boolean;
