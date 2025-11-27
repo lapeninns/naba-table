@@ -1,0 +1,10 @@
+HTTP/1.1 400 Bad Request
+set-cookie: csrf_token=e4aaa35424854c01b9990352f59a4c76; Path=/; SameSite=lax
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+content-type: application/json
+Date: Thu, 27 Nov 2025 10:41:55 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{"error":"Invalid query parameters","details":{"formErrors":[],"fieldErrors":{"date":["Invalid input: expected string, received null"],"partySize":["Too small: expected number to be >=1"]}}}

@@ -17,6 +17,7 @@ related_tickets: []
 ## Test Outcomes
 
 - [x] `pnpm run build` (passes after fixes; validates TypeScript compilation on Next.js 16.0.3).
+- [x] `/app/login` no longer throws cookie-write error in build after moving CSRF issuance to middleware and guarding RSC cookie writes (verified via successful build and middleware-level CSRF issuance).
 
 ## Notes
 

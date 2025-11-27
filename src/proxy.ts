@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { CSRF_COOKIE_MAX_AGE_SECONDS, CSRF_COOKIE_NAME } from "@/lib/security/csrf";
+
 import type { NextRequest } from "next/server";
 
 export const config = {
@@ -30,8 +32,6 @@ const OPS_API_SERVICES = [
   "team",
   "zones",
 ];
-
-const CSRF_COOKIE_NAME = "csrf_token";
 
 async function handleRouting(req: NextRequest): Promise<NextResponse> {
   const url = req.nextUrl;
@@ -114,6 +114,7 @@ export default async function proxy(req: NextRequest) {
       sameSite: "lax",
       secure: process.env.NODE_ENV !== "development",
       path: "/",
+      maxAge: CSRF_COOKIE_MAX_AGE_SECONDS,
     });
   }
 

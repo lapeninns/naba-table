@@ -19,6 +19,7 @@ related_tickets: []
 
 - [x] Update `shouldUseSecureCookie()` to await `headers()` and reuse the returned `ReadonlyHeaders`.
 - [x] Reorder `parseBooleanEnv` so it is declared before first use in `server/security/rate-limit.ts`.
+- [x] Align middleware CSRF cookie name with app expectation and set maxAge; make `ensureCsrfCookie` safe in RSC contexts; remove login-page cookie write.
 
 ## Tests / Verification
 

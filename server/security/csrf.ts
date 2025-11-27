@@ -24,7 +24,7 @@ export async function ensureCsrfCookie(): Promise<string> {
   const token = existingToken ?? randomBytes(TOKEN_LENGTH_BYTES).toString("hex");
   const secure = await shouldUseSecureCookie();
 
-  if (!existingToken) {
+  if (!existingToken && typeof (cookieStore as { set?: unknown }).set === "function") {
     cookieStore.set({
       name: CSRF_COOKIE_NAME,
       value: token,

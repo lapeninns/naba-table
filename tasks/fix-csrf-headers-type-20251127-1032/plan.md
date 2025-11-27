@@ -18,12 +18,15 @@ Restore the production build by updating CSRF helper code to match Next.js 16 as
 
 - [ ] `pnpm run build` completes without the TypeScript error about `headers().get`.
 - [ ] `pnpm run build` completes without the `parseBooleanEnv` temporal dead zone error in `server/security/rate-limit.ts`.
+- [ ] Visiting `/app/login` no longer throws “Cookies can only be modified in a Server Action or Route Handler”; CSRF cookie is set via middleware instead.
 - [ ] CSRF cookie logic continues to mark cookies `secure` when the forwarded protocol is https or when not in development.
 
 ## Architecture & Components
 
 - `server/security/csrf.ts`: adjust `shouldUseSecureCookie()` to await `headers()` once and use the returned `ReadonlyHeaders`.
 - `server/security/rate-limit.ts`: reorder `parseBooleanEnv` helper (or make it a function declaration) so it is defined before first use.
+- `src/proxy.ts`: issue CSRF cookie with expected name (`sr-csrf-token`) and maxAge at middleware layer.
+- `ensureCsrfCookie`: guard cookie writes so it is no-op in RSC contexts; login page should not attempt to set cookies directly.
 
 ## Data Flow & API Contracts
 
@@ -38,6 +41,7 @@ Restore the production build by updating CSRF helper code to match Next.js 16 as
 - Missing `x-forwarded-proto` header should continue to fall back to env-based decision.
 - Multiple forwarded proto values (comma-separated) should still consider the first value after trimming.
 - Rate limit env parsing should still treat undefined/malformed values as `undefined`, preserving existing bypass/allow flags.
+- CSRF token remains readable by client; middleware-set token should satisfy `/api/auth/signin` without RSC writes.
 
 ## Testing Strategy
 
