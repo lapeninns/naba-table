@@ -81,7 +81,7 @@ async function handleRouting(req: NextRequest): Promise<NextResponse> {
       const [, , service, ...rest] = url.pathname.split("/");
       const pathAfterService = `/${rest.join("/")}`;
       const isPublicRestaurantSchedule =
-        service === "restaurants" && /^\/(?<slug>[^/]+)\/(schedule|calendar-mask)(\/|$)/.test(pathAfterService);
+        service === "restaurants" && /^\/[^/]+\/(schedule|calendar-mask)(\/|$)/.test(pathAfterService);
 
       if (OPS_API_SERVICES.includes(service) && !isPublicRestaurantSchedule) {
         const guardResponse = await requireOpsAuth(req);
