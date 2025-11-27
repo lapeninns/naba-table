@@ -427,7 +427,8 @@ export async function GET(req: NextRequest) {
 
   query = query.order(orderColumn, {
     ascending: sortAscending,
-    nullsLast: isCreatedAtSort,
+    // For created_at DESC, keep nulls at the end instead of surfacing them first
+    ...(isCreatedAtSort ? { nullsFirst: false } : {}),
   });
 
   if (isCreatedAtSort) {
