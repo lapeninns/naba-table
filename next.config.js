@@ -66,8 +66,6 @@ const nextConfig = {
     return [
       // --- Auth ---
       { source: "/signin", destination: "/auth/signin", permanent: true },
-      { source: "/guest/signin", destination: "/auth/signin", permanent: true },
-      { source: "/guest/auth/signin", destination: "/auth/signin", permanent: true },
 
       // --- Discovery & Restaurants ---
       { source: "/guest/restaurants", destination: "/restaurants", permanent: true },

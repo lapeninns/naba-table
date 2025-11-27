@@ -24,14 +24,14 @@ describe("GET /api/auth/callback", () => {
   it("exchanges the code and redirects to the provided path when valid", async () => {
     exchangeCodeMock.mockResolvedValue({ error: null });
     const request = new NextRequest(
-      "http://localhost/api/auth/callback?code=abc123&redirectedFrom=%2Fdashboard",
+      "http://localhost/api/auth/callback?code=abc123&redirectedFrom=%2Fapp",
     );
 
     const response = await GET(request);
 
     expect(exchangeCodeMock).toHaveBeenCalledWith("abc123");
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("http://localhost/dashboard");
+    expect(response.headers.get("location")).toBe("http://localhost/app");
   });
 
   it("falls back to default callback path when redirect is invalid", async () => {
@@ -45,7 +45,7 @@ describe("GET /api/auth/callback", () => {
 
     expect(exchangeCodeMock).toHaveBeenCalledWith("abc123");
     expect(warnSpy).toHaveBeenCalled();
-    expect(response.headers.get("location")).toBe("http://localhost/");
+    expect(response.headers.get("location")).toBe("http://localhost/guest/dashboard");
   });
 
   it("logs a warning and still redirects when code is missing", async () => {
@@ -56,6 +56,6 @@ describe("GET /api/auth/callback", () => {
 
     expect(exchangeCodeMock).not.toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalledWith("[auth/callback] received request without code parameter");
-    expect(response.headers.get("location")).toBe("http://localhost/");
+    expect(response.headers.get("location")).toBe("http://localhost/guest/dashboard");
   });
 });

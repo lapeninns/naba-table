@@ -1,14 +1,14 @@
+import { redirect } from 'next/navigation';
 
-import { redirect } from "next/navigation";
+import { OpsSignInForm } from '@/components/auth/OpsSignInForm';
+import { ensureCsrfCookie } from '@/server/security/csrf';
+import { getServerComponentSupabaseClient } from '@/server/supabase';
 
-import { SignInForm } from "@/components/auth/SignInForm";
-import { getServerComponentSupabaseClient } from "@/server/supabase";
-
-import type { Metadata } from "next";
+import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: "Sign in to operations · Nab a Table",
-  description: "Access the restaurant operations console to manage bookings and your team.",
+  title: 'Sign in to operations · Nab a Table',
+  description: 'Access the restaurant operations console to manage bookings and your team.',
 };
 
 type OpsLoginSearchParams = {
@@ -19,17 +19,29 @@ type OpsLoginPageProps = {
   searchParams: Promise<OpsLoginSearchParams>;
 };
 
-export default async function OpsLoginPage({ searchParams }: OpsLoginPageProps) {
+const ALLOWED_REDIRECT_PREFIXES = ["/app", "/guest", "/bookings", "/restaurants"] as const;
+
+function resolveRedirectTarget(raw: string | string[] | undefined): string {
+  const candidate = Array.isArray(raw) ? raw[0] : raw;
+  if (typeof candidate !== 'string' || !candidate.startsWith('/')) return '/app';
+
+  const isAllowed = ALLOWED_REDIRECT_PREFIXES.some((prefix) =>
+    candidate === prefix || candidate.startsWith(`${prefix}/`),
+  );
+
+  return isAllowed ? candidate : '/app';
+}
+
+export default async function OpsAuthSignInPage({ searchParams }: OpsLoginPageProps) {
+  await ensureCsrfCookie();
+
   const supabase = await getServerComponentSupabaseClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   const resolvedParams = await searchParams;
-  const redirectedRaw = resolvedParams?.redirectedFrom;
-  const redirectedFromParam =
-    typeof redirectedRaw === "string" && redirectedRaw.startsWith("/") ? redirectedRaw : undefined;
-  const redirectTarget = redirectedFromParam ?? "/";
+  const redirectTarget = resolveRedirectTarget(resolvedParams?.redirectedFrom);
 
   if (user) {
     redirect(redirectTarget);
@@ -56,7 +68,7 @@ export default async function OpsLoginPage({ searchParams }: OpsLoginPageProps) 
           </p>
         </div>
         <div className="w-full max-w-xl rounded-3xl border border-border bg-white p-8 shadow-[0_35px_70px_-45px_rgba(15,23,42,0.35)]">
-          <SignInForm redirectedFrom={redirectTarget} />
+          <OpsSignInForm redirectedFrom={redirectTarget} />
         </div>
       </div>
     </main>

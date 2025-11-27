@@ -22,7 +22,6 @@ describe('Routing Redirects', () => {
 
     // Auth
     assertRedirect('/signin', '/auth/signin');
-    assertRedirect('/guest/signin', '/auth/signin');
 
     // Discovery
     assertRedirect('/guest/restaurants', '/restaurants');

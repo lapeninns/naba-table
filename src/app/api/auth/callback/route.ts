@@ -1,28 +1,32 @@
 import { NextResponse } from "next/server";
 
 import config from "@/config";
+import { defaultRedirectForHost, parseHostname, sanitizeRedirect } from "@/lib/auth/redirects";
 import { getRouteHandlerSupabaseClient } from "@/server/supabase";
 
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
 
+const FALLBACK_REDIRECT_CONFIG = config.auth.callbackUrl ?? "/app";
+
 // This route is called after a successful login. It exchanges the code for a session and redirects to the callback URL (see config.js).
 export async function GET(req: NextRequest) {
   const requestUrl = new URL(req.url);
   const code = requestUrl.searchParams.get("code");
   const redirectedFrom = requestUrl.searchParams.get("redirectedFrom");
+  const hostname = parseHostname(req);
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost";
 
   const resolveDestination = () => {
-    const fallback = config.auth.callbackUrl ?? "/";
-    if (!redirectedFrom) {
-      return fallback;
+    const sanitized = sanitizeRedirect(redirectedFrom);
+    if (!sanitized) {
+      if (redirectedFrom) {
+        console.warn("[auth/callback] rejected redirect param", redirectedFrom);
+      }
+      return FALLBACK_REDIRECT_CONFIG ?? defaultRedirectForHost(hostname, rootDomain);
     }
-    if (!redirectedFrom.startsWith("/")) {
-      console.warn("[auth/callback] rejected redirect param", redirectedFrom);
-      return fallback;
-    }
-    return redirectedFrom;
+    return sanitized;
   };
 
   if (code) {

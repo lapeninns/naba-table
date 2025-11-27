@@ -24,7 +24,7 @@ export default function SettingsError({
       </div>
       <div className="flex flex-wrap items-center justify-center gap-3">
         <Button onClick={reset}>Retry</Button>
-        <Link href="/dashboard"><Button variant="outline">Go to dashboard</Button></Link>
+        <Link href="/app"><Button variant="outline">Go to dashboard</Button></Link>
       </div>
       {process.env.NODE_ENV !== "production" && error?.digest ? (
         <p className="text-xs text-muted-foreground">Error ID: {error.digest}</p>

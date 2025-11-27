@@ -200,7 +200,7 @@ function DesktopActions({
 
       {!isLoading && !isAuthenticated ? (
         <Link
-          href="/signin"
+          href="/auth/signin"
           className={cn(buttonVariants({ variant: "default", size: "sm" }), "touch-manipulation")}
         >
           Sign in
@@ -285,7 +285,7 @@ function MobileMenu({
   isSigningOut,
   pathname,
 }: MobileMenuProps) {
-  const sessionActions = isAuthenticated ? accountLinks : [{ href: "/signin", label: "Sign in" }];
+  const sessionActions = isAuthenticated ? accountLinks : [{ href: "/auth/signin", label: "Sign in" }];
   const isActive = useCallback(
     (href: string) => {
       if (!pathname) return false;

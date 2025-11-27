@@ -22,6 +22,13 @@ export type AnalyticsEvent =
   | "profile_updated"
   | "profile_upload_error"
   | "profile_update_duplicate"
+  | "auth_guest_signin_viewed"
+  | "auth_guest_signin_attempt"
+  | "auth_guest_signin_error"
+  | "auth_ops_signin_viewed"
+  | "auth_ops_signin_attempt"
+  | "auth_ops_signin_success"
+  | "auth_ops_signin_error"
   | "auth_signin_viewed"
   | "auth_signin_attempt"
   | "auth_signin_error"
@@ -30,9 +37,16 @@ export type AnalyticsEvent =
 
 type AnalyticsProps = Record<string, unknown>;
 
+type PlausibleEventOptions = {
+  props?: AnalyticsProps;
+  url?: string;
+  referrer?: string;
+  revenue?: number;
+  callback?: () => void;
+};
+
 type PlausibleWindow = Window & {
-   
-  plausible?: (event: any, options?: any) => void;
+  plausible?: (event: AnalyticsEvent, options?: PlausibleEventOptions) => void;
 };
 
 function sanitizeProps(props?: AnalyticsProps): AnalyticsProps | undefined {

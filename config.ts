@@ -50,9 +50,9 @@ const config = {
   },
   auth: {
     // REQUIRED — the path to log in users. It's used to protect private routes (if any). It's used in apiClient (/libs/api.js) upon 401 errors from our API
-    loginUrl: "/signin",
+    loginUrl: "/auth/signin",
     // REQUIRED — the path you want to redirect users after successful login (e.g. /, /profile). It's used in apiClient (/libs/api.js) upon 401 errors from our API & in ButtonSignin.js
-    callbackUrl: "/",
+    callbackUrl: "/guest/dashboard",
   },
 } as ConfigProps;
 

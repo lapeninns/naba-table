@@ -41,13 +41,13 @@ All restaurant routes are accessed via the `app.nabatable.com` subdomain or `nab
 
 #### Public Routes
 
-| Route        | Description            | File Path                    |
-| ------------ | ---------------------- | ---------------------------- |
-| `/app/login` | Restaurant staff login | `src/app/app/login/page.tsx` |
+| Route              | Description              | File Path                          |
+| ------------------ | ------------------------ | ---------------------------------- |
+| `/app/auth/signin` | Restaurant staff sign-in | `src/app/app/auth/signin/page.tsx` |
 
 #### Protected Routes (Require Restaurant Staff Authentication)
 
-All routes under `/app/(app)/*` require authentication. Unauthenticated users are redirected to `/app/login`.
+All routes under `/app/(app)/*` require authentication. Unauthenticated users are redirected to `/app/auth/signin`.
 
 ##### Dashboard & Overview
 

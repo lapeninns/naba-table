@@ -12,14 +12,14 @@ This document summarizes all the changes made to fix authentication and authoriz
 
 **Solution:**
 
-- Moved `/app/login` page outside of the `(app)` route group
-- Added authentication check to `/app/(app)/layout.tsx` that redirects unauthenticated users to `/app/login`
+- Moved restaurant sign-in to `/app/auth/signin` outside of the `(app)` route group
+- Added authentication check to `/app/(app)/layout.tsx` that redirects unauthenticated users to `/app/auth/signin`
 - Now the layout only renders OpsShell when a user is authenticated
 
 **Files Changed:**
 
 - `/src/app/app/(app)/layout.tsx` - Added redirect for unauthenticated users
-- `/src/app/app/login/page.tsx` - Moved from `/src/app/app/(app)/login/page.tsx`
+- `/src/app/app/auth/signin/page.tsx` - Ops login page
 
 ### 2. ✅ Redundant Auth Checks on Individual Pages
 
@@ -66,8 +66,8 @@ After:
   │   ├── dashboard/
   │   ├── bookings/
   │   └── ...
-  └── login/          # Unprotected - outside route group
-      └── page.tsx
+  └── auth/
+      └── signin/     # Unprotected entry point for ops sign-in
 ```
 
 ### Code Changes
@@ -77,7 +77,7 @@ After:
 ```typescript
 // Added redirect for unauthenticated users
 if (!supabaseUser) {
-  redirect('/app/login');
+  redirect('/app/auth/signin');
 }
 ```
 
@@ -126,11 +126,11 @@ All routes under `/app/(app)/*` now automatically require authentication via lay
 - `/app/management/team`
 - `/app/settings/**`
 
-**Redirect:** Unauthenticated users → `/app/login`
+**Redirect:** Unauthenticated users → `/app/auth/signin`
 
 #### ✅ Unprotected Routes
 
-- `/app/login` - Restaurant staff login (redirects if already authenticated)
+- `/app/auth/signin` - Restaurant staff login (redirects if already authenticated)
 
 ### Guest-Facing Routes (nabatable.com)
 
@@ -158,10 +158,10 @@ All routes under `/app/(app)/*` now automatically require authentication via lay
 ### Restaurant-Facing Routes
 
 - [x] Build succeeds without errors
-- [ ] Unauthenticated user accessing `/app` → redirects to `/app/login`
-- [ ] Unauthenticated user accessing `/app/dashboard` → redirects to `/app/login`
-- [ ] Unauthenticated user accessing `/app/bookings` → redirects to `/app/login`
-- [ ] Authenticated restaurant user accessing `/app/login` → redirects to `/app`
+- [ ] Unauthenticated user accessing `/app` → redirects to `/app/auth/signin`
+- [ ] Unauthenticated user accessing `/app/dashboard` → redirects to `/app/auth/signin`
+- [ ] Unauthenticated user accessing `/app/bookings` → redirects to `/app/auth/signin`
+- [ ] Authenticated restaurant user accessing `/app/auth/signin` → redirects to `/app`
 - [ ] Sidebar is NOT visible for unauthenticated users
 - [ ] Sidebar IS visible for authenticated users
 
@@ -195,6 +195,6 @@ All routes under `/app/(app)/*` now automatically require authentication via lay
 
 ## Notes
 
-- The `/app/login` page already had proper auth checks and redirects, so it required no changes to its logic
+- The `/app/auth/signin` page has auth checks and redirects in place.
 - Guest pages (`/guest/*`) already had proper individual auth checks and were left as-is
 - The middleware handles subdomain routing and is unaffected by these changes

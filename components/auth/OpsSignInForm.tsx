@@ -13,7 +13,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
-import { clientEnv } from '@/lib/env-client';
 import { HttpError } from '@/lib/http/errors';
 import { fetchJson } from '@/lib/http/fetchJson';
 import { passwordPolicySchema, validatePasswordStrength } from '@/lib/security/passwordPolicy';
@@ -29,14 +28,9 @@ const formSchema = z.object({
   password: passwordFieldSchema,
 });
 
-type AuthSuccess = { status: 'ok'; redirectTo: string } | { status: 'magic_link_sent'; redirectTo: string };
-type AuthResponse = AuthSuccess;
+type AuthResponse = { status: 'ok'; redirectTo: string };
 
 const AUTH_ENDPOINT = '/api/auth/signin';
-
-export type SignInFormProps = {
-  redirectedFrom?: string;
-};
 
 const AUTH_MODES = {
   MAGIC_LINK: 'magic_link',
@@ -44,6 +38,10 @@ const AUTH_MODES = {
 } as const;
 
 type AuthMode = (typeof AUTH_MODES)[keyof typeof AUTH_MODES];
+
+export type OpsSignInFormProps = {
+  redirectedFrom?: string;
+};
 
 type StatusTone = 'info' | 'success' | 'error';
 
@@ -63,24 +61,7 @@ const STATUS_TONE_CLASSES: Record<StatusTone, string> = {
 
 const MAGIC_LINK_COOLDOWN_SECONDS = 60;
 
-const AUTH_MODE_OPTIONS: Array<{
-  id: AuthMode;
-  label: string;
-  helper: string;
-}> = [
-  {
-    id: AUTH_MODES.MAGIC_LINK,
-    label: 'Magic link',
-    helper: 'Send a one-time link to your inbox',
-  },
-  {
-    id: AUTH_MODES.PASSWORD,
-    label: 'Password',
-    helper: 'Use your email and password',
-  },
-];
-
-export function SignInForm({ redirectedFrom }: SignInFormProps) {
+export function OpsSignInForm({ redirectedFrom }: OpsSignInFormProps) {
   const router = useRouter();
 
   const form = useForm<FormValues>({
@@ -97,14 +78,12 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
   const [magicCooldown, setMagicCooldown] = useState(0);
   const [status, setStatus] = useState<StatusState | null>(null);
   const statusRef = useRef<HTMLParagraphElement | null>(null);
-  const [mode, setMode] = useState<AuthMode>(() =>
-    clientEnv.flags.forcePasswordSignIn ? AUTH_MODES.PASSWORD : AUTH_MODES.MAGIC_LINK,
-  );
+  const [mode, setMode] = useState<AuthMode>(AUTH_MODES.PASSWORD);
 
-  const targetPath = redirectedFrom && redirectedFrom.startsWith('/') ? redirectedFrom : '/guest/bookings';
+  const targetPath = redirectedFrom && redirectedFrom.startsWith('/') ? redirectedFrom : '/app';
 
   useEffect(() => {
-    track('auth_signin_viewed', { redirectedFrom: targetPath });
+    track('auth_ops_signin_viewed', { redirectedFrom: targetPath });
   }, [targetPath]);
 
   useEffect(() => {
@@ -123,6 +102,7 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
   const focusStatus = () => {
     setTimeout(() => statusRef.current?.focus(), 0);
   };
+
   const callAuthEndpoint = (payload: {
     mode: AuthMode;
     email: string;
@@ -137,7 +117,7 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
       body: JSON.stringify(payload),
     });
 
-  const mapErrorToStatus = (error: unknown, mode: AuthMode): StatusState => {
+  const mapErrorToStatus = (error: unknown, currentMode: AuthMode): StatusState => {
     if (error instanceof HttpError) {
       if (error.status === 429) {
         return {
@@ -153,7 +133,7 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
           live: 'assertive',
         };
       }
-      if (error.status === 401 && mode === AUTH_MODES.PASSWORD) {
+      if (error.status === 401 && currentMode === AUTH_MODES.PASSWORD) {
         return {
           message: 'Invalid email or password.',
           tone: 'error',
@@ -177,14 +157,81 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
     return { message: 'Something went wrong. Please try again.', tone: 'error', live: 'assertive' };
   };
 
-  const handleMagicLink = async (values: FormValues) => {
-    if (magicCooldown > 0) {
+  const onSubmit = form.handleSubmit(async (values) => {
+    if (mode === AUTH_MODES.MAGIC_LINK) {
+      await handleMagicLink(values);
+      return;
+    }
+
+    const password = values.password?.trim();
+    const validation = validatePasswordStrength(password);
+    if (!validation.success) {
+      form.setError('password', { type: 'manual', message: validation.error });
+      focusStatus();
       return;
     }
 
     setIsSubmitting(true);
     setStatus(null);
-    track('auth_signin_attempt', { method: 'magic_link', redirectedFrom: targetPath });
+    track('auth_ops_signin_attempt', { method: 'password', redirectedFrom: targetPath });
+
+    try {
+      const response = await callAuthEndpoint({
+        mode: AUTH_MODES.PASSWORD,
+        email: values.email,
+        password: validation.value,
+        redirectedFrom: targetPath,
+      });
+
+      track('auth_ops_signin_success', { method: 'password', redirectedFrom: targetPath });
+      emit('auth_ops_signin_success', { method: 'password', redirectedFrom: targetPath });
+
+      setStatus({
+        message: 'Signed in successfully. Redirecting…',
+        tone: 'success',
+        live: 'assertive',
+      });
+      focusStatus();
+
+      // Force client to refresh session from cookies before navigation
+      // This ensures useSupabaseSession() picks up the authenticated state
+      const supabase = getSupabaseBrowserClient();
+      await supabase.auth.getSession();
+
+      // Refresh router to update all components with new auth state
+      router.refresh();
+      router.replace(response.redirectTo ?? targetPath);
+    } catch (error) {
+      const code = error instanceof HttpError ? error.code : 'UNKNOWN';
+      track('auth_ops_signin_error', { method: 'password', code });
+      emit('auth_ops_signin_error', { method: 'password', code });
+
+      if (error instanceof HttpError && error.status === 400) {
+        const field = typeof error.details === 'object' && error.details && 'field' in error.details
+          ? (error.details as { field?: string }).field
+          : undefined;
+        if (field === 'password') {
+          form.setError('password', { type: 'manual', message: error.message });
+        }
+      }
+
+      if (error instanceof HttpError && error.status === 401) {
+        form.setError('password', { type: 'manual', message: 'Invalid email or password' });
+      }
+
+      setStatus(mapErrorToStatus(error, AUTH_MODES.PASSWORD));
+      focusStatus();
+    } finally {
+      setIsSubmitting(false);
+    }
+  });
+
+  const handleMagicLink = async (values: FormValues) => {
+    if (magicCooldown > 0) return;
+
+    setIsSubmitting(true);
+    setStatus(null);
+    track('auth_ops_signin_attempt', { method: 'magic_link', redirectedFrom: targetPath });
 
     try {
       const response = await callAuthEndpoint({
@@ -205,87 +252,10 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
       focusStatus();
     } catch (error) {
       const code = error instanceof HttpError ? error.code : 'UNKNOWN';
-      track('auth_signin_error', {
-        method: 'magic_link',
-        code,
-      });
-      emit('auth_signin_error', {
-        method: 'magic_link',
-        code,
-      });
+      track('auth_ops_signin_error', { method: 'magic_link', code });
+      emit('auth_ops_signin_error', { method: 'magic_link', code });
 
       setStatus(mapErrorToStatus(error, AUTH_MODES.MAGIC_LINK));
-      focusStatus();
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const onSubmit = form.handleSubmit(async (values) => {
-    if (mode === AUTH_MODES.PASSWORD) {
-      await handlePasswordSignIn(values);
-    } else {
-      await handleMagicLink(values);
-    }
-  });
-
-  const handlePasswordSignIn = async (values: FormValues) => {
-    const password = values.password?.trim();
-    const validation = validatePasswordStrength(password);
-    if (!validation.success) {
-      form.setError('password', { type: 'manual', message: validation.error });
-      focusStatus();
-      return;
-    }
-
-    setIsSubmitting(true);
-    setStatus(null);
-    track('auth_signin_attempt', { method: 'password', redirectedFrom: targetPath });
-
-    try {
-      const response = await callAuthEndpoint({
-        mode: AUTH_MODES.PASSWORD,
-        email: values.email,
-        password: validation.value,
-        redirectedFrom: targetPath,
-      });
-
-      track('auth_signin_success', { method: 'password', redirectedFrom: targetPath });
-      emit('auth_signin_success', { method: 'password', redirectedFrom: targetPath });
-      setStatus({
-        message: 'Signed in successfully. Redirecting…',
-        tone: 'success',
-        live: 'assertive',
-      });
-      focusStatus();
-
-      // Force client to refresh session from cookies before navigation
-      // This ensures useSupabaseSession() picks up the authenticated state
-      const supabase = getSupabaseBrowserClient();
-      await supabase.auth.getSession();
-
-      // Refresh router to update all components with new auth state
-      router.refresh();
-      router.replace(response.redirectTo ?? targetPath);
-    } catch (error) {
-      const code = error instanceof HttpError ? error.code : 'UNKNOWN';
-      track('auth_signin_error', { method: 'password', code });
-      emit('auth_signin_error', { method: 'password', code });
-
-      if (error instanceof HttpError && error.status === 400) {
-        const field = typeof error.details === 'object' && error.details && 'field' in error.details
-          ? (error.details as { field?: string }).field
-          : undefined;
-        if (field === 'password') {
-          form.setError('password', { type: 'manual', message: error.message });
-        }
-      }
-
-      if (error instanceof HttpError && error.status === 401) {
-        form.setError('password', { type: 'manual', message: 'Invalid email or password' });
-      }
-
-      setStatus(mapErrorToStatus(error, AUTH_MODES.PASSWORD));
       focusStatus();
     } finally {
       setIsSubmitting(false);
@@ -302,13 +272,13 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
 
   return (
     <Card
-      id="signin-form"
+      id="ops-signin-form"
       className="w-full max-w-full border-border/70 bg-white/95 shadow-lg shadow-primary/5 sm:max-w-md"
     >
       <CardHeader className="space-y-1.5 sm:space-y-2">
-        <CardTitle className="text-2xl font-semibold tracking-tight text-foreground">Welcome back</CardTitle>
+        <CardTitle className="text-2xl font-semibold tracking-tight text-foreground">Restaurant operations</CardTitle>
         <CardDescription className="text-sm text-muted-foreground">
-          Sign in with a one-time magic link or switch to password.
+          Sign in with a magic link or password to access the operations console.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5 sm:space-y-6">
@@ -317,7 +287,10 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
           aria-label="Choose sign-in method"
           className="grid grid-cols-2 gap-2 rounded-xl bg-muted/50 p-1"
         >
-          {AUTH_MODE_OPTIONS.map((option) => {
+          {[
+            { id: AUTH_MODES.MAGIC_LINK, label: 'Magic link', helper: 'Send a one-time link' },
+            { id: AUTH_MODES.PASSWORD, label: 'Password', helper: 'Use your credentials' },
+          ].map((option) => {
             const active = mode === option.id;
             return (
               <button
@@ -327,9 +300,7 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
                 aria-selected={active}
                 className={cn(
                   'rounded-lg border border-transparent px-3 py-2 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2',
-                  active
-                    ? 'bg-white shadow-sm'
-                    : 'bg-transparent text-muted-foreground hover:text-foreground',
+                  active ? 'bg-white shadow-sm' : 'bg-transparent text-muted-foreground hover:text-foreground',
                 )}
                 onClick={() => setMode(option.id)}
                 tabIndex={active ? 0 : -1}
@@ -404,7 +375,7 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
               {isSubmitting ? (
                 <span className="flex items-center justify-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                  Processing
+                  {mode === AUTH_MODES.PASSWORD ? 'Signing in...' : 'Sending...'}
                 </span>
               ) : (
                 submitLabel
@@ -412,6 +383,13 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
             </Button>
           </form>
         </Form>
+
+        <div className="border-t border-border pt-4 text-center text-sm text-muted-foreground">
+          <p>Guest or diner?</p>
+          <a href="/auth/signin" className="font-medium text-primary hover:underline">
+            Sign in as a guest →
+          </a>
+        </div>
       </CardContent>
     </Card>
   );

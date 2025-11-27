@@ -8,7 +8,7 @@ This document categorizes all application routes by their authentication require
 
 #### Protected Routes (Require Restaurant Staff Authentication)
 
-All routes under `/app/(app)/*` except `/app/login`:
+All routes under `/app/(app)/*` except `/app/auth/signin`:
 
 - `/` (Dashboard home) - **NEEDS FIX**
 - `/dashboard` - ✅ Has auth check
@@ -31,11 +31,11 @@ All routes under `/app/(app)/*` except `/app/login`:
 - `/settings/restaurant/team` - **NEEDS FIX**
 - `/settings/tables` - **NEEDS FIX**
 
-**Redirect target when unauthenticated:** `/app/login?redirectedFrom=<current-path>`
+**Redirect target when unauthenticated:** `/app/auth/signin?redirectedFrom=<current-path>`
 
 #### Unprotected Routes
 
-- `/app/login` - Login page (should redirect to `/app` if already authenticated)
+- `/app/auth/signin` - Login page (redirects to `/app` if already authenticated)
 
 ---
 
@@ -78,7 +78,7 @@ All routes under `/app/(app)/*` except `/app/login`:
 - They can try to access protected pages
 - Only some pages (like `/app/page.tsx`) have individual auth checks
 
-**Solution:** Add authentication check to `/app/(app)/layout.tsx` to redirect unauthenticated users to `/app/login`
+**Solution:** Add authentication check to `/app/(app)/layout.tsx` to redirect unauthenticated users to `/app/auth/signin`
 
 ### Issue 2: Missing Auth Checks on Individual Restaurant Pages
 
@@ -95,7 +95,7 @@ All routes under `/app/(app)/*` except `/app/login`:
 
 **Problem:**
 
-- `/app/login` checks auth and redirects ✅
+- `/app/auth/signin` checks auth and redirects ✅
 - `/auth/signin` does NOT check if user is already authenticated
 
 **Impact:**
@@ -123,7 +123,7 @@ export default async function ProtectedPage() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect(withRedirectedFrom('/app/login', '/app/current-path'));
+    redirect(withRedirectedFrom('/app/auth/signin', '/app/current-path'));
   }
 
   // Page content
@@ -187,9 +187,9 @@ export default async function LoginPage({ searchParams }) {
 
 After implementing fixes, test:
 
-- [ ] Unauthenticated user accessing `/app/dashboard` → redirects to `/app/login?redirectedFrom=/app/dashboard`
-- [ ] Unauthenticated user accessing `/app/bookings` → redirects to `/app/login?redirectedFrom=/app/bookings`
-- [ ] Authenticated restaurant user accessing `/app/login` → redirects to `/app`
+- [ ] Unauthenticated user accessing `/app/dashboard` → redirects to `/app/auth/signin?redirectedFrom=/app/dashboard`
+- [ ] Unauthenticated user accessing `/app/bookings` → redirects to `/app/auth/signin?redirectedFrom=/app/bookings`
+- [ ] Authenticated restaurant user accessing `/app/auth/signin` → redirects to `/app`
 - [ ] Authenticated guest accessing `/auth/signin` → redirects to intended page or `/guest/dashboard`
 - [ ] Sidebar is NOT visible for unauthenticated users on restaurant routes
 - [ ] Guest protected routes still work correctly

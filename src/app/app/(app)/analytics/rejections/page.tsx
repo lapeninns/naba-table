@@ -44,7 +44,7 @@ export default async function OpsRejectionsPage() {
   }
 
   if (!user) {
-    redirect(withRedirectedFrom('/login', '/rejections'));
+    redirect(withRedirectedFrom('/app/auth/signin', '/app/analytics/rejections'));
   }
 
   return (

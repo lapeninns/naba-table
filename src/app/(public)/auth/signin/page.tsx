@@ -2,7 +2,7 @@ import { LogIn } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
-import { SignInForm } from '@/components/auth/SignInForm';
+import { GuestSignInForm } from '@/components/auth/GuestSignInForm';
 import { ensureCsrfCookie } from '@/server/security/csrf';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
 
@@ -11,7 +11,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Sign in · Nab a Table',
-  description: 'Access your Nab a Table account to manage bookings and settings.',
+  description: 'Access your Nab a Table guest account to manage bookings and settings.',
 };
 
 type SignInPageSearchParams = {
@@ -22,12 +22,23 @@ type SignInPageProps = {
   searchParams: Promise<SignInPageSearchParams>;
 };
 
+const ALLOWED_REDIRECT_PREFIXES = ["/guest", "/bookings", "/restaurants", "/app"] as const;
+
+function resolveRedirectTarget(raw: string | string[] | undefined): string | undefined {
+  const candidate = Array.isArray(raw) ? raw[0] : raw;
+  if (typeof candidate !== 'string' || !candidate.startsWith('/')) return undefined;
+
+  const isAllowed = ALLOWED_REDIRECT_PREFIXES.some((prefix) =>
+    candidate === prefix || candidate.startsWith(`${prefix}/`),
+  );
+
+  return isAllowed ? candidate : undefined;
+}
+
 export default async function SignInPage({ searchParams }: SignInPageProps) {
   await ensureCsrfCookie();
   const resolvedParams = await searchParams;
-  const redirectedRaw = resolvedParams?.redirectedFrom;
-  const redirectedFromParam =
-    typeof redirectedRaw === 'string' && redirectedRaw.length > 0 ? redirectedRaw : undefined;
+  const redirectedFromParam = resolveRedirectTarget(resolvedParams?.redirectedFrom);
 
   // Redirect authenticated users to their intended destination or dashboard
   const supabase = await getServerComponentSupabaseClient();
@@ -56,7 +67,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
 
         {/* Sign-in Card */}
         <div className="rounded-2xl border border-border bg-card p-6 shadow-xl sm:p-8">
-          <SignInForm redirectedFrom={redirectedFromParam} />
+          <GuestSignInForm redirectedFrom={redirectedFromParam} />
         </div>
 
         {/* Back to Home */}

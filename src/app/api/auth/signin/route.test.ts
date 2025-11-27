@@ -91,7 +91,7 @@ describe("POST /api/auth/signin", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.redirectTo).toBe("/dashboard");
+    expect(body.redirectTo).toBe("/guest/dashboard");
     expect(signInWithPasswordMock).toHaveBeenCalledWith({ email: "user@example.com", password: "ValidPassword123!" });
   });
 });

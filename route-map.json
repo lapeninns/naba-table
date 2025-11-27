@@ -141,13 +141,13 @@
       "config": {}
     },
     {
-      "path": "/app/login",
+      "path": "/app/auth/signin",
       "methods": [],
       "dynamic": false,
       "groups": ["app"],
       "guards": [],
-      "source": "app/(app)/login/page.tsx",
-      "description": "Login page",
+      "source": "app/app/auth/signin/page.tsx",
+      "description": "Restaurant staff sign-in",
       "params": [],
       "config": {}
     },
