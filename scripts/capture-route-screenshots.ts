@@ -15,19 +15,20 @@ const ROUTES: Array<{
   auth?: 'user' | 'admin';
   waitFor?: string;
 }> = [
+  // Guest-facing routes
   { path: '/', label: 'home' },
-  { path: '/browse', label: 'browse' },
-  { path: '/reserve', label: 'reserve' },
-  { path: '/thank-you', label: 'thank-you' },
-  { path: '/signin', label: 'signin' },
-  { path: '/reserve/r/white-horse-pub-waterbeach', label: 'reserve-restaurant' },
-  { path: '/item/white-horse-pub-waterbeach', label: 'item-detail' },
-  { path: '/my-bookings', label: 'my-bookings', auth: 'user' },
-  { path: '/profile/manage', label: 'profile-manage', auth: 'user' },
+  { path: '/auth/signin', label: 'guest-signin' },
+  { path: '/guest/dashboard', label: 'guest-dashboard', auth: 'user' },
+  { path: '/guest/bookings', label: 'guest-bookings', auth: 'user' },
+  { path: '/guest/profile', label: 'guest-profile', auth: 'user' },
+
+  // Restaurant ops routes
+  { path: '/app/login', label: 'ops-login' },
   { path: '/app', label: 'ops-dashboard', auth: 'admin' },
   { path: '/app/bookings', label: 'ops-bookings', auth: 'admin' },
-  { path: '/app/customer-details', label: 'ops-customer-details', auth: 'admin' },
-  { path: '/app/rejections', label: 'ops-rejections', auth: 'admin' },
+  { path: '/app/walk-in', label: 'ops-walk-in', auth: 'admin' },
+  { path: '/app/customers', label: 'ops-customers', auth: 'admin' },
+  { path: '/app/analytics/rejections', label: 'ops-rejections', auth: 'admin' },
   { path: '/app/settings/restaurant/profile', label: 'ops-restaurant-profile', auth: 'admin' },
   { path: '/app/settings/restaurant/operating-hours', label: 'ops-restaurant-hours', auth: 'admin' },
   { path: '/app/settings/restaurant/occasions', label: 'ops-restaurant-occasions', auth: 'admin' },
@@ -37,10 +38,8 @@ const ROUTES: Array<{
 ];
 
 const SKIPPED_ROUTES: Array<{ path: string; reason: string }> = [
-  { path: '/invite/:token', reason: 'Requires a valid invite token' },
-  { path: '/item/:slug', reason: 'Requires a catalog slug beyond the default fixture' },
-  { path: '/reserve/:reservationId', reason: 'Requires a real reservation identifier' },
-  { path: '/reserve/r/:slug', reason: 'Captured for default slug only' },
+  { path: '/bookings/:bookingId', reason: 'Requires a real booking identifier' },
+  { path: '/restaurants/:slug/book', reason: 'Requires DEFAULT_RESTAURANT_SLUG to be configured' },
 ];
 
 type CaptureStatus =

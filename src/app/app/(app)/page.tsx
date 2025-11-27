@@ -1,17 +1,13 @@
-import { redirect } from "next/navigation";
-
 import { BookingErrorBoundary } from "@/components/features/booking-state-machine";
 import { OpsDashboardClient } from "@/components/features/dashboard";
 import { BookingOfflineQueueProvider } from "@/contexts/booking-offline-queue";
-import { withRedirectedFrom } from "@/lib/url/withRedirectedFrom";
-import { getServerComponentSupabaseClient } from "@/server/supabase";
 import { sanitizeDateParam } from "@/utils/ops/dashboard";
 
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Ops Dashboard · Nab a Table",
-  description: "Monitor today’s bookings and keep your front of house running smoothly.",
+  description: "Monitor today's bookings and keep your front of house running smoothly.",
 };
 
 type OpsPageSearchParams = {
@@ -20,19 +16,7 @@ type OpsPageSearchParams = {
 
 export default async function OpsDashboardPage({ searchParams }: { searchParams?: Promise<OpsPageSearchParams> }) {
   const resolvedParams = (await searchParams) ?? {};
-  const supabase = await getServerComponentSupabaseClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error) {
-    console.error("[app] failed to resolve auth", error.message);
-  }
-
-  if (!user) {
-    redirect(withRedirectedFrom("/app/login", "/app"));
-  }
+  // Auth is now handled by the layout - no need for duplicate check
 
   return (
     <BookingErrorBoundary>

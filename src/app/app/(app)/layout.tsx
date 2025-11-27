@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 import { OpsShell } from "@/components/features/ops-shell";
 import { OpsServicesProvider } from "@/contexts/ops-services";
@@ -59,6 +60,12 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
     }
   } catch (authError) {
     console.error("[app/layout] unexpected error while resolving account", authError);
+  }
+
+  // Redirect to login if not authenticated
+  // All pages under this layout require authentication
+  if (!supabaseUser) {
+    redirect("/app/login");
   }
 
   const opsMemberships: OpsMembership[] = memberships
