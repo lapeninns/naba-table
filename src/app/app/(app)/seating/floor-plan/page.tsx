@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/popover';
 import { useRestaurantService, useTableInventoryService, useZoneService } from '@/contexts/ops-services';
 import { useOpsSession } from '@/contexts/ops-session';
-import { useOpsTableTimeline } from '@/hooks/ops/useOpsTableTimeline';
+import { useOpsTableTimeline } from '@/hooks/app/useOpsTableTimeline';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
 

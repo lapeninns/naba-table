@@ -6,29 +6,29 @@ import {
   createBookingService,
   type BookingService,
   type BookingServiceFactory,
-} from '@/services/ops/bookings';
+} from '@/services/app/bookings';
 import {
   createCustomerService,
   type CustomerService,
   type CustomerServiceFactory,
-} from '@/services/ops/customers';
+} from '@/services/app/customers';
 import {
   createOccasionService,
   type OccasionService,
   type OccasionServiceFactory,
-} from '@/services/ops/occasions';
+} from '@/services/app/occasions';
 import {
   createRestaurantService,
   type RestaurantService,
   type RestaurantServiceFactory,
-} from '@/services/ops/restaurants';
+} from '@/services/app/restaurants';
 import {
   createTableInventoryService,
   type TableInventoryService,
   type TableInventoryServiceFactory,
-} from '@/services/ops/tables';
-import { createTeamService, type TeamService, type TeamServiceFactory } from '@/services/ops/team';
-import ZoneService from '@/services/ops/zones';
+} from '@/services/app/tables';
+import { createTeamService, type TeamService, type TeamServiceFactory } from '@/services/app/team';
+import ZoneService from '@/services/app/zones';
 
 export type OpsServices = {
   bookingService: BookingService;
@@ -69,13 +69,7 @@ export function OpsServicesProvider({ factories, children }: OpsServicesProvider
       zoneService: factories?.zoneService ? factories.zoneService() : new ZoneService(),
     }),
     [
-      factories?.bookingService,
-      factories?.restaurantService,
-      factories?.teamService,
-      factories?.customerService,
-      factories?.tableInventoryService,
-      factories?.occasionService,
-      factories?.zoneService,
+      factories,
     ],
   );
 

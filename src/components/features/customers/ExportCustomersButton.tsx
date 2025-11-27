@@ -5,7 +5,8 @@ import { useState } from 'react';
 import { toast } from 'react-hot-toast';
 
 import { Button } from '@/components/ui/button';
-import type { CustomerListParams } from '@/services/ops/customers';
+
+import type { CustomerListParams } from '@/services/app/customers';
 
 type ExportCustomersButtonProps = {
   restaurantId: string | null;
@@ -30,13 +31,13 @@ function extractFilename(headerValue: string | null, fallback: string): string {
   const filenameStarMatch = headerValue.match(/filename\*=(?:UTF-8'')?([^;]+)/i);
   if (filenameStarMatch?.[1]) {
     try {
-      return decodeURIComponent(filenameStarMatch[1].replace(/\"/g, '').trim());
+      return decodeURIComponent(filenameStarMatch[1].replace(/"/g, '').trim());
     } catch {
       // fall through to other strategies
     }
   }
 
-  const filenameMatch = headerValue.match(/filename=\"?([^\";]+)\"?/i);
+  const filenameMatch = headerValue.match(/filename="?([^";]+)"?/i);
   if (filenameMatch?.[1]) {
     return filenameMatch[1];
   }
@@ -65,7 +66,7 @@ export function ExportCustomersButton({ restaurantId, restaurantName, disabled, 
         params.set('minBookings', String(filters.minBookings));
       }
 
-      const response = await fetch(`/api/ops/customers/export?${params.toString()}`, {
+      const response = await fetch(`/api/app/customers/export?${params.toString()}`, {
         method: 'GET',
         headers: {
           accept: 'text/csv',
