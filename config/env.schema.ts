@@ -14,6 +14,7 @@ const baseEnvSchema = z
     APP_ENV: appEnvSchema.default("development"),
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     ALLOW_PROD_RESOURCES_IN_NONPROD: booleanStringOptional,
+    ALLOW_MEMORY_RATE_LIMIT_IN_PROD: booleanStringOptional,
     NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
     NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
     PRODUCTION_SUPABASE_URL: z.string().url().optional(),
