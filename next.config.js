@@ -108,8 +108,6 @@ const nextConfig = {
       { source: "/invite/:token", destination: "/account/invite/:token", permanent: true },
 
       // --- Ops ---
-      { source: "/walk-in", destination: "/app/walk-in", permanent: true },
-
       // --- Legal ---
       { source: "/privacy-policy", destination: "/privacy-policy", permanent: true }, // Self-redirect? Likely to ensure trailing slash or specific normalization, keeping as is.
       { source: "/terms", destination: "/terms", permanent: true },

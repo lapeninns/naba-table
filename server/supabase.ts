@@ -31,6 +31,7 @@ const { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY, serviceKey: SUPABASE_SERV
 const shouldRunStrictHoldCheck = ["production", "staging"].includes(env.node.appEnv);
 const RESTAURANT_CONTEXT_HEADER = "X-Restaurant-Id";
 const DEFAULT_RESTAURANT_SLUG = runtimeEnv.NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG ?? null;
+const ROOT_DOMAIN = runtimeEnv.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost";
 
 let cachedDefaultRestaurantId: string | null =
   runtimeEnv.NEXT_PUBLIC_DEFAULT_RESTAURANT_ID ?? env.misc.bookingDefaultRestaurantId ?? null;
@@ -47,13 +48,21 @@ type CookieWriter = {
 type NextCookies = Awaited<ReturnType<typeof cookies>>;
 
 function applyCookieDefaults(options: Record<string, unknown> = {}) {
-  return {
+  const cookieConfig: Record<string, unknown> = {
     ...options,
     httpOnly: true,
     secure: secureCookies,
     sameSite: "lax" as const,
     path: "/",
   };
+
+  // Set domain for cross-subdomain cookie sharing in production
+  // The leading dot allows cookies to be shared across all subdomains
+  if (ROOT_DOMAIN !== "localhost") {
+    cookieConfig.domain = `.${ROOT_DOMAIN}`;
+  }
+
+  return cookieConfig;
 }
 
 function isCookieWriter(candidate: unknown): candidate is CookieWriter {

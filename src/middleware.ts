@@ -33,23 +33,35 @@ const OPS_API_SERVICES = [
   "zones",
 ];
 
+const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost";
+const APP_HOSTS = new Set([`app.${ROOT_DOMAIN}`, "app.localhost"]);
+const WEB_HOSTS = new Set([ROOT_DOMAIN, `www.${ROOT_DOMAIN}`, "localhost"]);
+
+function isAssetOrApi(pathname: string) {
+  return pathname.startsWith("/_next") ||
+    pathname.startsWith("/_static") ||
+    pathname.startsWith("/_vercel") ||
+    pathname.startsWith("/api/") ||
+    /\.[a-zA-Z0-9]+$/.test(pathname);
+}
+
 async function handleRouting(req: NextRequest): Promise<NextResponse> {
   const url = req.nextUrl;
 
   // Get hostname (e.g. app.sajiloreserve.com or localhost:3000)
-  let hostname = req.headers.get("host")!;
-
-  // Remove port if on localhost
-  hostname = hostname.replace(":3000", "");
+  const hostname = (req.headers.get("host") || "").replace(/:3000$/, "").toLowerCase();
 
   // Define allowed subdomains
   const searchParams = req.nextUrl.searchParams.toString();
 
-  // Get the path (e.g. /bookings)
-  const path = `${url.pathname}${searchParams.length > 0 ? `?${searchParams}` : ""}`;
+  // 1. App Subdomain Logic (restaurant-facing)
+  if (APP_HOSTS.has(hostname)) {
+    // Preserve assets/API calls
+    if (isAssetOrApi(url.pathname)) {
+      // Special-case ops API rewrites only when explicitly under /api
+      if (!url.pathname.startsWith("/api/")) return NextResponse.next();
+    }
 
-  // 1. App Subdomain Logic
-  if (hostname === `app.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}` || hostname === "app.localhost") {
     // API Rewrites for Ops
     if (url.pathname.startsWith("/api/")) {
       const [, , service, ...rest] = url.pathname.split("/");
@@ -70,27 +82,49 @@ async function handleRouting(req: NextRequest): Promise<NextResponse> {
       return NextResponse.next();
     }
 
-    // Rewrite to the (app) folder for non-API routes; avoid double-prefixing when clients include /app.
-    const targetPath = path.startsWith("/app") ? path : `/app${path}`;
-    return NextResponse.rewrite(new URL(targetPath, req.url));
+    // Redirect app.nabatable.com/app/* to app.nabatable.com/* (remove duplicate /app prefix)
+    if (url.pathname.startsWith("/app/")) {
+      const cleanPath = url.pathname.replace(/^\/app/, "") || "/";
+      return NextResponse.redirect(
+        new URL(`${cleanPath}${searchParams.length > 0 ? `?${searchParams}` : ""}`, req.url),
+        308,
+      );
+    }
+
+    // Special case: /app alone redirects to root
+    if (url.pathname === "/app") {
+      return NextResponse.redirect(
+        new URL(`/${searchParams.length > 0 ? `?${searchParams}` : ""}`, req.url),
+        308,
+      );
+    }
+
+    // Rewrite all restaurant-facing routes to /app/* for Next.js routing
+    // e.g., app.nabatable.com/walk-in -> internally /app/walk-in
+    const rewritePath = `/app${url.pathname}${searchParams.length > 0 ? `?${searchParams}` : ""}`;
+    return NextResponse.rewrite(new URL(rewritePath, req.url));
   }
 
   // 2. Guest/Root Domain Logic
-  if (
-    hostname === "www.sajiloreserve.com" ||
-    hostname === process.env.NEXT_PUBLIC_ROOT_DOMAIN ||
-    hostname === "localhost"
-  ) {
-    // Routes on root domain are handled directly, no rewrite needed
+  if (WEB_HOSTS.has(hostname)) {
     if (!url.pathname.startsWith("/api/")) {
-      // Allow ops/app-prefixed routes when running on localhost without the app subdomain
+      // Canonicalize restaurant-facing app to the app subdomain
       if (url.pathname.startsWith("/app")) {
-        return NextResponse.next();
+        const redirectedPath = url.pathname.replace(/^\/app/, "") || "/";
+        return NextResponse.redirect(
+          `https://app.${ROOT_DOMAIN}${redirectedPath}${searchParams ? `?${searchParams}` : ""}`,
+          308,
+        );
       }
+
+      // Support legacy /ops -> app namespace via app subdomain
       if (url.pathname.startsWith("/ops")) {
-        const opsStrippedPath = path.replace(/^\/ops/, "") || "/";
-        return NextResponse.rewrite(new URL(`/app${opsStrippedPath}`, req.url));
+        return NextResponse.redirect(
+          `https://app.${ROOT_DOMAIN}${url.pathname}${searchParams ? `?${searchParams}` : ""}`,
+          308,
+        );
       }
+
       // All other routes handled directly
       return NextResponse.next();
     }
@@ -107,15 +141,31 @@ export default async function proxy(req: NextRequest) {
   const csrfToken = req.cookies.get(CSRF_COOKIE_NAME)?.value;
   if (!csrfToken) {
     const newCsrfToken = crypto.randomUUID().replace(/-/g, "");
-    response.cookies.set({
-      name: CSRF_COOKIE_NAME,
-      value: newCsrfToken,
-      httpOnly: false, // must be readable by the browser to echo in headers
-      sameSite: "lax",
-      secure: process.env.NODE_ENV !== "development",
-      path: "/",
-      maxAge: CSRF_COOKIE_MAX_AGE_SECONDS,
-    });
+
+    // Set domain for cross-subdomain cookie sharing in production
+    // The leading dot allows cookies to be shared across all subdomains
+    if (ROOT_DOMAIN !== "localhost") {
+      response.cookies.set({
+        name: CSRF_COOKIE_NAME,
+        value: newCsrfToken,
+        httpOnly: false, // must be readable by the browser to echo in headers
+        sameSite: "lax",
+        secure: process.env.NODE_ENV !== "development",
+        path: "/",
+        maxAge: CSRF_COOKIE_MAX_AGE_SECONDS,
+        domain: `.${ROOT_DOMAIN}`,
+      });
+    } else {
+      response.cookies.set({
+        name: CSRF_COOKIE_NAME,
+        value: newCsrfToken,
+        httpOnly: false, // must be readable by the browser to echo in headers
+        sameSite: "lax",
+        secure: process.env.NODE_ENV !== "development",
+        path: "/",
+        maxAge: CSRF_COOKIE_MAX_AGE_SECONDS,
+      });
+    }
   }
 
   return response;
