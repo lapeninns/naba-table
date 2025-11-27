@@ -17,6 +17,7 @@ import { clientEnv } from '@/lib/env-client';
 import { HttpError } from '@/lib/http/errors';
 import { fetchJson } from '@/lib/http/fetchJson';
 import { passwordPolicySchema, validatePasswordStrength } from '@/lib/security/passwordPolicy';
+import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { cn } from '@/lib/utils';
 
 const passwordFieldSchema = z
@@ -257,8 +258,15 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
         live: 'assertive',
       });
       focusStatus();
-      router.replace(response.redirectTo ?? targetPath);
+
+      // Force client to refresh session from cookies before navigation
+      // This ensures useSupabaseSession() picks up the authenticated state
+      const supabase = getSupabaseBrowserClient();
+      await supabase.auth.getSession();
+
+      // Refresh router to update all components with new auth state
       router.refresh();
+      router.replace(response.redirectTo ?? targetPath);
     } catch (error) {
       const code = error instanceof HttpError ? error.code : 'UNKNOWN';
       track('auth_signin_error', { method: 'password', code });

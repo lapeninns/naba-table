@@ -24,8 +24,8 @@ flowchart TD
         class app_bookings public;
         app_customers["/app/customers"]
         class app_customers public;
-        app_login["/app/login"]
-        class app_login public;
+        app_auth_signin["/app/auth/signin"]
+        class app_auth_signin public;
         app_management["/app/management"]
         class app_management public;
         app_seating["/app/seating"]

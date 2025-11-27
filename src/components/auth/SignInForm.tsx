@@ -39,6 +39,12 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
                 return;
             }
 
+            // Force session refresh to ensure auth state is immediately available
+            await supabase.auth.getSession();
+
+            // Refresh the router to update auth state across all components
+            router.refresh();
+
             // Redirect to intended destination or dashboard
             const destination = redirectedFrom || '/guest/dashboard';
             router.push(destination);

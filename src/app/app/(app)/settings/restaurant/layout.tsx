@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation';
 
 import { RestaurantSettingsPageShell } from '@/components/features/restaurant-settings/RestaurantSettingsPageShell';
-import config from '@/config';
 import { withRedirectedFrom } from '@/lib/url/withRedirectedFrom';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
 
@@ -19,8 +18,7 @@ export default async function RestaurantSettingsLayout({ children }: { children:
   }
 
   if (!user) {
-    const loginUrl = config.auth.loginUrl ?? '/login';
-    redirect(withRedirectedFrom(loginUrl, '/settings/restaurant/profile'));
+    redirect(withRedirectedFrom('/app/auth/signin', '/app/settings/restaurant/profile'));
   }
 
   return (

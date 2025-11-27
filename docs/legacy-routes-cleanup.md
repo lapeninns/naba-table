@@ -125,7 +125,7 @@ Both thank-you pages were re-exports of the deleted generic marketing page. They
 ### Restaurant-Facing (app.nabatable.com)
 
 ```
-/app/login                                    - Restaurant login
+/app/auth/signin                              - Restaurant login
 /app                                          - Dashboard (protected)
 /app/dashboard                                - Dashboard (protected)
 /app/bookings                                 - Bookings (protected)

@@ -38,7 +38,6 @@ These routes are typically accessed by logged-in guests and provide personalized
 The following routes are permanently redirected to their canonical counterparts:
 
 - `/signin` → `/auth/signin`
-- `/guest/signin` → `/auth/signin`
 - `/guest/restaurants` → `/restaurants`
 - `/guest/browse` → `/restaurants`
 - `/browse` → `/restaurants`

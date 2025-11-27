@@ -1,14 +1,15 @@
-import type { Viewport } from "next";
-
 import PlausibleProvider from "next-plausible";
 import { type CSSProperties, type ReactNode } from "react";
 
 import ClientLayout from "@/components/LayoutClient";
 import config from "@/config";
 import { getSEOTags } from "@/libs/seo";
+import { getServerComponentSupabaseClient } from "@/server/supabase";
 
 import "./globals.css";
 import { AppProviders } from "./providers";
+
+import type { Viewport } from "next";
 
 export const viewport: Viewport = {
   // Will use the primary color of your theme to show a nice theme color in the URL bar of supported browsers
@@ -26,7 +27,12 @@ const htmlStyle: CSSProperties = {
   marginRight: "0px",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const supabase = await getServerComponentSupabaseClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
   return (
     <html
       lang={config.locale ?? "en"}
@@ -43,7 +49,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           Skip to content
         </a>
         {/* ClientLayout contains all the client wrappers (Crisp chat support, toast messages, tooltips, etc.) */}
-        <AppProviders>
+        <AppProviders initialSession={session}>
           <ClientLayout>{children}</ClientLayout>
         </AppProviders>
       </body>

@@ -13,7 +13,7 @@
 
 2.  **Auth Centralization:**
     - **Decision:** Single entry point at `/auth/signin`.
-    - **Rationale:** Eliminates fragmentation (`/guest/signin`, `/signin`) and simplifies redirect logic.
+    - **Rationale:** Eliminates fragmentation from previous guest-only and legacy sign-in paths and simplifies redirect logic.
 
 3.  **Unified Discovery:**
     - **Decision:** Merge "Guest" and "Public" discovery views.
@@ -23,14 +23,13 @@
 
 ### 1. Public / Marketing
 
-| Page    | Legacy / Alias  | **Canonical Route** | Status                     |
-| :------ | :-------------- | :------------------ | :------------------------- |
-| Home    |                 | `/`                 | Public                     |
-| Contact |                 | `/contact`          | Public                     |
-| Privacy |                 | `/privacy-policy`   | Public                     |
-| Terms   |                 | `/terms`            | Public                     |
-| Sign In | `/signin`       | `/auth/signin`      | Public (Redirects if auth) |
-|         | `/guest/signin` |                     |                            |
+| Page    | Legacy / Alias | **Canonical Route** | Status                     |
+| :------ | :------------- | :------------------ | :------------------------- |
+| Home    |                | `/`                 | Public                     |
+| Contact |                | `/contact`          | Public                     |
+| Privacy |                | `/privacy-policy`   | Public                     |
+| Terms   |                | `/terms`            | Public                     |
+| Sign In | `/signin`      | `/auth/signin`      | Public (Redirects if auth) |
 
 ### 2. Discovery & Restaurants
 
@@ -68,7 +67,6 @@
 Implementation of 301 Redirects in `next.config.js`:
 
 - `/signin` &rarr; `/auth/signin`
-- `/guest/signin` &rarr; `/auth/signin`
 - `/guest/restaurants` &rarr; `/restaurants`
 - `/guest/restaurant` &rarr; `/restaurants` (or specific slug if preserved in query)
 - `/account` &rarr; `/guest`

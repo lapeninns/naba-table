@@ -2,6 +2,7 @@
 
 import { CalendarClock, CalendarX, MapPin, Users, MoreHorizontal, ArrowRight, Clock, Calendar } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +25,7 @@ import { DEFAULT_RESTAURANT_SLUG } from '@shared/config/venue';
 import type { BookingDTO } from '@/hooks/useBookings';
 
 export function BookingListClient() {
+  const router = useRouter();
   const { data: bookings, isLoading, isError } = useBookings();
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
 
@@ -73,7 +75,7 @@ export function BookingListClient() {
         <p className="mt-3 text-lg text-muted-foreground">
           We couldn&apos;t load your bookings. Please check your connection and try again.
         </p>
-        <Button variant="outline" onClick={() => window.location.reload()} className="mt-8">
+        <Button variant="outline" onClick={() => router.refresh()} className="mt-8">
           Retry
         </Button>
       </div>

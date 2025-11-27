@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { defaultRedirectForHost, parseHostname, sanitizeRedirect } from "@/lib/auth/redirects";
 import { validatePasswordStrength } from "@/lib/security/passwordPolicy";
 import { validateCsrfToken } from "@/server/security/csrf";
 import { consumeRateLimit } from "@/server/security/rate-limit";
@@ -9,8 +10,6 @@ import { getRouteHandlerSupabaseClient } from "@/server/supabase";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
-
-const DEFAULT_REDIRECT = "/guest/bookings";
 
 const requestSchema = z
   .object({
@@ -36,13 +35,6 @@ const RATE_LIMITS = {
   password: { limit: 5, windowMs: 5 * 60 * 1000 },
   magic_link: { limit: 5, windowMs: 10 * 60 * 1000 },
 } as const;
-
-function sanitizeRedirect(target: string | undefined): string | undefined {
-  if (!target || !target.startsWith("/")) {
-    return undefined;
-  }
-  return target;
-}
 
 function buildCallbackUrl(origin: string, redirectedFrom: string | undefined) {
   const url = new URL("/api/auth/callback", origin);
@@ -71,6 +63,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "Invalid or missing CSRF token" }, { status: 403 });
   }
 
+  const hostname = parseHostname(req);
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost";
+
   let parsedBody: unknown;
   try {
     parsedBody = await req.json();
@@ -88,7 +83,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { email, password, mode, redirectedFrom } = validated.data;
-  const sanitizedRedirect = sanitizeRedirect(redirectedFrom) ?? DEFAULT_REDIRECT;
+  const sanitizedRedirect = sanitizeRedirect(redirectedFrom) ?? defaultRedirectForHost(hostname, rootDomain);
 
   const rateResult = await consumeRateLimit({
     identifier: buildRateLimitId(req, email, mode),

@@ -89,8 +89,13 @@ export function InviteAcceptanceClient({ token, invite }: InviteAcceptanceClient
         toast.success('Invitation accepted. Sign in with your new password to continue.');
       } else {
         toast.success('Invitation accepted. Welcome aboard!');
-        router.push('/app');
+
+        // Force session refresh to ensure auth state is immediately available
+        await supabase.auth.getSession();
+
+        // Refresh router to update all components with new auth state
         router.refresh();
+        router.push('/app');
       }
     } catch (error) {
       console.error('[invite][accept] unexpected error', error);

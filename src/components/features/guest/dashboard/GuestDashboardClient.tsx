@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { memo, useCallback, useMemo } from 'react';
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -62,6 +63,7 @@ type FavoritesProps = {
 };
 
 export function GuestDashboardClient() {
+  const router = useRouter();
   const { data, isLoading, isError } = useBookings();
   const restaurantsQuery = useRestaurants({}, { placeholderData: [], retry: false, refetchOnWindowFocus: false });
   const { user } = useSupabaseSession();
@@ -132,7 +134,7 @@ export function GuestDashboardClient() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button variant="outline" onClick={() => window.location.reload()}>
+            <Button variant="outline" onClick={() => router.refresh()}>
               Retry
             </Button>
           </CardContent>

@@ -63,14 +63,14 @@ function resolveActions(mode: Mode, isAuthenticated: boolean): ResolveResult {
   if (mode === "account") {
     if (isAuthenticated) {
       return {
-        primary: { href: "/my-bookings", label: "Go to My bookings" },
-        secondary: { href: "/profile/manage", label: "Manage profile" },
+        primary: { href: "/guest/bookings", label: "Go to My bookings" },
+        secondary: { href: "/guest/profile", label: "Manage profile" },
       };
     }
 
     return {
-      primary: { href: "/signin", label: "Sign in" },
-      secondary: { href: "/create", label: "Create account" },
+      primary: { href: "/auth/signin", label: "Sign in" },
+      secondary: undefined,
     };
   }
 
@@ -94,14 +94,14 @@ function resolveActions(mode: Mode, isAuthenticated: boolean): ResolveResult {
 
   if (isAuthenticated) {
     return {
-      primary: { href: "/my-bookings", label: "Go to My bookings" },
-      secondary: { href: "/profile/manage", label: "Manage profile" },
+      primary: { href: "/guest/bookings", label: "Go to My bookings" },
+      secondary: { href: "/guest/profile", label: "Manage profile" },
     };
   }
 
   return {
     primary: { href: "#restaurants", label: "Browse restaurants", ariaLabel: "Browse partner restaurants" },
-    secondary: { href: "/signin", label: "Sign in" },
+    secondary: { href: "/auth/signin", label: "Sign in" },
   };
 }
 
