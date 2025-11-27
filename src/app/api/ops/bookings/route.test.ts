@@ -205,7 +205,7 @@ vi.mock("@/server/observability", () => ({
 }));
 
 import { GET, POST } from "./route";
-import { opsWalkInBookingSchema } from "./schema";
+import { opsWalkInBookingSchema, type OpsWalkInBookingPayload } from "./schema";
 
 describe("POST /api/ops/bookings", () => {
   let serviceClientStub: ReturnType<typeof createServiceClientStub>;
@@ -303,7 +303,7 @@ describe("POST /api/ops/bookings", () => {
     insertBookingRecordMock.mockResolvedValue(bookingRecord);
     fetchBookingsForContactMock.mockResolvedValue([bookingRecord]);
 
-    const payload = {
+    const payload: OpsWalkInBookingPayload = {
       restaurantId: RESTAURANT_ID,
       date: "2025-05-01",
       time: "18:00",
@@ -317,7 +317,7 @@ describe("POST /api/ops/bookings", () => {
 
     const schemaSpy = vi
       .spyOn(opsWalkInBookingSchema, 'parse')
-      .mockReturnValue(payload as any);
+      .mockReturnValue(payload);
 
 
     const request = new NextRequest("http://localhost/api/ops/bookings", {
@@ -570,5 +570,24 @@ describe("GET /api/ops/bookings", () => {
     expect(orArg).toBe(
       "customer_name.ilike.%Alex\\%Smith\\_%,customer_email.ilike.%Alex\\%Smith\\_%",
     );
+  });
+
+  it("orders by created_at desc when sortBy=created_at is provided", async () => {
+    getUserMock.mockResolvedValue({ data: { user: { id: "user-1", email: "staff@example.com" } }, error: null });
+    fetchUserMembershipsMock.mockResolvedValue([{ restaurant_id: RESTAURANT_ID }]);
+
+    const queryStub = createQueryStub({ data: [], count: 0 });
+    const fromMock = vi.fn(() => queryStub);
+    getServiceSupabaseClientMock.mockReturnValue({ from: fromMock });
+
+    const request = new NextRequest(
+      `http://localhost/api/ops/bookings?restaurantId=${RESTAURANT_ID}&page=1&pageSize=5&sort=desc&sortBy=created_at`,
+    );
+
+    const response = await GET(request);
+    expect(response.status).toBe(200);
+
+    expect(queryStub.order).toHaveBeenNthCalledWith(1, "created_at", { ascending: false, nullsFirst: false });
+    expect(queryStub.order).toHaveBeenNthCalledWith(2, "id", { ascending: false });
   });
 });
