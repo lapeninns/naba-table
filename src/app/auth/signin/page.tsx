@@ -2,6 +2,7 @@ import { LogIn } from 'lucide-react';
 import Link from 'next/link';
 
 import { SignInForm } from '@/components/auth/SignInForm';
+import { ensureCsrfCookie } from '@/server/security/csrf';
 
 import type { Metadata } from 'next';
 
@@ -20,6 +21,7 @@ type SignInPageProps = {
 };
 
 export default async function SignInPage({ searchParams }: SignInPageProps) {
+  await ensureCsrfCookie();
   const resolvedParams = await searchParams;
   const redirectedRaw = resolvedParams?.redirectedFrom;
   const redirectedFromParam =

@@ -1,5 +1,5 @@
 import { randomBytes, timingSafeEqual } from "crypto";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 
 import { env } from "@/lib/env";
@@ -9,17 +9,26 @@ import type { NextRequest } from "next/server";
 
 const TOKEN_LENGTH_BYTES = 32;
 
+function shouldUseSecureCookie() {
+  const proto = headers().get("x-forwarded-proto");
+  if (proto) {
+    return proto.split(",")[0]?.trim().toLowerCase() === "https";
+  }
+  return env.node.appEnv !== "development";
+}
+
 export async function ensureCsrfCookie(): Promise<string> {
   const cookieStore = await cookies();
   const existingToken = cookieStore.get(CSRF_COOKIE_NAME)?.value;
   const token = existingToken ?? randomBytes(TOKEN_LENGTH_BYTES).toString("hex");
+  const secure = shouldUseSecureCookie();
 
   if (!existingToken) {
     cookieStore.set({
       name: CSRF_COOKIE_NAME,
       value: token,
       httpOnly: false, // must be readable by the browser to echo in headers
-      secure: env.node.appEnv !== "development",
+      secure,
       sameSite: "lax",
       path: "/",
       maxAge: CSRF_COOKIE_MAX_AGE_SECONDS,
