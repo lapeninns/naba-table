@@ -236,8 +236,8 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
       id: booking.id,
       restaurantId: booking.restaurantId ?? null,
       restaurantName: booking.restaurantName,
-      restaurantSlug: activeMembership?.restaurantSlug ?? null,
-      restaurantTimezone: null,
+      restaurantSlug: booking.restaurantSlug ?? activeMembership?.restaurantSlug ?? null,
+      restaurantTimezone: booking.restaurantTimezone ?? null,
       partySize: booking.partySize,
       startIso: booking.startIso,
       endIso: booking.endIso,
@@ -246,6 +246,7 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
       customerName: booking.customerName ?? null,
       customerEmail: booking.customerEmail ?? null,
       customerPhone: booking.customerPhone ?? null,
+      reservationIntervalMinutes: booking.reservationIntervalMinutes ?? null,
     }),
     [activeMembership?.restaurantSlug],
   );
