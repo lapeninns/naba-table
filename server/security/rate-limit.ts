@@ -36,12 +36,12 @@ const devMode = env.node.env === "development";
 const isProductionEnv = env.node.env === "production";
 const allowMemoryInProd = parseBooleanEnv(process.env.ALLOW_MEMORY_RATE_LIMIT_IN_PROD) === true;
 
-const parseBooleanEnv = (value: string | undefined): boolean | undefined => {
+function parseBooleanEnv(value: string | undefined): boolean | undefined {
   if (!value) return undefined;
   if (/^(true|1|yes)$/i.test(value.trim())) return true;
   if (/^(false|0|no)$/i.test(value.trim())) return false;
   return undefined;
-};
+}
 
 const enableRateLimitInDev = parseBooleanEnv(process.env.ENABLE_RATE_LIMIT_IN_DEV);
 const shouldBypassRateLimit = devMode && enableRateLimitInDev !== true;
