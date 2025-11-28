@@ -36,14 +36,9 @@ const RATE_LIMITS = {
   magic_link: { limit: 5, windowMs: 10 * 60 * 1000 },
 } as const;
 
-function buildCallbackUrl(origin: string, redirectedFrom: string | undefined) {
-  // Force HTTPS for non-localhost to ensure it matches Supabase Allow List
-  let baseUrl = origin;
-  if (!origin.includes("localhost") && origin.startsWith("http:")) {
-    baseUrl = origin.replace("http:", "https:");
-  }
-
-  const url = new URL("/api/auth/callback", baseUrl);
+function buildCallbackUrl(hostname: string, redirectedFrom: string | undefined) {
+  const protocol = hostname.includes("localhost") ? "http" : "https";
+  const url = new URL("/api/auth/callback", `${protocol}://${hostname}`);
   if (redirectedFrom) {
     url.searchParams.set("redirectedFrom", redirectedFrom);
   }
@@ -124,7 +119,7 @@ export async function POST(req: NextRequest) {
     return setRateHeaders(response, rateResult);
   }
 
-  const emailRedirectTo = buildCallbackUrl(req.nextUrl.origin, absoluteRedirect);
+  const emailRedirectTo = buildCallbackUrl(hostname, absoluteRedirect);
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
