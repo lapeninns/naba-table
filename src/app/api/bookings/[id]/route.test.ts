@@ -708,6 +708,43 @@ describe('/api/bookings/[id] PUT', () => {
     expect(beginBookingModificationFlowMock).not.toHaveBeenCalled();
   });
 
+  it('blocks guest updates within 15 minutes of the start time', async () => {
+    vi.setSystemTime(new Date('2025-10-10T18:50:00.000Z'));
+
+    const payload = {
+      restaurantId: RESTAURANT_ID,
+      date: '2025-10-10',
+      time: '19:00',
+      party: 2,
+      bookingType: 'dinner',
+      seating: 'any',
+      notes: 'Late change',
+      name: 'Test User',
+      email: 'test@example.com',
+      phone: '1234567890',
+    };
+
+    const request = createRequest(payload);
+    const params = { params: Promise.resolve({ id: existingBooking.id }) } as const;
+
+    const tenantSupabase = createTenantSupabase();
+    const serviceSupabase = createServiceSupabase();
+
+    getDefaultRestaurantIdMock.mockResolvedValue('rest-default');
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(tenantSupabase);
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+    getRestaurantScheduleMock.mockResolvedValue({ ...DEFAULT_SCHEDULE, timezone: 'UTC' });
+    assertBookingWithinOperatingWindowMock.mockReturnValue({ time: '19:00' });
+
+    const response = await PUT(request, params);
+    const json = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(json.code).toBe('STARTING_SOON');
+    expect(updateBookingRecordMock).not.toHaveBeenCalled();
+    expect(beginBookingModificationFlowMock).not.toHaveBeenCalled();
+  });
+
   it('returns 400 when booking time is outside operating hours', async () => {
     const payload = {
       date: '2025-10-10',
@@ -1018,6 +1055,69 @@ describe('/api/bookings/[id] DELETE', () => {
     expect(clearBookingTableAssignmentsMock).not.toHaveBeenCalled();
   });
 
+  it('prevents cancellations for checked-in bookings', async () => {
+    const request = new NextRequest('http://localhost/api/bookings/booking-1', { method: 'DELETE' });
+    const params = { params: Promise.resolve({ id: existingBooking.id }) } as const;
+
+    const checkedInBooking = {
+      ...existingBooking,
+      status: 'checked_in' as const,
+      checked_in_at: '2025-10-10T18:45:00.000Z',
+    };
+
+    const tenantSupabase = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { email: checkedInBooking.customer_email } },
+          error: null,
+        }),
+      },
+    };
+
+    const serviceSupabase = createServiceSupabase({ booking: checkedInBooking });
+
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(tenantSupabase);
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+
+    const response = await DELETE(request, params);
+    const json = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(json.code).toBe('CHECKED_IN_LOCKED');
+    expect(softCancelBookingMock).not.toHaveBeenCalled();
+    expect(clearBookingTableAssignmentsMock).not.toHaveBeenCalled();
+  });
+
+  it('blocks cancellations within 15 minutes of the start time', async () => {
+    vi.setSystemTime(new Date('2025-10-10T18:50:00.000Z'));
+
+    const request = new NextRequest('http://localhost/api/bookings/booking-1', { method: 'DELETE' });
+    const params = { params: Promise.resolve({ id: existingBooking.id }) } as const;
+
+    const tenantSupabase = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { email: existingBooking.customer_email } },
+          error: null,
+        }),
+      },
+    };
+
+    const serviceSupabase = createServiceSupabase({ booking: existingBooking });
+
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(tenantSupabase);
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+    getRestaurantScheduleMock.mockResolvedValue({ ...DEFAULT_SCHEDULE, timezone: 'UTC' });
+
+    const response = await DELETE(request, params);
+    const json = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(json.code).toBe('STARTING_SOON');
+    expect(softCancelBookingMock).not.toHaveBeenCalled();
+    expect(clearBookingTableAssignmentsMock).not.toHaveBeenCalled();
+  });
+
   it('rejects cancellations for past bookings', async () => {
     vi.setSystemTime(new Date('2025-10-11T10:00:00.000Z'));
 
@@ -1041,8 +1141,8 @@ describe('/api/bookings/[id] DELETE', () => {
     const response = await DELETE(request, params);
     const json = await response.json();
 
-    expect(response.status).toBe(422);
-    expect(json.code).toBe('BOOKING_IN_PAST');
+    expect(response.status).toBe(403);
+    expect(json.code).toBe('SERVICE_STARTED');
     expect(softCancelBookingMock).not.toHaveBeenCalled();
     expect(clearBookingTableAssignmentsMock).not.toHaveBeenCalled();
   });
