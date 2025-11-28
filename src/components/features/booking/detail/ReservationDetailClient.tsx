@@ -43,7 +43,6 @@ import { getPendingSelfServeGraceMinutes, isPendingSelfServeLocked } from '@/lib
 import { downloadCalendarEvent, shareReservationDetails, type ShareResult } from '@/lib/reservations/share';
 import { useReservation } from '@features/reservations/wizard/api/useReservation';
 import { DEFAULT_VENUE } from '@shared/config/venue';
-import { DEFAULT_RESTAURANT_SLUG } from '@shared/config/venue';
 
 import { ReservationHistory } from './ReservationHistory';
 
@@ -407,7 +406,7 @@ export function ReservationDetailClient({
       reservationId,
       party: reservation.partySize,
     });
-    const slug = [reservation.restaurantSlug, venue.slug, DEFAULT_RESTAURANT_SLUG]
+    const slug = [reservation.restaurantSlug, venue.slug]
       .map((value) => value?.trim())
       .find((value) => value && value.toLowerCase() !== 'default');
     const path = slug ? `/restaurants/${slug}/book` : '/restaurants';

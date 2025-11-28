@@ -7,11 +7,6 @@ import {
   type BookingType,
   type SeatingPreference,
 } from '@shared/config/booking';
-import {
-  DEFAULT_RESTAURANT_ID,
-  DEFAULT_RESTAURANT_SLUG,
-  DEFAULT_VENUE,
-} from '@shared/config/venue';
 
 import type { BookingOption } from '@reserve/shared/booking';
 import type { IconKey } from '@reserve/shared/ui/icons';
@@ -118,7 +113,7 @@ export type Action =
     }
   | {
       type: 'HYDRATE_DETAILS';
-      details: BookingDetails;
+      details: Partial<BookingDetails>;
     };
 
 export type ReservationDraft = {
@@ -154,21 +149,13 @@ export function toSeatingOption(value: SeatingPreference): SeatingOption {
 }
 
 export const getInitialDetails = (overrides?: Partial<BookingDetails>): BookingDetails => {
-  const normalizedDefaultSlug = (() => {
-    const trimmed = DEFAULT_RESTAURANT_SLUG?.trim();
-    if (!trimmed || trimmed.toLowerCase() === 'default') {
-      return '';
-    }
-    return trimmed;
-  })();
-
   const base: BookingDetails = {
     bookingId: null,
-    restaurantId: DEFAULT_RESTAURANT_ID ?? '',
-    restaurantSlug: normalizedDefaultSlug,
-    restaurantName: DEFAULT_VENUE.name,
-    restaurantAddress: DEFAULT_VENUE.address,
-    restaurantTimezone: DEFAULT_VENUE.timezone,
+    restaurantId: '',
+    restaurantSlug: '',
+    restaurantName: '',
+    restaurantAddress: '',
+    restaurantTimezone: '',
     reservationDurationMinutes: reservationConfigResult.config.defaultDurationMinutes,
     date: formatDateForInput(new Date()),
     time: '',

@@ -20,7 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useBookings } from '@/hooks/useBookings';
 import { formatReservationDate, formatReservationTime } from '@reserve/shared/formatting/booking';
-import { DEFAULT_RESTAURANT_SLUG } from '@shared/config/venue';
+
 
 import type { BookingDTO } from '@/hooks/useBookings';
 
@@ -82,10 +82,7 @@ export function BookingListClient() {
     );
   }
 
-  const bookingSlug = DEFAULT_RESTAURANT_SLUG?.trim();
-  const bookingPath = bookingSlug && bookingSlug !== 'default'
-    ? `/restaurants/${bookingSlug}/book`
-    : '/restaurants';
+  const bookingPath = '/restaurants';
 
   const hasAnyBookings = (bookings?.items?.length ?? 0) > 0;
 

@@ -65,7 +65,7 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
   // Redirect to login if not authenticated
   // All pages under this layout require authentication
   if (!supabaseUser) {
-    redirect("/app/auth/signin");
+    redirect("/auth/signin");
   }
 
   const opsMemberships: OpsMembership[] = memberships

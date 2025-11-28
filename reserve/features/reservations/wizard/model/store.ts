@@ -32,7 +32,7 @@ export type WizardActions = {
   hydrateContacts: (
     payload: Pick<BookingDetails, 'name' | 'email' | 'phone'> & { rememberDetails?: boolean },
   ) => void;
-  hydrateDetails: (details: BookingDetails) => void;
+  hydrateDetails: (details: Partial<BookingDetails>) => void;
 };
 
 const createActions = (

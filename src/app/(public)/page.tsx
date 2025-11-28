@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { FeatureCard } from '@/components/shared/FeatureCard';
 import { PageHero } from '@/components/shared/PageHero';
 import { PageSection } from '@/components/shared/PageSection';
-import { DEFAULT_RESTAURANT_SLUG } from '@shared/config/venue';
 import { Button } from '@shared/ui/button';
 
 import type { Metadata } from 'next';
@@ -26,10 +25,7 @@ export const metadata: Metadata = {
 };
 
 export default function Home() {
-  const bookingSlug = DEFAULT_RESTAURANT_SLUG?.trim();
-  const bookingPath = bookingSlug && bookingSlug !== 'default'
-    ? `/restaurants/${bookingSlug}/book`
-    : '/restaurants';
+  const bookingPath = '/restaurants';
 
   return (
     <main className="min-h-screen bg-background">

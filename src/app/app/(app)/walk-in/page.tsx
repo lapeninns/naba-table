@@ -26,7 +26,7 @@ export default async function WalkInPage() {
   }
 
   if (!user) {
-    redirect(withRedirectedFrom("/app/auth/signin", "/app/walk-in"));
+    redirect(withRedirectedFrom("/auth/signin", "/walk-in"));
   }
 
   return (

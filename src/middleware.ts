@@ -143,9 +143,10 @@ async function handleRouting(req: NextRequest): Promise<NextResponse> {
   // 2. Guest/Root Domain Logic
   if (webHosts.has(hostname)) {
     if (!isApiPath(url.pathname)) {
-      // Canonicalize restaurant-facing app to the app subdomain, preserving single /app prefix
+      // Canonicalize restaurant-facing app to the app subdomain
+      // Redirect /app/* to app.domain/* (stripping /app prefix)
       if (url.pathname.startsWith("/app")) {
-        const redirectedPath = url.pathname.replace(/^\/app(\/)?/, "/app/").replace(/\/+$/, "").replace(/\/\//g, "/");
+        const redirectedPath = url.pathname.replace(/^\/app/, "") || "/";
         return NextResponse.redirect(
           `https://app.${rootDomain}${redirectedPath}${searchParams ? `?${searchParams}` : ""}`,
           308,

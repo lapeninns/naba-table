@@ -77,7 +77,7 @@ export function WalkInWizardClient() {
         <AlertDescription className="flex flex-col gap-2">
           You need a restaurant membership before logging walk-ins.
           <Button asChild size="sm" variant="secondary" className="w-fit">
-            <Link href="/app/bookings">Back to bookings</Link>
+            <Link href="/bookings">Back to bookings</Link>
           </Button>
         </AlertDescription>
       </Alert>
@@ -136,7 +136,7 @@ export function WalkInWizardClient() {
           <ReservationWizard
             mode="ops"
             initialDetails={initialDetails ?? undefined}
-            returnPath="/app/bookings"
+            returnPath="/bookings"
             dependencies={{ navigator }}
             navigationClassName="sticky bottom-0"
             className="min-h-0 bg-transparent p-0 pb-20 sm:pt-0 md:px-0 lg:px-0"

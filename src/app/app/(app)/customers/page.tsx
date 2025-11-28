@@ -108,7 +108,7 @@ export default async function OpsCustomersPage({ searchParams }: { searchParams?
   }
 
   if (!user) {
-    redirect(withRedirectedFrom('/app/auth/signin', '/app/customers'));
+    redirect(withRedirectedFrom('/auth/signin', '/customers'));
   }
 
   const memberships = await fetchUserMemberships(user.id, supabase);

@@ -23,7 +23,7 @@ export default async function OpsCapacityPage() {
   }
 
   if (!user) {
-    redirect(withRedirectedFrom('/app/auth/signin', '/app/seating/capacity'));
+    redirect(withRedirectedFrom('/auth/signin', '/seating/capacity'));
   }
 
   return (
