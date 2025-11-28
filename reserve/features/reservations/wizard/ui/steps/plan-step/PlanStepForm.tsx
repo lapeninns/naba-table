@@ -10,7 +10,8 @@ import { Alert, AlertDescription, AlertIcon } from '@shared/ui/alert';
 import { Form, FormField } from '@shared/ui/form';
 
 import {
-  Calendar24Field,
+  Calendar24Date,
+  Calendar24Time,
   NotesField,
   OccasionPicker,
   PartySizeField,
@@ -120,20 +121,48 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
       noValidate
     >
       <button type="submit" className="hidden" aria-hidden />
-      <div className="grid gap-6 md:grid-cols-2">
-        <Calendar24Field
+      <div className="grid gap-6 md:grid-cols-3">
+        <Calendar24Date
           date={{
             value: dateField.value,
             minDate: state.minDate,
-            onSelect: (next) => {
+            onSelect: (next: Date | null) => {
               state.handlers.selectDate(next);
             },
             onBlur: dateField.onBlur,
             error: dateFieldError?.message ?? formState.errors.date?.message,
           }}
+          onMonthChange={state.handlers.prefetchMonth}
+          isDateUnavailable={isDateUnavailable}
+          loadingDates={state.loadingDates}
+        />
+
+        <div className="relative">
+          <div
+            className="hidden md:absolute md:-left-3 md:top-8 md:bottom-0 md:w-px md:bg-border"
+            aria-hidden="true"
+          />
+          <FormField
+            control={control}
+            name="party"
+            render={({ field }) => (
+              <PartySizeField
+                value={field.value}
+                onChange={state.handlers.changeParty}
+                error={formState.errors.party?.message}
+              />
+            )}
+          />
+          <div
+            className="hidden md:absolute md:-right-3 md:top-8 md:bottom-0 md:w-px md:bg-border"
+            aria-hidden="true"
+          />
+        </div>
+
+        <Calendar24Time
           time={{
             value: timeField.value,
-            onChange: (next, options) => {
+            onChange: (next: string, options?: { commit?: boolean }) => {
               state.handlers.selectTime(next, options);
             },
             onBlur: () => {
@@ -144,24 +173,9 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
           }}
           suggestions={state.slots}
           intervalMinutes={state.intervalMinutes ?? undefined}
-          isDateUnavailable={isDateUnavailable}
           isTimeDisabled={timeDisabled}
           unavailableMessage={unavailableCopy ?? undefined}
-          onMonthChange={state.handlers.prefetchMonth}
-          loadingDates={state.loadingDates}
           isTimeLoading={state.isScheduleFetching || state.isScheduleLoading}
-        />
-
-        <FormField
-          control={control}
-          name="party"
-          render={({ field }) => (
-            <PartySizeField
-              value={field.value}
-              onChange={state.handlers.changeParty}
-              error={formState.errors.party?.message}
-            />
-          )}
         />
       </div>
 

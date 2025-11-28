@@ -82,7 +82,10 @@ export function BookingListClient() {
     );
   }
 
-  const bookingPath = DEFAULT_RESTAURANT_SLUG ? `/restaurants/${DEFAULT_RESTAURANT_SLUG}/book` : '/restaurants';
+  const bookingSlug = DEFAULT_RESTAURANT_SLUG?.trim();
+  const bookingPath = bookingSlug && bookingSlug !== 'default'
+    ? `/restaurants/${bookingSlug}/book`
+    : '/restaurants';
 
   const hasAnyBookings = (bookings?.items?.length ?? 0) > 0;
 
@@ -151,7 +154,7 @@ export function BookingListClient() {
                     Ready to eat? Book a table now.
                   </p>
                 </div>
-                <Link href={`/restaurants/${DEFAULT_RESTAURANT_SLUG}/book`}>
+                <Link href={bookingPath}>
                   <Button variant="outline" className="mt-2">Browse Restaurants</Button>
                 </Link>
               </CardContent>

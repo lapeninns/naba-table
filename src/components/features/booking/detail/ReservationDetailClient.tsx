@@ -407,7 +407,9 @@ export function ReservationDetailClient({
       reservationId,
       party: reservation.partySize,
     });
-    const slug = reservation.restaurantSlug ?? venue.slug ?? DEFAULT_RESTAURANT_SLUG;
+    const slug = [reservation.restaurantSlug, venue.slug, DEFAULT_RESTAURANT_SLUG]
+      .map((value) => value?.trim())
+      .find((value) => value && value.toLowerCase() !== 'default');
     const path = slug ? `/restaurants/${slug}/book` : '/restaurants';
     router.push(`${path}?source=rebook&reservationId=${reservation.id}`);
   }, [reservation, reservationId, router, venue.slug]);

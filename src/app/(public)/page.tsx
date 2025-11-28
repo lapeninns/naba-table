@@ -26,8 +26,9 @@ export const metadata: Metadata = {
 };
 
 export default function Home() {
-  const bookingPath = DEFAULT_RESTAURANT_SLUG
-    ? `/restaurants/${DEFAULT_RESTAURANT_SLUG}/book`
+  const bookingSlug = DEFAULT_RESTAURANT_SLUG?.trim();
+  const bookingPath = bookingSlug && bookingSlug !== 'default'
+    ? `/restaurants/${bookingSlug}/book`
     : '/restaurants';
 
   return (

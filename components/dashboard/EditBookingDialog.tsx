@@ -320,7 +320,27 @@ export function EditBookingDialog({
                     disabled={mutation.isPending || missingScheduleMetadata}
                     minDate={fallbackMinDate}
                     timeScrollArea
-                  />
+                  >
+                    <div className="grid gap-2">
+                      <Label htmlFor="partySize">Party size</Label>
+                      <Controller
+                        name="partySize"
+                        control={control}
+                        render={({ field: partyField }) => (
+                          <Input
+                            id="partySize"
+                            type="number"
+                            min={MIN_ONLINE_PARTY_SIZE}
+                            max={MAX_ONLINE_PARTY_SIZE}
+                            {...partyField}
+                          />
+                        )}
+                      />
+                      {errors.partySize ? (
+                        <p className="text-sm text-destructive">{errors.partySize.message}</p>
+                      ) : null}
+                    </div>
+                  </ScheduleAwareTimestampPicker>
                 )}
               />
             </div>
@@ -337,18 +357,6 @@ export function EditBookingDialog({
               <p className="text-xs text-muted-foreground">
                 Duration: {derivedDurationLabel}. The end time updates automatically when you adjust the start.
               </p>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="partySize">Party size</Label>
-              <Controller
-                name="partySize"
-                control={control}
-                render={({ field }) => (
-                  <Input id="partySize" type="number" min={MIN_ONLINE_PARTY_SIZE} max={MAX_ONLINE_PARTY_SIZE} {...field} />
-                )}
-              />
-              {errors.partySize ? <p className="text-sm text-destructive">{errors.partySize.message}</p> : null}
             </div>
 
             <div className="grid gap-2">
