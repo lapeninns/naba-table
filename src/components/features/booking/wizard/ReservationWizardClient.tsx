@@ -6,6 +6,9 @@ import { useMemo } from "react";
 
 import { PlanStepSkeleton } from "@features/reservations/wizard/ui/WizardSkeletons";
 
+import type { RestaurantSummary } from "@/lib/restaurants/types";
+
+
 const ReservationWizard = dynamic(
   () => import("@features/reservations/wizard/ui/ReservationWizard").then((m) => m.ReservationWizard),
   {
@@ -20,11 +23,13 @@ const ReservationWizard = dynamic(
 );
 
 type ReservationWizardClientProps = {
+  restaurant?: Pick<RestaurantSummary, "id" | "slug" | "name" | "timezone" | "address"> | null;
   restaurantSlug?: string | null;
   returnPath?: string;
 };
 
 export function ReservationWizardClient({
+  restaurant,
   restaurantSlug,
   returnPath = '/guest/thank-you',
 }: ReservationWizardClientProps) {
@@ -39,10 +44,22 @@ export function ReservationWizardClient({
     [router],
   );
 
-  const initialDetails = useMemo(
-    () => (restaurantSlug ? { restaurantSlug } : undefined),
-    [restaurantSlug],
-  );
+  const slug = useMemo(() => restaurant?.slug ?? restaurantSlug ?? null, [restaurant, restaurantSlug]);
+
+  const initialDetails = useMemo(() => {
+    const normalizedSlug = slug?.trim();
+    if (!normalizedSlug) {
+      return undefined;
+    }
+
+    return {
+      ...(restaurant?.id ? { restaurantId: restaurant.id } : {}),
+      restaurantSlug: normalizedSlug,
+      ...(restaurant?.name ? { restaurantName: restaurant.name } : {}),
+      ...(restaurant?.timezone ? { restaurantTimezone: restaurant.timezone } : {}),
+      ...(restaurant?.address ? { restaurantAddress: restaurant.address } : {}),
+    };
+  }, [restaurant, slug]);
 
   return (
     <ReservationWizard

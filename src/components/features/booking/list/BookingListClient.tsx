@@ -26,7 +26,7 @@ import type { BookingDTO } from '@/hooks/useBookings';
 
 export function BookingListClient() {
   const router = useRouter();
-  const { data: bookings, isLoading, isError } = useBookings();
+  const { data: bookings, isLoading, isError } = useBookings({ pageSize: 50 });
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
 
   const { upcoming, past } = useMemo(() => {

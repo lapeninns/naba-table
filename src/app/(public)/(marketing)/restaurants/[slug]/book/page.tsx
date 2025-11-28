@@ -1,4 +1,7 @@
+import { notFound } from "next/navigation";
+
 import { ReservationWizardClient } from "@/components/features/booking/wizard/ReservationWizardClient";
+import { getRestaurantBySlug } from "@/server/restaurants/getRestaurantBySlug";
 
 import type { Metadata } from "next";
 
@@ -17,6 +20,16 @@ export async function generateMetadata({ params }: { params: RouteParams }): Pro
 
 export default async function BookingPage({ params }: { params: RouteParams }) {
   const { slug } = await params;
-  const normalized = slug?.trim() ?? "";
-  return <ReservationWizardClient restaurantSlug={normalized || null} />;
+  const normalized = slug?.trim().toLowerCase() ?? "";
+
+  if (!normalized) {
+    return notFound();
+  }
+
+  const restaurant = await getRestaurantBySlug(normalized);
+  if (!restaurant) {
+    return notFound();
+  }
+
+  return <ReservationWizardClient restaurant={restaurant} />;
 }
