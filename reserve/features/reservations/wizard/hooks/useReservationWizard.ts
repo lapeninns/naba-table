@@ -102,10 +102,17 @@ export function useReservationWizard(
 
   useRememberedContacts({ details: state.details, actions, enabled: mode === 'customer' });
 
-  const wizardRestaurantSlug = useMemo(
-    () => initialDetails?.restaurantSlug ?? DEFAULT_RESTAURANT_SLUG ?? null,
-    [initialDetails?.restaurantSlug],
-  );
+  const wizardRestaurantSlug = useMemo(() => {
+    const provided = initialDetails?.restaurantSlug?.trim();
+    if (provided && provided.toLowerCase() !== 'default') {
+      return provided;
+    }
+    const fallback = DEFAULT_RESTAURANT_SLUG?.trim();
+    if (fallback && fallback.toLowerCase() !== 'default') {
+      return fallback;
+    }
+    return null;
+  }, [initialDetails?.restaurantSlug]);
 
   useEffect(() => {
     if (draftHydratedRef.current || mode !== 'customer') {

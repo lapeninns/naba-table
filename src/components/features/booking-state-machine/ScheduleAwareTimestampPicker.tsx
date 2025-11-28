@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useId } from 'react'
 import { cn } from '@/lib/utils';
 import { fetchReservationSchedule, scheduleQueryKey } from '@reserve/features/reservations/wizard/services/schedule';
 import { toTimeSlotDescriptor, type ReservationSchedule, type TimeSlotDescriptor } from '@reserve/features/reservations/wizard/services/timeSlots';
-import { Calendar24Field, TimeSlotGrid } from '@reserve/features/reservations/wizard/ui/steps/plan-step/components';
+import { Calendar24Date, Calendar24Time, TimeSlotGrid } from '@reserve/features/reservations/wizard/ui/steps/plan-step/components';
 import { formatDateForInput } from '@reserve/shared/formatting/booking';
 import {
   getDisabledDays as buildDisabledDayMap,
@@ -21,7 +21,7 @@ import {
 import { normalizeTime } from '@reserve/shared/time';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@shared/ui/accordion';
 
-type DisabledReasonState = Map<string, UnavailabilityReason>;
+
 
 type DateParts = {
   date: string | null;
@@ -49,6 +49,7 @@ export type ScheduleAwareTimestampPickerProps = {
   className?: string;
   timeAccordion?: boolean;
   timeScrollArea?: boolean;
+  children?: React.ReactNode;
 };
 
 const DEFAULT_MINUTES_STEP = 15;
@@ -129,6 +130,7 @@ export function ScheduleAwareTimestampPicker({
   className,
   timeAccordion = false,
   timeScrollArea = false,
+  children,
 }: ScheduleAwareTimestampPickerProps) {
   const timeRegionLabelId = useId();
   const timeAccordionHeadingId = useId();
@@ -696,27 +698,54 @@ export function ScheduleAwareTimestampPicker({
       <div className="space-y-3">
         {label ? <span className="text-xs font-semibold uppercase text-muted-foreground">{label}</span> : null}
         {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
-        <Calendar24Field
-          date={{
-            value: activeDate,
-            minDate: fallbackMinDate,
-            onSelect: handleDateSelect,
-            onBlur,
-            error: errorMessage ?? undefined,
-          }}
-          time={{
-            value: draftTime,
-            onChange: handleTimeChange,
-            onBlur,
-            error: resolvedTimeErrorMessage,
-          }}
-          suggestions={availableSlots}
-          intervalMinutes={intervalMinutes}
-          isDateUnavailable={isDateDisabled}
-          isTimeDisabled={isTimeDisabled}
-          unavailableMessage={resolvedUnavailableMessage}
-          onMonthChange={handleMonthPrefetch}
-        />
+        <div className="flex flex-col gap-4 sm:flex-row sm:gap-3">
+          <div className="flex-1">
+            <Calendar24Date
+              date={{
+                value: activeDate,
+                minDate: fallbackMinDate,
+                onSelect: handleDateSelect,
+                onBlur,
+                error: errorMessage ?? undefined,
+              }}
+              onMonthChange={handleMonthPrefetch}
+              isDateUnavailable={isDateDisabled}
+              loadingDates={undefined}
+            />
+          </div>
+
+          {children && (
+            <>
+              <div
+                className="hidden sm:block sm:w-px sm:bg-border sm:self-stretch sm:my-8"
+                aria-hidden="true"
+              />
+              <div className="flex-1">
+                {children}
+              </div>
+            </>
+          )}
+
+          <div
+            className="hidden sm:block sm:w-px sm:bg-border sm:self-stretch sm:my-8"
+            aria-hidden="true"
+          />
+
+          <div className="flex-1">
+            <Calendar24Time
+              time={{
+                value: draftTime,
+                onChange: handleTimeChange,
+                onBlur,
+                error: resolvedTimeErrorMessage,
+              }}
+              suggestions={availableSlots}
+              intervalMinutes={intervalMinutes}
+              isTimeDisabled={isTimeDisabled}
+              unavailableMessage={resolvedUnavailableMessage}
+            />
+          </div>
+        </div>
       </div>
       {timeAccordion ? (
         <Accordion

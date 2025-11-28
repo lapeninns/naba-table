@@ -35,7 +35,7 @@ export const DEFAULT_RESTAURANT_SLUG: string | null = defaultRestaurantSlug;
 
 export const DEFAULT_VENUE: VenueDetails = {
   id: defaultRestaurantId ?? '',
-  slug: defaultRestaurantSlug ?? 'default',
+  slug: defaultRestaurantSlug ?? '',
   name: runtime.readString('RESERVE_DEFAULT_VENUE_NAME') ?? 'Set restaurant name',
   address: runtime.readString('RESERVE_DEFAULT_VENUE_ADDRESS') ?? 'Add address',
   phone: runtime.readString('RESERVE_DEFAULT_VENUE_PHONE') ?? '',

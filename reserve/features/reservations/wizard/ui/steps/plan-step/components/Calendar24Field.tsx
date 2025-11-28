@@ -41,34 +41,25 @@ export type Calendar24FieldProps = {
   isTimeLoading?: boolean;
 };
 
-export function Calendar24Field({
+export function Calendar24Date({
   date,
-  time,
-  suggestions = [],
-  intervalMinutes,
-  isDateUnavailable,
-  isTimeDisabled = false,
-  unavailableMessage,
   onMonthChange,
+  isDateUnavailable,
   loadingDates,
-  isTimeLoading = false,
-}: Calendar24FieldProps) {
-  const resolvedIntervalMinutes =
-    typeof intervalMinutes === 'number' && intervalMinutes > 0 ? intervalMinutes : undefined;
+  idPrefix,
+}: {
+  date: Calendar24FieldProps['date'];
+  onMonthChange?: Calendar24FieldProps['onMonthChange'];
+  isDateUnavailable?: Calendar24FieldProps['isDateUnavailable'];
+  loadingDates?: Calendar24FieldProps['loadingDates'];
+  idPrefix?: string;
+}) {
   const [open, setOpen] = useState(false);
-  const [hasHydrated, setHasHydrated] = useState(false);
-  const computedStepSeconds = resolvedIntervalMinutes
-    ? Math.max(60, Math.round(resolvedIntervalMinutes * 60))
-    : 60;
-  const timeStepSeconds = hasHydrated ? computedStepSeconds : 60;
   const baseId = useId();
-  const dateButtonId = `${baseId}-date`;
-  const timeInputId = `${baseId}-time`;
-  const timeListId = `${baseId}-time-options`;
-  const dateDescriptionId = `${baseId}-date-description`;
-  const timeDescriptionId = `${baseId}-time-description`;
-  const dateErrorId = date.error ? `${baseId}-date-error` : undefined;
-  const timeErrorId = time.error ? `${baseId}-time-error` : undefined;
+  const finalId = idPrefix ?? baseId;
+  const dateButtonId = `${finalId}-date`;
+  const dateDescriptionId = `${finalId}-date-description`;
+  const dateErrorId = date.error ? `${finalId}-date-error` : undefined;
 
   const label = useMemo(
     () => (date.value ? formatReservationDate(date.value) : 'Select date'),
@@ -88,19 +79,6 @@ export function Calendar24Field({
     onMonthChange(new Date(initialMonthTime));
   }, [initialMonthTime, onMonthChange]);
 
-  const enabledSuggestions = useMemo(
-    () => suggestions.filter((slot) => !slot.disabled),
-    [suggestions],
-  );
-  useEffect(() => {
-    setHasHydrated(true);
-  }, []);
-
-  const showSuggestions = hasHydrated && !isTimeDisabled && enabledSuggestions.length > 0;
-  const inputValue = time.value ?? '';
-  const resolvedUnavailableMessage =
-    unavailableMessage ?? 'No available times for the selected date.';
-
   const disabledMatcher = useCallback(
     (day?: Date) => {
       if (!day) {
@@ -111,7 +89,6 @@ export function Calendar24Field({
       }
       const dayKey = formatDateForInput(day);
       if (loadingDates?.has(dayKey)) {
-        // Prevent selection while availability for that day is still loading.
         return true;
       }
       if (typeof isDateUnavailable === 'function') {
@@ -144,172 +121,241 @@ export function Calendar24Field({
   }, [loadingDates]);
 
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:gap-3">
-      {/* Date Section */}
-      <div className="flex flex-1 flex-col gap-3">
-        <Label
-          htmlFor={dateButtonId}
-          className="flex items-center gap-1.5 px-1 text-sm font-semibold sm:text-base"
-        >
-          <CalendarIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          <span>Date</span>
-        </Label>
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              id={dateButtonId}
-              variant="outline"
-              className={cn(
-                'w-full justify-between font-normal h-12 text-base',
-                !date.value && 'text-muted-foreground',
-                date.error && 'border-destructive focus-visible:ring-destructive',
-              )}
-              aria-haspopup="dialog"
-              aria-expanded={open}
-              aria-invalid={Boolean(date.error)}
-              aria-describedby={
-                [dateDescriptionId, dateErrorId].filter(Boolean).join(' ') || undefined
-              }
-            >
-              <span className="truncate">{label}</span>
-              <ChevronDownIcon className="h-4 w-4 shrink-0 opacity-50" aria-hidden />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto overflow-hidden p-0" align="start">
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              defaultMonth={initialMonth}
-              fromDate={date.minDate}
-              onSelect={(next) => {
-                date.onSelect(next);
-                date.onBlur?.();
-                setOpen(false);
-              }}
-              onMonthChange={(month) => {
-                onMonthChange?.(month);
-              }}
-              disabled={disabledMatcher}
-              modifiers={calendarModifiers}
-              modifiersClassNames={calendarModifiersClassNames}
-              initialFocus
-            />
-          </PopoverContent>
-        </Popover>
-        <p id={dateDescriptionId} className="px-1 text-xs text-muted-foreground sm:text-[0.8rem]">
-          {DATE_DESCRIPTION}
-        </p>
-        {date.error ? (
-          <div
-            id={dateErrorId}
-            className="flex items-start gap-1.5 rounded-md bg-destructive/10 px-3 py-2 animate-fade-in"
-            role="alert"
+    <div className="flex flex-col gap-3">
+      <Label
+        htmlFor={dateButtonId}
+        className="flex items-center gap-1.5 px-1 text-sm font-semibold sm:text-base"
+      >
+        <CalendarIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        <span>Date</span>
+      </Label>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            id={dateButtonId}
+            variant="outline"
+            className={cn(
+              'w-full justify-between font-normal h-12 text-base',
+              !date.value && 'text-muted-foreground',
+              date.error && 'border-destructive focus-visible:ring-destructive',
+            )}
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            aria-invalid={Boolean(date.error)}
+            aria-describedby={
+              [dateDescriptionId, dateErrorId].filter(Boolean).join(' ') || undefined
+            }
           >
-            <span className="text-destructive text-sm font-medium leading-tight">{date.error}</span>
-          </div>
-        ) : null}
+            <span className="truncate">{label}</span>
+            <ChevronDownIcon className="h-4 w-4 shrink-0 opacity-50" aria-hidden />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto overflow-hidden p-0" align="start">
+          <Calendar
+            mode="single"
+            selected={selectedDate}
+            defaultMonth={initialMonth}
+            fromDate={date.minDate}
+            onSelect={(next) => {
+              date.onSelect(next);
+              date.onBlur?.();
+              setOpen(false);
+            }}
+            onMonthChange={(month) => {
+              onMonthChange?.(month);
+            }}
+            disabled={disabledMatcher}
+            modifiers={calendarModifiers}
+            modifiersClassNames={calendarModifiersClassNames}
+            initialFocus
+          />
+        </PopoverContent>
+      </Popover>
+      <p id={dateDescriptionId} className="px-1 text-xs text-muted-foreground sm:text-[0.8rem]">
+        {DATE_DESCRIPTION}
+      </p>
+      {date.error ? (
+        <div
+          id={dateErrorId}
+          className="flex items-start gap-1.5 rounded-md bg-destructive/10 px-3 py-2 animate-fade-in"
+          role="alert"
+        >
+          <span className="text-destructive text-sm font-medium leading-tight">{date.error}</span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function Calendar24Time({
+  time,
+  suggestions = [],
+  intervalMinutes,
+  isTimeDisabled = false,
+  unavailableMessage,
+  isTimeLoading = false,
+  idPrefix,
+}: {
+  time: Calendar24FieldProps['time'];
+  suggestions?: Calendar24FieldProps['suggestions'];
+  intervalMinutes?: Calendar24FieldProps['intervalMinutes'];
+  isTimeDisabled?: Calendar24FieldProps['isTimeDisabled'];
+  unavailableMessage?: Calendar24FieldProps['unavailableMessage'];
+  isTimeLoading?: Calendar24FieldProps['isTimeLoading'];
+  idPrefix?: string;
+}) {
+  const resolvedIntervalMinutes =
+    typeof intervalMinutes === 'number' && intervalMinutes > 0 ? intervalMinutes : undefined;
+  const [hasHydrated, setHasHydrated] = useState(false);
+  const computedStepSeconds = resolvedIntervalMinutes
+    ? Math.max(60, Math.round(resolvedIntervalMinutes * 60))
+    : 60;
+  const timeStepSeconds = hasHydrated ? computedStepSeconds : 60;
+
+  const baseId = useId();
+  const finalId = idPrefix ?? baseId;
+  const timeInputId = `${finalId}-time`;
+  const timeListId = `${finalId}-time-options`;
+  const timeDescriptionId = `${finalId}-time-description`;
+  const timeErrorId = time.error ? `${finalId}-time-error` : undefined;
+
+  const enabledSuggestions = useMemo(
+    () => suggestions.filter((slot) => !slot.disabled),
+    [suggestions],
+  );
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
+
+  const showSuggestions = hasHydrated && !isTimeDisabled && enabledSuggestions.length > 0;
+  const inputValue = time.value ?? '';
+  const resolvedUnavailableMessage =
+    unavailableMessage ?? 'No available times for the selected date.';
+
+  return (
+    <div
+      className={cn(
+        'flex flex-col gap-3 transition-opacity duration-300',
+        isTimeLoading && 'opacity-50',
+      )}
+    >
+      <Label
+        htmlFor={timeInputId}
+        className="flex items-center gap-1.5 px-1 text-sm font-semibold sm:text-base"
+      >
+        <ClockIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        <span>Time</span>
+      </Label>
+      <div className="flex flex-col gap-2">
+        <div className="relative">
+          <Input
+            id={timeInputId}
+            type="time"
+            value={inputValue}
+            step={timeStepSeconds}
+            onChange={(event) => {
+              if (isTimeDisabled) {
+                return;
+              }
+              const value = event.target.value;
+              time.onChange(value, { commit: false });
+            }}
+            onBlur={(event) => {
+              if (isTimeDisabled) {
+                time.onBlur?.();
+                return;
+              }
+              time.onBlur?.();
+              time.onChange(event.target.value, { commit: true });
+            }}
+            aria-invalid={Boolean(time.error)}
+            aria-describedby={
+              [timeDescriptionId, timeErrorId].filter(Boolean).join(' ') || undefined
+            }
+            list={showSuggestions ? timeListId : undefined}
+            placeholder="--:--"
+            className={cn(
+              'h-12 bg-background text-base font-normal appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none',
+              !inputValue ? 'text-foreground' : undefined,
+              time.error && 'border-destructive focus-visible:ring-destructive',
+            )}
+            disabled={isTimeDisabled || isTimeLoading}
+          />
+          {isTimeLoading && !inputValue ? (
+            <div className="absolute inset-0 flex items-center px-3 pointer-events-none">
+              <div className="h-5 w-20 animate-pulse rounded bg-muted/60" />
+            </div>
+          ) : null}
+          {!inputValue && !isTimeLoading ? (
+            <span
+              aria-hidden="true"
+              className={cn(
+                'pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-base text-muted-foreground transition-opacity',
+                isTimeDisabled ? 'opacity-70' : 'opacity-100',
+              )}
+            >
+              --:--
+            </span>
+          ) : null}
+        </div>
+        {showSuggestions ? (
+          <datalist id={timeListId}>
+            {enabledSuggestions.map((slot) => (
+              <option
+                key={slot.value}
+                value={slot.value}
+                label={`${slot.display} • ${slot.label}`}
+              />
+            ))}
+          </datalist>
+        ) : (
+          <p className="px-1 text-xs text-muted-foreground sm:text-[0.8rem]" aria-live="polite">
+            {resolvedUnavailableMessage}
+          </p>
+        )}
+      </div>
+      <p id={timeDescriptionId} className="px-1 text-xs text-muted-foreground sm:text-[0.8rem]">
+        {TIME_DESCRIPTION}
+      </p>
+      {time.error ? (
+        <div
+          id={timeErrorId}
+          className="flex items-start gap-1.5 rounded-md bg-destructive/10 px-3 py-2 animate-fade-in"
+          role="alert"
+        >
+          <span className="text-destructive text-sm font-medium leading-tight">{time.error}</span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function Calendar24Field(props: Calendar24FieldProps) {
+  return (
+    <div className="flex flex-col gap-4 sm:flex-row sm:gap-3">
+      <div className="flex-1">
+        <Calendar24Date
+          date={props.date}
+          onMonthChange={props.onMonthChange}
+          isDateUnavailable={props.isDateUnavailable}
+          loadingDates={props.loadingDates}
+        />
       </div>
 
-      {/* Visual Separator - only visible on tablet+ */}
       <div
         className="hidden sm:block sm:w-px sm:bg-border sm:self-stretch sm:my-8"
         aria-hidden="true"
       />
 
-      {/* Time Section */}
-      <div
-        className={cn(
-          'flex flex-1 flex-col gap-3 transition-opacity duration-300',
-          isTimeLoading && 'opacity-50',
-        )}
-      >
-        <Label
-          htmlFor={timeInputId}
-          className="flex items-center gap-1.5 px-1 text-sm font-semibold sm:text-base"
-        >
-          <ClockIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          <span>Time</span>
-        </Label>
-        <div className="flex flex-col gap-2">
-          <div className="relative">
-            <Input
-              id={timeInputId}
-              type="time"
-              value={inputValue}
-              step={timeStepSeconds}
-              onChange={(event) => {
-                if (isTimeDisabled) {
-                  return;
-                }
-                const value = event.target.value;
-                time.onChange(value, { commit: false });
-              }}
-              onBlur={(event) => {
-                if (isTimeDisabled) {
-                  time.onBlur?.();
-                  return;
-                }
-                time.onBlur?.();
-                time.onChange(event.target.value, { commit: true });
-              }}
-              aria-invalid={Boolean(time.error)}
-              aria-describedby={
-                [timeDescriptionId, timeErrorId].filter(Boolean).join(' ') || undefined
-              }
-              list={showSuggestions ? timeListId : undefined}
-              placeholder="--:--"
-              className={cn(
-                'h-12 bg-background text-base font-normal appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none',
-                !inputValue ? 'text-foreground' : undefined,
-                time.error && 'border-destructive focus-visible:ring-destructive',
-              )}
-              disabled={isTimeDisabled || isTimeLoading}
-            />
-            {isTimeLoading && !inputValue ? (
-              <div className="absolute inset-0 flex items-center px-3 pointer-events-none">
-                <div className="h-5 w-20 animate-pulse rounded bg-muted/60" />
-              </div>
-            ) : null}
-            {!inputValue && !isTimeLoading ? (
-              <span
-                aria-hidden="true"
-                className={cn(
-                  'pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-base text-muted-foreground transition-opacity',
-                  isTimeDisabled ? 'opacity-70' : 'opacity-100',
-                )}
-              >
-                --:--
-              </span>
-            ) : null}
-          </div>
-          {showSuggestions ? (
-            <datalist id={timeListId}>
-              {enabledSuggestions.map((slot) => (
-                <option
-                  key={slot.value}
-                  value={slot.value}
-                  label={`${slot.display} • ${slot.label}`}
-                />
-              ))}
-            </datalist>
-          ) : (
-            <p className="px-1 text-xs text-muted-foreground sm:text-[0.8rem]" aria-live="polite">
-              {resolvedUnavailableMessage}
-            </p>
-          )}
-        </div>
-        <p id={timeDescriptionId} className="px-1 text-xs text-muted-foreground sm:text-[0.8rem]">
-          {TIME_DESCRIPTION}
-        </p>
-        {time.error ? (
-          <div
-            id={timeErrorId}
-            className="flex items-start gap-1.5 rounded-md bg-destructive/10 px-3 py-2 animate-fade-in"
-            role="alert"
-          >
-            <span className="text-destructive text-sm font-medium leading-tight">{time.error}</span>
-          </div>
-        ) : null}
+      <div className="flex-1">
+        <Calendar24Time
+          time={props.time}
+          suggestions={props.suggestions}
+          intervalMinutes={props.intervalMinutes}
+          isTimeDisabled={props.isTimeDisabled}
+          unavailableMessage={props.unavailableMessage}
+          isTimeLoading={props.isTimeLoading}
+        />
       </div>
     </div>
   );
