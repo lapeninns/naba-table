@@ -147,6 +147,17 @@ const extractRestaurantSlug = (input: unknown): string | null => {
   return typeof slug === 'string' ? slug : null;
 };
 
+const extractRestaurantTimezone = (input: unknown): string | null => {
+  if (!input) return null;
+  if (Array.isArray(input)) {
+    return extractRestaurantTimezone(input[0]);
+  }
+  const record = isRecord(input);
+  if (!record) return null;
+  const { timezone } = record;
+  return typeof timezone === 'string' ? timezone : null;
+};
+
 const normalizeReservation = (input: z.infer<typeof apiReservationSchema>) => {
   const metadata = parseMetadata(input.details);
   const startAt =
@@ -165,6 +176,7 @@ const normalizeReservation = (input: z.infer<typeof apiReservationSchema>) => {
     restaurantId: input.restaurant_id,
     restaurantName: extractRestaurantName(input.restaurants),
     restaurantSlug: extractRestaurantSlug(input.restaurants),
+    restaurantTimezone: extractRestaurantTimezone(input.restaurants),
     bookingDate: input.booking_date,
     startTime: input.start_time,
     endTime: input.end_time ?? undefined,

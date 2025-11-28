@@ -37,7 +37,13 @@ const RATE_LIMITS = {
 } as const;
 
 function buildCallbackUrl(origin: string, redirectedFrom: string | undefined) {
-  const url = new URL("/api/auth/callback", origin);
+  // Force HTTPS for non-localhost to ensure it matches Supabase Allow List
+  let baseUrl = origin;
+  if (!origin.includes("localhost") && origin.startsWith("http:")) {
+    baseUrl = origin.replace("http:", "https:");
+  }
+
+  const url = new URL("/api/auth/callback", baseUrl);
   if (redirectedFrom) {
     url.searchParams.set("redirectedFrom", redirectedFrom);
   }
