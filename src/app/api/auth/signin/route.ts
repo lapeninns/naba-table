@@ -37,8 +37,21 @@ const RATE_LIMITS = {
 } as const;
 
 function buildCallbackUrl(hostname: string, redirectedFrom: string | undefined) {
-  const protocol = hostname.includes("localhost") ? "http" : "https";
-  const url = new URL("/api/auth/callback", `${protocol}://${hostname}`);
+  let validHostname = hostname;
+
+  // Ensure hostname is one of our allowed public domains
+  // This prevents issues where the server sees an internal IP (e.g. AWS/Vercel internal IP) as the host
+  const isLocal = hostname.includes("localhost");
+  const isValidDomain = hostname.endsWith("nabatable.com");
+
+  if (!isLocal && !isValidDomain) {
+    console.warn(`[Auth] Invalid hostname '${hostname}' detected. Falling back to 'nabatable.com'`);
+    validHostname = "nabatable.com";
+  }
+
+  const protocol = validHostname.includes("localhost") ? "http" : "https";
+  const url = new URL("/api/auth/callback", `${protocol}://${validHostname}`);
+
   if (redirectedFrom) {
     url.searchParams.set("redirectedFrom", redirectedFrom);
   }
@@ -120,6 +133,7 @@ export async function POST(req: NextRequest) {
   }
 
   const emailRedirectTo = buildCallbackUrl(hostname, absoluteRedirect);
+  console.log("[Auth] Generated magic link redirect URL:", emailRedirectTo);
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
