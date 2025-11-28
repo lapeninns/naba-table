@@ -20,6 +20,7 @@ related_tickets: []
 - [x] Identify undefined `map` source and fix data shape or guard appropriately.
 - [ ] Ensure save request succeeds and response updates UI state.
 - [x] Adjust inline modification idempotency key to be hold-specific to avoid P0003 mismatches.
+- [x] Clear `assigned_zone_id` when clearing assignments so edits can move zones.
 
 ## UI/UX
 

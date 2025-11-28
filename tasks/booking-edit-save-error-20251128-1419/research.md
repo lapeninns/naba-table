@@ -30,6 +30,7 @@ related_tickets: []
 - Hidden dependencies with booking availability/slots logic.
 - React Query prefix `queryKeys.bookings.all` matches both list and detail queries; optimistic map assumes `items` exists and currently throws when detail data lacks `items`.
 - Inline modification auto-assign reuses a constant idempotency key (`mod-inline-<bookingId>`); when the selected table set changes, `assign_tables_atomic_v2` rejects with idempotency mismatch (P0003), blocking save.
+- Booking retains `assigned_zone_id` after clearing table assignments; `assign_tables_atomic_v2` raises “locked to zone” when inline auto-assign quotes a different zone.
 
 ## Open Questions (owner, due)
 
@@ -41,3 +42,4 @@ related_tickets: []
 
 - Limit optimistic updates to list-shaped cache entries and guard against missing `items` before mapping—mirror the defensive pattern in `useCancelBooking` to prevent runtime errors while still keeping list caches fresh.
 - Generate a hold-scoped idempotency key for inline modification auto-assign so each table set uses a unique key and avoids idempotency mismatch.
+- When clearing assignments, also clear `assigned_zone_id` so reassignment can legally pick a new zone.
