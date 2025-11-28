@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { defaultRedirectForHost, parseHostname, sanitizeRedirect } from "@/lib/auth/redirects";
+import { defaultRedirectForHost, parseHostname, sanitizeRedirect, toAbsoluteRedirectTarget } from "@/lib/auth/redirects";
 import { validatePasswordStrength } from "@/lib/security/passwordPolicy";
 import { validateCsrfToken } from "@/server/security/csrf";
 import { consumeRateLimit } from "@/server/security/rate-limit";
@@ -83,7 +83,8 @@ export async function POST(req: NextRequest) {
   }
 
   const { email, password, mode, redirectedFrom } = validated.data;
-  const sanitizedRedirect = sanitizeRedirect(redirectedFrom) ?? defaultRedirectForHost(hostname, rootDomain);
+  const redirectTarget = sanitizeRedirect(redirectedFrom, rootDomain) ?? defaultRedirectForHost(hostname, rootDomain);
+  const absoluteRedirect = toAbsoluteRedirectTarget(redirectTarget, rootDomain);
 
   const rateResult = await consumeRateLimit({
     identifier: buildRateLimitId(req, email, mode),
@@ -113,11 +114,11 @@ export async function POST(req: NextRequest) {
       return setRateHeaders(response, rateResult);
     }
 
-    const response = NextResponse.json({ status: "ok", redirectTo: sanitizedRedirect });
+    const response = NextResponse.json({ status: "ok", redirectTo: redirectTarget });
     return setRateHeaders(response, rateResult);
   }
 
-  const emailRedirectTo = buildCallbackUrl(req.nextUrl.origin, sanitizedRedirect);
+  const emailRedirectTo = buildCallbackUrl(req.nextUrl.origin, absoluteRedirect);
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
@@ -135,6 +136,6 @@ export async function POST(req: NextRequest) {
     return setRateHeaders(response, rateResult);
   }
 
-  const response = NextResponse.json({ status: "magic_link_sent", redirectTo: sanitizedRedirect }, { status: 202 });
+  const response = NextResponse.json({ status: "magic_link_sent", redirectTo: absoluteRedirect }, { status: 202 });
   return setRateHeaders(response, rateResult);
 }
