@@ -36,7 +36,7 @@ export function parseHostname(req: NextRequest): string {
 export function defaultRedirectForHost(hostname: string, rootDomain: string): string {
   const appHosts = new Set([`app.${rootDomain}`, "app.localhost"]);
   if (rootDomain === "localhost") appHosts.add("app.localhost.com");
-  const path = appHosts.has(hostname) ? "/app" : "/guest";
+  const path = appHosts.has(hostname) ? "/app/dashboard" : "/guest/dashboard";
   return path;
 }
 
