@@ -122,6 +122,7 @@ export async function POST(req: NextRequest) {
     email,
     options: {
       emailRedirectTo,
+      shouldCreateUser: false,
     },
   });
 

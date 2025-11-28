@@ -26,7 +26,7 @@ type ReservationWizardClientProps = {
 
 export function ReservationWizardClient({
   restaurantSlug,
-  returnPath = '/thank-you',
+  returnPath = '/guest/thank-you',
 }: ReservationWizardClientProps) {
   const router = useRouter();
 

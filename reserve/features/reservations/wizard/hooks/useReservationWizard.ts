@@ -98,7 +98,7 @@ export function useReservationWizard(
     returnPath ||
     (initialDetails?.restaurantSlug ? `/reserve/r/${initialDetails.restaurantSlug}` : null) ||
     (initialDetails?.bookingId ? `/reserve/${initialDetails.bookingId}` : null) ||
-    '/thank-you';
+    '/guest/thank-you';
 
   useRememberedContacts({ details: state.details, actions, enabled: mode === 'customer' });
 

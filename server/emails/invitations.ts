@@ -3,7 +3,14 @@ import { format } from "date-fns";
 import config from "@/config";
 import { buildInviteUrl } from "@/lib/owner/team/invite-links";
 import { sendEmail } from "@/libs/resend";
-import { renderButton, renderEmailBase, escapeHtml } from "@/server/emails/base";
+import {
+  COLORS,
+  renderButton,
+  renderDivider,
+  renderEmailBase,
+  escapeHtml,
+  EMAIL_FONT_STACK,
+} from "@/server/emails/base";
 import { resolveInviteContext } from "@/server/team/invitations";
 
 import type { RestaurantInvite } from "@/server/team/invitations";
@@ -28,36 +35,39 @@ export async function sendTeamInviteEmail(params: { invite: RestaurantInvite; to
 
   const title = `${greeting}`;
   const preheader = `Join ${restaurantName} on Nab a Table. Role: ${invite.role}. Expires ${expiry.date} ${expiry.time}`;
+
   const contentHtml = `
-    <div class="card">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-        <tr>
-          <td style="padding:24px 24px 8px;">
-            <h1 style="margin:0 0 8px;font-size:22px;line-height:1.35;color:#0f172a;">${escapeHtml(greeting)}</h1>
-            <p style="margin:0 0 12px;font-size:15px;color:#334155;">Join <strong>${escapeHtml(restaurantName)}</strong> on Nab a Table and manage bookings with the team.</p>
-            <p style="margin:0 0 12px;font-size:14px;color:#475569;"><strong>Your role:</strong> ${escapeHtml(invite.role.charAt(0).toUpperCase() + invite.role.slice(1))}</p>
-            <p style="margin:0 0 16px;font-size:14px;color:#475569;">This invitation expires on <strong>${escapeHtml(expiry.date)}</strong> at <strong>${escapeHtml(expiry.time)}</strong>.</p>
-          </td>
-        </tr>
-        <tr>
-          <td align="center" style="padding:8px 24px 16px;">
-            ${renderButton('Accept invite', inviteUrl, { variant: 'primary', align: 'center' })}
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:0 24px 24px;">
-            <p style="margin:0 0 8px;font-size:12px;color:#64748b;">If the button doesn't work, copy and paste this link:</p>
-            <p style="margin:0;font-size:13px;word-break:break-all;"><a href="${inviteUrl}" style="color:#4338ca;text-decoration:none;">${inviteUrl}</a></p>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:0 24px 24px;">
-            <hr style="border:none;border-top:1px solid #e2e8f0;margin:16px 0;" />
-            <p style="margin:0;font-size:12px;color:#64748b;">You received this because ${escapeHtml(restaurantName)} wants to collaborate with you on Nab a Table. If you weren't expecting this invite, you can ignore it.</p>
-          </td>
-        </tr>
-      </table>
-    </div>`;
+    <div style="text-align:center;">
+      <h1 style="margin:0 0 16px;font-family:${EMAIL_FONT_STACK};font-size:24px;font-weight:700;color:${COLORS.text.main};line-height:1.3;">${escapeHtml(greeting)}</h1>
+      <p style="margin:0 0 24px;font-family:${EMAIL_FONT_STACK};font-size:16px;color:${COLORS.text.secondary};line-height:1.6;">
+        Join <strong>${escapeHtml(restaurantName)}</strong> on Nab a Table and manage bookings with the team.
+      </p>
+      
+      <div style="background:${COLORS.background};padding:20px;border-radius:16px;margin-bottom:24px;text-align:left;">
+        <p style="margin:0 0 8px;font-family:${EMAIL_FONT_STACK};font-size:14px;color:${COLORS.text.secondary};">
+          <strong>Role:</strong> ${escapeHtml(invite.role.charAt(0).toUpperCase() + invite.role.slice(1))}
+        </p>
+        <p style="margin:0;font-family:${EMAIL_FONT_STACK};font-size:14px;color:${COLORS.text.secondary};">
+          <strong>Expires:</strong> ${escapeHtml(expiry.date)} at ${escapeHtml(expiry.time)}
+        </p>
+      </div>
+
+      ${renderButton('Accept Invite', inviteUrl, { variant: 'primary', fullWidth: true })}
+      
+      <p style="margin:24px 0 0;font-family:${EMAIL_FONT_STACK};font-size:13px;color:${COLORS.text.muted};">
+        If the button doesn't work, copy and paste this link:
+      </p>
+      <p style="margin:4px 0 0;font-family:${EMAIL_FONT_STACK};font-size:13px;word-break:break-all;">
+        <a href="${inviteUrl}" style="color:${COLORS.primary};text-decoration:none;">${inviteUrl}</a>
+      </p>
+
+      ${renderDivider()}
+
+      <p style="margin:0;font-family:${EMAIL_FONT_STACK};font-size:12px;color:${COLORS.text.light};line-height:1.5;">
+        You received this because <strong>${escapeHtml(restaurantName)}</strong> wants to collaborate with you on Nab a Table. If you weren't expecting this invite, you can ignore it.
+      </p>
+    </div>
+  `;
 
   const html = renderEmailBase({ title, preheader, contentHtml });
 
