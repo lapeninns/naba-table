@@ -3,25 +3,19 @@
 import {
   CalendarClock,
   ChevronRight,
-  Clock3,
   Crown,
-  Heart,
-  Map as MapIcon,
   MapPin,
   QrCode,
-  Search,
   Share2,
   Sparkles,
   TimerReset,
   User,
   UtensilsCrossed,
 } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { memo, useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,16 +23,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useBookings } from '@/hooks/useBookings';
 import { useSupabaseSession } from '@/hooks/useSupabaseSession';
-import { useRestaurants } from '@/lib/restaurants/useRestaurants';
 import { cn } from '@/lib/utils';
 import { formatReservationDateFromDate, formatReservationTimeFromDate } from '@reserve/shared/formatting/booking';
 
-import { deriveBookingState, type FavoriteRestaurant } from './booking-derivations';
+import { deriveBookingState } from './booking-derivations';
 
 import type { BookingDTO } from '@/hooks/useBookings';
-import type { RestaurantSummary } from '@/lib/restaurants/types';
 
-const DISCOVERY_HREF = '/restaurants';
 type HeroState = 'hungry' | 'upcoming' | 'live';
 
 
@@ -56,19 +47,13 @@ type ActiveCardProps = {
   onRunningLate: () => void;
 };
 
-type FavoritesProps = {
-  favorites: FavoriteRestaurant[];
-};
-
 export function GuestDashboardClient() {
   const router = useRouter();
   const { data, isLoading, isError } = useBookings();
-  const restaurantsQuery = useRestaurants({}, { placeholderData: [], retry: false, refetchOnWindowFocus: false });
   const { user } = useSupabaseSession();
   const { toast } = useToast();
 
   const derived = useMemo(() => deriveBookingState(data?.items ?? []), [data?.items]);
-  const restaurants = restaurantsQuery.data ?? [];
 
   const heroState: HeroState = derived.liveBooking ? 'live' : derived.nextBooking ? 'upcoming' : 'hungry';
   const primaryBooking = derived.liveBooking ?? derived.nextBooking ?? null;
@@ -142,8 +127,6 @@ export function GuestDashboardClient() {
       <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
         <div className="space-y-8">
           <ActiveReservationCard booking={primaryBooking} isLoading={isLoading} onShare={shareInvite} onRunningLate={shareRunningLate} />
-          <FavoritesRail favorites={derived.favorites} />
-          <DiscoveryFeed restaurants={restaurants} isLoading={restaurantsQuery.isLoading} />
         </div>
 
         <aside className="space-y-8">
@@ -175,13 +158,6 @@ function HeroBanner({ state, booking, userName, onShare }: HeroBannerProps) {
     return 'Discover top-rated tables, new openings, and your personal favorites.';
   })();
 
-  const primaryHref = state === 'hungry' ? DISCOVERY_HREF : booking ? `/bookings/${booking.id}` : DISCOVERY_HREF;
-  const secondaryHref = state === 'hungry'
-    ? DISCOVERY_HREF
-    : booking?.restaurantSlug
-      ? `/restaurants/${booking.restaurantSlug}`
-      : DISCOVERY_HREF;
-
   return (
     <div className="relative overflow-hidden rounded-3xl bg-slate-900 text-white shadow-2xl">
       {/* Background Image/Gradient */}
@@ -209,18 +185,6 @@ function HeroBanner({ state, booking, userName, onShare }: HeroBannerProps) {
           <h1 className="text-4xl font-bold leading-tight tracking-tight sm:text-5xl">{headline}</h1>
           <p className="text-lg text-slate-300 sm:text-xl">{subcopy}</p>
           <div className="flex flex-wrap items-center gap-3 pt-2">
-            <Link
-              href={primaryHref}
-              className={cn(buttonVariants({ variant: 'default', size: 'lg' }), 'h-12 rounded-full px-8 text-base font-semibold shadow-lg shadow-primary/20')}
-            >
-              {state === 'hungry' ? 'Find a Table' : 'View Ticket'}
-            </Link>
-            <Link
-              href={secondaryHref}
-              className={cn(buttonVariants({ variant: 'secondary', size: 'lg' }), 'h-12 rounded-full bg-white/10 px-8 text-base text-white backdrop-blur-sm hover:bg-white/20')}
-            >
-              {state === 'hungry' ? 'Open Map' : 'View Menu'}
-            </Link>
             {onShare && (
               <Button
                 variant="ghost"
@@ -262,9 +226,7 @@ function ActiveReservationCard({ booking, isLoading, onShare, onRunningLate }: A
             <h3 className="text-lg font-semibold text-slate-900">No active reservations</h3>
             <p className="text-slate-500">You don&apos;t have any upcoming bookings at the moment.</p>
           </div>
-          <Link href={DISCOVERY_HREF} className={cn(buttonVariants({ variant: 'outline' }), "mt-2")}>
-            Make a Reservation
-          </Link>
+
         </CardContent>
       </Card>
     );
@@ -353,121 +315,6 @@ function ActiveReservationCard({ booking, isLoading, onShare, onRunningLate }: A
   );
 }
 
-function FavoritesRail({ favorites }: FavoritesProps) {
-  if (favorites.length === 0) return null;
-
-  return (
-    <section aria-label="Your favorites" className="space-y-4">
-      <div className="flex items-center justify-between px-1">
-        <h2 className="text-xl font-bold text-slate-900">Your Favorites</h2>
-        <Link href={DISCOVERY_HREF} className="group flex items-center gap-1 text-sm font-semibold text-primary hover:text-primary/80">
-          See all <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-        </Link>
-      </div>
-
-      <div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0">
-        {favorites.map((item) => (
-          <FavoriteCard key={item.name} favorite={item} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function FavoriteCard({ favorite }: { favorite: FavoriteRestaurant }) {
-  const initial = favorite.name.charAt(0).toUpperCase();
-  const href = favorite.slug ? `/restaurants/${favorite.slug}` : DISCOVERY_HREF;
-
-  return (
-    <Link
-      href={href}
-      className="group relative flex h-40 w-40 flex-none snap-start flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md"
-    >
-      <Avatar className="h-10 w-10 border border-amber-100 bg-amber-50 text-amber-700">
-        <AvatarFallback className="bg-amber-50 font-bold text-amber-700">{initial}</AvatarFallback>
-      </Avatar>
-      <div>
-        <h3 className="line-clamp-2 font-semibold text-slate-900 group-hover:text-primary">{favorite.name}</h3>
-        <p className="text-xs text-slate-500">{favorite.count} visits</p>
-      </div>
-    </Link>
-  );
-}
-
-function DiscoveryFeed({ restaurants, isLoading }: { restaurants: RestaurantSummary[]; isLoading: boolean }) {
-  return (
-    <section aria-label="Discovery" className="space-y-4">
-      <div className="flex items-center justify-between px-1">
-        <h2 className="text-xl font-bold text-slate-900">Explore New Tables</h2>
-        <Link href={DISCOVERY_HREF} className="group flex items-center gap-1 text-sm font-semibold text-primary hover:text-primary/80">
-          Open Map <MapIcon className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-        </Link>
-      </div>
-
-      <div className="grid gap-6 sm:grid-cols-2">
-        {isLoading ? (
-          <>
-            <Skeleton className="h-64 w-full rounded-2xl" />
-            <Skeleton className="h-64 w-full rounded-2xl" />
-          </>
-        ) : restaurants.length === 0 ? (
-          <Card className="col-span-full border-dashed">
-            <CardContent className="flex flex-col items-center justify-center p-8 text-center">
-              <p className="text-slate-500">No restaurants available right now.</p>
-            </CardContent>
-          </Card>
-        ) : (
-          restaurants.slice(0, 4).map((restaurant) => (
-            <RestaurantCard key={restaurant.id} restaurant={restaurant} />
-          ))
-        )}
-      </div>
-    </section>
-  );
-}
-
-const RestaurantCard = memo(function RestaurantCard({ restaurant }: { restaurant: RestaurantSummary }) {
-  const href = restaurant.slug ? `/restaurants/${restaurant.slug}/book` : DISCOVERY_HREF;
-
-  return (
-    <Link href={href} className="group block h-full">
-      <Card className="h-full overflow-hidden rounded-2xl border-0 shadow-sm transition-all hover:shadow-lg">
-        <div className="relative h-48 bg-slate-100">
-          {restaurant.logoUrl ? (
-            <Image
-              src={restaurant.logoUrl}
-              alt={restaurant.name}
-              fill
-              sizes="(max-width: 768px) 100vw, 50vw"
-              className="object-cover"
-              priority={false}
-              unoptimized
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center bg-slate-100 text-slate-300">
-              <UtensilsCrossed className="h-12 w-12" />
-            </div>
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60 transition-opacity group-hover:opacity-70" />
-          <div className="absolute bottom-4 left-4 right-4 text-white">
-            <h3 className="text-xl font-bold leading-tight">{restaurant.name}</h3>
-            <p className="text-sm text-white/90">{restaurant.address ?? 'Downtown'}</p>
-          </div>
-        </div>
-        <CardContent className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-2 text-sm text-slate-600">
-            <Clock3 className="h-4 w-4" />
-            <span>Next available: Today</span>
-          </div>
-          <Badge variant="secondary" className="group-hover:bg-primary group-hover:text-white transition-colors">
-            Book Now
-          </Badge>
-        </CardContent>
-      </Card>
-    </Link>
-  );
-});
-
 function PerksCard({ totalBookings }: { totalBookings: number }) {
   const progress = Math.min(totalBookings * 20, 100);
   const remaining = Math.max(0, Math.ceil((5 - totalBookings)));
@@ -505,7 +352,7 @@ function PerksCard({ totalBookings }: { totalBookings: number }) {
   );
 }
 
-function NextStepsCard({ hasActive }: { hasActive: boolean }) {
+function NextStepsCard({ hasActive: _hasActive }: { hasActive: boolean }) {
   return (
     <Card className="rounded-3xl border-0 shadow-lg">
       <CardHeader>
@@ -513,11 +360,7 @@ function NextStepsCard({ hasActive }: { hasActive: boolean }) {
       </CardHeader>
       <CardContent className="space-y-2">
         <ActionRow icon={CalendarClock} label="Upcoming Reservations" href="/guest/bookings" />
-        <ActionRow icon={Search} label="Browse Map" href={DISCOVERY_HREF} />
         <ActionRow icon={User} label="Dietary Preferences" href="/guest/profile" />
-        {!hasActive && (
-          <ActionRow icon={Heart} label="Saved Restaurants" href={DISCOVERY_HREF} />
-        )}
       </CardContent>
     </Card>
   );

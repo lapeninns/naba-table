@@ -94,6 +94,7 @@ const SUPPRESS_EMAILS = process.env.LOAD_TEST_DISABLE_EMAILS === 'true' || proce
 const REMINDER_24H_MINUTES = 24 * 60;
 const REMINDER_SHORT_MINUTES = 2 * 60;
 const REVIEW_DELAY_MINUTES = 60;
+const INLINE_EMAIL_DELAY_CAP_MS = 48 * 60 * 60 * 1000;
 
 type EmailPrefs = {
   sendReminder24h: boolean;
@@ -143,6 +144,25 @@ function computeDelayMs(targetIso: string | null | undefined, minutesBeforeOrAft
   return ts - Date.now() - minutesBeforeOrAfter * 60_000;
 }
 
+async function sendEmailInlineWithDelay(
+  delayMs: number | null,
+  sendFn: () => Promise<void>,
+  logLabel: string,
+): Promise<void> {
+  if (delayMs === null) return;
+  if (delayMs <= 0) {
+    await Promise.resolve(sendFn());
+    return;
+  }
+
+  const timeout = Math.min(delayMs, INLINE_EMAIL_DELAY_CAP_MS);
+  setTimeout(() => {
+    void Promise.resolve(sendFn()).catch((error) => {
+      console.error(`[jobs][${logLabel}][inline-delay]`, error);
+    });
+  }, timeout);
+}
+
 async function scheduleReminderJob(
   booking: BookingRecord,
   restaurantId: string,
@@ -170,9 +190,11 @@ async function scheduleReminderJob(
       { jobId: `${variant}:${booking.id}`, delayMs: delayMs ?? 0 },
     );
   } else {
-    if (delayMs === null || delayMs <= 0) {
-      await sendBookingReminderEmail(booking, { variant: variant === "reminder_short" ? "short" : "standard" });
-    }
+    await sendEmailInlineWithDelay(
+      delayMs,
+      () => sendBookingReminderEmail(booking, { variant: variant === "reminder_short" ? "short" : "standard" }),
+      `booking.${variant}`,
+    );
   }
 }
 
@@ -194,9 +216,7 @@ async function scheduleReviewJob(booking: BookingRecord, restaurantId: string) {
       { jobId: `review_request:${booking.id}`, delayMs },
     );
   } else {
-    if (delayMs === null || delayMs <= 0) {
-      await sendBookingReviewRequestEmail(booking);
-    }
+    await sendEmailInlineWithDelay(delayMs, () => sendBookingReviewRequestEmail(booking), "booking.review_request");
   }
 }
 
