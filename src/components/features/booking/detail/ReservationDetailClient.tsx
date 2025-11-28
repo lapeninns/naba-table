@@ -193,10 +193,10 @@ export function ReservationDetailClient({
     return {
       name: restaurantName ?? reservation?.restaurantName ?? DEFAULT_VENUE.name,
       address: DEFAULT_VENUE.address,
-      timezone: DEFAULT_VENUE.timezone,
-      slug: DEFAULT_VENUE.slug,
+      timezone: reservation?.restaurantTimezone ?? DEFAULT_VENUE.timezone,
+      slug: reservation?.restaurantSlug ?? DEFAULT_VENUE.slug,
     };
-  }, [providedVenue, reservation?.restaurantName, restaurantName]);
+  }, [providedVenue, reservation?.restaurantName, reservation?.restaurantSlug, reservation?.restaurantTimezone, restaurantName]);
 
   const bookingDto = useMemo(
     () => buildBookingDto(reservation, restaurantName, venue),
