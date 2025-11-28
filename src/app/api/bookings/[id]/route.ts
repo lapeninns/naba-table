@@ -659,19 +659,53 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       }
 
       const serviceSupabase = getServiceSupabaseClient();
-      const { data: restaurant } = await serviceSupabase
+
+      if (!booking.restaurant_id) {
+        console.error("[bookings][GET:id][token] Booking has no restaurant_id", { bookingId: booking.id });
+        return NextResponse.json({
+          error: "This booking is missing restaurant information. Please contact support.",
+          code: "MISSING_RESTAURANT_DATA"
+        }, { status: 500 });
+      }
+
+      const { data: restaurant, error: restaurantError } = await serviceSupabase
         .from("restaurants")
         .select("name, slug, timezone")
         .eq("id", booking.restaurant_id)
         .maybeSingle();
 
+      if (restaurantError) {
+        console.error("[bookings][GET:id][token] Error fetching restaurant", {
+          restaurantId: booking.restaurant_id,
+          error: restaurantError
+        });
+      }
+
+      if (!restaurant) {
+        console.error("[bookings][GET:id][token] Restaurant not found", {
+          restaurantId: booking.restaurant_id,
+          bookingId: booking.id
+        });
+        return NextResponse.json({
+          error: "Restaurant information not found. Please contact support.",
+          code: "RESTAURANT_NOT_FOUND"
+        }, { status: 500 });
+      }
+
+      if (!restaurant.slug) {
+        console.error("[bookings][GET:id][token] Restaurant has no slug", {
+          restaurantId: booking.restaurant_id,
+          restaurantName: restaurant.name
+        });
+      }
+
       return NextResponse.json({
         booking: {
           ...booking,
           restaurants: {
-            name: restaurant?.name ?? null,
-            slug: (restaurant?.slug as string | null | undefined) ?? null,
-            timezone: (restaurant?.timezone as string | null | undefined) ?? null,
+            name: restaurant.name ?? null,
+            slug: restaurant.slug ?? null,
+            timezone: restaurant.timezone ?? null,
           },
         },
       });
@@ -743,22 +777,52 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const { data: restaurant } =
-      data.restaurant_id
-        ? await serviceSupabase
-            .from("restaurants")
-            .select("name, slug, timezone")
-            .eq("id", data.restaurant_id)
-            .maybeSingle()
-        : { data: null };
+    if (!data.restaurant_id) {
+      console.error("[bookings][GET:id] Booking has no restaurant_id", { bookingId: data.id });
+      return NextResponse.json({
+        error: "This booking is missing restaurant information. Please contact support.",
+        code: "MISSING_RESTAURANT_DATA"
+      }, { status: 500 });
+    }
+
+    const { data: restaurant, error: restaurantError } = await serviceSupabase
+      .from("restaurants")
+      .select("name, slug, timezone")
+      .eq("id", data.restaurant_id)
+      .maybeSingle();
+
+    if (restaurantError) {
+      console.error("[bookings][GET:id] Error fetching restaurant", {
+        restaurantId: data.restaurant_id,
+        error: restaurantError
+      });
+    }
+
+    if (!restaurant) {
+      console.error("[bookings][GET:id] Restaurant not found", {
+        restaurantId: data.restaurant_id,
+        bookingId: data.id
+      });
+      return NextResponse.json({
+        error: "Restaurant information not found. Please contact support.",
+        code: "RESTAURANT_NOT_FOUND"
+      }, { status: 500 });
+    }
+
+    if (!restaurant.slug) {
+      console.error("[bookings][GET:id] Restaurant has no slug", {
+        restaurantId: data.restaurant_id,
+        restaurantName: restaurant.name
+      });
+    }
 
     return NextResponse.json({
       booking: {
         ...data,
         restaurants: {
-          name: restaurant?.name ?? null,
-          slug: (restaurant?.slug as string | null | undefined) ?? null,
-          timezone: (restaurant?.timezone as string | null | undefined) ?? null,
+          name: restaurant.name ?? null,
+          slug: restaurant.slug ?? null,
+          timezone: restaurant.timezone ?? null,
         },
       },
     });
