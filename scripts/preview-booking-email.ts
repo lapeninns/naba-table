@@ -8,13 +8,14 @@
 import { config as loadEnv } from 'dotenv';
 loadEnv({ path: '.env.local', override: true });
 
-import { renderBookingEmailHtml } from '@/server/emails/bookings';
+import { renderHtml as renderBookingEmailHtml } from '@/server/emails/bookings';
 import { ensureLogoColumnOnRow, isLogoUrlColumnMissing, logLogoColumnFallback } from '@/server/restaurants/logo-url-compat';
 import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
 import { getServiceSupabaseClient } from '@/server/supabase';
 import { formatDateForInput, formatReservationDateShort, formatReservationTime, formatReservationTimeFromDate } from '@reserve/shared/formatting/booking';
 import { normalizeTime } from '@reserve/shared/time';
 
+import type { BookingRecord } from '@/server/bookings';
 import type { VenueDetails } from '@/lib/venue';
 import type { Database } from '@/types/supabase';
 
@@ -35,7 +36,7 @@ function parseTimestamp(value: string | null | undefined): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function buildSummary(booking: any, venue: VenueDetails) {
+function buildSummary(booking: BookingRecord, venue: VenueDetails) {
   const startAt = parseTimestamp(booking.start_at);
   const endAt = parseTimestamp(booking.end_at);
   const { timezone } = venue;
@@ -134,7 +135,7 @@ async function main() {
     ctaUrl: new URLSearchParams({ view: 'manage', email: booking.customer_email ?? '' }).toString() ? `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/?view=manage&email=${encodeURIComponent(booking.customer_email || '')}` : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/`,
     calendarActionUrl: undefined,
     walletActionUrl: undefined,
-  } as any);
+  });
 
   if (out) {
     const fs = await import('node:fs/promises');

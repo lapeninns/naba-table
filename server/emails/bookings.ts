@@ -282,7 +282,7 @@ function renderBrandHeader(venue: VenueDetails) {
   </table>`;
 }
 
-function renderHtml({
+export function renderHtml({
   booking,
   venue,
   summary,

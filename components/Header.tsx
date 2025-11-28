@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu, LogOut, User, Calendar } from "lucide-react";
+import { Menu, LogOut, User, Calendar, UtensilsCrossed } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -23,7 +23,6 @@ import { useSupabaseSession } from "@/hooks/useSupabaseSession";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { cn } from "@/lib/utils";
 
-import logo from "@/app/icon.png";
 import config from "@/config";
 
 interface HeaderProps {
@@ -82,7 +81,7 @@ function BrandMark() {
       className="group flex items-center gap-3 rounded-full px-2 py-1 text-left transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
       <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/90 to-primary text-sm font-bold text-primary-foreground shadow-sm shadow-primary/25">
-        <Image src={logo} alt={config.appName} className="h-6 w-6" />
+        <UtensilsCrossed className="h-6 w-6" />
       </span>
       <span className="flex min-w-0 flex-col leading-tight">
         <span className="truncate text-sm font-semibold text-foreground">{config.appName ?? "Nab a Table"}</span>
