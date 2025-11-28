@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import config from "@/config";
-import { defaultRedirectForHost, parseHostname, sanitizeRedirect } from "@/lib/auth/redirects";
+import { defaultRedirectForHost, parseHostname, sanitizeRedirect, toAbsoluteRedirectTarget } from "@/lib/auth/redirects";
 import { getRouteHandlerSupabaseClient } from "@/server/supabase";
 
 import type { NextRequest } from "next/server";
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost";
 
   const resolveDestination = () => {
-    const sanitized = sanitizeRedirect(redirectedFrom);
+    const sanitized = sanitizeRedirect(redirectedFrom, rootDomain);
     if (!sanitized) {
       if (redirectedFrom) {
         console.warn("[auth/callback] rejected redirect param", redirectedFrom);
@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
   }
 
   // URL to redirect to after sign in process completes
-  const destination = resolveDestination();
+  const destination = toAbsoluteRedirectTarget(resolveDestination(), rootDomain);
   const redirectUrl = new URL(destination, requestUrl.origin);
   return NextResponse.redirect(redirectUrl.toString());
 }
