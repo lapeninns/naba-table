@@ -34,9 +34,19 @@ const OPS_API_SERVICES = [
   "zones",
 ];
 
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost";
-const APP_HOSTS = new Set([`app.${ROOT_DOMAIN}`, "app.localhost"]);
-const WEB_HOSTS = new Set([ROOT_DOMAIN, `www.${ROOT_DOMAIN}`, "localhost"]);
+function getRootDomain() {
+  return process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost";
+}
+
+function getAppHosts(rootDomain: string) {
+  const hosts = new Set([`app.${rootDomain}`, "app.localhost"]);
+  if (rootDomain === "localhost") hosts.add("app.localhost.com");
+  return hosts;
+}
+
+function getWebHosts(rootDomain: string) {
+  return new Set([rootDomain, `www.${rootDomain}`, "localhost"]);
+}
 
 const STATIC_PATHS = new Set(["/favicon.ico", "/robots.txt", "/sitemap.xml"]);
 
@@ -56,6 +66,9 @@ function isApiPath(pathname: string) {
 
 async function handleRouting(req: NextRequest): Promise<NextResponse> {
   const url = req.nextUrl;
+  const rootDomain = getRootDomain();
+  const appHosts = getAppHosts(rootDomain);
+  const webHosts = getWebHosts(rootDomain);
 
   // Get hostname (e.g. app.sajiloreserve.com or localhost:3000)
   const hostname = (req.headers.get("host") || "").replace(/:3000$/, "").toLowerCase();
@@ -75,7 +88,7 @@ async function handleRouting(req: NextRequest): Promise<NextResponse> {
   }
 
   // 1. App Subdomain Logic (restaurant-facing)
-  if (APP_HOSTS.has(hostname)) {
+  if (appHosts.has(hostname)) {
     // Static/framework already handled above; preserve other api paths untouched unless ops rewrite needed
     if (isApiPath(url.pathname)) {
       const [, , service, ...rest] = url.pathname.split("/");
@@ -117,7 +130,7 @@ async function handleRouting(req: NextRequest): Promise<NextResponse> {
     // Redirect non-app/api/static paths to root host (e.g., auth pages hit on app host)
     if (!isApiPath(url.pathname)) {
       return NextResponse.redirect(
-        `https://${ROOT_DOMAIN}${url.pathname}${searchParams ? `?${searchParams}` : ""}`,
+        `https://${rootDomain}${url.pathname}${searchParams ? `?${searchParams}` : ""}`,
         308,
       );
     }
@@ -128,13 +141,13 @@ async function handleRouting(req: NextRequest): Promise<NextResponse> {
   }
 
   // 2. Guest/Root Domain Logic
-  if (WEB_HOSTS.has(hostname)) {
+  if (webHosts.has(hostname)) {
     if (!isApiPath(url.pathname)) {
       // Canonicalize restaurant-facing app to the app subdomain, preserving single /app prefix
       if (url.pathname.startsWith("/app")) {
         const redirectedPath = url.pathname.replace(/^\/app(\/)?/, "/app/").replace(/\/+$/, "").replace(/\/\//g, "/");
         return NextResponse.redirect(
-          `https://app.${ROOT_DOMAIN}${redirectedPath}${searchParams ? `?${searchParams}` : ""}`,
+          `https://app.${rootDomain}${redirectedPath}${searchParams ? `?${searchParams}` : ""}`,
           308,
         );
       }
@@ -142,7 +155,7 @@ async function handleRouting(req: NextRequest): Promise<NextResponse> {
       // Legacy /ops -> management on app host
       if (url.pathname.startsWith("/ops")) {
         return NextResponse.redirect(
-          `https://app.${ROOT_DOMAIN}/app/management${searchParams ? `?${searchParams}` : ""}`,
+          `https://app.${rootDomain}/app/management${searchParams ? `?${searchParams}` : ""}`,
           308,
         );
       }
@@ -157,6 +170,7 @@ async function handleRouting(req: NextRequest): Promise<NextResponse> {
 
 export default async function proxy(req: NextRequest) {
   const response = await handleRouting(req);
+  const rootDomain = getRootDomain();
 
   // CSRF Token Logic
   const csrfToken = req.cookies.get(CSRF_COOKIE_NAME)?.value;
@@ -165,7 +179,7 @@ export default async function proxy(req: NextRequest) {
 
     // Set domain for cross-subdomain cookie sharing in production
     // The leading dot allows cookies to be shared across all subdomains
-    if (ROOT_DOMAIN !== "localhost") {
+    if (rootDomain !== "localhost") {
       response.cookies.set({
         name: CSRF_COOKIE_NAME,
         value: newCsrfToken,
@@ -174,7 +188,7 @@ export default async function proxy(req: NextRequest) {
         secure: process.env.NODE_ENV !== "development",
         path: "/",
         maxAge: CSRF_COOKIE_MAX_AGE_SECONDS,
-        domain: `.${ROOT_DOMAIN}`,
+        domain: `.${rootDomain}`,
       });
     } else {
       response.cookies.set({

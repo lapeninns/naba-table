@@ -661,7 +661,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       const serviceSupabase = getServiceSupabaseClient();
       const { data: restaurant } = await serviceSupabase
         .from("restaurants")
-        .select("name, slug")
+        .select("name, slug, timezone")
         .eq("id", booking.restaurant_id)
         .maybeSingle();
 
@@ -671,6 +671,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
           restaurants: {
             name: restaurant?.name ?? null,
             slug: (restaurant?.slug as string | null | undefined) ?? null,
+            timezone: (restaurant?.timezone as string | null | undefined) ?? null,
           },
         },
       });
@@ -742,7 +743,25 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       );
     }
 
-    return NextResponse.json({ booking: data });
+    const { data: restaurant } =
+      data.restaurant_id
+        ? await serviceSupabase
+            .from("restaurants")
+            .select("name, slug, timezone")
+            .eq("id", data.restaurant_id)
+            .maybeSingle()
+        : { data: null };
+
+    return NextResponse.json({
+      booking: {
+        ...data,
+        restaurants: {
+          name: restaurant?.name ?? null,
+          slug: (restaurant?.slug as string | null | undefined) ?? null,
+          timezone: (restaurant?.timezone as string | null | undefined) ?? null,
+        },
+      },
+    });
   } catch (error: unknown) {
     console.error("[bookings][GET:id]", stringifyError(error));
     return NextResponse.json({ error: stringifyError(error) || "Unable to load booking", code: "UNKNOWN" }, { status: 500 });
