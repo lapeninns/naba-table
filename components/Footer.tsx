@@ -1,8 +1,7 @@
-import Image from "next/image";
 import Link from "next/link";
+import { UtensilsCrossed } from "lucide-react";
 
 import config from "@/config";
-import logo from "@/app/icon.png";
 
 type FooterProps = {
   variant?: "default" | "auth" | "app" | "marketing";
@@ -29,7 +28,7 @@ export default function Footer({ variant = "default" }: FooterProps) {
     >
       <div className="container mx-auto flex flex-col items-center gap-4 px-4 text-center sm:flex-row sm:justify-between sm:text-left md:px-6">
         <Link href="/guest/dashboard" className="flex items-center gap-2 opacity-80 transition-opacity hover:opacity-100">
-          <Image src={logo} alt={config.appName} width={24} height={24} />
+          <UtensilsCrossed className="h-6 w-6 text-primary" />
           <span className="font-semibold text-slate-700">{config.appName}</span>
         </Link>
 
