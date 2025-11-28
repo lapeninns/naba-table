@@ -25,6 +25,8 @@ export default defineConfig({
       "tests/scripts/**/*.test.ts",
       "app/api/**/*.test.ts",
       "src/app/api/**/*.test.ts",
+      "reserve/**/*.test.ts",
+      "reserve/**/*.test.tsx",
     ],
     exclude: ["tests/e2e/**", "tests/component/**", "tests/visual/**"],
     setupFiles: ["./tests/vitest.setup.ts"],

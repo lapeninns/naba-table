@@ -32,18 +32,15 @@ import { useSupabaseSession } from '@/hooks/useSupabaseSession';
 import { useRestaurants } from '@/lib/restaurants/useRestaurants';
 import { cn } from '@/lib/utils';
 import { formatReservationDateFromDate, formatReservationTimeFromDate } from '@reserve/shared/formatting/booking';
-import { DEFAULT_RESTAURANT_SLUG } from '@shared/config/venue';
 
 import { deriveBookingState, type FavoriteRestaurant } from './booking-derivations';
 
 import type { BookingDTO } from '@/hooks/useBookings';
 import type { RestaurantSummary } from '@/lib/restaurants/types';
 
+const DISCOVERY_HREF = '/restaurants';
 type HeroState = 'hungry' | 'upcoming' | 'live';
-const bookingSlug = DEFAULT_RESTAURANT_SLUG?.trim();
-const DISCOVERY_HREF = bookingSlug && bookingSlug !== 'default'
-  ? `/restaurants/${bookingSlug}/book`
-  : '/restaurants';
+
 
 type HeroBannerProps = {
   state: HeroState;

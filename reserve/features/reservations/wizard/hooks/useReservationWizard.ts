@@ -9,11 +9,11 @@ import { mapErrorToMessage } from '@reserve/shared/error';
 import { useStickyProgress } from '@reserve/shared/hooks/useStickyProgress';
 import { BOOKING_TYPES_UI, SEATING_PREFERENCES_UI } from '@shared/config/booking';
 import { runtime } from '@shared/config/runtime';
-import { DEFAULT_RESTAURANT_SLUG } from '@shared/config/venue';
 
 import { useRememberedContacts } from './useRememberedContacts';
 import { clearWizardDraft, loadWizardDraft, saveWizardDraft } from './useWizardDraftStorage';
 import { fetchBookingsByContact } from '../api/fetchBookingsByContact';
+import { fetchRestaurantBySlug } from '../api/fetchRestaurantBySlug';
 import { useCreateOpsReservation } from '../api/useCreateOpsReservation';
 import { useCreateReservation } from '../api/useCreateReservation';
 import { useWizardDependencies } from '../di';
@@ -104,15 +104,48 @@ export function useReservationWizard(
 
   const wizardRestaurantSlug = useMemo(() => {
     const provided = initialDetails?.restaurantSlug?.trim();
-    if (provided && provided.toLowerCase() !== 'default') {
-      return provided;
-    }
-    const fallback = DEFAULT_RESTAURANT_SLUG?.trim();
-    if (fallback && fallback.toLowerCase() !== 'default') {
-      return fallback;
-    }
-    return null;
+    return provided && provided.length > 0 ? provided : null;
   }, [initialDetails?.restaurantSlug]);
+
+  const venueHydratedRef = useRef(false);
+
+  useEffect(() => {
+    if (venueHydratedRef.current) return;
+    const slug = state.details.restaurantSlug?.trim();
+    const hasVenue =
+      state.details.restaurantName ||
+      state.details.restaurantTimezone ||
+      state.details.restaurantAddress;
+
+    if (!slug || hasVenue) return;
+
+    venueHydratedRef.current = true;
+    const controller = new AbortController();
+
+    fetchRestaurantBySlug(slug, { signal: controller.signal })
+      .then((venue) => {
+        actions.hydrateDetails({
+          restaurantId: venue.id ?? state.details.restaurantId,
+          restaurantSlug: venue.slug ?? state.details.restaurantSlug,
+          restaurantName: venue.name ?? state.details.restaurantName,
+          restaurantAddress: venue.address ?? state.details.restaurantAddress,
+          restaurantTimezone: venue.timezone ?? state.details.restaurantTimezone,
+        });
+      })
+      .catch((err) => {
+        if (runtime.isDev) {
+          console.error('Venue hydration failed', err);
+        }
+      });
+    return () => controller.abort();
+  }, [
+    actions,
+    state.details,
+    state.details.restaurantAddress,
+    state.details.restaurantName,
+    state.details.restaurantSlug,
+    state.details.restaurantTimezone,
+  ]);
 
   useEffect(() => {
     if (draftHydratedRef.current || mode !== 'customer') {
