@@ -53,7 +53,8 @@ async function attemptInlineModificationAssign(params: {
       return { ok: false as const, reason: quote.reason ?? "NO_HOLD", durationMs, alternates: quote.alternates?.length ?? 0 };
     }
 
-    const idempotencyKey = booking.auto_assign_idempotency_key ?? `mod-inline-${booking.id}`;
+    // Tie idempotency to the specific hold/table-set to avoid ledger mismatches when the selection changes.
+    const idempotencyKey = `${booking.auto_assign_idempotency_key ?? `mod-inline-${booking.id}`}-${quote.hold.id}`;
     await atomicConfirmAndTransition({
       bookingId: booking.id,
       holdId: quote.hold.id,
