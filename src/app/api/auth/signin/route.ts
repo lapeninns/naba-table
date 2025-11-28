@@ -49,6 +49,11 @@ function buildCallbackUrl(hostname: string, redirectedFrom: string | undefined) 
     validHostname = "nabatable.com";
   }
 
+  // Normalize to naked domain to match Supabase wildcard (https://nabatable.com/**)
+  if (validHostname.startsWith("www.")) {
+    validHostname = validHostname.replace("www.", "");
+  }
+
   const protocol = validHostname.includes("localhost") ? "http" : "https";
   const url = new URL("/api/auth/callback", `${protocol}://${validHostname}`);
 
@@ -133,7 +138,14 @@ export async function POST(req: NextRequest) {
   }
 
   const emailRedirectTo = buildCallbackUrl(hostname, absoluteRedirect);
-  console.log("[Auth] Generated magic link redirect URL:", emailRedirectTo);
+  console.log("[Auth/signin] Magic link details:", {
+    hostname,
+    rootDomain,
+    redirectTarget,
+    absoluteRedirect,
+    emailRedirectTo,
+  });
+
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
