@@ -78,6 +78,17 @@ describe("middleware host routing", () => {
     expect(res.headers.get("location")).toBe("https://example.com/auth/signin");
   });
 
+  it("treats app.localhost.com as an app host when ROOT_DOMAIN is localhost", async () => {
+    const previousRoot = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = "localhost";
+    stubAuth();
+    const req = buildRequest("/auth/signin", "app.localhost.com");
+    const res = await handleRouting(req);
+    expect(res.status).toBe(308);
+    expect(res.headers.get("location")).toBe("https://localhost/auth/signin");
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = previousRoot;
+  });
+
   it("skips static/framework assets", async () => {
     stubAuth();
     const req = buildRequest("/_next/static/chunk.js", "example.com");

@@ -191,6 +191,13 @@ const existingBooking = {
   slot: null,
 };
 
+const existingRestaurant = {
+  id: RESTAURANT_ID,
+  name: 'Test Restaurant',
+  slug: 'test-restaurant',
+  timezone: 'Europe/London',
+};
+
 function createTenantSupabase(booking: typeof existingBooking | null = existingBooking) {
   const maybeSingleMock = vi.fn().mockResolvedValue({ data: booking, error: null });
   const eqMock = vi.fn(() => ({ maybeSingle: maybeSingleMock }));
@@ -213,19 +220,29 @@ function createTenantSupabase(booking: typeof existingBooking | null = existingB
   };
 }
 
-function createServiceSupabase(options: { booking?: typeof existingBooking | null } = {}) {
+function createServiceSupabase(options: { booking?: typeof existingBooking | null; restaurant?: typeof existingRestaurant | null } = {}) {
   const booking = 'booking' in options ? options.booking : existingBooking;
-  const maybeSingleMock = vi.fn().mockResolvedValue({ data: booking, error: null });
-  const eqMock = vi.fn(() => ({ maybeSingle: maybeSingleMock }));
-  const selectMock = vi.fn(() => ({ eq: eqMock }));
-  const fromMock = vi.fn(() => ({ select: selectMock }));
+  const restaurant = 'restaurant' in options ? options.restaurant : existingRestaurant;
+
+  const bookingMaybeSingleMock = vi.fn().mockResolvedValue({ data: booking, error: null });
+  const restaurantMaybeSingleMock = vi.fn().mockResolvedValue({ data: restaurant, error: null });
+
+  const fromMock = vi.fn((table: string) => {
+    if (table === 'restaurants') {
+      const restaurantEqMock = vi.fn(() => ({ maybeSingle: restaurantMaybeSingleMock }));
+      const restaurantSelectMock = vi.fn(() => ({ eq: restaurantEqMock }));
+      return { select: restaurantSelectMock };
+    }
+    const bookingEqMock = vi.fn(() => ({ maybeSingle: bookingMaybeSingleMock }));
+    const bookingSelectMock = vi.fn(() => ({ eq: bookingEqMock }));
+    return { select: bookingSelectMock };
+  });
 
   return {
     from: fromMock,
     __mocks: {
-      maybeSingleMock,
-      selectMock,
-      eqMock,
+      bookingMaybeSingleMock,
+      restaurantMaybeSingleMock,
     },
   };
 }
@@ -363,6 +380,35 @@ describe('/api/bookings/[id] GET', () => {
 
     // Verify no access denied event was logged
     expect(recordObservabilityEventMock).not.toHaveBeenCalled();
+  });
+
+  it('includes restaurant metadata for authenticated requests', async () => {
+    const request = new NextRequest('http://localhost/api/bookings/booking-1', { method: 'GET' });
+    const params = { params: Promise.resolve({ id: 'booking-1' }) } as const;
+
+    const tenantSupabase = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: 'user-1', email: 'test@example.com' } },
+          error: null,
+        }),
+      },
+    };
+
+    const serviceSupabase = createServiceSupabase();
+
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(tenantSupabase);
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+
+    const response = await GET(request, params);
+
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.booking.restaurants).toEqual({
+      name: existingRestaurant.name,
+      slug: existingRestaurant.slug,
+      timezone: existingRestaurant.timezone,
+    });
   });
 
   it('returns 404 when booking is not found', async () => {

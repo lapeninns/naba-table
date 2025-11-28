@@ -5,7 +5,7 @@ Goal: emulate production root vs app hosts locally so middleware and cookies beh
 ## Host mapping
 
 - Root host: `localhost:3000`
-- App host: `app.localhost:3000`
+- App host: `app.localhost:3000` (or `app.localhost.com:3000` if you prefer the `.com` suffix)
 
 ### /etc/hosts entries
 
@@ -13,6 +13,8 @@ Add the following (no wildcard needed):
 
 ```
 127.0.0.1 localhost app.localhost
+# optional if you want `.com` locally
+127.0.0.1 localhost.com app.localhost.com
 ```
 
 ### Start dev server
