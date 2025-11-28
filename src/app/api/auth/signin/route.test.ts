@@ -94,4 +94,34 @@ describe("POST /api/auth/signin", () => {
     expect(body.redirectTo).toBe("/guest/dashboard");
     expect(signInWithPasswordMock).toHaveBeenCalledWith({ email: "user@example.com", password: "ValidPassword123!" });
   });
+
+  it("sends a magic link without creating a new user", async () => {
+    const token = "csrf-token";
+    const request = new NextRequest("http://localhost/api/auth/signin", {
+      method: "POST",
+      body: JSON.stringify({
+        mode: "magic_link",
+        email: "NewUser@example.com",
+        redirectedFrom: "/guest/bookings",
+      }),
+      headers: {
+        "content-type": "application/json",
+        "x-csrf-token": token,
+        cookie: `sr-csrf-token=${token}`,
+      },
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(202);
+    expect(body.status).toBe("magic_link_sent");
+    expect(signInWithOtpMock).toHaveBeenCalledTimes(1);
+    expect(signInWithOtpMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: "newuser@example.com",
+        options: expect.objectContaining({ shouldCreateUser: false }),
+      }),
+    );
+  });
 });

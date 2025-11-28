@@ -4,18 +4,23 @@ export type ReservationCalendarPayload = {
   reservationId: string;
   reference: string | null | undefined;
   guestName: string | null | undefined;
+  guestEmail?: string | null | undefined;
   partySize: number | null | undefined;
   startAt: string | null | undefined;
   endAt?: string | null | undefined;
   venueName?: string | null | undefined;
   venueAddress?: string | null | undefined;
   venueTimezone?: string | null | undefined;
+  venueEmail?: string | null | undefined;
+  status?: "confirmed" | "cancelled" | "pending";
+  sequence?: number;
 };
 
 export type ReservationVenue = {
   name: string;
   address: string;
   timezone: string;
+  email: string;
   slug?: string | null;
 };
 
@@ -31,6 +36,7 @@ export function ensureReservationVenue(payload: ReservationCalendarPayload): Res
     name: payload.venueName || DEFAULT_VENUE.name,
     address: payload.venueAddress || DEFAULT_VENUE.address,
     timezone: payload.venueTimezone || DEFAULT_VENUE.timezone,
+    email: payload.venueEmail || "no-reply@nabatable.com",
     slug: DEFAULT_VENUE.slug,
   };
 }
@@ -41,24 +47,38 @@ export function buildCalendarEvent(payload: ReservationCalendarPayload): string 
   const endDate = normaliseDate(payload.endAt) ?? new Date(startDate.getTime() + 90 * 60 * 1000);
 
   const venue = ensureReservationVenue(payload);
-
+  const now = new Date();
   const toTimestamp = (date: Date) =>
     date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+
+  // Status mapping
+  let status = "CONFIRMED";
+  let method = "REQUEST";
+  if (payload.status === "cancelled") {
+    status = "CANCELLED";
+    method = "CANCEL";
+  }
+
+  const sequence = payload.sequence ?? 0;
+  const uid = `${payload.reservationId}@nabatable.com`;
 
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
     "PRODID:-//Nab a Table//EN",
+    `METHOD:${method}`,
     "BEGIN:VEVENT",
-    `UID:${payload.reservationId}@sajiloreservex`,
-    `DTSTAMP:${toTimestamp(new Date())}`,
+    `UID:${uid}`,
+    `DTSTAMP:${toTimestamp(now)}`,
     `DTSTART:${toTimestamp(startDate)}`,
     `DTEND:${toTimestamp(endDate)}`,
-    `SUMMARY:${venue.name} reservation`,
+    `SUMMARY:${venue.name} Reservation`,
     `LOCATION:${venue.address}`,
-    `DESCRIPTION:Reservation for ${
-      payload.guestName || "guest"
-    } (${payload.partySize ?? 1} guests)`,
+    `DESCRIPTION:Reservation for ${payload.guestName || "Guest"} (${payload.partySize ?? 1} guests).\nReference: ${payload.reference ?? "N/A"}`,
+    `STATUS:${status}`,
+    `SEQUENCE:${sequence}`,
+    `ORGANIZER;CN="${venue.name}":mailto:${venue.email}`,
+    ...(payload.guestEmail ? [`ATTENDEE;CN="${payload.guestName || "Guest"}";RSVP=TRUE:mailto:${payload.guestEmail}`] : []),
     "END:VEVENT",
     "END:VCALENDAR",
   ];

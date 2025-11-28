@@ -14,6 +14,7 @@ import {
 import { getCachedOccasionCatalog } from '@/server/occasions/catalog';
 import { assertActiveOccasionKey } from '@/server/occasions/validateBookingType';
 
+import { computeTokenExpiry, generateConfirmationToken } from "./bookings/confirmation-token";
 import { invalidateAvailabilitySnapshot } from "./cache/availability";
 import {
   findCustomerByContact,
@@ -570,6 +571,8 @@ export async function insertBookingRecord(
     idempotency_key: payload.idempotency_key ?? null,
     details: payload.details ?? null,
     auto_assign_idempotency_key: autoAssignKey,
+    confirmation_token: generateConfirmationToken(),
+    confirmation_token_expires_at: computeTokenExpiry(24 * 30), // 30 days expiry
   };
 
   if (payload.pending_ref) {

@@ -30,7 +30,7 @@ export function ReservationWizard({
   className,
   contentClassName,
 }: ReservationWizardProps = {}) {
-  const normalizedReturnPath = useMemo(() => returnPath ?? '/thank-you', [returnPath]);
+  const normalizedReturnPath = useMemo(() => returnPath ?? '/guest/thank-you', [returnPath]);
 
   return (
     <WizardDependenciesProvider value={dependencies}>
