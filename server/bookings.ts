@@ -500,6 +500,10 @@ export async function clearBookingTableAssignments(client: DbClient, bookingId: 
     if (tableIds.length === 0) {
       // Still clear any persisted zone lock so future assignments can move zones.
       await client.from("bookings").update({ assigned_zone_id: null }).eq("id", bookingId);
+
+      // Clear idempotency records to prevent duplicate key errors on reassignment
+      await client.from("booking_assignment_idempotency").delete().eq("booking_id", bookingId);
+
       return 0;
     }
 
@@ -511,6 +515,10 @@ export async function clearBookingTableAssignments(client: DbClient, bookingId: 
     if (!rpcError) {
       // Clear zone lock so reassignment can select a different zone after tables are released.
       await client.from("bookings").update({ assigned_zone_id: null }).eq("id", bookingId);
+
+      // Clear idempotency records to prevent duplicate key errors on reassignment
+      await client.from("booking_assignment_idempotency").delete().eq("booking_id", bookingId);
+
       return tableIds.length;
     }
 
@@ -523,6 +531,10 @@ export async function clearBookingTableAssignments(client: DbClient, bookingId: 
     const { error: deleteError } = await client.from("booking_table_assignments").delete().eq("booking_id", bookingId);
     if (!deleteError) {
       await client.from("bookings").update({ assigned_zone_id: null }).eq("id", bookingId);
+
+      // Clear idempotency records to prevent duplicate key errors on reassignment
+      await client.from("booking_assignment_idempotency").delete().eq("booking_id", bookingId);
+
       return tableIds.length;
     }
 
