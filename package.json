@@ -182,6 +182,7 @@
     "@typescript-eslint/parser": "^8.44.1",
     "@vitejs/plugin-react": "^5.0.4",
     "autoprefixer": "^10.4.21",
+    "baseline-browser-mapping": "^2.8.32",
     "chrome-devtools-mcp": "^0.8.0",
     "eslint": "^9.38.0",
     "eslint-config-next": "^16.0.0",

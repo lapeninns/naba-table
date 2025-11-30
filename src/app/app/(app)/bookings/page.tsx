@@ -83,7 +83,7 @@ export default async function OpsBookingsPage({
   }
 
   if (!user) {
-    redirect(withRedirectedFrom("/auth/signin", "/bookings"));
+    redirect(withRedirectedFrom("/app/auth/signin", "/app/bookings"));
   }
 
   const initialFilter = parseStatusFilter(resolvedParams.filter ?? resolvedParams.status);

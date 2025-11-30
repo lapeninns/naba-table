@@ -14,7 +14,7 @@ import type { Metadata } from "next";
 export const dynamic = "force-dynamic";
 
 type RouteParams = Promise<{ bookingId: string }>;
-type SearchParams = { token?: string };
+type SearchParams = Promise<{ token?: string }>;
 
 const shortenId = (value: string): string => (value.length > 8 ? value.slice(0, 8) : value);
 
@@ -84,11 +84,12 @@ export default async function BookingDetailPage({
   searchParams,
 }: {
   params: RouteParams;
-  searchParams?: SearchParams;
+  searchParams: SearchParams;
 }) {
   const { bookingId } = await params;
   const normalized = bookingId?.trim();
-  const token = searchParams?.token ?? null;
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const token = resolvedSearchParams.token ?? null;
 
   if (!normalized) {
     redirect("/bookings");
