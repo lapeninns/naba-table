@@ -69,6 +69,7 @@ async function handleRouting(req: NextRequest): Promise<NextResponse> {
   const rootDomain = getRootDomain();
   const appHosts = getAppHosts(rootDomain);
   const webHosts = getWebHosts(rootDomain);
+  const isLocalHost = (hostname: string) => hostname === "localhost" || hostname === "127.0.0.1";
 
   // Get hostname (e.g. app.sajiloreserve.com or localhost:3000)
   const hostname = (req.headers.get("host") || "").replace(/:3000$/, "").toLowerCase();
@@ -113,31 +114,20 @@ async function handleRouting(req: NextRequest): Promise<NextResponse> {
       return NextResponse.next();
     }
 
-    // Normalize duplicate /app prefix
-    if (url.pathname.startsWith("/app/app")) {
-      const normalizedPath = url.pathname.replace(/^\/app/, "");
+    // If the path starts with /app, redirect to remove it (canonicalize to subdomain root)
+    if (url.pathname.startsWith("/app")) {
+      const normalizedPath = url.pathname.replace(/^\/app/, "") || "/";
       return NextResponse.redirect(
         new URL(`${normalizedPath}${searchParams.length > 0 ? `?${searchParams}` : ""}`, req.url),
         308,
       );
     }
 
-    // If already within /app, leave as-is
-    if (url.pathname.startsWith("/app")) {
-      return NextResponse.next();
-    }
-
-    // Redirect non-app/api/static paths to root host (e.g., auth pages hit on app host)
+    // Rewrite all other non-API paths to /app/* so they are handled by src/app/app
     if (!isApiPath(url.pathname)) {
-      return NextResponse.redirect(
-        `https://${rootDomain}${url.pathname}${searchParams ? `?${searchParams}` : ""}`,
-        308,
-      );
+      const rewritePath = `/app${url.pathname}${searchParams.length > 0 ? `?${searchParams}` : ""}`;
+      return NextResponse.rewrite(new URL(rewritePath, req.url));
     }
-
-    // Rewrite restaurant-facing routes to /app/* for Next.js routing
-    const rewritePath = `/app${url.pathname}${searchParams.length > 0 ? `?${searchParams}` : ""}`;
-    return NextResponse.rewrite(new URL(rewritePath, req.url));
   }
 
   // 2. Guest/Root Domain Logic
@@ -147,16 +137,29 @@ async function handleRouting(req: NextRequest): Promise<NextResponse> {
       // Redirect /app/* to app.domain/* (stripping /app prefix)
       if (url.pathname.startsWith("/app")) {
         const redirectedPath = url.pathname.replace(/^\/app/, "") || "/";
-        return NextResponse.redirect(
-          `https://app.${rootDomain}${redirectedPath}${searchParams ? `?${searchParams}` : ""}`,
-          308,
-        );
+        if (!isLocalHost(hostname)) {
+          return NextResponse.redirect(
+            `https://app.${rootDomain}${redirectedPath}${searchParams ? `?${searchParams}` : ""}`,
+            308,
+          );
+        }
+
+        // Local dev: stay on localhost and keep /app prefix intact
+        return NextResponse.next();
       }
 
       // Legacy /ops -> management on app host
       if (url.pathname.startsWith("/ops")) {
+        if (!isLocalHost(hostname)) {
+          return NextResponse.redirect(
+            `https://app.${rootDomain}/app/management${searchParams ? `?${searchParams}` : ""}`,
+            308,
+          );
+        }
+
+        // Local dev: keep host, still funnel to /app/management
         return NextResponse.redirect(
-          `https://app.${rootDomain}/app/management${searchParams ? `?${searchParams}` : ""}`,
+          `/app/management${searchParams ? `?${searchParams}` : ""}`,
           308,
         );
       }

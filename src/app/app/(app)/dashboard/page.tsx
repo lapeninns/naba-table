@@ -1,5 +1,4 @@
 export const dynamic = "force-dynamic";
 
-export default function OpsDashboardLanding() {
-  return null;
-}
+export { metadata } from '../page';
+export { default } from '../page';

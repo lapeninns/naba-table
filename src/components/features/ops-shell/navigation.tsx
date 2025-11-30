@@ -32,6 +32,12 @@ export type OpsNavigationSection = {
   items: OpsNavigationItem[];
 };
 
+const OPS_BASE_PATH = '';
+
+function path(segment: string): string {
+  return `${OPS_BASE_PATH}${segment}`;
+}
+
 export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
   {
     label: 'Daily operations',
@@ -39,30 +45,30 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
       {
         title: 'Dashboard',
         description: 'Today\'s service overview',
-        href: '/',
+        href: path('/dashboard'),
         icon: BarChart3,
-        match: (pathname) => pathname === '/',
+        match: (pathname) => pathname === path('/dashboard') || pathname === OPS_BASE_PATH,
       },
       {
         title: 'Bookings',
         description: 'Manage reservations',
-        href: '/bookings',
+        href: path('/bookings'),
         icon: CalendarDays,
-        match: (pathname) => pathname === '/bookings' || pathname.startsWith('/bookings/'),
+        match: (pathname) => pathname === path('/bookings') || pathname.startsWith(path('/bookings/')),
       },
       {
         title: 'Walk-ins',
         description: 'Log arrivals on the floor',
-        href: '/walk-in',
+        href: path('/walk-in'),
         icon: DoorOpen,
-        match: (pathname) => pathname === '/walk-in',
+        match: (pathname) => pathname === path('/walk-in'),
       },
       {
         title: 'Customers',
         description: 'Review guest history and contact details',
-        href: '/customers',
+        href: path('/customers'),
         icon: Users,
-        match: (pathname) => pathname.startsWith('/customers'),
+        match: (pathname) => pathname.startsWith(path('/customers')),
       },
     ],
   },
@@ -72,16 +78,16 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
       {
         title: 'Floor Plan',
         description: 'Visual table management',
-        href: '/seating/floor-plan',
+        href: path('/seating/floor-plan'),
         icon: Map,
-        match: (pathname) => pathname.startsWith('/seating/floor-plan'),
+        match: (pathname) => pathname.startsWith(path('/seating/floor-plan')),
       },
       {
         title: 'Capacity',
         description: 'Timeline view of table availability',
-        href: '/seating/capacity',
+        href: path('/seating/capacity'),
         icon: GanttChart,
-        match: (pathname) => pathname.startsWith('/seating/capacity'),
+        match: (pathname) => pathname.startsWith(path('/seating/capacity')),
       },
     ],
   },
@@ -91,44 +97,44 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
       {
         title: 'Restaurant Profile',
         description: 'Branding, contact, booking policy',
-        href: '/settings/restaurant/profile',
+        href: path('/settings/restaurant/profile'),
         icon: SlidersHorizontal,
-        match: (pathname) => pathname.startsWith('/settings/restaurant/profile'),
+        match: (pathname) => pathname.startsWith(path('/settings/restaurant/profile')),
       },
       {
         title: 'Operating Hours',
         description: 'Weekly hours & overrides',
-        href: '/settings/restaurant/operating-hours',
+        href: path('/settings/restaurant/operating-hours'),
         icon: Clock3,
-        match: (pathname) => pathname.startsWith('/settings/restaurant/operating-hours'),
+        match: (pathname) => pathname.startsWith(path('/settings/restaurant/operating-hours')),
       },
       {
         title: 'Booking Occasions',
         description: 'Guest/staff occasion options',
-        href: '/settings/restaurant/occasions',
+        href: path('/settings/restaurant/occasions'),
         icon: Sparkles,
-        match: (pathname) => pathname.startsWith('/settings/restaurant/occasions'),
+        match: (pathname) => pathname.startsWith(path('/settings/restaurant/occasions')),
       },
       {
         title: 'Service Periods',
         description: 'Lunch & dinner booking windows',
-        href: '/settings/restaurant/service-periods',
+        href: path('/settings/restaurant/service-periods'),
         icon: UtensilsCrossed,
-        match: (pathname) => pathname.startsWith('/settings/restaurant/service-periods'),
+        match: (pathname) => pathname.startsWith(path('/settings/restaurant/service-periods')),
       },
       {
         title: 'Tables',
         description: 'Manage table inventory',
-        href: '/settings/tables',
+        href: path('/settings/tables'),
         icon: LayoutGrid,
-        match: (pathname) => pathname.startsWith('/settings/tables'),
+        match: (pathname) => pathname.startsWith(path('/settings/tables')),
       },
       {
         title: 'Team',
         description: 'Manage staff invitations',
-        href: '/settings/restaurant/team',
+        href: path('/settings/restaurant/team'),
         icon: UsersRound,
-        match: (pathname) => pathname.startsWith('/settings/restaurant/team'),
+        match: (pathname) => pathname.startsWith(path('/settings/restaurant/team')),
       },
     ],
   },
@@ -138,9 +144,9 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
       {
         title: 'Rejections',
         description: 'Understand why bookings were skipped',
-        href: '/analytics/rejections',
+        href: path('/analytics/rejections'),
         icon: OctagonAlert,
-        match: (pathname) => pathname.startsWith('/analytics/rejections'),
+        match: (pathname) => pathname.startsWith(path('/analytics/rejections')),
         requiresFeatureFlag: 'rejectionAnalytics',
       },
     ],

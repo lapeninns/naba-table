@@ -154,7 +154,7 @@ function OpsAccountActions() {
     try {
       setIsSigningOut(true);
       await signOutFromSupabase();
-      router.push('/auth/signin');
+      router.push('/app/auth/signin');
       router.refresh();
     } catch (error) {
       console.error('[ops-sidebar] sign out failed', error);

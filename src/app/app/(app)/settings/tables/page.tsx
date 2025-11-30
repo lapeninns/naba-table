@@ -30,7 +30,7 @@ export default async function TablesPage() {
   }
 
   if (!user) {
-    redirect(withRedirectedFrom('/auth/signin', '/settings/tables'));
+    redirect(withRedirectedFrom('/app/auth/signin', '/app/settings/tables'));
   }
 
   return (

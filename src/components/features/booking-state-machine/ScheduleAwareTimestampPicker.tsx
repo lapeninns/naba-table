@@ -17,7 +17,7 @@ import { toTimeSlotDescriptor, type ReservationSchedule, type TimeSlotDescriptor
 import { Calendar24Date, Calendar24Time, TimeSlotGrid } from '@reserve/features/reservations/wizard/ui/steps/plan-step/components';
 import { formatDateForInput } from '@reserve/shared/formatting/booking';
 import { getLatestStartMinutes, hasCapacity, isPastOrClosing, type UnavailabilityReason } from '@reserve/shared/schedule/availability';
-import { normalizeTime } from '@reserve/shared/time';
+import { MINUTES_PER_DAY, normalizeTime } from '@reserve/shared/time';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@shared/ui/accordion';
 
 
@@ -61,6 +61,23 @@ const NO_SLOTS_COPY =
 const UNKNOWN_COPY = 'We couldn’t load availability right now. Please try again or choose another date.';
 const UNAVAILABLE_SELECTION_COPY =
   'Selected time is no longer available. Please choose another slot.';
+
+const snapTimeToInterval = (value: string, intervalMinutes: number): string | null => {
+  const normalized = normalizeTime(value);
+  if (!normalized || !Number.isFinite(intervalMinutes) || intervalMinutes <= 0) {
+    return normalized;
+  }
+
+  const [hours, minutes] = normalized.split(':').map(Number);
+  const totalMinutes = hours * 60 + minutes;
+  const snappedMinutes = Math.round(totalMinutes / intervalMinutes) * intervalMinutes;
+  const safeMinutes = Math.min(Math.max(snappedMinutes, 0), MINUTES_PER_DAY - 1);
+
+  const snappedHours = Math.floor(safeMinutes / 60) % 24;
+  const snappedRemainder = safeMinutes % 60;
+
+  return `${String(snappedHours).padStart(2, '0')}:${String(snappedRemainder).padStart(2, '0')}`;
+};
 
 const MONTH_KEY_FORMATTER = (value: Date) =>
   `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}`;
@@ -614,7 +631,10 @@ export function ScheduleAwareTimestampPicker({
         return;
       }
 
-      const isAvailable = availableSlots.some((slot) => slot.value === normalized);
+      const snapped = snapTimeToInterval(normalized, intervalMinutes);
+      const candidate = snapped ?? normalized;
+
+      const isAvailable = availableSlots.some((slot) => slot.value === candidate);
       if (!isAvailable) {
         setDraftTime(selectedTime);
         setTimeValidationError(UNAVAILABLE_SELECTION_COPY);
@@ -626,13 +646,13 @@ export function ScheduleAwareTimestampPicker({
       }
 
       setTimeValidationError(null);
-      setDraftTime(normalized);
-      setSelectedTime(normalized);
-      commitChange(activeDate, normalized);
+      setDraftTime(candidate);
+      setSelectedTime(candidate);
+      commitChange(activeDate, candidate);
       selectionModeRef.current = 'initial';
       onBlur?.();
     },
-    [activeDate, availableSlots, commitChange, onBlur, selectedTime],
+    [activeDate, availableSlots, commitChange, intervalMinutes, onBlur, selectedTime],
   );
 
   const handleSlotSelect = useCallback(
