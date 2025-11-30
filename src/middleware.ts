@@ -137,15 +137,18 @@ async function handleRouting(req: NextRequest): Promise<NextResponse> {
       // Redirect /app/* to app.domain/* (stripping /app prefix)
       if (url.pathname.startsWith("/app")) {
         const redirectedPath = url.pathname.replace(/^\/app/, "") || "/";
-        if (!isLocalHost(hostname)) {
+
+        if (isLocalHost(hostname)) {
           return NextResponse.redirect(
-            `https://app.${rootDomain}${redirectedPath}${searchParams ? `?${searchParams}` : ""}`,
+            new URL(`http://app.localhost:3000${redirectedPath}${searchParams ? `?${searchParams}` : ""}`),
             308,
           );
         }
 
-        // Local dev: stay on localhost and keep /app prefix intact
-        return NextResponse.next();
+        return NextResponse.redirect(
+          `https://app.${rootDomain}${redirectedPath}${searchParams ? `?${searchParams}` : ""}`,
+          308,
+        );
       }
 
       // Legacy /ops -> management on app host
