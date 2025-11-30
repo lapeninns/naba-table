@@ -1,4 +1,5 @@
 #!/usr/bin/env tsx
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Deep selector debug for a real booking.
  *
@@ -15,8 +16,6 @@ loadEnv({ path: resolvePath(process.cwd(), '.env.development') });
 loadEnv({ path: resolvePath(process.cwd(), '.env') });
 
 process.env.CAPACITY_DEBUG = process.env.CAPACITY_DEBUG || '1';
-
-import { DateTime } from 'luxon';
 
 import type { SelectorScoringConfig } from '@/server/capacity/policy';
 
@@ -144,7 +143,7 @@ async function main() {
   }
 
   // Strategic + feature flags
-  await strategic.loadStrategicConfig({ restaurantId: full.restaurant_id, client: supabase as any });
+  await strategic.loadStrategicConfig({ restaurantId: full.restaurant_id });
   const combinationEnabled = featureFlags.isCombinationPlannerEnabled();
 
   // Filter with allowMaxPartySizeViolation
