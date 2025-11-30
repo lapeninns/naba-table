@@ -78,10 +78,20 @@ function createEnvState(): StrategicConfigState {
     MAX_SCARCITY_WEIGHT,
   );
 
+  const demandMultiplierOverride =
+    typeof env.strategic.demandMultiplierOverride === "number"
+      ? clamp(env.strategic.demandMultiplierOverride, 0, 10)
+      : null;
+
+  const futureConflictPenalty =
+    typeof env.strategic.futureConflictPenalty === "number"
+      ? clamp(env.strategic.futureConflictPenalty, 0, 100_000)
+      : null;
+
   return {
     scarcityWeight,
-    demandMultiplierOverride: null,
-    futureConflictPenalty: null,
+    demandMultiplierOverride,
+    futureConflictPenalty,
     updatedAt: null,
     source: "env",
   } as const;

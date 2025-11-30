@@ -544,12 +544,9 @@ export function createBrowserBookingService(): BookingService {
       const params = new URLSearchParams({ restaurantId });
       return fetchJson<OpsStrategicSettings>(`${OPS_SETTINGS_BASE}/strategic-config?${params.toString()}`);
     },
-    async updateStrategicSettings({ restaurantId, weights }) {
-      return fetchJson<OpsStrategicSettings>(`${OPS_SETTINGS_BASE}/strategic-config`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ restaurantId, weights }),
-      });
+    async updateStrategicSettings({ restaurantId: _restaurantId, weights: _weights }) {
+      console.warn('[bookingService] Strategic settings are read-only; update env values and redeploy.');
+      return Promise.reject(new Error('Strategic settings are read-only; update env values and redeploy.'));
     },
     async getStatusSummary(params) {
       const query = buildStatusSummarySearch(params);

@@ -167,6 +167,10 @@ export const env = {
         ? Math.max(50, Math.min(parsed.FEATURE_SELECTOR_ENUMERATION_TIMEOUT_MS, 10_000))
         : null;
     const adjacencyQueryUndirectedDefault = true;
+    const strictConflictsDefault =
+      typeof parsed.FEATURE_HOLDS_STRICT_CONFLICTS_ENABLED === "boolean"
+        ? parsed.FEATURE_HOLDS_STRICT_CONFLICTS_ENABLED
+        : parsed.APP_ENV === "staging";
     return {
       loyaltyPilotRestaurantIds: parsed.LOYALTY_PILOT_RESTAURANT_IDS,
       enableTestApi: parsed.ENABLE_TEST_API ?? false,
@@ -235,7 +239,7 @@ export const env = {
       },
       holds: {
         enabled: parsed.FEATURE_HOLDS_ENABLED ?? true,
-        strictConflicts: parsed.FEATURE_HOLDS_STRICT_CONFLICTS_ENABLED ?? false,
+        strictConflicts: strictConflictsDefault,
         minTtlSeconds: 180,
       },
       adjacency: {
@@ -266,9 +270,27 @@ export const env = {
   },
 
   get strategic() {
+    const parsed = parseEnv();
+    const clamp = (value: number | undefined | null, min: number, max: number, fallback: number) => {
+      if (typeof value !== "number" || Number.isNaN(value)) return fallback;
+      return Math.max(min, Math.min(max, value));
+    };
+
+    const scarcityWeight = clamp(parsed.STRATEGIC_SCARCITY_WEIGHT, 0, 1000, 22);
+    const demandMultiplierOverride =
+      typeof parsed.STRATEGIC_DEMAND_MULTIPLIER_OVERRIDE === "number"
+        ? clamp(parsed.STRATEGIC_DEMAND_MULTIPLIER_OVERRIDE, 0, 10, NaN)
+        : null;
+    const futureConflictPenalty =
+      typeof parsed.STRATEGIC_FUTURE_CONFLICT_PENALTY === "number"
+        ? clamp(parsed.STRATEGIC_FUTURE_CONFLICT_PENALTY, 0, 100_000, NaN)
+        : null;
+
     return {
-      scarcityWeight: undefined,
-      demandProfilePath: undefined,
+      scarcityWeight,
+      demandProfilePath: parsed.STRATEGIC_DEMAND_PROFILE_PATH,
+      demandMultiplierOverride,
+      futureConflictPenalty,
     } as const;
   },
 

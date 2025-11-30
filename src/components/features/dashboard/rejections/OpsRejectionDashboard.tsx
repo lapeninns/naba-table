@@ -106,9 +106,10 @@ type StrategicSettingsDialogProps = {
   settings: OpsStrategicSettings | undefined;
   onSubmit: (weights: OpsStrategicSettings['weights']) => Promise<void>;
   isSubmitting: boolean;
+  readOnly?: boolean;
 };
 
-function StrategicSettingsDialog({ restaurantName, open, onOpenChange, settings, onSubmit, isSubmitting }: StrategicSettingsDialogProps) {
+function StrategicSettingsDialog({ restaurantName, open, onOpenChange, settings, onSubmit, isSubmitting, readOnly }: StrategicSettingsDialogProps) {
   const [scarcity, setScarcity] = useState<string>('');
   const [demandMultiplier, setDemandMultiplier] = useState<string>('');
   const [futurePenalty, setFuturePenalty] = useState<string>('');
@@ -131,6 +132,10 @@ function StrategicSettingsDialog({ restaurantName, open, onOpenChange, settings,
   const handleSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
+      if (readOnly) {
+        setError('Strategic settings are read-only. Update env values and redeploy.');
+        return;
+      }
       const scarcityValue = Number.parseFloat(scarcity);
       if (!Number.isFinite(scarcityValue) || scarcityValue < 0 || scarcityValue > 1000) {
         setError('Scarcity weight must be between 0 and 1000.');
@@ -157,7 +162,7 @@ function StrategicSettingsDialog({ restaurantName, open, onOpenChange, settings,
       });
       onOpenChange(false);
     },
-    [scarcity, demandMultiplier, futurePenalty, onSubmit, onOpenChange],
+    [scarcity, demandMultiplier, futurePenalty, onSubmit, onOpenChange, readOnly],
   );
 
   return (
@@ -166,9 +171,19 @@ function StrategicSettingsDialog({ restaurantName, open, onOpenChange, settings,
         <DialogHeader>
           <DialogTitle>Adjust strategic weights</DialogTitle>
           <DialogDescription>
-            Tune the selector weights for {restaurantName ?? 'this restaurant'}. Changes apply immediately once saved.
+            Tune the selector weights for {restaurantName ?? 'this restaurant'}. When settings are code-defined, changes
+            require a deploy.
           </DialogDescription>
         </DialogHeader>
+
+        {readOnly ? (
+          <Alert variant="default" className="border-border/60 bg-muted/40 text-sm">
+            <AlertTitle>Read-only configuration</AlertTitle>
+            <AlertDescription>
+              Strategic weights now live in code/env. Update deployment configuration to change these values.
+            </AlertDescription>
+          </Alert>
+        ) : null}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -182,6 +197,7 @@ function StrategicSettingsDialog({ restaurantName, open, onOpenChange, settings,
               value={scarcity}
               onChange={(event) => setScarcity(event.target.value)}
               required
+              disabled={readOnly}
               inputMode="decimal"
             />
             <p className="text-xs text-muted-foreground">Higher scarcity increases preference for freeing rare tables.</p>
@@ -199,6 +215,7 @@ function StrategicSettingsDialog({ restaurantName, open, onOpenChange, settings,
               onChange={(event) => setDemandMultiplier(event.target.value)}
               inputMode="decimal"
               placeholder="Use fallback profile"
+              disabled={readOnly}
             />
             <p className="text-xs text-muted-foreground">Leave blank to use demand profile rules for this restaurant.</p>
           </div>
@@ -215,6 +232,7 @@ function StrategicSettingsDialog({ restaurantName, open, onOpenChange, settings,
               onChange={(event) => setFuturePenalty(event.target.value)}
               inputMode="decimal"
               placeholder="Default"
+              disabled={readOnly}
             />
             <p className="text-xs text-muted-foreground">Penalty applied when a placement creates conflicts with future bookings.</p>
           </div>
@@ -230,8 +248,8 @@ function StrategicSettingsDialog({ restaurantName, open, onOpenChange, settings,
             <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving…' : 'Save changes'}
+            <Button type="submit" disabled={isSubmitting || readOnly}>
+              {isSubmitting ? 'Saving…' : readOnly ? 'Read-only' : 'Save changes'}
             </Button>
           </DialogFooter>
         </form>
@@ -278,12 +296,21 @@ export function OpsRejectionDashboard() {
   const handleSaveSettings = useCallback(
     async (weights: OpsStrategicSettings['weights']) => {
       if (!restaurantId) return;
-      await updateSettings.mutateAsync({ restaurantId, weights });
-      settingsQuery.refetch();
-      toast({
-        title: 'Strategic weights updated',
-        description: 'New configuration applied to the next table selection run.',
-      });
+      try {
+        await updateSettings.mutateAsync({ restaurantId, weights });
+        settingsQuery.refetch();
+        toast({
+          title: 'Strategic weights updated',
+          description: 'New configuration applied to the next table selection run.',
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Strategic settings are read-only in this environment.';
+        toast({
+          title: 'Unable to update strategic settings',
+          description: message,
+          variant: 'destructive',
+        });
+      }
     },
     [restaurantId, updateSettings, settingsQuery, toast],
   );
@@ -627,7 +654,7 @@ export function OpsRejectionDashboard() {
         {settingsQuery.data ? (
           <CardFooter className="border-t border-border/60 bg-muted/20 px-6 py-4 text-xs text-muted-foreground">
             <span>
-              Source: {settingsQuery.data.source === 'db' ? 'Supabase overrides' : 'Environment defaults'} · Last updated {formatDateTime(settingsQuery.data.updatedAt)}
+              Source: {settingsQuery.data.source === 'db' ? 'Supabase overrides' : 'Code/env defaults'} · Last updated {formatDateTime(settingsQuery.data.updatedAt)}
             </span>
           </CardFooter>
         ) : null}
@@ -640,6 +667,7 @@ export function OpsRejectionDashboard() {
         settings={settingsQuery.data}
         onSubmit={handleSaveSettings}
         isSubmitting={updateSettings.isPending}
+        readOnly
       />
     </div>
   );

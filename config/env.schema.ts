@@ -138,6 +138,10 @@ const baseEnvSchema = z
     // Auto-assign retry policy unified; v2 flag removed
     FEATURE_INLINE_AUTO_ASSIGN_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60000).optional(),
     DEBUG_CAPACITY_PROFILING: booleanStringOptional,
+    STRATEGIC_SCARCITY_WEIGHT: z.coerce.number().min(0).max(1000).optional(),
+    STRATEGIC_DEMAND_MULTIPLIER_OVERRIDE: z.coerce.number().min(0).max(10).optional(),
+    STRATEGIC_FUTURE_CONFLICT_PENALTY: z.coerce.number().min(0).max(100000).optional(),
+    STRATEGIC_DEMAND_PROFILE_PATH: z.string().optional(),
   })
   .passthrough();
 
