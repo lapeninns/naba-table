@@ -1,3 +1,11 @@
+---
+agents_version: 5.3
+scope: root
+extends: null
+last_updated: 2025-11-30
+owner: github:@maintainers
+---
+
 # AGENTS.md
 
 **SDLC‑aligned operating handbook for AI coding agents and human contributors (with MCP tooling)**
@@ -11,6 +19,8 @@
 - **Who**: AI coding agents, human engineers, reviewers, maintainers, release managers.
 - **What**: The authoritative SDLC, workflow, quality bars, file structure, conventions, and MCP tool usage for any change (feature, fix, refactor, experiment).
 - **Why**: Consistency, traceability, safe iteration—especially in monorepos and multi‑app repos.
+
+For checklists, see **§11 Quick Reference**.
 
 ---
 
@@ -28,7 +38,7 @@
 10. **PRs must reference a valid task folder** (`tasks/<slug>-YYYYMMDD-HHMM>`). CI blocks merges otherwise.
 11. **Root policy path is exact.** The root file **must be** `/AGENTS.md` (uppercase). Any other path/casing fails CI.
 
-### 1A) Non‑Overridable Core Rules (Root‑enforced, closest cannot relax)
+### 1A) Non‑Overridable Core Rules (Root‑enforced; closest cannot relax)
 
 Nested `AGENTS.md` files **cannot relax or override** these:
 
@@ -38,7 +48,34 @@ Nested `AGENTS.md` files **cannot relax or override** these:
 - Manual UI QA via Chrome DevTools MCP for UI changes (with artifacts).
 - Conventional Commits; PR must include task artifacts and verification evidence.
 
-> **Add your own must‑win rules here** (root only). Anything listed here wins even against “closest‑wins” precedence.
+> Anything listed here wins even against “closest‑wins” precedence.
+
+### 1B) Simplicity & Scope Rules
+
+- **Avoid over‑engineering.** Only make changes directly requested or clearly necessary.
+- **Don’t add features or configurability** beyond the ask. A bug fix doesn’t require refactoring the whole module.
+- **Validate only at system boundaries** (user input, external APIs). Trust internal invariants and framework guarantees.
+- **Don’t build abstractions for one‑off operations.** Reuse existing helpers; don’t design for hypothetical future requirements.
+- **Don’t add backwards‑compat shims** if you can safely change the only caller.
+- **Keep edits focused.** Don’t “clean up” unrelated code in the same change.
+- **Always read relevant files before editing.** Do not speculate about code you haven’t inspected; follow existing patterns and style.
+
+### Agent Quickstart (AI & New Engineers)
+
+For **any change** (feature, fix, refactor):
+
+1. **Find AGENTS policy**: From the file you’re touching, walk up directories and collect all `AGENTS.md` (root → closest).
+2. **Create a task folder**: `tasks/<slug>-YYYYMMDD-HHMM/` (UTC).
+3. **Phase 1 — Requirements**: Fill `research.md` until **Definition of Ready** is met (§4, Phase 1).
+4. **Phase 2 — Plan**: Fill `plan.md` with architecture, contracts, tests, rollout (§4, Phase 2).
+5. **Phase 3 — Implement**: Use `todo.md` as a live checklist; keep notes and deviations up to date.
+6. **Phase 4 — Verify**:
+   - Run tests (unit/integration/E2E/a11y).
+   - Run **Chrome DevTools MCP** (required for UI) and record perf/a11y.
+   - Capture artifacts into `artifacts/` and summarize in `verification.md`.
+7. **Phase 5+ — PR & Release**:
+   - Open PR with **Conventional Commit** title, link task folder, and attach evidence.
+   - Once merged, follow rollout plan and document outcomes in the task folder.
 
 ---
 
@@ -63,14 +100,14 @@ If no `AGENTS.md` exists in the working context:
 
 - Add machine‑readable **frontmatter** to every `AGENTS.md`.
 
-**Root AGENTS.md (minimal viable)**
+**Root AGENTS.md (minimal viable template)**
 
 ```markdown
 ---
-agents_version: 5.2
+agents_version: 5.3
 scope: root
 extends: null
-last_updated: 2025-11-12
+last_updated: 2025-11-30
 owner: github:@maintainers
 ---
 
@@ -128,11 +165,11 @@ pnpm ts-node scripts/agents-policy-trace.ts apps/web/src/pages/index.tsx
 
 This prints the chain `root → … → closest` so you can confirm inheritance and spot misconfigurations (e.g., wrong `extends:`).
 
-### Large Monorepos (88+ AGENTS.md files)
+### Large Monorepos (many AGENTS.md files)
 
 - Each package/app gets its own `AGENTS.md` focused on **local concerns**.
 - Root covers **cross‑cutting** rules (CI/CD, security, commit standards).
-- Nested files **must** include frontmatter with `scope: subproject`, `extends: ../../AGENTS.md`, and `agents_version`.
+- Nested files **must** include frontmatter with `scope: subproject`, `extends: ../../AGENTS.md` (or `../AGENTS.md` as appropriate), and `agents_version`.
 
 ---
 
@@ -191,11 +228,13 @@ related_tickets: [<TICKET-123>]
 ### Phase 0 — **Initiation (Task Setup)**
 
 **Inputs**: Ticket or problem statement.
+
 **Activities**:
 
 - Create `tasks/<slug>-YYYYMMDD-HHMM/` (UTC).
 - Stub `research.md` and `plan.md` with frontmatter.
-  **Exit**: Task folder exists; scope stub recorded.
+
+**Exit**: Task folder exists; scope stub recorded.
 
 ---
 
@@ -213,6 +252,7 @@ related_tickets: [<TICKET-123>]
 **Use MCP**:
 
 - **Context7** for internal prior art; **DeepWiki** for external references.
+- **Gate (medium/high risk)**: Run at least one relevant MCP query and reference its result in `research.md`. If MCP is unavailable, note manual equivalent investigation and evidence in `artifacts/`.
 
 **Outputs**:
 
@@ -343,6 +383,7 @@ Errors: { code, message }
 
 - Track atomic steps; log deviations & assumptions.
 - Implement code, components, remote migrations, and tests.
+- Keep changes **narrow and focused** per §1B (no opportunistic refactors).
 
 **Use MCP**:
 
@@ -480,9 +521,9 @@ Tool: Chrome DevTools MCP
 
 **Exit**: Approvals obtained; CI green; merged per repo policy.
 
-PR Checklist (include in PR description)
+PR Checklist (include in PR description):
 
-```
+```text
 [ ] Links to task folder and ticket
 [ ] Screenshots/clips (UI) + verification.md
 [ ] Tests added/updated
@@ -604,10 +645,10 @@ PR Checklist (include in PR description)
 
 ```markdown
 ---
-agents_version: 5.2
+agents_version: 5.3
 scope: subproject
 extends: ../../AGENTS.md
-last_updated: 2025-11-12
+last_updated: 2025-11-30
 owner: github:@<team>
 profile: web-next|mobile|service-python|package-ui
 ---
@@ -649,7 +690,7 @@ profile: web-next|mobile|service-python|package-ui
 
 ### Example Monorepo Layout
 
-```
+```text
 /
 ├── AGENTS.md
 ├── apps/
@@ -669,17 +710,17 @@ profile: web-next|mobile|service-python|package-ui
 
 > Use MCP when it provides **repeatability, safety, or scale**. Configure via env/secrets; do not commit tokens.
 
-- **Chrome DevTools MCP** — Manual QA (console/network, emulation, performance, Lighthouse/a11y).
-  **Phase**: 4. **Note**: For auth flows, obtain short‑lived session cookies out‑of‑band.
-- **Shadcn MCP** — Discover/scaffold UI components, synchronize tokens.
+- **Chrome DevTools MCP** — Manual QA (console/network, emulation, performance, Lighthouse/a11y).  
+  **Phase**: 4. **Rule**: Required for any UI change; attach artifacts.
+- **Shadcn MCP** — Discover/scaffold UI components, synchronize tokens.  
   **Phases**: 2, 3. **Rule**: Prefer SHADCN before custom.
-- **Next DevTools MCP** — Next.js routing/data‑fetch, server/client boundaries, bundle hints.
+- **Next DevTools MCP** — Next.js routing/data‑fetch, server/client boundaries, bundle hints.  
   **Phases**: 2, 3.
-- **Supabase MCP** — Remote migrations/seeds; schema drift; rollback plans.
+- **Supabase MCP** — Remote migrations/seeds; schema drift; rollback plans.  
   **Phases**: 2, 3, 6. **Rule**: **Remote only**; connections via secrets.
-- **Context7 MCP** — Semantic search over internal knowledge.
+- **Context7 MCP** — Semantic search over internal knowledge.  
   **Phase**: 1.
-- **DeepWiki MCP** — External/domain research summaries.
+- **DeepWiki MCP** — External/domain research summaries.  
   **Phase**: 1.
 
 **If MCP unavailable temporarily**: run equivalent CLI/manual steps and attach artifacts. MCP usage is still **required** long‑term.
@@ -721,7 +762,7 @@ Escalate or stop immediately if:
 
 **Task Lifecycle**
 
-```
+```text
 [ ] Check for AGENTS.md (§1.5); create if missing
 [ ] Create task dir (UTC timestamp)
 [ ] Requirements & analysis → research.md (DoR met)
@@ -735,7 +776,7 @@ Escalate or stop immediately if:
 
 **UI/A11y Essentials**
 
-```
+```text
 [ ] Keyboard‑only flows succeed
 [ ] Visible focus management
 [ ] Semantic roles/labels
@@ -746,7 +787,7 @@ Escalate or stop immediately if:
 
 **Perf Budgets (mobile; 4× CPU; 4G)**
 
-```
+```text
 [ ] FCP ≤ 2.0 s
 [ ] LCP ≤ 2.5 s
 [ ] CLS ≤ 0.10
@@ -756,7 +797,7 @@ Escalate or stop immediately if:
 
 **Data & Migrations**
 
-```
+```text
 [ ] Remote Supabase only (via MCP)
 [ ] Staging first, then production (window + approval)
 [ ] Backup/rollback plan noted
@@ -765,7 +806,7 @@ Escalate or stop immediately if:
 
 **Security & Privacy**
 
-```
+```text
 [ ] Secrets not committed; env only
 [ ] PII minimized/redacted in logs
 [ ] Auth & authorization paths tested
@@ -805,7 +846,7 @@ Escalate or stop immediately if:
 
 ### C) MCP Pre‑Flight (copy into `verification.md` when MCP is used)
 
-```
+```text
 [ ] Server reachable (version printed)
 [ ] Session token valid (if required)
 [ ] Secrets sourced via env (not logged)
@@ -861,7 +902,7 @@ Escalate or stop immediately if:
 
 ### F) CODEOWNERS (excerpt)
 
-```
+```text
 # Cross-cutting
 /AGENTS.md                 @maintainers
 /tasks/                    @release-managers @maintainers
@@ -974,35 +1015,5 @@ pnpm ts-node scripts/agents-policy-trace.ts apps/web/src/pages/index.tsx
 
 ---
 
-**Last Updated**: 2025‑11‑12
-**Version**: 5.2
-
-```
-
-```
-
-- Avoid over-engineering. Only make changes that are directly requested or clearly necessary. Keep solutions simple and focused.
-- Don't add features, refactor code, or make "improvements" beyond what was asked. A bug fix doesn't need surrounding code cleaned up. A simple feature doesn't need extra configurability.
-- Don't add error handling, fallbacks, or validation for scenarios that can't happen. Trust internal code and framework guarantees. Only validate at system boundaries (user input, external APIs). Don't use backwards-compatibility shims when you can just change the code.
-- Don't create helpers, utilities, or abstractions for one-time operations. Don't design for hypothetical future requirements. The right amount of complexity is the minimum needed for the current task. Reuse existing abstractions where possible and follow the DRY principle.
-- ALWAYS read and understand relevant files before proposing code edits. Do not speculate about code you have not inspected. If the user references a specific file/path, you MUST open and inspect it before explaining or proposing fixes. Be rigorous and persistent in searching code for key facts. Thoroughly review the style, conventions, and abstractions of the codebase before implementing new features or abstractions.
-
-<frontend_aesthetics>
-You tend to converge toward generic, "on distribution" outputs. In frontend design, this creates what users call the "AI slop" aesthetic. Avoid this: make creative, distinctive frontends that surprise and delight.
-
-Focus on:
-
-- Typography: Choose fonts that are beautiful, unique, and interesting. Avoid generic fonts like Arial and Inter; opt instead for distinctive choices that elevate the frontend's aesthetics.
-- Color & Theme: Commit to a cohesive aesthetic. Use CSS variables for consistency. Dominant colors with sharp accents outperform timid, evenly-distributed palettes. Draw from IDE themes and cultural aesthetics for inspiration.
-- Motion: Use animations for effects and micro-interactions. Prioritize CSS-only solutions for HTML. Use Motion library for React when available. Focus on high-impact moments: one well-orchestrated page load with staggered reveals (animation-delay) creates more delight than scattered micro-interactions.
-- Backgrounds: Create atmosphere and depth rather than defaulting to solid colors. Layer CSS gradients, use geometric patterns, or add contextual effects that match the overall aesthetic.
-
-Avoid generic AI-generated aesthetics:
-
-- Overused font families (Inter, Roboto, Arial, system fonts)
-- Clichéd color schemes (particularly purple gradients on white backgrounds)
-- Predictable layouts and component patterns
-- Cookie-cutter design that lacks context-specific character
-
-Interpret creatively and make unexpected choices that feel genuinely designed for the context. Vary between light and dark themes, different fonts, different aesthetics. You still tend to converge on common choices (Space Grotesk, for example) across generations. Avoid this: it is critical that you think outside the box!
-</frontend_aesthetics>
+**Last Updated**: 2025‑11-30  
+**Version**: 5.3

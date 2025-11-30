@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { ScheduleAwareTimestampPicker } from '@/components/features/booking-state-machine';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Form, FormField } from '@/components/ui/form';
 import {
   Dialog,
   DialogContent,
@@ -17,13 +18,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useUpdateBooking } from '@/hooks/useUpdateBooking';
 import { emit } from '@/lib/analytics/emit';
 import { BOOKING_IN_PAST_DASHBOARD_MESSAGE } from '@/lib/bookings/messages';
 import { MAX_ONLINE_PARTY_SIZE, MIN_ONLINE_PARTY_SIZE, ONLINE_PARTY_SIZE_LIMIT_COPY } from '@/lib/bookings/partySize';
+import { PartySizeField } from '@features/reservations/wizard/ui/steps/plan-step/components/PartySizeField';
 
 import type { BookingDTO } from '@/hooks/useBookings';
 import type { HttpError } from '@/lib/http/errors';
@@ -104,6 +105,10 @@ export function EditBookingDialog({
   }, [booking?.reservationIntervalMinutes]);
 
   const resolver = zodResolver(schema) as Resolver<FormValues>;
+  const form = useForm<FormValues>({
+    resolver,
+    defaultValues,
+  });
 
   const {
     control,
@@ -111,12 +116,10 @@ export function EditBookingDialog({
     reset,
     watch,
     setValue,
+    getValues,
     clearErrors,
     formState: { errors, isDirty },
-  } = useForm<FormValues>({
-    resolver,
-    defaultValues,
-  });
+  } = form;
   const useMutationHook = mutationHook ?? useUpdateBooking;
   const mutation = useMutationHook();
   const [formError, setFormError] = useState<{ message: string; code?: string } | null>(null);
@@ -226,6 +229,27 @@ export function EditBookingDialog({
     [clearErrors, setValue],
   );
 
+  const clampPartySize = useCallback(
+    (value: number) => Math.min(MAX_ONLINE_PARTY_SIZE, Math.max(MIN_ONLINE_PARTY_SIZE, value)),
+    [],
+  );
+
+  const handlePartySizeChange = useCallback(
+    (direction: 'increment' | 'decrement') => {
+      const current = Number(getValues('partySize') ?? MIN_ONLINE_PARTY_SIZE);
+      const delta = direction === 'increment' ? 1 : -1;
+      const next = clampPartySize(current + delta);
+
+      setValue('partySize', next, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+      clearErrors('partySize');
+    },
+    [clampPartySize, clearErrors, getValues, setValue],
+  );
+
   const onSubmit = async (values: z.infer<typeof schema>) => {
     if (!booking) return;
     setFormError(null);
@@ -274,7 +298,8 @@ export function EditBookingDialog({
         className="max-h-[85vh] overflow-y-auto sm:max-w-2xl"
         onInteractOutside={(event) => event.preventDefault()}
       >
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
+        <Form {...form}>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
           <DialogHeader>
             <DialogTitle>Edit booking</DialogTitle>
             <DialogDescription>Adjust the booking details and save your changes.</DialogDescription>
@@ -321,25 +346,17 @@ export function EditBookingDialog({
                     minDate={fallbackMinDate}
                     timeScrollArea
                   >
-                    <div className="grid gap-2">
-                      <Label htmlFor="partySize">Party size</Label>
-                      <Controller
-                        name="partySize"
-                        control={control}
-                        render={({ field: partyField }) => (
-                          <Input
-                            id="partySize"
-                            type="number"
-                            min={MIN_ONLINE_PARTY_SIZE}
-                            max={MAX_ONLINE_PARTY_SIZE}
-                            {...partyField}
-                          />
-                        )}
-                      />
-                      {errors.partySize ? (
-                        <p className="text-sm text-destructive">{errors.partySize.message}</p>
-                      ) : null}
-                    </div>
+                    <FormField
+                      control={control}
+                      name="partySize"
+                      render={({ field: partyField }) => (
+                        <PartySizeField
+                          value={partyField.value ?? MIN_ONLINE_PARTY_SIZE}
+                          onChange={handlePartySizeChange}
+                          error={errors.partySize?.message}
+                        />
+                      )}
+                    />
                   </ScheduleAwareTimestampPicker>
                 )}
               />
@@ -401,7 +418,8 @@ export function EditBookingDialog({
               {mutation.isPending ? 'Saving…' : missingScheduleMetadata ? 'Unavailable' : 'Save changes'}
             </Button>
           </DialogFooter>
-        </form>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
