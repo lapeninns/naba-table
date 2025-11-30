@@ -77,7 +77,7 @@ const updateSchema = z.object({
 const dashboardUpdateSchema = z.object({
   startIso: z.string().datetime(),
   endIso: z.string().datetime().optional(),
-  partySize: z.number().int().min(MIN_ONLINE_PARTY_SIZE).max(MAX_ONLINE_PARTY_SIZE),
+  partySize: z.coerce.number().int().min(MIN_ONLINE_PARTY_SIZE).max(MAX_ONLINE_PARTY_SIZE),
   notes: z.string().max(500).optional().nullable(),
 });
 
