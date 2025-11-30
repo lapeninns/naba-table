@@ -4,6 +4,7 @@ import { AssignTablesRpcError } from "@/server/capacity/holds";
 import { createAvailabilityBitset, markWindow, isWindowFree } from "@/server/capacity/planner/bitset";
 import { getVenuePolicy, type VenuePolicy, type SelectorScoringConfig, type ServiceKey } from "@/server/capacity/policy";
 import { buildScoredTablePlans, type RankedTablePlan, type CandidateDiagnostics, type BuildCandidatesResult } from "@/server/capacity/selector";
+import { deriveTableRules } from "@/server/capacity/table-rules";
 import { windowsOverlap } from "@/server/capacity/time-windows";
 import { getAllocatorAdjacencyMinPartySize, isAllocatorAdjacencyRequired, isPlannerTimePruningEnabled } from "@/server/feature-flags";
 
@@ -156,20 +157,25 @@ export function filterAvailableTables(
     if (!Number.isFinite(capacity) || capacity <= 0) return false;
     if (!allowPartial && capacity < partySize) return false;
 
+    // Derive party size rules from physical properties (mobility, capacity)
+    // instead of reading from database columns
+    const rules = deriveTableRules({
+      capacity: table.capacity ?? 0,
+      mobility: table.mobility,
+      category: table.category,
+    });
+
     if (
       !allowMaxPartySizeViolation &&
-      typeof table.maxPartySize === "number" &&
-      table.maxPartySize > 0 &&
-      partySize > table.maxPartySize
+      rules.maxPartySize !== null &&
+      partySize > rules.maxPartySize
     ) {
       return false;
     }
 
     if (
       !allowMinPartySizeViolation &&
-      typeof table.minPartySize === "number" &&
-      table.minPartySize > 0 &&
-      partySize < table.minPartySize
+      partySize < rules.minPartySize
     ) {
       return false;
     }

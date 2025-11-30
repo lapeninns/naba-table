@@ -12,7 +12,17 @@ export type Table = {
   id: string;
   tableNumber: string;
   capacity: number;
+  /**
+   * @deprecated Use deriveTableRules() from @/server/capacity/table-rules instead.
+   * This field is derived from physical properties (mobility, capacity) and
+   * will be removed from the database schema.
+   */
   minPartySize?: number | null;
+  /**
+   * @deprecated Use deriveTableRules() from @/server/capacity/table-rules instead.
+   * This field is derived from physical properties (mobility, capacity) and
+   * will be removed from the database schema.
+   */
   maxPartySize?: number | null;
   section?: string | null;
   category?: Tables<"table_inventory">["category"] | string | null;

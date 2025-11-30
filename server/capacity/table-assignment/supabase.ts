@@ -18,8 +18,9 @@ import type { Tables } from "@/types/supabase";
 
 export type { DbClient } from "./types";
 
+// Note: min_party_size and max_party_size removed - now derived from mobility via deriveTableRules()
 const TABLE_INVENTORY_SELECT =
-  "id,table_number,capacity,min_party_size,max_party_size,section,category,seating_type,mobility,zone_id,status,active,position,zones(active)" as const;
+  "id,table_number,capacity,section,category,seating_type,mobility,zone_id,status,active,position,zones(active)" as const;
 
 type TableInventoryRow = Tables<"table_inventory">;
 type TableInventoryRowWithZone = TableInventoryRow & { zones?: { active: boolean | null } | null };
@@ -186,8 +187,9 @@ export async function loadTablesForRestaurant(
       id: row.id,
       tableNumber: row.table_number,
       capacity: row.capacity ?? 0,
-      minPartySize: row.min_party_size ?? null,
-      maxPartySize: row.max_party_size ?? null,
+      // minPartySize and maxPartySize are deprecated - use deriveTableRules() instead
+      minPartySize: undefined,
+      maxPartySize: undefined,
       section: row.section,
       category: row.category,
       seatingType: row.seating_type,
@@ -248,8 +250,9 @@ export async function loadTablesByIds(
           id: row.id,
           tableNumber: row.table_number,
           capacity: row.capacity ?? 0,
-          minPartySize: row.min_party_size ?? null,
-          maxPartySize: row.max_party_size ?? null,
+          // minPartySize and maxPartySize are deprecated - use deriveTableRules() instead
+          minPartySize: undefined,
+          maxPartySize: undefined,
           section: row.section,
           category: row.category,
           seatingType: row.seating_type,
