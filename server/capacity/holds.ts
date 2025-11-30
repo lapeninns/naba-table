@@ -1,6 +1,6 @@
 import { DateTime } from "luxon";
 
-import { isHoldStrictConflictsEnabled, getHoldMinTtlSeconds, getHoldRateWindowSeconds, getHoldRateMaxPerBooking } from "@/server/feature-flags";
+import { isHoldStrictConflictsEnabled, getHoldMinTtlSeconds } from "@/server/feature-flags";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
 import type { Database, Json, Tables } from "@/types/supabase";
@@ -281,34 +281,6 @@ export async function createTableHold(input: CreateTableHoldInput): Promise<Tabl
   const normalizedExpiryIso = normalizedExpiry.toISO();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (input as any).expiresAt = normalizedExpiryIso;
-
-  // Rate limit per user per booking within window
-  if (createdBy && bookingId) {
-    try {
-      const windowSec = getHoldRateWindowSeconds();
-      const maxPer = getHoldRateMaxPerBooking();
-      const cutoff = DateTime.now().minus({ seconds: windowSec }).toISO();
-      const { count, error: countError } = await supabase
-        .from("table_holds")
-        .select("id", { count: "exact", head: true })
-        .eq("booking_id", bookingId)
-        .eq("created_by", createdBy)
-        .gt("created_at", cutoff as string);
-      if (!countError && typeof count === "number" && count >= maxPer) {
-        throw new AssignTablesRpcError({
-          message: "Too many holds recently for this booking. Please wait before trying again.",
-          code: "RPC_VALIDATION",
-          details: JSON.stringify({ reason: "HOLD_RATE_LIMIT", windowSeconds: windowSec, maxPerBooking: maxPer }),
-          hint: "Reduce attempts or wait a moment, then retry.",
-        });
-      }
-    } catch (e) {
-      if (e instanceof AssignTablesRpcError) {
-        throw e;
-      }
-      // If rate-limit check fails unexpectedly, proceed to avoid false positives.
-    }
-  }
 
   // When strict conflicts are enabled, avoid a TOCTOU race by relying on
   // database-level exclusion constraints and inserting the hold + members

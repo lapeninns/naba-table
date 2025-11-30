@@ -145,16 +145,9 @@ export const env = {
     const allocatorMergesDefault = parsed.FEATURE_ALLOCATOR_MERGES_ENABLED ?? !isProduction;
     const combinationPlannerDefault = parsed.FEATURE_COMBINATION_PLANNER ?? allocatorMergesDefault;
     const plannerTimePruningDefault = parsed.FEATURE_PLANNER_TIME_PRUNING_ENABLED ?? true;
-    const plannerCacheTtlMs =
-      typeof parsed.PLANNER_CACHE_TTL_MS === "number"
-        ? Math.max(1_000, Math.min(parsed.PLANNER_CACHE_TTL_MS, 600_000))
-        : 60_000;
-    const adjacencyMinPartySize =
-      typeof parsed.FEATURE_ALLOCATOR_ADJACENCY_MIN_PARTY_SIZE === "number"
-        ? Math.max(1, Math.min(parsed.FEATURE_ALLOCATOR_ADJACENCY_MIN_PARTY_SIZE, 20))
-        : null;
-    const adjacencyModeRaw = parsed.FEATURE_ALLOCATOR_ADJACENCY_MODE;
-    const adjacencyMode = adjacencyModeRaw === "pairwise" || adjacencyModeRaw === "neighbors" ? adjacencyModeRaw : "connected";
+    const plannerCacheTtlMs = 60_000;
+    const adjacencyMinPartySize = null;
+    const adjacencyMode = "connected" as const;
     const manualAssignmentMaxSlack =
       typeof parsed.FEATURE_MANUAL_ASSIGNMENT_MAX_SLACK === "number"
         ? Math.max(0, Math.min(parsed.FEATURE_MANUAL_ASSIGNMENT_MAX_SLACK, 12))
@@ -173,7 +166,7 @@ export const env = {
       typeof parsed.FEATURE_SELECTOR_ENUMERATION_TIMEOUT_MS === "number"
         ? Math.max(50, Math.min(parsed.FEATURE_SELECTOR_ENUMERATION_TIMEOUT_MS, 10_000))
         : null;
-    const adjacencyQueryUndirectedDefault = parsed.FEATURE_ADJACENCY_QUERY_UNDIRECTED ?? true;
+    const adjacencyQueryUndirectedDefault = true;
     return {
       loyaltyPilotRestaurantIds: parsed.LOYALTY_PILOT_RESTAURANT_IDS,
       enableTestApi: parsed.ENABLE_TEST_API ?? false,
@@ -213,14 +206,9 @@ export const env = {
       realtimeFloorplan: parsed.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN ?? false,
       planner: {
         timePruningEnabled: plannerTimePruningDefault,
-        cacheEnabled: parsed.PLANNER_CACHE_ENABLED ?? false,
+        cacheEnabled: false,
         cacheTtlMs: plannerCacheTtlMs,
         debugProfiling: parsed.DEBUG_CAPACITY_PROFILING ?? false,
-      },
-      allocatorV2: {
-        enabled: parsed.FEATURE_ALLOCATOR_V2_ENABLED ?? true,
-        shadow: parsed.FEATURE_ALLOCATOR_V2_SHADOW ?? false,
-        forceLegacy: parsed.FEATURE_ALLOCATOR_V2_FORCE_LEGACY ?? false,
       },
       allocator: {
         mergesEnabled: allocatorMergesDefault,
@@ -248,11 +236,7 @@ export const env = {
       holds: {
         enabled: parsed.FEATURE_HOLDS_ENABLED ?? true,
         strictConflicts: parsed.FEATURE_HOLDS_STRICT_CONFLICTS_ENABLED ?? false,
-        minTtlSeconds: Math.max(1, Math.min(parsed.FEATURE_HOLDS_MIN_TTL_SECONDS ?? 60, 3600)),
-        rate: {
-          windowSeconds: Math.max(5, Math.min(parsed.FEATURE_HOLDS_RATE_WINDOW_SECONDS ?? 60, 3600)),
-          maxPerBooking: Math.max(1, Math.min(parsed.FEATURE_HOLDS_RATE_MAX_PER_BOOKING ?? 5, 100)),
-        },
+        minTtlSeconds: 180,
       },
       adjacency: {
         queryUndirected: adjacencyQueryUndirectedDefault,
@@ -274,7 +258,6 @@ export const env = {
           : undefined,
         startCutoffMinutes: Math.max(0, Math.min(parsed.FEATURE_AUTO_ASSIGN_START_CUTOFF_MINUTES ?? 10, 240)),
         createdEmailDeferMinutes: Math.max(0, Math.min(parsed.FEATURE_AUTO_ASSIGN_CREATED_EMAIL_DEFER_MINUTES ?? 5, 120)),
-        retryPolicyV2: parsed.FEATURE_AUTO_ASSIGN_RETRY_POLICY_V2 ?? false,
       },
       emailQueueEnabled: parsed.FEATURE_EMAIL_QUEUE_ENABLED ?? false,
       policyRequoteEnabled: parsed.FEATURE_POLICY_REQUOTE_ENABLED ?? true,
@@ -283,20 +266,9 @@ export const env = {
   },
 
   get strategic() {
-    const parsed = parseEnv();
-    const rawScarcityWeight = parsed.FEATURE_SELECTOR_SCARCITY_WEIGHT;
-    const scarcityWeight =
-      typeof rawScarcityWeight === "number" && Number.isFinite(rawScarcityWeight)
-        ? Math.max(0, Math.min(rawScarcityWeight, 1000))
-        : undefined;
-    const demandProfilePath =
-      typeof parsed.STRATEGIC_DEMAND_PROFILE_PATH === "string"
-        ? parsed.STRATEGIC_DEMAND_PROFILE_PATH.trim() || undefined
-        : undefined;
-
     return {
-      scarcityWeight,
-      demandProfilePath,
+      scarcityWeight: undefined,
+      demandProfilePath: undefined,
     } as const;
   },
 

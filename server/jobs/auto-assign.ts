@@ -3,10 +3,8 @@ import {
   isInlineResultRecent,
   isInlineHardFailure,
   shouldSkipEmailForJob,
-  shouldSkipFirstJobAttempt,
 } from "@/server/capacity/auto-assign-last-result";
 import {
-  isPlannerCacheEnabled,
   buildPlannerCacheKey,
   getPlannerCacheEntry,
   setPlannerCacheEntry,
@@ -24,7 +22,6 @@ import {
   getAutoAssignMaxRetries,
   getAutoAssignRetryDelaysMs,
   getAutoAssignStartCutoffMinutes,
-  isAutoAssignRetryPolicyV2Enabled,
 } from "@/server/feature-flags";
 import { recordObservabilityEvent } from "@/server/observability";
 import { getServiceSupabaseClient } from "@/server/supabase";
@@ -140,8 +137,7 @@ export async function autoAssignAndConfirmIfPossible(
   logJob("scheduled", { reason, emailVariant, bypass: Boolean(options?.bypassFeatureFlag) });
 
   const supabase = getServiceSupabaseClient();
-  const retryPolicyV2Enabled = isAutoAssignRetryPolicyV2Enabled();
-  const plannerCacheEnabled = retryPolicyV2Enabled && isPlannerCacheEnabled();
+  const plannerCacheEnabled = false;
   const jobStartTime = Date.now();
   let computedMaxAttempts: number | null = null;
   let summaryEmitted = false;
@@ -263,12 +259,8 @@ export async function autoAssignAndConfirmIfPossible(
     const plannerStrategy: PlannerStrategyContext = { requireAdjacency: null, maxTables: null };
 
     // Attempt loop configuration
-    const inlineHardFailure = retryPolicyV2Enabled
-      ? isInlineHardFailure(inlineLastResult)
-      : inlineIsRecent && isInlineHardFailure(inlineLastResult);
-    const inlineSkipDecision = retryPolicyV2Enabled
-      ? shouldSkipFirstJobAttempt(inlineLastResult)
-      : { skip: false, reasonCode: null };
+    const inlineHardFailure = inlineIsRecent && isInlineHardFailure(inlineLastResult);
+    const inlineSkipDecision = { skip: false, reasonCode: null } as const;
     inlineSkipReasonCode = inlineSkipDecision.reasonCode ?? null;
     let maxAttempts = Math.max(1, Math.min(maxRetries + 1, 11));
     if (inlineHardFailure) {
@@ -304,28 +296,7 @@ export async function autoAssignAndConfirmIfPossible(
       });
     }
 
-    if (retryPolicyV2Enabled && inlineLastResult?.reason === "INLINE_TIMEOUT") {
-      plannerStrategy.requireAdjacency = false;
-      plannerStrategy.maxTables = plannerStrategy.maxTables ?? 4;
-      maxAttempts = Math.max(1, Math.min(3, maxAttempts));
-      await recordObservabilityEvent({
-        source: "auto_assign",
-        eventType: "auto_assign.inline_timeout_adjustment",
-        restaurantId: booking.restaurant_id,
-        bookingId: booking.id,
-        context: {
-          attempt_index: attempt,
-          adjustedRequireAdjacency: plannerStrategy.requireAdjacency,
-          adjustedMaxTables: plannerStrategy.maxTables,
-          maxAttempts,
-        },
-      });
-      logJob("strategy.adjust_inline_timeout", {
-        inlineAttemptId: inlineLastResult.attemptId ?? null,
-        plannerStrategy,
-        maxAttempts,
-      });
-    }
+    // Inline timeout tweaks removed; single retry policy path
     computedMaxAttempts = maxAttempts;
 
     while (attempt < maxAttempts) {
@@ -420,7 +391,7 @@ export async function autoAssignAndConfirmIfPossible(
           reason: cachedEntry.reason ?? "cached_failure",
           reasonCode: classification.code,
         });
-        if (retryPolicyV2Enabled && classification.category === "hard") {
+        if (classification.category === "hard") {
           shouldRetry = false;
           hardStopReason = classification.code;
         }
@@ -483,7 +454,7 @@ export async function autoAssignAndConfirmIfPossible(
               alternates: (quote.alternates ?? []).length,
             });
 
-            if (retryPolicyV2Enabled && classification.category === "hard") {
+            if (classification.category === "hard") {
               shouldRetry = false;
               hardStopReason = classification.code;
               await recordObservabilityEvent({
@@ -585,7 +556,7 @@ export async function autoAssignAndConfirmIfPossible(
             },
           });
           logJob("attempt.error", { attempt, error: e instanceof Error ? e.message : String(e) });
-          if (retryPolicyV2Enabled && classification.category === "hard") {
+          if (classification.category === "hard") {
             shouldRetry = false;
             hardStopReason = classification.code;
           }

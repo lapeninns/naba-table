@@ -1,10 +1,7 @@
 import path from "node:path";
 
 import { env } from "@/lib/env";
-import { getServiceSupabaseClient } from "@/server/supabase";
 
-import type { Database } from "@/types/supabase";
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 const DEFAULT_DEMAND_PROFILE_RELATIVE_PATH = "config/demand-profiles.json";
 export const DEFAULT_SCARCITY_WEIGHT = 22;
@@ -12,8 +9,6 @@ const MIN_SCARCITY_WEIGHT = 0;
 const MAX_SCARCITY_WEIGHT = 1000;
 const CACHE_TTL_MS = 30_000;
 const GLOBAL_CACHE_KEY = "__global__";
-
-type DbClient = SupabaseClient<Database, "public">;
 
 export type StrategicConfigSource = "env" | "db";
 
@@ -41,13 +36,6 @@ export type StrategicConfigLoadOptions = StrategicConfigSnapshotOptions & {
 
 type StrategicConfigOverride = Partial<StrategicConfigState> & StrategicConfigSnapshotOptions & {
   source?: StrategicConfigSource;
-};
-
-type StrategicConfigRow = {
-  scarcity_weight: number | null;
-  demand_multiplier_override: number | null;
-  future_conflict_penalty: number | null;
-  updated_at: string | null;
 };
 
 let testScarcityWeight: number | null = null;
@@ -140,53 +128,6 @@ function applyTestOverrides(state: StrategicConfigState): StrategicConfigState {
   };
 }
 
-function mapRowToState(row: StrategicConfigRow): StrategicConfigState {
-  const scarcity = clamp(Number(row.scarcity_weight ?? DEFAULT_SCARCITY_WEIGHT), MIN_SCARCITY_WEIGHT, MAX_SCARCITY_WEIGHT);
-  const demandOverride = row.demand_multiplier_override;
-  const futurePenalty = row.future_conflict_penalty;
-
-  return {
-    scarcityWeight: scarcity,
-    demandMultiplierOverride: demandOverride === null ? null : Number(demandOverride),
-    futureConflictPenalty: futurePenalty === null ? null : Number(futurePenalty),
-    updatedAt: row.updated_at ?? null,
-    source: "db",
-  };
-}
-
-async function fetchStrategicConfigFromDb(
-  client: DbClient,
-  restaurantId: string | null,
-): Promise<StrategicConfigState | null> {
-  const query = client
-    .from("strategic_configs")
-    .select("scarcity_weight, demand_multiplier_override, future_conflict_penalty, updated_at")
-    .order("updated_at", { ascending: false })
-    .limit(1);
-
-  const { data, error } = restaurantId
-    ? await query.eq("restaurant_id", restaurantId).maybeSingle()
-    : await query.is("restaurant_id", null).maybeSingle();
-
-  if (error) {
-    const errorCode = typeof error === "object" && error && "code" in error ? String((error as { code?: string }).code ?? "") : "";
-    const message = typeof error === "object" && error && "message" in error ? String((error as { message?: string }).message ?? "") : "";
-    const isMissingTable = errorCode === "42P01" || /unexpected table\s+strategic_configs/i.test(message) || /relation .*strategic_configs.* does not exist/i.test(message);
-    const isMissingColumns = errorCode === "42703" || /column\s+strategic_configs\./i.test(message);
-    if (isMissingTable || isMissingColumns) {
-      console.warn("[strategic-config] schema unavailable; falling back to env state", { error: message || errorCode });
-      return null;
-    }
-    throw error;
-  }
-
-  if (!data) {
-    return null;
-  }
-
-  return mapRowToState(data as StrategicConfigRow);
-}
-
 function storeState(key: string, state: StrategicConfigState, ttlMs: number): void {
   const entry = ensureCacheEntry(key);
   entry.state = { ...state };
@@ -212,39 +153,10 @@ export function getStrategicScarcityWeight(options: StrategicConfigSnapshotOptio
 }
 
 export async function loadStrategicConfig(options: StrategicConfigLoadOptions = {}): Promise<StrategicConfigState> {
-  const { restaurantId = null, client, force = false } = options;
+  const { restaurantId = null } = options;
   const key = computeCacheKey(restaurantId);
-  const entry = ensureCacheEntry(key);
-  const now = Date.now();
-
-  if (!force && entry.expiresAt > now) {
-    return getStrategicConfigSnapshot({ restaurantId });
-  }
-
-  const supabase = client ?? getServiceSupabaseClient();
-
-  let loadedState: StrategicConfigState | null = null;
-
-  try {
-    if (restaurantId) {
-      loadedState = await fetchStrategicConfigFromDb(supabase, restaurantId);
-    }
-
-    if (!loadedState) {
-      loadedState = await fetchStrategicConfigFromDb(supabase, null);
-      if (loadedState) {
-        storeState(GLOBAL_CACHE_KEY, loadedState, CACHE_TTL_MS);
-      }
-    }
-  } catch (error) {
-    entry.expiresAt = now + CACHE_TTL_MS;
-    throw error;
-  }
-
-  if (!loadedState) {
-    loadedState = createEnvState();
-  }
-
+  ensureCacheEntry(key);
+  const loadedState = createEnvState();
   storeState(key, loadedState, CACHE_TTL_MS);
   return getStrategicConfigSnapshot({ restaurantId });
 }

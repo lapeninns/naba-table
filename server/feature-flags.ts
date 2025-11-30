@@ -99,21 +99,15 @@ export function isPlannerTimePruningEnabled(): boolean {
 }
 
 export function isAllocatorV2ForceLegacy(): boolean {
-  return env.featureFlags.allocatorV2?.forceLegacy ?? false;
+  return false;
 }
 
 export function isAllocatorV2Enabled(): boolean {
-  if (isAllocatorV2ForceLegacy()) {
-    return false;
-  }
-  return env.featureFlags.allocatorV2?.enabled ?? false;
+  return true;
 }
 
 export function isAllocatorV2ShadowMode(): boolean {
-  if (isAllocatorV2ForceLegacy()) {
-    return false;
-  }
-  return env.featureFlags.allocatorV2?.shadow ?? false;
+  return false;
 }
 
 export function isAllocatorAdjacencyRequired(): boolean {
@@ -131,15 +125,10 @@ export function getAllocatorKMax(): number {
 }
 
 export function getAllocatorAdjacencyMinPartySize(): number | null {
-  const value = env.featureFlags.allocator.adjacencyMinPartySize;
-  return typeof value === "number" ? value : null;
+  return null;
 }
 
 export function getAllocatorAdjacencyMode(): AdjacencyMode {
-  const value = env.featureFlags.allocator.adjacencyMode;
-  if (value === "pairwise" || value === "neighbors") {
-    return value;
-  }
   return "connected";
 }
 
@@ -196,18 +185,7 @@ export function getContextQueryPaddingMinutes(): number {
 }
 
 export function getHoldMinTtlSeconds(): number {
-  const value = env.featureFlags.holds?.minTtlSeconds ?? 60;
-  return Math.max(1, Math.min(value, 3600));
-}
-
-export function getHoldRateWindowSeconds(): number {
-  const value = env.featureFlags.holds?.rate?.windowSeconds ?? 60;
-  return Math.max(5, Math.min(value, 3600));
-}
-
-export function getHoldRateMaxPerBooking(): number {
-  const value = env.featureFlags.holds?.rate?.maxPerBooking ?? 5;
-  return Math.max(1, Math.min(value, 100));
+  return 180;
 }
 
 export function isEmailQueueEnabled(): boolean {
@@ -277,5 +255,5 @@ export function getAutoAssignCreatedEmailDeferMinutes(): number {
 }
 
 export function isAutoAssignRetryPolicyV2Enabled(): boolean {
-  return env.featureFlags.autoAssign?.retryPolicyV2 ?? false;
+  return false;
 }
