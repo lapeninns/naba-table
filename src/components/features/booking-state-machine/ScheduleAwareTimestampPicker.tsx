@@ -6,18 +6,17 @@ import { DateTime } from 'luxon';
 import { useCallback, useEffect, useMemo, useRef, useState, useId } from 'react';
 
 import { cn } from '@/lib/utils';
-import { fetchReservationSchedule, scheduleQueryKey } from '@reserve/features/reservations/wizard/services/schedule';
+import {
+  calendarMaskQueryKey,
+  fetchCalendarMask,
+  fetchReservationSchedule,
+  scheduleQueryKey,
+  type CalendarMask,
+} from '@reserve/features/reservations/wizard/services/schedule';
 import { toTimeSlotDescriptor, type ReservationSchedule, type TimeSlotDescriptor } from '@reserve/features/reservations/wizard/services/timeSlots';
 import { Calendar24Date, Calendar24Time, TimeSlotGrid } from '@reserve/features/reservations/wizard/ui/steps/plan-step/components';
 import { formatDateForInput } from '@reserve/shared/formatting/booking';
-import {
-  getDisabledDays as buildDisabledDayMap,
-  getLatestStartMinutes,
-  hasCapacity,
-  isDateUnavailable as resolveDateUnavailability,
-  isPastOrClosing,
-  type UnavailabilityReason,
-} from '@reserve/shared/schedule/availability';
+import { getLatestStartMinutes, hasCapacity, isPastOrClosing, type UnavailabilityReason } from '@reserve/shared/schedule/availability';
 import { normalizeTime } from '@reserve/shared/time';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@shared/ui/accordion';
 
@@ -88,6 +87,71 @@ const buildMonthDateKeys = (monthStart: Date, minDate: Date): string[] => {
   return keys;
 };
 
+const toMonthStart = (value: Date) => new Date(value.getFullYear(), value.getMonth(), 1);
+
+const buildMonthPrefetchTargets = (monthStart: Date, normalizedMinTimestamp: number): Date[] => {
+  const targets: Date[] = [];
+  const base = toMonthStart(monthStart);
+  targets.push(base);
+
+  const previous = new Date(base.getFullYear(), base.getMonth() - 1, 1);
+  if (previous.getTime() >= normalizedMinTimestamp) {
+    targets.push(previous);
+  }
+
+  const next = new Date(base.getFullYear(), base.getMonth() + 1, 1);
+  targets.push(next);
+
+  return targets;
+};
+
+const deriveMaskAvailability = (
+  mask: CalendarMask,
+  normalizedMinTimestamp: number,
+): Map<string, UnavailabilityReason | null> => {
+  const results = new Map<string, UnavailabilityReason | null>();
+  const zone = mask.timezone?.trim() || 'UTC';
+  const start = DateTime.fromISO(mask.from, { zone }).startOf('day');
+  const end = DateTime.fromISO(mask.to, { zone }).startOf('day');
+  if (!start.isValid || !end.isValid) {
+    return results;
+  }
+
+  const closedDateSet = new Set(mask.closedDates ?? []);
+  const closedDaySet = new Set((mask.closedDaysOfWeek ?? []).map((value) => ((value % 7) + 7) % 7));
+
+  for (let cursor = start; cursor <= end; cursor = cursor.plus({ days: 1 })) {
+    const isoKey = cursor.toISODate();
+    if (!isoKey) {
+      continue;
+    }
+    const timestamp = new Date(cursor.year, cursor.month - 1, cursor.day).getTime();
+    if (timestamp < normalizedMinTimestamp) {
+      continue;
+    }
+
+    const weekday = cursor.weekday % 7;
+    if (closedDateSet.has(isoKey) || closedDaySet.has(weekday)) {
+      results.set(isoKey, 'closed');
+    } else {
+      results.set(isoKey, null);
+    }
+  }
+
+  return results;
+};
+
+const deriveScheduleUnavailability = (schedule: ReservationSchedule | null): UnavailabilityReason | null => {
+  if (!schedule) {
+    return 'unknown';
+  }
+  if (schedule.isClosed) {
+    return 'closed';
+  }
+  const hasEnabledSlot = schedule.slots.some((slot) => hasCapacity(toTimeSlotDescriptor(slot)));
+  return hasEnabledSlot ? null : 'no-slots';
+};
+
 const extractDateParts = (iso: string | null | undefined, targetTimezone: string): DateParts => {
   if (!iso) {
     return { date: null, time: null };
@@ -140,9 +204,29 @@ export function ScheduleAwareTimestampPicker({
   const [scheduleStateByDate, setScheduleStateByDate] = useState<Map<string, ScheduleRecord>>(() => new Map());
   const scheduleStateRef = useRef(scheduleStateByDate);
   const selectionModeRef = useRef<'initial' | 'user-change'>('initial');
+  const maskPrefetchedMonthsRef = useRef<Set<string>>(new Set());
+  const [unavailableDates, setUnavailableDates] = useState<Map<string, UnavailabilityReason>>(() => new Map());
+  const [loadingDates, setLoadingDates] = useState<Set<string>>(() => new Set());
 
   const fallbackMinDate = useMemo(() => toStartOfDay(minDate ?? new Date()), [minDate]);
   const normalizedMinDate = useMemo(() => toStartOfDay(fallbackMinDate), [fallbackMinDate]);
+  const normalizedMinTimestamp = useMemo(() => normalizedMinDate.getTime(), [normalizedMinDate]);
+
+  const updateUnavailableDate = useCallback((dateKey: string, reason: UnavailabilityReason | null) => {
+    setUnavailableDates((prev) => {
+      const existing = prev.get(dateKey) ?? null;
+      if (existing === reason) {
+        return prev;
+      }
+      const next = new Map(prev);
+      if (reason) {
+        next.set(dateKey, reason);
+      } else {
+        next.delete(dateKey);
+      }
+      return next;
+    });
+  }, []);
 
   const initialTimezone = restaurantTimezone ?? DEFAULT_TIMEZONE;
   const initialParts = useMemo(() => extractDateParts(value, initialTimezone), [initialTimezone, value]);
@@ -155,7 +239,6 @@ export function ScheduleAwareTimestampPicker({
       : initialParts.date
         ? `${initialParts.date}|null`
         : null;
-  const prefetchedMonthsRef = useRef<Set<string>>(new Set());
   const lastCommittedRef = useRef<string | null>(lastCommittedInitial);
   const resetSignatureRef = useRef<{ slug: string | null; date: string | null }>({
     slug: restaurantSlug ?? null,
@@ -172,15 +255,89 @@ export function ScheduleAwareTimestampPicker({
     scheduleStateRef.current = scheduleStateByDate;
   }, [scheduleStateByDate]);
 
-  const scheduleCollection = useMemo(() => {
-    const map = new Map<string, ReservationSchedule | null>();
-    scheduleStateByDate.forEach((record, key) => {
-      map.set(key, record.schedule);
-    });
-    return map;
-  }, [scheduleStateByDate]);
+  const applyCalendarMask = useCallback(
+    (mask: CalendarMask) => {
+      const derived = deriveMaskAvailability(mask, normalizedMinTimestamp);
+      if (derived.size === 0) {
+        return;
+      }
+      setUnavailableDates((prev) => {
+        const next = new Map(prev);
+        derived.forEach((reason, key) => {
+          if (reason) {
+            next.set(key, reason);
+          } else {
+            next.delete(key);
+          }
+        });
+        return next;
+      });
+    },
+    [normalizedMinTimestamp],
+  );
 
-  const disabledDays = useMemo(() => buildDisabledDayMap(scheduleCollection), [scheduleCollection]);
+  const prefetchCalendarMask = useCallback(
+    (monthStart: Date) => {
+      const slug = restaurantSlug?.trim();
+      if (!slug) {
+        return;
+      }
+      const monthKey = MONTH_KEY_FORMATTER(monthStart);
+      if (maskPrefetchedMonthsRef.current.has(monthKey)) {
+        return;
+      }
+      maskPrefetchedMonthsRef.current.add(monthKey);
+
+      const rangeStart = new Date(monthStart.getFullYear(), monthStart.getMonth(), 1);
+      const rangeEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+      const fromKey = formatDateForInput(rangeStart);
+      const toKey = formatDateForInput(rangeEnd);
+      const monthDateKeys = buildMonthDateKeys(monthStart, normalizedMinDate);
+
+      setLoadingDates((prev) => {
+        const next = new Set(prev);
+        monthDateKeys.forEach((key) => next.add(key));
+        return next;
+      });
+
+      void queryClient
+        .fetchQuery({
+          queryKey: calendarMaskQueryKey(slug, fromKey, toKey),
+          queryFn: ({ signal }) => fetchCalendarMask(slug, fromKey, toKey, signal),
+          staleTime: 5 * 60_000,
+          meta: { persist: false },
+        })
+        .then((mask) => {
+          applyCalendarMask(mask);
+        })
+        .catch((error) => {
+          maskPrefetchedMonthsRef.current.delete(monthKey);
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn('[schedule-picker] failed to fetch calendar mask', {
+              restaurantSlug: slug,
+              from: fromKey,
+              to: toKey,
+              error,
+            });
+          }
+        })
+        .finally(() => {
+          setLoadingDates((prev) => {
+            const next = new Set(prev);
+            monthDateKeys.forEach((key) => next.delete(key));
+            return next;
+          });
+        });
+    },
+    [applyCalendarMask, normalizedMinDate, queryClient, restaurantSlug],
+  );
+
+  const prefetchVisibleMonths = useCallback(
+    (month: Date) => {
+      buildMonthPrefetchTargets(month, normalizedMinTimestamp).forEach(prefetchCalendarMask);
+    },
+    [normalizedMinTimestamp, prefetchCalendarMask],
+  );
 
   const activeRecord = activeDate ? scheduleStateByDate.get(activeDate) ?? null : null;
   const activeRecordStatus = activeRecord?.status ?? 'idle';
@@ -239,7 +396,9 @@ export function ScheduleAwareTimestampPicker({
     scheduleStateRef.current = emptyState;
     setScheduleStateByDate(emptyState);
     setTimeValidationError(null);
-    prefetchedMonthsRef.current.clear();
+    maskPrefetchedMonthsRef.current.clear();
+    setUnavailableDates(new Map());
+    setLoadingDates(new Set());
     lastCommittedRef.current = lastCommittedInitial;
     selectionModeRef.current = 'initial';
     setActiveDate(dateKey);
@@ -292,6 +451,8 @@ export function ScheduleAwareTimestampPicker({
           });
           return next;
         });
+        const derivedReason = deriveScheduleUnavailability(schedule);
+        updateUnavailableDate(dateKey, derivedReason);
         return schedule;
       } catch (error) {
         console.error('[schedule-picker] failed to load schedule', error);
@@ -304,46 +465,11 @@ export function ScheduleAwareTimestampPicker({
           });
           return next;
         });
+        updateUnavailableDate(dateKey, 'unknown');
         return null;
       }
     },
-    [queryClient, restaurantSlug],
-  );
-
-  const prefetchSurroundingDates = useCallback(
-    (dateKey: string, span = 2) => {
-      const base = DateTime.fromISO(dateKey, { zone: 'utc' });
-      if (!base.isValid) {
-        return;
-      }
-      for (let offset = -span; offset <= span; offset += 1) {
-        if (offset === 0) continue;
-        const nextKey = base.plus({ days: offset }).toISODate();
-        if (nextKey) {
-          void loadSchedule(nextKey, { prefetched: true });
-        }
-      }
-    },
-    [loadSchedule],
-  );
-
-  const prefetchMonth = useCallback(
-    (monthStart: Date) => {
-      const slug = restaurantSlug?.trim();
-      if (!slug) {
-        return;
-      }
-      const monthKey = MONTH_KEY_FORMATTER(monthStart);
-      if (prefetchedMonthsRef.current.has(monthKey)) {
-        return;
-      }
-      prefetchedMonthsRef.current.add(monthKey);
-      const dateKeys = buildMonthDateKeys(monthStart, normalizedMinDate);
-      dateKeys.forEach((dateKey) => {
-        void loadSchedule(dateKey, { prefetched: true });
-      });
-    },
-    [loadSchedule, normalizedMinDate, restaurantSlug],
+    [queryClient, restaurantSlug, updateUnavailableDate],
   );
 
   useEffect(() => {
@@ -357,29 +483,30 @@ export function ScheduleAwareTimestampPicker({
     if (!activeDate) {
       return;
     }
-    if (activeRecordStatus !== 'success') {
-      return;
-    }
     const parsed = DateTime.fromISO(activeDate, { zone: 'utc' });
     if (parsed.isValid) {
-      prefetchSurroundingDates(activeDate);
       const monthStart = new Date(parsed.year, parsed.month - 1, 1);
-      prefetchMonth(monthStart);
+      prefetchVisibleMonths(monthStart);
     }
-  }, [activeDate, activeRecordStatus, prefetchMonth, prefetchSurroundingDates]);
+  }, [activeDate, prefetchVisibleMonths]);
 
   const loadError = activeRecordStatus === 'error' ? activeRecord?.error ?? 'Unable to load availability for this date. Please try again.' : null;
   const isLoading = activeRecordStatus === 'loading';
   const activeDateLoaded = activeRecordStatus === 'success';
 
-  const rawUnavailabilityReason = useMemo<UnavailabilityReason | null>(() => {
+  const unavailabilityReason = useMemo<UnavailabilityReason | null>(() => {
     if (!activeDate) {
       return null;
     }
-    return resolveDateUnavailability(activeDate, scheduleCollection);
-  }, [activeDate, scheduleCollection]);
-
-  const unavailabilityReason = activeDateLoaded ? rawUnavailabilityReason : null;
+    const reasonFromMask = unavailableDates.get(activeDate);
+    if (reasonFromMask) {
+      return reasonFromMask;
+    }
+    if (activeRecordStatus === 'success') {
+      return deriveScheduleUnavailability(currentSchedule);
+    }
+    return null;
+  }, [activeDate, activeRecordStatus, currentSchedule, unavailableDates]);
 
   const intervalMinutes = currentSchedule?.intervalMinutes ?? DEFAULT_MINUTES_STEP;
   const slots = useMemo<TimeSlotDescriptor[]>(() => {
@@ -523,28 +650,21 @@ export function ScheduleAwareTimestampPicker({
   const handleMonthPrefetch = useCallback(
     (month: Date) => {
       const firstDay = new Date(month.getFullYear(), month.getMonth(), 1);
-      prefetchMonth(firstDay);
+      prefetchVisibleMonths(firstDay);
     },
-    [prefetchMonth],
+    [prefetchVisibleMonths],
   );
 
   const isDateDisabled = useCallback(
     (date: Date) => {
       const key = formatDateForInput(date);
-      const reason = disabledDays.get(key);
-      if (reason === 'unknown') {
-        return true;
-      }
-      const resolved = resolveDateUnavailability(key, scheduleCollection);
-      return resolved === 'unknown';
+      const reason = unavailableDates.get(key);
+      return reason === 'closed';
     },
-    [disabledDays, scheduleCollection],
+    [unavailableDates],
   );
 
   const resolvedUnavailableMessage = useMemo(() => {
-    if (!activeDateLoaded) {
-      return undefined;
-    }
     switch (unavailabilityReason) {
       case 'closed':
         return CLOSED_COPY;
@@ -555,7 +675,7 @@ export function ScheduleAwareTimestampPicker({
       default:
         return undefined;
     }
-  }, [activeDateLoaded, unavailabilityReason]);
+  }, [unavailabilityReason]);
 
   const isTimeDisabled = disabled || isLoading || !activeDateLoaded || availableSlots.length === 0;
   const availableCount = availableSlots.length;
@@ -710,7 +830,7 @@ export function ScheduleAwareTimestampPicker({
               }}
               onMonthChange={handleMonthPrefetch}
               isDateUnavailable={isDateDisabled}
-              loadingDates={undefined}
+              loadingDates={loadingDates}
             />
           </div>
 

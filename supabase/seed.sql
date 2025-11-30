@@ -132,6 +132,9 @@ SET
     is_active = true,
     updated_at = timezone('utc', now());
 
+-- -----------------------------------------------------------------------------
+-- Service policy (global restaurant settings)
+-- -----------------------------------------------------------------------------
 INSERT INTO public.service_policy (id, lunch_start, lunch_end, dinner_start, dinner_end, clean_buffer_minutes, allow_after_hours, created_at, updated_at)
 VALUES (
     gen_random_uuid(),
@@ -143,18 +146,8 @@ VALUES (
     false,
     timezone('utc', now()),
     timezone('utc', now())
-);
-
-INSERT INTO public.feature_flag_overrides (flag, environment, value, notes, updated_at, updated_by)
-VALUES
-    ('allocator.strict_conflicts', 'staging', true, '{"seeded": true, "reason": "Exercise strict conflict flow"}'::jsonb, timezone('utc', now()), NULL),
-    ('allocator.strict_conflicts', 'production', false, '{"seeded": true, "reason": "Production defaults remain soft"}'::jsonb, timezone('utc', now()), NULL),
-    ('booking.waitlist.enabled', 'staging', true, '{"seeded": true}'::jsonb, timezone('utc', now()), NULL)
-ON CONFLICT (flag, environment) DO UPDATE
-SET value = EXCLUDED.value,
-    notes = EXCLUDED.notes,
-    updated_at = EXCLUDED.updated_at,
-    updated_by = NULL;
+)
+ON CONFLICT (id) DO NOTHING;
 
 -- -----------------------------------------------------------------------------
 -- Stage 3: staff accounts

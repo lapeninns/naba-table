@@ -348,7 +348,7 @@ async function computeSummary(
 
   const [timingConfig, policy, periods] = await Promise.all([
     loadRestaurantTimingConfig(client, restaurantId),
-    loadServicePolicy(client),
+    loadServicePolicy(),
     loadServicePeriods(client, restaurantId),
   ]);
 

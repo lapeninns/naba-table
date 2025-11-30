@@ -3,8 +3,7 @@ import { z } from "zod";
 
 import { getStrategicConfigSnapshot } from "@/server/capacity/strategic-config";
 import { clearStrategicCaches } from "@/server/capacity/strategic-maintenance";
-import { fetchStrategicConfig, upsertStrategicConfig } from "@/server/ops/strategic-config";
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
+import { getRouteHandlerSupabaseClient } from "@/server/supabase";
 import { requireAdminMembership, requireMembershipForRestaurant } from "@/server/team/access";
 
 import type { NextRequest } from "next/server";
@@ -73,20 +72,6 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const record = await fetchStrategicConfig({ restaurantId, client: getServiceSupabaseClient() });
-    if (record) {
-      return NextResponse.json(
-        formatResponse({
-          restaurantId,
-          source: "db",
-          scarcityWeight: record.scarcity_weight,
-          demandMultiplierOverride: record.demand_multiplier_override,
-          futureConflictPenalty: record.future_conflict_penalty,
-          updatedAt: record.updated_at,
-        }),
-      );
-    }
-
     const snapshot = getStrategicConfigSnapshot({ restaurantId });
     return NextResponse.json(
       formatResponse({
@@ -110,7 +95,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const { restaurantId, weights } = payload.data;
+  const { restaurantId } = payload.data;
 
   const supabase = await getRouteHandlerSupabaseClient();
   const {
@@ -134,30 +119,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  try {
-    const record = await upsertStrategicConfig({
-      restaurantId,
-      scarcityWeight: weights.scarcity,
-      demandMultiplierOverride: weights.demandMultiplier ?? null,
-      futureConflictPenalty: weights.futureConflictPenalty ?? null,
-      updatedBy: user.id,
-      client: getServiceSupabaseClient(),
-    });
+  clearStrategicCaches();
 
-    clearStrategicCaches();
-
-    return NextResponse.json(
-      formatResponse({
-        restaurantId,
-        source: "db",
-        scarcityWeight: record.scarcity_weight,
-        demandMultiplierOverride: record.demand_multiplier_override,
-        futureConflictPenalty: record.future_conflict_penalty,
-        updatedAt: record.updated_at,
-      }),
-    );
-  } catch (updateError) {
-    console.error("[ops/settings][strategic-config][POST] failed to update config", updateError);
-    return NextResponse.json({ error: "Unable to update strategic settings" }, { status: 500 });
-  }
+  return NextResponse.json(
+    {
+      error: "Strategic configuration is now defined in code/env. Deploy a change to update weights.",
+    },
+    { status: 501 },
+  );
 }
