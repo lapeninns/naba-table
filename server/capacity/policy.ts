@@ -1,10 +1,6 @@
 import { DateTime } from "luxon";
 
-import {
-  DEFAULT_SCARCITY_WEIGHT,
-  getStrategicScarcityWeight,
-  type StrategicConfigSnapshotOptions,
-} from "./strategic-config";
+import { DEFAULT_SCARCITY_WEIGHT, type StrategicConfigSnapshotOptions } from "./strategic-config";
 
 const DEFAULT_TIMEZONE = "Europe/London";
 
@@ -115,31 +111,27 @@ export const defaultVenuePolicy: VenuePolicy = {
 
 const defaultSelectorScoringConfig: SelectorScoringConfig = {
   weights: {
-    overage: 5,
-    tableCount: 3,
-    fragmentation: 2,
-    zoneBalance: 4,
-    adjacencyCost: 1,
-    scarcity: DEFAULT_SCARCITY_WEIGHT,
+    overage: 1,
+    tableCount: 2,
+    fragmentation: 0,
+    zoneBalance: 0,
+    adjacencyCost: 0,
+    scarcity: 0,
   },
   maxOverage: 4,
   maxTables: 3,
 };
 
-export function getSelectorScoringConfig(options?: StrategicConfigSnapshotOptions): SelectorScoringConfig {
-  const dynamicScarcityWeight = getStrategicScarcityWeight(options);
+export function getSelectorScoringConfig(_options?: StrategicConfigSnapshotOptions): SelectorScoringConfig {
   return {
-    weights: {
-      ...defaultSelectorScoringConfig.weights,
-      scarcity: dynamicScarcityWeight,
-    },
+    weights: { ...defaultSelectorScoringConfig.weights },
     maxOverage: defaultSelectorScoringConfig.maxOverage,
     maxTables: defaultSelectorScoringConfig.maxTables,
   };
 }
 
-export function getYieldManagementScarcityWeight(options?: StrategicConfigSnapshotOptions): number {
-  return getStrategicScarcityWeight(options);
+export function getYieldManagementScarcityWeight(_options?: StrategicConfigSnapshotOptions): number {
+  return DEFAULT_SCARCITY_WEIGHT;
 }
 
 export class PolicyError extends Error {

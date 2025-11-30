@@ -435,27 +435,11 @@ function computeScore(
   demandMultiplier: number,
 ): { score: number; breakdown: ScoreBreakdown } {
   const normalizedDemandMultiplier = Number.isFinite(demandMultiplier) && demandMultiplier > 0 ? demandMultiplier : 1;
-  const baseSlackPenalty = metrics.overage * weights.overage;
-  const slackPenalty = baseSlackPenalty * normalizedDemandMultiplier;
-
-  const tableCountPenalty = (metrics.tableCount - 1) * weights.tableCount;
-  const fragmentationPenalty = metrics.fragmentation * weights.fragmentation;
-  const zoneBalancePenalty = metrics.zoneBalance * weights.zoneBalance;
-  const adjacencyPenalty = metrics.adjacencyCost * weights.adjacencyCost;
-  const scarcityWeight = Math.max(0, weights.scarcity ?? 0);
-  let combinationPenalty = metrics.tableCount > 1 ? tableCountPenalty + adjacencyPenalty : 0;
-  if (combinationPenalty > 0 && scarcityWeight > 0 && metrics.tableCount > 0) {
-    const averageScarcity = metrics.scarcityScore / metrics.tableCount;
-    if (averageScarcity > 0) {
-      const scarcityFactor = Math.min(3, 1 + averageScarcity);
-      combinationPenalty *= scarcityFactor;
-    }
-  }
-  const structuralPenalty = combinationPenalty + fragmentationPenalty + zoneBalancePenalty;
-
-  const scarcityPenalty = metrics.scarcityScore * scarcityWeight;
-
-  const total = slackPenalty + structuralPenalty + scarcityPenalty;
+  const slackPenalty = metrics.overage * weights.overage * normalizedDemandMultiplier;
+  const combinationPenalty = metrics.tableCount * weights.tableCount;
+  const structuralPenalty = combinationPenalty;
+  const scarcityPenalty = 0;
+  const total = slackPenalty + structuralPenalty;
 
   return {
     score: total,
