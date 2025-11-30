@@ -52,7 +52,7 @@ const overrideSchema = z
 const dashboardUpdateSchema = z.object({
   startIso: z.string().datetime(),
   endIso: z.string().datetime().optional(),
-  partySize: z.number().int().min(1),
+  partySize: z.coerce.number().int().min(1),
   notes: z.string().max(500).optional().nullable(),
   override: overrideSchema.optional(),
 });
