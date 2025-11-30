@@ -30,7 +30,6 @@ export type StrategicConfigSnapshotOptions = {
 };
 
 export type StrategicConfigLoadOptions = StrategicConfigSnapshotOptions & {
-  client?: DbClient;
   force?: boolean;
 };
 
