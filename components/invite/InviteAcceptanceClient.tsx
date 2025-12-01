@@ -91,7 +91,7 @@ export function InviteAcceptanceClient({ token, invite }: InviteAcceptanceClient
         toast.success('Invitation accepted. Welcome aboard!');
 
         // Force session refresh to ensure auth state is immediately available
-        await supabase.auth.getSession();
+        await supabase.auth.getUser();
 
         // Refresh router to update all components with new auth state
         router.refresh();

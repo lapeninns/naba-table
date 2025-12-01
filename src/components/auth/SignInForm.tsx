@@ -40,7 +40,7 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
             }
 
             // Force session refresh to ensure auth state is immediately available
-            await supabase.auth.getSession();
+            await supabase.auth.getUser();
 
             // Refresh the router to update auth state across all components
             router.refresh();

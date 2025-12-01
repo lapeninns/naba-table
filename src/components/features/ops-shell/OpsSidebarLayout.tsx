@@ -3,7 +3,7 @@
 import { LogOut, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
 
 import {
   Sidebar,
@@ -24,10 +24,13 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { useOpsSession } from '@/contexts/ops-session';
+import { useToast } from '@/hooks/use-toast';
+import useOnlineStatus from '@/hooks/useOnlineStatus';
 import { signOutFromSupabase } from '@/lib/supabase/signOut';
 import { cn } from '@/lib/utils';
 
 import { OPS_NAV_SECTIONS, OPS_SUPPORT_ITEM, isNavItemActive } from './navigation';
+import { OpsOfflineIndicator } from './OpsOfflineIndicator';
 import { OpsRestaurantSwitch } from './OpsRestaurantSwitch';
 
 import type { OpsNavigationSection } from './navigation';
@@ -56,6 +59,7 @@ export function OpsSidebarLayout({ children, defaultSidebarOpen = true, headerSl
             <div className="flex-1 truncate text-sm font-medium text-muted-foreground">{headerSlot}</div>
           ) : null}
         </div>
+        <OpsOfflineIndicator />
         <div id="ops-content" tabIndex={-1} className="flex flex-1 flex-col overflow-auto">
           {children}
         </div>
@@ -95,6 +99,21 @@ function OpsSidebarPanel() {
 }
 
 function OpsSidebarNav({ sections, pathname }: { sections: OpsNavigationSection[]; pathname: string }) {
+  const isOnline = useOnlineStatus();
+  const { toast } = useToast();
+
+  const handleOfflineNavigation = useCallback(
+    (event: MouseEvent<HTMLAnchorElement>, destination: string) => {
+      if (isOnline) return;
+      event.preventDefault();
+      toast({
+        title: "You're offline",
+        description: `Reconnect to open ${destination}. We'll keep this page available until you're back online.`,
+      });
+    },
+    [isOnline, toast],
+  );
+
   return (
     <>
       {sections.map((section) => (
@@ -109,8 +128,19 @@ function OpsSidebarNav({ sections, pathname }: { sections: OpsNavigationSection[
                 const Icon = item.icon;
                 return (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={active} tooltip={item.title} className="touch-manipulation">
-                      <Link href={item.href} aria-current={active ? 'page' : undefined}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={active}
+                      tooltip={item.title}
+                      className={cn('touch-manipulation', !isOnline && 'opacity-60')}
+                    >
+                      <Link
+                        href={item.href}
+                        aria-current={active ? 'page' : undefined}
+                        aria-disabled={!isOnline}
+                        prefetch={false}
+                        onClick={(event) => handleOfflineNavigation(event, item.title)}
+                      >
                         <Icon aria-hidden className={cn('size-4', active && 'text-sidebar-accent-foreground')} />
                         <span className="truncate">{item.title}</span>
                       </Link>
@@ -154,7 +184,7 @@ function OpsAccountActions() {
     try {
       setIsSigningOut(true);
       await signOutFromSupabase();
-      router.push('/app/auth/signin');
+      router.push('/auth/signin');
       router.refresh();
     } catch (error) {
       console.error('[ops-sidebar] sign out failed', error);

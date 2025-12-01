@@ -1,0 +1,60 @@
+---
+task: bookings-offline-floorplan-fixes
+timestamp_utc: 2025-11-30T23:51:38Z
+owner: github:@assistant
+reviewers: [github:@maintainers]
+risk: high
+flags: []
+related_tickets: []
+---
+
+# Verification Report
+
+## Manual QA — Chrome DevTools (MCP)
+
+Tool: Chrome DevTools MCP
+
+### Console & Network
+
+- [ ] No console errors
+- [ ] Network requests match contract
+
+### DOM & Accessibility
+
+- [ ] Semantic HTML verified
+- [ ] ARIA attributes correct
+- [ ] Focus order logical & visible
+- [ ] Keyboard-only flows succeed
+
+### Performance (profiled; mobile; 4× CPU; 4G)
+
+- FCP: <value> s | LCP: <value> s | CLS: <value> | TBT: <value> ms
+- Budgets met: [ ] Yes [ ] No (notes)
+
+### Device Emulation
+
+- [ ] Mobile (≈375px) [ ] Tablet (≈768px) [ ] Desktop (≥1280px)
+
+## Test Outcomes
+
+- [ ] Happy paths
+- [ ] Error handling
+- [ ] A11y (axe): 0 critical/serious
+- [x] Unit: `pnpm vitest tests/ops/bookings-date-range.test.tsx`
+
+## Artifacts
+
+- Lighthouse: `artifacts/lighthouse-report.json`
+- Network: `artifacts/network.har`
+- Traces/Screens: `artifacts/`
+- DB diff (if DB change): `artifacts/db-diff.txt`
+
+## Known Issues
+
+- [ ] <issue> (owner, priority)
+
+## Sign-off
+
+- [ ] Engineering
+- [ ] Design/PM
+- [ ] QA

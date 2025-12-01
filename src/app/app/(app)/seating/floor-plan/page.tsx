@@ -16,7 +16,7 @@ import {
     X
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -28,6 +28,7 @@ import {
 import { useRestaurantService, useTableInventoryService, useZoneService } from '@/contexts/ops-services';
 import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsTableTimeline } from '@/hooks/ops/useOpsTableTimeline';
+import { useToast } from '@/hooks/use-toast';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
 
@@ -131,6 +132,7 @@ function getStatusTheme(state: string) {
 
 export default function FloorPlanApp() {
     const router = useRouter();
+    const { toast } = useToast();
     const { activeRestaurantId } = useOpsSession();
     const tableService = useTableInventoryService();
     const zoneService = useZoneService();
@@ -141,6 +143,7 @@ export default function FloorPlanApp() {
     const [date, setDate] = useState<Date | undefined>(new Date());
     const selectedDate = useMemo(() => date ? format(date, 'yyyy-MM-dd') : new Date().toISOString().split('T')[0], [date]);
     const [selectedZoneId, setSelectedZoneId] = useState<string>('all');
+    const [isLaunchingWalkIn, setIsLaunchingWalkIn] = useState(false);
 
     // Zoom & Pan State
     const [zoom, setZoom] = useState(0.75);
@@ -374,6 +377,49 @@ export default function FloorPlanApp() {
         if (!table) return null;
         return table;
     }, [selectedTableId, tablesWithStatus]);
+
+    const handleWalkInSeating = useCallback(() => {
+        if (!selectedTableData || isLaunchingWalkIn) return;
+
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+            toast({
+                title: 'Offline',
+                description: 'Reconnect to launch the walk-in flow from the floor plan.',
+            });
+            return;
+        }
+
+        setIsLaunchingWalkIn(true);
+
+        try {
+            const params = new URLSearchParams();
+            params.set('date', selectedDate);
+
+            const time = new Date(currentTimestamp);
+            const hours = time.getHours().toString().padStart(2, '0');
+            const minutes = time.getMinutes().toString().padStart(2, '0');
+            params.set('time', `${hours}:${minutes}`);
+
+            if (selectedTableData.capacity) {
+                params.set('partySize', selectedTableData.capacity.toString());
+            }
+
+            toast({
+                title: 'Opening walk-in seating',
+                description: `Table ${selectedTableData.tableNumber} · ${timeString}`,
+            });
+
+            router.push(`/app/walk-in?${params.toString()}`);
+        } catch (error) {
+            console.error('[floor-plan] failed to launch walk-in seating', error);
+            toast({
+                variant: 'destructive',
+                title: 'Unable to open walk-in',
+                description: 'Please try again once you are online.',
+            });
+            setIsLaunchingWalkIn(false);
+        }
+    }, [currentTimestamp, isLaunchingWalkIn, router, selectedDate, selectedTableData, timeString, toast]);
 
     const handleMouseDown = (e: React.MouseEvent) => {
         if ((e.target as HTMLElement).closest('.no-drag')) return;
@@ -1000,22 +1046,13 @@ export default function FloorPlanApp() {
                                             </p>
                                             <Button
                                                 className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                                                onClick={() => {
-                                                    const params = new URLSearchParams();
-                                                    params.set('date', selectedDate);
-
-                                                    const time = new Date(currentTimestamp);
-                                                    const hours = time.getHours().toString().padStart(2, '0');
-                                                    const minutes = time.getMinutes().toString().padStart(2, '0');
-                                                    params.set('time', `${hours}:${minutes}`);
-
-                                                    if (selectedTableData?.capacity) {
-                                                        params.set('partySize', selectedTableData.capacity.toString());
-                                                    }
-
-                                                    router.push(`/app/walk-in?${params.toString()}`);
-                                                }}
+                                                onClick={handleWalkInSeating}
+                                                disabled={isLaunchingWalkIn}
+                                                aria-busy={isLaunchingWalkIn}
                                             >
+                                                {isLaunchingWalkIn ? (
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                                                ) : null}
                                                 Walk-in Seating
                                             </Button>
                                         </div>

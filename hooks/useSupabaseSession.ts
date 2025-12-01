@@ -23,19 +23,19 @@ export function useSupabaseSession(): SupabaseSessionState {
     const syncSession = async () => {
       try {
         const {
-          data: { session },
+          data: { user },
           error,
-        } = await supabase.auth.getSession();
+        } = await supabase.auth.getUser();
 
         if (!isMounted) {
           return;
         }
 
         if (error) {
-          console.error("[useSupabaseSession] failed to load session", error.message);
+          console.error("[useSupabaseSession] failed to load user", error.message);
         }
 
-        setUser(session?.user ?? null);
+        setUser(user ?? null);
         setStatus("ready");
       } catch (error) {
         if (!isMounted) {
@@ -51,13 +51,28 @@ export function useSupabaseSession(): SupabaseSessionState {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async () => {
       if (!isMounted) {
         return;
       }
 
-      setUser(session?.user ?? null);
-      setStatus("ready");
+      try {
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
+
+        if (error) {
+          console.error("[useSupabaseSession] auth change user load failed", error.message);
+        }
+
+        setUser(user ?? null);
+      } catch (error) {
+        console.error("[useSupabaseSession] auth change unexpected error", error);
+        setUser(null);
+      } finally {
+        setStatus("ready");
+      }
     });
 
     return () => {
