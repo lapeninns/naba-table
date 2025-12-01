@@ -23,7 +23,7 @@ const ROUTES: Array<{
   { path: '/guest/profile', label: 'guest-profile', auth: 'user' },
 
   // Restaurant ops routes
-  { path: '/app/auth/signin', label: 'ops-login' },
+  { path: '/auth/signin', label: 'ops-login' },
   { path: '/app', label: 'ops-dashboard', auth: 'admin' },
   { path: '/app/bookings', label: 'ops-bookings', auth: 'admin' },
   { path: '/app/walk-in', label: 'ops-walk-in', auth: 'admin' },

@@ -19,11 +19,13 @@ import {
   type OpsStatusFilter,
   useOpsBookingsList,
   useOpsBookingStatusSummary,
+  useOpsRestaurantDetails,
 } from '@/hooks';
 import { useOpsBooking } from '@/hooks/ops/useOpsBooking';
 import { useOpsBookingLifecycleActions } from '@/hooks/ops/useOpsBookingStatusActions';
 import { useOpsCancelBooking } from '@/hooks/useOpsCancelBooking';
 import { useOpsUpdateBooking } from '@/hooks/useOpsUpdateBooking';
+import { buildOpsDateRange } from '@/utils/ops/bookings';
 
 import type { StatusOption } from '@/components/dashboard/StatusFilterGroup';
 import type { BookingAction } from '@/components/features/booking-state-machine';
@@ -31,7 +33,7 @@ import type { BookingDTO } from '@/hooks/useBookings';
 import type { StatusFilter } from '@/hooks/useBookingsTableState';
 import type { OpsBookingListItem, OpsBookingStatus } from '@/types/ops';
 
-const DEFAULT_FILTER: OpsStatusFilter = 'recent';
+const DEFAULT_FILTER: OpsStatusFilter = 'upcoming';
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = DASHBOARD_DEFAULT_PAGE_SIZE;
 
@@ -49,6 +51,7 @@ export type OpsBookingsClientProps = {
   initialRestaurantId?: string | null;
   initialQuery?: string | null;
   initialStatuses?: OpsBookingStatus[] | null;
+  initialDate?: string | null;
 };
 
 const OPS_STATUS_ORDER: OpsBookingStatus[] = [
@@ -62,14 +65,18 @@ const OPS_STATUS_ORDER: OpsBookingStatus[] = [
   'PRIORITY_WAITLIST',
 ];
 
-export function OpsBookingsClient({ initialFilter, initialPage, initialRestaurantId, initialQuery, initialStatuses }: OpsBookingsClientProps) {
+export function OpsBookingsClient({ initialFilter, initialPage, initialRestaurantId, initialQuery, initialStatuses, initialDate }: OpsBookingsClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { memberships, activeRestaurantId, setActiveRestaurantId, accountSnapshot } = useOpsSession();
   const activeMembership = useOpsActiveMembership();
+  const restaurantDetails = useOpsRestaurantDetails(activeRestaurantId ?? null);
   const focusBookingId = searchParams?.get('focus') ?? null;
 
-  const effectiveFilter = initialFilter ?? DEFAULT_FILTER;
+  const restaurantTimezone = restaurantDetails.data?.timezone ?? null;
+  const appliedDateRange = useMemo(() => buildOpsDateRange(initialDate, restaurantTimezone), [initialDate, restaurantTimezone]);
+
+  const effectiveFilter = initialFilter ?? (initialDate ? 'all' : DEFAULT_FILTER);
   const effectivePage = initialPage ?? DEFAULT_PAGE;
 
   const tableState = useOpsBookingsTableState({
@@ -140,16 +147,26 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
 
   const filters = useMemo(() => {
     if (!activeRestaurantId) return null;
-    return {
+    const base = {
       restaurantId: activeRestaurantId,
       ...queryFilters,
     };
-  }, [activeRestaurantId, queryFilters]);
+    if (appliedDateRange) {
+      return {
+        ...base,
+        from: appliedDateRange.from,
+        to: appliedDateRange.to,
+        sort: 'asc' as const,
+        sortBy: 'start_at' as const,
+      };
+    }
+    return base;
+  }, [activeRestaurantId, appliedDateRange, queryFilters]);
 
   const statusSummaryQuery = useOpsBookingStatusSummary({
     restaurantId: activeRestaurantId ?? null,
-    from: queryFilters.from ?? null,
-    to: queryFilters.to ?? null,
+    from: appliedDateRange?.from ?? queryFilters.from ?? null,
+    to: appliedDateRange?.to ?? queryFilters.to ?? null,
     statuses: selectedStatuses,
     enabled: Boolean(activeRestaurantId),
   });
@@ -412,13 +429,23 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
                 {currentRestaurantName}
               </Badge>
               <Badge variant="outline" className="rounded-full">Ops console</Badge>
+              {appliedDateRange ? (
+                <Badge
+                  variant="outline"
+                  className="rounded-full"
+                  title={restaurantTimezone ? `Service timezone: ${restaurantTimezone}` : undefined}
+                >
+                  Date {appliedDateRange.date}
+                  {restaurantTimezone ? ` · ${restaurantTimezone}` : ''}
+                </Badge>
+              ) : null}
               {pendingLifecycle.bookingId ? (
                 <Badge variant="default" className="rounded-full">
                   Updating {pendingLifecycle.action?.replace('-', ' ')}
                 </Badge>
               ) : null}
             </div>
-        </div>
+          </div>
           <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
             <Button asChild size="sm" className="h-9 px-4">
               <Link href="/walk-in">Log walk-in</Link>

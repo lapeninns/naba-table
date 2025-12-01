@@ -5,6 +5,7 @@ import { OpsBookingsClient } from "@/components/features/bookings";
 import { BookingOfflineQueueProvider } from "@/contexts/booking-offline-queue";
 import { withRedirectedFrom } from "@/lib/url/withRedirectedFrom";
 import { getServerComponentSupabaseClient } from "@/server/supabase";
+import { sanitizeDateParam } from "@/utils/ops/dashboard";
 
 import type { OpsStatusFilter } from "@/hooks";
 import type { OpsBookingStatus } from "@/types/ops";
@@ -23,6 +24,7 @@ type OpsBookingsSearchParams = {
   status?: string;
   query?: string;
   statuses?: string;
+  date?: string;
 };
 
 const VALID_FILTERS: OpsStatusFilter[] = [
@@ -83,7 +85,7 @@ export default async function OpsBookingsPage({
   }
 
   if (!user) {
-    redirect(withRedirectedFrom("/app/auth/signin", "/app/bookings"));
+    redirect(withRedirectedFrom("/auth/signin", "/app/bookings"));
   }
 
   const initialFilter = parseStatusFilter(resolvedParams.filter ?? resolvedParams.status);
@@ -93,6 +95,7 @@ export default async function OpsBookingsPage({
   const rawQuery = resolvedParams.query?.trim() ?? "";
   const initialQuery = rawQuery.length > 0 ? rawQuery : null;
   const initialStatuses = parseStatuses(resolvedParams.statuses);
+  const initialDate = sanitizeDateParam(resolvedParams.date);
 
   return (
     <div className="mx-auto flex w-full max-w-[80vw] flex-col gap-8 px-3 py-6 sm:px-4 lg:px-6">
@@ -104,6 +107,7 @@ export default async function OpsBookingsPage({
             initialRestaurantId={initialRestaurantId}
             initialQuery={initialQuery}
             initialStatuses={initialStatuses}
+            initialDate={initialDate}
           />
         </BookingOfflineQueueProvider>
       </BookingErrorBoundary>

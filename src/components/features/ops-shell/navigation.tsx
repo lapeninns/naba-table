@@ -6,7 +6,6 @@ import {
   GanttChart,
   LayoutGrid,
   Map,
-  OctagonAlert,
   Sparkles,
   Clock3,
   UtensilsCrossed,
@@ -138,19 +137,7 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
       },
     ],
   },
-  {
-    label: 'Analytics',
-    items: [
-      {
-        title: 'Rejections',
-        description: 'Understand why bookings were skipped',
-        href: path('/analytics/rejections'),
-        icon: OctagonAlert,
-        match: (pathname) => pathname.startsWith(path('/analytics/rejections')),
-        requiresFeatureFlag: 'rejectionAnalytics',
-      },
-    ],
-  },
+
 ];
 
 export const OPS_SUPPORT_ITEM: OpsNavigationItem = {

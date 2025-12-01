@@ -29,9 +29,7 @@ const htmlStyle: CSSProperties = {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const supabase = await getServerComponentSupabaseClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  await supabase.auth.getUser();
 
   return (
     <html
@@ -44,12 +42,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           <PlausibleProvider domain={config.domainName} />
         </head>
       )}
-      <body className="relative font-sans">
+      <body className="relative font-sans" suppressHydrationWarning>
         <a href="#main-content" className="skip-link">
           Skip to content
         </a>
         {/* ClientLayout contains all the client wrappers (Crisp chat support, toast messages, tooltips, etc.) */}
-        <AppProviders initialSession={session}>
+        <AppProviders initialSession={null}>
           <ClientLayout>{children}</ClientLayout>
         </AppProviders>
       </body>

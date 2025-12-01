@@ -239,7 +239,7 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
 
         <div className="border-t border-border pt-4 text-center text-sm text-muted-foreground">
           <p>Restaurant or staff member?</p>
-          <a href="/app/auth/signin" className="font-medium text-primary hover:underline">
+          <a href="/auth/signin" className="font-medium text-primary hover:underline">
             Sign in to operations →
           </a>
         </div>

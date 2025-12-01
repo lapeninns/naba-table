@@ -1,9 +1,8 @@
 "use client";
 
-import { Crisp } from "crisp-sdk-web";
 import { usePathname } from "next/navigation";
 import NextTopLoader from "nextjs-toploader";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Toaster as HotToaster } from "react-hot-toast";
 import { Tooltip } from "react-tooltip";
 
@@ -14,6 +13,8 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import type { User } from "@supabase/supabase-js";
 import type { ReactNode } from "react";
 
+type CrispApi = typeof import("crisp-sdk-web").Crisp | null;
+
 // Crisp customer chat support:
 // This component is separated from ClientLayout because it needs to be wrapped with <SessionProvider> to use useSession() hook
 const CrispChat = (): null => {
@@ -21,52 +22,67 @@ const CrispChat = (): null => {
 
   const supabase = getSupabaseBrowserClient();
   const [data, setData] = useState<User | null>(null);
+  const [crisp, setCrisp] = useState<CrispApi>(null);
 
   // This is used to get the user data from Supabase Auth (if logged in) => user ID is used to identify users in Crisp
   useEffect(() => {
     const getUser = async () => {
       const {
-        data: { session },
-      } = await supabase.auth.getSession();
+        data: { user },
+      } = await supabase.auth.getUser();
 
-      if (session?.user) {
-        setData(session.user);
+      if (user) {
+        setData(user);
       }
     };
     getUser();
   }, [supabase]);
 
   useEffect(() => {
-    if (config?.crisp?.id) {
-      // Set up Crisp
-      Crisp.configure(config.crisp.id);
+    let isMounted = true;
 
-      // (Optional) If onlyShowOnRoutes array is not empty in config.js file, Crisp will be hidden on the routes in the array.
-      // Use <AppButtonSupport> instead to show it (user clicks on the button to show Crisp—it cleans the UI)
-      if (
-        config.crisp.onlyShowOnRoutes &&
-        pathname &&
-        !config.crisp.onlyShowOnRoutes?.includes(pathname)
-      ) {
-        Crisp.chat.hide();
-        Crisp.chat.onChatClosed(() => {
-          Crisp.chat.hide();
-        });
-      }
+    const loadCrisp = async () => {
+      if (!config?.crisp?.id) return;
+      const module = await import("crisp-sdk-web");
+      if (!isMounted) return;
+      setCrisp(module.Crisp);
+    };
+
+    loadCrisp();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!crisp || !config?.crisp?.id) return;
+
+    crisp.configure(config.crisp.id);
+
+    // (Optional) If onlyShowOnRoutes array is not empty in config.js file, Crisp will be hidden on the routes in the array.
+    // Use <AppButtonSupport> instead to show it (user clicks on the button to show Crisp—it cleans the UI)
+    if (config.crisp.onlyShowOnRoutes && pathname && !config.crisp.onlyShowOnRoutes?.includes(pathname)) {
+      crisp.chat.hide();
+      crisp.chat.onChatClosed(() => {
+        crisp.chat.hide();
+      });
     }
-  }, [pathname]);
+  }, [crisp, pathname]);
 
   // Add User Unique ID to Crisp to easily identify users when reaching support (optional)
   useEffect(() => {
-    if (data && config?.crisp?.id) {
-      Crisp.session.setData({ userId: data.id });
+    if (data && config?.crisp?.id && crisp) {
+      crisp.session.setData({ userId: data.id });
     }
-  }, [data]);
+  }, [data, crisp]);
 
   return null;
 };
 
 const LEGACY_TOASTER_BLOCKLIST = [/^\/checkout(?:$|\/)/];
+
+const AUTH_ROUTE_PREFIXES = [/^\/auth(\/|$)/, /^\/app\/auth(\/|$)/];
 
 // All the client wrappers are here (they can't be in server components)
 // 1. NextTopLoader: Show a progress bar at the top when navigating between pages
@@ -75,9 +91,23 @@ const LEGACY_TOASTER_BLOCKLIST = [/^\/checkout(?:$|\/)/];
 // 4. CrispChat: Set Crisp customer chat support (see above)
 const ClientLayout = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
+  const isAuthRoute = useMemo(
+    () => (pathname ? AUTH_ROUTE_PREFIXES.some((pattern) => pattern.test(pathname)) : false),
+    [pathname],
+  );
   const suppressLegacyToaster = pathname
     ? LEGACY_TOASTER_BLOCKLIST.some((pattern) => pattern.test(pathname))
     : false;
+
+  if (isAuthRoute) {
+    return (
+      <>
+        {children}
+        {/* Keep UI toasts available for auth flows without loading the full ops shell stack */}
+        <UiToaster />
+      </>
+    );
+  }
 
   return (
     <>

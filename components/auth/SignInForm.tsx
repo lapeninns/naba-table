@@ -262,7 +262,7 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
       // Force client to refresh session from cookies before navigation
       // This ensures useSupabaseSession() picks up the authenticated state
       const supabase = getSupabaseBrowserClient();
-      await supabase.auth.getSession();
+      await supabase.auth.getUser();
 
       // Refresh router to update all components with new auth state
       router.refresh();

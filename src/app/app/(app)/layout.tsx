@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { AppProviders } from "@/app/providers";
 import { OpsShell } from "@/components/features/ops-shell";
 import { OpsServicesProvider } from "@/contexts/ops-services";
 import { OpsSessionProvider } from "@/contexts/ops-session";
@@ -65,7 +66,7 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
   // Redirect to login if not authenticated
   // All pages under this layout require authentication
   if (!supabaseUser) {
-    redirect("/app/auth/signin");
+    redirect("/auth/signin");
   }
 
   const opsMemberships: OpsMembership[] = memberships
@@ -87,7 +88,9 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
       featureFlags={featureFlags}
     >
       <OpsServicesProvider>
-        <OpsShell defaultSidebarOpen={defaultOpen}>{children}</OpsShell>
+        <AppProviders>
+          <OpsShell defaultSidebarOpen={defaultOpen}>{children}</OpsShell>
+        </AppProviders>
       </OpsServicesProvider>
     </OpsSessionProvider>
   );
