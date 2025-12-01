@@ -145,7 +145,24 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
   const serviceSupabase = getServiceSupabaseClient();
   const { data: booking, error } = await serviceSupabase
     .from("bookings")
-    .select("*, restaurants(name, slug, timezone, reservation_interval_minutes)")
+    .select(`
+      *,
+      restaurants (
+        name,
+        slug,
+        timezone,
+        reservation_interval_minutes
+      ),
+      booking_table_assignments (
+        table_id,
+        merge_group_id,
+        table_inventory (
+          table_number,
+          capacity,
+          section
+        )
+      )
+    `)
     .eq("id", bookingId)
     .maybeSingle();
 
@@ -192,6 +209,54 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
   const rawPhone = typeof booking.customer_phone === "string" ? booking.customer_phone.trim() : "";
   const customerPhone = rawPhone.length > 0 ? rawPhone : null;
 
+  // Transform table assignments
+  const rawAssignments = booking.booking_table_assignments as unknown as Array<{
+    table_id: string;
+    merge_group_id: string | null;
+    table_inventory: {
+      table_number: string;
+      capacity: number;
+      section: string | null;
+    } | null;
+  }> | null;
+
+  const assignments = rawAssignments ?? [];
+  const groupedAssignments = new Map<string, {
+    groupId: string | null;
+    members: Array<{
+      tableId: string;
+      tableNumber: string;
+      capacity: number | null;
+      section: string | null;
+    }>;
+  }>();
+
+  // Group by merge_group_id (or create unique groups for singles if desired, but OpsTodayBooking groups by assignment logic)
+  // For now, we'll just group by merge_group_id or put singles in their own group
+  for (const assignment of assignments) {
+    const groupId = assignment.merge_group_id ?? `single-${assignment.table_id}`;
+    if (!groupedAssignments.has(groupId)) {
+      groupedAssignments.set(groupId, {
+        groupId: assignment.merge_group_id,
+        members: [],
+      });
+    }
+    const group = groupedAssignments.get(groupId)!;
+    const inventory = assignment.table_inventory;
+    group.members.push({
+      tableId: assignment.table_id,
+      tableNumber: inventory?.table_number ?? "?",
+      capacity: inventory?.capacity ?? null,
+      section: inventory?.section ?? null,
+    });
+  }
+
+  const tableAssignments = Array.from(groupedAssignments.values()).map(group => ({
+    groupId: group.groupId,
+    capacitySum: group.members.reduce((sum, m) => sum + (m.capacity ?? 0), 0),
+    members: group.members,
+  }));
+
   const response = {
     id: booking.id,
     restaurantId: booking.restaurant_id ?? null,
@@ -200,13 +265,33 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
     restaurantTimezone: restaurantRelation?.timezone ?? null,
     reservationIntervalMinutes,
     partySize: booking.party_size,
+    startTime: booking.start_time, // OpsTodayBooking expects startTime/endTime as HH:MM:SS or ISO? 
+    // OpsTodayBooking type says: startTime: string | null; endTime: string | null;
+    // But OpsBookingListItem has startIso/endIso.
+    // Let's provide both sets to be safe/compatible.
     startIso,
     endIso,
+    // OpsTodayBooking fields:
+    // startIso/endIso are not in OpsTodayBooking type explicitly but widely used. 
+    // OpsTodayBooking has startTime/endTime which are usually time strings in dashboard context.
+    // But here we can pass startIso as startTime if needed, or actual start_time.
+    // Let's pass actual DB columns.
     status: booking.status,
     notes: booking.notes ?? null,
     customerName: booking.customer_name ?? null,
     customerEmail: booking.customer_email ?? null,
     customerPhone,
+    // Extended fields
+    reference: booking.client_request_id ?? null,
+    source: booking.source ?? null,
+    // Removed loyalty/profile/allergies fields not present in schema
+    seatingPreference: booking.seating_preference ?? null,
+    marketingOptIn: booking.marketing_opt_in ?? false,
+    tableAssignments,
+    requiresTableAssignment: tableAssignments.length === 0 && booking.status !== 'cancelled' && booking.status !== 'no_show',
+    checkedInAt: booking.checked_in_at ?? null,
+    checkedOutAt: booking.checked_out_at ?? null,
+    details: booking.details ?? null,
   };
 
   return NextResponse.json(response);

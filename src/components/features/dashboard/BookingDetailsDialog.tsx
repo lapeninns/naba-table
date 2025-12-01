@@ -64,6 +64,8 @@ type BookingDetailsDialogProps = {
     type: 'assign' | 'unassign';
     tableId?: string | null;
   } | null;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 type BookingDetailsTab = 'overview' | 'tables';
@@ -82,10 +84,20 @@ export function BookingDetailsDialog({
   onAssignTable: _onAssignTable,
   onUnassignTable,
   tableActionState,
-   
+  open,
+  onOpenChange,
 }: BookingDetailsDialogProps) {
 
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const isControlled = open !== undefined;
+  const isOpen = isControlled ? open : internalIsOpen;
+  const setIsOpen = useCallback((value: boolean) => {
+    if (isControlled) {
+      onOpenChange?.(value);
+    } else {
+      setInternalIsOpen(value);
+    }
+  }, [isControlled, onOpenChange]);
 
   const [localPendingAction, setLocalPendingAction] = useState<BookingAction | null>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -319,7 +331,7 @@ export function BookingDetailsDialog({
         void handleUndoNoShowAction();
       }
     },
-    [effectiveStatus, handleCheckInAction, handleCheckOutAction, handleMarkNoShowAction, handleUndoNoShowAction, isOpen, lifecyclePending, showShortcuts],
+    [effectiveStatus, handleCheckInAction, handleCheckOutAction, handleMarkNoShowAction, handleUndoNoShowAction, isOpen, lifecyclePending, showShortcuts, setIsOpen],
   );
 
   useEffect(() => {
@@ -335,11 +347,13 @@ export function BookingDetailsDialog({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogTrigger asChild>
-          <Button variant="outline" size="sm" className="h-11 min-w-[100px] touch-manipulation">
-            Details
-          </Button>
-        </DialogTrigger>
+        {!isControlled && (
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm" className="h-11 min-w-[100px] touch-manipulation">
+              Details
+            </Button>
+          </DialogTrigger>
+        )}
         <DialogContent className="max-w-[80vw] max-h-[90vh] overflow-hidden p-0 gap-0">
           <div className="grid h-full max-h-[90vh] lg:grid-cols-12">
             {/* LEFT SIDEBAR: Guest Context */}

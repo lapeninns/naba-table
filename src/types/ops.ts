@@ -151,6 +151,32 @@ export type OpsBookingListItem = {
   customerName?: string | null;
   customerEmail?: string | null;
   customerPhone: string | null;
+  // Extended fields for detail view
+  startTime?: string | null;
+  endTime?: string | null;
+  reference?: string | null;
+  details?: Record<string, unknown> | null;
+  source?: string | null;
+  loyaltyTier?: 'bronze' | 'silver' | 'gold' | 'platinum' | null;
+  loyaltyPoints?: number | null;
+  profileNotes?: string | null;
+  allergies?: string[] | null;
+  dietaryRestrictions?: string[] | null;
+  seatingPreference?: string | null;
+  marketingOptIn?: boolean | null;
+  tableAssignments?: {
+    groupId: string | null;
+    capacitySum: number | null;
+    members: {
+      tableId: string;
+      tableNumber: string;
+      capacity: number | null;
+      section: string | null;
+    }[];
+  }[];
+  requiresTableAssignment?: boolean;
+  checkedInAt?: string | null;
+  checkedOutAt?: string | null;
 };
 
 export type OpsBookingsPage = {

@@ -6,7 +6,6 @@ import { BookingActionButton, BookingStatusBadge, StatusTransitionAnimator, type
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-import { OpsBookingDetailsDialog } from './OpsBookingDetailsDialog';
 import { StatusChip } from './StatusChip';
 
 import type { BookingDTO } from '@/hooks/useBookings';
@@ -18,6 +17,7 @@ export type BookingRowProps = {
   formatTime: (iso: string) => string;
   onEdit: (booking: BookingDTO) => void;
   onCancel: (booking: BookingDTO) => void;
+  onDetails?: (booking: BookingDTO) => void;
   isPastView?: boolean;
   variant?: 'guest' | 'ops';
   opsLifecycle?: {
@@ -60,11 +60,11 @@ export function BookingRow({
   formatTime,
   onEdit,
   onCancel,
+  onDetails,
   isPastView = false,
   variant = 'guest',
   opsLifecycle,
 }: BookingRowProps) {
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const isCancelled = booking.status === 'cancelled';
   const { displayStatus, isPast } = deriveBookingDisplayState(booking, { isPastView });
   const isOpsVariant = variant === 'ops';
@@ -137,34 +137,28 @@ export function BookingRow({
       <td className={textClass('text-right')}>
         <div className="flex justify-end gap-2">
           {isOpsVariant && opsLifecycle ? (
-            <>
-              <BookingActionButton
-                booking={actionSubject}
-                pendingAction={pendingAction}
-                onCheckIn={() => opsLifecycle.onCheckIn(booking)}
-                onCheckOut={() => opsLifecycle.onCheckOut(booking)}
-                onMarkNoShow={(options) => opsLifecycle.onMarkNoShow(booking, options)}
-                onUndoNoShow={(reason) => opsLifecycle.onUndoNoShow(booking, reason)}
-                showConfirmation
-                lifecycleAvailability={lifecycleAvailability}
-              />
-              <OpsBookingDetailsDialog
-                booking={booking}
-                formatDate={formatDate}
-                formatTime={formatTime}
-                open={isDetailsOpen}
-                onOpenChange={setIsDetailsOpen}
-              />
-            </>
-          ) : isOpsVariant ? (
-            <OpsBookingDetailsDialog
-              booking={booking}
-              formatDate={formatDate}
-              formatTime={formatTime}
-              open={isDetailsOpen}
-              onOpenChange={setIsDetailsOpen}
+            <BookingActionButton
+              booking={actionSubject}
+              pendingAction={pendingAction}
+              onCheckIn={() => opsLifecycle.onCheckIn(booking)}
+              onCheckOut={() => opsLifecycle.onCheckOut(booking)}
+              onMarkNoShow={(options) => opsLifecycle.onMarkNoShow(booking, options)}
+              onUndoNoShow={(reason) => opsLifecycle.onUndoNoShow(booking, reason)}
+              showConfirmation
+              lifecycleAvailability={lifecycleAvailability}
             />
           ) : null}
+          {onDetails && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 min-w-[80px]"
+              onClick={() => onDetails(booking)}
+            >
+              Details
+            </Button>
+          )}
           <Button
             type="button"
             size="sm"
