@@ -34,6 +34,7 @@ export type BookingsTableProps = {
   onRetry: () => void;
   onEdit: (booking: BookingDTO) => void;
   onCancel: (booking: BookingDTO) => void;
+  onDetails?: (booking: BookingDTO) => void;
   variant?: 'guest' | 'ops';
   statusOptions?: { value: StatusFilter; label: string }[];
   opsLifecycle?: {
@@ -71,6 +72,7 @@ export function BookingsTable({
   onRetry,
   onEdit,
   onCancel,
+  onDetails,
   variant = 'guest',
   statusOptions,
   opsLifecycle,
@@ -280,6 +282,7 @@ export function BookingsTable({
                         formatTime={formatTime}
                         onEdit={onEdit}
                         onCancel={onCancel}
+                        onDetails={onDetails}
                         isPastView={isPastView}
                         variant={variant}
                         opsLifecycle={isOpsVariant ? opsLifecycle : undefined}

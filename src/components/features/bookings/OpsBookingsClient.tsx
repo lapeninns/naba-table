@@ -9,10 +9,12 @@ import { CancelBookingDialog } from '@/components/dashboard/CancelBookingDialog'
 import { DASHBOARD_DEFAULT_PAGE_SIZE } from '@/components/dashboard/constants';
 import { EditBookingDialog } from '@/components/dashboard/EditBookingDialog';
 import { BookingOfflineBanner } from '@/components/features/booking-state-machine';
+import { BookingDetailsDialogWrapper } from '@/components/features/bookings/BookingDetailsDialogWrapper';
 import { OpsStatusFilter as OpsStatusesControl } from '@/components/features/bookings/OpsStatusFilter';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { BookingStateMachineProvider, useBookingStateMachine } from '@/contexts/booking-state-machine';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import {
   useOpsBookingsTableState,
@@ -64,6 +66,20 @@ const OPS_STATUS_ORDER: OpsBookingStatus[] = [
   'cancelled',
   'PRIORITY_WAITLIST',
 ];
+
+function BookingStateRegistrar({ bookings }: { bookings: BookingDTO[] }) {
+  const { registerBookings } = useBookingStateMachine();
+  useEffect(() => {
+    registerBookings(
+      bookings.map((booking) => ({
+        id: booking.id,
+        status: booking.status as OpsBookingStatus,
+        updatedAt: null,
+      })),
+    );
+  }, [bookings, registerBookings]);
+  return null;
+}
 
 export function OpsBookingsClient({ initialFilter, initialPage, initialRestaurantId, initialQuery, initialStatuses, initialDate }: OpsBookingsClientProps) {
   const router = useRouter();
@@ -181,6 +197,8 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [cancelBooking, setCancelBooking] = useState<BookingDTO | null>(null);
   const [isCancelOpen, setIsCancelOpen] = useState(false);
+  const [detailsBooking, setDetailsBooking] = useState<BookingDTO | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
   const updateSearchParams = useCallback(
     (updates: Record<string, string | null>) => {
@@ -269,6 +287,16 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
   );
 
   const bookings = useMemo(() => bookingsPage.items.map(mapToBookingDTO), [bookingsPage.items, mapToBookingDTO]);
+
+  const initialSnapshots = useMemo(
+    () =>
+      bookings.map((booking) => ({
+        id: booking.id,
+        status: booking.status as OpsBookingStatus,
+        updatedAt: null,
+      })),
+    [bookings],
+  );
 
   // Fetch focused booking if it exists (in case it's not in the current list)
   const { data: focusedBookingData } = useOpsBooking(focusBookingId);
@@ -403,6 +431,18 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
     }
   }, []);
 
+  const handleDetails = useCallback((booking: BookingDTO) => {
+    setDetailsBooking(booking);
+    setIsDetailsOpen(true);
+  }, []);
+
+  const handleDetailsOpenChange = useCallback((open: boolean) => {
+    setIsDetailsOpen(open);
+    if (!open) {
+      setDetailsBooking(null);
+    }
+  }, []);
+
   if (memberships.length === 0) {
     return <NoRestaurantAccess />;
   }
@@ -415,135 +455,146 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
     activeMembership?.restaurantName ?? accountSnapshot.restaurantName ?? 'This restaurant';
 
   return (
-    <section className="space-y-6 lg:space-y-8">
-      <div className="overflow-hidden rounded-2xl border bg-gradient-to-br from-background via-background to-muted/40 p-5 shadow-sm sm:p-6 lg:p-8">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-2">
-            <h2 className="text-xl font-semibold leading-tight text-foreground sm:text-2xl">Manage bookings</h2>
-            <p className="text-sm text-muted-foreground sm:max-w-2xl">
-              Review and act on reservations without losing context. Mobile-friendly controls keep filters, search, and status
-              changes usable on the floor.
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary" className="rounded-full">
-                {currentRestaurantName}
-              </Badge>
-              <Badge variant="outline" className="rounded-full">Ops console</Badge>
-              {appliedDateRange ? (
-                <Badge
-                  variant="outline"
-                  className="rounded-full"
-                  title={restaurantTimezone ? `Service timezone: ${restaurantTimezone}` : undefined}
-                >
-                  Date {appliedDateRange.date}
-                  {restaurantTimezone ? ` · ${restaurantTimezone}` : ''}
+    <BookingStateMachineProvider initialBookings={initialSnapshots}>
+      <BookingStateRegistrar bookings={bookings} />
+      <section className="space-y-6 lg:space-y-8">
+        <div className="overflow-hidden rounded-2xl border bg-gradient-to-br from-background via-background to-muted/40 p-5 shadow-sm sm:p-6 lg:p-8">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold leading-tight text-foreground sm:text-2xl">Manage bookings</h2>
+              <p className="text-sm text-muted-foreground sm:max-w-2xl">
+                Review and act on reservations without losing context. Mobile-friendly controls keep filters, search, and status
+                changes usable on the floor.
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="secondary" className="rounded-full">
+                  {currentRestaurantName}
                 </Badge>
-              ) : null}
-              {pendingLifecycle.bookingId ? (
-                <Badge variant="default" className="rounded-full">
-                  Updating {pendingLifecycle.action?.replace('-', ' ')}
-                </Badge>
-              ) : null}
+                <Badge variant="outline" className="rounded-full">Ops console</Badge>
+                {appliedDateRange ? (
+                  <Badge
+                    variant="outline"
+                    className="rounded-full"
+                    title={restaurantTimezone ? `Service timezone: ${restaurantTimezone}` : undefined}
+                  >
+                    Date {appliedDateRange.date}
+                    {restaurantTimezone ? ` · ${restaurantTimezone}` : ''}
+                  </Badge>
+                ) : null}
+                {pendingLifecycle.bookingId ? (
+                  <Badge variant="default" className="rounded-full">
+                    Updating {pendingLifecycle.action?.replace('-', ' ')}
+                  </Badge>
+                ) : null}
+              </div>
+            </div>
+            <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+              <Button asChild size="sm" className="h-9 px-4">
+                <Link href="/walk-in">Log walk-in</Link>
+              </Button>
+              <Button asChild size="sm" variant="outline" className="h-9 px-4">
+                <Link href="/app">Back to dashboard</Link>
+              </Button>
             </div>
           </div>
-          <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
-            <Button asChild size="sm" className="h-9 px-4">
-              <Link href="/walk-in">Log walk-in</Link>
-            </Button>
-            <Button asChild size="sm" variant="outline" className="h-9 px-4">
-              <Link href="/app">Back to dashboard</Link>
-            </Button>
+
+          <Separator className="my-4" />
+
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)]">
+            <BookingOfflineBanner />
+            <div className="rounded-xl border bg-card/60 p-4 shadow-sm backdrop-blur">
+              <div className="flex items-start justify-between gap-3 pb-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Status visibility</p>
+                  <p className="text-xs text-muted-foreground">
+                    Combine status chips for precise triage. Clear with one tap.
+                  </p>
+                </div>
+                <Badge variant="outline" className="rounded-full text-xs">
+                  Live count
+                </Badge>
+              </div>
+              <OpsStatusesControl
+                options={statusOptions}
+                selected={selectedStatuses}
+                onToggle={handleToggleStatusFilter}
+                onClear={handleClearStatusFilters}
+                isLoading={statusSummaryQuery.isLoading}
+              />
+            </div>
           </div>
         </div>
 
-        <Separator className="my-4" />
-
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)]">
-          <BookingOfflineBanner />
-          <div className="rounded-xl border bg-card/60 p-4 shadow-sm backdrop-blur">
-            <div className="flex items-start justify-between gap-3 pb-3">
-              <div>
-                <p className="text-sm font-semibold text-foreground">Status visibility</p>
-                <p className="text-xs text-muted-foreground">
-                  Combine status chips for precise triage. Clear with one tap.
+        <div className="rounded-2xl border bg-card shadow-sm">
+          <div className="flex flex-col gap-3 border-b px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-1">
+                <h3 className="text-base font-semibold text-foreground sm:text-lg">Booking queue</h3>
+                <p className="text-sm text-muted-foreground">
+                  Search, filter, and paginate without losing your place. Status toggles stay in sync with the list.
                 </p>
               </div>
-              <Badge variant="outline" className="rounded-full text-xs">
-                Live count
+              <Badge variant="secondary" className="self-start rounded-full">
+                {bookingsPage.pageInfo.total ?? 0} results
               </Badge>
             </div>
-            <OpsStatusesControl
-              options={statusOptions}
-              selected={selectedStatuses}
-              onToggle={handleToggleStatusFilter}
-              onClear={handleClearStatusFilters}
-              isLoading={statusSummaryQuery.isLoading}
+          </div>
+
+          <div className="px-2 pb-4 pt-2 sm:px-4 sm:pb-6 sm:pt-3 lg:px-6">
+            <BookingsTable
+              bookings={bookings}
+              page={bookingsPage.pageInfo.page}
+              pageSize={bookingsPage.pageInfo.pageSize}
+              total={bookingsPage.pageInfo.total}
+              statusFilter={statusFilter as StatusFilter}
+              isLoading={bookingsQuery.isLoading}
+              isFetching={bookingsQuery.isFetching}
+              error={bookingsQuery.error ?? null}
+              searchTerm={search}
+              onSearchChange={handleSearchInput}
+              onStatusFilterChange={(next) => handleStatusChange(next as OpsStatusFilter)}
+              onPageChange={handlePageRequest}
+              onRetry={() => bookingsQuery.refetch()}
+              onEdit={handleEdit}
+              onCancel={handleCancel}
+              onDetails={handleDetails}
+              variant="ops"
+              statusOptions={OPS_STATUS_TABS}
+              opsLifecycle={{
+                pendingBookingId: pendingLifecycle.bookingId,
+                pendingAction: pendingLifecycle.action,
+                onCheckIn: handleLifecycleCheckIn,
+                onCheckOut: handleLifecycleCheckOut,
+                onMarkNoShow: handleLifecycleMarkNoShow,
+                onUndoNoShow: handleLifecycleUndoNoShow,
+              }}
             />
           </div>
         </div>
-      </div>
 
-      <div className="rounded-2xl border bg-card shadow-sm">
-        <div className="flex flex-col gap-3 border-b px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-col gap-1">
-              <h3 className="text-base font-semibold text-foreground sm:text-lg">Booking queue</h3>
-              <p className="text-sm text-muted-foreground">
-                Search, filter, and paginate without losing your place. Status toggles stay in sync with the list.
-              </p>
-            </div>
-            <Badge variant="secondary" className="self-start rounded-full">
-              {bookingsPage.pageInfo.total ?? 0} results
-            </Badge>
-          </div>
-        </div>
+        <EditBookingDialog
+          booking={editBooking}
+          open={isEditOpen}
+          onOpenChange={handleEditOpenChange}
+          mutationHook={useOpsUpdateBooking}
+          restaurantSlug={activeMembership?.restaurantSlug ?? null}
+        />
 
-        <div className="px-2 pb-4 pt-2 sm:px-4 sm:pb-6 sm:pt-3 lg:px-6">
-          <BookingsTable
-            bookings={bookings}
-            page={bookingsPage.pageInfo.page}
-            pageSize={bookingsPage.pageInfo.pageSize}
-            total={bookingsPage.pageInfo.total}
-            statusFilter={statusFilter as StatusFilter}
-            isLoading={bookingsQuery.isLoading}
-            isFetching={bookingsQuery.isFetching}
-            error={bookingsQuery.error ?? null}
-            searchTerm={search}
-            onSearchChange={handleSearchInput}
-            onStatusFilterChange={(next) => handleStatusChange(next as OpsStatusFilter)}
-            onPageChange={handlePageRequest}
-            onRetry={() => bookingsQuery.refetch()}
-            onEdit={handleEdit}
-            onCancel={handleCancel}
-            variant="ops"
-            statusOptions={OPS_STATUS_TABS}
-            opsLifecycle={{
-              pendingBookingId: pendingLifecycle.bookingId,
-              pendingAction: pendingLifecycle.action,
-              onCheckIn: handleLifecycleCheckIn,
-              onCheckOut: handleLifecycleCheckOut,
-              onMarkNoShow: handleLifecycleMarkNoShow,
-              onUndoNoShow: handleLifecycleUndoNoShow,
-            }}
-          />
-        </div>
-      </div>
+        <CancelBookingDialog
+          booking={cancelBooking}
+          open={isCancelOpen}
+          onOpenChange={handleCancelOpenChange}
+          mutationHook={useOpsCancelBooking}
+        />
 
-      <EditBookingDialog
-        booking={editBooking}
-        open={isEditOpen}
-        onOpenChange={handleEditOpenChange}
-        mutationHook={useOpsUpdateBooking}
-        restaurantSlug={activeMembership?.restaurantSlug ?? null}
-      />
-
-      <CancelBookingDialog
-        booking={cancelBooking}
-        open={isCancelOpen}
-        onOpenChange={handleCancelOpenChange}
-        mutationHook={useOpsCancelBooking}
-      />
-    </section>
+        <BookingDetailsDialogWrapper
+          bookingId={detailsBooking?.id ?? null}
+          initialData={detailsBooking}
+          open={isDetailsOpen}
+          onOpenChange={handleDetailsOpenChange}
+        />
+      </section>
+    </BookingStateMachineProvider>
   );
 }
 
