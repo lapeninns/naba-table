@@ -354,8 +354,14 @@ async function fetchRestaurantMultiplier(params: {
   const { data, error } = await query.maybeSingle();
 
   if (error) {
-    if ((error as { code?: string } | null)?.code === "42703") {
+    const code = (error as { code?: string } | null)?.code;
+    // Handle missing table (PGRST205) or missing column (42703) gracefully
+    if (code === "42703") {
       return fetchRestaurantMultiplierLegacy(params);
+    }
+    // Table doesn't exist in schema cache - return null to use fallback
+    if (code === "PGRST205" || code === "42P01") {
+      return null;
     }
     throw error;
   }
@@ -412,6 +418,14 @@ async function fetchRestaurantMultiplierLegacy(params: {
     .eq("day_of_week", dayOfWeek)
     .eq("service_window", serviceWindow)
     .maybeSingle();
+
+  if (error) {
+    const code = (error as { code?: string } | null)?.code;
+    // Table doesn't exist - return null to use fallback
+    if (code === "PGRST205" || code === "42P01") {
+      return null;
+    }
+  }
 
   if (error || !data) {
     return null;
