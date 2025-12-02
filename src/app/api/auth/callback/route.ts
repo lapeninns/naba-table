@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 
 import config from "@/config";
-import { parseHostname, sanitizeRedirect, toAbsoluteRedirectTarget } from "@/lib/auth/redirects";
+import { defaultRedirectForHost, parseHostname, sanitizeRedirect, toAbsoluteRedirectTarget } from "@/lib/auth/redirects";
 import { normalizeEmail } from "@/server/customers";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 
 import type { NextRequest } from "next/server";
+
+const FALLBACK_REDIRECT_CONFIG = config.auth.callbackUrl ?? "/app";
 
 /**
  * Links an auth user to existing customer records that match their email.
@@ -82,6 +84,29 @@ async function isRestaurantMember(userId: string): Promise<boolean> {
   }
 }
 
+function resolveDestination({
+  sanitizedRedirect,
+  hostname,
+  rootDomain,
+  isStaff,
+}: {
+  sanitizedRedirect?: string;
+  hostname: string;
+  rootDomain: string;
+  isStaff: boolean;
+}): string {
+  if (sanitizedRedirect) {
+    return sanitizedRedirect;
+  }
+
+  if (isStaff) {
+    return "/app/dashboard";
+  }
+
+  const hostFallback = defaultRedirectForHost(hostname, rootDomain);
+  return FALLBACK_REDIRECT_CONFIG ?? hostFallback;
+}
+
 export const dynamic = "force-dynamic";
 
 // This route is called after a successful login. It exchanges the code for a session and redirects to the callback URL (see config.js).
@@ -119,7 +144,8 @@ export async function GET(req: NextRequest) {
     console.log("[auth/callback] Attempting to verify OTP with token_hash...");
     const { data, error } = await supabase.auth.verifyOtp({
       token_hash: tokenHash,
-      type: type as "magiclink" | "email",
+      // Supabase may send other types (e.g. "recovery", "signup"); pass through to avoid dropping valid links.
+      type: type as "magiclink" | "email" | "signup" | "recovery" | "invite",
     });
 
     if (error) {
@@ -198,31 +224,26 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Determine the appropriate redirect based on user type
-  let destination: string;
-  
   // If there's a specific redirect requested and it's valid, use it
   const sanitizedRedirect = sanitizeRedirect(redirectedFrom, rootDomain);
-  if (sanitizedRedirect) {
-    console.log("[auth/callback] Using sanitized redirect:", sanitizedRedirect);
-    destination = sanitizedRedirect;
-  } else {
-    // No valid redirect specified, determine based on user type
-    if (redirectedFrom) {
-      console.warn("[auth/callback] rejected redirect param:", redirectedFrom);
-    }
-    
-    // Check if user is a restaurant staff member
-    const isStaff = userId ? await isRestaurantMember(userId) : false;
-    
-    if (isStaff) {
-      destination = "/app/dashboard";
-      console.log("[auth/callback] User is restaurant staff, redirecting to:", destination);
-    } else {
-      destination = "/guest/dashboard";
-      console.log("[auth/callback] User is guest, redirecting to:", destination);
-    }
+  if (!sanitizedRedirect && redirectedFrom) {
+    console.warn("[auth/callback] rejected redirect param:", redirectedFrom);
   }
+
+  const isStaff = !sanitizedRedirect && userId ? await isRestaurantMember(userId) : false;
+  const destination = resolveDestination({
+    sanitizedRedirect,
+    hostname,
+    rootDomain,
+    isStaff,
+  });
+
+  console.log("[auth/callback] Resolved destination:", {
+    sanitizedRedirect,
+    isStaff,
+    fallback: destination,
+    hostname,
+  });
 
   // URL to redirect to after sign in process completes
   const absoluteDestination = toAbsoluteRedirectTarget(destination, rootDomain);

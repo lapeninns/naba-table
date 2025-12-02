@@ -230,7 +230,9 @@ export async function POST(req: NextRequest) {
     return setRateHeaders(response, rateResult);
   }
 
-  if (!linkData?.properties?.action_link) {
+  const hashedToken = linkData?.properties?.hashed_token;
+
+  if (!hashedToken) {
     console.error("[Auth/signin] No action link in response");
     const response = NextResponse.json(
       { message: "We couldn't generate a magic link. Please try again shortly." },
@@ -239,14 +241,20 @@ export async function POST(req: NextRequest) {
     return setRateHeaders(response, rateResult);
   }
 
+  // Build our own callback link that carries the hashed token so the server can verify and set cookies.
+  const callbackUrl = new URL(emailRedirectTo);
+  callbackUrl.searchParams.set("token_hash", hashedToken);
+  callbackUrl.searchParams.set("type", "magiclink");
+  const callbackLink = callbackUrl.toString();
+
   // Send the magic link email via Resend
   try {
     await sendEmail({
       to: email,
       subject: "Sign in to Nab a Table",
       fromName: "Nab a Table",
-      html: buildMagicLinkEmailHtml(linkData.properties.action_link),
-      text: buildMagicLinkEmailText(linkData.properties.action_link),
+      html: buildMagicLinkEmailHtml(callbackLink),
+      text: buildMagicLinkEmailText(callbackLink),
     });
 
     console.log("[Auth/signin] Magic link email sent successfully to:", email);

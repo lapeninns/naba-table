@@ -1,61 +1,104 @@
 import { NextRequest } from "next/server";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GET } from "./route";
 
-const exchangeCodeMock = vi.fn();
-const getRouteHandlerSupabaseClientMock = vi.fn(async () => ({
-  auth: {
-    exchangeCodeForSession: exchangeCodeMock,
-  },
-}));
+const verifyOtpMock = vi.fn();
+const exchangeCodeForSessionMock = vi.fn();
+const getUserMock = vi.fn();
+
+let isStaffMember = false;
+
+const makeQueryBuilder = (table: string) => {
+  return {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    is: vi.fn().mockResolvedValue({ data: [], error: null }),
+    limit: vi.fn().mockResolvedValue({ data: table === "restaurant_memberships" && isStaffMember ? [{ id: "rm-1" }] : [], error: null }),
+    update: vi.fn().mockReturnThis(),
+    in: vi.fn().mockResolvedValue({ error: null }),
+  };
+};
 
 vi.mock("@/server/supabase", () => ({
-  getRouteHandlerSupabaseClient: () => getRouteHandlerSupabaseClientMock(),
+  getRouteHandlerSupabaseClient: vi.fn(async () => ({
+    auth: {
+      verifyOtp: (...args: unknown[]) => verifyOtpMock(...args),
+      exchangeCodeForSession: (...args: unknown[]) => exchangeCodeForSessionMock(...args),
+      getUser: (...args: unknown[]) => getUserMock(...args),
+    },
+  })),
+  getServiceSupabaseClient: vi.fn(() => ({
+    from: (table: string) => makeQueryBuilder(table),
+  })),
 }));
 
 describe("GET /api/auth/callback", () => {
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = "localhost";
+    isStaffMember = false;
+    exchangeCodeForSessionMock.mockResolvedValue({ data: { user: { id: "user-123", email: "user@example.com" } }, error: null });
+    verifyOtpMock.mockResolvedValue({ data: { user: { id: "user-123", email: "user@example.com" } }, error: null });
+    getUserMock.mockResolvedValue({ data: { user: { id: "user-123" } }, error: null });
+  });
+
   afterEach(() => {
-    exchangeCodeMock.mockReset();
-    getRouteHandlerSupabaseClientMock.mockClear();
     vi.restoreAllMocks();
+    verifyOtpMock.mockReset();
+    exchangeCodeForSessionMock.mockReset();
+    getUserMock.mockReset();
   });
 
-  it("exchanges the code and redirects to the provided path when valid", async () => {
-    exchangeCodeMock.mockResolvedValue({ error: null });
-    const request = new NextRequest(
-      "http://localhost/api/auth/callback?code=abc123&redirectedFrom=%2Fapp",
-    );
+  it("redirects to a sanitized redirectedFrom when code is present", async () => {
+    const request = new NextRequest("http://app.localhost/api/auth/callback?code=test-code&redirectedFrom=/app/reservations");
 
     const response = await GET(request);
 
-    expect(exchangeCodeMock).toHaveBeenCalledWith("abc123");
+    expect(exchangeCodeForSessionMock).toHaveBeenCalledWith("test-code");
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("http://localhost/app");
+    expect(response.headers.get("location")).toBe("http://app.localhost/app/reservations");
   });
 
-  it("falls back to default callback path when redirect is invalid", async () => {
-    exchangeCodeMock.mockResolvedValue({ error: null });
+  it("rejects an invalid redirect and falls back to guest dashboard", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const request = new NextRequest(
-      "http://localhost/api/auth/callback?code=abc123&redirectedFrom=https://malicious.com",
+      "http://app.localhost/api/auth/callback?code=test-code&redirectedFrom=https://malicious.test/foo",
     );
 
     const response = await GET(request);
 
-    expect(exchangeCodeMock).toHaveBeenCalledWith("abc123");
+    expect(exchangeCodeForSessionMock).toHaveBeenCalledWith("test-code");
     expect(warnSpy).toHaveBeenCalled();
-    expect(response.headers.get("location")).toBe("http://localhost/guest/dashboard");
+    expect(response.headers.get("location")).toBe("http://app.localhost/guest/dashboard");
   });
 
-  it("logs a warning and still redirects when code is missing", async () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const request = new NextRequest("http://localhost/api/auth/callback");
+  it("falls back to app dashboard for staff when no redirect provided", async () => {
+    isStaffMember = true;
+    const request = new NextRequest("http://app.localhost/api/auth/callback?code=test-code");
 
     const response = await GET(request);
 
-    expect(exchangeCodeMock).not.toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenCalledWith("[auth/callback] received request without code parameter");
-    expect(response.headers.get("location")).toBe("http://localhost/guest/dashboard");
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("http://app.localhost/app/dashboard");
+  });
+
+  it("falls back to config callback when no redirect and user is not staff", async () => {
+    const request = new NextRequest("http://app.localhost/api/auth/callback?token_hash=abc&type=magiclink");
+
+    const response = await GET(request);
+
+    expect(verifyOtpMock).toHaveBeenCalled();
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("http://app.localhost/guest/dashboard");
+  });
+
+  it("warns and redirects when neither code nor token_hash is provided", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const response = await GET(new NextRequest("http://app.localhost/api/auth/callback"));
+
+    expect(exchangeCodeForSessionMock).not.toHaveBeenCalled();
+    expect(verifyOtpMock).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalled();
+    expect(response.headers.get("location")).toBe("http://app.localhost/guest/dashboard");
   });
 });
