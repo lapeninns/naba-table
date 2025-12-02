@@ -1,6 +1,0 @@
-Chrome DevTools MCP check
-Date (UTC): 2025-11-30T18:10:00Z
-URL: http://localhost:3000/bookings/77d30011-8ada-4a8f-bd9d-de5deac1898a
-Result: Redirected to /auth/signin (expected when unauthenticated). Page rendered without runtime errors.
-Console messages: [analytics] auth_guest_signin_viewed; [Fast Refresh] rebuilding/done. No errors.
-Notes: Verified focus lands on email field; keyboard navigation available on sign-in form. No blocking network/console issues observed.
