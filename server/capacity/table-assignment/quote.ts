@@ -355,7 +355,8 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     const holdsPromise = isHoldsEnabled()
       ? loadActiveHoldsForDate(booking.restaurant_id, booking.booking_date ?? null, policy, supabase, signal).catch((error: unknown) => {
           const code = extractErrorCode(error);
-          if (code === "42P01") {
+          // Missing table, FK relationship, or schema cache error - skip hold hydration silently
+          if (code === "42P01" || code === "PGRST200" || code === "PGRST205") {
             console.warn("[capacity.quote] holds table unavailable; skipping hold hydration", {
               restaurantId: booking.restaurant_id,
             });

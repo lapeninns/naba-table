@@ -649,8 +649,8 @@ export async function findHoldConflicts(input: FindHoldConflictsInput): Promise<
 
     if (error) {
       const code = (error as { code?: string }).code;
-      if (code === "42P01") {
-        // Missing view in some environments; only then use legacy.
+      // Missing table/view in schema cache - fall back to legacy approach
+      if (code === "42P01" || code === "PGRST205") {
         return await findHoldConflictsLegacy({ restaurantId, tableIds, startAt, endAt, excludeHoldId, client: supabase });
       }
       console.error("[capacity.hold] hold_window query failed; strict conflict detection unavailable", {
@@ -695,8 +695,8 @@ export async function findHoldConflicts(input: FindHoldConflictsInput): Promise<
     return Array.from(grouped.values());
   } catch (error) {
     const code = (error as { code?: string }).code;
-    if (code === "42P01") {
-      // Missing view; permissible fallback.
+    // Missing table/view in schema cache - fall back to legacy approach
+    if (code === "42P01" || code === "PGRST205") {
       return await findHoldConflictsLegacy({ restaurantId, tableIds, startAt, endAt, excludeHoldId, client: supabase });
     }
     // Escalate instead of silently degrading to legacy checks.
@@ -735,6 +735,14 @@ async function findHoldConflictsLegacy(params: {
     .in("table_hold_members.table_id", uniqueIds);
 
   const { data, error } = await query;
+
+  if (error) {
+    const code = (error as { code?: string }).code;
+    // If table_hold_members doesn't exist or FK relationship is missing, return empty (no conflicts detectable)
+    if (code === "PGRST200" || code === "PGRST205" || code === "42P01") {
+      return [];
+    }
+  }
 
   if (error || !data) {
     return [];

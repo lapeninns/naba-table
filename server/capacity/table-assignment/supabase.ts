@@ -469,8 +469,17 @@ export async function fetchHoldsForWindow(
     .lt("start_at", toIsoUtc(window.block.end))
     .gt("end_at", toIsoUtc(window.block.start));
 
-  if (error || !data) {
-    throw error ?? new Error("Failed to load holds");
+  if (error) {
+    const code = (error as { code?: string }).code;
+    // Missing table, FK relationship, or schema cache error - return empty array
+    if (code === "42P01" || code === "PGRST200" || code === "PGRST205") {
+      return [];
+    }
+    throw error;
+  }
+
+  if (!data) {
+    return [];
   }
 
   const rows = data as TableHoldRow[];
@@ -528,8 +537,17 @@ export async function loadActiveHoldsForDate(
 
   const { data, error } = await holdsQuery;
 
-  if (error || !data) {
-    throw error ?? new Error("Failed to load holds");
+  if (error) {
+    const code = (error as { code?: string }).code;
+    // Missing table, FK relationship, or schema cache error - return empty array
+    if (code === "42P01" || code === "PGRST200" || code === "PGRST205") {
+      return [];
+    }
+    throw error;
+  }
+
+  if (!data) {
+    return [];
   }
 
   const rows = data as TableHoldRow[];

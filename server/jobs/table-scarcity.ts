@@ -102,6 +102,11 @@ export async function recomputeTableScarcityMetrics(params?: {
         .from("table_scarcity_metrics")
         .upsert(records, { onConflict: "restaurant_id,table_type" });
       if (upsertError) {
+        const code = (upsertError as { code?: string }).code;
+        // Table doesn't exist - skip silently (metrics table may have been removed)
+        if (code === "PGRST205" || code === "42P01") {
+          continue;
+        }
         throw new Error(`[table-scarcity] upsert failed for restaurant ${restaurantId}: ${upsertError.message}`);
       }
       totalUpserts += records.length;
@@ -111,6 +116,12 @@ export async function recomputeTableScarcityMetrics(params?: {
       .from("table_scarcity_metrics")
       .select("table_type")
       .eq("restaurant_id", restaurantId);
+
+    // Skip cleanup if table doesn't exist
+    const existingCode = (existingError as { code?: string } | null)?.code;
+    if (existingCode === "PGRST205" || existingCode === "42P01") {
+      continue;
+    }
 
     if (!existingError && Array.isArray(existingRows)) {
       const existingTypes = new Set<string>(existingRows.map((row) => row.table_type).filter(Boolean));
@@ -128,9 +139,14 @@ export async function recomputeTableScarcityMetrics(params?: {
           .eq("restaurant_id", restaurantId)
           .in("table_type", toDelete);
         if (deleteError) {
-          throw new Error(`[table-scarcity] delete failed for restaurant ${restaurantId}: ${deleteError.message}`);
+          const deleteCode = (deleteError as { code?: string }).code;
+          // Table doesn't exist - skip silently
+          if (deleteCode !== "PGRST205" && deleteCode !== "42P01") {
+            throw new Error(`[table-scarcity] delete failed for restaurant ${restaurantId}: ${deleteError.message}`);
+          }
+        } else {
+          totalDeleted += toDelete.length;
         }
-        totalDeleted += toDelete.length;
       }
     }
   }

@@ -51,6 +51,11 @@ async function fetchRestaurantMetrics(client: DbClient, restaurantId: string): P
     .eq("restaurant_id", restaurantId);
 
   if (error) {
+    const code = (error as { code?: string }).code;
+    // Table doesn't exist in schema cache - silently use heuristic fallback
+    if (code === "PGRST205" || code === "42P01") {
+      return new Map();
+    }
     console.warn("[scarcity] failed to load metrics, falling back to heuristic", {
       restaurantId,
       error: error.message,
