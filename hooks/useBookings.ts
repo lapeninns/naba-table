@@ -33,6 +33,27 @@ export type BookingDTO = {
   customerEmail?: string | null;
   customerPhone?: string | null;
   reservationIntervalMinutes?: number | null;
+  // Ops-enriched fields (optional for guest flows)
+  reference?: string | null;
+  source?: string | null;
+  loyaltyTier?: 'bronze' | 'silver' | 'gold' | 'platinum' | null;
+  loyaltyPoints?: number | null;
+  seatingPreference?: string | null;
+  allergies?: string[] | null;
+  dietaryRestrictions?: string[] | null;
+  tableAssignments?: {
+    groupId: string | null;
+    capacitySum: number | null;
+    members: {
+      tableId: string;
+      tableNumber: string;
+      capacity: number | null;
+      section: string | null;
+    }[];
+  }[];
+  requiresTableAssignment?: boolean;
+  checkedInAt?: string | null;
+  checkedOutAt?: string | null;
 };
 
 export type PageInfo = {

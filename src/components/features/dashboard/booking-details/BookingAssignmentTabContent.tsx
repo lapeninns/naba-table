@@ -48,6 +48,7 @@ export function BookingAssignmentTabContent({ booking, restaurantId: _restaurant
     const [validationResult, setValidationResult] = useState<ManualValidationResult | null>(null);
     const [onlyAvailable, setOnlyAvailable] = useState(true);
     const [unassignTableId, setUnassignTableId] = useState<string | null>(null);
+    const [errorBanner, setErrorBanner] = useState<string | null>(null);
 
     // Track previous selection to detect changes
     const prevSelectedTablesRef = useRef<string[]>([]);
@@ -71,12 +72,18 @@ export function BookingAssignmentTabContent({ booking, restaurantId: _restaurant
         return [] as ManualSelectionCheck[];
     }, []);
 
+    // Prefer current selection; otherwise reflect existing assignments so capacity/seat summary is meaningful even after assignment.
+    const effectiveSelectedIds = useMemo(
+        () => (selectedTables.length > 0 ? selectedTables : assignmentContext?.bookingAssignments ?? []),
+        [assignmentContext?.bookingAssignments, selectedTables]
+    );
+
     const selectedCapacity = useMemo(() => {
-        return selectedTables.reduce((sum, tableId) => {
+        return effectiveSelectedIds.reduce((sum, tableId) => {
             const table = assignmentContext?.tables.find(t => t.id === tableId);
             return sum + (table?.capacity ?? 0);
         }, 0);
-    }, [selectedTables, assignmentContext]);
+    }, [effectiveSelectedIds, assignmentContext]);
 
     const tableMap = useMemo(() => {
         if (!assignmentContext) return new Map();
@@ -102,6 +109,7 @@ export function BookingAssignmentTabContent({ booking, restaurantId: _restaurant
             });
         },
         onSuccess: async () => {
+            setErrorBanner(null);
             // Clear local state
             setSelectedTables([]);
             setValidationResult(null);
@@ -110,6 +118,7 @@ export function BookingAssignmentTabContent({ booking, restaurantId: _restaurant
             await Promise.all([
                 // Refresh the manual assignment context
                 refetchAssignmentContext(),
+                queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.assignmentContext(booking.id) }),
                 // Invalidate the specific booking detail
                 queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(booking.id) }),
                 // Invalidate the bookings list
@@ -133,22 +142,33 @@ export function BookingAssignmentTabContent({ booking, restaurantId: _restaurant
 
             // Handle HttpError with validation details
             if (error instanceof HttpError) {
+                const details = error.details as { checks?: Array<{ id: string; passed: boolean; message: string }> } | undefined;
+                if (details?.checks && details.checks.length > 0) {
+                    const failedChecks = details.checks.filter((c) => !c.passed);
+                    setValidationResult({
+                        ok: failedChecks.length === 0,
+                        checks: failedChecks.map((c) => ({ id: c.id as ManualSelectionCheck['id'], status: 'error', message: c.message })),
+                        summary: {
+                            tableCount: selectedTables.length,
+                            totalCapacity: selectedCapacity,
+                            partySize: booking.partySize,
+                            slack: selectedCapacity - booking.partySize,
+                            zoneId: null,
+                            tableNumbers: selectedTables,
+                        },
+                    } as ManualValidationResult);
+                }
                 if (error.status === 422 && error.details) {
-                    const details = error.details as { checks?: Array<{ id: string; passed: boolean; message: string }> };
-
-                    if (details.checks) {
-                        // Show validation errors
-                        const failedChecks = details.checks.filter((c) => !c.passed);
-                        const errorMessages = failedChecks.map((c) => `• ${c.message}`).join('\n');
-
-                        toast({
-                            title: 'Cannot assign tables',
-                            description: errorMessages || error.message,
-                            variant: 'destructive',
-                            duration: 8000,
-                        });
-                        return;
-                    }
+                    const failedChecks = details?.checks?.filter((c) => !c.passed) ?? [];
+                    const errorMessages = failedChecks.map((c) => `• ${c.message}`).join('\n') || error.message;
+                    setErrorBanner(errorMessages);
+                    toast({
+                        title: 'Cannot assign tables',
+                        description: errorMessages,
+                        variant: 'destructive',
+                        duration: 8000,
+                    });
+                    return;
                 }
 
                 // Other HTTP errors
@@ -157,6 +177,7 @@ export function BookingAssignmentTabContent({ booking, restaurantId: _restaurant
                     description: error.message,
                     variant: 'destructive',
                 });
+                setErrorBanner(error.message);
                 return;
             }
 
@@ -167,6 +188,7 @@ export function BookingAssignmentTabContent({ booking, restaurantId: _restaurant
                 description: message,
                 variant: 'destructive',
             });
+            setErrorBanner(message);
         },
     });
 
@@ -180,13 +202,20 @@ export function BookingAssignmentTabContent({ booking, restaurantId: _restaurant
 
     // SIMPLIFIED: Single handler for direct assignment
     const handleAssign = useCallback(() => {
+        if (assignedTables.length > 0) {
+            const message = 'Tables are already assigned. Remove existing tables before assigning new ones.';
+            setErrorBanner(message);
+            toast({ title: 'Assignment blocked', description: message, variant: 'destructive' });
+            return;
+        }
         if (selectedTables.length === 0) {
             toast({ title: 'No tables selected', description: 'Please select tables to assign.', variant: 'destructive' });
             return;
         }
 
+        setErrorBanner(null);
         directAssignMutation.mutate();
-    }, [selectedTables.length, directAssignMutation, toast]);
+    }, [assignedTables.length, selectedTables.length, directAssignMutation, toast]);
 
     const handleClear = useCallback(() => {
         setSelectedTables([]);
@@ -205,6 +234,7 @@ export function BookingAssignmentTabContent({ booking, restaurantId: _restaurant
             // Invalidate all related queries to ensure fresh data
             await Promise.all([
                 refetchAssignmentContext(),
+                queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.assignmentContext(booking.id) }),
                 queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(booking.id) }),
                 queryClient.invalidateQueries({ queryKey: queryKeys.bookings.list({}) }),
                 queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.list({}) }),
@@ -241,6 +271,7 @@ export function BookingAssignmentTabContent({ booking, restaurantId: _restaurant
             // Invalidate all related queries
             await Promise.all([
                 refetchAssignmentContext(),
+                queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.assignmentContext(booking.id) }),
                 queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(booking.id) }),
                 queryClient.invalidateQueries({ queryKey: queryKeys.bookings.list({}) }),
                 queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.list({}) }),
@@ -261,7 +292,7 @@ export function BookingAssignmentTabContent({ booking, restaurantId: _restaurant
 
     // -- Render Helpers --
     const isPending = assignmentContextLoading || directAssignMutation.isPending;
-    const canAssign = selectedTables.length > 0 && !isPending;
+    const canAssign = selectedTables.length > 0 && !isPending && assignedTables.length === 0;
 
     // Clear validation when selection changes
     useEffect(() => {
@@ -302,194 +333,200 @@ export function BookingAssignmentTabContent({ booking, restaurantId: _restaurant
     }
 
     return (
-        <div className="flex flex-col gap-4 h-full">
-            {/* Toolbar */}
-            <AssignmentToolbar
-                selectedCount={selectedTables.length}
-                selectedCapacity={selectedCapacity}
-                partySize={booking.partySize}
-                zoneId={validationResult?.summary?.zoneId}
-                validationChecks={validationChecks}
-                onAssign={handleAssign}
-                onClear={handleClear}
-                isPending={isPending}
-                isAssigning={directAssignMutation.isPending}
-                canAssign={canAssign}
-                assignDisabledReason={
-                    selectedTables.length === 0
-                        ? 'Select tables to assign'
-                        : null
-                }
-                onlyAvailable={onlyAvailable}
-                onOnlyAvailableChange={setOnlyAvailable}
-            />
+        <div className="grid h-full grid-cols-1 gap-4 lg:grid-cols-12">
+            {errorBanner && (
+                <Alert variant="destructive" className="lg:col-span-12">
+                    <AlertDescription className="whitespace-pre-line text-sm">
+                        {errorBanner}
+                    </AlertDescription>
+                </Alert>
+            )}
+            <div className="flex flex-col gap-4 lg:col-span-7">
+                <AssignmentToolbar
+                    selectedCount={effectiveSelectedIds.length}
+                    selectedCapacity={selectedCapacity}
+                    partySize={booking.partySize}
+                    zoneId={validationResult?.summary?.zoneId}
+                    validationChecks={validationChecks}
+                    onAssign={handleAssign}
+                    onClear={handleClear}
+                    isPending={isPending}
+                    isAssigning={directAssignMutation.isPending}
+                    canAssign={canAssign}
+                    assignDisabledReason={
+                        selectedTables.length === 0
+                            ? 'Select tables to assign'
+                            : null
+                    }
+                    onlyAvailable={onlyAvailable}
+                    onOnlyAvailableChange={setOnlyAvailable}
+                />
 
-            {/* Validation Checks */}
-            {validationChecks.length > 0 && <ValidationChecks checks={validationChecks} />}
+                {validationChecks.length > 0 && <ValidationChecks checks={validationChecks} />}
 
-            {/* Floor Plan */}
-            <div
-                className="flex-1 overflow-hidden rounded-xl border bg-muted/10 relative min-h-[400px]"
-                role="region"
-                aria-label="Table floor plan"
-            >
-                {assignmentContextLoading ? (
-                    <div className="p-6" role="status" aria-live="polite">
-                        <div className="grid gap-4 grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
-                            {Array.from({ length: 18 }).map((_, i) => (
+                <div
+                    className="flex-1 overflow-hidden rounded-xl border bg-muted/10 relative min-h-[400px]"
+                    role="region"
+                    aria-label="Table floor plan"
+                >
+                    {assignmentContextLoading ? (
+                        <div className="p-6" role="status" aria-live="polite">
+                            <div className="grid gap-4 grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+                                {Array.from({ length: 18 }).map((_, i) => (
+                                    <div
+                                        key={i}
+                                        className="aspect-square rounded-xl bg-muted/50 animate-pulse"
+                                        style={{ animationDelay: `${i * 30}ms` }}
+                                    />
+                                ))}
+                            </div>
+                            <span className="sr-only">Loading floor plan...</span>
+                        </div>
+                    ) : assignmentContext && assignmentContext.tables.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full gap-6 p-8">
+                            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-muted/50 to-muted/30 border-2 border-muted">
+                                <LayoutGrid className="h-10 w-10 text-muted-foreground" strokeWidth={1.5} />
+                            </div>
+                            <div className="text-center space-y-2 max-w-md">
+                                <h3 className="text-xl font-semibold text-foreground">No tables available</h3>
+                                <p className="text-sm text-muted-foreground leading-relaxed">
+                                    There are no tables configured for this restaurant. Contact your administrator to set up table inventory.
+                                </p>
+                            </div>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => refetchAssignmentContext()}
+                                className="gap-2"
+                            >
+                                <RefreshCw className="h-4 w-4" />
+                                Refresh
+                            </Button>
+                        </div>
+                    ) : (
+                        <div className="absolute inset-0 overflow-auto p-2 sm:p-4">
+                            <TableFloorPlan
+                                bookingId={booking.id}
+                                tables={assignmentContext?.tables ?? []}
+                                holds={assignmentContext?.holds ?? []}
+                                conflicts={assignmentContext?.conflicts ?? []}
+                                bookingAssignments={assignmentContext?.bookingAssignments ?? []}
+                                selectedTableIds={selectedTables}
+                                onToggle={handleToggleTable}
+                                disabled={isPending}
+                                onlyAvailable={onlyAvailable}
+                                className="min-w-[320px] sm:min-w-[500px] md:min-w-[600px]"
+                            />
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <div className="flex flex-col gap-4 lg:col-span-5">
+                {assignedTables.length > 0 ? (
+                    <div
+                        className="space-y-4 rounded-xl border bg-background p-4 shadow-sm animate-in fade-in-50"
+                        role="region"
+                        aria-label="Currently assigned tables"
+                    >
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-50 dark:from-emerald-900/40 dark:to-emerald-900/20 border-2 border-emerald-200/50 dark:border-emerald-800/50 shadow-sm">
+                                    <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                                </div>
+                                <div>
+                                    <h4 className="text-base font-semibold text-foreground">Assigned Tables</h4>
+                                    <p className="text-xs text-muted-foreground">
+                                        {assignedTables.reduce((sum, t) => sum + t.capacity, 0)} total seats
+                                    </p>
+                                </div>
+                                <Badge variant="outline" className="font-mono text-xs px-2 py-1">
+                                    {assignedTables.length} {assignedTables.length === 1 ? 'table' : 'tables'}
+                                </Badge>
+                            </div>
+
+                            {assignedTables.length > 1 && (
+                                <Button
+                                    variant="outline"
+                                    size="default"
+                                    className="h-10 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 font-medium"
+                                    onClick={handleRemoveAllTables}
+                                    aria-label="Remove all assigned tables"
+                                >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Remove All
+                                </Button>
+                            )}
+                        </div>
+
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            {assignedTables.map((table, idx) => (
                                 <div
-                                    key={i}
-                                    className="aspect-square rounded-xl bg-muted/50 animate-pulse"
-                                    style={{ animationDelay: `${i * 30}ms` }}
-                                />
+                                    key={table.id}
+                                    className="group relative rounded-xl border-2 border-primary/20 bg-gradient-to-br from-primary/5 via-primary/3 to-transparent p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary/40 hover:-translate-y-0.5 animate-in fade-in-50 slide-in-from-bottom-2"
+                                    style={{ animationDelay: `${idx * 50}ms` }}
+                                >
+                                    <div className="absolute top-3 right-3">
+                                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/20">
+                                            <LayoutGrid className="h-5 w-5 text-primary" strokeWidth={2} />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3 pr-14">
+                                        <div>
+                                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Table</p>
+                                            <p className="text-3xl font-bold text-foreground tabular-nums">{table.tableNumber}</p>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted/50">
+                                                    <Users className="h-4 w-4" />
+                                                </div>
+                                                <span className="font-medium">{table.capacity} seats</span>
+                                            </div>
+                                            {table.section && (
+                                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                    <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted/50">
+                                                        <MapPin className="h-4 w-4" />
+                                                    </div>
+                                                    <span className="font-medium">{table.section}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {assignedTables.length === 1 && onUnassignTable && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="mt-4 w-full h-9 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 font-medium"
+                                            onClick={() => setUnassignTableId(table.id)}
+                                            aria-label={`Remove table ${table.tableNumber} from booking`}
+                                        >
+                                            <X className="mr-2 h-4 w-4" />
+                                            Remove Table
+                                        </Button>
+                                    )}
+                                </div>
                             ))}
                         </div>
-                        <span className="sr-only">Loading floor plan...</span>
-                    </div>
-                ) : assignmentContext && assignmentContext.tables.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full gap-6 p-8">
-                        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-muted/50 to-muted/30 border-2 border-muted">
-                            <LayoutGrid className="h-10 w-10 text-muted-foreground" strokeWidth={1.5} />
-                        </div>
-                        <div className="text-center space-y-2 max-w-md">
-                            <h3 className="text-xl font-semibold text-foreground">No tables available</h3>
-                            <p className="text-sm text-muted-foreground leading-relaxed">
-                                There are no tables configured for this restaurant. Contact your administrator to set up table inventory.
-                            </p>
-                        </div>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => refetchAssignmentContext()}
-                            className="gap-2"
-                        >
-                            <RefreshCw className="h-4 w-4" />
-                            Refresh
-                        </Button>
+
+                        {assignedTables.length > 1 && (
+                            <Alert className="border-blue-200 bg-gradient-to-r from-blue-50 to-blue-50/50 dark:from-blue-900/20 dark:to-blue-900/10 dark:border-blue-800/50">
+                                <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                <AlertDescription className="text-sm text-blue-900 dark:text-blue-100 leading-relaxed">
+                                    💡 <strong>Merged tables:</strong> These tables are combined to meet capacity requirements. Use &quot;Remove All&quot; to unassign and select fresh tables.
+                                </AlertDescription>
+                            </Alert>
+                        )}
                     </div>
                 ) : (
-                    <div className="absolute inset-0 overflow-auto p-2 sm:p-4">
-                        <TableFloorPlan
-                            bookingId={booking.id}
-                            tables={assignmentContext?.tables ?? []}
-                            holds={assignmentContext?.holds ?? []}
-                            conflicts={assignmentContext?.conflicts ?? []}
-                            bookingAssignments={assignmentContext?.bookingAssignments ?? []}
-                            selectedTableIds={selectedTables}
-                            onToggle={handleToggleTable}
-                            disabled={isPending}
-                            onlyAvailable={onlyAvailable}
-                            className="min-w-[320px] sm:min-w-[500px] md:min-w-[600px]"
-                        />
+                    <div className="rounded-xl border bg-muted/10 p-4 text-sm text-muted-foreground shadow-sm">
+                        No tables assigned yet. Select tables on the left to match the party size.
                     </div>
                 )}
             </div>
-
-            {/* Assigned Tables List */}
-            {assignedTables.length > 0 && (
-                <div
-                    className="space-y-4 animate-in fade-in-50 slide-in-from-bottom-2"
-                    role="region"
-                    aria-label="Currently assigned tables"
-                >
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-50 dark:from-emerald-900/40 dark:to-emerald-900/20 border-2 border-emerald-200/50 dark:border-emerald-800/50 shadow-sm">
-                                <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                            </div>
-                            <div>
-                                <h4 className="text-base font-semibold text-foreground">Assigned Tables</h4>
-                                <p className="text-xs text-muted-foreground">
-                                    {assignedTables.reduce((sum, t) => sum + t.capacity, 0)} total seats
-                                </p>
-                            </div>
-                            <Badge variant="outline" className="font-mono text-xs px-2 py-1">
-                                {assignedTables.length} {assignedTables.length === 1 ? 'table' : 'tables'}
-                            </Badge>
-                        </div>
-
-                        {/* MERGED TABLES: Show single "Remove All" button */}
-                        {assignedTables.length > 1 && (
-                            <Button
-                                variant="outline"
-                                size="default"
-                                className="h-10 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 font-medium"
-                                onClick={handleRemoveAllTables}
-                                aria-label="Remove all assigned tables"
-                            >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Remove All
-                            </Button>
-                        )}
-                    </div>
-
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        {assignedTables.map((table, idx) => (
-                            <div
-                                key={table.id}
-                                className="group relative rounded-xl border-2 border-primary/20 bg-gradient-to-br from-primary/5 via-primary/3 to-transparent p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary/40 hover:-translate-y-0.5 animate-in fade-in-50 slide-in-from-bottom-2"
-                                style={{ animationDelay: `${idx * 50}ms` }}
-                            >
-                                {/* Table Icon Badge */}
-                                <div className="absolute top-3 right-3">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/20">
-                                        <LayoutGrid className="h-5 w-5 text-primary" strokeWidth={2} />
-                                    </div>
-                                </div>
-
-                                {/* Table Info */}
-                                <div className="space-y-3 pr-14">
-                                    <div>
-                                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Table</p>
-                                        <p className="text-3xl font-bold text-foreground tabular-nums">{table.tableNumber}</p>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted/50">
-                                                <Users className="h-4 w-4" />
-                                            </div>
-                                            <span className="font-medium">{table.capacity} seats</span>
-                                        </div>
-                                        {table.section && (
-                                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted/50">
-                                                    <MapPin className="h-4 w-4" />
-                                                </div>
-                                                <span className="font-medium">{table.section}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Remove Button (Single Table Only) */}
-                                {assignedTables.length === 1 && onUnassignTable && (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="mt-4 w-full h-9 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 font-medium"
-                                        onClick={() => setUnassignTableId(table.id)}
-                                        aria-label={`Remove table ${table.tableNumber} from booking`}
-                                    >
-                                        <X className="mr-2 h-4 w-4" />
-                                        Remove Table
-                                    </Button>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Helper Alert for Merged Tables */}
-                    {assignedTables.length > 1 && (
-                        <Alert className="border-blue-200 bg-gradient-to-r from-blue-50 to-blue-50/50 dark:from-blue-900/20 dark:to-blue-900/10 dark:border-blue-800/50">
-                            <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                            <AlertDescription className="text-sm text-blue-900 dark:text-blue-100 leading-relaxed">
-                                💡 <strong>Merged tables:</strong> These tables are combined to meet capacity requirements. Use &quot;Remove All&quot; to unassign and select fresh tables.
-                            </AlertDescription>
-                        </Alert>
-                    )}
-                </div>
-            )}
 
             {/* Unassign Confirmation Dialog */}
             <AlertDialog open={Boolean(unassignTableId)} onOpenChange={(open) => !open && setUnassignTableId(null)}>

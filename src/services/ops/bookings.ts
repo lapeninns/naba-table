@@ -378,6 +378,25 @@ export type ManualAssignmentContextWithSession = ManualAssignmentContext & {
   session?: ManualAssignmentSession | null;
 };
 
+// Simplified context for the direct assignment UI
+export type AssignmentContext = {
+  booking: {
+    id: string;
+    restaurant_id: string | null;
+    start_at: string | null;
+    booking_date: string | null;
+    start_time: string | null;
+    party_size: number;
+    status: OpsBookingStatus | Tables<'bookings'>['status'];
+  };
+  tables: ManualAssignmentTable[];
+  bookingAssignments: string[];
+  conflicts: ManualAssignmentConflict[];
+  window: { startAt: string; endAt: string };
+  serverNow: string;
+  holds?: ManualAssignmentContextHold[];
+};
+
 export type DisabledAssignmentEntry = {
   tableId: string;
   tableNumber: string | null;
@@ -430,6 +449,7 @@ export interface BookingService {
   autoQuoteTables(input: AutoQuoteInput): Promise<AutoQuoteResponse>;
   confirmHoldAssignment(input: ConfirmHoldInput): Promise<ConfirmHoldResponse>;
   getManualAssignmentContext(bookingId: string, options?: { preferSession?: boolean }): Promise<ManualAssignmentContextWithSession>;
+  getAssignmentContext(bookingId: string): Promise<AssignmentContext>;
   assignTablesDirect(input: {
     bookingId: string;
     tableIds: string[];
@@ -691,6 +711,9 @@ export function createBrowserBookingService(): BookingService {
       // Return context with null session (session-based approach no longer used)
       return { ...context, session: null };
     },
+    async getAssignmentContext(bookingId) {
+      return fetchJson<AssignmentContext>(`/api/ops/bookings/${bookingId}/assignment-context`);
+    },
     async assignTablesDirect({ bookingId, tableIds, idempotencyKey, requireAdjacency }) {
       return fetchJson<{
         success: true;
@@ -823,6 +846,10 @@ export class NotImplementedBookingService implements BookingService {
 
   getManualAssignmentContext(): Promise<ManualAssignmentContextWithSession> {
     this.error('getManualAssignmentContext not implemented');
+  }
+
+  getAssignmentContext(): Promise<AssignmentContext> {
+    this.error('getAssignmentContext not implemented');
   }
 
   assignTablesDirect(): Promise<{

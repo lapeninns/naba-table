@@ -10,17 +10,14 @@ import { DASHBOARD_DEFAULT_PAGE_SIZE } from '@/components/dashboard/constants';
 import { EditBookingDialog } from '@/components/dashboard/EditBookingDialog';
 import { BookingOfflineBanner } from '@/components/features/booking-state-machine';
 import { BookingDetailsDialogWrapper } from '@/components/features/bookings/BookingDetailsDialogWrapper';
-import { OpsStatusFilter as OpsStatusesControl } from '@/components/features/bookings/OpsStatusFilter';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { BookingStateMachineProvider, useBookingStateMachine } from '@/contexts/booking-state-machine';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import {
   useOpsBookingsTableState,
   type OpsStatusFilter,
   useOpsBookingsList,
-  useOpsBookingStatusSummary,
   useOpsRestaurantDetails,
 } from '@/hooks';
 import { useOpsBooking } from '@/hooks/ops/useOpsBooking';
@@ -35,16 +32,16 @@ import type { BookingDTO } from '@/hooks/useBookings';
 import type { StatusFilter } from '@/hooks/useBookingsTableState';
 import type { OpsBookingListItem, OpsBookingStatus } from '@/types/ops';
 
-const DEFAULT_FILTER: OpsStatusFilter = 'upcoming';
+const DEFAULT_FILTER: OpsStatusFilter = 'recent';
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = DASHBOARD_DEFAULT_PAGE_SIZE;
 
 const OPS_STATUS_TABS: StatusOption[] = [
+  { value: 'recent', label: 'Recent' },
   { value: 'upcoming', label: 'Upcoming' },
   { value: 'all', label: 'All' },
   { value: 'past', label: 'Past' },
   { value: 'cancelled', label: 'Cancelled' },
-  { value: 'recent', label: 'Recent' },
 ];
 
 export type OpsBookingsClientProps = {
@@ -55,17 +52,6 @@ export type OpsBookingsClientProps = {
   initialStatuses?: OpsBookingStatus[] | null;
   initialDate?: string | null;
 };
-
-const OPS_STATUS_ORDER: OpsBookingStatus[] = [
-  'confirmed',
-  'checked_in',
-  'completed',
-  'pending',
-  'pending_allocation',
-  'no_show',
-  'cancelled',
-  'PRIORITY_WAITLIST',
-];
 
 function BookingStateRegistrar({ bookings }: { bookings: BookingDTO[] }) {
   const { registerBookings } = useBookingStateMachine();
@@ -115,9 +101,6 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
     handleSearchChange,
     setPage,
     search,
-    selectedStatuses,
-    setSelectedStatuses,
-    clearSelectedStatuses,
   } = tableState;
 
   useEffect(() => {
@@ -179,14 +162,6 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
     return base;
   }, [activeRestaurantId, appliedDateRange, queryFilters]);
 
-  const statusSummaryQuery = useOpsBookingStatusSummary({
-    restaurantId: activeRestaurantId ?? null,
-    from: appliedDateRange?.from ?? queryFilters.from ?? null,
-    to: appliedDateRange?.to ?? queryFilters.to ?? null,
-    statuses: selectedStatuses,
-    enabled: Boolean(activeRestaurantId),
-  });
-
   const bookingsQuery = useOpsBookingsList(filters);
   const bookingsPage = bookingsQuery.data ?? {
     items: [],
@@ -243,29 +218,6 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
     [handleSearchChange, updateSearchParams],
   );
 
-  const syncStatusesToQuery = useCallback(
-    (statuses: OpsBookingStatus[]) => {
-      const value = statuses.length > 0 ? statuses.join(',') : null;
-      updateSearchParams({ statuses: value, page: null });
-    },
-    [updateSearchParams],
-  );
-
-  const handleToggleStatusFilter = useCallback(
-    (status: OpsBookingStatus) => {
-      const exists = selectedStatuses.includes(status);
-      const next = exists ? selectedStatuses.filter((value) => value !== status) : [...selectedStatuses, status];
-      setSelectedStatuses(next);
-      syncStatusesToQuery(next);
-    },
-    [selectedStatuses, setSelectedStatuses, syncStatusesToQuery],
-  );
-
-  const handleClearStatusFilters = useCallback(() => {
-    clearSelectedStatuses();
-    syncStatusesToQuery([]);
-  }, [clearSelectedStatuses, syncStatusesToQuery]);
-
   const mapToBookingDTO = useCallback(
     (booking: OpsBookingListItem): BookingDTO => ({
       id: booking.id,
@@ -282,6 +234,17 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
       customerEmail: booking.customerEmail ?? null,
       customerPhone: booking.customerPhone ?? null,
       reservationIntervalMinutes: booking.reservationIntervalMinutes ?? null,
+      reference: booking.reference ?? null,
+      source: booking.source ?? null,
+      loyaltyTier: booking.loyaltyTier ?? null,
+      loyaltyPoints: booking.loyaltyPoints ?? null,
+      seatingPreference: booking.seatingPreference ?? null,
+      allergies: booking.allergies ?? null,
+      dietaryRestrictions: booking.dietaryRestrictions ?? null,
+      tableAssignments: booking.tableAssignments ?? null,
+      requiresTableAssignment: booking.requiresTableAssignment ?? undefined,
+      checkedInAt: booking.checkedInAt ?? null,
+      checkedOutAt: booking.checkedOutAt ?? null,
     }),
     [activeMembership?.restaurantSlug],
   );
@@ -326,14 +289,6 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
       }, 100);
     }
   }, [bookings, focusBookingId, focusedBooking]);
-
-  const statusOptions = useMemo(() => {
-    const totals = statusSummaryQuery.data?.totals ?? null;
-    return OPS_STATUS_ORDER.map((status) => ({
-      status,
-      count: totals ? totals[status] ?? 0 : 0,
-    }));
-  }, [statusSummaryQuery.data]);
 
   const resolveRestaurantId = useCallback(
     (booking: BookingDTO): string | null => booking.restaurantId ?? activeRestaurantId ?? null,
@@ -458,26 +413,21 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
     <BookingStateMachineProvider initialBookings={initialSnapshots}>
       <BookingStateRegistrar bookings={bookings} />
       <section className="space-y-6 lg:space-y-8">
-        <div className="overflow-hidden rounded-2xl border bg-gradient-to-br from-background via-background to-muted/40 p-5 shadow-sm sm:p-6 lg:p-8">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-2">
+        <div className="overflow-hidden rounded-2xl border bg-card/60 p-5 shadow-sm sm:p-6 lg:p-7">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-1.5">
               <h2 className="text-xl font-semibold leading-tight text-foreground sm:text-2xl">Manage bookings</h2>
-              <p className="text-sm text-muted-foreground sm:max-w-2xl">
-                Review and act on reservations without losing context. Mobile-friendly controls keep filters, search, and status
-                changes usable on the floor.
-              </p>
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="secondary" className="rounded-full">
                   {currentRestaurantName}
                 </Badge>
-                <Badge variant="outline" className="rounded-full">Ops console</Badge>
                 {appliedDateRange ? (
                   <Badge
                     variant="outline"
                     className="rounded-full"
                     title={restaurantTimezone ? `Service timezone: ${restaurantTimezone}` : undefined}
                   >
-                    Date {appliedDateRange.date}
+                    {appliedDateRange.date}
                     {restaurantTimezone ? ` · ${restaurantTimezone}` : ''}
                   </Badge>
                 ) : null}
@@ -497,50 +447,11 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
               </Button>
             </div>
           </div>
-
-          <Separator className="my-4" />
-
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)]">
-            <BookingOfflineBanner />
-            <div className="rounded-xl border bg-card/60 p-4 shadow-sm backdrop-blur">
-              <div className="flex items-start justify-between gap-3 pb-3">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Status visibility</p>
-                  <p className="text-xs text-muted-foreground">
-                    Combine status chips for precise triage. Clear with one tap.
-                  </p>
-                </div>
-                <Badge variant="outline" className="rounded-full text-xs">
-                  Live count
-                </Badge>
-              </div>
-              <OpsStatusesControl
-                options={statusOptions}
-                selected={selectedStatuses}
-                onToggle={handleToggleStatusFilter}
-                onClear={handleClearStatusFilters}
-                isLoading={statusSummaryQuery.isLoading}
-              />
-            </div>
-          </div>
         </div>
 
         <div className="rounded-2xl border bg-card shadow-sm">
-          <div className="flex flex-col gap-3 border-b px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex flex-col gap-1">
-                <h3 className="text-base font-semibold text-foreground sm:text-lg">Booking queue</h3>
-                <p className="text-sm text-muted-foreground">
-                  Search, filter, and paginate without losing your place. Status toggles stay in sync with the list.
-                </p>
-              </div>
-              <Badge variant="secondary" className="self-start rounded-full">
-                {bookingsPage.pageInfo.total ?? 0} results
-              </Badge>
-            </div>
-          </div>
-
-          <div className="px-2 pb-4 pt-2 sm:px-4 sm:pb-6 sm:pt-3 lg:px-6">
+          <div className="space-y-4 px-2 py-4 sm:px-4 sm:py-5 lg:px-6">
+            <BookingOfflineBanner />
             <BookingsTable
               bookings={bookings}
               page={bookingsPage.pageInfo.page}
@@ -560,11 +471,12 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
               onDetails={handleDetails}
               variant="ops"
               statusOptions={OPS_STATUS_TABS}
+              showHeaderTitle={false}
               opsLifecycle={{
                 pendingBookingId: pendingLifecycle.bookingId,
                 pendingAction: pendingLifecycle.action,
-                onCheckIn: handleLifecycleCheckIn,
-                onCheckOut: handleLifecycleCheckOut,
+            onCheckIn: handleLifecycleCheckIn,
+            onCheckOut: handleLifecycleCheckOut,
                 onMarkNoShow: handleLifecycleMarkNoShow,
                 onUndoNoShow: handleLifecycleUndoNoShow,
               }}
