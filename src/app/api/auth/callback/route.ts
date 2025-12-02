@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import config from "@/config";
-import { defaultRedirectForHost, parseHostname, sanitizeRedirect, toAbsoluteRedirectTarget } from "@/lib/auth/redirects";
+import { parseHostname, sanitizeRedirect, toAbsoluteRedirectTarget } from "@/lib/auth/redirects";
 import { normalizeEmail } from "@/server/customers";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 
@@ -56,14 +56,40 @@ async function linkAuthUserToCustomers(authUserId: string, email: string): Promi
   }
 }
 
-export const dynamic = "force-dynamic";
+/**
+ * Checks if a user is a restaurant staff member.
+ * Returns true if they have any restaurant memberships.
+ */
+async function isRestaurantMember(userId: string): Promise<boolean> {
+  try {
+    const serviceClient = getServiceSupabaseClient();
+    
+    const { data, error } = await serviceClient
+      .from("restaurant_memberships")
+      .select("id")
+      .eq("user_id", userId)
+      .limit(1);
 
-const FALLBACK_REDIRECT_CONFIG = config.auth.callbackUrl ?? "/app";
+    if (error) {
+      console.error("[auth/callback] Failed to check restaurant membership:", error.message);
+      return false;
+    }
+
+    return data !== null && data.length > 0;
+  } catch (error) {
+    console.error("[auth/callback] Error checking restaurant membership:", error);
+    return false;
+  }
+}
+
+export const dynamic = "force-dynamic";
 
 // This route is called after a successful login. It exchanges the code for a session and redirects to the callback URL (see config.js).
 export async function GET(req: NextRequest) {
   const requestUrl = new URL(req.url);
   const code = requestUrl.searchParams.get("code");
+  const tokenHash = requestUrl.searchParams.get("token_hash");
+  const type = requestUrl.searchParams.get("type");
   const redirectedFrom = requestUrl.searchParams.get("redirectedFrom");
   const hostname = parseHostname(req);
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost";
@@ -72,6 +98,8 @@ export async function GET(req: NextRequest) {
     hostname,
     rootDomain,
     hasCode: !!code,
+    hasTokenHash: !!tokenHash,
+    type,
     redirectedFrom,
     fullUrl: req.url,
     headers: {
@@ -81,22 +109,47 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  const resolveDestination = () => {
-    const sanitized = sanitizeRedirect(redirectedFrom, rootDomain);
-    if (!sanitized) {
-      if (redirectedFrom) {
-        console.warn("[auth/callback] rejected redirect param", redirectedFrom);
-      }
-      const fallback = FALLBACK_REDIRECT_CONFIG ?? defaultRedirectForHost(hostname, rootDomain);
-      console.log("[auth/callback] Using fallback destination:", fallback);
-      return fallback;
-    }
-    console.log("[auth/callback] Using sanitized destination:", sanitized);
-    return sanitized;
-  };
+  const supabase = await getRouteHandlerSupabaseClient();
+  let authSuccess = false;
+  let userId: string | undefined;
+  let userEmail: string | undefined;
 
-  if (code) {
-    const supabase = await getRouteHandlerSupabaseClient();
+  // Handle magic link with token_hash (from admin.generateLink)
+  if (tokenHash && type) {
+    console.log("[auth/callback] Attempting to verify OTP with token_hash...");
+    const { data, error } = await supabase.auth.verifyOtp({
+      token_hash: tokenHash,
+      type: type as "magiclink" | "email",
+    });
+
+    if (error) {
+      console.error("[auth/callback] OTP verification failed:", {
+        message: error.message,
+        status: error.status,
+        code: error.code,
+        name: error.name,
+      });
+
+      // Redirect to login page with error
+      const loginUrl = new URL(config.auth.loginUrl, requestUrl.origin);
+      loginUrl.searchParams.set("error", "auth_failed");
+      loginUrl.searchParams.set("message", "Authentication link has expired or is invalid. Please try again.");
+      console.log("[auth/callback] Redirecting to login due to error:", loginUrl.toString());
+      return NextResponse.redirect(loginUrl.toString());
+    }
+
+    console.log("[auth/callback] OTP verified successfully:", {
+      userId: data?.user?.id,
+      email: data?.user?.email,
+      redirectedFrom,
+    });
+    
+    authSuccess = true;
+    userId = data?.user?.id;
+    userEmail = data?.user?.email ?? undefined;
+  }
+  // Handle PKCE flow with code (from OAuth or standard magic link)
+  else if (code) {
     console.log("[auth/callback] Attempting to exchange code for session...");
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
@@ -114,38 +167,69 @@ export async function GET(req: NextRequest) {
       loginUrl.searchParams.set("message", "Authentication link has expired or is invalid. Please try again.");
       console.log("[auth/callback] Redirecting to login due to error:", loginUrl.toString());
       return NextResponse.redirect(loginUrl.toString());
-    } else {
-      console.log("[auth/callback] Session exchanged successfully:", {
-        userId: data?.user?.id,
-        email: data?.user?.email,
-        redirectedFrom,
-      });
-
-      // Link auth user to existing customer records (for guests who booked before signing up)
-      if (data?.user?.id && data?.user?.email) {
-        await linkAuthUserToCustomers(data.user.id, data.user.email);
-      }
-
-      // Verify session was actually set when available (mocked clients may omit getUser)
-      const maybeGetUser = (supabase.auth as { getUser?: () => Promise<{ data: { user: unknown } | null; error?: { message?: string } | null }> }).getUser;
-      if (typeof maybeGetUser === "function") {
-        const { data: verifiedUser, error: verifyError } = await maybeGetUser();
-        console.log("[auth/callback] Session verification:", {
-          hasUser: !!verifiedUser?.user,
-          sessionUserId: verifiedUser?.user ? (verifiedUser.user as { id?: string }).id : undefined,
-          verifyError: verifyError?.message,
-        });
-      }
     }
+
+    console.log("[auth/callback] Session exchanged successfully:", {
+      userId: data?.user?.id,
+      email: data?.user?.email,
+      redirectedFrom,
+    });
+
+    authSuccess = true;
+    userId = data?.user?.id;
+    userEmail = data?.user?.email ?? undefined;
   } else {
-    console.warn("[auth/callback] received request without code parameter");
+    console.warn("[auth/callback] received request without code or token_hash parameter");
+  }
+
+  // Link auth user to existing customer records (for guests who booked before signing up)
+  if (authSuccess && userId && userEmail) {
+    await linkAuthUserToCustomers(userId, userEmail);
+
+    // Verify session was actually set when available (mocked clients may omit getUser)
+    const maybeGetUser = (supabase.auth as { getUser?: () => Promise<{ data: { user: unknown } | null; error?: { message?: string } | null }> }).getUser;
+    if (typeof maybeGetUser === "function") {
+      const { data: verifiedUser, error: verifyError } = await maybeGetUser();
+      console.log("[auth/callback] Session verification:", {
+        hasUser: !!verifiedUser?.user,
+        sessionUserId: verifiedUser?.user ? (verifiedUser.user as { id?: string }).id : undefined,
+        verifyError: verifyError?.message,
+      });
+    }
+  }
+
+  // Determine the appropriate redirect based on user type
+  let destination: string;
+  
+  // If there's a specific redirect requested and it's valid, use it
+  const sanitizedRedirect = sanitizeRedirect(redirectedFrom, rootDomain);
+  if (sanitizedRedirect) {
+    console.log("[auth/callback] Using sanitized redirect:", sanitizedRedirect);
+    destination = sanitizedRedirect;
+  } else {
+    // No valid redirect specified, determine based on user type
+    if (redirectedFrom) {
+      console.warn("[auth/callback] rejected redirect param:", redirectedFrom);
+    }
+    
+    // Check if user is a restaurant staff member
+    const isStaff = userId ? await isRestaurantMember(userId) : false;
+    
+    if (isStaff) {
+      destination = "/app/dashboard";
+      console.log("[auth/callback] User is restaurant staff, redirecting to:", destination);
+    } else {
+      destination = "/guest/dashboard";
+      console.log("[auth/callback] User is guest, redirecting to:", destination);
+    }
   }
 
   // URL to redirect to after sign in process completes
-  const destination = toAbsoluteRedirectTarget(resolveDestination(), rootDomain);
-  const redirectUrl = new URL(destination, requestUrl.origin);
+  const absoluteDestination = toAbsoluteRedirectTarget(destination, rootDomain);
+  const redirectUrl = new URL(absoluteDestination, requestUrl.origin);
   console.log("[auth/callback] Final redirect:", {
     destination,
+    absoluteDestination,
     redirectUrl: redirectUrl.toString(),
     origin: requestUrl.origin,
   });
