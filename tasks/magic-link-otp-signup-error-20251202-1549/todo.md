@@ -17,9 +17,9 @@ related_tickets: []
 
 ## Core
 
-- [ ] Adjust magic link sign-in behavior to avoid signup-disabled error (reverted to previous working behavior)
-- [ ] Ensure clear messaging for new users when signups are disabled
-- [ ] Add fallback using service-role client without creating users
+- [x] Adjust magic link sign-in behavior to avoid signup-disabled error (service-role fallback)
+- [x] Ensure clear messaging for new users when signups are disabled
+- [x] Add fallback using service-role client without creating users
 
 ## UI/UX
 
@@ -27,7 +27,7 @@ related_tickets: []
 
 ## Tests
 
-- [ ] Update/add unit tests for magic link behavior (reverted)
+- [x] Update/add unit tests for magic link behavior (service fallback + missing user)
 - [x] Run relevant test suite (vitest: src/app/api/auth/signin/route.test.ts)
 
 ## Notes

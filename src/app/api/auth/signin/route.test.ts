@@ -6,6 +6,7 @@ import { POST } from "./route";
 const consumeRateLimitMock = vi.fn();
 const signInWithPasswordMock = vi.fn();
 const signInWithOtpMock = vi.fn();
+const serviceSignInWithOtpMock = vi.fn();
 
 vi.mock("@/server/security/rate-limit", () => ({
   consumeRateLimit: (...args: unknown[]) => consumeRateLimitMock(...args),
@@ -18,6 +19,11 @@ vi.mock("@/server/supabase", () => ({
       signInWithOtp: (...args: unknown[]) => signInWithOtpMock(...args),
     },
   })),
+  getServiceSupabaseClient: vi.fn(() => ({
+    auth: {
+      signInWithOtp: (...args: unknown[]) => serviceSignInWithOtpMock(...args),
+    },
+  })),
 }));
 
 describe("POST /api/auth/signin", () => {
@@ -26,6 +32,7 @@ describe("POST /api/auth/signin", () => {
     consumeRateLimitMock.mockResolvedValue({ ok: true, limit: 5, remaining: 5, resetAt, source: "memory" });
     signInWithPasswordMock.mockResolvedValue({ error: null });
     signInWithOtpMock.mockResolvedValue({ error: null });
+    serviceSignInWithOtpMock.mockResolvedValue({ error: null });
   });
 
   afterEach(() => {
@@ -33,6 +40,7 @@ describe("POST /api/auth/signin", () => {
     consumeRateLimitMock.mockReset();
     signInWithPasswordMock.mockReset();
     signInWithOtpMock.mockReset();
+    serviceSignInWithOtpMock.mockReset();
   });
 
   it("rejects missing CSRF token", async () => {
@@ -123,5 +131,71 @@ describe("POST /api/auth/signin", () => {
         options: expect.objectContaining({ shouldCreateUser: false }),
       }),
     );
+  });
+
+  it("falls back to service client when signup is disabled", async () => {
+    const token = "csrf-token";
+    signInWithOtpMock.mockResolvedValueOnce({
+      error: { message: "Signups not allowed for otp", status: 403, code: "signup_disabled" },
+    });
+    serviceSignInWithOtpMock.mockResolvedValueOnce({ error: null });
+
+    const request = new NextRequest("http://localhost/api/auth/signin", {
+      method: "POST",
+      body: JSON.stringify({
+        mode: "magic_link",
+        email: "fallback@example.com",
+        redirectedFrom: "/guest/bookings",
+      }),
+      headers: {
+        "content-type": "application/json",
+        "x-csrf-token": token,
+        cookie: `sr-csrf-token=${token}`,
+      },
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(202);
+    expect(body.status).toBe("magic_link_sent");
+    expect(signInWithOtpMock).toHaveBeenCalledTimes(1);
+    expect(serviceSignInWithOtpMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: "fallback@example.com",
+        options: expect.objectContaining({ shouldCreateUser: false }),
+      }),
+    );
+  });
+
+  it("returns guidance when fallback still reports missing user", async () => {
+    const token = "csrf-token";
+    signInWithOtpMock.mockResolvedValueOnce({
+      error: { message: "Signups not allowed for otp", status: 403, code: "signup_disabled" },
+    });
+    serviceSignInWithOtpMock.mockResolvedValueOnce({
+      error: { message: "User not found", status: 400, code: "user_not_found" },
+    });
+
+    const request = new NextRequest("http://localhost/api/auth/signin", {
+      method: "POST",
+      body: JSON.stringify({
+        mode: "magic_link",
+        email: "missing@example.com",
+        redirectedFrom: "/guest/bookings",
+      }),
+      headers: {
+        "content-type": "application/json",
+        "x-csrf-token": token,
+        cookie: `sr-csrf-token=${token}`,
+      },
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.message).toMatch(/please sign up/i);
+    expect(serviceSignInWithOtpMock).toHaveBeenCalledTimes(1);
   });
 });
