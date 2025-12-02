@@ -27,7 +27,6 @@ import type {
   PlanStepFormState,
   PlanStepUnavailableReason,
 } from '../ui/steps/plan-step/types';
-import type { BookingOption } from '@reserve/shared/booking';
 
 const MONTH_KEY_FORMATTER = (value: Date) =>
   `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}`;
@@ -314,10 +313,8 @@ type PlanSlotDataArgs = {
 
 type PlanSlotDataResult = {
   slots: ReturnType<typeof useTimeSlots>['slots'];
-  serviceAvailability: ReturnType<typeof useTimeSlots>['serviceAvailability'];
   inferBookingOption: ReturnType<typeof useTimeSlots>['inferBookingOption'];
   schedule: ReturnType<typeof useTimeSlots>['schedule'];
-  availableBookingOptions: ReturnType<typeof useTimeSlots>['availableBookingOptions'];
   isScheduleLoading: boolean;
   isScheduleFetching: boolean;
   enabledSlots: ReturnType<typeof useTimeSlots>['slots'];
@@ -329,10 +326,8 @@ type PlanSlotDataResult = {
 function usePlanSlotData({ restaurantSlug, date, time }: PlanSlotDataArgs): PlanSlotDataResult {
   const {
     slots,
-    serviceAvailability,
     inferBookingOption,
     schedule,
-    availableBookingOptions,
     isLoading: isScheduleLoading,
     isFetching: isScheduleFetching,
   } = useTimeSlots({
@@ -371,10 +366,8 @@ function usePlanSlotData({ restaurantSlug, date, time }: PlanSlotDataArgs): Plan
 
   return {
     slots,
-    serviceAvailability,
     inferBookingOption,
     schedule,
-    availableBookingOptions,
     isScheduleLoading,
     isScheduleFetching,
     enabledSlots,
@@ -482,10 +475,8 @@ export function usePlanStepForm({
 
   const {
     slots,
-    serviceAvailability,
     inferBookingOption,
     schedule,
-    availableBookingOptions,
     isScheduleLoading,
     isScheduleFetching,
     enabledSlots,
@@ -577,16 +568,31 @@ export function usePlanStepForm({
   const submitForm = useCallback(
     (values: PlanFormValues) => {
       const normalizedTime = normalizeToInterval(values.time);
+      const bookingTypeValue =
+        values.bookingType && values.bookingType.length > 0
+          ? values.bookingType
+          : (inferBookingOption(normalizedTime) ?? state.details.bookingType);
 
       updateField('date', values.date);
       updateField('time', normalizedTime);
       updateField('party', values.party);
-      updateField('bookingType', values.bookingType);
+      updateField('bookingType', bookingTypeValue);
       updateField('notes', values.notes ?? '');
+      form.setValue('bookingType', bookingTypeValue, {
+        shouldDirty: false,
+        shouldValidate: false,
+      });
       form.setValue('time', normalizedTime, { shouldDirty: false, shouldValidate: true });
       actions.goToStep(2);
     },
-    [actions, form, normalizeToInterval, updateField],
+    [
+      actions,
+      form,
+      inferBookingOption,
+      normalizeToInterval,
+      state.details.bookingType,
+      updateField,
+    ],
   );
 
   const handleError = useCallback(
@@ -654,18 +660,6 @@ export function usePlanStepForm({
       form.setValue('party', next, { shouldDirty: true, shouldValidate: true });
       updateField('party', next);
       onTrack?.('select_party', { party: next });
-    },
-    [form, onTrack, updateField],
-  );
-
-  const changeOccasion = useCallback(
-    (value: BookingOption) => {
-      form.setValue('bookingType', value, { shouldDirty: true, shouldValidate: true });
-      updateField('bookingType', value);
-      onTrack?.('select_time', {
-        time: form.getValues('time'),
-        booking_type: value,
-      });
     },
     [form, onTrack, updateField],
   );
@@ -815,14 +809,10 @@ export function usePlanStepForm({
   return {
     form,
     slots,
-    availability: serviceAvailability,
-    availableBookingOptions,
-    occasionCatalog: schedule?.occasionCatalog ?? [],
     handlers: {
       selectDate,
       selectTime,
       changeParty,
-      changeOccasion,
       commitNotes,
       prefetchMonth: (month: Date) => {
         debouncedPrefetch(month);
