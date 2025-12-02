@@ -56,11 +56,6 @@ function buildCallbackUrl(host: string, redirectedFrom: string | undefined) {
     validHost = "nabatable.com";
   }
 
-  // Normalize to naked domain to match Supabase wildcard (https://nabatable.com/**)
-  if (validHost.startsWith("www.")) {
-    validHost = validHost.replace("www.", "");
-  }
-
   const protocol = isLocal ? "http" : "https";
   const url = new URL("/api/auth/callback", `${protocol}://${validHost}`);
 
@@ -170,8 +165,8 @@ export async function POST(req: NextRequest) {
         email,
         options: {
           redirectTo: emailRedirectTo,
-          codeChallenge: challenge,
-          codeChallengeMethod: "s256",
+          code_challenge: challenge,
+          code_challenge_method: "s256",
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any,
       });
