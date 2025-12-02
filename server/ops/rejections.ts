@@ -172,6 +172,25 @@ export async function getRejectionAnalytics(
   const { data, error } = await query.limit(limit);
 
   if (error) {
+    const code = (error as { code?: string }).code;
+    // Table doesn't exist - return empty results
+    if (code === "PGRST205" || code === "42P01") {
+      return {
+        restaurantId,
+        range: {
+          from: normalizedFrom.toUTC().toISO() ?? normalizedFrom.toString(),
+          to: normalizedTo.toUTC().toISO() ?? normalizedTo.toString(),
+          bucket,
+        },
+        summary: {
+          total: 0,
+          hard: { count: 0, percent: 0, topReasons: [] },
+          strategic: { count: 0, percent: 0, topPenalties: [] },
+        },
+        series: [],
+        strategicSamples: [],
+      };
+    }
     throw error;
   }
 
