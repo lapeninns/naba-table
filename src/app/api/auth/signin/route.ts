@@ -1,3 +1,5 @@
+import { createHash, randomBytes } from "crypto";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { z } from "zod";
@@ -158,13 +160,20 @@ export async function POST(req: NextRequest) {
   // Use Resend directly if configured, to bypass Supabase email limits/issues
   if (env.resend.apiKey && env.resend.from) {
     try {
+      // Generate PKCE pair to support code exchange flow
+      const verifier = randomBytes(32).toString("base64url");
+      const challenge = createHash("sha256").update(verifier).digest("base64url");
+
       const adminSupabase = getServiceSupabaseClient();
       const { data, error: generateError } = await adminSupabase.auth.admin.generateLink({
         type: "magiclink",
         email,
         options: {
           redirectTo: emailRedirectTo,
-        },
+          codeChallenge: challenge,
+          codeChallengeMethod: "s256",
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any,
       });
 
       if (generateError) {
@@ -175,6 +184,22 @@ export async function POST(req: NextRequest) {
       if (!magicLink) {
         throw new Error("Failed to generate magic link");
       }
+
+      // Manually set the PKCE verifier cookie so exchangeCodeForSession works
+      const cookieStore = await cookies();
+      const url = new URL(env.supabase.url);
+      const projectId = url.hostname.split(".")[0];
+      const cookieName = `sb-${projectId}-auth-token-code-verifier`;
+      
+      cookieStore.set({
+        name: cookieName,
+        value: verifier,
+        httpOnly: true,
+        secure: env.node.appEnv !== "development",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 10, // 10 minutes
+      });
 
       const resend = new Resend(env.resend.apiKey);
       const { error: emailError } = await resend.emails.send({
