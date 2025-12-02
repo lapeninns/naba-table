@@ -5,7 +5,7 @@ import { defaultRedirectForHost, parseHostname, sanitizeRedirect, toAbsoluteRedi
 import { validatePasswordStrength } from "@/lib/security/passwordPolicy";
 import { validateCsrfToken } from "@/server/security/csrf";
 import { consumeRateLimit } from "@/server/security/rate-limit";
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
+import { getRouteHandlerSupabaseClient } from "@/server/supabase";
 
 import type { NextRequest } from "next/server";
 
@@ -75,11 +75,6 @@ function setRateHeaders(response: NextResponse, limitResult: Awaited<ReturnType<
   response.headers.set("X-RateLimit-Remaining", limitResult.remaining.toString());
   response.headers.set("X-RateLimit-Reset", limitResult.resetAt.toString());
   return response;
-}
-
-function isSignupDisabledError(error: { message?: string | null; code?: string | null }) {
-  const message = (error.message ?? "").toLowerCase();
-  return error.code === "signup_disabled" || message.includes("signups not allowed for otp");
 }
 
 export async function POST(req: NextRequest) {
@@ -160,37 +155,6 @@ export async function POST(req: NextRequest) {
   });
 
   if (error) {
-    if (isSignupDisabledError(error)) {
-      console.warn("[Auth/signin] signup disabled for otp; retrying with service client", {
-        message: error.message,
-        code: error.code,
-        status: error.status,
-      });
-
-      const serviceSupabase = getServiceSupabaseClient();
-      const { error: serviceError } = await serviceSupabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo,
-          shouldCreateUser: false,
-        },
-      });
-
-      if (!serviceError) {
-        const response = NextResponse.json({ status: "magic_link_sent", redirectTo: absoluteRedirect }, { status: 202 });
-        return setRateHeaders(response, rateResult);
-      }
-
-      const fallbackStatus = serviceError.status ?? 400;
-      const fallbackMessage =
-        serviceError.code === "user_not_found"
-          ? "No account found for that email. Please sign up instead."
-          : serviceError.message ?? "We couldn’t send a magic link right now. Please try again shortly.";
-
-      const response = NextResponse.json({ message: fallbackMessage }, { status: fallbackStatus });
-      return setRateHeaders(response, rateResult);
-    }
-
     const status = error.status ?? 400;
     const response = NextResponse.json(
       { message: error.message ?? "We couldn’t send a magic link right now. Please try again shortly." },
