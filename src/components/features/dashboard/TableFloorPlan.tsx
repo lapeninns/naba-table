@@ -288,13 +288,24 @@ export const TableFloorPlan = memo(function TableFloorPlan({
   }, [unpositioned]);
 
   return (
-    <div className={cn('flex flex-col gap-4', className)}>
-      <div className="relative w-full overflow-hidden rounded-2xl border border-border bg-muted/20" style={{ minHeight: positioned.length > 0 ? 320 : 180 }}>
-        {positioned.length === 0 ? (
-          <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
-            No floor plan coordinates available. Tables are listed below.
-          </div>
-        ) : (
+    <div className={cn('flex flex-col gap-3', className)}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="text-sm font-semibold text-foreground">Tables</div>
+        <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
+          <span className="rounded-full bg-primary/10 px-2.5 py-1 font-semibold text-primary">Selected</span>
+          <span className="rounded-full bg-emerald-100 px-2.5 py-1 font-semibold text-emerald-700">Assigned</span>
+          <span className="rounded-full bg-amber-100 px-2.5 py-1 font-semibold text-amber-800">Held/Blocked</span>
+          <span className="rounded-full bg-gray-100 px-2.5 py-1 font-semibold text-gray-700">Inactive</span>
+        </div>
+      </div>
+
+      {positioned.length > 0 && (
+        <div
+          className="relative w-full overflow-hidden rounded-2xl border border-border bg-muted/20"
+          style={{ minHeight: 320 }}
+          role="region"
+          aria-label="Table floor plan"
+        >
           <div className="relative h-full w-full" style={{ padding: `${TABLE_SIZE_PX / 2}px` }}>
             {positioned.map((entry) => {
               const variant = getVariant(entry);
@@ -319,15 +330,11 @@ export const TableFloorPlan = memo(function TableFloorPlan({
                   style={{
                     left: `${entry.xPercent}%`,
                     top: `${entry.yPercent}%`,
-                    transform: `translate(-50%, -50%) rotate(${entry.rotation}deg)`,
+                    transform: `translate(-50%, -50%) rotate(${entry.rotation}deg)`
                   }}
                   onClick={() => {
-                    if (disabled || entry.isInactive) {
-                      return;
-                    }
-                    if (entry.holdOther || entry.conflicts.length > 0) {
-                      return;
-                    }
+                    if (disabled || entry.isInactive) return;
+                    if (entry.holdOther || entry.conflicts.length > 0) return;
                     onToggle(entry.table.id);
                   }}
                   title={formatTableTitle(entry)}
@@ -339,7 +346,6 @@ export const TableFloorPlan = memo(function TableFloorPlan({
                   <span className="text-sm font-semibold">{entry.table.tableNumber}</span>
                   <span className="text-[11px] font-medium">{entry.table.capacity} seats</span>
                   {countdown ? <span className="mt-0.5 text-[10px] font-semibold">{countdown}</span> : null}
-                  {/* Inline badges for reasons */}
                   {!countdown && (entry.holdOther || !entry.table.active || entry.conflicts.length > 0) ? (
                     <span className="mt-0.5 text-[10px] font-semibold">
                       {entry.holdOther ? 'Held' : entry.conflicts.length > 0 ? 'Conflict' : 'Inactive'}
@@ -349,100 +355,88 @@ export const TableFloorPlan = memo(function TableFloorPlan({
               );
             })}
           </div>
-        )}
-      </div>
-
-      {groupedUnpositioned.length > 0 ? (
-        <div className="space-y-4">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Tables without coordinates</h3>
-          {groupedUnpositioned.map((group) => {
-            const zoneLabel = group.zoneId ? `Zone ${group.zoneId.slice(0, 8)}` : 'Zone not set';
-            const sectionLabel = group.section ? `Section ${group.section}` : 'Section not set';
-            return (
-              <div
-                key={`${group.zoneId ?? 'unknown'}::${group.section ?? 'unassigned'}`}
-                className="space-y-2 rounded-xl border border-border/60 bg-background px-3 py-2"
-              >
-                <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
-                  <span>{sectionLabel}</span>
-                  <span aria-hidden>•</span>
-                  <span>{zoneLabel}</span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {group.tables.map((table) => {
-                    const isSelected = selectionSet.has(table.id);
-                    const tableHolds = holds.filter((hold) => hold.tableIds.includes(table.id));
-                    const holdOther = tableHolds.find((hold) => hold.bookingId && hold.bookingId !== bookingId);
-                    const hasConflict = conflictTableIds.has(table.id);
-                    const isBlocked =
-                      disabled ||
-                      !table.active ||
-                      (table.status && table.status !== 'available') ||
-                      Boolean(holdOther) ||
-                      hasConflict;
-
-                    return (
-                      <button
-                        key={table.id}
-                        type="button"
-                        className={cn(
-                          'flex flex-col items-start gap-0.5 rounded-xl border-2 px-4 py-2.5 text-left transition-all hover:shadow-md',
-                          isSelected
-                            ? 'bg-primary/10 text-primary border-primary shadow-sm'
-                            : 'bg-background text-foreground border-border hover:border-primary/30',
-                          isBlocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:-translate-y-0.5',
-                        )}
-                        onClick={() => {
-                          if (isBlocked) {
-                            return;
-                          }
-                          onToggle(table.id);
-                        }}
-                        title={table.name ? `Table ${table.tableNumber} - ${table.name} · ${table.capacity} seats` : `Table ${table.tableNumber} · ${table.capacity} seats`}
-                        aria-label={`Table ${table.tableNumber}${table.name ? `, ${table.name}` : ''}, ${table.capacity} seats${isSelected ? ', selected' : ''}${isBlocked ? ', unavailable' : ''}${holdOther ? ', held' : ''}${hasConflict ? ', conflict' : ''}${!table.active || (table.status && table.status !== 'available') ? ', inactive' : ''}`}
-                        aria-pressed={isSelected ? true : undefined}
-                        disabled={isBlocked}
-                        aria-disabled={isBlocked || undefined}
-                      >
-                        {/* Table Name */}
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Table</span>
-                          <span className="text-lg font-bold tabular-nums">{table.tableNumber}</span>
-                        </div>
-
-                        {/* Optional Table Name (e.g., "Patio Corner") */}
-                        {table.name && (
-                          <div className="flex items-center gap-1 text-xs font-medium text-foreground">
-                            <span>{table.name}</span>
-                          </div>
-                        )}
-
-                        {/* Capacity */}
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <span className="font-medium">{table.capacity} seats</span>
-                        </div>
-
-                        {/* Status badges */}
-                        {(holdOther || hasConflict || !table.active || (table.status && table.status !== 'available')) && (
-                          <div className="mt-1 flex items-center gap-1">
-                            {holdOther ? (
-                              <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-900">Held</span>
-                            ) : hasConflict ? (
-                              <span className="rounded-md bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-900">Conflict</span>
-                            ) : !table.active || (table.status && table.status !== 'available') ? (
-                              <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-700">Inactive</span>
-                            ) : null}
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
         </div>
-      ) : null}
+      )}
+
+      <div className="space-y-3" aria-label="Table list">
+        {groupedUnpositioned.map((group) => {
+          const zoneLabel = group.zoneId ? `Zone ${group.zoneId.slice(0, 8)}` : 'Zone not set';
+          const sectionLabel = group.section ? `Section ${group.section}` : 'Section not set';
+          return (
+            <div
+              key={`${group.zoneId ?? 'unknown'}::${group.section ?? 'unassigned'}`}
+              className="space-y-2 rounded-xl border border-border/60 bg-background px-3 py-2"
+            >
+              <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
+                <span>{sectionLabel}</span>
+                <span aria-hidden>•</span>
+                <span>{zoneLabel}</span>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
+                {group.tables.map((table) => {
+                  const isSelected = selectionSet.has(table.id);
+                  const tableHolds = holds.filter((hold) => hold.tableIds.includes(table.id));
+                  const holdOther = tableHolds.find((hold) => hold.bookingId && hold.bookingId !== bookingId);
+                  const hasConflict = conflictTableIds.has(table.id);
+                  const isBlocked =
+                    disabled ||
+                    !table.active ||
+                    (table.status && table.status !== 'available') ||
+                    Boolean(holdOther) ||
+                    hasConflict;
+
+                  return (
+                    <button
+                      key={table.id}
+                      type="button"
+                      className={cn(
+                        'flex flex-col items-start gap-1 rounded-xl border-2 px-3 py-2.5 text-left transition-all hover:shadow-sm',
+                        isSelected
+                          ? 'bg-primary/10 text-primary border-primary shadow-sm'
+                          : 'bg-background text-foreground border-border hover:border-primary/30',
+                        isBlocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:-translate-y-0.5',
+                      )}
+                      onClick={() => {
+                        if (isBlocked) return;
+                        onToggle(table.id);
+                      }}
+                      title={table.name ? `Table ${table.tableNumber} - ${table.name} · ${table.capacity} seats` : `Table ${table.tableNumber} · ${table.capacity} seats`}
+                      aria-label={`Table ${table.tableNumber}${table.name ? `, ${table.name}` : ''}, ${table.capacity} seats${isSelected ? ', selected' : ''}${isBlocked ? ', unavailable' : ''}${holdOther ? ', held' : ''}${hasConflict ? ', conflict' : ''}${!table.active || (table.status && table.status !== 'available') ? ', inactive' : ''}`}
+                      aria-pressed={isSelected ? true : undefined}
+                      disabled={isBlocked}
+                      aria-disabled={isBlocked || undefined}
+                    >
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Table</span>
+                        <span className="text-lg font-bold tabular-nums">{table.tableNumber}</span>
+                      </div>
+                      {table.name && (
+                        <div className="flex items-center gap-1 text-xs font-medium text-foreground">
+                          <span>{table.name}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <span className="font-medium">{table.capacity} seats</span>
+                      </div>
+                      {(holdOther || hasConflict || !table.active || (table.status && table.status !== 'available')) && (
+                        <div className="mt-1 flex items-center gap-1">
+                          {holdOther ? (
+                            <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-900">Held</span>
+                          ) : hasConflict ? (
+                            <span className="rounded-md bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-900">Conflict</span>
+                          ) : !table.active || (table.status && table.status !== 'available') ? (
+                            <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-700">Inactive</span>
+                          ) : null}
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 });

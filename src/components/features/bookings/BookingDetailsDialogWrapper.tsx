@@ -7,9 +7,69 @@ import { BookingDetailsDialog } from '@/components/features/dashboard/BookingDet
 import { useOpsTableAssignmentActions } from '@/hooks';
 import { useOpsBooking } from '@/hooks/ops/useOpsBooking';
 import { useOpsBookingLifecycleActions } from '@/hooks/ops/useOpsBookingStatusActions';
+import { getTodayInTimezone } from '@/lib/utils/datetime';
 
 import type { BookingDTO } from '@/hooks/useBookings';
 import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
+import type { OpsBookingListItem } from '@/types/ops';
+
+type BookingSource = OpsBookingListItem | BookingDTO;
+
+const deriveTimeFromIso = (iso: string | null | undefined, timezone: string): string | null => {
+  if (!iso) return null;
+  const dt = DateTime.fromISO(iso, { zone: timezone });
+  if (!dt.isValid) return null;
+  return dt.toFormat('HH:mm');
+};
+
+function normalizeBooking(source: BookingSource, timezone: string): OpsTodayBooking {
+  const tableAssignments = 'tableAssignments' in source && Array.isArray(source.tableAssignments)
+    ? source.tableAssignments ?? []
+    : [];
+
+  const startTime = ('startTime' in source ? source.startTime : null) ?? deriveTimeFromIso(source.startIso, timezone);
+  const endTime = ('endTime' in source ? source.endTime : null) ?? deriveTimeFromIso(source.endIso, timezone);
+
+  const requiresTableAssignment =
+    'requiresTableAssignment' in source && typeof source.requiresTableAssignment === 'boolean'
+      ? source.requiresTableAssignment
+      : tableAssignments.length === 0 && source.status !== 'cancelled' && source.status !== 'no_show';
+
+  return {
+    id: source.id,
+    status: source.status as OpsTodayBooking['status'],
+    startTime,
+    endTime,
+    partySize: source.partySize,
+    customerName: source.customerName ?? '',
+    customerEmail: source.customerEmail ?? null,
+    customerPhone: source.customerPhone ?? null,
+    notes: source.notes ?? null,
+    reference: 'reference' in source ? source.reference ?? null : null,
+    details: 'details' in source ? (source.details as Record<string, unknown> | null | undefined) ?? null : null,
+    source: 'source' in source ? source.source ?? null : null,
+    loyaltyTier: 'loyaltyTier' in source ? source.loyaltyTier ?? null : null,
+    loyaltyPoints: 'loyaltyPoints' in source ? source.loyaltyPoints ?? null : null,
+    profileNotes: 'profileNotes' in source ? source.profileNotes ?? null : null,
+    allergies: 'allergies' in source ? source.allergies ?? null : null,
+    dietaryRestrictions: 'dietaryRestrictions' in source ? source.dietaryRestrictions ?? null : null,
+    seatingPreference: 'seatingPreference' in source ? source.seatingPreference ?? null : null,
+    marketingOptIn: 'marketingOptIn' in source ? source.marketingOptIn ?? null : null,
+    tableAssignments,
+    requiresTableAssignment,
+    checkedInAt: 'checkedInAt' in source ? source.checkedInAt ?? null : null,
+    checkedOutAt: 'checkedOutAt' in source ? source.checkedOutAt ?? null : null,
+  } satisfies OpsTodayBooking;
+}
+
+function normalizeBookingSource(source: BookingSource, fallbackTimezone: string) {
+  const timezone = (source as OpsBookingListItem).restaurantTimezone ?? source.restaurantTimezone ?? fallbackTimezone;
+  const booking = normalizeBooking(source, timezone ?? fallbackTimezone);
+  const restaurantId = (source as OpsBookingListItem).restaurantId ?? source.restaurantId ?? null;
+  const startIso = source.startIso ?? null;
+
+  return { booking, restaurantId, timezone: timezone ?? fallbackTimezone, startIso };
+}
 
 type BookingDetailsDialogWrapperProps = {
   bookingId: string | null;
@@ -25,55 +85,26 @@ export function BookingDetailsDialogWrapper({
   onOpenChange,
 }: BookingDetailsDialogWrapperProps) {
   const { data: fetchedBooking } = useOpsBooking(open ? bookingId : null);
-  
-  const booking = useMemo(() => {
-    // Prefer fetched details, fallback to initialData (mapped to OpsTodayBooking shape roughly)
-    if (fetchedBooking) return fetchedBooking as unknown as OpsTodayBooking;
-    if (initialData) {
-            // Minimal mapping for initial render
-            return {
-                id: initialData.id,
-                status: initialData.status as OpsTodayBooking['status'],
-                partySize: initialData.partySize,
-                customerName: initialData.customerName ?? '',
-                customerEmail: initialData.customerEmail ?? null,
-                customerPhone: initialData.customerPhone ?? null,
-                notes: initialData.notes ?? null,
-                // These fields are only available in the fetched (full) booking.
-                // Initialize to null/empty as per OpsTodayBooking structure.
-                startTime: null, 
-                endTime: null,
-                reference: null,
-                details: null,
-                source: null,
-                loyaltyTier: null,
-                loyaltyPoints: null,
-                profileNotes: null,
-                allergies: null,
-                dietaryRestrictions: null,
-                seatingPreference: null,
-                marketingOptIn: null,
-                tableAssignments: [],
-                requiresTableAssignment: false,
-                checkedInAt: null,
-                checkedOutAt: null,
-            } as OpsTodayBooking;    }
-    return null;
-  }, [fetchedBooking, initialData]);
+  const bookingSource = fetchedBooking ?? initialData ?? null;
+  const normalized = useMemo(() => {
+    if (!bookingSource) return null;
+    const fallbackTz = initialData?.restaurantTimezone ?? 'UTC';
+    return normalizeBookingSource(bookingSource, fallbackTz);
+  }, [bookingSource, initialData?.restaurantTimezone]);
 
-  const restaurantId = booking?.details?.restaurantId as string ?? initialData?.restaurantId ?? null;
-  const timezone = initialData?.restaurantTimezone ?? 'UTC';
-  const startIso = initialData?.startIso ?? fetchedBooking?.startIso ?? null;
-  
+  const booking = normalized?.booking ?? null;
+  const restaurantId = normalized?.restaurantId ?? null;
+  const timezone = normalized?.timezone ?? 'UTC';
+  const startIso = normalized?.startIso ?? null;
+
   const summary = useMemo<OpsTodayBookingsSummary | null>(() => {
     if (!booking || !restaurantId) return null;
-    
-    // Derive date from startIso or current date if missing
-    let date = new Date().toISOString().split('T')[0];
-    
-    if (startIso) {
-        date = DateTime.fromISO(startIso, { zone: timezone }).toISODate() ?? date;
-    }
+
+    const derivedDate = startIso
+      ? DateTime.fromISO(startIso, { zone: timezone }).toISODate()
+      : null;
+
+    const date = derivedDate ?? getTodayInTimezone(timezone);
 
     return {
       date,
@@ -89,13 +120,18 @@ export function BookingDetailsDialogWrapper({
         upcoming: 0,
         covers: 0,
       },
-      bookings: [], // Not needed for the dialog itself
+      bookings: [],
     };
-  }, [booking, restaurantId, timezone, startIso]);
+  }, [booking, restaurantId, startIso, timezone]);
 
   const { checkIn, checkOut, markNoShow, undoNoShow } = useOpsBookingLifecycleActions();
   const assignmentDate = summary?.date ?? null;
   const tableAssignmentActions = useOpsTableAssignmentActions({ restaurantId, date: assignmentDate });
+  const allowTableAssignments = useMemo(() => {
+    if (!summary) return false;
+    const today = getTodayInTimezone(summary.timezone);
+    return summary.date >= today;
+  }, [summary]);
 
   // Lifecycle handlers
   const handleCheckIn = async () => {
@@ -127,19 +163,6 @@ export function BookingDetailsDialogWrapper({
       targetDate: null,
       reason: reason ?? null,
     });
-  };
-
-  // Table assignment handlers
-  const handleAssignTable = async (tableId: string) => {
-    if (!bookingId) throw new Error('No booking ID');
-    const result = await tableAssignmentActions.assignTable.mutateAsync({ bookingId, tableId });
-    return result.tableAssignments;
-  };
-
-  const handleUnassignTable = async (tableId: string) => {
-    if (!bookingId) throw new Error('No booking ID');
-    const result = await tableAssignmentActions.unassignTable.mutateAsync({ bookingId, tableId });
-    return result.tableAssignments;
   };
 
   const tableActionState = useMemo(() => {
@@ -175,52 +198,23 @@ export function BookingDetailsDialogWrapper({
   }, [checkIn.isPending, checkIn.variables, checkOut.isPending, checkOut.variables, markNoShow.isPending, markNoShow.variables, undoNoShow.isPending, undoNoShow.variables, bookingId]);
 
   if (!open) return null;
-
-  // If we have basic data, we can render. 
-  // But ideally we wait for fetch to complete for full "Details". 
-  // However, BookingDetailsDialog handles loading states gracefully? 
-  // Actually it assumes data is present.
-  // We can show a loader or render what we have.
-  
-  // Since `useOpsBooking` is enabled only when `open` is true, it starts fetching on open.
-  // We can conditionally render or pass loading state if the dialog supports it.
-  // The dialog doesn't seem to have a loading prop for the whole content.
-  // But we can rely on `fetchedBooking` being null initially.
-  
   if (!booking || !summary) return null;
-
-  // We need to make sure `BookingDetailsDialog` is actually open.
-  // It uses an internal `isOpen` state if used as a trigger, but here we are wrapping it.
-  // Wait, `BookingDetailsDialog` in `components/features/dashboard/BookingDetailsDialog.tsx`
-  // has `DialogTrigger` and internal `isOpen` state.
-  
-  // This is a problem. `BookingDetailsDialog` is designed to be a button that opens a dialog.
-  // I want to control it externally from `OpsBookingsClient`.
-  
-  // I need to modify `BookingDetailsDialog` to accept `open` and `onOpenChange` props to control it controlled-ly.
-  // OR I render it such that it's always "open" when this wrapper is rendered?
-  // No, `Dialog` component inside `BookingDetailsDialog` handles the visibility.
-  
-  // Let's check `BookingDetailsDialog.tsx` again.
-  // It has: `const [isOpen, setIsOpen] = useState(false);`
-  // And `<Dialog open={isOpen} onOpenChange={setIsOpen}>`
-  
-  // I cannot easily control it from outside without modifying it.
-  // I should modify `BookingDetailsDialog.tsx` to accept `open` and `onOpenChange` as optional props (controlled mode).
-  
   return (
     <BookingDetailsDialog
       booking={booking}
       summary={summary}
-      allowTableAssignments={true} // Always allow for ops view? Or check date?
       onCheckIn={handleCheckIn}
       onCheckOut={handleCheckOut}
       onMarkNoShow={handleMarkNoShow}
       onUndoNoShow={handleUndoNoShow}
       pendingLifecycleAction={pendingLifecycleAction}
-      onAssignTable={handleAssignTable}
-      onUnassignTable={handleUnassignTable}
+      onUnassignTable={async (tableId) => {
+        if (!bookingId) throw new Error('No booking ID');
+        const result = await tableAssignmentActions.unassignTable.mutateAsync({ bookingId, tableId });
+        return result.tableAssignments;
+      }}
       tableActionState={tableActionState}
+      allowTableAssignments={allowTableAssignments}
       // Pass controlled props
       open={open}
       onOpenChange={onOpenChange}

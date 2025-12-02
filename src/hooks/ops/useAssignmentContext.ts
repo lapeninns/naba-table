@@ -1,21 +1,11 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { queryKeys } from "@/lib/query/keys";
+
 import { useBookingService } from "@/contexts/ops-services";
+import { queryKeys } from "@/lib/query/keys";
 
-import type { ManualAssignmentTable, ManualAssignmentConflict, ManualAssignmentContextHold } from "@/services/ops/bookings";
-
-// Simplified context type based on the new API endpoint's response
-export interface AssignmentContext {
-    booking: { id: string; status: string; party_size: number; };
-    tables: ManualAssignmentTable[];
-    conflicts: ManualAssignmentConflict[];
-    holds: ManualAssignmentContextHold[];
-    bookingAssignments: string[];
-    window: { startAt: string; endAt: string; };
-    serverNow: string;
-}
+import type { AssignmentContext } from "@/services/ops/bookings";
 
 type UseAssignmentContextOptions = {
     bookingId: string;
@@ -31,15 +21,7 @@ export function useAssignmentContext({ bookingId, enabled = true }: UseAssignmen
 
     const query = useQuery<AssignmentContext, Error>({
         queryKey: queryKeys.opsBookings.assignmentContext(bookingId),
-        queryFn: async () => {
-            // This method needs to be added to the booking service
-            const response = await fetch(`/api/ops/bookings/${bookingId}/assignment-context`);
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || "Failed to fetch assignment context");
-            }
-            return response.json();
-        },
+        queryFn: async () => bookingService.getAssignmentContext(bookingId),
         enabled: enabled && !!bookingId,
         staleTime: 60 * 1000, // 1 minute
         refetchOnWindowFocus: true,

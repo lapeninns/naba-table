@@ -45,9 +45,11 @@ export type BookingsTableProps = {
     onMarkNoShow: (booking: BookingDTO, options?: { performedAt?: string | null; reason?: string | null }) => Promise<void>;
     onUndoNoShow: (booking: BookingDTO, reason?: string | null) => Promise<void>;
   };
+  showHeaderTitle?: boolean;
 };
 
 const DEFAULT_STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
+  { value: 'recent', label: 'Recent' },
   { value: 'upcoming', label: 'Upcoming' },
   { value: 'all', label: 'All' },
   { value: 'past', label: 'Past' },
@@ -76,6 +78,7 @@ export function BookingsTable({
   variant = 'guest',
   statusOptions,
   opsLifecycle,
+  showHeaderTitle = true,
 }: BookingsTableProps) {
   const showSkeleton = isLoading;
   const showEmpty = !isLoading && !error && bookings.length === 0;
@@ -157,8 +160,12 @@ export function BookingsTable({
     : undefined;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <BookingsHeader
+        title={isOpsVariant ? 'Booking queue' : 'Bookings'}
+        subtitle={isOpsVariant ? 'Search, filter, and paginate without losing your place.' : undefined}
+        total={total}
+        showTitle={showHeaderTitle}
         statusFilter={statusFilter}
         onStatusFilterChange={onStatusFilterChange}
         statusOptions={statusOptions ?? DEFAULT_STATUS_OPTIONS}
@@ -195,83 +202,118 @@ export function BookingsTable({
         </div>
 
         <div className="hidden md:block">
-          <div className="overflow-x-auto rounded-xl border border-border bg-card">
-            <table className="min-w-full divide-y divide-border" role="grid">
+          <div className="overflow-x-auto rounded-xl border border-border bg-card/80 shadow-sm">
+            <table className="min-w-full divide-y divide-border text-sm" role="grid">
               <thead className="bg-muted">
                 <tr>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Date
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Time
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Party
-                  </th>
                   {isOpsVariant ? (
                     <>
-                      <th
-                        scope="col"
-                        className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-                      >
-                        Customer
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Booking
                       </th>
-                      <th
-                        scope="col"
-                        className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-                      >
-                        Notes
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Guest & contact
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Seating
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Notes & flags
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Status
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Actions
                       </th>
                     </>
                   ) : (
-                    <th
-                      scope="col"
-                      className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-                    >
-                      Restaurant
-                    </th>
+                    <>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Date
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Time
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Party
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Restaurant
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Status
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Actions
+                      </th>
+                    </>
                   )}
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Status
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Actions
-                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/70">
                 {showSkeleton
                   ? skeletonRows.map((row) => (
                       <tr key={`skeleton-${row}`}>
-                        <td className="px-4 py-4">
-                          <Skeleton className="h-4 w-24" />
-                        </td>
-                        <td className="px-4 py-4">
-                          <Skeleton className="h-4 w-16" />
-                        </td>
-                        <td className="px-4 py-4">
-                          <Skeleton className="h-4 w-12" />
-                        </td>
                         {isOpsVariant ? (
                           <>
+                            <td className="px-4 py-4">
+                              <Skeleton className="h-4 w-28" />
+                              <div className="mt-2 flex gap-2">
+                                <Skeleton className="h-4 w-16" />
+                                <Skeleton className="h-4 w-12" />
+                              </div>
+                            </td>
+                            <td className="px-4 py-4">
+                              <Skeleton className="h-4 w-40" />
+                              <div className="mt-2 space-y-1">
+                                <Skeleton className="h-3 w-36" />
+                                <Skeleton className="h-3 w-28" />
+                              </div>
+                            </td>
+                            <td className="px-4 py-4">
+                              <Skeleton className="h-4 w-16" />
+                              <div className="mt-2 space-y-1">
+                                <Skeleton className="h-3 w-20" />
+                                <Skeleton className="h-3 w-14" />
+                              </div>
+                            </td>
+                            <td className="px-4 py-4">
+                              <Skeleton className="h-4 w-48" />
+                              <div className="mt-2 flex gap-2">
+                                <Skeleton className="h-4 w-16" />
+                                <Skeleton className="h-4 w-12" />
+                              </div>
+                            </td>
+                            <td className="px-4 py-4">
+                              <Skeleton className="h-5 w-24" />
+                            </td>
+                            <td className="px-4 py-4 text-right">
+                              <Skeleton className="ml-auto h-8 w-32" />
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td className="px-4 py-4">
+                              <Skeleton className="h-4 w-24" />
+                            </td>
+                            <td className="px-4 py-4">
+                              <Skeleton className="h-4 w-16" />
+                            </td>
+                            <td className="px-4 py-4">
+                              <Skeleton className="h-4 w-12" />
+                            </td>
                             <td className="px-4 py-4">
                               <Skeleton className="h-4 w-40" />
                             </td>
                             <td className="px-4 py-4">
-                              <Skeleton className="h-4 w-56" />
+                              <Skeleton className="h-5 w-28" />
+                            </td>
+                            <td className="px-4 py-4 text-right">
+                              <Skeleton className="ml-auto h-9 w-24" />
                             </td>
                           </>
-                        ) : (
-                          <td className="px-4 py-4">
-                            <Skeleton className="h-4 w-40" />
-                          </td>
                         )}
-                        <td className="px-4 py-4">
-                          <Skeleton className="h-5 w-28" />
-                        </td>
-                        <td className="px-4 py-4 text-right">
-                          <Skeleton className="ml-auto h-9 w-24" />
-                        </td>
                       </tr>
                     ))
                   : bookings.map((booking) => (
