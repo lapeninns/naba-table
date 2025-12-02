@@ -165,6 +165,7 @@ export async function POST(req: NextRequest) {
         email,
         options: {
           redirectTo: emailRedirectTo,
+          redirect_to: emailRedirectTo,
           code_challenge: challenge,
           code_challenge_method: "s256",
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
