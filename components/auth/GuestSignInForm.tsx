@@ -15,6 +15,7 @@ import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
 import { HttpError } from '@/lib/http/errors';
 import { fetchJson } from '@/lib/http/fetchJson';
+import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { cn } from '@/lib/utils';
 
 const formSchema = z.object({
@@ -65,6 +66,62 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
   const statusRef = useRef<HTMLParagraphElement | null>(null);
 
   const targetPath = redirectedFrom && redirectedFrom.startsWith('/') ? redirectedFrom : '/guest/dashboard';
+
+  // Handle implicit flow: detect access_token in URL hash and set session
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash || !hash.includes('access_token')) return;
+
+    const handleImplicitAuth = async () => {
+      try {
+        const supabase = getSupabaseBrowserClient();
+        
+        // Parse hash parameters
+        const params = new URLSearchParams(hash.substring(1));
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
+
+        if (!accessToken || !refreshToken) {
+          console.error('[GuestSignInForm] Missing tokens in hash');
+          return;
+        }
+
+        // Set the session manually
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+
+        if (error) {
+          console.error('[GuestSignInForm] Failed to set session:', error);
+          setStatus({
+            message: 'Failed to complete sign in. Please try again.',
+            tone: 'error',
+            live: 'assertive',
+          });
+          return;
+        }
+
+        // Clear the hash from the URL
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+
+        track('auth_guest_signin_viewed', { redirectedFrom: targetPath });
+
+        // Redirect to target
+        router.push(targetPath);
+        router.refresh();
+      } catch (err) {
+        console.error('[GuestSignInForm] Implicit auth error:', err);
+        setStatus({
+          message: 'Something went wrong during sign in. Please try again.',
+          tone: 'error',
+          live: 'assertive',
+        });
+      }
+    };
+
+    void handleImplicitAuth();
+  }, [router, targetPath]);
 
   useEffect(() => {
     track('auth_guest_signin_viewed', { redirectedFrom: targetPath });
