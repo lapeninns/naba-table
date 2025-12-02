@@ -13,6 +13,7 @@ function assertEnv(name: string, value: Optional<string>): string {
 
 export const clientEnv = {
   nodeEnv: process.env.NODE_ENV ?? "development",
+  rootDomain: process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "nabatable.com",
   supabase: {
     url: assertEnv("NEXT_PUBLIC_SUPABASE_URL", process.env.NEXT_PUBLIC_SUPABASE_URL),
     anonKey: assertEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
