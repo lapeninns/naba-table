@@ -2,9 +2,59 @@ import { NextResponse } from "next/server";
 
 import config from "@/config";
 import { defaultRedirectForHost, parseHostname, sanitizeRedirect, toAbsoluteRedirectTarget } from "@/lib/auth/redirects";
-import { getRouteHandlerSupabaseClient } from "@/server/supabase";
+import { normalizeEmail } from "@/server/customers";
+import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 
 import type { NextRequest } from "next/server";
+
+/**
+ * Links an auth user to existing customer records that match their email.
+ * This ensures customers who made bookings before signing up can access their booking history.
+ */
+async function linkAuthUserToCustomers(authUserId: string, email: string): Promise<void> {
+  try {
+    const serviceClient = getServiceSupabaseClient();
+    const normalizedEmail = normalizeEmail(email);
+
+    // Find all customer records with this email that don't have an auth_user_id
+    const { data: customers, error: findError } = await serviceClient
+      .from("customers")
+      .select("id")
+      .eq("email_normalized", normalizedEmail)
+      .is("auth_user_id", null);
+
+    if (findError) {
+      console.error("[auth/callback] Failed to find customers for linking:", findError.message);
+      return;
+    }
+
+    if (!customers || customers.length === 0) {
+      console.log("[auth/callback] No unlinked customers found for email:", normalizedEmail);
+      return;
+    }
+
+    // Link all matching customer records to this auth user
+    const customerIds = customers.map((c) => c.id);
+    const { error: updateError } = await serviceClient
+      .from("customers")
+      .update({ auth_user_id: authUserId })
+      .in("id", customerIds);
+
+    if (updateError) {
+      console.error("[auth/callback] Failed to link customers to auth user:", updateError.message);
+      return;
+    }
+
+    console.log("[auth/callback] Successfully linked auth user to customers:", {
+      authUserId,
+      email: normalizedEmail,
+      customerCount: customerIds.length,
+    });
+  } catch (error) {
+    // Don't fail the auth callback if linking fails - it's not critical
+    console.error("[auth/callback] Error linking auth user to customers:", error);
+  }
+}
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +120,11 @@ export async function GET(req: NextRequest) {
         email: data?.user?.email,
         redirectedFrom,
       });
+
+      // Link auth user to existing customer records (for guests who booked before signing up)
+      if (data?.user?.id && data?.user?.email) {
+        await linkAuthUserToCustomers(data.user.id, data.user.email);
+      }
 
       // Verify session was actually set when available (mocked clients may omit getUser)
       const maybeGetUser = (supabase.auth as { getUser?: () => Promise<{ data: { user: unknown } | null; error?: { message?: string } | null }> }).getUser;

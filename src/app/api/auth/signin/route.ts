@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { defaultRedirectForHost, parseHostname, sanitizeRedirect, toAbsoluteRedirectTarget } from "@/lib/auth/redirects";
 import { validatePasswordStrength } from "@/lib/security/passwordPolicy";
+import { sendEmail } from "@/libs/resend";
 import { validateCsrfToken } from "@/server/security/csrf";
 import { consumeRateLimit } from "@/server/security/rate-limit";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
@@ -55,7 +56,9 @@ function buildCallbackUrl(hostname: string, redirectedFrom: string | undefined) 
   }
 
   const protocol = validHostname.includes("localhost") ? "http" : "https";
-  const url = new URL("/api/auth/callback", `${protocol}://${validHostname}`);
+  // For localhost, ensure we include the port (default 3000 for Next.js dev)
+  const hostWithPort = isLocal && !validHostname.includes(":") ? `${validHostname}:3000` : validHostname;
+  const url = new URL("/api/auth/callback", `${protocol}://${hostWithPort}`);
 
   if (redirectedFrom) {
     url.searchParams.set("redirectedFrom", redirectedFrom);
@@ -77,9 +80,39 @@ function setRateHeaders(response: NextResponse, limitResult: Awaited<ReturnType<
   return response;
 }
 
-function isSignupDisabledError(error: { message?: string | null; code?: string | null }) {
-  const message = (error.message ?? "").toLowerCase();
-  return error.code === "signup_disabled" || message.includes("signups not allowed for otp");
+function buildMagicLinkEmailHtml(actionLink: string): string {
+  return `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <h1 style="color: #333; font-size: 24px; margin-bottom: 20px;">Sign in to Nab a Table</h1>
+      <p style="color: #666; font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
+        Click the button below to sign in to your account. This link will expire in 1 hour.
+      </p>
+      <a href="${actionLink}" 
+         style="display: inline-block; background-color: #000; color: #fff; padding: 12px 24px; 
+                text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: 500;">
+        Sign in to Nab a Table
+      </a>
+      <p style="color: #999; font-size: 14px; margin-top: 30px;">
+        If you didn't request this email, you can safely ignore it.
+      </p>
+      <p style="color: #999; font-size: 12px; margin-top: 20px;">
+        If the button doesn't work, copy and paste this link into your browser:<br>
+        <a href="${actionLink}" style="color: #666; word-break: break-all;">
+          ${actionLink}
+        </a>
+      </p>
+    </div>
+  `;
+}
+
+function buildMagicLinkEmailText(actionLink: string): string {
+  return `Sign in to Nab a Table
+
+Click the link below to sign in to your account. This link will expire in 1 hour.
+
+${actionLink}
+
+If you didn't request this email, you can safely ignore it.`;
 }
 
 export async function POST(req: NextRequest) {
@@ -151,50 +184,74 @@ export async function POST(req: NextRequest) {
     emailRedirectTo,
   });
 
-  const { error } = await supabase.auth.signInWithOtp({
+  // Use admin.generateLink to generate magic link and send via our own email provider (Resend)
+  // This bypasses Supabase's email sending which requires SMTP configuration
+  const serviceSupabase = getServiceSupabaseClient();
+  
+  // Try to create the user. If they already exist, createUser will fail but that's okay.
+  // This is more reliable than trying to check if they exist first.
+  const { error: createError } = await serviceSupabase.auth.admin.createUser({
+    email,
+    email_confirm: false, // Don't auto-confirm, let them click the magic link
+  });
+  
+  // Only log an error if it's not "already registered"
+  if (createError && !createError.message?.includes("already registered")) {
+    console.error("[Auth/signin] Failed to create user:", createError);
+    const response = NextResponse.json(
+      { message: "We couldn't process your sign in request. Please try again." },
+      { status: 500 }
+    );
+    return setRateHeaders(response, rateResult);
+  }
+  
+  if (!createError) {
+    console.log("[Auth/signin] Created new user for:", email);
+  }
+
+  // Generate magic link using admin API
+  const { data: linkData, error: linkError } = await serviceSupabase.auth.admin.generateLink({
+    type: "magiclink",
     email,
     options: {
-      emailRedirectTo,
-      shouldCreateUser: false,
+      redirectTo: emailRedirectTo,
     },
   });
 
-  if (error) {
-    if (isSignupDisabledError(error)) {
-      console.warn("[Auth/signin] signup disabled for otp; retrying with service client", {
-        message: error.message,
-        code: error.code,
-        status: error.status,
-      });
-
-      const serviceSupabase = getServiceSupabaseClient();
-      const { error: serviceError } = await serviceSupabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo,
-          shouldCreateUser: false,
-        },
-      });
-
-      if (!serviceError) {
-        const response = NextResponse.json({ status: "magic_link_sent", redirectTo: absoluteRedirect }, { status: 202 });
-        return setRateHeaders(response, rateResult);
-      }
-
-      const fallbackStatus = serviceError.status ?? 400;
-      const fallbackMessage =
-        serviceError.code === "user_not_found"
-          ? "No account found for that email. Please sign up instead."
-          : serviceError.message ?? "We couldn’t send a magic link right now. Please try again shortly.";
-
-      const response = NextResponse.json({ message: fallbackMessage }, { status: fallbackStatus });
-      return setRateHeaders(response, rateResult);
-    }
-
-    const status = error.status ?? 400;
+  if (linkError) {
+    console.error("[Auth/signin] Failed to generate magic link:", linkError);
     const response = NextResponse.json(
-      { message: error.message ?? "We couldn’t send a magic link right now. Please try again shortly." },
-      { status },
+      { message: linkError.message ?? "We couldn't send a magic link right now. Please try again shortly." },
+      { status: linkError.status ?? 500 }
+    );
+    return setRateHeaders(response, rateResult);
+  }
+
+  if (!linkData?.properties?.action_link) {
+    console.error("[Auth/signin] No action link in response");
+    const response = NextResponse.json(
+      { message: "We couldn't generate a magic link. Please try again shortly." },
+      { status: 500 }
+    );
+    return setRateHeaders(response, rateResult);
+  }
+
+  // Send the magic link email via Resend
+  try {
+    await sendEmail({
+      to: email,
+      subject: "Sign in to Nab a Table",
+      fromName: "Nab a Table",
+      html: buildMagicLinkEmailHtml(linkData.properties.action_link),
+      text: buildMagicLinkEmailText(linkData.properties.action_link),
+    });
+
+    console.log("[Auth/signin] Magic link email sent successfully to:", email);
+  } catch (emailError) {
+    console.error("[Auth/signin] Failed to send magic link email:", emailError);
+    const response = NextResponse.json(
+      { message: "We couldn't send the magic link email. Please try again shortly." },
+      { status: 500 }
     );
     return setRateHeaders(response, rateResult);
   }
