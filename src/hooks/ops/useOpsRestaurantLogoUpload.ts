@@ -3,6 +3,7 @@
 import { useMutation, type UseMutationResult } from '@tanstack/react-query';
 
 import { fetchJson } from '@/lib/http/fetchJson';
+import { OPS_RESTAURANTS_BASE } from '@/services/ops/restaurants';
 
 import type { HttpError } from '@/lib/http/errors';
 
@@ -23,7 +24,7 @@ export function useOpsRestaurantLogoUpload(
       const formData = new FormData();
       formData.append('file', file);
 
-      return fetchJson<RestaurantLogoUploadResult>(`/api/restaurants/${restaurantId}/logo`, {
+      return fetchJson<RestaurantLogoUploadResult>(`${OPS_RESTAURANTS_BASE}/${restaurantId}/logo`, {
         method: 'POST',
         body: formData,
       });

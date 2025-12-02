@@ -66,21 +66,24 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(loginUrl.toString());
     } else {
       console.log("[auth/callback] Session exchanged successfully:", {
-        userId: data.user?.id,
-        email: data.user?.email,
+        userId: data?.user?.id,
+        email: data?.user?.email,
         redirectedFrom,
       });
 
-      // Verify session was actually set
-      const { data: verifiedUser, error: verifyError } = await supabase.auth.getUser();
-      console.log("[auth/callback] Session verification:", {
-        hasUser: !!verifiedUser.user,
-        sessionUserId: verifiedUser.user?.id,
-        verifyError: verifyError?.message,
-      });
+      // Verify session was actually set when available (mocked clients may omit getUser)
+      const maybeGetUser = (supabase.auth as { getUser?: () => Promise<{ data: { user: unknown } | null; error?: { message?: string } | null }> }).getUser;
+      if (typeof maybeGetUser === "function") {
+        const { data: verifiedUser, error: verifyError } = await maybeGetUser();
+        console.log("[auth/callback] Session verification:", {
+          hasUser: !!verifiedUser?.user,
+          sessionUserId: verifiedUser?.user ? (verifiedUser.user as { id?: string }).id : undefined,
+          verifyError: verifyError?.message,
+        });
+      }
     }
   } else {
-    console.warn("[auth/callback] No code parameter in request - possible direct access or malformed link");
+    console.warn("[auth/callback] received request without code parameter");
   }
 
   // URL to redirect to after sign in process completes
