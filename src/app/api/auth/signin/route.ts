@@ -199,6 +199,7 @@ export async function POST(req: NextRequest) {
         sameSite: "lax",
         path: "/",
         maxAge: 60 * 10, // 10 minutes
+        domain: rootDomain !== "localhost" ? `.${rootDomain}` : undefined,
       });
 
       const resend = new Resend(env.resend.apiKey);
