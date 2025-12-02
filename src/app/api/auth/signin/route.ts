@@ -36,30 +36,50 @@ const RATE_LIMITS = {
   magic_link: { limit: 5, windowMs: 10 * 60 * 1000 },
 } as const;
 
-function buildCallbackUrl(hostname: string, redirectedFrom: string | undefined) {
-  let validHostname = hostname;
+type CallbackUrlOptions = {
+  hostHeader: string;
+  rootDomain: string;
+  absoluteRedirect: string;
+};
 
-  // Ensure hostname is one of our allowed public domains
-  // This prevents issues where the server sees an internal IP (e.g. AWS/Vercel internal IP) as the host
-  const isLocal = hostname.includes("localhost");
-  const isValidDomain = hostname.endsWith("nabatable.com");
+function buildCallbackUrl({ hostHeader, rootDomain, absoluteRedirect }: CallbackUrlOptions) {
+  const defaultProtocol = hostHeader.includes("localhost") || hostHeader.startsWith("127.") ? "http" : "https";
+
+  const resolveBase = () => {
+    if (hostHeader) return `${defaultProtocol}://${hostHeader}`;
+    const normalizedRoot = rootDomain.startsWith("www.") ? rootDomain : `www.${rootDomain}`;
+    return `https://${normalizedRoot}`;
+  };
+
+  let redirectUrl: URL;
+  try {
+    redirectUrl = new URL(absoluteRedirect, resolveBase());
+  } catch {
+    redirectUrl = new URL("/", resolveBase());
+  }
+
+  const redirectHostname = redirectUrl.hostname;
+  const redirectHostWithPort = redirectUrl.host;
+  const redirectProtocol = redirectUrl.protocol && redirectUrl.protocol !== ":" ? redirectUrl.protocol.replace(":", "") : defaultProtocol;
+
+  // Ensure callback host stays within our allowed domain/localhost set
+  const isLocal = redirectHostname.includes("localhost") || redirectHostname.startsWith("127.");
+  const isValidDomain = redirectHostname === rootDomain || redirectHostname.endsWith(`.${rootDomain}`);
+
+  let finalHost = redirectHostWithPort;
+  let finalProtocol = redirectProtocol;
 
   if (!isLocal && !isValidDomain) {
-    console.warn(`[Auth] Invalid hostname '${hostname}' detected. Falling back to 'nabatable.com'`);
-    validHostname = "nabatable.com";
+    console.warn(`[Auth] Invalid hostname '${redirectHostWithPort}' detected for callback. Falling back to '${rootDomain}'`);
+    const normalizedRoot = rootDomain.startsWith("www.") ? rootDomain : `www.${rootDomain}`;
+    finalHost = normalizedRoot;
+    finalProtocol = "https";
   }
 
-  // Normalize to naked domain to match Supabase wildcard (https://nabatable.com/**)
-  if (validHostname.startsWith("www.")) {
-    validHostname = validHostname.replace("www.", "");
-  }
+  const url = new URL("/api/auth/callback", `${finalProtocol}://${finalHost}`);
+  const redirectedFromParam = redirectUrl.toString();
+  url.searchParams.set("redirectedFrom", redirectedFromParam);
 
-  const protocol = validHostname.includes("localhost") ? "http" : "https";
-  const url = new URL("/api/auth/callback", `${protocol}://${validHostname}`);
-
-  if (redirectedFrom) {
-    url.searchParams.set("redirectedFrom", redirectedFrom);
-  }
   return url.toString();
 }
 
@@ -106,6 +126,14 @@ export async function POST(req: NextRequest) {
   const { email, password, mode, redirectedFrom } = validated.data;
   const redirectTarget = sanitizeRedirect(redirectedFrom, rootDomain) ?? defaultRedirectForHost(hostname, rootDomain);
   const absoluteRedirect = toAbsoluteRedirectTarget(redirectTarget, rootDomain);
+  const protocolForHost = hostHeader.includes("localhost") || hostHeader.startsWith("127.") ? "http" : "https";
+  const absoluteRedirectUrl = (() => {
+    try {
+      return new URL(absoluteRedirect);
+    } catch {
+      return new URL(absoluteRedirect, `${protocolForHost}://${hostHeader}`);
+    }
+  })();
 
   const rateResult = await consumeRateLimit({
     identifier: buildRateLimitId(req, email, mode),
@@ -139,13 +167,17 @@ export async function POST(req: NextRequest) {
     return setRateHeaders(response, rateResult);
   }
 
-  const emailRedirectTo = buildCallbackUrl(hostHeader, absoluteRedirect);
+  const emailRedirectTo = buildCallbackUrl({
+    hostHeader,
+    rootDomain,
+    absoluteRedirect: absoluteRedirectUrl.toString(),
+  });
   console.log("[Auth/signin] Magic link details:", {
     hostname,
     hostHeader,
     rootDomain,
     redirectTarget,
-    absoluteRedirect,
+    absoluteRedirect: absoluteRedirectUrl.toString(),
     emailRedirectTo,
   });
 

@@ -7,6 +7,8 @@ const consumeRateLimitMock = vi.fn();
 const signInWithPasswordMock = vi.fn();
 const signInWithOtpMock = vi.fn();
 
+const originalEnv = process.env;
+
 vi.mock("@/server/security/rate-limit", () => ({
   consumeRateLimit: (...args: unknown[]) => consumeRateLimitMock(...args),
 }));
@@ -33,6 +35,7 @@ describe("POST /api/auth/signin", () => {
     consumeRateLimitMock.mockReset();
     signInWithPasswordMock.mockReset();
     signInWithOtpMock.mockReset();
+    process.env = { ...originalEnv };
   });
 
   it("rejects missing CSRF token", async () => {
@@ -98,6 +101,8 @@ describe("POST /api/auth/signin", () => {
 
   it("sends a magic link without creating a new user", async () => {
     const token = "csrf-token";
+    process.env = { ...originalEnv, NEXT_PUBLIC_ROOT_DOMAIN: "localhost" };
+
     const request = new NextRequest("http://localhost:3000/api/auth/signin", {
       method: "POST",
       body: JSON.stringify({
@@ -123,7 +128,40 @@ describe("POST /api/auth/signin", () => {
         email: "newuser@example.com",
         options: expect.objectContaining({
           shouldCreateUser: false,
-          emailRedirectTo: "http://localhost:3000/api/auth/callback?redirectedFrom=%2Fguest%2Fbookings",
+          emailRedirectTo: "http://localhost:3000/api/auth/callback?redirectedFrom=http%3A%2F%2Flocalhost%3A3000%2Fguest%2Fbookings",
+        }),
+      }),
+    );
+  });
+
+  it("aligns callback host with redirect host in production (www vs app)", async () => {
+    const token = "csrf-token";
+    process.env = { ...originalEnv, NEXT_PUBLIC_ROOT_DOMAIN: "nabatable.com" };
+
+    const request = new NextRequest("https://app.nabatable.com/api/auth/signin", {
+      method: "POST",
+      body: JSON.stringify({
+        mode: "magic_link",
+        email: "user@example.com",
+        redirectedFrom: undefined,
+      }),
+      headers: {
+        "content-type": "application/json",
+        "x-csrf-token": token,
+        cookie: `sr-csrf-token=${token}`,
+        host: "app.nabatable.com",
+      },
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(202);
+
+    expect(signInWithOtpMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: "user@example.com",
+        options: expect.objectContaining({
+          emailRedirectTo: "https://www.nabatable.com/api/auth/callback?redirectedFrom=https%3A%2F%2Fwww.nabatable.com%2Fapp%2Fdashboard",
+          shouldCreateUser: false,
         }),
       }),
     );
