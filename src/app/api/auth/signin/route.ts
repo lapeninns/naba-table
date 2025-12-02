@@ -195,8 +195,11 @@ export async function POST(req: NextRequest) {
     email_confirm: false, // Don't auto-confirm, let them click the magic link
   });
   
-  // Only log an error if it's not "already registered"
-  if (createError && !createError.message?.includes("already registered")) {
+  // Only log an error if it's not "email already exists" (code: email_exists)
+  const isEmailExistsError = createError?.code === "email_exists" || 
+    createError?.message?.toLowerCase().includes("already been registered");
+  
+  if (createError && !isEmailExistsError) {
     console.error("[Auth/signin] Failed to create user:", createError);
     const response = NextResponse.json(
       { message: "We couldn't process your sign in request. Please try again." },
