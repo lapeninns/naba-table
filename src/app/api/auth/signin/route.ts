@@ -82,7 +82,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "Invalid or missing CSRF token" }, { status: 403 });
   }
 
+  const rawHost = req.headers.get("host") ?? req.nextUrl.host ?? "";
   const hostname = parseHostname(req);
+  const hostHeader = rawHost.toLowerCase() || hostname;
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost";
 
   let parsedBody: unknown;
@@ -137,9 +139,10 @@ export async function POST(req: NextRequest) {
     return setRateHeaders(response, rateResult);
   }
 
-  const emailRedirectTo = buildCallbackUrl(hostname, absoluteRedirect);
+  const emailRedirectTo = buildCallbackUrl(hostHeader, absoluteRedirect);
   console.log("[Auth/signin] Magic link details:", {
     hostname,
+    hostHeader,
     rootDomain,
     redirectTarget,
     absoluteRedirect,
