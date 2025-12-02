@@ -1,6 +1,9 @@
 import { envSchemas, type Env } from "@/config/env.schema";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
 
+const DEFAULT_RESEND_DOMAIN = "no-reply-notifications.nabatable.com";
+const DEFAULT_RESEND_FROM = `no-reply@${DEFAULT_RESEND_DOMAIN}`;
+
 let cachedEnv: Env | null = null;
 
 function parseEnv(): Env {
@@ -18,6 +21,22 @@ function parseEnv(): Env {
 
   sanitizeUrlEnv('BASE_URL');
   sanitizeUrlEnv('SITE_URL');
+
+  const normalizeResendFrom = () => {
+    const value = process.env.RESEND_FROM;
+    if (!value || value.trim().length === 0) {
+      process.env.RESEND_FROM = DEFAULT_RESEND_FROM;
+      return;
+    }
+
+    const trimmed = value.trim();
+
+    if (!trimmed.includes("@") && trimmed === DEFAULT_RESEND_DOMAIN) {
+      process.env.RESEND_FROM = DEFAULT_RESEND_FROM;
+    }
+  };
+
+  normalizeResendFrom();
 
   if (!process.env.BASE_URL) {
     const fallback = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? getCanonicalSiteUrl();
