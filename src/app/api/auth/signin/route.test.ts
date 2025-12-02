@@ -60,6 +60,7 @@ describe("POST /api/auth/signin", () => {
         "content-type": "application/json",
         "x-csrf-token": token,
         cookie: `sr-csrf-token=${token}`,
+        host: "localhost:3000",
       },
     });
 
@@ -97,7 +98,7 @@ describe("POST /api/auth/signin", () => {
 
   it("sends a magic link without creating a new user", async () => {
     const token = "csrf-token";
-    const request = new NextRequest("http://localhost/api/auth/signin", {
+    const request = new NextRequest("http://localhost:3000/api/auth/signin", {
       method: "POST",
       body: JSON.stringify({
         mode: "magic_link",
@@ -120,7 +121,10 @@ describe("POST /api/auth/signin", () => {
     expect(signInWithOtpMock).toHaveBeenCalledWith(
       expect.objectContaining({
         email: "newuser@example.com",
-        options: expect.objectContaining({ shouldCreateUser: false }),
+        options: expect.objectContaining({
+          shouldCreateUser: false,
+          emailRedirectTo: "http://localhost:3000/api/auth/callback?redirectedFrom=%2Fguest%2Fbookings",
+        }),
       }),
     );
   });

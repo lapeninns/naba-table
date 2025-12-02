@@ -30,7 +30,8 @@ function toAbsoluteRedirect(target: string, rootDomain: string): string {
 }
 
 export function parseHostname(req: NextRequest): string {
-  return (req.headers.get("host") || "").replace(/:3000$/, "").toLowerCase();
+  const host = req.headers.get("host") ?? req.nextUrl.host ?? "";
+  return host.replace(/:3000$/, "").toLowerCase();
 }
 
 export function defaultRedirectForHost(hostname: string, rootDomain: string): string {
