@@ -48,6 +48,7 @@ export type ScheduleAwareTimestampPickerProps = {
   className?: string;
   timeAccordion?: boolean;
   timeScrollArea?: boolean;
+  variant?: 'default' | 'plan';
   children?: React.ReactNode;
 };
 
@@ -211,11 +212,15 @@ export function ScheduleAwareTimestampPicker({
   className,
   timeAccordion = false,
   timeScrollArea = false,
+  variant = 'default',
   children,
 }: ScheduleAwareTimestampPickerProps) {
   const timeRegionLabelId = useId();
   const timeAccordionHeadingId = useId();
   const timeAccordionSummaryId = useId();
+  const isPlanVariant = variant === 'plan';
+  const shouldUseAccordion = isPlanVariant ? true : timeAccordion;
+  const shouldUseScrollArea = shouldUseAccordion ? false : timeScrollArea;
   const queryClient = useQueryClient();
 
   const [scheduleStateByDate, setScheduleStateByDate] = useState<Map<string, ScheduleRecord>>(() => new Map());
@@ -271,6 +276,7 @@ export function ScheduleAwareTimestampPicker({
   useEffect(() => {
     scheduleStateRef.current = scheduleStateByDate;
   }, [scheduleStateByDate]);
+
 
   const applyCalendarMask = useCallback(
     (mask: CalendarMask) => {
@@ -730,7 +736,24 @@ export function ScheduleAwareTimestampPicker({
 
   const showTimeGrid = activeDateLoaded && visibleSlots.length > 0;
 
+  const planSummary = useMemo(() => {
+    if (selectedSlotDescriptor) {
+      return `Time: ${selectedSlotDescriptor.display}`;
+    }
+    if (selectedTime) {
+      return `Time: ${selectedTime}`;
+    }
+    if (isTimeDisabled) {
+      return resolvedUnavailableMessage ?? 'Time not available';
+    }
+    return 'Time not selected';
+  }, [isTimeDisabled, resolvedUnavailableMessage, selectedSlotDescriptor, selectedTime]);
+
   const accordionSummary = useMemo(() => {
+    if (isPlanVariant) {
+      return planSummary;
+    }
+
     if (isLoading) {
       return 'Finding available times…';
     }
@@ -749,7 +772,15 @@ export function ScheduleAwareTimestampPicker({
     }
 
     return countCopy;
-  }, [availableCount, isLoading, isTimeDisabled, resolvedUnavailableMessage, selectedSlotDescriptor]);
+  }, [
+    availableCount,
+    isLoading,
+    isPlanVariant,
+    isTimeDisabled,
+    planSummary,
+    resolvedUnavailableMessage,
+    selectedSlotDescriptor,
+  ]);
 
   const latestStartMinutes = useMemo(
     () => getLatestStartMinutes(currentSchedule),
@@ -879,27 +910,25 @@ export function ScheduleAwareTimestampPicker({
           </div>
         </div>
       </div>
-      {timeAccordion ? (
+      {shouldUseAccordion ? (
         <Accordion
           type="single"
           collapsible
           className="overflow-hidden rounded-xl border border-border bg-muted/30 text-card-foreground"
-          defaultValue={isTimeDisabled ? undefined : 'times'}
         >
           <AccordionItem value="times">
             <AccordionTrigger className="flex flex-col items-start gap-1 text-left">
               <span id={timeAccordionHeadingId} className="text-base font-semibold text-foreground">
-                Available times
+                {isPlanVariant ? 'Time options' : 'Available times'}
               </span>
-              <span
-                id={timeAccordionSummaryId}
-                className="text-sm font-normal text-muted-foreground"
-              >
-                {accordionSummary}
-              </span>
+            <span
+              id={timeAccordionSummaryId}
+              className="text-sm font-normal text-muted-foreground"
+            >
+              {accordionSummary}
+            </span>
             </AccordionTrigger>
             <AccordionContent
-              forceMount
               className="pt-4"
               aria-labelledby={`${timeAccordionHeadingId} ${timeAccordionSummaryId}`}
             >
@@ -908,7 +937,7 @@ export function ScheduleAwareTimestampPicker({
           </AccordionItem>
         </Accordion>
       ) : (
-        timeScrollArea ? (
+        shouldUseScrollArea ? (
           <div
             className="max-h-72 space-y-4 overflow-y-auto pr-1 sm:max-h-80 sm:pr-2"
             role="region"

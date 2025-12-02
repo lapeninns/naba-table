@@ -2,7 +2,7 @@
 
 import { AlertCircle } from 'lucide-react';
 import React, { useCallback, useMemo } from 'react';
-import { useController, useWatch } from 'react-hook-form';
+import { useController } from 'react-hook-form';
 
 import { formatDateForInput } from '@reserve/shared/formatting/booking';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@shared/ui/accordion';
@@ -13,7 +13,6 @@ import {
   Calendar24Date,
   Calendar24Time,
   NotesField,
-  OccasionPicker,
   PartySizeField,
   TimeSlotGrid,
 } from './components';
@@ -38,29 +37,6 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
     field: timeField,
     fieldState: { error: timeFieldError },
   } = useController({ name: 'time', control });
-  const bookingTypeValue = useWatch({ name: 'bookingType', control });
-  const notesValue = useWatch({ name: 'notes', control });
-
-  const occasionOptions = React.useMemo(
-    () =>
-      state.occasionCatalog.map((definition) => ({
-        key: definition.key,
-        label: definition.shortLabel ?? definition.label,
-        description: definition.description ?? null,
-      })),
-    [state.occasionCatalog],
-  );
-
-  const selectedOccasionLabel = React.useMemo(() => {
-    const match = occasionOptions.find((option) => option.key === bookingTypeValue);
-    if (match) {
-      return match.label;
-    }
-    if (bookingTypeValue) {
-      return bookingTypeValue.replace(/\b\w/g, (char) => char.toUpperCase());
-    }
-    return undefined;
-  }, [bookingTypeValue, occasionOptions]);
 
   const isDateUnavailable = useCallback(
     (day: Date) => {
@@ -90,29 +66,10 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
 
   const accordionSummary = useMemo(() => {
     const selectedSlot = state.slots.find((slot) => slot.value === timeField.value);
-    const timeSummary = timeField.value
+    return timeField.value
       ? `Time: ${selectedSlot?.display ?? timeField.value}`
       : 'Time not selected';
-
-    const label = selectedOccasionLabel;
-    const hasNotes = Boolean(notesValue?.trim()?.length);
-
-    const parts = [timeSummary];
-
-    if (label) {
-      parts.push(`Occasion: ${label}`);
-    }
-
-    if (hasNotes) {
-      parts.push('Notes added');
-    }
-
-    if (!label && !hasNotes) {
-      parts.push('Occasion or notes optional');
-    }
-
-    return parts.join(' • ');
-  }, [notesValue, selectedOccasionLabel, state.slots, timeField.value]);
+  }, [state.slots, timeField.value]);
 
   return (
     <form
@@ -196,9 +153,7 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
         <AccordionItem value="details">
           <AccordionTrigger>
             <span className="flex flex-col text-left">
-              <span className="text-base font-semibold text-foreground">
-                Time, occasion & notes
-              </span>
+              <span className="text-base font-semibold text-foreground">Time options</span>
               <span className="text-sm font-normal text-muted-foreground">{accordionSummary}</span>
             </span>
           </AccordionTrigger>
@@ -213,42 +168,28 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
                   timeField.onBlur?.();
                 }}
               />
-              <FormField
-                control={control}
-                name="bookingType"
-                render={({ field }) => (
-                  <OccasionPicker
-                    value={field.value}
-                    options={occasionOptions}
-                    onChange={state.handlers.changeOccasion}
-                    availability={state.availability}
-                    availableOptions={state.availableBookingOptions}
-                    error={formState.errors.bookingType?.message}
-                  />
-                )}
-              />
-
-              <FormField
-                control={control}
-                name="notes"
-                render={({ field }) => (
-                  <NotesField
-                    value={field.value ?? ''}
-                    onChange={(next) => {
-                      field.onChange(next);
-                    }}
-                    onBlur={(next) => {
-                      field.onBlur();
-                      state.handlers.commitNotes(next);
-                    }}
-                    error={formState.errors.notes?.message}
-                  />
-                )}
-              />
             </div>
           </AccordionContent>
         </AccordionItem>
       </Accordion>
+
+      <FormField
+        control={control}
+        name="notes"
+        render={({ field }) => (
+          <NotesField
+            value={field.value ?? ''}
+            onChange={(next) => {
+              field.onChange(next);
+            }}
+            onBlur={(next) => {
+              field.onBlur();
+              state.handlers.commitNotes(next);
+            }}
+            error={formState.errors.notes?.message}
+          />
+        )}
+      />
     </form>
   );
 }

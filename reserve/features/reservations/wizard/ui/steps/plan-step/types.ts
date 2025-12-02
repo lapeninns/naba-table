@@ -3,12 +3,9 @@ import type { PlanFormValues } from '../../../model/schemas';
 import type { WizardActions } from '../../../model/store';
 import type {
   ReservationSchedule,
-  ServiceAvailability,
   TimeSlotDescriptor,
 } from '@reserve/features/reservations/wizard/services';
 import type { CalendarMask } from '@reserve/features/reservations/wizard/services/schedule';
-import type { BookingOption } from '@reserve/shared/booking';
-import type { OccasionDefinition } from '@reserve/shared/occasions';
 import type { AnalyticsEvent } from '@shared/lib/analytics';
 import type { UseFormReturn } from 'react-hook-form';
 
@@ -28,7 +25,6 @@ export type PlanStepFormHandlers = {
   selectDate: (value: Date | undefined | null) => void;
   selectTime: (value: string, options?: { commit?: boolean }) => void;
   changeParty: (direction: 'decrement' | 'increment') => void;
-  changeOccasion: (value: BookingOption) => void;
   commitNotes: (value: string) => void;
   prefetchMonth: (month: Date) => void;
 };
@@ -38,9 +34,6 @@ export type PlanStepUnavailableReason = 'closed' | 'no-slots' | 'unknown';
 export type PlanStepFormState = {
   form: UseFormReturn<PlanFormValues>;
   slots: TimeSlotDescriptor[];
-  availability: ServiceAvailability;
-  availableBookingOptions: BookingOption[];
-  occasionCatalog: OccasionDefinition[];
   handlers: PlanStepFormHandlers;
   minDate: Date;
   intervalMinutes: number | null;

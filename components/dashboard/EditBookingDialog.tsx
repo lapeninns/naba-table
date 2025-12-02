@@ -454,12 +454,12 @@ export function EditBookingDialog({
                       }}
                       onDateChange={handleDateChange}
                       onBlur={field.onBlur}
-                      label="Start time"
-                      description={`Pick a future time (${effectiveRestaurantTimezone ?? 'local time'}).`}
+                      label="Plan your visit"
+                      description="Choose a date, time, and party size. We’ll show available options."
                       errorMessage={fieldState.error?.message ?? null}
                       disabled={isSaving || missingScheduleMetadata}
                       minDate={fallbackMinDate}
-                      timeScrollArea
+                      variant="plan"
                     >
                       <FormField
                         control={control}
