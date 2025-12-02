@@ -838,52 +838,44 @@ export function ScheduleAwareTimestampPicker({
       <div className="space-y-3">
         {label ? <span className="text-xs font-semibold uppercase text-muted-foreground">{label}</span> : null}
         {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
-        <div className="flex flex-col gap-4 sm:flex-row sm:gap-3">
-          <div className="flex-1">
-            <Calendar24Date
-              date={{
-                value: activeDate,
-                minDate: fallbackMinDate,
-                onSelect: handleDateSelect,
-                onBlur,
-                error: errorMessage ?? undefined,
-              }}
-              onMonthChange={handleMonthPrefetch}
-              isDateUnavailable={isDateDisabled}
-              loadingDates={loadingDates}
-            />
-          </div>
 
-          {children && (
-            <>
-              <div
-                className="hidden sm:block sm:w-px sm:bg-border sm:self-stretch sm:my-8"
-                aria-hidden="true"
+        <div className="overflow-hidden rounded-2xl border border-border/70 bg-background/70 shadow-sm">
+          <div className="grid gap-px bg-border/40 md:grid-cols-3">
+            <div className="bg-card p-4">
+              <Calendar24Date
+                date={{
+                  value: activeDate,
+                  minDate: fallbackMinDate,
+                  onSelect: handleDateSelect,
+                  onBlur,
+                  error: errorMessage ?? undefined,
+                }}
+                onMonthChange={handleMonthPrefetch}
+                isDateUnavailable={isDateDisabled}
+                loadingDates={loadingDates}
               />
-              <div className="flex-1">
+            </div>
+
+            {children ? (
+              <div className="bg-card p-4">
                 {children}
               </div>
-            </>
-          )}
+            ) : null}
 
-          <div
-            className="hidden sm:block sm:w-px sm:bg-border sm:self-stretch sm:my-8"
-            aria-hidden="true"
-          />
-
-          <div className="flex-1">
-            <Calendar24Time
-              time={{
-                value: draftTime,
-                onChange: handleTimeChange,
-                onBlur,
-                error: resolvedTimeErrorMessage,
-              }}
-              suggestions={availableSlots}
-              intervalMinutes={intervalMinutes}
-              isTimeDisabled={isTimeDisabled}
-              unavailableMessage={resolvedUnavailableMessage}
-            />
+            <div className="bg-card p-4">
+              <Calendar24Time
+                time={{
+                  value: draftTime,
+                  onChange: handleTimeChange,
+                  onBlur,
+                  error: resolvedTimeErrorMessage,
+                }}
+                suggestions={availableSlots}
+                intervalMinutes={intervalMinutes}
+                isTimeDisabled={isTimeDisabled}
+                unavailableMessage={resolvedUnavailableMessage}
+              />
+            </div>
           </div>
         </div>
       </div>

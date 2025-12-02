@@ -241,7 +241,7 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
       seatingPreference: booking.seatingPreference ?? null,
       allergies: booking.allergies ?? null,
       dietaryRestrictions: booking.dietaryRestrictions ?? null,
-      tableAssignments: booking.tableAssignments ?? null,
+      tableAssignments: booking.tableAssignments ?? undefined,
       requiresTableAssignment: booking.requiresTableAssignment ?? undefined,
       checkedInAt: booking.checkedInAt ?? null,
       checkedOutAt: booking.checkedOutAt ?? null,
