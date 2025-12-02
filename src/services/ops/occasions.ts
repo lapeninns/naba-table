@@ -2,6 +2,8 @@ import { fetchJson } from '@/lib/http/fetchJson';
 
 import type { OccasionDefinition } from '@reserve/shared/occasions';
 
+const OPS_OCCASIONS_BASE = '/api/ops/occasions';
+
 export type OpsOccasion = OccasionDefinition & {
   isBuiltin?: boolean;
   deletedAt?: string | null;
@@ -44,28 +46,30 @@ export type OccasionServiceFactory = () => OccasionService;
 
 class DefaultOccasionService implements OccasionService {
   async listOccasions(): Promise<OpsOccasion[]> {
-    const response = await fetchJson<OccasionListResponse>('/api/occasions');
+    const response = await fetchJson<OccasionListResponse>(OPS_OCCASIONS_BASE);
     return response.occasions;
   }
 
   async createOccasion(input: CreateOccasionInput): Promise<OpsOccasion> {
-    const response = await fetchJson<OccasionResponse>('/api/occasions', {
+    const response = await fetchJson<OccasionResponse>(OPS_OCCASIONS_BASE, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(input),
     });
     return response.occasion;
   }
 
   async updateOccasion(key: string, input: UpdateOccasionInput): Promise<OpsOccasion> {
-    const response = await fetchJson<OccasionResponse>(`/api/occasions/${encodeURIComponent(key)}`, {
+    const response = await fetchJson<OccasionResponse>(`${OPS_OCCASIONS_BASE}/${encodeURIComponent(key)}`, {
       method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(input),
     });
     return response.occasion;
   }
 
   async deleteOccasion(key: string): Promise<void> {
-    await fetchJson<{ success: boolean }>(`/api/occasions/${encodeURIComponent(key)}`, {
+    await fetchJson<{ success: boolean }>(`${OPS_OCCASIONS_BASE}/${encodeURIComponent(key)}`, {
       method: 'DELETE',
     });
   }

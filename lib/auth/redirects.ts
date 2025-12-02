@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 
-const ALLOWED_REDIRECT_PREFIXES = ["/app", "/guest", "/bookings", "/restaurants"] as const;
+const ALLOWED_REDIRECT_PREFIXES = ["/app", "/guest", "/bookings", "/restaurants", "/onboarding"] as const;
 
 function isAllowedPath(path: string) {
   return ALLOWED_REDIRECT_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
