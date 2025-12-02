@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const ANALYTICS_SCHEMA_VERSION = 1;
 
-type DbClient = SupabaseClient<Database, any, any>;
+type DbClient = SupabaseClient<Database, "public">;
 
 type BaseEventPayload = {
   bookingId: string;
@@ -50,7 +50,7 @@ async function insertAnalyticsEvent(
 
   const { error } = await client.from("analytics_events").insert({
     event_type: params.eventType,
-    schema_version: ANALYTICS_SCHEMA_VERSION,
+    schema_version: String(ANALYTICS_SCHEMA_VERSION),
     restaurant_id: params.restaurantId,
     booking_id: params.bookingId,
     customer_id: params.customerId ?? null,
@@ -60,6 +60,15 @@ async function insertAnalyticsEvent(
   });
 
   if (error) {
+    const code = (error as { code?: string }).code;
+    // Table doesn't exist - log and continue (analytics is non-critical)
+    if (code === "PGRST205" || code === "42P01") {
+      console.warn("[analytics] analytics_events table not found, skipping event", {
+        eventType: params.eventType,
+        bookingId: params.bookingId,
+      });
+      return;
+    }
     throw error;
   }
 }
