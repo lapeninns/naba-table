@@ -1,14 +1,24 @@
+/**
+ * Loyalty Points Module for Ops
+ * 
+ * NOTE: Loyalty features have been disabled. The loyalty_points table was dropped
+ * during database cleanup on December 2, 2025.
+ * 
+ * These functions are kept as stubs to maintain API compatibility with existing code
+ * that imports them. They return empty results.
+ */
 
-import { getServiceSupabaseClient } from "@/server/supabase";
-
-import type { Database, Tables } from "@/types/supabase";
+import type { Database } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-type DbClient = SupabaseClient<Database, "public", any>;
+type DbClient = SupabaseClient<Database>;
+
+// Stub type for loyalty tier
+type LoyaltyTier = "bronze" | "silver" | "gold" | "platinum";
 
 export type LoyaltyPointSnapshot = {
   customerId: string;
-  tier: Tables<"loyalty_points">["tier"];
+  tier: LoyaltyTier;
   totalPoints: number;
 };
 
@@ -18,50 +28,10 @@ type LoyaltyPointQueryOptions = {
   client?: DbClient;
 };
 
-function dedupeCustomerIds(customerIds: string[]): string[] {
-  const seen = new Set<string>();
-  for (const id of customerIds) {
-    if (id) {
-      seen.add(id);
-    }
-  }
-  return Array.from(seen);
-}
-
-export async function getLoyaltyPointsForCustomers({
-  restaurantId,
-  customerIds,
-  client,
-}: LoyaltyPointQueryOptions): Promise<Map<string, LoyaltyPointSnapshot>> {
-  const uniqueCustomerIds = dedupeCustomerIds(customerIds);
-  if (uniqueCustomerIds.length === 0) {
-    return new Map();
-  }
-
-  const supabase = client ?? getServiceSupabaseClient();
-  const { data, error } = await supabase
-    .from("loyalty_points")
-    .select("customer_id, tier, total_points")
-    .eq("restaurant_id", restaurantId)
-    .in("customer_id", uniqueCustomerIds);
-
-  if (error) {
-    throw error;
-  }
-
-  const map = new Map<string, LoyaltyPointSnapshot>();
-  for (const row of data ?? []) {
-    if (!row) continue;
-
-    const customerId = row.customer_id;
-    if (!customerId) continue;
-
-    map.set(customerId, {
-      customerId,
-      tier: row.tier as Tables<"loyalty_points">["tier"],
-      totalPoints: row.total_points,
-    });
-  }
-
-  return map;
+export async function getLoyaltyPointsForCustomers(
+  _options: LoyaltyPointQueryOptions
+): Promise<Map<string, LoyaltyPointSnapshot>> {
+  // Loyalty features have been disabled - table was dropped during database cleanup
+  // Return empty map to indicate no loyalty data
+  return new Map();
 }

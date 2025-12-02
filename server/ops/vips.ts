@@ -1,19 +1,25 @@
+/**
+ * VIP Guests Module
+ * 
+ * NOTE: Loyalty features have been disabled. The loyalty_points table was dropped
+ * during database cleanup on December 2, 2025.
+ * 
+ * The VIP functionality is now disabled and will return empty results.
+ */
 
-import { isLoyaltyPilotRestaurant } from "@/server/feature-flags";
-import { getCustomerProfilesForCustomers } from "@/server/ops/customer-profiles";
-import { getLoyaltyPointsForCustomers } from "@/server/ops/loyalty";
-import { getServiceSupabaseClient } from "@/server/supabase";
-
-import type { Database, Tables } from "@/types/supabase";
+import type { Database } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-type DbClient = SupabaseClient<Database, "public", any>;
+type DbClient = SupabaseClient<Database>;
+
+// Stub type for loyalty tier
+type LoyaltyTier = "bronze" | "silver" | "gold" | "platinum";
 
 export type VIPGuest = {
   bookingId: string;
   customerId: string;
   customerName: string;
-  loyaltyTier: Tables<"loyalty_points">["tier"];
+  loyaltyTier: LoyaltyTier;
   totalPoints: number;
   startTime: string;
   partySize: number;
@@ -26,95 +32,16 @@ export type VIPGuestsResponse = {
   totalVipCovers: number;
 };
 
-const CANCELLED_STATUSES = ["cancelled", "no_show"];
-
-const TIER_PRIORITY: Record<string, number> = {
-  platinum: 1,
-  gold: 2,
-  silver: 3,
-  bronze: 4,
-};
-
 export async function getTodayVIPs(
-  restaurantId: string,
+  _restaurantId: string,
   date: string,
-  client?: DbClient,
+  _client?: DbClient,
 ): Promise<VIPGuestsResponse> {
-  const supabase = client ?? getServiceSupabaseClient();
-
-  const isLoyaltyEnabled = await isLoyaltyPilotRestaurant(restaurantId);
-  if (!isLoyaltyEnabled) {
-    return {
-      date,
-      vips: [],
-      totalVipCovers: 0,
-    };
-  }
-
-  const { data, error } = await supabase
-    .from("bookings")
-    .select(
-      `id, customer_id, customer_name, start_time, party_size, status, marketing_opt_in`,
-    )
-    .eq("restaurant_id", restaurantId)
-    .eq("booking_date", date)
-    .not("status", "in", `(${CANCELLED_STATUSES.join(",")})`);
-
-  if (error) {
-    throw error;
-  }
-
-  const bookings = (data ?? []) as Tables<"bookings">[];
-
-  const customerIds = bookings
-    .map((booking) => booking.customer_id)
-    .filter((customerId): customerId is string => typeof customerId === "string" && customerId.length > 0);
-
-  const [loyaltyPointsMap, customerProfilesMap] = await Promise.all([
-    getLoyaltyPointsForCustomers({
-      restaurantId,
-      customerIds,
-      client: supabase,
-    }),
-    getCustomerProfilesForCustomers({
-      customerIds,
-      client: supabase,
-    }),
-  ]);
-
-  const vips: VIPGuest[] = bookings
-    .map((booking) => {
-      if (!booking.customer_id) return null;
-
-      const loyaltyData = loyaltyPointsMap.get(booking.customer_id);
-      if (!loyaltyData) return null;
-
-      const profileData = customerProfilesMap.get(booking.customer_id);
-
-      return {
-        bookingId: booking.id,
-        customerId: booking.customer_id,
-        customerName: booking.customer_name,
-        loyaltyTier: loyaltyData.tier,
-        totalPoints: loyaltyData.totalPoints,
-        startTime: booking.start_time ?? "",
-        partySize: booking.party_size,
-        marketingOptIn: profileData?.marketingOptIn ?? false,
-      };
-    })
-    .filter((vip): vip is VIPGuest => vip !== null)
-    .sort((a, b) => {
-      const tierDiff = (TIER_PRIORITY[a.loyaltyTier] ?? 99) - (TIER_PRIORITY[b.loyaltyTier] ?? 99);
-      if (tierDiff !== 0) return tierDiff;
-
-      return a.startTime.localeCompare(b.startTime);
-    });
-
-  const totalVipCovers = vips.reduce((sum, vip) => sum + vip.partySize, 0);
-
+  // Loyalty features have been disabled - tables were dropped during database cleanup
+  // VIP functionality requires loyalty data, so return empty results
   return {
     date,
-    vips,
-    totalVipCovers,
+    vips: [],
+    totalVipCovers: 0,
   };
 }

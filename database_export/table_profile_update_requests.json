@@ -1,0 +1,13 @@
+{
+  "tableName": "profile_update_requests",
+  "rowCount": 1,
+  "data": [
+    {
+      "id": "fbb4f7f6-5847-4a12-8f43-a5458d5e4ada",
+      "profile_id": "35a70a11-f097-4a61-af5e-e849a1a5dd21",
+      "idempotency_key": "97d9fcac-7772-41c1-8823-a3a3b8cf6d57",
+      "payload_hash": "813d80efa5fe82b9ce29346e87e43b01e1c4ee9171c872ca4c83c60904970c78",
+      "applied_at": "2025-11-27T21:30:40.815866+00:00"
+    }
+  ]
+}

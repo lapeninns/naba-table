@@ -1,0 +1,237 @@
+{
+  "tableName": "restaurant_service_periods",
+  "rowCount": 21,
+  "data": [
+    {
+      "id": "46e9ac24-17f5-4672-8498-904d43a79ca3",
+      "restaurant_id": "486de541-a307-4414-b0b1-f774a0e4a9fa",
+      "name": "Sunday Lunch",
+      "day_of_week": 0,
+      "start_time": "12:00:00",
+      "end_time": "15:00:00",
+      "created_at": "2025-11-26T00:29:18.800678+00:00",
+      "updated_at": "2025-11-26T00:29:18.800678+00:00",
+      "booking_option": "lunch"
+    },
+    {
+      "id": "775c2391-a064-4e42-8d1a-5f6a62691f1f",
+      "restaurant_id": "486de541-a307-4414-b0b1-f774a0e4a9fa",
+      "name": "Sunday Dinner",
+      "day_of_week": 0,
+      "start_time": "17:00:00",
+      "end_time": "21:00:00",
+      "created_at": "2025-11-26T00:29:18.800678+00:00",
+      "updated_at": "2025-11-26T00:29:18.800678+00:00",
+      "booking_option": "dinner"
+    },
+    {
+      "id": "26cde423-109b-4bbe-bb7c-cf1e7c4b2f99",
+      "restaurant_id": "486de541-a307-4414-b0b1-f774a0e4a9fa",
+      "name": "Sunday Drinks",
+      "day_of_week": 0,
+      "start_time": "12:00:00",
+      "end_time": "22:00:00",
+      "created_at": "2025-11-26T00:29:18.800678+00:00",
+      "updated_at": "2025-11-26T00:29:18.800678+00:00",
+      "booking_option": "drinks"
+    },
+    {
+      "id": "cf0c82db-c7d2-4b40-bb4b-81f1cea5c490",
+      "restaurant_id": "486de541-a307-4414-b0b1-f774a0e4a9fa",
+      "name": "Weekday Lunch",
+      "day_of_week": 1,
+      "start_time": "12:00:00",
+      "end_time": "15:00:00",
+      "created_at": "2025-11-26T00:29:18.800678+00:00",
+      "updated_at": "2025-11-26T00:29:18.800678+00:00",
+      "booking_option": "lunch"
+    },
+    {
+      "id": "38fcc850-7131-481c-bf3a-be2edddbc8af",
+      "restaurant_id": "486de541-a307-4414-b0b1-f774a0e4a9fa",
+      "name": "Weekday Dinner",
+      "day_of_week": 1,
+      "start_time": "17:00:00",
+      "end_time": "22:00:00",
+      "created_at": "2025-11-26T00:29:18.800678+00:00",
+      "updated_at": "2025-11-26T00:29:18.800678+00:00",
+      "booking_option": "dinner"
+    },
+    {
+      "id": "3ebf01b7-d358-4946-ab6e-ad809ee51d07",
+      "restaurant_id": "486de541-a307-4414-b0b1-f774a0e4a9fa",
+      "name": "Weekday Drinks",
+      "day_of_week": 1,
+      "start_time": "12:00:00",
+      "end_time": "22:00:00",
+      "created_at": "2025-11-26T00:29:18.800678+00:00",
+      "updated_at": "2025-11-26T00:29:18.800678+00:00",
+      "booking_option": "drinks"
+    },
+    {
+      "id": "f22384af-3ffc-47de-92d6-e5c2d629f9f2",
+      "restaurant_id": "486de541-a307-4414-b0b1-f774a0e4a9fa",
+      "name": "Weekday Lunch",
+      "day_of_week": 2,
+      "start_time": "12:00:00",
+      "end_time": "15:00:00",
+      "created_at": "2025-11-26T00:29:18.800678+00:00",
+      "updated_at": "2025-11-26T00:29:18.800678+00:00",
+      "booking_option": "lunch"
+    },
+    {
+      "id": "f4dbaaac-ccd9-455f-b71f-0faa52e9b096",
+      "restaurant_id": "486de541-a307-4414-b0b1-f774a0e4a9fa",
+      "name": "Weekday Dinner",
+      "day_of_week": 2,
+      "start_time": "17:00:00",
+      "end_time": "22:00:00",
+      "created_at": "2025-11-26T00:29:18.800678+00:00",
+      "updated_at": "2025-11-26T00:29:18.800678+00:00",
+      "booking_option": "dinner"
+    },
+    {
+      "id": "d9fcc116-2987-42ef-970a-961ffde4f8b1",
+      "restaurant_id": "486de541-a307-4414-b0b1-f774a0e4a9fa",
+      "name": "Weekday Drinks",
+      "day_of_week": 2,
+      "start_time": "12:00:00",
+      "end_time": "22:00:00",
+      "created_at": "2025-11-26T00:29:18.800678+00:00",
+      "updated_at": "2025-11-26T00:29:18.800678+00:00",
+      "booking_option": "drinks"
+    },
+    {
+      "id": "5147e519-2770-48c6-a87a-692a3f7d38d3",
+      "restaurant_id": "486de541-a307-4414-b0b1-f774a0e4a9fa",
+      "name": "Weekday Lunch",
+      "day_of_week": 3,
+      "start_time": "12:00:00",
+      "end_time": "15:00:00",
+      "created_at": "2025-11-26T00:29:18.800678+00:00",
+      "updated_at": "2025-11-26T00:29:18.800678+00:00",
+      "booking_option": "lunch"
+    },
+    {
+      "id": "8d9c4ca3-2053-4e0d-aa9d-81544aaf9d8f",
+      "restaurant_id": "486de541-a307-4414-b0b1-f774a0e4a9fa",
+      "name": "Weekday Dinner",
+      "day_of_week": 3,
+      "start_time": "17:00:00",
+      "end_time": "22:00:00",
+      "created_at": "2025-11-26T00:29:18.800678+00:00",
+      "updated_at": "2025-11-26T00:29:18.800678+00:00",
+      "booking_option": "dinner"
+    },
+    {
+      "id": "7e32d65a-0861-49e8-8371-39f0c2df5c11",
+      "restaurant_id": "486de541-a307-4414-b0b1-f774a0e4a9fa",
+      "name": "Weekday Drinks",
+      "day_of_week": 3,
+      "start_time": "12:00:00",
+      "end_time": "22:00:00",
+      "created_at": "2025-11-26T00:29:18.800678+00:00",
+      "updated_at": "2025-11-26T00:29:18.800678+00:00",
+      "booking_option": "drinks"
+    },
+    {
+      "id": "03566cbf-fb7b-441e-9f97-8ea8e00db7cd",
+      "restaurant_id": "486de541-a307-4414-b0b1-f774a0e4a9fa",
+      "name": "Weekday Lunch",
+      "day_of_week": 4,
+      "start_time": "12:00:00",
+      "end_time": "15:00:00",
+      "created_at": "2025-11-26T00:29:18.800678+00:00",
+      "updated_at": "2025-11-26T00:29:18.800678+00:00",
+      "booking_option": "lunch"
+    },
+    {
+      "id": "2fef053a-f196-48ea-9e57-219fc3a8b02f",
+      "restaurant_id": "486de541-a307-4414-b0b1-f774a0e4a9fa",
+      "name": "Weekday Dinner",
+      "day_of_week": 4,
+      "start_time": "17:00:00",
+      "end_time": "22:00:00",
+      "created_at": "2025-11-26T00:29:18.800678+00:00",
+      "updated_at": "2025-11-26T00:29:18.800678+00:00",
+      "booking_option": "dinner"
+    },
+    {
+      "id": "3a97db33-7185-4030-b7b3-9a0966cb26f6",
+      "restaurant_id": "486de541-a307-4414-b0b1-f774a0e4a9fa",
+      "name": "Weekday Drinks",
+      "day_of_week": 4,
+      "start_time": "12:00:00",
+      "end_time": "22:00:00",
+      "created_at": "2025-11-26T00:29:18.800678+00:00",
+      "updated_at": "2025-11-26T00:29:18.800678+00:00",
+      "booking_option": "drinks"
+    },
+    {
+      "id": "2c637273-e78d-4b1b-b745-1cc2ffadc2f8",
+      "restaurant_id": "486de541-a307-4414-b0b1-f774a0e4a9fa",
+      "name": "Friday Lunch",
+      "day_of_week": 5,
+      "start_time": "12:00:00",
+      "end_time": "15:00:00",
+      "created_at": "2025-11-26T00:29:18.800678+00:00",
+      "updated_at": "2025-11-26T00:29:18.800678+00:00",
+      "booking_option": "lunch"
+    },
+    {
+      "id": "38326e0a-42c8-4bb2-a5e3-c8822b34aa83",
+      "restaurant_id": "486de541-a307-4414-b0b1-f774a0e4a9fa",
+      "name": "Friday Dinner",
+      "day_of_week": 5,
+      "start_time": "17:00:00",
+      "end_time": "22:00:00",
+      "created_at": "2025-11-26T00:29:18.800678+00:00",
+      "updated_at": "2025-11-26T00:29:18.800678+00:00",
+      "booking_option": "dinner"
+    },
+    {
+      "id": "8398b1ff-5acd-4788-a9fa-d1aaf0346e9c",
+      "restaurant_id": "486de541-a307-4414-b0b1-f774a0e4a9fa",
+      "name": "Friday Drinks",
+      "day_of_week": 5,
+      "start_time": "12:00:00",
+      "end_time": "23:00:00",
+      "created_at": "2025-11-26T00:29:18.800678+00:00",
+      "updated_at": "2025-11-26T00:29:18.800678+00:00",
+      "booking_option": "drinks"
+    },
+    {
+      "id": "f65299fa-1ed9-492a-bda7-5a36b9d2bcd0",
+      "restaurant_id": "486de541-a307-4414-b0b1-f774a0e4a9fa",
+      "name": "Saturday Lunch",
+      "day_of_week": 6,
+      "start_time": "12:00:00",
+      "end_time": "15:00:00",
+      "created_at": "2025-11-26T00:29:18.800678+00:00",
+      "updated_at": "2025-11-26T00:29:18.800678+00:00",
+      "booking_option": "lunch"
+    },
+    {
+      "id": "92e0cd22-cee2-445f-9c1e-5cb10bbd46c2",
+      "restaurant_id": "486de541-a307-4414-b0b1-f774a0e4a9fa",
+      "name": "Saturday Dinner",
+      "day_of_week": 6,
+      "start_time": "17:00:00",
+      "end_time": "22:00:00",
+      "created_at": "2025-11-26T00:29:18.800678+00:00",
+      "updated_at": "2025-11-26T00:29:18.800678+00:00",
+      "booking_option": "dinner"
+    },
+    {
+      "id": "262b164c-22cf-456a-ba10-35852b24d288",
+      "restaurant_id": "486de541-a307-4414-b0b1-f774a0e4a9fa",
+      "name": "Saturday Drinks",
+      "day_of_week": 6,
+      "start_time": "12:00:00",
+      "end_time": "23:00:00",
+      "created_at": "2025-11-26T00:29:18.800678+00:00",
+      "updated_at": "2025-11-26T00:29:18.800678+00:00",
+      "booking_option": "drinks"
+    }
+  ]
+}
