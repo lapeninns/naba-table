@@ -5,30 +5,17 @@ import { POST } from "./route";
 
 const consumeRateLimitMock = vi.fn();
 const signInWithPasswordMock = vi.fn();
-const createUserMock = vi.fn();
-const generateLinkMock = vi.fn();
-const sendEmailMock = vi.fn();
+const signInWithOtpMock = vi.fn();
 
 vi.mock("@/server/security/rate-limit", () => ({
   consumeRateLimit: (...args: unknown[]) => consumeRateLimitMock(...args),
-}));
-
-vi.mock("@/libs/resend", () => ({
-  sendEmail: (...args: unknown[]) => sendEmailMock(...args),
 }));
 
 vi.mock("@/server/supabase", () => ({
   getRouteHandlerSupabaseClient: vi.fn(async () => ({
     auth: {
       signInWithPassword: (...args: unknown[]) => signInWithPasswordMock(...args),
-    },
-  })),
-  getServiceSupabaseClient: vi.fn(() => ({
-    auth: {
-      admin: {
-        createUser: (...args: unknown[]) => createUserMock(...args),
-        generateLink: (...args: unknown[]) => generateLinkMock(...args),
-      },
+      signInWithOtp: (...args: unknown[]) => signInWithOtpMock(...args),
     },
   })),
 }));
@@ -38,21 +25,14 @@ describe("POST /api/auth/signin", () => {
     const resetAt = Date.now() + 60_000;
     consumeRateLimitMock.mockResolvedValue({ ok: true, limit: 5, remaining: 5, resetAt, source: "memory" });
     signInWithPasswordMock.mockResolvedValue({ error: null });
-    createUserMock.mockResolvedValue({ error: null });
-    generateLinkMock.mockResolvedValue({
-      data: { properties: { hashed_token: "hashed-token", action_link: "https://example.com" } },
-      error: null,
-    });
-    sendEmailMock.mockResolvedValue({});
+    signInWithOtpMock.mockResolvedValue({ error: null });
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
     consumeRateLimitMock.mockReset();
     signInWithPasswordMock.mockReset();
-    createUserMock.mockReset();
-    generateLinkMock.mockReset();
-    sendEmailMock.mockReset();
+    signInWithOtpMock.mockReset();
   });
 
   it("rejects missing CSRF token", async () => {
@@ -136,10 +116,12 @@ describe("POST /api/auth/signin", () => {
 
     expect(response.status).toBe(202);
     expect(body.status).toBe("magic_link_sent");
-    expect(createUserMock).toHaveBeenCalledWith({ email: "newuser@example.com", email_confirm: false });
-    expect(generateLinkMock).toHaveBeenCalled();
-    const emailArgs = sendEmailMock.mock.calls[0]?.[0];
-    expect(emailArgs?.html).toContain("token_hash=hashed-token");
-    expect(emailArgs?.html).toContain("/api/auth/callback");
+    expect(signInWithOtpMock).toHaveBeenCalledTimes(1);
+    expect(signInWithOtpMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: "newuser@example.com",
+        options: expect.objectContaining({ shouldCreateUser: false }),
+      }),
+    );
   });
 });
