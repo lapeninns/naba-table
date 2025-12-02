@@ -72,11 +72,10 @@ export async function GET(req: NextRequest) {
       });
 
       // Verify session was actually set
-      const { data: verifiedUser, error: verifyError } = await supabase.auth.getUser();
+      const { data: sessionData } = await supabase.auth.getSession();
       console.log("[auth/callback] Session verification:", {
-        hasUser: !!verifiedUser.user,
-        sessionUserId: verifiedUser.user?.id,
-        verifyError: verifyError?.message,
+        hasSession: !!sessionData.session,
+        sessionUserId: sessionData.session?.user?.id,
       });
     }
   } else {

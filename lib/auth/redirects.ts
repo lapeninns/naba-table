@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 
-const ALLOWED_REDIRECT_PREFIXES = ["/app", "/guest", "/bookings", "/restaurants", "/onboarding"] as const;
+const ALLOWED_REDIRECT_PREFIXES = ["/app", "/guest", "/bookings", "/restaurants"] as const;
 
 function isAllowedPath(path: string) {
   return ALLOWED_REDIRECT_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
@@ -30,8 +30,7 @@ function toAbsoluteRedirect(target: string, rootDomain: string): string {
 }
 
 export function parseHostname(req: NextRequest): string {
-  const host = req.headers.get("host") ?? req.nextUrl.host ?? "";
-  return host.replace(/:3000$/, "").toLowerCase();
+  return (req.headers.get("host") || "").replace(/:3000$/, "").toLowerCase();
 }
 
 export function defaultRedirectForHost(hostname: string, rootDomain: string): string {

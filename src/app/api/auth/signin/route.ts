@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
+import { Resend } from "resend";
 import { z } from "zod";
 
 import { defaultRedirectForHost, parseHostname, sanitizeRedirect, toAbsoluteRedirectTarget } from "@/lib/auth/redirects";
+import { env } from "@/lib/env";
 import { validatePasswordStrength } from "@/lib/security/passwordPolicy";
 import { validateCsrfToken } from "@/server/security/csrf";
 import { consumeRateLimit } from "@/server/security/rate-limit";
-import { getRouteHandlerSupabaseClient } from "@/server/supabase";
+import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 
 import type { NextRequest } from "next/server";
 
@@ -36,50 +38,33 @@ const RATE_LIMITS = {
   magic_link: { limit: 5, windowMs: 10 * 60 * 1000 },
 } as const;
 
-type CallbackUrlOptions = {
-  hostHeader: string;
-  rootDomain: string;
-  absoluteRedirect: string;
-};
+function buildCallbackUrl(host: string, redirectedFrom: string | undefined) {
+  let validHost = host;
 
-function buildCallbackUrl({ hostHeader, rootDomain, absoluteRedirect }: CallbackUrlOptions) {
-  const defaultProtocol = hostHeader.includes("localhost") || hostHeader.startsWith("127.") ? "http" : "https";
-
-  const resolveBase = () => {
-    if (hostHeader) return `${defaultProtocol}://${hostHeader}`;
-    const normalizedRoot = rootDomain.startsWith("www.") ? rootDomain : `www.${rootDomain}`;
-    return `https://${normalizedRoot}`;
-  };
-
-  let redirectUrl: URL;
-  try {
-    redirectUrl = new URL(absoluteRedirect, resolveBase());
-  } catch {
-    redirectUrl = new URL("/", resolveBase());
-  }
-
-  const redirectHostname = redirectUrl.hostname;
-  const redirectHostWithPort = redirectUrl.host;
-  const redirectProtocol = redirectUrl.protocol && redirectUrl.protocol !== ":" ? redirectUrl.protocol.replace(":", "") : defaultProtocol;
-
-  // Ensure callback host stays within our allowed domain/localhost set
-  const isLocal = redirectHostname.includes("localhost") || redirectHostname.startsWith("127.");
-  const isValidDomain = redirectHostname === rootDomain || redirectHostname.endsWith(`.${rootDomain}`);
-
-  let finalHost = redirectHostWithPort;
-  let finalProtocol = redirectProtocol;
+  // Extract hostname without port for domain validation
+  const hostnameOnly = host.split(":")[0];
+  
+  // Ensure hostname is one of our allowed public domains
+  // This prevents issues where the server sees an internal IP (e.g. AWS/Vercel internal IP) as the host
+  const isLocal = hostnameOnly.includes("localhost") || hostnameOnly.startsWith("127.");
+  const isValidDomain = hostnameOnly.endsWith("nabatable.com");
 
   if (!isLocal && !isValidDomain) {
-    console.warn(`[Auth] Invalid hostname '${redirectHostWithPort}' detected for callback. Falling back to '${rootDomain}'`);
-    const normalizedRoot = rootDomain.startsWith("www.") ? rootDomain : `www.${rootDomain}`;
-    finalHost = normalizedRoot;
-    finalProtocol = "https";
+    console.warn(`[Auth] Invalid hostname '${host}' detected. Falling back to 'nabatable.com'`);
+    validHost = "nabatable.com";
   }
 
-  const url = new URL("/api/auth/callback", `${finalProtocol}://${finalHost}`);
-  const redirectedFromParam = redirectUrl.toString();
-  url.searchParams.set("redirectedFrom", redirectedFromParam);
+  // Normalize to naked domain to match Supabase wildcard (https://nabatable.com/**)
+  if (validHost.startsWith("www.")) {
+    validHost = validHost.replace("www.", "");
+  }
 
+  const protocol = isLocal ? "http" : "https";
+  const url = new URL("/api/auth/callback", `${protocol}://${validHost}`);
+
+  if (redirectedFrom) {
+    url.searchParams.set("redirectedFrom", redirectedFrom);
+  }
   return url.toString();
 }
 
@@ -98,14 +83,15 @@ function setRateHeaders(response: NextResponse, limitResult: Awaited<ReturnType<
 }
 
 export async function POST(req: NextRequest) {
-  if (!validateCsrfToken(req)) {
-    return NextResponse.json({ message: "Invalid or missing CSRF token" }, { status: 403 });
-  }
+  try {
+    if (!validateCsrfToken(req)) {
+      return NextResponse.json({ message: "Invalid or missing CSRF token" }, { status: 403 });
+    }
 
-  const rawHost = req.headers.get("host") ?? req.nextUrl.host ?? "";
-  const hostname = parseHostname(req);
-  const hostHeader = rawHost.toLowerCase() || hostname;
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost";
+    // Get full host header (includes port in dev, e.g., "localhost:3000")
+    const hostHeader = req.headers.get("host") ?? req.nextUrl.host ?? "localhost:3000";
+    const hostname = parseHostname(req);
+    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost";
 
   let parsedBody: unknown;
   try {
@@ -126,14 +112,6 @@ export async function POST(req: NextRequest) {
   const { email, password, mode, redirectedFrom } = validated.data;
   const redirectTarget = sanitizeRedirect(redirectedFrom, rootDomain) ?? defaultRedirectForHost(hostname, rootDomain);
   const absoluteRedirect = toAbsoluteRedirectTarget(redirectTarget, rootDomain);
-  const protocolForHost = hostHeader.includes("localhost") || hostHeader.startsWith("127.") ? "http" : "https";
-  const absoluteRedirectUrl = (() => {
-    try {
-      return new URL(absoluteRedirect);
-    } catch {
-      return new URL(absoluteRedirect, `${protocolForHost}://${hostHeader}`);
-    }
-  })();
 
   const rateResult = await consumeRateLimit({
     identifier: buildRateLimitId(req, email, mode),
@@ -167,32 +145,80 @@ export async function POST(req: NextRequest) {
     return setRateHeaders(response, rateResult);
   }
 
-  const emailRedirectTo = buildCallbackUrl({
-    hostHeader,
-    rootDomain,
-    absoluteRedirect: absoluteRedirectUrl.toString(),
-  });
+  const emailRedirectTo = buildCallbackUrl(hostHeader, absoluteRedirect);
   console.log("[Auth/signin] Magic link details:", {
     hostname,
     hostHeader,
     rootDomain,
     redirectTarget,
-    absoluteRedirect: absoluteRedirectUrl.toString(),
+    absoluteRedirect,
     emailRedirectTo,
   });
+
+  // Use Resend directly if configured, to bypass Supabase email limits/issues
+  if (env.resend.apiKey && env.resend.from) {
+    try {
+      const adminSupabase = getServiceSupabaseClient();
+      const { data, error: generateError } = await adminSupabase.auth.admin.generateLink({
+        type: "magiclink",
+        email,
+        options: {
+          redirectTo: emailRedirectTo,
+        },
+      });
+
+      if (generateError) {
+        throw generateError;
+      }
+
+      const magicLink = data.properties?.action_link;
+      if (!magicLink) {
+        throw new Error("Failed to generate magic link");
+      }
+
+      const resend = new Resend(env.resend.apiKey);
+      const { error: emailError } = await resend.emails.send({
+        from: env.resend.from,
+        to: email,
+        subject: "Sign in to Nab a Table",
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Sign in to Nab a Table</h2>
+            <p>Click the button below to sign in to your account.</p>
+            <a href="${magicLink}" style="display: inline-block; background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 16px 0;">Sign In</a>
+            <p style="color: #666; font-size: 14px;">If you didn't request this email, you can safely ignore it.</p>
+          </div>
+        `,
+      });
+
+      if (emailError) {
+        console.error("[Auth/signin] Resend error:", emailError);
+        throw new Error("Failed to send email via Resend");
+      }
+
+      const response = NextResponse.json({ status: "magic_link_sent", redirectTo: absoluteRedirect }, { status: 202 });
+      return setRateHeaders(response, rateResult);
+
+    } catch (err) {
+      console.error("[Auth/signin] Manual magic link failed, falling back to Supabase:", err);
+      // Fall through to default Supabase behavior if manual sending fails
+    }
+  }
 
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
       emailRedirectTo,
-      shouldCreateUser: false,
+      shouldCreateUser: true,
     },
   });
+
+  console.log("[Auth/signin] OTP result:", { error: error?.message, status: error?.status });
 
   if (error) {
     const status = error.status ?? 400;
     const response = NextResponse.json(
-      { message: error.message ?? "We couldn’t send a magic link right now. Please try again shortly." },
+      { message: error.message ?? "We couldn't send a magic link right now. Please try again shortly." },
       { status },
     );
     return setRateHeaders(response, rateResult);
@@ -200,4 +226,8 @@ export async function POST(req: NextRequest) {
 
   const response = NextResponse.json({ status: "magic_link_sent", redirectTo: absoluteRedirect }, { status: 202 });
   return setRateHeaders(response, rateResult);
+  } catch (err) {
+    console.error("[Auth/signin] Unhandled error:", err);
+    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+  }
 }
