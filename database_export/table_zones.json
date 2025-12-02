@@ -1,0 +1,46 @@
+{
+  "tableName": "zones",
+  "rowCount": 4,
+  "data": [
+    {
+      "id": "4b013494-6d4a-4fcb-a734-48278d49959a",
+      "restaurant_id": "486de541-a307-4414-b0b1-f774a0e4a9fa",
+      "name": "Main Dining 1 - Inside",
+      "sort_order": 1,
+      "created_at": "2025-11-26T00:29:18.800678+00:00",
+      "updated_at": "2025-11-26T00:29:18.800678+00:00",
+      "area_type": "indoor",
+      "active": true
+    },
+    {
+      "id": "0870d6ed-a1a7-4083-9afd-559b96e8536c",
+      "restaurant_id": "486de541-a307-4414-b0b1-f774a0e4a9fa",
+      "name": "Main Dining 1 - Outside",
+      "sort_order": 2,
+      "created_at": "2025-11-26T00:29:18.800678+00:00",
+      "updated_at": "2025-11-26T00:29:18.800678+00:00",
+      "area_type": "outdoor",
+      "active": true
+    },
+    {
+      "id": "722b3790-70f2-4cd2-9acf-31682b8e2b28",
+      "restaurant_id": "486de541-a307-4414-b0b1-f774a0e4a9fa",
+      "name": "Main Dining 2",
+      "sort_order": 3,
+      "created_at": "2025-11-26T00:29:18.800678+00:00",
+      "updated_at": "2025-11-26T00:29:18.800678+00:00",
+      "area_type": "indoor",
+      "active": true
+    },
+    {
+      "id": "8b3e0e53-e801-4c9d-93dc-77b0f182437c",
+      "restaurant_id": "486de541-a307-4414-b0b1-f774a0e4a9fa",
+      "name": "Bar",
+      "sort_order": 4,
+      "created_at": "2025-11-26T00:29:18.800678+00:00",
+      "updated_at": "2025-11-26T00:29:18.800678+00:00",
+      "area_type": "indoor",
+      "active": true
+    }
+  ]
+}

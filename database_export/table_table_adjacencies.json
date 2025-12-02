@@ -1,0 +1,386 @@
+{
+  "tableName": "table_adjacencies",
+  "rowCount": 76,
+  "data": [
+    {
+      "table_a": "0c6a69df-c0d3-4c5f-ab6f-0e79f0dc7050",
+      "table_b": "b5a39c61-2790-46d4-a826-5a1979c25301",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "0c6a69df-c0d3-4c5f-ab6f-0e79f0dc7050",
+      "table_b": "4ece7bed-b447-4d41-9106-e9c43c0f4e15",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "0c6a69df-c0d3-4c5f-ab6f-0e79f0dc7050",
+      "table_b": "33bcdddb-0978-442b-88ec-65a5b343fa3a",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "0c6a69df-c0d3-4c5f-ab6f-0e79f0dc7050",
+      "table_b": "2c3dd3fa-e743-4cba-aaba-1c76672439b2",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "4ece7bed-b447-4d41-9106-e9c43c0f4e15",
+      "table_b": "b5a39c61-2790-46d4-a826-5a1979c25301",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "2c3dd3fa-e743-4cba-aaba-1c76672439b2",
+      "table_b": "b5a39c61-2790-46d4-a826-5a1979c25301",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "2c3dd3fa-e743-4cba-aaba-1c76672439b2",
+      "table_b": "4ece7bed-b447-4d41-9106-e9c43c0f4e15",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "2c3dd3fa-e743-4cba-aaba-1c76672439b2",
+      "table_b": "33bcdddb-0978-442b-88ec-65a5b343fa3a",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "c7c56f4b-995e-4a3c-bd33-76880be30a9b",
+      "table_b": "e20937d5-fd1e-4888-bcf1-def13b627a10",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "c7c56f4b-995e-4a3c-bd33-76880be30a9b",
+      "table_b": "ee05d20b-2585-48d4-a30d-f46ee617f71c",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "09bed225-e045-4b88-9694-8afa278b90aa",
+      "table_b": "c7c56f4b-995e-4a3c-bd33-76880be30a9b",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "09bed225-e045-4b88-9694-8afa278b90aa",
+      "table_b": "c3abdeb8-9443-4a6e-941f-5c7ab34416ab",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "09bed225-e045-4b88-9694-8afa278b90aa",
+      "table_b": "61fa5341-ccb7-4a63-ab08-223d760aaa10",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "09bed225-e045-4b88-9694-8afa278b90aa",
+      "table_b": "e20937d5-fd1e-4888-bcf1-def13b627a10",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "09bed225-e045-4b88-9694-8afa278b90aa",
+      "table_b": "1c4d970e-f3ae-4624-ad3c-22b4f8088d44",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "09bed225-e045-4b88-9694-8afa278b90aa",
+      "table_b": "b22ece30-9c0a-46ae-adb5-56ff6e27a1a8",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "09bed225-e045-4b88-9694-8afa278b90aa",
+      "table_b": "ee05d20b-2585-48d4-a30d-f46ee617f71c",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "09bed225-e045-4b88-9694-8afa278b90aa",
+      "table_b": "acd11ecf-c605-422d-86be-22791950f46d",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "09bed225-e045-4b88-9694-8afa278b90aa",
+      "table_b": "3c3eac42-4e96-4ff5-9611-74f403d59174",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "c3abdeb8-9443-4a6e-941f-5c7ab34416ab",
+      "table_b": "c7c56f4b-995e-4a3c-bd33-76880be30a9b",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "c3abdeb8-9443-4a6e-941f-5c7ab34416ab",
+      "table_b": "e20937d5-fd1e-4888-bcf1-def13b627a10",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "c3abdeb8-9443-4a6e-941f-5c7ab34416ab",
+      "table_b": "ee05d20b-2585-48d4-a30d-f46ee617f71c",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "61fa5341-ccb7-4a63-ab08-223d760aaa10",
+      "table_b": "c7c56f4b-995e-4a3c-bd33-76880be30a9b",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "61fa5341-ccb7-4a63-ab08-223d760aaa10",
+      "table_b": "c3abdeb8-9443-4a6e-941f-5c7ab34416ab",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "61fa5341-ccb7-4a63-ab08-223d760aaa10",
+      "table_b": "e20937d5-fd1e-4888-bcf1-def13b627a10",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "61fa5341-ccb7-4a63-ab08-223d760aaa10",
+      "table_b": "b22ece30-9c0a-46ae-adb5-56ff6e27a1a8",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "61fa5341-ccb7-4a63-ab08-223d760aaa10",
+      "table_b": "ee05d20b-2585-48d4-a30d-f46ee617f71c",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "61fa5341-ccb7-4a63-ab08-223d760aaa10",
+      "table_b": "acd11ecf-c605-422d-86be-22791950f46d",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "e20937d5-fd1e-4888-bcf1-def13b627a10",
+      "table_b": "ee05d20b-2585-48d4-a30d-f46ee617f71c",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "1c4d970e-f3ae-4624-ad3c-22b4f8088d44",
+      "table_b": "c7c56f4b-995e-4a3c-bd33-76880be30a9b",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "1c4d970e-f3ae-4624-ad3c-22b4f8088d44",
+      "table_b": "c3abdeb8-9443-4a6e-941f-5c7ab34416ab",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "1c4d970e-f3ae-4624-ad3c-22b4f8088d44",
+      "table_b": "61fa5341-ccb7-4a63-ab08-223d760aaa10",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "1c4d970e-f3ae-4624-ad3c-22b4f8088d44",
+      "table_b": "e20937d5-fd1e-4888-bcf1-def13b627a10",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "1c4d970e-f3ae-4624-ad3c-22b4f8088d44",
+      "table_b": "b22ece30-9c0a-46ae-adb5-56ff6e27a1a8",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "1c4d970e-f3ae-4624-ad3c-22b4f8088d44",
+      "table_b": "ee05d20b-2585-48d4-a30d-f46ee617f71c",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "1c4d970e-f3ae-4624-ad3c-22b4f8088d44",
+      "table_b": "acd11ecf-c605-422d-86be-22791950f46d",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "1c4d970e-f3ae-4624-ad3c-22b4f8088d44",
+      "table_b": "3c3eac42-4e96-4ff5-9611-74f403d59174",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "b22ece30-9c0a-46ae-adb5-56ff6e27a1a8",
+      "table_b": "c7c56f4b-995e-4a3c-bd33-76880be30a9b",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "b22ece30-9c0a-46ae-adb5-56ff6e27a1a8",
+      "table_b": "c3abdeb8-9443-4a6e-941f-5c7ab34416ab",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "b22ece30-9c0a-46ae-adb5-56ff6e27a1a8",
+      "table_b": "e20937d5-fd1e-4888-bcf1-def13b627a10",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "b22ece30-9c0a-46ae-adb5-56ff6e27a1a8",
+      "table_b": "ee05d20b-2585-48d4-a30d-f46ee617f71c",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "acd11ecf-c605-422d-86be-22791950f46d",
+      "table_b": "c7c56f4b-995e-4a3c-bd33-76880be30a9b",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "acd11ecf-c605-422d-86be-22791950f46d",
+      "table_b": "c3abdeb8-9443-4a6e-941f-5c7ab34416ab",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "acd11ecf-c605-422d-86be-22791950f46d",
+      "table_b": "e20937d5-fd1e-4888-bcf1-def13b627a10",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "acd11ecf-c605-422d-86be-22791950f46d",
+      "table_b": "b22ece30-9c0a-46ae-adb5-56ff6e27a1a8",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "acd11ecf-c605-422d-86be-22791950f46d",
+      "table_b": "ee05d20b-2585-48d4-a30d-f46ee617f71c",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "3c3eac42-4e96-4ff5-9611-74f403d59174",
+      "table_b": "c7c56f4b-995e-4a3c-bd33-76880be30a9b",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "3c3eac42-4e96-4ff5-9611-74f403d59174",
+      "table_b": "c3abdeb8-9443-4a6e-941f-5c7ab34416ab",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "3c3eac42-4e96-4ff5-9611-74f403d59174",
+      "table_b": "61fa5341-ccb7-4a63-ab08-223d760aaa10",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "3c3eac42-4e96-4ff5-9611-74f403d59174",
+      "table_b": "e20937d5-fd1e-4888-bcf1-def13b627a10",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "3c3eac42-4e96-4ff5-9611-74f403d59174",
+      "table_b": "b22ece30-9c0a-46ae-adb5-56ff6e27a1a8",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "3c3eac42-4e96-4ff5-9611-74f403d59174",
+      "table_b": "ee05d20b-2585-48d4-a30d-f46ee617f71c",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "3c3eac42-4e96-4ff5-9611-74f403d59174",
+      "table_b": "acd11ecf-c605-422d-86be-22791950f46d",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "3abf67c4-eb1f-4b8a-935b-6b5da1779d4f",
+      "table_b": "c95ad0c2-6cb7-44ab-b47f-ae67d01eb448",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "3abf67c4-eb1f-4b8a-935b-6b5da1779d4f",
+      "table_b": "ebab0636-6a6d-4286-aeb4-3b0e5d8e6035",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "3abf67c4-eb1f-4b8a-935b-6b5da1779d4f",
+      "table_b": "3db7fa5b-4b06-4d43-85a4-e7cd16c3d97a",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "3abf67c4-eb1f-4b8a-935b-6b5da1779d4f",
+      "table_b": "badd6280-e4c4-4130-924d-005811e2bdb7",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "3abf67c4-eb1f-4b8a-935b-6b5da1779d4f",
+      "table_b": "68beee62-c78c-4031-8580-ba5388724ae0",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "c95ad0c2-6cb7-44ab-b47f-ae67d01eb448",
+      "table_b": "ebab0636-6a6d-4286-aeb4-3b0e5d8e6035",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "3db7fa5b-4b06-4d43-85a4-e7cd16c3d97a",
+      "table_b": "c95ad0c2-6cb7-44ab-b47f-ae67d01eb448",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "3db7fa5b-4b06-4d43-85a4-e7cd16c3d97a",
+      "table_b": "ebab0636-6a6d-4286-aeb4-3b0e5d8e6035",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "3db7fa5b-4b06-4d43-85a4-e7cd16c3d97a",
+      "table_b": "badd6280-e4c4-4130-924d-005811e2bdb7",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "3db7fa5b-4b06-4d43-85a4-e7cd16c3d97a",
+      "table_b": "68beee62-c78c-4031-8580-ba5388724ae0",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "badd6280-e4c4-4130-924d-005811e2bdb7",
+      "table_b": "c95ad0c2-6cb7-44ab-b47f-ae67d01eb448",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "badd6280-e4c4-4130-924d-005811e2bdb7",
+      "table_b": "ebab0636-6a6d-4286-aeb4-3b0e5d8e6035",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "68beee62-c78c-4031-8580-ba5388724ae0",
+      "table_b": "c95ad0c2-6cb7-44ab-b47f-ae67d01eb448",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "68beee62-c78c-4031-8580-ba5388724ae0",
+      "table_b": "ebab0636-6a6d-4286-aeb4-3b0e5d8e6035",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "68beee62-c78c-4031-8580-ba5388724ae0",
+      "table_b": "badd6280-e4c4-4130-924d-005811e2bdb7",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "33bcdddb-0978-442b-88ec-65a5b343fa3a",
+      "table_b": "b5a39c61-2790-46d4-a826-5a1979c25301",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "33bcdddb-0978-442b-88ec-65a5b343fa3a",
+      "table_b": "4ece7bed-b447-4d41-9106-e9c43c0f4e15",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "0cd906d9-d263-4346-9934-200cd31d22bb",
+      "table_b": "95c9a6f3-5744-48a7-8092-7c734402fde0",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "0cd906d9-d263-4346-9934-200cd31d22bb",
+      "table_b": "95e7c8c6-0722-4e5c-8efb-d23530cd4203",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "0cd906d9-d263-4346-9934-200cd31d22bb",
+      "table_b": "2e38b5ee-e146-4fc3-817b-59d315cb9a48",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "2e38b5ee-e146-4fc3-817b-59d315cb9a48",
+      "table_b": "95c9a6f3-5744-48a7-8092-7c734402fde0",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "2e38b5ee-e146-4fc3-817b-59d315cb9a48",
+      "table_b": "95e7c8c6-0722-4e5c-8efb-d23530cd4203",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    },
+    {
+      "table_a": "95c9a6f3-5744-48a7-8092-7c734402fde0",
+      "table_b": "95e7c8c6-0722-4e5c-8efb-d23530cd4203",
+      "created_at": "2025-11-26T22:07:14.762394+00:00"
+    }
+  ]
+}

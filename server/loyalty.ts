@@ -1,12 +1,29 @@
+/**
+ * Loyalty Programs Module
+ * 
+ * NOTE: Loyalty features have been disabled. The loyalty_programs, loyalty_points,
+ * and loyalty_point_events tables were dropped during database cleanup on December 2, 2025.
+ * 
+ * These functions are kept as stubs to maintain API compatibility with existing code
+ * that imports them. They return null/no-op values.
+ */
 
-import { isLoyaltyPilotRestaurant } from "@/server/feature-flags";
-
-import type { Database, Json, Tables } from "@/types/supabase";
+import type { Database, Json } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const LOYALTY_SCHEMA_VERSION = 1;
 
-export type LoyaltyProgramRow = Tables<"loyalty_programs">;
+// Stub type for backwards compatibility
+export type LoyaltyProgramRow = {
+  id: string;
+  restaurant_id: string;
+  is_active: boolean;
+  pilot_only: boolean;
+  accrual_rule: Json | null;
+  tier_definitions: Json | null;
+  created_at: string;
+  updated_at: string;
+};
 
 type DbClient = SupabaseClient<Database>;
 
@@ -23,110 +40,30 @@ type LoyaltyAccrualRule =
     };
 
 type TierDefinition = {
-  tier: Tables<"loyalty_points">["tier"];
+  tier: "bronze" | "silver" | "gold" | "platinum";
   min_points: number;
 };
 
-function parseAccrualRule(rule: Json | null): LoyaltyAccrualRule {
-  if (!rule || typeof rule !== "object") {
-    return { type: "per_guest", base_points: 10, points_per_guest: 5, minimum_party_size: 1 };
-  }
-
-  const candidate = rule as Record<string, unknown>;
-  const type = typeof candidate.type === "string" ? candidate.type : "per_guest";
-
-  if (type === "flat") {
-    const points = Number(candidate.points) || 0;
-    return { type: "flat", points };
-  }
-
-  const base_points = Number(candidate.base_points) || 0;
-  const points_per_guest = Number(candidate.points_per_guest) || 0;
-  const minimum_party_size = Number(candidate.minimum_party_size) || 1;
-  return { type: "per_guest", base_points, points_per_guest, minimum_party_size };
-}
-
-function parseTierDefinitions(definitions: Json | null): TierDefinition[] {
-  if (!Array.isArray(definitions)) {
-    return [
-      { tier: "bronze", min_points: 0 },
-      { tier: "silver", min_points: 100 },
-      { tier: "gold", min_points: 250 },
-      { tier: "platinum", min_points: 500 },
-    ];
-  }
-
-  return (definitions as Array<Record<string, unknown>>)
-    .map((entry) => ({
-      tier: (entry.tier as TierDefinition["tier"]) ?? "bronze",
-      min_points: Number(entry.min_points) || 0,
-    }))
-    .sort((a, b) => a.min_points - b.min_points);
-}
-
-function determineTier(definitions: TierDefinition[], balance: number): TierDefinition["tier"] {
-  let current: TierDefinition["tier"] = "bronze";
-  for (const def of definitions) {
-    if (balance >= def.min_points) {
-      current = def.tier;
-    }
-  }
-  return current;
-}
-
 export async function getActiveLoyaltyProgram(
-  client: DbClient,
-  restaurantId: string,
+  _client: DbClient,
+  _restaurantId: string,
 ): Promise<(LoyaltyProgramRow & { accrualRule: LoyaltyAccrualRule; tiers: TierDefinition[] }) | null> {
-  const { data, error } = await client
-    .from("loyalty_programs")
-    .select("*")
-    .eq("restaurant_id", restaurantId)
-    .eq("is_active", true)
-    .maybeSingle();
-
-  if (error && error.code !== "PGRST116") {
-    throw error;
-  }
-
-  const program = data as LoyaltyProgramRow | null;
-  if (!program) {
-    return null;
-  }
-
-  if (program.pilot_only && !isLoyaltyPilotRestaurant(restaurantId)) {
-    return null;
-  }
-
-  return {
-    ...program,
-    accrualRule: parseAccrualRule(program.accrual_rule),
-    tiers: parseTierDefinitions(program.tier_definitions),
-  };
+  // Loyalty programs feature has been disabled - table was dropped during database cleanup
+  // Return null to indicate no active loyalty program
+  return null;
 }
 
 export function calculateLoyaltyAward(
-  program: { accrualRule: LoyaltyAccrualRule },
-  params: { partySize: number },
+  _program: { accrualRule: LoyaltyAccrualRule },
+  _params: { partySize: number },
 ): number {
-  const partySize = Math.max(0, params.partySize);
-  const rule = program.accrualRule;
-
-  if (rule.type === "flat") {
-    return Math.max(0, Math.round(rule.points));
-  }
-
-  const basePoints = Math.max(0, Math.round(rule.base_points ?? 0));
-  const perGuest = Math.max(0, Math.round(rule.points_per_guest ?? 0));
-  const minimumParty = Math.max(1, Math.round(rule.minimum_party_size ?? 1));
-
-  const eligibleGuestCount = partySize >= minimumParty ? partySize : 0;
-  return basePoints + eligibleGuestCount * perGuest;
+  // Loyalty programs feature has been disabled
+  return 0;
 }
 
 export async function applyLoyaltyAward(
-  client: DbClient,
-  params: {
+  _client: DbClient,
+  _params: {
     program: LoyaltyProgramRow & { tiers: TierDefinition[] };
     customerId: string;
     bookingId: string;
@@ -135,58 +72,9 @@ export async function applyLoyaltyAward(
     occurredAt?: string;
   },
 ): Promise<void> {
-  const nowIso = params.occurredAt ?? new Date().toISOString();
-  const delta = Math.round(params.points);
-
-  if (delta === 0) {
-    return;
-  }
-
-  const { data: existing, error: existingError } = await client
-    .from("loyalty_points")
-    .select("id,total_points,tier")
-    .eq("restaurant_id", params.program.restaurant_id)
-    .eq("customer_id", params.customerId)
-    .maybeSingle();
-
-  if (existingError) {
-    throw existingError;
-  }
-
-  const currentPoints = existing?.total_points ?? 0;
-  const newPoints = Math.max(0, currentPoints + delta);
-  const tier = determineTier(params.program.tiers, newPoints);
-
-  const upsertPayload = {
-    restaurant_id: params.program.restaurant_id,
-    customer_id: params.customerId,
-    tier,
-    updated_at: nowIso,
-    total_points: newPoints,
-  };
-
-  const { error: upsertError } = await client
-    .from("loyalty_points")
-    .upsert(upsertPayload, { onConflict: "restaurant_id,customer_id" });
-
-  if (upsertError) {
-    throw upsertError;
-  }
-
-  const { error: eventError } = await client.from("loyalty_point_events").insert({
-    restaurant_id: params.program.restaurant_id,
-    customer_id: params.customerId,
-    booking_id: params.bookingId,
-    points_change: delta,
-    event_type: delta >= 0 ? "booking.confirmed" : "booking.adjustment",
-    schema_version: LOYALTY_SCHEMA_VERSION,
-    metadata: params.metadata ?? {},
-    created_at: nowIso,
-  });
-
-  if (eventError) {
-    throw eventError;
-  }
+  // Loyalty programs feature has been disabled - tables were dropped during database cleanup
+  // This is now a no-op
+  return;
 }
 
 export { LOYALTY_SCHEMA_VERSION };
