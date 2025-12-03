@@ -127,15 +127,6 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
             {/* Additional Links */}
             <div className="space-y-3 text-center text-sm">
                 <p className="text-muted-foreground">
-                    Don&apos;t have an account?{' '}
-                    <Link
-                        href="/auth/signup"
-                        className="font-medium text-primary hover:underline"
-                    >
-                        Sign up
-                    </Link>
-                </p>
-                <p className="text-muted-foreground">
                     <Link
                         href="/auth/forgot-password"
                         className="font-medium text-primary hover:underline"
