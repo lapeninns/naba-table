@@ -32,7 +32,8 @@ import type { Database } from "@/types/supabase";
 
 type RestaurantRow = Database["public"]["Tables"]["restaurants"]["Row"];
 
-const siteUrl = env.app.url;
+// Prefer the public site origin for guest-facing links; fall back to app URL if unset.
+const bookingSiteUrl = (env.raw.NEXT_PUBLIC_SITE_URL ?? env.raw.SITE_URL ?? env.app.url).replace(/\/+$/, "");
 
 function normalizeTimeLoose(value: string | null | undefined) {
   if (!value) return null;
@@ -183,7 +184,7 @@ function getStatusPresentation(status: BookingRecord["status"] | string): Status
 }
 
 function buildManageUrl(booking: BookingRecord) {
-  let url = `${siteUrl}/bookings/${booking.id}`;
+  let url = `${bookingSiteUrl}/bookings/${booking.id}`;
   if (booking.confirmation_token) {
     url += `?token=${booking.confirmation_token}`;
   }
@@ -524,7 +525,7 @@ async function dispatchEmail(
       headline = "Reservation Cancelled";
       intro = `Hi ${guestFirstName}, your reservation at ${venue.name} has been cancelled as requested.`;
       ctaLabel = "Book Again";
-      ctaUrl = siteUrl;
+      ctaUrl = bookingSiteUrl;
       break;
     case "modification_pending":
       headline = "Change Request Received";
@@ -538,19 +539,19 @@ async function dispatchEmail(
       headline = "Reservation Declined";
       intro = `Hi ${guestFirstName}, unfortunately ${venue.name} could not accommodate your request at this time.`;
       ctaLabel = "Find Another Table";
-      ctaUrl = siteUrl;
+      ctaUrl = bookingSiteUrl;
       break;
     case "restaurant_cancellation":
       headline = "Reservation Cancelled by Restaurant";
       intro = `Hi ${guestFirstName}, we're sorry but ${venue.name} had to cancel your reservation.`;
       ctaLabel = "Find Another Table";
-      ctaUrl = siteUrl;
+      ctaUrl = bookingSiteUrl;
       break;
     case "review_request":
       headline = "How was your meal?";
       intro = `Hi ${guestFirstName}, we hope you enjoyed your experience at ${venue.name}. We'd love to hear your feedback.`;
       ctaLabel = "Leave a Review";
-      ctaUrl = `${siteUrl}/reviews/${booking.id}`;
+      ctaUrl = `${bookingSiteUrl}/reviews/${booking.id}`;
       break;
     case "reminder":
       headline = "Reservation Reminder";
@@ -564,7 +565,7 @@ async function dispatchEmail(
       headline = "Action Required: Booking Pending";
       intro = `A booking at ${venue.name} requires attention. Reason: ${options?.reason ?? "Manual assignment needed"}.`;
       ctaLabel = "View in Dashboard";
-      ctaUrl = `${siteUrl}/dashboard/bookings/${booking.id}`;
+      ctaUrl = `${bookingSiteUrl}/dashboard/bookings/${booking.id}`;
       toEmail = venue.email || config.email.supportEmail || ""; // Send to restaurant
       break;
   }
