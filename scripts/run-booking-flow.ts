@@ -1,10 +1,4 @@
-import { config as loadEnv } from "dotenv";
-import { resolve as resolvePath } from "node:path";
-
-loadEnv({ path: resolvePath(process.cwd(), ".env.local") });
-loadEnv({ path: resolvePath(process.cwd(), ".env.development") });
-loadEnv({ path: resolvePath(process.cwd(), ".env") });
-
+import "./load-env";
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { DateTime } from "luxon";
@@ -316,7 +310,7 @@ function printHelp(): void {
     "  --randomize-contact           Randomize guest identity each run (default: on when stress)",
     "  --help                        Show this help",
   ];
-  // eslint-disable-next-line no-console
+   
   console.log(lines.join("\n"));
 }
 
@@ -797,15 +791,15 @@ async function runSingleBookingFlow(options: {
   const logger = createLogger({ pretty: resolved.pretty, correlationId });
   const bookingPayload = resolved.randomizeIdentity
     ? {
-        ...resolved.booking,
-        ...buildRandomizedIdentity({
-          email: resolved.booking.email,
-          phone: resolved.booking.phone,
-          name: resolved.booking.name,
-          iteration,
-          correlationId,
-        }),
-      }
+      ...resolved.booking,
+      ...buildRandomizedIdentity({
+        email: resolved.booking.email,
+        phone: resolved.booking.phone,
+        name: resolved.booking.name,
+        iteration,
+        correlationId,
+      }),
+    }
     : resolved.booking;
   const flowStart = Date.now();
   const metrics: FlowMetrics = {
@@ -989,7 +983,7 @@ async function runSequentially(resolved: ResolvedOptions, supabase: SupabaseClie
   }
 
   if (completed === resolved.count) {
-    // eslint-disable-next-line no-console
+     
     console.log(`✅ Successfully confirmed ${completed} booking${completed > 1 ? "s" : ""}.`);
   }
 }
@@ -1022,7 +1016,7 @@ function logStressSummary(runs: FlowResult[], context: { completedTarget: boolea
     }
   });
 
-  // eslint-disable-next-line no-console
+   
   console.log("[stress] Summary", {
     totalRuns: runs.length,
     successes: successes.length,
@@ -1036,7 +1030,7 @@ function logStressSummary(runs: FlowResult[], context: { completedTarget: boolea
   });
 
   if (failure) {
-    // eslint-disable-next-line no-console
+     
     console.error("[stress] Failure details", {
       iteration: failure.metrics.iteration,
       correlationId: failure.metrics.correlationId,
@@ -1062,7 +1056,7 @@ async function runUntilExhaustion(resolved: ResolvedOptions, supabase: SupabaseC
   }
 
   logStressSummary(runs, { completedTarget: true, maxRuns });
-  // eslint-disable-next-line no-console
+   
   console.log(`✅ Stress run completed ${runs.length} booking(s) without failure.`);
 }
 
@@ -1078,7 +1072,7 @@ async function main() {
     await runSequentially(resolved, supabase);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    // eslint-disable-next-line no-console
+     
     console.error(`❌ ${message}`);
     process.exitCode = 1;
   }
