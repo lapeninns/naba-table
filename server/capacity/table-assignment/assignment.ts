@@ -3,6 +3,7 @@ import { getVenuePolicy } from "@/server/capacity/policy";
 import { emitRpcConflict } from "@/server/capacity/telemetry";
 import { isAllocatorV2Enabled, isPolicyRequoteEnabled, isManualAssignmentSnapshotValidationEnabled } from "@/server/feature-flags";
 import { recordObservabilityEvent } from "@/server/observability";
+import { getTenantServiceSupabaseClient } from "@/server/supabase";
 
 import { resolveRequireAdjacency } from "./availability";
 import { computeBookingWindowWithFallback } from "./booking-window";
@@ -1350,8 +1351,13 @@ export async function atomicConfirmAndTransition(options: AtomicConfirmOptions):
     client,
   } = options;
 
-  const supabase = ensureClient(client);
+  let supabase = ensureClient(client);
   const preState = await fetchBookingAssignmentState({ bookingId, client: supabase, signal });
+
+  // Align with tenant RLS policies for holds/allocations when a client isn't provided.
+  if (!client && preState.restaurantId) {
+    supabase = getTenantServiceSupabaseClient(preState.restaurantId);
+  }
 
   recordObservabilityEvent({
     source: "capacity.atomic_confirm",
