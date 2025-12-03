@@ -855,7 +855,11 @@ export async function POST(req: NextRequest) {
   };
 
   if (isAutoAssignOnBookingEnabled()) {
-    void autoAssignAndConfirmIfPossible(booking.id, { reason: "creation" });
+    try {
+      await autoAssignAndConfirmIfPossible(booking.id, { reason: "creation", maxAttemptsOverride: 1 });
+    } catch (error) {
+      console.error("[ops/bookings] auto-assign inline attempt failed", error);
+    }
   }
 
   void recordObservabilityEvent({
@@ -988,7 +992,11 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
     }
 
     if (!reusedExisting && isAutoAssignOnBookingEnabled()) {
-      void autoAssignAndConfirmIfPossible(booking.id, { reason: "creation" });
+      try {
+        await autoAssignAndConfirmIfPossible(booking.id, { reason: "creation", maxAttemptsOverride: 1 });
+      } catch (error) {
+        console.error("[ops/bookings] auto-assign inline attempt failed", error);
+      }
     }
 
     if (validationResponse.overridden) {

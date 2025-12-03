@@ -38,6 +38,7 @@ type AutoAssignOptions = {
   bypassFeatureFlag?: boolean;
   reason?: AutoAssignReason;
   emailVariant?: AutoAssignEmailVariant;
+  maxAttemptsOverride?: number;
 };
 
 type AutoAssignSummaryResult = "succeeded" | "cutoff" | "already_confirmed" | "exhausted" | "error";
@@ -294,6 +295,11 @@ export async function autoAssignAndConfirmIfPossible(
           trigger: reason,
         },
       });
+    }
+
+    if (typeof options?.maxAttemptsOverride === "number" && Number.isFinite(options.maxAttemptsOverride)) {
+      const override = Math.max(1, Math.min(Math.floor(options.maxAttemptsOverride), 11));
+      maxAttempts = override;
     }
 
     // Inline timeout tweaks removed; single retry policy path

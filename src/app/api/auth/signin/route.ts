@@ -40,20 +40,16 @@ const RATE_LIMITS = {
   magic_link: { limit: 5, windowMs: 10 * 60 * 1000 },
 } as const;
 
-function buildCallbackUrl(host: string, redirectedFrom: string | undefined) {
+function buildCallbackUrl(host: string, redirectedFrom: string | undefined, rootDomain: string) {
   let validHost = host;
 
-  // Extract hostname without port for domain validation
   const hostnameOnly = host.split(":")[0];
-  
-  // Ensure hostname is one of our allowed public domains
-  // This prevents issues where the server sees an internal IP (e.g. AWS/Vercel internal IP) as the host
   const isLocal = hostnameOnly.includes("localhost") || hostnameOnly.startsWith("127.");
-  const isValidDomain = hostnameOnly.endsWith("nabatable.com");
+  const isValidDomain = rootDomain && hostnameOnly.endsWith(rootDomain);
 
   if (!isLocal && !isValidDomain) {
-    console.warn(`[Auth] Invalid hostname '${host}' detected. Falling back to 'nabatable.com'`);
-    validHost = "nabatable.com";
+    console.warn(`[Auth] Invalid hostname '${host}' detected. Falling back to '${rootDomain || "localhost"}'`);
+    validHost = rootDomain || "localhost";
   }
 
   const protocol = isLocal ? "http" : "https";
@@ -142,7 +138,7 @@ export async function POST(req: NextRequest) {
     return setRateHeaders(response, rateResult);
   }
 
-  const emailRedirectTo = buildCallbackUrl(hostHeader, absoluteRedirect);
+  const emailRedirectTo = buildCallbackUrl(hostHeader, absoluteRedirect, rootDomain);
   console.log("[Auth/signin] Magic link details:", {
     hostname,
     hostHeader,

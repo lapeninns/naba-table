@@ -8,6 +8,7 @@ import { Tooltip } from "react-tooltip";
 
 import { Toaster as UiToaster } from "@/components/ui/toaster";
 import config from "@/config";
+import { ImplicitAuthHandler } from "@/components/auth/ImplicitAuthHandler";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 import type { User } from "@supabase/supabase-js";
@@ -102,6 +103,7 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
   if (isAuthRoute) {
     return (
       <>
+        <ImplicitAuthHandler defaultRedirect="/guest/dashboard" />
         {children}
         {/* Keep UI toasts available for auth flows without loading the full ops shell stack */}
         <UiToaster />
@@ -111,6 +113,8 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
 
   return (
     <>
+      {/* Handle implicit Supabase hash tokens globally (magic link / OAuth) */}
+      <ImplicitAuthHandler defaultRedirect="/guest/dashboard" />
       {/* Show a progress bar at the top when navigating between pages */}
       <NextTopLoader color={config.colors.main} showSpinner={false} />
 
