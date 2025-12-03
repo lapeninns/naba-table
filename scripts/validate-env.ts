@@ -36,9 +36,13 @@ const blockers: string[] = [];
 const warnings: string[] = [];
 
 const appEnv = env.APP_ENV;
+const vercelEnv = process.env.VERCEL_ENV; // 'production' | 'preview' | 'development'
 const allowProdResources = env.ALLOW_PROD_RESOURCES_IN_NONPROD === true;
 
-if (appEnv !== "production" && !allowProdResources) {
+// Skip prod-resource guard when the deployment target itself is production (e.g., Vercel prod build)
+const treatAsProdTarget = appEnv === "production" || vercelEnv === "production";
+
+if (!treatAsProdTarget && !allowProdResources) {
   const comparisons: Array<{ key: string; value?: string; prodKey: string; prodValue?: string }> = [
     {
       key: "NEXT_PUBLIC_SUPABASE_URL",
@@ -79,9 +83,9 @@ if (appEnv !== "production" && !allowProdResources) {
 const dbTargetEnv = process.env.DB_TARGET_ENV ?? appEnv;
 const allowProdDbWipe = process.env.ALLOW_PROD_DB_WIPE === "true";
 
-if (dbTargetEnv === "production" && !allowProdDbWipe) {
+if (dbTargetEnv === "production" && !allowProdDbWipe && !treatAsProdTarget) {
   blockers.push(
-    `DB_TARGET_ENV is set to "production" without ALLOW_PROD_DB_WIPE=true. This is blocked to protect the production database.`,
+    `DB_TARGET_ENV is set to "production" while APP_ENV=${appEnv} (VERCEL_ENV=${vercelEnv ?? "unset"}) without ALLOW_PROD_DB_WIPE=true. This is blocked to protect the production database.`,
   );
 }
 
@@ -104,7 +108,9 @@ if (warnings.length > 0) {
   }
 }
 
-console.log(`Environment validation passed for NODE_ENV=${nodeEnv}, APP_ENV=${appEnv}.`);
+console.log(
+  `Environment validation passed for NODE_ENV=${nodeEnv}, APP_ENV=${appEnv}, VERCEL_ENV=${vercelEnv ?? "unset"}.`,
+);
 
 function logIssues(issues: ZodIssue[]) {
   for (const issue of issues) {
