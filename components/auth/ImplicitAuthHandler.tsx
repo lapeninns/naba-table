@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
 
@@ -20,7 +20,7 @@ export function ImplicitAuthHandler({
   defaultRedirect?: string 
 }) {
   const router = useRouter();
-  const [isProcessing, setIsProcessing] = useState(false);
+  const processingRef = useRef(false);
 
   useEffect(() => {
     // Only run on client
@@ -33,9 +33,9 @@ export function ImplicitAuthHandler({
       return;
     }
 
-    // Prevent double processing
-    if (isProcessing) return;
-    setIsProcessing(true);
+    // Prevent double processing using ref (synchronous check)
+    if (processingRef.current) return;
+    processingRef.current = true;
 
     console.log('[ImplicitAuthHandler] Detected access_token in URL hash');
 
@@ -84,16 +84,23 @@ export function ImplicitAuthHandler({
 
         console.log('[ImplicitAuthHandler] Redirecting to:', destination);
 
+        // Small delay to ensure cookies are flushed before navigation
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         // Use router.replace to avoid adding to history
         router.replace(destination);
         router.refresh();
       } catch (err) {
         console.error('[ImplicitAuthHandler] Unexpected error:', err);
+      } finally {
+        // Reset processing flag if something went wrong
+        // (successful flow redirects away so this won't run)
+        processingRef.current = false;
       }
     };
 
     void handleImplicitAuth();
-  }, [router, defaultRedirect, isProcessing]);
+  }, [router, defaultRedirect]);
 
   // This component doesn't render anything
   return null;
