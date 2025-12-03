@@ -1,15 +1,11 @@
-import { createHash, randomBytes } from "crypto";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { Resend } from "resend";
 import { z } from "zod";
 
 import { defaultRedirectForHost, parseHostname, sanitizeRedirect, toAbsoluteRedirectTarget } from "@/lib/auth/redirects";
-import { env } from "@/lib/env";
 import { validatePasswordStrength } from "@/lib/security/passwordPolicy";
 import { validateCsrfToken } from "@/server/security/csrf";
 import { consumeRateLimit } from "@/server/security/rate-limit";
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
+import { getRouteHandlerSupabaseClient } from "@/server/supabase";
 
 import type { NextRequest } from "next/server";
 
@@ -148,81 +144,8 @@ export async function POST(req: NextRequest) {
     emailRedirectTo,
   });
 
-  // Use Resend directly if configured, to bypass Supabase email limits/issues
-  if (env.resend.apiKey && env.resend.from) {
-    try {
-      // Generate PKCE pair to support code exchange flow
-      const verifier = randomBytes(32).toString("base64url");
-      const challenge = createHash("sha256").update(verifier).digest("base64url");
-
-      const adminSupabase = getServiceSupabaseClient();
-      const { data, error: generateError } = await adminSupabase.auth.admin.generateLink({
-        type: "magiclink",
-        email,
-        options: {
-          redirectTo: emailRedirectTo,
-          redirect_to: emailRedirectTo,
-          code_challenge: challenge,
-          code_challenge_method: "s256",
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } as any,
-      });
-
-      if (generateError) {
-        throw generateError;
-      }
-
-      const magicLink = data.properties?.action_link;
-      if (!magicLink) {
-        throw new Error("Failed to generate magic link");
-      }
-
-      // Manually set the PKCE verifier cookie so exchangeCodeForSession works
-      const cookieStore = await cookies();
-      const url = new URL(env.supabase.url);
-      const projectId = url.hostname.split(".")[0];
-      const cookieName = `sb-${projectId}-auth-token-code-verifier`;
-      
-      cookieStore.set({
-        name: cookieName,
-        value: verifier,
-        httpOnly: true,
-        secure: env.node.appEnv !== "development",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 60 * 10, // 10 minutes
-        domain: rootDomain !== "localhost" ? `.${rootDomain}` : undefined,
-      });
-
-      const resend = new Resend(env.resend.apiKey);
-      const { error: emailError } = await resend.emails.send({
-        from: env.resend.from,
-        to: email,
-        subject: "Sign in to Nab a Table",
-        html: `
-          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>Sign in to Nab a Table</h2>
-            <p>Click the button below to sign in to your account.</p>
-            <a href="${magicLink}" style="display: inline-block; background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 16px 0;">Sign In</a>
-            <p style="color: #666; font-size: 14px;">If you didn't request this email, you can safely ignore it.</p>
-          </div>
-        `,
-      });
-
-      if (emailError) {
-        console.error("[Auth/signin] Resend error:", emailError);
-        throw new Error("Failed to send email via Resend");
-      }
-
-      const response = NextResponse.json({ status: "magic_link_sent", redirectTo: absoluteRedirect }, { status: 202 });
-      return setRateHeaders(response, rateResult);
-
-    } catch (err) {
-      console.error("[Auth/signin] Manual magic link failed, falling back to Supabase:", err);
-      // Fall through to default Supabase behavior if manual sending fails
-    }
-  }
-
+  // Use Supabase's built-in signInWithOtp for proper PKCE flow
+  // This handles code challenges automatically and works reliably with the callback
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {

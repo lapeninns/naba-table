@@ -1,15 +1,11 @@
-import { createHash, randomBytes } from "crypto";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { Resend } from "resend";
 import { z } from "zod";
 
 import { sanitizeRedirect, toAbsoluteRedirectTarget } from "@/lib/auth/redirects";
-import { env } from "@/lib/env";
 import { validatePasswordStrength } from "@/lib/security/passwordPolicy";
 import { validateCsrfToken } from "@/server/security/csrf";
 import { consumeRateLimit } from "@/server/security/rate-limit";
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
+import { getRouteHandlerSupabaseClient } from "@/server/supabase";
 
 import type { NextRequest } from "next/server";
 
@@ -140,77 +136,7 @@ export async function POST(req: NextRequest) {
       return setRateHeaders(response, rateResult);
     }
 
-    // Magic link path
-    if (env.resend.apiKey && env.resend.from) {
-      try {
-        const verifier = randomBytes(32).toString("base64url");
-        const challenge = createHash("sha256").update(verifier).digest("base64url");
-
-        const adminSupabase = getServiceSupabaseClient();
-        const { data, error: generateError } = await adminSupabase.auth.admin.generateLink({
-          type: "magiclink",
-          email,
-          options: {
-            redirectTo: emailRedirectTo,
-            redirect_to: emailRedirectTo,
-            code_challenge: challenge,
-            code_challenge_method: "s256",
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          } as any,
-        });
-
-        if (generateError) {
-          throw generateError;
-        }
-
-        const magicLink = data.properties?.action_link;
-        if (!magicLink) {
-          throw new Error("Failed to generate magic link");
-        }
-
-        const cookieStore = await cookies();
-        const url = new URL(env.supabase.url);
-        const projectId = url.hostname.split(".")[0];
-        const cookieName = `sb-${projectId}-auth-token-code-verifier`;
-
-        cookieStore.set({
-          name: cookieName,
-          value: verifier,
-          httpOnly: true,
-          secure: env.node.appEnv !== "development",
-          sameSite: "lax",
-          path: "/",
-          maxAge: 60 * 10,
-          domain: rootDomain !== "localhost" ? `.${rootDomain}` : undefined,
-        });
-
-        const resend = new Resend(env.resend.apiKey);
-        const { error: emailError } = await resend.emails.send({
-          from: env.resend.from,
-          to: email,
-          subject: "Finish creating your Nab a Table account",
-          html: `
-            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2>Finish creating your account</h2>
-              <p>Click the button below to confirm your email and continue onboarding.</p>
-              <a href="${magicLink}" style="display: inline-block; background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 16px 0;">Confirm email</a>
-              <p style="color: #666; font-size: 14px;">If you didn't request this email, you can ignore it.</p>
-            </div>
-          `,
-        });
-
-        if (emailError) {
-          console.error("[Auth/signup] Resend error:", emailError);
-          throw new Error("Failed to send email via Resend");
-        }
-
-        const response = NextResponse.json({ status: "magic_link_sent", redirectTo: absoluteRedirect }, { status: 202 });
-        return setRateHeaders(response, rateResult);
-      } catch (err) {
-        console.error("[Auth/signup] Manual magic link failed, falling back to Supabase:", err);
-      }
-    }
-
+    // Magic link signup - use Supabase's built-in signInWithOtp for proper PKCE flow
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
