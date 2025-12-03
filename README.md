@@ -26,6 +26,31 @@ Modern reservations and capacity management built with Next.js 16 (App Router), 
   - Override (not recommended): `ALLOW_PROD_RESOURCES_IN_NONPROD=true`.
 - Test endpoints: `ENABLE_TEST_ENDPOINTS` (default false) + `TEST_ENDPOINT_TOKEN` are required; missing/invalid token returns 403.
 
+### Staging profile quick start (non-prod)
+
+Use this snippet when pointing local/dev or deploy-preview environments at the shared staging Supabase project:
+
+```
+APP_ENV=staging
+# Local/dev:
+NODE_ENV=development
+# Deploy previews / CI smoke:
+# NODE_ENV=production
+DB_TARGET_ENV=staging
+NEXT_PUBLIC_SUPABASE_URL=https://<your-staging-project>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=staging-anon-key
+SUPABASE_SERVICE_ROLE_KEY=staging-service-role-key
+PRODUCTION_SUPABASE_URL=https://<your-prod-project>.supabase.co
+PRODUCTION_SUPABASE_ANON_KEY=prod-anon-key
+PRODUCTION_SUPABASE_SERVICE_ROLE_KEY=prod-service-role-key
+
+# Safety: block prod resources unless explicitly allowed
+ALLOW_PROD_RESOURCES_IN_NONPROD=false
+ALLOW_PROD_DB_WIPE=false
+```
+
+> Keep real keys in `.env.local` (git-ignored) and your hosting provider’s secret manager—never commit secrets. For deploy previews, set the same staging values as environment variables with `APP_ENV=staging` + `NODE_ENV=production` so that Supabase always points at staging.
+
 ## Database scripts (remote only)
 
 Destructive scripts are guarded by `scripts/db/safe-run.ts`.

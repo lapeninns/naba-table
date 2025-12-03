@@ -25,6 +25,13 @@
   - Non‑prod env uses production Supabase or booking API values matching `PRODUCTION_*` vars.
 - Override (not recommended): `ALLOW_PROD_RESOURCES_IN_NONPROD=true`.
 
+## Staging quick start
+
+- Local/dev: set `APP_ENV=staging`, `NODE_ENV=development`, `DB_TARGET_ENV=staging`, and point Supabase URL/keys at the shared staging project.
+- Deploy previews / CI smoke: set `APP_ENV=staging`, `NODE_ENV=production`, and inject the same staging Supabase URL + keys via the hosting provider.
+- Keep `ALLOW_PROD_RESOURCES_IN_NONPROD=false` so validation blocks accidental production URLs/keys.
+- Never commit real keys; populate `.env.local` (git ignored) or managed secrets only.
+
 ### Production markers (placeholders in `.env.example`)
 
 - `PRODUCTION_SUPABASE_URL`
@@ -50,8 +57,8 @@
 ## Checklist for new env files
 
 - Copy `.env.example` → `.env.local`.
-- Fill **non‑production** Supabase URL/keys and booking API URLs.
-- Set `APP_ENV=development|staging` for local/staging; `NODE_ENV` should remain `development` for local runs.
+- Fill **non-production** Supabase URL/keys and booking API URLs (staging by default).
+- Set `APP_ENV=development|staging` for local/staging; `NODE_ENV` should remain `development` for local runs (deploy previews may use `NODE_ENV=production`).
 - Keep `ENABLE_TEST_ENDPOINTS=false` unless explicitly testing with a token.
 
 ## Secret rotation & history cleanup

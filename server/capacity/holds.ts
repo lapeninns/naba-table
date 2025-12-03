@@ -466,7 +466,11 @@ export async function releaseTableHold(input: ReleaseTableHoldInput): Promise<vo
   const { holdId, client } = input;
   const supabase = ensureClient(client);
   await configureHoldStrictConflictSession(supabase);
-  const rpcCall = supabase.rpc("release_hold_and_emit", { p_hold_id: holdId, p_actor_id: null });
+  const rpcCall = supabase.rpc("release_hold_and_emit", {
+    p_hold_id: holdId,
+    // actor id is optional for system-triggered releases; Supabase RPC expects string | undefined
+    p_actor_id: undefined,
+  });
   const { error: rpcError } = await rpcCall;
 
   if (rpcError) {

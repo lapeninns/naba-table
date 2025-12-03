@@ -81,7 +81,7 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
       <div className="grid gap-6 md:grid-cols-3">
         <Calendar24Date
           date={{
-            value: dateField.value,
+            value: dateField.value ?? '',
             minDate: state.minDate,
             onSelect: (next: Date | null) => {
               state.handlers.selectDate(next);
@@ -104,7 +104,7 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
             name="party"
             render={({ field }) => (
               <PartySizeField
-                value={field.value}
+                value={field.value ?? 1}
                 onChange={state.handlers.changeParty}
                 error={formState.errors.party?.message}
               />
@@ -118,7 +118,7 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
 
         <Calendar24Time
           time={{
-            value: timeField.value,
+            value: timeField.value ?? '',
             onChange: (next: string, options?: { commit?: boolean }) => {
               state.handlers.selectTime(next, options);
             },
@@ -161,7 +161,7 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
             <div className="space-y-6 pt-4">
               <TimeSlotGrid
                 slots={timeDisabled ? [] : state.slots}
-                value={timeField.value}
+                value={timeField.value ?? ''}
                 loading={state.isScheduleFetching || state.isScheduleLoading}
                 onSelect={(next) => {
                   state.handlers.selectTime(next);

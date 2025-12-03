@@ -1,0 +1,2240 @@
+{
+  "numTotalTestSuites": 110,
+  "numPassedTestSuites": 91,
+  "numFailedTestSuites": 19,
+  "numPendingTestSuites": 0,
+  "numTotalTests": 190,
+  "numPassedTests": 180,
+  "numFailedTests": 10,
+  "numPendingTests": 0,
+  "numTodoTests": 0,
+  "snapshot": {
+    "added": 0,
+    "failure": false,
+    "filesAdded": 0,
+    "filesRemoved": 0,
+    "filesRemovedList": [],
+    "filesUnmatched": 0,
+    "filesUpdated": 0,
+    "matched": 0,
+    "total": 0,
+    "unchecked": 0,
+    "uncheckedKeysByFile": [],
+    "unmatched": 0,
+    "updated": 0,
+    "didUpdate": false
+  },
+  "startTime": 1764784321032,
+  "success": false,
+  "testResults": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["buildOpsDateRange"],
+          "fullName": "buildOpsDateRange returns UTC day boundaries when no timezone is provided",
+          "status": "passed",
+          "title": "returns UTC day boundaries when no timezone is provided",
+          "duration": 30.47729199999992,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["buildOpsDateRange"],
+          "fullName": "buildOpsDateRange computes boundaries in the supplied timezone",
+          "status": "passed",
+          "title": "computes boundaries in the supplied timezone",
+          "duration": 6.918333000000075,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["buildOpsDateRange"],
+          "fullName": "buildOpsDateRange returns null for invalid dates",
+          "status": "passed",
+          "title": "returns null for invalid dates",
+          "duration": 0.35808300000007875,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784325108,
+      "endTime": 1764784325146.3582,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/tests/ops/bookings-date-range.test.tsx"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["ops booking service"],
+          "fullName": "ops booking service unassigns tables via the ops booking endpoint",
+          "status": "passed",
+          "title": "unassigns tables via the ops booking endpoint",
+          "duration": 1.2234169999999267,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784326485,
+      "endTime": 1764784326486.2234,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/tests/ops/bookings.service.test.tsx"
+    },
+    {
+      "assertionResults": [],
+      "startTime": 1764784321032,
+      "endTime": 1764784321032,
+      "status": "failed",
+      "message": "Failed to resolve import \"@/hooks/useGlobalShortcuts\" from \"src/components/features/tables/TableInventoryClient.tsx\". Does the file exist?",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/tests/ops/table-inventory-filter.test.tsx"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["booking email side-effects (queue disabled)"],
+          "fullName": "booking email side-effects (queue disabled) falls back to inline timers for reminder emails when queue is disabled",
+          "status": "passed",
+          "title": "falls back to inline timers for reminder emails when queue is disabled",
+          "duration": 3.5859590000000026,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["booking email side-effects (queue disabled)"],
+          "fullName": "booking email side-effects (queue disabled) falls back to inline timer for review-request email when queue is disabled",
+          "status": "passed",
+          "title": "falls back to inline timer for review-request email when queue is disabled",
+          "duration": 1.9490409999999656,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784326047,
+      "endTime": 1764784326051.949,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/tests/server/booking-side-effects.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["ops bookings caching"],
+          "fullName": "ops bookings caching returns cached summary on repeat calls within TTL",
+          "status": "passed",
+          "title": "returns cached summary on repeat calls within TTL",
+          "duration": 131.90425000000005,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["ops bookings caching"],
+          "fullName": "ops bookings caching returns cached booking changes on repeat calls within TTL",
+          "status": "passed",
+          "title": "returns cached booking changes on repeat calls within TTL",
+          "duration": 16.466625000000022,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784323224,
+      "endTime": 1764784323371.4666,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/tests/server/ops-bookings-cache.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["Routing Redirects"],
+          "fullName": "Routing Redirects should have canonical redirects configured",
+          "status": "passed",
+          "title": "should have canonical redirects configured",
+          "duration": 0.8586250000000746,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784326569,
+      "endTime": 1764784326569.8586,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/tests/server/redirects.test.ts"
+    },
+    {
+      "assertionResults": [],
+      "startTime": 1764784321032,
+      "endTime": 1764784321032,
+      "status": "failed",
+      "message": "Failed to resolve import \"@/scripts/db/safety\" from \"tests/scripts/db-safety.test.ts\". Does the file exist?",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/tests/scripts/db-safety.test.ts"
+    },
+    {
+      "assertionResults": [],
+      "startTime": 1764784321032,
+      "endTime": 1764784321032,
+      "status": "failed",
+      "message": "process.exit unexpectedly called with \"1\"",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/tests/scripts/validate-env.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["ReserveRouter"],
+          "fullName": "ReserveRouter uses the default /reserve basename when no override is provided",
+          "status": "passed",
+          "title": "uses the default /reserve basename when no override is provided",
+          "duration": 198.19825000000003,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["ReserveRouter"],
+          "fullName": "ReserveRouter normalizes custom base paths from the environment",
+          "status": "passed",
+          "title": "normalizes custom base paths from the environment",
+          "duration": 4.465249999999969,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784323211,
+      "endTime": 1764784323413.4653,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/app/__tests__/router.test.tsx"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["table assignment inventory filtering"],
+          "fullName": "table assignment inventory filtering marks tables in inactive zones as inactive for full restaurant load",
+          "status": "failed",
+          "title": "marks tables in inactive zones as inactive for full restaurant load",
+          "duration": 12.590124999999944,
+          "failureMessages": [
+            "ManualSelectionInputError: Failed to load table inventory\n    at Module.loadTablesForRestaurant (/Users/amankumarshrestha/Downloads/SajiloReserveX/server/capacity/table-assignment/supabase.ts:177:11)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/amankumarshrestha/Downloads/SajiloReserveX/tests/server/capacity/supabase-table-assignment.test.ts:77:20\n    at file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:915:20"
+          ],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["table assignment inventory filtering"],
+          "fullName": "table assignment inventory filtering marks tables in inactive zones when loading by ids",
+          "status": "passed",
+          "title": "marks tables in inactive zones when loading by ids",
+          "duration": 0.7880419999999049,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["table assignment inventory filtering"],
+          "fullName": "table assignment inventory filtering marks individual inactive tables even when zone is active",
+          "status": "failed",
+          "title": "marks individual inactive tables even when zone is active",
+          "duration": 0.4457919999999831,
+          "failureMessages": [
+            "ManualSelectionInputError: Failed to load table inventory\n    at Module.loadTablesForRestaurant (/Users/amankumarshrestha/Downloads/SajiloReserveX/server/capacity/table-assignment/supabase.ts:177:11)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/amankumarshrestha/Downloads/SajiloReserveX/tests/server/capacity/supabase-table-assignment.test.ts:107:20\n    at file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:915:20"
+          ],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784322335,
+      "endTime": 1764784322349.4458,
+      "status": "failed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/tests/server/capacity/supabase-table-assignment.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["guardTestEndpoint"],
+          "fullName": "guardTestEndpoint blocks when flag is disabled",
+          "status": "passed",
+          "title": "blocks when flag is disabled",
+          "duration": 5.157916999999998,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["guardTestEndpoint"],
+          "fullName": "guardTestEndpoint blocks when token is missing even if flag enabled",
+          "status": "passed",
+          "title": "blocks when token is missing even if flag enabled",
+          "duration": 10.759624999999915,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["guardTestEndpoint"],
+          "fullName": "guardTestEndpoint blocks when token mismatches",
+          "status": "passed",
+          "title": "blocks when token mismatches",
+          "duration": 0.8145419999999604,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["guardTestEndpoint"],
+          "fullName": "guardTestEndpoint allows when flag enabled and token matches header",
+          "status": "passed",
+          "title": "allows when flag enabled and token matches header",
+          "duration": 0.5325830000000451,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["guardTestEndpoint"],
+          "fullName": "guardTestEndpoint allows when token provided via query string",
+          "status": "passed",
+          "title": "allows when token provided via query string",
+          "duration": 0.2765839999999571,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784324283,
+      "endTime": 1764784324302.2766,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/tests/server/security/test-endpoints.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["apiClient"],
+          "fullName": "apiClient prefixes requests with the configured base URL",
+          "status": "passed",
+          "title": "prefixes requests with the configured base URL",
+          "duration": 59.41345799999999,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["apiClient"],
+          "fullName": "apiClient normalizes error responses",
+          "status": "passed",
+          "title": "normalizes error responses",
+          "duration": 7.296583000000055,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["apiClient"],
+          "fullName": "apiClient aborts requests that exceed the configured timeout",
+          "status": "passed",
+          "title": "aborts requests that exceed the configured timeout",
+          "duration": 7.323374999999942,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784323413,
+      "endTime": 1764784323487.3235,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/shared/api/__tests__/client.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["reservationKeys"],
+          "fullName": "reservationKeys returns a stable list key",
+          "status": "passed",
+          "title": "returns a stable list key",
+          "duration": 0.7299170000000004,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["reservationKeys"],
+          "fullName": "reservationKeys creates detail keys scoped by reservation id",
+          "status": "passed",
+          "title": "creates detail keys scoped by reservation id",
+          "duration": 0.13087500000000318,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["reservationKeys"],
+          "fullName": "reservationKeys uses null placeholder when id is missing",
+          "status": "passed",
+          "title": "uses null placeholder when id is missing",
+          "duration": 0.14029099999999062,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784326567,
+      "endTime": 1764784326568.1404,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/shared/api/__tests__/queryKeys.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["reservation config"],
+          "fullName": "reservation config provides default values when no overrides supplied",
+          "status": "passed",
+          "title": "provides default values when no overrides supplied",
+          "duration": 5.917166999999949,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["reservation config"],
+          "fullName": "reservation config applies overrides and records issues for invalid inputs",
+          "status": "passed",
+          "title": "applies overrides and records issues for invalid inputs",
+          "duration": 0.8379169999999476,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["reservation config"],
+          "fullName": "reservation config falls back to defaults when override is invalid",
+          "status": "passed",
+          "title": "falls back to defaults when override is invalid",
+          "duration": 0.5767500000000609,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784325089,
+      "endTime": 1764784325096.5767,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/shared/config/__tests__/reservations.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["mapErrorToMessage"],
+          "fullName": "mapErrorToMessage returns fallback when error is nullish",
+          "status": "passed",
+          "title": "returns fallback when error is nullish",
+          "duration": 0.6184999999999263,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["mapErrorToMessage"],
+          "fullName": "mapErrorToMessage returns string errors directly",
+          "status": "passed",
+          "title": "returns string errors directly",
+          "duration": 0.14666699999997945,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["mapErrorToMessage"],
+          "fullName": "mapErrorToMessage returns message from Error instances",
+          "status": "passed",
+          "title": "returns message from Error instances",
+          "duration": 0.07033300000000509,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["mapErrorToMessage"],
+          "fullName": "mapErrorToMessage returns message property from plain objects",
+          "status": "passed",
+          "title": "returns message property from plain objects",
+          "duration": 0.20920799999998962,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["mapErrorToMessage"],
+          "fullName": "mapErrorToMessage returns error field when present",
+          "status": "passed",
+          "title": "returns error field when present",
+          "duration": 0.06749999999999545,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["mapErrorToMessage"],
+          "fullName": "mapErrorToMessage returns first validation issue message",
+          "status": "passed",
+          "title": "returns first validation issue message",
+          "duration": 0.09241599999995742,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["mapErrorToMessage"],
+          "fullName": "mapErrorToMessage maps known error codes to friendly copy",
+          "status": "passed",
+          "title": "maps known error codes to friendly copy",
+          "duration": 0.12458300000002964,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["defaultErrorReporter"],
+          "fullName": "defaultErrorReporter logs errors via console.error in non-production env",
+          "status": "passed",
+          "title": "logs errors via console.error in non-production env",
+          "duration": 0.5674999999999955,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784326408,
+      "endTime": 1764784326409.5674,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/shared/error/__tests__/error.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["booking formatting helpers"],
+          "fullName": "booking formatting helpers formats booking labels with friendly casing",
+          "status": "passed",
+          "title": "formats booking labels with friendly casing",
+          "duration": 0.8956670000000031,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["booking formatting helpers"],
+          "fullName": "booking formatting helpers formats reservation dates and times without shifting stored values",
+          "status": "passed",
+          "title": "formats reservation dates and times without shifting stored values",
+          "duration": 16.813541999999984,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["booking formatting helpers"],
+          "fullName": "booking formatting helpers ignores timezone overrides for raw reservation times but supports other formats",
+          "status": "passed",
+          "title": "ignores timezone overrides for raw reservation times but supports other formats",
+          "duration": 0.32883300000003146,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["booking formatting helpers"],
+          "fullName": "booking formatting helpers formats dates for input controls",
+          "status": "passed",
+          "title": "formats dates for input controls",
+          "duration": 0.252791000000002,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784325540,
+      "endTime": 1764784325558.2527,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/shared/formatting/__tests__/booking.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["availability adapter helpers"],
+          "fullName": "availability adapter helpers marks closed schedules as unavailable",
+          "status": "passed",
+          "title": "marks closed schedules as unavailable",
+          "duration": 1.269708000000037,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["availability adapter helpers"],
+          "fullName": "availability adapter helpers marks schedules without available slots as no-slots",
+          "status": "passed",
+          "title": "marks schedules without available slots as no-slots",
+          "duration": 0.36504200000001674,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["availability adapter helpers"],
+          "fullName": "availability adapter helpers treats missing schedules as unknown unavailability",
+          "status": "passed",
+          "title": "treats missing schedules as unknown unavailability",
+          "duration": 0.24116700000001856,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["availability adapter helpers"],
+          "fullName": "availability adapter helpers returns time slots for a given date",
+          "status": "passed",
+          "title": "returns time slots for a given date",
+          "duration": 1.3336669999999913,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["availability adapter helpers"],
+          "fullName": "availability adapter helpers detects past selections and closing guard violations",
+          "status": "passed",
+          "title": "detects past selections and closing guard violations",
+          "duration": 22.535916000000043,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["availability adapter helpers"],
+          "fullName": "availability adapter helpers evaluates slot capacity based on disabled state and service availability",
+          "status": "passed",
+          "title": "evaluates slot capacity based on disabled state and service availability",
+          "duration": 0.40858300000002146,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["availability adapter helpers"],
+          "fullName": "availability adapter helpers returns latest permissible start minutes when closing window present",
+          "status": "passed",
+          "title": "returns latest permissible start minutes when closing window present",
+          "duration": 0.3037500000000364,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784325048,
+      "endTime": 1764784325074.4087,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/shared/schedule/__tests__/availability.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["reservation time helpers"],
+          "fullName": "reservation time helpers computes service windows based on weekday/weekend rules",
+          "status": "passed",
+          "title": "computes service windows based on weekday/weekend rules",
+          "duration": 0.9020830000000615,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["reservation time helpers"],
+          "fullName": "reservation time helpers builds slots per service using reservation interval",
+          "status": "passed",
+          "title": "builds slots per service using reservation interval",
+          "duration": 0.4173749999999927,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["reservation time helpers"],
+          "fullName": "reservation time helpers infers booking option based on time and date",
+          "status": "passed",
+          "title": "infers booking option based on time and date",
+          "duration": 0.20995800000002873,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784326148,
+      "endTime": 1764784326150.21,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/shared/time/__tests__/reservations.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["shared/time primitives"],
+          "fullName": "shared/time primitives normalizes time strings",
+          "status": "passed",
+          "title": "normalizes time strings",
+          "duration": 0.6780840000000126,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["shared/time primitives"],
+          "fullName": "shared/time primitives converts between time strings and minutes",
+          "status": "passed",
+          "title": "converts between time strings and minutes",
+          "duration": 0.6531250000000455,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["shared/time primitives"],
+          "fullName": "shared/time primitives clamps minute values within bounds",
+          "status": "passed",
+          "title": "clamps minute values within bounds",
+          "duration": 0.6269999999999527,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["shared/time primitives"],
+          "fullName": "shared/time primitives creates minute ranges and slots",
+          "status": "passed",
+          "title": "creates minute ranges and slots",
+          "duration": 1.6885829999999942,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784326343,
+      "endTime": 1764784326346.6885,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/shared/time/__tests__/time.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["contact validation helpers"],
+          "fullName": "contact validation helpers validates email addresses",
+          "status": "passed",
+          "title": "validates email addresses",
+          "duration": 0.46070899999995163,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["contact validation helpers"],
+          "fullName": "contact validation helpers validates UK mobile numbers",
+          "status": "passed",
+          "title": "validates UK mobile numbers",
+          "duration": 0.2103749999999991,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784326580,
+      "endTime": 1764784326580.4607,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/shared/validation/__tests__/contact.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["/api/bookings POST"],
+          "fullName": "/api/bookings POST returns 429 when rate limit exceeded for booking creation",
+          "status": "passed",
+          "title": "returns 429 when rate limit exceeded for booking creation",
+          "duration": 6.786790999999994,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/bookings POST"],
+          "fullName": "/api/bookings POST returns 400 when selected time is outside operating hours",
+          "status": "passed",
+          "title": "returns 400 when selected time is outside operating hours",
+          "duration": 1.1837920000000395,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/bookings POST"],
+          "fullName": "/api/bookings POST creates a booking when validation passes",
+          "status": "passed",
+          "title": "creates a booking when validation passes",
+          "duration": 4.048749999999927,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/bookings POST"],
+          "fullName": "/api/bookings POST resolves restaurant id via slug when restaurantId is omitted",
+          "status": "passed",
+          "title": "resolves restaurant id via slug when restaurantId is omitted",
+          "duration": 1.2176670000000058,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/bookings POST"],
+          "fullName": "/api/bookings POST returns 404 when restaurant context is missing and the default restaurant is absent",
+          "status": "passed",
+          "title": "returns 404 when restaurant context is missing and the default restaurant is absent",
+          "duration": 0.8673750000000382,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/bookings GET"],
+          "fullName": "/api/bookings GET returns 429 when rate limit exceeded",
+          "status": "passed",
+          "title": "returns 429 when rate limit exceeded",
+          "duration": 1.0030839999999444,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/bookings GET"],
+          "fullName": "/api/bookings GET returns bookings from guest lookup RPC when available",
+          "status": "passed",
+          "title": "returns bookings from guest lookup RPC when available",
+          "duration": 0.5841250000000855,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784324437,
+      "endTime": 1764784324452.5842,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/src/app/api/bookings/route.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["GET /api/auth/callback"],
+          "fullName": "GET /api/auth/callback exchanges the code and redirects to the provided path when valid",
+          "status": "failed",
+          "title": "exchanges the code and redirects to the provided path when valid",
+          "duration": 6.749707999999828,
+          "failureMessages": [
+            "Error: `cookies` was called outside a request scope. Read more: https://nextjs.org/docs/messages/next-dynamic-api-wrong-context\n    at throwForMissingRequestStore (/Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/next@16.0.7_@babel+core@7.28.5_@opentelemetry+api@1.9.0_@playwright+test@1.57.0_react-d_6ea4100e7f60946aab102b48afa27170/node_modules/next/dist/server/app-render/work-unit-async-storage.external.js:63:33)\n    at cookies (/Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/next@16.0.7_@babel+core@7.28.5_@opentelemetry+api@1.9.0_@playwright+test@1.57.0_react-d_6ea4100e7f60946aab102b48afa27170/node_modules/next/dist/server/request/cookies.js:112:67)\n    at Module.GET (/Users/amankumarshrestha/Downloads/SajiloReserveX/src/app/api/auth/callback/route.ts:120:31)\n    at /Users/amankumarshrestha/Downloads/SajiloReserveX/src/app/api/auth/callback/route.test.ts:41:28\n    at file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:145:11\n    at file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:915:26\n    at file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:1240:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:1206:10)\n    at file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:1650:37"
+          ],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["GET /api/auth/callback"],
+          "fullName": "GET /api/auth/callback falls back to default callback path when redirect is invalid",
+          "status": "failed",
+          "title": "falls back to default callback path when redirect is invalid",
+          "duration": 1.4458340000001044,
+          "failureMessages": [
+            "Error: `cookies` was called outside a request scope. Read more: https://nextjs.org/docs/messages/next-dynamic-api-wrong-context\n    at throwForMissingRequestStore (/Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/next@16.0.7_@babel+core@7.28.5_@opentelemetry+api@1.9.0_@playwright+test@1.57.0_react-d_6ea4100e7f60946aab102b48afa27170/node_modules/next/dist/server/app-render/work-unit-async-storage.external.js:63:33)\n    at cookies (/Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/next@16.0.7_@babel+core@7.28.5_@opentelemetry+api@1.9.0_@playwright+test@1.57.0_react-d_6ea4100e7f60946aab102b48afa27170/node_modules/next/dist/server/request/cookies.js:112:67)\n    at Module.GET (/Users/amankumarshrestha/Downloads/SajiloReserveX/src/app/api/auth/callback/route.ts:120:31)\n    at /Users/amankumarshrestha/Downloads/SajiloReserveX/src/app/api/auth/callback/route.test.ts:55:28\n    at file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:145:11\n    at file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:915:26\n    at file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:1240:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:1206:10)\n    at file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:1650:37"
+          ],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["GET /api/auth/callback"],
+          "fullName": "GET /api/auth/callback logs a warning and still redirects when no code or token_hash is present",
+          "status": "passed",
+          "title": "logs a warning and still redirects when no code or token_hash is present",
+          "duration": 2.9105420000000777,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["GET /api/auth/callback"],
+          "fullName": "GET /api/auth/callback verifies token_hash when present",
+          "status": "failed",
+          "title": "verifies token_hash when present",
+          "duration": 1.8944169999999758,
+          "failureMessages": [
+            "Error: `cookies` was called outside a request scope. Read more: https://nextjs.org/docs/messages/next-dynamic-api-wrong-context\n    at throwForMissingRequestStore (/Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/next@16.0.7_@babel+core@7.28.5_@opentelemetry+api@1.9.0_@playwright+test@1.57.0_react-d_6ea4100e7f60946aab102b48afa27170/node_modules/next/dist/server/app-render/work-unit-async-storage.external.js:63:33)\n    at cookies (/Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/next@16.0.7_@babel+core@7.28.5_@opentelemetry+api@1.9.0_@playwright+test@1.57.0_react-d_6ea4100e7f60946aab102b48afa27170/node_modules/next/dist/server/request/cookies.js:112:67)\n    at Module.GET (/Users/amankumarshrestha/Downloads/SajiloReserveX/src/app/api/auth/callback/route.ts:120:31)\n    at /Users/amankumarshrestha/Downloads/SajiloReserveX/src/app/api/auth/callback/route.test.ts:78:28\n    at file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:145:11\n    at file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:915:26\n    at file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:1240:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:1206:10)\n    at file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:1650:37"
+          ],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784322256,
+      "endTime": 1764784322268.8945,
+      "status": "failed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/src/app/api/auth/callback/route.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["POST /api/auth/signin"],
+          "fullName": "POST /api/auth/signin rejects missing CSRF token",
+          "status": "passed",
+          "title": "rejects missing CSRF token",
+          "duration": 3.604082999999946,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["POST /api/auth/signin"],
+          "fullName": "POST /api/auth/signin returns 429 when rate limit exceeded",
+          "status": "passed",
+          "title": "returns 429 when rate limit exceeded",
+          "duration": 2.089999999999918,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["POST /api/auth/signin"],
+          "fullName": "POST /api/auth/signin signs in with password when valid",
+          "status": "passed",
+          "title": "signs in with password when valid",
+          "duration": 1.5379579999998896,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["POST /api/auth/signin"],
+          "fullName": "POST /api/auth/signin sends a magic link and allows creating a new user",
+          "status": "failed",
+          "title": "sends a magic link and allows creating a new user",
+          "duration": 4.579000000000178,
+          "failureMessages": [
+            "AssertionError: expected \"vi.fn()\" to be called with arguments: [ { …(2) } ]\n\nReceived: \n\n  1st vi.fn() call:\n\n  [\n    {\n      \"email\": \"newuser@example.com\",\n      \"options\": {\n-       \"emailRedirectTo\": \"http://localhost:3000/api/auth/callback?redirectedFrom=%2Fguest%2Fbookings\",\n-       \"shouldCreateUser\": true,\n+       \"emailRedirectTo\": \"https://nabatable.com/api/auth/callback?redirectedFrom=%2Fguest%2Fbookings\",\n+       \"shouldCreateUser\": false,\n      },\n    },\n  ]\n\n\nNumber of calls: 1\n\n    at Proxy.<anonymous> (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+expect@4.0.15/node_modules/@vitest/expect/dist/index.js:1420:10)\n    at Proxy.<anonymous> (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+expect@4.0.15/node_modules/@vitest/expect/dist/index.js:1090:14)\n    at Proxy.methodWrapper (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/chai@6.2.1/node_modules/chai/index.js:1700:25)\n    at /Users/amankumarshrestha/Downloads/SajiloReserveX/src/app/api/auth/signin/route.test.ts:126:31\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:915:20"
+          ],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["POST /api/auth/signin"],
+          "fullName": "POST /api/auth/signin aligns callback host with redirect host in production (www vs app)",
+          "status": "failed",
+          "title": "aligns callback host with redirect host in production (www vs app)",
+          "duration": 3.7114999999998872,
+          "failureMessages": [
+            "AssertionError: expected \"vi.fn()\" to be called with arguments: [ { email: 'user@example.com', …(1) } ]\n\nReceived: \n\n  1st vi.fn() call:\n\n  [\n    {\n      \"email\": \"user@example.com\",\n      \"options\": {\n        \"emailRedirectTo\": \"https://app.nabatable.com/api/auth/callback?redirectedFrom=https%3A%2F%2Fwww.nabatable.com%2Fapp%2Fdashboard\",\n-       \"shouldCreateUser\": true,\n+       \"shouldCreateUser\": false,\n      },\n    },\n  ]\n\n\nNumber of calls: 1\n\n    at Proxy.<anonymous> (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+expect@4.0.15/node_modules/@vitest/expect/dist/index.js:1420:10)\n    at Proxy.<anonymous> (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+expect@4.0.15/node_modules/@vitest/expect/dist/index.js:1090:14)\n    at Proxy.methodWrapper (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/chai@6.2.1/node_modules/chai/index.js:1700:25)\n    at /Users/amankumarshrestha/Downloads/SajiloReserveX/src/app/api/auth/signin/route.test.ts:157:31\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:915:20"
+          ],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784322255,
+      "endTime": 1764784322270.7114,
+      "status": "failed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/src/app/api/auth/signin/route.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["/api/bookings/[id] GET"],
+          "fullName": "/api/bookings/[id] GET returns 401 when user is not authenticated",
+          "status": "passed",
+          "title": "returns 401 when user is not authenticated",
+          "duration": 4.200166000000081,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/bookings/[id] GET"],
+          "fullName": "/api/bookings/[id] GET returns 401 when user email is missing",
+          "status": "passed",
+          "title": "returns 401 when user email is missing",
+          "duration": 0.9320419999999103,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/bookings/[id] GET"],
+          "fullName": "/api/bookings/[id] GET returns 403 when user does not own the booking",
+          "status": "passed",
+          "title": "returns 403 when user does not own the booking",
+          "duration": 1.55275000000006,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/bookings/[id] GET"],
+          "fullName": "/api/bookings/[id] GET returns 200 with booking data when user owns the booking",
+          "status": "passed",
+          "title": "returns 200 with booking data when user owns the booking",
+          "duration": 0.8358749999999873,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/bookings/[id] GET"],
+          "fullName": "/api/bookings/[id] GET includes restaurant metadata for authenticated requests",
+          "status": "passed",
+          "title": "includes restaurant metadata for authenticated requests",
+          "duration": 0.7470829999999751,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/bookings/[id] GET"],
+          "fullName": "/api/bookings/[id] GET returns 404 when booking is not found",
+          "status": "passed",
+          "title": "returns 404 when booking is not found",
+          "duration": 0.4012079999999969,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/bookings/[id] GET"],
+          "fullName": "/api/bookings/[id] GET normalizes email for comparison (case-insensitive)",
+          "status": "passed",
+          "title": "normalizes email for comparison (case-insensitive)",
+          "duration": 0.41012499999987995,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/bookings/[id] PUT"],
+          "fullName": "/api/bookings/[id] PUT returns 401 when session is missing for dashboard updates",
+          "status": "passed",
+          "title": "returns 401 when session is missing for dashboard updates",
+          "duration": 1.964291000000003,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/bookings/[id] PUT"],
+          "fullName": "/api/bookings/[id] PUT returns 403 when staff has no memberships for dashboard updates",
+          "status": "passed",
+          "title": "returns 403 when staff has no memberships for dashboard updates",
+          "duration": 1.780083999999988,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/bookings/[id] PUT"],
+          "fullName": "/api/bookings/[id] PUT returns 403 when staff is not a member of the booking restaurant",
+          "status": "passed",
+          "title": "returns 403 when staff is not a member of the booking restaurant",
+          "duration": 0.6699169999999413,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/bookings/[id] PUT"],
+          "fullName": "/api/bookings/[id] PUT routes dashboard allocation changes through the modification flow",
+          "status": "passed",
+          "title": "routes dashboard allocation changes through the modification flow",
+          "duration": 19.435292000000118,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/bookings/[id] PUT"],
+          "fullName": "/api/bookings/[id] PUT updates booking inline when dashboard edits do not impact allocation",
+          "status": "passed",
+          "title": "updates booking inline when dashboard edits do not impact allocation",
+          "duration": 5.178083000000015,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/bookings/[id] PUT"],
+          "fullName": "/api/bookings/[id] PUT rejects updates to past bookings",
+          "status": "passed",
+          "title": "rejects updates to past bookings",
+          "duration": 1.6008330000001934,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/bookings/[id] PUT"],
+          "fullName": "/api/bookings/[id] PUT returns 400 when booking time is outside operating hours",
+          "status": "passed",
+          "title": "returns 400 when booking time is outside operating hours",
+          "duration": 1.1942079999998896,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/bookings/[id] PUT"],
+          "fullName": "/api/bookings/[id] PUT updates booking when validation passes",
+          "status": "passed",
+          "title": "updates booking when validation passes",
+          "duration": 1.007333000000017,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/bookings/[id] PUT"],
+          "fullName": "/api/bookings/[id] PUT enqueues modification flow when core allocation fields change",
+          "status": "passed",
+          "title": "enqueues modification flow when core allocation fields change",
+          "duration": 0.872291000000132,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/bookings/[id] PUT"],
+          "fullName": "/api/bookings/[id] PUT blocks dashboard edits once a pending booking ages past the grace window",
+          "status": "passed",
+          "title": "blocks dashboard edits once a pending booking ages past the grace window",
+          "duration": 0.4001670000000104,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/bookings/[id] DELETE"],
+          "fullName": "/api/bookings/[id] DELETE blocks cancellations once a pending booking ages past the grace window",
+          "status": "passed",
+          "title": "blocks cancellations once a pending booking ages past the grace window",
+          "duration": 0.40733300000010786,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/bookings/[id] DELETE"],
+          "fullName": "/api/bookings/[id] DELETE rejects cancellations for past bookings",
+          "status": "passed",
+          "title": "rejects cancellations for past bookings",
+          "duration": 2.517749999999978,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784324302,
+      "endTime": 1764784324348.5178,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/src/app/api/bookings/[id]/route.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["assertBookingWithinOperatingWindow"],
+          "fullName": "assertBookingWithinOperatingWindow throws when restaurant is closed",
+          "status": "passed",
+          "title": "throws when restaurant is closed",
+          "duration": 0.6307500000000346,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["assertBookingWithinOperatingWindow"],
+          "fullName": "assertBookingWithinOperatingWindow throws when time cannot be normalized",
+          "status": "passed",
+          "title": "throws when time cannot be normalized",
+          "duration": 0.22345800000005056,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["assertBookingWithinOperatingWindow"],
+          "fullName": "assertBookingWithinOperatingWindow throws when no slot matches the requested time",
+          "status": "passed",
+          "title": "throws when no slot matches the requested time",
+          "duration": 0.11625000000003638,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["assertBookingWithinOperatingWindow"],
+          "fullName": "assertBookingWithinOperatingWindow throws when duration extends past closing time",
+          "status": "passed",
+          "title": "throws when duration extends past closing time",
+          "duration": 0.2667500000000018,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["assertBookingWithinOperatingWindow"],
+          "fullName": "assertBookingWithinOperatingWindow returns normalized time for valid submissions",
+          "status": "passed",
+          "title": "returns normalized time for valid submissions",
+          "duration": 0.15962500000000546,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["assertBookingWithinOperatingWindow"],
+          "fullName": "assertBookingWithinOperatingWindow treats disabled slots as invalid",
+          "status": "passed",
+          "title": "treats disabled slots as invalid",
+          "duration": 0.07741700000008223,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784326565,
+      "endTime": 1764784326566.2668,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/src/app/api/bookings/__tests__/timeValidation.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["GET /api/config/merge-rules"],
+          "fullName": "GET /api/config/merge-rules returns merge rules ordered by input capacities",
+          "status": "passed",
+          "title": "returns merge rules ordered by input capacities",
+          "duration": 7.779207999999926,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["GET /api/config/merge-rules"],
+          "fullName": "GET /api/config/merge-rules returns 500 when query fails",
+          "status": "passed",
+          "title": "returns 500 when query fails",
+          "duration": 4.950749999999971,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784326000,
+      "endTime": 1764784326012.9507,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/src/app/api/config/merge-rules/route.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["GET /api/config/service-policy"],
+          "fullName": "GET /api/config/service-policy returns the first service policy row",
+          "status": "passed",
+          "title": "returns the first service policy row",
+          "duration": 7.522707999999966,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["GET /api/config/service-policy"],
+          "fullName": "GET /api/config/service-policy returns 404 when no policy configured",
+          "status": "passed",
+          "title": "returns 404 when no policy configured",
+          "duration": 2.3184170000000677,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784325861,
+      "endTime": 1764784325871.3184,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/src/app/api/config/service-policy/route.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["/api/ops/allowed-capacities"],
+          "fullName": "/api/ops/allowed-capacities returns allowed capacities for authorized staff",
+          "status": "passed",
+          "title": "returns allowed capacities for authorized staff",
+          "duration": 6.528542000000016,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/ops/allowed-capacities"],
+          "fullName": "/api/ops/allowed-capacities adds a new capacity via PUT",
+          "status": "passed",
+          "title": "adds a new capacity via PUT",
+          "duration": 1.500583000000006,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/ops/allowed-capacities"],
+          "fullName": "/api/ops/allowed-capacities returns 409 when attempting to remove a capacity still in use",
+          "status": "passed",
+          "title": "returns 409 when attempting to remove a capacity still in use",
+          "duration": 0.8345840000000635,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784324230,
+      "endTime": 1764784324238.8345,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/src/app/api/ops/allowed-capacities/route.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["POST /api/ops/bookings"],
+          "fullName": "POST /api/ops/bookings accepts optional contact fields in schema",
+          "status": "passed",
+          "title": "accepts optional contact fields in schema",
+          "duration": 2.093208000000004,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["POST /api/ops/bookings"],
+          "fullName": "POST /api/ops/bookings creates a walk-in booking without contact info",
+          "status": "passed",
+          "title": "creates a walk-in booking without contact info",
+          "duration": 26.38220799999999,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["POST /api/ops/bookings"],
+          "fullName": "POST /api/ops/bookings rejects unauthenticated requests",
+          "status": "passed",
+          "title": "rejects unauthenticated requests",
+          "duration": 1.4991249999998217,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["POST /api/ops/bookings"],
+          "fullName": "POST /api/ops/bookings returns 429 when rate limit exceeded",
+          "status": "passed",
+          "title": "returns 429 when rate limit exceeded",
+          "duration": 1.4859999999998763,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["POST /api/ops/bookings"],
+          "fullName": "POST /api/ops/bookings rejects bookings outside service policy",
+          "status": "passed",
+          "title": "rejects bookings outside service policy",
+          "duration": 1.1791250000001128,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["GET /api/ops/bookings"],
+          "fullName": "GET /api/ops/bookings requires authentication",
+          "status": "passed",
+          "title": "requires authentication",
+          "duration": 1.666915999999901,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["GET /api/ops/bookings"],
+          "fullName": "GET /api/ops/bookings returns empty list when user has no memberships",
+          "status": "passed",
+          "title": "returns empty list when user has no memberships",
+          "duration": 1.476084000000128,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["GET /api/ops/bookings"],
+          "fullName": "GET /api/ops/bookings lists bookings for restaurants the user belongs to",
+          "status": "passed",
+          "title": "lists bookings for restaurants the user belongs to",
+          "duration": 0.7732080000000678,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["GET /api/ops/bookings"],
+          "fullName": "GET /api/ops/bookings returns 429 when rate limit exceeded",
+          "status": "passed",
+          "title": "returns 429 when rate limit exceeded",
+          "duration": 0.4387499999997999,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["GET /api/ops/bookings"],
+          "fullName": "GET /api/ops/bookings filters results using name or email search",
+          "status": "passed",
+          "title": "filters results using name or email search",
+          "duration": 0.8143749999999272,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["GET /api/ops/bookings"],
+          "fullName": "GET /api/ops/bookings orders by created_at desc when sortBy=created_at is provided",
+          "status": "passed",
+          "title": "orders by created_at desc when sortBy=created_at is provided",
+          "duration": 0.6084589999998116,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784324334,
+      "endTime": 1764784324372.6084,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/src/app/api/ops/bookings/route.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["/api/ops/occasions"],
+          "fullName": "/api/ops/occasions returns 401 when session is missing",
+          "status": "passed",
+          "title": "returns 401 when session is missing",
+          "duration": 3.0187089999999444,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/ops/occasions"],
+          "fullName": "/api/ops/occasions responds with occasion definitions when authenticated",
+          "status": "failed",
+          "title": "responds with occasion definitions when authenticated",
+          "duration": 6.839042000000063,
+          "failureMessages": [
+            "AssertionError: expected 500 to be 200 // Object.is equality\n    at /Users/amankumarshrestha/Downloads/SajiloReserveX/src/app/api/ops/occasions/route.test.ts:69:29\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:915:20"
+          ],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784322138,
+      "endTime": 1764784322147.839,
+      "status": "failed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/src/app/api/ops/occasions/route.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["/api/ops/zones"],
+          "fullName": "/api/ops/zones returns zones for a restaurant",
+          "status": "passed",
+          "title": "returns zones for a restaurant",
+          "duration": 15.806249999999977,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/ops/zones"],
+          "fullName": "/api/ops/zones creates a zone",
+          "status": "passed",
+          "title": "creates a zone",
+          "duration": 1.5801249999999527,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/ops/zones"],
+          "fullName": "/api/ops/zones creates an inactive zone when requested",
+          "status": "passed",
+          "title": "creates an inactive zone when requested",
+          "duration": 0.7094580000000406,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784325185,
+      "endTime": 1764784325203.7095,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/src/app/api/ops/zones/route.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["useCreateReservation"],
+          "fullName": "useCreateReservation tracks failure analytics and resets idempotency key on error",
+          "status": "passed",
+          "title": "tracks failure analytics and resets idempotency key on error",
+          "duration": 16.16020800000001,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["useCreateReservation"],
+          "fullName": "useCreateReservation includes restaurantSlug in the payload when provided",
+          "status": "passed",
+          "title": "includes restaurantSlug in the payload when provided",
+          "duration": 4.215416000000005,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784324364,
+      "endTime": 1764784324385.2153,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/features/reservations/wizard/api/__tests__/useCreateReservation.test.tsx"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["WizardDependenciesProvider"],
+          "fullName": "WizardDependenciesProvider returns default dependencies when no overrides provided",
+          "status": "passed",
+          "title": "returns default dependencies when no overrides provided",
+          "duration": 19.755540999999994,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["WizardDependenciesProvider"],
+          "fullName": "WizardDependenciesProvider merges provided overrides with defaults",
+          "status": "passed",
+          "title": "merges provided overrides with defaults",
+          "duration": 2.8688750000000027,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784325286,
+      "endTime": 1764784325308.869,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/features/reservations/wizard/di/__tests__/context.test.tsx"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["useReservationWizard Hydration"],
+          "fullName": "useReservationWizard Hydration hydrates venue details when slug is provided but details are missing",
+          "status": "passed",
+          "title": "hydrates venue details when slug is provided but details are missing",
+          "duration": 87.6707080000001,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["useReservationWizard Hydration"],
+          "fullName": "useReservationWizard Hydration does not hydrate if details are already present",
+          "status": "passed",
+          "title": "does not hydrate if details are already present",
+          "duration": 1.9055000000000746,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["useReservationWizard Hydration"],
+          "fullName": "useReservationWizard Hydration does not overwrite in-progress edits when hydration resolves",
+          "status": "passed",
+          "title": "does not overwrite in-progress edits when hydration resolves",
+          "duration": 56.486250000000155,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["useReservationWizard Hydration"],
+          "fullName": "useReservationWizard Hydration attempts hydration even when slug is \"default\" (no fallback)",
+          "status": "passed",
+          "title": "attempts hydration even when slug is \"default\" (no fallback)",
+          "duration": 3.50974999999994,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784323626,
+      "endTime": 1764784323775.5098,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/features/reservations/wizard/hooks/__tests__/useReservationWizard.hydration.test.tsx"
+    },
+    {
+      "assertionResults": [],
+      "startTime": 1764784321032,
+      "endTime": 1764784321032,
+      "status": "failed",
+      "message": "Failed to resolve import \"@/tests/fixtures/wizard\" from \"reserve/features/reservations/wizard/hooks/__tests__/useReservationWizard.timeout.test.tsx\". Does the file exist?",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/features/reservations/wizard/hooks/__tests__/useReservationWizard.timeout.test.tsx"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["deriveMaskAvailability"],
+          "fullName": "deriveMaskAvailability marks closed dates from mask while respecting minimum date",
+          "status": "passed",
+          "title": "marks closed dates from mask while respecting minimum date",
+          "duration": 21.245000000000005,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["buildMonthPrefetchTargets"],
+          "fullName": "buildMonthPrefetchTargets includes current, previous (when above min), and next month",
+          "status": "passed",
+          "title": "includes current, previous (when above min), and next month",
+          "duration": 0.567124999999919,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["buildMonthPrefetchTargets"],
+          "fullName": "buildMonthPrefetchTargets omits previous month when before minimum date",
+          "status": "passed",
+          "title": "omits previous month when before minimum date",
+          "duration": 0.27941599999996924,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784324703,
+      "endTime": 1764784324725.2793,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/features/reservations/wizard/hooks/__tests__/useUnavailableDateTracking.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["planFormSchema"],
+          "fullName": "planFormSchema accepts a valid payload",
+          "status": "passed",
+          "title": "accepts a valid payload",
+          "duration": 1.094500000000039,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["planFormSchema"],
+          "fullName": "planFormSchema rejects missing time selections",
+          "status": "passed",
+          "title": "rejects missing time selections",
+          "duration": 0.7009999999999081,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["planFormSchema"],
+          "fullName": "planFormSchema enforces notes character limit",
+          "status": "passed",
+          "title": "enforces notes character limit",
+          "duration": 0.1932080000000269,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["detailsFormSchema"],
+          "fullName": "detailsFormSchema accepts a valid payload",
+          "status": "passed",
+          "title": "accepts a valid payload",
+          "duration": 0.46079200000008314,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["detailsFormSchema"],
+          "fullName": "detailsFormSchema requires acceptance of terms",
+          "status": "passed",
+          "title": "requires acceptance of terms",
+          "duration": 0.2081670000000031,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["detailsFormSchema"],
+          "fullName": "detailsFormSchema allows optional contact fields in ops mode",
+          "status": "passed",
+          "title": "allows optional contact fields in ops mode",
+          "duration": 0.4043330000000651,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784325833,
+      "endTime": 1764784325836.4043,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/features/reservations/wizard/model/__tests__/schemas.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["useWizardStore"],
+          "fullName": "useWizardStore initialises with default booking details",
+          "status": "failed",
+          "title": "initialises with default booking details",
+          "duration": 14.711540999999897,
+          "failureMessages": [
+            "AssertionError: expected '' to be truthy\n    at /Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/features/reservations/wizard/model/__tests__/store.test.ts:37:55\n    at file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:145:11\n    at file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:915:26\n    at file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:1240:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:1206:10)\n    at file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:1650:37\n    at Traces.$ (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/vitest@4.0.15_@opentelemetry+api@1.9.0_@types+node@24.10.1_jiti@2.6.1_jsdom@27.2.0_ligh_67c1b763274604fc64e14f8eac14d2f7/node_modules/vitest/dist/chunks/traces.U4xDYhzZ.js:115:27)\n    at trace (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/vitest@4.0.15_@opentelemetry+api@1.9.0_@types+node@24.10.1_jiti@2.6.1_jsdom@27.2.0_ligh_67c1b763274604fc64e14f8eac14d2f7/node_modules/vitest/dist/chunks/test.BT8LKgU9.js:239:21)\n    at runTest (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:1650:12)"
+          ],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["useWizardStore"],
+          "fullName": "useWizardStore honours provided initial restaurant details and keeps them on reset",
+          "status": "passed",
+          "title": "honours provided initial restaurant details and keeps them on reset",
+          "duration": 1.7527919999999995,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["useWizardStore"],
+          "fullName": "useWizardStore updates booking details through actions",
+          "status": "passed",
+          "title": "updates booking details through actions",
+          "duration": 1.522707999999966,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["useWizardStore"],
+          "fullName": "useWizardStore applies confirmation payload and clears submitting state",
+          "status": "passed",
+          "title": "applies confirmation payload and clears submitting state",
+          "duration": 2.118791000000101,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["useWizardStore"],
+          "fullName": "useWizardStore resets wizard state",
+          "status": "passed",
+          "title": "resets wizard state",
+          "duration": 1.169540999999981,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784322271,
+      "endTime": 1764784322292.1694,
+      "status": "failed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/features/reservations/wizard/model/__tests__/store.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["buildReservationDraft"],
+          "fullName": "buildReservationDraft fails when time is missing",
+          "status": "passed",
+          "title": "fails when time is missing",
+          "duration": 1.93100000000004,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["buildReservationDraft"],
+          "fullName": "buildReservationDraft returns normalized draft when details are valid",
+          "status": "passed",
+          "title": "returns normalized draft when details are valid",
+          "duration": 0.5042499999999563,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["buildReservationDraft"],
+          "fullName": "buildReservationDraft fails when restaurant id is missing",
+          "status": "passed",
+          "title": "fails when restaurant id is missing",
+          "duration": 0.08387500000003456,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["buildReservationDraft"],
+          "fullName": "buildReservationDraft allows missing email/phone in ops mode",
+          "status": "passed",
+          "title": "allows missing email/phone in ops mode",
+          "duration": 0.6748330000000351,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784326031,
+      "endTime": 1764784326034.6748,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/features/reservations/wizard/model/__tests__/transformers.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["time slot helpers"],
+          "fullName": "time slot helpers uses provided period name when mapping descriptors",
+          "status": "passed",
+          "title": "uses provided period name when mapping descriptors",
+          "duration": 1.2640420000000177,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["time slot helpers"],
+          "fullName": "time slot helpers falls back to default booking labels when name missing",
+          "status": "passed",
+          "title": "falls back to default booking labels when name missing",
+          "duration": 0.21495800000002419,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["time slot helpers"],
+          "fullName": "time slot helpers exposes an immutable empty availability template",
+          "status": "passed",
+          "title": "exposes an immutable empty availability template",
+          "duration": 0.08320900000001075,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784326336,
+      "endTime": 1764784326338.2148,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/features/reservations/wizard/services/__tests__/timeSlots.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["useTimeSlots hook"],
+          "fullName": "useTimeSlots hook fetches schedule and exposes slot data",
+          "status": "passed",
+          "title": "fetches schedule and exposes slot data",
+          "duration": 70.41616700000009,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["useTimeSlots hook"],
+          "fullName": "useTimeSlots hook returns empty slots when restaurant slug missing",
+          "status": "passed",
+          "title": "returns empty slots when restaurant slug missing",
+          "duration": 1.6724999999999,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["useTimeSlots hook"],
+          "fullName": "useTimeSlots hook does not fetch when date is missing even if the slug is present",
+          "status": "passed",
+          "title": "does not fetch when date is missing even if the slug is present",
+          "duration": 1.6520410000000538,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784323861,
+      "endTime": 1764784323934.652,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/features/reservations/wizard/services/__tests__/useTimeSlots.test.tsx"
+    },
+    {
+      "assertionResults": [],
+      "startTime": 1764784321032,
+      "endTime": 1764784321032,
+      "status": "failed",
+      "message": "Failed to resolve import \"@/tests/fixtures/wizard\" from \"reserve/features/reservations/wizard/ui/__tests__/BookingWizard.offline.test.tsx\". Does the file exist?",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/features/reservations/wizard/ui/__tests__/BookingWizard.offline.test.tsx"
+    },
+    {
+      "assertionResults": [],
+      "startTime": 1764784321032,
+      "endTime": 1764784321032,
+      "status": "failed",
+      "message": "Failed to resolve import \"@/tests/fixtures/wizard\" from \"reserve/features/reservations/wizard/ui/__tests__/BookingWizard.plan-review.test.tsx\". Does the file exist?",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/features/reservations/wizard/ui/__tests__/BookingWizard.plan-review.test.tsx"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["WizardProgress"],
+          "fullName": "WizardProgress announces the current step for screen readers",
+          "status": "passed",
+          "title": "announces the current step for screen readers",
+          "duration": 151.62012500000014,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784323310,
+      "endTime": 1764784323461.62,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/features/reservations/wizard/ui/__tests__/WizardProgress.test.tsx"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["recoverBookingAfterTimeout"],
+          "fullName": "recoverBookingAfterTimeout returns match when first lookup succeeds",
+          "status": "passed",
+          "title": "returns match when first lookup succeeds",
+          "duration": 1.1604169999999385,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["recoverBookingAfterTimeout"],
+          "fullName": "recoverBookingAfterTimeout retries until a later lookup matches",
+          "status": "passed",
+          "title": "retries until a later lookup matches",
+          "duration": 0.22979099999997743,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["recoverBookingAfterTimeout"],
+          "fullName": "recoverBookingAfterTimeout returns null when contact info is missing",
+          "status": "passed",
+          "title": "returns null when contact info is missing",
+          "duration": 0.17300000000000182,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["findMatchingReservation"],
+          "fullName": "findMatchingReservation matches by restaurant/date/time/party/email/phone",
+          "status": "passed",
+          "title": "matches by restaurant/date/time/party/email/phone",
+          "duration": 0.19574999999997544,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["findMatchingReservation"],
+          "fullName": "findMatchingReservation ignores cancelled or stale reservations",
+          "status": "passed",
+          "title": "ignores cancelled or stale reservations",
+          "duration": 0.06520799999998417,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["findMatchingReservation"],
+          "fullName": "findMatchingReservation normalizes phones before comparing",
+          "status": "passed",
+          "title": "normalizes phones before comparing",
+          "duration": 0.05520899999999074,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784326098,
+      "endTime": 1764784326100.1958,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/features/reservations/wizard/utils/__tests__/timeoutRecovery.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["/api/ops/bookings/[id] PATCH"],
+          "fullName": "/api/ops/bookings/[id] PATCH updates a booking when the staff member has access",
+          "status": "passed",
+          "title": "updates a booking when the staff member has access",
+          "duration": 13.513500000000022,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/ops/bookings/[id] PATCH"],
+          "fullName": "/api/ops/bookings/[id] PATCH returns 404 when membership check fails to avoid leaking booking existence",
+          "status": "passed",
+          "title": "returns 404 when membership check fails to avoid leaking booking existence",
+          "duration": 2.2361250000000155,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/ops/bookings/[id] DELETE"],
+          "fullName": "/api/ops/bookings/[id] DELETE cancels a booking when the staff member has access",
+          "status": "passed",
+          "title": "cancels a booking when the staff member has access",
+          "duration": 1.6404999999999745,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/ops/bookings/[id] DELETE"],
+          "fullName": "/api/ops/bookings/[id] DELETE returns 404 when membership check fails to avoid leaking booking existence",
+          "status": "passed",
+          "title": "returns 404 when membership check fails to avoid leaking booking existence",
+          "duration": 1.7237499999999955,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784324815,
+      "endTime": 1764784324833.7236,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/src/app/api/ops/bookings/[id]/route.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["/api/ops/zones/[id]"],
+          "fullName": "/api/ops/zones/[id] updates a zone",
+          "status": "passed",
+          "title": "updates a zone",
+          "duration": 10.081291999999962,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/ops/zones/[id]"],
+          "fullName": "/api/ops/zones/[id] toggles zone active state",
+          "status": "passed",
+          "title": "toggles zone active state",
+          "duration": 2.175583000000074,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/ops/zones/[id]"],
+          "fullName": "/api/ops/zones/[id] returns 409 when deleting a zone in use",
+          "status": "passed",
+          "title": "returns 409 when deleting a zone in use",
+          "duration": 1.794334000000049,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784325694,
+      "endTime": 1764784325708.7944,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/src/app/api/ops/zones/[id]/route.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["/api/restaurants/[slug]/calendar-mask"],
+          "fullName": "/api/restaurants/[slug]/calendar-mask returns 400 when slug is missing",
+          "status": "passed",
+          "title": "returns 400 when slug is missing",
+          "duration": 3.110958000000096,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/restaurants/[slug]/calendar-mask"],
+          "fullName": "/api/restaurants/[slug]/calendar-mask validates query parameters",
+          "status": "passed",
+          "title": "validates query parameters",
+          "duration": 1.3315830000000233,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/restaurants/[slug]/calendar-mask"],
+          "fullName": "/api/restaurants/[slug]/calendar-mask rejects ranges where `to` precedes `from`",
+          "status": "passed",
+          "title": "rejects ranges where `to` precedes `from`",
+          "duration": 16.91512499999999,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/restaurants/[slug]/calendar-mask"],
+          "fullName": "/api/restaurants/[slug]/calendar-mask returns 404 when the restaurant is not found",
+          "status": "passed",
+          "title": "returns 404 when the restaurant is not found",
+          "duration": 0.8145419999999604,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/restaurants/[slug]/calendar-mask"],
+          "fullName": "/api/restaurants/[slug]/calendar-mask returns the calendar mask payload on success",
+          "status": "passed",
+          "title": "returns the calendar mask payload on success",
+          "duration": 2.4665840000000117,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/restaurants/[slug]/calendar-mask"],
+          "fullName": "/api/restaurants/[slug]/calendar-mask handles downstream errors gracefully",
+          "status": "passed",
+          "title": "handles downstream errors gracefully",
+          "duration": 2.102207999999905,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784324262,
+      "endTime": 1764784324289.1023,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/src/app/api/restaurants/[slug]/calendar-mask/route.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["/api/restaurants/[slug]/schedule"],
+          "fullName": "/api/restaurants/[slug]/schedule returns 400 when slug is missing",
+          "status": "passed",
+          "title": "returns 400 when slug is missing",
+          "duration": 5.378542000000039,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/restaurants/[slug]/schedule"],
+          "fullName": "/api/restaurants/[slug]/schedule validates date query parameter",
+          "status": "passed",
+          "title": "validates date query parameter",
+          "duration": 3.1305830000000014,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/restaurants/[slug]/schedule"],
+          "fullName": "/api/restaurants/[slug]/schedule returns 404 when restaurant is missing",
+          "status": "passed",
+          "title": "returns 404 when restaurant is missing",
+          "duration": 4.433207999999922,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["/api/restaurants/[slug]/schedule"],
+          "fullName": "/api/restaurants/[slug]/schedule returns schedule payload on success",
+          "status": "passed",
+          "title": "returns schedule payload on success",
+          "duration": 2.4165839999999434,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784325220,
+      "endTime": 1764784325235.4165,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/src/app/api/restaurants/[slug]/schedule/route.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["POST /api/team/invitations/[token]/accept"],
+          "fullName": "POST /api/team/invitations/[token]/accept paginates auth user lookup and reuses an existing account",
+          "status": "passed",
+          "title": "paginates auth user lookup and reuses an existing account",
+          "duration": 5.879832999999962,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["POST /api/team/invitations/[token]/accept"],
+          "fullName": "POST /api/team/invitations/[token]/accept creates a new auth user when none exists and still upserts membership idempotently",
+          "status": "passed",
+          "title": "creates a new auth user when none exists and still upserts membership idempotently",
+          "duration": 1.10450000000003,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784325332,
+      "endTime": 1764784325339.1045,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/src/app/api/team/invitations/[token]/accept/route.test.ts"
+    },
+    {
+      "assertionResults": [],
+      "startTime": 1764784321032,
+      "endTime": 1764784321032,
+      "status": "failed",
+      "message": "Failed to resolve import \"@/tests/fixtures/wizard\" from \"reserve/features/reservations/wizard/ui/steps/plan-step/__tests__/PlanStepForm.test.tsx\". Does the file exist?",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/features/reservations/wizard/ui/steps/plan-step/__tests__/PlanStepForm.test.tsx"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["<Calendar24Field />"],
+          "fullName": "<Calendar24Field /> invokes onSelect when a date is chosen from the calendar",
+          "status": "passed",
+          "title": "invokes onSelect when a date is chosen from the calendar",
+          "duration": 530.2783750000001,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["<Calendar24Field />"],
+          "fullName": "<Calendar24Field /> invokes onChange when time is typed",
+          "status": "passed",
+          "title": "invokes onChange when time is typed",
+          "duration": 49.689332999999806,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["<Calendar24Field />"],
+          "fullName": "<Calendar24Field /> renders time suggestions as datalist options when provided",
+          "status": "passed",
+          "title": "renders time suggestions as datalist options when provided",
+          "duration": 4.642707999999857,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["<Calendar24Field />"],
+          "fullName": "<Calendar24Field /> prevents selection for dates flagged by the matcher",
+          "status": "passed",
+          "title": "prevents selection for dates flagged by the matcher",
+          "duration": 439.9717089999999,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["<Calendar24Field />"],
+          "fullName": "<Calendar24Field /> disables time input and shows unavailable copy when time is blocked",
+          "status": "passed",
+          "title": "disables time input and shows unavailable copy when time is blocked",
+          "duration": 10.099375000000236,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["<Calendar24Field />"],
+          "fullName": "<Calendar24Field /> notifies visible month changes",
+          "status": "passed",
+          "title": "notifies visible month changes",
+          "duration": 343.53949999999986,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["<Calendar24Field />"],
+          "fullName": "<Calendar24Field /> treats loading dates as disabled until schedules resolve",
+          "status": "passed",
+          "title": "treats loading dates as disabled until schedules resolve",
+          "duration": 283.7939590000001,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784323807,
+      "endTime": 1764784325468.794,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/features/reservations/wizard/ui/steps/plan-step/components/__tests__/Calendar24Field.test.tsx"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["OccasionPicker responsive layout"],
+          "fullName": "OccasionPicker responsive layout uses responsive grid classes and 44px targets",
+          "status": "failed",
+          "title": "uses responsive grid classes and 44px targets",
+          "duration": 196.72962499999994,
+          "failureMessages": [
+            "AssertionError: expected 'inline-flex items-center justify-cent…' to match /h-11/\n    at /Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/features/reservations/wizard/ui/steps/plan-step/components/__tests__/OccasionPicker.responsive.test.tsx:62:29\n    at file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:145:11\n    at file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:915:26\n    at file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:1240:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:1206:10)\n    at file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:1650:37\n    at Traces.$ (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/vitest@4.0.15_@opentelemetry+api@1.9.0_@types+node@24.10.1_jiti@2.6.1_jsdom@27.2.0_ligh_67c1b763274604fc64e14f8eac14d2f7/node_modules/vitest/dist/chunks/traces.U4xDYhzZ.js:115:27)\n    at trace (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/vitest@4.0.15_@opentelemetry+api@1.9.0_@types+node@24.10.1_jiti@2.6.1_jsdom@27.2.0_ligh_67c1b763274604fc64e14f8eac14d2f7/node_modules/vitest/dist/chunks/test.BT8LKgU9.js:239:21)\n    at runTest (file:///Users/amankumarshrestha/Downloads/SajiloReserveX/node_modules/.pnpm/@vitest+runner@4.0.15/node_modules/@vitest/runner/dist/index.js:1650:12)"
+          ],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["OccasionPicker responsive layout"],
+          "fullName": "OccasionPicker responsive layout disables options that are not available for the selected date",
+          "status": "passed",
+          "title": "disables options that are not available for the selected date",
+          "duration": 73.88545799999997,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784322331,
+      "endTime": 1764784322601.8855,
+      "status": "failed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/features/reservations/wizard/ui/steps/plan-step/components/__tests__/OccasionPicker.responsive.test.tsx"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["<TimeSlotGrid />"],
+          "fullName": "<TimeSlotGrid /> renders grouped time buttons and invokes onSelect",
+          "status": "passed",
+          "title": "renders grouped time buttons and invokes onSelect",
+          "duration": 207.11908300000005,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["<TimeSlotGrid />"],
+          "fullName": "<TimeSlotGrid /> marks the active slot with aria-pressed",
+          "status": "passed",
+          "title": "marks the active slot with aria-pressed",
+          "duration": 31.814499999999953,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["<TimeSlotGrid />"],
+          "fullName": "<TimeSlotGrid /> disables slots that are unavailable",
+          "status": "passed",
+          "title": "disables slots that are unavailable",
+          "duration": 27.49612500000012,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1764784323291,
+      "endTime": 1764784323557.496,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/Downloads/SajiloReserveX/reserve/features/reservations/wizard/ui/steps/plan-step/components/__tests__/TimeSlotGrid.test.tsx"
+    }
+  ]
+}
