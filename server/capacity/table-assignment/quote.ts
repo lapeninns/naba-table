@@ -27,6 +27,7 @@ import {
   isAllocatorServiceFailHard,
   isOpsMetricsEnabled,
 } from "@/server/feature-flags";
+import { getTenantServiceSupabaseClient } from "@/server/supabase";
 
 import {
   buildBusyMaps,
@@ -256,8 +257,14 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
   }
 
   const operationStart = highResNow();
-  const supabase = ensureClient(client);
+  let supabase = ensureClient(client);
   const booking = await loadBooking(bookingId, supabase, signal);
+
+  // Apply tenant-scoped client so RLS policies with require_restaurant_context() pass for holds/allocations.
+  if (!client) {
+    supabase = getTenantServiceSupabaseClient(booking.restaurant_id);
+  }
+
   const restaurantTimezonePromise = loadRestaurantTimezone(booking.restaurant_id, supabase, signal).catch(() => null);
   const tablesPromise = loadTablesForRestaurant(booking.restaurant_id, supabase, signal);
   const restaurantTimezoneLookup = await restaurantTimezonePromise;
