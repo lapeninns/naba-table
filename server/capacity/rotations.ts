@@ -16,11 +16,12 @@ import {
 import type { Database, Tables } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-type DbClient = SupabaseClient<Database, "public", any>;
-type TableInventoryRow = Pick<
-  Tables<"table_inventory">,
-  "id" | "table_number" | "capacity" | "min_party_size" | "max_party_size" | "status"
->;
+type DbClient = SupabaseClient<Database, "public", unknown>;
+type TableInventoryRow = Pick<Tables<"table_inventory">, "id" | "table_number" | "capacity" | "status"> & {
+  // Optional fields were present in earlier schema; keep optional for backwards compatibility
+  min_party_size?: number | null;
+  max_party_size?: number | null;
+};
 
 const EXCLUDED_STATUSES = new Set<Tables<"table_inventory">["status"]>(["out_of_service"]);
 
@@ -144,7 +145,7 @@ function summarizeServiceCapacity(
       tableNumber: table.table_number,
       capacity: table.capacity,
       minPartySize: table.min_party_size ?? 1,
-      maxPartySize: table.max_party_size,
+      maxPartySize: table.max_party_size ?? null,
       status: table.status,
       effectivePartySize: partySize,
       diningMinutes,
