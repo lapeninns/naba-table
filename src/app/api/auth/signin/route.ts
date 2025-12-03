@@ -36,20 +36,26 @@ const RATE_LIMITS = {
   magic_link: { limit: 5, windowMs: 10 * 60 * 1000 },
 } as const;
 
-function buildCallbackUrl(host: string, redirectedFrom: string | undefined, rootDomain: string) {
-  let validHost = host;
+function buildCallbackUrl(hostname: string, redirectedFrom: string | undefined) {
+  let validHostname = hostname;
 
-  const hostnameOnly = host.split(":")[0];
-  const isLocal = hostnameOnly.includes("localhost") || hostnameOnly.startsWith("127.");
-  const isValidDomain = rootDomain && hostnameOnly.endsWith(rootDomain);
+  // Ensure hostname is one of our allowed public domains
+  // This prevents issues where the server sees an internal IP (e.g. AWS/Vercel internal IP) as the host
+  const isLocal = hostname.includes("localhost");
+  const isValidDomain = hostname.endsWith("nabatable.com");
 
   if (!isLocal && !isValidDomain) {
-    console.warn(`[Auth] Invalid hostname '${host}' detected. Falling back to '${rootDomain || "localhost"}'`);
-    validHost = rootDomain || "localhost";
+    console.warn(`[Auth] Invalid hostname '${hostname}' detected. Falling back to 'nabatable.com'`);
+    validHostname = "nabatable.com";
   }
 
-  const protocol = isLocal ? "http" : "https";
-  const url = new URL("/api/auth/callback", `${protocol}://${validHost}`);
+  // Normalize to naked domain to match Supabase wildcard (https://nabatable.com/**)
+  if (validHostname.startsWith("www.")) {
+    validHostname = validHostname.replace("www.", "");
+  }
+
+  const protocol = validHostname.includes("localhost") ? "http" : "https";
+  const url = new URL("/api/auth/callback", `${protocol}://${validHostname}`);
 
   if (redirectedFrom) {
     url.searchParams.set("redirectedFrom", redirectedFrom);
@@ -77,8 +83,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: "Invalid or missing CSRF token" }, { status: 403 });
     }
 
-    // Get full host header (includes port in dev, e.g., "localhost:3000")
-    const hostHeader = req.headers.get("host") ?? req.nextUrl.host ?? "localhost:3000";
     const hostname = parseHostname(req);
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost";
 
@@ -134,10 +138,9 @@ export async function POST(req: NextRequest) {
     return setRateHeaders(response, rateResult);
   }
 
-  const emailRedirectTo = buildCallbackUrl(hostHeader, absoluteRedirect, rootDomain);
+  const emailRedirectTo = buildCallbackUrl(hostname, absoluteRedirect);
   console.log("[Auth/signin] Magic link details:", {
     hostname,
-    hostHeader,
     rootDomain,
     redirectTarget,
     absoluteRedirect,
@@ -150,7 +153,7 @@ export async function POST(req: NextRequest) {
     email,
     options: {
       emailRedirectTo,
-      shouldCreateUser: true,
+      shouldCreateUser: false,
     },
   });
 
