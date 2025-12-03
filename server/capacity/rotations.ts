@@ -16,7 +16,7 @@ import {
 import type { Database, Tables } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-type DbClient = SupabaseClient<Database, "public", unknown>;
+type DbClient = SupabaseClient<Database>;
 type TableInventoryRow = Pick<Tables<"table_inventory">, "id" | "table_number" | "capacity" | "status"> & {
   // Optional fields were present in earlier schema; keep optional for backwards compatibility
   min_party_size?: number | null;
