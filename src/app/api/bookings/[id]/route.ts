@@ -74,9 +74,10 @@ const updateSchema = z.object({
 });
 
 // Dashboard update schema for minimal booking updates (used by EditBookingDialog)
+// Note: offset: true allows both "Z" suffix and "+00:00" style offsets in ISO datetime strings
 const dashboardUpdateSchema = z.object({
-  startIso: z.string().datetime(),
-  endIso: z.string().datetime().optional(),
+  startIso: z.string().datetime({ offset: true }),
+  endIso: z.string().datetime({ offset: true }).optional(),
   partySize: z.coerce.number().int().min(MIN_ONLINE_PARTY_SIZE).max(MAX_ONLINE_PARTY_SIZE),
   notes: z.string().max(500).optional().nullable(),
 });

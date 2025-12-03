@@ -49,6 +49,15 @@ function buildCallbackUrl(hostname: string, redirectedFrom: string | undefined) 
     validHostname = "nabatable.com";
   }
 
+  // For local development with production Supabase, we need to use localhost
+  // but localhost:3000 must be in Supabase's redirect URL allowlist
+  // In Supabase Dashboard → Authentication → URL Configuration → Redirect URLs, add:
+  //   http://localhost:3000/**
+  if (isLocal) {
+    // Ensure port is included for localhost
+    validHostname = hostname.includes(":") ? hostname : `${hostname}:3000`;
+  }
+
   // Normalize to naked domain to match Supabase wildcard (https://nabatable.com/**)
   if (validHostname.startsWith("www.")) {
     validHostname = validHostname.replace("www.", "");

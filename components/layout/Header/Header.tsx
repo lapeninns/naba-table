@@ -415,7 +415,20 @@ export default function Header({ variant = "marketing" }: HeaderProps) {
       async () => {
         try {
           setIsSigningOut(true);
+          
+          // Call server-side signout to clear httpOnly cookies
+          const response = await fetch("/api/auth/signout", {
+            method: "POST",
+            credentials: "include",
+          });
+          
+          if (!response.ok) {
+            console.error("[Header] Server signout failed");
+          }
+          
+          // Also clear client-side state
           await supabase.auth.signOut();
+          
           router.refresh();
           router.push("/");
         } finally {
