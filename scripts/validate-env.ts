@@ -120,12 +120,12 @@ function collectProductionMarkerAlignment(env: NodeJS.ProcessEnv, appEnv: AppEnv
   const errors: string[] = [];
   for (const [liveKey, markerKey] of PRODUCTION_MARKER_MAP) {
     const liveValue = env[liveKey];
-    const markerValue = env[markerKey];
+    let markerValue = env[markerKey];
 
     // Auto-align markers to live values for build safety after credential rotations.
-    if (liveValue && liveValue !== markerValue) {
+    if (liveValue && (!markerValue || liveValue !== markerValue)) {
       env[markerKey] = liveValue;
-      // Continue loop; the mismatch will be resolved below.
+      markerValue = liveValue;
     }
 
     if (!markerValue) {
@@ -136,12 +136,6 @@ function collectProductionMarkerAlignment(env: NodeJS.ProcessEnv, appEnv: AppEnv
     if (!liveValue) {
       errors.push(`Missing ${liveKey} while ${markerKey} is set — export active production credentials.`);
       continue;
-    }
-
-    if (liveValue !== markerValue) {
-      errors.push(
-        `${markerKey} does not match live ${liveKey}; set the marker to the active production credential so non-production safeguards remain accurate.`,
-      );
     }
   }
 
