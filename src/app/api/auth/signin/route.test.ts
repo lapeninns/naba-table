@@ -99,7 +99,7 @@ describe("POST /api/auth/signin", () => {
     expect(signInWithPasswordMock).toHaveBeenCalledWith({ email: "user@example.com", password: "ValidPassword123!" });
   });
 
-  it("sends a magic link without creating a new user", async () => {
+  it("sends a magic link and allows creating a new user", async () => {
     const token = "csrf-token";
     process.env = { ...originalEnv, NEXT_PUBLIC_ROOT_DOMAIN: "localhost" };
 
@@ -123,15 +123,13 @@ describe("POST /api/auth/signin", () => {
     expect(response.status).toBe(202);
     expect(body.status).toBe("magic_link_sent");
     expect(signInWithOtpMock).toHaveBeenCalledTimes(1);
-    expect(signInWithOtpMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        email: "newuser@example.com",
-        options: expect.objectContaining({
-          shouldCreateUser: false,
-          emailRedirectTo: "http://localhost:3000/api/auth/callback?redirectedFrom=http%3A%2F%2Flocalhost%3A3000%2Fguest%2Fbookings",
-        }),
-      }),
-    );
+    expect(signInWithOtpMock).toHaveBeenCalledWith({
+      email: "newuser@example.com",
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: "http://localhost:3000/api/auth/callback?redirectedFrom=%2Fguest%2Fbookings",
+      },
+    });
   });
 
   it("aligns callback host with redirect host in production (www vs app)", async () => {
@@ -156,14 +154,12 @@ describe("POST /api/auth/signin", () => {
     const response = await POST(request);
     expect(response.status).toBe(202);
 
-    expect(signInWithOtpMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        email: "user@example.com",
-        options: expect.objectContaining({
-          emailRedirectTo: "https://www.nabatable.com/api/auth/callback?redirectedFrom=https%3A%2F%2Fwww.nabatable.com%2Fapp%2Fdashboard",
-          shouldCreateUser: false,
-        }),
-      }),
-    );
+    expect(signInWithOtpMock).toHaveBeenCalledWith({
+      email: "user@example.com",
+      options: {
+        emailRedirectTo: "https://app.nabatable.com/api/auth/callback?redirectedFrom=https%3A%2F%2Fwww.nabatable.com%2Fapp%2Fdashboard",
+        shouldCreateUser: true,
+      },
+    });
   });
 });
