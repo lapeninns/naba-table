@@ -1,4 +1,0 @@
- alloc1 | alloc2 | restaurant_id | resource_id | window1 | window2 
---------+--------+---------------+-------------+---------+---------
-(0 rows)
-

@@ -1,9 +1,0 @@
-[dotenv@17.2.2] injecting env (47) from .env.local -- tip: ⚙️  enable debug logging with { debug: true }
-🧪 Testing magic link authentication...
-📧 Test email: info@lapeninns.com
-🔗 Supabase URL: https://vrdiqfudmwydclqpydee.supabase.co
-
-📤 Sending magic link request...
-✅ Magic link sent successfully!
-📬 Check your inbox for the magic link email
-Response: { user: null, session: null }
