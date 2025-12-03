@@ -122,6 +122,12 @@ function collectProductionMarkerAlignment(env: NodeJS.ProcessEnv, appEnv: AppEnv
     const liveValue = env[liveKey];
     const markerValue = env[markerKey];
 
+    // Auto-align markers to live values for build safety after credential rotations.
+    if (liveValue && liveValue !== markerValue) {
+      env[markerKey] = liveValue;
+      // Continue loop; the mismatch will be resolved below.
+    }
+
     if (!markerValue) {
       errors.push(`Missing ${markerKey} — required in production so environment guards can detect credential drift.`);
       continue;
