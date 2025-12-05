@@ -1,1 +1,1 @@
-export { CustomerNavbar as Navbar } from "@/components/customer/navigation";
+export { GuestNavbar as Navbar } from "@/components/layouts/GuestNavbar";

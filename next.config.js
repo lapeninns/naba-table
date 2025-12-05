@@ -83,8 +83,8 @@ const nextConfig = {
       { source: "/reserve/r/:slug", destination: "/restaurants/:slug/book", permanent: true },
       { source: "/book/:slug", destination: "/restaurants/:slug/book", permanent: true },
       
-      { source: "/reserve", destination: "/bookings", permanent: true },
-      { source: "/booking", destination: "/bookings", permanent: true },
+      { source: "/reserve", destination: "/restaurants", permanent: true },
+      { source: "/booking", destination: "/restaurants", permanent: true },
 
       // Reservation detail -> /bookings/:id
       { source: "/reserve/:bookingId", destination: "/bookings/:bookingId", permanent: true },
@@ -107,10 +107,10 @@ const nextConfig = {
 
       // --- Ops ---
       // --- Legal ---
-      { source: "/privacy-policy", destination: "/privacy-policy", permanent: true }, // Self-redirect? Likely to ensure trailing slash or specific normalization, keeping as is.
-      { source: "/terms", destination: "/terms", permanent: true },
-      { source: "/tos", destination: "/terms", permanent: true },
-      { source: "/terms/:path*", destination: "/terms", permanent: true },
+      { source: "/privacy-policy", destination: "/", permanent: true },
+      { source: "/terms", destination: "/", permanent: true },
+      { source: "/tos", destination: "/", permanent: true },
+      { source: "/terms/:path*", destination: "/", permanent: true },
     ];
   },
   turbopack: {

@@ -3,6 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
+import { GuestCard, GuestSection } from '@/components/guest/ui';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -39,34 +40,32 @@ export default async function RestaurantPage({ params }: { params: RouteParams }
     }
 
     return (
-        <div className="min-h-screen bg-slate-50 pb-20">
-            {/* Hero Section */}
-            <div className="relative h-[40vh] min-h-[400px] w-full overflow-hidden bg-slate-900">
+        <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100 pb-16 text-foreground">
+            {/* Hero Image Section */}
+            <div className="relative h-[40vh] min-h-[320px] w-full overflow-hidden rounded-b-[var(--guest-radius-2xl)] bg-slate-900">
                 {restaurant.logoUrl ? (
                     <Image
                         src={restaurant.logoUrl}
                         alt={restaurant.name}
                         fill
-                        className="object-cover opacity-60"
+                        className="object-cover opacity-70 transition-transform duration-700 hover:scale-105"
                         priority
                         unoptimized
                     />
                 ) : (
                     <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900" />
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/50 to-transparent" />
 
-                <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-10 lg:p-16">
-                    <div className="mx-auto max-w-5xl space-y-4">
-                        <Badge className="bg-amber-400 text-amber-950 hover:bg-amber-500">
+                <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-8 lg:p-12">
+                    <div className="mx-auto max-w-5xl space-y-3 text-white">
+                        <Badge className="bg-amber-400 text-amber-950 hover:bg-amber-500 rounded-full shadow-sm">
                             Open for Reservations
                         </Badge>
-                        <h1 className="text-4xl font-bold text-white sm:text-5xl md:text-6xl">
-                            {restaurant.name}
-                        </h1>
+                        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">{restaurant.name}</h1>
                         {restaurant.address && (
-                            <div className="flex items-center gap-2 text-lg text-slate-200">
-                                <MapPin className="h-5 w-5 text-amber-400" />
+                            <div className="flex items-center gap-2 text-base text-slate-100 sm:text-lg">
+                                <MapPin className="h-5 w-5 text-amber-300 shrink-0" />
                                 <span>{restaurant.address}</span>
                             </div>
                         )}
@@ -74,79 +73,73 @@ export default async function RestaurantPage({ params }: { params: RouteParams }
                 </div>
             </div>
 
-            {/* Content */}
-            <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
-                <div className="grid gap-8 lg:grid-cols-[2fr_1fr]">
-                    <div className="space-y-8">
-                        <section className="space-y-4">
-                            <h2 className="text-2xl font-bold text-slate-900">About</h2>
-                            <p className="leading-relaxed text-slate-600">
-                                Experience exceptional dining at {restaurant.name}. Whether you&apos;re planning a romantic dinner,
-                                a family gathering, or a business lunch, we provide the perfect atmosphere and cuisine.
-                            </p>
-                        </section>
+            <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8 guest-sections">
+                <GuestSection title="About" description={`Experience exceptional dining at ${restaurant.name}.`} padding="md">
+                    <p className="text-sm sm:text-base leading-relaxed text-slate-600">
+                        Experience exceptional dining at {restaurant.name}. Whether you&apos;re planning a romantic dinner, a family gathering, or a business lunch, we provide the perfect atmosphere and cuisine.
+                    </p>
+                </GuestSection>
 
-                        <section className="space-y-4">
-                            <h2 className="text-2xl font-bold text-slate-900">Details</h2>
+                <div className="grid gap-8 lg:grid-cols-[2fr_1fr]">
+                    <div className="space-y-6">
+                        <GuestSection title="Details" padding="md" className="bg-white">
                             <div className="grid gap-4 sm:grid-cols-2">
                                 {restaurant.contactPhone && (
-                                    <Card>
-                                        <CardContent className="flex items-center gap-3 p-4">
-                                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-600">
+                                    <GuestCard className="bg-slate-50">
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-700">
                                                 <Phone className="h-5 w-5" />
                                             </div>
                                             <div>
-                                                <p className="text-sm font-medium text-slate-500">Phone</p>
+                                                <p className="text-sm text-slate-500">Phone</p>
                                                 <p className="font-semibold text-slate-900">{restaurant.contactPhone}</p>
                                             </div>
-                                        </CardContent>
-                                    </Card>
+                                        </div>
+                                    </GuestCard>
                                 )}
                                 {restaurant.contactEmail && (
-                                    <Card>
-                                        <CardContent className="flex items-center gap-3 p-4">
-                                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-600">
+                                    <GuestCard className="bg-slate-50">
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-700">
                                                 <Mail className="h-5 w-5" />
                                             </div>
                                             <div>
-                                                <p className="text-sm font-medium text-slate-500">Email</p>
+                                                <p className="text-sm text-slate-500">Email</p>
                                                 <p className="font-semibold text-slate-900">{restaurant.contactEmail}</p>
                                             </div>
-                                        </CardContent>
-                                    </Card>
+                                        </div>
+                                    </GuestCard>
                                 )}
                             </div>
-                        </section>
+                        </GuestSection>
                     </div>
 
                     <div className="space-y-6">
-                        <Card className="overflow-hidden border-0 shadow-lg ring-1 ring-slate-200">
-                            <CardContent className="space-y-6 p-6">
-                                <div className="space-y-2">
+                        <GuestCard className="bg-white shadow-md">
+                            <div className="space-y-4">
+                                <div className="space-y-1">
                                     <h3 className="text-xl font-bold text-slate-900">Make a Reservation</h3>
-                                    <p className="text-sm text-slate-500">
-                                        Secure your table instantly. No booking fees.
-                                    </p>
+                                    <p className="text-sm text-slate-600">Secure your table instantly. No booking fees.</p>
                                 </div>
 
-                                <Button asChild size="lg" className="w-full text-base font-semibold shadow-lg shadow-primary/20">
+                                <Button asChild size="lg" className="w-full text-base font-semibold rounded-xl">
                                     <Link href={`/restaurants/${restaurant.slug}/book`}>
                                         <Calendar className="mr-2 h-5 w-5" />
                                         Book a Table
                                     </Link>
                                 </Button>
 
-                                <div className="rounded-lg bg-slate-50 p-4 text-xs text-slate-500">
+                                <div className="rounded-lg border border-slate-100 bg-slate-50 p-4 text-xs text-slate-600">
                                     <div className="flex items-center gap-2">
-                                        <Clock className="h-4 w-4" />
+                                        <Clock className="h-4 w-4 text-amber-500" />
                                         <span>Instant confirmation</span>
                                     </div>
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </GuestCard>
 
                         {restaurant.googleMapUrl && (
-                            <Card className="overflow-hidden border-0 shadow-md">
+                            <Card className="overflow-hidden border border-slate-200 shadow-sm">
                                 <CardContent className="p-0">
                                     <iframe
                                         title="Map"

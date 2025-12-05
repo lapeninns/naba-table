@@ -128,10 +128,10 @@ const href = isAdmin ? '/app' : '/guest/dashboard';
 
 ```tsx
 href = '/auth/signup'; // ✅ Check if route exists
-href = '/auth/forgot-password'; // ✅ Check if route exists
+// removed: forgot-password (magic link only)
 ```
 
-**Status**: Need to verify both routes exist.
+**Status**: `/auth/signup` still unverified; `/auth/forgot-password` removed (no longer referenced).
 
 ---
 
@@ -176,19 +176,18 @@ href="/guest/dashboard"
 
 ### Routes Referenced But Not Confirmed Implemented
 
-| Route                   | Used In            | Status       | Type     |
-| ----------------------- | ------------------ | ------------ | -------- |
-| `/auth/signup`          | SignInForm.tsx     | ⚠️ Unknown   | CTA      |
-| `/auth/forgot-password` | SignInForm.tsx     | ⚠️ Unknown   | CTA      |
-| `/auth/signin`          | Multiple           | ✅ Confirmed | Link     |
-| `/guest/dashboard`      | Multiple           | ✅ Confirmed | Link     |
-| `/guest/bookings`       | Multiple           | ✅ Confirmed | Link     |
-| `/app`                  | Fallback           | ✅ Confirmed | Link     |
-| `/app/analytics`        | Navigation         | ✅ Confirmed | Link     |
-| `/app/walk-in`          | WalkInWizard       | ✅ Confirmed | Link     |
-| `/app/bookings`         | Multiple           | ✅ Confirmed | Link     |
-| `/dashboard`            | Settings error     | ❌ MISSING   | CTA      |
-| `/app/dashboard`        | Auth callback test | ❌ MISSING   | Redirect |
+| Route              | Used In            | Status       | Type     |
+| ------------------ | ------------------ | ------------ | -------- |
+| `/auth/signup`     | SignInForm.tsx     | ⚠️ Unknown   | CTA      |
+| `/auth/signin`     | Multiple           | ✅ Confirmed | Link     |
+| `/guest/dashboard` | Multiple           | ✅ Confirmed | Link     |
+| `/guest/bookings`  | Multiple           | ✅ Confirmed | Link     |
+| `/app`             | Fallback           | ✅ Confirmed | Link     |
+| `/app/analytics`   | Navigation         | ✅ Confirmed | Link     |
+| `/app/walk-in`     | WalkInWizard       | ✅ Confirmed | Link     |
+| `/app/bookings`    | Multiple           | ✅ Confirmed | Link     |
+| `/dashboard`       | Settings error     | ❌ MISSING   | CTA      |
+| `/app/dashboard`   | Auth callback test | ❌ MISSING   | Redirect |
 
 ---
 

@@ -30,11 +30,6 @@ const htmlStyle: CSSProperties = {
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const supabase = await getServerComponentSupabaseClient();
   const { data: { session } } = await supabase.auth.getSession();
-  
-  // Log session for debugging (remove in production)
-  if (process.env.NODE_ENV === "development") {
-    console.log("[RootLayout] Session:", session ? { userId: session.user?.id, email: session.user?.email } : null);
-  }
 
   return (
     <html

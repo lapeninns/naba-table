@@ -343,7 +343,7 @@ function FinalCTASection() {
             className="w-full md:w-auto [&>a]:w-full md:[&>a]:w-auto"
           />
           <Link
-            href="/browse"
+            href="/restaurants"
             className={cn(
               buttonVariants({ variant: "outline", size: "lg" }),
               "w-full justify-center border-white/50 text-white md:w-auto",

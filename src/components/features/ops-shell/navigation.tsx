@@ -31,7 +31,7 @@ export type OpsNavigationSection = {
   items: OpsNavigationItem[];
 };
 
-const OPS_BASE_PATH = '';
+const OPS_BASE_PATH = '/app';
 
 function path(segment: string): string {
   return `${OPS_BASE_PATH}${segment}`;
