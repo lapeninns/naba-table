@@ -25,6 +25,8 @@ export interface WizardContainerProps {
   stickyHeight?: number;
   stickyVisible?: boolean;
   onStickyHeightChange?: (height: number) => void;
+  /** Restaurant name to display at the top of the wizard */
+  restaurantName?: string;
   banner?: React.ReactNode;
   children: React.ReactNode;
   layoutElement?: 'main' | 'div';
@@ -42,6 +44,7 @@ export function WizardContainer({
   stickyHeight = 0,
   stickyVisible = false,
   onStickyHeightChange,
+  restaurantName,
   banner,
   children,
   layoutElement = 'main',
@@ -69,6 +72,7 @@ export function WizardContainer({
         heroRef={heroRef}
         stickyHeight={stickyHeight}
         stickyVisible={stickyVisible}
+        restaurantName={restaurantName}
         banner={banner}
         elementType={layoutElement}
         className={className}

@@ -459,7 +459,6 @@ export function EditBookingDialog({
                       errorMessage={fieldState.error?.message ?? null}
                       disabled={isSaving || missingScheduleMetadata}
                       minDate={fallbackMinDate}
-                      variant="plan"
                     >
                       <FormField
                         control={control}

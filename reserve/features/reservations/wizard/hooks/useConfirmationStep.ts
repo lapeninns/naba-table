@@ -14,7 +14,7 @@ import { DEFAULT_VENUE } from '@shared/config/venue';
 import { useWizardState } from '../context/WizardContext';
 import { useWizardDependencies } from '../di';
 
-import type { State } from '../model/reducer';
+import type { State, StepAction } from '../model/reducer';
 import type {
   ConfirmationFeedback,
   ConfirmationStatus,
@@ -273,61 +273,59 @@ export function useConfirmationStep({
     onNewBooking();
   }, [onNewBooking]);
 
+  // Navigate to the booking management page with token for public access
+  const handleManageBooking = useCallback(() => {
+    const bookingId = booking?.id;
+    const token = booking?.reference;
+
+    if (!bookingId) {
+      // Fallback to close if no booking ID
+      onClose();
+      return;
+    }
+
+    // Build URL with token for public access (no auth required)
+    const url = token
+      ? `/bookings/${bookingId}?token=${encodeURIComponent(token)}`
+      : `/bookings/${bookingId}`;
+
+    if (typeof window !== 'undefined') {
+      window.location.assign(url);
+    }
+  }, [booking?.id, booking?.reference, onClose]);
+
   useEffect(() => {
-    onActionsChange([
-      {
-        id: 'confirmation-close',
-        label: 'Close confirmation',
-        ariaLabel: 'Close confirmation',
-        variant: 'ghost',
-        icon: 'X',
-        onClick: handleClose,
-        disabled: isLoading,
-        role: 'secondary',
-      },
-      {
-        id: 'confirmation-calendar',
-        label: 'Add reservation to calendar',
-        ariaLabel: 'Add reservation to calendar',
+    // Build actions based on booking state
+    const actions: StepAction[] = [];
+
+    // Only show "Manage booking" if we have a confirmed booking
+    if (booking?.id) {
+      actions.push({
+        id: 'confirmation-manage',
+        label: 'Manage booking',
+        ariaLabel: 'Manage your booking',
         variant: 'outline',
         icon: 'Calendar',
-        onClick: handleAddToCalendar,
-        loading: calendarLoading,
+        onClick: handleManageBooking,
         disabled: isLoading,
-        role: 'support',
-      },
-      {
-        id: 'confirmation-wallet',
-        label: 'Add reservation to wallet',
-        ariaLabel: 'Add reservation to wallet',
-        variant: 'outline',
-        icon: 'Wallet',
-        onClick: handleAddToWallet,
-        loading: walletLoading,
-        disabled: isLoading,
-        role: 'support',
-      },
-      {
-        id: 'confirmation-new',
-        label: 'Start a new booking',
-        ariaLabel: 'Start a new booking',
-        variant: 'default',
-        icon: 'Plus',
-        onClick: handleNewBooking,
-        disabled: isLoading,
-        role: 'primary',
-      },
-    ]);
-  }, [
-    calendarLoading,
-    handleAddToCalendar,
-    handleAddToWallet,
-    handleClose,
-    handleNewBooking,
-    isLoading,
-    onActionsChange,
-    walletLoading,
-  ]);
+        role: 'secondary',
+      });
+    }
+
+    // Primary action: Start a new booking
+    actions.push({
+      id: 'confirmation-new',
+      label: 'Start a new booking',
+      ariaLabel: 'Start a new booking',
+      variant: 'default',
+      icon: 'Plus',
+      onClick: handleNewBooking,
+      disabled: isLoading,
+      role: 'primary',
+    });
+
+    onActionsChange(actions);
+  }, [booking?.id, handleManageBooking, handleNewBooking, isLoading, onActionsChange]);
 
   return {
     booking,

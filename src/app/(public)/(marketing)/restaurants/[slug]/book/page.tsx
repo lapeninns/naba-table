@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 
 import { ReservationWizardClient } from "@/components/features/booking/wizard/ReservationWizardClient";
-import { GuestSection } from "@/components/guest/ui";
 import { getRestaurantBySlug } from "@/server/restaurants/getRestaurantBySlug";
 
 import type { Metadata } from "next";
@@ -32,18 +31,6 @@ export default async function BookingPage({ params }: { params: RouteParams }) {
     return notFound();
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100 py-8 sm:py-10">
-      <div className="guest-page guest-sections">
-        <GuestSection
-          title={`Book ${restaurant.name}`}
-          description="Pick a time, confirm instantly, and get a shareable receipt."
-          padding="md"
-        >
-          <ReservationWizardClient restaurant={restaurant} />
-        </GuestSection>
-      </div>
-    </div>
-  );
+  // Render the wizard directly without extra wrapper cards
+  return <ReservationWizardClient restaurant={restaurant} />;
 }
-

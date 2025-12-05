@@ -34,12 +34,13 @@ test.describe('Guest Booking CRUD', () => {
                 await expect(page.locator('main')).toBeVisible();
 
                 // Click "Book Now" or similar CTA
-                const bookButton = page.getByRole('button', { name: /book|reserve/i }).first();
+                const bookButton = page.getByRole('link', { name: /book|reserve/i }).or(page.getByRole('button', { name: /book|reserve/i })).first();
                 await expect(bookButton).toBeVisible({ timeout: 10_000 });
                 await bookButton.click();
 
-                // Wait for booking wizard to open
-                await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5_000 });
+                // Wait for booking wizard page to load
+                await expect(page).toHaveURL(/.*\/book/, { timeout: 15_000 });
+                // await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5_000 }); // Removed dialog check as it is a page now
 
                 // Step 1: Select date
                 // Click on a future date in the calendar
@@ -53,13 +54,18 @@ test.describe('Guest Booking CRUD', () => {
                 }
 
                 // Step 2: Select time slot
-                const timeSlot = page.locator('[data-testid="time-slot"]').first();
-                if (await timeSlot.isVisible({ timeout: 5_000 })) {
-                    await timeSlot.click();
-                } else {
-                    // Fallback: click any available time button
-                    await page.getByRole('button', { name: /\d{1,2}:\d{2}/ }).first().click();
-                }
+                // The new time picker is a Select component labeled "Time"
+                const timeSelect = page.getByLabel(/time/i).first();
+                // We need to wait for it to be enabled/loaded (availability fetched)
+                // It might be disabled initially while fetching schedule
+                await expect(timeSelect).toBeEnabled({ timeout: 10_000 });
+
+                await timeSelect.click();
+
+                // Select the first available option in the dropdown
+                const firstOption = page.getByRole('option').first();
+                await expect(firstOption).toBeVisible();
+                await firstOption.click();
 
                 // Step 3: Select party size
                 const partySizeButton = page.getByRole('button', { name: /2 guests|2 people|party.*2/i });
@@ -277,9 +283,10 @@ test.describe('Booking Validation', () => {
         await page.goto(`${BASE_URL}/restaurants/${TEST_RESTAURANT_SLUG}`);
 
         // Open booking dialog
-        const bookButton = page.getByRole('button', { name: /book|reserve/i }).first();
+        const bookButton = page.getByRole('link', { name: /book|reserve/i }).or(page.getByRole('button', { name: /book|reserve/i })).first();
         if (await bookButton.isVisible({ timeout: 5_000 })) {
             await bookButton.click();
+            await expect(page).toHaveURL(/.*\/book/, { timeout: 15_000 });
         }
 
         // Try to submit without selecting date/time
