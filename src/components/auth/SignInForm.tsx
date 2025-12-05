@@ -127,12 +127,7 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
             {/* Additional Links */}
             <div className="space-y-3 text-center text-sm">
                 <p className="text-muted-foreground">
-                    <Link
-                        href="/auth/forgot-password"
-                        className="font-medium text-primary hover:underline"
-                    >
-                        Forgot your password?
-                    </Link>
+                    Need help? Use the magic link on the <Link href="/auth/signin" className="font-medium text-primary hover:underline">sign in page</Link> or contact support.
                 </p>
             </div>
         </form>

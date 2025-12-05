@@ -30,6 +30,11 @@ export async function fetchJson<T>(input: RequestInfo | URL, init: FetchJsonInit
     credentials: rest.credentials ?? 'include',
   });
 
+  const shouldTriggerAuthRedirect = response.status === 401 || response.status === 419;
+  if (shouldTriggerAuthRedirect && typeof window !== 'undefined') {
+    void import('@/lib/http/sessionRedirect').then((mod) => mod.triggerSessionRedirect()).catch(() => {});
+  }
+
   let text: string | null = null;
   try {
     text = await response.text();

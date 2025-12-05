@@ -1,1 +1,0 @@
-export { CustomerNavbar } from "./CustomerNavbar";

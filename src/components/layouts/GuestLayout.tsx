@@ -1,14 +1,20 @@
 import Footer from "@/components/layout/Footer";
-import Header from "@/components/layout/Header";
+import { GuestBackground } from "@/components/layouts/GuestBackground";
+import { GuestNavbar } from "@/components/layouts/GuestNavbar";
 
 export function GuestLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <Header variant="app" />
-      <main className="flex-1 container mx-auto px-4 py-8 md:px-6">
-        {children}
-      </main>
-      <Footer variant="app" />
+    <div className="guest-theme relative min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 text-foreground">
+      <GuestBackground />
+      <div className="relative z-10 flex min-h-screen flex-col">
+        <GuestNavbar />
+        <main id="main-content" className="flex-1 py-8 md:py-12">
+          <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
+            {children}
+          </div>
+        </main>
+        <Footer variant="app" />
+      </div>
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useGuestPreferences } from '@/hooks/useGuestPreferences';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { emit } from '@/lib/analytics/emit';
 import { BOOKING_IN_PAST_CUSTOMER_MESSAGE } from '@/lib/bookings/messages';
@@ -93,6 +94,7 @@ export function useReservationWizard(
   const [stickyHeight, setStickyHeight] = useState(0);
   const { analytics, haptics, navigator, errorReporter } = useWizardDependencies();
   const isOnline = useOnlineStatus();
+  const { preferences, savePreferences } = useGuestPreferences();
   const returnPath = options?.returnPath;
   const safeReturnPath =
     returnPath ||
@@ -102,10 +104,43 @@ export function useReservationWizard(
 
   useRememberedContacts({ details: state.details, actions, enabled: mode === 'customer' });
 
+  // Seed party/time from stored preferences on first load if unset
+  useEffect(() => {
+    if (!preferences) return;
+    if (draftHydratedRef.current) return;
+
+    const updates: Partial<BookingDetails> = {};
+    if (
+      state.details.party === 1 &&
+      preferences.preferredPartySize &&
+      preferences.preferredPartySize > 0
+    ) {
+      updates.party = preferences.preferredPartySize;
+    }
+    if (!state.details.time && preferences.preferredTime) {
+      updates.time = preferences.preferredTime;
+    }
+    if (Object.keys(updates).length > 0) {
+      actions.hydrateDetails(updates);
+    }
+  }, [actions, preferences, state.details.party, state.details.time]);
+
   const wizardRestaurantSlug = useMemo(() => {
     const provided = initialDetails?.restaurantSlug?.trim();
     return provided && provided.length > 0 ? provided : null;
   }, [initialDetails?.restaurantSlug]);
+
+  // Persist preferences when party/time change
+  useEffect(() => {
+    const party = state.details.party;
+    const time = state.details.time;
+    if (party > 0 || (time && time.length > 0)) {
+      void savePreferences({
+        preferredPartySize: party > 0 ? party : undefined,
+        preferredTime: time && time.length > 0 ? time : undefined,
+      });
+    }
+  }, [savePreferences, state.details.party, state.details.time]);
 
   const venueHydratedRef = useRef(false);
 

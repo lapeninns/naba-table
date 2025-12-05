@@ -1,4 +1,4 @@
-import { LogIn } from 'lucide-react';
+import { ChevronLeft, Sparkles, UtensilsCrossed } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
@@ -50,36 +50,61 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/5 via-background to-primary/10 px-4 py-12 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md animate-fade-in">
-        {/* Header */}
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <LogIn className="h-7 w-7" aria-hidden="true" />
+    <div className="w-full max-w-md animate-fade-up">
+      {/* Brand Header */}
+      <div className="mb-8 text-center">
+        <div className="relative mx-auto mb-5">
+          {/* Outer glow */}
+          <div className="absolute inset-0 -m-2 rounded-full bg-gradient-to-br from-blue-100 to-violet-100 blur-2xl opacity-50" />
+
+          {/* Icon container */}
+          <div className="relative mx-auto flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 shadow-xl shadow-slate-900/20">
+            <UtensilsCrossed className="h-8 w-8 sm:h-10 sm:w-10 text-white" aria-hidden="true" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-            Welcome back
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground sm:text-base">
-            Sign in to manage your reservations
-          </p>
+
+          {/* Sparkle decoration */}
+          <div className="absolute -right-1 -top-1 animate-bounce" style={{ animationDelay: '0.2s', animationDuration: '2s' }}>
+            <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-amber-400" />
+          </div>
         </div>
 
-        {/* Sign-in Card */}
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-xl sm:p-8">
-          <GuestSignInForm redirectedFrom={redirectedFromParam} />
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-slate-900">
+          Welcome back
+        </h1>
+        <p className="mt-2 text-sm sm:text-base text-slate-500">
+          Sign in to manage your reservations
+        </p>
+      </div>
+
+      {/* Sign-in Card */}
+      <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white/90 shadow-xl backdrop-blur-sm">
+        <GuestSignInForm redirectedFrom={redirectedFromParam} />
+      </div>
+
+      {/* Footer Links */}
+      <div className="mt-6 space-y-3 text-center">
+        {/* Restaurant Login Link */}
+        <div className="rounded-xl border border-slate-100 bg-white/70 px-5 py-3 backdrop-blur-sm shadow-sm">
+          <p className="text-xs sm:text-sm text-slate-500">Are you a restaurant owner?</p>
+          <Link
+            href="/app/auth/signin"
+            className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-slate-900 hover:text-slate-700 transition-colors"
+          >
+            Sign in to operations
+            <ChevronLeft className="h-4 w-4 rotate-180" />
+          </Link>
         </div>
 
         {/* Back to Home */}
-        <div className="mt-6 text-center">
-          <Link
-            href="/"
-            className="text-sm text-muted-foreground transition hover:text-foreground"
-          >
-            ← Back to home
-          </Link>
-        </div>
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 transition-colors"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Back to home
+        </Link>
       </div>
-    </main>
+    </div>
   );
 }
+

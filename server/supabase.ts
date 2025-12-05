@@ -5,6 +5,7 @@ import { type NextRequest } from "next/server";
 
 import { env, getEnv } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { buildSupabaseCookieOptions, resolveCookieDomain } from "@/lib/supabase/cookies";
 
 import type { Database } from "@/types/supabase";
 import type { NextResponse} from "next/server";
@@ -31,7 +32,11 @@ const { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY, serviceKey: SUPABASE_SERV
 const shouldRunStrictHoldCheck = ["production", "staging"].includes(env.node.appEnv);
 const RESTAURANT_CONTEXT_HEADER = "X-Restaurant-Id";
 const DEFAULT_RESTAURANT_SLUG = runtimeEnv.NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG ?? null;
-const ROOT_DOMAIN = runtimeEnv.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost";
+const ROOT_DOMAIN =
+  typeof runtimeEnv.NEXT_PUBLIC_ROOT_DOMAIN === "string"
+    ? runtimeEnv.NEXT_PUBLIC_ROOT_DOMAIN
+    : "localhost";
+const COOKIE_DOMAIN = resolveCookieDomain(ROOT_DOMAIN);
 
 let cachedDefaultRestaurantId: string | null =
   runtimeEnv.NEXT_PUBLIC_DEFAULT_RESTAURANT_ID ?? env.misc.bookingDefaultRestaurantId ?? null;
@@ -47,29 +52,24 @@ type CookieWriter = {
 
 type NextCookies = Awaited<ReturnType<typeof cookies>>;
 
-function applyCookieDefaults(options: Record<string, unknown> = {}) {
-  const cookieConfig: Record<string, unknown> = {
+function applyCookieDefaults(options: Record<string, unknown> = {}, rememberMe = true) {
+  return {
+    ...buildSupabaseCookieOptions({
+      domain: COOKIE_DOMAIN,
+      secure: secureCookies,
+      sameSite: "lax",
+      httpOnly: true,
+      rememberMe,
+    }),
     ...options,
-    httpOnly: true,
-    secure: secureCookies,
-    sameSite: "lax" as const,
-    path: "/",
   };
-
-  // Set domain for cross-subdomain cookie sharing in production
-  // The leading dot allows cookies to be shared across all subdomains
-  if (ROOT_DOMAIN !== "localhost") {
-    cookieConfig.domain = `.${ROOT_DOMAIN}`;
-  }
-
-  return cookieConfig;
 }
 
 function isCookieWriter(candidate: unknown): candidate is CookieWriter {
   return Boolean(candidate && typeof (candidate as CookieWriter).set === "function");
 }
 
-function createCookieAdapter(store: CookieReader, writer?: CookieWriter) {
+function createCookieAdapter(store: CookieReader, writer?: CookieWriter, rememberMe = true) {
   const cookieWriter = writer ?? (isCookieWriter(store) ? store : undefined);
 
   return {
@@ -79,7 +79,7 @@ function createCookieAdapter(store: CookieReader, writer?: CookieWriter) {
           setAll: (cookiesToSet: { name: string; value: string; options: Record<string, unknown> }[]) => {
             try {
               cookiesToSet.forEach(({ name, value, options }) => {
-                cookieWriter.set({ name, value, ...applyCookieDefaults(options) });
+                cookieWriter.set({ name, value, ...applyCookieDefaults(options, rememberMe) });
               });
             } catch (error) {
               if (!cookieWriteSuppressedLogged) {
@@ -180,10 +180,11 @@ export async function getServerComponentSupabaseClient(): Promise<SupabaseClient
 
 export async function getRouteHandlerSupabaseClient(
   cookieStore?: NextCookies,
+  rememberMe: boolean = true,
 ): Promise<SupabaseClient<Database>> {
   const store = cookieStore ?? (await cookies());
   return createServerClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    cookies: createCookieAdapter(store, store as CookieWriter),
+    cookies: createCookieAdapter(store, store as CookieWriter, rememberMe),
   });
 }
 

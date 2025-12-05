@@ -44,13 +44,13 @@ export function WizardLayout({
       <Container
         style={mainStyle}
         className={cn(
-          'min-h-screen w-full bg-muted/[0.15] px-4 pb-24 pt-6 font-sans text-foreground transition-[padding-bottom] duration-200 sm:pt-12 md:px-6 lg:px-10',
+          'min-h-screen w-full bg-gradient-to-b from-blue-50 via-white to-white px-4 pb-24 pt-8 font-sans text-foreground transition-[padding-bottom] duration-200 sm:pt-12 md:px-6 lg:px-10',
           className,
         )}
       >
         <div
           className={cn(
-            'mx-auto flex w-full max-w-[80vw] flex-col gap-10 sm:gap-12',
+            'mx-auto flex w-full max-w-6xl flex-col gap-10 sm:gap-12',
             contentClassName,
           )}
         >

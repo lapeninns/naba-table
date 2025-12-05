@@ -1,14 +1,18 @@
 import Footer from "@/components/layout/Footer";
-import Header from "@/components/layout/Header";
+import { GuestBackground } from "@/components/layouts/GuestBackground";
+import { GuestNavbar } from "@/components/layouts/GuestNavbar";
 
 export function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-      <Header variant="marketing" />
-      <main className="flex-1">
-        {children}
-      </main>
-      <Footer variant="marketing" />
+    <div className="guest-theme relative min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 text-foreground">
+      <GuestBackground />
+      <div className="relative z-10 flex min-h-screen flex-col">
+        <GuestNavbar />
+        <main id="main-content" className="flex-1">
+          {children}
+        </main>
+        <Footer variant="marketing" />
+      </div>
     </div>
   );
 }

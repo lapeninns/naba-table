@@ -314,25 +314,7 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                                   <span className="text-foreground font-semibold">
                                     I agree to the terms and privacy notice
                                   </span>
-                                  <span>
-                                    Required to confirm your booking. View our
-                                    <a
-                                      href="/terms"
-                                      className="ml-1 text-foreground underline underline-offset-4"
-                                      onClick={(event) => event.stopPropagation()}
-                                    >
-                                      terms
-                                    </a>
-                                    and
-                                    <a
-                                      href="/privacy-policy"
-                                      className="ml-1 text-foreground underline underline-offset-4"
-                                      onClick={(event) => event.stopPropagation()}
-                                    >
-                                      privacy policy
-                                    </a>
-                                    .
-                                  </span>
+                                  <span>Required to confirm your booking.</span>
                                 </div>
                               </Label>
                               <FormMessage className="sr-only">{errors.agree?.message}</FormMessage>
