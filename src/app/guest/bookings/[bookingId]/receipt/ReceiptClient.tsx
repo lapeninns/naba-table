@@ -51,14 +51,14 @@ type ReceiptClientProps = {
     reservationId: string;
     token: string | null;
     hasSession: boolean;
-    _prefetchedStatus: string | null;
+    prefetchedStatus: string | null;
 };
 
 export function ReceiptClient({
     reservationId,
     token,
     hasSession,
-    _prefetchedStatus,
+    prefetchedStatus: _prefetchedStatus,
 }: ReceiptClientProps) {
     const { data: reservation, isLoading, isError } = useReservation(reservationId, token ?? undefined);
 

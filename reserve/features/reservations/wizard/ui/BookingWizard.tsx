@@ -270,6 +270,7 @@ function BookingWizardContent({
         stickyHeight={stickyHeight}
         stickyVisible={stickyVisible}
         onStickyHeightChange={handleStickyHeightChange}
+        restaurantName={state.details.restaurantName || undefined}
         banner={banner}
         layoutElement={layoutElement}
         navigationClassName={navigationClassName}

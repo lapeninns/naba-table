@@ -19,7 +19,7 @@ import { runtime } from '@shared/config/runtime';
 
 import type { LucideIcon } from 'lucide-react';
 
-const ICONS: Record<string, LucideIcon> = {
+export const wizardIconMap: Record<string, LucideIcon> = {
   Calendar,
   Check,
   CheckCircle: CheckCircle2,
@@ -40,7 +40,7 @@ const ICONS: Record<string, LucideIcon> = {
 
 export function resolveWizardIcon(name?: string | null): LucideIcon | null {
   if (!name) return null;
-  const IconComponent = ICONS[name];
+  const IconComponent = wizardIconMap[name];
   if (!IconComponent) {
     if (runtime.isDev) {
       console.warn(`[wizardIcons] Missing icon mapping for "${name}".`);

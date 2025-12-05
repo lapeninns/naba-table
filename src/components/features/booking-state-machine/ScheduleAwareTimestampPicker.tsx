@@ -1,9 +1,8 @@
 "use client";
 
 import { useQueryClient } from '@tanstack/react-query';
-import { Loader2 } from 'lucide-react';
 import { DateTime } from 'luxon';
-import { useCallback, useEffect, useMemo, useRef, useState, useId } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { cn } from '@/lib/utils';
 import {
@@ -14,11 +13,10 @@ import {
   type CalendarMask,
 } from '@reserve/features/reservations/wizard/services/schedule';
 import { toTimeSlotDescriptor, type ReservationSchedule, type TimeSlotDescriptor } from '@reserve/features/reservations/wizard/services/timeSlots';
-import { Calendar24Date, Calendar24Time, TimeSlotGrid } from '@reserve/features/reservations/wizard/ui/steps/plan-step/components';
+import { Calendar24Date, Calendar24Time } from '@reserve/features/reservations/wizard/ui/steps/plan-step/components';
 import { formatDateForInput } from '@reserve/shared/formatting/booking';
-import { getLatestStartMinutes, hasCapacity, isPastOrClosing, type UnavailabilityReason } from '@reserve/shared/schedule/availability';
+import { hasCapacity, type UnavailabilityReason } from '@reserve/shared/schedule/availability';
 import { MINUTES_PER_DAY, normalizeTime } from '@reserve/shared/time';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@shared/ui/accordion';
 
 
 
@@ -46,9 +44,7 @@ export type ScheduleAwareTimestampPickerProps = {
   disabled?: boolean;
   minDate?: Date;
   className?: string;
-  timeAccordion?: boolean;
-  timeScrollArea?: boolean;
-  variant?: 'default' | 'plan';
+
   children?: React.ReactNode;
 };
 
@@ -210,17 +206,8 @@ export function ScheduleAwareTimestampPicker({
   disabled = false,
   minDate,
   className,
-  timeAccordion = false,
-  timeScrollArea = false,
-  variant = 'default',
   children,
 }: ScheduleAwareTimestampPickerProps) {
-  const timeRegionLabelId = useId();
-  const timeAccordionHeadingId = useId();
-  const timeAccordionSummaryId = useId();
-  const isPlanVariant = variant === 'plan';
-  const shouldUseAccordion = isPlanVariant ? true : timeAccordion;
-  const shouldUseScrollArea = shouldUseAccordion ? false : timeScrollArea;
   const queryClient = useQueryClient();
 
   const [scheduleStateByDate, setScheduleStateByDate] = useState<Map<string, ScheduleRecord>>(() => new Map());
@@ -513,7 +500,6 @@ export function ScheduleAwareTimestampPicker({
     }
   }, [activeDate, prefetchVisibleMonths]);
 
-  const loadError = activeRecordStatus === 'error' ? activeRecord?.error ?? 'Unable to load availability for this date. Please try again.' : null;
   const isLoading = activeRecordStatus === 'loading';
   const activeDateLoaded = activeRecordStatus === 'success';
 
@@ -543,10 +529,7 @@ export function ScheduleAwareTimestampPicker({
     () => slots.filter((slot) => !slot.disabled && hasCapacity(slot)),
     [slots],
   );
-  const availableSlotValues = useMemo(
-    () => new Set(availableSlots.map((slot) => slot.value)),
-    [availableSlots],
-  );
+
 
   useEffect(() => {
     if (!currentSchedule) {
@@ -661,17 +644,7 @@ export function ScheduleAwareTimestampPicker({
     [activeDate, availableSlots, commitChange, intervalMinutes, onBlur, selectedTime],
   );
 
-  const handleSlotSelect = useCallback(
-    (value: string) => {
-      setDraftTime(value);
-      setSelectedTime(value);
-      setTimeValidationError(null);
-      commitChange(activeDate, value);
-      selectionModeRef.current = 'initial';
-      onBlur?.();
-    },
-    [activeDate, commitChange, onBlur],
-  );
+
 
   const handleMonthPrefetch = useCallback(
     (month: Date) => {
@@ -704,165 +677,12 @@ export function ScheduleAwareTimestampPicker({
   }, [unavailabilityReason]);
 
   const isTimeDisabled = disabled || isLoading || !activeDateLoaded || availableSlots.length === 0;
-  const availableCount = availableSlots.length;
-  const selectedSlotDescriptor = useMemo(() => {
-    if (!selectedTime) {
-      return null;
-    }
-    return slots.find((slot) => slot.value === selectedTime) ?? null;
-  }, [slots, selectedTime]);
 
-  const visibleSlots = useMemo(() => {
-    if (slots.length === 0) {
-      return [];
-    }
-    return slots.map((slot) => {
-      const isAvailable = availableSlotValues.has(slot.value);
-      if (isAvailable) {
-        return slot;
-      }
-      if (selectedSlotDescriptor && slot.value === selectedSlotDescriptor.value) {
-        return {
-          ...slot,
-          disabled: false,
-        };
-      }
-      return {
-        ...slot,
-        disabled: true,
-      };
-    });
-  }, [availableSlotValues, selectedSlotDescriptor, slots]);
 
-  const showTimeGrid = activeDateLoaded && visibleSlots.length > 0;
 
-  const planSummary = useMemo(() => {
-    if (selectedSlotDescriptor) {
-      return `Time: ${selectedSlotDescriptor.display}`;
-    }
-    if (selectedTime) {
-      return `Time: ${selectedTime}`;
-    }
-    if (isTimeDisabled) {
-      return resolvedUnavailableMessage ?? 'Time not available';
-    }
-    return 'Time not selected';
-  }, [isTimeDisabled, resolvedUnavailableMessage, selectedSlotDescriptor, selectedTime]);
 
-  const accordionSummary = useMemo(() => {
-    if (isPlanVariant) {
-      return planSummary;
-    }
-
-    if (isLoading) {
-      return 'Finding available times…';
-    }
-
-    const countCopy = `Showing ${availableCount} ${availableCount === 1 ? 'option' : 'options'}`;
-
-    if (selectedSlotDescriptor) {
-      if (availableCount === 0) {
-        return `Selected ${selectedSlotDescriptor.display} • No other times available`;
-      }
-      return `Selected ${selectedSlotDescriptor.display} • ${countCopy}`;
-    }
-
-    if (isTimeDisabled) {
-      return resolvedUnavailableMessage ?? 'No times available';
-    }
-
-    return countCopy;
-  }, [
-    availableCount,
-    isLoading,
-    isPlanVariant,
-    isTimeDisabled,
-    planSummary,
-    resolvedUnavailableMessage,
-    selectedSlotDescriptor,
-  ]);
-
-  const latestStartMinutes = useMemo(
-    () => getLatestStartMinutes(currentSchedule),
-    [currentSchedule],
-  );
-
-  useEffect(() => {
-    if (!isTimeDisabled) {
-      return;
-    }
-    if (activeDateLoaded && availableSlots.length === 0 && selectedSlotDescriptor) {
-      return;
-    }
-    setTimeValidationError(null);
-  }, [activeDateLoaded, availableSlots.length, isTimeDisabled, selectedSlotDescriptor]);
 
   const resolvedTimeErrorMessage = errorMessage ?? timeValidationError ?? undefined;
-
-  const renderTimeContent = () => {
-    const slotMessage = resolvedUnavailableMessage
-      ?? (activeDateLoaded
-        ? currentSchedule?.isClosed
-          ? CLOSED_COPY
-          : availableSlots.length === 0
-            ? NO_SLOTS_COPY
-            : unavailabilityReason === 'unknown'
-              ? UNKNOWN_COPY
-              : null
-        : null);
-
-    if (isLoading) {
-      return (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status" aria-live="polite">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-          <span>Finding available times…</span>
-        </div>
-      );
-    }
-
-    if (loadError) {
-      return <p className="text-sm text-destructive">{loadError}</p>;
-    }
-
-    if (!showTimeGrid) {
-      if (slotMessage) {
-        return (
-          <div
-            className="rounded-md border border-dashed border-muted-foreground/40 bg-muted/30 px-3 py-4 text-sm text-muted-foreground"
-            role="status"
-            aria-live="polite"
-          >
-            {slotMessage}
-          </div>
-        );
-      }
-
-      return null;
-    }
-
-    return (
-      <>
-        <TimeSlotGrid
-          slots={visibleSlots}
-          value={selectedTime}
-          onSelect={handleSlotSelect}
-          scrollToValue={selectedTime || null}
-        />
-
-        {currentSchedule && selectedTime && latestStartMinutes !== null ? (
-          isPastOrClosing({
-            date: activeDate,
-            time: selectedTime,
-            schedule: currentSchedule,
-          }) ? (
-            <p className="text-sm text-warning">
-              Selected time is no longer available. Please choose an earlier slot.
-            </p>
-          ) : null
-        ) : null}
-      </>
-    );
-  };
 
   return (
     <div className={cn('space-y-6', className)}>
@@ -910,48 +730,7 @@ export function ScheduleAwareTimestampPicker({
           </div>
         </div>
       </div>
-      {shouldUseAccordion ? (
-        <Accordion
-          type="single"
-          collapsible
-          className="overflow-hidden rounded-xl border border-border bg-muted/30 text-card-foreground"
-        >
-          <AccordionItem value="times">
-            <AccordionTrigger className="flex flex-col items-start gap-1 text-left">
-              <span id={timeAccordionHeadingId} className="text-base font-semibold text-foreground">
-                {isPlanVariant ? 'Time options' : 'Available times'}
-              </span>
-            <span
-              id={timeAccordionSummaryId}
-              className="text-sm font-normal text-muted-foreground"
-            >
-              {accordionSummary}
-            </span>
-            </AccordionTrigger>
-            <AccordionContent
-              className="pt-4"
-              aria-labelledby={`${timeAccordionHeadingId} ${timeAccordionSummaryId}`}
-            >
-              <div className="space-y-4">{renderTimeContent()}</div>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-      ) : (
-        shouldUseScrollArea ? (
-          <div
-            className="max-h-72 space-y-4 overflow-y-auto pr-1 sm:max-h-80 sm:pr-2"
-            role="region"
-            aria-labelledby={timeRegionLabelId}
-          >
-            <span id={timeRegionLabelId} className="sr-only">
-              Available time options
-            </span>
-            {renderTimeContent()}
-          </div>
-        ) : (
-          <div className="space-y-4">{renderTimeContent()}</div>
-        )
-      )}
+
     </div>
   );
 }

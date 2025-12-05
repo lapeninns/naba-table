@@ -96,11 +96,22 @@ export function useReservationWizard(
   const isOnline = useOnlineStatus();
   const { preferences, savePreferences } = useGuestPreferences();
   const returnPath = options?.returnPath;
-  const safeReturnPath =
-    returnPath ||
-    (initialDetails?.restaurantSlug ? `/reserve/r/${initialDetails.restaurantSlug}` : null) ||
-    (initialDetails?.bookingId ? `/reserve/${initialDetails.bookingId}` : null) ||
-    '/guest/thank-you';
+  // Build safe return path - user is closing the confirmation (thank you) step
+  // The wizard step 4 IS the thank you experience, so we redirect to:
+  // - Explicit returnPath if provided
+  // - Restaurant page if we know the slug
+  // - Home page as final fallback
+  const safeReturnPath = (() => {
+    if (returnPath) return returnPath;
+    if (initialDetails?.bookingId) {
+      return `/bookings/${initialDetails.bookingId}/thank-you`;
+    }
+    if (initialDetails?.restaurantSlug) {
+      return `/restaurants/${initialDetails.restaurantSlug}`;
+    }
+    // Fallback to home page (public, no auth required)
+    return '/';
+  })();
 
   useRememberedContacts({ details: state.details, actions, enabled: mode === 'customer' });
 
