@@ -1,0 +1,119 @@
+/* =============================================================================
+   GUEST THEME - Data Attribute Strategy
+   Applied via: <html data-theme="guest">
+   
+   This theme overrides the base :root tokens for guest-facing pages.
+   Uses Blue (trust) as primary and Coral (warmth) as accent.
+   ============================================================================= */
+
+/* Light Mode Guest Theme */
+[data-theme='guest'] {
+  /* -------------------------------------------------------------------------
+     PRIMARY SCALE - Blue (Trust/Reliability)
+     ------------------------------------------------------------------------- */
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-200: #bfdbfe;
+  --color-primary-500: #3b82f6;
+  --color-primary-700: #1d4ed8;
+  --color-primary-900: #1e3a8a;
+
+  --primary: 217 91% 60%;
+  /* blue-500 */
+  --primary-foreground: 210 40% 98%;
+
+  /* -------------------------------------------------------------------------
+     ACCENT SCALE - Coral Pink (Warmth/CTAs)
+     ------------------------------------------------------------------------- */
+  --color-accent-50: #fef2f2;
+  --color-accent-100: #ffe5e5;
+  --color-accent-500: #ff6b6b;
+  --color-accent-700: #e03e3e;
+
+  --accent: 0 100% 71%;
+  /* coral-500 */
+  --accent-foreground: 222 47% 11%;
+
+  /* -------------------------------------------------------------------------
+     SECONDARY & MUTED
+     ------------------------------------------------------------------------- */
+  --secondary: 213 96% 93%;
+  --secondary-foreground: 222 47% 11%;
+
+  --muted: 213 100% 96%;
+  --muted-foreground: 215 18% 45%;
+
+  /* -------------------------------------------------------------------------
+     INFO - Maps to primary (blue) in guest theme
+     ------------------------------------------------------------------------- */
+  --info: 217 91% 60%;
+  --info-foreground: 210 40% 98%;
+
+  /* -------------------------------------------------------------------------
+     BORDERS & INPUTS
+     ------------------------------------------------------------------------- */
+  --border: 216 33% 90%;
+  --input: 216 33% 90%;
+  --ring: 217 91% 60%;
+
+  /* -------------------------------------------------------------------------
+     INTERACTIVE STATES
+     ------------------------------------------------------------------------- */
+  --color-interactive: var(--color-primary-500);
+  --color-interactive-hover: var(--color-primary-700);
+  --color-interactive-active: var(--color-primary-900);
+
+  /* -------------------------------------------------------------------------
+     CHARTS - Blue scale for data visualization
+     ------------------------------------------------------------------------- */
+  --chart-1: 217 91% 60%;
+  --chart-2: 220 83% 53%;
+  --chart-3: 222 85% 45%;
+  --chart-4: 224 76% 34%;
+  --chart-5: 226 71% 25%;
+
+  /* -------------------------------------------------------------------------
+     SHADOW COLOR BASE
+     ------------------------------------------------------------------------- */
+  --shadow-color-base: 220 20% 20%;
+}
+
+/* Dark Mode + Guest Theme */
+[data-theme='guest'].dark,
+[data-theme='guest'] .dark,
+.dark[data-theme='guest'] {
+  /* Primary - Lighter blue for dark backgrounds */
+  --primary: 217 91% 70%;
+  --primary-foreground: 222 47% 11%;
+
+  /* Accent - Lighter coral for dark backgrounds */
+  --accent: 0 100% 75%;
+  --accent-foreground: 222 47% 11%;
+
+  /* Secondary */
+  --secondary: 217 33% 20%;
+  --secondary-foreground: 210 40% 98%;
+
+  /* Muted */
+  --muted: 217 33% 17%;
+  --muted-foreground: 215 20% 65%;
+
+  /* Info */
+  --info: 217 91% 70%;
+  --info-foreground: 222 47% 11%;
+
+  /* Borders & Inputs */
+  --border: 217 33% 25%;
+  --input: 217 33% 25%;
+  --ring: 217 91% 70%;
+
+  /* Charts - Brighter for dark mode */
+  --chart-1: 217 91% 65%;
+  --chart-2: 220 83% 60%;
+  --chart-3: 222 85% 55%;
+  --chart-4: 224 76% 50%;
+  --chart-5: 226 71% 45%;
+
+  /* Shadow color base - darker for dark mode */
+  --shadow-color-base: 0 0% 0%;
+}

@@ -130,7 +130,7 @@ export function GuestCard({ header, footer, className, children, ...rest }: Gues
   return (
     <Card
       className={cn(
-        "border-slate-100 shadow-sm rounded-xl",
+        "border-slate-100 shadow-sm rounded-xl group",
         "transition-shadow duration-200 hover:shadow-md",
         className
       )}

@@ -409,7 +409,7 @@ export function GuestNavbar({ tone = "light", isSticky = true }: GuestNavbarProp
         Skip to content
       </a>
 
-      <div className="mx-auto w-full max-w-6xl px-4 md:px-6">
+      <div className="container-default w-full px-4 md:px-6">
         <div className="flex items-center justify-between gap-3 py-3 md:py-4">
           <BrandMark tone={tone} />
 

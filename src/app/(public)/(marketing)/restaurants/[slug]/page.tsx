@@ -6,7 +6,6 @@ import { notFound } from 'next/navigation';
 import { GuestCard, GuestSection } from '@/components/guest/ui';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { getRestaurantBySlug } from '@/server/restaurants/getRestaurantBySlug';
 
 import type { Metadata } from 'next';
@@ -40,7 +39,7 @@ export default async function RestaurantPage({ params }: { params: RouteParams }
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100 pb-16 text-foreground">
+        <div className="min-h-screen pb-16">
             {/* Hero Image Section */}
             <div className="relative h-[40vh] min-h-[320px] w-full overflow-hidden rounded-b-[var(--guest-radius-2xl)] bg-slate-900">
                 {restaurant.logoUrl ? (
@@ -48,7 +47,7 @@ export default async function RestaurantPage({ params }: { params: RouteParams }
                         src={restaurant.logoUrl}
                         alt={restaurant.name}
                         fill
-                        className="object-cover opacity-70 transition-transform duration-700 hover:scale-105"
+                        className="guest-img-premium object-cover opacity-70"
                         priority
                         unoptimized
                     />
@@ -58,7 +57,7 @@ export default async function RestaurantPage({ params }: { params: RouteParams }
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/50 to-transparent" />
 
                 <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-8 lg:p-12">
-                    <div className="mx-auto max-w-5xl space-y-3 text-white">
+                    <div className="container-default space-y-3 text-white">
                         <Badge className="bg-amber-400 text-amber-950 hover:bg-amber-500 rounded-full shadow-sm">
                             Open for Reservations
                         </Badge>
@@ -73,7 +72,7 @@ export default async function RestaurantPage({ params }: { params: RouteParams }
                 </div>
             </div>
 
-            <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8 guest-sections">
+            <div className="container-default px-4 py-10 sm:px-6 lg:px-8 guest-sections">
                 <GuestSection title="About" description={`Experience exceptional dining at ${restaurant.name}.`} padding="md">
                     <p className="text-sm sm:text-base leading-relaxed text-slate-600">
                         Experience exceptional dining at {restaurant.name}. Whether you&apos;re planning a romantic dinner, a family gathering, or a business lunch, we provide the perfect atmosphere and cuisine.
@@ -122,7 +121,7 @@ export default async function RestaurantPage({ params }: { params: RouteParams }
                                     <p className="text-sm text-slate-600">Secure your table instantly. No booking fees.</p>
                                 </div>
 
-                                <Button asChild size="lg" className="w-full text-base font-semibold rounded-xl">
+                                <Button asChild size="lg" className="w-full text-base font-semibold rounded-full animate-pulse-glow">
                                     <Link href={`/restaurants/${restaurant.slug}/book`}>
                                         <Calendar className="mr-2 h-5 w-5" />
                                         Book a Table
@@ -139,19 +138,17 @@ export default async function RestaurantPage({ params }: { params: RouteParams }
                         </GuestCard>
 
                         {restaurant.googleMapUrl && (
-                            <Card className="overflow-hidden border border-slate-200 shadow-sm">
-                                <CardContent className="p-0">
-                                    <iframe
-                                        title="Map"
-                                        width="100%"
-                                        height="300"
-                                        frameBorder="0"
-                                        style={{ border: 0 }}
-                                        src={`https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY}&q=${encodeURIComponent(restaurant.address ?? restaurant.name)}`}
-                                        allowFullScreen
-                                    />
-                                </CardContent>
-                            </Card>
+                            <GuestCard className="overflow-hidden p-0">
+                                <iframe
+                                    title="Map"
+                                    width="100%"
+                                    height="300"
+                                    frameBorder="0"
+                                    style={{ border: 0 }}
+                                    src={`https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY}&q=${encodeURIComponent(restaurant.address ?? restaurant.name)}`}
+                                    allowFullScreen
+                                />
+                            </GuestCard>
                         )}
                     </div>
                 </div>

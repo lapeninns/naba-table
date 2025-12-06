@@ -284,7 +284,7 @@ export function ReservationDetailClient({
   // Loading State
   if (isLoading && !reservation) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100 pb-20">
+      <div className="min-h-screen pb-20">
         <Skeleton className="h-6 w-32 mb-8" />
         <Skeleton className="h-12 w-2/3 mb-4" />
         <Skeleton className="h-6 w-48 mb-10" />
@@ -332,7 +332,7 @@ export function ReservationDetailClient({
   const StatusIcon = statusConfig.icon;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100 pb-20">
+    <div className="min-h-screen pb-20">
       <GuestSection
         title={restaurantName ?? venue.name ?? 'Your Reservation'}
         description={
@@ -445,7 +445,7 @@ export function ReservationDetailClient({
             <div className="p-6 space-y-4">
               <h3 className="font-semibold text-slate-900">Manage Booking</h3>
               <Button
-                className="w-full rounded-xl bg-slate-900 hover:bg-slate-800"
+                className="w-full rounded-full bg-slate-900 hover:bg-slate-800"
                 size="lg"
                 onClick={handleEdit}
                 disabled={actionDisabled}
@@ -454,7 +454,7 @@ export function ReservationDetailClient({
               </Button>
               <Button
                 variant="outline"
-                className="w-full rounded-xl border-slate-200"
+                className="w-full rounded-full border-slate-200"
                 size="lg"
                 onClick={handleCancel}
                 disabled={actionDisabled}

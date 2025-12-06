@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
 
+import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import {
   Sidebar,
   SidebarContent,
@@ -43,28 +44,30 @@ type OpsSidebarLayoutProps = {
 
 export function OpsSidebarLayout({ children, defaultSidebarOpen = true, headerSlot }: OpsSidebarLayoutProps) {
   return (
-    <SidebarProvider defaultOpen={defaultSidebarOpen} className="bg-background">
-      <OpsSidebarPanel />
-      <SidebarRail />
-      <SidebarInset className="bg-background">
-        <a
-          href="#ops-content"
-          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow"
-        >
-          Skip to content
-        </a>
-        <div className="flex h-14 items-center gap-3 border-b border-border/60 px-4 sm:px-6">
-          <SidebarTrigger className="-ml-1" aria-label="Toggle navigation menu" />
-          {headerSlot ? (
-            <div className="flex-1 truncate text-sm font-medium text-muted-foreground">{headerSlot}</div>
-          ) : null}
-        </div>
-        <OpsOfflineIndicator />
-        <div id="ops-content" tabIndex={-1} className="flex flex-1 flex-col overflow-auto">
-          {children}
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
+    <ThemeProvider theme="app">
+      <SidebarProvider defaultOpen={defaultSidebarOpen} className="bg-background">
+        <OpsSidebarPanel />
+        <SidebarRail />
+        <SidebarInset className="bg-background">
+          <a
+            href="#ops-content"
+            className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow"
+          >
+            Skip to content
+          </a>
+          <div className="flex h-14 items-center gap-3 border-b border-border/60 px-4 sm:px-6">
+            <SidebarTrigger className="-ml-1" aria-label="Toggle navigation menu" />
+            {headerSlot ? (
+              <div className="flex-1 truncate text-sm font-medium text-muted-foreground">{headerSlot}</div>
+            ) : null}
+          </div>
+          <OpsOfflineIndicator />
+          <div id="ops-content" tabIndex={-1} className="flex flex-1 flex-col overflow-auto">
+            {children}
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
+    </ThemeProvider>
   );
 }
 

@@ -157,8 +157,8 @@ export function ReceiptClient({
     const isCancelled = reservation.status === 'cancelled';
 
     return (
-        <div className="min-h-[70vh] bg-gradient-to-b from-slate-50 via-white to-slate-100 px-4 py-12">
-            <div className="mx-auto flex max-w-3xl flex-col gap-10">
+        <div className="min-h-[70vh] px-4 py-12">
+            <div className="mx-auto flex max-w-6xl flex-col gap-10">
                 {/* Hero Section */}
                 <GuestHero
                     badge={isConfirmed ? 'Confirmed' : isPending ? 'Pending' : 'Receipt'}
