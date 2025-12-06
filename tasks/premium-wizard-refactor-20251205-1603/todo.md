@@ -57,8 +57,6 @@ owner: github:@amanshresthaa
 - [x] **Final Polish**
   - [ ] Cross-browser verification
   - [ ] Animation smoothness check
-  - [x] Fix return path for editing bookings (safeReturnPath logic)
-  - [x] Remove redundant Time Options grid from Edit Booking Dialog
 
 - [x] **DetailsStep.tsx**
   - [x] Two visual sections: "Your Details" and "Preferences"
