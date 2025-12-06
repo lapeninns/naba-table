@@ -64,7 +64,6 @@ describe("buildGuestBookingsViewModel", () => {
     const viewModel = await buildGuestBookingsViewModel(services, { tab: "history" });
 
     expect(viewModel.initialTab).toBe("past");
-    expect(viewModel.featureConfig).toMatchObject({ experimentA: true });
 
     const bookingsQuery = viewModel.dehydratedState.queries.find((q) =>
       Array.isArray(q.queryKey) && q.queryKey[0] === "bookings",

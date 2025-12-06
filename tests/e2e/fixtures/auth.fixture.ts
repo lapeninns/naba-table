@@ -74,8 +74,10 @@ async function authenticateGuest(page: Page): Promise<void> {
         throw new Error('Cookie injection failed!');
     }
 
+    const targetPath = redirectUrl && redirectUrl.startsWith('/') ? redirectUrl : '/guest/bookings';
+
     // Now navigate to the target page
-    await page.goto(`${baseUrl}${redirectUrl}`);
+    await page.goto(`${baseUrl}${targetPath}`);
 
 
     // Final check
