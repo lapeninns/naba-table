@@ -5,27 +5,7 @@
 export function GuestBackground() {
     return (
         <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden>
-            {/* Top-left gradient orb */}
-            <div
-                className="absolute -left-[15%] -top-[10%] h-[500px] w-[500px] rounded-full opacity-40"
-                style={{
-                    background: 'radial-gradient(circle, hsl(217 91% 60% / 0.15) 0%, transparent 70%)',
-                }}
-            />
-            {/* Top-right accent orb */}
-            <div
-                className="absolute -right-[10%] top-[5%] h-[400px] w-[400px] rounded-full opacity-30"
-                style={{
-                    background: 'radial-gradient(circle, hsl(38 92% 50% / 0.12) 0%, transparent 70%)',
-                }}
-            />
-            {/* Bottom gradient */}
-            <div
-                className="absolute -bottom-[20%] left-[20%] h-[600px] w-[600px] rounded-full opacity-25"
-                style={{
-                    background: 'radial-gradient(circle, hsl(217 91% 60% / 0.12) 0%, transparent 70%)',
-                }}
-            />
+
             {/* Subtle grid pattern */}
             <div
                 className="absolute inset-0 opacity-[0.02]"
