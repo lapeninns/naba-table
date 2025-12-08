@@ -11,7 +11,9 @@ import {
   UsersIcon,
   MessageSquareIcon,
   BellIcon,
-  Pencil,
+  PencilIcon,
+  ReceiptIcon,
+  MapPinIcon,
 } from 'lucide-react';
 import React from 'react';
 
@@ -36,52 +38,38 @@ interface DetailItemProps {
   label: string;
   value: string;
   className?: string;
+  valueClassName?: string;
 }
 
 interface SectionHeaderProps {
   title: string;
+  icon?: React.ReactNode;
   onEdit?: () => void;
   editLabel?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Constants
-// ─────────────────────────────────────────────────────────────────────────────
-
-const TICKET_CONTAINER_CLASSES = cn(
-  // Ticket/receipt metaphor
-  'rounded-2xl border border-border overflow-hidden',
-  'bg-gradient-to-br from-slate-50 to-white',
-  'dark:from-slate-900 dark:to-slate-950',
-  'shadow-lg',
-);
-
-const SECTION_CLASSES = cn('p-5 sm:p-6');
-
-const DASHED_SEPARATOR_CLASSES = cn(
-  'border-t-2 border-dashed border-slate-200 dark:border-slate-700',
-  'relative',
-);
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Sub-components
 // ─────────────────────────────────────────────────────────────────────────────
 
-function SectionHeader({ title, onEdit, editLabel }: SectionHeaderProps) {
+function SectionHeader({ title, icon, onEdit, editLabel }: SectionHeaderProps) {
   return (
-    <div className="flex items-center justify-between gap-3 mb-4">
-      <h3 className="text-sm font-semibold uppercase tracking-[0.15em] text-muted-foreground">
-        {title}
-      </h3>
+    <div className="flex items-center justify-between gap-3 mb-5 border-b border-border/40 pb-3">
+      <div className="flex items-center gap-2">
+        {icon && <span className="text-primary">{icon}</span>}
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          {title}
+        </h3>
+      </div>
       {onEdit && (
         <Button
           variant="ghost"
           size="sm"
           onClick={onEdit}
-          className="h-8 gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+          className="h-7 gap-1.5 text-xs font-medium text-primary hover:text-primary/80 hover:bg-primary/5"
           aria-label={editLabel ?? `Edit ${title.toLowerCase()}`}
         >
-          <Pencil className="h-3.5 w-3.5" aria-hidden />
+          <PencilIcon className="h-3.5 w-3.5" aria-hidden />
           <span>Edit</span>
         </Button>
       )}
@@ -89,31 +77,41 @@ function SectionHeader({ title, onEdit, editLabel }: SectionHeaderProps) {
   );
 }
 
-function DetailItem({ icon, label, value, className }: DetailItemProps) {
+function DetailItem({ icon, label, value, className, valueClassName }: DetailItemProps) {
   return (
     <div className={cn('space-y-1.5', className)}>
       <dt
         className={cn(
           'flex items-center gap-1.5',
-          'text-xs uppercase tracking-[0.15em] text-muted-foreground',
+          'text-xs uppercase tracking-wider text-muted-foreground/80 font-medium',
         )}
       >
-        <span className="shrink-0" aria-hidden="true">
+        <span className="shrink-0 text-muted-foreground" aria-hidden="true">
           {icon}
         </span>
         <span>{label}</span>
       </dt>
-      <dd className="text-sm font-semibold text-foreground sm:text-base">{value}</dd>
+      <dd
+        className={cn('text-sm font-semibold text-foreground sm:text-base/relaxed', valueClassName)}
+      >
+        {value}
+      </dd>
     </div>
   );
 }
 
-function DashedDivider() {
+function TicketPerforation() {
   return (
-    <div className={DASHED_SEPARATOR_CLASSES} aria-hidden="true">
-      {/* Decorative notches for ticket effect */}
-      <div className="absolute -left-3 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-background" />
-      <div className="absolute -right-3 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-background" />
+    <div className="relative h-px w-full bg-border my-2" aria-hidden="true">
+      {/* Left Notch */}
+      <div className="absolute -left-6 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-background border border-border" />
+      <div className="absolute -left-6 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-background scale-90" />{' '}
+      {/* Mask border overlap */}
+      {/* Right Notch */}
+      <div className="absolute -right-6 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-background border border-border" />
+      <div className="absolute -right-6 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-background scale-90" />
+      {/* Dashed Line */}
+      <div className="absolute inset-0 border-t-2 border-dashed border-muted-foreground/20" />
     </div>
   );
 }
@@ -142,11 +140,12 @@ export function ReviewStep(props: ReviewStepProps) {
     >
       <WizardStep
         step={3}
-        title="Review and confirm"
-        description="Double-check the details below. You can edit any section before confirming."
-        contentClassName="space-y-5"
+        title="Review & Confirm"
+        description="Please review your reservation details below."
+        contentClassName="space-y-6"
+        icon={<ReceiptIcon className="h-6 w-6" />}
       >
-        <div className="space-y-5">
+        <div className="space-y-6">
           {/* Screen reader summary */}
           <p className="sr-only" aria-live="polite">
             {`Review details for ${summary.summaryValue}. Press confirm to finalise your reservation.`}
@@ -162,99 +161,99 @@ export function ReviewStep(props: ReviewStepProps) {
             </Alert>
           )}
 
-          {/* ═══════════════════════════════════════════════════════════════════
-              TICKET/RECEIPT METAPHOR CONTAINER
-          ═══════════════════════════════════════════════════════════════════ */}
-          <article className={TICKET_CONTAINER_CLASSES}>
-            {/* ─────────────────────────────────────────────────────────────────
-                SECTION 1: Reservation Summary
-            ───────────────────────────────────────────────────────────── */}
-            <section className={SECTION_CLASSES}>
+          {/* 
+            TICKET CONTAINER 
+            Using a clean card look with a "perforation" divider
+          */}
+          <article className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+            {/* SECTION 1: Plan */}
+            <div className="p-6">
               <SectionHeader
-                title="Reservation Summary"
+                title="Your Visit"
+                icon={<SparklesIcon className="h-4 w-4" />}
                 onEdit={handleEditPlan}
                 editLabel="Edit reservation details"
               />
 
-              <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <dl className="grid gap-6 sm:grid-cols-2">
                 <DetailItem
-                  icon={<CalendarIcon className="h-3.5 w-3.5" />}
-                  label="When"
+                  icon={<CalendarIcon className="h-4 w-4" />}
+                  label="Date & Time"
                   value={summary.summaryValue}
-                  className="sm:col-span-2 lg:col-span-1"
+                  className="sm:col-span-2"
+                  valueClassName="text-lg text-primary"
                 />
                 <DetailItem
-                  icon={<SparklesIcon className="h-3.5 w-3.5" />}
+                  icon={<MapPinIcon className="h-4 w-4" />}
                   label="Venue"
                   value={details.restaurantName}
                 />
                 <DetailItem
-                  icon={<UsersIcon className="h-3.5 w-3.5" />}
+                  icon={<UsersIcon className="h-4 w-4" />}
                   label="Party size"
                   value={`${details.party} ${details.party === 1 ? 'guest' : 'guests'}`}
                 />
                 <DetailItem
-                  icon={<ClockIcon className="h-3.5 w-3.5" />}
+                  icon={<ClockIcon className="h-4 w-4" />}
                   label="Booking type"
                   value={formatBookingLabel(details.bookingType)}
                 />
               </dl>
-            </section>
+            </div>
 
-            {/* Dashed Divider with Ticket Notches */}
-            <DashedDivider />
+            {/* Perforation Divider */}
+            <TicketPerforation />
 
-            {/* ─────────────────────────────────────────────────────────────────
-                SECTION 2: Guest Details
-            ───────────────────────────────────────────────────────────── */}
-            <section className={SECTION_CLASSES}>
+            {/* SECTION 2: Details */}
+            <div className="p-6">
               <SectionHeader
-                title="Guest Details"
+                title="Your Details"
+                icon={<UserIcon className="h-4 w-4" />}
                 onEdit={handleEditDetails}
                 editLabel="Edit guest details"
               />
 
-              <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <dl className="grid gap-6 sm:grid-cols-2">
                 <DetailItem
-                  icon={<UserIcon className="h-3.5 w-3.5" />}
+                  icon={<UserIcon className="h-4 w-4" />}
                   label="Full name"
                   value={details.name}
                 />
                 <DetailItem
-                  icon={<MailIcon className="h-3.5 w-3.5" />}
+                  icon={<MailIcon className="h-4 w-4" />}
                   label="Email"
                   value={emailDisplay}
                 />
                 <DetailItem
-                  icon={<PhoneIcon className="h-3.5 w-3.5" />}
+                  icon={<PhoneIcon className="h-4 w-4" />}
                   label="Phone"
                   value={phoneDisplay}
                 />
                 <DetailItem
-                  icon={<BellIcon className="h-3.5 w-3.5" />}
-                  label="Marketing updates"
+                  icon={<BellIcon className="h-4 w-4" />}
+                  label="Marketing"
                   value={details.marketingOptIn ? 'Subscribed' : 'Not subscribed'}
                 />
               </dl>
 
               {/* Notes - Full Width */}
               {details.notes && (
-                <div className="mt-5 pt-4 border-t border-border/50">
-                  <dl>
-                    <div className="space-y-1.5">
-                      <dt className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted-foreground">
-                        <MessageSquareIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                        <span>Notes</span>
-                      </dt>
-                      <dd className="text-sm text-muted-foreground leading-relaxed">
-                        {details.notes}
-                      </dd>
-                    </div>
-                  </dl>
+                <div className="mt-6 pt-4 border-t border-border/40">
+                  <dt className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground font-medium mb-2">
+                    <MessageSquareIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span>Special Requests</span>
+                  </dt>
+                  <dd className="text-sm text-foreground/90 bg-muted/40 p-3 rounded-lg border border-border/50">
+                    &quot;{details.notes}&quot;
+                  </dd>
                 </div>
               )}
-            </section>
+            </div>
           </article>
+
+          <div className="text-center text-xs text-muted-foreground px-4">
+            By clicking Confirm, you agree to our Terms of Service and Privacy Policy.
+          </div>
         </div>
       </WizardStep>
     </StepErrorBoundary>
