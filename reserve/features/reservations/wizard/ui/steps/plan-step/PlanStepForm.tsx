@@ -35,11 +35,11 @@ function BentoCard({ children, className }: BentoCardProps) {
     <div
       className={cn(
         // Base styling
-        'rounded-xl border border-border bg-card/80 p-4 shadow-sm',
-        'backdrop-blur-sm',
+        'rounded-2xl border border-border/50 bg-background/60 p-5 shadow-sm',
+        'backdrop-blur-md',
         // Transition for hover
-        'transition-all duration-200',
-        'hover:shadow-md hover:border-border/80',
+        'transition-all duration-300',
+        'hover:shadow-lg hover:border-primary/20 hover:bg-background/80',
         className,
       )}
     >
