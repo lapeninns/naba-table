@@ -37,8 +37,10 @@ export function WizardProgress({
   const clampedCurrent = Math.min(Math.max(currentStep, 1), total);
   const progressValue = total <= 1 ? 100 : ((clampedCurrent - 1) / (total - 1)) * 100;
   const ariaSummary = summary.srLabel ?? `${summary.primary}. ${summary.details?.join(', ') ?? ''}`;
-  const headingId = React.useId();
-  const liveSummaryId = React.useId();
+
+  // Use stable IDs to prevent hydration mismatch
+  const headingId = `wizard-progress-heading-${clampedCurrent}`;
+  const liveSummaryId = `wizard-progress-summary-${clampedCurrent}`;
 
   const currentStepData = steps[clampedCurrent - 1];
 
