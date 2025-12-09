@@ -1,6 +1,7 @@
 
 import Link from "next/link";
 
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -13,16 +14,16 @@ type StatusTone = "default" | "success" | "warning" | "danger" | "info";
 
 const toneClasses: Record<StatusTone, { badge: string; text: string }> = {
   default: { badge: "bg-slate-100 text-slate-700", text: "text-slate-600" },
-  success: { badge: "bg-emerald-100 text-emerald-700", text: "text-emerald-600" },
-  warning: { badge: "bg-amber-100 text-amber-700", text: "text-amber-600" },
-  danger: { badge: "bg-red-100 text-red-700", text: "text-red-600" },
-  info: { badge: "bg-blue-100 text-blue-700", text: "text-blue-600" },
+  success: { badge: "bg-emerald-50 text-emerald-700 border-emerald-100", text: "text-emerald-600" },
+  warning: { badge: "bg-amber-50 text-amber-700 border-amber-100", text: "text-amber-600" },
+  danger: { badge: "bg-red-50 text-red-700 border-red-100", text: "text-red-600" },
+  info: { badge: "bg-blue-50 text-blue-700 border-blue-100", text: "text-blue-600" },
 };
 
 export function BookingDetailShell({ children }: { children: ReactNode }) {
   return (
-    <section className="guest-theme bg-gradient-to-b from-slate-50 via-white to-slate-50 px-4 py-10 sm:px-6">
-      <div className="mx-auto max-w-6xl space-y-8">{children}</div>
+    <section className="guest-theme min-h-screen bg-slate-50/50 px-4 py-8 md:py-12 md:px-8">
+      <div className="mx-auto max-w-5xl space-y-8">{children}</div>
     </section>
   );
 }
@@ -47,29 +48,33 @@ export function BookingSummaryCard({
   const Icon = status.icon;
   const tone = toneClasses[status.tone ?? "default"];
   return (
-    <Card className="space-y-6 rounded-[var(--guest-radius-2xl)] border-slate-100 bg-white/95 p-6 shadow-[var(--guest-shadow-xl)]">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="space-y-3">
-          <Badge className={cn("w-fit rounded-full px-4 py-1.5 text-sm font-semibold", tone.badge)}>
-            <Icon className="mr-1.5 h-4 w-4" aria-hidden />
-            {status.label}
-          </Badge>
-          <div>
-            <h1 className="guest-heading-page text-[length:var(--guest-text-page)] font-semibold text-slate-900">{title}</h1>
-            {description ? <p className="mt-1 text-sm text-slate-600">{description}</p> : null}
+    <Card className="space-y-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <Link href={backHref} className="inline-flex items-center justify-center rounded-full bg-slate-100 p-2 text-slate-500 hover:bg-slate-200 hover:text-slate-900 transition-colors">
+              <span className="sr-only">Back</span>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z" /></svg>
+            </Link>
+            <Badge className={cn("rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider border", tone.badge)}>
+              <Icon className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+              {status.label}
+            </Badge>
           </div>
-          <p className="text-sm text-slate-500">
-            Confirmation <span className="font-mono font-semibold text-slate-800">{reference}</span>
-          </p>
+
+          <div>
+            <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">{title}</h1>
+            {description ? <p className="mt-2 text-lg text-slate-500">{description}</p> : null}
+          </div>
+
+          <div className="flex items-center gap-2 text-sm text-slate-400 font-mono">
+            <span>REF:</span>
+            <span className="font-bold text-slate-700">{reference}</span>
+          </div>
         </div>
-        {actions ? <div className="flex flex-col gap-3 sm:flex-row">{actions}</div> : null}
+        {actions ? <div className="flex flex-col gap-3 sm:flex-row pt-2">{actions}</div> : null}
       </div>
-      <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500">
-        <Link href={backHref} className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-1.5 text-slate-600 hover:text-slate-900">
-          ← Back to dashboard
-        </Link>
-        {offlineNotice}
-      </div>
+      {offlineNotice}
     </Card>
   );
 }
@@ -85,37 +90,42 @@ export function DetailStatCard({
   value: ReactNode;
   subtext?: ReactNode;
 }) {
+  // Reusing MetricTile style but adapted for props
   return (
-    <Card className="rounded-[var(--guest-radius-xl)] border-slate-100 bg-white p-5 shadow-[var(--guest-shadow-sm)]">
-      <div className="flex items-start gap-4">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600">
-          <Icon className="h-5 w-5" />
-        </div>
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{label}</p>
-          <p className="mt-1 text-xl font-semibold text-slate-900">{value}</p>
-          {subtext ? <p className="text-sm text-slate-500">{subtext}</p> : null}
+    <div className={cn(
+      "relative flex flex-col gap-3 rounded-2xl border p-5 transition-all duration-200",
+      "bg-white border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)]",
+      "hover:shadow-md hover:-translate-y-0.5"
+    )}>
+      <div className="flex justify-between items-start">
+        <div className="p-2.5 rounded-xl flex items-center justify-center bg-slate-50 text-slate-600">
+          <Icon className="w-5 h-5" />
         </div>
       </div>
-    </Card>
+      <div>
+        <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">{label}</div>
+        <div className="text-slate-900 text-xl font-bold tracking-tight">{value}</div>
+        {subtext ? <div className="text-sm text-slate-500 mt-0.5 font-medium">{subtext}</div> : null}
+      </div>
+    </div>
   );
 }
 
 export function InfoPanel({ title, rows }: { title: string; rows: Array<{ icon: ElementType; label: string; value: ReactNode }> }) {
   return (
-    <Card className="overflow-hidden rounded-[var(--guest-radius-xl)] border-slate-100 bg-white shadow-[var(--guest-shadow-sm)]">
-      <div className="border-b border-slate-50 bg-gradient-to-r from-slate-50 to-white px-6 py-4">
-        <h3 className="font-semibold text-slate-900">{title}</h3>
+    <Card className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-4">
+        <h3 className="font-bold text-slate-900">{title}</h3>
       </div>
-      <div className="divide-y divide-slate-50">
+      <div className="divide-y divide-slate-100">
         {rows.map((row, index) => (
           <div key={`${row.label}-${index}`} className="flex items-center gap-4 px-6 py-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-slate-500">
               <row.icon className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm text-slate-500">{row.label}</p>
-              <p className="truncate font-medium text-slate-900">{row.value}</p>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">{row.label}</p>
+              <p className="truncate font-semibold text-slate-900 text-lg">{row.value}</p>
             </div>
           </div>
         ))}
@@ -129,7 +139,7 @@ export function ActionButtonRow({ children }: { children: ReactNode }) {
 }
 
 export function BookingSidebarCard({ children }: { children: ReactNode }) {
-  return <Card className="rounded-[var(--guest-radius-2xl)] border-slate-100 bg-white shadow-[var(--guest-shadow-lg)]">{children}</Card>;
+  return <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">{children}</Card>;
 }
 
 export function ManageBookingPanel({
@@ -143,8 +153,8 @@ export function ManageBookingPanel({
 }) {
   return (
     <BookingSidebarCard>
-      <div className="space-y-4 p-6">
-        <h3 className="font-semibold text-slate-900">{title}</h3>
+      <div className="space-y-6 p-6">
+        <h3 className="font-bold text-slate-900 text-lg">{title}</h3>
         {actions}
         {footer ? <Separator className="my-2" /> : null}
         {footer}
@@ -156,11 +166,11 @@ export function ManageBookingPanel({
 export function QRCodePanel({ children, code }: { children: ReactNode; code: string }) {
   return (
     <BookingSidebarCard>
-      <div className="p-6 text-center">
+      <div className="p-8 text-center bg-slate-50/30">
         {children}
-        <div className="mt-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Check-in code</p>
-          <p className="font-mono text-xl font-bold text-slate-900">{code}</p>
+        <div className="mt-6">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400 mb-2">Check-in code</p>
+          <p className="font-mono text-3xl font-bold text-slate-900 tracking-wider">{code}</p>
         </div>
       </div>
     </BookingSidebarCard>
@@ -169,7 +179,7 @@ export function QRCodePanel({ children, code }: { children: ReactNode; code: str
 
 export function InlineAlert({ tone = "info", children }: { tone?: StatusTone; children: ReactNode }) {
   const palette = toneClasses[tone];
-  return <div className={cn("rounded-[var(--guest-radius-xl)] border px-4 py-3 text-sm", palette.badge, palette.text)}>{children}</div>;
+  return <div className={cn("rounded-2xl border px-4 py-3 text-sm font-medium", palette.badge, palette.text)}>{children}</div>;
 }
 
 export function SummaryActions({ children }: { children: ReactNode }) {
@@ -178,7 +188,7 @@ export function SummaryActions({ children }: { children: ReactNode }) {
 
 export function PrimaryButtonLink({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <Button asChild className="rounded-full bg-slate-900 hover:bg-slate-800">
+    <Button asChild className="rounded-full bg-slate-900 hover:bg-slate-800 text-white font-semibold px-6">
       <Link href={href}>{children}</Link>
     </Button>
   );
@@ -186,7 +196,7 @@ export function PrimaryButtonLink({ href, children }: { href: string; children: 
 
 export function SecondaryButton({ onClick, children, disabled }: { onClick?: () => void; children: ReactNode; disabled?: boolean }) {
   return (
-    <Button variant="outline" className="rounded-full border-slate-200" onClick={onClick} disabled={disabled}>
+    <Button variant="outline" className="rounded-full border-slate-200 hover:bg-slate-50 font-medium px-5" onClick={onClick} disabled={disabled}>
       {children}
     </Button>
   );
@@ -194,8 +204,9 @@ export function SecondaryButton({ onClick, children, disabled }: { onClick?: () 
 
 export function GhostButton({ onClick, children, disabled }: { onClick?: () => void; children: ReactNode; disabled?: boolean }) {
   return (
-    <Button variant="ghost" className="rounded-xl text-slate-500 hover:text-slate-900" onClick={onClick} disabled={disabled}>
+    <Button variant="ghost" className="rounded-full text-slate-500 hover:text-slate-900 hover:bg-slate-100" onClick={onClick} disabled={disabled}>
       {children}
     </Button>
   );
 }
+

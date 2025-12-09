@@ -3,21 +3,20 @@
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Calendar,
-  ChevronRight,
   Clock,
   Heart,
   History,
   MapPin,
   Plus,
   QrCode,
-  Share2,
   User,
-  Users,
+  Sparkles,
+  ChevronRight,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo } from 'react';
 
-import { GuestCard, GuestEmpty, GuestError, GuestSection } from '@/components/guest/ui';
+import { ActionCard, GuestError, MetricTile, SearchBar } from '@/components/guest/ui';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -25,12 +24,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useGuestBookings, useGuestProfile, useGuestSession } from '@/guest/hooks';
 import { getGreeting } from '@/guest/lib/formatters';
 import { StatusRegion } from '@/guest/routes/shared/StatusRegion';
-import { useToast } from '@/hooks/use-toast';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
 import { formatReservationDateFromDate, formatReservationTimeFromDate } from '@reserve/shared/formatting/booking';
 
-import { deriveBookingState, type FavoriteRestaurant } from './booking-derivations';
+import { deriveBookingState } from './booking-derivations';
 
 import type { BookingDTO } from '@/guest/services/ports';
 
@@ -39,7 +37,6 @@ export function GuestDashboardClient() {
   const { data, isLoading, isError } = useGuestBookings();
   const { data: profile } = useGuestProfile();
   const { user } = useGuestSession();
-  const { toast } = useToast();
 
   const derived = useMemo(() => deriveBookingState(data?.items ?? []), [data?.items]);
 
@@ -69,6 +66,15 @@ export function GuestDashboardClient() {
 
   const greeting = getGreeting();
 
+  const stats = useMemo(
+    () => ({
+      total: derived.total,
+      upcoming: upcomingList.length,
+      favorites: derived.favorites.length,
+    }),
+    [derived.total, upcomingList.length, derived.favorites.length],
+  );
+
   if (isError) {
     return (
       <StatusRegion focus live="assertive" className="min-h-screen pb-20">
@@ -86,386 +92,255 @@ export function GuestDashboardClient() {
   }
 
   return (
-    <div className="min-h-screen pb-20 guest-sections">
-      <GuestSection
-        eyebrow="Welcome back"
-        title={`${greeting}, ${heroName.split(' ')[0]}`}
-        description={
-          primaryBooking
-            ? "Your next dining experience is all set."
-            : "Ready to discover your next great meal?"
-        }
-      >
-        <div className="sr-only">Dashboard intro</div>
-      </GuestSection>
+    <div className="min-h-screen pb-32 space-y-12">
+      {/* 1. HERO SECTION & SEARCH */}
+      <div className="relative bg-gradient-to-b from-white to-slate-50 pt-16 pb-24 px-6 md:px-12 border-b border-slate-100">
+        <div className="max-w-6xl mx-auto space-y-8">
+          <div className="space-y-4 max-w-2xl">
+            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 leading-[1.1]">
+              {greeting}, {heroName.split(' ')[0]}
+            </h1>
+            <p className="text-lg text-slate-600 leading-relaxed">
+              Find your next favorite table or manage your upcoming plans.
+            </p>
+          </div>
 
-      <div className="guest-sections">
-        <GuestSection padding="md" title="Featured booking">
+          <div className="pt-4">
+            <SearchBar onSearch={() => window.location.href = '/'} />
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto px-6 md:px-12 space-y-16">
+
+        {/* 2. STATS OVERVIEW */}
+        <section>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <MetricTile
+              label="Total Visits"
+              value={stats.total}
+              icon={History}
+              detail="+2 this month"
+            />
+            <MetricTile
+              label="Upcoming"
+              value={stats.upcoming}
+              icon={Calendar}
+              variant="highlight"
+            />
+            <MetricTile
+              label="Favorites"
+              value={stats.favorites}
+              icon={Heart}
+            />
+          </div>
+        </section>
+
+        {/* 3. PRIMARY ACTION / NEXT BOOKING */}
+        <section className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-slate-900">Next Priority</h2>
+            {primaryBooking && (
+              <Link href="/guest/bookings" className="text-sm font-semibold text-blue-600 hover:text-blue-700 flex items-center">
+                See all <ChevronRight className="w-4 h-4 ml-1" />
+              </Link>
+            )}
+          </div>
+
           <FeaturedBooking
             booking={primaryBooking}
             isLoading={isLoading}
-            toast={toast}
           />
-        </GuestSection>
+        </section>
 
-        <GuestSection padding="md" title="Quick actions">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 guest-stagger">
-            <QuickActionCard
+        {/* 4. QUICK ACTIONS */}
+        <section className="space-y-6">
+          <h2 className="text-2xl font-bold text-slate-900">Manage</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <ActionCard
               icon={Plus}
-              label="New Booking"
-              description="Find a table"
+              label="Book Table"
+              description="New reservation"
               href="/"
-              gradient="from-blue-500 to-blue-600"
             />
-            <QuickActionCard
+            <ActionCard
               icon={History}
               label="History"
-              description="Past trips"
+              description="Past visits"
               href="/guest/bookings?tab=history"
-              gradient="from-violet-500 to-violet-600"
             />
-            <QuickActionCard
+            <ActionCard
               icon={User}
               label="Profile"
-              description="Your details"
+              description="Preferences"
               href="/guest/profile"
-              gradient="from-emerald-500 to-emerald-600"
             />
-            <QuickActionCard
+            <ActionCard
               icon={Heart}
               label="Favorites"
-              description="Top spots"
+              description="Loved spots"
               href="/guest/bookings"
-              gradient="from-rose-500 to-rose-600"
             />
           </div>
-        </GuestSection>
+        </section>
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <GuestSection
-            padding="md"
-            title="Upcoming"
-            actions={
-              upcomingList.length > 0 ? (
-                <Link
-                  href="/guest/bookings"
-                  className="flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors"
-                >
-                  View all <ChevronRight className="h-4 w-4" />
-                </Link>
-              ) : null
-            }
-          >
-            {isLoading ? (
-              <div className="space-y-4">
-                <Skeleton className="h-24 w-full rounded-2xl" />
-                <Skeleton className="h-24 w-full rounded-2xl" />
-              </div>
-            ) : upcomingList.length > 0 ? (
-              <div className="space-y-4">
-                {upcomingList.slice(0, 3).map((booking, index) => (
-                  <UpcomingBookingRow
-                    key={booking.id}
-                    booking={booking}
-                    style={{ animationDelay: `${index * 50}ms` }}
-                  />
-                ))}
-              </div>
-            ) : (
-              <GuestEmpty
-                icon={Calendar}
-                title="No upcoming trips"
-                description="When you book a table, it will show up here."
-                actionLabel="Find a restaurant"
-                actionHref="/"
-              />
-            )}
-          </GuestSection>
-
-          <GuestSection padding="md" title="Your favorites">
-            {isLoading ? (
-              <div className="space-y-4">
-                <Skeleton className="h-24 w-full rounded-2xl" />
-              </div>
-            ) : derived.favorites.length > 0 ? (
-              <div className="space-y-4">
-                {derived.favorites.slice(0, 3).map((fav, i) => (
-                  <FavoriteRow key={fav.slug || i} favorite={fav} />
-                ))}
-              </div>
-            ) : (
-              <GuestEmpty
-                icon={Heart}
-                title="No favorites yet"
-                description="Restaurants you visit often will appear here."
-                actionLabel="Explore restaurants"
-                actionHref="/"
-              />
-            )}
-          </GuestSection>
-        </div>
+        {/* 5. UPCOMING LIST */}
+        {upcomingList.length > 0 && (
+          <section className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-slate-900">Upcoming</h2>
+              <Link href="/guest/bookings" className="text-sm font-semibold text-blue-600 hover:text-blue-700">View All</Link>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {upcomingList.slice(0, 6).map((booking) => (
+                <UpcomingBookingCard key={booking.id} booking={booking} />
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );
 }
 
 /* ============================================================================
-   FEATURED BOOKING COMPONENT
+   FEATURED BOOKING COMPONENT (Revamped for DesignSystem.md)
    ============================================================================ */
 
 function FeaturedBooking({
   booking,
   isLoading,
-  toast
 }: {
   booking: BookingDTO | null;
   isLoading: boolean;
-  toast: ReturnType<typeof useToast>['toast'];
 }) {
   if (isLoading) {
     return (
-      <GuestCard className="overflow-hidden bg-white p-8 shadow-xl">
-        <div className="space-y-6">
-          <Skeleton className="h-6 w-32" />
-          <Skeleton className="h-10 w-2/3" />
-          <Skeleton className="h-32 w-full rounded-2xl" />
-          <div className="flex gap-4">
-            <Skeleton className="h-12 w-40 rounded-full" />
-            <Skeleton className="h-12 w-32 rounded-full" />
-          </div>
-        </div>
-      </GuestCard>
+      <div className="rounded-3xl bg-white p-8 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.08)] border border-slate-200">
+        <Skeleton className="h-48 w-full rounded-2xl" />
+      </div>
     );
   }
 
   if (!booking) {
     return (
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8 shadow-2xl sm:p-12">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div
-            className="absolute inset-0"
-            style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-            }}
-          />
-        </div>
-        {/* Gradient Orbs */}
-        <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-blue-500/20 blur-3xl" />
-        <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-violet-500/20 blur-3xl" />
-
-        <div className="relative z-10 mx-auto max-w-lg text-center">
-          <div className="mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm ring-1 ring-white/20">
-            <Calendar className="h-10 w-10 text-white" />
+      <div className="relative overflow-hidden rounded-3xl bg-slate-900 text-white shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1)] p-8 md:p-12 text-center">
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="h-16 w-16 bg-white/10 rounded-full flex items-center justify-center mb-6">
+            <Sparkles className="h-8 w-8 text-white" />
           </div>
-          <h2 className="text-3xl font-bold text-white sm:text-4xl">
-            Ready for your next adventure?
-          </h2>
-          <p className="mt-4 text-lg text-slate-300">
-            Discover amazing restaurants and book your perfect table in seconds.
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 tracking-tight">No upcoming plans?</h2>
+          <p className="text-lg text-slate-300 max-w-xl mb-8">
+            Explore our curated list of restaurants and secure your table for tonight.
           </p>
-          <Button
-            asChild
-            size="lg"
-            className="mt-8 rounded-full bg-white px-10 text-slate-900 shadow-lg hover:bg-slate-100 hover:shadow-xl transition-all"
-          >
-            <Link href="/">
-              <Plus className="mr-2 h-5 w-5" />
-              Find a Table
-            </Link>
-          </Button>
+          <div className="flex gap-4">
+            <Button asChild className="rounded-full bg-white text-slate-900 hover:bg-slate-100 px-8 py-6 text-lg font-semibold border-none">
+              <Link href="/">Find a Table</Link>
+            </Button>
+          </div>
         </div>
+        {/* Decorative background elements */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
       </div>
     );
   }
 
   const bookingDate = new Date(booking.startIso);
   const isToday = isSameDay(bookingDate, new Date());
-  const isTomorrow = isSameDay(bookingDate, addDays(new Date(), 1));
-  const dateLabel = isToday ? 'Today' : isTomorrow ? 'Tomorrow' : formatReservationDateFromDate(bookingDate, { timezone: booking.restaurantTimezone ?? undefined });
 
   return (
-    <GuestCard className="group relative overflow-hidden rounded-3xl bg-white shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] ring-1 ring-slate-900/5">
-      {/* Ticket Design */}
-      <div className="grid md:grid-cols-[1fr_240px]">
+    <div className="group relative overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-[0_16px_48px_rgba(0,0,0,0.12)] transition-transform hover:-translate-y-1">
+      <div className="grid md:grid-cols-[1fr_280px]">
         {/* Main Content */}
-        <div className="relative p-6 sm:p-8 lg:p-10">
-          {/* Status Badge */}
-          <div className="mb-6 flex items-center gap-3">
-            <Badge
-              variant="secondary"
-              className={cn(
-                "rounded-full px-4 py-1.5 text-sm font-semibold",
-                isToday
-                  ? "bg-gradient-to-r from-emerald-500 to-emerald-600 text-white"
-                  : "bg-blue-50 text-blue-700"
-              )}
-            >
-              {isToday ? (
-                <>
-                  <Clock className="mr-1.5 h-3.5 w-3.5" />
-                  Happening Today
-                </>
-              ) : (
-                'Upcoming Reservation'
-              )}
+        <div className="p-8 md:p-10 space-y-8">
+          <div className="flex items-center gap-3">
+            <Badge className={cn("rounded-full px-3 py-1 font-semibold border-none", isToday ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-700")}>
+              {isToday ? "Happening Today" : "Upcoming Reservation"}
             </Badge>
           </div>
 
-          {/* Restaurant Info */}
-          <div className="space-y-3">
-            <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+          <div>
+            <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight mb-2">
               {booking.restaurantName}
             </h2>
-            <div className="flex items-center gap-2 text-slate-500">
-              <MapPin className="h-4 w-4" />
-              <span>View location on map</span>
+            <div className="flex items-center text-slate-500 font-medium">
+              <MapPin className="w-5 h-5 mr-2" />
+              View location
             </div>
           </div>
 
-          {/* Booking Details Grid */}
-          <div className="mt-8 flex flex-wrap gap-6 sm:gap-10">
-            <DetailItem label="Date" value={dateLabel} />
-            <DetailItem
-              label="Time"
-              value={formatReservationTimeFromDate(bookingDate, { timezone: booking.restaurantTimezone ?? undefined })}
-            />
-            <DetailItem label="Guests" value={`${booking.partySize} ${booking.partySize === 1 ? 'Guest' : 'Guests'}`} />
-          </div>
-
-          {/* Action Buttons */}
-          <div className="mt-10 flex flex-wrap gap-3">
-            <Button asChild className="rounded-full bg-slate-900 px-8 shadow-lg hover:bg-slate-800 hover:shadow-xl transition-all">
-              <Link href={`/guest/bookings/${booking.id}`}>
-                View Details
-                <ChevronRight className="ml-1 h-4 w-4" />
-              </Link>
-            </Button>
-            <ShareButton booking={booking} toast={toast} />
-            <DirectionsButton booking={booking} />
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Date</div>
+              <div className="text-xl font-bold text-slate-900">{formatReservationDateFromDate(bookingDate)}</div>
+            </div>
+            <div>
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Time</div>
+              <div className="text-xl font-bold text-slate-900">{formatReservationTimeFromDate(bookingDate)}</div>
+            </div>
+            <div>
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Guests</div>
+              <div className="text-xl font-bold text-slate-900">{booking.partySize} People</div>
+            </div>
           </div>
         </div>
 
-        {/* QR Code Side Panel */}
-        <div className="relative hidden border-l border-dashed border-slate-200 bg-gradient-to-br from-slate-50 to-slate-100/50 md:block">
-          {/* Ticket Cutouts */}
-          <div className="absolute -left-3 top-0 h-6 w-6 rounded-full bg-white shadow-inner" />
-          <div className="absolute -left-3 bottom-0 h-6 w-6 rounded-full bg-white shadow-inner" />
+        {/* Action Panel / QR */}
+        <div className="bg-slate-50 border-t md:border-t-0 md:border-l border-slate-200 p-8 flex flex-col items-center justify-center text-center">
+          <QRCodeDialog booking={booking}>
+            <button className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:scale-105 transition-transform">
+              <QrCode className="w-24 h-24 text-slate-900" />
+            </button>
+          </QRCodeDialog>
+          <div className="mt-4 font-mono text-xl font-bold text-slate-900 tracking-widest">
+            {booking.id.slice(0, 8).toUpperCase()}
+          </div>
+          <p className="text-xs text-slate-500 mt-1 uppercase tracking-wide">Confirmation Code</p>
 
-          <div className="flex h-full flex-col items-center justify-center p-8 text-center">
-            <QRCodeDialog booking={booking}>
-              <button className="group/qr relative overflow-hidden rounded-2xl bg-white p-4 shadow-md transition-all hover:shadow-lg hover:scale-105">
-                <div className="h-32 w-32 flex items-center justify-center">
-                  <QrCode className="h-full w-full text-slate-900 transition-opacity group-hover/qr:opacity-80" />
-                </div>
-              </button>
-            </QRCodeDialog>
-            <div className="mt-6 space-y-1">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Confirmation</p>
-              <p className="font-mono text-xl font-bold text-slate-900">{booking.id.slice(0, 8).toUpperCase()}</p>
-            </div>
+          <div className="mt-8 w-full">
+            <Button asChild className="w-full rounded-full" size="lg">
+              <Link href={`/guest/bookings/${booking.id}`}>Manage Booking</Link>
+            </Button>
           </div>
         </div>
       </div>
-    </GuestCard>
-  );
-}
-
-/* ============================================================================
-   SUPPORTING COMPONENTS
-   ============================================================================ */
-
-function DetailItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="space-y-1">
-      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</p>
-      <p className="text-xl font-semibold text-slate-900">{value}</p>
     </div>
   );
 }
 
-function QuickActionCard({
-  icon: Icon,
-  label,
-  description,
-  href,
-  gradient
-}: {
-  icon: React.ElementType;
-  label: string;
-  description: string;
-  href: string;
-  gradient: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="group relative overflow-hidden rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl hover:border-slate-200"
-    >
-      <div className={cn(
-        "mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-lg transition-transform group-hover:scale-110",
-        gradient
-      )}>
-        <Icon className="h-6 w-6" />
-      </div>
-      <h3 className="font-semibold text-slate-900">{label}</h3>
-      <p className="mt-0.5 text-sm text-slate-500">{description}</p>
-      <ChevronRight className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-300 opacity-0 transition-all group-hover:opacity-100 group-hover:translate-x-1" />
-    </Link>
-  );
-}
-
-function UpcomingBookingRow({ booking, style }: { booking: BookingDTO; style?: React.CSSProperties }) {
+function UpcomingBookingCard({ booking }: { booking: BookingDTO }) {
   const bookingDate = new Date(booking.startIso);
-
   return (
     <Link
       href={`/guest/bookings/${booking.id}`}
-      className="group flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition-all hover:border-slate-200 hover:shadow-md animate-fade-up"
-      style={style}
+      className="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all flex items-center gap-4"
     >
-      {/* Date Box */}
-      <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 text-blue-700">
-        <span className="text-xs font-semibold uppercase">
-          {bookingDate.toLocaleString('en-US', { month: 'short' })}
-        </span>
-        <span className="text-xl font-bold leading-none">
-          {bookingDate.getDate()}
-        </span>
+      <div className="flex-shrink-0 w-16 h-16 bg-blue-50 text-blue-700 rounded-xl flex flex-col items-center justify-center leading-none">
+        <span className="text-xs font-bold uppercase mb-1">{bookingDate.toLocaleString('en-US', { month: 'short' })}</span>
+        <span className="text-2xl font-bold">{bookingDate.getDate()}</span>
       </div>
-
-      {/* Details */}
       <div className="flex-1 min-w-0">
-        <p className="font-semibold text-slate-900 truncate">{booking.restaurantName}</p>
-        <div className="mt-0.5 flex items-center gap-2 text-sm text-slate-500">
-          <Clock className="h-3.5 w-3.5" />
-          <span>{formatReservationTimeFromDate(bookingDate, { timezone: booking.restaurantTimezone ?? undefined })}</span>
-          <span className="text-slate-300">•</span>
-          <Users className="h-3.5 w-3.5" />
-          <span>{booking.partySize} guests</span>
+        <h4 className="font-bold text-slate-900 truncate">{booking.restaurantName}</h4>
+        <div className="text-sm text-slate-500 flex items-center mt-1">
+          <Clock className="w-3.5 h-3.5 mr-1.5" />
+          {formatReservationTimeFromDate(bookingDate)}
         </div>
       </div>
-
-      <ChevronRight className="h-5 w-5 shrink-0 text-slate-300 transition-transform group-hover:translate-x-1 group-hover:text-slate-500" />
+      <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-slate-600 transition-colors" />
     </Link>
   );
 }
 
-function FavoriteRow({ favorite }: { favorite: FavoriteRestaurant }) {
-  return (
-    <div className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition-all hover:border-slate-200 hover:shadow-md">
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-rose-50 to-rose-100 text-rose-500">
-        <Heart className="h-5 w-5 fill-current" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="font-semibold text-slate-900 truncate">{favorite.name}</p>
-        <p className="text-sm text-slate-500">{favorite.count} {favorite.count === 1 ? 'visit' : 'visits'}</p>
-      </div>
-      <Button variant="outline" size="sm" className="shrink-0 rounded-full border-slate-200 hover:bg-slate-50">
-        Book
-      </Button>
-    </div>
-  );
+
+/* ============================================================================
+   UTILITY FUNCTIONS
+   ============================================================================ */
+
+function isSameDay(d1: Date, d2: Date): boolean {
+  return d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate();
 }
 
 function QRCodeDialog({ booking, children }: { booking: BookingDTO; children: React.ReactNode }) {
@@ -490,54 +365,4 @@ function QRCodeDialog({ booking, children }: { booking: BookingDTO; children: Re
       </DialogContent>
     </Dialog>
   );
-}
-
-function ShareButton({ booking, toast }: { booking: BookingDTO; toast: ReturnType<typeof useToast>['toast'] }) {
-  const handleShare = () => {
-    const url = `${window.location.origin}/guest/bookings/${booking.id}`;
-    const text = `Join me at ${booking.restaurantName}`;
-
-    if (navigator.share) {
-      navigator.share({ title: 'Dinner plans', text, url }).catch(() => { });
-    } else {
-      navigator.clipboard.writeText(`${text} ${url}`).then(() => {
-        toast({ title: 'Link copied to clipboard' });
-      });
-    }
-  };
-
-  return (
-    <Button variant="outline" className="rounded-full border-slate-200" onClick={handleShare}>
-      <Share2 className="mr-2 h-4 w-4" />
-      Share
-    </Button>
-  );
-}
-
-function DirectionsButton({ booking }: { booking: BookingDTO }) {
-  const href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(booking.restaurantName)}`;
-  return (
-    <Button variant="outline" asChild className="rounded-full border-slate-200">
-      <a href={href} target="_blank" rel="noreferrer">
-        <MapPin className="mr-2 h-4 w-4" />
-        Directions
-      </a>
-    </Button>
-  );
-}
-
-/* ============================================================================
-   UTILITY FUNCTIONS
-   ============================================================================ */
-
-function isSameDay(d1: Date, d2: Date): boolean {
-  return d1.getFullYear() === d2.getFullYear() &&
-    d1.getMonth() === d2.getMonth() &&
-    d1.getDate() === d2.getDate();
-}
-
-function addDays(date: Date, days: number): Date {
-  const result = new Date(date);
-  result.setDate(result.getDate() + days);
-  return result;
 }

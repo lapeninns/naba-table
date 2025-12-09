@@ -377,7 +377,12 @@ export function ScheduleAwareTimestampPicker({
   );
 
   useEffect(() => {
-    selectionModeRef.current = 'initial';
+    // Don't override user's in-progress date selection when parent re-renders
+    // (e.g., when party size changes). Only sync when we're in 'initial' mode.
+    if (selectionModeRef.current === 'user-change') {
+      return;
+    }
+
     const parts = extractDateParts(value, scheduleTimezone);
     if (parts.date) {
       setActiveDate((prev) => (prev === parts.date ? prev : parts.date!));
@@ -391,11 +396,24 @@ export function ScheduleAwareTimestampPicker({
   }, [scheduleTimezone, value]);
 
   useEffect(() => {
+    // Don't reset if user is mid-edit - this prevents the cascade where:
+    // 1. User selects new date → mode='user-change'
+    // 2. This effect runs (because initialDate changed due to parent form reset)
+    // 3. Effect sets mode='initial', wiping user's selection
+    // 4. Value sync effect then overrides with old date
     const slugKey = restaurantSlug ?? null;
     const dateKey = initialDate;
     const prev = resetSignatureRef.current;
     const hasSlugChanged = prev.slug !== slugKey;
     const hasDateChanged = prev.date !== dateKey;
+
+    // Only guard if user is mid-edit AND the change is trivial (same slug, same initial date)
+    // This allows the effect to run on dialog open, but prevents it from running when
+    // user changes party size (which doesn't change slug or initialDate)
+    if (selectionModeRef.current === 'user-change' && !hasSlugChanged && !hasDateChanged) {
+      return;
+    }
+
     resetSignatureRef.current = { slug: slugKey, date: dateKey };
 
     if (!hasSlugChanged && !hasDateChanged) {
@@ -500,8 +518,7 @@ export function ScheduleAwareTimestampPicker({
     }
   }, [activeDate, prefetchVisibleMonths]);
 
-  const isLoading = activeRecordStatus === 'loading';
-  const activeDateLoaded = activeRecordStatus === 'success';
+
 
   const unavailabilityReason = useMemo<UnavailabilityReason | null>(() => {
     if (!activeDate) {
@@ -554,11 +571,7 @@ export function ScheduleAwareTimestampPicker({
       return;
     }
 
-    if (selectionModeRef.current === 'user-change') {
-      setTimeValidationError(null);
-      return;
-    }
-
+    // Auto-select first available slot (runs even in 'user-change' mode after date selection)
     const fallback = availableSlots[0]?.value ?? '';
     if (fallback) {
       setDraftTime(fallback);
@@ -592,7 +605,9 @@ export function ScheduleAwareTimestampPicker({
         selectionModeRef.current = 'user-change';
         setSelectedTime('');
         setDraftTime('');
-        commitChange(formatted, null);
+        // Don't call commitChange here - let the time auto-selection effect handle it
+        // once available slots load. Calling commitChange(date, null) would set parent 
+        // value to null, triggering initialDate fallback to today.
         onDateChange?.(formatted);
       }
       setActiveDate(formatted);
@@ -676,7 +691,11 @@ export function ScheduleAwareTimestampPicker({
     }
   }, [unavailabilityReason]);
 
-  const isTimeDisabled = disabled || isLoading || !activeDateLoaded || availableSlots.length === 0;
+  const isTimeDisabled = disabled || availableSlots.length === 0;
+
+  // Provide a concrete message whenever the time picker is disabled so the input can clear
+  // stale values in lockstep with the "No available times" UI.
+  const unavailableMessageForTime = resolvedUnavailableMessage ?? (isTimeDisabled ? 'No available times for the selected date.' : undefined);
 
 
 
@@ -724,7 +743,7 @@ export function ScheduleAwareTimestampPicker({
                 suggestions={availableSlots}
                 intervalMinutes={intervalMinutes}
                 isTimeDisabled={isTimeDisabled}
-                unavailableMessage={resolvedUnavailableMessage}
+                unavailableMessage={unavailableMessageForTime}
               />
             </div>
           </div>

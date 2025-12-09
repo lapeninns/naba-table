@@ -55,7 +55,8 @@ This directory contains **React components** used across the app:
   - Respect semantics from root AGENTS (roles, ARIA, focus management).
   - For complex widgets (menus, dialogs, sheets, comboboxes), follow WAI‑ARIA APG.
 - Styling:
-  - Use the shared design tokens / Tailwind utilities / CSS modules per repo standard.
+  - **Follow `DesignSystem.md` strictly**: Use the shared design tokens, logic, and custom styles defined in `DesignSystem.md`.
+  - Use Tailwind utilities / CSS modules per repo standard where consistent with the design system.
   - Avoid inline styles except for rare one‑off cases.
 
 ---

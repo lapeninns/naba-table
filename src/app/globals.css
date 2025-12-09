@@ -5,6 +5,7 @@
 /* Theme System - Data Attribute Strategy */
 @import '../../styles/themes/guest.css';
 @import '../../styles/themes/app.css';
+@import '../../styles/guest-design-system.css';
 
 @plugin "tailwindcss-animate";
 @custom-variant dark (&:is(.dark *));

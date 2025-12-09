@@ -41,7 +41,7 @@ export default async function RestaurantPage({ params }: { params: RouteParams }
         : null;
 
     return (
-        <div className="guest-theme bg-slate-50/80 pb-16">
+        <div className="guest-theme bg-muted pb-16">
             <RestaurantDetailHero restaurant={{
                 id: restaurant.id,
                 slug: restaurant.slug ?? slug,
