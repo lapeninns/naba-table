@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { ReservationWizardClient } from "@/components/features/booking/wizard/ReservationWizardClient";
+import { RestaurantBookingShell } from "@/components/restaurants/PublicSections";
 import { getRestaurantBySlug } from "@/server/restaurants/getRestaurantBySlug";
 
 import type { Metadata } from "next";
@@ -31,6 +32,17 @@ export default async function BookingPage({ params }: { params: RouteParams }) {
     return notFound();
   }
 
-  // Render the wizard directly without extra wrapper cards
-  return <ReservationWizardClient restaurant={restaurant} />;
+  return (
+    <RestaurantBookingShell
+      restaurant={{
+        id: restaurant.id,
+        slug: restaurant.slug,
+        name: restaurant.name,
+        address: restaurant.address,
+        logoUrl: restaurant.logoUrl,
+      }}
+    >
+      <ReservationWizardClient restaurant={restaurant} />
+    </RestaurantBookingShell>
+  );
 }

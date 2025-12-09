@@ -58,7 +58,7 @@ type AvatarState = {
   removed: boolean;
 };
 
-type StatusTone = 'info' | 'success' | 'warning' | 'error';
+type StatusTone = 'info' | 'success' | 'warning' | 'danger';
 
 type StatusState = {
   message: string;
@@ -73,7 +73,7 @@ const FIELD_LABELS: Record<'name' | 'phone' | 'image', string> = {
 };
 
 const getLiveForTone = (tone: StatusTone): 'polite' | 'assertive' =>
-  tone === 'warning' || tone === 'error' ? 'assertive' : 'polite';
+  tone === 'warning' || tone === 'danger' ? 'assertive' : 'polite';
 
 const formatFieldList = (keys: Array<'name' | 'phone' | 'image'>): string => {
   const labels = keys.map((key) => FIELD_LABELS[key]);
@@ -186,7 +186,7 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
         return { file: null, previewUrl: null, removed: false };
       });
       setAvatarError(message);
-      announceStatus({ message, tone: 'error', live: 'assertive' });
+      announceStatus({ message, tone: 'danger', live: 'assertive' });
     }
   };
 
@@ -323,10 +323,10 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
           });
           return;
         }
-        announceStatus({ message: error.message || "We couldn't update your profile. Please try again.", tone: 'error' });
+        announceStatus({ message: error.message || "We couldn't update your profile. Please try again.", tone: 'danger' });
         return;
       }
-      announceStatus({ message: "We couldn't update your profile. Please try again.", tone: 'error' });
+      announceStatus({ message: "We couldn't update your profile. Please try again.", tone: 'danger' });
     }
   });
 
@@ -336,7 +336,7 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
     info: { bg: 'bg-blue-50', text: 'text-blue-700', icon: AlertCircle },
     success: { bg: 'bg-emerald-50', text: 'text-emerald-700', icon: CheckCircle2 },
     warning: { bg: 'bg-amber-50', text: 'text-amber-700', icon: AlertCircle },
-    error: { bg: 'bg-red-50', text: 'text-red-700', icon: AlertCircle },
+    danger: { bg: 'bg-red-50', text: 'text-red-700', icon: AlertCircle },
   };
 
   return (
@@ -405,7 +405,7 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
             {/* Avatar Info */}
             <div className="flex-1 text-center sm:text-left">
               {avatarError && (
-                <GuestStatus title={avatarError} tone="error" className="inline-flex" />
+                <GuestStatus title={avatarError} tone="danger" className="inline-flex" />
               )}
             </div>
           </div>

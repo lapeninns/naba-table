@@ -1,21 +1,27 @@
 import { AlertCircle, CheckCircle2, Info, Sparkles } from "lucide-react";
 import Link from "next/link";
-import React from "react";
+import { forwardRef, type CSSProperties, type ComponentPropsWithoutRef, type ReactNode } from "react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
-type GuestSectionProps = {
+type PaddingSize = "sm" | "md" | "lg";
+
+const paddingMap: Record<PaddingSize, string> = {
+  sm: "px-[var(--space-4)] py-[var(--space-4)]",
+  md: "px-[var(--space-5)] py-[var(--space-5)]",
+  lg: "px-[var(--space-6)] py-[var(--space-6)]",
+};
+
+type SectionProps = {
   title?: string;
-  description?: React.ReactNode;
+  description?: ReactNode;
   eyebrow?: string;
-  actions?: React.ReactNode;
-  children: React.ReactNode;
+  actions?: ReactNode;
+  children: ReactNode;
   className?: string;
-  padding?: "sm" | "md" | "lg";
+  padding?: PaddingSize;
 };
 
 export function GuestSection({
@@ -26,42 +32,34 @@ export function GuestSection({
   children,
   className,
   padding = "lg",
-}: GuestSectionProps) {
-  const paddingClasses = {
-    sm: "p-4 sm:p-5",
-    md: "p-5 sm:p-6",
-    lg: "p-6 sm:p-8",
-  };
-
+}: SectionProps) {
   return (
     <section
       className={cn(
-        "relative overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm",
-        "transition-shadow duration-200 hover:shadow-md",
-        paddingClasses[padding],
+        "relative flex flex-col gap-[var(--space-4)] rounded-[var(--radius-xl)]",
+        "border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-sm)]",
+        paddingMap[padding],
         className,
       )}
     >
       {(eyebrow || title || description || actions) && (
-        <div className="mb-5 flex flex-col gap-2 sm:mb-6 sm:flex-row sm:items-start sm:justify-between">
-          <div className="space-y-1.5">
+        <div className="flex flex-col gap-[var(--space-3)] sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-[var(--space-2)]">
             {eyebrow ? (
-              <Badge variant="secondary" className="guest-badge mb-1">
+              <span className="inline-flex items-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-[var(--space-3)] py-[var(--space-1)] text-[10px] font-semibold uppercase tracking-[0.25em] text-[color:var(--color-text-muted)]">
                 {eyebrow}
-              </Badge>
+              </span>
             ) : null}
             {title ? (
-              <h2 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+              <h2 className="text-[length:var(--font-size-xl)] font-bold leading-[var(--line-height-tight)] text-[color:var(--color-text)]">
                 {title}
               </h2>
             ) : null}
             {description ? (
-              <p className="text-sm text-slate-500 sm:text-base">{description}</p>
+              <p className="text-[length:var(--font-size-md)] text-[color:var(--color-text-muted)]">{description}</p>
             ) : null}
           </div>
-          {actions ? (
-            <div className="flex shrink-0 items-center gap-2 pt-2 sm:pt-0">{actions}</div>
-          ) : null}
+          {actions ? <div className="flex shrink-0 items-center gap-[var(--space-2)]">{actions}</div> : null}
         </div>
       )}
       {children}
@@ -69,76 +67,27 @@ export function GuestSection({
   );
 }
 
-type GuestHeroProps = {
-  title: string;
-  description?: string;
-  badge?: string;
-  ctas?: React.ReactNode;
+type GuestCardProps = {
+  header?: ReactNode;
+  footer?: ReactNode;
   className?: string;
+  style?: CSSProperties;
+  children: ReactNode;
 };
 
-export function GuestHero({ title, description, badge, ctas, className }: GuestHeroProps) {
-  return (
-    <div
-      className={cn(
-        "relative overflow-hidden rounded-2xl border border-blue-100",
-        "bg-gradient-to-br from-blue-50 via-white to-blue-100/40",
-        "p-8 sm:p-10 shadow-lg",
-        className,
-      )}
-    >
-      {/* Decorative gradient orbs */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-60"
-        aria-hidden
-        style={{
-          background:
-            "radial-gradient(circle at 25% 35%, rgba(59,130,246,0.12), transparent 35%), radial-gradient(circle at 75% 25%, rgba(251,191,36,0.15), transparent 30%)",
-        }}
-      />
-      <div className="relative space-y-3 text-center sm:space-y-4">
-        {badge ? (
-          <span className="inline-flex items-center justify-center rounded-full bg-white/80 px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-blue-700 shadow-sm ring-1 ring-blue-100/80">
-            {badge}
-          </span>
-        ) : null}
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl md:text-4xl">
-          {title}
-        </h1>
-        {description ? (
-          <p className="mx-auto max-w-2xl text-sm text-slate-600 sm:text-base md:text-lg">
-            {description}
-          </p>
-        ) : null}
-        {ctas ? (
-          <div className="mt-5 flex flex-col items-center gap-3 sm:mt-6 sm:flex-row sm:justify-center">
-            {ctas}
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-
-type GuestCardProps = React.ComponentProps<typeof Card> & {
-  header?: React.ReactNode;
-  footer?: React.ReactNode;
-};
-
-export function GuestCard({ header, footer, className, children, ...rest }: GuestCardProps) {
+export function GuestCard({ header, footer, className, style, children }: GuestCardProps) {
   return (
     <Card
       className={cn(
-        "border-slate-100 shadow-sm rounded-xl group",
-        "transition-shadow duration-200 hover:shadow-md",
-        className
+        "rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--color-surface-elevated)]",
+        "shadow-[var(--shadow-sm)] transition-shadow duration-200 hover:shadow-[var(--shadow-md)]",
+        className,
       )}
-      {...rest}
+      style={style}
     >
-      {header ? <CardHeader className="pb-3">{header}</CardHeader> : null}
-      <CardContent className="p-5">{children}</CardContent>
-      {footer ? <CardFooter className="pt-3 pb-5 px-5">{footer}</CardFooter> : null}
+      {header ? <CardHeader className="pb-[var(--space-3)] text-[color:var(--color-text)]">{header}</CardHeader> : null}
+      <CardContent className="px-[var(--space-5)] pb-[var(--space-5)] text-[color:var(--color-text)]">{children}</CardContent>
+      {footer ? <CardFooter className="px-[var(--space-5)] pb-[var(--space-5)] pt-[var(--space-3)]">{footer}</CardFooter> : null}
     </Card>
   );
 }
@@ -146,48 +95,45 @@ export function GuestCard({ header, footer, className, children, ...rest }: Gues
 type GuestStatusProps = {
   title: string;
   description?: string;
-  tone?: "info" | "success" | "warning" | "error";
+  tone?: "info" | "success" | "warning" | "danger";
   icon?: React.ElementType;
-  actions?: React.ReactNode;
+  actions?: ReactNode;
   className?: string;
   "aria-live"?: "polite" | "assertive";
+} & ComponentPropsWithoutRef<"div">;
+
+const toneMap: Record<NonNullable<GuestStatusProps["tone"]>, { bg: string; text: string; icon: React.ElementType }> = {
+  info: { bg: "bg-[var(--color-info-surface)]", text: "text-[var(--color-info)]", icon: Info },
+  success: { bg: "bg-[var(--color-success-surface)]", text: "text-[var(--color-success)]", icon: CheckCircle2 },
+  warning: { bg: "bg-[var(--color-warning-surface)]", text: "text-[var(--color-warning)]", icon: AlertCircle },
+  danger: { bg: "bg-[var(--color-danger-surface)]", text: "text-[var(--color-danger)]", icon: AlertCircle },
 };
 
-const TONES: Record<
-  NonNullable<GuestStatusProps["tone"]>,
-  { bg: string; text: string; icon: React.ElementType }
-> = {
-  info: { bg: "bg-blue-50", text: "text-blue-900", icon: Info },
-  success: { bg: "bg-emerald-50", text: "text-emerald-900", icon: CheckCircle2 },
-  warning: { bg: "bg-amber-50", text: "text-amber-900", icon: AlertCircle },
-  error: { bg: "bg-red-50", text: "text-red-900", icon: AlertCircle },
-};
-
-export const GuestStatus = React.forwardRef<HTMLDivElement, GuestStatusProps>(function GuestStatus(
+export const GuestStatus = forwardRef<HTMLDivElement, GuestStatusProps>(function GuestStatus(
   { title, description, tone = "info", icon, actions, className, ...rest },
   ref,
 ) {
-  const toneConfig = TONES[tone];
-  const Icon = icon ?? toneConfig.icon;
+  const palette = toneMap[tone];
+  const Icon = icon ?? palette.icon;
   return (
     <div
       ref={ref}
       role="status"
       tabIndex={-1}
       className={cn(
-        "flex items-start gap-3 rounded-xl border border-transparent px-4 py-3 text-sm",
-        toneConfig.bg,
-        toneConfig.text,
+        "flex items-start gap-[var(--space-3)] rounded-[var(--radius-lg)] border border-[var(--color-border)] px-[var(--space-4)] py-[var(--space-3)]",
+        palette.bg,
+        palette.text,
         className,
       )}
       {...rest}
     >
-      <Icon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-      <div className="flex-1 space-y-0.5">
-        <p className="font-semibold">{title}</p>
-        {description ? <p className="text-sm opacity-90">{description}</p> : null}
+      <Icon aria-hidden className="mt-0.5 h-5 w-5" />
+      <div className="flex-1 space-y-[var(--space-1)]">
+        <p className="text-[length:var(--font-size-md)] font-semibold leading-[var(--line-height-tight)]">{title}</p>
+        {description ? <p className="text-[length:var(--font-size-sm)] leading-[var(--line-height-md)]">{description}</p> : null}
       </div>
-      {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
+      {actions ? <div className="flex items-center gap-[var(--space-2)]">{actions}</div> : null}
     </div>
   );
 });
@@ -199,41 +145,27 @@ type GuestEmptyProps = {
   actionLabel?: string;
   actionHref?: string;
   actionProps?: React.ComponentProps<typeof Button>;
-  secondaryAction?: React.ReactNode;
+  secondaryAction?: ReactNode;
   className?: string;
 };
 
-export function GuestEmpty({
-  icon: Icon = Sparkles,
-  title,
-  description,
-  actionLabel,
-  actionHref,
-  actionProps,
-  secondaryAction,
-  className,
-}: GuestEmptyProps) {
+export function GuestEmpty({ icon: Icon = Sparkles, title, description, actionLabel, actionHref, actionProps, secondaryAction, className }: GuestEmptyProps) {
   return (
     <div
       className={cn(
-        "rounded-2xl border-2 border-dashed border-slate-200",
-        "bg-gradient-to-b from-slate-50/80 to-white",
-        "px-6 py-10 sm:px-8 sm:py-12 text-center",
-        className
+        "flex flex-col items-center rounded-[var(--radius-xl)] border border-[var(--color-border)]",
+        "bg-[var(--color-surface-muted)]/60 px-[var(--space-6)] py-[var(--space-8)] text-center",
+        className,
       )}
     >
-      <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-slate-100">
-        <Icon className="h-7 w-7 text-slate-400" aria-hidden />
+      <div className="mb-[var(--space-4)] flex h-16 w-16 items-center justify-center rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-sm)]">
+        <Icon className="h-7 w-7 text-[color:var(--color-text-muted)]" aria-hidden />
       </div>
-      <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-      <p className="mx-auto mt-2 max-w-sm text-sm text-slate-500">{description}</p>
-      <div className="mt-5 flex justify-center gap-3">
+      <h3 className="text-[length:var(--font-size-xl)] font-bold text-[color:var(--color-text)]">{title}</h3>
+      <p className="mt-[var(--space-2)] max-w-md text-[length:var(--font-size-md)] text-[color:var(--color-text-muted)]">{description}</p>
+      <div className="mt-[var(--space-4)] flex flex-wrap items-center justify-center gap-[var(--space-3)]">
         {actionLabel && actionHref ? (
-          <Button
-            asChild
-            size="sm"
-            className="rounded-full px-5 shadow-sm"
-          >
+          <Button asChild className="rounded-full px-[var(--space-5)]">
             <Link href={actionHref} {...(actionProps as object)}>
               {actionLabel}
             </Link>
@@ -245,7 +177,6 @@ export function GuestEmpty({
   );
 }
 
-
 type GuestErrorProps = {
   title?: string;
   description?: string;
@@ -254,42 +185,33 @@ type GuestErrorProps = {
   redirectLabel?: string;
 };
 
-export function GuestError({
-  title = "Something went wrong",
-  description = "Please try again in a moment.",
-  onRetry,
-  redirectHref,
-  redirectLabel = "Go home",
-}: GuestErrorProps) {
+export function GuestError({ title = "Something went wrong", description = "Please try again in a moment.", onRetry, redirectHref, redirectLabel = "Go back" }: GuestErrorProps) {
   return (
     <GuestCard
-      className="text-center"
       header={
-        <div className="flex flex-col items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-700">
+        <div className="flex flex-col items-center gap-[var(--space-3)] text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-danger-surface)] text-[color:var(--color-danger)]">
             <AlertCircle className="h-6 w-6" aria-hidden />
           </div>
-          <h3 className="text-xl font-semibold text-slate-900">{title}</h3>
+          <h3 className="text-[length:var(--font-size-xl)] font-semibold">{title}</h3>
         </div>
       }
       footer={
-        <div className="flex flex-wrap items-center justify-center gap-3">
+        <div className="flex flex-wrap items-center justify-center gap-[var(--space-3)]">
           {onRetry ? (
-            <Button onClick={onRetry} className="rounded-full">
+            <Button onClick={onRetry} className="rounded-full px-[var(--space-5)]">
               Try again
             </Button>
           ) : null}
           {redirectHref ? (
-            <Button variant="outline" asChild className="rounded-full">
+            <Button variant="outline" asChild className="rounded-full px-[var(--space-5)]">
               <Link href={redirectHref}>{redirectLabel}</Link>
             </Button>
           ) : null}
         </div>
       }
     >
-      <p className="text-sm text-slate-500">{description}</p>
-      <Separator className="my-6" />
-      <p className="text-xs text-slate-400">If this keeps happening, please contact support.</p>
+      <p className="text-[length:var(--font-size-md)] text-[color:var(--color-text-muted)]">{description}</p>
     </GuestCard>
   );
 }

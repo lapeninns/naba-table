@@ -209,13 +209,14 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
 
           {/* Status Message */}
           {status && (
-            <GuestStatus
-              ref={statusRef}
-              title={status.message}
-              tone={status.tone}
-              aria-live={status.live}
-              className="rounded-xl"
-            />
+            <div ref={statusRef} tabIndex={-1} className="focus:outline-none">
+              <GuestStatus
+                title={status.message}
+                tone={status.tone === 'error' ? 'danger' : status.tone}
+                aria-live={status.live}
+                className="rounded-xl"
+              />
+            </div>
           )}
 
           <Button
