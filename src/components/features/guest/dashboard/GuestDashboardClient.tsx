@@ -17,9 +17,7 @@ import {
 import Link from 'next/link';
 import { useMemo } from 'react';
 
-import { GuestEmptyState } from '@/components/guest/shared/GuestEmptyState';
-import { GuestErrorState } from '@/components/guest/shared/GuestErrorState';
-import { GuestCard, GuestSection } from '@/components/guest/ui';
+import { GuestCard, GuestEmpty, GuestError, GuestSection } from '@/components/guest/ui';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -74,13 +72,15 @@ export function GuestDashboardClient() {
   if (isError) {
     return (
       <StatusRegion focus live="assertive" className="min-h-screen pb-20">
-        <GuestErrorState
-          description="We couldn’t fetch your reservations. Please try again."
-          onRetry={() => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all });
-            queryClient.invalidateQueries({ queryKey: queryKeys.profile.self() });
-          }}
-        />
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <GuestError
+            description="We couldn’t fetch your reservations. Please try again."
+            onRetry={() => {
+              queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all });
+              queryClient.invalidateQueries({ queryKey: queryKeys.profile.self() });
+            }}
+          />
+        </div>
       </StatusRegion>
     );
   }
@@ -172,12 +172,12 @@ export function GuestDashboardClient() {
                 ))}
               </div>
             ) : (
-              <GuestEmptyState
-                icon={<Calendar className="h-8 w-8" aria-hidden />}
+              <GuestEmpty
+                icon={Calendar}
                 title="No upcoming trips"
                 description="When you book a table, it will show up here."
-                ctaLabel="Find a restaurant"
-                ctaHref="/"
+                actionLabel="Find a restaurant"
+                actionHref="/"
               />
             )}
           </GuestSection>
@@ -194,12 +194,12 @@ export function GuestDashboardClient() {
                 ))}
               </div>
             ) : (
-              <GuestEmptyState
-                icon={<Heart className="h-8 w-8" aria-hidden />}
+              <GuestEmpty
+                icon={Heart}
                 title="No favorites yet"
                 description="Restaurants you visit often will appear here."
-                ctaLabel="Explore restaurants"
-                ctaHref="/"
+                actionLabel="Explore restaurants"
+                actionHref="/"
               />
             )}
           </GuestSection>

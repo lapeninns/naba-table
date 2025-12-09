@@ -4,7 +4,6 @@ import {
   AlertCircle,
   Calendar,
   CheckCircle2,
-  ChevronLeft,
   Clock,
   Download,
   Info,
@@ -23,17 +22,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { GuestErrorState } from '@/components/guest/shared/GuestErrorState';
-import { GuestCard, GuestSection, GuestStatus } from '@/components/guest/ui';
-import { Badge } from '@/components/ui/badge';
+import { BookingDetailShell, BookingSummaryCard, DetailStatCard, InfoPanel, InlineAlert, ManageBookingPanel, QRCodePanel, SummaryActions, ActionButtonRow, SecondaryButton, GhostButton } from '@/components/features/booking/ui/BookingComponents';
+import { GuestError } from '@/components/guest/ui';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { emit } from '@/lib/analytics/emit';
 import { getPendingSelfServeGraceMinutes, isPendingSelfServeLocked } from '@/lib/bookings/pendingLock';
 import { shareReservationDetails, type ShareResult } from '@/lib/reservations/share';
-import { cn } from '@/lib/utils';
 import { useReservation } from '@features/reservations/wizard/api/useReservation';
 import { DEFAULT_VENUE } from '@shared/config/venue';
 
@@ -301,12 +297,14 @@ export function ReservationDetailClient({
   // Error State
   if (isError && !reservation) {
     return (
-      <GuestErrorState
-        description={error?.message ?? 'We encountered an error loading your reservation.'}
-        onRetry={() => refetch()}
-        redirectHref="/guest/dashboard"
-        redirectLabel="Return to dashboard"
-      />
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <GuestError
+          description={error?.message ?? 'We encountered an error loading your reservation.'}
+          onRetry={() => refetch()}
+          redirectHref="/guest/dashboard"
+          redirectLabel="Return to dashboard"
+        />
+      </div>
     );
   }
 
@@ -317,181 +315,130 @@ export function ReservationDetailClient({
   const reservationTime = formatTimeRange(reservation.startAt);
 
   const getStatusConfig = (status: string) => {
-    const configs: Record<string, { label: string; bg: string; text: string; icon: React.ElementType }> = {
-      confirmed: { label: 'Confirmed', bg: 'bg-emerald-100', text: 'text-emerald-700', icon: CheckCircle2 },
-      cancelled: { label: 'Cancelled', bg: 'bg-red-100', text: 'text-red-700', icon: AlertCircle },
-      completed: { label: 'Completed', bg: 'bg-slate-100', text: 'text-slate-700', icon: CheckCircle2 },
-      pending: { label: 'Pending Confirmation', bg: 'bg-amber-100', text: 'text-amber-800', icon: Clock },
-      pending_allocation: { label: 'Confirming Table', bg: 'bg-amber-100', text: 'text-amber-800', icon: Clock },
-      checked_in: { label: 'Checked In', bg: 'bg-blue-100', text: 'text-blue-700', icon: Sparkles },
+    const configs: Record<string, { label: string; tone: 'success' | 'warning' | 'danger' | 'info' | 'default'; icon: React.ElementType }> = {
+      confirmed: { label: 'Confirmed', tone: 'success', icon: CheckCircle2 },
+      cancelled: { label: 'Cancelled', tone: 'danger', icon: AlertCircle },
+      completed: { label: 'Completed', tone: 'default', icon: CheckCircle2 },
+      pending: { label: 'Pending Confirmation', tone: 'warning', icon: Clock },
+      pending_allocation: { label: 'Confirming Table', tone: 'warning', icon: Clock },
+      checked_in: { label: 'Checked In', tone: 'info', icon: Sparkles },
     };
-    return configs[status] ?? { label: status, bg: 'bg-slate-100', text: 'text-slate-700', icon: Info };
+    return configs[status] ?? { label: status, tone: 'default', icon: Info };
   };
 
   const statusConfig = getStatusConfig(reservation.status);
   const StatusIcon = statusConfig.icon;
 
   return (
-    <div className="min-h-screen pb-20">
-      <GuestSection
+    <BookingDetailShell>
+      <BookingSummaryCard
         title={restaurantName ?? venue.name ?? 'Your Reservation'}
-        description={
-          <>
-            Confirmation{' '}
-            <span className="font-mono font-semibold text-slate-700">
-              {reservation.reference ?? reservation.id.slice(0, 8).toUpperCase()}
-            </span>
-          </>
-        }
+        description="Manage, share, or update every detail in one place."
+        reference={reservation.reference ?? reservation.id.slice(0, 8).toUpperCase()}
+        status={{ icon: StatusIcon, label: statusConfig.label, tone: statusConfig.tone }}
+        offlineNotice={!isOnline ? <InlineAlert tone="warning">You’re offline — some actions may be limited.</InlineAlert> : null}
         actions={
-          <div className="hidden md:flex items-center gap-3">
-            <Button variant="outline" className="rounded-full" onClick={handleDownload}>
-              <Download className="mr-2 h-4 w-4" />
-              PDF
-            </Button>
-            <Button variant="outline" className="rounded-full" onClick={handleShare}>
-              <Share2 className="mr-2 h-4 w-4" />
-              Share
-            </Button>
-          </div>
+          <SummaryActions>
+            <SecondaryButton onClick={handleDownload}>
+              <Download className="mr-2 h-4 w-4" /> PDF
+            </SecondaryButton>
+            <SecondaryButton onClick={handleShare}>
+              <Share2 className="mr-2 h-4 w-4" /> Share
+            </SecondaryButton>
+          </SummaryActions>
         }
-        className="bg-white"
-      >
-        <Badge className={cn("rounded-full px-4 py-1.5 text-sm font-semibold border-0", statusConfig.bg, statusConfig.text)}>
-          <StatusIcon className="mr-1.5 h-4 w-4" />
-          {statusConfig.label}
-        </Badge>
-        <div className="mt-4">
-          <Link
-            href="/guest/dashboard"
-            className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors"
-          >
-            <ChevronLeft className="mr-1 h-4 w-4" />
-            Back to Dashboard
-          </Link>
-        </div>
-        {!isOnline && (
-          <GuestStatus
-            className="mt-6"
-            title="You’re offline"
-            description="Some features may be limited."
-            tone="warning"
-            icon={Info}
-          />
-        )}
-      </GuestSection>
+      />
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_320px]">
+      <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
         <div className="space-y-8">
           <div className="grid gap-4 sm:grid-cols-3">
-            <DetailCard icon={Calendar} label="Date" value={reservationDate} subtext={reservationDateFull} />
-            <DetailCard icon={Clock} label="Time" value={reservationTime} subtext="Local time" />
-            <DetailCard icon={Users} label="Party Size" value={`${reservation.partySize}`} subtext={reservation.partySize === 1 ? 'Guest' : 'Guests'} />
+            <DetailStatCard icon={Calendar} label="Date" value={reservationDate} subtext={reservationDateFull} />
+            <DetailStatCard icon={Clock} label="Time" value={reservationTime} subtext="Local time" />
+            <DetailStatCard icon={Users} label="Party Size" value={`${reservation.partySize}`} subtext={reservation.partySize === 1 ? 'Guest' : 'Guests'} />
           </div>
 
-          <GuestCard className="overflow-hidden border-slate-100 shadow-sm">
-            <div className="border-b border-slate-50 bg-gradient-to-r from-slate-50 to-white px-6 py-4">
-              <h3 className="font-semibold text-slate-900">Guest Information</h3>
-            </div>
-            <div className="divide-y divide-slate-50">
-              <InfoRow icon={User} label="Primary Guest" value={reservation.customerName} />
-              <InfoRow icon={Mail} label="Email" value={reservation.customerEmail} />
-              <InfoRow icon={Phone} label="Phone" value={reservation.customerPhone} />
-            </div>
-          </GuestCard>
+          <InfoPanel
+            title="Guest Information"
+            rows={[
+              { icon: User, label: 'Primary Guest', value: reservation.customerName },
+              { icon: Mail, label: 'Email', value: reservation.customerEmail },
+              { icon: Phone, label: 'Phone', value: reservation.customerPhone },
+            ]}
+          />
 
-          <GuestCard className="overflow-hidden border-slate-100 shadow-sm">
-            <div className="border-b border-slate-50 bg-gradient-to-r from-slate-50 to-white px-6 py-4">
-              <h3 className="font-semibold text-slate-900">Preferences</h3>
-            </div>
-            <div className="divide-y divide-slate-50">
-              <InfoRow icon={Utensils} label="Seating" value={reservation.seatingPreference || 'Standard'} />
-              {reservation.notes && (
-                <InfoRow icon={MessageSquare} label="Special Requests" value={reservation.notes} />
-              )}
-            </div>
-          </GuestCard>
+          <InfoPanel
+            title="Preferences"
+            rows={[
+              { icon: Utensils, label: 'Seating', value: reservation.seatingPreference || 'Standard' },
+              ...(reservation.notes ? [{ icon: MessageSquare, label: 'Special Requests', value: reservation.notes }] : []),
+            ]}
+          />
 
-          <div className="flex gap-3 md:hidden">
-            <Button variant="outline" className="flex-1 rounded-full" onClick={handleDownload}>
-              <Download className="mr-2 h-4 w-4" />
-              PDF
-            </Button>
-            <Button variant="outline" className="flex-1 rounded-full" onClick={handleShare}>
-              <Share2 className="mr-2 h-4 w-4" />
-              Share
-            </Button>
-          </div>
+          <ActionButtonRow>
+            <SecondaryButton onClick={handleDownload}>
+              <Download className="mr-2 h-4 w-4" /> PDF
+            </SecondaryButton>
+            <SecondaryButton onClick={handleShare}>
+              <Share2 className="mr-2 h-4 w-4" /> Share
+            </SecondaryButton>
+          </ActionButtonRow>
         </div>
 
         <div className="space-y-6">
-          <GuestCard className="shadow-lg">
-            <div className="p-6 text-center">
-              <QRCodeDialogLazy reservation={reservation}>
-                <button className="group mx-auto block rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition-all hover:shadow-md hover:scale-105">
-                  <QrCode className="h-28 w-28 text-slate-900" />
-                </button>
-              </QRCodeDialogLazy>
-              <div className="mt-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Check-in Code</p>
-                <p className="mt-1 font-mono text-xl font-bold text-slate-900">
-                  {reservation.id.slice(0, 8).toUpperCase()}
-                </p>
-              </div>
-            </div>
-          </GuestCard>
+          <QRCodePanel code={reservation.id.slice(0, 8).toUpperCase()}>
+            <QRCodeDialogLazy reservation={reservation}>
+              <button className="group mx-auto block rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition-all hover:shadow-md hover:scale-105">
+                <QrCode className="h-28 w-28 text-slate-900" />
+              </button>
+            </QRCodeDialogLazy>
+          </QRCodePanel>
 
-          <GuestCard className="shadow-lg">
-            <div className="p-6 space-y-4">
-              <h3 className="font-semibold text-slate-900">Manage Booking</h3>
-              <Button
-                className="w-full rounded-full bg-slate-900 hover:bg-slate-800"
-                size="lg"
-                onClick={handleEdit}
-                disabled={actionDisabled}
-              >
-                Modify Details
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full rounded-full border-slate-200"
-                size="lg"
-                onClick={handleCancel}
-                disabled={actionDisabled}
-              >
-                Cancel Booking
-              </Button>
-              <Separator />
-              <Button
-                variant="ghost"
-                className="w-full rounded-xl text-slate-500 hover:text-slate-900"
-                onClick={handleRebook}
-                disabled={!canManage || isFetching}
-              >
-                Book Again
-              </Button>
-            </div>
-          </GuestCard>
+          <ManageBookingPanel
+            title="Manage booking"
+            actions={
+              <div className="space-y-3">
+                <Button
+                  className="w-full rounded-full bg-slate-900 hover:bg-slate-800"
+                  size="lg"
+                  onClick={handleEdit}
+                  disabled={actionDisabled}
+                >
+                  Modify Details
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full rounded-full border-slate-200"
+                  size="lg"
+                  onClick={handleCancel}
+                  disabled={actionDisabled}
+                >
+                  Cancel Booking
+                </Button>
+                <GhostButton onClick={handleRebook} disabled={!canManage || isFetching}>
+                  Book Again
+                </GhostButton>
+              </div>
+            }
+          />
 
           {!canManage && (
-            <GuestStatus
-              tone="info"
-              title="Sign in to modify this reservation."
-              actions={
+            <InlineAlert tone="info">
+              <div className="flex flex-col gap-1">
+                <p className="font-semibold">Sign in to modify this reservation.</p>
                 <Link
                   href={`/auth/signin?redirectedFrom=/guest/bookings/${reservationId}`}
-                  className="font-semibold text-blue-700 hover:underline"
+                  className="font-semibold text-blue-700 underline"
                 >
                   Sign In →
                 </Link>
-              }
-            />
+              </div>
+            </InlineAlert>
           )}
         </div>
       </div>
 
       {canManage && (
-        <div className="mt-16">
+        <div className="rounded-[var(--guest-radius-2xl)] border border-slate-100 bg-white/80 p-4 shadow-[var(--guest-shadow-lg)]">
           <ReservationHistory reservationId={reservationId} />
         </div>
       )}
@@ -508,63 +455,7 @@ export function ReservationDetailClient({
           <CancelBookingDialog booking={bookingDto} open={isCancelOpen} onOpenChange={closeCancelDialog} />
         </>
       )}
-    </div>
+    </BookingDetailShell>
   );
 }
-
-/* ============================================================================
-   SUPPORTING COMPONENTS
-   ============================================================================ */
-
-function DetailCard({
-  icon: Icon,
-  label,
-  value,
-  subtext
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: string;
-  subtext: string;
-}) {
-  return (
-    <GuestCard className="border-slate-100 shadow-sm">
-      <div className="p-5">
-        <div className="flex items-start gap-4">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600">
-            <Icon className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</p>
-            <p className="mt-1 text-xl font-bold text-slate-900">{value}</p>
-            <p className="text-sm text-slate-500">{subtext}</p>
-          </div>
-        </div>
-      </div>
-    </GuestCard>
-  );
-}
-
-function InfoRow({
-  icon: Icon,
-  label,
-  value
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex items-center gap-4 px-6 py-4">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
-        <Icon className="h-5 w-5" />
-      </div>
-      <div className="overflow-hidden">
-        <p className="text-sm text-slate-500">{label}</p>
-        <p className="font-medium text-slate-900 truncate">{value}</p>
-      </div>
-    </div>
-  );
-}
-
 export default ReservationDetailClient;

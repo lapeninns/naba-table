@@ -4,7 +4,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRight,
   Calendar,
-  ChevronRight,
   Clock,
   MapPin,
   MoreHorizontal,
@@ -16,9 +15,7 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
-import { GuestEmptyState } from '@/components/guest/shared/GuestEmptyState';
-import { GuestErrorState } from '@/components/guest/shared/GuestErrorState';
-import { GuestCard, GuestSection } from '@/components/guest/ui';
+import { GuestCard, GuestEmpty, GuestError, GuestSection } from '@/components/guest/ui';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -96,10 +93,12 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
   if (isError) {
     return (
       <StatusRegion focus live="assertive" className="min-h-screen pb-20">
-        <GuestErrorState
-          description="We couldn’t load your bookings. Please try again."
-          onRetry={() => queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all })}
-        />
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <GuestError
+            description="We couldn’t load your bookings. Please try again."
+            onRetry={() => queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all })}
+          />
+        </div>
       </StatusRegion>
     );
   }
@@ -109,12 +108,12 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
   if (!hasAnyBookings) {
     return (
       <StatusRegion live="polite" className="min-h-screen pb-20">
-        <GuestEmptyState
+        <GuestEmpty
+          icon={Search}
           title="No bookings yet"
           description="Discover amazing restaurants and book your first table."
-          ctaLabel="Find a restaurant"
-          ctaHref="/restaurants"
-          icon={Search}
+          actionLabel="Find a restaurant"
+          actionHref="/restaurants"
         />
       </StatusRegion>
     );
@@ -178,7 +177,7 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
 
           <TabsContent value="upcoming" className="mt-0">
             {upcoming.length === 0 ? (
-              <EmptyTabState
+              <GuestEmpty
                 icon={Calendar}
                 title="No upcoming trips"
                 description="Time to plan your next dining adventure."
@@ -200,7 +199,7 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
 
           <TabsContent value="past" className="mt-0">
             {past.length === 0 ? (
-              <EmptyTabState
+              <GuestEmpty
                 icon={Calendar}
                 title="No past trips"
                 description="Your completed reservations will appear here."
@@ -393,37 +392,5 @@ function StatusBadge({ status, isPast = false }: StatusBadgeProps) {
     >
       {label}
     </Badge>
-  );
-}
-
-function EmptyTabState({
-  icon: Icon,
-  title,
-  description,
-  actionLabel,
-  actionHref
-}: {
-  icon: React.ElementType;
-  title: string;
-  description: string;
-  actionLabel?: string;
-  actionHref?: string;
-}) {
-  return (
-    <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-gradient-to-b from-slate-50/80 to-white py-16 sm:py-20 text-center">
-      <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-slate-100">
-        <Icon className="h-7 w-7 text-slate-400" />
-      </div>
-      <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-      <p className="mx-auto mt-2 max-w-sm text-sm text-slate-500">{description}</p>
-      {actionLabel && actionHref && (
-        <Button variant="link" asChild className="mt-5 text-slate-900 font-medium">
-          <Link href={actionHref}>
-            {actionLabel}
-            <ChevronRight className="ml-1 h-4 w-4" />
-          </Link>
-        </Button>
-      )}
-    </div>
   );
 }
