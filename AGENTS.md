@@ -562,6 +562,7 @@ PR Checklist (include in PR description):
 ### Components
 
 - **Use SHADCN UI via Shadcn MCP**; extend rather than rebuild.
+- **Adhere to Design System**: All frontend code must strictly follow the tokens, logic, and patterns defined in `DesignSystem.md` (combining Shadcn with custom style overrides relative to the design system).
 - **Exceptions**: Only if no Shadcn equivalent supports required a11y/UX; document justification in `plan.md` and get design sign‑off.
 
 ### Mobile‑First & Progressive Enhancement

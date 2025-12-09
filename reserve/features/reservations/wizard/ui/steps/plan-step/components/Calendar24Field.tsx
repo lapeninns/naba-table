@@ -4,7 +4,7 @@ import { endOfDay } from 'date-fns';
 import { CalendarIcon, ChevronDownIcon, ClockIcon } from 'lucide-react';
 import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
 
-import { formatDateForInput, formatReservationDate } from '@reserve/shared/formatting/booking';
+import { formatDateForInput, formatReservationDateShort } from '@reserve/shared/formatting/booking';
 import { cn } from '@shared/lib/cn';
 import { Button } from '@shared/ui/button';
 import { Calendar } from '@shared/ui/calendar';
@@ -72,7 +72,7 @@ export function Calendar24Date({
   const dateErrorId = date.error ? `${finalId}-date-error` : undefined;
 
   const label = useMemo(
-    () => (date.value ? formatReservationDate(date.value) : 'Select date'),
+    () => (date.value ? formatReservationDateShort(date.value) : 'Select date'),
     [date.value],
   );
   const selectedDate = useMemo(() => (date.value ? new Date(date.value) : undefined), [date.value]);
@@ -339,7 +339,7 @@ export function Calendar24Time({
               <Input
                 id={timeInputId}
                 type="time"
-                value={inputValue}
+                value={isTimeDisabled && unavailableMessage ? '' : inputValue}
                 step={timeStepSeconds}
                 onChange={(event) => {
                   if (isTimeDisabled) {

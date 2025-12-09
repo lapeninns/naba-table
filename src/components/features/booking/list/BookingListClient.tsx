@@ -241,15 +241,15 @@ function BookingCard({ booking, isPast = false, style }: BookingCardProps) {
   return (
     <GuestCard
       className={cn(
-        "group relative overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition-all animate-fade-up",
-        "hover:border-slate-200 hover:shadow-xl hover:-translate-y-1",
-        isPast && "opacity-80 hover:opacity-100"
+        "group relative overflow-hidden transition-all animate-fade-up",
+        "hover:shadow-md hover:-translate-y-[2px]",
+        isPast && "opacity-80 hover:opacity-100 bg-slate-50/50"
       )}
       style={style}
       footer={
         <Link
           href={`/guest/bookings/${booking.id}`}
-          className="flex items-center justify-between border-t border-slate-50 bg-gradient-to-r from-slate-50 to-white px-6 py-4 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+          className="flex items-center justify-between w-[calc(100%+3rem)] -mx-6 -my-2 px-6 py-4 text-sm font-medium text-slate-500 hover:text-blue-600 hover:bg-slate-50 transition-colors"
         >
           <span>View reservation details</span>
           <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
@@ -257,88 +257,83 @@ function BookingCard({ booking, isPast = false, style }: BookingCardProps) {
       }
     >
       {/* Card Header with Restaurant Name */}
-      <div className="border-b border-slate-50 bg-gradient-to-r from-slate-50 to-white px-6 py-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <h3 className="text-lg font-bold text-slate-900 truncate">
-                {booking.restaurantName}
-              </h3>
-              <StatusBadge status={booking.status} isPast={isPast} />
-            </div>
-            <div className="flex items-center gap-2 text-sm text-slate-500">
-              <MapPin className="h-3.5 w-3.5" />
-              <span className="truncate">Main Dining Room</span>
-            </div>
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-3 mb-1">
+            <h3 className="text-xl font-bold text-slate-900 truncate">
+              {booking.restaurantName}
+            </h3>
+            <StatusBadge status={booking.status} isPast={isPast} />
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-slate-400 hover:text-slate-900">
-                <MoreHorizontal className="h-5 w-5" />
-                <span className="sr-only">Open menu</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 rounded-xl">
-              <DropdownMenuItem asChild>
-                <Link href={`/guest/bookings/${booking.id}`} className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  View Details
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href={`/restaurants/${booking.restaurantSlug || '#'}`} className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4" />
-                  View Restaurant
-                </Link>
-              </DropdownMenuItem>
-              {!isPast && booking.status !== 'cancelled' && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild className="text-red-600 focus:text-red-600 focus:bg-red-50">
-                    <Link href={`/guest/bookings/${booking.id}?intent=cancel`}>
-                      Cancel Booking
-                    </Link>
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-2 text-sm text-slate-500">
+            <MapPin className="h-3.5 w-3.5" />
+            <span className="truncate">Main Dining Room</span>
+          </div>
         </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 text-slate-400 hover:text-slate-900">
+              <MoreHorizontal className="h-5 w-5" />
+              <span className="sr-only">Open menu</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48 rounded-xl p-2">
+            <DropdownMenuItem asChild className="rounded-lg cursor-pointer">
+              <Link href={`/guest/bookings/${booking.id}`} className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                View Details
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild className="rounded-lg cursor-pointer">
+              <Link href={`/restaurants/${booking.restaurantSlug || '#'}`} className="flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                View Restaurant
+              </Link>
+            </DropdownMenuItem>
+            {!isPast && booking.status !== 'cancelled' && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild className="text-red-600 focus:text-red-600 focus:bg-red-50 rounded-lg cursor-pointer">
+                  <Link href={`/guest/bookings/${booking.id}?intent=cancel`}>
+                    Cancel Booking
+                  </Link>
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Booking Details */}
-      <div className="p-6">
-        <div className="flex items-center gap-4">
-          {/* Date Box */}
-          <div className={cn(
-            "flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-xl border text-center",
-            isPast
-              ? "border-slate-100 bg-slate-50 text-slate-400"
-              : "border-blue-100 bg-gradient-to-br from-blue-50 to-blue-100 text-blue-700 shadow-sm"
-          )}>
-            <span className="text-xs font-bold uppercase leading-none">
-              {bookingDate.toLocaleString('en-US', { month: 'short' })}
-            </span>
-            <span className="text-2xl font-bold leading-tight">
-              {bookingDate.getDate()}
-            </span>
-          </div>
+      <div className="flex items-center gap-5">
+        {/* Date Box */}
+        <div className={cn(
+          "flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-2xl border text-center transition-colors",
+          isPast
+            ? "border-slate-200 bg-slate-100 text-slate-500"
+            : "border-blue-100 bg-blue-50 text-blue-700"
+        )}>
+          <span className="text-xs font-bold uppercase leading-none mb-1">
+            {bookingDate.toLocaleString('en-US', { month: 'short' })}
+          </span>
+          <span className="text-2xl font-bold leading-none">
+            {bookingDate.getDate()}
+          </span>
+        </div>
 
-          {/* Time and Party Details */}
-          <div className="flex-1 space-y-2">
-            <div className="flex items-center gap-2 text-slate-600">
-              <Clock className="h-4 w-4" />
-              <span className="font-medium">{formattedTime}</span>
-            </div>
-            <div className="flex items-center gap-2 text-slate-600">
-              <Users className="h-4 w-4" />
-              <span>{booking.partySize} {booking.partySize === 1 ? 'guest' : 'guests'}</span>
-            </div>
+        {/* Time and Party Details */}
+        <div className="flex-1 space-y-1.5">
+          <div className="flex items-center gap-2.5 text-slate-700">
+            <Clock className="h-4 w-4 text-slate-400" />
+            <span className="font-semibold">{formattedTime}</span>
+          </div>
+          <div className="flex items-center gap-2.5 text-slate-700">
+            <Users className="h-4 w-4 text-slate-400" />
+            <span>{booking.partySize} {booking.partySize === 1 ? 'guest' : 'guests'}</span>
           </div>
         </div>
       </div>
-
-      {/* Card Footer */}
     </GuestCard>
   );
 }
@@ -368,25 +363,25 @@ function StatusBadge({ status, isPast = false }: StatusBadgeProps) {
 
   const getStyles = () => {
     if (isPast || status === 'completed') {
-      return 'bg-slate-100 text-slate-600';
+      return 'bg-slate-100 text-slate-500 border-slate-200';
     }
     if (status === 'cancelled') {
-      return 'bg-red-50 text-red-700';
+      return 'bg-red-50 text-red-700 border-red-100';
     }
     if (status === 'confirmed' || status === 'checked_in') {
-      return 'bg-emerald-50 text-emerald-700';
+      return 'bg-emerald-50 text-emerald-700 border-emerald-100';
     }
     if (status === 'pending' || status === 'pending_allocation') {
-      return 'bg-amber-50 text-amber-700';
+      return 'bg-amber-50 text-amber-700 border-amber-100';
     }
-    return 'bg-slate-100 text-slate-700';
+    return 'bg-slate-50 text-slate-600 border-slate-200';
   };
 
   return (
     <Badge
       variant="secondary"
       className={cn(
-        "rounded-full px-2.5 py-0.5 text-xs font-semibold border-0",
+        "rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold border",
         getStyles()
       )}
     >
