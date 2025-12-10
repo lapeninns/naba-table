@@ -12,11 +12,16 @@ import {
   scheduleQueryKey,
   type CalendarMask,
 } from '@reserve/features/reservations/wizard/services/schedule';
-import { toTimeSlotDescriptor, type ReservationSchedule, type TimeSlotDescriptor } from '@reserve/features/reservations/wizard/services/timeSlots';
+import {
+  toTimeSlotDescriptor,
+  type RawScheduleSlot,
+  type ReservationSchedule,
+  type TimeSlotDescriptor,
+} from '@reserve/features/reservations/wizard/services/timeSlots';
 import { Calendar24Date, Calendar24Time } from '@reserve/features/reservations/wizard/ui/steps/plan-step/components';
 import { formatDateForInput } from '@reserve/shared/formatting/booking';
-import { hasCapacity, type UnavailabilityReason } from '@reserve/shared/schedule/availability';
-import { MINUTES_PER_DAY, normalizeTime } from '@reserve/shared/time';
+import { getLatestStartMinutes, hasCapacity, type UnavailabilityReason } from '@reserve/shared/schedule/availability';
+import { MINUTES_PER_DAY, normalizeTime, toMinutes } from '@reserve/shared/time';
 
 
 
@@ -44,6 +49,8 @@ export type ScheduleAwareTimestampPickerProps = {
   disabled?: boolean;
   minDate?: Date;
   className?: string;
+  /** When editing a booking of a specific type (e.g. 'drinks'), filter slots where this service is enabled */
+  targetService?: string | null;
 
   children?: React.ReactNode;
 };
@@ -58,6 +65,75 @@ const NO_SLOTS_COPY =
 const UNKNOWN_COPY = 'We couldn’t load availability right now. Please try again or choose another date.';
 const UNAVAILABLE_SELECTION_COPY =
   'Selected time is no longer available. Please choose another slot.';
+const OVERRIDE_SELECTION_COPY =
+  'There are no regular slots for this date at this time, but you can still save changes to override availability.';
+
+/**
+ * Build a full 15m grid (or schedule interval) from opening → latest allowed start,
+ * filling in missing slots so edit flows don't "lose" times when booking_slots is sparse.
+ */
+const mergeWithSyntheticSlots = (schedule: ReservationSchedule | null): ReservationSchedule | null => {
+  if (!schedule || schedule.isClosed) {
+    return schedule;
+  }
+
+  const interval = Number.isFinite(schedule.intervalMinutes) && schedule.intervalMinutes > 0
+    ? schedule.intervalMinutes
+    : DEFAULT_MINUTES_STEP;
+
+  const opensAt = normalizeTime(schedule.window?.opensAt ?? null);
+  const closesAt = normalizeTime(schedule.window?.closesAt ?? null);
+  if (!opensAt || !closesAt) {
+    return schedule;
+  }
+
+  const openingMinutes = toMinutes(opensAt);
+  const closingMinutes = toMinutes(closesAt);
+  const guardMinutes = Math.max(0, schedule.lastSeatingBufferMinutes ?? 0, schedule.defaultDurationMinutes ?? 0);
+  const latestStartMinutes = Math.max(0, closingMinutes - guardMinutes);
+  if (openingMinutes >= latestStartMinutes) {
+    return schedule;
+  }
+
+  const existingByValue = new Map(schedule.slots.map((slot) => [slot.value, slot]));
+  const defaultBookingOption = schedule.availableBookingOptions[0] ?? schedule.slots[0]?.bookingOption ?? 'drinks';
+
+  const synthetic: RawScheduleSlot[] = [];
+  for (let m = openingMinutes; m <= latestStartMinutes; m += interval) {
+    const hours = Math.floor(m / 60);
+    const minutes = m % 60;
+    const value = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    if (existingByValue.has(value)) {
+      continue;
+    }
+    synthetic.push({
+      value,
+      display: value,
+      periodId: null,
+      periodName: null,
+      bookingOption: defaultBookingOption,
+      defaultBookingOption,
+      availability: {
+        services: {},
+        labels: {
+          happyHour: false,
+          drinksOnly: false,
+          kitchenClosed: false,
+          lunchWindow: false,
+          dinnerWindow: false,
+        },
+      },
+      disabled: false,
+    });
+  }
+
+  if (synthetic.length === 0) {
+    return schedule;
+  }
+
+  const mergedSlots = [...schedule.slots, ...synthetic].sort((a, b) => a.value.localeCompare(b.value));
+  return { ...schedule, slots: mergedSlots };
+};
 
 const snapTimeToInterval = (value: string, intervalMinutes: number): string | null => {
   const normalized = normalizeTime(value);
@@ -74,6 +150,33 @@ const snapTimeToInterval = (value: string, intervalMinutes: number): string | nu
   const snappedRemainder = safeMinutes % 60;
 
   return `${String(snappedHours).padStart(2, '0')}:${String(snappedRemainder).padStart(2, '0')}`;
+};
+
+/**
+ * Allow manual time selection even when the schedule API omits specific slots.
+ * Treat a time as eligible if it falls inside the venue's operating window (opensAt → latest start).
+ */
+const isWithinScheduleWindow = (
+  timeValue: string,
+  schedule: ReservationSchedule | null | undefined,
+): boolean => {
+  const normalized = normalizeTime(timeValue);
+  if (!normalized || !schedule) {
+    return false;
+  }
+  const opensAt = normalizeTime(schedule.window?.opensAt ?? null);
+  const closesAt = normalizeTime(schedule.window?.closesAt ?? null);
+  if (!opensAt || !closesAt) {
+    return false;
+  }
+
+  const minutes = toMinutes(normalized);
+  const openingMinutes = toMinutes(opensAt);
+  const latestStartMinutes = getLatestStartMinutes(schedule);
+  const closingMinutes = toMinutes(closesAt);
+  const latestAllowed = typeof latestStartMinutes === 'number' ? latestStartMinutes : closingMinutes;
+
+  return minutes >= openingMinutes && minutes <= latestAllowed;
 };
 
 const MONTH_KEY_FORMATTER = (value: Date) =>
@@ -206,6 +309,7 @@ export function ScheduleAwareTimestampPicker({
   disabled = false,
   minDate,
   className,
+  targetService,
   children,
 }: ScheduleAwareTimestampPickerProps) {
   const queryClient = useQueryClient();
@@ -352,6 +456,7 @@ export function ScheduleAwareTimestampPicker({
   const activeRecord = activeDate ? scheduleStateByDate.get(activeDate) ?? null : null;
   const activeRecordStatus = activeRecord?.status ?? 'idle';
   const currentSchedule = activeRecord?.schedule ?? null;
+  const isScheduleLoading = activeRecordStatus === 'loading';
   const scheduleTimezone = currentSchedule?.timezone ?? restaurantTimezone ?? DEFAULT_TIMEZONE;
 
   const commitChange = useCallback(
@@ -420,6 +525,15 @@ export function ScheduleAwareTimestampPicker({
       return;
     }
 
+    // FIX: If the new confirmed date matches what we're already currently viewing/fetching,
+    // don't wipe the schedule state. This prevents the "flash of content" bug where
+    // valid slots are cleared just because the parent form verified the new date.
+    if (!hasSlugChanged && dateKey === activeDate) {
+      lastCommittedRef.current = lastCommittedInitial;
+      selectionModeRef.current = 'initial';
+      return;
+    }
+
     const emptyState = new Map<string, ScheduleRecord>();
     scheduleStateRef.current = emptyState;
     setScheduleStateByDate(emptyState);
@@ -432,7 +546,7 @@ export function ScheduleAwareTimestampPicker({
     setActiveDate(dateKey);
     setDraftTime(initialTime);
     setSelectedTime(initialTime);
-  }, [initialDate, initialTime, lastCommittedInitial, restaurantSlug]);
+  }, [initialDate, initialTime, lastCommittedInitial, restaurantSlug, activeDate]);
 
   const loadSchedule = useCallback(
     async (dateKey: string, opts?: { prefetched?: boolean }) => {
@@ -469,19 +583,20 @@ export function ScheduleAwareTimestampPicker({
           staleTime: 60_000,
           meta: { persist: false },
         });
+        const enriched = mergeWithSyntheticSlots(schedule);
 
         setScheduleStateByDate((prev) => {
           const next = new Map(prev);
           next.set(dateKey, {
             status: 'success',
-            schedule,
+            schedule: enriched,
             error: null,
           });
           return next;
         });
-        const derivedReason = deriveScheduleUnavailability(schedule);
+        const derivedReason = deriveScheduleUnavailability(enriched);
         updateUnavailableDate(dateKey, derivedReason);
-        return schedule;
+        return enriched;
       } catch (error) {
         console.error('[schedule-picker] failed to load schedule', error);
         setScheduleStateByDate((prev) => {
@@ -543,9 +658,25 @@ export function ScheduleAwareTimestampPicker({
   }, [currentSchedule]);
 
   const availableSlots = useMemo(
-    () => slots.filter((slot) => !slot.disabled && hasCapacity(slot)),
-    [slots],
+    () =>
+      slots.filter((slot) => {
+        if (slot.disabled) {
+          return false;
+        }
+        // If targetService is specified (e.g., editing a 'drinks' booking),
+        // check if that specific service is enabled on this slot
+        if (targetService) {
+          const services = slot.availability?.services ?? {};
+          return services[targetService] !== 'disabled';
+        }
+        // Otherwise use default hasCapacity check
+        return hasCapacity(slot);
+      }),
+    [slots, targetService],
   );
+
+
+
 
 
   useEffect(() => {
@@ -554,19 +685,36 @@ export function ScheduleAwareTimestampPicker({
     }
 
     if (selectedTime) {
-      const hasSelected = availableSlots.some((slot) => slot.value === selectedTime);
-      if (!hasSelected) {
-        setTimeValidationError((prev) => prev ?? UNAVAILABLE_SELECTION_COPY);
+      if (!activeDate) {
         return;
       }
+      const hasSelected = availableSlots.some((slot) => slot.value === selectedTime);
+      const hasAnySlots = availableSlots.length > 0;
+      const withinWindow = isWithinScheduleWindow(selectedTime, currentSchedule);
+      if (!hasSelected) {
+        if (withinWindow) {
+          setTimeValidationError(null);
+        } else {
+          const message = hasAnySlots ? UNAVAILABLE_SELECTION_COPY : OVERRIDE_SELECTION_COPY;
+          setTimeValidationError((prev) => prev ?? message);
+        }
+      } else {
+        setTimeValidationError(null);
+      }
+      // For edit flows, always commit the user-selected time on the current
+      // date, even if it no longer appears in enabled slots. This lets ops
+      // override availability while still surfacing a warning.
+      commitChange(activeDate, selectedTime);
       selectionModeRef.current = 'initial';
       return;
     }
 
     if (availableSlots.length === 0) {
+      if (!activeDate) {
+        return;
+      }
       setDraftTime('');
       setSelectedTime('');
-      commitChange(activeDate, null);
       setTimeValidationError(null);
       return;
     }
@@ -603,11 +751,6 @@ export function ScheduleAwareTimestampPicker({
       const formatted = formatDateForInput(date);
       if (formatted !== activeDate) {
         selectionModeRef.current = 'user-change';
-        setSelectedTime('');
-        setDraftTime('');
-        // Don't call commitChange here - let the time auto-selection effect handle it
-        // once available slots load. Calling commitChange(date, null) would set parent 
-        // value to null, triggering initialDate fallback to today.
         onDateChange?.(formatted);
       }
       setActiveDate(formatted);
@@ -638,8 +781,29 @@ export function ScheduleAwareTimestampPicker({
       const snapped = snapTimeToInterval(normalized, intervalMinutes);
       const candidate = snapped ?? normalized;
 
+      // When schedule is still loading (or absent), allow provisional selection without blocking.
+      if (isScheduleLoading || !currentSchedule) {
+        setTimeValidationError(null);
+        setDraftTime(candidate);
+        setSelectedTime(candidate);
+        commitChange(activeDate, candidate);
+        selectionModeRef.current = 'initial';
+        onBlur?.();
+        return;
+      }
+
       const isAvailable = availableSlots.some((slot) => slot.value === candidate);
+      const withinWindow = isWithinScheduleWindow(candidate, currentSchedule);
       if (!isAvailable) {
+        if (withinWindow) {
+          setTimeValidationError(null);
+          setDraftTime(candidate);
+          setSelectedTime(candidate);
+          commitChange(activeDate, candidate);
+          selectionModeRef.current = 'initial';
+          onBlur?.();
+          return;
+        }
         setDraftTime(selectedTime);
         setTimeValidationError(UNAVAILABLE_SELECTION_COPY);
         onBlur?.();
@@ -656,7 +820,7 @@ export function ScheduleAwareTimestampPicker({
       selectionModeRef.current = 'initial';
       onBlur?.();
     },
-    [activeDate, availableSlots, commitChange, intervalMinutes, onBlur, selectedTime],
+    [activeDate, availableSlots, commitChange, currentSchedule, intervalMinutes, isScheduleLoading, onBlur, selectedTime],
   );
 
 
@@ -691,7 +855,7 @@ export function ScheduleAwareTimestampPicker({
     }
   }, [unavailabilityReason]);
 
-  const isTimeDisabled = disabled || availableSlots.length === 0;
+  const isTimeDisabled = disabled;
 
   // Provide a concrete message whenever the time picker is disabled so the input can clear
   // stale values in lockstep with the "No available times" UI.
@@ -743,6 +907,7 @@ export function ScheduleAwareTimestampPicker({
                 suggestions={availableSlots}
                 intervalMinutes={intervalMinutes}
                 isTimeDisabled={isTimeDisabled}
+                isTimeLoading={isScheduleLoading}
                 unavailableMessage={unavailableMessageForTime}
               />
             </div>
