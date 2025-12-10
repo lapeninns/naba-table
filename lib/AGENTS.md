@@ -9,37 +9,50 @@ profile: shared-lib
 
 # AGENTS.md — Shared Lib (`lib/`)
 
-> Inherits root `/AGENTS.md`. Applies to shared runtime libraries (auth, supabase, analytics, bookings, queue, utils) under `lib/**`.
+> Inherits root `/AGENTS.md`. Applies to shared runtime libraries (auth, Supabase, analytics, bookings, queue, utils) under `lib/**`.
 
 ## Overview
 
-- Cross-cutting helpers used by both Next app and server jobs (Supabase client setup, auth helpers, analytics, queue wrappers, errors, URLs).
-- Must remain framework-agnostic; no React/Next imports.
+- Contains the **core runtime glue** used by both the Next.js app and background workers:
+  - Config + env contracts (`env.ts`, `env-client.ts`, `site-url.ts`)
+  - Supabase bootstrap + typed clients (`lib/supabase/**`)
+  - Auth/session helpers (`auth/**`, `profile/**`)
+  - Domain helpers (`bookings/**`, `reservations/**`, `restaurants/**`, `queue/**`)
+  - Horizontal utilities (analytics/logger/monitoring/http/security/query/utils)
+- Modules must stay framework-agnostic (no React/Next imports) so they can be reused by `server/` jobs and CLI scripts.
 
 ## Guidelines
 
-- Treat `lib` as a **boundary layer**: validate external inputs, return typed results, and avoid leaking raw errors.
-- Keep modules single-purpose; prefer small files over monoliths.
-- Supabase/remote calls must honor root remote-only rule and use env-driven configuration (`env.ts`, `env-client.ts`).
-- Logging: use shared logger utilities; avoid `console` noise in production paths.
-- Do not import from `src/app` or UI components; UI depends on `lib`, not vice versa.
+1. **Boundary enforcement**
+   - Functions in `lib/**` sit at system boundaries: validate inputs, normalize errors, and return typed responses. Never leak raw driver errors from Supabase or external APIs.
+   - Keep modules tight-scoped (e.g., `lib/bookings/availability.ts`, `lib/queue/enqueueBookingReminder.ts`) to avoid entangled dependencies.
+2. **Supabase remote-only compliance**
+   - All Supabase helpers must read connection details from `env.ts` and assume remote targets. Do not embed local URLs.
+   - When changing `lib/supabase/**`, capture the impact on migrations/roles inside the task folder and sync with `supabase/` owners.
+3. **Logging & monitoring**
+   - Use `lib/logger.ts` + `lib/monitoring/**` for structured events; avoid ad-hoc `console.log` statements in shared code.
+4. **No UI coupling**
+   - UI/components must depend on `lib`, never the other way around. If you find a React import creeping in, refactor it to `src/hooks` or `src/components`.
 
 ## Build & Test Commands
 
-- `pnpm lint` — lints `lib/**`.
-- `pnpm test` — include/extend tests for new modules.
-- `pnpm typecheck` — ensure public types remain stable.
+- `pnpm lint lib/**`
+- `pnpm typecheck --filter lib`
+- `pnpm test --filter "lib-*"` (or targeted Vitest files) — cover domain logic like booking transformers, Supabase query builders, queue serialization.
 
-## Testing
+## Testing Expectations
 
-- Add unit tests for any non-trivial logic (auth guards, booking calc, queue setup). Mock external services; keep tests hermetic.
+- Each new helper should include unit tests exercising success/error paths; mock remote dependencies (Supabase client, Resend, etc.).
+- For env/config helpers (`env.ts`, `env-client.ts`), add regression tests ensuring required vars throw meaningful errors when missing.
 
 ## Deployment Notes
 
-- Changes here can impact both server and client bundles; note breaking changes in task `plan.md` and consider semver-like caution.
+- These modules are bundled into both client and server builds; flag breaking API changes in the task `plan.md`, especially for `env-client.ts` or shared DTOs consumed by `src/types`.
+- For queue/cron helpers, ensure `server/` jobs and `scripts/` are updated simultaneously.
 
 ## Links
 
 - Root AGENTS: `/AGENTS.md`
 - Supabase config: `lib/supabase/**`
 - Queue helpers: `lib/queue/**`
+- Analytics/logging: `lib/analytics/**`, `lib/logger.ts`

@@ -170,6 +170,7 @@ This prints the chain `root → … → closest` so you can confirm inheritance 
 - Each package/app gets its own `AGENTS.md` focused on **local concerns**.
 - Root covers **cross‑cutting** rules (CI/CD, security, commit standards).
 - Nested files **must** include frontmatter with `scope: subproject`, `extends: ../../AGENTS.md` (or `../AGENTS.md` as appropriate), and `agents_version`.
+- Subproject owners **must keep their AGENTS.md tailored to this repo**: whenever a directory’s purpose, build commands, or tooling changes, update its local AGENT immediately (or add a new one) so downstream tasks inherit accurate, repo-specific instructions.
 
 ---
 

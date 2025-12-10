@@ -13,23 +13,34 @@ profile: shared-lib
 
 ## Overview
 
-- Small, focused utilities that wrap external services (HTTP API, OpenAI GPT, Resend email, SEO meta helpers).
-- Intended to be framework-agnostic and reusable by app and server code.
+- `api.ts` — lightweight fetch wrapper used by the guest dashboard + Reserve SPA.
+- `gpt.ts` — OpenAI helper powering concierge/assistant features (uses env-configured API key; rate-limited upstream).
+- `resend.ts` — Resend email integration shared by booking confirmations & ops alerts.
+- `seo.tsx` — canonical meta/OG helper for Next.js App Router pages.
+
+These modules wrap external vendors so the rest of the repo can remain agnostic.
 
 ## Guidelines
 
-- Keep modules minimal and composable; no React/Next imports.
-- External calls must surface clear errors and avoid leaking secrets; read config from env only.
-- If adding GPT/email integrations, document rate limits and privacy considerations in task files.
-- Maintain separation: `libs` should not import from `src/app` or UI layers.
+1. **Framework-agnostic**
+   - No React/Next imports; `seo.tsx` may export JSX helpers but should not pull in route components.
+2. **Configuration**
+   - Never hardcode secrets; read keys + sender domains via `process.env` and validate inside the helper (throw descriptive errors when missing).
+   - Track vendor-specific headers (Resend `X-Entity-Ref-ID`, OpenAI model names) in constants for easier rotation.
+3. **Error Handling**
+   - Surface structured errors so callers can distinguish vendor errors vs usage errors.
+   - Redact PII before logging email payloads or GPT prompts; lean on `lib/logger.ts` for structured logs.
+4. **Documentation in Tasks**
+   - For GPT or email template additions, document rate limits, prompt tokens, or compliance constraints inside the task’s `research.md`/`plan.md`.
 
 ## Build & Test Commands
 
-- `pnpm lint` / `pnpm typecheck` — ensure utilities stay compatible.
-- `pnpm test` — add/maintain tests for new logic; mock external services.
+- `pnpm lint libs/**`
+- `pnpm typecheck --filter libs`
+- `pnpm test --filter libs` — add mocked tests covering API retry logic, email payload generation, and SEO meta outputs.
 
 ## Links
 
 - Root AGENTS: `/AGENTS.md`
-- Shared core: `lib/**`
+- Shared core helpers: `lib/**`
 - Server usage: `server/**`
