@@ -27,6 +27,7 @@ import {
   generateConfirmationToken,
   computeTokenExpiry,
   attachTokenToBooking,
+  toPublicConfirmation,
 } from "@/server/bookings/confirmation-token";
 import { PastBookingError, assertBookingNotInPast } from "@/server/bookings/pastTimeValidation";
 import { OperatingHoursError, assertBookingWithinOperatingWindow } from "@/server/bookings/timeValidation";
@@ -370,6 +371,16 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // SECURITY: Fetch restaurant details for sanitization
+    const { data: restaurantData } = await (await getServiceSupabaseClient())
+      .from("restaurants")
+      .select("name, slug")
+      .eq("id", targetRestaurantId)
+      .single();
+
+    const restaurantName = restaurantData?.name ?? "Unknown Restaurant";
+    const restaurantSlug = restaurantData?.slug ?? null;
+
     const shouldUseGuestLookupPolicy =
       env.featureFlags.guestLookupPolicy && !!env.security.guestLookupPepper;
 
@@ -402,7 +413,12 @@ export async function GET(req: NextRequest) {
               },
             });
 
-            return NextResponse.json({ bookings: guestRows });
+            // SECURITY: Sanitize PII
+            const sanitizedBookings = guestRows.map((booking) =>
+              toPublicConfirmation(booking as Tables<"bookings">, restaurantName, restaurantSlug)
+            );
+
+            return NextResponse.json({ bookings: sanitizedBookings });
           }
 
           if (guestError) {
@@ -437,7 +453,12 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({ bookings });
+    // SECURITY: Sanitize PII
+    const sanitizedBookings = bookings.map((booking) =>
+      toPublicConfirmation(booking as Tables<"bookings">, restaurantName, restaurantSlug)
+    );
+
+    return NextResponse.json({ bookings: sanitizedBookings });
   } catch (error: unknown) {
     console.error("[bookings][GET]", stringifyError(error));
     return NextResponse.json(
