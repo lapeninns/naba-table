@@ -50,7 +50,7 @@ import {
 } from "@/server/supabase";
 
 import type { BookingRecord } from "@/server/bookings";
-import type { Json } from "@/types/supabase";
+import type { Json, Tables } from "@/types/supabase";
 import type { NextRequest } from "next/server";
 
 const baseQuerySchema = z.object({

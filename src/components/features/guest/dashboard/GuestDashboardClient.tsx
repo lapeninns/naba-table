@@ -1,22 +1,11 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  Calendar,
-  Clock,
-  Heart,
-  History,
-  MapPin,
-  Plus,
-  QrCode,
-  User,
-  Sparkles,
-  ChevronRight,
-} from 'lucide-react';
+import { Calendar, Clock, Heart, MapPin, QrCode, User, ChevronRight, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo } from 'react';
 
-import { ActionCard, GuestError, MetricTile, SearchBar } from '@/components/guest/ui';
+import { GuestError } from '@/components/guest/ui';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -92,112 +81,132 @@ export function GuestDashboardClient() {
   }
 
   return (
-    <div className="min-h-screen pb-32 space-y-12">
-      {/* 1. HERO SECTION & SEARCH */}
-      <div className="relative bg-gradient-to-b from-white to-slate-50 pt-16 pb-24 px-6 md:px-12 border-b border-slate-100">
-        <div className="max-w-6xl mx-auto space-y-8">
-          <div className="space-y-4 max-w-2xl">
-            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 leading-[1.1]">
+    <div className="min-h-screen bg-surface pb-20">
+      {/* Hero */}
+      <section className="border-b border-slate-100 bg-gradient-to-r from-blue-50 to-white">
+        <div className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-12 sm:px-8">
+          <div className="space-y-3">
+            <p className="text-xs uppercase tracking-[0.2em] text-subtle">Guest dashboard</p>
+            <h1 className="heading-lg md:heading-xl text-slate-900">
               {greeting}, {heroName.split(' ')[0]}
             </h1>
-            <p className="text-lg text-slate-600 leading-relaxed">
-              Find your next favorite table or manage your upcoming plans.
-            </p>
+            <p className="text-body text-subtle">Manage your upcoming tables, receipts, and favorites in one place.</p>
           </div>
 
-          <div className="pt-4">
-            <SearchBar onSearch={() => window.location.href = '/'} />
+          <div className="flex flex-wrap gap-3">
+            <Button asChild size="lg" className="rounded-full bg-primary text-white hover:bg-primary/90">
+              <Link href="/restaurants">Book a table</Link>
+            </Button>
+            <Button asChild size="lg" variant="outline" className="rounded-full border-slate-200 bg-white text-blue-700 hover:border-blue-500">
+              <Link href="/guest/bookings">My bookings</Link>
+            </Button>
+            <Button asChild size="lg" variant="ghost" className="text-blue-700 hover:text-blue-800">
+              <Link href="/guest/profile">Profile</Link>
+            </Button>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div className="max-w-6xl mx-auto px-6 md:px-12 space-y-16">
-
-        {/* 2. STATS OVERVIEW */}
-        <section>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <MetricTile
-              label="Total Visits"
-              value={stats.total}
-              icon={History}
-              detail="+2 this month"
-            />
-            <MetricTile
-              label="Upcoming"
-              value={stats.upcoming}
-              icon={Calendar}
-              variant="highlight"
-            />
-            <MetricTile
-              label="Favorites"
-              value={stats.favorites}
-              icon={Heart}
-            />
-          </div>
-        </section>
-
-        {/* 3. PRIMARY ACTION / NEXT BOOKING */}
-        <section className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-slate-900">Next Priority</h2>
-            {primaryBooking && (
-              <Link href="/guest/bookings" className="text-sm font-semibold text-blue-600 hover:text-blue-700 flex items-center">
-                See all <ChevronRight className="w-4 h-4 ml-1" />
-              </Link>
-            )}
-          </div>
-
-          <FeaturedBooking
-            booking={primaryBooking}
-            isLoading={isLoading}
-          />
-        </section>
-
-        {/* 4. QUICK ACTIONS */}
-        <section className="space-y-6">
-          <h2 className="text-2xl font-bold text-slate-900">Manage</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <ActionCard
-              icon={Plus}
-              label="Book Table"
-              description="New reservation"
-              href="/"
-            />
-            <ActionCard
-              icon={History}
-              label="History"
-              description="Past visits"
-              href="/guest/bookings?tab=history"
-            />
-            <ActionCard
-              icon={User}
-              label="Profile"
-              description="Preferences"
-              href="/guest/profile"
-            />
-            <ActionCard
-              icon={Heart}
-              label="Favorites"
-              description="Loved spots"
-              href="/guest/bookings"
-            />
-          </div>
-        </section>
-
-        {/* 5. UPCOMING LIST */}
-        {upcomingList.length > 0 && (
-          <section className="space-y-6">
+      {/* Main content */}
+      <div className="mx-auto grid max-w-6xl gap-8 px-6 py-10 sm:px-8 lg:grid-cols-[1.6fr_1fr]">
+        <div className="space-y-8">
+          {/* Next booking / empty state */}
+          <section className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-slate-900">Upcoming</h2>
-              <Link href="/guest/bookings" className="text-sm font-semibold text-blue-600 hover:text-blue-700">View All</Link>
+              <h2 className="text-xl font-semibold text-slate-900">Next up</h2>
+              <Link href="/guest/bookings" className="text-sm font-semibold text-blue-700 hover:text-blue-800 flex items-center gap-1">
+                View all <ChevronRight className="h-4 w-4" />
+              </Link>
             </div>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {upcomingList.slice(0, 6).map((booking) => (
-                <UpcomingBookingCard key={booking.id} booking={booking} />
-              ))}
-            </div>
+            <FeaturedBooking booking={primaryBooking} isLoading={isLoading} />
           </section>
-        )}
+
+          {/* Upcoming list */}
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-slate-900">Upcoming</h2>
+              {upcomingList.length > 0 ? (
+                <span className="text-sm text-subtle">{upcomingList.length} reservation(s)</span>
+              ) : null}
+            </div>
+            {upcomingList.length === 0 ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
+                <p className="text-base font-semibold text-slate-900">No upcoming reservations</p>
+                <p className="text-sm text-subtle mt-1">Book a table now and it will appear here.</p>
+                <div className="mt-4">
+                  <Button asChild className="rounded-full">
+                    <Link href="/restaurants">Find a table</Link>
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                {upcomingList.slice(0, 4).map((booking) => (
+                  <UpcomingBookingCard key={booking.id} booking={booking} />
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+
+        {/* Sidebar */}
+        <div className="space-y-6">
+          {/* Quick stats */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-slate-900">At a glance</p>
+              <Badge variant="secondary" className="rounded-full px-3 py-1 text-blue-900">
+                {stats.total} total
+              </Badge>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <StatPill label="Upcoming" value={stats.upcoming} icon={<Calendar className="h-4 w-4" />} />
+              <StatPill label="Favorites" value={stats.favorites} icon={<Heart className="h-4 w-4" />} />
+            </div>
+          </div>
+
+          {/* Favorites */}
+          {derived.favorites.length > 0 && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-slate-900">Favorites</p>
+                <Badge className="rounded-full bg-blue-50 text-blue-700">Top picks</Badge>
+              </div>
+              <ul className="space-y-3">
+                {derived.favorites.slice(0, 5).map((fav) => (
+                  <li key={fav.name} className="flex items-center justify-between text-sm text-slate-700">
+                    <span className="flex items-center gap-2">
+                      <Heart className="h-4 w-4 text-blue-600" aria-hidden />
+                      {fav.name}
+                    </span>
+                    <span className="text-subtle">{fav.count}x</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Profile quick access */}
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 shadow-card">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-white shadow-card flex items-center justify-center">
+                <User className="h-5 w-5 text-blue-700" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-900">Your profile</p>
+                <p className="text-xs text-subtle">Preferences and contact details</p>
+              </div>
+            </div>
+            <div className="mt-4 space-y-2">
+              <Button asChild variant="secondary" className="w-full rounded-full text-blue-700">
+                <Link href="/guest/profile">Edit profile</Link>
+              </Button>
+              <Button asChild variant="outline" className="w-full rounded-full">
+                <Link href="/guest/bookings">View receipts</Link>
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -250,59 +259,49 @@ function FeaturedBooking({
   const isToday = isSameDay(bookingDate, new Date());
 
   return (
-    <div className="group relative overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-[0_16px_48px_rgba(0,0,0,0.12)] transition-transform hover:-translate-y-1">
-      <div className="grid md:grid-cols-[1fr_280px]">
-        {/* Main Content */}
-        <div className="p-8 md:p-10 space-y-8">
-          <div className="flex items-center gap-3">
-            <Badge className={cn("rounded-full px-3 py-1 font-semibold border-none", isToday ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-700")}>
-              {isToday ? "Happening Today" : "Upcoming Reservation"}
-            </Badge>
-          </div>
+    <div className="group relative overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-card transition-transform hover:-translate-y-1">
+      <div className="grid md:grid-cols-[1fr_260px]">
+        <div className="p-6 md:p-8 space-y-6">
+          <Badge
+            className={cn(
+              "rounded-full px-3 py-1 font-semibold border-none",
+              isToday ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-700",
+            )}
+          >
+            {isToday ? "Happening today" : "Upcoming reservation"}
+          </Badge>
 
           <div>
-            <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight mb-2">
+            <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight mb-1">
               {booking.restaurantName}
             </h2>
             <div className="flex items-center text-slate-500 font-medium">
-              <MapPin className="w-5 h-5 mr-2" />
-              View location
+              <MapPin className="w-4 h-4 mr-2" />
+              {booking.restaurantSlug ? "View details" : "Restaurant"}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
-            <div>
-              <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Date</div>
-              <div className="text-xl font-bold text-slate-900">{formatReservationDateFromDate(bookingDate)}</div>
-            </div>
-            <div>
-              <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Time</div>
-              <div className="text-xl font-bold text-slate-900">{formatReservationTimeFromDate(bookingDate)}</div>
-            </div>
-            <div>
-              <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Guests</div>
-              <div className="text-xl font-bold text-slate-900">{booking.partySize} People</div>
-            </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+            <Detail label="Date" value={formatReservationDateFromDate(bookingDate)} />
+            <Detail label="Time" value={formatReservationTimeFromDate(bookingDate)} />
+            <Detail label="Guests" value={`${booking.partySize} people`} />
           </div>
         </div>
 
-        {/* Action Panel / QR */}
-        <div className="bg-slate-50 border-t md:border-t-0 md:border-l border-slate-200 p-8 flex flex-col items-center justify-center text-center">
+        <div className="bg-slate-50 border-t md:border-t-0 md:border-l border-slate-200 p-6 flex flex-col items-center justify-center text-center gap-4">
           <QRCodeDialog booking={booking}>
-            <button className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:scale-105 transition-transform">
-              <QrCode className="w-24 h-24 text-slate-900" />
+            <button className="bg-white p-4 rounded-2xl shadow-card border border-slate-200 hover:scale-105 transition-transform">
+              <QrCode className="w-20 h-20 text-slate-900" />
             </button>
           </QRCodeDialog>
-          <div className="mt-4 font-mono text-xl font-bold text-slate-900 tracking-widest">
+          <div className="font-mono text-xl font-bold text-slate-900 tracking-widest">
             {booking.id.slice(0, 8).toUpperCase()}
           </div>
-          <p className="text-xs text-slate-500 mt-1 uppercase tracking-wide">Confirmation Code</p>
+          <p className="text-xs text-slate-500 uppercase tracking-wide">Confirmation code</p>
 
-          <div className="mt-8 w-full">
-            <Button asChild className="w-full rounded-full" size="lg">
-              <Link href={`/guest/bookings/${booking.id}`}>Manage Booking</Link>
-            </Button>
-          </div>
+          <Button asChild className="w-full rounded-full" size="lg">
+            <Link href={`/guest/bookings/${booking.id}`}>Manage booking</Link>
+          </Button>
         </div>
       </div>
     </div>
@@ -314,7 +313,7 @@ function UpcomingBookingCard({ booking }: { booking: BookingDTO }) {
   return (
     <Link
       href={`/guest/bookings/${booking.id}`}
-      className="group bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all flex items-center gap-4"
+      className="group bg-white rounded-2xl p-4 border border-slate-200 shadow-card hover:-translate-y-1 transition-all flex items-center gap-4"
     >
       <div className="flex-shrink-0 w-16 h-16 bg-blue-50 text-blue-700 rounded-xl flex flex-col items-center justify-center leading-none">
         <span className="text-xs font-bold uppercase mb-1">{bookingDate.toLocaleString('en-US', { month: 'short' })}</span>
@@ -341,6 +340,27 @@ function isSameDay(d1: Date, d2: Date): boolean {
   return d1.getFullYear() === d2.getFullYear() &&
     d1.getMonth() === d2.getMonth() &&
     d1.getDate() === d2.getDate();
+}
+
+function StatPill({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+      <div className="flex items-center gap-2 text-sm text-slate-700">
+        <span className="text-blue-700">{icon}</span>
+        {label}
+      </div>
+      <span className="text-base font-semibold text-slate-900">{value}</span>
+    </div>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">{label}</div>
+      <div className="text-base font-semibold text-slate-900">{value}</div>
+    </div>
+  );
 }
 
 function QRCodeDialog({ booking, children }: { booking: BookingDTO; children: React.ReactNode }) {
