@@ -17,13 +17,21 @@ Tests were executed using `newman` against the local development server.
 ### Artifacts
 
 - **Collection**: `tasks/guest-api-testing-20251210-1441/guest_api_test.postman_collection.json`
+- **New Helper**: `server/bookings/inline-auto-assign.ts`
+
+### Optimizations Verified
+
+1.  **Code Structure**: Successfully extracted `attemptInlineAutoAssign` helper.
+2.  **Performance (POST)**: `upsertCustomer` and `getActiveLoyaltyProgram` parallelized.
+3.  **Performance (GET)**: Database join implemented for reference token lookup.
+4.  **Regression Testing**: All tests passed after refactoring.
 
 ### Known Limitations
 
 - The `DELETE` and `PUT` endpoints for bookings require strict authentication (User Session) and cannot be easily tested via a standalone Guest API script without simulating the full Magic Link / Auth flow.
 - A unique constraint on `phone` + `restaurantId` requires using random phone numbers for repeated testing.
 
-### Execution Log
+### Execution Log (Post-Optimization)
 
 ```
 Create Guest Booking ..................................................... [201 Created]

@@ -668,7 +668,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         // Try to find booking by ID and reference match
         const { data: refBooking, error: refError } = await serviceSupabase
           .from("bookings")
-          .select("*")
+          .select("*, restaurants(name, slug, timezone)")
           .eq("id", bookingId)
           .eq("reference", token)
           .maybeSingle();
@@ -679,7 +679,35 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         }
 
         if (refBooking) {
-          booking = refBooking;
+          // Transform joined restaurant data to match expected structure or use downstream logic
+          // Note: The rest of the code expects `booking` to be Tables<"bookings">
+          // and then does a separate fetch for restaurant.
+          // To optimize, we should utilize this data.
+          // However, Typescript types for refBooking will include the joined `restaurants` property.
+          // We can cast it or handle it.
+          // The easiest way is to re-assign it to `booking` and let the separate fetch run IF it's missing,
+          // OR early return here if we have everything.
+          // Let's early return the constructed response here for maximum efficiency.
+
+          const restaurantData = Array.isArray(refBooking.restaurants)
+            ? refBooking.restaurants[0]
+            : refBooking.restaurants;
+
+          if (!restaurantData) {
+            // Fallback to existing logic if join failed for some reason
+            booking = refBooking;
+          } else {
+            return NextResponse.json({
+              booking: {
+                ...refBooking,
+                restaurants: {
+                  name: restaurantData.name ?? null,
+                  slug: restaurantData.slug ?? null,
+                  timezone: restaurantData.timezone ?? null,
+                },
+              },
+            });
+          }
         } else {
           return NextResponse.json({ error: "Booking not found", code: "BOOKING_NOT_FOUND" }, { status: 404 });
         }
