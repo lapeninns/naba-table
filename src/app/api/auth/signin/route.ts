@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { defaultRedirectForHost, parseHostname, sanitizeRedirect, toAbsoluteRedirectTarget } from "@/lib/auth/redirects";
-import { validatePasswordStrength } from "@/lib/security/passwordPolicy";
 import { sendEmail } from "@/libs/resend";
 import { validateCsrfToken } from "@/server/security/csrf";
 import { consumeRateLimit } from "@/server/security/rate-limit";
@@ -21,15 +20,12 @@ const requestSchema = z
     rememberMe: z.boolean().optional().default(true),
   })
   .superRefine((data, ctx) => {
-    if (data.mode === "password") {
-      const result = validatePasswordStrength(data.password);
-      if (!result.success) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["password"],
-          message: result.error,
-        });
-      }
+    if (data.mode === "password" && !data.password) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["password"],
+        message: "Enter your password",
+      });
     }
   });
 

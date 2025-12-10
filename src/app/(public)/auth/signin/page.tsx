@@ -72,7 +72,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           Welcome back
         </h1>
         <p className="mt-2 text-sm sm:text-base text-slate-500">
-          Sign in to manage your reservations
+          Sign in to manage your reservations.
         </p>
       </div>
 
@@ -85,7 +85,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
       <div className="mt-6 space-y-3 text-center">
         {/* Restaurant Login Link */}
         <div className="rounded-xl border border-slate-100 bg-white/70 px-5 py-3 backdrop-blur-sm shadow-sm">
-          <p className="text-xs sm:text-sm text-slate-500">Are you a restaurant owner?</p>
+          <p className="text-xs sm:text-sm text-slate-500">Restaurant owner?</p>
           <Link
             href="/app/auth/signin"
             className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-slate-900 hover:text-slate-700 transition-colors"
@@ -107,4 +107,3 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
     </div>
   );
 }
-

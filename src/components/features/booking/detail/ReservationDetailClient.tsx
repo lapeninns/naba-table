@@ -333,7 +333,7 @@ export function ReservationDetailClient({
     <BookingDetailShell>
       <BookingSummaryCard
         title={restaurantName ?? venue.name ?? 'Your Reservation'}
-        description="Manage, share, or update every detail in one place."
+        description="Update, share, or download your booking in one place."
         reference={reservation.reference ?? reservation.id.slice(0, 8).toUpperCase()}
         status={{ icon: StatusIcon, label: statusConfig.label, tone: statusConfig.tone }}
         offlineNotice={!isOnline ? <InlineAlert tone="warning">You’re offline — some actions may be limited.</InlineAlert> : null}

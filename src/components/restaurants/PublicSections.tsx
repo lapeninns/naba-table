@@ -36,7 +36,7 @@ type RestaurantDetail = RestaurantListItem & {
   contactEmail?: string | null;
 };
 
-const TAGS = ["Cocktails", "Chef-led", "Terrace", "Tasting menu", "Live fire"];
+const TAGS = ["Chef-led", "Terrace", "Live fire"];
 
 export function RestaurantsHeroSection({ totalRestaurants }: { totalRestaurants: number }) {
   return (
@@ -48,10 +48,10 @@ export function RestaurantsHeroSection({ totalRestaurants }: { totalRestaurants:
           </Badge>
           <div className="space-y-3">
             <h1 id="restaurants-hero-heading" className="guest-heading-hero text-[clamp(2rem,4vw,3rem)] font-bold text-slate-900">
-              Discover restaurants guests rave about.
+              Find the right table fast.
             </h1>
             <p className="text-base text-slate-600 sm:text-lg">
-              Every listing follows the same content standards, spacing, and CTA patterns used throughout the Nab a Table experience, so browsing feels seamless.
+              Live-ready venues with the same flow guests see at checkout—no surprises between browsing and booking.
             </p>
           </div>
           <div className="flex flex-col gap-3 md:flex-row">
@@ -85,23 +85,24 @@ export function RestaurantsHeroSection({ totalRestaurants }: { totalRestaurants:
         </div>
         <Card className="flex flex-1 flex-col gap-4 rounded-[var(--guest-radius-xl)] border-blue-100 bg-gradient-to-br from-blue-600/90 via-blue-500/90 to-blue-700/90 p-6 text-white shadow-[var(--guest-shadow-lg)]">
           <div className="space-y-1">
-            <p className="text-sm uppercase tracking-[0.3em] text-blue-100">Live status</p>
+            <p className="text-sm uppercase tracking-[0.28em] text-blue-100">Live venues</p>
             <p className="text-4xl font-semibold">{totalRestaurants}</p>
-            <p className="text-sm text-blue-100">Available venues you can book right now.</p>
+            <p className="text-sm text-blue-100">Ready to book right now.</p>
           </div>
           <div className="rounded-[var(--guest-radius-lg)] bg-white/10 p-4">
-            <p className="text-sm font-medium">Why it matters?</p>
-            <p className="text-sm text-blue-100">Layouts mirror our dashboard patterns, keeping guests confident as they move between marketing and booking flows.</p>
+            <p className="text-sm font-medium">Built for clarity</p>
+            <p className="text-sm text-blue-100">Same cards and spacing you’ll see in the booking flow.</p>
           </div>
-          <div className="flex flex-wrap gap-3 text-sm text-blue-100">
+          <div className="flex flex-wrap items-center gap-3 text-sm text-blue-100">
             <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1">
               <Compass className="h-4 w-4" aria-hidden />
               Guided discovery
             </span>
             <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1">
               <Sparkles className="h-4 w-4" aria-hidden />
-              Instant confirmations
+              Instant confirm
             </span>
+            <ListingIllustration />
           </div>
         </Card>
       </div>
@@ -112,15 +113,15 @@ export function RestaurantsHeroSection({ totalRestaurants }: { totalRestaurants:
 export function RestaurantsGridSection({ restaurants }: { restaurants: RestaurantListItem[] }) {
   return (
     <section className="px-4 pb-14 pt-4 sm:px-6" aria-labelledby="restaurants-grid-heading">
-      <div className="mx-auto max-w-6xl space-y-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm text-blue-700">Carefully selected venues</p>
-            <h2 id="restaurants-grid-heading" className="guest-heading-page text-[length:var(--guest-text-page)] font-semibold text-slate-900">
+        <div className="mx-auto max-w-6xl space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm text-blue-700">Carefully selected venues</p>
+              <h2 id="restaurants-grid-heading" className="guest-heading-page text-[length:var(--guest-text-page)] font-semibold text-slate-900">
               Pick a spot
-            </h2>
-          </div>
-          <p className="text-sm text-slate-500">Tap any card to learn more about the space, menu, and booking options.</p>
+              </h2>
+            </div>
+          <p className="text-sm text-slate-500">Tap a card for details and booking.</p>
         </div>
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {restaurants.map((restaurant) => (
@@ -242,7 +243,7 @@ export function RestaurantDetailsSection({
             <h2 id="restaurant-details-heading" className="guest-heading-page text-[length:var(--guest-text-page)] font-semibold text-slate-900">
               Experience snapshot
             </h2>
-            <p className="text-sm text-slate-600">Copy, spacing, and structure match the booking flow so there are no surprises between marketing and checkout.</p>
+            <p className="text-sm text-slate-600">Same layout and cues you’ll see when you book.</p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             {insights.map((insight) => (
@@ -309,9 +310,12 @@ export function RestaurantBookingShell({
           <h1 className="mt-3 guest-heading-page text-[length:var(--guest-text-page)] font-semibold text-slate-900">
             Reserve {restaurant.name}
           </h1>
-          <p className="text-slate-600">Same booking wizard as the guest portal so the experience feels identical everywhere.</p>
+          <p className="text-slate-600">Same booking wizard as the guest portal—fast, familiar, and focused.</p>
         </div>
-        <div className="rounded-[var(--guest-radius-2xl)] border border-slate-100 bg-white p-4 shadow-[var(--guest-shadow-xl)]">{children}</div>
+        <div className="rounded-[var(--guest-radius-2xl)] border border-slate-100 bg-white p-4 shadow-[var(--guest-shadow-xl)]">
+          <BookingIllustration className="mb-4" />
+          {children}
+        </div>
       </div>
     </section>
   );
@@ -319,7 +323,7 @@ export function RestaurantBookingShell({
 
 export function ReservationThankYouCard({
   headline = "Reservation confirmed!",
-  body = "We sent a confirmation email with every detail.",
+  body = "Confirmation email sent with your details and link.",
 }: {
   headline?: string;
   body?: string;
@@ -348,3 +352,48 @@ export function ReservationThankYouCard({
 }
 
 export type { RestaurantDetail, RestaurantListItem };
+
+function ListingIllustration() {
+  return (
+    <svg
+      role="img"
+      aria-label="Restaurants illustration"
+      className="h-14 w-20 text-blue-50"
+      viewBox="0 0 200 120"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <rect x="14" y="22" width="172" height="76" rx="14" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.35)" />
+      <rect x="30" y="36" width="70" height="14" rx="6" fill="white" opacity="0.65" />
+      <rect x="30" y="58" width="52" height="10" rx="5" fill="white" opacity="0.4" />
+      <rect x="30" y="76" width="86" height="10" rx="5" fill="white" opacity="0.25" />
+      <rect x="114" y="36" width="42" height="10" rx="5" fill="var(--primary)" opacity="0.25" />
+      <rect x="114" y="52" width="54" height="32" rx="8" fill="var(--primary)" opacity="0.18" />
+      <rect x="124" y="60" width="32" height="10" rx="5" fill="var(--primary)" opacity="0.65" />
+      <rect x="124" y="76" width="40" height="8" rx="4" fill="var(--primary)" opacity="0.35" />
+      <circle cx="168" cy="68" r="8" fill="white" opacity="0.9" />
+      <path d="M164 68l2.8 3 5.2-6.5" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function BookingIllustration({ className }: { className?: string }) {
+  return (
+    <svg
+      role="img"
+      aria-label="Booking steps illustration"
+      className={className ?? "h-14 w-full"}
+      viewBox="0 0 240 80"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <rect x="12" y="16" width="216" height="48" rx="12" fill="rgba(255,255,255,0.12)" stroke="var(--primary)" strokeOpacity="0.35" />
+      <rect x="26" y="28" width="80" height="12" rx="6" fill="var(--primary)" opacity="0.9" />
+      <rect x="26" y="46" width="58" height="10" rx="5" fill="var(--primary)" opacity="0.4" />
+      <rect x="120" y="26" width="38" height="10" rx="5" fill="var(--primary)" opacity="0.28" />
+      <rect x="120" y="42" width="60" height="16" rx="7" fill="var(--primary)" opacity="0.18" />
+      <rect x="184" y="32" width="24" height="24" rx="8" fill="white" />
+      <path d="M190 44l5 5 9-11" stroke="var(--primary)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
