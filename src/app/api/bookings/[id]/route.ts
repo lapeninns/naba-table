@@ -24,7 +24,7 @@ import {
   softCancelBooking,
   updateBookingRecord,
 } from "@/server/bookings";
-import { TokenValidationError, validateConfirmationToken } from "@/server/bookings/confirmation-token";
+import { TokenValidationError, validateConfirmationToken, toPublicConfirmation } from "@/server/bookings/confirmation-token";
 import { beginBookingModificationFlow } from "@/server/bookings/modification-flow";
 import { PastBookingError, assertBookingNotInPast } from "@/server/bookings/pastTimeValidation";
 import {
@@ -695,17 +695,22 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
           if (!restaurantData) {
             // Fallback to existing logic if join failed for some reason
-            booking = refBooking;
-          } else {
+            // SECURITY: Sanitize PII for token-based access even in fallback
             return NextResponse.json({
-              booking: {
-                ...refBooking,
-                restaurants: {
-                  name: restaurantData.name ?? null,
-                  slug: restaurantData.slug ?? null,
-                  timezone: restaurantData.timezone ?? null,
-                },
-              },
+              booking: toPublicConfirmation(
+                refBooking,
+                "Unknown Restaurant",
+                null
+              )
+            });
+          } else {
+            // SECURITY: Use toPublicConfirmation to strip PII
+            return NextResponse.json({
+              booking: toPublicConfirmation(
+                refBooking,
+                restaurantData.name,
+                restaurantData.slug
+              ),
             });
           }
         } else {
