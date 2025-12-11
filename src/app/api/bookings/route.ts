@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+import { randomUUID, createHash } from "crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -20,8 +20,6 @@ import {
   inferMealTypeFromTime,
   logAuditEvent,
   calculateDurationMinutes,
-  insertBookingRecord,
-  generateUniqueBookingReference,
 } from "@/server/bookings";
 import {
   generateConfirmationToken,
@@ -106,6 +104,39 @@ function normalizeIdempotencyKey(value: string | null): string | null {
 function coerceUuid(value: string | null): string | null {
   if (!value) return null;
   return UUID_REGEX.test(value) ? value : null;
+}
+
+function buildDeterministicIdempotencyKey(params: {
+  restaurantId: string;
+  customerId: string;
+  bookingDate: string;
+  startTime: string;
+  endTime: string;
+}): string {
+  const payload = `${params.restaurantId}|${params.customerId}|${params.bookingDate}|${params.startTime}|${params.endTime}`;
+  return createHash("sha256").update(payload).digest("hex").slice(0, 32);
+}
+
+async function tryWithBackoff<T>(
+  fn: () => Promise<T>,
+  options: { attempts?: number; initialDelayMs?: number; multiplier?: number } = {},
+): Promise<T> {
+  const attempts = Math.max(1, options.attempts ?? 3);
+  const initialDelayMs = options.initialDelayMs ?? 200;
+  const multiplier = options.multiplier ?? 2;
+
+  let lastError: unknown;
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      if (i === attempts - 1) break;
+      const delay = initialDelayMs * Math.pow(multiplier, i);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
 type RestaurantResolutionResult =
@@ -254,51 +285,6 @@ function toIsoStringOrThrow(value: string): string {
     throw new Error("Invalid date");
   }
   return date.toISOString();
-}
-
-async function recoverBookingRecord(
-  client: ReturnType<typeof getServiceSupabaseClient>,
-  args: {
-    restaurantId: string;
-    idempotencyKey: string | null;
-    customerId: string;
-    bookingDate: string;
-    startTime: string;
-    endTime: string;
-  },
-): Promise<BookingRecord | null> {
-  // 1) Try idempotency key (strongest signal)
-  if (args.idempotencyKey) {
-    const { data, error } = await client
-      .from("bookings")
-      .select("*")
-      .eq("restaurant_id", args.restaurantId)
-      .eq("idempotency_key", args.idempotencyKey)
-      .maybeSingle();
-
-    if (!error && data) {
-      return data as BookingRecord;
-    }
-  }
-
-  // 2) Fallback by booking signature
-  const { data: sigData, error: sigError } = await client
-    .from("bookings")
-    .select("*")
-    .eq("restaurant_id", args.restaurantId)
-    .eq("customer_id", args.customerId)
-    .eq("booking_date", args.bookingDate)
-    .eq("start_time", args.startTime)
-    .eq("end_time", args.endTime)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (!sigError && sigData) {
-    return sigData as BookingRecord;
-  }
-
-  return null;
 }
 
 export async function GET(req: NextRequest) {
@@ -503,8 +489,8 @@ export async function POST(req: NextRequest) {
 
   const restaurantId = restaurantResolution.restaurantId;
   const clientIp = extractClientIp(req);
-  const idempotencyKey = normalizeIdempotencyKey(req.headers.get("Idempotency-Key"));
-  const clientRequestId = coerceUuid(idempotencyKey) ?? randomUUID();
+  const headerIdempotencyKey = normalizeIdempotencyKey(req.headers.get("Idempotency-Key"));
+  const clientRequestId = coerceUuid(headerIdempotencyKey) ?? randomUUID();
   const opsEmailProvidedHeader = req.headers.get("x-ops-email-provided") === "true";
   const isOpsWalkIn = req.headers.get("x-ops-walk-in") === "true";
   const requestSource = isOpsWalkIn ? "ops.walkin" : "api.bookings";
@@ -563,6 +549,7 @@ export async function POST(req: NextRequest) {
   try {
     const supabase = getServiceSupabaseClient();
     const normalizedBookingType = data.bookingType === "drinks" ? "drinks" : inferMealTypeFromTime(data.time);
+    const pastTimeBlocking = env.featureFlags.bookingPastTimeBlocking ?? true;
 
     let startTime = data.time;
     let scheduleTimezone: string | null = null;
@@ -586,16 +573,11 @@ export async function POST(req: NextRequest) {
       startTime = time;
 
       // Validate booking is not in the past (if feature flag enabled)
-      if (env.featureFlags.bookingPastTimeBlocking) {
+      if (pastTimeBlocking) {
         try {
-          assertBookingNotInPast(
-            schedule.timezone,
-            data.date,
-            startTime,
-            {
-              graceMinutes: env.featureFlags.bookingPastTimeGraceMinutes,
-            }
-          );
+          assertBookingNotInPast(schedule.timezone ?? "UTC", data.date, startTime, {
+            graceMinutes: env.featureFlags.bookingPastTimeGraceMinutes,
+          });
         } catch (pastTimeError) {
           if (pastTimeError instanceof PastBookingError) {
             // Log blocked attempt
@@ -671,6 +653,14 @@ export async function POST(req: NextRequest) {
       : 0;
 
     const useUnifiedValidation = env.featureFlags.bookingValidationUnified;
+    const deterministicKey = buildDeterministicIdempotencyKey({
+      restaurantId,
+      customerId: customer.id,
+      bookingDate: data.date,
+      startTime,
+      endTime,
+    });
+    const idempotencyKey = headerIdempotencyKey ?? deterministicKey;
 
     let booking: BookingRecord | undefined;
     let reusedExisting = false;
@@ -696,13 +686,14 @@ export async function POST(req: NextRequest) {
         details: bookingDetails,
       };
 
+      const effectiveTimezone = scheduleTimezone ?? "UTC";
       const context = {
         actorId: clientRequestId,
         actorRoles: ["customer"],
         actorCapabilities: [],
-        tz: scheduleTimezone ?? "Europe/London",
+        tz: effectiveTimezone,
         flags: {
-          bookingPastTimeBlocking: env.featureFlags.bookingPastTimeBlocking ?? false,
+          bookingPastTimeBlocking: pastTimeBlocking,
           bookingPastTimeGraceMinutes: env.featureFlags.bookingPastTimeGraceMinutes ?? 5,
           unified: true,
         },
@@ -744,76 +735,20 @@ export async function POST(req: NextRequest) {
         details: bookingDetails,
       });
 
-      booking = bookingResult.booking as BookingRecord | undefined;
-
-      if (!booking) {
-        // Attempt to recover the booking record if the RPC didn't return it
-        const recovered = await recoverBookingRecord(supabase, {
-          restaurantId,
-          idempotencyKey,
-          customerId: customer.id,
-          bookingDate: data.date,
-          startTime,
-          endTime,
-        });
-
-        if (recovered) {
-          booking = recovered;
-          void recordObservabilityEvent({
-            source: requestSource,
-            eventType: "booking.create.recovered",
-            severity: "warning",
-            context: {
-              restaurantId,
-              idempotencyKey: idempotencyKey ?? undefined,
-              method: idempotencyKey ? "idempotency_key" : "signature",
-            },
-          });
-        } else {
-          // As a last resort, create the record directly (capacity not enforced here)
-          try {
-            const reference = await generateUniqueBookingReference(supabase);
-            const created = await insertBookingRecord(supabase, {
-              restaurant_id: restaurantId,
-              customer_id: customer.id,
-              booking_date: data.date,
-              start_time: startTime,
-              end_time: endTime,
-              party_size: data.party,
-              booking_type: normalizedBookingType,
-              seating_preference: data.seating,
-              status: "pending",
-              reference,
-              customer_name: data.name,
-              customer_email: normalizeEmail(data.email),
-              customer_phone: data.phone.trim(),
-              notes: data.notes ?? null,
-              marketing_opt_in: data.marketingOptIn ?? false,
-              loyalty_points_awarded: 0,
-              source: "api",
-              client_request_id: clientRequestId,
-              idempotency_key: idempotencyKey ?? null,
-              details: { fallback: "missing_rpc_booking_record" } as Json,
-            });
-
-            booking = created as BookingRecord;
-            void recordObservabilityEvent({
-              source: requestSource,
-              eventType: "booking.create.insert_fallback",
-              severity: "warning",
-              context: {
-                restaurantId,
-                idempotencyKey: idempotencyKey ?? undefined,
-              },
-            });
-          } catch (createFallbackError) {
-            throw new Error(
-              `Booking creation succeeded but booking record could not be retrieved or created: ${stringifyError(createFallbackError)
-              }`,
-            );
-          }
-        }
+      if (!bookingResult.success || !bookingResult.booking) {
+        const errorCode = bookingResult.error ?? "CAPACITY_UNAVAILABLE";
+        const message =
+          bookingResult.message ??
+          (bookingResult.error === "CAPACITY_EXCEEDED"
+            ? "No capacity available for the requested time."
+            : "Unable to create booking (capacity service unavailable).");
+        return NextResponse.json(
+          { error: message, code: errorCode, details: bookingResult.details ?? undefined },
+          { status: bookingResult.error === "CAPACITY_EXCEEDED" ? 409 : 503 },
+        );
       }
+
+      booking = bookingResult.booking as BookingRecord;
       reusedExisting = bookingResult.duplicate === true;
 
       // Enforce default initial status to 'pending' for newly created bookings (RPC may return 'confirmed').
@@ -899,26 +834,55 @@ export async function POST(req: NextRequest) {
     }
 
     if (!reusedExisting) {
+      const sideEffectPayload = {
+        booking: safeBookingPayload(finalBooking),
+        idempotencyKey,
+        restaurantId,
+        emailProvided: isOpsWalkIn ? opsEmailProvidedHeader : true,
+      } as const;
+
       try {
-        await enqueueBookingCreatedSideEffects(
-          {
-            booking: safeBookingPayload(finalBooking),
-            idempotencyKey,
-            restaurantId,
-            emailProvided: isOpsWalkIn ? opsEmailProvidedHeader : true,
-          },
-          { supabase },
+        await tryWithBackoff(
+          () => enqueueBookingCreatedSideEffects(sideEffectPayload, { supabase }),
+          { attempts: 3, initialDelayMs: 200, multiplier: 2 },
         );
       } catch (jobError: unknown) {
         console.error("[bookings][POST][side-effects]", stringifyError(jobError));
+        void recordObservabilityEvent({
+          source: requestSource,
+          eventType: "booking.side_effects.failed",
+          severity: "error",
+          context: {
+            bookingId: finalBooking.id,
+            restaurantId,
+            idempotencyKey: idempotencyKey ?? undefined,
+            error: stringifyError(jobError),
+          },
+        });
       }
 
       // If inline attempt did not confirm and retries are configured, run background job
       try {
         if (env.featureFlags.autoAssignOnBooking && finalBooking.status !== 'confirmed') {
           const { autoAssignAndConfirmIfPossible } = await import("@/server/jobs/auto-assign");
-          // Always schedule a background attempt at least once
-          void autoAssignAndConfirmIfPossible(finalBooking.id);
+          // Always schedule a background attempt at least once (with light retry)
+          void tryWithBackoff(
+            () => autoAssignAndConfirmIfPossible(finalBooking.id),
+            { attempts: 2, initialDelayMs: 300, multiplier: 2 },
+          ).catch((autoError) => {
+            console.error("[bookings][POST][auto-assign]", stringifyError(autoError));
+            void recordObservabilityEvent({
+              source: requestSource,
+              eventType: "booking.auto_assign.failed",
+              severity: "warning",
+              context: {
+                bookingId: finalBooking.id,
+                restaurantId,
+                status: finalBooking.status,
+                error: stringifyError(autoError),
+              },
+            });
+          });
         }
       } catch (autoError: unknown) {
         console.error("[bookings][POST][auto-assign]", stringifyError(autoError));
@@ -926,13 +890,22 @@ export async function POST(req: NextRequest) {
     }
 
     // Generate confirmation token for guest access to confirmation page
-    let confirmationToken: string | null = null;
+    // Preserve the longer-lived token created during persistence (30 days) to avoid shortening to 1 hour.
+    let confirmationToken: string | null = finalBooking.confirmation_token ?? null;
+    const confirmationTokenExpiresAt: string | null =
+      ("confirmation_token_expires_at" in finalBooking && typeof (finalBooking as Record<string, unknown>).confirmation_token_expires_at === "string")
+        ? ((finalBooking as Record<string, unknown>).confirmation_token_expires_at as string)
+        : null;
+
     if (!reusedExisting) {
       try {
-        confirmationToken = generateConfirmationToken();
-        const tokenExpiry = computeTokenExpiry(1); // 1 hour expiry
-
-        await attachTokenToBooking(finalBooking.id, confirmationToken, tokenExpiry);
+        // Only generate/store when the record lacks a token or expiry.
+        if (!confirmationToken || !confirmationTokenExpiresAt) {
+          const tokenToUse = confirmationToken ?? generateConfirmationToken();
+          const tokenExpiry = confirmationTokenExpiresAt ?? computeTokenExpiry(24 * 30); // align with insertBookingRecord default
+          await attachTokenToBooking(finalBooking.id, tokenToUse, tokenExpiry);
+          confirmationToken = tokenToUse;
+        }
       } catch (tokenError: unknown) {
         console.error("[bookings][POST][confirmation-token]", stringifyError(tokenError));
         // Non-fatal: booking still succeeded, just no token for guest confirmation

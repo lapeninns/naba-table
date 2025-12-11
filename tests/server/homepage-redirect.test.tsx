@@ -6,9 +6,7 @@ const redirectMock = vi.fn(() => {
 });
 
 const getUserMock = vi.fn();
-const renderFactoryHome = vi.fn(({ isAuthenticated }: { isAuthenticated: boolean }) => (
-  <div data-testid="factory-home" data-authenticated={isAuthenticated} />
-));
+const renderGuestLanding = vi.fn(() => <div data-testid="guest-landing" />);
 const renderMarketingLayout = vi.fn(({ children }: { children: React.ReactNode }) => (
   <div data-testid="marketing-layout">{children}</div>
 ));
@@ -17,8 +15,8 @@ vi.mock("next/navigation", () => ({
   redirect: redirectMock,
 }));
 
-vi.mock("@/components/landing/FactoryHomeClient", () => ({
-  FactoryHomeClient: renderFactoryHome,
+vi.mock("@/components/marketing", () => ({
+  GuestLandingPage: renderGuestLanding,
 }));
 
 vi.mock("@/components/layouts/MarketingLayout", () => ({
@@ -60,7 +58,6 @@ describe("home page redirect", () => {
     expect(result).toBeTruthy();
     expect(result.type).toBe(renderMarketingLayout);
     const child = Array.isArray(result.props.children) ? result.props.children[0] : result.props.children;
-    expect(child.type).toBe(renderFactoryHome);
-    expect(child.props.isAuthenticated).toBe(false);
+    expect(child.type).toBe(renderGuestLanding);
   });
 });

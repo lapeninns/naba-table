@@ -54,6 +54,24 @@ export type TableAssignmentMember = {
   mergeGroupId?: string | null;
 };
 
+export type ConfirmHoldTransition = {
+  targetStatus: Tables<"bookings">["status"];
+  historyReason: string;
+  historyMetadata?: Json;
+  historyChangedBy?: string | null;
+};
+
+export type ConfirmHoldAssignmentOptions = {
+  holdId: string;
+  bookingId: string;
+  idempotencyKey?: string;
+  requireAdjacency?: boolean;
+  assignedBy?: string | null;
+  client?: DbClient;
+  signal?: AbortSignal;
+  transition?: ConfirmHoldTransition;
+};
+
 export type PolicyDriftKind = "policy" | "adjacency";
 
 export type PolicyDriftDetails = {
