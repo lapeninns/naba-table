@@ -1,8 +1,9 @@
-import { ChevronLeft, Sparkles, UtensilsCrossed } from 'lucide-react';
+import { ChevronLeft, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { GuestSignInForm } from '@/components/auth/GuestSignInForm';
+import { BrandIcon } from '@/components/shared/BrandIcon';
 import { ensureCsrfCookie } from '@/server/security/csrf';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
 
@@ -58,9 +59,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           <div className="absolute inset-0 -m-2 rounded-full bg-gradient-to-br from-blue-100 to-violet-100 blur-2xl opacity-50" />
 
           {/* Icon container */}
-          <div className="relative mx-auto flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 shadow-xl shadow-slate-900/20">
-            <UtensilsCrossed className="h-8 w-8 sm:h-10 sm:w-10 text-white" aria-hidden="true" />
-          </div>
+          <BrandIcon size="lg" className="relative mx-auto shadow-xl shadow-slate-900/20" />
 
           {/* Sparkle decoration */}
           <div className="absolute -right-1 -top-1 animate-bounce" style={{ animationDelay: '0.2s', animationDuration: '2s' }}>

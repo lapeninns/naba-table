@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { BrandIcon } from "@/components/shared/BrandIcon";
 import { cn } from "@/lib/utils";
 
 const AUTH_NAV_LINKS = [
@@ -79,9 +80,7 @@ export function AuthNavbar() {
           href="/"
           className="group flex items-center gap-2 rounded-full border border-transparent px-2 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-base font-bold text-primary-foreground shadow-sm transition group-hover:scale-105">
-            N
-          </div>
+          <BrandIcon className="shrink-0 transition group-hover:scale-105" />
           <div className="flex flex-col">
             <span className="text-sm font-semibold text-foreground">Nab a Table</span>
             <span className="text-[10px] uppercase tracking-[0.3em] text-foreground/50">Secure booking</span>
