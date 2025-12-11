@@ -327,10 +327,10 @@ jobs:
           RESERVE_API_BASE_URL: "https://app.nabatable.com"
 
       - name: Run Visual Regression Tests
-        run: pnpm exec playwright test tests/e2e/visual --project=chromium --update-snapshots
+        run: pnpm exec playwright test tests/e2e/visual --project=chromium
         env:
           BASE_URL: http://localhost:3000
-        continue-on-error: true # First run creates baselines
+        continue-on-error: true # Visual diffs are available as artifacts without blocking CI; update baselines via a manual run with --update-snapshots.
 
       - name: Upload Visual Diff Report
         uses: actions/upload-artifact@v4

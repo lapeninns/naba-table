@@ -18,10 +18,9 @@ export const createServerAuthPort = (
       error
     } = await supabase.auth.getUser();
 
-    if (!user) {
-      console.log('❌ [AuthPort] getUser failed. User is null. Error:', error?.message);
-    } else {
-      console.log('✅ [AuthPort] getUser success:', user.email);
+    if (!user && process.env.NODE_ENV === "development") {
+      // Log only in development without exposing full PII
+      console.warn("[AuthPort] getUser returned null", error?.message ?? "no error message");
     }
 
     return user ?? null;
