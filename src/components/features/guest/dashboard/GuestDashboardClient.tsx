@@ -244,7 +244,7 @@ function FeaturedBooking({
           </p>
           <div className="flex gap-4">
             <Button asChild className="rounded-full bg-white text-slate-900 hover:bg-slate-100 px-8 py-6 text-lg font-semibold border-none">
-              <Link href="/">Find a Table</Link>
+              <Link href="/restaurants">Find a Table</Link>
             </Button>
           </div>
         </div>
