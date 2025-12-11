@@ -129,10 +129,10 @@ export async function GET(req: NextRequest) {
           await linkAuthUserToCustomers(data.user.id, data.user.email);
         }
 
-        const { data: sessionData } = await supabase.auth.getSession();
-        console.log("[auth/callback] Session verification:", {
-          hasSession: !!sessionData.session,
-          sessionUserId: sessionData.session?.user?.id,
+        const { data: userData } = await supabase.auth.getUser();
+        console.log("[auth/callback] Session verification (getUser):", {
+          hasUser: !!userData.user,
+          sessionUserId: userData.user?.id,
         });
       }
     } else if (tokenHash) {

@@ -1,6 +1,7 @@
 'use client';
 
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
+import { getSupabaseSessionSnapshot, subscribeToSupabaseSession } from '@/lib/supabase/session-store';
 
 const EVENT_ENDPOINT = '/api/v1/events';
 const STORAGE_KEY = 'srx.analytics.anonId';
@@ -40,6 +41,16 @@ let flushTimer: number | null = null;
 let isFlushing = false;
 let identityPromise: Promise<AnalyticsUser> | null = null;
 let listenersBound = false;
+let sessionSnapshot = getSupabaseSessionSnapshot();
+
+if (typeof window !== 'undefined') {
+  subscribeToSupabaseSession((state) => {
+    sessionSnapshot = state;
+    if (state.status !== 'loading') {
+      identityPromise = null;
+    }
+  });
+}
 
 function isBrowser(): boolean {
   return typeof window !== 'undefined';
@@ -125,6 +136,11 @@ async function resolveIdentity(): Promise<AnalyticsUser> {
 
   identityPromise = (async () => {
     const anonId = getAnonId();
+    const snapshot = sessionSnapshot;
+    if (snapshot.status === 'authenticated' || snapshot.status === 'unauthenticated') {
+      const emailHash = await hashEmail(snapshot.user?.email ?? null);
+      return { anonId, emailHash };
+    }
     try {
       const supabase = getSupabaseBrowserClient();
       const { data } = await supabase.auth.getUser();

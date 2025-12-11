@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { setSupabaseSessionSnapshot } from "@/lib/supabase/session-store";
 
 import type { Session, User } from "@supabase/supabase-js";
 
@@ -33,14 +34,21 @@ export function SupabaseSessionProvider({ children, initialSession }: SupabaseSe
   const hasHydratedFromInitialRef = useRef(false);
 
   const [state, setState] = useState<SupabaseSessionState>(() => {
+    let nextState: SupabaseSessionState;
     if (initialSession?.user) {
-      return { session: initialSession, user: initialSession.user, status: "authenticated" };
+      nextState = { session: initialSession, user: initialSession.user, status: "authenticated" };
+    } else if (initialSession === null) {
+      nextState = { session: null, user: null, status: "unauthenticated" };
+    } else {
+      nextState = { session: null, user: null, status: "loading" };
     }
-    if (initialSession === null) {
-      return { session: null, user: null, status: "unauthenticated" };
-    }
-    return { session: null, user: null, status: "loading" };
+    setSupabaseSessionSnapshot(nextState);
+    return nextState;
   });
+
+  useEffect(() => {
+    setSupabaseSessionSnapshot(state);
+  }, [state]);
 
   // Hydrate browser client with server-issued session if present
   useEffect(() => {

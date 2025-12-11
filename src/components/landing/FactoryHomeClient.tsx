@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import React, { useEffect, useState, type CSSProperties } from 'react';
 
-const FACTORY_THEME: CSSProperties = {
+const FACTORY_THEME = {
   '--brand-blue': '#2563EB',
   '--brand-blue-hover': '#1D4ED8',
   '--brand-blue-subtle': '#F0F7FF',
@@ -42,7 +42,7 @@ const FACTORY_THEME: CSSProperties = {
   '--shadow-md': '0 4px 6px -1px rgba(0,0,0,0.06), 0 2px 4px -1px rgba(0,0,0,0.03)',
   '--shadow-lg': '0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.04)',
   '--shadow-float': '0 6px 16px rgba(0,0,0,0.08)',
-};
+} as CSSProperties;
 
 const LIVE_FEED = [
   { venue: 'The Barley Mow', time: '7:30 PM', party: '2 guests', status: 'Confirmed' },
@@ -51,11 +51,24 @@ const LIVE_FEED = [
 ];
 
 const METRICS = [
-  { label: 'Seated on Time', value: '92%', detail: 'Peak slots', icon: 'clock' as const },
-  { label: 'Net Promoter Score', value: '+72', detail: 'Last 30 days', icon: 'star' as const },
+  { label: 'Guests seated within 5 minutes', value: '91%', detail: 'Arrival P95', icon: 'clock' as const },
+  { label: 'Monthly diners', value: '180k+', detail: 'This month', icon: 'user' as const },
 ];
 
-const HERO_BADGE = 'Serving Cambridgeshire & Norfolk';
+const HERO_BADGE = 'Instant confirmation · No phone calls';
+const SOCIAL_PROOF_LOGOS = ['Oak & Ember', 'Riverstone', 'Harbor & Hearth', 'The Glasshouse', 'Skyline', 'Juniper'];
+const OBJECTION_POINTS = ['Free to book', 'No credit card required', 'Cancel anytime', 'We hold your table for 15 minutes'];
+const BENEFITS = [
+  { title: 'Live availability', description: 'See real tables, not guesses.', icon: 'search' as const },
+  { title: 'Instant confirmation', description: 'Get your booking code immediately.', icon: 'check' as const },
+  { title: 'Kitchen-ready notes', description: 'Share dietary notes and occasions with the host.', icon: 'user' as const },
+  { title: 'Zero surprises', description: 'Upfront seating window and wait estimates.', icon: 'clock' as const },
+];
+const TESTIMONIAL = {
+  quote: 'Booked date night in 45 seconds; skipped a 50-minute walk-in line.',
+  name: 'Amelia K.',
+  city: 'London',
+};
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(' ');
@@ -188,7 +201,7 @@ function Icon({ name, className }: { name: string; className?: string }) {
     fill: 'currentColor',
     className: cx('w-5 h-5 inline-block shrink-0', className),
   };
-  const icons: Record<string, JSX.Element> = {
+  const icons: Record<string, React.ReactElement> = {
     menu: <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z" />,
     close: <path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />,
     check: <path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />,
@@ -325,21 +338,6 @@ function Toast({ tone = 'neutral', message, onDismiss }: { tone?: 'neutral' | 's
   );
 }
 
-function Modal({ isOpen, onClose, title, children }: { isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
-  if (!isOpen) return null;
-  return (
-    <div className="modal-backdrop fade-in" role="dialog" aria-modal="true" aria-label={title} onClick={onClose}>
-      <div className="bg-[var(--card)] w-full max-w-md rounded-2xl shadow-2xl slide-up overflow-hidden" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between p-5 border-b border-[var(--border)]">
-          <h3 className="text-lg font-bold text-[var(--slate-900)]">{title}</h3>
-          <Button variant="ghost" size="sm" iconOnly onClick={onClose} leftIcon={<Icon name="close" />} className="rounded-full" aria-label="Close" />
-        </div>
-        <div className="p-6">{children}</div>
-      </div>
-    </div>
-  );
-}
-
 function SearchBar({ onSearch }: { onSearch: () => void }) {
   return (
     <div className="search-pill-container bg-[var(--card)] rounded-full flex flex-col md:flex-row items-center p-2 max-w-4xl mx-auto relative z-20">
@@ -401,7 +399,7 @@ function SearchBar({ onSearch }: { onSearch: () => void }) {
   );
 }
 
-function MetricTile({ label, value, detail, icon }: { label: string; value: string; detail?: string; icon?: JSX.Element }) {
+function MetricTile({ label, value, detail, icon }: { label: string; value: string; detail?: string; icon?: React.ReactElement }) {
   return (
     <div className="shadow-card rounded-xl p-6 flex flex-col gap-4 bg-[var(--card)] h-full border border-[var(--border)]">
       <div className="flex justify-between items-start">
@@ -461,7 +459,7 @@ function LiveFeedCard() {
   );
 }
 
-function NavBar({ isAuthenticated, onOpenConcierge }: { isAuthenticated: boolean; onOpenConcierge: () => void }) {
+function NavBar({ isAuthenticated }: { isAuthenticated: boolean }) {
   return (
     <nav className="border-b border-[var(--border)] bg-[var(--card)] sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -470,8 +468,6 @@ function NavBar({ isAuthenticated, onOpenConcierge }: { isAuthenticated: boolean
           <span className="font-bold text-lg text-[var(--slate-900)] tracking-tight">Nab a Table</span>
         </div>
         <div className="hidden md:flex items-center gap-4">
-          <Button variant="ghost" onClick={onOpenConcierge}>Concierge</Button>
-          <ButtonLink href="/restaurants" variant="ghost" aria-label="Browse venues">Venues</ButtonLink>
           <ButtonLink
             href={isAuthenticated ? '/guest/bookings' : '/auth/signin'}
             variant="secondary"
@@ -493,19 +489,56 @@ function NavBar({ isAuthenticated, onOpenConcierge }: { isAuthenticated: boolean
 function Hero({ onSearch }: { onSearch: () => void }) {
   return (
     <header className="pt-20 pb-16 px-6 bg-[var(--slate-50)] border-b border-[var(--border)]">
-      <div className="max-w-4xl mx-auto text-center space-y-8 mb-12">
+      <div className="max-w-4xl mx-auto text-center space-y-7 mb-12">
         <Badge tone="success">{HERO_BADGE}</Badge>
         <h1 className="heading-xl text-[var(--slate-900)]">
-          Dining, defined by <span className="text-[var(--brand-blue)]">seconds.</span>
+          Reserve your table in 30 seconds,<span className="text-[var(--brand-blue)]"> confirmed instantly.</span>
         </h1>
         <p className="text-body max-w-2xl mx-auto">
-          Search curated restaurants, see live openings, and secure your table with concierge-level speed. No apps to download, no &quot;request pending&quot; limbo.
+          Pick your time and party size, add a note, and you&apos;re locked in. No phone calls, no waiting on hold.
         </p>
+        <div className="flex items-center justify-center">
+          <ButtonLink href="/restaurants" size="lg" rightIcon={<Icon name="arrowRight" />} aria-label="Find a table now">
+            Find a table now
+          </ButtonLink>
+        </div>
+        <div className="space-y-3">
+          <p className="text-sm font-semibold text-[var(--slate-600)]">Trusted by 180,000 diners each month</p>
+          <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3">
+            {SOCIAL_PROOF_LOGOS.map((logo) => (
+              <div
+                key={logo}
+                className="flex items-center gap-2 px-3 py-2 rounded-full bg-[var(--card)] border border-[var(--border)] text-xs font-semibold text-[var(--slate-700)] shadow-sm"
+              >
+                <Icon name="logo" className="w-4 h-4 text-[var(--brand-blue)]" />
+                <span>{logo}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
       <div className="relative -mb-24 px-4">
         <SearchBar onSearch={onSearch} />
       </div>
     </header>
+  );
+}
+
+function ObjectionBand() {
+  return (
+    <section className="bg-[var(--card)] border-y border-[var(--border)] px-6 py-4">
+      <div className="max-w-5xl mx-auto flex flex-wrap items-center justify-center gap-3">
+        {OBJECTION_POINTS.map((point) => (
+          <div
+            key={point}
+            className="flex items-center gap-2 px-3 py-2 rounded-full bg-[var(--slate-100)] border border-[var(--border)] text-sm font-semibold text-[var(--slate-700)]"
+          >
+            <Icon name="check" className="w-4 h-4 text-[var(--brand-blue)]" />
+            <span>{point}</span>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -516,9 +549,9 @@ function BentoGridSection() {
         <div className="md:col-span-2">
           <div className="shadow-card rounded-xl p-8 bg-[var(--brand-blue)] text-white h-full relative overflow-hidden flex flex-col justify-between min-h-[300px]">
             <div className="relative z-10 space-y-4">
-              <Badge tone="neutral">Avg. Confirmation</Badge>
-              <div className="heading-xl text-white">2.4s</div>
-              <p className="text-blue-100 max-w-sm">From tap to confirmed ticket. Our direct integration means what you see is what you get.</p>
+              <Badge tone="neutral">Avg. confirmation</Badge>
+              <div className="heading-xl text-white">30s</div>
+              <p className="text-blue-100 max-w-sm">Most guests lock a table in under 30 seconds with instant codes and no phone tags.</p>
             </div>
             <Icon name="zap" className="absolute bottom-[-20px] right-[-20px] w-64 h-64 text-white opacity-10" />
           </div>
@@ -542,15 +575,15 @@ function BentoGridSection() {
         <div className="md:col-span-1 bg-[var(--slate-900)] text-white rounded-xl p-6 shadow-card flex flex-col justify-between">
           <div className="space-y-2">
             <Icon name="shield" className="w-8 h-8 text-[var(--brand-blue)]" />
-            <h3 className="text-lg font-bold">Trust on Display</h3>
-            <p className="text-sm text-[var(--slate-400)]">Availability mirrors what guests see post-booking.</p>
+            <h3 className="text-lg font-bold">Zero guesswork</h3>
+            <p className="text-sm text-[var(--slate-400)]">Availability and hold windows mirror what hosts see after you book.</p>
           </div>
           <Button
             variant="secondary"
             size="sm"
             className="w-full mt-4 bg-[var(--slate-800)] text-white border-[var(--slate-700)] hover:bg-[var(--slate-700)]"
           >
-            Learn more
+            Browse venues
           </Button>
         </div>
       </div>
@@ -570,22 +603,25 @@ function FeatureSection({ isAuthenticated }: { isAuthenticated: boolean }) {
           <div className="inline-block p-3 rounded-xl bg-[var(--white)] shadow-sm border border-[var(--border)]">
             <Icon name="calendar" className="w-6 h-6 text-[var(--brand-blue)]" />
           </div>
-          <h2 className="heading-lg text-[var(--slate-900)]">Receipts at the speed of light.</h2>
+          <h2 className="heading-lg text-[var(--slate-900)]">Everything you need to book without friction.</h2>
           <p className="text-body">
-            Your receipt is ready the moment you book. Calendar file, shareable link, and live status—accessible from email or My Bookings without re-learning the flow.
+            Live tables, instant codes, host-ready notes, and clear hold windows so you arrive confident.
           </p>
           <div className="space-y-3 pt-4">
-            {['Instant Calendar Sync', 'Secure Share Links', 'Live Status Updates'].map((item) => (
-              <div key={item} className="flex items-center gap-3">
-                <div className="w-5 h-5 rounded-full bg-[var(--brand-blue-subtle)] flex items-center justify-center text-[var(--brand-blue)]">
-                  <Icon name="check" className="w-3 h-3" />
+            {BENEFITS.map((item) => (
+              <div key={item.title} className="flex items-start gap-3">
+                <div className="w-5 h-5 rounded-full bg-[var(--brand-blue-subtle)] flex items-center justify-center text-[var(--brand-blue)] mt-0.5">
+                  <Icon name={item.icon} className="w-3 h-3" />
                 </div>
-                <span className="text-sm font-medium text-[var(--slate-700)]">{item}</span>
+                <div>
+                  <div className="text-sm font-semibold text-[var(--slate-700)]">{item.title}</div>
+                  <p className="text-sm text-[var(--slate-600)]">{item.description}</p>
+                </div>
               </div>
             ))}
           </div>
           <div className="flex flex-wrap gap-3">
-            <ButtonLink href={primaryCtaHref} rightIcon={<Icon name="arrowRight" />}>Find a Table</ButtonLink>
+            <ButtonLink href={primaryCtaHref} rightIcon={<Icon name="arrowRight" />}>Book tonight&apos;s table</ButtonLink>
             <ButtonLink href={secondaryHref} variant="secondary">{secondaryLabel}</ButtonLink>
           </div>
         </div>
@@ -607,15 +643,53 @@ function FeatureSection({ isAuthenticated }: { isAuthenticated: boolean }) {
             <div className="pt-4 grid grid-cols-2 gap-3">
               <div className="p-3 rounded-lg bg-[var(--slate-50)] border border-[var(--border)] text-center">
                 <Icon name="calendar" className="mx-auto mb-1 text-[var(--slate-400)]" />
-                <div className="text-xs font-bold text-[var(--slate-700)]">Add to Cal</div>
+                <div className="text-xs font-bold text-[var(--slate-700)]">Hold window: 15m</div>
               </div>
               <div className="p-3 rounded-lg bg-[var(--slate-50)] border border-[var(--border)] text-center">
                 <Icon name="user" className="mx-auto mb-1 text-[var(--slate-400)]" />
-                <div className="text-xs font-bold text-[var(--slate-700)]">Share</div>
+                <div className="text-xs font-bold text-[var(--slate-700)]">Notes sent to host</div>
               </div>
             </div>
           </div>
         </div>
+      </div>
+    </section>
+  );
+}
+
+function TestimonialSection() {
+  return (
+    <section className="py-20 bg-white px-6">
+      <div className="max-w-5xl mx-auto rounded-2xl border border-[var(--border)] shadow-card p-10 bg-[var(--card)]">
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 rounded-full bg-[var(--brand-blue-subtle)] text-[var(--brand-blue)] flex items-center justify-center font-bold text-lg" aria-hidden="true">
+            &quot;
+          </div>
+          <div className="space-y-3">
+            <p className="heading-md text-[var(--slate-900)] leading-snug">&quot;{TESTIMONIAL.quote}&quot;</p>
+            <p className="text-sm text-[var(--slate-600)] font-semibold">
+              {TESTIMONIAL.name} · {TESTIMONIAL.city}
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FinalCTASection() {
+  return (
+    <section className="py-16 bg-[var(--slate-900)] text-white px-6 border-t border-[var(--slate-800)]">
+      <div className="max-w-4xl mx-auto text-center space-y-5">
+        <p className="text-sm font-semibold text-[var(--slate-200)]">91% of guests are seated within 5 minutes of arrival.</p>
+        <h2 className="heading-lg text-white">Book tonight&apos;s table</h2>
+          <p className="text-base text-[var(--slate-300)] max-w-2xl mx-auto">
+            Instant confirmation, hold window included, and notes to the kitchen before you leave home.
+          </p>
+        <div className="flex items-center justify-center">
+          <ButtonLink href="/restaurants" size="lg" rightIcon={<Icon name="arrowRight" />}>Book tonight&apos;s table</ButtonLink>
+        </div>
+        <p className="text-sm text-[var(--slate-400)]">Takes 30 seconds.</p>
       </div>
     </section>
   );
@@ -662,7 +736,6 @@ function Footer() {
 
 export function FactoryHomeClient({ isAuthenticated }: { isAuthenticated: boolean }) {
   const [showToast, setShowToast] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
     if (!showToast) return undefined;
@@ -673,11 +746,14 @@ export function FactoryHomeClient({ isAuthenticated }: { isAuthenticated: boolea
   return (
     <div className="factory-page min-h-screen bg-[var(--background)] selection:bg-[var(--brand-blue-subtle)] selection:text-[var(--brand-blue)]" style={FACTORY_THEME}>
       <FactoryStyles />
-      <NavBar isAuthenticated={isAuthenticated} onOpenConcierge={() => setModalOpen(true)} />
+      <NavBar isAuthenticated={isAuthenticated} />
       <main>
         <Hero onSearch={() => setShowToast(true)} />
+        <ObjectionBand />
         <BentoGridSection />
+        <TestimonialSection />
         <FeatureSection isAuthenticated={isAuthenticated} />
+        <FinalCTASection />
       </main>
       <Footer />
 
@@ -686,16 +762,6 @@ export function FactoryHomeClient({ isAuthenticated }: { isAuthenticated: boolea
           <Toast tone="success" message="Search triggered" onDismiss={() => setShowToast(false)} />
         </div>
       )}
-
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Concierge">
-        <p className="text-sm text-[var(--slate-700)]">
-          Talk to a live concierge for group bookings, private dining, or special access. We respond in under 2 minutes during service hours.
-        </p>
-        <div className="mt-4 flex flex-col gap-2">
-          <Button variant="primary" leftIcon={<Icon name="zap" />}>Start live chat</Button>
-          <Button variant="secondary" leftIcon={<Icon name="calendar" />}>Schedule a callback</Button>
-        </div>
-      </Modal>
     </div>
   );
 }
