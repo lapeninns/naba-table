@@ -1,10 +1,13 @@
 import { ArrowRight, CalendarCheck, CheckCircle2, Clock3, Lock, MapPin, ShieldCheck, Sparkles, Timer, Wand2 } from "lucide-react";
 import Link from "next/link";
 
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+
+import LOCAL_VENUES from "./local-venues.json";
 
 const BOOKING_PATH = "/restaurants";
 const SIGN_IN_PATH = "/auth/signin";
@@ -34,17 +37,6 @@ const ASSURANCES = [
   { title: "Secure & accessible", copy: "Keyboard friendly, visible focus, secure share links.", icon: Lock },
   { title: "Reliable timing", copy: "92% seated on time during peak slots.", icon: Timer },
   { title: "Local expertise", copy: "Curated venues across the region—no filler results.", icon: MapPin },
-];
-
-const LOCAL_VENUES = [
-  "The Barley Mow Pub — Hartford, near Huntingdon, Cambridgeshire",
-  "The Queen Elizabeth Pub — King’s Lynn, Norfolk",
-  "Prince of Wales Pub — Bromham, near Bedford, Bedfordshire",
-  "White Horse Pub — Waterbeach, Cambridgeshire",
-  "The Corner House Pub — Cambridge, Cambridgeshire",
-  "Old Crown Pub — Girton, Cambridgeshire",
-  "The Bell — Sawtry, Cambridgeshire",
-  "The Railway Pub — Whittlesey, Cambridgeshire",
 ];
 
 const LIVE_FEED = LOCAL_VENUES.slice(0, 6).map((venue, idx) => {

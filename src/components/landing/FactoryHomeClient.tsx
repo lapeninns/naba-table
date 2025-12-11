@@ -1,7 +1,10 @@
+
 'use client';
 
 import Link from 'next/link';
 import React, { useEffect, useState, type CSSProperties } from 'react';
+
+import LOCAL_VENUES from './local-venues.json';
 
 const FACTORY_THEME = {
   '--brand-blue': '#2563EB',
@@ -44,11 +47,21 @@ const FACTORY_THEME = {
   '--shadow-float': '0 6px 16px rgba(0,0,0,0.08)',
 } as CSSProperties;
 
-const LIVE_FEED = [
-  { venue: 'The Barley Mow', time: '7:30 PM', party: '2 guests', status: 'Confirmed' },
-  { venue: 'Old Crown Pub', time: '8:00 PM', party: '4 guests', status: 'Pending' },
-  { venue: 'Prince of Wales', time: '6:45 PM', party: '2 guests', status: 'Confirmed' },
-];
+type LiveFeedStatus = 'Confirmed' | 'Pending' | 'Arriving' | 'Seated';
+
+type LiveFeedItem = {
+  venue: string;
+  time: string;
+  party: string;
+  status: LiveFeedStatus;
+};
+
+const LIVE_FEED_VENUES: string[] = LOCAL_VENUES;
+const LIVE_FEED_VISIBLE_COUNT = 2;
+const LIVE_FEED_STATUSES: LiveFeedStatus[] = ['Confirmed', 'Pending', 'Arriving', 'Seated'];
+const LIVE_FEED_SUCCESS_STATUSES: LiveFeedStatus[] = ['Confirmed', 'Arriving', 'Seated'];
+const LIVE_FEED_PARTY_SIZES = ['2 guests', '3 guests', '4 guests', '5 guests', '6 guests'];
+const TIME_OPTIONS = ['6:15 PM', '6:45 PM', '7:00 PM', '7:30 PM', '8:00 PM', '8:30 PM', '9:00 PM'];
 
 const METRICS = [
   { label: 'Guests seated within 5 minutes', value: '91%', detail: 'Arrival P95', icon: 'clock' as const },
@@ -64,27 +77,114 @@ const BENEFITS = [
   { title: 'Kitchen-ready notes', description: 'Share dietary notes and occasions with the host.', icon: 'user' as const },
   { title: 'Zero surprises', description: 'Upfront seating window and wait estimates.', icon: 'clock' as const },
 ];
-const TESTIMONIAL = {
-  quote: 'Booked date night in 45 seconds; skipped a 50-minute walk-in line.',
-  name: 'Amelia K.',
-  city: 'London',
-};
+
+const TESTIMONIALS = [
+  {
+    quote: 'Booked date night in 45 seconds; skipped a 50-minute walk-in line.',
+    name: 'Amelia K.',
+    city: 'London',
+  },
+  {
+    quote: 'Changed our booking on the train and the host saw it instantly.',
+    name: 'Marcus H.',
+    city: 'Cambridge',
+  },
+  {
+    quote: 'I booked for six friends without calling once—confirmation hit all our phones.',
+    name: 'Priya S.',
+    city: 'Norwich',
+  },
+  {
+    quote: 'The hold window and reminders meant we never worried about losing the table.',
+    name: 'Tom & Ella',
+    city: 'Ely',
+  },
+  {
+    quote: 'Notes about my allergy were already with the kitchen when we arrived.',
+    name: 'Sophie L.',
+    city: 'Peterborough',
+  },
+];
+
+const HOW_IT_WORKS_STEPS = [
+  {
+    title: 'Browse restaurants',
+    description: 'Search by cuisine, location, or occasion. See live availability instead of guesswork.',
+  },
+  {
+    title: 'Pick a time',
+    description: 'Choose the time that works best and see the hold window before you confirm.',
+  },
+  {
+    title: 'Confirm the details',
+    description: 'Add your party size, notes, and dietary needs so the host is ready for you.',
+  },
+  {
+    title: 'Arrive with confidence',
+    description: 'Show up and enjoy your meal—your confirmation and status stay in sync across devices.',
+  },
+];
+
+const FAQ_ITEMS = [
+  {
+    question: 'Is Nab a Table free for diners?',
+    answer:
+      'Yes. Creating an account and making reservations is free for guests; you only pay at the venue.',
+  },
+  {
+    question: 'How do I change or cancel a reservation?',
+    answer:
+      'Open My Bookings, choose your reservation, and use the change or cancel actions before the venue cutoff time.',
+  },
+  {
+    question: "What if I arrive late?",
+    answer:
+      'Your confirmation shows a clear hold window. If you are running late, contact the venue directly using the details in your email.',
+  },
+  {
+    question: 'Do I need an account?',
+    answer:
+      'We recommend signing in so your details and history stay in sync, but you can still manage a booking from your confirmation link.',
+  },
+  {
+    question: 'How are dietary notes handled?',
+    answer:
+      'Your dietary preferences are passed through to the host so the kitchen can prepare before you arrive.',
+  },
+];
 
 const NAV_LINKS = [
-  { href: '#hero', label: 'Product' },
+  { href: '#hero', label: 'Overview' },
   { href: '#metrics', label: 'Live data' },
+  { href: '#how-it-works', label: 'How it works' },
   { href: '#benefits', label: 'Benefits' },
   { href: '#testimonials', label: 'Reviews' },
-  { href: '#cta', label: 'Get started' },
+  { href: '#faq', label: 'FAQ' },
+  { href: '#cta', label: 'Book now' },
 ];
 
 const SECTION_IDS = NAV_LINKS.filter((link) => link.href.startsWith('#')).map((link) => link.href.slice(1));
 const MOBILE_MENU_ID = 'factory-home-mobile-menu';
 const SECTION_CONTAINER = 'guest-boundary w-full';
 const SECTION_SPACING = 'py-12 sm:py-16 lg:py-20';
+const SECTION_SCROLL_MARGIN = 'scroll-mt-28 lg:scroll-mt-32';
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(' ');
+}
+
+function createUpdatedLiveFeedItem(): LiveFeedItem {
+  const nextVenue = LIVE_FEED_VENUES[Math.floor(Math.random() * LIVE_FEED_VENUES.length)];
+  const nextTime = TIME_OPTIONS[Math.floor(Math.random() * TIME_OPTIONS.length)];
+  const nextParty = LIVE_FEED_PARTY_SIZES[Math.floor(Math.random() * LIVE_FEED_PARTY_SIZES.length)];
+  const nextStatus = LIVE_FEED_STATUSES[Math.floor(Math.random() * LIVE_FEED_STATUSES.length)];
+
+  return {
+    venue: nextVenue,
+    time: nextTime,
+    party: nextParty,
+    status: nextStatus,
+  };
 }
 
 function usePrefersReducedMotion() {
@@ -138,19 +238,19 @@ function FactoryStyles() {
       }
 
       .factory-page .heading-xl {
-        font-size: 3.5rem;
+        font-size: 2.25rem;
         font-weight: 800;
         letter-spacing: -0.02em;
         line-height: 1.1;
       }
       .factory-page .heading-lg {
-        font-size: 2.25rem;
+        font-size: 1.625rem;
         font-weight: 700;
         letter-spacing: -0.01em;
         line-height: 1.2;
       }
       .factory-page .heading-md {
-        font-size: 1.5rem;
+        font-size: 1.25rem;
         font-weight: 600;
         letter-spacing: -0.01em;
         line-height: 1.3;
@@ -221,6 +321,30 @@ function FactoryStyles() {
         padding: 1.5rem;
         z-index: 40;
         backdrop-filter: blur(6px);
+      }
+
+      @media (min-width: 640px) {
+        .factory-page .heading-xl {
+          font-size: 2.75rem;
+        }
+        .factory-page .heading-lg {
+          font-size: 1.875rem;
+        }
+        .factory-page .heading-md {
+          font-size: 1.375rem;
+        }
+      }
+
+      @media (min-width: 1024px) {
+        .factory-page .heading-xl {
+          font-size: 3.25rem;
+        }
+        .factory-page .heading-lg {
+          font-size: 2.25rem;
+        }
+        .factory-page .heading-md {
+          font-size: 1.5rem;
+        }
       }
 
       @media (prefers-reduced-motion: reduce) {
@@ -361,7 +485,7 @@ function Badge({ tone = 'neutral', children }: { tone?: 'neutral' | 'success' | 
 
 function MetricTile({ label, value, detail, icon }: { label: string; value: string; detail?: string; icon?: React.ReactElement }) {
   return (
-    <div className="shadow-card rounded-xl p-6 flex flex-col gap-4 bg-[var(--card)] h-full border border-[var(--border)]">
+    <div className="shadow-card rounded-xl p-6 flex flex-col gap-4 bg-[var(--card)] h-full border border-[var(--border)] transition-transform duration-300 will-change-transform hover:-translate-y-1">
       <div className="flex justify-between items-start">
         <div className="bg-[var(--slate-50)] p-2 rounded-full text-[var(--slate-900)]">{icon ? icon : <Icon name="chart" />}</div>
         {detail && <Badge tone="success">{detail}</Badge>}
@@ -375,14 +499,45 @@ function MetricTile({ label, value, detail, icon }: { label: string; value: stri
 }
 
 function LiveFeedCard({ reduceMotion = false }: { reduceMotion?: boolean }) {
+  const [slots, setSlots] = useState<LiveFeedItem[]>(() =>
+    Array.from({ length: LIVE_FEED_VISIBLE_COUNT }, () => createUpdatedLiveFeedItem()),
+  );
   const [activeSlot, setActiveSlot] = useState(0);
 
   useEffect(() => {
     if (reduceMotion) {
       setActiveSlot(0);
+      setSlots((current) => {
+        const normalized = current.slice(0, LIVE_FEED_VISIBLE_COUNT);
+
+        while (normalized.length < LIVE_FEED_VISIBLE_COUNT) {
+          normalized.push(createUpdatedLiveFeedItem());
+        }
+
+        return normalized;
+      });
       return;
     }
-    const interval = window.setInterval(() => setActiveSlot((p) => (p + 1) % LIVE_FEED.length), 3000);
+
+    const interval = window.setInterval(() => {
+      setActiveSlot((previousIndex) => {
+        const nextIndex = (previousIndex + 1) % LIVE_FEED_VISIBLE_COUNT;
+
+        setSlots((current) => {
+          const normalized = current.slice(0, LIVE_FEED_VISIBLE_COUNT);
+
+          while (normalized.length < LIVE_FEED_VISIBLE_COUNT) {
+            normalized.push(createUpdatedLiveFeedItem());
+          }
+
+          normalized[nextIndex] = createUpdatedLiveFeedItem();
+          return normalized;
+        });
+
+        return nextIndex;
+      });
+    }, 3000);
+
     return () => window.clearInterval(interval);
   }, [reduceMotion]);
 
@@ -396,16 +551,16 @@ function LiveFeedCard({ reduceMotion = false }: { reduceMotion?: boolean }) {
           </span>
           <span className="text-xs font-bold uppercase tracking-wider text-[var(--slate-500)]">Live Feed</span>
         </div>
-        <Badge tone="neutral">{LIVE_FEED.length} active</Badge>
+        <Badge tone="neutral">{slots.length} active</Badge>
       </div>
-      <div className="space-y-3 flex-1">
-        {LIVE_FEED.map((item, idx) => (
+      <div className="space-y-3 flex-1" aria-label="Live booking feed">
+        {slots.slice(0, LIVE_FEED_VISIBLE_COUNT).map((item, idx) => (
           <div
-            key={item.venue}
+            key={`${item.venue}-${idx}`}
             className={cx(
               'flex items-center justify-between p-3 rounded-lg transition-all duration-500',
               idx === activeSlot
-                ? 'bg-[var(--brand-blue-subtle)] border border-[var(--brand-blue)]/10 shadow-sm transform scale-[1.02]'
+                ? 'bg-[var(--brand-blue-subtle)] border border-[var(--brand-blue)]/10 shadow-sm'
                 : 'bg-[var(--slate-50)] border border-transparent opacity-60',
             )}
           >
@@ -415,7 +570,7 @@ function LiveFeedCard({ reduceMotion = false }: { reduceMotion?: boolean }) {
                 {item.time} · {item.party}
               </p>
             </div>
-            <Badge tone={item.status === 'Confirmed' ? 'success' : 'warning'}>{item.status}</Badge>
+            <Badge tone={LIVE_FEED_SUCCESS_STATUSES.includes(item.status) ? 'success' : 'warning'}>{item.status}</Badge>
           </div>
         ))}
       </div>
@@ -517,10 +672,10 @@ function NavBar({ isAuthenticated, reduceMotion }: { isAuthenticated: boolean; r
     return {
       isActive,
       className: cx(
-        'rounded-full px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card)]',
+        'rounded-full px-3 py-2 text-sm font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card)]',
         isActive
           ? 'bg-[var(--slate-900)] text-white shadow-sm'
-          : 'text-[var(--slate-600)] hover:text-[var(--slate-900)]',
+          : 'text-[var(--slate-600)] hover:text-[var(--slate-900)] hover:bg-[var(--slate-100)]',
       ),
     };
   };
@@ -628,14 +783,17 @@ function NavBar({ isAuthenticated, reduceMotion }: { isAuthenticated: boolean; r
 
 function Hero({ reduceMotion }: { reduceMotion: boolean }) {
   return (
-    <header id="hero" className="border-b border-[var(--border)] bg-[var(--slate-50)] pt-20">
+    <header
+      id="hero"
+      className={cx(SECTION_SPACING, SECTION_SCROLL_MARGIN, 'border-b border-[var(--border)] bg-[var(--slate-50)]')}
+    >
       <div
         className={cx(
           SECTION_CONTAINER,
-          'grid items-center gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]',
+          'grid items-center gap-8 sm:gap-10 lg:gap-12 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]',
         )}
       >
-        <div className="space-y-6 text-left">
+        <div className="space-y-6 sm:space-y-7 text-left fade-in slide-up">
           <Badge tone="success">{HERO_BADGE}</Badge>
           <div className="space-y-4">
             <h1 className="heading-xl text-[var(--slate-900)]">
@@ -654,7 +812,7 @@ function Hero({ reduceMotion }: { reduceMotion: boolean }) {
               Browse restaurants
             </ButtonLink>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-3 sm:space-y-4">
             <p className="text-sm font-semibold text-[var(--slate-600)]">Trusted by 180,000 diners this month</p>
             <div className="flex flex-wrap items-center gap-2 md:gap-3">
               {SOCIAL_PROOF_LOGOS.map((logo) => (
@@ -670,7 +828,7 @@ function Hero({ reduceMotion }: { reduceMotion: boolean }) {
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-4 fade-in slide-up">
           <LiveFeedCard reduceMotion={reduceMotion} />
           <div className="grid gap-4 sm:grid-cols-2">
             {METRICS.map((metric) => (
@@ -692,12 +850,12 @@ function Hero({ reduceMotion }: { reduceMotion: boolean }) {
 
 function ObjectionBand() {
   return (
-    <section className="border-y border-[var(--border)] bg-[var(--card)] py-5">
-      <div className={cx(SECTION_CONTAINER, 'flex flex-wrap items-center justify-center gap-2 sm:gap-3')}>
+    <section className="border-y border-[var(--border)] bg-[var(--card)] py-6 sm:py-8">
+      <div className={cx(SECTION_CONTAINER, 'flex flex-wrap items-center justify-center gap-2 sm:gap-3 md:gap-4')}>
         {OBJECTION_POINTS.map((point) => (
           <div
             key={point}
-            className="flex items-center gap-2 px-3 py-2 rounded-full bg-[var(--slate-100)] border border-[var(--border)] text-sm font-semibold text-[var(--slate-700)]"
+            className="flex items-center gap-2 px-3 py-2 rounded-full bg-[var(--slate-100)] border border-[var(--border)] text-sm font-semibold text-[var(--slate-700)] transition-transform duration-200 will-change-transform hover:-translate-y-0.5"
           >
             <Icon name="check" className="w-4 h-4 text-[var(--brand-blue)]" />
             <span>{point}</span>
@@ -710,9 +868,9 @@ function ObjectionBand() {
 
 function BentoGridSection() {
   return (
-    <section id="metrics" className={cx(SECTION_SPACING, 'bg-white')}>
+    <section id="metrics" className={cx(SECTION_SPACING, SECTION_SCROLL_MARGIN, 'bg-white')}>
       <div className={cx(SECTION_CONTAINER, 'grid gap-6 lg:grid-cols-12')}>
-        <div className="rounded-[32px] bg-[var(--brand-blue)] px-8 py-10 text-white shadow-card lg:col-span-7">
+        <div className="rounded-[32px] bg-[var(--brand-blue)] px-6 sm:px-8 py-8 sm:py-10 text-white shadow-card lg:col-span-7 fade-in slide-up">
           <div className="space-y-4">
             <Badge tone="neutral">Avg. confirmation</Badge>
             <div className="text-5xl font-extrabold tracking-tight">30s</div>
@@ -732,7 +890,7 @@ function BentoGridSection() {
           </div>
         </div>
 
-        <div className="rounded-[32px] border border-[var(--border)] bg-[var(--card)] p-6 shadow-card lg:col-span-5">
+        <div className="rounded-[32px] border border-[var(--border)] bg-[var(--card)] p-6 shadow-card lg:col-span-5 fade-in slide-up">
           <div className="space-y-3">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--slate-400)]">Playbook</p>
             <h3 className="text-2xl font-semibold text-[var(--slate-900)]">Kitchen-ready booking details</h3>
@@ -766,7 +924,7 @@ function BentoGridSection() {
           </div>
         ))}
 
-        <div className="rounded-[32px] bg-[var(--slate-900)] p-6 text-white shadow-card lg:col-span-4">
+        <div className="rounded-[32px] bg-[var(--slate-900)] p-6 text-white shadow-card lg:col-span-4 fade-in slide-up">
           <div className="space-y-2">
             <Icon name="shield" className="h-8 w-8 text-[var(--brand-blue)]" />
             <h3 className="text-lg font-bold">Zero guesswork</h3>
@@ -785,15 +943,51 @@ function BentoGridSection() {
   );
 }
 
+function HowItWorksSection() {
+  return (
+    <section
+      id="how-it-works"
+      className={cx(SECTION_SPACING, SECTION_SCROLL_MARGIN, 'bg-[var(--card)] border-y border-[var(--border)]')}
+    >
+      <div className={cx(SECTION_CONTAINER, 'space-y-8')}>
+        <div className="space-y-3 text-center md:text-left">
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--slate-400)]">How it works</p>
+          <h2 className="heading-lg text-[var(--slate-900)]">From search to seat in four clear steps.</h2>
+          <p className="text-body max-w-2xl text-[var(--slate-600)] mx-auto md:mx-0">
+            Start by finding a restaurant you love, choose a time that works, confirm the details, and we&apos;ll keep your
+            booking status in sync across email and the guest portal.
+          </p>
+        </div>
+        <ol className="grid gap-4 md:grid-cols-2">
+          {HOW_IT_WORKS_STEPS.map((step, index) => (
+            <li
+              key={step.title}
+              className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 flex items-start gap-3 shadow-card transition-transform duration-300 will-change-transform hover:-translate-y-1"
+            >
+              <div className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[var(--brand-blue-subtle)] text-xs font-semibold text-[var(--brand-blue)]">
+                {index + 1}
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-[var(--slate-900)]">{step.title}</p>
+                <p className="text-sm text-[var(--slate-600)]">{step.description}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+  );
+}
+
 function FeatureSection({ isAuthenticated }: { isAuthenticated: boolean }) {
   const primaryCtaHref = '/restaurants';
   const secondaryHref = isAuthenticated ? '/guest/bookings' : '/auth/signin';
   const secondaryLabel = isAuthenticated ? 'View My Bookings' : 'Sign In';
 
   return (
-    <section id="benefits" className={cx(SECTION_SPACING, 'border-y border-[var(--border)] bg-[var(--slate-50)]')}>
-      <div className={cx(SECTION_CONTAINER, 'grid items-center gap-12 md:gap-16 md:grid-cols-2')}>
-        <div className="space-y-6">
+    <section id="benefits" className={cx(SECTION_SPACING, SECTION_SCROLL_MARGIN, 'border-y border-[var(--border)] bg-[var(--slate-50)]')}>
+      <div className={cx(SECTION_CONTAINER, 'grid items-center gap-10 md:gap-16 md:grid-cols-2')}>
+        <div className="space-y-6 fade-in slide-up">
           <div className="inline-block p-3 rounded-xl bg-[var(--white)] shadow-sm border border-[var(--border)]">
             <Icon name="calendar" className="w-6 h-6 text-[var(--brand-blue)]" />
           </div>
@@ -820,9 +1014,9 @@ function FeatureSection({ isAuthenticated }: { isAuthenticated: boolean }) {
           </div>
         </div>
 
-        <div className="relative">
+        <div className="relative fade-in slide-up">
           <div className="absolute inset-0 bg-gradient-to-tr from-[var(--brand-blue-subtle)] to-transparent rounded-full filter blur-3xl opacity-50 transform translate-x-12 translate-y-12"></div>
-          <div className="bg-[var(--card)] rounded-2xl shadow-float border border-[var(--border)] p-6 relative z-10 space-y-4">
+          <div className="bg-[var(--card)] rounded-2xl shadow-float border border-[var(--border)] p-6 relative z-10 space-y-4 transition-transform duration-300 will-change-transform hover:-translate-y-1">
             <div className="flex justify-between items-center border-b border-[var(--border)] pb-4">
               <div>
                 <div className="text-xs font-bold text-[var(--slate-500)] uppercase">Confirmation</div>
@@ -851,21 +1045,78 @@ function FeatureSection({ isAuthenticated }: { isAuthenticated: boolean }) {
   );
 }
 
-function TestimonialSection() {
+function TestimonialSection({ reduceMotion }: { reduceMotion: boolean }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const totalCount = TESTIMONIALS.length;
+
+  useEffect(() => {
+    if (reduceMotion || totalCount <= 1) {
+      setActiveIndex(0);
+      return;
+    }
+
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setActiveIndex((prev) => (prev + 1) % totalCount);
+    }, 3500);
+
+    return () => window.clearInterval(interval);
+  }, [reduceMotion, totalCount]);
+
+  const visibleTestimonials = totalCount <= 2
+    ? TESTIMONIALS
+    : [
+        TESTIMONIALS[activeIndex],
+        TESTIMONIALS[(activeIndex + 1) % totalCount],
+      ];
+
   return (
-    <section id="testimonials" className={cx(SECTION_SPACING, 'bg-white')}>
+    <section id="testimonials" className={cx(SECTION_SPACING, SECTION_SCROLL_MARGIN, 'bg-white')}>
       <div className={cx(SECTION_CONTAINER, 'grid items-center gap-6 lg:grid-cols-[1.1fr_1fr]')}>
-        <div className="rounded-2xl border border-[var(--border)] shadow-card p-8 bg-[var(--card)] space-y-4">
+        <div className="rounded-2xl border border-[var(--border)] shadow-card p-8 bg-[var(--card)] space-y-4 fade-in slide-up">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-full bg-[var(--brand-blue-subtle)] text-[var(--brand-blue)] flex items-center justify-center font-bold text-lg" aria-hidden="true">
+            <div
+              className="w-10 h-10 rounded-full bg-[var(--brand-blue-subtle)] text-[var(--brand-blue)] flex items-center justify-center font-bold text-lg"
+              aria-hidden="true"
+            >
               &quot;
             </div>
             <div className="space-y-3">
-              <p className="heading-md text-[var(--slate-900)] leading-snug">&quot;{TESTIMONIAL.quote}&quot;</p>
-              <p className="text-sm text-[var(--slate-600)] font-semibold">
-                {TESTIMONIAL.name} · {TESTIMONIAL.city}
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--slate-400)]">Guest reviews</p>
+              <p className="text-sm text-[var(--slate-600)]">
+                See how other diners use Nab a Table to book without calling.
               </p>
             </div>
+          </div>
+          <div className="mt-4 space-y-3" aria-label="Guest reviews">
+            {visibleTestimonials.map((testimonial, index) => {
+              const isActive = testimonial === TESTIMONIALS[activeIndex];
+              return (
+                <figure
+                  key={`${testimonial.name}-${testimonial.city}-${testimonial.quote.slice(0, 12)}`}
+                  data-testimonial-index={index}
+                  className={cx(
+                    'space-y-2 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 transition-all duration-300',
+                    isActive
+                      ? 'bg-[var(--brand-blue-subtle)] border-[var(--brand-blue)]/40 shadow-sm'
+                      : 'opacity-70',
+                  )}
+                >
+                  <blockquote>
+                    <p className="text-sm text-[var(--slate-900)] leading-relaxed">&quot;{testimonial.quote}&quot;</p>
+                  </blockquote>
+                  <figcaption className="text-sm font-semibold text-[var(--slate-700)]">
+                    {testimonial.name}
+                    {testimonial.city && (
+                      <span className="text-[var(--slate-500)]">&nbsp;· {testimonial.city}</span>
+                    )}
+                  </figcaption>
+                </figure>
+              );
+            })}
           </div>
         </div>
         <div className="rounded-2xl border border-[var(--border)] shadow-card p-6 bg-[var(--slate-50)] grid gap-4 sm:grid-cols-2">
@@ -882,11 +1133,43 @@ function TestimonialSection() {
   );
 }
 
+function FAQSection() {
+  return (
+    <section id="faq" className={cx(SECTION_SPACING, SECTION_SCROLL_MARGIN, 'bg-[var(--card)] border-t border-[var(--border)]')}>
+      <div className={cx(SECTION_CONTAINER, 'space-y-6')}>
+        <div className="space-y-3 text-center md:text-left">
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--slate-400)]">FAQ</p>
+          <h2 className="heading-lg text-[var(--slate-900)]">Common questions from diners</h2>
+          <p className="text-body max-w-2xl text-[var(--slate-600)] mx-auto md:mx-0">
+            A quick overview of how bookings, changes, and dietary notes work so you know what to expect.
+          </p>
+        </div>
+        <div className="space-y-3">
+          {FAQ_ITEMS.map((item) => (
+            <details
+              key={item.question}
+              className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-card transition-colors duration-200"
+            >
+              <summary className="cursor-pointer text-sm font-semibold text-[var(--slate-900)] list-none flex items-center justify-between gap-2">
+                <span>{item.question}</span>
+                <span aria-hidden className="text-[var(--slate-400)] text-xs font-medium">
+                  ▾
+                </span>
+              </summary>
+              <p className="mt-3 text-sm text-[var(--slate-600)]">{item.answer}</p>
+            </details>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function FinalCTASection() {
   return (
-    <section id="cta" className={cx(SECTION_SPACING, 'bg-[var(--brand-blue)] text-white')}>
+    <section id="cta" className={cx(SECTION_SPACING, SECTION_SCROLL_MARGIN, 'bg-[var(--brand-blue)] text-white')}>
       <div className="guest-boundary">
-        <div className="mx-auto w-full max-w-4xl space-y-5 text-center">
+        <div className="mx-auto w-full max-w-4xl space-y-5 text-center fade-in slide-up">
           <p className="text-sm font-semibold text-blue-100">91% of guests are seated within 5 minutes of arrival.</p>
           <h2 className="heading-lg text-white">Book tonight&apos;s table</h2>
           <p className="mx-auto max-w-2xl text-base text-blue-50">
@@ -905,8 +1188,8 @@ function FinalCTASection() {
 
 function Footer() {
   return (
-    <footer className="bg-[var(--card)] pt-20 pb-10 border-t border-[var(--border)]">
-      <div className="guest-boundary grid gap-12 md:grid-cols-4 mb-16">
+    <footer className={cx(SECTION_SPACING, 'bg-[var(--card)] border-t border-[var(--border)]')}>
+      <div className="guest-boundary grid gap-12 lg:gap-16 md:grid-cols-4">
         <div className="space-y-4">
           <div className="w-8 h-8 bg-[var(--slate-900)] rounded-lg flex items-center justify-center text-white font-bold text-lg">N</div>
           <p className="text-sm text-[var(--slate-500)]">Premium dining, confirmed in seconds.</p>
@@ -914,17 +1197,17 @@ function Footer() {
         <div>
           <h4 className="font-bold text-[var(--slate-900)] mb-4">Platform</h4>
           <ul className="space-y-2 text-sm text-[var(--slate-600)]">
-            <li><Link href="/restaurants">Find a Table</Link></li>
-            <li><Link href="/restaurants">For Restaurants</Link></li>
-            <li><Link href="/auth/signin">Sign In</Link></li>
+            <li><Link href="/restaurants" className="transition-colors duration-150 hover:text-[var(--slate-900)]">Find a Table</Link></li>
+            <li><Link href="/restaurants" className="transition-colors duration-150 hover:text-[var(--slate-900)]">For Restaurants</Link></li>
+            <li><Link href="/auth/signin" className="transition-colors duration-150 hover:text-[var(--slate-900)]">Sign In</Link></li>
           </ul>
         </div>
         <div>
           <h4 className="font-bold text-[var(--slate-900)] mb-4">Support</h4>
           <ul className="space-y-2 text-sm text-[var(--slate-600)]">
-            <li><Link href="/support">Help Center</Link></li>
-            <li><Link href="/terms">Terms of Service</Link></li>
-            <li><Link href="/privacy">Privacy Policy</Link></li>
+            <li><Link href="/support" className="transition-colors duration-150 hover:text-[var(--slate-900)]">Help Center</Link></li>
+            <li><Link href="/terms" className="transition-colors duration-150 hover:text-[var(--slate-900)]">Terms of Service</Link></li>
+            <li><Link href="/privacy" className="transition-colors duration-150 hover:text-[var(--slate-900)]">Privacy Policy</Link></li>
           </ul>
         </div>
         <div>
@@ -935,7 +1218,7 @@ function Footer() {
           </div>
         </div>
       </div>
-      <div className="guest-boundary border-t border-[var(--border)] pt-8 text-center text-xs text-[var(--slate-400)]">
+      <div className="guest-boundary mt-12 border-t border-[var(--border)] pt-6 text-center text-xs text-[var(--slate-400)]">
         © 2024 Nab a Table. Built with Factory Design System.
       </div>
     </footer>
@@ -957,8 +1240,10 @@ export function FactoryHomeClient({ isAuthenticated }: { isAuthenticated: boolea
         <Hero reduceMotion={prefersReducedMotion} />
         <ObjectionBand />
         <BentoGridSection />
-        <TestimonialSection />
+        <HowItWorksSection />
         <FeatureSection isAuthenticated={isAuthenticated} />
+        <TestimonialSection reduceMotion={prefersReducedMotion} />
+        <FAQSection />
         <FinalCTASection />
       </main>
       <Footer />

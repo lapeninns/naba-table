@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 
+import { FactoryHomeClient } from '@/components/landing/FactoryHomeClient';
 import { MarketingLayout } from '@/components/layouts/MarketingLayout';
-import { GuestLandingPage } from '@/components/marketing';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
 
 import type { Metadata } from 'next';
@@ -33,8 +33,8 @@ export default async function Home() {
   }
 
   return (
-    <MarketingLayout>
-      <GuestLandingPage />
+    <MarketingLayout showNavbar={false} showFooter={false}>
+      <FactoryHomeClient isAuthenticated={isAuthenticated} />
     </MarketingLayout>
   );
 }
