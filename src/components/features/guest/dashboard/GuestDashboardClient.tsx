@@ -84,7 +84,7 @@ export function GuestDashboardClient() {
     <div className="min-h-screen bg-surface pb-20">
       {/* Hero */}
       <section className="border-b border-slate-100 bg-gradient-to-r from-blue-50 to-white">
-        <div className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-12 sm:px-8">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 py-10 sm:py-12">
           <div className="space-y-3">
             <p className="text-xs uppercase tracking-[0.2em] text-subtle">Guest dashboard</p>
             <h1 className="heading-lg md:heading-xl text-slate-900">
@@ -108,7 +108,7 @@ export function GuestDashboardClient() {
       </section>
 
       {/* Main content */}
-      <div className="mx-auto grid max-w-6xl gap-8 px-6 py-10 sm:px-8 lg:grid-cols-[1.6fr_1fr]">
+      <div className="mx-auto grid w-full max-w-6xl gap-8 py-8 sm:py-10 lg:grid-cols-[1.6fr_1fr]">
         <div className="space-y-8">
           {/* Next booking / empty state */}
           <section className="space-y-4">

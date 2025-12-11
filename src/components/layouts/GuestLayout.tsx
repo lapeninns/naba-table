@@ -11,7 +11,7 @@ export function GuestLayout({ children }: { children: React.ReactNode }) {
         <div className="relative z-10 flex min-h-screen flex-col bg-surface">
           <GuestNavbar />
           <main id="main-content" className="flex-1 py-8 md:py-12">
-            <div className="container-default w-full px-4 sm:px-6 lg:px-8">
+            <div className="guest-boundary">
               {children}
             </div>
           </main>

@@ -22,8 +22,8 @@ const toneClasses: Record<StatusTone, { badge: string; text: string }> = {
 
 export function BookingDetailShell({ children }: { children: ReactNode }) {
   return (
-    <section className="guest-theme min-h-[calc(100vh-80px)] bg-slate-50/50 px-4 py-6 sm:py-8 md:px-6 lg:px-8">
-      <div className="mx-auto max-w-5xl space-y-6 sm:space-y-8">{children}</div>
+    <section className="guest-theme min-h-[calc(100vh-80px)] bg-slate-50/50 py-6 sm:py-8">
+      <div className="mx-auto w-full max-w-5xl space-y-6 sm:space-y-8">{children}</div>
     </section>
   );
 }

@@ -1,7 +1,7 @@
 import { ImplicitAuthHandler } from "@/components/auth/ImplicitAuthHandler";
+import { AuthNavbar } from "@/components/layouts/AuthNavbar";
 import { Footer } from "@/components/layouts/Footer";
 import { GuestBackground } from "@/components/layouts/GuestBackground";
-import { GuestNavbar } from "@/components/layouts/GuestNavbar";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 
 export function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -10,10 +10,12 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
       <div className="guest-theme relative min-h-screen bg-muted text-foreground">
         <GuestBackground />
         <div className="relative z-10 flex min-h-screen flex-col bg-surface">
-          <GuestNavbar />
+          <AuthNavbar />
           <ImplicitAuthHandler defaultRedirect="/guest/dashboard" />
-          <main id="main-content" className="flex-1 flex items-center justify-center px-4 py-12">
-            {children}
+          <main id="main-content" className="flex flex-1 items-center justify-center py-10 sm:py-12">
+            <div className="guest-boundary flex w-full justify-center">
+              {children}
+            </div>
           </main>
           <Footer variant="auth" />
         </div>

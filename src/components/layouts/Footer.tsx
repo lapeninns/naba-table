@@ -12,7 +12,7 @@ export function Footer({ variant: _variant = "marketing" }: { variant?: FooterVa
 
   return (
     <footer className="border-t border-slate-200 bg-white/90 text-slate-700">
-      <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <div className="guest-boundary flex flex-col gap-3 py-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
           <p className="text-sm font-semibold text-slate-900">Nab a Table</p>
           <p className="text-xs text-slate-500">Live availability • Instant confirmation • Calendar-ready receipts</p>

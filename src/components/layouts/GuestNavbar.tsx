@@ -17,7 +17,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetClose, SheetContent, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useProfile } from "@/hooks/useProfile";
 import { useSupabaseSession } from "@/hooks/useSupabaseSession";
@@ -242,9 +242,16 @@ function MobileMenu({
     [pathname],
   );
 
-  const sessionActions = isAuthenticated
-    ? [...ACCOUNT_LINKS, { href: "#sign-out", label: "Sign out" }]
-    : [{ href: "/auth/signin", label: "Sign in" }];
+  const navSections: { title: string; links: AccountLink[] } = [
+    { title: "Explore", links: [{ ...PRIMARY_LINK }] },
+  ];
+
+  if (isAuthenticated) {
+    const accountNavLinks = ACCOUNT_LINKS.filter((link) => link.href !== "/guest/profile");
+    if (accountNavLinks.length > 0) {
+      navSections.push({ title: "Account", links: accountNavLinks });
+    }
+  }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -263,76 +270,99 @@ function MobileMenu({
         side="right"
         id="guest-navigation-drawer"
         aria-label="Guest navigation"
-        className="flex flex-col gap-8 px-6 py-8"
+        className="flex h-full flex-col gap-6 px-6 pb-6 pt-12 sm:px-8"
       >
         <SheetHeader className="sr-only">
           <SheetTitle>Guest navigation</SheetTitle>
         </SheetHeader>
+        <div className="rounded-3xl border border-border/60 bg-background/90 p-4 shadow-sm">
+          <div className="flex flex-col gap-1 pr-10">
+            <BrandMark tone={tone} />
+          </div>
 
-        <div className="flex items-center justify-between gap-3">
-          <BrandMark tone={tone} />
-          <span className="text-sm font-semibold text-muted-foreground">Menu</span>
+          {isAuthenticated && account ? (
+            <div className="mt-6 flex flex-col gap-4 rounded-2xl border border-border/60 bg-muted/50 p-4">
+              <div className="flex items-center gap-4">
+                <Avatar className="h-12 w-12 border border-border/70 bg-background">
+                  {account.avatarUrl ? <AvatarImage src={account.avatarUrl} alt={account.displayName} /> : null}
+                  <AvatarFallback aria-hidden>{account.fallback}</AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold text-foreground">{account.displayName}</span>
+                  {account.email ? (
+                    <span className="text-sm text-muted-foreground break-all leading-snug">{account.email}</span>
+                  ) : null}
+                </div>
+              </div>
+              <SheetClose asChild>
+                <Link
+                  href="/guest/profile"
+                  className="inline-flex items-center justify-center rounded-full border border-border/80 px-4 py-2 text-sm font-medium text-foreground transition hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                >
+                  Manage profile
+                </Link>
+              </SheetClose>
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-muted-foreground">Sign in to sync bookings, dietary notes, and saved occasions.</p>
+          )}
         </div>
 
-        {isAuthenticated && account ? (
-          <div className="flex items-center gap-4 rounded-xl border border-border/60 bg-muted/40 px-4 py-4">
-            <Avatar className="h-12 w-12">
-              {account.avatarUrl ? <AvatarImage src={account.avatarUrl} alt={account.displayName} /> : null}
-              <AvatarFallback aria-hidden>{account.fallback}</AvatarFallback>
-            </Avatar>
-            <div className="flex flex-col">
-              <span className="text-sm font-medium text-foreground">{account.displayName}</span>
-              {account.email ? <span className="text-sm text-muted-foreground">{account.email}</span> : null}
-            </div>
-          </div>
-        ) : null}
+        <div className="flex flex-1 flex-col gap-6 overflow-y-auto">
+          {navSections.map((section) => (
+            <section key={section.title} className="flex flex-col gap-3" aria-label={section.title}>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">{section.title}</p>
+              <div className="flex flex-col gap-2">
+                {section.links.map((link) => (
+                  <SheetClose asChild key={link.href}>
+                    <Link
+                      href={link.href}
+                      className={cn(
+                        "flex items-center gap-3 rounded-2xl border border-border/60 px-4 py-3 text-base font-semibold text-foreground transition",
+                        "hover:border-primary/50 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                        isActive(link.href) ? "border-primary/50 bg-primary/5 text-primary" : undefined,
+                      )}
+                    >
+                      {link.icon ? <link.icon className="h-4 w-4 text-muted-foreground" aria-hidden /> : null}
+                      <span>{link.label}</span>
+                    </Link>
+                  </SheetClose>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
 
-        <section className="flex flex-col gap-3" aria-label="Explore">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Explore</p>
-          <nav className="flex flex-col gap-2" aria-label="Primary navigation">
+        <SheetFooter className="mt-auto flex w-full flex-col gap-3 border-t border-border/50 pt-4">
+          {isAuthenticated ? (
+            <button
+              type="button"
+              className={cn(
+                buttonVariants({ variant: "outline", size: "default" }),
+                "w-full justify-center gap-2 rounded-2xl text-base font-semibold touch-manipulation",
+              )}
+              onClick={() => {
+                void onSignOut();
+              }}
+              disabled={isSigningOut}
+            >
+              <LogOut className="h-4 w-4" aria-hidden />
+              {isSigningOut ? "Signing out…" : "Sign out"}
+            </button>
+          ) : (
             <SheetClose asChild>
               <Link
-                href={PRIMARY_LINK.href}
+                href="/auth/signin"
                 className={cn(
-                  "rounded-xl px-3.5 py-2.5 text-base font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                  isActive(PRIMARY_LINK.href) ? "bg-primary/10 text-primary shadow-inner" : "text-foreground hover:bg-muted",
+                  buttonVariants({ variant: "default", size: "default" }),
+                  "w-full justify-center rounded-2xl text-base font-semibold",
                 )}
               >
-                {PRIMARY_LINK.label}
+                Sign in
               </Link>
             </SheetClose>
-          </nav>
-        </section>
-
-        <section className="flex flex-col gap-3" aria-label="Account">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Account</p>
-          <div className="flex flex-col gap-2">
-            {sessionActions.map((action) => (
-              action.href === "#sign-out" ? (
-                <button
-                  key={action.label}
-                  type="button"
-                  className={cn(buttonVariants({ variant: "outline", size: "default" }), "justify-center touch-manipulation")}
-                  onClick={() => {
-                    void onSignOut();
-                  }}
-                  disabled={isSigningOut}
-                >
-                  {isSigningOut ? "Signing out…" : action.label}
-                </button>
-              ) : (
-                <SheetClose asChild key={action.href}>
-                  <Link
-                    href={action.href}
-                    className="rounded-xl px-3.5 py-2.5 text-base font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                  >
-                    {action.label}
-                  </Link>
-                </SheetClose>
-              )
-            ))}
-          </div>
-        </section>
+          )}
+        </SheetFooter>
       </SheetContent>
     </Sheet>
   );
@@ -409,8 +439,8 @@ export function GuestNavbar({ tone = "light", isSticky = true }: GuestNavbarProp
         Skip to content
       </a>
 
-      <div className="container-default w-full px-4 md:px-6">
-        <div className="flex items-center justify-between gap-3 py-3 md:py-4">
+      <div className="guest-boundary w-full py-3 md:py-4">
+        <div className="flex items-center justify-between gap-3">
           <BrandMark tone={tone} />
 
           <div className="hidden flex-1 items-center justify-end gap-4 md:flex">

@@ -947,23 +947,35 @@
   }
 
   /* Page Container - consistent max-width and padding */
+  .guest-boundary,
   .guest-page {
     /* Fluid default, replaces rigid 72rem */
     max-width: min(70rem, 100vw - 2rem);
     margin-inline: auto;
     padding-inline: var(--guest-section-padding-x);
+    padding-inline-start: calc(var(--guest-section-padding-x) + env(safe-area-inset-left, 0px));
+    padding-inline-end: calc(var(--guest-section-padding-x) + env(safe-area-inset-right, 0px));
+  }
+
+  .guest-page {
     padding-block: var(--guest-section-gap);
   }
 
   @media (min-width: 640px) {
+    .guest-boundary,
     .guest-page {
       padding-inline: var(--guest-space-xl);
+      padding-inline-start: calc(var(--guest-space-xl) + env(safe-area-inset-left, 0px));
+      padding-inline-end: calc(var(--guest-space-xl) + env(safe-area-inset-right, 0px));
     }
   }
 
   @media (min-width: 1024px) {
+    .guest-boundary,
     .guest-page {
       padding-inline: var(--guest-space-2xl);
+      padding-inline-start: calc(var(--guest-space-2xl) + env(safe-area-inset-left, 0px));
+      padding-inline-end: calc(var(--guest-space-2xl) + env(safe-area-inset-right, 0px));
     }
   }
 
