@@ -1,3 +1,5 @@
+import { redirect } from 'next/navigation';
+
 import { FactoryHomeClient } from '@/components/landing/FactoryHomeClient';
 import { MarketingLayout } from '@/components/layouts/MarketingLayout';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
@@ -25,6 +27,10 @@ export default async function Home() {
     data: { user },
   } = await supabase.auth.getUser();
   const isAuthenticated = Boolean(user);
+
+  if (isAuthenticated) {
+    redirect('/guest/dashboard');
+  }
 
   return (
     <MarketingLayout showNavbar={false} showFooter={false}>

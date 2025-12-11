@@ -37,14 +37,14 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
     return (
         <div className="min-h-screen pb-32 space-y-12">
             {/* Header */}
-            <div className="relative bg-gradient-to-b from-white to-slate-50 pt-16 pb-12 px-6 md:px-12 border-b border-slate-100">
-                <div className="max-w-4xl mx-auto space-y-4 text-center md:text-left animate-fade-up">
+            <div className="relative bg-gradient-to-b from-white to-slate-50 pt-16 pb-12 border-b border-slate-100">
+                <div className="mx-auto w-full max-w-4xl space-y-4 text-center md:text-left animate-fade-up">
                     <HeadingXL>Your Profile</HeadingXL>
                     <TextBody>Manage your personal information, preferences, and security settings.</TextBody>
                 </div>
             </div>
 
-            <div className="max-w-4xl mx-auto px-6 md:px-12 space-y-12">
+            <div className="mx-auto w-full max-w-4xl space-y-12">
 
                 {/* Stats Overview */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fade-up" style={{ animationDelay: '100ms' }}>

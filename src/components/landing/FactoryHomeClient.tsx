@@ -70,8 +70,44 @@ const TESTIMONIAL = {
   city: 'London',
 };
 
+const NAV_LINKS = [
+  { href: '#hero', label: 'Product' },
+  { href: '#metrics', label: 'Live data' },
+  { href: '#benefits', label: 'Benefits' },
+  { href: '#testimonials', label: 'Reviews' },
+  { href: '#cta', label: 'Get started' },
+];
+
+const SECTION_IDS = NAV_LINKS.filter((link) => link.href.startsWith('#')).map((link) => link.href.slice(1));
+const MOBILE_MENU_ID = 'factory-home-mobile-menu';
+const SECTION_CONTAINER = 'guest-boundary w-full';
+const SECTION_SPACING = 'py-12 sm:py-16 lg:py-20';
+
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(' ');
+}
+
+function usePrefersReducedMotion() {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return;
+    }
+    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setPrefersReducedMotion(query.matches);
+
+    const listener = (event: MediaQueryListEvent) => {
+      setPrefersReducedMotion(event.matches);
+    };
+
+    query.addEventListener('change', listener);
+    return () => {
+      query.removeEventListener('change', listener);
+    };
+  }, []);
+
+  return prefersReducedMotion;
 }
 
 function FactoryStyles() {
@@ -323,82 +359,6 @@ function Badge({ tone = 'neutral', children }: { tone?: 'neutral' | 'success' | 
   return <span className={cx('inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold', tones[tone])}>{children}</span>;
 }
 
-function Toast({ tone = 'neutral', message, onDismiss }: { tone?: 'neutral' | 'success'; message: string; onDismiss: () => void }) {
-  const tones: Record<string, string> = {
-    neutral: 'bg-[var(--card)] border border-[var(--border)] text-[var(--slate-900)]',
-    success: 'bg-[var(--slate-900)] text-white border-transparent',
-  };
-  return (
-    <div className={cx('rounded-xl p-4 shadow-float min-w-[320px] flex items-center justify-between slide-up', tones[tone])}>
-      <span className="text-sm font-medium px-2" role="status" aria-live="polite">{message}</span>
-      <button onClick={onDismiss} className="opacity-70 hover:opacity-100" aria-label="Dismiss">
-        <Icon name="close" className="w-4 h-4" />
-      </button>
-    </div>
-  );
-}
-
-function SearchBar({ onSearch }: { onSearch: () => void }) {
-  return (
-    <div className="search-pill-container bg-[var(--card)] rounded-full flex flex-col md:flex-row items-center p-2 max-w-4xl mx-auto relative z-20">
-      <div className="search-pill-section w-full md:flex-1 px-6 py-2 cursor-pointer relative group border-b md:border-b-0 border-[var(--slate-100)]">
-        <label htmlFor="search-location" className="block text-xs font-bold text-[var(--slate-900)] mb-0.5">Where</label>
-        <input
-          id="search-location"
-          name="location"
-          type="text"
-          placeholder="Search destinations"
-          className="w-full bg-transparent border-none p-0 text-sm text-[var(--slate-600)] placeholder:text-[var(--slate-400)] focus:ring-0 focus:outline-none"
-        />
-        <div className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 h-8 w-[1px] bg-[var(--slate-200)] group-hover:hidden"></div>
-      </div>
-      <div className="search-pill-section w-full md:flex-1 px-6 py-2 cursor-pointer relative group border-b md:border-b-0 border-[var(--slate-100)]">
-        <label htmlFor="search-date" className="block text-xs font-bold text-[var(--slate-900)] mb-0.5">Date</label>
-        <input
-          id="search-date"
-          name="date"
-          type="text"
-          placeholder="Add dates"
-          className="w-full bg-transparent border-none p-0 text-sm text-[var(--slate-600)] placeholder:text-[var(--slate-400)] focus:ring-0 focus:outline-none"
-        />
-        <div className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 h-8 w-[1px] bg-[var(--slate-200)] group-hover:hidden"></div>
-      </div>
-      <div className="search-pill-section w-full md:flex-1 px-6 py-2 cursor-pointer relative group border-b md:border-b-0 border-[var(--slate-100)]">
-        <label htmlFor="search-time" className="block text-xs font-bold text-[var(--slate-900)] mb-0.5">Time</label>
-        <input
-          id="search-time"
-          name="time"
-          type="text"
-          placeholder="Add time"
-          className="w-full bg-transparent border-none p-0 text-sm text-[var(--slate-600)] placeholder:text-[var(--slate-400)] focus:ring-0 focus:outline-none"
-        />
-        <div className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 h-8 w-[1px] bg-[var(--slate-200)] group-hover:hidden"></div>
-      </div>
-      <div className="search-pill-section w-full md:flex-1 px-6 py-2 cursor-pointer relative group">
-        <label htmlFor="search-guests" className="block text-xs font-bold text-[var(--slate-900)] mb-0.5">Who</label>
-        <input
-          id="search-guests"
-          name="guests"
-          type="text"
-          placeholder="Add guests"
-          className="w-full bg-transparent border-none p-0 text-sm text-[var(--slate-600)] placeholder:text-[var(--slate-400)] focus:ring-0 focus:outline-none"
-        />
-      </div>
-      <div className="p-2 w-full md:w-auto">
-        <button
-          type="button"
-          onClick={onSearch}
-          className="bg-[var(--brand-blue)] hover:bg-[var(--brand-blue-hover)] text-white p-4 rounded-full transition-all shadow-md hover:scale-105 flex items-center justify-center gap-2 w-full md:w-auto"
-          aria-label="Search"
-        >
-          <Icon name="search" className="w-5 h-5 font-bold" />
-          <span className="font-semibold pr-1 inline md:hidden lg:inline">Search</span>
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function MetricTile({ label, value, detail, icon }: { label: string; value: string; detail?: string; icon?: React.ReactElement }) {
   return (
     <div className="shadow-card rounded-xl p-6 flex flex-col gap-4 bg-[var(--card)] h-full border border-[var(--border)]">
@@ -414,13 +374,17 @@ function MetricTile({ label, value, detail, icon }: { label: string; value: stri
   );
 }
 
-function LiveFeedCard() {
+function LiveFeedCard({ reduceMotion = false }: { reduceMotion?: boolean }) {
   const [activeSlot, setActiveSlot] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => setActiveSlot((p) => (p + 1) % LIVE_FEED.length), 3000);
-    return () => clearInterval(interval);
-  }, []);
+    if (reduceMotion) {
+      setActiveSlot(0);
+      return;
+    }
+    const interval = window.setInterval(() => setActiveSlot((p) => (p + 1) % LIVE_FEED.length), 3000);
+    return () => window.clearInterval(interval);
+  }, [reduceMotion]);
 
   return (
     <div className="bg-[var(--card)] rounded-xl border border-[var(--border)] shadow-card p-6 h-full flex flex-col">
@@ -459,66 +423,268 @@ function LiveFeedCard() {
   );
 }
 
-function NavBar({ isAuthenticated }: { isAuthenticated: boolean }) {
+function NavBar({ isAuthenticated, reduceMotion }: { isAuthenticated: boolean; reduceMotion: boolean }) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState<string | null>(SECTION_IDS[0] ?? null);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMobileOpen(false);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [mobileOpen]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    if (typeof document === 'undefined') return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [mobileOpen]);
+
+  useEffect(() => {
+    if (reduceMotion) {
+      setActiveSection(SECTION_IDS[0] ?? null);
+      return;
+    }
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    let rafId: number | null = null;
+    let ticking = false;
+
+    const resolveSections = () =>
+      SECTION_IDS.map((id) => document.getElementById(id)).filter(
+        (el): el is HTMLElement => Boolean(el),
+      );
+
+    const updateActive = () => {
+      ticking = false;
+      if (rafId) {
+        window.cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+
+      const sections = resolveSections();
+      if (sections.length === 0) {
+        return;
+      }
+
+      const viewportThreshold = window.scrollY + window.innerHeight * 0.35;
+      let current = sections[0]?.id ?? null;
+      sections.forEach((section) => {
+        if (section.offsetTop <= viewportThreshold) {
+          current = section.id;
+        }
+      });
+      setActiveSection(current);
+    };
+
+    const handleScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      rafId = window.requestAnimationFrame(updateActive);
+    };
+
+    updateActive();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', handleScroll);
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
+      if (rafId) {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
+  }, [reduceMotion]);
+
+  const authCtaHref = isAuthenticated ? '/guest/bookings' : '/auth/signin';
+  const authCtaLabel = isAuthenticated ? 'My bookings' : 'Sign in';
+
+  const getDesktopLinkState = (href: string) => {
+    const targetId = href.startsWith('#') ? href.slice(1) : href;
+    const isActive = Boolean(targetId && activeSection === targetId);
+    return {
+      isActive,
+      className: cx(
+        'rounded-full px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card)]',
+        isActive
+          ? 'bg-[var(--slate-900)] text-white shadow-sm'
+          : 'text-[var(--slate-600)] hover:text-[var(--slate-900)]',
+      ),
+    };
+  };
+
+  const closeMenu = () => setMobileOpen(false);
+
   return (
-    <nav className="border-b border-[var(--border)] bg-[var(--card)] sticky top-0 z-40">
-      <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-[var(--brand-blue)] rounded-lg flex items-center justify-center text-white font-bold text-lg">N</div>
-          <span className="font-bold text-lg text-[var(--slate-900)] tracking-tight">Nab a Table</span>
-        </div>
-        <div className="hidden md:flex items-center gap-4">
-          <ButtonLink
-            href={isAuthenticated ? '/guest/bookings' : '/auth/signin'}
-            variant="secondary"
-            size="sm"
-            aria-label={isAuthenticated ? 'My bookings' : 'Sign in'}
-          >
-            {isAuthenticated ? 'My Bookings' : 'Sign In'}
+    <header className="sticky top-0 z-40 border-b border-[var(--border)]/70 bg-[var(--card)]/85 backdrop-blur-xl supports-[backdrop-filter]:bg-[var(--card)]/65">
+      <div className="guest-boundary flex w-full items-center justify-between gap-4 py-4">
+        <Link
+          href="#hero"
+          className="group flex items-center gap-2 rounded-full border border-transparent px-2 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card)]"
+        >
+          <div className="w-9 h-9 bg-[var(--brand-blue)] rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-card group-hover:scale-105 transition-transform">
+            N
+          </div>
+          <div className="flex flex-col">
+            <span className="text-sm font-semibold leading-tight text-[var(--slate-900)]">Nab a Table</span>
+            <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--slate-400)]">Factory</span>
+          </div>
+        </Link>
+
+        <nav aria-label="Primary" className="hidden flex-1 items-center justify-center gap-1 lg:flex">
+          <div className="flex items-center gap-1 rounded-full border border-[var(--border)] bg-white/70 px-2 py-1 shadow-sm">
+            {NAV_LINKS.map((link) => {
+              const { className, isActive } = getDesktopLinkState(link.href);
+              return (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  onClick={closeMenu}
+                  className={className}
+                  aria-current={isActive ? 'page' : undefined}
+                >
+                  {link.label}
+                </a>
+              );
+            })}
+          </div>
+        </nav>
+
+        <div className="hidden items-center gap-2 sm:flex">
+          <ButtonLink href="/restaurants" size="sm" aria-label="Find a table" className="shadow-sm">
+            Find a table
           </ButtonLink>
-          <ButtonLink href="/restaurants" size="sm" aria-label="Find a table">
-            Find a Table
+          <ButtonLink href={authCtaHref} variant="secondary" size="sm" aria-label={authCtaLabel}>
+            {authCtaLabel}
           </ButtonLink>
         </div>
-        <Button variant="ghost" iconOnly leftIcon={<Icon name="menu" />} className="md:hidden" aria-label="Open menu" />
+
+        <div className="flex items-center gap-2 sm:hidden">
+          <ButtonLink href="/restaurants" size="sm" aria-label="Find a table" className="px-4">
+            Book
+          </ButtonLink>
+          <Button
+            variant="ghost"
+            iconOnly
+            leftIcon={<Icon name={mobileOpen ? 'close' : 'menu'} />}
+            aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={mobileOpen}
+            aria-controls={MOBILE_MENU_ID}
+            onClick={() => setMobileOpen((prev) => !prev)}
+          />
+        </div>
       </div>
-    </nav>
+
+      {mobileOpen ? (
+        <div className="fixed inset-0 z-50 bg-[var(--slate-900)]/70 backdrop-blur-sm">
+          <div className="absolute inset-x-0 bottom-0 top-0 flex flex-col">
+            <div className="mt-auto rounded-t-3xl bg-[var(--card)] px-6 py-6 shadow-2xl" role="dialog" aria-modal="true" id={MOBILE_MENU_ID}>
+              <div className="flex items-center justify-between pb-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--slate-400)]">Navigate</p>
+                  <p className="text-base font-semibold text-[var(--slate-900)]">Explore Nab a Table</p>
+                </div>
+                <Button variant="ghost" iconOnly leftIcon={<Icon name="close" />} aria-label="Close menu" onClick={closeMenu} />
+              </div>
+              <nav aria-label="Mobile primary" className="flex flex-col gap-2">
+                {NAV_LINKS.map((link) => (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    onClick={closeMenu}
+                    className="rounded-2xl border border-[var(--border)] bg-[var(--slate-50)] px-4 py-3 text-base font-semibold text-[var(--slate-800)]"
+                  >
+                    {link.label}
+                  </a>
+                ))}
+              </nav>
+              <div className="mt-6 space-y-3">
+                <ButtonLink href="/restaurants" size="md" fullWidth>
+                  Find a table
+                </ButtonLink>
+                <ButtonLink href={authCtaHref} variant="secondary" size="md" fullWidth>
+                  {authCtaLabel}
+                </ButtonLink>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </header>
   );
 }
 
-function Hero({ onSearch }: { onSearch: () => void }) {
+function Hero({ reduceMotion }: { reduceMotion: boolean }) {
   return (
-    <header className="pt-20 pb-16 px-6 bg-[var(--slate-50)] border-b border-[var(--border)]">
-      <div className="max-w-4xl mx-auto text-center space-y-7 mb-12">
-        <Badge tone="success">{HERO_BADGE}</Badge>
-        <h1 className="heading-xl text-[var(--slate-900)]">
-          Reserve your table in 30 seconds,<span className="text-[var(--brand-blue)]"> confirmed instantly.</span>
-        </h1>
-        <p className="text-body max-w-2xl mx-auto">
-          Pick your time and party size, add a note, and you&apos;re locked in. No phone calls, no waiting on hold.
-        </p>
-        <div className="flex items-center justify-center">
-          <ButtonLink href="/restaurants" size="lg" rightIcon={<Icon name="arrowRight" />} aria-label="Find a table now">
-            Find a table now
-          </ButtonLink>
+    <header id="hero" className="border-b border-[var(--border)] bg-[var(--slate-50)] pt-20">
+      <div
+        className={cx(
+          SECTION_CONTAINER,
+          'grid items-center gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]',
+        )}
+      >
+        <div className="space-y-6 text-left">
+          <Badge tone="success">{HERO_BADGE}</Badge>
+          <div className="space-y-4">
+            <h1 className="heading-xl text-[var(--slate-900)]">
+              Reserve your table in 30 seconds,
+              <span className="text-[var(--brand-blue)]"> confirmed instantly.</span>
+            </h1>
+            <p className="text-body max-w-2xl text-[var(--slate-600)]">
+              Pick your time and party size, add a note, and you&apos;re locked in. No phone calls, no waiting on hold.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <ButtonLink href="/restaurants" size="lg" rightIcon={<Icon name="arrowRight" />} aria-label="Find a table now">
+              Find a table now
+            </ButtonLink>
+            <ButtonLink href="/restaurants" variant="secondary" size="lg">
+              Browse restaurants
+            </ButtonLink>
+          </div>
+          <div className="space-y-3">
+            <p className="text-sm font-semibold text-[var(--slate-600)]">Trusted by 180,000 diners this month</p>
+            <div className="flex flex-wrap items-center gap-2 md:gap-3">
+              {SOCIAL_PROOF_LOGOS.map((logo) => (
+                <div
+                  key={logo}
+                  className="flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-xs font-semibold text-[var(--slate-700)] shadow-sm"
+                >
+                  <Icon name="logo" className="h-4 w-4 text-[var(--brand-blue)]" />
+                  <span>{logo}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-        <div className="space-y-3">
-          <p className="text-sm font-semibold text-[var(--slate-600)]">Trusted by 180,000 diners each month</p>
-          <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3">
-            {SOCIAL_PROOF_LOGOS.map((logo) => (
+
+        <div className="space-y-4">
+          <LiveFeedCard reduceMotion={reduceMotion} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            {METRICS.map((metric) => (
               <div
-                key={logo}
-                className="flex items-center gap-2 px-3 py-2 rounded-full bg-[var(--card)] border border-[var(--border)] text-xs font-semibold text-[var(--slate-700)] shadow-sm"
+                key={metric.label}
+                className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-card"
               >
-                <Icon name="logo" className="w-4 h-4 text-[var(--brand-blue)]" />
-                <span>{logo}</span>
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--slate-500)]">{metric.detail}</p>
+                <p className="text-3xl font-bold text-[var(--slate-900)]">{metric.value}</p>
+                <p className="text-sm text-[var(--slate-600)]">{metric.label}</p>
               </div>
             ))}
           </div>
         </div>
-      </div>
-      <div className="relative -mb-24 px-4">
-        <SearchBar onSearch={onSearch} />
       </div>
     </header>
   );
@@ -526,8 +692,8 @@ function Hero({ onSearch }: { onSearch: () => void }) {
 
 function ObjectionBand() {
   return (
-    <section className="bg-[var(--card)] border-y border-[var(--border)] px-6 py-4">
-      <div className="max-w-5xl mx-auto flex flex-wrap items-center justify-center gap-3">
+    <section className="border-y border-[var(--border)] bg-[var(--card)] py-5">
+      <div className={cx(SECTION_CONTAINER, 'flex flex-wrap items-center justify-center gap-2 sm:gap-3')}>
         {OBJECTION_POINTS.map((point) => (
           <div
             key={point}
@@ -544,25 +710,53 @@ function ObjectionBand() {
 
 function BentoGridSection() {
   return (
-    <section className="pt-32 pb-20 px-6 bg-white">
-      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2">
-          <div className="shadow-card rounded-xl p-8 bg-[var(--brand-blue)] text-white h-full relative overflow-hidden flex flex-col justify-between min-h-[300px]">
-            <div className="relative z-10 space-y-4">
-              <Badge tone="neutral">Avg. confirmation</Badge>
-              <div className="heading-xl text-white">30s</div>
-              <p className="text-blue-100 max-w-sm">Most guests lock a table in under 30 seconds with instant codes and no phone tags.</p>
+    <section id="metrics" className={cx(SECTION_SPACING, 'bg-white')}>
+      <div className={cx(SECTION_CONTAINER, 'grid gap-6 lg:grid-cols-12')}>
+        <div className="rounded-[32px] bg-[var(--brand-blue)] px-8 py-10 text-white shadow-card lg:col-span-7">
+          <div className="space-y-4">
+            <Badge tone="neutral">Avg. confirmation</Badge>
+            <div className="text-5xl font-extrabold tracking-tight">30s</div>
+            <p className="text-lg text-blue-50 max-w-lg">
+              Most bookings lock in under half a minute with instant confirmation codes and no phone tag.
+            </p>
+          </div>
+          <div className="mt-10 flex flex-wrap gap-4">
+            <div className="flex flex-col rounded-2xl border border-white/40 bg-white/20 px-4 py-3 text-left">
+              <span className="text-xs uppercase tracking-[0.2em] text-white/80">Hold window</span>
+              <span className="text-2xl font-semibold">15 minutes</span>
             </div>
-            <Icon name="zap" className="absolute bottom-[-20px] right-[-20px] w-64 h-64 text-white opacity-10" />
+            <div className="flex flex-col rounded-2xl border border-white/40 bg-white/20 px-4 py-3 text-left">
+              <span className="text-xs uppercase tracking-[0.2em] text-white/80">No-shows</span>
+              <span className="text-2xl font-semibold">↓ 38%</span>
+            </div>
           </div>
         </div>
 
-        <div className="md:col-span-1">
-          <LiveFeedCard />
+        <div className="rounded-[32px] border border-[var(--border)] bg-[var(--card)] p-6 shadow-card lg:col-span-5">
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--slate-400)]">Playbook</p>
+            <h3 className="text-2xl font-semibold text-[var(--slate-900)]">Kitchen-ready booking details</h3>
+            <p className="text-sm text-[var(--slate-600)]">
+              Hosts and kitchens see the same data as guests—notes, celebrations, and dietary needs included.
+            </p>
+          </div>
+          <div className="mt-6 space-y-3">
+            {BENEFITS.map((item) => (
+              <div key={item.title} className="flex items-start gap-3 rounded-2xl border border-[var(--border)] px-4 py-3">
+                <div className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-[var(--brand-blue-subtle)] text-[var(--brand-blue)]">
+                  <Icon name={item.icon} className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-[var(--slate-800)]">{item.title}</p>
+                  <p className="text-sm text-[var(--slate-600)]">{item.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {METRICS.map((metric) => (
-          <div key={metric.label} className="md:col-span-1">
+          <div key={metric.label} className="lg:col-span-4">
             <MetricTile
               label={metric.label}
               value={metric.value}
@@ -572,16 +766,16 @@ function BentoGridSection() {
           </div>
         ))}
 
-        <div className="md:col-span-1 bg-[var(--slate-900)] text-white rounded-xl p-6 shadow-card flex flex-col justify-between">
+        <div className="rounded-[32px] bg-[var(--slate-900)] p-6 text-white shadow-card lg:col-span-4">
           <div className="space-y-2">
-            <Icon name="shield" className="w-8 h-8 text-[var(--brand-blue)]" />
+            <Icon name="shield" className="h-8 w-8 text-[var(--brand-blue)]" />
             <h3 className="text-lg font-bold">Zero guesswork</h3>
-            <p className="text-sm text-[var(--slate-400)]">Availability and hold windows mirror what hosts see after you book.</p>
+            <p className="text-sm text-[var(--slate-300)]">Availability mirrors the host view—no fake slots or long holds.</p>
           </div>
           <Button
             variant="secondary"
             size="sm"
-            className="w-full mt-4 bg-[var(--slate-800)] text-white border-[var(--slate-700)] hover:bg-[var(--slate-700)]"
+            className="mt-4 w-full bg-[var(--slate-800)] text-white border-[var(--slate-700)] hover:bg-[var(--slate-700)]"
           >
             Browse venues
           </Button>
@@ -597,8 +791,8 @@ function FeatureSection({ isAuthenticated }: { isAuthenticated: boolean }) {
   const secondaryLabel = isAuthenticated ? 'View My Bookings' : 'Sign In';
 
   return (
-    <section className="py-24 bg-[var(--slate-50)] border-y border-[var(--border)]">
-      <div className="max-w-6xl mx-auto px-6 grid md:grid-cols-2 gap-16 items-center">
+    <section id="benefits" className={cx(SECTION_SPACING, 'border-y border-[var(--border)] bg-[var(--slate-50)]')}>
+      <div className={cx(SECTION_CONTAINER, 'grid items-center gap-12 md:gap-16 md:grid-cols-2')}>
         <div className="space-y-6">
           <div className="inline-block p-3 rounded-xl bg-[var(--white)] shadow-sm border border-[var(--border)]">
             <Icon name="calendar" className="w-6 h-6 text-[var(--brand-blue)]" />
@@ -607,10 +801,10 @@ function FeatureSection({ isAuthenticated }: { isAuthenticated: boolean }) {
           <p className="text-body">
             Live tables, instant codes, host-ready notes, and clear hold windows so you arrive confident.
           </p>
-          <div className="space-y-3 pt-4">
+          <div className="space-y-4 pt-4 grid sm:grid-cols-2 gap-3">
             {BENEFITS.map((item) => (
-              <div key={item.title} className="flex items-start gap-3">
-                <div className="w-5 h-5 rounded-full bg-[var(--brand-blue-subtle)] flex items-center justify-center text-[var(--brand-blue)] mt-0.5">
+              <div key={item.title} className="flex items-start gap-3 rounded-lg border border-[var(--border)] bg-[var(--card)] p-3">
+                <div className="w-6 h-6 rounded-full bg-[var(--brand-blue-subtle)] flex items-center justify-center text-[var(--brand-blue)] mt-0.5">
                   <Icon name={item.icon} className="w-3 h-3" />
                 </div>
                 <div>
@@ -659,18 +853,29 @@ function FeatureSection({ isAuthenticated }: { isAuthenticated: boolean }) {
 
 function TestimonialSection() {
   return (
-    <section className="py-20 bg-white px-6">
-      <div className="max-w-5xl mx-auto rounded-2xl border border-[var(--border)] shadow-card p-10 bg-[var(--card)]">
-        <div className="flex items-start gap-4">
-          <div className="w-10 h-10 rounded-full bg-[var(--brand-blue-subtle)] text-[var(--brand-blue)] flex items-center justify-center font-bold text-lg" aria-hidden="true">
-            &quot;
+    <section id="testimonials" className={cx(SECTION_SPACING, 'bg-white')}>
+      <div className={cx(SECTION_CONTAINER, 'grid items-center gap-6 lg:grid-cols-[1.1fr_1fr]')}>
+        <div className="rounded-2xl border border-[var(--border)] shadow-card p-8 bg-[var(--card)] space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-full bg-[var(--brand-blue-subtle)] text-[var(--brand-blue)] flex items-center justify-center font-bold text-lg" aria-hidden="true">
+              &quot;
+            </div>
+            <div className="space-y-3">
+              <p className="heading-md text-[var(--slate-900)] leading-snug">&quot;{TESTIMONIAL.quote}&quot;</p>
+              <p className="text-sm text-[var(--slate-600)] font-semibold">
+                {TESTIMONIAL.name} · {TESTIMONIAL.city}
+              </p>
+            </div>
           </div>
-          <div className="space-y-3">
-            <p className="heading-md text-[var(--slate-900)] leading-snug">&quot;{TESTIMONIAL.quote}&quot;</p>
-            <p className="text-sm text-[var(--slate-600)] font-semibold">
-              {TESTIMONIAL.name} · {TESTIMONIAL.city}
-            </p>
-          </div>
+        </div>
+        <div className="rounded-2xl border border-[var(--border)] shadow-card p-6 bg-[var(--slate-50)] grid gap-4 sm:grid-cols-2">
+          {METRICS.map((metric) => (
+            <div key={metric.label} className="space-y-1">
+              <div className="text-xs font-semibold uppercase tracking-wide text-[var(--slate-500)]">{metric.label}</div>
+              <div className="text-3xl font-bold text-[var(--slate-900)]">{metric.value}</div>
+              <div className="text-sm text-[var(--slate-500)]">{metric.detail}</div>
+            </div>
+          ))}
         </div>
       </div>
     </section>
@@ -679,17 +884,20 @@ function TestimonialSection() {
 
 function FinalCTASection() {
   return (
-    <section className="py-16 bg-[var(--slate-900)] text-white px-6 border-t border-[var(--slate-800)]">
-      <div className="max-w-4xl mx-auto text-center space-y-5">
-        <p className="text-sm font-semibold text-[var(--slate-200)]">91% of guests are seated within 5 minutes of arrival.</p>
-        <h2 className="heading-lg text-white">Book tonight&apos;s table</h2>
-          <p className="text-base text-[var(--slate-300)] max-w-2xl mx-auto">
+    <section id="cta" className={cx(SECTION_SPACING, 'bg-[var(--brand-blue)] text-white')}>
+      <div className="guest-boundary">
+        <div className="mx-auto w-full max-w-4xl space-y-5 text-center">
+          <p className="text-sm font-semibold text-blue-100">91% of guests are seated within 5 minutes of arrival.</p>
+          <h2 className="heading-lg text-white">Book tonight&apos;s table</h2>
+          <p className="mx-auto max-w-2xl text-base text-blue-50">
             Instant confirmation, hold window included, and notes to the kitchen before you leave home.
           </p>
-        <div className="flex items-center justify-center">
-          <ButtonLink href="/restaurants" size="lg" rightIcon={<Icon name="arrowRight" />}>Book tonight&apos;s table</ButtonLink>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <ButtonLink href="/restaurants" size="lg" rightIcon={<Icon name="arrowRight" />} className="shadow-md">Book tonight&apos;s table</ButtonLink>
+            <ButtonLink href="/restaurants" variant="secondary" size="lg">Browse venues</ButtonLink>
+          </div>
+          <p className="text-sm text-blue-100">Takes 30 seconds.</p>
         </div>
-        <p className="text-sm text-[var(--slate-400)]">Takes 30 seconds.</p>
       </div>
     </section>
   );
@@ -698,7 +906,7 @@ function FinalCTASection() {
 function Footer() {
   return (
     <footer className="bg-[var(--card)] pt-20 pb-10 border-t border-[var(--border)]">
-      <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-4 gap-12 mb-16">
+      <div className="guest-boundary grid gap-12 md:grid-cols-4 mb-16">
         <div className="space-y-4">
           <div className="w-8 h-8 bg-[var(--slate-900)] rounded-lg flex items-center justify-center text-white font-bold text-lg">N</div>
           <p className="text-sm text-[var(--slate-500)]">Premium dining, confirmed in seconds.</p>
@@ -727,7 +935,7 @@ function Footer() {
           </div>
         </div>
       </div>
-      <div className="max-w-7xl mx-auto px-6 text-center text-xs text-[var(--slate-400)] border-t border-[var(--border)] pt-8">
+      <div className="guest-boundary border-t border-[var(--border)] pt-8 text-center text-xs text-[var(--slate-400)]">
         © 2024 Nab a Table. Built with Factory Design System.
       </div>
     </footer>
@@ -735,20 +943,18 @@ function Footer() {
 }
 
 export function FactoryHomeClient({ isAuthenticated }: { isAuthenticated: boolean }) {
-  const [showToast, setShowToast] = useState(false);
-
-  useEffect(() => {
-    if (!showToast) return undefined;
-    const timeout = setTimeout(() => setShowToast(false), 2800);
-    return () => clearTimeout(timeout);
-  }, [showToast]);
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   return (
-    <div className="factory-page min-h-screen bg-[var(--background)] selection:bg-[var(--brand-blue-subtle)] selection:text-[var(--brand-blue)]" style={FACTORY_THEME}>
+    <div
+      className="factory-page min-h-screen bg-[var(--background)] selection:bg-[var(--brand-blue-subtle)] selection:text-[var(--brand-blue)]"
+      style={FACTORY_THEME}
+      data-reduced-motion={prefersReducedMotion ? 'true' : 'false'}
+    >
       <FactoryStyles />
-      <NavBar isAuthenticated={isAuthenticated} />
+      <NavBar isAuthenticated={isAuthenticated} reduceMotion={prefersReducedMotion} />
       <main>
-        <Hero onSearch={() => setShowToast(true)} />
+        <Hero reduceMotion={prefersReducedMotion} />
         <ObjectionBand />
         <BentoGridSection />
         <TestimonialSection />
@@ -756,12 +962,6 @@ export function FactoryHomeClient({ isAuthenticated }: { isAuthenticated: boolea
         <FinalCTASection />
       </main>
       <Footer />
-
-      {showToast && (
-        <div className="fixed bottom-6 right-6 z-50">
-          <Toast tone="success" message="Search triggered" onDismiss={() => setShowToast(false)} />
-        </div>
-      )}
     </div>
   );
 }
