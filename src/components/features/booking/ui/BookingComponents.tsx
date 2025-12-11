@@ -22,8 +22,8 @@ const toneClasses: Record<StatusTone, { badge: string; text: string }> = {
 
 export function BookingDetailShell({ children }: { children: ReactNode }) {
   return (
-    <section className="guest-theme min-h-screen bg-slate-50/50 px-4 py-8 md:py-12 md:px-8">
-      <div className="mx-auto max-w-5xl space-y-8">{children}</div>
+    <section className="guest-theme min-h-[calc(100vh-80px)] bg-slate-50/50 px-4 py-6 sm:py-8 md:px-6 lg:px-8">
+      <div className="mx-auto max-w-5xl space-y-6 sm:space-y-8">{children}</div>
     </section>
   );
 }
@@ -48,7 +48,7 @@ export function BookingSummaryCard({
   const Icon = status.icon;
   const tone = toneClasses[status.tone ?? "default"];
   return (
-    <Card className="space-y-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
+    <Card className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-4">
           <div className="flex items-center gap-3">
@@ -209,4 +209,3 @@ export function GhostButton({ onClick, children, disabled }: { onClick?: () => v
     </Button>
   );
 }
-

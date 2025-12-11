@@ -1,11 +1,4 @@
-import {
-  HomeCTASection,
-  HomeHeroSection,
-  HomeJourneySection,
-  HomeMetricsSection,
-  HomeTrustedSection,
-  HomeReceiptsSection,
-} from '@/components/landing/HomeSections';
+import { FactoryHomeClient } from '@/components/landing/FactoryHomeClient';
 import { MarketingLayout } from '@/components/layouts/MarketingLayout';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
 
@@ -34,13 +27,8 @@ export default async function Home() {
   const isAuthenticated = Boolean(user);
 
   return (
-    <MarketingLayout>
-      <HomeHeroSection isAuthenticated={isAuthenticated} />
-      <HomeMetricsSection />
-      <HomeTrustedSection />
-      <HomeJourneySection />
-      <HomeReceiptsSection />
-      <HomeCTASection />
+    <MarketingLayout showNavbar={false} showFooter={false}>
+      <FactoryHomeClient isAuthenticated={isAuthenticated} />
     </MarketingLayout>
   );
 }

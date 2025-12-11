@@ -1,23 +1,9 @@
-import {
-  AlarmCheck,
-  ArrowRight,
-  BellRing,
-  CalendarCheck,
-  CheckCircle2,
-  Clock3,
-  Layers,
-  Lock,
-  MapPin,
-  ShieldCheck,
-  Sparkles,
-  Timer,
-} from "lucide-react";
+import { ArrowRight, CalendarCheck, CheckCircle2, Clock3, Lock, MapPin, ShieldCheck, Sparkles, Timer, Wand2 } from "lucide-react";
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 const BOOKING_PATH = "/restaurants";
@@ -32,22 +18,22 @@ const METRICS = [
   { label: "NPS", value: "+72", detail: "last 30 days" },
 ];
 
-const HIGHLIGHTS = [
-  { title: "Real-time openings", copy: "See live openings across curated venues in our region.", icon: BellRing },
-  { title: "Guest-ready flow", copy: "Same booking steps before and after sign-in—no relearning.", icon: Sparkles },
-  { title: "Instant receipts", copy: "Calendar files and share links ship with every booking.", icon: AlarmCheck },
+const HERO_POINTS = [
+  { title: "Concierge-speed", copy: "Instant confirms and receipts in under three taps.", icon: Sparkles },
+  { title: "Trust on display", copy: "Availability mirrors what guests see post-booking.", icon: ShieldCheck },
+  { title: "Premium feel", copy: "Calm layout with guided actions and visible focus states.", icon: Wand2 },
 ];
 
 const STEPS = [
-  { title: "Pick a spot", copy: "Search by restaurant, city, or ambience. See live capacity and Instant confirm badges.", icon: MapPin },
-  { title: "Lock it in", copy: "One simple booking flow with inline checks, secure steps, and instant status.", icon: CheckCircle2 },
-  { title: "Stay synced", copy: "Receipt with calendar file and shareable link. View or change it anytime in My Bookings.", icon: Sparkles },
+  { title: "Pick a spot", copy: "Search by restaurant, city, or ambience with live capacity cues.", icon: MapPin },
+  { title: "Lock it in", copy: "One guided booking flow with inline checks and instant status.", icon: CheckCircle2 },
+  { title: "Stay synced", copy: "Calendar file, share link, and live status available anytime.", icon: Sparkles },
 ];
 
-const PROMISES = [
-  { title: "No surprises", copy: "What you see before booking matches your confirmation and receipt.", icon: Layers },
-  { title: "Secure & accessible", copy: "Keyboard-friendly, visible focus, secure share links.", icon: Lock },
-  { title: "Fast for returners", copy: "Prefilled details for signed-in guests; no app download required.", icon: Clock3 },
+const ASSURANCES = [
+  { title: "Secure & accessible", copy: "Keyboard friendly, visible focus, secure share links.", icon: Lock },
+  { title: "Reliable timing", copy: "92% seated on time during peak slots.", icon: Timer },
+  { title: "Local expertise", copy: "Curated venues across the region—no filler results.", icon: MapPin },
 ];
 
 const LOCAL_VENUES = [
@@ -73,7 +59,7 @@ const LIVE_FEED = LOCAL_VENUES.slice(0, 6).map((venue, idx) => {
   };
 });
 
-const TRUST_PILLS = ["Instant confirmation", "Calendar-ready receipts"];
+const TRUST_PILLS = ["Instant confirm", "Calendar-ready receipts", "Secure links"];
 
 type HomeHeroSectionProps = {
   isAuthenticated?: boolean;
@@ -81,85 +67,55 @@ type HomeHeroSectionProps = {
 
 export function HomeHeroSection({ isAuthenticated = false }: HomeHeroSectionProps) {
   return (
-    <section className="relative overflow-hidden px-4 py-12 sm:px-6 lg:py-18" aria-labelledby="home-hero-heading">
+    <section className="relative overflow-hidden px-4 py-12 sm:px-6 lg:py-16" aria-labelledby="home-hero-heading">
       <div className="pointer-events-none absolute inset-0 opacity-70">
-        <div className="absolute -left-32 top-0 h-80 w-80 rounded-full bg-blue-500/20 blur-3xl" />
-        <div className="absolute right-0 top-24 h-96 w-96 rounded-full bg-amber-400/10 blur-3xl" />
+        <div className="absolute -left-32 top-0 h-80 w-80 rounded-full bg-blue-500/15 blur-3xl" />
+        <div className="absolute right-0 top-24 h-96 w-96 rounded-full bg-amber-400/12 blur-3xl" />
       </div>
 
-      <div className="relative mx-auto flex max-w-6xl flex-col gap-6 lg:grid lg:grid-cols-[1.05fr_0.95fr]">
-        {/* Left column */}
-        <div className="space-y-6 rounded-[var(--guest-radius-2xl)] border-sem bg-white/90 p-6 shadow-card">
-          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-subtle">
-            <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-blue-800">Live availability</span>
+      <div className="relative mx-auto grid max-w-6xl gap-8 lg:grid-cols-[1.05fr_0.95fr]">
+        {/* Narrative + CTA */}
+        <div className="space-y-8 rounded-[var(--guest-radius-2xl)] border-sem bg-white/90 p-6 shadow-card">
+          <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-subtle">
+            <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-blue-800">Instant confirm</span>
             <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1">{PRIMARY_REGION}</span>
-          </div>
-          <div className="space-y-3">
-            <h1 id="home-hero-heading" className="heading-xl text-slate-900">
-              Book great restaurants in seconds.
-            </h1>
-            <p className="text-body text-subtle">See curated openings nearby, lock a table, and keep the receipt synced.</p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-[1.15fr_0.85fr]">
-            <form
-              action={BOOKING_PATH}
-              role="search"
-              className="flex flex-col gap-3 rounded-[var(--guest-radius-xl)] border-sem bg-elevated p-4 shadow-card"
-              aria-label="Quick booking search"
-            >
-              <div className="relative flex-1">
-                <label className="sr-only" htmlFor="hero-search">
-                  Search city or restaurant
-                </label>
-                <Input
-                  id="hero-search"
-                  name="hero-search"
-                  type="search"
-                  placeholder="Search by restaurant, city, or vibe"
-                  className="input-base h-12 rounded-[var(--guest-radius-lg)] pl-12"
-                />
-                <MapPin className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle" aria-hidden />
-              </div>
-              <Button type="submit" size="lg" className="h-12 rounded-[var(--guest-radius-lg)] text-base" asChild>
-                <Link href={BOOKING_PATH}>
-                  <CalendarCheck className="mr-2 h-5 w-5" aria-hidden />
-                  Find a table
-                </Link>
-              </Button>
-              <div className="flex flex-wrap gap-2 text-xs text-subtle">
-                {TRUST_PILLS.map((pill) => (
-                  <span
-                    key={pill}
-                    className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50/70 px-3 py-1 text-blue-800"
-                  >
-                    <ShieldCheck className="h-4 w-4" aria-hidden />
-                    {pill}
-                  </span>
-                ))}
-              </div>
-            </form>
-            <Card className="flex flex-col justify-between rounded-[var(--guest-radius-xl)] border-blue-100 bg-gradient-to-br from-blue-600/90 via-blue-500/90 to-blue-700/90 p-5 text-white shadow-card">
-              <div className="space-y-3">
-                <p className="text-xs uppercase tracking-[0.24em] text-blue-100">Instant confirm</p>
-                <p className="text-lg font-semibold">See what’s open now</p>
-                <HeroIllustration />
-                <p className="text-sm text-blue-100">Built for fast booking and clear receipts.</p>
-              </div>
-            </Card>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">Concierge-level speed</span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              size="lg"
-              className="rounded-full px-6 bg-primary text-white shadow-card transition-colors hover:bg-primary/90"
-              asChild
-            >
+          <div className="space-y-3">
+            <h1 id="home-hero-heading" className="heading-xl text-slate-900">
+              Premium dining, confirmed in seconds.
+            </h1>
+            <p className="text-body text-subtle max-w-2xl">
+              A calmer, guided flow that mirrors what guests see after booking—no surprises, no relearning.
+            </p>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2" aria-label="Reasons to trust">
+            {HERO_POINTS.map((item) => (
+              <article
+                key={item.title}
+                className="flex items-start gap-3 rounded-[var(--guest-radius-xl)] border-sem bg-elevated p-4 shadow-card"
+              >
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-700">
+                  <item.icon className="h-5 w-5" aria-hidden />
+                </span>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-slate-900">{item.title}</p>
+                  <p className="text-xs text-subtle">{item.copy}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3" aria-label="Primary actions">
+            <Button size="lg" className="rounded-full px-6 bg-primary text-white shadow-card hover:bg-primary/90" asChild>
               <Link href={BOOKING_PATH}>Find a table</Link>
             </Button>
             <Button
               variant="outline"
               size="lg"
-              className="rounded-full px-6 border-blue-200 bg-white text-blue-700 transition-colors hover:border-blue-500 hover:bg-blue-50"
+              className="rounded-full px-6 border-blue-200 bg-white text-blue-700 hover:border-blue-500 hover:bg-blue-50"
               asChild
             >
               <Link href={BOOKINGS_PATH}>View my bookings</Link>
@@ -170,48 +126,136 @@ export function HomeHeroSection({ isAuthenticated = false }: HomeHeroSectionProp
               </Button>
             ) : null}
           </div>
-          <p className="text-sm text-subtle">Trusted by local favourites across {PRIMARY_REGION}.</p>
         </div>
 
-        {/* Right column */}
-        <div className="grid gap-4">
-          <Card className="rounded-[var(--guest-radius-2xl)] border-sem bg-elevated p-6 shadow-card">
-            <header className="flex items-center justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-[0.15em] text-subtle">Live snapshot</p>
-                <p className="text-lg font-semibold text-slate-900">Fast, reliable, ready</p>
+        {/* Visual rail */}
+        <div className="grid gap-4" aria-label="Live booking preview">
+          <Card className="relative overflow-hidden rounded-[var(--guest-radius-2xl)] border-sem bg-gradient-to-br from-blue-600/90 via-blue-500/90 to-blue-700/90 p-6 text-white shadow-card">
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-blue-100">Live snapshot</p>
+                <p className="text-xl font-semibold">Fast, reliable, ready</p>
               </div>
-              <Badge className="inline-flex items-center gap-1 rounded-full bg-blue-50 text-blue-700">
-                <Timer className="h-4 w-4" aria-hidden />
-                2.4s avg
+              <Badge className="rounded-full bg-white/90 text-blue-700">
+                <Timer className="mr-1 h-4 w-4" aria-hidden /> 2.4s avg
               </Badge>
-            </header>
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              {METRICS.map((stat) => (
-                <div key={stat.label} className="rounded-[var(--guest-radius-md)] bg-white/90 p-4 text-left shadow-card">
-                  <p className="text-xs uppercase tracking-wide text-subtle">{stat.label}</p>
-                  <p className="text-2xl font-semibold text-slate-900">{stat.value}</p>
-                  <p className="text-xs text-subtle">{stat.detail}</p>
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-3" aria-label="Key metrics">
+              {METRICS.slice(0, 3).map((stat) => (
+                <div
+                  key={stat.label}
+                  className="rounded-[var(--guest-radius-md)] border border-white/25 bg-white/10 p-4 text-left shadow-card"
+                >
+                  <p className="text-[11px] uppercase tracking-wide text-blue-100">{stat.label}</p>
+                  <p className="mt-2 text-2xl font-semibold text-white">{stat.value}</p>
+                  <p className="text-xs text-blue-100">{stat.detail}</p>
                 </div>
-              )).slice(0, 3)}
+              ))}
+            </div>
+            <div className="mt-6 rounded-[var(--guest-radius-xl)] border border-white/15 bg-white/10 p-4">
+              <div className="flex items-center justify-between text-sm text-blue-50">
+                <span>Recent confirmations</span>
+                <Link href={BOOKING_PATH} className="inline-flex items-center gap-1 text-white underline-offset-4 hover:underline">
+                  See availability
+                  <ArrowRight className="h-4 w-4" aria-hidden />
+                </Link>
+              </div>
+              <ul className="mt-3 space-y-3" aria-label="Sample bookings">
+                {LIVE_FEED.slice(0, 2).map((slot) => (
+                  <li
+                    key={slot.venue + slot.time}
+                    className="flex flex-col gap-1 rounded-[var(--guest-radius-md)] bg-white/12 px-3 py-2 text-white md:flex-row md:items-center md:justify-between"
+                  >
+                    <div className="space-y-0.5">
+                      <p className="text-sm font-semibold">{slot.venue}</p>
+                      <p className="text-xs text-blue-100">
+                        {slot.time} • {slot.party}
+                      </p>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "w-fit rounded-full px-3 py-1 text-[11px] border-white/60",
+                        slot.status === "Confirmed" ? "bg-white text-blue-700" : "bg-amber-100 text-amber-800",
+                      )}
+                    >
+                      {slot.status}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="absolute bottom-4 right-4 h-24 w-36 opacity-85" aria-hidden>
+              <ReservationIllustration />
             </div>
           </Card>
 
-          <div className="rounded-[var(--guest-radius-2xl)] border-sem bg-white/90 p-5 shadow-card">
+          <div className="rounded-[var(--guest-radius-2xl)] border-sem bg-white/95 p-5 shadow-card" aria-label="Assurance chips">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-subtle">
+              {TRUST_PILLS.map((pill) => (
+                <span
+                  key={pill}
+                  className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50/80 px-3 py-1 text-blue-800"
+                >
+                  <ShieldCheck className="h-4 w-4" aria-hidden /> {pill}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export function HomeMetricsSection() {
+  return (
+    <section className="px-4 py-12 sm:px-6" aria-labelledby="home-metrics-heading">
+      <div className="mx-auto max-w-6xl space-y-6 rounded-[var(--guest-radius-2xl)] border-sem bg-white/95 p-6 shadow-card">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-2">
+            <Badge variant="secondary" className="w-fit rounded-full px-4 py-1 text-blue-900">
+              Proof you can trust
+            </Badge>
+            <h2 id="home-metrics-heading" className="heading-lg font-semibold text-slate-900">
+              Live stats, real venues, zero guesswork.
+            </h2>
+            <p className="text-body text-subtle max-w-2xl">
+              Every card here mirrors what guests experience after booking—speed, reliability, and clarity.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs text-subtle">
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">Live feed</span>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">Peak reliability</span>
+          </div>
+        </div>
+
+        <div className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
+          <div className="grid gap-4 sm:grid-cols-3">
+            {METRICS.map((stat) => (
+              <article key={stat.label} className="rounded-[var(--guest-radius-xl)] border-sem bg-elevated p-5 shadow-card">
+                <p className="text-xs uppercase tracking-wide text-subtle">{stat.label}</p>
+                <p className="mt-2 text-4xl font-semibold text-slate-900">{stat.value}</p>
+                <p className="text-sm text-subtle">{stat.detail}</p>
+              </article>
+            ))}
+          </div>
+
+          <div className="space-y-3 rounded-[var(--guest-radius-xl)] border-sem bg-muted p-4 shadow-card">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
-                <p className="text-sm font-semibold text-slate-900">Recent confirmations</p>
-                <p className="text-xs text-subtle">Flowing through {BRAND_NAME}</p>
+                <p className="text-xs uppercase tracking-[0.18em] text-subtle">Recent confirmations</p>
+                <p className="text-lg font-semibold text-slate-900">Always-on availability</p>
               </div>
-            <Button variant="ghost" size="sm" className="text-blue-700" asChild>
-              <Link href={BOOKING_PATH}>See availability</Link>
-            </Button>
-          </div>
-            <ul className="mt-4 space-y-3" aria-label="Sample bookings">
-              {LIVE_FEED.slice(0, 3).map((slot) => (
+              <Button variant="ghost" size="sm" className="text-blue-700" asChild>
+                <Link href={BOOKING_PATH}>See openings</Link>
+              </Button>
+            </div>
+            <ul className="space-y-3" aria-label="Sample bookings">
+              {LIVE_FEED.map((slot) => (
                 <li
                   key={slot.venue + slot.time}
-                  className="flex flex-col gap-1 rounded-[var(--guest-radius-md)] border-sem px-4 py-3 md:flex-row md:items-center md:justify-between"
+                  className="flex flex-col gap-1 rounded-[var(--guest-radius-md)] border-sem bg-white/90 px-4 py-3 md:flex-row md:items-center md:justify-between"
                 >
                   <div className="space-y-1">
                     <p className="font-medium text-slate-900">{slot.venue}</p>
@@ -238,85 +282,6 @@ export function HomeHeroSection({ isAuthenticated = false }: HomeHeroSectionProp
   );
 }
 
-function HeroIllustration() {
-  return (
-    <svg
-      role="img"
-      aria-label="Illustration of a reservation flow"
-      className="h-36 w-full"
-      viewBox="0 0 320 160"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <rect x="14" y="22" width="292" height="116" rx="18" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.35)" />
-      <rect x="32" y="40" width="120" height="24" rx="8" fill="var(--primary)" opacity="0.9" />
-      <rect x="32" y="72" width="88" height="16" rx="6" fill="rgba(255,255,255,0.65)" />
-      <rect x="32" y="96" width="140" height="14" rx="6" fill="rgba(255,255,255,0.35)" />
-      <rect x="172" y="46" width="64" height="12" rx="6" fill="rgba(255,255,255,0.55)" />
-      <rect x="172" y="68" width="104" height="38" rx="10" fill="rgba(255,255,255,0.2)" />
-      <rect x="184" y="78" width="56" height="10" rx="5" fill="var(--primary)" opacity="0.9" />
-      <rect x="184" y="94" width="72" height="8" rx="4" fill="rgba(255,255,255,0.55)" />
-      <circle cx="270" cy="86" r="10" fill="var(--primary)" opacity="0.9" />
-      <path d="M266 86l3 3 6-7" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <rect x="212" y="112" width="72" height="12" rx="6" fill="rgba(255,255,255,0.3)" />
-      <rect x="74" y="122" width="92" height="12" rx="6" fill="rgba(255,255,255,0.2)" />
-    </svg>
-  );
-}
-
-export function HomeMetricsSection() {
-  return (
-    <section className="px-4 py-10 sm:px-6" aria-labelledby="home-metrics-heading">
-      <div className="mx-auto max-w-6xl space-y-6 rounded-[var(--guest-radius-2xl)] border-sem bg-white/90 p-6 shadow-card">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="space-y-2">
-            <Badge variant="secondary" className="w-fit rounded-full px-4 py-1 text-blue-900">
-              Real bookings, real results
-            </Badge>
-            <h2 id="home-metrics-heading" className="heading-lg font-semibold text-slate-900">
-              Live statistics from recent guest bookings on {BRAND_NAME}.
-            </h2>
-            <p className="text-body text-subtle">
-              The same metrics guests see inside the app—fast confirmations, high seat rate, and happy diners.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2 text-xs text-subtle">
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">Live feed</span>
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">Peak reliability</span>
-          </div>
-        </div>
-        <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="grid gap-4 sm:grid-cols-3">
-            {METRICS.map((stat) => (
-              <article key={stat.label} className="rounded-[var(--guest-radius-xl)] border-sem bg-elevated p-5 shadow-card">
-                <p className="text-sm text-subtle">{stat.label}</p>
-                <p className="mt-3 text-4xl font-semibold text-slate-900">{stat.value}</p>
-                <p className="text-sm text-subtle">{stat.detail}</p>
-              </article>
-            ))}
-          </div>
-          <div className="space-y-3 rounded-[var(--guest-radius-xl)] border-sem bg-muted p-4 shadow-card">
-            {HIGHLIGHTS.map((item) => (
-              <article
-                key={item.title}
-                className="flex items-start gap-3 rounded-[var(--guest-radius-lg)] border border-white/60 bg-white/90 p-3 shadow-card"
-              >
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-700">
-                  <item.icon className="h-5 w-5" aria-hidden />
-                </span>
-                <div className="space-y-1">
-                  <p className="text-sm font-semibold text-slate-900">{item.title}</p>
-                  <p className="text-sm text-subtle">{item.copy}</p>
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 export function HomeTrustedSection() {
   return (
     <section className="px-4 py-12 sm:px-6" aria-labelledby="home-trusted-heading">
@@ -325,16 +290,16 @@ export function HomeTrustedSection() {
           <div className="space-y-2">
             <p className="text-xs uppercase tracking-[0.2em] text-subtle">Trusted by local favourites</p>
             <h2 id="home-trusted-heading" className="heading-lg font-semibold text-slate-900">
-              Trusted by pubs and restaurants across {PRIMARY_REGION}
+              Partners across {PRIMARY_REGION}
             </h2>
             <p className="text-body text-subtle">
-              {BRAND_NAME} already powers bookings for much-loved venues in our region.
+              {BRAND_NAME} powers bookings for curated venues—what you see here matches their live availability.
             </p>
           </div>
           <Badge className="rounded-full bg-blue-50 text-blue-700">Instant confirm partners</Badge>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
-          {LOCAL_VENUES.map((venue) => (
+          {LOCAL_VENUES.slice(0, 6).map((venue) => (
             <div
               key={venue}
               className="flex items-start gap-3 rounded-[var(--guest-radius-lg)] border-sem bg-white/90 p-4 shadow-card"
@@ -344,9 +309,7 @@ export function HomeTrustedSection() {
             </div>
           ))}
         </div>
-        <p className="text-center text-sm text-subtle">
-          Trusted by local favourites across {PRIMARY_REGION}
-        </p>
+        <p className="text-center text-sm text-subtle">Trusted by local favourites across {PRIMARY_REGION}</p>
       </div>
     </section>
   );
@@ -389,7 +352,7 @@ export function HomeJourneySection() {
           <p className="text-xs uppercase tracking-[0.18em] text-subtle">Why it’s trustworthy</p>
           <h3 className="heading-md font-semibold text-slate-900">Built to match confirmation & receipt views</h3>
           <div className="mt-3 space-y-3">
-            {PROMISES.map((item) => (
+            {ASSURANCES.map((item) => (
               <article
                 key={item.title}
                 className="flex items-start gap-3 rounded-[var(--guest-radius-lg)] border border-white/60 bg-white/90 p-3 shadow-card"
@@ -473,7 +436,7 @@ export function HomeReceiptsSection() {
               Your receipt is ready as soon as you book
             </h2>
             <p className="text-body text-subtle">
-              Get a calendar-ready file, a shareable link, and live status you can reopen from My Bookings or your email.
+              Calendar file, shareable link, and live status—accessible from email or My Bookings.
             </p>
           </div>
           <div className="space-y-3">
@@ -535,5 +498,37 @@ export function HomeReceiptsSection() {
         </Card>
       </div>
     </section>
+  );
+}
+
+function ReservationIllustration() {
+  return (
+    <svg
+      role="img"
+      aria-label="Illustration of reservation flow"
+      className="h-full w-full"
+      viewBox="0 0 280 140"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <defs>
+        <linearGradient id="heroGradient" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.9" />
+          <stop offset="100%" stopColor="#6EE7B7" stopOpacity="0.4" />
+        </linearGradient>
+      </defs>
+      <rect x="16" y="22" width="248" height="96" rx="16" fill="url(#heroGradient)" opacity="0.16" />
+      <rect x="28" y="36" width="110" height="18" rx="8" fill="var(--primary)" opacity="0.9" />
+      <rect x="28" y="60" width="90" height="12" rx="6" fill="var(--primary)" opacity="0.35" />
+      <rect x="28" y="80" width="140" height="10" rx="5" fill="var(--primary)" opacity="0.18" />
+      <rect x="154" y="40" width="48" height="12" rx="6" fill="white" opacity="0.6" />
+      <rect x="154" y="58" width="84" height="32" rx="10" fill="white" opacity="0.2" />
+      <rect x="168" y="66" width="56" height="10" rx="5" fill="var(--primary)" opacity="0.8" />
+      <rect x="168" y="82" width="68" height="8" rx="4" fill="white" opacity="0.4" />
+      <circle cx="230" cy="72" r="10" fill="white" />
+      <path d="M226 72l3 3 6-7" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <rect x="192" y="100" width="60" height="10" rx="5" fill="white" opacity="0.25" />
+      <rect x="70" y="106" width="88" height="10" rx="5" fill="white" opacity="0.2" />
+    </svg>
   );
 }
