@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 
+import { BrandIcon } from "@/components/shared/BrandIcon";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -84,9 +85,7 @@ function BrandMark({ tone }: { tone: Tone }) {
       href="/"
       className="group flex items-center gap-3 rounded-full px-2 py-1 text-left transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
-      <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/90 to-primary text-sm font-bold text-primary-foreground shadow-sm shadow-primary/25">
-        SRX
-      </span>
+      <BrandIcon className="shrink-0" />
       <span className="flex min-w-0 flex-col leading-tight">
         <span className={cn("truncate text-sm font-semibold", text)}>Nab a Table</span>
         <span className={cn("text-xs font-medium uppercase tracking-[0.08em]", subText)}>Reserve faster</span>
