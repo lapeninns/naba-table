@@ -46,12 +46,9 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
 
   // Sync state with URL for back/forward/share
   useEffect(() => {
-    const tabParam = searchParams.get('tab');
-    const normalized = normalizeBookingsTab(tabParam);
-    if (normalized !== activeTab) {
-      setActiveTab(normalized);
-    }
-  }, [activeTab, searchParams]);
+    const normalized = normalizeBookingsTab(searchParams.get('tab'));
+    setActiveTab((prev) => (prev === normalized ? prev : normalized));
+  }, [searchParams]);
 
   const { upcoming, past } = useMemo(() => {
     const items = bookings?.items ?? [];

@@ -20,8 +20,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-import type { ReactNode } from "react";
-
 type RestaurantListItem = {
   id: string | number;
   slug: string;
@@ -287,36 +285,6 @@ export function RestaurantDetailsSection({
               allowFullScreen
             />
           ) : null}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-export function RestaurantBookingShell({
-  restaurant,
-  children,
-}: {
-  restaurant: RestaurantDetail;
-  children: ReactNode;
-}) {
-  return (
-    <section className="guest-theme bg-gradient-to-b from-slate-50 via-white to-slate-50 px-4 py-8 sm:px-6 sm:py-10">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <div className="rounded-[var(--guest-radius-2xl)] border border-slate-100 bg-white/95 p-5 shadow-[var(--guest-shadow-xl)]">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <Badge variant="secondary" className="rounded-full px-4 py-1 text-blue-900">
-              Book with confidence
-            </Badge>
-            <span className="text-xs uppercase tracking-[0.16em] text-slate-500">Booking flow</span>
-          </div>
-          <h1 className="mt-2 guest-heading-page text-[length:var(--guest-text-page)] font-semibold text-slate-900">
-            Reserve {restaurant.name}
-          </h1>
-          <p className="text-sm text-slate-600">Fast, familiar, and focused—same wizard guests see everywhere.</p>
-        </div>
-        <div className="rounded-[var(--guest-radius-2xl)] border border-slate-100 bg-white p-4 sm:p-5 shadow-[var(--guest-shadow-xl)]">
-          {children}
         </div>
       </div>
     </section>

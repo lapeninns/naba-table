@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, type CSSProperties } from "react";
 
-const FACTORY_THEME: CSSProperties = {
+const FACTORY_THEME = {
   "--brand-blue": "#2563EB",
   "--brand-blue-hover": "#1D4ED8",
   "--brand-blue-subtle": "#F0F7FF",
@@ -41,7 +41,7 @@ const FACTORY_THEME: CSSProperties = {
   "--shadow-md": "0 4px 6px -1px rgba(0,0,0,0.06), 0 2px 4px -1px rgba(0,0,0,0.03)",
   "--shadow-lg": "0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.04)",
   "--shadow-float": "0 6px 16px rgba(0,0,0,0.08)",
-};
+} as CSSProperties;
 
 const LIVE_FEED = [
   { venue: "The Barley Mow", time: "7:30 PM", party: "2 guests", status: "Confirmed" },
@@ -187,7 +187,7 @@ function Icon({ name, className }: { name: string; className?: string }) {
     fill: "currentColor",
     className: cx("w-5 h-5 inline-block shrink-0", className),
   };
-  const icons: Record<string, JSX.Element> = {
+  const icons: Record<string, React.ReactElement> = {
     menu: <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z" />,
     close: <path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />,
     check: <path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />,
@@ -288,24 +288,6 @@ function Toast({ tone = "neutral", message, onDismiss }: { tone?: "neutral" | "s
   );
 }
 
-function Modal({ isOpen, onClose, title, children }: { isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
-  if (!isOpen) return null;
-  return (
-    <div className="modal-backdrop fade-in" role="dialog" aria-modal="true" aria-label={title} onClick={onClose}>
-      <div
-        className="bg-[var(--card)] w-full max-w-md rounded-2xl shadow-2xl slide-up overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between p-5 border-b border-[var(--border)]">
-          <h3 className="text-lg font-bold text-[var(--slate-900)]">{title}</h3>
-          <Button variant="ghost" size="sm" iconOnly onClick={onClose} leftIcon={<Icon name="close" />} className="rounded-full" aria-label="Close" />
-        </div>
-        <div className="p-6">{children}</div>
-      </div>
-    </div>
-  );
-}
-
 function SearchBar({ onSearch }: { onSearch: () => void }) {
   return (
     <div className="search-pill-container bg-[var(--card)] rounded-full flex flex-col md:flex-row items-center p-2 max-w-4xl mx-auto relative z-20">
@@ -348,7 +330,7 @@ function SearchBar({ onSearch }: { onSearch: () => void }) {
   );
 }
 
-function MetricTile({ label, value, detail, icon }: { label: string; value: string; detail?: string; icon?: JSX.Element }) {
+function MetricTile({ label, value, detail, icon }: { label: string; value: string; detail?: string; icon?: React.ReactElement }) {
   return (
     <div className="shadow-card rounded-xl p-6 flex flex-col gap-4 bg-[var(--card)] h-full border border-[var(--border)]">
       <div className="flex justify-between items-start">
@@ -408,7 +390,7 @@ function LiveFeedCard() {
   );
 }
 
-function NavBar({ onOpenConcierge }: { onOpenConcierge: () => void }) {
+function NavBar() {
   return (
     <nav className="border-b border-[var(--border)] bg-[var(--card)] sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -417,8 +399,6 @@ function NavBar({ onOpenConcierge }: { onOpenConcierge: () => void }) {
           <span className="font-bold text-lg text-[var(--slate-900)] tracking-tight">Nab a Table</span>
         </div>
         <div className="hidden md:flex items-center gap-4">
-          <Button variant="ghost" onClick={onOpenConcierge}>Concierge</Button>
-          <Button variant="ghost">Venues</Button>
           <Button variant="secondary" size="sm">My Bookings</Button>
           <Button size="sm">Sign In</Button>
         </div>
@@ -593,7 +573,6 @@ function Footer() {
 
 function FactoryLandingContent() {
   const [showToast, setShowToast] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
     if (!showToast) return undefined;
@@ -604,7 +583,7 @@ function FactoryLandingContent() {
   return (
     <div className="factory-page min-h-screen bg-[var(--background)] selection:bg-[var(--brand-blue-subtle)] selection:text-[var(--brand-blue)]" style={FACTORY_THEME}>
       <FactoryStyles />
-      <NavBar onOpenConcierge={() => setModalOpen(true)} />
+      <NavBar />
       <main>
         <Hero onSearch={() => setShowToast(true)} />
         <BentoGridSection />
@@ -617,16 +596,6 @@ function FactoryLandingContent() {
           <Toast tone="success" message="Search triggered" onDismiss={() => setShowToast(false)} />
         </div>
       )}
-
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Concierge">
-        <p className="text-sm text-[var(--slate-700)]">
-          Talk to a live concierge for group bookings, private dining, or special access. We respond in under 2 minutes during service hours.
-        </p>
-        <div className="mt-4 flex flex-col gap-2">
-          <Button variant="primary" leftIcon={<Icon name="zap" />}>Start live chat</Button>
-          <Button variant="secondary" leftIcon={<Icon name="calendar" />}>Schedule a callback</Button>
-        </div>
-      </Modal>
     </div>
   );
 }
