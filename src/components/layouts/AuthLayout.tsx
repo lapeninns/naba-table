@@ -1,5 +1,5 @@
 import { ImplicitAuthHandler } from "@/components/auth/ImplicitAuthHandler";
-import Footer from "@/components/layout/Footer";
+import { Footer } from "@/components/layouts/Footer";
 import { GuestBackground } from "@/components/layouts/GuestBackground";
 import { GuestNavbar } from "@/components/layouts/GuestNavbar";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";

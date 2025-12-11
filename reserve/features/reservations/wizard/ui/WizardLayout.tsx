@@ -24,8 +24,8 @@ interface WizardLayoutProps {
 
 export function WizardLayout({
   heroRef,
-  stickyHeight = 0,
-  stickyVisible = false,
+  stickyHeight: _stickyHeight = 0,
+  stickyVisible: _stickyVisible = false,
   restaurantName,
   banner,
   children,
@@ -34,26 +34,17 @@ export function WizardLayout({
   className,
   contentClassName,
 }: WizardLayoutProps) {
-  const mainStyle = stickyVisible
-    ? {
-        paddingBottom: `calc(${stickyHeight}px + env(safe-area-inset-bottom, 0px) + 1rem)`,
-      }
-    : undefined;
-
   const Container = elementType === 'div' ? 'div' : 'main';
 
   return (
     <>
       <Container
-        style={mainStyle}
         className={cn(
-          // Reduced vertical padding for tighter layout
-          'min-h-screen w-full',
+          'w-full',
           'bg-gradient-to-b from-blue-50/50 via-white to-white',
-          'px-4 pb-20 pt-4',
-          'sm:pt-6 md:px-6 lg:px-8',
+          'px-4 pb-6 pt-4',
+          'sm:pt-5 sm:pb-8 md:px-6 lg:px-8',
           'font-sans text-foreground',
-          'transition-[padding-bottom] duration-200',
           className,
         )}
       >

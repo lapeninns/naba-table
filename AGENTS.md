@@ -724,8 +724,33 @@ profile: web-next|mobile|service-python|package-ui
   **Phase**: 1.
 - **DeepWiki MCP** — External/domain research summaries.  
   **Phase**: 1.
+- **Augment Codebase Retrieval MCP** — Full-repo semantic retrieval (source + embeddings) for code search, dependency tracing, and grounding answers/evidence.  
+  **Phases**: 1–4. **Rule**: Always use this tool **before** any other search approach when you are unsure where code lives—run at least one detailed Augment query per task (and before any edit) and paste the relevant snippet/summary into `research.md` or the active task doc.
 
 **If MCP unavailable temporarily**: run equivalent CLI/manual steps and attach artifacts. MCP usage is still **required** long‑term.
+
+### Augment Codebase Retrieval MCP — Usage Playbook & Rules
+
+> Augment’s codebase-retrieval MCP is the **primary** discovery tool. It answers natural-language code questions by pulling from a real-time index of the working tree (no git history) and spans all languages in the repo.
+
+| Use Case                 | How It Helps                                                                                                                       |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Semantic Code Search     | Ask natural prompts such as “find authentication logic” to surface matching files/functions (link to sources in `research.md`).    |
+| Feature Implementation   | Before coding, query for existing patterns so the AI/you inherit conventions when implementing new flows.                          |
+| Code Understanding       | Questions like “How does the payment system work?” return stitched summaries so requirements and plans stay grounded in real code. |
+| Refactoring              | Trace dependencies across modules before modifying shared pieces to avoid regressions.                                             |
+| Bug Investigation        | Search for related modules, guards, or TODOs tied to the failure signature to narrow root causes quickly.                          |
+| Documentation Generation | Generate documentation snippets backed by Augment’s retrieved context instead of speculation.                                      |
+
+> When using these prompts, capture the Augment response link or snippet in the relevant task artifact so reviewers can verify the evidence trail.
+
+**Operational Rules (must follow every time):**
+
+1. **Primary discovery tool** — When gathering context, planning, or understanding unfamiliar code, call Augment codebase retrieval _first_ (before grep/find/shell). If you already know the exact identifier string, you may follow up with `rg`, but Augment still supplies the semantic overview.
+2. **Single rich query before editing** — Prior to touching any file, make one comprehensive Augment request describing all symbols/classes/functions involved. Only run additional queries if scope changes.
+3. **Good vs. bad prompts** — Good: “Where is the function that handles user authentication?”, “What tests cover the login flow?”, “How is the database wiring implemented?”. Bad: “Find definition of constructor Foo” or “Show context of foo.py” (use file view/grep instead).
+4. **No semantic grep** — Bash/`rg`/`find` are reserved for exact string matches (errors, config keys, identifiers you already know). Never skip Augment for semantic understanding or exploratory searches.
+5. **Evidence logging** — Paste the retrieved snippet summaries or tool output references in `research.md`, `plan.md`, or `todo.md` so reviewers can trace how context was gathered.
 
 ---
 

@@ -349,7 +349,7 @@ export function ReservationDetailClient({
         }
       />
 
-      <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
+      <div className="grid gap-8 xl:grid-cols-[1fr_320px]">
         <div className="space-y-8">
           <div className="grid gap-4 sm:grid-cols-3">
             <DetailStatCard icon={Calendar} label="Date" value={reservationDate} subtext={reservationDateFull} />

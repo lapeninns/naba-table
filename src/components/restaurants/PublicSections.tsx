@@ -301,19 +301,21 @@ export function RestaurantBookingShell({
   children: ReactNode;
 }) {
   return (
-    <section className="guest-theme bg-gradient-to-b from-slate-50 via-white to-slate-50 px-4 py-12 sm:px-6">
-      <div className="mx-auto max-w-6xl space-y-8">
-        <div className="rounded-[var(--guest-radius-2xl)] border border-slate-100 bg-white/90 p-6 shadow-[var(--guest-shadow-xl)]">
-          <Badge variant="secondary" className="rounded-full px-4 py-1 text-blue-900">
-            Book with confidence
-          </Badge>
-          <h1 className="mt-3 guest-heading-page text-[length:var(--guest-text-page)] font-semibold text-slate-900">
+    <section className="guest-theme bg-gradient-to-b from-slate-50 via-white to-slate-50 px-4 py-8 sm:px-6 sm:py-10">
+      <div className="mx-auto max-w-5xl space-y-6">
+        <div className="rounded-[var(--guest-radius-2xl)] border border-slate-100 bg-white/95 p-5 shadow-[var(--guest-shadow-xl)]">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Badge variant="secondary" className="rounded-full px-4 py-1 text-blue-900">
+              Book with confidence
+            </Badge>
+            <span className="text-xs uppercase tracking-[0.16em] text-slate-500">Booking flow</span>
+          </div>
+          <h1 className="mt-2 guest-heading-page text-[length:var(--guest-text-page)] font-semibold text-slate-900">
             Reserve {restaurant.name}
           </h1>
-          <p className="text-slate-600">Same booking wizard as the guest portal—fast, familiar, and focused.</p>
+          <p className="text-sm text-slate-600">Fast, familiar, and focused—same wizard guests see everywhere.</p>
         </div>
-        <div className="rounded-[var(--guest-radius-2xl)] border border-slate-100 bg-white p-4 shadow-[var(--guest-shadow-xl)]">
-          <BookingIllustration className="mb-4" />
+        <div className="rounded-[var(--guest-radius-2xl)] border border-slate-100 bg-white p-4 sm:p-5 shadow-[var(--guest-shadow-xl)]">
           {children}
         </div>
       </div>
@@ -373,27 +375,6 @@ function ListingIllustration() {
       <rect x="124" y="76" width="40" height="8" rx="4" fill="var(--primary)" opacity="0.35" />
       <circle cx="168" cy="68" r="8" fill="white" opacity="0.9" />
       <path d="M164 68l2.8 3 5.2-6.5" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function BookingIllustration({ className }: { className?: string }) {
-  return (
-    <svg
-      role="img"
-      aria-label="Booking steps illustration"
-      className={className ?? "h-14 w-full"}
-      viewBox="0 0 240 80"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <rect x="12" y="16" width="216" height="48" rx="12" fill="rgba(255,255,255,0.12)" stroke="var(--primary)" strokeOpacity="0.35" />
-      <rect x="26" y="28" width="80" height="12" rx="6" fill="var(--primary)" opacity="0.9" />
-      <rect x="26" y="46" width="58" height="10" rx="5" fill="var(--primary)" opacity="0.4" />
-      <rect x="120" y="26" width="38" height="10" rx="5" fill="var(--primary)" opacity="0.28" />
-      <rect x="120" y="42" width="60" height="16" rx="7" fill="var(--primary)" opacity="0.18" />
-      <rect x="184" y="32" width="24" height="24" rx="8" fill="white" />
-      <path d="M190 44l5 5 9-11" stroke="var(--primary)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
