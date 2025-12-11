@@ -1,12 +1,14 @@
 import React from "react";
-import { describe, expect, it, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const redirectMock = vi.fn(() => {
   throw new Error("NEXT_REDIRECT");
 });
 
 const getUserMock = vi.fn();
-const renderGuestLanding = vi.fn(() => <div data-testid="guest-landing" />);
+const renderFactoryHome = vi.fn(({ isAuthenticated }: { isAuthenticated: boolean }) => (
+  <div data-testid="factory-home" data-authenticated={isAuthenticated} />
+));
 const renderMarketingLayout = vi.fn(({ children }: { children: React.ReactNode }) => (
   <div data-testid="marketing-layout">{children}</div>
 ));
@@ -15,8 +17,8 @@ vi.mock("next/navigation", () => ({
   redirect: redirectMock,
 }));
 
-vi.mock("@/components/marketing", () => ({
-  GuestLandingPage: renderGuestLanding,
+vi.mock("@/components/landing/FactoryHomeClient", () => ({
+  FactoryHomeClient: renderFactoryHome,
 }));
 
 vi.mock("@/components/layouts/MarketingLayout", () => ({
@@ -50,7 +52,7 @@ describe("home page redirect", () => {
     expect(redirectMock).toHaveBeenCalledWith("/guest/dashboard");
   });
 
-  it("renders marketing page for unauthenticated users", async () => {
+  it("renders marketing page with Factory home for unauthenticated users", async () => {
     getUserMock.mockResolvedValue({ data: { user: null }, error: null });
     const { default: Home } = await import("@/app/(public)/page");
     const result = await Home();
@@ -58,6 +60,7 @@ describe("home page redirect", () => {
     expect(result).toBeTruthy();
     expect(result.type).toBe(renderMarketingLayout);
     const child = Array.isArray(result.props.children) ? result.props.children[0] : result.props.children;
-    expect(child.type).toBe(renderGuestLanding);
+    expect(child.type).toBe(renderFactoryHome);
+    expect(child.props.isAuthenticated).toBe(false);
   });
 });
