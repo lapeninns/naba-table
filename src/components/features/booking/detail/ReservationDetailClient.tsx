@@ -10,7 +10,6 @@ import {
   Mail,
   MessageSquare,
   Phone,
-  QrCode,
   Share2,
   Sparkles,
   User,
@@ -22,7 +21,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { BookingDetailShell, BookingSummaryCard, DetailStatCard, InfoPanel, InlineAlert, ManageBookingPanel, QRCodePanel, SummaryActions, ActionButtonRow, SecondaryButton, GhostButton } from '@/components/features/booking/ui/BookingComponents';
+import { BookingDetailShell, BookingSummaryCard, DetailStatCard, InfoPanel, InlineAlert, ManageBookingPanel, SummaryActions, ActionButtonRow, SecondaryButton, GhostButton } from '@/components/features/booking/ui/BookingComponents';
 import { GuestError } from '@/components/guest/ui';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -44,15 +43,6 @@ const CancelBookingDialog = dynamic(() => import('@/components/dashboard/CancelB
 
 const EditBookingDialog = dynamic(() => import('@/components/dashboard/EditBookingDialog').then((m) => m.EditBookingDialog), {
   loading: () => <div className="h-10" />,
-});
-
-const QRCodeDialogLazy = dynamic(() => import('./QRCodeDialogLazy'), {
-  loading: () => (
-    <div className="flex flex-col items-center justify-center py-8">
-      <div className="h-32 w-32 rounded-2xl bg-slate-100" />
-    </div>
-  ),
-  ssr: false,
 });
 
 export type ReservationVenue = {
@@ -385,14 +375,6 @@ export function ReservationDetailClient({
         </div>
 
         <div className="space-y-6">
-          <QRCodePanel code={reservation.id.slice(0, 8).toUpperCase()}>
-            <QRCodeDialogLazy reservation={reservation}>
-              <button className="group mx-auto block rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition-all hover:shadow-md hover:scale-105">
-                <QrCode className="h-28 w-28 text-slate-900" />
-              </button>
-            </QRCodeDialogLazy>
-          </QRCodePanel>
-
           <ManageBookingPanel
             title="Manage booking"
             actions={

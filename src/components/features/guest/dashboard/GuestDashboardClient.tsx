@@ -1,14 +1,13 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { Calendar, Clock, Heart, MapPin, QrCode, User, ChevronRight, Sparkles } from 'lucide-react';
+import { Calendar, Clock, Heart, MapPin, User, ChevronRight, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo } from 'react';
 
 import { GuestError } from '@/components/guest/ui';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useGuestBookings, useGuestProfile, useGuestSession } from '@/guest/hooks';
 import { getGreeting } from '@/guest/lib/formatters';
@@ -289,15 +288,13 @@ function FeaturedBooking({
         </div>
 
         <div className="bg-slate-50 border-t md:border-t-0 md:border-l border-slate-200 p-6 flex flex-col items-center justify-center text-center gap-4">
-          <QRCodeDialog booking={booking}>
-            <button className="bg-white p-4 rounded-2xl shadow-card border border-slate-200 hover:scale-105 transition-transform">
-              <QrCode className="w-20 h-20 text-slate-900" />
-            </button>
-          </QRCodeDialog>
-          <div className="font-mono text-xl font-bold text-slate-900 tracking-widest">
-            {booking.id.slice(0, 8).toUpperCase()}
+          <div className="w-full rounded-2xl border border-slate-200 bg-white py-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Code</p>
+            <div className="font-mono text-2xl font-bold text-slate-900 tracking-[0.3em]">
+              {booking.id.slice(0, 8).toUpperCase()}
+            </div>
           </div>
-          <p className="text-xs text-slate-500 uppercase tracking-wide">Confirmation code</p>
+          <p className="text-xs text-slate-500 uppercase tracking-wide">Show this code at check-in</p>
 
           <Button asChild className="w-full rounded-full" size="lg">
             <Link href={`/guest/bookings/${booking.id}`}>Manage booking</Link>
@@ -360,29 +357,5 @@ function Detail({ label, value }: { label: string; value: string }) {
       <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">{label}</div>
       <div className="text-base font-semibold text-slate-900">{value}</div>
     </div>
-  );
-}
-
-function QRCodeDialog({ booking, children }: { booking: BookingDTO; children: React.ReactNode }) {
-  return (
-    <Dialog>
-      <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-center text-xl">Check-in Code</DialogTitle>
-        </DialogHeader>
-        <div className="flex flex-col items-center justify-center py-8">
-          <div className="rounded-2xl border-2 border-slate-100 bg-white p-6 shadow-inner">
-            <QrCode className="h-48 w-48 text-slate-900" />
-          </div>
-          <div className="mt-6 text-center">
-            <p className="font-mono text-2xl font-bold tracking-widest text-slate-900">
-              {booking.id.slice(0, 8).toUpperCase()}
-            </p>
-            <p className="mt-2 text-sm text-slate-500">Show this code to the host on arrival</p>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }
