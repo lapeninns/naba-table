@@ -28,6 +28,7 @@ const TRANSIENT_FAILURE_PATTERNS: ReasonPattern[] = [
   { pattern: /abort/i, code: "transient.abort", category: "transient" },
   { pattern: /rpc/i, code: "transient.rpc_error", category: "transient" },
   { pattern: /lock wait/i, code: "transient.lock_wait", category: "transient" },
+  { pattern: /allocations?_no_overlap/i, code: "transient.allocations_overlap", category: "transient" },
 ];
 
 const DEFAULT_CLASSIFICATION: PlannerReasonClassification = {

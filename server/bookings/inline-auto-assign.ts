@@ -254,12 +254,17 @@ export async function attemptInlineAutoAssign(
                     });
                 } catch (confirmError) {
                     const confirmDurationMs = Date.now() - confirmStartedAt;
+                    const confirmErrorString = stringifyError(confirmError);
+                    const normalizedConfirmError = confirmErrorString.toLowerCase();
+                    const isOverlap = normalizedConfirmError.includes("allocations_no_overlap");
+
                     console.error("[bookings][inline-auto-assign] confirm error", {
                         bookingId: finalBooking.id,
                         attemptId: inlineAttemptId,
                         holdId: quote.hold.id,
                         durationMs: confirmDurationMs,
-                        error: stringifyError(confirmError),
+                        idempotencyKey: inlineIdempotencyKey,
+                        error: confirmErrorString,
                     });
                     await recordObservabilityEvent({
                         source: "bookings.inline_auto_assign",
@@ -270,9 +275,37 @@ export async function attemptInlineAutoAssign(
                             attemptId: inlineAttemptId,
                             holdId: quote.hold.id,
                             durationMs: confirmDurationMs,
+                            idempotencyKey: inlineIdempotencyKey,
+                            reason: confirmErrorString,
                         },
                         severity: "error",
                     });
+
+                    if (isOverlap) {
+                        await persistInlinePlanResult({
+                            success: false,
+                            reason: "allocations_no_overlap",
+                            alternates: quote?.alternates?.length ?? 0,
+                            durationMs: quoteDurationMs,
+                            emailSent: false,
+                            emailVariant: inlineEmailVariant,
+                        });
+                        await recordObservabilityEvent({
+                            source: "bookings.inline_auto_assign",
+                            eventType: "inline_auto_assign.confirm_overlap",
+                            restaurantId,
+                            bookingId: finalBooking.id,
+                            context: {
+                                attemptId: inlineAttemptId,
+                                holdId: quote.hold.id,
+                                durationMs: confirmDurationMs,
+                                idempotencyKey: inlineIdempotencyKey,
+                            },
+                            severity: "warning",
+                        });
+                        return;
+                    }
+
                     throw confirmError;
                 }
 
