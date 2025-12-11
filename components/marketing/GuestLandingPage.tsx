@@ -257,6 +257,17 @@ function HowItWorksSection() {
             </li>
           ))}
         </ol>
+        <div className="mt-4 flex justify-center">
+          <Link
+            href="/how-it-works"
+            className={cn(
+              buttonVariants({ variant: "outline", size: "sm" }),
+              "rounded-full px-5",
+            )}
+          >
+            Learn more about how booking works
+          </Link>
+        </div>
       </div>
     </section>
   );
@@ -370,3 +381,12 @@ export function GuestLandingPage() {
     </div>
   );
 }
+
+export {
+  HeroSection as GuestLandingHeroSection,
+  FeaturesSection as GuestLandingFeaturesSection,
+  HowItWorksSection as GuestLandingHowItWorksSection,
+  TestimonialsSection as GuestLandingTestimonialsSection,
+  FAQSection as GuestLandingFAQSection,
+  FinalCTASection as GuestLandingFinalCTASection,
+};

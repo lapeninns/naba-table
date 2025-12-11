@@ -49,6 +49,32 @@ const hasMeaningfulDraft = (details: BookingDetails): boolean => {
   );
 };
 
+export const buildSafeReturnPath = (params: {
+  returnPath?: string;
+  bookingId?: string | null;
+  bookingReference?: string | null;
+  restaurantSlug?: string | null;
+}): string => {
+  const { returnPath, bookingId, bookingReference, restaurantSlug } = params;
+  if (returnPath) return returnPath;
+
+  if (bookingId) {
+    if (bookingReference) {
+      const url = new URL(`/bookings/${bookingId}/thank-you`, 'https://placeholder.local');
+      url.searchParams.set('token', bookingReference);
+      return `${url.pathname}${url.search}`;
+    }
+    // Without a token, avoid the auth-gated receipt redirect
+    return '/guest/thank-you';
+  }
+
+  if (restaurantSlug) {
+    return `/restaurants/${restaurantSlug}`;
+  }
+
+  return '/';
+};
+
 const OFFLINE_ALERT_MESSAGE = 'You’re offline—reconnect to confirm. Your edits are saved locally.';
 
 type BookingError = { code?: string | number | null | undefined };
@@ -99,19 +125,27 @@ export function useReservationWizard(
   // Build safe return path - user is closing the confirmation (thank you) step
   // The wizard step 4 IS the thank you experience, so we redirect to:
   // - Explicit returnPath if provided
+  // - Thank-you with token when booking confirmed
   // - Restaurant page if we know the slug
   // - Home page as final fallback
-  const safeReturnPath = (() => {
-    if (returnPath) return returnPath;
-    if (initialDetails?.bookingId) {
-      return `/bookings/${initialDetails.bookingId}/thank-you`;
-    }
-    if (initialDetails?.restaurantSlug) {
-      return `/restaurants/${initialDetails.restaurantSlug}`;
-    }
-    // Fallback to home page (public, no auth required)
-    return '/';
-  })();
+  const safeReturnPath = useMemo(
+    () =>
+      buildSafeReturnPath({
+        returnPath,
+        bookingId: state.lastConfirmed?.id ?? state.details.bookingId ?? initialDetails?.bookingId,
+        bookingReference: state.lastConfirmed?.reference ?? null,
+        restaurantSlug: state.details.restaurantSlug || initialDetails?.restaurantSlug || null,
+      }),
+    [
+      initialDetails?.bookingId,
+      initialDetails?.restaurantSlug,
+      returnPath,
+      state.details.bookingId,
+      state.details.restaurantSlug,
+      state.lastConfirmed?.id,
+      state.lastConfirmed?.reference,
+    ],
+  );
 
   useRememberedContacts({ details: state.details, actions, enabled: mode === 'customer' });
 

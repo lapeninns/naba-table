@@ -242,7 +242,7 @@ function MobileMenu({
     [pathname],
   );
 
-  const navSections: { title: string; links: AccountLink[] } = [
+  const navSections: { title: string; links: AccountLink[] }[] = [
     { title: "Explore", links: [{ ...PRIMARY_LINK }] },
   ];
 
