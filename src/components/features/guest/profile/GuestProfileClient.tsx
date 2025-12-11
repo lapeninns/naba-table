@@ -1,38 +1,86 @@
 'use client';
 
 import { Shield, Settings, Save } from 'lucide-react';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { ZodError } from 'zod';
 
 import { GuestSection, MetricTile, HeadingXL, TextBody } from '@/components/guest/ui';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
-import { Switch } from '@/components/ui/switch';
+import { useGuestProfile } from '@/guest/hooks';
+import { coerceProfileUpdatePayload, useUpdateProfile } from '@/hooks/useProfile';
 
 import type { GuestProfileViewModel } from '@/guest/routes/profile/view-model';
 
 type ProfileFormValues = {
     full_name: string;
     phone_number: string;
-    marketing_consent: boolean;
 };
 
 export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewModel }) {
-    const { profile } = viewModel;
+    const { data: liveProfile } = useGuestProfile();
+    const profile = liveProfile ?? viewModel.profile;
 
     const form = useForm<ProfileFormValues>({
         defaultValues: {
             full_name: profile.name || '',
             phone_number: profile.phone || '',
-            marketing_consent: true, // simplified
         },
     });
 
+    const updateProfile = useUpdateProfile();
+
+    useEffect(() => {
+        form.reset({
+            full_name: profile.name || '',
+            phone_number: profile.phone || '',
+        });
+    }, [profile.name, profile.phone, form]);
+
     const onSubmit = (data: ProfileFormValues) => {
-        console.log('Update profile', data);
-        // TODO: Connect to mutation
+        form.clearErrors();
+
+        let payload;
+        try {
+            payload = coerceProfileUpdatePayload({
+                name: data.full_name,
+                phone: data.phone_number,
+            });
+        } catch (error) {
+            if (error instanceof ZodError) {
+                error.issues.forEach((issue) => {
+                    const field = issue.path[0];
+                    if (field === 'name') {
+                        form.setError('full_name', { type: 'validate', message: issue.message });
+                    }
+                    if (field === 'phone') {
+                        form.setError('phone_number', { type: 'validate', message: issue.message });
+                    }
+                });
+                return;
+            }
+            throw error;
+        }
+
+        if (Object.keys(payload).length === 0) {
+            form.reset(data);
+            return;
+        }
+
+        updateProfile.mutate(payload, {
+            onSuccess: (result) => {
+                form.reset({
+                    full_name: result.profile.name || '',
+                    phone_number: result.profile.phone || '',
+                });
+            },
+        });
     };
+
+    const isSubmitting = updateProfile.isPending;
+    const isPristine = !form.formState.isDirty;
 
     return (
         <div className="min-h-screen pb-32 space-y-12">
@@ -72,7 +120,15 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
                         <div className="grid gap-6 md:grid-cols-2">
                             <div className="space-y-2">
                                 <Label htmlFor="full_name">Full Name</Label>
-                                <Input id="full_name" {...form.register('full_name')} className="rounded-xl h-11" />
+                                <Input
+                                    id="full_name"
+                                    {...form.register('full_name')}
+                                    className="rounded-xl h-11"
+                                    disabled={isSubmitting}
+                                />
+                                {form.formState.errors.full_name ? (
+                                    <p className="text-xs text-red-600">{form.formState.errors.full_name.message}</p>
+                                ) : null}
                             </div>
 
                             <div className="space-y-2">
@@ -83,49 +139,31 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
 
                             <div className="space-y-2">
                                 <Label htmlFor="phone">Phone Number</Label>
-                                <Input id="phone" {...form.register('phone_number')} className="rounded-xl h-11" />
+                                <Input
+                                    id="phone"
+                                    {...form.register('phone_number')}
+                                    className="rounded-xl h-11"
+                                    disabled={isSubmitting}
+                                />
+                                {form.formState.errors.phone_number ? (
+                                    <p className="text-xs text-red-600">{form.formState.errors.phone_number.message}</p>
+                                ) : null}
                             </div>
                         </div>
 
                         <div className="flex justify-end pt-4">
-                            <Button type="submit" size="lg" className="rounded-full px-8 bg-slate-900 hover:bg-slate-800">
+                            <Button
+                                type="submit"
+                                size="lg"
+                                className="rounded-full px-8 bg-slate-900 hover:bg-slate-800"
+                                disabled={isSubmitting || isPristine}
+                            >
                                 <Save className="w-4 h-4 mr-2" />
-                                Save Changes
+                                {isSubmitting ? 'Saving...' : 'Save Changes'}
                             </Button>
                         </div>
                     </form>
                 </GuestSection>
-
-                {/* Preferences */}
-                <GuestSection
-                    title="Communication Preferences"
-                    description="Manage how we contact you about your bookings and offers."
-                >
-                    <div className="space-y-6">
-                        <div className="flex items-center justify-between">
-                            <div className="space-y-0.5">
-                                <Label className="text-base">Marketing Emails</Label>
-                                <p className="text-sm text-slate-500">Receive offers, updates, and restaurant news.</p>
-                            </div>
-                            <Switch checked={true} />
-                        </div>
-                        <Separator />
-                        <div className="flex items-center justify-between">
-                            <div className="space-y-0.5">
-                                <Label className="text-base">Order Notifications</Label>
-                                <p className="text-sm text-slate-500">Receive real-time updates about your orders.</p>
-                            </div>
-                            <Switch checked={true} disabled />
-                        </div>
-                    </div>
-                </GuestSection>
-
-                <div className="flex justify-center pt-8 pb-12">
-                    <Button variant="ghost" className="text-red-600 hover:bg-red-50 hover:text-red-700 rounded-full">
-                        Delete Account
-                    </Button>
-                </div>
-
             </div>
         </div>
     );

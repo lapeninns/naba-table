@@ -163,20 +163,6 @@ export function ManageBookingPanel({
   );
 }
 
-export function QRCodePanel({ children, code }: { children: ReactNode; code: string }) {
-  return (
-    <BookingSidebarCard>
-      <div className="p-8 text-center bg-slate-50/30">
-        {children}
-        <div className="mt-6">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400 mb-2">Check-in code</p>
-          <p className="font-mono text-3xl font-bold text-slate-900 tracking-wider">{code}</p>
-        </div>
-      </div>
-    </BookingSidebarCard>
-  );
-}
-
 export function InlineAlert({ tone = "info", children }: { tone?: StatusTone; children: ReactNode }) {
   const palette = toneClasses[tone];
   return <div className={cn("rounded-2xl border px-4 py-3 text-sm font-medium", palette.badge, palette.text)}>{children}</div>;
