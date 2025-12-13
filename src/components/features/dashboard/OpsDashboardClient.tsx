@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { BookingStateMachineProvider } from '@/contexts/booking-state-machine';
-import { useOpsActiveMembership, useOpsAccountSnapshot } from '@/contexts/ops-session';
+import { useOpsActiveMembership } from '@/contexts/ops-session';
 import { useOpsBookingHeatmap, useOpsBookingLifecycleActions, useOpsTableAssignmentActions, useOpsTodaySummary } from '@/hooks';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
@@ -21,7 +21,6 @@ import { computeCalendarRange, sanitizeDateParam } from '@/utils/ops/dashboard';
 import { BookingsList } from './BookingsList';
 import { DashboardErrorState } from './DashboardErrorState';
 import { DashboardSkeleton } from './DashboardSkeleton';
-import { ExportBookingsButton } from './ExportBookingsButton';
 import { HeatmapCalendar } from './HeatmapCalendar';
 
 import type { BookingFilter } from './BookingsFilterBar';
@@ -45,7 +44,6 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
 
 function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
   const membership = useOpsActiveMembership();
-  const account = useOpsAccountSnapshot();
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -59,7 +57,6 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
   const [, startTransition] = useTransition();
 
   const restaurantId = membership?.restaurantId ?? null;
-  const restaurantName = membership?.restaurantName ?? account.restaurantName ?? 'Restaurant';
 
   const summaryQuery = useOpsTodaySummary({ restaurantId, targetDate: selectedDate });
   const summary = summaryQuery.data ?? null;
@@ -303,9 +300,6 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
               </div>
               <DateNavigationButton direction="next" onClick={() => handleShiftDate(1)} />
             </div>
-
-            {/* New Booking Button could go here if implemented */}
-            <ExportBookingsButton restaurantId={restaurantId} restaurantName={restaurantName} date={summary.date} />
           </div>
         </header>
 
