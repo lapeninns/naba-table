@@ -519,10 +519,10 @@ function BookingCard({
 
   return (
     <div className={cn(
-      "group relative flex flex-col gap-4 rounded-xl border p-4 transition-all sm:flex-row sm:items-center",
+      "group relative flex flex-col gap-3 rounded-xl border p-3 transition-all sm:gap-4 sm:p-4 sm:flex-row sm:items-center",
       cardBorderClass,
       isLoading && "opacity-60 pointer-events-none animate-pulse",
-      !isLoading && "hover:shadow-md"
+      !isLoading && "hover:shadow-md active:shadow-sm"
     )}>
       {/* Loading overlay indicator */}
       {isLoading && (
@@ -647,19 +647,19 @@ function BookingCard({
       </div>
 
       {/* ZONE 3: ACTIONS */}
-      <div className="mt-2 flex shrink-0 items-center justify-between gap-3 border-t border-slate-100 pt-3 sm:mt-0 sm:flex-col sm:items-end sm:border-0 sm:pt-0">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-t border-slate-100 pt-3 sm:mt-0 sm:flex-col sm:items-end sm:border-0 sm:pt-0 sm:gap-3">
 
         {!isDone ? (
           <>
             {(!isSeated) ? (
               <Button
                 size="sm"
-                className="w-full bg-slate-900 shadow-slate-200/50 hover:bg-slate-800 sm:w-auto group/btn"
+                className="flex-1 h-11 bg-slate-900 shadow-slate-200/50 hover:bg-slate-800 active:bg-slate-700 sm:flex-none sm:h-auto sm:w-auto group/btn touch-manipulation"
                 onClick={() => handleAction('check-in')}
                 disabled={lifecyclePending === 'check-in'}
                 title="Seat guest (keyboard: S)"
               >
-                <LogIn className="mr-2 h-3.5 w-3.5" />
+                <LogIn className="mr-2 h-4 w-4 sm:h-3.5 sm:w-3.5" />
                 {lifecyclePending === 'check-in' ? 'Seating...' : 'Seat Guest'}
                 <span className="ml-2 hidden rounded bg-slate-700 px-1 py-0.5 text-[9px] font-mono opacity-60 group-hover/btn:inline">S</span>
               </Button>
@@ -667,12 +667,12 @@ function BookingCard({
               <Button
                 size="sm"
                 variant="outline"
-                className="w-full border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 sm:w-auto group/btn"
+                className="flex-1 h-11 border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 active:bg-emerald-100 sm:flex-none sm:h-auto sm:w-auto group/btn touch-manipulation"
                 onClick={() => handleAction('check-out')}
                 disabled={lifecyclePending === 'check-out'}
                 title="Finish visit (keyboard: F)"
               >
-                <LogOut className="mr-2 h-3.5 w-3.5" />
+                <LogOut className="mr-2 h-4 w-4 sm:h-3.5 sm:w-3.5" />
                 {lifecyclePending === 'check-out' ? 'Finishing...' : 'Finish'}
                 <span className="ml-2 hidden rounded bg-emerald-100 px-1 py-0.5 text-[9px] font-mono opacity-60 group-hover/btn:inline">F</span>
               </Button>
@@ -685,12 +685,12 @@ function BookingCard({
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="h-8 w-8 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                  className="h-11 w-11 text-slate-400 hover:text-rose-600 hover:bg-rose-50 active:bg-rose-100 sm:h-8 sm:w-8 touch-manipulation"
                   onClick={() => onMarkNoShow(booking.id)}
                   disabled={lifecyclePending === 'no-show'}
                   title="Mark as no-show (keyboard: N)"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-5 w-5 sm:h-4 sm:w-4" />
                 </Button>
               )}
               <BookingDetailsDialog

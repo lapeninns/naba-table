@@ -318,50 +318,52 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
         <div className="sticky top-0 z-10 -mx-6 bg-slate-50/80 px-6 py-4 backdrop-blur-md transition-all md:mx-0 md:rounded-xl md:border md:border-slate-200/60 md:bg-white/80 md:px-4 md:py-3 md:shadow-sm">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
 
-            {/* TABS */}
-            <div className="flex items-center gap-1 rounded-lg bg-slate-100/80 p-1 md:w-fit">
-              {(['all', 'upcoming', 'seated', 'finished'] as const).map((tab) => {
-                const count = tabCounts[tab];
-                return (
-                  <button
-                    key={tab}
-                    onClick={() => handleSelectFilter(tab as BookingFilter)}
-                    className={cn(
-                      "relative flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all",
-                      filter === tab
-                        ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200"
-                        : "text-slate-500 hover:bg-slate-200/50 hover:text-slate-700"
-                    )}
-                  >
-                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                    {count > 0 && (
-                      <span className={cn(
-                        "inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none",
+            {/* TABS - horizontally scrollable on mobile */}
+            <div className="-mx-1 overflow-x-auto scrollbar-hide">
+              <div className="flex items-center gap-1 rounded-lg bg-slate-100/80 p-1 min-w-max">
+                {(['all', 'upcoming', 'seated', 'finished'] as const).map((tab) => {
+                  const count = tabCounts[tab];
+                  return (
+                    <button
+                      key={tab}
+                      onClick={() => handleSelectFilter(tab as BookingFilter)}
+                      className={cn(
+                        "relative flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-all whitespace-nowrap touch-manipulation",
                         filter === tab
-                          ? "bg-slate-900 text-white"
-                          : "bg-slate-300/80 text-slate-600"
-                      )}>
-                        {count}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+                          ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200"
+                          : "text-slate-500 hover:bg-slate-200/50 hover:text-slate-700 active:bg-slate-200"
+                      )}
+                    >
+                      {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                      {count > 0 && (
+                        <span className={cn(
+                          "inline-flex items-center justify-center rounded-full min-w-[20px] px-1.5 py-0.5 text-[10px] font-semibold leading-none",
+                          filter === tab
+                            ? "bg-slate-900 text-white"
+                            : "bg-slate-300/80 text-slate-600"
+                        )}>
+                          {count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* SEARCH & FILTER */}
             <div className="flex items-center gap-2">
-              <div className="relative flex-1 md:w-64">
-                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <div className="relative flex-1 md:w-64 md:flex-none">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
                   placeholder="Search guests..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-4 text-sm outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 text-sm outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 touch-manipulation"
                 />
               </div>
-              <Button variant="outline" size="icon" className="shrink-0 bg-white">
+              <Button variant="outline" size="icon" className="shrink-0 h-10 w-10 bg-white touch-manipulation">
                 <Filter className="h-4 w-4 text-slate-500" />
               </Button>
             </div>
