@@ -28,7 +28,7 @@ import { queryKeys } from '@/lib/query/keys';
 import { generateIdempotencyKey } from '@/lib/utils/idempotency';
 
 import type { ManualSelectionCheck, ManualValidationResult } from '@/services/ops/bookings';
-import type { OpsTodayBooking } from '@/types/ops';
+import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
 
 type BookingAssignmentTabContentProps = {
     booking: OpsTodayBooking;
@@ -38,7 +38,7 @@ type BookingAssignmentTabContentProps = {
     onAssignmentComplete?: () => void;
 };
 
-export function BookingAssignmentTabContent({ booking, restaurantId: _restaurantId, date: _date, onUnassignTable, onAssignmentComplete }: BookingAssignmentTabContentProps) {
+export function BookingAssignmentTabContent({ booking, restaurantId, date, onUnassignTable, onAssignmentComplete }: BookingAssignmentTabContentProps) {
     const { toast } = useToast();
     const bookingService = useBookingService();
     const queryClient = useQueryClient();
@@ -98,46 +98,79 @@ export function BookingAssignmentTabContent({ booking, restaurantId: _restaurant
     }, [assignmentContext, tableMap]);
 
     // -- Mutations --
-    // SIMPLIFIED: Direct table assignment - single atomic operation
-    const directAssignMutation = useMutation({
-        mutationFn: async () => {
+    // Direct table assignment (atomic operation) with standard optimistic update pattern.
+    const directAssignMutation = useMutation<
+        Awaited<ReturnType<typeof bookingService.assignTablesDirect>>,
+        unknown,
+        string[],
+        { summaryKey: ReturnType<(typeof queryKeys)['opsDashboard']['summary']>; previousSummary?: OpsTodayBookingsSummary }
+    >({
+        mutationFn: async (tableIds) => {
             return await bookingService.assignTablesDirect({
                 bookingId: booking.id,
-                tableIds: selectedTables,
+                tableIds,
                 idempotencyKey: generateIdempotencyKey(),
                 requireAdjacency: false,
             });
         },
-        onSuccess: async () => {
+        onMutate: async (tableIds) => {
             setErrorBanner(null);
-            // Clear local state
-            setSelectedTables([]);
-            setValidationResult(null);
 
-            // Invalidate all related queries to ensure fresh data
-            await Promise.all([
-                // Refresh the manual assignment context
-                refetchAssignmentContext(),
-                queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.assignmentContext(booking.id) }),
-                // Invalidate the specific booking detail
-                queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(booking.id) }),
-                // Invalidate the bookings list
-                queryClient.invalidateQueries({ queryKey: queryKeys.bookings.list({}) }),
-                // Invalidate ops bookings list
-                queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.list({}) }),
-            ]);
+            const summaryKey = queryKeys.opsDashboard.summary(restaurantId, date);
 
-            // Notify parent component
-            onAssignmentComplete?.();
+            // Step 1: cancel any in-flight refetches for the same summary
+            await queryClient.cancelQueries({ queryKey: summaryKey });
 
-            // Show success message
-            toast({
-                title: 'Tables assigned',
-                description: `Successfully assigned ${selectedTables.length} table(s) to booking.`,
-                duration: 3000,
+            // Step 2: snapshot previous state
+            const previousSummary = queryClient.getQueryData<OpsTodayBookingsSummary>(summaryKey);
+
+            // Step 3: optimistically update cache (dashboard list cards)
+            queryClient.setQueryData<OpsTodayBookingsSummary>(summaryKey, (current) => {
+                if (!current) return current;
+
+                const members: OpsTodayBooking['tableAssignments'][number]['members'] = tableIds.map((tableId) => {
+                    const t = tableMap.get(tableId);
+                    return {
+                        tableId,
+                        tableNumber: t?.tableNumber ?? '?',
+                        capacity: t?.capacity ?? null,
+                        section: t?.section ?? null,
+                    };
+                });
+
+                const capacitySum = members.reduce((sum, member) => sum + (member.capacity ?? 0), 0);
+                const optimisticAssignments: OpsTodayBooking['tableAssignments'] =
+                    members.length > 0
+                        ? [
+                            {
+                                groupId: null,
+                                capacitySum,
+                                members,
+                            },
+                        ]
+                        : [];
+
+                return {
+                    ...current,
+                    bookings: current.bookings.map((b) => {
+                        if (b.id !== booking.id) return b;
+                        return {
+                            ...b,
+                            tableAssignments: optimisticAssignments,
+                            requiresTableAssignment: optimisticAssignments.length === 0 && b.status !== 'cancelled' && b.status !== 'no_show',
+                        };
+                    }),
+                };
             });
+
+            // Step 4: return context for rollback
+            return { summaryKey, previousSummary };
         },
-        onError: (error: unknown) => {
+        onError: (error: unknown, _tableIds, context) => {
+            if (context?.previousSummary) {
+                queryClient.setQueryData(context.summaryKey, context.previousSummary);
+            }
+
             console.error('[BookingAssignmentTabContent] Assignment failed:', error);
 
             // Handle HttpError with validation details
@@ -190,6 +223,33 @@ export function BookingAssignmentTabContent({ booking, restaurantId: _restaurant
             });
             setErrorBanner(message);
         },
+        onSuccess: async (_data, tableIds) => {
+            // Clear local state
+            setSelectedTables([]);
+            setValidationResult(null);
+
+            // Invalidate all related queries to ensure fresh data
+            await Promise.all([
+                // Refresh the manual assignment context
+                refetchAssignmentContext(),
+                queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.assignmentContext(booking.id) }),
+                // Invalidate the specific booking detail
+                queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(booking.id) }),
+                // Invalidate the bookings list
+                queryClient.invalidateQueries({ queryKey: queryKeys.bookings.list({}) }),
+                // Invalidate ops bookings list
+                queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.list({}) }),
+            ]);
+
+            // Notify parent component
+            onAssignmentComplete?.();
+
+            toast({
+                title: 'Tables assigned',
+                description: `Successfully assigned ${tableIds.length} table(s) to booking.`,
+                duration: 3000,
+            });
+        },
     });
 
     // -- Handlers --
@@ -214,8 +274,8 @@ export function BookingAssignmentTabContent({ booking, restaurantId: _restaurant
         }
 
         setErrorBanner(null);
-        directAssignMutation.mutate();
-    }, [assignedTables.length, selectedTables.length, directAssignMutation, toast]);
+        directAssignMutation.mutate(selectedTables);
+    }, [assignedTables.length, selectedTables, directAssignMutation, toast]);
 
     const handleClear = useCallback(() => {
         setSelectedTables([]);

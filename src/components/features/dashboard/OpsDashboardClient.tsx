@@ -1,33 +1,34 @@
 'use client';
 
-import { Calendar as CalendarIcon, Clock, ChevronLeft, ChevronRight, TrendingUp, UserRound, Users, type LucideIcon } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Filter, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 
 import { BookingOfflineBanner } from '@/components/features/booking-state-machine';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { BookingStateMachineProvider } from '@/contexts/booking-state-machine';
 import { useOpsActiveMembership, useOpsAccountSnapshot } from '@/contexts/ops-session';
-import { useOpsTodaySummary, useOpsBookingLifecycleActions, useOpsTodayVIPs, useOpsBookingChanges, useOpsBookingHeatmap } from '@/hooks';
-import { useOpsTableAssignmentActions } from '@/hooks';
+import { useOpsBookingHeatmap, useOpsBookingLifecycleActions, useOpsTableAssignmentActions, useOpsTodaySummary } from '@/hooks';
+import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
 import { formatDateKey, getTodayInTimezone } from '@/lib/utils/datetime';
-import { sanitizeDateParam, computeCalendarRange } from '@/utils/ops/dashboard';
+import { computeCalendarRange, sanitizeDateParam } from '@/utils/ops/dashboard';
 
-import { BookingChangeFeed } from './BookingChangeFeed';
-import { BookingsFilterBar } from './BookingsFilterBar';
 import { BookingsList } from './BookingsList';
 import { DashboardErrorState } from './DashboardErrorState';
 import { DashboardSkeleton } from './DashboardSkeleton';
 import { ExportBookingsButton } from './ExportBookingsButton';
 import { HeatmapCalendar } from './HeatmapCalendar';
-import { VIPGuestsModule } from './VIPGuestsModule';
-
 
 import type { BookingFilter } from './BookingsFilterBar';
 
-
+/* 
+  Using 'all' as default to show complete overview first.
+*/
 const DEFAULT_FILTER: BookingFilter = 'all';
 
 type OpsDashboardClientProps = {
@@ -35,13 +36,26 @@ type OpsDashboardClientProps = {
 };
 
 export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
+  return (
+    <BookingStateMachineProvider>
+      <OpsDashboardClientContent initialDate={initialDate} />
+    </BookingStateMachineProvider>
+  );
+}
+
+function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
   const membership = useOpsActiveMembership();
   const account = useOpsAccountSnapshot();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
+
+  // State
   const [filter, setFilter] = useState<BookingFilter>(DEFAULT_FILTER);
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState<string | null>(sanitizeDateParam(initialDate ?? undefined));
   const [pendingBookingAction, setPendingBookingAction] = useState<{ bookingId: string; action: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show' } | null>(null);
+
   const [, startTransition] = useTransition();
 
   const restaurantId = membership?.restaurantId ?? null;
@@ -53,9 +67,16 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
   useEffect(() => {
     if (!summary) return;
     if (summary.date !== selectedDate) {
+      // Normalize "today" to a concrete date key without forcing a second network fetch:
+      // when we update selectedDate, the summary query key changes. Prime the new key with the
+      // already-fetched summary so React Query doesn't immediately refetch and risk stale overwrites.
+      if (restaurantId) {
+        const nextKey = queryKeys.opsDashboard.summary(restaurantId, summary.date);
+        queryClient.setQueryData(nextKey, summary);
+      }
       setSelectedDate(summary.date);
     }
-  }, [summary, selectedDate]);
+  }, [queryClient, restaurantId, selectedDate, summary]);
 
   // Heatmap data for modified calendar popover
   const heatmapRange = useMemo(() => (summary ? computeCalendarRange(summary.date) : null), [summary]);
@@ -66,20 +87,8 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
     enabled: Boolean(restaurantId && heatmapRange),
   });
 
-  const vipsQuery = useOpsTodayVIPs({
-    restaurantId,
-    targetDate: selectedDate,
-    enabled: Boolean(restaurantId && selectedDate),
-  });
-
-  const changesQuery = useOpsBookingChanges({
-    restaurantId,
-    targetDate: selectedDate,
-    enabled: Boolean(restaurantId && selectedDate),
-  });
-
   const bookingLifecycleMutations = useOpsBookingLifecycleActions();
-  const assignmentDate = summary?.date ?? selectedDate ?? null;
+  const assignmentDate = selectedDate;
   const tableAssignmentActions = useOpsTableAssignmentActions({ restaurantId, date: assignmentDate });
   const allowTableAssignments = useMemo(() => {
     if (!summary) {
@@ -88,6 +97,11 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
     const today = getTodayInTimezone(summary.timezone);
     return summary.date >= today;
   }, [summary]);
+
+  // Handle Tab switching
+  const handleSelectFilter = (nextFilter: BookingFilter) => {
+    setFilter(nextFilter);
+  };
 
   const handleSelectDate = (date: string) => {
     setSelectedDate(date);
@@ -112,55 +126,39 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
     handleSelectDate(formatDateKey(nextDate));
   };
 
-  const statCards = useMemo(() => {
-    const totals = summary?.totals;
-    if (!totals) {
-      return [];
-    }
+  // Real-time Guest Stats
+  const guestStats = useMemo(() => {
+    if (!summary) return { upcoming: 0, seated: 0 };
 
-    return [
-      {
-        id: 'total',
-        title: 'Bookings',
-        value: totals.total ?? 0,
-        icon: CalendarIcon,
-        accentBg: 'bg-blue-50',
-        iconColor: 'text-blue-600',
-      },
-      {
-        id: 'covers',
-        title: 'Guests',
-        value: totals.covers ?? 0,
-        icon: UserRound,
-        accentBg: 'bg-indigo-50',
-        iconColor: 'text-indigo-600',
-      },
-      {
-        id: 'upcoming',
-        title: 'Upcoming',
-        value: totals.upcoming ?? 0,
-        icon: Clock,
-        accentBg: 'bg-amber-50',
-        iconColor: 'text-amber-600',
-      },
-      {
-        id: 'completed',
-        title: 'Shows',
-        value: totals.completed ?? 0,
-        icon: Users,
-        accentBg: 'bg-emerald-50',
-        iconColor: 'text-emerald-600',
-      },
-      {
-        id: 'noShow',
-        title: 'No Shows',
-        value: totals.noShow ?? 0,
-        icon: TrendingUp,
-        accentBg: 'bg-rose-50',
-        iconColor: 'text-rose-600',
-      },
-    ] as StatCardConfig[];
-  }, [summary?.totals]);
+    // Calculate guests (sum of partySize)
+    const upcoming = summary.bookings
+      .filter(b => b.status === 'confirmed' || b.status === 'PRIORITY_WAITLIST')
+      .reduce((sum, b) => sum + b.partySize, 0);
+
+    const seated = summary.bookings
+      .filter(b => b.status === 'checked_in')
+      .reduce((sum, b) => sum + b.partySize, 0);
+
+    return { upcoming, seated };
+  }, [summary]);
+
+  // Tab counts for badges
+  const tabCounts = useMemo(() => {
+    if (!summary) return { all: 0, upcoming: 0, seated: 0, finished: 0 };
+
+    const bookings = summary.bookings;
+    return {
+      all: bookings.length,
+      upcoming: bookings.filter(b =>
+        b.status === 'confirmed' || b.status === 'PRIORITY_WAITLIST' ||
+        b.status === 'pending' || b.status === 'pending_allocation'
+      ).length,
+      seated: bookings.filter(b => b.status === 'checked_in').length,
+      finished: bookings.filter(b =>
+        ['completed', 'cancelled', 'no_show'].includes(b.status)
+      ).length,
+    };
+  }, [summary]);
 
   // All hooks must be called before any early returns
   const tableActionState = useMemo(() => {
@@ -170,6 +168,7 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
         type: 'assign' as const,
         bookingId: variables?.bookingId ?? null,
         tableId: variables?.tableId ?? null,
+        tableName: variables?.tableName,
       };
     }
     if (tableAssignmentActions.unassignTable.isPending) {
@@ -188,7 +187,7 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
     tableAssignmentActions.unassignTable.variables,
   ]);
 
-  // Handler functions (not hooks, but keeping them before early returns for consistency)
+  // Handler functions
   const handleMarkNoShow = async (bookingId: string, options?: { performedAt?: string | null; reason?: string | null }) => {
     if (!restaurantId) return;
     setPendingBookingAction({ bookingId, action: 'no-show' });
@@ -198,7 +197,7 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
         bookingId,
         performedAt: options?.performedAt ?? null,
         reason: options?.reason ?? null,
-        targetDate: summary?.date,
+        targetDate: selectedDate,
       });
     } finally {
       setPendingBookingAction(null);
@@ -213,7 +212,7 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
         restaurantId,
         bookingId,
         reason: reason ?? null,
-        targetDate: summary?.date,
+        targetDate: selectedDate,
       });
     } finally {
       setPendingBookingAction(null);
@@ -224,10 +223,12 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
     if (!restaurantId) return;
     setPendingBookingAction({ bookingId, action: 'check-in' });
     try {
+      // Intentional delay for visual feedback - shows "Seating guest..." message
+      await new Promise((resolve) => setTimeout(resolve, 1500));
       await bookingLifecycleMutations.checkIn.mutateAsync({
         restaurantId,
         bookingId,
-        targetDate: summary?.date,
+        targetDate: selectedDate,
       });
     } finally {
       setPendingBookingAction(null);
@@ -238,18 +239,20 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
     if (!restaurantId) return;
     setPendingBookingAction({ bookingId, action: 'check-out' });
     try {
+      // Intentional delay for visual feedback - shows "Finishing visit..." message
+      await new Promise((resolve) => setTimeout(resolve, 1500));
       await bookingLifecycleMutations.checkOut.mutateAsync({
         restaurantId,
         bookingId,
-        targetDate: summary?.date,
+        targetDate: selectedDate,
       });
     } finally {
       setPendingBookingAction(null);
     }
   };
 
-  const handleAssignTable = async (bookingId: string, tableId: string) => {
-    const result = await tableAssignmentActions.assignTable.mutateAsync({ bookingId, tableId });
+  const handleAssignTable = async (bookingId: string, tableId: string, tableName?: string) => {
+    const result = await tableAssignmentActions.assignTable.mutateAsync({ bookingId, tableId, tableName });
     return result.tableAssignments;
   };
 
@@ -271,187 +274,128 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
     return <DashboardErrorState onRetry={() => summaryQuery.refetch()} />;
   }
 
-  // Derived values after early returns
-  const changeFeedData = changesQuery.data?.changes ?? [];
-  const changeFeedTotal = changesQuery.data?.totalChanges ?? 0;
-  const showChangeFeed = changeFeedData.length > 0;
-  const vipData = vipsQuery.data;
-  const showVipModule = Boolean(vipData && vipData.vips.length > 0);
-
   return (
-    <div className="min-h-screen bg-slate-50/50">
-    <main className="mx-auto w-full max-w-[80vw] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-        {/* Header Section */}
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Operations Dashboard</h1>
-            <p className="text-sm text-slate-500">{restaurantName}</p>
+    <div className="bg-slate-50/50 font-sans text-slate-900">
+      <main className="mx-auto w-full max-w-5xl space-y-8 px-6 py-10">
+
+        {/* HEADER SECTION */}
+        <header className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div className="space-y-1.5">
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900">Operations</h1>
+            <p className="text-slate-500">
+              <span className="font-medium text-slate-900">{guestStats.upcoming} guests</span> expecting arrival,{' '}
+              <span className="font-medium text-slate-900">{guestStats.seated} seated</span> now.
+            </p>
           </div>
-          <div className="flex items-center gap-3 rounded-lg border bg-white p-1 shadow-sm">
-            <DateNavigationButton direction="prev" onClick={() => handleShiftDate(-1)} />
-            <div className="flex items-center gap-2 px-2">
-              <CalendarIcon className="h-4 w-4 text-slate-500" />
-              <HeatmapCalendar
-                summary={summary}
-                heatmap={heatmapQuery.data}
-                selectedDate={summary.date}
-                onSelectDate={handleSelectDate}
-                isLoading={heatmapQuery.isLoading}
-              />
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center rounded-lg border bg-white p-1 shadow-sm">
+              <DateNavigationButton direction="prev" onClick={() => handleShiftDate(-1)} />
+              <div className="flex items-center gap-2 px-2">
+                <CalendarIcon className="h-4 w-4 text-slate-500" />
+                <HeatmapCalendar
+                  summary={summary}
+                  heatmap={heatmapQuery.data}
+                  selectedDate={summary.date}
+                  onSelectDate={handleSelectDate}
+                  isLoading={heatmapQuery.isLoading}
+                />
+              </div>
+              <DateNavigationButton direction="next" onClick={() => handleShiftDate(1)} />
             </div>
-            <DateNavigationButton direction="next" onClick={() => handleShiftDate(1)} />
+
+            {/* New Booking Button could go here if implemented */}
+            <ExportBookingsButton restaurantId={restaurantId} restaurantName={restaurantName} date={summary.date} />
           </div>
         </header>
 
+        {/* Connection Banner */}
         <section aria-label="Connection status">
           <BookingOfflineBanner />
         </section>
 
-        {/* Stats Grid */}
-        {statCards.length > 0 ? (
-          <section aria-label="Key performance indicators">
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
-              {statCards.map((card) => (
-                <StatCard key={card.id} config={card} />
-              ))}
+        {/* TOOLBAR */}
+        <div className="sticky top-0 z-10 -mx-6 bg-slate-50/80 px-6 py-4 backdrop-blur-md transition-all md:mx-0 md:rounded-xl md:border md:border-slate-200/60 md:bg-white/80 md:px-4 md:py-3 md:shadow-sm">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+
+            {/* TABS */}
+            <div className="flex items-center gap-1 rounded-lg bg-slate-100/80 p-1 md:w-fit">
+              {(['all', 'upcoming', 'seated', 'finished'] as const).map((tab) => {
+                const count = tabCounts[tab];
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => handleSelectFilter(tab as BookingFilter)}
+                    className={cn(
+                      "relative flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all",
+                      filter === tab
+                        ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200"
+                        : "text-slate-500 hover:bg-slate-200/50 hover:text-slate-700"
+                    )}
+                  >
+                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                    {count > 0 && (
+                      <span className={cn(
+                        "inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none",
+                        filter === tab
+                          ? "bg-slate-900 text-white"
+                          : "bg-slate-300/80 text-slate-600"
+                      )}>
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
-          </section>
-        ) : null}
 
-        {/* Main Content Grid */}
-        <div className="grid gap-6 lg:grid-cols-12">
-          {/* Main Reservations Column */}
-          <div className="lg:col-span-8 xl:col-span-9">
-            <section
-              aria-label="Reservations"
-              className="flex h-full flex-col overflow-hidden rounded-xl border bg-white shadow-sm"
-            >
-              <div className="border-b bg-slate-50/50 px-6 py-4">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h2 className="font-semibold text-slate-900">Reservations</h2>
-                    <p className="text-sm text-slate-500">Manage today&apos;s bookings</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {!allowTableAssignments ? (
-                      <p className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
-                        Past date - Assignments locked
-                      </p>
-                    ) : null}
-                    <ExportBookingsButton
-                      restaurantId={restaurantId}
-                      restaurantName={restaurantName}
-                      date={summary.date}
-                    />
-                  </div>
-                </div>
-                <div className="mt-4">
-                  <BookingsFilterBar value={filter} onChange={setFilter} />
-                </div>
-              </div>
-
-              <div className="flex-1 p-6">
-                <BookingsList
-                  bookings={summary.bookings}
-                  filter={filter}
-                  summary={summary}
-                  allowTableAssignments={allowTableAssignments}
-                  onMarkNoShow={handleMarkNoShow}
-                  onUndoNoShow={handleUndoNoShow}
-                  onCheckIn={handleCheckIn}
-                  onCheckOut={handleCheckOut}
-                  pendingLifecycleAction={pendingBookingAction}
-                  onAssignTable={handleAssignTable}
-                  onUnassignTable={handleUnassignTable}
-                  tableActionState={tableActionState}
+            {/* SEARCH & FILTER */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 md:w-64">
+                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search guests..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-4 text-sm outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
-            </section>
+              <Button variant="outline" size="icon" className="shrink-0 bg-white">
+                <Filter className="h-4 w-4 text-slate-500" />
+              </Button>
+            </div>
           </div>
+        </div>
 
-          {/* Sidebar Column */}
-          <aside className="space-y-6 lg:col-span-4 xl:col-span-3">
-            {/* VIP Guests */}
-            <section
-              aria-label="VIP guests"
-              className="overflow-hidden rounded-xl border bg-white shadow-sm"
-            >
-              <div className="border-b bg-slate-50/50 px-4 py-3">
-                <h3 className="font-semibold text-slate-900">VIP Guests</h3>
-              </div>
-              <div className="p-4">
-                {showVipModule ? (
-                  <VIPGuestsModule
-                    vips={vipData!.vips}
-                    totalVipCovers={vipData!.totalVipCovers}
-                    loading={vipsQuery.isLoading}
-                  />
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-8 text-center">
-                    <div className="mb-2 rounded-full bg-slate-100 p-3">
-                      <UserRound className="h-5 w-5 text-slate-400" />
-                    </div>
-                    <p className="text-sm text-slate-500">No VIP arrivals today</p>
-                  </div>
-                )}
-              </div>
-            </section>
+        {/* LIST SECTION */}
+        <div className="space-y-4">
+          {/* If assignments locked warning */}
+          {!allowTableAssignments ? (
+            <div className="flex justify-end">
+              <Badge variant="secondary" className="bg-amber-50 text-amber-700">
+                Past date · Assignments locked
+              </Badge>
+            </div>
+          ) : null}
 
-            {/* Change Feed */}
-            <section
-              aria-label="Booking changes"
-              className="overflow-hidden rounded-xl border bg-white shadow-sm"
-            >
-              <div className="border-b bg-slate-50/50 px-4 py-3">
-                <h3 className="font-semibold text-slate-900">Recent Changes</h3>
-              </div>
-              <div className="p-4">
-                {showChangeFeed ? (
-                  <BookingChangeFeed
-                    changes={changeFeedData}
-                    totalChanges={changeFeedTotal}
-                    loading={changesQuery.isLoading}
-                  />
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-8 text-center">
-                    <div className="mb-2 rounded-full bg-slate-100 p-3">
-                      <Clock className="h-5 w-5 text-slate-400" />
-                    </div>
-                    <p className="text-sm text-slate-500">No changes today</p>
-                  </div>
-                )}
-              </div>
-            </section>
-          </aside>
+          <BookingsList
+            bookings={summary.bookings}
+            filter={filter}
+            searchQuery={searchQuery}
+            summary={summary}
+            allowTableAssignments={allowTableAssignments}
+            onMarkNoShow={handleMarkNoShow}
+            onUndoNoShow={handleUndoNoShow}
+            onCheckIn={handleCheckIn}
+            onCheckOut={handleCheckOut}
+            pendingLifecycleAction={pendingBookingAction}
+            onAssignTable={handleAssignTable}
+            onUnassignTable={handleUnassignTable}
+            tableActionState={tableActionState}
+          />
         </div>
       </main>
-    </div>
-  );
-}
-
-type StatCardConfig = {
-  id: string;
-  title: string;
-  value: number;
-  icon: LucideIcon;
-  accentBg: string;
-  iconColor: string;
-};
-
-function StatCard({ config }: { config: StatCardConfig }) {
-  const Icon = config.icon;
-
-  return (
-    <div className="group relative overflow-hidden rounded-xl border bg-white p-4 shadow-sm transition-all hover:shadow-md">
-      <div className="flex items-center justify-between">
-        <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg transition-colors', config.accentBg)}>
-          <Icon className={cn('h-5 w-5', config.iconColor)} aria-hidden />
-        </div>
-      </div>
-      <div className="mt-4">
-        <p className="text-2xl font-bold text-slate-900">{config.value}</p>
-        <p className="text-sm font-medium text-slate-500">{config.title}</p>
-      </div>
     </div>
   );
 }
@@ -469,7 +413,7 @@ function DateNavigationButton({ direction, onClick }: DateNavigationButtonProps)
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex h-8 w-8 touch-manipulation items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 active:bg-slate-200"
+      className="inline-flex h-8 w-8 touch-manipulation items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
       aria-label={label}
     >
       <Icon className="h-4 w-4" aria-hidden />
