@@ -2,7 +2,7 @@
 
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
-export type BookingFilter = 'all' | 'completed' | 'no_show';
+export type BookingFilter = 'all' | 'upcoming' | 'seated' | 'finished' | 'completed' | 'no_show' | 'attention';
 
 const FILTERS: Array<{ value: BookingFilter; label: string; description: string }> = [
   { value: 'all', label: 'All', description: 'All bookings' },
