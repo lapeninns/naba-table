@@ -14,7 +14,37 @@ import cx from "classnames";
 -
 - All application UIs should be composed from these primitives and tokens
 - rather than introducing new visual primitives (fonts, colors, shadows, etc.).
-  \*/
+-
+- ===== CARD DESIGN PRINCIPLES =====
+-
+- ✅ Inter font: Use `font-sans` (Inter loaded via Google Fonts)
+- ✅ Color tokens: Use CSS variable tokens (Tier 1 primitives & Tier 2 semantics)
+- - Primitives: --slate-\*, --brand-blue, --amber-500, --red-500, --green-600
+- - Semantics: --foreground, --background, --card, --border, --muted-foreground
+- ✅ Radius tokens: Use semantic radius tokens
+- - Cards: rounded-xl (16px) or --radius-lg
+- - Badges/Pills: rounded-full or --radius-full
+- - Buttons: rounded-md (8px) for inline, rounded-full for primary CTAs
+- ✅ Shadow hierarchy: Progressive elevation system
+- - Default: border only (no shadow)
+- - Hover: shadow-md or --shadow-md
+- - Float/Modal: shadow-lg or --shadow-float
+- ✅ Hover effects: Subtle lift on interactive cards
+- - Use `hover:shadow-md` for shadow elevation
+- - Use `hover:-translate-y-0.5` for subtle lift (optional)
+- - Use `active:shadow-sm` for press feedback
+- ✅ Button style: Shadcn UI buttons preferred
+- - Primary: bg-slate-900 (dark) or bg-primary (blue)
+- - Secondary: variant="outline" with border
+- - Ghost: variant="ghost" for icon buttons
+- ✅ Transitions: Smooth, consistent
+- - Use `transition-all` or explicit `transition-colors transition-shadow`
+- - Duration: 0.2s or 200ms
+- - Easing: ease or ease-out
+- ✅ Touch targets: Minimum 44px on mobile for accessibility
+- - Use `touch-manipulation` for faster response
+- - Use `active:scale-95` for tactile feedback
+    \*/
 
 // 1. GLOBAL STYLES & TOKENS
 export function GlobalStyles() {
