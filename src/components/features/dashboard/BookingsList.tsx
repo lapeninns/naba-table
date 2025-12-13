@@ -19,8 +19,10 @@ import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState } from 'react';
 
 import { Pagination } from '@/components/dashboard/Pagination';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -72,24 +74,6 @@ type BookingsListProps = {
     bookingId: string | null;
     tableId?: string | null;
   } | null;
-};
-
-// Custom Badge component to match the requested design
-const DesignBadge = ({ children, className, variant = 'neutral', ...props }: { children: React.ReactNode, className?: string, variant?: 'neutral' | 'success' | 'warning' | 'error' | 'brand' | 'outline' } & React.HTMLAttributes<HTMLSpanElement>) => {
-  const variants = {
-    neutral: 'bg-slate-100 text-slate-600 border-slate-200',
-    success: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    warning: 'bg-amber-50 text-amber-700 border-amber-200',
-    error: 'bg-rose-50 text-rose-700 border-rose-200',
-    brand: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-    outline: 'bg-transparent border-slate-200 text-slate-600'
-  };
-
-  return (
-    <span className={cn("inline-flex items-center rounded-md border px-2 py-1 text-[11px] font-medium leading-none ring-0", variants[variant], className)} {...props}>
-      {children}
-    </span>
-  );
 };
 
 const StatusIndicator = ({ status }: { status: string }) => {
@@ -327,7 +311,7 @@ function BookingsListContent({
   if (filtered.length === 0) {
     return (
       <Card className="border-dashed border-border/60 bg-slate-50/50">
-        <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
+        <div className="flex flex-col items-center gap-3 py-10 px-6 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-100">
             <Search className="h-5 w-5 text-slate-400" />
           </div>
@@ -337,7 +321,7 @@ function BookingsListContent({
               Adjust filters to see more results.
             </p>
           </div>
-        </CardContent>
+        </div>
       </Card>
     );
   }
@@ -508,34 +492,34 @@ function BookingCard({
     if (action === 'check-out') await onCheckOut(booking.id);
   };
 
-  // Determine card border color based on urgency
-  const cardBorderClass = useMemo(() => {
-    if (isDone) return "border-slate-100 bg-slate-50/50";
-    if (timeUrgency?.type === 'late') return "border-rose-300 bg-rose-50/30";
-    if (timeUrgency?.type === 'overdue') return "border-amber-300 bg-amber-50/30";
-    if (timeUrgency?.type === 'soon') return "border-amber-200 bg-amber-50/20";
-    return "border-slate-200 bg-white";
+  // Determine card urgency variant
+  const cardUrgencyClass = useMemo(() => {
+    if (isDone) return "border-muted bg-muted/50";
+    if (timeUrgency?.type === 'late') return "border-destructive/50 bg-destructive/5";
+    if (timeUrgency?.type === 'overdue') return "border-warning/50 bg-warning/5";
+    if (timeUrgency?.type === 'soon') return "border-warning/30 bg-warning/5";
+    return "";
   }, [isDone, timeUrgency]);
 
   return (
-    <div className={cn(
-      "group relative flex flex-col gap-3 rounded-xl border p-3 transition-all sm:gap-4 sm:p-4 sm:flex-row sm:items-center",
-      cardBorderClass,
+    <Card className={cn(
+      "group relative flex flex-col gap-3 p-3 transition-all sm:gap-4 sm:p-4 sm:flex-row sm:items-center",
+      cardUrgencyClass,
       isLoading && "opacity-60 pointer-events-none animate-pulse",
       !isLoading && "hover:shadow-md active:shadow-sm"
     )}>
       {/* Loading overlay indicator */}
       {isLoading && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-slate-100/50">
-          <div className="flex items-center gap-2 rounded-full bg-white px-4 py-2 shadow-lg">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
-            <span className="text-sm font-medium text-slate-600">
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-muted/50">
+          <Badge variant="secondary" className="gap-2 px-4 py-2 shadow-lg bg-background">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
+            <span className="text-sm font-medium">
               {lifecyclePending === 'check-in' && 'Seating guest...'}
               {lifecyclePending === 'check-out' && 'Finishing visit...'}
               {lifecyclePending === 'no-show' && 'Marking no-show...'}
               {lifecyclePending === 'undo-no-show' && 'Restoring booking...'}
             </span>
-          </div>
+          </Badge>
         </div>
       )}
 
@@ -561,16 +545,18 @@ function BookingCard({
 
         {/* Time Urgency Badge */}
         {timeUrgency && (
-          <div className={cn(
-            "flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold animate-pulse",
-            timeUrgency.type === 'late' && "bg-rose-100 text-rose-700",
-            timeUrgency.type === 'overdue' && "bg-amber-100 text-amber-700",
-            timeUrgency.type === 'soon' && "bg-amber-50 text-amber-600",
-            timeUrgency.type === 'approaching' && "bg-blue-50 text-blue-600"
-          )}>
+          <Badge
+            variant={timeUrgency.type === 'late' ? 'destructive' : 'secondary'}
+            className={cn(
+              "gap-1 rounded-full text-[10px] animate-pulse",
+              timeUrgency.type === 'overdue' && "bg-amber-100 text-amber-700 border-amber-200",
+              timeUrgency.type === 'soon' && "bg-amber-50 text-amber-600 border-amber-100",
+              timeUrgency.type === 'approaching' && "bg-blue-50 text-blue-600 border-blue-100"
+            )}
+          >
             <Clock className="h-3 w-3" />
             {timeUrgency.label}
-          </div>
+          </Badge>
         )}
       </div>
 
@@ -578,12 +564,16 @@ function BookingCard({
       <div className="flex flex-1 flex-col gap-2">
         {/* Name & Tier */}
         <div className="flex items-center gap-3">
-          <div className={cn(
-            "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold",
-            isDone ? "bg-slate-100 text-slate-400" : "bg-indigo-50 text-indigo-600"
+          <Avatar className={cn(
+            isDone ? "bg-muted" : "bg-primary/10"
           )}>
-            {guestInitials}
-          </div>
+            <AvatarFallback className={cn(
+              "text-xs font-bold",
+              isDone ? "text-muted-foreground" : "text-primary"
+            )}>
+              {guestInitials}
+            </AvatarFallback>
+          </Avatar>
           <div>
             <div className="flex items-center gap-2">
               <span className={cn("text-base font-semibold", isDone ? "text-slate-500 line-through decoration-slate-300" : "text-slate-900")}>
@@ -619,28 +609,28 @@ function BookingCard({
         {(booking.allergies?.length || booking.notes || booking.seatingPreference || booking.dietaryRestrictions) ? (
           <div className="mt-1 flex flex-wrap gap-2">
             {booking.allergies?.map((allergy, i) => (
-              <DesignBadge key={`alg-${i}`} variant="error" className="gap-1">
+              <Badge key={`alg-${i}`} variant="destructive" className="gap-1">
                 <AlertTriangle className="h-3 w-3" />
                 {allergy}
-              </DesignBadge>
+              </Badge>
             ))}
             {booking.notes && (
-              <DesignBadge variant="brand" className="gap-1 max-w-[200px] truncate" title={booking.notes}>
+              <Badge variant="default" className="gap-1 max-w-[200px] truncate" title={booking.notes}>
                 <FileText className="h-3 w-3 shrink-0" />
                 <span className="truncate">{booking.notes}</span>
-              </DesignBadge>
+              </Badge>
             )}
             {booking.seatingPreference && (
-              <DesignBadge variant="neutral" className="gap-1 max-w-[150px] truncate" title={booking.seatingPreference}>
+              <Badge variant="secondary" className="gap-1 max-w-[150px] truncate" title={booking.seatingPreference}>
                 <Armchair className="h-3 w-3 shrink-0" />
                 <span className="truncate">{booking.seatingPreference}</span>
-              </DesignBadge>
+              </Badge>
             )}
             {booking.dietaryRestrictions && booking.dietaryRestrictions.length > 0 && (
-              <DesignBadge variant="warning" className="gap-1 max-w-[150px] truncate" title={booking.dietaryRestrictions.join(', ')}>
+              <Badge variant="outline" className="gap-1 max-w-[150px] truncate bg-amber-50 text-amber-700 border-amber-200" title={booking.dietaryRestrictions.join(', ')}>
                 <Utensils className="h-3 w-3 shrink-0" />
                 <span className="truncate">{booking.dietaryRestrictions.join(', ')}</span>
-              </DesignBadge>
+              </Badge>
             )}
           </div>
         ) : null}
@@ -723,6 +713,6 @@ function BookingCard({
           </Button>
         )}
       </div>
-    </div>
+    </Card>
   );
 }
