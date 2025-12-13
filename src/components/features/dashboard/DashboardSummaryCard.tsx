@@ -4,7 +4,6 @@ import { getTodayInTimezone } from '@/lib/utils/datetime';
 
 import { BookingsFilterBar, type BookingFilter } from './BookingsFilterBar';
 import { BookingsList } from './BookingsList';
-import { ExportBookingsButton } from './ExportBookingsButton';
 import { HeatmapCalendar } from './HeatmapCalendar';
 import { SummaryMetrics } from './SummaryMetrics';
 
@@ -16,7 +15,6 @@ const NO_BOOKINGS_BODY = 'We could not load today’s reservations. Refresh the 
 type DashboardSummaryCardProps = {
   summary: OpsTodayBookingsSummary;
   restaurantName: string;
-  restaurantId: string;
   selectedDate: string;
   onSelectDate: (date: string) => void;
   heatmap?: OpsBookingHeatmap;
@@ -32,13 +30,11 @@ type DashboardSummaryCardProps = {
     bookingId: string | null;
     action: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show';
   } | null;
-  exportDate: string;
 };
 
 export function DashboardSummaryCard({
   summary,
   restaurantName,
-  restaurantId,
   selectedDate,
   onSelectDate,
   heatmap,
@@ -51,7 +47,6 @@ export function DashboardSummaryCard({
   onCheckIn,
   onCheckOut,
   pendingLifecycleAction,
-  exportDate,
 }: DashboardSummaryCardProps) {
   const allowTableAssignments = summary.date >= getTodayInTimezone(summary.timezone);
 
@@ -74,7 +69,6 @@ export function DashboardSummaryCard({
               Monitor reservations for {restaurantName}. Track arrivals, highlight no-shows, and stay ahead of service.
             </CardDescription>
           </div>
-          <ExportBookingsButton restaurantId={restaurantId} restaurantName={restaurantName} date={exportDate} />
         </div>
       </CardHeader>
       <CardContent className="space-y-4 p-4 md:space-y-6 md:p-6">
