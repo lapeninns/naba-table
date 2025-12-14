@@ -1,0 +1,13 @@
+Network notes (Chrome DevTools MCP)
+
+Page:
+- http://app.localhost:3000/bookings?restaurantId=486de541-a307-4414-b0b1-f774a0e4a9fa
+
+Key data requests observed:
+- GET /api/ops/restaurants/486de541-a307-4414-b0b1-f774a0e4a9fa (restaurant details/timezone)
+- GET /api/ops/bookings?restaurantId=486de541-a307-4414-b0b1-f774a0e4a9fa&page=1&pageSize=10&sort=desc&sortBy=created_at (bookings list)
+- GET /api/ops/bookings/status-summary?restaurantId=486de541-a307-4414-b0b1-f774a0e4a9fa (status counts used by status filter)
+
+Notes:
+- Status summary request is new-on-page-load for the status filter UI; it should remain cacheable (React Query staleTime = 30s).
+

@@ -19,14 +19,17 @@ type OpsLoginPageProps = {
   searchParams: Promise<OpsLoginSearchParams>;
 };
 
-const ALLOWED_REDIRECT_PREFIXES = ["/app", "/guest", "/bookings", "/restaurants"] as const;
+const ALLOWED_REDIRECT_PREFIXES = ['/app', '/guest', '/bookings', '/restaurants'] as const;
 
 function resolveRedirectTarget(raw: string | string[] | undefined): string {
   const candidate = Array.isArray(raw) ? raw[0] : raw;
-  if (typeof candidate !== 'string' || !candidate.startsWith('/')) return '/app';
+  if (typeof candidate !== 'string' || !candidate.startsWith('/') || candidate.startsWith('//')) return '/app';
+
+  const parsed = new URL(candidate, 'https://sajiloreservex.local');
+  const pathname = parsed.pathname;
 
   const isAllowed = ALLOWED_REDIRECT_PREFIXES.some((prefix) =>
-    candidate === prefix || candidate.startsWith(`${prefix}/`),
+    pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
 
   return isAllowed ? candidate : '/app';

@@ -8,7 +8,6 @@ import { getServerComponentSupabaseClient } from '@/server/supabase';
 
 import type { Metadata } from 'next';
 
-
 export const metadata: Metadata = {
   title: 'Sign in · Nab a Table',
   description: 'Access your Nab a Table guest account to manage bookings and settings.',
@@ -22,14 +21,17 @@ type SignInPageProps = {
   searchParams: Promise<SignInPageSearchParams>;
 };
 
-const ALLOWED_REDIRECT_PREFIXES = ["/guest", "/bookings", "/restaurants", "/app"] as const;
+const ALLOWED_REDIRECT_PREFIXES = ['/guest', '/bookings', '/restaurants', '/app'] as const;
 
 function resolveRedirectTarget(raw: string | string[] | undefined): string | undefined {
   const candidate = Array.isArray(raw) ? raw[0] : raw;
-  if (typeof candidate !== 'string' || !candidate.startsWith('/')) return undefined;
+  if (typeof candidate !== 'string' || !candidate.startsWith('/') || candidate.startsWith('//')) return undefined;
+
+  const parsed = new URL(candidate, 'https://sajiloreservex.local');
+  const pathname = parsed.pathname;
 
   const isAllowed = ALLOWED_REDIRECT_PREFIXES.some((prefix) =>
-    candidate === prefix || candidate.startsWith(`${prefix}/`),
+    pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
 
   return isAllowed ? candidate : undefined;
@@ -42,7 +44,9 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
 
   // Redirect authenticated users to their intended destination or dashboard
   const supabase = await getServerComponentSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (user) {
     const redirectTarget = redirectedFromParam ?? '/guest/dashboard';

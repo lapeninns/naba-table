@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { CSRF_COOKIE_MAX_AGE_SECONDS, CSRF_COOKIE_NAME } from "@/lib/security/csrf";
+import { withRedirectedFrom } from "@/lib/url/withRedirectedFrom";
 import { requireOpsAuth } from "@/server/auth/ops-guard";
+import { getMiddlewareSupabaseClient } from "@/server/supabase";
 
 import type { NextRequest } from "next/server";
 
@@ -123,11 +125,54 @@ async function handleRouting(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Rewrite all other non-API paths to /app/* so they are handled by src/app/app
-    if (!isApiPath(url.pathname)) {
-      const rewritePath = `/app${url.pathname}${searchParams.length > 0 ? `?${searchParams}` : ""}`;
-      return NextResponse.rewrite(new URL(rewritePath, req.url));
+    // Root -> Dashboard (Instant)
+    if (url.pathname === "/") {
+      return NextResponse.redirect(
+        new URL(`/dashboard${searchParams.length > 0 ? `?${searchParams}` : ""}`, req.url),
+      );
     }
+
+    // Seating -> Floor Plan (Instant)
+    if (url.pathname === "/seating") {
+      return NextResponse.redirect(
+        new URL(`/seating/floor-plan${searchParams.length > 0 ? `?${searchParams}` : ""}`, req.url),
+      );
+    }
+
+    // Management -> Team (Instant)
+    if (url.pathname === "/management") {
+      return NextResponse.redirect(
+        new URL(`/management/team${searchParams.length > 0 ? `?${searchParams}` : ""}`, req.url),
+      );
+    }
+
+    // Settings -> Profile (Instant)
+    if (url.pathname === "/settings") {
+      return NextResponse.redirect(
+        new URL(`/settings/restaurant/profile${searchParams.length > 0 ? `?${searchParams}` : ""}`, req.url),
+      );
+    }
+
+    const rewrittenPath = `/app${url.pathname}${searchParams.length > 0 ? `?${searchParams}` : ""}`;
+
+    // Note: `/auth/*` must remain public on the app host to avoid redirect loops.
+    if (url.pathname.startsWith("/auth")) {
+      return NextResponse.rewrite(new URL(rewrittenPath, req.url));
+    }
+
+    // Pages on the app host are restaurant-facing and should preserve deep links across auth.
+    // If unauthenticated, redirect to sign-in with a `redirectedFrom` value that includes query params.
+    const rewriteResponse = NextResponse.rewrite(new URL(rewrittenPath, req.url));
+
+    const supabase = getMiddlewareSupabaseClient(req, rewriteResponse);
+    const { data, error } = await supabase.auth.getUser();
+
+    if (error || !data.user) {
+      const redirectedFrom = `${url.pathname}${searchParams.length > 0 ? `?${searchParams}` : ""}`;
+      return NextResponse.redirect(new URL(withRedirectedFrom("/auth/signin", redirectedFrom), req.url), 307);
+    }
+
+    return rewriteResponse;
   }
 
   // 2. Guest/Root Domain Logic

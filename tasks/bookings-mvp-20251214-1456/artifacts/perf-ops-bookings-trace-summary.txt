@@ -1,0 +1,20 @@
+Performance trace summary (Chrome DevTools MCP)
+
+Page:
+- http://app.localhost:3000/bookings?restaurantId=486de541-a307-4414-b0b1-f774a0e4a9fa
+
+Trace:
+- Navigation: NAVIGATION_0
+- CPU throttling: none
+- Network throttling: none
+
+Metrics (lab/observed):
+- LCP: 1590 ms
+- LCP breakdown:
+  - TTFB: 1369 ms
+  - Render delay: 220 ms
+- CLS: 0.04
+
+Notes:
+- This does not apply the project’s mobile budgets (4× CPU + 4G). It’s a baseline “no throttling” trace to confirm no obvious regressions.
+
