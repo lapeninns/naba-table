@@ -3,7 +3,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Filter, Search } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 
 import { BookingOfflineBanner } from '@/components/features/booking-state-machine';
@@ -46,6 +46,7 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
   const membership = useOpsActiveMembership();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const queryClient = useQueryClient();
 
   // State
@@ -88,12 +89,13 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
   const assignmentDate = selectedDate;
   const tableAssignmentActions = useOpsTableAssignmentActions({ restaurantId, date: assignmentDate });
   const allowTableAssignments = useMemo(() => {
-    if (!summary) {
-      return true;
-    }
-    const today = getTodayInTimezone(summary.timezone);
-    return summary.date >= today;
-  }, [summary]);
+    const targetDate = selectedDate ?? summary?.date ?? null;
+    if (!targetDate) return true;
+
+    const timezone = summary?.timezone ?? 'UTC';
+    const today = getTodayInTimezone(timezone);
+    return targetDate >= today;
+  }, [selectedDate, summary?.date, summary?.timezone]);
 
   // Handle Tab switching
   const handleSelectFilter = (nextFilter: BookingFilter) => {
@@ -110,7 +112,8 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
     }
 
     startTransition(() => {
-      router.replace(`/${params.size > 0 ? `?${params.toString()}` : ''}`);
+      const query = params.size > 0 ? `?${params.toString()}` : '';
+      router.replace(`${pathname}${query}`);
     });
   };
 
@@ -220,8 +223,6 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
     if (!restaurantId) return;
     setPendingBookingAction({ bookingId, action: 'check-in' });
     try {
-      // Intentional delay for visual feedback - shows "Seating guest..." message
-      await new Promise((resolve) => setTimeout(resolve, 1500));
       await bookingLifecycleMutations.checkIn.mutateAsync({
         restaurantId,
         bookingId,
@@ -236,8 +237,6 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
     if (!restaurantId) return;
     setPendingBookingAction({ bookingId, action: 'check-out' });
     try {
-      // Intentional delay for visual feedback - shows "Finishing visit..." message
-      await new Promise((resolve) => setTimeout(resolve, 1500));
       await bookingLifecycleMutations.checkOut.mutateAsync({
         restaurantId,
         bookingId,
