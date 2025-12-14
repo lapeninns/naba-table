@@ -7,6 +7,7 @@ import { BOOKING_STATUS_CONFIG } from "@/components/features/booking-state-machi
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 import type { OpsBookingStatus } from "@/types/ops";
@@ -22,6 +23,7 @@ type OpsStatusFilterProps = {
   onToggle: (status: OpsBookingStatus) => void;
   onClear: () => void;
   isLoading?: boolean;
+  order?: OpsBookingStatus[];
 };
 
 const STATUS_ORDER: OpsBookingStatus[] = [
@@ -34,16 +36,17 @@ const STATUS_ORDER: OpsBookingStatus[] = [
   "cancelled",
 ];
 
-export function OpsStatusFilter({ options, selected, onToggle, onClear, isLoading = false }: OpsStatusFilterProps) {
+export function OpsStatusFilter({ options, selected, onToggle, onClear, isLoading = false, order }: OpsStatusFilterProps) {
   const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const resolvedOrder = order ?? STATUS_ORDER;
 
   const orderedOptions = useMemo(() => {
     const lookup = new Map(options.map((option) => [option.status, option.count] as const));
-    return STATUS_ORDER.map((status) => ({
+    return resolvedOrder.map((status) => ({
       status,
       count: lookup.get(status) ?? 0,
     }));
-  }, [options]);
+  }, [options, resolvedOrder]);
 
   const selectedSet = useMemo(() => new Set(selected), [selected]);
 
@@ -94,7 +97,7 @@ export function OpsStatusFilter({ options, selected, onToggle, onClear, isLoadin
                 Clear
               </Button>
             </div>
-            <div className="flex flex-col gap-1" role="menu" aria-label="Booking status filters">
+            <div className="flex flex-col gap-1" role="menu" aria-label="Booking status filters" aria-busy={isLoading}>
               {orderedOptions.map((option, index) => {
                 const config = BOOKING_STATUS_CONFIG[option.status];
                 const isSelected = selectedSet.has(option.status);
@@ -113,13 +116,16 @@ export function OpsStatusFilter({ options, selected, onToggle, onClear, isLoadin
                     )}
                     onClick={() => onToggle(option.status)}
                     onKeyDown={(event) => handleKeyDown(event, index, option.status)}
-                    disabled={isLoading}
                   >
                     <span className="flex flex-col gap-0.5">
                       <span className="font-medium">{config.label}</span>
                       <span className="text-xs text-muted-foreground">{config.description}</span>
                     </span>
-                    <Badge variant={isSelected ? 'default' : 'secondary'}>{option.count}</Badge>
+                    {isLoading ? (
+                      <Skeleton className="h-5 w-10" aria-hidden />
+                    ) : (
+                      <Badge variant={isSelected ? 'default' : 'secondary'}>{option.count}</Badge>
+                    )}
                   </button>
                 );
               })}

@@ -73,13 +73,10 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-type UseUpdateBookingHook = () => ReturnType<typeof useUpdateBooking>;
-
 export type EditBookingDialogProps = {
   booking: BookingDTO | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  mutationHook?: UseUpdateBookingHook;
   restaurantSlug?: string | null;
   restaurantTimezone?: string | null;
 };
@@ -140,7 +137,7 @@ type UseEditBookingDialogState = {
   form: ReturnType<typeof useForm<FormValues>>;
   control: ReturnType<typeof useForm<FormValues>>['control'];
   errors: ReturnType<typeof useForm<FormValues>>['formState']['errors'];
-  mutation: ReturnType<UseUpdateBookingHook>;
+  mutation: ReturnType<typeof useUpdateBooking>;
   derivedEndIso: string | null;
   derivedEndDisplay: string;
   derivedDurationLabel: string;
@@ -166,7 +163,6 @@ function useEditBookingDialogState({
   booking,
   open,
   onOpenChange,
-  mutationHook,
   restaurantSlug: restaurantSlugOverride,
   restaurantTimezone: restaurantTimezoneOverride,
 }: UseEditBookingDialogParams): UseEditBookingDialogState {
@@ -188,8 +184,7 @@ function useEditBookingDialogState({
     formState: { errors, isDirty },
   } = form;
 
-  const useMutationHook = mutationHook ?? useUpdateBooking;
-  const mutation = useMutationHook();
+  const mutation = useUpdateBooking();
   const [formError, setFormError] = useState<{ message: string; code?: string } | null>(null);
   const startValue = watch('start');
   const hasCommittedStart = typeof startValue === 'string' ? startValue.trim().length > 0 : Boolean(startValue);
@@ -349,7 +344,6 @@ export function EditBookingDialog({
   booking,
   open,
   onOpenChange,
-  mutationHook,
   restaurantSlug: restaurantSlugOverride,
   restaurantTimezone: restaurantTimezoneOverride,
 }: EditBookingDialogProps) {
@@ -378,7 +372,6 @@ export function EditBookingDialog({
     booking,
     open,
     onOpenChange,
-    mutationHook,
     restaurantSlug: restaurantSlugOverride,
     restaurantTimezone: restaurantTimezoneOverride,
   });

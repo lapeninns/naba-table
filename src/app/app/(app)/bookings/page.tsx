@@ -1,10 +1,6 @@
-import { redirect } from "next/navigation";
-
 import { BookingErrorBoundary } from "@/components/features/booking-state-machine";
 import { OpsBookingsClient } from "@/components/features/bookings";
 import { BookingOfflineQueueProvider } from "@/contexts/booking-offline-queue";
-import { withRedirectedFrom } from "@/lib/url/withRedirectedFrom";
-import { getServerComponentSupabaseClient } from "@/server/supabase";
 import { sanitizeDateParam } from "@/utils/ops/dashboard";
 
 import type { OpsStatusFilter } from "@/hooks";
@@ -33,11 +29,6 @@ const VALID_FILTERS: OpsStatusFilter[] = [
   "past",
   "cancelled",
   "recent",
-  "pending",
-  "pending_allocation",
-  "confirmed",
-  "completed",
-  "no_show",
 ];
 
 const VALID_STATUSES: OpsBookingStatus[] = [
@@ -73,20 +64,6 @@ export default async function OpsBookingsPage({
   searchParams?: Promise<OpsBookingsSearchParams>;
 }) {
   const resolvedParams = (await searchParams) ?? {};
-
-  const supabase = await getServerComponentSupabaseClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error) {
-    console.error("[ops/bookings] failed to resolve auth", error.message);
-  }
-
-  if (!user) {
-    redirect(withRedirectedFrom("/auth/signin", "/app/bookings"));
-  }
 
   const initialFilter = parseStatusFilter(resolvedParams.filter ?? resolvedParams.status);
   const parsedPage = resolvedParams.page ? Number.parseInt(resolvedParams.page, 10) : NaN;

@@ -167,6 +167,7 @@ const OPS_BOOKING_STATUSES = [
   "pending",
   "pending_allocation",
   "confirmed",
+  "checked_in",
   "cancelled",
   "completed",
   "no_show",
