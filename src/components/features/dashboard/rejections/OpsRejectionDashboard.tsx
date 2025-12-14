@@ -51,7 +51,7 @@ const PENALTY_BADGE_VARIANTS: Record<OpsStrategicPenaltyKey, string> = {
   scarcity: 'bg-amber-100 text-amber-900',
   future_conflict: 'bg-rose-100 text-rose-900',
   structural: 'bg-purple-100 text-purple-900',
-  unknown: 'bg-slate-100 text-slate-900',
+  unknown: 'bg-muted text-muted-foreground',
 };
 
 function computeRangeState(key: RangePresetKey): RangeState {

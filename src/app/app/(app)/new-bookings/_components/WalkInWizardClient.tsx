@@ -102,12 +102,12 @@ export function WalkInWizardClient() {
               {activeMembership.restaurantName}
             </Badge>
             <Badge variant="outline" className="rounded-full">
-              Walk-in flow
+              New Booking
             </Badge>
           </div>
           <div className="space-y-1">
             <h1 className="text-xl font-semibold leading-tight text-foreground sm:text-2xl">
-              Log a walk-in booking
+              Create a new booking
             </h1>
             <p className="text-sm text-muted-foreground sm:max-w-2xl">
               Use the same booking steps as guests, with ops controls and optional contact details. We will return you to bookings when

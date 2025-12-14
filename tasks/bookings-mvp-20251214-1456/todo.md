@@ -52,3 +52,4 @@ related_tickets: []
   - Ops bookings MVP prioritizes scan + Details; rich metadata lives in Details dialog.
 - Deviations:
   - Continued without automated tests because `pnpm test` fails due to missing `tests/vitest.setup.ts` (repo-level).
+- [x] Consolidate 'Log walk-in' into 'New Booking' dialog (user feedback: walk-ins are just bookings)

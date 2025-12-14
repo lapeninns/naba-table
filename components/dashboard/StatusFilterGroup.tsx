@@ -26,7 +26,7 @@ export function StatusFilterGroup({ value, options, onChange }: StatusFilterGrou
           onChange(next as StatusFilter);
         }
       }}
-      className="flex flex-wrap items-center gap-2"
+      className="flex flex-wrap items-center gap-1.5 sm:gap-2"
     >
       {options.map((option) => (
         <ToggleGroupItem
@@ -35,7 +35,7 @@ export function StatusFilterGroup({ value, options, onChange }: StatusFilterGrou
           aria-pressed={option.value === value}
           variant="outline"
           size="sm"
-          className="min-w-[72px]"
+          className="h-9 min-w-[64px] px-3 text-xs sm:h-8 sm:min-w-[72px] sm:px-3 sm:text-sm"
         >
           {option.label}
         </ToggleGroupItem>

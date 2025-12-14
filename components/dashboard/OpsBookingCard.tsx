@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import type { BookingDTO } from '@/hooks/useBookings';
+import { deriveBookingDisplayState, isBookingPast } from './BookingRow';
 
 export type OpsBookingCardProps = {
     booking: BookingDTO;
@@ -123,9 +124,14 @@ export function OpsBookingCard({
 }: OpsBookingCardProps) {
     const now = useMemo(() => propNow ?? DateTime.now().setZone(timezone), [propNow, timezone]);
 
+    // Use derived state for consistency
+    const isPastBooking = isBookingPast(booking);
+    const { displayStatus } = deriveBookingDisplayState(booking, { isPastView: false });
+
+    // Status checks
     const isDone = booking.status === 'completed' || booking.status === 'cancelled' || booking.status === 'no_show';
     const isSeated = booking.status === 'checked_in';
-    const isUpcoming = booking.status === 'confirmed' || booking.status === 'PRIORITY_WAITLIST';
+    const isUpcoming = !isDone && (displayStatus === 'confirmed' || displayStatus === 'PRIORITY_WAITLIST' || booking.status === 'pending' || booking.status === 'pending_allocation');
 
     const isLoading = Boolean(pendingAction);
 
@@ -137,18 +143,16 @@ export function OpsBookingCard({
         return dt.isValid ? dt : null;
     };
 
-    // Safe start/end time extraction from ISO if startTime/endTime fields are missing/unreliable
     const startIso = DateTime.fromISO(booking.startIso).setZone(timezone);
     const endIso = booking.endIso ? DateTime.fromISO(booking.endIso).setZone(timezone) : null;
 
     const startTimeStr = startIso.isValid ? startIso.toFormat('h:mm a') : '--:--';
     const endTimeStr = endIso?.isValid ? endIso.toFormat('h:mm a') : null;
+    const startDateStr = startIso.isValid ? startIso.toFormat('EEE, MMM d') : '';
 
     // Time urgency calculation
     const timeUrgency = useMemo(() => {
         if (!highlightUrgency || !isUpcoming || !startIso.isValid) return null;
-
-        // Check if the booking date is TODAY. If not, urgency is irrelevant (or different).
         const bookingDate = startIso.toISODate();
         const todayDate = now.toISODate();
         if (bookingDate !== todayDate) return null;
@@ -176,53 +180,55 @@ export function OpsBookingCard({
         .substring(0, 2)
         .toUpperCase();
 
-    // Card Urgency Styles
-    const cardUrgencyClass = useMemo(() => {
-        if (isDone) return 'border-muted bg-muted/50';
-        if (timeUrgency?.type === 'late') return 'border-destructive/50 bg-destructive/5';
-        if (timeUrgency?.type === 'overdue') return 'border-warning/50 bg-warning/5';
-        if (timeUrgency?.type === 'soon') return 'border-warning/30 bg-warning/5';
-        return '';
-    }, [isDone, timeUrgency]);
-
     const handleMainAction = async () => {
         if (!isSeated && onCheckIn) await onCheckIn(booking.id);
         if (isSeated && onCheckOut) await onCheckOut(booking.id);
     };
 
+    // Card Background Styles
+    const cardBgClass = useMemo(() => {
+        if (isDone) return 'border-border/60 bg-muted/40';
+        if (timeUrgency?.type === 'late') return 'border-destructive/40 bg-destructive/5';
+        if (timeUrgency?.type === 'overdue') return 'border-amber-500/40 bg-amber-500/5';
+        if (timeUrgency?.type === 'soon') return 'border-amber-500/20 bg-amber-500/5';
+        return 'border-border/60 bg-card/60 hover:bg-card hover:shadow-md';
+    }, [isDone, timeUrgency]);
+
     return (
         <Card className={cn(
             'group relative flex flex-col gap-3 p-3 transition-all sm:gap-4 sm:p-4 sm:flex-row sm:items-center',
-            cardUrgencyClass,
-            isLoading && 'opacity-60 pointer-events-none animate-pulse',
-            !isLoading && 'hover:shadow-md active:shadow-sm'
+            cardBgClass,
+            isLoading && 'opacity-60 pointer-events-none animate-pulse'
         )}>
             {/* Loading overlay */}
             {isLoading && (
-                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-muted/50">
-                    <Badge variant="secondary" className="gap-2 px-4 py-2 shadow-lg bg-background">
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
-                        <span className="text-sm font-medium">Processing...</span>
-                    </Badge>
+                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-background/50 backdrop-blur-[1px]">
+                    <div className="flex items-center gap-2 rounded-full bg-background border px-3 py-1.5 shadow-lg">
+                        <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                        <span className="text-xs font-medium text-foreground">Processing...</span>
+                    </div>
                 </div>
             )}
 
-            {/* ZONE 1: LOGISTICS */}
+            {/* ZONE 1: LOGISTICS (Time & Party) */}
             <div className="flex min-w-[100px] shrink-0 flex-row items-center gap-4 sm:flex-col sm:items-start sm:gap-1">
                 <div className="flex flex-col">
-                    <span className={cn('font-mono text-lg font-bold leading-none tracking-tight', isDone ? 'text-slate-400' : 'text-slate-900')}>
+                    <span className={cn('text-[10px] font-bold uppercase tracking-wider', isDone ? 'text-muted-foreground' : 'text-muted-foreground')}>
+                        {startDateStr}
+                    </span>
+                    <span className={cn('font-mono text-lg font-bold leading-none tracking-tight', isDone ? 'text-muted-foreground line-through decoration-border' : 'text-foreground')}>
                         {startTimeStr}
                     </span>
-                    <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">
+                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
                         {endTimeStr ? `Until ${endTimeStr}` : 'Open End'}
                     </span>
                 </div>
 
-                <div className="hidden h-px w-8 bg-slate-100 sm:block" />
+                <div className="hidden h-px w-8 bg-border sm:block" />
 
                 <div className="flex items-center gap-1.5">
-                    <Users className={cn('h-3.5 w-3.5', isDone ? 'text-slate-300' : 'text-slate-400')} />
-                    <span className={cn('text-sm font-medium', isDone ? 'text-slate-400' : 'text-slate-700')}>
+                    <Users className={cn('h-3.5 w-3.5', isDone ? 'text-muted-foreground' : 'text-muted-foreground')} />
+                    <span className={cn('text-sm font-medium', isDone ? 'text-muted-foreground' : 'text-foreground')}>
                         {booking.partySize} guests
                     </span>
                 </div>
@@ -231,10 +237,10 @@ export function OpsBookingCard({
                     <Badge
                         variant={timeUrgency.type === 'late' ? 'destructive' : 'secondary'}
                         className={cn(
-                            'gap-1 rounded-full text-[10px] animate-pulse',
-                            timeUrgency.type === 'overdue' && 'bg-amber-100 text-amber-700 border-amber-200',
-                            timeUrgency.type === 'soon' && 'bg-amber-50 text-amber-600 border-amber-100',
-                            timeUrgency.type === 'approaching' && 'bg-blue-50 text-blue-600 border-blue-100'
+                            'gap-1 rounded-full text-[10px] animate-pulse px-1.5 py-0 h-5',
+                            timeUrgency.type === 'overdue' && 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800',
+                            timeUrgency.type === 'soon' && 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800',
+                            timeUrgency.type === 'approaching' && 'bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800'
                         )}
                     >
                         <Clock className="h-3 w-3" />
@@ -256,7 +262,7 @@ export function OpsBookingCard({
                     </Avatar>
                     <div>
                         <div className="flex items-center gap-2">
-                            <span className={cn('text-base font-semibold', isDone ? 'text-slate-500 line-through decoration-slate-300' : 'text-slate-900')}>
+                            <span className={cn('text-base font-semibold', isDone ? 'text-muted-foreground line-through decoration-border' : 'text-foreground')}>
                                 {booking.customerName}
                             </span>
                             {booking.loyaltyTier && (
@@ -264,21 +270,21 @@ export function OpsBookingCard({
                                     className={cn(
                                         'h-3.5 w-3.5',
                                         booking.loyaltyTier === 'platinum' ? 'text-indigo-500' :
-                                            booking.loyaltyTier === 'gold' ? 'text-amber-500' : 'text-slate-400'
+                                            booking.loyaltyTier === 'gold' ? 'text-amber-500' : 'text-muted-foreground'
                                     )}
                                     fill="currentColor"
                                 />
                             )}
                         </div>
                         {booking.customerEmail && (
-                            <span className="text-xs text-slate-400 block truncate max-w-[250px]">{booking.customerEmail}</span>
+                            <span className="text-xs text-muted-foreground block truncate max-w-[250px]">{booking.customerEmail}</span>
                         )}
                     </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                     <StatusIndicator status={booking.status} />
-                    <div className="h-3 w-px bg-slate-200" />
+                    <div className="h-3 w-px bg-border" />
                     <TableAssignment
                         assignments={booking.tableAssignments}
                         status={booking.status}
@@ -286,27 +292,27 @@ export function OpsBookingCard({
                 </div>
 
                 {(booking.allergies?.length || booking.notes || booking.seatingPreference || booking.dietaryRestrictions) ? (
-                    <div className="mt-1 flex flex-wrap gap-2">
+                    <div className="mt-1 flex flex-wrap gap-2 text-xs">
                         {booking.allergies?.map((allergy, i) => (
-                            <Badge key={`alg-${i}`} variant="destructive" className="gap-1">
+                            <Badge key={`alg-${i}`} variant="destructive" className="gap-1 px-1.5 py-0 h-5 font-normal">
                                 <AlertTriangle className="h-3 w-3" />
                                 {allergy}
                             </Badge>
                         ))}
                         {booking.notes && (
-                            <Badge variant="default" className="gap-1 max-w-[240px] truncate" title={booking.notes}>
+                            <Badge variant="secondary" className="gap-1 max-w-[240px] truncate px-1.5 py-0 h-5 font-normal bg-muted text-muted-foreground hover:bg-muted" title={booking.notes}>
                                 <FileText className="h-3 w-3 shrink-0" />
                                 <span className="truncate">{booking.notes}</span>
                             </Badge>
                         )}
                         {booking.seatingPreference && (
-                            <Badge variant="secondary" className="gap-1 max-w-[150px] truncate" title={booking.seatingPreference}>
+                            <Badge variant="outline" className="gap-1 max-w-[150px] truncate px-1.5 py-0 h-5 font-normal" title={booking.seatingPreference}>
                                 <Armchair className="h-3 w-3 shrink-0" />
                                 <span className="truncate">{booking.seatingPreference}</span>
                             </Badge>
                         )}
                         {booking.dietaryRestrictions && booking.dietaryRestrictions.length > 0 && (
-                            <Badge variant="outline" className="gap-1 max-w-[150px] truncate bg-amber-50 text-amber-700 border-amber-200" title={booking.dietaryRestrictions.join(', ')}>
+                            <Badge variant="outline" className="gap-1 max-w-[150px] truncate bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800 px-1.5 py-0 h-5 font-normal" title={booking.dietaryRestrictions.join(', ')}>
                                 <Utensils className="h-3 w-3 shrink-0" />
                                 <span className="truncate">{booking.dietaryRestrictions.join(', ')}</span>
                             </Badge>
@@ -316,18 +322,17 @@ export function OpsBookingCard({
             </div>
 
             {/* ZONE 3: ACTIONS */}
-            <div className="flex shrink-0 items-center justify-between gap-2 border-t border-slate-100 pt-3 sm:mt-0 sm:flex-col sm:items-end sm:border-0 sm:pt-0 sm:gap-3">
+            <div className="flex shrink-0 items-center justify-between gap-2 border-t border-border pt-3 sm:mt-0 sm:flex-col sm:items-end sm:border-0 sm:pt-0 sm:gap-3">
                 {!isDone ? (
                     <>
-                        {/* Primary Action Button */}
                         {(onCheckIn && !isSeated) || (onCheckOut && isSeated) ? (
                             <Button
                                 size="sm"
                                 className={cn(
-                                    "flex-1 h-11 sm:h-auto sm:w-auto shadow-sm group/btn",
+                                    'flex-1 h-11 sm:h-auto sm:w-auto shadow-sm transition-all',
                                     isSeated
-                                        ? "bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
-                                        : "bg-slate-900 text-white hover:bg-slate-800"
+                                        ? 'bg-background border border-emerald-500/20 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950/30'
+                                        : ''
                                 )}
                                 variant={isSeated ? 'outline' : 'default'}
                                 onClick={handleMainAction}
@@ -339,12 +344,11 @@ export function OpsBookingCard({
                         ) : null}
 
                         <div className="flex gap-1">
-                            {/* Quick No Show */}
                             {!isSeated && onMarkNoShow && (
                                 <Button
                                     size="icon"
                                     variant="ghost"
-                                    className="h-9 w-9 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                                    className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                                     onClick={() => onMarkNoShow(booking.id)}
                                     title="Mark as no-show"
                                 >
@@ -356,7 +360,7 @@ export function OpsBookingCard({
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    className="h-9 px-3"
+                                    className="h-9 px-3 text-muted-foreground hover:text-foreground"
                                     onClick={() => onDetails(booking)}
                                 >
                                     Details
@@ -364,16 +368,15 @@ export function OpsBookingCard({
                             )}
                         </div>
 
-                        {/* Edit/Cancel Row */}
                         {(onEdit || onCancel) && (
-                            <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                            <div className="flex gap-1">
                                 {onEdit && (
-                                    <Button variant="ghost" size="sm" onClick={() => onEdit(booking)} disabled={isLoading} className="h-7 text-xs text-slate-500">
+                                    <Button variant="ghost" size="sm" onClick={() => onEdit(booking)} disabled={isLoading} className="h-7 text-xs text-muted-foreground hover:text-foreground">
                                         Edit
                                     </Button>
                                 )}
                                 {onCancel && (
-                                    <Button variant="ghost" size="sm" onClick={() => onCancel(booking)} disabled={isLoading} className="h-7 text-xs text-slate-400 hover:text-rose-600">
+                                    <Button variant="ghost" size="sm" onClick={() => onCancel(booking)} disabled={isLoading} className="h-7 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10">
                                         Cancel
                                     </Button>
                                 )}
@@ -381,7 +384,7 @@ export function OpsBookingCard({
                         )}
                     </>
                 ) : (
-                    <Button size="sm" variant="ghost" className="w-full cursor-default text-slate-400 hover:bg-transparent hover:text-slate-400 sm:w-auto" disabled>
+                    <Button size="sm" variant="ghost" className="w-full cursor-default text-muted-foreground hover:bg-transparent sm:w-auto" disabled>
                         <Check className="mr-2 h-3.5 w-3.5" />
                         {booking.status === 'completed' ? 'Completed' : 'Cancelled'}
                     </Button>

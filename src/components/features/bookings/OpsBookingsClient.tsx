@@ -1,5 +1,7 @@
 'use client';
 
+import debounce from 'lodash/debounce';
+import { Search } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -11,6 +13,7 @@ import { BookingDetailsDialogWrapper } from '@/components/features/bookings/Book
 import { OpsStatusFilter as OpsStatusFilterPopover } from '@/components/features/bookings/OpsStatusFilter';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { BookingStateMachineProvider, useBookingStateMachine } from '@/contexts/booking-state-machine';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import {
@@ -19,6 +22,7 @@ import {
   useOpsBookingStatusSummary,
   useOpsBookingsList,
   useOpsRestaurantDetails,
+  useOpsBookingLifecycleActions,
 } from '@/hooks';
 import { useOpsBooking } from '@/hooks/ops/useOpsBooking';
 import { buildOpsDateRange } from '@/utils/ops/bookings';
@@ -233,17 +237,92 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
       handlePageChange(nextPage, total);
       const targetPage = Number.isNaN(nextPage) ? null : String(nextPage);
       updateSearchParams({ page: targetPage === String(DEFAULT_PAGE) ? null : targetPage });
+      // Scroll to top of list for better UX on mobile/desktop
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     },
     [bookingsPage.pageInfo.total, handlePageChange, updateSearchParams],
+  );
+
+  const [pendingBookingAction, setPendingBookingAction] = useState<{ bookingId: string; action: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show' } | null>(null);
+
+  const bookingLifecycleMutations = useOpsBookingLifecycleActions();
+
+  const handleMarkNoShow = async (booking: BookingDTO, options?: { performedAt?: string | null; reason?: string | null }) => {
+    if (!activeRestaurantId) return;
+    setPendingBookingAction({ bookingId: booking.id, action: 'no-show' });
+    try {
+      await bookingLifecycleMutations.markNoShow.mutateAsync({
+        restaurantId: activeRestaurantId,
+        bookingId: booking.id,
+        performedAt: options?.performedAt ?? null,
+        reason: options?.reason ?? null,
+        targetDate: appliedDateRange?.date,
+      });
+    } finally {
+      setPendingBookingAction(null);
+    }
+  };
+
+  const handleUndoNoShow = async (booking: BookingDTO, reason?: string | null) => {
+    if (!activeRestaurantId) return;
+    setPendingBookingAction({ bookingId: booking.id, action: 'undo-no-show' });
+    try {
+      await bookingLifecycleMutations.undoNoShow.mutateAsync({
+        restaurantId: activeRestaurantId,
+        bookingId: booking.id,
+        reason: reason ?? null,
+        targetDate: appliedDateRange?.date,
+      });
+    } finally {
+      setPendingBookingAction(null);
+    }
+  };
+
+  const handleCheckIn = async (booking: BookingDTO) => {
+    if (!activeRestaurantId) return;
+    setPendingBookingAction({ bookingId: booking.id, action: 'check-in' });
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await bookingLifecycleMutations.checkIn.mutateAsync({
+        restaurantId: activeRestaurantId,
+        bookingId: booking.id,
+        targetDate: appliedDateRange?.date,
+      });
+    } finally {
+      setPendingBookingAction(null);
+    }
+  };
+
+  const handleCheckOut = async (booking: BookingDTO) => {
+    if (!activeRestaurantId) return;
+    setPendingBookingAction({ bookingId: booking.id, action: 'check-out' });
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await bookingLifecycleMutations.checkOut.mutateAsync({
+        restaurantId: activeRestaurantId,
+        bookingId: booking.id,
+        targetDate: appliedDateRange?.date,
+      });
+    } finally {
+      setPendingBookingAction(null);
+    }
+  };
+
+  const debouncedSearchUpdate = useMemo(
+    () =>
+      debounce((value: string) => {
+        const trimmed = value.trim();
+        updateSearchParams({ query: trimmed.length > 0 ? trimmed : null, page: null });
+      }, 500),
+    [updateSearchParams]
   );
 
   const handleSearchInput = useCallback(
     (value: string) => {
       handleSearchChange(value);
-      const trimmed = value.trim();
-      updateSearchParams({ query: trimmed.length > 0 ? trimmed : null, page: null });
+      debouncedSearchUpdate(value);
     },
-    [handleSearchChange, updateSearchParams],
+    [handleSearchChange, debouncedSearchUpdate],
   );
 
   const handleToggleStatus = useCallback(
@@ -366,49 +445,71 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
   return (
     <BookingStateMachineProvider initialBookings={initialSnapshots}>
       <BookingStateRegistrar bookings={bookings} />
-      <section className="space-y-6 lg:space-y-8">
-        <div className="overflow-hidden rounded-2xl border bg-card/60 p-5 shadow-sm sm:p-6 lg:p-7">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-1.5">
-              <h2 className="text-xl font-semibold leading-tight text-foreground sm:text-2xl">Manage bookings</h2>
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary" className="rounded-full">
+      <div className="min-h-screen bg-background font-sans text-foreground">
+        <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+          {/* HEADER SECTION - Matches Dashboard Style */}
+          <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div className="space-y-1">
+              <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Manage bookings</h1>
+              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground sm:text-base">
+                <Badge variant="secondary" className="rounded-md font-medium">
                   {currentRestaurantName}
                 </Badge>
                 {appliedDateRange ? (
-                  <Badge
-                    variant="outline"
-                    className="rounded-full"
-                    title={restaurantTimezone ? `Service timezone: ${restaurantTimezone}` : undefined}
-                  >
-                    {appliedDateRange.date}
-                    {restaurantTimezone ? ` · ${restaurantTimezone}` : ''}
-                  </Badge>
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-muted-foreground/40">•</span>
+                    <span>
+                      {appliedDateRange.date}
+                      {restaurantTimezone ? ` (${restaurantTimezone})` : ''}
+                    </span>
+                  </span>
                 ) : null}
               </div>
             </div>
-            <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
-              <Button asChild size="sm" className="h-9 px-4">
-                <Link href="/walk-in">Log walk-in</Link>
-              </Button>
-              <Button asChild size="sm" variant="outline" className="h-9 px-4">
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Button asChild size="sm" variant="outline" className="h-9">
                 <Link href="/dashboard">Back to dashboard</Link>
               </Button>
+              <Button asChild size="sm" className="h-9">
+                <Link href="/new-bookings">New booking</Link>
+              </Button>
+            </div>
+          </header>
+
+          {/* STICKY TOOLBAR - Matches Dashboard Style */}
+          <div className="sticky top-0 z-10 -mx-4 bg-background/80 px-4 py-3 backdrop-blur-md transition-all sm:-mx-6 sm:px-6 md:mx-0 md:rounded-xl md:border md:border-border/60 md:bg-card/80 md:px-4 md:shadow-sm">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+
+              {/* FILTERS */}
+              <div className="flex-1 overflow-x-auto scrollbar-hide">
+                <OpsStatusFilterPopover
+                  options={statusFilterOptions}
+                  selected={visibleSelectedStatuses}
+                  onToggle={handleToggleStatus}
+                  onClear={handleClearStatuses}
+                  isLoading={statusSummaryQuery.isLoading}
+                  order={OPS_LISTABLE_STATUSES}
+                />
+              </div>
+
+              {/* SEARCH */}
+              <div className="relative w-full md:w-64 md:flex-none">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search guests..."
+                  value={search}
+                  onChange={(e) => handleSearchInput(e.target.value)}
+                  className="h-10 w-full rounded-lg border border-border bg-background pl-10 pr-4 text-sm outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 touch-manipulation"
+                />
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="rounded-2xl border bg-card shadow-sm">
-          <div className="space-y-4 px-2 py-4 sm:px-4 sm:py-5 lg:px-6">
+          {/* TABLE SECTION */}
+          <section className="space-y-4">
             <BookingOfflineBanner />
-            <OpsStatusFilterPopover
-              options={statusFilterOptions}
-              selected={visibleSelectedStatuses}
-              onToggle={handleToggleStatus}
-              onClear={handleClearStatuses}
-              isLoading={statusSummaryQuery.isLoading}
-              order={OPS_LISTABLE_STATUSES}
-            />
             <BookingsTable
               bookings={bookings}
               page={bookingsPage.pageInfo.page}
@@ -424,22 +525,33 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
               onPageChange={handlePageRequest}
               onRetry={() => bookingsQuery.refetch()}
               onDetails={handleDetails}
+              onEdit={handleDetails}
+              onCancel={handleDetails}
               variant="ops"
               statusOptions={OPS_STATUS_TABS}
-              opsActionMode="details-only"
+              opsActionMode="full"
+              opsLifecycle={{
+                pendingBookingId: pendingBookingAction?.bookingId ?? null,
+                pendingAction: pendingBookingAction?.action ?? null,
+                onCheckIn: handleCheckIn,
+                onCheckOut: handleCheckOut,
+                onMarkNoShow: handleMarkNoShow,
+                onUndoNoShow: handleUndoNoShow,
+              }}
               showHeaderTitle={false}
+              hideHeader={true}
               timezone={restaurantTimezone || 'UTC'}
             />
-          </div>
-        </div>
+          </section>
 
-        <BookingDetailsDialogWrapper
-          bookingId={detailsBooking?.id ?? null}
-          initialData={detailsBooking}
-          open={isDetailsOpen}
-          onOpenChange={handleDetailsOpenChange}
-        />
-      </section>
+          <BookingDetailsDialogWrapper
+            bookingId={detailsBooking?.id ?? null}
+            initialData={detailsBooking}
+            open={isDetailsOpen}
+            onOpenChange={handleDetailsOpenChange}
+          />
+        </main>
+      </div>
     </BookingStateMachineProvider>
   );
 }
