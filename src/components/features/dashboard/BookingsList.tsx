@@ -18,6 +18,7 @@ import { DateTime } from 'luxon';
 import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState } from 'react';
 
+import { OpsBookingCardSkeleton } from '@/components/dashboard/OpsBookingCardSkeleton';
 import { Pagination } from '@/components/dashboard/Pagination';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -59,6 +60,7 @@ type BookingsListProps = {
   searchQuery?: string;
   summary: OpsTodayBookingsSummary;
   allowTableAssignments: boolean;
+  isRefetching?: boolean; // Show list skeletons while data is being refetched
   onMarkNoShow: (bookingId: string, options?: { performedAt?: string | null; reason?: string | null }) => Promise<void>;
   onUndoNoShow: (bookingId: string, reason?: string | null) => Promise<void>;
   onCheckIn: (bookingId: string) => Promise<void>;
@@ -83,9 +85,9 @@ const StatusIndicator = ({ status }: { status: string }) => {
     confirmed: 'bg-blue-500',
     PRIORITY_WAITLIST: 'bg-blue-500',
     checked_in: 'bg-emerald-500',
-    completed: 'bg-slate-400',
+    completed: 'bg-muted-foreground/60',
     no_show: 'bg-rose-500',
-    cancelled: 'bg-slate-300',
+    cancelled: 'bg-muted-foreground/40',
   };
 
   const labels: Record<string, string> = {
@@ -105,7 +107,7 @@ const StatusIndicator = ({ status }: { status: string }) => {
   return (
     <div className="flex items-center gap-2">
       <span className={cn("h-2 w-2 rounded-full", colorClass)} />
-      <span className={cn("text-xs font-medium", status === 'completed' || status === 'cancelled' ? 'text-slate-400' : 'text-slate-700')}>
+      <span className={cn("text-xs font-medium", status === 'completed' || status === 'cancelled' ? 'text-muted-foreground' : 'text-foreground')}>
         {label}
       </span>
     </div>
@@ -121,7 +123,7 @@ const TableAssignment = ({ assignments, status, allowTableAssignments, temporalI
   if (!assignments || assignments.length === 0) {
     if (status === 'confirmed' || status === 'PRIORITY_WAITLIST') {
       if (!allowTableAssignments || temporalInfo.state === 'past') {
-        return <span className="text-xs text-slate-400 italic">No table</span>;
+        return <span className="text-xs text-muted-foreground italic">No table</span>;
       }
       return (
         <div className="flex items-center gap-1.5 text-amber-600">
@@ -130,7 +132,7 @@ const TableAssignment = ({ assignments, status, allowTableAssignments, temporalI
         </div>
       );
     }
-    return <span className="text-xs text-slate-400 italic">No table</span>;
+    return <span className="text-xs text-muted-foreground italic">No table</span>;
   }
 
   // Generate table label
@@ -143,8 +145,8 @@ const TableAssignment = ({ assignments, status, allowTableAssignments, temporalI
   const displayTables = labels.join(', ');
 
   return (
-    <div className="flex items-center gap-1.5 text-slate-700">
-      <Armchair className="h-3.5 w-3.5 text-slate-400" />
+    <div className="flex items-center gap-1.5 text-foreground">
+      <Armchair className="h-3.5 w-3.5 text-muted-foreground" />
       <span className="text-xs font-semibold">Table {displayTables}</span>
     </div>
   );
@@ -203,6 +205,7 @@ function BookingsListContent({
   searchQuery,
   summary,
   allowTableAssignments,
+  isRefetching = false,
   onMarkNoShow,
   onUndoNoShow,
   onCheckIn,
@@ -310,14 +313,14 @@ function BookingsListContent({
 
   if (filtered.length === 0) {
     return (
-      <Card className="border-dashed border-border/60 bg-slate-50/50">
+      <Card className="border-dashed border-border/60 bg-muted/30">
         <div className="flex flex-col items-center gap-3 py-10 px-6 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-100">
-            <Search className="h-5 w-5 text-slate-400" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-card shadow-sm ring-1 ring-border/50">
+            <Search className="h-5 w-5 text-muted-foreground" />
           </div>
           <div className="space-y-1">
-            <p className="text-base font-semibold text-slate-900">No bookings found</p>
-            <p className="text-sm text-slate-500">
+            <p className="text-base font-semibold text-foreground">No bookings found</p>
+            <p className="text-sm text-muted-foreground">
               Adjust filters to see more results.
             </p>
           </div>
@@ -330,10 +333,10 @@ function BookingsListContent({
     <div className="flex flex-col gap-4">
       {/* Sort Controls */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-        <span className="text-sm font-medium text-slate-500">Sort</span>
+        <span className="text-sm font-medium text-muted-foreground">Sort</span>
         <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
           <Select value={sortKey} onValueChange={(val) => setSortKey(val as 'time' | 'party' | 'name')}>
-            <SelectTrigger className="h-9 w-full rounded-lg bg-white sm:w-[150px]">
+            <SelectTrigger className="h-9 w-full rounded-lg bg-card sm:w-[150px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -343,7 +346,7 @@ function BookingsListContent({
             </SelectContent>
           </Select>
           <Select value={sortDir} onValueChange={(val) => setSortDir(val as 'asc' | 'desc')}>
-            <SelectTrigger className="h-9 w-full rounded-lg bg-white sm:w-[130px]">
+            <SelectTrigger className="h-9 w-full rounded-lg bg-card sm:w-[130px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -354,35 +357,48 @@ function BookingsListContent({
         </div>
       </div>
 
+      {/* Booking Cards or Skeletons */}
       <div className="flex flex-col gap-3">
-        {paginated.map((booking, index) => {
-          const temporalInfo = getOpsBookingTemporalInfo(booking, summary, now);
-          const allowAssignmentsForBooking = allowTableAssignments && hasAssignmentHandlers && temporalInfo.state !== 'past';
-          return (
+        {isRefetching ? (
+          // Show skeletons while refetching new data
+          Array.from({ length: Math.min(paginated.length || 4, 6) }).map((_, index) => (
             <div
-              key={booking.id}
-              className="animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-backwards"
-              style={{ animationDelay: `${index * 0.05}s` }}
+              key={`skeleton-${index}`}
+              className="animate-pulse"
             >
-              <BookingCard
-                booking={booking}
-                summary={summary}
-                temporalInfo={temporalInfo}
-                allowTableAssignments={allowAssignmentsForBooking}
-                hasAssignmentHandlers={hasAssignmentHandlers}
-                now={now}
-                pendingLifecycleAction={pendingLifecycleAction}
-                onCheckIn={onCheckIn}
-                onCheckOut={onCheckOut}
-                onMarkNoShow={onMarkNoShow}
-                onUndoNoShow={onUndoNoShow}
-                onAssignTable={onAssignTable}
-                onUnassignTable={onUnassignTable}
-                tableActionState={tableActionState}
-              />
+              <OpsBookingCardSkeleton />
             </div>
-          );
-        })}
+          ))
+        ) : (
+          paginated.map((booking, index) => {
+            const temporalInfo = getOpsBookingTemporalInfo(booking, summary, now);
+            const allowAssignmentsForBooking = allowTableAssignments && hasAssignmentHandlers && temporalInfo.state !== 'past';
+            return (
+              <div
+                key={booking.id}
+                className="animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-backwards"
+                style={{ animationDelay: `${index * 0.05}s` }}
+              >
+                <BookingCard
+                  booking={booking}
+                  summary={summary}
+                  temporalInfo={temporalInfo}
+                  allowTableAssignments={allowAssignmentsForBooking}
+                  hasAssignmentHandlers={hasAssignmentHandlers}
+                  now={now}
+                  pendingLifecycleAction={pendingLifecycleAction}
+                  onCheckIn={onCheckIn}
+                  onCheckOut={onCheckOut}
+                  onMarkNoShow={onMarkNoShow}
+                  onUndoNoShow={onUndoNoShow}
+                  onAssignTable={onAssignTable}
+                  onUnassignTable={onUnassignTable}
+                  tableActionState={tableActionState}
+                />
+              </div>
+            );
+          })
+        )}
       </div>
 
       {/* Pagination */}
@@ -526,19 +542,19 @@ function BookingCard({
       {/* ZONE 1: LOGISTICS (Time & Party) */}
       <div className="flex min-w-[100px] shrink-0 flex-row items-center gap-4 sm:flex-col sm:items-start sm:gap-1">
         <div className="flex flex-col">
-          <span className={cn("font-mono text-lg font-bold leading-none tracking-tight", isDone ? "text-slate-400" : "text-slate-900")}>
+          <span className={cn("font-mono text-lg font-bold leading-none tracking-tight", isDone ? "text-muted-foreground" : "text-foreground")}>
             {startTimeStr}
           </span>
-          <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">
+          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
             {endTimeStr ? `Until ${endTimeStr}` : 'Open End'}
           </span>
         </div>
 
-        <div className="hidden h-px w-8 bg-slate-100 sm:block" />
+        <div className="hidden h-px w-8 bg-border sm:block" />
 
         <div className="flex items-center gap-1.5">
-          <Users className={cn("h-3.5 w-3.5", isDone ? "text-slate-300" : "text-slate-400")} />
-          <span className={cn("text-sm font-medium", isDone ? "text-slate-400" : "text-slate-700")}>
+          <Users className={cn("h-3.5 w-3.5", isDone ? "text-muted-foreground/50" : "text-muted-foreground")} />
+          <span className={cn("text-sm font-medium", isDone ? "text-muted-foreground" : "text-foreground")}>
             {booking.partySize} guests
           </span>
         </div>
@@ -564,19 +580,14 @@ function BookingCard({
       <div className="flex flex-1 flex-col gap-2">
         {/* Name & Tier */}
         <div className="flex items-center gap-3">
-          <Avatar className={cn(
-            isDone ? "bg-muted" : "bg-primary/10"
-          )}>
-            <AvatarFallback className={cn(
-              "text-xs font-bold",
-              isDone ? "text-muted-foreground" : "text-primary"
-            )}>
+          <Avatar className={cn('h-8 w-8 sm:h-10 sm:w-10 shrink-0', isDone ? 'bg-muted' : 'bg-primary/10 text-primary')}>
+            <AvatarFallback className="text-xs font-medium">
               {guestInitials}
             </AvatarFallback>
           </Avatar>
           <div>
             <div className="flex items-center gap-2">
-              <span className={cn("text-base font-semibold", isDone ? "text-slate-500 line-through decoration-slate-300" : "text-slate-900")}>
+              <span className={cn("text-base font-semibold", isDone ? "text-muted-foreground line-through decoration-muted-foreground/30" : "text-foreground")}>
                 {booking.customerName}
               </span>
               {booking.loyaltyTier && (
@@ -584,7 +595,7 @@ function BookingCard({
                   className={cn(
                     "h-3.5 w-3.5",
                     booking.loyaltyTier === 'platinum' ? "text-indigo-500" :
-                      booking.loyaltyTier === 'gold' ? "text-amber-500" : "text-slate-400"
+                      booking.loyaltyTier === 'gold' ? "text-amber-500" : "text-muted-foreground"
                   )}
                   fill="currentColor"
                 />
@@ -596,7 +607,7 @@ function BookingCard({
         {/* Status & Table Line */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <StatusIndicator status={booking.status} />
-          <div className="h-3 w-px bg-slate-200" />
+          <div className="h-3 w-px bg-border" />
           <TableAssignment
             assignments={booking.tableAssignments}
             status={booking.status}
@@ -637,21 +648,21 @@ function BookingCard({
       </div>
 
       {/* ZONE 3: ACTIONS */}
-      <div className="flex shrink-0 items-center justify-between gap-2 border-t border-slate-100 pt-3 sm:mt-0 sm:flex-col sm:items-end sm:border-0 sm:pt-0 sm:gap-3">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-t border-border pt-3 sm:mt-0 sm:flex-col sm:items-end sm:border-0 sm:pt-0 sm:gap-3">
 
         {!isDone ? (
           <>
             {(!isSeated) ? (
               <Button
                 size="sm"
-                className="flex-1 h-11 bg-slate-900 shadow-slate-200/50 hover:bg-slate-800 active:bg-slate-700 sm:flex-none sm:h-auto sm:w-auto group/btn touch-manipulation"
+                className="flex-1 h-11 bg-primary shadow-primary/20 hover:bg-primary/90 active:bg-primary/80 sm:flex-none sm:h-auto sm:w-auto group/btn touch-manipulation"
                 onClick={() => handleAction('check-in')}
                 disabled={lifecyclePending === 'check-in'}
                 title="Seat guest (keyboard: S)"
               >
                 <LogIn className="mr-2 h-4 w-4 sm:h-3.5 sm:w-3.5" />
                 {lifecyclePending === 'check-in' ? 'Seating...' : 'Seat Guest'}
-                <span className="ml-2 hidden rounded bg-slate-700 px-1 py-0.5 text-[9px] font-mono opacity-60 group-hover/btn:inline">S</span>
+                <span className="ml-2 hidden rounded bg-primary-foreground/20 px-1 py-0.5 text-[9px] font-mono opacity-60 group-hover/btn:inline">S</span>
               </Button>
             ) : (
               <Button
@@ -675,7 +686,7 @@ function BookingCard({
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="h-11 w-11 text-slate-400 hover:text-rose-600 hover:bg-rose-50 active:bg-rose-100 sm:h-8 sm:w-8 touch-manipulation"
+                  className="h-11 w-11 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 active:bg-rose-100 sm:h-8 sm:w-8 touch-manipulation"
                   onClick={() => onMarkNoShow(booking.id)}
                   disabled={lifecyclePending === 'no-show'}
                   title="Mark as no-show (keyboard: N)"
@@ -707,7 +718,7 @@ function BookingCard({
             </div>
           </>
         ) : (
-          <Button size="sm" variant="ghost" className="w-full cursor-default text-slate-400 hover:bg-transparent hover:text-slate-400 sm:w-auto" disabled>
+          <Button size="sm" variant="ghost" className="w-full cursor-default text-muted-foreground hover:bg-transparent hover:text-muted-foreground sm:w-auto" disabled>
             <Check className="mr-2 h-3.5 w-3.5" />
             {booking.status === 'completed' ? 'Completed' : 'Cancelled'}
           </Button>

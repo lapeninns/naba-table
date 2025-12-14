@@ -2,9 +2,9 @@
 import { Circle, Clock, CheckCircle2, LogIn, LogOut, XCircle, AlertTriangle } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
-import type { BadgeProps } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
+import type { BadgeProps } from '@/components/ui/badge';
 import type { OpsBookingStatus } from '@/types/ops';
 import type { ComponentType } from 'react';
 
@@ -43,13 +43,13 @@ const STATUS_CONFIG: Record<OpsBookingStatus, StatusConfig> = {
   completed: {
     label: 'Completed',
     variant: 'outline',
-    className: 'border-slate-200 bg-slate-100 text-slate-700',
+    className: 'border-border bg-muted text-muted-foreground',
     icon: LogOut,
   },
   cancelled: {
     label: 'Cancelled',
     variant: 'outline',
-    className: 'border-slate-300 bg-slate-100 text-slate-700',
+    className: 'border-border bg-muted text-muted-foreground',
     icon: XCircle,
   },
   no_show: {

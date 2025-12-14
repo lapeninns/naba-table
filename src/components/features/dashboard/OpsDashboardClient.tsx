@@ -263,7 +263,12 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
     return <NoAccessState />;
   }
 
-  if (summaryQuery.isLoading) {
+  // Only show full page skeleton on INITIAL load (no cached data yet)
+  // For date changes/refetches, we keep the page visible with list-only skeletons
+  const isInitialLoading = summaryQuery.isLoading && !summary;
+  const isRefetching = summaryQuery.isFetching && !!summary;
+
+  if (isInitialLoading) {
     return <DashboardSkeleton />;
   }
 
@@ -272,24 +277,28 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
   }
 
   return (
-    <div className="bg-slate-50/50 font-sans text-slate-900">
-      <main className="mx-auto w-full max-w-5xl space-y-8 px-6 py-10">
+    <div className="min-h-screen bg-background font-sans text-foreground">
+      <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
 
         {/* HEADER SECTION */}
-        <header className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-          <div className="space-y-1.5">
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900">Operations</h1>
-            <p className="text-slate-500">
-              <span className="font-medium text-slate-900">{guestStats.upcoming} guests</span> expecting arrival,{' '}
-              <span className="font-medium text-slate-900">{guestStats.seated} seated</span> now.
+        <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Operations</h1>
+            <p className={cn(
+              "text-sm text-muted-foreground sm:text-base transition-opacity duration-300",
+              isRefetching && "opacity-50"
+            )}>
+              <span className="font-medium text-foreground">{guestStats.upcoming} guests</span> expecting arrival,{' '}
+              <span className="font-medium text-foreground">{guestStats.seated} seated</span> now.
+              {isRefetching && <span className="ml-2 text-xs text-muted-foreground">(Updating...)</span>}
             </p>
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="flex items-center rounded-lg border bg-white p-1 shadow-sm">
+            <div className="flex items-center rounded-lg border border-border bg-card p-1 shadow-sm">
               <DateNavigationButton direction="prev" onClick={() => handleShiftDate(-1)} />
               <div className="flex items-center gap-2 px-2">
-                <CalendarIcon className="h-4 w-4 text-slate-500" />
+                <CalendarIcon className="h-4 w-4 text-muted-foreground" />
                 <HeatmapCalendar
                   summary={summary}
                   heatmap={heatmapQuery.data}
@@ -309,12 +318,12 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
         </section>
 
         {/* TOOLBAR */}
-        <div className="sticky top-0 z-10 -mx-6 bg-slate-50/80 px-6 py-4 backdrop-blur-md transition-all md:mx-0 md:rounded-xl md:border md:border-slate-200/60 md:bg-white/80 md:px-4 md:py-3 md:shadow-sm">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="sticky top-0 z-10 -mx-4 bg-background/80 px-4 py-3 backdrop-blur-md transition-all sm:-mx-6 sm:px-6 md:mx-0 md:rounded-xl md:border md:border-border/60 md:bg-card/80 md:px-4 md:shadow-sm">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 
             {/* TABS - horizontally scrollable on mobile */}
             <div className="-mx-1 overflow-x-auto scrollbar-hide">
-              <div className="flex items-center gap-1 rounded-lg bg-slate-100/80 p-1 min-w-max">
+              <div className="flex items-center gap-1 rounded-lg bg-muted/80 p-1 min-w-max">
                 {(['all', 'upcoming', 'seated', 'finished'] as const).map((tab) => {
                   const count = tabCounts[tab];
                   return (
@@ -324,8 +333,8 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
                       className={cn(
                         "relative flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-all whitespace-nowrap touch-manipulation",
                         filter === tab
-                          ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200"
-                          : "text-slate-500 hover:bg-slate-200/50 hover:text-slate-700 active:bg-slate-200"
+                          ? "bg-card text-foreground shadow-sm ring-1 ring-border"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground active:bg-muted"
                       )}
                     >
                       {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -333,8 +342,8 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
                         <span className={cn(
                           "inline-flex items-center justify-center rounded-full min-w-[20px] px-1.5 py-0.5 text-[10px] font-semibold leading-none",
                           filter === tab
-                            ? "bg-slate-900 text-white"
-                            : "bg-slate-300/80 text-slate-600"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted-foreground/20 text-muted-foreground"
                         )}>
                           {count}
                         </span>
@@ -348,17 +357,17 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
             {/* SEARCH & FILTER */}
             <div className="flex items-center gap-2">
               <div className="relative flex-1 md:w-64 md:flex-none">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="text"
                   placeholder="Search guests..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 text-sm outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 touch-manipulation"
+                  className="h-10 w-full rounded-lg border border-border bg-background pl-10 pr-4 text-sm outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 touch-manipulation"
                 />
               </div>
-              <Button variant="outline" size="icon" className="shrink-0 h-10 w-10 bg-white touch-manipulation">
-                <Filter className="h-4 w-4 text-slate-500" />
+              <Button variant="outline" size="icon" className="shrink-0 h-10 w-10 bg-card touch-manipulation">
+                <Filter className="h-4 w-4 text-muted-foreground" />
               </Button>
             </div>
           </div>
@@ -381,6 +390,7 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
             searchQuery={searchQuery}
             summary={summary}
             allowTableAssignments={allowTableAssignments}
+            isRefetching={isRefetching}
             onMarkNoShow={handleMarkNoShow}
             onUndoNoShow={handleUndoNoShow}
             onCheckIn={handleCheckIn}
@@ -409,7 +419,7 @@ function DateNavigationButton({ direction, onClick }: DateNavigationButtonProps)
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex h-8 w-8 touch-manipulation items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
+      className="inline-flex h-8 w-8 touch-manipulation items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
       aria-label={label}
     >
       <Icon className="h-4 w-4" aria-hidden />

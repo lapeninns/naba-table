@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import { useBookingService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
@@ -31,5 +31,8 @@ export function useOpsTodaySummary(options: UseOpsTodaySummaryOptions) {
     },
     enabled: Boolean(restaurantId) && (options.enabled ?? true),
     staleTime: 60_000,
+    // Keep previous data visible while fetching new date - enables smooth stale-while-revalidate UX
+    placeholderData: keepPreviousData,
   });
 }
+

@@ -56,11 +56,11 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         match: (pathname) => pathname === path('/bookings') || pathname.startsWith(path('/bookings/')),
       },
       {
-        title: 'Walk-ins',
+        title: 'New Bookings',
         description: 'Log arrivals on the floor',
-        href: path('/walk-in'),
+        href: path('/new-bookings'),
         icon: DoorOpen,
-        match: (pathname) => pathname === path('/walk-in'),
+        match: (pathname) => pathname === path('/new-bookings'),
       },
       {
         title: 'Customers',

@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 
+import { OpsBookingCardSkeleton } from './OpsBookingCardSkeleton';
 import { OpsBookingCard } from './OpsBookingCard';
 import { BookingsHeader } from './BookingsHeader';
 import { BookingsListMobile } from './BookingsListMobile';
@@ -46,6 +47,7 @@ export type BookingsTableProps = {
     onUndoNoShow: (booking: BookingDTO, reason?: string | null) => Promise<void>;
   };
   showHeaderTitle?: boolean;
+  hideHeader?: boolean;
   timezone?: string;
 };
 
@@ -81,10 +83,11 @@ export function BookingsTable({
   opsActionMode = 'full',
   opsLifecycle,
   showHeaderTitle = true,
+  hideHeader = false,
   timezone,
 }: BookingsTableProps) {
-  const showSkeleton = isLoading;
-  const showEmpty = !isLoading && !error && bookings.length === 0;
+  const showSkeleton = isLoading || isFetching;
+  const showEmpty = !showSkeleton && !error && bookings.length === 0;
   const isPastView = statusFilter === 'past';
   const trimmedSearch = searchTerm.trim();
   const isOpsVariant = variant === 'ops';
@@ -96,8 +99,8 @@ export function BookingsTable({
         description: isOpsVariant
           ? 'Try a different guest name or email, or broaden the date/status filters.'
           : 'Try searching for a different guest name or email.',
-        ctaHref: isOpsVariant ? '/walk-in' : '/',
-        ctaLabel: isOpsVariant ? 'Log a walk-in' : 'Start a new booking',
+        ctaHref: isOpsVariant ? '/new-bookings' : '/',
+        ctaLabel: isOpsVariant ? 'New booking' : 'Start a new booking',
         analyticsEvent: 'dashboard_empty_search',
       } as const;
     }
@@ -109,8 +112,8 @@ export function BookingsTable({
           description: isOpsVariant
             ? 'New reservations will appear here as they’re created. You can also log walk-ins for today’s service.'
             : 'Ready for your next night out? Secure a table in just a few taps.',
-          ctaHref: isOpsVariant ? '/walk-in' : '/',
-          ctaLabel: isOpsVariant ? 'Log a walk-in' : 'Start a new booking',
+          ctaHref: isOpsVariant ? '/new-bookings' : '/',
+          ctaLabel: isOpsVariant ? 'New booking' : 'Start a new booking',
           analyticsEvent: 'dashboard_empty_upcoming',
         } as const;
       case 'past':
@@ -134,13 +137,15 @@ export function BookingsTable({
           analyticsEvent: 'dashboard_empty_cancelled',
         } as const;
       default:
+        // This default case should ideally not be reached if 'all' is handled explicitly
+        // and other filters are exhaustive. Keeping it as a fallback.
         return {
           title: isOpsVariant ? 'No bookings yet' : 'No bookings yet',
           description: isOpsVariant
             ? 'Reservations and walk-ins for this restaurant will appear here as they’re created.'
             : 'Once you make a reservation, it will appear here. Ready to secure your next table?',
-          ctaHref: isOpsVariant ? '/walk-in' : '/',
-          ctaLabel: isOpsVariant ? 'Log a walk-in' : 'Start a new booking',
+          ctaHref: isOpsVariant ? '/new-bookings' : '/',
+          ctaLabel: isOpsVariant ? 'New booking' : 'Start a new booking',
           analyticsEvent: 'dashboard_empty_all',
         } as const;
     }
@@ -184,18 +189,20 @@ export function BookingsTable({
 
   return (
     <div className="space-y-3">
-      <BookingsHeader
-        title={isOpsVariant ? 'Booking queue' : 'Bookings'}
-        subtitle={isOpsVariant ? 'Search, filter, and paginate without losing your place.' : undefined}
-        total={total}
-        showTitle={showHeaderTitle}
-        statusFilter={statusFilter}
-        onStatusFilterChange={onStatusFilterChange}
-        statusOptions={statusOptions ?? DEFAULT_STATUS_OPTIONS}
-        searchTerm={searchTerm}
-        onSearchChange={onSearchChange}
-        isSearching={isFetching}
-      />
+      {!hideHeader && (
+        <BookingsHeader
+          title={isOpsVariant ? 'Booking queue' : 'Bookings'}
+          subtitle={isOpsVariant ? 'Search, filter, and paginate without losing your place.' : undefined}
+          total={total}
+          showTitle={showHeaderTitle}
+          statusFilter={statusFilter}
+          onStatusFilterChange={onStatusFilterChange}
+          statusOptions={statusOptions ?? DEFAULT_STATUS_OPTIONS}
+          searchTerm={searchTerm}
+          onSearchChange={onSearchChange}
+          isSearching={isFetching}
+        />
+      )}
 
       {error ? (
         <Alert variant="destructive" role="alert">
@@ -214,12 +221,17 @@ export function BookingsTable({
         <div className="md:hidden">
           <BookingsListMobile
             bookings={bookings}
-            isLoading={isLoading}
+            isLoading={showSkeleton}
             formatDate={formatDate}
             formatTime={formatTime}
             onEdit={onEdit}
             onCancel={onCancel}
             onDetails={onDetails}
+            onCheckIn={opsLifecycle?.onCheckIn}
+            onCheckOut={opsLifecycle?.onCheckOut}
+            onMarkNoShow={opsLifecycle?.onMarkNoShow ? async (b) => opsLifecycle.onMarkNoShow(b) : undefined}
+            onUndoNoShow={opsLifecycle?.onUndoNoShow ? async (b) => opsLifecycle.onUndoNoShow(b) : undefined}
+            pendingAction={opsLifecycle?.pendingBookingId ? { bookingId: opsLifecycle.pendingBookingId, action: opsLifecycle.pendingAction || '' } : null}
             opsActionMode={opsActionMode}
             emptyState={mobileEmptyState}
             isPastView={isPastView}
@@ -231,18 +243,7 @@ export function BookingsTable({
         <div className="hidden md:block space-y-3">
           {showSkeleton
             ? Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-24 w-full rounded-xl border border-border bg-card/50 p-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <Skeleton className="h-12 w-20 rounded-md" />
-                    <div className="space-y-2">
-                      <Skeleton className="h-4 w-48" />
-                      <Skeleton className="h-3 w-32" />
-                    </div>
-                  </div>
-                  <Skeleton className="h-9 w-24 rounded-md" />
-                </div>
-              </div>
+              <OpsBookingCardSkeleton key={i} />
             ))
             : bookings.map((booking) => (
               <div key={booking.id} className="animate-in fade-in slide-in-from-bottom-2 duration-500">

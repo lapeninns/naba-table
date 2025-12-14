@@ -21,6 +21,8 @@ import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
+import { OpsBookingCardSkeleton } from './OpsBookingCardSkeleton';
+
 import { deriveBookingDisplayState } from './BookingRow';
 import { EmptyState, type EmptyStateProps } from './EmptyState';
 import { StatusChip } from './StatusChip';
@@ -35,6 +37,11 @@ export type BookingsListMobileProps = {
   onEdit?: (booking: BookingDTO) => void;
   onCancel?: (booking: BookingDTO) => void;
   onDetails?: (booking: BookingDTO) => void;
+  onCheckIn?: (booking: BookingDTO) => Promise<void>;
+  onCheckOut?: (booking: BookingDTO) => Promise<void>;
+  onMarkNoShow?: (booking: BookingDTO) => Promise<void>;
+  onUndoNoShow?: (booking: BookingDTO) => Promise<void>;
+  pendingAction?: { bookingId: string; action: string } | null;
   opsActionMode?: 'full' | 'details-only';
   emptyState?: EmptyStateProps;
   isPastView?: boolean;
@@ -256,43 +263,6 @@ function BookingCard({
   );
 }
 
-function renderSkeletonCard(key: number) {
-  return (
-    <Card
-      key={`skeleton-${key}`}
-      data-testid="booking-card-skeleton"
-      className="border-border/60 bg-card/70 p-3"
-      aria-hidden="true"
-    >
-      <div className="flex items-center justify-between gap-3">
-        <div className="space-y-2">
-          <Skeleton className="h-5 w-24" />
-          <Skeleton className="h-3.5 w-32" />
-        </div>
-        <Skeleton className="h-4 w-20 rounded-full" />
-      </div>
-
-      <div className="mt-3 flex items-center gap-3">
-        <Skeleton className="h-10 w-10 rounded-full" />
-        <div className="min-w-0 flex-1 space-y-2">
-          <Skeleton className="h-4 w-48" />
-          <Skeleton className="h-3.5 w-40" />
-        </div>
-      </div>
-
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Skeleton className="h-6 w-24 rounded-full" />
-        <Skeleton className="h-6 w-24 rounded-full" />
-        <Skeleton className="h-6 w-32 rounded-full" />
-      </div>
-
-      <div className="mt-3 flex flex-col gap-2 border-t border-border/60 pt-3 sm:flex-row sm:justify-end">
-        <Skeleton className="h-11 w-full sm:w-32" />
-      </div>
-    </Card>
-  );
-}
-
 const StatusIndicator = ({ status }: { status: string }) => {
   const styles: Record<string, string> = {
     pending: 'bg-amber-500',
@@ -423,7 +393,7 @@ function OpsMobileBookingCard({
     if (timeUrgency?.type === 'late') return 'border-destructive/50 bg-destructive/5';
     if (timeUrgency?.type === 'overdue') return 'border-warning/50 bg-warning/5';
     if (timeUrgency?.type === 'soon') return 'border-warning/30 bg-warning/5';
-    return 'border-slate-200 bg-white shadow-sm';
+    return 'border-border/60 bg-card';
   }, [isDone, timeUrgency]);
 
   return (
@@ -435,11 +405,14 @@ function OpsMobileBookingCard({
       {/* ZONE 1: LOGISTICS (Time & Party) */}
       <div className="flex min-w-[100px] shrink-0 flex-row items-center gap-4 sm:flex-col sm:items-start sm:gap-1">
         <div className="flex flex-col">
+          <span className="text-xs font-semibold text-slate-500 mb-0.5">
+            {formatDate(booking.startIso)}
+          </span>
           <span className={cn('font-mono text-lg font-bold leading-none tracking-tight', isDone ? 'text-slate-400' : 'text-slate-900')}>
             {startTimeStr}
           </span>
           <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">
-            {endTimeStr ? `Until ${endTimeStr}` : formatDate(booking.startIso)}
+            {endTimeStr ? `Until ${endTimeStr}` : 'Open End'}
           </span>
         </div>
 
@@ -607,6 +580,11 @@ export function BookingsListMobile({
   onEdit,
   onCancel,
   onDetails,
+  onCheckIn,
+  onCheckOut,
+  onMarkNoShow,
+  onUndoNoShow,
+  pendingAction,
   opsActionMode,
   emptyState,
   isPastView = false,
@@ -615,7 +593,13 @@ export function BookingsListMobile({
   const baseId = useId();
 
   if (isLoading) {
-    return <div className="space-y-3">{skeletonCards.map((card) => renderSkeletonCard(card))}</div>;
+    return (
+      <div className="space-y-3">
+        {skeletonCards.map((key) => (
+          <OpsBookingCardSkeleton key={key} />
+        ))}
+      </div>
+    );
   }
 
   if (bookings.length === 0) {

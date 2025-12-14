@@ -405,11 +405,11 @@ export default function FloorPlanApp() {
             }
 
             toast({
-                title: 'Opening walk-in seating',
+                title: 'Opening new booking',
                 description: `Table ${selectedTableData.tableNumber} · ${timeString}`,
             });
 
-            router.push(`/app/walk-in?${params.toString()}`);
+            router.push(`/app/new-bookings?${params.toString()}`);
         } catch (error) {
             console.error('[floor-plan] failed to launch walk-in seating', error);
             toast({
