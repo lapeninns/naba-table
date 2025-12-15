@@ -63,20 +63,11 @@ export function useSupabaseSession(): SupabaseSessionState {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("[useSupabaseSession] Auth state changed:", event, session?.user?.id);
+    } = supabase.auth.onAuthStateChange(async (event) => {
+      console.log("[useSupabaseSession] Auth state changed:", event);
       
       if (!isMounted) {
         console.log("[useSupabaseSession] Component unmounted, skipping state update");
-        return;
-      }
-
-      // For SIGNED_IN or TOKEN_REFRESHED events with a session, use it directly
-      if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session?.user) {
-        console.log("[useSupabaseSession] Using session from event:", session.user.id, session.user.email);
-        hasDefinitiveAuthRef.current = true;
-        setUser(session.user);
-        setStatus("ready");
         return;
       }
 
@@ -89,7 +80,7 @@ export function useSupabaseSession(): SupabaseSessionState {
         return;
       }
 
-      // For other events, try getUser but don't overwrite if we already have definitive state
+      // For other events, verify via getUser (do not trust session user objects)
       try {
         const {
           data: { user },

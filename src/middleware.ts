@@ -66,6 +66,19 @@ function isApiPath(pathname: string) {
   return pathname.startsWith("/api/");
 }
 
+function applySecurityHeaders(response: NextResponse) {
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set(
+    "Permissions-Policy",
+    "camera=(), microphone=(), geolocation=(), payment=(), usb=(), bluetooth=()",
+  );
+
+  // Keep CSP minimal to avoid breaking Next.js (especially in dev) while still providing baseline protection.
+  response.headers.set("Content-Security-Policy", "base-uri 'self'; frame-ancestors 'none'; object-src 'none'; form-action 'self'");
+}
+
 async function handleRouting(req: NextRequest): Promise<NextResponse> {
   const url = req.nextUrl;
   const rootDomain = getRootDomain();
@@ -254,6 +267,8 @@ export default async function proxy(req: NextRequest) {
       });
     }
   }
+
+  applySecurityHeaders(response);
 
   return response;
 }

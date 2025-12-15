@@ -15,6 +15,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import { useToast } from '@/hooks/use-toast';
+import useOnlineStatus from '@/hooks/useOnlineStatus';
 import { useOpsCustomers } from '@/hooks/useOpsCustomers';
 
 import { CustomersTable } from './CustomersTable';
@@ -98,6 +100,8 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
   const searchParamsKey = useMemo(() => searchParams?.toString() ?? '', [searchParams]);
   const { memberships, activeRestaurantId, setActiveRestaurantId, accountSnapshot } = useOpsSession();
   const activeMembership = useOpsActiveMembership();
+  const isOnline = useOnlineStatus();
+  const { toast } = useToast();
   const previousRestaurantId = useRef<string | null>(null);
 
   const parsedFromQuery = useMemo(() => {
@@ -168,6 +172,10 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
       sortBy?: SortBy;
       page?: number;
     }) => {
+      if (!isOnline) {
+        return;
+      }
+
       const params = new URLSearchParams(searchParams?.toString() ?? '');
 
       const applyParam = (key: string, value: string | number | null | undefined, defaultValue?: string | number) => {
@@ -195,7 +203,7 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
 
       router.replace(`/customers${nextString ? `?${nextString}` : ''}`, { scroll: false });
     },
-    [router, searchParams],
+    [isOnline, router, searchParams],
   );
 
   useEffect(() => {
@@ -229,9 +237,19 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
 
   const { data, error, isLoading, isFetching, refetch } = useOpsCustomers(filters);
 
-  const handlePageChange = useCallback((nextPage: number) => {
-    setPage(nextPage);
-  }, []);
+  const handlePageChange = useCallback(
+    (nextPage: number) => {
+      if (!isOnline) {
+        toast({
+          title: "You're offline",
+          description: 'Reconnect to load more customers.',
+        });
+        return;
+      }
+      setPage(nextPage);
+    },
+    [isOnline, toast],
+  );
 
   const handleSortChange = useCallback((value: SortOption) => {
     const decoded = decodeSortOption(value);

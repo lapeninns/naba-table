@@ -58,16 +58,32 @@ function normalizePosition(value: unknown): { x: number; y: number; rotation: nu
     return { x, y, rotation };
 }
 
-function getTableStateAtTime(segments: TableTimelineSegment[], timestamp: number): TableTimelineSegment {
-    const segment = segments.find(s => {
-        const start = new Date(s.start).getTime();
-        const end = new Date(s.end).getTime();
-        return timestamp >= start && timestamp < end;
-    });
+type TableTimelineSegmentWindow = {
+    startMs: number;
+    endMs: number;
+    segment: TableTimelineSegment;
+};
 
-    if (segment) return segment;
+function buildSegmentWindows(segments: TableTimelineSegment[]): TableTimelineSegmentWindow[] {
+    const windows: TableTimelineSegmentWindow[] = [];
+    for (const segment of segments) {
+        const startMs = Date.parse(segment.start);
+        const endMs = Date.parse(segment.end);
+        if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
+            continue;
+        }
+        windows.push({ startMs, endMs, segment });
+    }
+    return windows;
+}
 
-    // Return a default available segment if none found
+function getTableStateAtTimeFast(windows: TableTimelineSegmentWindow[], timestamp: number): TableTimelineSegment {
+    for (const window of windows) {
+        if (timestamp >= window.startMs && timestamp < window.endMs) {
+            return window.segment;
+        }
+    }
+
     return {
         start: new Date(timestamp).toISOString(),
         end: new Date(timestamp + 3600000).toISOString(),
@@ -144,6 +160,28 @@ export default function FloorPlanApp() {
     const selectedDate = useMemo(() => date ? format(date, 'yyyy-MM-dd') : new Date().toISOString().split('T')[0], [date]);
     const [selectedZoneId, setSelectedZoneId] = useState<string>('all');
     const [isLaunchingWalkIn, setIsLaunchingWalkIn] = useState(false);
+    const [renderDecorations, setRenderDecorations] = useState(false);
+
+    React.useEffect(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+
+        const win = window as Window & {
+            requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+            cancelIdleCallback?: (handle: number) => void;
+        };
+
+        if (typeof win.requestIdleCallback === 'function') {
+            const handle = win.requestIdleCallback(() => setRenderDecorations(true), { timeout: 1000 });
+            return () => {
+                win.cancelIdleCallback?.(handle);
+            };
+        }
+
+        const timeoutId = window.setTimeout(() => setRenderDecorations(true), 250);
+        return () => window.clearTimeout(timeoutId);
+    }, []);
 
     // Zoom & Pan State
     const [zoom, setZoom] = useState(0.75);
@@ -237,6 +275,16 @@ export default function FloorPlanApp() {
         enabled: !!activeRestaurantId
     });
 
+    const timelineByTableId = useMemo(() => {
+        const map = new Map<string, { segments: TableTimelineSegment[]; windows: TableTimelineSegmentWindow[] }>();
+        const rows = timelineData?.tables ?? [];
+        for (const row of rows) {
+            const segments = row.segments ?? [];
+            map.set(row.table.id, { segments, windows: buildSegmentWindows(segments) });
+        }
+        return map;
+    }, [timelineData]);
+
     const currentTimestamp = useMemo(() => {
         // Use a fixed date for hydration stability, or ensure selectedDate is stable
         const date = new Date(selectedDate + 'T00:00:00');
@@ -256,13 +304,13 @@ export default function FloorPlanApp() {
 
         if (!filteredTables.length) return [];
 
-        // Check if any tables have valid positions
-        const hasPositions = filteredTables.some(t => normalizePosition(t.position) !== null);
-
         let positionedTables = filteredTables.map(table => {
             const pos = normalizePosition(table.position);
             return { ...table, pos };
         });
+
+        // Check if any tables have valid positions
+        const hasPositions = positionedTables.some(t => t.pos !== null);
 
         // If no tables have positions, generate a default grid layout
         if (!hasPositions) {
@@ -315,9 +363,9 @@ export default function FloorPlanApp() {
         const offsetY = minY - paddingY;
 
         return positionedTables.map(table => {
-            const timelineRow = timelineData?.tables.find(tr => tr.table.id === table.id);
-            const segments = timelineRow?.segments ?? [];
-            const currentStatus = getTableStateAtTime(segments, currentTimestamp);
+            const timelineEntry = timelineByTableId.get(table.id);
+            const segments = timelineEntry?.segments ?? [];
+            const currentStatus = getTableStateAtTimeFast(timelineEntry?.windows ?? [], currentTimestamp);
 
             // Normalize to 0-100%
             // If range is 0 (single table), center it
@@ -344,7 +392,7 @@ export default function FloorPlanApp() {
                 segments
             };
         });
-    }, [tables, timelineData, currentTimestamp, selectedZoneId]);
+    }, [tables, timelineByTableId, currentTimestamp, selectedZoneId]);
 
     // Identify merged table groups (tables assigned to the same booking)
     const mergedGroups = useMemo(() => {
@@ -455,7 +503,7 @@ export default function FloorPlanApp() {
 
     if (!activeRestaurantId) {
         return (
-            <div className="flex h-[calc(100vh-8rem)] items-center justify-center bg-slate-50">
+            <div className="mx-auto flex h-[calc(100dvh-4rem)] w-full max-w-[80vw] items-center justify-center rounded-xl border border-slate-200 bg-slate-50">
                 <div className="text-center">
                     <h2 className="text-lg font-semibold text-slate-900">No Restaurant Selected</h2>
                     <p className="text-slate-500">Please select a restaurant to view the floor plan.</p>
@@ -466,7 +514,7 @@ export default function FloorPlanApp() {
 
     if (isLoadingTables || isLoadingTimeline) {
         return (
-            <div className="flex h-[calc(100vh-8rem)] items-center justify-center bg-slate-50">
+            <div className="mx-auto flex h-[calc(100dvh-4rem)] w-full max-w-[80vw] items-center justify-center rounded-xl border border-slate-200 bg-slate-50">
                 <div className="flex flex-col items-center gap-2">
                     <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
                     <p className="text-slate-500">Loading floor plan...</p>
@@ -555,12 +603,15 @@ export default function FloorPlanApp() {
                 >
 
                     {/* Grid Background (Optional, but adds texture) */}
-                    <div className="absolute inset-0 opacity-[0.03]"
-                        style={{
-                            backgroundImage: 'radial-gradient(#000 1px, transparent 1px)',
-                            backgroundSize: '20px 20px'
-                        }}
-                    />
+                    {renderDecorations ? (
+                        <div
+                            className="absolute inset-0 opacity-[0.03]"
+                            style={{
+                                backgroundImage: 'radial-gradient(#000 1px, transparent 1px)',
+                                backgroundSize: '20px 20px'
+                            }}
+                        />
+                    ) : null}
 
                     {/* Floor Container */}
                     <div
@@ -569,41 +620,44 @@ export default function FloorPlanApp() {
                     >
 
                         {/* Render Merged Table Connection Lines */}
-                        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 5 }}>
-                            {Array.from(mergedGroups.entries()).map(([bookingId, groupTables]) => {
-                                // Draw lines connecting all tables in the group
-                                const lines = [];
-                                const theme = getStatusTheme('reserved');
+                        {renderDecorations ? (
+                            <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 5 }}>
+                                {Array.from(mergedGroups.entries()).map(([bookingId, groupTables]) => {
+                                    // Draw lines connecting all tables in the group
+                                    const lines = [];
+                                    const theme = getStatusTheme('reserved');
 
-                                for (let i = 0; i < groupTables.length - 1; i++) {
-                                    for (let j = i + 1; j < groupTables.length; j++) {
-                                        const table1 = groupTables[i];
-                                        const table2 = groupTables[j];
+                                    for (let i = 0; i < groupTables.length - 1; i++) {
+                                        for (let j = i + 1; j < groupTables.length; j++) {
+                                            const table1 = groupTables[i];
+                                            const table2 = groupTables[j];
 
-                                        lines.push(
-                                            <line
-                                                key={`${bookingId}-${table1.id}-${table2.id}`}
-                                                x1={`${table1.xPercent}%`}
-                                                y1={`${table1.yPercent}%`}
-                                                x2={`${table2.xPercent}%`}
-                                                y2={`${table2.yPercent}%`}
-                                                stroke="currentColor"
-                                                strokeWidth="2"
-                                                strokeDasharray="4 4"
-                                                className={cn("opacity-40", theme.text)}
-                                            />
-                                        );
+                                            lines.push(
+                                                <line
+                                                    key={`${bookingId}-${table1.id}-${table2.id}`}
+                                                    x1={`${table1.xPercent}%`}
+                                                    y1={`${table1.yPercent}%`}
+                                                    x2={`${table2.xPercent}%`}
+                                                    y2={`${table2.yPercent}%`}
+                                                    stroke="currentColor"
+                                                    strokeWidth="2"
+                                                    strokeDasharray="4 4"
+                                                    className={cn("opacity-40", theme.text)}
+                                                />
+                                            );
+                                        }
                                     }
-                                }
 
-                                return lines;
-                            })}
-                        </svg>
+                                    return lines;
+                                })}
+                            </svg>
+                        ) : null}
 
                         {/* Render Tables */}
                         {tablesWithStatus.map((table) => {
                             const status = table.currentStatus;
                             const isSelected = selectedTableId === table.id;
+                            const showTableDetails = renderDecorations || isSelected;
                             const theme = getStatusTheme(status.state);
 
                             // Check if this table is part of a merged group
@@ -647,7 +701,7 @@ export default function FloorPlanApp() {
                                     key={table.id}
                                     onClick={() => handleTableClick(table.id)}
                                     className={cn(
-                                        "absolute group transition-all duration-500 ease-out flex items-center justify-center z-10",
+                                        "absolute group flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center transition-transform duration-300 ease-out z-10",
                                         isSelected ? "z-20 scale-110" : "hover:scale-105"
                                     )}
                                     style={{
@@ -668,10 +722,12 @@ export default function FloorPlanApp() {
                                         isMerged && "ring-2 ring-offset-1 ring-current/30"
                                     )}>
                                         {/* Inner Gradient/Fill */}
-                                        <div className={cn(
-                                            "absolute inset-2 opacity-20 rounded-full",
-                                            theme.fill
-                                        )} />
+                                        {showTableDetails ? (
+                                            <div className={cn(
+                                                "absolute inset-2 opacity-20 rounded-full",
+                                                theme.fill
+                                            )} />
+                                        ) : null}
 
                                         {/* Label */}
                                         <div className={cn(
@@ -683,14 +739,16 @@ export default function FloorPlanApp() {
                                                 <div className={cn("w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full mt-0.5", theme.fill)} />
                                             )}
                                             {isMerged && (
-                                                <div className="text-[7px] sm:text-[8px] font-bold mt-0.5 px-1 py-0.5 rounded-full bg-white/30">
-                                                    {mergedTableCount}x
-                                                </div>
+                                                showTableDetails ? (
+                                                    <div className="text-[7px] sm:text-[8px] font-bold mt-0.5 px-1 py-0.5 rounded-full bg-white/30">
+                                                        {mergedTableCount}x
+                                                    </div>
+                                                ) : null
                                             )}
                                         </div>
 
                                         {/* Merge Indicator Badge (top-right corner) */}
-                                        {isMerged && (
+                                        {showTableDetails && isMerged && (
                                             <div className="absolute -top-1 -right-1 w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-white border-2 border-current flex items-center justify-center shadow-sm">
                                                 <svg className="w-1.5 h-1.5 sm:w-2 sm:h-2" fill="currentColor" viewBox="0 0 16 16">
                                                     <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM2 2a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1H2z" />
@@ -701,55 +759,57 @@ export default function FloorPlanApp() {
                                     </div>
 
                                     {/* 2. The Chairs */}
-                                    {isRound ? (
-                                        // Round Table Chairs
-                                        Array.from({ length: Math.min(capacity, 8) }).map((_, i) => {
-                                            const count = Math.min(capacity, 8);
-                                            const angle = (i * 360) / count;
-                                            return (
-                                                <div
-                                                    key={i}
-                                                    className={cn(
-                                                        "absolute w-1/3 h-1/3 rounded-full border shadow-sm transition-colors",
-                                                        theme.chair
-                                                    )}
-                                                    style={{
-                                                        top: '50%',
-                                                        left: '50%',
-                                                        transform: `translate(-50%, -50%) rotate(${angle}deg) translate(0, -160%)`
-                                                    }}
-                                                />
-                                            );
-                                        })
-                                    ) : (
-                                        // Rectangular Table Chairs (Distributed Top/Bottom)
-                                        <>
-                                            {/* Top Chairs */}
-                                            <div className="absolute -top-1/2 left-0 w-full h-1/2 flex justify-around items-end px-[10%] pointer-events-none">
-                                                {Array.from({ length: Math.ceil(capacity / 2) }).map((_, i) => (
+                                    {showTableDetails ? (
+                                        isRound ? (
+                                            // Round Table Chairs
+                                            Array.from({ length: Math.min(capacity, 8) }).map((_, i) => {
+                                                const count = Math.min(capacity, 8);
+                                                const angle = (i * 360) / count;
+                                                return (
                                                     <div
-                                                        key={`top-${i}`}
+                                                        key={i}
                                                         className={cn(
-                                                            "h-2/3 w-1/2 max-w-[30%] rounded-t-md border shadow-sm mx-0.5",
+                                                            "absolute w-1/3 h-1/3 rounded-full border shadow-sm transition-colors",
                                                             theme.chair
                                                         )}
+                                                        style={{
+                                                            top: '50%',
+                                                            left: '50%',
+                                                            transform: `translate(-50%, -50%) rotate(${angle}deg) translate(0, -160%)`
+                                                        }}
                                                     />
-                                                ))}
-                                            </div>
-                                            {/* Bottom Chairs */}
-                                            <div className="absolute -bottom-1/2 left-0 w-full h-1/2 flex justify-around items-start px-[10%] pointer-events-none">
-                                                {Array.from({ length: Math.floor(capacity / 2) }).map((_, i) => (
-                                                    <div
-                                                        key={`bottom-${i}`}
-                                                        className={cn(
-                                                            "h-2/3 w-1/2 max-w-[30%] rounded-b-md border shadow-sm mx-0.5",
-                                                            theme.chair
-                                                        )}
-                                                    />
-                                                ))}
-                                            </div>
-                                        </>
-                                    )}
+                                                );
+                                            })
+                                        ) : (
+                                            // Rectangular Table Chairs (Distributed Top/Bottom)
+                                            <>
+                                                {/* Top Chairs */}
+                                                <div className="absolute -top-1/2 left-0 w-full h-1/2 flex justify-around items-end px-[10%] pointer-events-none">
+                                                    {Array.from({ length: Math.ceil(capacity / 2) }).map((_, i) => (
+                                                        <div
+                                                            key={`top-${i}`}
+                                                            className={cn(
+                                                                "h-2/3 w-1/2 max-w-[30%] rounded-t-md border shadow-sm mx-0.5",
+                                                                theme.chair
+                                                            )}
+                                                        />
+                                                    ))}
+                                                </div>
+                                                {/* Bottom Chairs */}
+                                                <div className="absolute -bottom-1/2 left-0 w-full h-1/2 flex justify-around items-start px-[10%] pointer-events-none">
+                                                    {Array.from({ length: Math.floor(capacity / 2) }).map((_, i) => (
+                                                        <div
+                                                            key={`bottom-${i}`}
+                                                            className={cn(
+                                                                "h-2/3 w-1/2 max-w-[30%] rounded-b-md border shadow-sm mx-0.5",
+                                                                theme.chair
+                                                            )}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </>
+                                        )
+                                    ) : null}
                                 </button>
                             );
                         })}
@@ -838,6 +898,9 @@ export default function FloorPlanApp() {
 
                                     <input
                                         type="range"
+                                        id="floor-plan-time"
+                                        name="floorPlanTime"
+                                        aria-label="Select time"
                                         min={timelineConfig.min}
                                         max={timelineConfig.max}
                                         step={timelineConfig.interval}
