@@ -1,0 +1,19 @@
+{
+  "generatedAtUtc": "2025-12-15T12:32:00.000Z",
+  "cookies": {
+    "visibleToDocumentCookie": ["sr-csrf-token"],
+    "notes": [
+      "Only non-HttpOnly cookies appear in document.cookie; auth cookies may still exist but should remain HttpOnly."
+    ]
+  },
+  "storage": {
+    "localStorageKeys": ["ops.activeRestaurantId", "reserve.query-cache", "srx.analytics.anonId"],
+    "sessionStorageKeys": [],
+    "indexedDbDatabases": []
+  },
+  "pwa": {
+    "serviceWorkerSupported": true,
+    "serviceWorkerRegistrations": [],
+    "cacheStorageKeys": []
+  }
+}

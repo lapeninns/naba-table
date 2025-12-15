@@ -25,6 +25,8 @@ import {
   useOpsBookingLifecycleActions,
 } from '@/hooks';
 import { useOpsBooking } from '@/hooks/ops/useOpsBooking';
+import { useToast } from '@/hooks/use-toast';
+import useOnlineStatus from '@/hooks/useOnlineStatus';
 import { buildOpsDateRange } from '@/utils/ops/bookings';
 
 import type { StatusOption } from '@/components/dashboard/StatusFilterGroup';
@@ -84,6 +86,8 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
   const { memberships, activeRestaurantId, setActiveRestaurantId, accountSnapshot } = useOpsSession();
   const activeMembership = useOpsActiveMembership();
   const restaurantDetails = useOpsRestaurantDetails(activeRestaurantId ?? null);
+  const isOnline = useOnlineStatus();
+  const { toast } = useToast();
   const focusBookingId = searchParams?.get('focus') ?? null;
 
   const restaurantTimezone = restaurantDetails.data?.timezone ?? null;
@@ -128,7 +132,7 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
   }, [initialRestaurantId]);
 
   useEffect(() => {
-    if (!router || !searchParams) {
+    if (!router || !searchParams || !isOnline) {
       return;
     }
 
@@ -151,7 +155,7 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
     const query = params.toString();
     router.replace(`${pathname}${query ? `?${query}` : ''}`, { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeRestaurantId]);
+  }, [activeRestaurantId, isOnline]);
 
   useEffect(() => {
     if (!activeRestaurantId) {
@@ -209,6 +213,9 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
 
   const updateSearchParams = useCallback(
     (updates: Record<string, string | null>) => {
+      if (!isOnline) {
+        return;
+      }
       const params = new URLSearchParams(searchParams?.toString() || '');
       Object.entries(updates).forEach(([key, value]) => {
         if (value === null || value === '') {
@@ -220,7 +227,7 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
       const query = params.toString();
       router.replace(`${pathname}${query ? `?${query}` : ''}`, { scroll: false });
     },
-    [pathname, router, searchParams],
+    [isOnline, pathname, router, searchParams],
   );
 
   const handleStatusChange = useCallback(
@@ -233,6 +240,13 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
 
   const handlePageRequest = useCallback(
     (nextPage: number) => {
+      if (!isOnline) {
+        toast({
+          title: "You're offline",
+          description: 'Reconnect to load more bookings.',
+        });
+        return;
+      }
       const total = bookingsPage.pageInfo.total ?? 0;
       handlePageChange(nextPage, total);
       const targetPage = Number.isNaN(nextPage) ? null : String(nextPage);
@@ -240,7 +254,7 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
       // Scroll to top of list for better UX on mobile/desktop
       window.scrollTo({ top: 0, behavior: 'smooth' });
     },
-    [bookingsPage.pageInfo.total, handlePageChange, updateSearchParams],
+    [bookingsPage.pageInfo.total, handlePageChange, isOnline, toast, updateSearchParams],
   );
 
   const [pendingBookingAction, setPendingBookingAction] = useState<{ bookingId: string; action: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show' } | null>(null);

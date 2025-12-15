@@ -1,0 +1,27 @@
+{
+  "generatedAtUtc": "2025-12-15T12:32:00.000Z",
+  "notes": [
+    "Client-side fetch timing from within the logged-in Ops app; responses were not parsed to avoid capturing PII in artifacts.",
+    "Times are approximate wall-clock durations including network + server + browser overhead."
+  ],
+  "runs": [
+    {
+      "scenario": "no emulation",
+      "capturedAtUtc": "2025-12-15T12:24:17.437Z",
+      "results": [
+        { "name": "ops_restaurant", "status": 200, "ms": 988 },
+        { "name": "ops_bookings", "status": 200, "ms": 727 },
+        { "name": "ops_bookings_status_summary", "status": 200, "ms": 837 }
+      ]
+    },
+    {
+      "scenario": "Fast 3G (DevTools emulation)",
+      "capturedAtUtc": "2025-12-15T12:24:43.524Z",
+      "results": [
+        { "name": "ops_restaurant", "status": 200, "ms": 858 },
+        { "name": "ops_bookings", "status": 200, "ms": 700 },
+        { "name": "ops_bookings_status_summary", "status": 200, "ms": 836 }
+      ]
+    }
+  ]
+}

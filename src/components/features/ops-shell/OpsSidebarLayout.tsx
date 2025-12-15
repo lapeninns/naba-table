@@ -42,6 +42,35 @@ type OpsSidebarLayoutProps = {
 };
 
 export function OpsSidebarLayout({ children, defaultSidebarOpen = true, headerSlot }: OpsSidebarLayoutProps) {
+  const isOnline = useOnlineStatus();
+  const { toast } = useToast();
+
+  const handleContentClickCapture = useCallback(
+    (event: MouseEvent<HTMLDivElement>) => {
+      if (isOnline || event.defaultPrevented) {
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+      const anchor = target?.closest('a');
+      if (!anchor) {
+        return;
+      }
+
+      const href = anchor.getAttribute('href') ?? '';
+      if (!href || href.startsWith('#')) {
+        return;
+      }
+
+      event.preventDefault();
+      toast({
+        title: "You're offline",
+        description: "Reconnect to navigate. We'll keep this page available until you're back online.",
+      });
+    },
+    [isOnline, toast],
+  );
+
   return (
     <SidebarProvider defaultOpen={defaultSidebarOpen} className="bg-background">
       <OpsSidebarPanel />
@@ -60,7 +89,12 @@ export function OpsSidebarLayout({ children, defaultSidebarOpen = true, headerSl
           ) : null}
         </div>
         <OpsOfflineIndicator />
-        <div id="ops-content" tabIndex={-1} className="flex flex-1 flex-col overflow-auto">
+        <div
+          id="ops-content"
+          tabIndex={-1}
+          className="flex flex-1 flex-col overflow-auto"
+          onClickCapture={handleContentClickCapture}
+        >
           {children}
         </div>
       </SidebarInset>

@@ -1,0 +1,68 @@
+{
+  "generatedAtUtc": "2025-12-15T12:32:00.000Z",
+  "notes": [
+    "Captured via Chrome DevTools MCP Performance insights (dev server).",
+    "Dev builds can inflate CPU/main-thread work due to HMR and devtools overlays; validate production build separately for release readiness.",
+    "Core Web Vitals shown are lab-style metrics from the trace; no CrUX field data available for localhost."
+  ],
+  "runs": [
+    {
+      "route": "/dashboard",
+      "scenario": "baseline",
+      "lcpMs": 2004,
+      "ttfbMs": 1551,
+      "renderDelayMs": 453,
+      "cls": 0.0,
+      "highlights": ["DocumentLatency: server responded slowly (>600ms threshold)"]
+    },
+    {
+      "route": "/bookings",
+      "scenario": "baseline",
+      "lcpMs": 733,
+      "ttfbMs": 625,
+      "renderDelayMs": 108,
+      "cls": 0.0
+    },
+    {
+      "route": "/customers",
+      "scenario": "baseline",
+      "lcpMs": 2055,
+      "ttfbMs": 1938,
+      "renderDelayMs": 117,
+      "cls": 0.0,
+      "highlights": ["DocumentLatency: server responded slowly (>600ms threshold)"]
+    },
+    {
+      "route": "/seating/floor-plan",
+      "scenario": "baseline",
+      "lcpMs": 835,
+      "ttfbMs": 531,
+      "renderDelayMs": 304,
+      "cls": 0.07,
+      "highlights": [
+        "CLSCulprits: non-composited spin animation contributed to CLS cluster (0.0706)"
+      ]
+    },
+    {
+      "route": "/bookings",
+      "scenario": "Fast 3G + 4x CPU",
+      "lcpMs": 1423,
+      "ttfbMs": 536,
+      "renderDelayMs": 887,
+      "cls": 0.0,
+      "highlights": ["ForcedReflow detected (devtools overlay / tanstack query devtools)"]
+    },
+    {
+      "route": "/seating/floor-plan",
+      "scenario": "Fast 3G + 4x CPU",
+      "lcpMs": 9034,
+      "ttfbMs": 491,
+      "renderDelayMs": 8543,
+      "cls": 0.07,
+      "highlights": [
+        "LCP dominated by render delay under CPU throttle",
+        "ForcedReflow detected (tanstack query devtools)"
+      ]
+    }
+  ]
+}

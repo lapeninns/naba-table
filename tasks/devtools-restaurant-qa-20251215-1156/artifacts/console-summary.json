@@ -1,0 +1,21 @@
+{
+  "generatedAtUtc": "2025-12-15T12:32:00.000Z",
+  "notes": [
+    "Captured from Chrome DevTools console (preserved messages).",
+    "Dev server adds HMR/Fast Refresh logs; focus on warnings/issues."
+  ],
+  "observations": [
+    {
+      "type": "issue",
+      "message": "A form field element should have an id or name attribute",
+      "severity": "low",
+      "impact": "May reduce browser autofill reliability; also indicates minor a11y/semantics gap."
+    },
+    {
+      "type": "warn",
+      "message": "Supabase warning: getSession() user object may be insecure; prefer getUser()",
+      "severity": "medium",
+      "impact": "Best-practice warning; if app logic trusts getSession().user without verification, it can be spoofed."
+    }
+  ]
+}

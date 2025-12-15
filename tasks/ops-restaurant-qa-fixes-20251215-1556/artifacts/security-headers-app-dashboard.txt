@@ -1,0 +1,13 @@
+HTTP/1.1 307 Temporary Redirect
+content-security-policy: base-uri 'self'; frame-ancestors 'none'; object-src 'none'; form-action 'self'
+location: /auth/signin?redirectedFrom=%2Fdashboard
+permissions-policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), bluetooth=()
+referrer-policy: strict-origin-when-cross-origin
+set-cookie: sr-csrf-token=f7d3b2e2e5ef4a91a73dd4b0571893c7; Path=/; Expires=Thu, 18 Dec 2025 18:06:04 GMT; Max-Age=259200; Secure; SameSite=lax
+x-content-type-options: nosniff
+x-frame-options: DENY
+Date: Mon, 15 Dec 2025 18:06:04 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
