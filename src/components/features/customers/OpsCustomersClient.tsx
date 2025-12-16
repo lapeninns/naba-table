@@ -12,7 +12,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useToast } from '@/hooks/use-toast';
@@ -370,7 +369,7 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
 
   if (!activeRestaurantId) {
     return (
-      <section className="mx-auto flex min-h-[40vh] max-w-2xl flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border/60 bg-muted/20 p-8 text-center">
+      <section className="mx-auto flex min-h-[40vh] max-w-2xl flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-border/60 bg-muted/30 p-8 text-center shadow-sm">
         <h2 className="text-lg font-semibold text-foreground">Loading restaurant access…</h2>
         <p className="text-sm text-muted-foreground">We’re preparing your customers. This will only take a moment.</p>
       </section>
@@ -378,40 +377,109 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
   }
 
   return (
-    <section className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <h2 className="text-2xl font-semibold tracking-tight text-foreground">Customers</h2>
-          <p className="text-sm text-muted-foreground">
-            View and export customer booking data for {currentRestaurantName}. Find repeat guests, opt-ins, and recent visitors quickly.
-          </p>
-        </div>
+    <div className="min-h-screen bg-background font-sans text-foreground">
+      <main className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+        <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Customers</h1>
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground sm:text-base">
+              <Badge variant="secondary" className="rounded-md font-medium">
+                {currentRestaurantName}
+              </Badge>
+              <span className="text-muted-foreground/40">•</span>
+              <span>View, filter, and export guest history.</span>
+            </div>
+          </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={isFetching || isLoading}
-          >
-            {isFetching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
-            Refresh
-          </Button>
-          <ExportCustomersButton
-            restaurantId={activeRestaurantId}
-            restaurantName={currentRestaurantName}
-            disabled={isLoading || !!error}
-            sort={sort}
-            filters={exportFilters}
-          />
-        </div>
-      </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Button asChild size="sm" variant="outline" className="h-9">
+              <Link href="/dashboard">Back to dashboard</Link>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9"
+              onClick={() => refetch()}
+              disabled={isFetching || isLoading}
+            >
+              {isFetching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
+              Refresh
+            </Button>
+            <ExportCustomersButton
+              restaurantId={activeRestaurantId}
+              restaurantName={currentRestaurantName}
+              disabled={isLoading || !!error}
+              sort={sort}
+              filters={exportFilters}
+            />
+          </div>
+        </header>
 
-      <div className="rounded-lg border bg-card/60 p-4 shadow-sm">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-1 flex-wrap items-center gap-3">
-            <div className="relative w-full min-w-[220px] lg:max-w-sm">
+        <div className="sticky top-0 z-10 -mx-4 bg-background/80 px-4 py-2 backdrop-blur-md transition-all sm:-mx-6 sm:px-6 md:mx-0 md:rounded-xl md:border md:border-border/60 md:bg-card/80 md:px-3 md:shadow-sm">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div className="flex-1 overflow-x-auto scrollbar-hide">
+              <div className="flex flex-wrap items-center gap-2">
+                <Select value={lastVisit} onValueChange={handleLastVisitChange}>
+                  <SelectTrigger className="h-9 w-[150px]">
+                    <SelectValue placeholder="Last visit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LAST_VISIT_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={marketingOptIn} onValueChange={handleMarketingChange}>
+                  <SelectTrigger className="h-9 w-[140px]">
+                    <SelectValue placeholder="Marketing" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MARKETING_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={String(minBookings)} onValueChange={handleMinBookingsChange}>
+                  <SelectTrigger className="h-9 w-[145px]">
+                    <SelectValue placeholder="Min bookings" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MIN_BOOKINGS_OPTIONS.map((count) => (
+                      <SelectItem key={count} value={String(count)}>
+                        {count === 0 ? 'All bookings' : `≥ ${count} bookings`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={sortOption} onValueChange={(value) => handleSortChange(value as SortOption)}>
+                  <SelectTrigger className="h-9 w-[165px]">
+                    <SelectValue placeholder="Sort" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SORT_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Button type="button" variant="ghost" size="sm" disabled={!hasActiveFilters} onClick={handleClearFilters}>
+                  <X className="mr-1 h-4 w-4" aria-hidden />
+                  Clear
+                </Button>
+              </div>
+            </div>
+
+            <div className="relative w-full md:w-72 md:flex-none">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
               <Input
                 value={searchTerm}
@@ -419,131 +487,70 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
                   setSearchTerm(event.target.value);
                   setPage(1);
                 }}
-                placeholder="Search name, email, or phone"
-                className="pl-9"
+                placeholder="Search guests..."
+                className="h-9 w-full rounded-lg border border-border bg-background pl-10 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 touch-manipulation"
                 aria-label="Search customers"
                 autoComplete="off"
               />
             </div>
-
-            <Select value={lastVisit} onValueChange={handleLastVisitChange}>
-              <SelectTrigger className="h-10 w-[160px]">
-                <SelectValue placeholder="Last visit" />
-              </SelectTrigger>
-              <SelectContent>
-                {LAST_VISIT_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={marketingOptIn} onValueChange={handleMarketingChange}>
-              <SelectTrigger className="h-10 w-[150px]">
-                <SelectValue placeholder="Marketing" />
-              </SelectTrigger>
-              <SelectContent>
-                {MARKETING_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={String(minBookings)} onValueChange={handleMinBookingsChange}>
-              <SelectTrigger className="h-10 w-[155px]">
-                <SelectValue placeholder="Min bookings" />
-              </SelectTrigger>
-              <SelectContent>
-                {MIN_BOOKINGS_OPTIONS.map((count) => (
-                  <SelectItem key={count} value={String(count)}>
-                    {count === 0 ? 'All bookings' : `≥ ${count} bookings`}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={sortOption} onValueChange={(value) => handleSortChange(value as SortOption)}>
-              <SelectTrigger className="h-10 w-[180px]">
-                <SelectValue placeholder="Sort" />
-              </SelectTrigger>
-              <SelectContent>
-                {SORT_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Button type="button" variant="ghost" size="sm" disabled={!hasActiveFilters} onClick={handleClearFilters}>
-              <X className="mr-1 h-4 w-4" aria-hidden />
-              Clear filters
-            </Button>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {activeFilterBadges.length > 0 ? (
+              activeFilterBadges.map((badge) => (
+                <Badge key={badge.key} variant="secondary" className="flex items-center gap-1 py-1">
+                  <span>{badge.label}</span>
+                  <button
+                    type="button"
+                    className="rounded-full p-0.5 text-muted-foreground transition hover:bg-background/60"
+                    onClick={() => {
+                      badge.onClear();
+                      setPage(1);
+                    }}
+                    aria-label={`Remove ${badge.label} filter`}
+                  >
+                    <X className="h-3 w-3" aria-hidden />
+                  </button>
+                </Badge>
+              ))
+            ) : (
+              <span className="text-xs text-muted-foreground">Tip: search + min bookings to surface VIP guests fast.</span>
+            )}
+
+            {isFetching ? (
+              <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Updating results…
+              </span>
+            ) : null}
           </div>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {activeFilterBadges.length > 0 ? (
-            activeFilterBadges.map((badge) => (
-              <Badge key={badge.key} variant="secondary" className="flex items-center gap-1">
-                <span>{badge.label}</span>
-                <button
-                  type="button"
-                  className="rounded-full p-0.5 text-muted-foreground transition hover:bg-background/60"
-                  onClick={() => {
-                    badge.onClear();
-                    setPage(1);
-                  }}
-                  aria-label={`Remove ${badge.label} filter`}
-                >
-                  <X className="h-3 w-3" aria-hidden />
-                </button>
-              </Badge>
-            ))
-          ) : (
-            <span className="text-xs text-muted-foreground">
-              Tip: combine search with visit recency or bookings to surface VIP guests.
-            </span>
+        {error ? (
+          <Alert variant="destructive" role="alert">
+            <AlertTitle>Unable to load customers</AlertTitle>
+            <AlertDescription className="flex items-center justify-between gap-4">
+              <span>{error.message}</span>
+              <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
+                Retry
+              </Button>
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
+        <section className="space-y-3">
+          <CustomersTable customers={data?.items ?? []} isLoading={isLoading} hasActiveFilters={hasActiveFilters} />
+
+          {pageInfo.total > 0 && (
+            <Pagination
+              page={pageInfo.page}
+              pageSize={pageInfo.pageSize}
+              total={pageInfo.total}
+              isLoading={isFetching}
+              onPageChange={handlePageChange}
+            />
           )}
-
-          {isFetching ? (
-            <span className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Updating results…
-            </span>
-          ) : null}
-        </div>
-      </div>
-
-      <Separator />
-
-      {error ? (
-        <Alert variant="destructive" role="alert">
-          <AlertTitle>Unable to load customers</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-4">
-            <span>{error.message}</span>
-            <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
-              Retry
-            </Button>
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
-      <CustomersTable customers={data?.items ?? []} isLoading={isLoading} hasActiveFilters={hasActiveFilters} />
-
-      {pageInfo.total > 0 && (
-        <Pagination
-          page={pageInfo.page}
-          pageSize={pageInfo.pageSize}
-          total={pageInfo.total}
-          isLoading={isFetching}
-          onPageChange={handlePageChange}
-        />
-      )}
-    </section>
+        </section>
+      </main>
+    </div>
   );
 }
