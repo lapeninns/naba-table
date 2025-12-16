@@ -460,7 +460,7 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
     <BookingStateMachineProvider initialBookings={initialSnapshots}>
       <BookingStateRegistrar bookings={bookings} />
       <div className="min-h-screen bg-background font-sans text-foreground">
-        <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+        <main className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
           {/* HEADER SECTION - Matches Dashboard Style */}
           <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div className="space-y-1">
@@ -492,8 +492,8 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
           </header>
 
           {/* STICKY TOOLBAR - Matches Dashboard Style */}
-          <div className="sticky top-0 z-10 -mx-4 bg-background/80 px-4 py-3 backdrop-blur-md transition-all sm:-mx-6 sm:px-6 md:mx-0 md:rounded-xl md:border md:border-border/60 md:bg-card/80 md:px-4 md:shadow-sm">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="sticky top-0 z-10 -mx-4 bg-background/80 px-4 py-2.5 backdrop-blur-md transition-all sm:-mx-6 sm:px-6 md:mx-0 md:rounded-xl md:border md:border-border/60 md:bg-card/80 md:px-3 md:shadow-sm">
+            <div className="flex flex-col gap-2.5 md:flex-row md:items-center md:justify-between">
 
               {/* FILTERS */}
               <div className="flex-1 overflow-x-auto scrollbar-hide">
@@ -508,21 +508,21 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
               </div>
 
               {/* SEARCH */}
-              <div className="relative w-full md:w-64 md:flex-none">
+              <div className="relative w-full md:w-60 md:flex-none">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type="text"
                   placeholder="Search guests..."
                   value={search}
                   onChange={(e) => handleSearchInput(e.target.value)}
-                  className="h-10 w-full rounded-lg border border-border bg-background pl-10 pr-4 text-sm outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 touch-manipulation"
+                  className="h-9 w-full rounded-lg border border-border bg-background pl-10 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 touch-manipulation"
                 />
               </div>
             </div>
           </div>
 
           {/* TABLE SECTION */}
-          <section className="space-y-4">
+          <section className="space-y-3">
             <BookingOfflineBanner />
             <BookingsTable
               bookings={bookings}

@@ -1,27 +1,15 @@
 'use client';
 
 import {
-  AlertTriangle,
-  Armchair,
-  Check,
-  Clock,
-  FileText,
-  LogIn,
-  LogOut,
   Search,
-  Sparkles,
-  Users,
-  Utensils,
-  X,
 } from 'lucide-react';
 import { DateTime } from 'luxon';
 import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState } from 'react';
 
+import { OpsBookingCard } from '@/components/dashboard/OpsBookingCard';
 import { OpsBookingCardSkeleton } from '@/components/dashboard/OpsBookingCardSkeleton';
 import { Pagination } from '@/components/dashboard/Pagination';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -37,20 +25,28 @@ import {
   useOptionalBookingStateMachine,
 } from '@/contexts/booking-state-machine';
 import { useBookingRealtime } from '@/hooks';
-import { cn } from '@/lib/utils';
 import { getOpsBookingActionRequirements, getOpsBookingTemporalInfo } from '@/utils/ops/todayBookingsAttention';
 
 const BookingDetailsDialog = dynamic(() => import('./BookingDetailsDialog').then((m) => m.BookingDetailsDialog), {
   loading: () => (
-    <Button variant="outline" size="sm" className="h-11 min-w-[120px]" disabled aria-busy>
+    <Button
+      id="booking-details-loading"
+      variant="outline"
+      size="sm"
+      className="h-11 min-w-[120px]"
+      disabled
+      aria-busy
+    >
       Loading…
     </Button>
   ),
 });
 
+void BookingDetailsDialog;
+
 import type { BookingFilter } from './BookingsFilterBar';
+import type { BookingDTO } from '@/hooks/useBookings';
 import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
-import type { OpsBookingTemporalInfo } from '@/utils/ops/todayBookingsAttention';
 
 // --- HELPER TYPES & COMPONENTS ---
 
@@ -78,79 +74,7 @@ type BookingsListProps = {
   } | null;
 };
 
-const StatusIndicator = ({ status }: { status: string }) => {
-  const styles: Record<string, string> = {
-    pending: 'bg-amber-500',
-    pending_allocation: 'bg-amber-500',
-    confirmed: 'bg-blue-500',
-    PRIORITY_WAITLIST: 'bg-blue-500',
-    checked_in: 'bg-emerald-500',
-    completed: 'bg-muted-foreground/60',
-    no_show: 'bg-rose-500',
-    cancelled: 'bg-muted-foreground/40',
-  };
 
-  const labels: Record<string, string> = {
-    confirmed: 'Expected',
-    PRIORITY_WAITLIST: 'Expected',
-    pending: 'Pending',
-    pending_allocation: 'Pending',
-    checked_in: 'Seated',
-    completed: 'Left',
-    no_show: 'No Show',
-    cancelled: 'Cancelled',
-  };
-
-  const colorClass = styles[status] || styles['confirmed'];
-  const label = labels[status] || status.replace('_', ' ');
-
-  return (
-    <div className="flex items-center gap-2">
-      <span className={cn("h-2 w-2 rounded-full", colorClass)} />
-      <span className={cn("text-xs font-medium", status === 'completed' || status === 'cancelled' ? 'text-muted-foreground' : 'text-foreground')}>
-        {label}
-      </span>
-    </div>
-  );
-};
-
-const TableAssignment = ({ assignments, status, allowTableAssignments, temporalInfo }: {
-  assignments: OpsTodayBooking['tableAssignments'],
-  status: string,
-  allowTableAssignments: boolean,
-  temporalInfo: OpsBookingTemporalInfo
-}) => {
-  if (!assignments || assignments.length === 0) {
-    if (status === 'confirmed' || status === 'PRIORITY_WAITLIST') {
-      if (!allowTableAssignments || temporalInfo.state === 'past') {
-        return <span className="text-xs text-muted-foreground italic">No table</span>;
-      }
-      return (
-        <div className="flex items-center gap-1.5 text-amber-600">
-          <AlertTriangle className="h-3.5 w-3.5" />
-          <span className="text-xs font-medium">No Table</span>
-        </div>
-      );
-    }
-    return <span className="text-xs text-muted-foreground italic">No table</span>;
-  }
-
-  // Generate table label
-  const labels: string[] = [];
-  for (const group of assignments) {
-    const members = group.members ?? [];
-    const memberLabels = members.map((member) => member.tableNumber || '—');
-    labels.push(memberLabels.join(' + '));
-  }
-  const displayTables = labels.join(', ');
-
-  return (
-    <div className="flex items-center gap-1.5 text-foreground">
-      <Armchair className="h-3.5 w-3.5 text-muted-foreground" />
-      <span className="text-xs font-semibold">Table {displayTables}</span>
-    </div>
-  );
-};
 
 
 // Helper function for sorting
@@ -213,7 +137,7 @@ function BookingsListContent({
   pendingLifecycleAction,
   onAssignTable,
   onUnassignTable,
-  tableActionState,
+  tableActionState: _tableActionState,
 }: BookingsListProps) {
   const { registerBookings } = useBookingStateMachine();
   const [now, setNow] = useState(() => DateTime.now().setZone(summary.timezone));
@@ -358,7 +282,7 @@ function BookingsListContent({
       </div>
 
       {/* Booking Cards or Skeletons */}
-      <div className="flex flex-col gap-3">
+      <div className="grid grid-cols-1 gap-3">
         {isRefetching ? (
           // Show skeletons while refetching new data
           Array.from({ length: Math.min(paginated.length || 4, 6) }).map((_, index) => (
@@ -373,27 +297,49 @@ function BookingsListContent({
           paginated.map((booking, index) => {
             const temporalInfo = getOpsBookingTemporalInfo(booking, summary, now);
             const allowAssignmentsForBooking = allowTableAssignments && hasAssignmentHandlers && temporalInfo.state !== 'past';
+
+            const pendingAction = pendingLifecycleAction?.bookingId === booking.id ? pendingLifecycleAction.action : null;
+
+            const bookingDTO: BookingDTO = {
+              id: booking.id,
+              reference: booking.reference ?? null,
+              status: booking.status,
+              startIso: `${summary.date}T${booking.startTime ?? '00:00'}:00`,
+              endIso: booking.endTime ? `${summary.date}T${booking.endTime}:00` : `${summary.date}T${booking.startTime ?? '00:00'}:00`,
+              partySize: booking.partySize,
+              customerName: booking.customerName,
+              customerEmail: booking.customerEmail ?? null,
+              customerPhone: booking.customerPhone ?? null,
+              restaurantName: 'Restaurant',
+              restaurantSlug: null,
+              notes: booking.notes ?? null,
+              allergies: booking.allergies ?? null,
+              dietaryRestrictions: booking.dietaryRestrictions ?? null,
+              seatingPreference: booking.seatingPreference ?? null,
+              loyaltyTier: booking.loyaltyTier ?? null,
+              tableAssignments: booking.tableAssignments,
+              requiresTableAssignment: booking.requiresTableAssignment,
+            };
+
             return (
               <div
                 key={booking.id}
                 className="animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-backwards"
                 style={{ animationDelay: `${index * 0.05}s` }}
               >
-                <BookingCard
-                  booking={booking}
-                  summary={summary}
-                  temporalInfo={temporalInfo}
-                  allowTableAssignments={allowAssignmentsForBooking}
-                  hasAssignmentHandlers={hasAssignmentHandlers}
+                <OpsBookingCard
+                  booking={bookingDTO}
+                  timezone={summary.timezone}
                   now={now}
-                  pendingLifecycleAction={pendingLifecycleAction}
                   onCheckIn={onCheckIn}
                   onCheckOut={onCheckOut}
                   onMarkNoShow={onMarkNoShow}
                   onUndoNoShow={onUndoNoShow}
                   onAssignTable={onAssignTable}
                   onUnassignTable={onUnassignTable}
-                  tableActionState={tableActionState}
+                  pendingAction={pendingAction}
+                  allowTableAssignments={allowAssignmentsForBooking}
+                  highlightUrgency
                 />
               </div>
             );
@@ -414,316 +360,4 @@ function BookingsListContent({
   );
 }
 
-type BookingCardProps = {
-  booking: OpsTodayBooking;
-  summary: OpsTodayBookingsSummary;
-  temporalInfo: OpsBookingTemporalInfo;
-  allowTableAssignments: boolean;
-  hasAssignmentHandlers: boolean;
-  now: DateTime;
-  pendingLifecycleAction: BookingsListProps['pendingLifecycleAction'];
-  onCheckIn: BookingsListProps['onCheckIn'];
-  onCheckOut: BookingsListProps['onCheckOut'];
-  onMarkNoShow: BookingsListProps['onMarkNoShow'];
-  onUndoNoShow: BookingsListProps['onUndoNoShow'];
-  onAssignTable: BookingsListProps['onAssignTable'];
-  onUnassignTable: BookingsListProps['onUnassignTable'];
-  tableActionState: BookingsListProps['tableActionState'];
-};
-
-function BookingCard({
-  booking,
-  summary,
-  temporalInfo,
-  allowTableAssignments,
-  hasAssignmentHandlers,
-  now,
-  pendingLifecycleAction,
-  onCheckIn,
-  onCheckOut,
-  onMarkNoShow,
-  onUndoNoShow,
-  onAssignTable,
-  onUnassignTable,
-  tableActionState,
-}: BookingCardProps) {
-  const allowAssignmentsForBooking = allowTableAssignments && hasAssignmentHandlers;
-  const lifecyclePending = pendingLifecycleAction?.bookingId === booking.id ? pendingLifecycleAction.action : null;
-  const isLoading = Boolean(lifecyclePending);
-
-  // Use actual status for done/seated checks so card stays in place during loading
-  const isDone = booking.status === 'completed' || booking.status === 'cancelled' || booking.status === 'no_show';
-  const isSeated = booking.status === 'checked_in';
-  const isUpcoming = booking.status === 'confirmed' || booking.status === 'PRIORITY_WAITLIST';
-
-  // Format Times with fallback
-  const parseTime = (t: string | null) => {
-    if (!t) return null;
-    // Try HH:mm:ss first, then HH:mm
-    let dt = DateTime.fromFormat(t, 'HH:mm:ss');
-    if (!dt.isValid) dt = DateTime.fromFormat(t, 'HH:mm');
-    return dt.isValid ? dt : null;
-  };
-
-  const startTimeObj = parseTime(booking.startTime);
-  const endTimeObj = parseTime(booking.endTime);
-
-  const startTimeStr = startTimeObj ? startTimeObj.toFormat('h:mm a') : '--:--';
-  const endTimeStr = endTimeObj ? endTimeObj.toFormat('h:mm a') : null;
-
-  // Time urgency calculation
-  const timeUrgency = useMemo(() => {
-    if (!isUpcoming || !startTimeObj) return null;
-
-    const bookingDateTime = now.set({
-      hour: startTimeObj.hour,
-      minute: startTimeObj.minute,
-      second: 0,
-    });
-
-    const diffMinutes = bookingDateTime.diff(now, 'minutes').minutes;
-
-    if (diffMinutes <= -15) {
-      return { type: 'late' as const, minutes: Math.abs(Math.round(diffMinutes)), label: `${Math.abs(Math.round(diffMinutes))} min late` };
-    } else if (diffMinutes <= 0 && diffMinutes > -15) {
-      return { type: 'overdue' as const, minutes: Math.abs(Math.round(diffMinutes)), label: 'Past time' };
-    } else if (diffMinutes <= 10) {
-      return { type: 'soon' as const, minutes: Math.round(diffMinutes), label: `${Math.round(diffMinutes)} min` };
-    } else if (diffMinutes <= 30) {
-      return { type: 'approaching' as const, minutes: Math.round(diffMinutes), label: `${Math.round(diffMinutes)} min` };
-    }
-    return null;
-  }, [isUpcoming, startTimeObj, now]);
-
-  // Guest Initials
-  const guestInitials = booking.customerName
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .substring(0, 2)
-    .toUpperCase();
-
-  const handleAction = async (action: 'check-in' | 'check-out') => {
-    if (action === 'check-in') await onCheckIn(booking.id);
-    if (action === 'check-out') await onCheckOut(booking.id);
-  };
-
-  // Determine card urgency variant
-  const cardUrgencyClass = useMemo(() => {
-    if (isDone) return "border-muted bg-muted/50";
-    if (timeUrgency?.type === 'late') return "border-destructive/50 bg-destructive/5";
-    if (timeUrgency?.type === 'overdue') return "border-warning/50 bg-warning/5";
-    if (timeUrgency?.type === 'soon') return "border-warning/30 bg-warning/5";
-    return "";
-  }, [isDone, timeUrgency]);
-
-  return (
-    <Card className={cn(
-      "group relative flex flex-col gap-3 p-3 transition-all sm:gap-4 sm:p-4 sm:flex-row sm:items-center",
-      cardUrgencyClass,
-      isLoading && "opacity-60 pointer-events-none animate-pulse",
-      !isLoading && "hover:shadow-md active:shadow-sm"
-    )}>
-      {/* Loading overlay indicator */}
-      {isLoading && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-muted/50">
-          <Badge variant="secondary" className="gap-2 px-4 py-2 shadow-lg bg-background">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
-            <span className="text-sm font-medium">
-              {lifecyclePending === 'check-in' && 'Seating guest...'}
-              {lifecyclePending === 'check-out' && 'Finishing visit...'}
-              {lifecyclePending === 'no-show' && 'Marking no-show...'}
-              {lifecyclePending === 'undo-no-show' && 'Restoring booking...'}
-            </span>
-          </Badge>
-        </div>
-      )}
-
-      {/* ZONE 1: LOGISTICS (Time & Party) */}
-      <div className="flex min-w-[100px] shrink-0 flex-row items-center gap-4 sm:flex-col sm:items-start sm:gap-1">
-        <div className="flex flex-col">
-          <span className={cn("font-mono text-lg font-bold leading-none tracking-tight", isDone ? "text-muted-foreground" : "text-foreground")}>
-            {startTimeStr}
-          </span>
-          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-            {endTimeStr ? `Until ${endTimeStr}` : 'Open End'}
-          </span>
-        </div>
-
-        <div className="hidden h-px w-8 bg-border sm:block" />
-
-        <div className="flex items-center gap-1.5">
-          <Users className={cn("h-3.5 w-3.5", isDone ? "text-muted-foreground/50" : "text-muted-foreground")} />
-          <span className={cn("text-sm font-medium", isDone ? "text-muted-foreground" : "text-foreground")}>
-            {booking.partySize} guests
-          </span>
-        </div>
-
-        {/* Time Urgency Badge */}
-        {timeUrgency && (
-          <Badge
-            variant={timeUrgency.type === 'late' ? 'destructive' : 'secondary'}
-            className={cn(
-              "gap-1 rounded-full text-[10px] animate-pulse",
-              timeUrgency.type === 'overdue' && "bg-amber-100 text-amber-700 border-amber-200",
-              timeUrgency.type === 'soon' && "bg-amber-50 text-amber-600 border-amber-100",
-              timeUrgency.type === 'approaching' && "bg-blue-50 text-blue-600 border-blue-100"
-            )}
-          >
-            <Clock className="h-3 w-3" />
-            {timeUrgency.label}
-          </Badge>
-        )}
-      </div>
-
-      {/* ZONE 2: IDENTITY (Guest Info, Status, Tags) */}
-      <div className="flex flex-1 flex-col gap-2">
-        {/* Name & Tier */}
-        <div className="flex items-center gap-3">
-          <Avatar className={cn('h-8 w-8 sm:h-10 sm:w-10 shrink-0', isDone ? 'bg-muted' : 'bg-primary/10 text-primary')}>
-            <AvatarFallback className="text-xs font-medium">
-              {guestInitials}
-            </AvatarFallback>
-          </Avatar>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className={cn("text-base font-semibold", isDone ? "text-muted-foreground line-through decoration-muted-foreground/30" : "text-foreground")}>
-                {booking.customerName}
-              </span>
-              {booking.loyaltyTier && (
-                <Sparkles
-                  className={cn(
-                    "h-3.5 w-3.5",
-                    booking.loyaltyTier === 'platinum' ? "text-indigo-500" :
-                      booking.loyaltyTier === 'gold' ? "text-amber-500" : "text-muted-foreground"
-                  )}
-                  fill="currentColor"
-                />
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Status & Table Line */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <StatusIndicator status={booking.status} />
-          <div className="h-3 w-px bg-border" />
-          <TableAssignment
-            assignments={booking.tableAssignments}
-            status={booking.status}
-            allowTableAssignments={allowAssignmentsForBooking}
-            temporalInfo={temporalInfo}
-          />
-        </div>
-
-        {/* Tags (Allergies, Notes, Prefs) */}
-        {(booking.allergies?.length || booking.notes || booking.seatingPreference || booking.dietaryRestrictions) ? (
-          <div className="mt-1 flex flex-wrap gap-2">
-            {booking.allergies?.map((allergy, i) => (
-              <Badge key={`alg-${i}`} variant="destructive" className="gap-1">
-                <AlertTriangle className="h-3 w-3" />
-                {allergy}
-              </Badge>
-            ))}
-            {booking.notes && (
-              <Badge variant="default" className="gap-1 max-w-[200px] truncate" title={booking.notes}>
-                <FileText className="h-3 w-3 shrink-0" />
-                <span className="truncate">{booking.notes}</span>
-              </Badge>
-            )}
-            {booking.seatingPreference && (
-              <Badge variant="secondary" className="gap-1 max-w-[150px] truncate" title={booking.seatingPreference}>
-                <Armchair className="h-3 w-3 shrink-0" />
-                <span className="truncate">{booking.seatingPreference}</span>
-              </Badge>
-            )}
-            {booking.dietaryRestrictions && booking.dietaryRestrictions.length > 0 && (
-              <Badge variant="outline" className="gap-1 max-w-[150px] truncate bg-amber-50 text-amber-700 border-amber-200" title={booking.dietaryRestrictions.join(', ')}>
-                <Utensils className="h-3 w-3 shrink-0" />
-                <span className="truncate">{booking.dietaryRestrictions.join(', ')}</span>
-              </Badge>
-            )}
-          </div>
-        ) : null}
-      </div>
-
-      {/* ZONE 3: ACTIONS */}
-      <div className="flex shrink-0 items-center justify-between gap-2 border-t border-border pt-3 sm:mt-0 sm:flex-col sm:items-end sm:border-0 sm:pt-0 sm:gap-3">
-
-        {!isDone ? (
-          <>
-            {(!isSeated) ? (
-              <Button
-                size="sm"
-                className="flex-1 h-11 bg-primary shadow-primary/20 hover:bg-primary/90 active:bg-primary/80 sm:flex-none sm:h-auto sm:w-auto group/btn touch-manipulation"
-                onClick={() => handleAction('check-in')}
-                disabled={lifecyclePending === 'check-in'}
-                title="Seat guest (keyboard: S)"
-              >
-                <LogIn className="mr-2 h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                {lifecyclePending === 'check-in' ? 'Seating...' : 'Seat Guest'}
-                <span className="ml-2 hidden rounded bg-primary-foreground/20 px-1 py-0.5 text-[9px] font-mono opacity-60 group-hover/btn:inline">S</span>
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                className="flex-1 h-11 border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 active:bg-emerald-100 sm:flex-none sm:h-auto sm:w-auto group/btn touch-manipulation"
-                onClick={() => handleAction('check-out')}
-                disabled={lifecyclePending === 'check-out'}
-                title="Finish visit (keyboard: F)"
-              >
-                <LogOut className="mr-2 h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                {lifecyclePending === 'check-out' ? 'Finishing...' : 'Finish'}
-                <span className="ml-2 hidden rounded bg-emerald-100 px-1 py-0.5 text-[9px] font-mono opacity-60 group-hover/btn:inline">F</span>
-              </Button>
-            )}
-
-            {/* Secondary Actions Row */}
-            <div className="flex gap-1">
-              {/* Quick No-Show Button */}
-              {!isSeated && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-11 w-11 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 active:bg-rose-100 sm:h-8 sm:w-8 touch-manipulation"
-                  onClick={() => onMarkNoShow(booking.id)}
-                  disabled={lifecyclePending === 'no-show'}
-                  title="Mark as no-show (keyboard: N)"
-                >
-                  <X className="h-5 w-5 sm:h-4 sm:w-4" />
-                </Button>
-              )}
-              <BookingDetailsDialog
-                booking={booking}
-                summary={summary}
-                allowTableAssignments={allowAssignmentsForBooking}
-                onCheckIn={() => onCheckIn(booking.id)}
-                onCheckOut={() => onCheckOut(booking.id)}
-                onMarkNoShow={(options) => onMarkNoShow(booking.id, options)}
-                onUndoNoShow={(reason) => onUndoNoShow(booking.id, reason)}
-                pendingLifecycleAction={
-                  lifecyclePending ? (lifecyclePending as 'check-in' | 'check-out' | 'no-show' | 'undo-no-show') : null
-                }
-                onAssignTable={
-                  allowAssignmentsForBooking && onAssignTable ? (tableId) => onAssignTable(booking.id, tableId) : undefined
-                }
-                onUnassignTable={
-                  allowAssignmentsForBooking && onUnassignTable ? (tableId) => onUnassignTable(booking.id, tableId) : undefined
-                }
-                tableActionState={
-                  allowAssignmentsForBooking && tableActionState?.bookingId === booking.id ? tableActionState : null
-                }
-              />
-            </div>
-          </>
-        ) : (
-          <Button size="sm" variant="ghost" className="w-full cursor-default text-muted-foreground hover:bg-transparent hover:text-muted-foreground sm:w-auto" disabled>
-            <Check className="mr-2 h-3.5 w-3.5" />
-            {booking.status === 'completed' ? 'Completed' : 'Cancelled'}
-          </Button>
-        )}
-      </div>
-    </Card>
-  );
-}
+// Legacy BookingCard removed; this file renders `OpsBookingCard` for the list.

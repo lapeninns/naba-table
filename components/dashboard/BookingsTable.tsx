@@ -1,16 +1,14 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 
-import { OpsBookingCardSkeleton } from './OpsBookingCardSkeleton';
-import { OpsBookingCard } from './OpsBookingCard';
 import { BookingsHeader } from './BookingsHeader';
-import { BookingsListMobile } from './BookingsListMobile';
 import { EmptyState, type EmptyStateProps } from './EmptyState';
+import { OpsBookingCard } from './OpsBookingCard';
+import { OpsBookingCardSkeleton } from './OpsBookingCardSkeleton';
 import { Pagination } from './Pagination';
 
 import type { BookingAction } from '@/components/features/booking-state-machine';
@@ -59,8 +57,6 @@ const DEFAULT_STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: 'cancelled', label: 'Cancelled' },
 ];
 
-const skeletonRows = Array.from({ length: 5 }, (_, index) => index);
-
 export function BookingsTable({
   bookings,
   page,
@@ -80,7 +76,7 @@ export function BookingsTable({
   onDetails,
   variant = 'guest',
   statusOptions,
-  opsActionMode = 'full',
+  opsActionMode: _opsActionMode = 'full',
   opsLifecycle,
   showHeaderTitle = true,
   hideHeader = false,
@@ -88,7 +84,6 @@ export function BookingsTable({
 }: BookingsTableProps) {
   const showSkeleton = isLoading || isFetching;
   const showEmpty = !showSkeleton && !error && bookings.length === 0;
-  const isPastView = statusFilter === 'past';
   const trimmedSearch = searchTerm.trim();
   const isOpsVariant = variant === 'ops';
 
@@ -151,28 +146,6 @@ export function BookingsTable({
     }
   }, [isOpsVariant, statusFilter, trimmedSearch]);
 
-  const dateFormatter = useMemo(() => new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }), []);
-  const formatDate = useCallback(
-    (iso: string) => {
-      if (!iso) return '—';
-      const date = new Date(iso);
-      if (Number.isNaN(date.getTime())) return '—';
-      return dateFormatter.format(date);
-    },
-    [dateFormatter],
-  );
-
-  const timeFormatter = useMemo(() => new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }), []);
-  const formatTime = useCallback(
-    (iso: string) => {
-      if (!iso) return '—';
-      const date = new Date(iso);
-      if (Number.isNaN(date.getTime())) return '—';
-      return timeFormatter.format(date);
-    },
-    [timeFormatter],
-  );
-
   const mobileEmptyState: EmptyStateProps | undefined = emptyState
     ? {
       ...emptyState,
@@ -219,55 +192,76 @@ export function BookingsTable({
       <div className="space-y-3">
         {/* Mobile View */}
         <div className="md:hidden">
-          <BookingsListMobile
-            bookings={bookings}
-            isLoading={showSkeleton}
-            formatDate={formatDate}
-            formatTime={formatTime}
-            onEdit={onEdit}
-            onCancel={onCancel}
-            onDetails={onDetails}
-            onCheckIn={opsLifecycle?.onCheckIn}
-            onCheckOut={opsLifecycle?.onCheckOut}
-            onMarkNoShow={opsLifecycle?.onMarkNoShow ? async (b) => opsLifecycle.onMarkNoShow(b) : undefined}
-            onUndoNoShow={opsLifecycle?.onUndoNoShow ? async (b) => opsLifecycle.onUndoNoShow(b) : undefined}
-            pendingAction={opsLifecycle?.pendingBookingId ? { bookingId: opsLifecycle.pendingBookingId, action: opsLifecycle.pendingAction || '' } : null}
-            opsActionMode={opsActionMode}
-            emptyState={mobileEmptyState}
-            isPastView={isPastView}
-            variant={variant}
-          />
+          {showSkeleton ? (
+            <div className="grid grid-cols-1 gap-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <OpsBookingCardSkeleton key={i} />
+              ))}
+            </div>
+          ) : showEmpty ? (
+            <EmptyState {...mobileEmptyState} />
+          ) : (
+            <div className="grid grid-cols-1 gap-3">
+              {bookings.map((booking) => (
+                <div key={booking.id} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                  <OpsBookingCard
+                    booking={booking}
+                    timezone={timezone || 'UTC'}
+                    onEdit={onEdit}
+                    onCancel={onCancel}
+                    onDetails={onDetails}
+                    onCheckIn={opsLifecycle ? (_id: string) => opsLifecycle.onCheckIn(booking) : undefined}
+                    onCheckOut={opsLifecycle ? (_id: string) => opsLifecycle.onCheckOut(booking) : undefined}
+                    onMarkNoShow={opsLifecycle ? (_id: string) => opsLifecycle.onMarkNoShow(booking) : undefined}
+                    onUndoNoShow={opsLifecycle ? (_id: string) => opsLifecycle.onUndoNoShow(booking) : undefined}
+                    pendingAction={
+                      opsLifecycle?.pendingBookingId === booking.id
+                        ? (opsLifecycle.pendingAction as any)
+                        : null
+                    }
+                    allowTableAssignments={true}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Desktop View - Now using List of Cards */}
-        <div className="hidden md:block space-y-3">
-          {showSkeleton
-            ? Array.from({ length: 5 }).map((_, i) => (
-              <OpsBookingCardSkeleton key={i} />
-            ))
-            : bookings.map((booking) => (
-              <div key={booking.id} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                <OpsBookingCard
-                  booking={booking}
-                  // Default to UTC if not provided (should be provided by parent)
-                  timezone={timezone || 'UTC'}
-                  onEdit={onEdit}
-                  onCancel={onCancel}
-                  onDetails={onDetails}
-                  onCheckIn={opsLifecycle ? (id: string) => opsLifecycle.onCheckIn(booking) : undefined}
-                  onCheckOut={opsLifecycle ? (id: string) => opsLifecycle.onCheckOut(booking) : undefined}
-                  onMarkNoShow={opsLifecycle ? (id: string) => opsLifecycle.onMarkNoShow(booking) : undefined}
-                  onUndoNoShow={opsLifecycle ? (id: string) => opsLifecycle.onUndoNoShow(booking) : undefined}
-                  pendingAction={
-                    opsLifecycle?.pendingBookingId === booking.id
-                      ? (opsLifecycle.pendingAction as any)
-                      : null
-                  }
-                  allowTableAssignments={true}
-                />
-              </div>
-            ))}
-          {showEmpty ? <EmptyState {...desktopEmptyState} /> : null}
+        {/* Desktop View */}
+        <div className="hidden md:block">
+          {showSkeleton ? (
+            <div className="grid grid-cols-1 gap-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <OpsBookingCardSkeleton key={i} />
+              ))}
+            </div>
+          ) : showEmpty ? (
+            <EmptyState {...desktopEmptyState} />
+          ) : (
+            <div className="grid grid-cols-1 gap-3">
+              {bookings.map((booking) => (
+                <div key={booking.id} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                  <OpsBookingCard
+                    booking={booking}
+                    timezone={timezone || 'UTC'}
+                    onEdit={onEdit}
+                    onCancel={onCancel}
+                    onDetails={onDetails}
+                    onCheckIn={opsLifecycle ? (_id: string) => opsLifecycle.onCheckIn(booking) : undefined}
+                    onCheckOut={opsLifecycle ? (_id: string) => opsLifecycle.onCheckOut(booking) : undefined}
+                    onMarkNoShow={opsLifecycle ? (_id: string) => opsLifecycle.onMarkNoShow(booking) : undefined}
+                    onUndoNoShow={opsLifecycle ? (_id: string) => opsLifecycle.onUndoNoShow(booking) : undefined}
+                    pendingAction={
+                      opsLifecycle?.pendingBookingId === booking.id
+                        ? (opsLifecycle.pendingAction as any)
+                        : null
+                    }
+                    allowTableAssignments={true}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
