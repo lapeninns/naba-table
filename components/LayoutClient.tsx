@@ -9,6 +9,8 @@ import { Tooltip } from "react-tooltip";
 import { Toaster as UiToaster } from "@/components/ui/toaster";
 import config from "@/config";
 import { ImplicitAuthHandler } from "@/components/auth/ImplicitAuthHandler";
+import { toast } from "@/hooks/use-toast";
+import { SESSION_EXPIRED_EVENT } from "@/lib/http/sessionRedirect";
 import { useSupabaseSession } from "@/hooks/useSupabaseSession";
 import type { ReactNode } from "react";
 
@@ -81,6 +83,20 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
   const suppressLegacyToaster = pathname
     ? LEGACY_TOASTER_BLOCKLIST.some((pattern) => pattern.test(pathname))
     : false;
+
+  useEffect(() => {
+    const handleSessionExpired = (event: Event) => {
+      const detail = (event as CustomEvent<{ message?: string }>).detail;
+      toast({
+        title: "Session expired",
+        description: detail?.message ?? "Please sign in again to continue.",
+        variant: "destructive",
+      });
+    };
+
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+  }, []);
 
   if (isAuthRoute) {
     return (

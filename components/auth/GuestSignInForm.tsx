@@ -2,7 +2,6 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, Mail, Send } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import React, { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -41,8 +40,6 @@ type FormValues = z.infer<typeof formSchema>;
 const MAGIC_LINK_COOLDOWN_SECONDS = 60;
 
 export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
-  const router = useRouter();
-
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -57,7 +54,13 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
   const [status, setStatus] = useState<StatusState | null>(null);
   const statusRef = useRef<HTMLDivElement | null>(null);
 
-  const targetPath = redirectedFrom && redirectedFrom.startsWith('/') ? redirectedFrom : '/guest/dashboard';
+  const allowedRedirectPrefixes = ['/guest', '/bookings', '/restaurants', '/app'];
+  const isSafeRedirect =
+    !!redirectedFrom &&
+    redirectedFrom.startsWith('/') &&
+    !redirectedFrom.startsWith('//') &&
+    allowedRedirectPrefixes.some((prefix) => redirectedFrom.startsWith(prefix));
+  const targetPath = isSafeRedirect ? redirectedFrom : '/guest/dashboard';
 
   useEffect(() => {
     track('auth_guest_signin_viewed', { redirectedFrom: targetPath });

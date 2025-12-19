@@ -169,8 +169,11 @@ export function OpsBookingCard({
     .toUpperCase();
 
   const handleMainAction = async () => {
-    if (!isSeated && onCheckIn) await onCheckIn(booking.id);
-    if (isSeated && onCheckOut) await onCheckOut(booking.id);
+    if (!isSeated && onCheckIn) {
+      await onCheckIn(booking.id);
+    } else if (isSeated && onCheckOut) {
+      await onCheckOut(booking.id);
+    }
   };
 
   const cardBgClass = useMemo(() => {
