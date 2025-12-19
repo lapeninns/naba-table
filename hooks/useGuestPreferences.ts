@@ -49,8 +49,9 @@ export function useGuestPreferences() {
     async (next: Partial<GuestPreferences>) => {
       setPrefs((prev) => {
         const merged: GuestPreferences = {
-          preferredPartySize: next.preferredPartySize ?? prev.preferredPartySize,
-          preferredTime: next.preferredTime ?? prev.preferredTime,
+          preferredPartySize:
+            next.preferredPartySize === undefined ? prev.preferredPartySize : next.preferredPartySize,
+          preferredTime: next.preferredTime === undefined ? prev.preferredTime : next.preferredTime,
         };
         writeLocal(merged);
         return merged;
@@ -60,8 +61,8 @@ export function useGuestPreferences() {
         try {
           await supabase.auth.updateUser({
             data: {
-              preferred_party_size: next.preferredPartySize ?? undefined,
-              preferred_time: next.preferredTime ?? undefined,
+              preferred_party_size: next.preferredPartySize,
+              preferred_time: next.preferredTime,
             },
           });
         } catch (error) {

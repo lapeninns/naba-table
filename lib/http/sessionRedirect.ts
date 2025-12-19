@@ -1,11 +1,11 @@
 'use client';
 
-import { toast } from '@/hooks/use-toast';
+export const SESSION_EXPIRED_EVENT = 'session:expired';
 
 let redirectInFlight = false;
 let lastPath: string | null = null;
-let lastToastTs = 0;
-const TOAST_DEBOUNCE_MS = 1500;
+let lastSignalTs = 0;
+const SIGNAL_DEBOUNCE_MS = 1500;
 
 export function triggerSessionRedirect(path?: string, message?: string) {
   if (typeof window === 'undefined') return;
@@ -16,13 +16,16 @@ export function triggerSessionRedirect(path?: string, message?: string) {
   if (redirectInFlight && lastPath === currentPath) return;
 
   const now = Date.now();
-  if (now - lastToastTs > TOAST_DEBOUNCE_MS) {
-    toast({
-      title: 'Session expired',
-      description: message ?? 'Please sign in again to continue.',
-      variant: 'destructive',
-    });
-    lastToastTs = now;
+  if (now - lastSignalTs > SIGNAL_DEBOUNCE_MS) {
+    window.dispatchEvent(
+      new CustomEvent(SESSION_EXPIRED_EVENT, {
+        detail: {
+          message: message ?? 'Please sign in again to continue.',
+          path: currentPath,
+        },
+      }),
+    );
+    lastSignalTs = now;
   }
 
   const target = `/auth/signin?redirectedFrom=${encodeURIComponent(currentPath)}`;

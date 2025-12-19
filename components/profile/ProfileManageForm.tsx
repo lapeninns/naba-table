@@ -2,7 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
-import { Camera, Loader2, Mail, Phone, User, X, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Camera, Loader2, Mail, Phone, User, X } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import React from 'react';
@@ -332,13 +332,6 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
 
   const avatarPreviewSrc = avatarState.previewUrl ?? currentProfile.image ?? null;
 
-  const statusStyles: Record<StatusTone, { bg: string; text: string; icon: React.ElementType }> = {
-    info: { bg: 'bg-blue-50', text: 'text-blue-700', icon: AlertCircle },
-    success: { bg: 'bg-emerald-50', text: 'text-emerald-700', icon: CheckCircle2 },
-    warning: { bg: 'bg-amber-50', text: 'text-amber-700', icon: AlertCircle },
-    danger: { bg: 'bg-red-50', text: 'text-red-700', icon: AlertCircle },
-  };
-
   return (
     <Form {...form}>
       <form onSubmit={onSubmit} className="space-y-8" noValidate>
@@ -413,7 +406,7 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
 
         {/* Form Fields */}
         <GuestCard className="shadow-sm">
-          <CardContent className="p-6 sm:p-8 space-y-6">
+          <div className="space-y-6">
             <h3 className="text-lg font-semibold text-slate-900 mb-6">Personal Information</h3>
 
             <FormField
@@ -490,7 +483,7 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
                 </FormItem>
               )}
             />
-          </CardContent>
+          </div>
         </GuestCard>
 
         {/* Action Bar */}
