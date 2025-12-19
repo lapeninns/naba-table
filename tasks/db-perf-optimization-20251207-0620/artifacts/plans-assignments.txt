@@ -1,0 +1,19 @@
+EXPLAIN ANALYZE SELECT table_id, booking_id, start_at, end_at
+FROM public.booking_table_assignments
+WHERE table_id IN (
+  SELECT id FROM public.table_inventory
+  WHERE restaurant_id='486de541-a307-4414-b0b1-f774a0e4a9fa'
+  LIMIT 10
+)
+AND assignment_window && tstzrange('2025-01-01T18:00:00Z','2025-01-01T21:00:00Z','[)');
+
+Plan:
+Nested Loop Semi Join  (cost=0.12..3.39 rows=1 width=48) (actual time=8.001..8.002 rows=0 loops=1)
+  Join Filter: (table_inventory.id = booking_table_assignments.table_id)
+  ->  Index Scan using bta_no_overlap on booking_table_assignments  (cost=0.12..2.34 rows=1 width=48) (actual time=8.000..8.001 rows=0 loops=1)
+        Index Cond: (assignment_window && '"[""2025-01-01 18:00:00+00"",""2025-01-01 21:00:00+00"")"'::tstzrange)
+  ->  Limit  (cost=0.00..0.93 rows=10 width=16) (never executed)
+        ->  Seq Scan on table_inventory  (cost=0.00..2.31 rows=25 width=16) (never executed)
+              Filter: (restaurant_id = '486de541-a307-4414-b0b1-f774a0e4a9fa'::uuid)
+Planning Time: 6.970 ms
+Execution Time: 8.090 ms

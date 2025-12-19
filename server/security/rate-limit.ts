@@ -34,7 +34,6 @@ let warnedAboutMemoryStore = false;
 let warnedAboutMissingUpstash = false;
 const devMode = env.node.env === "development";
 const isProductionEnv = env.node.env === "production";
-const allowMemoryInProd = parseBooleanEnv(process.env.ALLOW_MEMORY_RATE_LIMIT_IN_PROD) === true;
 
 function parseBooleanEnv(value: string | undefined): boolean | undefined {
   if (!value) return undefined;
@@ -56,13 +55,8 @@ function logMissingUpstashWarning() {
 
   if (isProductionEnv) {
     warnedAboutMissingUpstash = true;
-    if (!allowMemoryInProd) {
-      throw new RateLimitConfigurationError(
-        "Upstash Redis credentials (UPSTASH_REDIS_REST_URL/UPSTASH_REDIS_REST_TOKEN) are required in production.",
-      );
-    }
-    console.warn(
-      "[rate-limit] Upstash Redis credentials missing in production; using in-memory limiter because ALLOW_MEMORY_RATE_LIMIT_IN_PROD=true. This is unsafe for multi-instance deployments.",
+    throw new RateLimitConfigurationError(
+      "Upstash Redis credentials (UPSTASH_REDIS_REST_URL/UPSTASH_REDIS_REST_TOKEN) are required in production.",
     );
   }
 
@@ -104,7 +98,7 @@ function getRedisClient(): Redis | null {
 }
 
 function assertMemoryFallbackAllowed(): void {
-  if (isProductionEnv && !shouldBypassRateLimit && !allowMemoryInProd) {
+  if (isProductionEnv && !shouldBypassRateLimit) {
     throw new RateLimitConfigurationError("In-memory rate limiting is not permitted in production.");
   }
 }

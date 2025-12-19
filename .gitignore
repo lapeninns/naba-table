@@ -10,6 +10,8 @@
 /coverage
 /.playwright
 tests/.auth/
+playwright/.auth/
+test-results/
 
 # next.js
 /.next/
@@ -20,6 +22,7 @@ tests/.auth/
 playwright-report/
 playwright-component-report/
 playwright-*/
+.lighthouseci/
 
 # production
 /build

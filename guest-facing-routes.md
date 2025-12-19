@@ -1,59 +1,112 @@
-# Canonical Guest-Facing Routes
+# Guest-Facing Route Audit · 2025‑12‑05
 
-This document defines the canonical guest-facing routes within the application, following the routing and canonicalization sprint. Legacy routes are permanently redirected (301) to these canonical paths.
+**Snapshot**: 2025‑12‑05
+**Auditor**: Antigravity (AI)
+**Status**: ✅ All Fixes Complete
 
-## 1. Public & Marketing Routes
+---
 
-These routes are generally accessible to all users and cover informational and general interaction pages.
+## Summary of All Changes
 
-- `/thank-you` (General Thank You/Confirmation Page)
-- `/item/[slug]` (Restaurant-specific booking entry that renders the booking flow for a given slug)
+### Phase 1: Route Consolidation
 
-## 2. Discovery & Booking Flows
+| Fix                                | Status  | Description                                                                              |
+| :--------------------------------- | :------ | :--------------------------------------------------------------------------------------- |
+| Canonical Receipt                  | ✅ Done | `/guest/bookings/[bookingId]/receipt` shows actual booking details with Auth/Token guard |
+| Legacy Thank-You Redirect          | ✅ Done | `/bookings/[bookingId]/thank-you` → `/guest/bookings/[bookingId]/receipt`                |
+| Restaurant Thank-You Consolidation | ✅ Done | `/restaurants/[slug]/thank-you` → `/restaurants/[slug]/book/thank-you`                   |
+| Generic Thank-You Cleanup          | ✅ Done | `/guest/thank-you` → `/guest/dashboard` (deprecated)                                     |
 
-These routes facilitate restaurant discovery and the booking process. Entry for guests is expected via a restaurant CTA: `/restaurants/:slug/book`.
+### Phase 2: Code Cleanup
 
-- `/restaurants/[slug]` (Specific Restaurant Profile Page)
-  - `/restaurants/[slug]/book` (Direct booking interface for a specific restaurant)
-  - `/restaurants/[slug]/book/thank-you` (Booking confirmation for that restaurant)
-- `/bookings/[bookingId]` (View details for a specific booking)
-- `/bookings/[bookingId]/thank-you` (Booking Confirmation Page)
+| Fix                         | Status  | Description                                                    |
+| :-------------------------- | :------ | :------------------------------------------------------------- |
+| Remove Unused Feature Flags | ✅ Done | Removed `featureConfig` from all view models, services, and DI |
+| Fix Dead Link               | ✅ Done | `/guest/saved` → `/guest/bookings` (Favorites not implemented) |
+| Simplify DI Provider        | ✅ Done | `GuestServicesProvider` no longer accepts unused props         |
 
-## 3. Guest Portal (Authenticated Access)
+### Phase 3: UX/UI Consistency
 
-These routes are typically accessed by logged-in guests and provide personalized experiences and account management. Access to these routes generally requires authentication.
+| Fix                      | Status  | Description                                                                            |
+| :----------------------- | :------ | :------------------------------------------------------------------------------------- |
+| Shared `GuestBackground` | ✅ Done | Created reusable gradient orbs component                                               |
+| Unified Layouts          | ✅ Done | `GuestLayout`, `MarketingLayout`, `AuthLayout` all use same background + `guest-theme` |
+| Homepage Layout          | ✅ Done | Now uses `MarketingLayout` for consistent navbar + background                          |
+| Redundant Theme Wrappers | ✅ Done | Removed duplicate `guest-theme` from `/restaurants` page                               |
 
-- `/guest/dashboard` (Guest dashboard / home)
-- `/guest/bookings` (List of the logged-in user's bookings)
-- `/guest/bookings/[bookingId]` (Manage a specific booking)
-- `/guest/profile` (Manage logged-in user's profile)
-- `/guest` → redirects to `/guest/dashboard`
+---
 
-## 4. Authentication
+## Guest Theme Architecture
 
-- `/auth/signin` (Centralized sign-in page)
+### CSS Variables (`.guest-theme`)
 
-## Redirected Legacy Routes (301 Permanent Redirects)
+```css
+.guest-theme {
+  --primary: 217 91% 60%; /* blue-500 */
+  --primary-foreground: 210 40% 98%;
+  --secondary: 213 96% 93%; /* blue-100 */
+  --accent: 213 100% 96%; /* blue-50 */
+  --ring: 217 91% 60%;
+  /* ... blue color scale for charts */
+}
+```
 
-The following routes are permanently redirected to their canonical counterparts:
+### Layout Hierarchy
 
-- `/signin` → `/auth/signin`
-- `/guest/restaurants` → `/restaurants`
-- `/guest/browse` → `/restaurants`
-- `/browse` → `/restaurants`
-- `/guest/item/[slug]` → `/item/[slug]`
-- `/reserve` → `/bookings`
-- `/booking` → `/bookings`
-- `/reserve/[reservationId]` → `/bookings/[bookingId]`
-- `/reserve/r/[slug]` → `/restaurants/[slug]/book`
-- `/guest/bookings/new` → (Deleted, generic wizard removed)
-- `/guest/bookings/[bookingId]` → `/bookings/[bookingId]`
-- `/guest/bookings/[bookingId]/thank-you` → `/bookings/[bookingId]/thank-you`
-- `/guest/reserve` → `/bookings`
-- `/guest/reserve/[reservationId]` → `/bookings/[bookingId]`
-- `/guest/reserve/r/[slug]` → `/restaurants/[slug]/book`
-- `/guest/restaurant` → `/restaurants`
-- `/guest/thank-you` → `/thank-you`
-- `/account` → `/guest`
-- `/guest` → `/guest/dashboard`
-- `/my-bookings` → `/guest/bookings`
+```
+[Guest Layouts - all apply .guest-theme]
+├── GuestLayout       → /guest/*, /bookings/*
+├── MarketingLayout   → /, /restaurants/*
+└── AuthLayout        → /auth/*
+
+[Shared Components]
+├── GuestBackground   → Premium gradient orbs
+├── GuestNavbar       → Consistent sticky header
+└── Footer            → Variant per layout
+```
+
+### Component Theming
+
+All guest UI primitives (`GuestSection`, `GuestHero`, `GuestCard`, `GuestStatus`) use:
+
+- `bg-blue-50`, `text-blue-700` for accent elements
+- `bg-slate-*` for neutral backgrounds
+- These resolve correctly under `.guest-theme` scope
+
+---
+
+## Final Route Inventory
+
+| Route                                | Layout            | Theme         | Purpose           |
+| :----------------------------------- | :---------------- | :------------ | :---------------- |
+| `/`                                  | `MarketingLayout` | `guest-theme` | Landing           |
+| `/restaurants`                       | `MarketingLayout` | `guest-theme` | Discovery         |
+| `/restaurants/[slug]`                | `MarketingLayout` | `guest-theme` | Restaurant Detail |
+| `/restaurants/[slug]/book`           | `MarketingLayout` | `guest-theme` | Booking Wizard    |
+| `/restaurants/[slug]/book/thank-you` | `MarketingLayout` | `guest-theme` | Confirmation      |
+| `/auth/signin`                       | `AuthLayout`      | `guest-theme` | Authentication    |
+| `/bookings/[bookingId]`              | `GuestLayout`     | `guest-theme` | Booking Detail    |
+| `/guest/*`                           | `GuestLayout`     | `guest-theme` | Guest Portal      |
+
+---
+
+## Files Modified
+
+### New Files
+
+- `src/components/layouts/GuestBackground.tsx` - Shared gradient background
+
+### Layout Files (Updated)
+
+- `src/components/layouts/GuestLayout.tsx` - Uses `GuestBackground`
+- `src/components/layouts/MarketingLayout.tsx` - Uses `GuestBackground`
+- `src/components/layouts/AuthLayout.tsx` - Uses `GuestBackground` + added `guest-theme`
+
+### Page Files (Updated)
+
+- `src/app/(public)/page.tsx` - Now uses `MarketingLayout`
+- `src/app/(public)/(marketing)/restaurants/page.tsx` - Removed redundant wrapper
+
+### Build Status
+
+✅ All 55 pages compile successfully

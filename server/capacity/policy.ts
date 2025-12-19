@@ -96,7 +96,7 @@ export const defaultVenuePolicy: VenuePolicy = {
     dinner: {
       key: "dinner",
       label: "Dinner",
-      start: { hour: 17, minute: 0 },
+      start: { hour: 16, minute: 0 },
       end: { hour: 22, minute: 0 },
       buffer: { pre: 0, post: 5 },
       turnBands: [
@@ -157,7 +157,7 @@ export class ServiceOverrunError extends PolicyError {
   ) {
     super(
       message ??
-        `Reservation would overrun ${service} service (end ${serviceEnd.toFormat("HH:mm")}).`,
+      `Reservation would overrun ${service} service (end ${serviceEnd.toFormat("HH:mm")}).`,
     );
     this.name = "ServiceOverrunError";
   }

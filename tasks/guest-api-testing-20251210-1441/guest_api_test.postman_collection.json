@@ -1,0 +1,118 @@
+{
+  "info": {
+    "_postman_id": "guest-api-tests",
+    "name": "Guest API Testing",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create Guest Booking",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "const date = new Date();",
+              "date.setDate(date.getDate() + 2);",
+              "const dateStr = date.toISOString().split('T')[0];",
+              "pm.environment.set('bookingDate', dateStr);",
+              "const randomId = Math.floor(Math.random() * 100000);",
+              "pm.environment.set('randomEmail', `guest${randomId}@test.com`);",
+              "pm.environment.set('randomPhone', `07700${Math.floor(Math.random() * 900000) + 100000}`);",
+              "console.log('Setting booking date to:', dateStr);"
+            ],
+            "type": "text/javascript"
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code !== 200 && pm.response.code !== 201) {",
+              "    console.log('Error Response:', pm.response.text());",
+              "}",
+              "pm.test('Status code is 200 or 201', function () {",
+              "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+              "});",
+              "",
+              "var jsonData = pm.response.json();",
+              "pm.test('Booking ID and Reference present', function () {",
+              "    pm.expect(jsonData.booking).to.have.property('id');",
+              "    pm.expect(jsonData.booking).to.have.property('reference');",
+              "});",
+              "",
+              "if (jsonData.booking && jsonData.booking.id) {",
+              "    pm.environment.set('bookingId', jsonData.booking.id);",
+              "    pm.environment.set('bookingRef', jsonData.confirmationToken || jsonData.booking.reference);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"restaurantSlug\": \"white-horse-pub-waterbeach\",\n  \"date\": \"{{bookingDate}}\",\n  \"time\": \"19:00\",\n  \"party\": 2,\n  \"bookingType\": \"dinner\",\n  \"seating\": \"indoor\",\n  \"name\": \"Newman Test Guest\",\n  \"email\": \"{{randomEmail}}\",\n  \"phone\": \"{{randomPhone}}\",\n  \"marketingOptIn\": false\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/bookings",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "bookings"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Guest Booking (Token)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 200', function () {",
+              "    pm.expect(pm.response.code).to.equal(200);",
+              "});",
+              "",
+              "var jsonData = pm.response.json();",
+              "pm.test('Returns correct booking ID', function () {",
+              "    pm.expect(jsonData.booking.id).to.equal(pm.environment.get('bookingId'));",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/bookings/{{bookingId}}?token={{bookingRef}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "bookings", "{{bookingId}}"],
+          "query": [
+            {
+              "key": "token",
+              "value": "{{bookingRef}}"
+            }
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ]
+}

@@ -23,7 +23,7 @@
 
 ## Public vs Guest vs Ops routes (high level)
 
-- **Public**: `/`, `/restaurants/:slug`, `/bookings/:id`, `/bookings/:id/thank-you`, `/auth/signin`, `/auth/forgot-password`, `/api/bookings`, `/api/restaurants/:slug/(schedule|calendar-mask)`, `/api/availability`, etc.
+- **Public**: `/`, `/restaurants/:slug`, `/restaurants/:slug/thank-you`, `/bookings/:id`, `/bookings/:id/thank-you` (legacy), `/auth/signin`, `/api/bookings`, `/api/restaurants/:slug/(schedule|calendar-mask)`, `/api/availability`, etc.
 - **Guest** (root host): `/guest/*`, `/account/*`, `/guest/bookings`, `/guest/dashboard`, `/api/profile`, `/api/lead`, etc.
 - **Ops** (app host): `/app/*` pages; APIs under `/api/ops/**` plus app-host rewrites for services listed in `OPS_API_SERVICES`.
 

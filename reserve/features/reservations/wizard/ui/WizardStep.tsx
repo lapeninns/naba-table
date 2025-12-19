@@ -3,10 +3,13 @@
 import * as React from 'react';
 
 import { cn } from '@shared/lib/cn';
-import { Badge } from '@shared/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@shared/ui/card';
 
 import { useWizardContext } from './WizardContainer';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
 
 export interface WizardStepProps {
   step: number;
@@ -16,8 +19,86 @@ export interface WizardStepProps {
   className?: string;
   contentClassName?: string;
   icon?: React.ReactNode;
-  totalSteps?: number; // Optional: defaults to 4 if not provided
+  totalSteps?: number;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────────────────────────────────────
+
+const STEP_CONTAINER_CLASSES = cn('mx-auto w-full', 'animate-fade-in');
+
+const CARD_CLASSES = cn(
+  // Subtle shadow for depth
+  'shadow-lg shadow-black/5',
+  // Clean border
+  'border border-border/50',
+  // Solid background (no glass effect for cleaner look)
+  'bg-card',
+  // Rounded corners
+  'rounded-xl sm:rounded-2xl',
+  // Focus styling
+  'focus-visible:outline-none',
+  'focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2',
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sub-components
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface TitleSectionProps {
+  titleId: string;
+  title: string;
+  description?: string;
+  icon?: React.ReactNode;
+}
+
+function TitleSection({ titleId, title, description, icon }: TitleSectionProps) {
+  return (
+    <div className="flex items-start gap-3 sm:items-center">
+      {/* Icon */}
+      {icon && (
+        <span
+          className={cn(
+            'shrink-0 text-primary',
+            'flex h-9 w-9 items-center justify-center',
+            'rounded-lg bg-primary/10',
+            'sm:h-10 sm:w-10',
+          )}
+          aria-hidden
+        >
+          {icon}
+        </span>
+      )}
+
+      {/* Title + Description */}
+      <div className="min-w-0 flex-1">
+        <CardTitle
+          id={titleId}
+          role="heading"
+          aria-level={2}
+          className={cn(
+            'text-lg font-semibold leading-tight text-foreground',
+            'sm:text-xl',
+            'lg:text-2xl',
+          )}
+        >
+          {title}
+        </CardTitle>
+
+        {description && (
+          <CardDescription className={cn('mt-1', 'text-sm text-muted-foreground')}>
+            {description}
+          </CardDescription>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main Component
+// ─────────────────────────────────────────────────────────────────────────────
 
 export function WizardStep({
   step,
@@ -27,14 +108,15 @@ export function WizardStep({
   className,
   contentClassName,
   icon,
-  totalSteps = 4,
 }: WizardStepProps) {
   const { currentStep } = useWizardContext();
   const isActive = currentStep === step;
   const stepRef = React.useRef<HTMLDivElement | null>(null);
   const titleId = React.useId();
-  const progressId = React.useId();
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Focus management on step activation
+  // ─────────────────────────────────────────────────────────────────────────
   React.useEffect(() => {
     if (!isActive) {
       return;
@@ -43,76 +125,29 @@ export function WizardStep({
     if (!node) {
       return;
     }
-    node.focus();
+    // Delay focus slightly to ensure animations complete
+    const timer = setTimeout(() => {
+      node.focus();
+    }, 100);
+    return () => clearTimeout(timer);
   }, [isActive]);
 
   return (
     <section
       aria-labelledby={titleId}
-      aria-describedby={progressId}
       data-step={step}
       data-state={isActive ? 'active' : 'inactive'}
-      className="mx-auto w-full max-w-[80vw] animate-fade-in"
+      className={STEP_CONTAINER_CLASSES}
     >
-      <Card
-        ref={stepRef}
-        tabIndex={-1}
-        className={cn(
-          'shadow-lg transition-shadow duration-300 hover:shadow-xl',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-ring/60',
-          className,
-        )}
-      >
-        <CardHeader className="space-y-4 px-4 py-5 sm:px-6 sm:py-6">
-          {/* Step Progress Indicator */}
-          <div className="flex items-center justify-between gap-3">
-            <Badge
-              id={progressId}
-              variant="outline"
-              className="px-3 py-1 text-xs font-medium tracking-wide sm:text-sm"
-            >
-              Step {step} of {totalSteps}
-            </Badge>
-            <div className="flex gap-1.5" aria-label="Progress indicator">
-              {Array.from({ length: totalSteps }, (_, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    'h-1.5 w-8 rounded-full transition-all duration-300 sm:w-10',
-                    i < step ? 'bg-primary' : i === step ? 'bg-primary/60' : 'bg-muted',
-                  )}
-                  aria-hidden="true"
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Title Section */}
-          <div className="flex items-start gap-3 sm:items-center">
-            {icon ? (
-              <span className="shrink-0 text-primary" aria-hidden>
-                {icon}
-              </span>
-            ) : null}
-            <div className="min-w-0 flex-1">
-              <CardTitle
-                id={titleId}
-                role="heading"
-                aria-level={2}
-                className="text-xl font-bold leading-tight text-foreground sm:text-2xl lg:text-[clamp(1.65rem,1.35rem+0.6vw,2.1rem)]"
-              >
-                {title}
-              </CardTitle>
-              {description ? (
-                <CardDescription className="mt-2 text-sm leading-relaxed text-muted-foreground sm:text-base">
-                  {description}
-                </CardDescription>
-              ) : null}
-            </div>
-          </div>
+      <Card ref={stepRef} tabIndex={-1} className={cn(CARD_CLASSES, className)}>
+        {/* Header: Title + Description (no progress - it's in the nav bar) */}
+        <CardHeader className="px-4 py-4 sm:px-6 sm:py-5">
+          <TitleSection titleId={titleId} title={title} description={description} icon={icon} />
         </CardHeader>
+
+        {/* Content Area */}
         <CardContent
-          className={cn('space-y-6 px-4 pb-6 sm:px-6 sm:pb-8 sm:space-y-8', contentClassName)}
+          className={cn('space-y-4 px-4 pb-5', 'sm:space-y-5 sm:px-6 sm:pb-6', contentClassName)}
         >
           {children}
         </CardContent>

@@ -1,0 +1,274 @@
+/**
+ * SajiloReserveX Guest Design Tokens - Quick Reference
+ * =====================================================
+ * 
+ * This file consolidates all guest-facing design tokens for easy reference.
+ * The actual tokens are defined in:
+ *   - src/app/globals.css (.guest-theme block)
+ *   - styles/tokens.css
+ *
+ * Usage: Wrap guest pages in .guest-theme class (automatically done by layouts).
+ * 
+ * IMPORTANT RULES:
+ *   1. Background gradients are applied ONLY at the layout level
+ *   2. All pages must use max-w-6xl (1152px) container width
+ *   3. Primary/secondary CTAs must use rounded-full
+ *   4. Use GuestSection, GuestCard, GuestStatus components, not raw HTML
+ *
+ * Last Updated: 2025-12-06T12:45Z
+ */
+
+/* =============================================================================
+   COLOR TOKENS
+   ============================================================================= */
+
+.guest-theme {
+  /* Primary palette (blue scale) */
+  --primary: 217 91% 60%;
+  /* #3B82F6 - blue-500 */
+  --primary-foreground: 210 40% 98%;
+  /* #F8FAFC */
+
+  /* Secondary (soft blue) */
+  --secondary: 213 96% 93%;
+  /* #DBEAFE - blue-100 */
+  --secondary-foreground: 222 47% 11%;
+
+  /* Accent (lightest blue) */
+  --accent: 213 100% 96%;
+  /* #EFF6FF - blue-50 */
+  --accent-foreground: 222 47% 11%;
+
+  /* Muted text */
+  --muted: 213 100% 96%;
+  --muted-foreground: 215 18% 45%;
+  /* #64748B - slate-500 */
+
+  /* Borders & Inputs */
+  --border: 216 33% 90%;
+  /* #E2E8F0 */
+  --input: 216 33% 90%;
+  --ring: 217 91% 60%;
+  /* Focus ring = primary */
+
+  /* Semantic status colors */
+  --info: 217 91% 60%;
+  --success: 142 76% 36%;
+  /* #16A34A */
+  --warning: 38 92% 50%;
+  /* #F59E0B */
+  --destructive: 0 84.2% 60.2%;
+  /* #EF4444 */
+}
+
+/* =============================================================================
+   SPACING TOKENS (8pt Grid)
+   ============================================================================= */
+
+.guest-theme {
+  --guest-space-xs: 0.5rem;
+  /* 8px  */
+  --guest-space-sm: 0.75rem;
+  /* 12px */
+  --guest-space-md: 1rem;
+  /* 16px */
+  --guest-space-lg: 1.5rem;
+  /* 24px */
+  --guest-space-xl: 2rem;
+  /* 32px */
+  --guest-space-2xl: 2.5rem;
+  /* 40px */
+  --guest-space-3xl: 3rem;
+  /* 48px */
+
+  /* Section-level spacing */
+  --guest-section-gap: 2.5rem;
+  --guest-section-padding-x: 1.5rem;
+  --guest-section-padding-y: 2rem;
+  --guest-card-padding: 1.5rem;
+  --guest-content-gap: 1.5rem;
+}
+
+/* =============================================================================
+   TYPOGRAPHY TOKENS
+   ============================================================================= */
+
+.guest-theme {
+  /* Type scale */
+  --guest-text-hero: 2.5rem;
+  /* 40px */
+  --guest-text-hero-lg: 3rem;
+  /* 48px */
+  --guest-text-page: 2rem;
+  /* 32px */
+  --guest-text-section: 1.5rem;
+  /* 24px */
+  --guest-text-card: 1.125rem;
+  /* 18px */
+  --guest-text-body: 1rem;
+  /* 16px */
+  --guest-text-caption: 0.875rem;
+  /* 14px */
+  --guest-text-micro: 0.75rem;
+  /* 12px */
+
+  /* Line heights */
+  --guest-leading-tight: 1.2;
+  --guest-leading-snug: 1.35;
+  --guest-leading-normal: 1.5;
+  --guest-leading-relaxed: 1.65;
+}
+
+/* =============================================================================
+   BORDER RADIUS TOKENS
+   ============================================================================= */
+
+.guest-theme {
+  --guest-radius-sm: 0.5rem;
+  /* 8px  - small elements */
+  --guest-radius-md: 0.75rem;
+  /* 12px - inputs, icon boxes */
+  --guest-radius-lg: 1rem;
+  /* 16px - cards (rounded-xl) */
+  --guest-radius-xl: 1.5rem;
+  /* 24px - large cards, sections (rounded-2xl) */
+  --guest-radius-2xl: 2rem;
+  /* 32px - hero sections */
+  --guest-radius-full: 9999px;
+  /* pills, avatars, CTA buttons */
+}
+
+/* =============================================================================
+   SHADOW TOKENS
+   ============================================================================= */
+
+.guest-theme {
+  --guest-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --guest-shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --guest-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --guest-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.1), 0 4px 8px rgba(0, 0, 0, 0.06);
+  --guest-shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.08);
+  --guest-shadow-glow: 0 0 24px rgba(59, 130, 246, 0.25);
+}
+
+/* =============================================================================
+   MOTION TOKENS
+   ============================================================================= */
+
+.guest-theme {
+  --guest-transition-fast: 150ms ease-out;
+  --guest-transition-base: 200ms ease-out;
+  --guest-transition-slow: 300ms ease-out;
+  --guest-transition-transform: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Interactive states */
+  --guest-hover-lift: -2px;
+  --guest-hover-scale: 1.02;
+  --guest-active-scale: 0.98;
+}
+
+/* =============================================================================
+   LAYOUT TOKENS (CRITICAL)
+   ============================================================================= */
+
+/*
+ * CONTAINER WIDTH: All guest pages MUST use max-w-6xl (1152px)
+ * 
+ * Correct:   <div className="mx-auto max-w-6xl">
+ * Incorrect: <div className="mx-auto max-w-5xl">  // DON'T USE
+ * Incorrect: <div className="mx-auto max-w-3xl">  // DON'T USE
+ *
+ * BACKGROUND: Applied at layout level only
+ * 
+ * Layouts (MarketingLayout, GuestLayout, AuthLayout) apply:
+ *   bg-gradient-to-b from-slate-50 via-white to-slate-50
+ *
+ * Individual pages should NOT define their own background gradient.
+ */
+
+/* =============================================================================
+   BUTTON RADIUS RULES
+   ============================================================================= */
+
+/*
+ * PRIMARY CTAs:     rounded-full (REQUIRED)
+ * SECONDARY CTAs:   rounded-full (REQUIRED)
+ * TERTIARY/GHOST:   rounded-xl (acceptable for de-emphasized actions)
+ *
+ * Examples:
+ *   <Button className="rounded-full">Book Now</Button>           ✅
+ *   <Button variant="outline" className="rounded-full">Share</Button>  ✅
+ *   <Button variant="ghost" className="rounded-xl">Book Again</Button> ✅
+ */
+
+/* =============================================================================
+   UTILITY CLASSES REFERENCE
+   ============================================================================= */
+
+/*
+ * Page Layout:
+ *   .guest-page        - Max-width container (max-w-6xl) with responsive padding
+ *   .guest-sections    - Flexbox stack with section-gap
+ *   .guest-content-grid - Grid with content-gap
+ *
+ * Typography:
+ *   .guest-heading-hero    - 40px/48px @lg, bold, tight tracking
+ *   .guest-heading-page    - 32px, bold
+ *   .guest-heading-section - 24px, semibold
+ *   .guest-heading-card    - 18px, semibold
+ *   .guest-body            - 16px, normal
+ *   .guest-caption         - 14px, normal
+ *   .guest-micro           - 12px, medium
+ *   .guest-eyebrow         - 12px, uppercase, wide tracking
+ *
+ * Cards & Surfaces:
+ *   .guest-card-base        - White bg, rounded-xl, shadow-sm, border
+ *   .guest-card-interactive - Hover lift + shadow
+ *   .guest-section          - White bg, rounded-xl, padding
+ *   .guest-empty            - Dashed border, gradient bg
+ *   .guest-glass            - Glassmorphism effect
+ *
+ * Buttons (see radius rules above):
+ *   .guest-btn-primary - Pill shape (rounded-full), shadow, hover lift
+ *
+ * Status:
+ *   .guest-status-info    - Blue background
+ *   .guest-status-success - Green background
+ *   .guest-status-warning - Amber background
+ *   .guest-status-error   - Red background
+ *
+ * Form Elements:
+ *   .guest-input          - 48px height, rounded, focus ring
+ *   .guest-input-with-icon - Left padding for icon
+ *
+ * Icons:
+ *   .guest-icon-box    - 40px square, rounded-xl, blue-50 bg
+ *   .guest-icon-box-lg - 48px square, rounded-lg
+ *
+ * Badges:
+ *   .guest-badge - Pill shape (rounded-full), blue-50 bg, blue-700 text
+ *
+ * Animation:
+ *   .guest-stagger    - Staggered fade-up animation
+ *   .guest-hover-card - Hover lift + shadow transition
+ *   .guest-focus      - Focus ring transition
+ */
+
+/* =============================================================================
+   COMPONENT IMPORTS (Required)
+   ============================================================================= */
+
+/*
+ * Always use these components from @/components/guest/ui:
+ *
+ *   import { 
+ *     GuestSection,      // Page sections with title, description, actions
+ *     GuestCard,         // Content cards
+ *     GuestHero,         // Hero sections
+ *     GuestStatus,       // Inline status messages
+ *     GuestEmptyState,   // Empty state with CTA
+ *     GuestErrorState    // Error state with retry
+ *   } from '@/components/guest/ui';
+ *
+ * DO NOT use raw HTML divs with custom styling for these patterns.
+ */

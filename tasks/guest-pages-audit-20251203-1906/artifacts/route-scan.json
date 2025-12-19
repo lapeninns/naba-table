@@ -1,0 +1,1253 @@
+{
+  "pages": [
+    {
+      "path": "/restaurants/:slug/book",
+      "methods": [],
+      "dynamic": true,
+      "groups": ["public", "marketing"],
+      "guards": [],
+      "source": "(public)/(marketing)/restaurants/[slug]/book/page.tsx",
+      "description": "Book page",
+      "params": ["slug"],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/restaurants/:slug/book/thank-you",
+      "methods": [],
+      "dynamic": true,
+      "groups": ["public", "marketing"],
+      "guards": [],
+      "source": "(public)/(marketing)/restaurants/[slug]/book/thank-you/page.tsx",
+      "description": "Thank-you page",
+      "params": ["slug"],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/restaurants/:slug",
+      "methods": [],
+      "dynamic": true,
+      "groups": ["public", "marketing"],
+      "guards": [],
+      "source": "(public)/(marketing)/restaurants/[slug]/page.tsx",
+      "description": "Page",
+      "params": ["slug"],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/restaurants",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["public", "marketing"],
+      "guards": [],
+      "source": "(public)/(marketing)/restaurants/page.tsx",
+      "description": "Restaurants page",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/auth/forgot-password",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["public"],
+      "guards": [],
+      "source": "(public)/auth/forgot-password/page.tsx",
+      "description": "Forgot-password page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/auth/signin",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["public"],
+      "guards": [],
+      "source": "(public)/auth/signin/page.tsx",
+      "description": "Signin page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/bookings/:bookingId",
+      "methods": [],
+      "dynamic": true,
+      "groups": ["public"],
+      "guards": [],
+      "source": "(public)/bookings/[bookingId]/page.tsx",
+      "description": "Page",
+      "params": ["bookingId"],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/bookings/:bookingId/thank-you",
+      "methods": [],
+      "dynamic": true,
+      "groups": ["public"],
+      "guards": [],
+      "source": "(public)/bookings/[bookingId]/thank-you/page.tsx",
+      "description": "Thank-you page",
+      "params": ["bookingId"],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["public"],
+      "guards": [],
+      "source": "(public)/page.tsx",
+      "description": "Homepage",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/app/bookings",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/bookings/page.tsx",
+      "description": "Bookings page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/customers",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/customers/page.tsx",
+      "description": "Customers page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/dashboard",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/dashboard/page.tsx",
+      "description": "Dashboard page",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/app/management",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/management/page.tsx",
+      "description": "Management page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/management/team",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/management/team/page.tsx",
+      "description": "Team page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/page.tsx",
+      "description": "App page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/seating/capacity",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/seating/capacity/page.tsx",
+      "description": "Capacity page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/seating/floor-plan",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/seating/floor-plan/page.tsx",
+      "description": "Floor-plan page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/seating",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/seating/page.tsx",
+      "description": "Seating page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/settings",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/settings/page.tsx",
+      "description": "Settings page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/settings/restaurant/occasions",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/settings/restaurant/occasions/page.tsx",
+      "description": "Occasions page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/settings/restaurant/operating-hours",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/settings/restaurant/operating-hours/page.tsx",
+      "description": "Operating-hours page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/settings/restaurant",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/settings/restaurant/page.tsx",
+      "description": "Restaurant page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/settings/restaurant/profile",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/settings/restaurant/profile/page.tsx",
+      "description": "Profile page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/settings/restaurant/service-periods",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/settings/restaurant/service-periods/page.tsx",
+      "description": "Service-periods page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/settings/restaurant/team",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/settings/restaurant/team/page.tsx",
+      "description": "Team page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/settings/tables",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/settings/tables/page.tsx",
+      "description": "Tables page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/walk-in",
+      "methods": [],
+      "dynamic": false,
+      "groups": ["app"],
+      "guards": [],
+      "source": "app/(app)/walk-in/page.tsx",
+      "description": "Walk-in page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/app/auth/signin",
+      "methods": [],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "app/auth/signin/page.tsx",
+      "description": "Signin page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/guest/bookings/:bookingId",
+      "methods": [],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "guest/bookings/[bookingId]/page.tsx",
+      "description": "Page",
+      "params": ["bookingId"],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/guest/bookings",
+      "methods": [],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "guest/bookings/page.tsx",
+      "description": "Bookings page",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/guest/dashboard",
+      "methods": [],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "guest/dashboard/page.tsx",
+      "description": "Dashboard page",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/guest",
+      "methods": [],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "guest/page.tsx",
+      "description": "Guest page",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/guest/profile",
+      "methods": [],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "guest/profile/page.tsx",
+      "description": "Profile page",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/guest/thank-you",
+      "methods": [],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "guest/thank-you/page.tsx",
+      "description": "Thank-you page",
+      "params": [],
+      "config": {}
+    }
+  ],
+  "api": [
+    {
+      "path": "/api/auth/callback",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/auth/callback/route.ts",
+      "description": "callback API endpoint",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/api/auth/signin",
+      "methods": ["POST"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/auth/signin/route.ts",
+      "description": "signin API endpoint",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/api/auth/signout",
+      "methods": ["POST"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/auth/signout/route.ts",
+      "description": "signout API endpoint",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/api/availability",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/availability/route.ts",
+      "description": "availability API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/bookings/:id/history",
+      "methods": ["GET"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/bookings/[id]/history/route.ts",
+      "description": "history API endpoint",
+      "params": ["id"],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/api/bookings/:id",
+      "methods": ["GET", "PUT", "DELETE"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/bookings/[id]/route.ts",
+      "description": "API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/bookings/confirm",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/bookings/confirm/route.ts",
+      "description": "confirm API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/bookings",
+      "methods": ["GET", "POST"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/bookings/route.ts",
+      "description": "bookings API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/config/merge-rules",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/config/merge-rules/route.ts",
+      "description": "merge-rules API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/config/service-policy",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/config/service-policy/route.ts",
+      "description": "service-policy API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/events",
+      "methods": ["POST", "GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/events/route.ts",
+      "description": "events API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/lead",
+      "methods": ["POST"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/lead/route.ts",
+      "description": "lead API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/allowed-capacities",
+      "methods": ["GET", "PUT"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/allowed-capacities/route.ts",
+      "description": "allowed-capacities API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/bookings/:id/assign-tables",
+      "methods": ["POST", "DELETE"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/bookings/[id]/assign-tables/route.ts",
+      "description": "assign-tables API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/bookings/:id/assignment-context",
+      "methods": ["GET"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/bookings/[id]/assignment-context/route.ts",
+      "description": "assignment-context API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/bookings/:id/check-in",
+      "methods": ["POST"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/bookings/[id]/check-in/route.ts",
+      "description": "check-in API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/bookings/:id/check-out",
+      "methods": ["POST"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/bookings/[id]/check-out/route.ts",
+      "description": "check-out API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/bookings/:id/history",
+      "methods": ["GET"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/bookings/[id]/history/route.ts",
+      "description": "history API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/bookings/:id/manual-context",
+      "methods": ["GET"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/bookings/[id]/manual-context/route.ts",
+      "description": "manual-context API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/bookings/:id/no-show",
+      "methods": ["POST"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/bookings/[id]/no-show/route.ts",
+      "description": "no-show API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/bookings/:id",
+      "methods": ["GET", "PATCH", "DELETE"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/bookings/[id]/route.ts",
+      "description": "API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/bookings/:id/status",
+      "methods": ["PATCH"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/bookings/[id]/status/route.ts",
+      "description": "status API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/bookings/:id/tables/:tableId",
+      "methods": ["DELETE"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/bookings/[id]/tables/[tableId]/route.ts",
+      "description": "API endpoint",
+      "params": ["id", "tableId"],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/bookings/:id/tables",
+      "methods": ["POST"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/bookings/[id]/tables/route.ts",
+      "description": "tables API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/bookings/:id/undo-no-show",
+      "methods": ["POST"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/bookings/[id]/undo-no-show/route.ts",
+      "description": "undo-no-show API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/bookings/disabled",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/bookings/disabled/route.ts",
+      "description": "disabled API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/bookings/export",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/bookings/export/route.ts",
+      "description": "export API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/bookings",
+      "methods": ["GET", "POST"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/bookings/route.ts",
+      "description": "bookings API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/bookings/status-summary",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/bookings/status-summary/route.ts",
+      "description": "status-summary API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/customers/export",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/customers/export/route.ts",
+      "description": "export API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/customers",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/customers/route.ts",
+      "description": "customers API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/dashboard/changes",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/dashboard/changes/route.ts",
+      "description": "changes API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/dashboard/heatmap",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/dashboard/heatmap/route.ts",
+      "description": "heatmap API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/dashboard/rejections",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/dashboard/rejections/route.ts",
+      "description": "rejections API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/dashboard/summary",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/dashboard/summary/route.ts",
+      "description": "summary API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/dashboard/vips",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/dashboard/vips/route.ts",
+      "description": "vips API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/occasions/:key",
+      "methods": ["PATCH", "DELETE"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/occasions/[key]/route.ts",
+      "description": "API endpoint",
+      "params": ["key"],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/occasions",
+      "methods": ["GET", "POST"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/occasions/route.ts",
+      "description": "occasions API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/restaurants/:id/details",
+      "methods": ["GET", "PUT"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/restaurants/[id]/details/route.ts",
+      "description": "details API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/restaurants/:id/hours",
+      "methods": ["GET", "PUT"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/restaurants/[id]/hours/route.ts",
+      "description": "hours API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/restaurants/:id/logo",
+      "methods": ["POST"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/restaurants/[id]/logo/route.ts",
+      "description": "logo API endpoint",
+      "params": ["id"],
+      "config": {
+        "runtime": "nodejs"
+      }
+    },
+    {
+      "path": "/api/ops/restaurants/:id",
+      "methods": ["GET", "PATCH", "DELETE"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/restaurants/[id]/route.ts",
+      "description": "API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/restaurants/:id/service-periods",
+      "methods": ["GET", "PUT"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/restaurants/[id]/service-periods/route.ts",
+      "description": "service-periods API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/restaurants",
+      "methods": ["GET", "POST"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/restaurants/route.ts",
+      "description": "restaurants API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/settings/strategic-config",
+      "methods": ["GET", "POST"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/settings/strategic-config/route.ts",
+      "description": "strategic-config API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/strategies/simulate",
+      "methods": ["POST", "GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/strategies/simulate/route.ts",
+      "description": "simulate API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/tables/:id",
+      "methods": ["PATCH", "DELETE"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/tables/[id]/route.ts",
+      "description": "API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/tables",
+      "methods": ["GET", "POST"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/tables/route.ts",
+      "description": "tables API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/tables/timeline",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/tables/timeline/route.ts",
+      "description": "timeline API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/team/invitations/:id",
+      "methods": ["DELETE"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/team/invitations/[id]/route.ts",
+      "description": "API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/team/invitations",
+      "methods": ["GET", "POST"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/team/invitations/route.ts",
+      "description": "invitations API endpoint",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/api/ops/team/memberships",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/team/memberships/route.ts",
+      "description": "memberships API endpoint",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/api/ops/zones/:id",
+      "methods": ["PATCH", "DELETE"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/zones/[id]/route.ts",
+      "description": "API endpoint",
+      "params": ["id"],
+      "config": {}
+    },
+    {
+      "path": "/api/ops/zones",
+      "methods": ["GET", "POST"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/ops/zones/route.ts",
+      "description": "zones API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/profile/image",
+      "methods": ["POST"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/profile/image/route.ts",
+      "description": "image API endpoint",
+      "params": [],
+      "config": {
+        "runtime": "nodejs"
+      }
+    },
+    {
+      "path": "/api/profile",
+      "methods": ["GET", "PUT"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/profile/route.ts",
+      "description": "profile API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/reservations/:id/confirmation",
+      "methods": ["GET"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/reservations/[id]/confirmation/route.ts",
+      "description": "confirmation API endpoint",
+      "params": ["id"],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/api/restaurants/:slug/calendar-mask",
+      "methods": ["GET"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/restaurants/[slug]/calendar-mask/route.ts",
+      "description": "calendar-mask API endpoint",
+      "params": ["slug"],
+      "config": {}
+    },
+    {
+      "path": "/api/restaurants/:slug",
+      "methods": ["GET"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/restaurants/[slug]/route.ts",
+      "description": "API endpoint",
+      "params": ["slug"],
+      "config": {}
+    },
+    {
+      "path": "/api/restaurants/:slug/schedule",
+      "methods": ["GET"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/restaurants/[slug]/schedule/route.ts",
+      "description": "schedule API endpoint",
+      "params": ["slug"],
+      "config": {}
+    },
+    {
+      "path": "/api/restaurants",
+      "methods": ["GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/restaurants/route.ts",
+      "description": "restaurants API endpoint",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/api/staff/auto/confirm",
+      "methods": ["POST"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/staff/auto/confirm/route.ts",
+      "description": "confirm API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/staff/auto/quote",
+      "methods": ["POST"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/staff/auto/quote/route.ts",
+      "description": "quote API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/team/invitations/:token/accept",
+      "methods": ["POST"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/team/invitations/[token]/accept/route.ts",
+      "description": "accept API endpoint",
+      "params": ["token"],
+      "config": {}
+    },
+    {
+      "path": "/api/team/invitations/:token",
+      "methods": ["GET"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/team/invitations/[token]/route.ts",
+      "description": "API endpoint",
+      "params": ["token"],
+      "config": {}
+    },
+    {
+      "path": "/api/test/bookings",
+      "methods": ["POST"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/test/bookings/route.ts",
+      "description": "bookings API endpoint",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/api/test/invitations",
+      "methods": ["POST", "DELETE"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/test/invitations/route.ts",
+      "description": "invitations API endpoint",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/api/test/leads",
+      "methods": ["DELETE"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/test/leads/route.ts",
+      "description": "leads API endpoint",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/api/test/playwright-session",
+      "methods": ["POST"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/test/playwright-session/route.ts",
+      "description": "playwright-session API endpoint",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/api/test/reservations/:id/confirmation",
+      "methods": ["GET"],
+      "dynamic": true,
+      "groups": [],
+      "guards": [],
+      "source": "api/test/reservations/[id]/confirmation/route.ts",
+      "description": "confirmation API endpoint",
+      "params": ["id"],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/api/test-email",
+      "methods": ["POST", "GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/test-email/route.ts",
+      "description": "test-email API endpoint",
+      "params": [],
+      "config": {}
+    },
+    {
+      "path": "/api/v1/events",
+      "methods": ["POST", "GET"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/v1/events/route.ts",
+      "description": "events API endpoint",
+      "params": [],
+      "config": {
+        "dynamic": "force-dynamic"
+      }
+    },
+    {
+      "path": "/api/webhook/resend",
+      "methods": ["POST"],
+      "dynamic": false,
+      "groups": [],
+      "guards": [],
+      "source": "api/webhook/resend/route.ts",
+      "description": "resend API endpoint",
+      "params": [],
+      "config": {}
+    }
+  ],
+  "other": [],
+  "meta": {
+    "frameworks_detected": ["Next.js 15 App Router"],
+    "total_routes": 107,
+    "scanning_notes": [],
+    "warnings": [
+      {
+        "type": "middleware_detected",
+        "file": "src/middleware.ts",
+        "message": "Global middleware detected; may affect routing."
+      }
+    ],
+    "timestamp": "2025-12-03T19:09:31.427Z"
+  }
+}

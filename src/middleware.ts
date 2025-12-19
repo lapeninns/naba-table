@@ -47,7 +47,7 @@ function getAppHosts(rootDomain: string) {
 }
 
 function getWebHosts(rootDomain: string) {
-  return new Set([rootDomain, `www.${rootDomain}`, "localhost"]);
+  return new Set([rootDomain, `www.${rootDomain}`, "localhost", "127.0.0.1"]);
 }
 
 const STATIC_PATHS = new Set(["/favicon.ico", "/robots.txt", "/sitemap.xml"]);
@@ -84,10 +84,12 @@ async function handleRouting(req: NextRequest): Promise<NextResponse> {
   const rootDomain = getRootDomain();
   const appHosts = getAppHosts(rootDomain);
   const webHosts = getWebHosts(rootDomain);
-  const isLocalHost = (hostname: string) => hostname === "localhost" || hostname === "127.0.0.1";
-
-  // Get hostname (e.g. app.sajiloreserve.com or localhost:3000)
-  const hostname = (req.headers.get("host") || "").replace(/:3000$/, "").toLowerCase();
+  const hostname = url.hostname.toLowerCase();
+  const port = url.port;
+  const isLocalHost = (candidate: string) => candidate === "localhost" || candidate === "127.0.0.1";
+  const hostForMatch = hostname;
+  const localPort = port && port.length > 0 ? port : "3000";
+  const protocol = url.protocol || "http";
 
   // Define allowed subdomains
   const searchParams = req.nextUrl.searchParams.toString();
@@ -104,7 +106,7 @@ async function handleRouting(req: NextRequest): Promise<NextResponse> {
   }
 
   // 1. App Subdomain Logic (restaurant-facing)
-  if (appHosts.has(hostname)) {
+  if (appHosts.has(hostForMatch)) {
     // Static/framework already handled above; preserve other api paths untouched unless ops rewrite needed
     if (isApiPath(url.pathname)) {
       const [, , service, ...rest] = url.pathname.split("/");
@@ -184,7 +186,7 @@ async function handleRouting(req: NextRequest): Promise<NextResponse> {
   }
 
   // 2. Guest/Root Domain Logic
-  if (webHosts.has(hostname)) {
+  if (webHosts.has(hostForMatch)) {
     if (!isApiPath(url.pathname)) {
       // Canonicalize restaurant-facing app to the app subdomain
       // Redirect /app/* to app.domain/* (stripping /app prefix)
@@ -193,7 +195,7 @@ async function handleRouting(req: NextRequest): Promise<NextResponse> {
 
         if (isLocalHost(hostname)) {
           return NextResponse.redirect(
-            new URL(`http://app.localhost:3000${redirectedPath}${searchParams ? `?${searchParams}` : ""}`),
+            new URL(`${protocol}//app.localhost:${localPort}${redirectedPath}${searchParams ? `?${searchParams}` : ""}`),
             308,
           );
         }

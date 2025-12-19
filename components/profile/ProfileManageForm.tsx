@@ -2,19 +2,20 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
-import { Loader2, Upload, X } from 'lucide-react';
+import { Camera, Loader2, Mail, Phone, User, X, CheckCircle2, AlertCircle } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
+import { GuestCard, GuestSection, GuestStatus } from '@/components/guest/ui';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Separator } from '@/components/ui/separator';
-import { useProfile, useUpdateProfile, useUploadProfileAvatar, coerceProfileUpdatePayload } from '@/hooks/useProfile';
+import { useGuestProfile } from '@/guest/hooks';
+import { useUpdateProfile, useUploadProfileAvatar, coerceProfileUpdatePayload } from '@/hooks/useProfile';
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
 import { HttpError } from '@/lib/http/errors';
@@ -24,8 +25,6 @@ import { cn } from '@/lib/utils';
 
 import type { ProfileResponse } from '@/lib/profile/schema';
 
-
-
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024; // 2 MB
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']);
 
@@ -34,20 +33,12 @@ const formSchema = z.object({
     .string()
     .transform((value) => value.trim())
     .superRefine((value, ctx) => {
-      if (value.length === 0) {
-        return;
-      }
+      if (value.length === 0) return;
       if (value.length < 2) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Name must be at least 2 characters',
-        });
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Name must be at least 2 characters' });
       }
       if (value.length > 80) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Name must be 80 characters or fewer',
-        });
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Name must be 80 characters or fewer' });
       }
     }),
   phone: profilePhoneSchema,
@@ -67,12 +58,7 @@ type AvatarState = {
   removed: boolean;
 };
 
-type AvatarValidationError = {
-  code: 'FILE_TOO_LARGE' | 'UNSUPPORTED_FILE';
-  message: string;
-};
-
-type StatusTone = 'info' | 'success' | 'warning' | 'error';
+type StatusTone = 'info' | 'success' | 'warning' | 'danger';
 
 type StatusState = {
   message: string;
@@ -87,51 +73,36 @@ const FIELD_LABELS: Record<'name' | 'phone' | 'image', string> = {
 };
 
 const getLiveForTone = (tone: StatusTone): 'polite' | 'assertive' =>
-  tone === 'warning' || tone === 'error' ? 'assertive' : 'polite';
+  tone === 'warning' || tone === 'danger' ? 'assertive' : 'polite';
 
 const formatFieldList = (keys: Array<'name' | 'phone' | 'image'>): string => {
   const labels = keys.map((key) => FIELD_LABELS[key]);
-  if (labels.length === 0) {
-    return 'details';
-  }
-  if (labels.length === 1) {
-    return labels[0]!;
-  }
-  if (labels.length === 2) {
-    return `${labels[0]} and ${labels[1]}`;
-  }
+  if (labels.length === 0) return 'details';
+  if (labels.length === 1) return labels[0]!;
+  if (labels.length === 2) return `${labels[0]} and ${labels[1]}`;
   const head = labels.slice(0, -1).join(', ');
   const tail = labels[labels.length - 1];
   return `${head}, and ${tail}`;
 };
 
-function validateAvatarFile(file: File): AvatarValidationError | null {
+function validateAvatarFile(file: File): { code: string; message: string } | null {
   if (file.size > MAX_AVATAR_SIZE) {
-    return {
-      code: 'FILE_TOO_LARGE',
-      message: 'Images must be 2 MB or smaller',
-    };
+    return { code: 'FILE_TOO_LARGE', message: 'Images must be 2 MB or smaller' };
   }
-
   if (!ALLOWED_MIME_TYPES.has(file.type)) {
-    return {
-      code: 'UNSUPPORTED_FILE',
-      message: 'Supported formats: JPEG, PNG, WEBP, SVG',
-    };
+    return { code: 'UNSUPPORTED_FILE', message: 'Supported formats: JPEG, PNG, WEBP, SVG' };
   }
-
   return null;
 }
 
 export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
   const queryClient = useQueryClient();
-  const { data: profile } = useProfile();
+  const { data: profile } = useGuestProfile();
   const updateProfile = useUpdateProfile();
   const uploadAvatar = useUploadProfileAvatar();
 
   const currentProfile = profile ?? initialProfile;
 
-  // Warm the query cache with the server-provided profile so the GET request de-dupes.
   useEffect(() => {
     queryClient.setQueryData(queryKeys.profile.self(), initialProfile);
   }, [initialProfile, queryClient]);
@@ -157,7 +128,6 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
   const [status, setStatus] = useState<StatusState | null>(null);
   const statusRef = useRef<HTMLParagraphElement | null>(null);
 
-  // Sync form when profile changes (e.g. after successful mutation elsewhere).
   useEffect(() => {
     form.reset({
       name: currentProfile.name ?? '',
@@ -169,7 +139,6 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
     setAvatarError(null);
   }, [currentProfile.email, currentProfile.image, currentProfile.name, form]);
 
-  // Focus first error when validation fails.
   useEffect(() => {
     const entries = Object.entries(form.formState.errors);
     if (entries.length > 0) {
@@ -180,7 +149,6 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
     }
   }, [form, form.formState.errors]);
 
-  // Clean up preview blob URLs.
   useEffect(() => {
     return () => {
       if (avatarState.previewUrl && avatarState.previewUrl.startsWith('blob:')) {
@@ -190,20 +158,14 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
   }, [avatarState.previewUrl]);
 
   const releasePreview = (url: string | null) => {
-    if (url && url.startsWith('blob:')) {
-      URL.revokeObjectURL(url);
-    }
+    if (url && url.startsWith('blob:')) URL.revokeObjectURL(url);
   };
 
   const uploadAvatarFile = async (file: File) => {
     const previewUrl = URL.createObjectURL(file);
     setAvatarState((prev) => {
       releasePreview(prev.previewUrl);
-      return {
-        file,
-        previewUrl,
-        removed: false,
-      };
+      return { file, previewUrl, removed: false };
     });
     setAvatarError(null);
 
@@ -211,49 +173,31 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
       const uploadResult = await uploadAvatar.mutateAsync(file);
       setAvatarState((prev) => {
         releasePreview(prev.previewUrl);
-        return {
-          file: null,
-          previewUrl: uploadResult.url ?? null,
-          removed: false,
-        };
+        return { file: null, previewUrl: uploadResult.url ?? null, removed: false };
       });
       form.setValue('image', uploadResult.url ?? '', { shouldDirty: true });
       setAvatarError(null);
-      announceStatus({
-        message: 'Avatar uploaded — save changes to apply it everywhere.',
-        tone: 'info',
-      });
+      announceStatus({ message: 'Avatar uploaded — save changes to apply it everywhere.', tone: 'info' });
     } catch (error) {
       console.error('[profile/manage] avatar upload failed', error);
-      const message = 'We couldn’t upload your image. Please try again.';
+      const message = "We couldn't upload your image. Please try again.";
       setAvatarState((prev) => {
         releasePreview(prev.previewUrl);
         return { file: null, previewUrl: null, removed: false };
       });
       setAvatarError(message);
-      announceStatus({
-        message,
-        tone: 'error',
-        live: 'assertive',
-      });
+      announceStatus({ message, tone: 'danger', live: 'assertive' });
     }
   };
 
   const onAvatarChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
-    if (!file) {
-      return;
-    }
+    if (!file) return;
 
     const validation = validateAvatarFile(file);
     if (validation) {
-      const payload = {
-        code: validation.code,
-        size: file.size,
-        type: file.type,
-      };
-      track('profile_upload_error', payload);
-      emit('profile_upload_error', payload);
+      track('profile_upload_error', { code: validation.code, size: file.size, type: file.type });
+      emit('profile_upload_error', { code: validation.code, size: file.size, type: file.type });
       setAvatarError(validation.message);
       setAvatarState((prev) => {
         releasePreview(prev.previewUrl);
@@ -277,25 +221,12 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
   const watchedName = form.watch('name');
   const watchedPhone = form.watch('phone');
   const watchedImage = form.watch('image');
-  const hasNameChanged = useMemo(() => {
-    const trimmed = watchedName.trim();
-    const baseline = currentProfile.name ?? '';
-    return trimmed !== baseline.trim();
-  }, [currentProfile.name, watchedName]);
 
-  const hasPhoneChanged = useMemo(() => {
-    const trimmed = watchedPhone.trim();
-    const baseline = currentProfile.phone ?? '';
-    return trimmed !== (baseline ?? '').trim();
-  }, [currentProfile.phone, watchedPhone]);
-
-  const hasImageChanged = useMemo(() => {
-    const trimmed = watchedImage?.trim() ?? '';
-    const baseline = currentProfile.image ?? '';
-    return trimmed !== (baseline ?? '').trim();
-  }, [currentProfile.image, watchedImage]);
-
+  const hasNameChanged = useMemo(() => watchedName.trim() !== (currentProfile.name ?? '').trim(), [currentProfile.name, watchedName]);
+  const hasPhoneChanged = useMemo(() => watchedPhone.trim() !== (currentProfile.phone ?? '').trim(), [currentProfile.phone, watchedPhone]);
+  const hasImageChanged = useMemo(() => (watchedImage?.trim() ?? '') !== (currentProfile.image ?? '').trim(), [currentProfile.image, watchedImage]);
   const hasAvatarChanged = avatarState.removed || Boolean(avatarState.file) || hasImageChanged;
+
   const isSubmitting = updateProfile.isPending || uploadAvatar.isPending;
   const disableSubmit = isSubmitting || (!hasNameChanged && !hasPhoneChanged && !hasAvatarChanged);
   const hasUnsavedChanges = !disableSubmit;
@@ -304,13 +235,7 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
     setTimeout(() => statusRef.current?.focus(), 0);
   };
 
-  const announceStatus = (
-    next: {
-      message: string;
-      tone: StatusTone;
-      live?: 'polite' | 'assertive';
-    } | null,
-  ) => {
+  const announceStatus = (next: { message: string; tone: StatusTone; live?: 'polite' | 'assertive' } | null) => {
     if (!next) {
       setStatus(null);
       return;
@@ -324,34 +249,24 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
     const handler = (event: BeforeUnloadEvent) => {
       if (!hasUnsavedChanges) return;
       event.preventDefault();
-      // Chrome requires returnValue to be set.
       event.returnValue = '';
     };
-
     window.addEventListener('beforeunload', handler);
-    return () => {
-      window.removeEventListener('beforeunload', handler);
-    };
+    return () => window.removeEventListener('beforeunload', handler);
   }, [hasUnsavedChanges]);
 
   const onSubmit = form.handleSubmit(async (values) => {
     announceStatus(null);
 
-    const trimmedName = values.name.trim();
-    const baselineName = currentProfile.name ?? '';
-    const nameHasChanged = trimmedName !== baselineName.trim();
-
-    const trimmedPhone = values.phone.trim();
-    const baselinePhone = currentProfile.phone ?? '';
-    const phoneHasChanged = trimmedPhone !== baselinePhone.trim();
-
     if (avatarState.file) {
-      announceStatus({
-        message: 'Please wait for your avatar upload to finish before saving.',
-        tone: 'info',
-      });
+      announceStatus({ message: 'Please wait for your avatar upload to finish before saving.', tone: 'info' });
       return;
     }
+
+    const trimmedName = values.name.trim();
+    const nameHasChanged = trimmedName !== (currentProfile.name ?? '').trim();
+    const trimmedPhone = values.phone.trim();
+    const phoneHasChanged = trimmedPhone !== (currentProfile.phone ?? '').trim();
 
     let desiredImage: string | null;
     if (avatarState.removed) {
@@ -362,27 +277,16 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
     }
 
     const draft: Record<string, string | null> = {};
-    if (nameHasChanged) {
-      draft.name = trimmedName.length > 0 ? trimmedName : null;
-    }
-
-    if (phoneHasChanged) {
-      draft.phone = trimmedPhone.length > 0 ? trimmedPhone : null;
-    }
-
-    if (hasAvatarChanged) {
-      draft.image = desiredImage;
-    }
+    if (nameHasChanged) draft.name = trimmedName.length > 0 ? trimmedName : null;
+    if (phoneHasChanged) draft.phone = trimmedPhone.length > 0 ? trimmedPhone : null;
+    if (hasAvatarChanged) draft.image = desiredImage;
 
     const changedKeys = Object.keys(draft).filter((key): key is 'name' | 'phone' | 'image' =>
-      key === 'name' || key === 'phone' || key === 'image',
+      key === 'name' || key === 'phone' || key === 'image'
     );
 
     if (changedKeys.length === 0) {
-      announceStatus({
-        message: 'No changes detected — update a field before saving.',
-        tone: 'info',
-      });
+      announceStatus({ message: 'No changes detected — update a field before saving.', tone: 'info' });
       return;
     }
 
@@ -397,171 +301,235 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
         image: updated.image ?? '',
       });
       setAvatarState((prev) => {
-        if (prev.previewUrl && prev.previewUrl.startsWith('blob:')) {
-          URL.revokeObjectURL(prev.previewUrl);
-        }
+        if (prev.previewUrl && prev.previewUrl.startsWith('blob:')) URL.revokeObjectURL(prev.previewUrl);
         return { file: null, previewUrl: null, removed: false };
       });
       setAvatarError(null);
       if (result.idempotent) {
-        const description =
-          changedKeys.length > 0
-            ? `We already saved your ${formatFieldList(changedKeys)} — everything is up to date.`
-            : 'We already saved those details — everything is up to date.';
-        announceStatus({
-          message: description,
-          tone: 'info',
-        });
+        const description = changedKeys.length > 0
+          ? `We already saved your ${formatFieldList(changedKeys)} — everything is up to date.`
+          : 'We already saved those details — everything is up to date.';
+        announceStatus({ message: description, tone: 'info' });
       } else {
-        announceStatus({
-          message: 'Profile updated successfully.',
-          tone: 'success',
-        });
+        announceStatus({ message: 'Profile updated successfully!', tone: 'success' });
       }
     } catch (error) {
       console.error('[profile/manage] update failed', error);
       if (error instanceof HttpError) {
         if (error.code === 'IDEMPOTENCY_KEY_CONFLICT') {
           announceStatus({
-            message:
-              'We already processed a recent update. Refresh the page to make sure you are editing the latest details.',
+            message: 'We already processed a recent update. Refresh the page to make sure you are editing the latest details.',
             tone: 'warning',
           });
           return;
         }
-
-        announceStatus({
-          message: error.message || 'We couldn’t update your profile. Please try again.',
-          tone: 'error',
-        });
+        announceStatus({ message: error.message || "We couldn't update your profile. Please try again.", tone: 'danger' });
         return;
       }
-
-      announceStatus({
-        message: 'We couldn’t update your profile. Please try again.',
-        tone: 'error',
-      });
+      announceStatus({ message: "We couldn't update your profile. Please try again.", tone: 'danger' });
     }
   });
 
   const avatarPreviewSrc = avatarState.previewUrl ?? currentProfile.image ?? null;
 
-  const statusToneClass: Record<StatusTone, string> = {
-    info: 'text-muted-foreground',
-    success: 'text-emerald-600',
-    warning: 'text-amber-600',
-    error: 'text-red-600',
+  const statusStyles: Record<StatusTone, { bg: string; text: string; icon: React.ElementType }> = {
+    info: { bg: 'bg-blue-50', text: 'text-blue-700', icon: AlertCircle },
+    success: { bg: 'bg-emerald-50', text: 'text-emerald-700', icon: CheckCircle2 },
+    warning: { bg: 'bg-amber-50', text: 'text-amber-700', icon: AlertCircle },
+    danger: { bg: 'bg-red-50', text: 'text-red-700', icon: AlertCircle },
   };
 
   return (
     <Form {...form}>
       <form onSubmit={onSubmit} className="space-y-8" noValidate>
-        <div className="grid gap-8 md:grid-cols-[1fr_300px] lg:grid-cols-[1fr_360px]">
-          <div className="space-y-8">
-            <Card>
-              <CardHeader>
-                <CardTitle>Personal Information</CardTitle>
-                <CardDescription>
-                  Update your personal details and how you can be reached.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Display Name</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Ada Lovelace"
-                          autoComplete="name"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        This is the name that will be displayed to restaurants.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
 
-                <FormField
-                  control={form.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone Number</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="+1 415 555 0123"
-                          autoComplete="tel"
-                          inputMode="tel"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Used for booking confirmations and updates.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+        {/* Avatar Section */}
+        <GuestSection title={currentProfile.name || 'Your Profile'} description="Update your photo and personal details. A clear photo helps restaurants recognize you." padding="md" className="bg-white">
+          <div className="flex flex-col items-center gap-8 sm:flex-row sm:items-start">
+            {/* Avatar */}
+            <div className="relative group">
+              <div className="relative h-32 w-32 overflow-hidden rounded-2xl border-4 border-white bg-gradient-to-br from-slate-100 to-slate-50 shadow-xl ring-1 ring-slate-100 transition-transform group-hover:scale-105">
+                {avatarPreviewSrc ? (
+                  <Image
+                    src={avatarPreviewSrc}
+                    alt="Profile avatar"
+                    fill
+                    className="object-cover"
+                    sizes="128px"
+                    priority
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-5xl font-bold text-slate-300">
+                    {currentProfile.name?.slice(0, 1).toUpperCase() ?? currentProfile.email.slice(0, 1).toUpperCase()}
+                  </div>
+                )}
+              </div>
 
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email Address</FormLabel>
-                      <FormControl>
-                        <Input readOnly disabled {...field} className="bg-muted" />
-                      </FormControl>
-                      <FormDescription>
-                        Managed via your account login and cannot be changed here.
-                      </FormDescription>
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-              <CardFooter className="flex flex-col items-start justify-between gap-4 border-t bg-muted/50 px-6 py-4 sm:flex-row sm:items-center">
-                <p
-                  ref={statusRef}
-                  tabIndex={status ? -1 : undefined}
-                  className={cn(
-                    'text-sm font-medium transition-colors',
-                    status ? statusToneClass[status.tone] : 'text-muted-foreground'
-                  )}
-                  role="status"
-                  aria-live={status?.live ?? 'polite'}
+              {/* Avatar Actions */}
+              <div className="absolute -bottom-2 -right-2 flex gap-1.5">
+                <Button
+                  type="button"
+                  size="icon"
+                  className="h-10 w-10 rounded-full bg-slate-900 shadow-lg hover:bg-slate-800 transition-all"
+                  onClick={() => document.getElementById('avatar-upload')?.click()}
+                  disabled={isSubmitting}
+                  title="Upload new photo"
                 >
-                  {status?.message}
-                </p>
-                <div className="flex w-full gap-3 sm:w-auto">
+                  <Camera className="h-4 w-4 text-white" />
+                </Button>
+                {(currentProfile.image || avatarPreviewSrc) && (
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="destructive"
+                    className="h-10 w-10 rounded-full shadow-lg"
+                    onClick={handleRemoveAvatar}
+                    disabled={isSubmitting}
+                    title="Remove photo"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+
+              <input
+                id="avatar-upload"
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/svg+xml"
+                className="sr-only"
+                onChange={onAvatarChange}
+                disabled={isSubmitting}
+              />
+            </div>
+
+            {/* Avatar Info */}
+            <div className="flex-1 text-center sm:text-left">
+              {avatarError && (
+                <GuestStatus title={avatarError} tone="danger" className="inline-flex" />
+              )}
+            </div>
+          </div>
+        </GuestSection>
+
+        {/* Form Fields */}
+        <GuestCard className="shadow-sm">
+          <CardContent className="p-6 sm:p-8 space-y-6">
+            <h3 className="text-lg font-semibold text-slate-900 mb-6">Personal Information</h3>
+
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-slate-700 font-medium">Display Name</FormLabel>
+                  <div className="relative">
+                    <User className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                    <FormControl>
+                      <Input
+                        placeholder="Ada Lovelace"
+                        autoComplete="name"
+                        className="h-12 pl-12 rounded-xl border-slate-200 bg-white text-base focus:border-slate-400 focus:ring-slate-400"
+                        {...field}
+                      />
+                    </FormControl>
+                  </div>
+                  <FormDescription className="text-slate-500">
+                    The name restaurants will see when you book.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-slate-700 font-medium">Phone Number</FormLabel>
+                  <div className="relative">
+                    <Phone className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                    <FormControl>
+                      <Input
+                        placeholder="+1 415 555 0123"
+                        autoComplete="tel"
+                        inputMode="tel"
+                        className="h-12 pl-12 rounded-xl border-slate-200 bg-white text-base focus:border-slate-400 focus:ring-slate-400"
+                        {...field}
+                      />
+                    </FormControl>
+                  </div>
+                  <FormDescription className="text-slate-500">
+                    Required for reservation updates and reminders.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-slate-700 font-medium">Email Address</FormLabel>
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                    <FormControl>
+                      <Input
+                        readOnly
+                        disabled
+                        {...field}
+                        className="h-12 pl-12 rounded-xl border-slate-100 bg-slate-50 text-slate-500 text-base cursor-not-allowed"
+                      />
+                    </FormControl>
+                  </div>
+                  <FormDescription className="text-slate-500">
+                    Managed via your login provider.
+                  </FormDescription>
+                </FormItem>
+              )}
+            />
+          </CardContent>
+        </GuestCard>
+
+        {/* Action Bar */}
+        <div className="sticky bottom-6 z-10">
+          <GuestCard className="border-slate-100 shadow-xl bg-white/95 backdrop-blur-sm">
+            <div className="p-4 sm:p-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                {status && (
+                  <GuestStatus
+                    ref={statusRef}
+                    title={status.message}
+                    tone={status.tone}
+                    aria-live={status.live}
+                    className="sm:max-w-xl"
+                  />
+                )}
+
+                <div className="flex gap-3 sm:ml-auto">
                   <Button
                     type="button"
                     variant="ghost"
                     onClick={() => {
                       form.reset();
                       setAvatarState((prev) => {
-                        if (prev.previewUrl && prev.previewUrl.startsWith('blob:')) {
-                          URL.revokeObjectURL(prev.previewUrl);
-                        }
+                        if (prev.previewUrl && prev.previewUrl.startsWith('blob:')) URL.revokeObjectURL(prev.previewUrl);
                         return { file: null, previewUrl: null, removed: false };
                       });
                       setAvatarError(null);
                       announceStatus(null);
                     }}
-                    disabled={isSubmitting}
-                    className="flex-1 sm:flex-none"
+                    disabled={isSubmitting || !hasUnsavedChanges}
+                    className="text-slate-500 hover:text-slate-900"
                   >
-                    Reset
+                    Discard Changes
                   </Button>
                   <Button
                     type="submit"
                     disabled={disableSubmit}
-                    className="flex-1 sm:flex-none"
+                    className="rounded-full bg-slate-900 px-8 hover:bg-slate-800 shadow-lg"
                   >
                     {isSubmitting ? (
                       <>
@@ -573,84 +541,9 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
                     )}
                   </Button>
                 </div>
-              </CardFooter>
-            </Card>
-          </div>
-
-          <div className="order-first md:order-last">
-            <Card>
-              <CardHeader>
-                <CardTitle>Profile Picture</CardTitle>
-                <CardDescription>
-                  Upload a picture to make your profile recognizable.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col items-center gap-6">
-                <div className="relative h-40 w-40 overflow-hidden rounded-full border-4 border-muted bg-muted shadow-sm">
-                  {avatarPreviewSrc ? (
-                    <Image
-                      src={avatarPreviewSrc}
-                      alt="Profile avatar preview"
-                      fill
-                      className="object-cover"
-                      sizes="160px"
-                      priority
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-muted text-4xl font-semibold text-muted-foreground">
-                      {currentProfile.name?.slice(0, 1).toUpperCase() ?? currentProfile.email.slice(0, 1).toUpperCase()}
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex w-full flex-col gap-3">
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
-                      disabled={isSubmitting}
-                      onClick={() => document.getElementById('avatar-upload')?.click()}
-                    >
-                      <Upload className="mr-2 h-4 w-4" />
-                      Upload
-                    </Button>
-                    <input
-                      id="avatar-upload"
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,image/svg+xml"
-                      className="sr-only"
-                      onChange={onAvatarChange}
-                      disabled={isSubmitting}
-                    />
-
-                    {(currentProfile.image || avatarPreviewSrc) && (
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="icon"
-                        onClick={handleRemoveAvatar}
-                        disabled={isSubmitting}
-                        title="Remove avatar"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-
-                  {avatarError && (
-                    <p className="text-center text-sm font-medium text-destructive">
-                      {avatarError}
-                    </p>
-                  )}
-
-                  <p className="text-center text-xs text-muted-foreground">
-                    JPEG, PNG, WEBP or SVG. Max 2MB.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </div>
+          </GuestCard>
         </div>
       </form>
     </Form>

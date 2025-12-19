@@ -149,7 +149,7 @@ type UseEditBookingDialogState = {
   isDirty: boolean;
   notesValue: string;
   currentStartDisplay: string;
-  handleDateChange: () => void;
+  handleDateChange: (nextDateIso: string | null) => void;
   handleStartValueChange: (next: string | null) => void;
   handlePartySizeChange: (direction: 'increment' | 'decrement') => void;
   activeError: { message: string; code?: string } | null;
@@ -190,13 +190,13 @@ function useEditBookingDialogState({
   const hasCommittedStart = typeof startValue === 'string' ? startValue.trim().length > 0 : Boolean(startValue);
 
   const effectiveRestaurantSlug = useMemo(
-    () => restaurantSlugOverride ?? booking?.restaurantSlug ?? null,
-    [booking?.restaurantSlug, restaurantSlugOverride],
+    () => restaurantSlugOverride ?? booking?.restaurants?.slug ?? booking?.restaurantSlug ?? null,
+    [booking?.restaurants?.slug, booking?.restaurantSlug, restaurantSlugOverride],
   );
 
   const effectiveRestaurantTimezone = useMemo(
-    () => restaurantTimezoneOverride ?? booking?.restaurantTimezone ?? null,
-    [booking?.restaurantTimezone, restaurantTimezoneOverride],
+    () => restaurantTimezoneOverride ?? booking?.restaurants?.timezone ?? booking?.restaurantTimezone ?? null,
+    [booking?.restaurants?.timezone, booking?.restaurantTimezone, restaurantTimezoneOverride],
   );
 
   const missingScheduleMetadata = !effectiveRestaurantSlug;
@@ -221,13 +221,18 @@ function useEditBookingDialogState({
     }
   }, [booking, defaultValues, open, reset]);
 
-  const handleDateChange = useCallback(() => {
-    setValue('start', '', {
-      shouldValidate: true,
-      shouldDirty: true,
-      shouldTouch: true,
-    });
-  }, [setValue]);
+  const handleDateChange = useCallback(
+    (nextDateIso: string | null) => {
+      if (nextDateIso === null) {
+        setValue('start', '', {
+          shouldValidate: true,
+          shouldDirty: true,
+          shouldTouch: true,
+        });
+      }
+    },
+    [setValue],
+  );
 
   const handleStartValueChange = useCallback(
     (next: string | null) => {
@@ -448,11 +453,11 @@ export function EditBookingDialog({
                       onDateChange={handleDateChange}
                       onBlur={field.onBlur}
                       label="Plan your visit"
-                      description="Choose a date, time, and party size. We’ll show available options."
+                      description="Choose a date, time, and party size. We'll show available options."
                       errorMessage={fieldState.error?.message ?? null}
                       disabled={isSaving || missingScheduleMetadata}
                       minDate={fallbackMinDate}
-                      variant="plan"
+                      targetService={booking?.booking_type ?? null}
                     >
                       <FormField
                         control={control}

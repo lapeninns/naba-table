@@ -1,33 +1,54 @@
 'use client';
 
-import { CalendarClock, CalendarX, MapPin, Users, MoreHorizontal, ArrowRight, Clock, Calendar } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  ArrowRight,
+  Calendar,
+  Clock,
+  MapPin,
+  MoreHorizontal,
+  Plus,
+  Search,
+  Users,
+} from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 
+import { GuestCard, GuestEmpty, GuestError, GuestSection } from '@/components/guest/ui';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useBookings } from '@/hooks/useBookings';
-import { formatReservationDate, formatReservationTime } from '@reserve/shared/formatting/booking';
+import { useGuestBookings } from '@/guest/hooks';
+import { normalizeBookingsTab, type BookingsTab } from '@/guest/lib/validation';
+import { StatusRegion } from '@/guest/routes/shared/StatusRegion';
+import { queryKeys } from '@/lib/query/keys';
+import { cn } from '@/lib/utils';
+import { formatReservationTime } from '@reserve/shared/formatting/booking';
 
+import type { BookingDTO } from '@/guest/services/ports';
 
-import type { BookingDTO } from '@/hooks/useBookings';
-
-export function BookingListClient() {
+export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: BookingsTab }) {
   const router = useRouter();
-  const { data: bookings, isLoading, isError } = useBookings({ pageSize: 50 });
-  const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
+  const { data: bookings, isLoading, isError } = useGuestBookings({ pageSize: 50 });
+  const [activeTab, setActiveTab] = useState<BookingsTab>(normalizeBookingsTab(initialTab));
+
+  // Sync state with URL for back/forward/share
+  useEffect(() => {
+    const normalized = normalizeBookingsTab(searchParams.get('tab'));
+    setActiveTab((prev) => (prev === normalized ? prev : normalized));
+  }, [searchParams]);
 
   const { upcoming, past } = useMemo(() => {
     const items = bookings?.items ?? [];
@@ -51,15 +72,16 @@ export function BookingListClient() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto w-full max-w-[80vw] space-y-8 py-8">
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-10 w-48" />
-          <Skeleton className="h-10 w-32" />
+      <div className="min-h-screen pb-20">
+        <div className="space-y-6 mb-10">
+          <Skeleton className="h-12 w-48" />
+          <Skeleton className="h-6 w-72" />
         </div>
-        <Skeleton className="h-12 w-full max-w-md" />
+        <Skeleton className="h-12 w-64 mb-8" />
         <div className="grid gap-6 md:grid-cols-2">
-          <Skeleton className="h-64 w-full rounded-xl" />
-          <Skeleton className="h-64 w-full rounded-xl" />
+          <Skeleton className="h-48 rounded-2xl" />
+          <Skeleton className="h-48 rounded-2xl" />
+          <Skeleton className="h-48 rounded-2xl" />
         </div>
       </div>
     );
@@ -67,230 +89,255 @@ export function BookingListClient() {
 
   if (isError) {
     return (
-      <div className="mx-auto w-full max-w-[80vw] py-16 text-center">
-        <div className="mx-auto mb-6 inline-flex h-20 w-20 items-center justify-center rounded-full bg-destructive/10">
-          <CalendarX className="h-10 w-10 text-destructive" aria-hidden="true" />
+      <StatusRegion focus live="assertive" className="min-h-screen pb-20">
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <GuestError
+            description="We couldn’t load your bookings. Please try again."
+            onRetry={() => queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all })}
+          />
         </div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Something went wrong</h1>
-        <p className="mt-3 text-lg text-muted-foreground">
-          We couldn&apos;t load your bookings. Please check your connection and try again.
-        </p>
-        <Button variant="outline" onClick={() => router.refresh()} className="mt-8">
-          Retry
-        </Button>
-      </div>
+      </StatusRegion>
     );
   }
-
-  const bookingPath = '/restaurants';
 
   const hasAnyBookings = (bookings?.items?.length ?? 0) > 0;
 
   if (!hasAnyBookings) {
     return (
-      <div className="mx-auto w-full max-w-[80vw] py-24 text-center">
-        <div className="mx-auto mb-6 inline-flex h-24 w-24 items-center justify-center rounded-full bg-primary/5">
-          <CalendarClock className="h-12 w-12 text-primary" aria-hidden="true" />
-        </div>
-        <h1 className="text-4xl font-bold tracking-tight text-foreground">
-          No bookings yet
-        </h1>
-        <p className="mx-auto mt-4 max-w-lg text-lg text-muted-foreground">
-          You don&apos;t have any reservations. Browse our partner restaurants to find your next table.
-        </p>
-        <div className="mt-10">
-          <Link href={bookingPath}>
-            <Button size="lg" className="h-12 px-8 text-base">
-              <CalendarClock className="mr-2 h-5 w-5" aria-hidden="true" />
-              Find a Restaurant
-            </Button>
-          </Link>
-        </div>
-      </div>
+      <StatusRegion live="polite" className="min-h-screen pb-20">
+        <GuestEmpty
+          icon={Search}
+          title="No bookings yet"
+          description="Discover amazing restaurants and book your first table."
+          actionLabel="Find a restaurant"
+          actionHref="/restaurants"
+        />
+      </StatusRegion>
     );
   }
 
   return (
-    <div className="mx-auto w-full max-w-[80vw] space-y-8 py-8">
-      {/* Header */}
-      <header className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">
-            My Bookings
-          </h1>
-          <p className="text-muted-foreground">
-            Manage your upcoming and past reservations
-          </p>
-        </div>
-        <Link href={bookingPath}>
-          <Button size="lg" className="w-full shadow-sm sm:w-auto">
-            <CalendarClock className="mr-2 h-5 w-5" aria-hidden="true" />
-            New Booking
+    <div className="min-h-screen pb-20">
+      <GuestSection
+        title="Your Trips"
+        description="Manage your upcoming and past reservations"
+        actions={
+          <Button asChild size="lg" className="rounded-full shadow-lg">
+            <Link href="/restaurants">
+              <Plus className="mr-2 h-5 w-5" />
+              New Booking
+            </Link>
           </Button>
-        </Link>
-      </header>
+        }
+        className="bg-white"
+      >
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => {
+            const next = normalizeBookingsTab(v);
+            setActiveTab(next);
+            const params = new URLSearchParams(searchParams.toString());
+            params.set('tab', next === 'past' ? 'history' : 'upcoming');
+            const search = params.toString();
+            router.replace(`${pathname}?${search}`);
+          }}
+          className="w-full"
+        >
+          <TabsList className="w-full justify-start gap-1 border-b border-slate-100 bg-transparent p-0 mb-8">
+            <TabsTrigger
+              value="upcoming"
+              className={cn(
+                "relative rounded-none border-b-2 border-transparent bg-transparent px-6 py-4 text-base font-medium transition-colors",
+                "data-[state=active]:border-slate-900 data-[state=active]:text-slate-900 data-[state=active]:shadow-none",
+                "text-slate-500 hover:text-slate-700"
+              )}
+            >
+              Upcoming
+              <Badge variant="secondary" className="ml-2 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">
+                {upcoming.length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger
+              value="past"
+              className={cn(
+                "relative rounded-none border-b-2 border-transparent bg-transparent px-6 py-4 text-base font-medium transition-colors",
+                "data-[state=active]:border-slate-900 data-[state=active]:text-slate-900 data-[state=active]:shadow-none",
+                "text-slate-500 hover:text-slate-700"
+              )}
+            >
+              Past
+              <Badge variant="secondary" className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">
+                {past.length}
+              </Badge>
+            </TabsTrigger>
+          </TabsList>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'upcoming' | 'past')} className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="upcoming">Upcoming ({upcoming.length})</TabsTrigger>
-          <TabsTrigger value="past">Past ({past.length})</TabsTrigger>
-        </TabsList>
+          <TabsContent value="upcoming" className="mt-0">
+            {upcoming.length === 0 ? (
+              <GuestEmpty
+                icon={Calendar}
+                title="No upcoming trips"
+                description="Time to plan your next dining adventure."
+                actionLabel="Find a restaurant"
+                actionHref="/restaurants"
+              />
+            ) : (
+              <div className="grid gap-5 md:grid-cols-2 guest-stagger">
+                {upcoming.map((booking, index) => (
+                  <BookingCard
+                    key={booking.id}
+                    booking={booking}
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
 
-        {/* Upcoming Tab */}
-        <TabsContent value="upcoming" className="mt-8 space-y-6">
-          {upcoming.length === 0 ? (
-            <Card className="border-dashed bg-muted/30">
-              <CardContent className="flex flex-col items-center gap-4 py-16 text-center">
-                <div className="rounded-full bg-background p-4 shadow-sm">
-                  <CalendarClock className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xl font-semibold text-foreground">No upcoming bookings</p>
-                  <p className="text-muted-foreground">
-                    Ready to eat? Book a table now.
-                  </p>
-                </div>
-                <Link href={bookingPath}>
-                  <Button variant="outline" className="mt-2">Browse Restaurants</Button>
-                </Link>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-6 md:grid-cols-2">
-              {upcoming.map((booking) => (
-                <BookingCard key={booking.id} booking={booking} />
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        {/* Past Tab */}
-        <TabsContent value="past" className="mt-8 space-y-6">
-          {past.length === 0 ? (
-            <Card className="border-dashed bg-muted/30">
-              <CardContent className="flex flex-col items-center gap-4 py-16 text-center">
-                <div className="rounded-full bg-background p-4 shadow-sm">
-                  <CalendarX className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xl font-semibold text-foreground">No past bookings</p>
-                  <p className="text-muted-foreground">
-                    Your dining history will appear here.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-6 md:grid-cols-2">
-              {past.map((booking) => (
-                <BookingCard key={booking.id} booking={booking} isPast />
-              ))}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="past" className="mt-0">
+            {past.length === 0 ? (
+              <GuestEmpty
+                icon={Calendar}
+                title="No past trips"
+                description="Your completed reservations will appear here."
+              />
+            ) : (
+              <div className="grid gap-5 md:grid-cols-2 guest-stagger">
+                {past.map((booking, index) => (
+                  <BookingCard
+                    key={booking.id}
+                    booking={booking}
+                    isPast
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+      </GuestSection>
     </div>
   );
 }
 
+/* ============================================================================
+   BOOKING CARD COMPONENT
+   ============================================================================ */
+
 type BookingCardProps = {
   booking: BookingDTO;
   isPast?: boolean;
+  style?: React.CSSProperties;
 };
 
-function BookingCard({ booking, isPast = false }: BookingCardProps) {
-  // Extract date portion (YYYY-MM-DD) from startIso (YYYY-MM-DDTHH:mm:ss)
-  const datePortion = booking.startIso.split('T')[0];
-  // Extract time portion (HH:mm) from startIso
+function BookingCard({ booking, isPast = false, style }: BookingCardProps) {
+  const bookingDate = new Date(booking.startIso);
   const timePortion = booking.startIso.split('T')[1]?.substring(0, 5) || '';
-
-  const formattedDate = formatReservationDate(datePortion);
   const formattedTime = formatReservationTime(timePortion);
 
   return (
-    <Card className="group relative flex flex-col overflow-hidden transition-all hover:shadow-md">
-      <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-primary/80 to-primary" />
-
-      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3 pt-6">
-        <div className="space-y-1">
-          <CardTitle className="line-clamp-1 text-xl font-bold">
-            <Link href={`/bookings/${booking.id}`} className="hover:underline hover:decoration-primary/50 hover:underline-offset-4">
+    <GuestCard
+      className={cn(
+        "group relative overflow-hidden transition-all animate-fade-up",
+        "hover:shadow-md hover:-translate-y-[2px]",
+        isPast && "opacity-80 hover:opacity-100 bg-slate-50/50"
+      )}
+      style={style}
+      footer={
+        <Link
+          href={`/guest/bookings/${booking.id}`}
+          className="flex items-center justify-between w-[calc(100%+3rem)] -mx-6 -my-2 px-6 py-4 text-sm font-medium text-slate-500 hover:text-blue-600 hover:bg-slate-50 transition-colors"
+        >
+          <span>View reservation details</span>
+          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+        </Link>
+      }
+    >
+      {/* Card Header with Restaurant Name */}
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-3 mb-1">
+            <h3 className="text-xl font-bold text-slate-900 truncate">
               {booking.restaurantName}
-            </Link>
-          </CardTitle>
-          <StatusBadge status={booking.status} isPast={isPast} />
+            </h3>
+            <StatusBadge status={booking.status} isPast={isPast} />
+          </div>
+          <div className="flex items-center gap-2 text-sm text-slate-500">
+            <MapPin className="h-3.5 w-3.5" />
+            <span className="truncate">Main Dining Room</span>
+          </div>
         </div>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="-mr-2 h-8 w-8 text-muted-foreground hover:text-foreground">
-              <MoreHorizontal className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 text-slate-400 hover:text-slate-900">
+              <MoreHorizontal className="h-5 w-5" />
               <span className="sr-only">Open menu</span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem asChild>
-              <Link href={`/bookings/${booking.id}`}>View details</Link>
+          <DropdownMenuContent align="end" className="w-48 rounded-xl p-2">
+            <DropdownMenuItem asChild className="rounded-lg cursor-pointer">
+              <Link href={`/guest/bookings/${booking.id}`} className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                View Details
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild className="rounded-lg cursor-pointer">
+              <Link href={`/restaurants/${booking.restaurantSlug || '#'}`} className="flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                View Restaurant
+              </Link>
             </DropdownMenuItem>
             {!isPast && booking.status !== 'cancelled' && (
               <>
-                <DropdownMenuItem asChild>
-                  <Link href={`/bookings/${booking.id}`}>Modify booking</Link>
-                </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild className="text-destructive focus:text-destructive">
-                  <Link href={`/bookings/${booking.id}?intent=cancel`}>Cancel booking</Link>
+                <DropdownMenuItem asChild className="text-red-600 focus:text-red-600 focus:bg-red-50 rounded-lg cursor-pointer">
+                  <Link href={`/guest/bookings/${booking.id}?intent=cancel`}>
+                    Cancel Booking
+                  </Link>
                 </DropdownMenuItem>
               </>
             )}
           </DropdownMenuContent>
         </DropdownMenu>
-      </CardHeader>
+      </div>
 
-      <CardContent className="flex-1 space-y-4 pb-4">
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div className="flex flex-col gap-1">
-            <span className="flex items-center gap-2 text-muted-foreground">
-              <Calendar className="h-4 w-4" /> Date
-            </span>
-            <span className="font-medium">{formattedDate}</span>
+      {/* Booking Details */}
+      <div className="flex items-center gap-5">
+        {/* Date Box */}
+        <div className={cn(
+          "flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-2xl border text-center transition-colors",
+          isPast
+            ? "border-slate-200 bg-slate-100 text-slate-500"
+            : "border-blue-100 bg-blue-50 text-blue-700"
+        )}>
+          <span className="text-xs font-bold uppercase leading-none mb-1">
+            {bookingDate.toLocaleString('en-US', { month: 'short' })}
+          </span>
+          <span className="text-2xl font-bold leading-none">
+            {bookingDate.getDate()}
+          </span>
+        </div>
+
+        {/* Time and Party Details */}
+        <div className="flex-1 space-y-1.5">
+          <div className="flex items-center gap-2.5 text-slate-700">
+            <Clock className="h-4 w-4 text-slate-400" />
+            <span className="font-semibold">{formattedTime}</span>
           </div>
-          <div className="flex flex-col gap-1">
-            <span className="flex items-center gap-2 text-muted-foreground">
-              <Clock className="h-4 w-4" /> Time
-            </span>
-            <span className="font-medium">{formattedTime}</span>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="flex items-center gap-2 text-muted-foreground">
-              <Users className="h-4 w-4" /> Guests
-            </span>
-            <span className="font-medium">
-              {booking.partySize} {booking.partySize === 1 ? 'person' : 'people'}
-            </span>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="flex items-center gap-2 text-muted-foreground">
-              <MapPin className="h-4 w-4" /> Location
-            </span>
-            <span className="truncate font-medium">
-              {booking.restaurantSlug ? 'View map' : 'Main Dining'}
-            </span>
+          <div className="flex items-center gap-2.5 text-slate-700">
+            <Users className="h-4 w-4 text-slate-400" />
+            <span>{booking.partySize} {booking.partySize === 1 ? 'guest' : 'guests'}</span>
           </div>
         </div>
-      </CardContent>
-
-      <CardFooter className="border-t bg-muted/10 p-4">
-        <Link href={`/bookings/${booking.id}`} className="flex w-full items-center justify-between text-sm font-medium text-primary hover:underline">
-          <span>Manage reservation</span>
-          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-        </Link>
-      </CardFooter>
-    </Card>
+      </div>
+    </GuestCard>
   );
 }
+
+/* ============================================================================
+   SUPPORTING COMPONENTS
+   ============================================================================ */
 
 type StatusBadgeProps = {
   status: BookingDTO['status'];
@@ -298,37 +345,44 @@ type StatusBadgeProps = {
 };
 
 function StatusBadge({ status, isPast = false }: StatusBadgeProps) {
-  const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-    confirmed: 'default',
-    pending: 'secondary',
-    pending_allocation: 'secondary',
-    cancelled: 'destructive',
-    completed: 'outline',
-    checked_in: 'default',
-    no_show: 'destructive',
-    PRIORITY_WAITLIST: 'secondary',
-  };
-
   const labels: Record<string, string> = {
     confirmed: 'Confirmed',
     pending: 'Pending',
     pending_allocation: 'Pending',
     cancelled: 'Cancelled',
     completed: 'Completed',
-    checked_in: 'Checked In',
+    checked_in: 'Live',
     no_show: 'No Show',
     PRIORITY_WAITLIST: 'Waitlist',
   };
 
-  const variant = variants[status] ?? (isPast ? 'outline' : 'secondary');
   const label = labels[status] ?? (isPast ? 'Past' : status);
 
-  // Custom styling for specific statuses
-  const className = status === 'confirmed'
-    ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100/80 border-emerald-200'
-    : status === 'cancelled'
-      ? 'bg-red-100 text-red-700 hover:bg-red-100/80 border-red-200'
-      : undefined;
+  const getStyles = () => {
+    if (isPast || status === 'completed') {
+      return 'bg-slate-100 text-slate-500 border-slate-200';
+    }
+    if (status === 'cancelled') {
+      return 'bg-red-50 text-red-700 border-red-100';
+    }
+    if (status === 'confirmed' || status === 'checked_in') {
+      return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+    }
+    if (status === 'pending' || status === 'pending_allocation') {
+      return 'bg-amber-50 text-amber-700 border-amber-100';
+    }
+    return 'bg-slate-50 text-slate-600 border-slate-200';
+  };
 
-  return <Badge variant={variant} className={className}>{label}</Badge>;
+  return (
+    <Badge
+      variant="secondary"
+      className={cn(
+        "rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold border",
+        getStyles()
+      )}
+    >
+      {label}
+    </Badge>
+  );
 }

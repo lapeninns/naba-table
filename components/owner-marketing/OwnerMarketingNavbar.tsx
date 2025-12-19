@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { BrandIcon } from "@/components/shared/BrandIcon";
 import config from "@/config";
 import { cn } from "@/lib/utils";
 
@@ -40,9 +41,7 @@ export function OwnerMarketingNavbar() {
           href="/guest/dashboard"
           className="flex items-center gap-3 text-base font-semibold tracking-tight text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-white"
         >
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary shadow-sm">
-            SRX
-          </span>
+          <BrandIcon size="sm" className="shrink-0" />
           <span>{brandName}</span>
         </Link>
 
