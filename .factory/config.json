@@ -58,34 +58,6 @@
     },
 
     {
-      "model_display_name": "GPT-5 Codex",
-      "model": "gpt-5-codex",
-      "base_url": "http://localhost:8317/v1",
-      "api_key": "dummy-not-used",
-      "provider": "openai"
-    },
-    {
-      "model_display_name": "GPT-5 Codex (Low)",
-      "model": "gpt-5-codex-low",
-      "base_url": "http://localhost:8317/v1",
-      "api_key": "dummy-not-used",
-      "provider": "openai"
-    },
-    {
-      "model_display_name": "GPT-5 Codex (Medium)",
-      "model": "gpt-5-codex-medium",
-      "base_url": "http://localhost:8317/v1",
-      "api_key": "dummy-not-used",
-      "provider": "openai"
-    },
-    {
-      "model_display_name": "GPT-5 Codex (High)",
-      "model": "gpt-5-codex-high",
-      "base_url": "http://localhost:8317/v1",
-      "api_key": "dummy-not-used",
-      "provider": "openai"
-    },
-    {
       "model_display_name": "GPT-5.1 Codex",
       "model": "gpt-5.1-codex",
       "base_url": "http://localhost:8317/v1",
@@ -93,22 +65,8 @@
       "provider": "openai"
     },
     {
-      "model_display_name": "GPT-5.1 Codex (Low)",
-      "model": "gpt-5.1-codex-low",
-      "base_url": "http://localhost:8317/v1",
-      "api_key": "dummy-not-used",
-      "provider": "openai"
-    },
-    {
-      "model_display_name": "GPT-5.1 Codex (Medium)",
-      "model": "gpt-5.1-codex-medium",
-      "base_url": "http://localhost:8317/v1",
-      "api_key": "dummy-not-used",
-      "provider": "openai"
-    },
-    {
       "model_display_name": "GPT-5.1 Codex (High)",
-      "model": "gpt-5.1-codex-high",
+      "model": "gpt-5.1-codex(high)",
       "base_url": "http://localhost:8317/v1",
       "api_key": "dummy-not-used",
       "provider": "openai"
@@ -128,29 +86,43 @@
       "provider": "openai"
     },
     {
-      "model_display_name": "GPT-5.1 (Minimal)",
-      "model": "gpt-5.1-minimal",
-      "base_url": "http://localhost:8317/v1",
-      "api_key": "dummy-not-used",
-      "provider": "openai"
-    },
-    {
       "model_display_name": "GPT-5.1 (Low)",
-      "model": "gpt-5.1-low",
-      "base_url": "http://localhost:8317/v1",
-      "api_key": "dummy-not-used",
-      "provider": "openai"
-    },
-    {
-      "model_display_name": "GPT-5.1 (Medium)",
-      "model": "gpt-5.1-medium",
+      "model": "gpt-5.1(low)",
       "base_url": "http://localhost:8317/v1",
       "api_key": "dummy-not-used",
       "provider": "openai"
     },
     {
       "model_display_name": "GPT-5.1 (High)",
-      "model": "gpt-5.1-high",
+      "model": "gpt-5.1(high)",
+      "base_url": "http://localhost:8317/v1",
+      "api_key": "dummy-not-used",
+      "provider": "openai"
+    },
+    {
+      "model_display_name": "GPT-5.2",
+      "model": "gpt-5.2",
+      "base_url": "http://localhost:8317/v1",
+      "api_key": "dummy-not-used",
+      "provider": "openai"
+    },
+    {
+      "model_display_name": "GPT-5.2 (High)",
+      "model": "gpt-5.2(high)",
+      "base_url": "http://localhost:8317/v1",
+      "api_key": "dummy-not-used",
+      "provider": "openai"
+    },
+    {
+      "model_display_name": "GPT-5.2 Codex",
+      "model": "gpt-5.2-codex",
+      "base_url": "http://localhost:8317/v1",
+      "api_key": "dummy-not-used",
+      "provider": "openai"
+    },
+    {
+      "model_display_name": "GPT-5.2 Codex (High)",
+      "model": "gpt-5.2-codex(high)",
       "base_url": "http://localhost:8317/v1",
       "api_key": "dummy-not-used",
       "provider": "openai"
