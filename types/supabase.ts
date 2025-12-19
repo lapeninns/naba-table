@@ -1518,6 +1518,7 @@ export type Database = {
           name: string
           reservation_default_duration_minutes: number
           reservation_interval_minutes: number
+          reservation_lifecycle_grace_minutes: number
           reservation_last_seating_buffer_minutes: number
           slug: string
           timezone: string
@@ -1540,6 +1541,7 @@ export type Database = {
           name: string
           reservation_default_duration_minutes?: number
           reservation_interval_minutes?: number
+          reservation_lifecycle_grace_minutes?: number
           reservation_last_seating_buffer_minutes?: number
           slug: string
           timezone?: string
@@ -1562,6 +1564,7 @@ export type Database = {
           name?: string
           reservation_default_duration_minutes?: number
           reservation_interval_minutes?: number
+          reservation_lifecycle_grace_minutes?: number
           reservation_last_seating_buffer_minutes?: number
           slug?: string
           timezone?: string

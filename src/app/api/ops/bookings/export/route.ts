@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { generateCSV } from "@/lib/export/csv";
 import { formatTimeRange } from "@/lib/utils/datetime";
+import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
 import { getTodayBookingsSummary } from "@/server/ops/bookings";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 import { requireMembershipForRestaurant } from "@/server/team/access";
@@ -61,7 +62,8 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error("[ops/bookings/export][GET] failed to resolve auth", error.message);
-    return NextResponse.json({ error: "Unable to verify session" }, { status: 500 });
+    const mapped = mapSupabaseAuthError(error);
+    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
   }
 
   if (!user) {

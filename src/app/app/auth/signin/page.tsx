@@ -19,7 +19,18 @@ type OpsLoginPageProps = {
   searchParams: Promise<OpsLoginSearchParams>;
 };
 
-const ALLOWED_REDIRECT_PREFIXES = ['/app', '/guest', '/bookings', '/restaurants'] as const;
+const ALLOWED_REDIRECT_PREFIXES = [
+  '/app',
+  '/guest',
+  '/restaurants',
+  '/dashboard',
+  '/bookings',
+  '/customers',
+  '/seating',
+  '/settings',
+  '/management',
+  '/new-bookings',
+] as const;
 
 function resolveRedirectTarget(raw: string | string[] | undefined): string {
   const candidate = Array.isArray(raw) ? raw[0] : raw;

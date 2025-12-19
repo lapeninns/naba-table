@@ -64,11 +64,6 @@ type UpdateBookingInput = {
   } | null;
 };
 
-type UpdateStatusInput = {
-  id: string;
-  status: 'completed' | 'no_show';
-};
-
 type LifecycleInput = {
   id: string;
   performedAt?: string;
@@ -434,7 +429,6 @@ export interface BookingService {
   listBookings(filters: OpsBookingsFilters): Promise<OpsBookingsPage>;
   listDisabledAssignments(params: { restaurantId: string }): Promise<DisabledAssignmentsResponse>;
   updateBooking(input: UpdateBookingInput): Promise<OpsBookingListItem>;
-  updateBookingStatus(input: UpdateStatusInput): Promise<{ status: OpsBookingStatus }>;
   checkInBooking(input: LifecycleInput): Promise<LifecycleResponse>;
   checkOutBooking(input: LifecycleInput): Promise<LifecycleResponse>;
   markNoShowBooking(input: NoShowInput): Promise<LifecycleResponse>;
@@ -585,13 +579,6 @@ export function createBrowserBookingService(): BookingService {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
-      });
-    },
-    async updateBookingStatus({ id, status }) {
-      return fetchJson<{ status: OpsBookingStatus }>(`${OPS_BOOKINGS_BASE}/${id}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
       });
     },
     async checkInBooking({ id, performedAt }) {
@@ -782,10 +769,6 @@ export class NotImplementedBookingService implements BookingService {
 
   updateBooking(): Promise<OpsBookingListItem> {
     this.error('updateBooking not implemented');
-  }
-
-  updateBookingStatus(): Promise<{ status: OpsBookingStatus }> {
-    this.error('updateBookingStatus not implemented');
   }
 
   checkInBooking(): Promise<LifecycleResponse> {

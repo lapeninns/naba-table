@@ -145,12 +145,7 @@ async function handleRouting(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Seating -> Floor Plan (Instant)
-    if (url.pathname === "/seating") {
-      return NextResponse.redirect(
-        new URL(`/seating/floor-plan${searchParams.length > 0 ? `?${searchParams}` : ""}`, req.url),
-      );
-    }
+    // Seating routes removed
 
     // Management -> Team (Instant)
     if (url.pathname === "/management") {

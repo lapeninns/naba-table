@@ -10,11 +10,18 @@ vi.mock('@/server/occasions/catalog', () => ({
   getOccasionCatalog: (...args: unknown[]) => getOccasionCatalogMock(...args),
 }));
 
+vi.mock('@/server/occasions/admin', () => ({
+  fetchAllOccasions: () => [{ key: 'dinner', label: 'Dinner' }],
+}));
+
 vi.mock('@/server/supabase', () => ({
   getRouteHandlerSupabaseClient: () => ({
     auth: {
       getUser: getUserMock,
     },
+  }),
+  getServiceSupabaseClient: () => ({
+    from: vi.fn(),
   }),
 }));
 
@@ -33,37 +40,6 @@ describe('/api/ops/occasions', () => {
 
   it('responds with occasion definitions when authenticated', async () => {
     getUserMock.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
-    getOccasionCatalogMock.mockResolvedValue({
-      definitions: [
-        {
-          key: 'dinner',
-          label: 'Dinner',
-          shortLabel: 'Dinner',
-          description: null,
-          availability: [],
-          defaultDurationMinutes: 120,
-          displayOrder: 20,
-          isActive: true,
-        },
-      ],
-      orderedKeys: ['dinner'],
-      byKey: new Map([
-        [
-          'dinner',
-          {
-            key: 'dinner',
-            label: 'Dinner',
-            shortLabel: 'Dinner',
-            description: null,
-            availability: [],
-            defaultDurationMinutes: 120,
-            displayOrder: 20,
-            isActive: true,
-          },
-        ],
-      ]),
-    });
-
     const response = await GET(new NextRequest('http://localhost/api/ops/occasions'));
 
     expect(response.status).toBe(200);

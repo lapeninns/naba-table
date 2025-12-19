@@ -30,6 +30,7 @@ export type RestaurantListItem = {
   reservationIntervalMinutes: number;
   reservationDefaultDurationMinutes: number;
   reservationLastSeatingBufferMinutes: number;
+  reservationLifecycleGraceMinutes: number;
   createdAt: string;
   updatedAt: string;
   role: 'owner' | 'admin' | 'staff' | 'viewer';
@@ -134,6 +135,7 @@ export async function listRestaurantsForOps(
       reservationIntervalMinutes: row.reservation_interval_minutes,
       reservationDefaultDurationMinutes: row.reservation_default_duration_minutes,
       reservationLastSeatingBufferMinutes: row.reservation_last_seating_buffer_minutes,
+      reservationLifecycleGraceMinutes: row.reservation_lifecycle_grace_minutes,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       role,

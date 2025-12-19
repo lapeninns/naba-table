@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 import { requireAdminMembership } from '@/server/team/access';
 
@@ -30,7 +31,8 @@ export async function DELETE(_request: NextRequest, context: RouteParams) {
   } = await supabase.auth.getUser();
 
   if (authError) {
-    return NextResponse.json({ error: 'Unable to verify session' }, { status: 500 });
+    const mapped = mapSupabaseAuthError(authError);
+    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
   }
 
   if (!user) {

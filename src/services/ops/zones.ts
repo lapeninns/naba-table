@@ -1,6 +1,6 @@
 import { fetchJson } from '@/lib/http/fetchJson';
 
-const OPS_ZONES_BASE = '/api/zones';
+const OPS_ZONES_BASE = '/api/ops/zones';
 
 export type Zone = {
   id: string;

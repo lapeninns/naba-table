@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
+import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { fetchAllOccasions, insertAudit, toAdminOccasion } from '@/server/occasions/admin';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 
@@ -12,7 +13,8 @@ export async function GET() {
 
   if (authError) {
     console.error('[ops/occasions][GET] failed to resolve auth', authError.message);
-    return NextResponse.json({ error: 'Unable to verify session' }, { status: 500 });
+    const mapped = mapSupabaseAuthError(authError);
+    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
   }
 
   if (!user) {
@@ -37,7 +39,8 @@ export async function POST(request: NextRequest) {
 
   if (authError) {
     console.error('[ops/occasions][POST] failed to resolve auth', authError.message);
-    return NextResponse.json({ error: 'Unable to verify session' }, { status: 500 });
+    const mapped = mapSupabaseAuthError(authError);
+    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
   }
 
   if (!user) {

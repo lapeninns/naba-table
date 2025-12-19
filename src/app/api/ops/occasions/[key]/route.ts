@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
+import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { countOccasionReferences, fetchOccasionByKey, insertAudit, toAdminOccasion } from '@/server/occasions/admin';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 
@@ -13,7 +14,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   if (authError) {
     console.error('[ops/occasions][PATCH] auth error', authError.message);
-    return NextResponse.json({ error: 'Unable to verify session' }, { status: 500 });
+    const mapped = mapSupabaseAuthError(authError);
+    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
   }
   if (!user) {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
@@ -98,7 +100,8 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
 
   if (authError) {
     console.error('[ops/occasions][DELETE] auth error', authError.message);
-    return NextResponse.json({ error: 'Unable to verify session' }, { status: 500 });
+    const mapped = mapSupabaseAuthError(authError);
+    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
   }
   if (!user) {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 });

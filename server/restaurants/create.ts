@@ -27,6 +27,7 @@ export type CreateRestaurantInput = {
   reservationIntervalMinutes?: number;
   reservationDefaultDurationMinutes?: number;
   reservationLastSeatingBufferMinutes?: number;
+  reservationLifecycleGraceMinutes?: number;
 };
 
 export type CreatedRestaurant = {
@@ -47,6 +48,7 @@ export type CreatedRestaurant = {
   reservationIntervalMinutes: number;
   reservationDefaultDurationMinutes: number;
   reservationLastSeatingBufferMinutes: number;
+  reservationLifecycleGraceMinutes: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -102,6 +104,8 @@ export async function createRestaurant(
       ? input.reservationDefaultDurationMinutes
       : 90;
   const lastSeatingBufferMinutes = input.reservationLastSeatingBufferMinutes;
+  const lifecycleGraceMinutes =
+    input.reservationLifecycleGraceMinutes !== undefined ? input.reservationLifecycleGraceMinutes : 30;
 
   if (!Number.isInteger(intervalMinutes) || intervalMinutes < 1 || intervalMinutes > 180) {
     throw new Error('Reservation interval must be an integer between 1 and 180 minutes.');
@@ -120,6 +124,14 @@ export async function createRestaurant(
     throw new Error('Last seating buffer must be an integer between 15 and 300 minutes.');
   }
 
+  if (
+    !Number.isInteger(lifecycleGraceMinutes) ||
+    lifecycleGraceMinutes < 0 ||
+    lifecycleGraceMinutes > 120
+  ) {
+    throw new Error('Lifecycle grace period must be an integer between 0 and 120 minutes.');
+  }
+
   const insertPayload: Database['public']['Tables']['restaurants']['Insert'] = {
     name: input.name,
     slug: uniqueSlug,
@@ -136,6 +148,7 @@ export async function createRestaurant(
     email_send_review_request: input.emailSendReviewRequest ?? true,
     reservation_interval_minutes: intervalMinutes,
     reservation_default_duration_minutes: defaultDurationMinutes,
+    reservation_lifecycle_grace_minutes: lifecycleGraceMinutes,
     ...(lastSeatingBufferMinutes !== undefined
       ? { reservation_last_seating_buffer_minutes: lastSeatingBufferMinutes }
       : {}),
@@ -200,6 +213,7 @@ export async function createRestaurant(
     reservationIntervalMinutes: restaurant.reservation_interval_minutes,
     reservationDefaultDurationMinutes: restaurant.reservation_default_duration_minutes,
     reservationLastSeatingBufferMinutes: restaurant.reservation_last_seating_buffer_minutes,
+    reservationLifecycleGraceMinutes: restaurant.reservation_lifecycle_grace_minutes,
     createdAt: restaurant.created_at,
     updatedAt: restaurant.updated_at,
   };

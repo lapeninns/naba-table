@@ -11,13 +11,6 @@ import { queryKeys } from '@/lib/query/keys';
 
 import type { OpsBookingStatus, OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
 
-export type UpdateBookingStatusVariables = {
-  restaurantId: string;
-  bookingId: string;
-  status: 'completed' | 'no_show';
-  targetDate?: string | null;
-};
-
 export type BookingLifecycleVariables = {
   restaurantId: string;
   bookingId: string;
@@ -41,7 +34,7 @@ type MutationContext = {
   previousSummary?: OpsTodayBookingsSummary;
 };
 
-type OfflineActionType = 'check-in' | 'check-out' | 'no-show' | 'undo-no-show' | 'status-update';
+type OfflineActionType = 'check-in' | 'check-out' | 'no-show' | 'undo-no-show';
 
 function useInvalidateLifecycle(queryClient: ReturnType<typeof useQueryClient>) {
   return (
@@ -239,37 +232,6 @@ export function useOpsBookingLifecycleActions() {
     });
   };
 
-  const markStatusMutation = useMutation<{ status: OpsBookingStatus }, Error, UpdateBookingStatusVariables, MutationContext>({
-    mutationFn: ({ bookingId, status }) => bookingService.updateBookingStatus({ id: bookingId, status }),
-    onMutate: async (variables) => {
-      return await applyOptimisticTransition(
-        variables.bookingId,
-        variables.status,
-        { restaurantId: variables.restaurantId, targetDate: variables.targetDate ?? null },
-        (booking) => ({
-          ...booking,
-          status: variables.status,
-        }),
-        { action: 'mark-status', targetStatus: variables.status },
-      );
-    },
-    onSuccess: (updated, variables, context) => {
-      commitOptimisticTransition(variables.bookingId, context, { status: updated.status });
-      invalidate(variables.restaurantId, variables.targetDate ?? null);
-      transitionToast.showSuccess({ action: 'status-update' });
-    },
-    onError: (error, variables, context) => {
-      rollbackOptimisticTransition(variables.bookingId, context);
-      if (handleConflict(error, variables, variables.status)) {
-        return;
-      }
-      transitionToast.showError({
-        action: 'status-update',
-        errorMessage: error.message || 'Failed to update booking',
-      });
-    },
-  });
-
   const checkInMutation = useMutation<LifecycleMutationResult, Error, BookingLifecycleVariables, MutationContext>({
     mutationFn: ({ bookingId, performedAt }) =>
       bookingService.checkInBooking({ id: bookingId, performedAt: toPayloadTimestamp(performedAt) }),
@@ -429,10 +391,6 @@ export function useOpsBookingLifecycleActions() {
     },
   });
 
-  const markStatus = wrapMutation(markStatusMutation, {
-    action: 'status-update',
-    label: () => 'Update status',
-  });
   const checkIn = wrapMutation(checkInMutation, {
     action: 'check-in',
     label: () => 'Check in',
@@ -451,7 +409,6 @@ export function useOpsBookingLifecycleActions() {
   });
 
   return {
-    markStatus,
     checkIn,
     checkOut,
     markNoShow,

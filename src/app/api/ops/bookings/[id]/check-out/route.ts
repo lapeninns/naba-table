@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
 import { clearBookingTableAssignments } from "@/server/bookings";
 import { prepareCheckOutTransition } from "@/server/ops/booking-lifecycle/actions";
+import { isBookingLifecycleAllowedToday } from "@/server/ops/booking-lifecycle/availability";
 import { BookingLifecycleError } from "@/server/ops/booking-lifecycle/stateMachine";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 import { requireMembershipForRestaurant } from "@/server/team/access";
 
 import type { Tables } from "@/types/supabase";
-import type { NextRequest} from "next/server";
+import type { NextRequest } from "next/server";
 
 const bodySchema = z
   .object({
@@ -64,7 +66,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
   if (error) {
     console.error("[ops][booking-check-out] failed to resolve auth", error.message);
-    return NextResponse.json({ error: "Unable to verify session" }, { status: 500 });
+    const mapped = mapSupabaseAuthError(error);
+    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
   }
 
   if (!user) {
@@ -75,7 +78,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
   const { data: booking, error: bookingError } = await serviceSupabase
     .from("bookings")
-    .select("id, restaurant_id, status, checked_in_at, checked_out_at, booking_date, start_time")
+    .select("id, restaurant_id, status, checked_in_at, checked_out_at, booking_date, start_time, end_time")
     .eq("id", id)
     .maybeSingle();
 
@@ -94,6 +97,30 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   } catch (accessError) {
     console.error("[ops][booking-check-out] access denied", accessError);
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { data: restaurant, error: restaurantError } = await serviceSupabase
+    .from("restaurants")
+    .select("timezone, reservation_lifecycle_grace_minutes")
+    .eq("id", bookingRow.restaurant_id)
+    .maybeSingle();
+
+  if (restaurantError) {
+    console.error("[ops][booking-check-out] failed to load restaurant", restaurantError.message);
+    return NextResponse.json({ error: "Unable to verify booking" }, { status: 500 });
+  }
+
+  const timezone = typeof restaurant?.timezone === "string" && restaurant.timezone.trim().length > 0 ? restaurant.timezone : "UTC";
+  if (
+    !isBookingLifecycleAllowedToday({
+      bookingDate: bookingRow.booking_date,
+      timezone,
+      startTime: bookingRow.start_time,
+      endTime: bookingRow.end_time,
+      graceMinutes: restaurant?.reservation_lifecycle_grace_minutes ?? undefined,
+    })
+  ) {
+    return NextResponse.json({ error: "Lifecycle actions are only available on the reservation date" }, { status: 409 });
   }
 
   let transition;

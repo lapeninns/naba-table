@@ -4,6 +4,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SLUG_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const INTERVAL_SCHEMA = z.number().int().min(1).max(180);
 const DURATION_SCHEMA = z.number().int().min(15).max(300);
+const GRACE_SCHEMA = z.number().int().min(0).max(120);
 
 const optionalLogoUrlSchema = z
   .preprocess((value) => {
@@ -75,6 +76,7 @@ export const createRestaurantSchema = z.object({
   reservationIntervalMinutes: INTERVAL_SCHEMA.optional(),
   reservationDefaultDurationMinutes: DURATION_SCHEMA.optional(),
   reservationLastSeatingBufferMinutes: DURATION_SCHEMA.optional(),
+  reservationLifecycleGraceMinutes: GRACE_SCHEMA.optional(),
 });
 
 export type CreateRestaurantInput = z.infer<typeof createRestaurantSchema>;
@@ -129,6 +131,7 @@ export const updateRestaurantSchema = z.object({
   reservationIntervalMinutes: INTERVAL_SCHEMA.optional(),
   reservationDefaultDurationMinutes: DURATION_SCHEMA.optional(),
   reservationLastSeatingBufferMinutes: DURATION_SCHEMA.optional(),
+  reservationLifecycleGraceMinutes: GRACE_SCHEMA.optional(),
 });
 
 export type UpdateRestaurantInput = z.infer<typeof updateRestaurantSchema>;
@@ -151,6 +154,7 @@ export type RestaurantDTO = {
   reservationIntervalMinutes: number;
   reservationDefaultDurationMinutes: number;
   reservationLastSeatingBufferMinutes: number;
+  reservationLifecycleGraceMinutes: number;
   createdAt: string;
   updatedAt: string;
   role: 'owner' | 'admin' | 'staff' | 'viewer';
