@@ -10,7 +10,12 @@ tests/e2e/
 │   └── auth.fixture.ts    # Authentication fixtures for guest/owner contexts
 ├── guest/                 # Guest-facing E2E tests
 │   ├── booking-crud.spec.ts   # Booking lifecycle (create, read, update, delete)
+│   ├── guest-routes.spec.ts   # Public + guest portal route coverage
+│   ├── guest-redirects.spec.ts# Legacy redirect coverage
 │   └── profile-crud.spec.ts   # Profile management
+├── ops/                   # Restaurant ops E2E tests
+│   ├── ops-routes.spec.ts     # Ops route coverage
+│   └── ops-redirects.spec.ts  # Ops redirect coverage
 ├── accessibility/         # Accessibility audits (axe-core)
 │   └── a11y-audit.spec.ts     # WCAG 2.1 AA compliance checks
 ├── visual/                # Visual regression tests
@@ -79,6 +84,39 @@ The CI workflow:
 | A11Y      | Keyboard navigation | ✅     |
 | A11Y      | Form labels         | ✅     |
 
+### Guest Route Coverage (`guest-routes.spec.ts`)
+
+| Area                  | Coverage                            | Status |
+| --------------------- | ----------------------------------- | ------ |
+| Public routes         | Home, Restaurants list/detail, Book | ✅     |
+| Booking confirmations | /bookings/:id + thank-you → receipt | ✅     |
+| Guest portal          | Dashboard + deprecated thank-you    | ✅     |
+
+### Guest Redirects (`guest-redirects.spec.ts`)
+
+| Route                   | Redirects To                  | Status |
+| ----------------------- | ----------------------------- | ------ |
+| `/signin`               | `/auth/signin`                | ✅     |
+| `/browse`               | `/restaurants`                | ✅     |
+| `/guest/bookings/:id`   | `/bookings/:id`               | ✅     |
+| `/thank-you?bookingId=` | `/guest/bookings/:id/receipt` | ✅     |
+
+### Ops Route Coverage (`ops-routes.spec.ts`)
+
+| Area     | Coverage                                                           | Status |
+| -------- | ------------------------------------------------------------------ | ------ |
+| Core ops | Dashboard, bookings, new bookings, customers                       | ✅     |
+| Settings | Profile, operating hours, service periods, occasions, team, tables | ✅     |
+
+### Ops Redirects (`ops-redirects.spec.ts`)
+
+| Route                         | Redirects To                   | Status |
+| ----------------------------- | ------------------------------ | ------ |
+| `/app/bookings` (main domain) | `app.<domain>/bookings`        | ✅     |
+| `/app/bookings` (app host)    | `/bookings`                    | ✅     |
+| `/settings`                   | `/settings/restaurant/profile` | ✅     |
+| `/management`                 | `/settings/restaurant/team`    | ✅     |
+
 ## Environment Variables
 
 | Variable                        | Description                              | Required in CI |
@@ -86,6 +124,9 @@ The CI workflow:
 | `BASE_URL`                      | App URL (default: http://localhost:3000) | ✅             |
 | `E2E_TEST_GUEST_EMAIL`          | Test guest email                         | ✅             |
 | `E2E_TEST_RESTAURANT_SLUG`      | Test restaurant                          | ✅             |
+| `E2E_OPS_BASE_URL`              | Ops base URL (app subdomain)             | ✅             |
+| `E2E_OPS_EMAIL`                 | Ops user email                           | ✅             |
+| `E2E_OPS_PASSWORD`              | Ops user password                        | ✅             |
 | `NEXT_PUBLIC_SUPABASE_URL`      | Supabase URL                             | ✅             |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key                        | ✅             |
 
@@ -96,8 +137,15 @@ Add these secrets to your GitHub repository:
 1. `NEXT_PUBLIC_SUPABASE_URL` - Your Supabase project URL
 2. `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase anonymous key
 3. `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key (for seeding test data)
-4. `E2E_TEST_GUEST_EMAIL` - Email for test guest account
-5. `DRIFT_CHECK_DB_URL` - Database URL for schema drift checking
+4. `E2E_BASE_URL` - Guest base URL (nabatable.com)
+5. `E2E_TEST_TOKEN` - Shared token for guest E2E login API
+6. `E2E_TEST_GUEST_EMAIL` - Email for test guest account
+7. `E2E_TEST_GUEST_NAME` - Display name for guest account
+8. `E2E_TEST_RESTAURANT_SLUG` - Restaurant slug for guest flows
+9. `E2E_OPS_BASE_URL` - Ops base URL (app subdomain)
+10. `E2E_OPS_EMAIL` - Ops user email
+11. `E2E_OPS_PASSWORD` - Ops user password
+12. `DRIFT_CHECK_DB_URL` - Database URL for schema drift checking
 
 ## Writing New Tests
 
