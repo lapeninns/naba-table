@@ -17,7 +17,6 @@ profile: service-ts
 
 This directory holds **operations domain services**:
 
-- `allowedCapacities.ts`
 - `bookings.ts`
 - `customers.ts`
 - `occasions.ts`
