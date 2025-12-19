@@ -202,7 +202,7 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
 
   const statusFilterOptions = useMemo(() => {
     const totals = statusSummaryQuery.data?.totals;
-    return OPS_LISTABLE_STATUSES.map((status) => ({
+    return OPS_LISTABLE_STATUSES.map((status: OpsBookingStatus) => ({
       status,
       count: totals ? (totals[status] ?? 0) : 0,
     }));
@@ -344,7 +344,7 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
       toggleSelectedStatus(status);
       const exists = visibleSelectedStatuses.includes(status);
       const next = exists
-        ? visibleSelectedStatuses.filter((value) => value !== status)
+        ? visibleSelectedStatuses.filter((value: OpsBookingStatus) => value !== status)
         : [...visibleSelectedStatuses, status];
 
       const normalized = Array.from(new Set(next));
