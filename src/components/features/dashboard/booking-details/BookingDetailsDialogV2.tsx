@@ -69,10 +69,13 @@ export function BookingDetailsDialog({
   const lifecyclePending = pendingLifecycleAction ?? dialogState.localPendingAction;
   const isCancelled = effectiveStatus === 'cancelled';
 
-  const lifecycleAvailability = useMemo(
-    () => ({ isToday: getTodayInTimezone(summary.timezone) === summary.date }),
-    [summary.date, summary.timezone]
-  );
+  const lifecycleAvailability = useMemo(() => {
+    const isToday = getTodayInTimezone(summary.timezone) === summary.date;
+    return {
+      isToday,
+      reason: isToday ? undefined : 'Past date · Status locked',
+    };
+  }, [summary.date, summary.timezone]);
 
   const assignedCapacity = useMemo(() => {
     return (booking.tableAssignments ?? []).reduce((sum, group) => {

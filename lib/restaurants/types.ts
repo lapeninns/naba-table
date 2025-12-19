@@ -14,6 +14,7 @@ export interface RestaurantSummary {
   reservationIntervalMinutes?: number | null;
   reservationDefaultDurationMinutes?: number | null;
   reservationLastSeatingBufferMinutes?: number | null;
+  reservationLifecycleGraceMinutes?: number | null;
   createdAt?: string;
   updatedAt?: string;
 }

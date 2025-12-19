@@ -3,9 +3,7 @@ import {
   CalendarDays,
   CircleHelp,
   DoorOpen,
-  GanttChart,
   LayoutGrid,
-  Map,
   Sparkles,
   Clock3,
   UtensilsCrossed,
@@ -74,20 +72,7 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
   {
     label: 'Seating',
     items: [
-      {
-        title: 'Floor Plan',
-        description: 'Visual table management',
-        href: path('/seating/floor-plan'),
-        icon: Map,
-        match: (pathname) => pathname.startsWith(path('/seating/floor-plan')),
-      },
-      {
-        title: 'Capacity',
-        description: 'Timeline view of table availability',
-        href: path('/seating/capacity'),
-        icon: GanttChart,
-        match: (pathname) => pathname.startsWith(path('/seating/capacity')),
-      },
+      
     ],
   },
   {

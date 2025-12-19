@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
 import { getMiddlewareSupabaseClient } from "@/server/supabase";
 
 import type { Database } from "@/types/supabase";
@@ -24,7 +25,8 @@ export async function requireOpsAuth(req: NextRequest): Promise<GuardResult | Gu
   const { data, error } = await supabase.auth.getUser();
 
   if (error) {
-    return guardError(500, "SESSION_RESOLUTION_FAILED", "Unable to verify session");
+    const mapped = mapSupabaseAuthError(error);
+    return guardError(mapped.status, mapped.code, mapped.message);
   }
 
   if (!data.user) {

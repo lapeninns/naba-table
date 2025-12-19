@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { env } from "@/lib/env";
 import { isRestaurantAdminRole, type RestaurantRole } from "@/lib/owner/auth/roles";
+import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
 import {
   createBookingValidationService,
   BookingValidationError,
@@ -285,7 +286,8 @@ export async function GET(req: NextRequest) {
 
   if (authError) {
     console.error("[ops/bookings][GET] failed to resolve auth", authError.message);
-    return NextResponse.json({ error: "Unable to verify session" }, { status: 500 });
+    const mapped = mapSupabaseAuthError(authError);
+    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
   }
 
   if (!user) {
@@ -520,7 +522,8 @@ export async function POST(req: NextRequest) {
 
   if (authError) {
     console.error("[ops/bookings] failed to resolve auth", authError.message);
-    return NextResponse.json({ error: "Unable to verify session" }, { status: 500 });
+    const mapped = mapSupabaseAuthError(authError);
+    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
   }
 
   if (!user) {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
 import { isOpsRejectionAnalyticsEnabled } from "@/server/feature-flags";
 import { getRouteHandlerSupabaseClient } from "@/server/supabase";
 import { requireAdminMembership } from "@/server/team/access";
@@ -39,7 +40,8 @@ export async function POST(request: NextRequest) {
 
   if (error) {
     console.error("[ops/strategies/simulate][POST] auth lookup failed", error.message);
-    return NextResponse.json({ error: "Unable to verify session" }, { status: 500 });
+    const mapped = mapSupabaseAuthError(error);
+    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
   }
 
   if (!user) {

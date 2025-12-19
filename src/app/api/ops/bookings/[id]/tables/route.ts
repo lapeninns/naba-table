@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
 import { assignTableToBooking, evaluateManualSelection, getBookingTableAssignments } from "@/server/capacity";
 import { AssignTablesRpcError } from "@/server/capacity/holds";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
@@ -38,7 +39,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   if (authError) {
     console.error("[ops][bookings][assign-table] auth error", authError.message);
-    return NextResponse.json({ error: "Unable to verify session" }, { status: 500 });
+    const mapped = mapSupabaseAuthError(authError);
+    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
   }
 
   if (!user) {

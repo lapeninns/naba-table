@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { RESTAURANT_ROLE_OPTIONS } from "@/lib/owner/auth/roles";
 import { ensureProfileRow } from "@/lib/profile/server";
+import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
 import { getRouteHandlerSupabaseClient } from "@/server/supabase";
 import { requireAdminMembership } from "@/server/team/access";
 import { createRestaurantInvite, listRestaurantInvites } from "@/server/team/invitations";
@@ -62,7 +63,8 @@ export async function GET(request: NextRequest) {
 
   if (authError) {
     console.error("[team/invitations][GET] auth error", authError.message);
-    return NextResponse.json({ error: "Unable to verify session" }, { status: 500 });
+    const mapped = mapSupabaseAuthError(authError);
+    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
   }
 
   if (!user) {
@@ -113,7 +115,8 @@ export async function POST(request: NextRequest) {
 
   if (authError) {
     console.error("[team/invitations][POST] auth error", authError.message);
-    return NextResponse.json({ error: "Unable to verify session" }, { status: 500 });
+    const mapped = mapSupabaseAuthError(authError);
+    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
   }
 
   if (!user) {

@@ -10,8 +10,8 @@ Your `.env.local` file contains **PRODUCTION SUPABASE CREDENTIALS**:
 
 ```
 # 🌐 PRODUCTION SUPABASE (Currently Active)
-NEXT_PUBLIC_SUPABASE_URL=https://mqtchcaavsucsdjskptc.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGci...
+NEXT_PUBLIC_SUPABASE_URL=https://your-prod-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_prod_anon_key_here
 ```
 
 **CRITICAL ACTIONS REQUIRED:**

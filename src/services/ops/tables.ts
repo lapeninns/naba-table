@@ -273,8 +273,8 @@ export function createBrowserTableInventoryService(): TableInventoryService {
           zoneId: payload.zoneId,
           status: payload.status,
           active: payload.active,
-          position: payload.position ?? null,
-          notes: payload.notes ?? null,
+          position: payload.position,
+          notes: payload.notes,
         }),
       });
       return mapTableInventory(response.table);

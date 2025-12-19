@@ -1,9 +1,9 @@
 'use client';
 
-import { LogOut, Loader2 } from 'lucide-react';
+import { Loader2, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useCallback, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 
 import {
   Sidebar,
@@ -24,10 +24,7 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { useOpsSession } from '@/contexts/ops-session';
-import { useToast } from '@/hooks/use-toast';
-import useOnlineStatus from '@/hooks/useOnlineStatus';
 import { signOutFromSupabase } from '@/lib/supabase/signOut';
-import { cn } from '@/lib/utils';
 
 import { OPS_NAV_SECTIONS, OPS_SUPPORT_ITEM, isNavItemActive } from './navigation';
 import { OpsOfflineIndicator } from './OpsOfflineIndicator';
@@ -42,61 +39,19 @@ type OpsSidebarLayoutProps = {
 };
 
 export function OpsSidebarLayout({ children, defaultSidebarOpen = true, headerSlot }: OpsSidebarLayoutProps) {
-  const isOnline = useOnlineStatus();
-  const { toast } = useToast();
-
-  const handleContentClickCapture = useCallback(
-    (event: MouseEvent<HTMLDivElement>) => {
-      if (isOnline || event.defaultPrevented) {
-        return;
-      }
-
-      const target = event.target as HTMLElement | null;
-      const anchor = target?.closest('a');
-      if (!anchor) {
-        return;
-      }
-
-      const href = anchor.getAttribute('href') ?? '';
-      if (!href || href.startsWith('#')) {
-        return;
-      }
-
-      event.preventDefault();
-      toast({
-        title: "You're offline",
-        description: "Reconnect to navigate. We'll keep this page available until you're back online.",
-      });
-    },
-    [isOnline, toast],
-  );
-
   return (
-    <SidebarProvider defaultOpen={defaultSidebarOpen} className="bg-background">
+    <SidebarProvider defaultOpen={defaultSidebarOpen}>
       <OpsSidebarPanel />
       <SidebarRail />
-      <SidebarInset className="bg-background">
-        <a
-          href="#ops-content"
-          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow"
-        >
-          Skip to content
-        </a>
-        <div className="flex h-14 items-center gap-3 border-b border-border/60 px-4 sm:px-6">
-          <SidebarTrigger className="-ml-1" aria-label="Toggle navigation menu" />
+      <SidebarInset>
+        <div className="flex h-14 items-center gap-3 border-b px-4 sm:px-6">
+          <SidebarTrigger className="-ml-1" />
           {headerSlot ? (
             <div className="flex-1 truncate text-sm font-medium text-muted-foreground">{headerSlot}</div>
           ) : null}
         </div>
         <OpsOfflineIndicator />
-        <div
-          id="ops-content"
-          tabIndex={-1}
-          className="flex flex-1 flex-col overflow-auto"
-          onClickCapture={handleContentClickCapture}
-        >
-          {children}
-        </div>
+        <div className="flex flex-1 flex-col overflow-auto">{children}</div>
       </SidebarInset>
     </SidebarProvider>
   );
@@ -116,16 +71,16 @@ function OpsSidebarPanel() {
   }, [featureFlags]);
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-border/40 bg-sidebar text-sidebar-foreground">
-      <SidebarHeader className="px-3 pt-4">
+    <Sidebar collapsible="icon">
+      <SidebarHeader>
         <OpsRestaurantSwitch />
       </SidebarHeader>
-      <SidebarContent className="gap-4 px-2">
+      <SidebarContent>
         {!pathname ? <OpsSidebarSkeleton /> : <OpsSidebarNav sections={sections} pathname={pathname} />}
       </SidebarContent>
-      <SidebarFooter className="px-3 pb-4">
+      <SidebarFooter>
         <OpsAccountActions />
-        <SidebarSeparator className="my-4 border-sidebar-border" />
+        <SidebarSeparator className="my-4" />
         <OpsSupportLink />
       </SidebarFooter>
     </Sidebar>
@@ -133,28 +88,11 @@ function OpsSidebarPanel() {
 }
 
 function OpsSidebarNav({ sections, pathname }: { sections: OpsNavigationSection[]; pathname: string }) {
-  const isOnline = useOnlineStatus();
-  const { toast } = useToast();
-
-  const handleOfflineNavigation = useCallback(
-    (event: MouseEvent<HTMLAnchorElement>, destination: string) => {
-      if (isOnline) return;
-      event.preventDefault();
-      toast({
-        title: "You're offline",
-        description: `Reconnect to open ${destination}. We'll keep this page available until you're back online.`,
-      });
-    },
-    [isOnline, toast],
-  );
-
   return (
     <>
       {sections.map((section) => (
         <SidebarGroup key={section.label} className="gap-1">
-          <SidebarGroupLabel className="text-[0.68rem] uppercase tracking-wide text-sidebar-foreground/70">
-            {section.label}
-          </SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[0.68rem] uppercase tracking-wide">{section.label}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {section.items.map((item) => {
@@ -162,20 +100,13 @@ function OpsSidebarNav({ sections, pathname }: { sections: OpsNavigationSection[
                 const Icon = item.icon;
                 return (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={active}
-                      tooltip={item.title}
-                      className={cn('touch-manipulation', !isOnline && 'opacity-60')}
-                    >
+                    <SidebarMenuButton asChild isActive={active} tooltip={item.title}>
                       <Link
                         href={item.href}
                         aria-current={active ? 'page' : undefined}
-                        aria-disabled={!isOnline}
                         prefetch={false}
-                        onClick={(event) => handleOfflineNavigation(event, item.title)}
                       >
-                        <Icon aria-hidden className={cn('size-4', active && 'text-sidebar-accent-foreground')} />
+                        <Icon aria-hidden className="size-4" />
                         <span className="truncate">{item.title}</span>
                       </Link>
                     </SidebarMenuButton>

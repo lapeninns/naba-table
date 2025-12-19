@@ -38,11 +38,11 @@ NODE_ENV=development
 # NODE_ENV=production
 DB_TARGET_ENV=staging
 NEXT_PUBLIC_SUPABASE_URL=https://<your-staging-project>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=staging-anon-key
-SUPABASE_SERVICE_ROLE_KEY=staging-service-role-key
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
 PRODUCTION_SUPABASE_URL=https://<your-prod-project>.supabase.co
-PRODUCTION_SUPABASE_ANON_KEY=prod-anon-key
-PRODUCTION_SUPABASE_SERVICE_ROLE_KEY=prod-service-role-key
+PRODUCTION_SUPABASE_ANON_KEY=your_prod_anon_key_here
+PRODUCTION_SUPABASE_SERVICE_ROLE_KEY=your_prod_service_role_key_here
 
 # Safety: block prod resources unless explicitly allowed
 ALLOW_PROD_RESOURCES_IN_NONPROD=false

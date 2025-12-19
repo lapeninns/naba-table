@@ -360,8 +360,12 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
                 <input
                   type="text"
                   placeholder="Search guests..."
+                  id="ops-dashboard-search"
+                  name="search"
+                  aria-label="Search guests"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  autoComplete="off"
                   className="h-10 w-full rounded-lg border border-border bg-background pl-10 pr-4 text-sm outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 touch-manipulation"
                 />
               </div>

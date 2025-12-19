@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
 import { getCustomersWithProfiles } from "@/server/ops/customers";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 import { fetchUserMemberships } from "@/server/team/access";
@@ -21,7 +22,8 @@ export async function GET(req: NextRequest) {
 
   if (authError) {
     console.error("[ops/customers][GET] failed to resolve auth", authError.message);
-    return NextResponse.json({ error: "Unable to verify session" }, { status: 500 });
+    const mapped = mapSupabaseAuthError(authError);
+    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
   }
 
   if (!user) {

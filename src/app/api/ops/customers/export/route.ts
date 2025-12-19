@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { generateCSV } from "@/lib/export/csv";
+import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
 import { getAllCustomersWithProfiles, type CustomerWithProfile } from "@/server/ops/customers";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 import { fetchUserMemberships } from "@/server/team/access";
+
 import { parseOpsCustomersQuery } from "../schema";
 
 import type { NextRequest} from "next/server";
@@ -60,7 +62,8 @@ export async function GET(req: NextRequest) {
 
   if (authError) {
     console.error("[ops/customers/export][GET] failed to resolve auth", authError.message);
-    return NextResponse.json({ error: "Unable to verify session" }, { status: 500 });
+    const mapped = mapSupabaseAuthError(authError);
+    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
   }
 
   if (!user) {

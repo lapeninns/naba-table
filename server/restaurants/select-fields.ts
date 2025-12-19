@@ -14,6 +14,7 @@ const RESTAURANT_BASE_COLUMNS = [
   'email_send_review_request',
   'reservation_interval_minutes',
   'reservation_default_duration_minutes',
+  'reservation_lifecycle_grace_minutes',
   'reservation_last_seating_buffer_minutes',
   'created_at',
   'updated_at',

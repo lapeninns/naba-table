@@ -11,11 +11,11 @@ Your `.env.local` file contains production Supabase credentials. This file is us
 ### Current Situation
 
 ```
-File: .env.local (lines 26-29)
-# 🌐 PRODUCTION SUPABASE (Currently Active)
-PROJECT_URL=mqtchcaavsucsdjskptc
-NEXT_PUBLIC_SUPABASE_URL=https://mqtchcaavsucsdjskptc.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGci...
+File: .env.local (example)
+# 🌐 PRODUCTION SUPABASE (example)
+PROJECT_URL=your_project_id
+NEXT_PUBLIC_SUPABASE_URL=https://your-prod-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
 ```
 
 ### Immediate Actions Required
@@ -55,7 +55,7 @@ If credentials were ever in git:
 cat .gitignore | grep .env.local
 
 # If not present, add it
-echo ".env.local" >> .gitignore
+echo \".env.local\" >> .gitignore
 ```
 
 ### Correct Setup
@@ -65,7 +65,7 @@ echo ".env.local" >> .gitignore
 ```bash
 # Development Supabase (separate project)
 NEXT_PUBLIC_SUPABASE_URL=https://dev-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=dev_anon_key_here
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
 ```
 
 **Production (Vercel/hosting platform):**
@@ -218,4 +218,3 @@ If you need assistance with any of these issues:
 
 1. Supabase documentation: https://supabase.com/docs
 2. Sentry setup guide: https://docs.sentry.io/platforms/javascript/guides/nextjs/
-3. Next.js security best practices: https://nextjs.org/docs/app/building-your-application/configuring/environment-variables

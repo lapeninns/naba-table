@@ -1,12 +1,13 @@
 
 import { RESTAURANT_ROLES, type RestaurantRole } from "@/lib/owner/auth/roles";
+import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
 import { getRouteHandlerSupabaseClient } from "@/server/supabase";
 import { fetchUserMemberships, requireMembershipForRestaurant, type RestaurantMembershipWithDetails } from "@/server/team/access";
 
 import type { Database } from "@/types/supabase";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 
-type TenantClient = SupabaseClient<Database, "public", any>;
+type TenantClient = SupabaseClient<Database>;
 
 export class GuardError extends Error {
   readonly status: number;
@@ -31,10 +32,11 @@ export async function requireSession(existingClient?: TenantClient): Promise<{ s
   } = await supabase.auth.getUser();
 
   if (error) {
+    const mapped = mapSupabaseAuthError(error);
     throw new GuardError({
-      status: 500,
-      code: "SESSION_RESOLUTION_FAILED",
-      message: "Unable to verify session",
+      status: mapped.status,
+      code: mapped.code,
+      message: mapped.message,
       details: error.message ?? error,
       cause: error,
     });
