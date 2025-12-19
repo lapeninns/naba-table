@@ -1,1019 +1,1049 @@
----
-agents_version: 5.3
-scope: root
-extends: null
-last_updated: 2025-11-30
-owner: github:@maintainers
----
-
-# AGENTS.md
-
-**SDLC‑aligned operating handbook for AI coding agents and human contributors (with MCP tooling)**
-
-> Deliver reliable software changes using the same structure every time—mapped to a clear SDLC and enforced by policy‑as‑code.
-
----
-
-## 0) Scope & Audience
-
-- **Who**: AI coding agents, human engineers, reviewers, maintainers, release managers.
-- **What**: The authoritative SDLC, workflow, quality bars, file structure, conventions, and MCP tool usage for any change (feature, fix, refactor, experiment).
-- **Why**: Consistency, traceability, safe iteration—especially in monorepos and multi‑app repos.
-
-For checklists, see **§11 Quick Reference**.
-
----
-
-## 1) Non‑Negotiables (Read First)
-
-1. **Follow SDLC phases in order.** No coding before requirements & plan are reviewed.
-2. **Everything is a Task** with its own UTC‑timestamped directory and artifacts.
-3. **Manual UI QA via Chrome DevTools (MCP) is mandatory** for any UI change.
-4. **Supabase: remote only.** Never run migrations or seeds against a local instance.
-5. **Prefer existing patterns** (DRY/KISS/YAGNI). **Use SHADCN UI** (via **Shadcn MCP**) before custom components.
-6. **Accessibility is required** (WCAG/WAI‑ARIA APG). No exceptions.
-7. **Document assumptions & deviations** in the task folder.
-8. **Secrets never in source.** Use env vars/secret stores; never commit tokens.
-9. **Conventional Commits** and **PR templates** are enforced.
-10. **PRs must reference a valid task folder** (`tasks/<slug>-YYYYMMDD-HHMM>`). CI blocks merges otherwise.
-11. **Root policy path is exact.** The root file **must be** `/AGENTS.md` (uppercase). Any other path/casing fails CI.
-
-### 1A) Non‑Overridable Core Rules (Root‑enforced; closest cannot relax)
-
-Nested `AGENTS.md` files **cannot relax or override** these:
-
-- Secrets never in source; only via env/secret store.
-- Supabase is **remote‑only**; migrations require backup/rollback plan and evidence.
-- Accessibility baseline (keyboard navigation; WCAG/WAI‑ARIA compliance).
-- Manual UI QA via Chrome DevTools MCP for UI changes (with artifacts).
-- Conventional Commits; PR must include task artifacts and verification evidence.
-
-> Anything listed here wins even against “closest‑wins” precedence.
-
-### 1B) Simplicity & Scope Rules
-
-- **Avoid over‑engineering.** Only make changes directly requested or clearly necessary.
-- **Don’t add features or configurability** beyond the ask. A bug fix doesn’t require refactoring the whole module.
-- **Validate only at system boundaries** (user input, external APIs). Trust internal invariants and framework guarantees.
-- **Don’t build abstractions for one‑off operations.** Reuse existing helpers; don’t design for hypothetical future requirements.
-- **Don’t add backwards‑compat shims** if you can safely change the only caller.
-- **Keep edits focused.** Don’t “clean up” unrelated code in the same change.
-- **Always read relevant files before editing.** Do not speculate about code you haven’t inspected; follow existing patterns and style.
-
-### Agent Quickstart (AI & New Engineers)
-
-For **any change** (feature, fix, refactor):
-
-1. **Find AGENTS policy**: From the file you’re touching, walk up directories and collect all `AGENTS.md` (root → closest).
-2. **Create a task folder**: `tasks/<slug>-YYYYMMDD-HHMM/` (UTC).
-3. **Phase 1 — Requirements**: Fill `research.md` until **Definition of Ready** is met (§4, Phase 1).
-4. **Phase 2 — Plan**: Fill `plan.md` with architecture, contracts, tests, rollout (§4, Phase 2).
-5. **Phase 3 — Implement**: Use `todo.md` as a live checklist; keep notes and deviations up to date.
-6. **Phase 4 — Verify**:
-   - Run tests (unit/integration/E2E/a11y).
-   - Run **Chrome DevTools MCP** (required for UI) and record perf/a11y.
-   - Capture artifacts into `artifacts/` and summarize in `verification.md`.
-7. **Phase 5+ — PR & Release**:
-   - Open PR with **Conventional Commit** title, link task folder, and attach evidence.
-   - Once merged, follow rollout plan and document outcomes in the task folder.
-
----
-
-## 1.5) AGENTS.md Initialization & Discovery
-
-### Before Starting Any Task
-
-If no `AGENTS.md` exists in the working context:
-
-1. **Walk up the directory tree** from the current path to the repo root.
-2. **Check for `AGENTS.md`** at each level (**exact casing**).
-3. **If none found**, create one using the initialization workflow below.
-
-### Initialization Workflow
-
-**Step 1: Determine Scope**
-
-- **Root-level**: Creating `/AGENTS.md` → use full template (this file).
-- **Subproject**: Creating `/apps/web/AGENTS.md` → use nested template (§7).
-
-**Step 2: Scaffold the File**
-
-- Add machine‑readable **frontmatter** to every `AGENTS.md`.
-
-**Root AGENTS.md (minimal viable template)**
-
-```markdown
----
-agents_version: 5.3
-scope: root
-extends: null
-last_updated: 2025-11-30
-owner: github:@maintainers
----
-
-# AGENTS.md
-
-## Project Overview
-
-<Brief description>
-## Build & Test Commands
-- `pnpm install` — Install
-- `pnpm run dev` — Dev server
-- `pnpm run build` — Production build
-- `pnpm run test` — Tests
-- `pnpm run lint` — Lint
-## Code Style Guidelines
-- <Conventions, naming, file org>
-## Testing Instructions
-- <How/where/coverage>
-## Security Considerations
-- Never commit secrets; use .env / secret store
-- <Auth patterns / data handling>
-## Additional Context
-- Conventional Commits; PR template; Deployment notes
-```
-
-**Step 3: Commit It**
-
-```bash
-git add AGENTS.md
-git commit -m "docs: initialize AGENTS.md for coding agents"
-```
-
-### Discovery Rules (for Agents & Tools)
-
-- From path `X`, **walk up** to root collecting `AGENTS.md` (exact casing).
-- Apply rules in order: **root → intermediate → closest** (**closest wins** on conflicts), except **Non‑Overridable Core Rules** which always win.
-- On Unix (case‑sensitive) and macOS/Windows (default case‑insensitive), only `AGENTS.md` (uppercase) is valid. Files like `agents.md` **fail CI**.
-- If none found at root: **Stop and create one** at root before proceeding (use minimal template above). Tailor to discovered files (`package.json`, `Makefile`, etc.).
-
-**Example**
-
-```
-/repo/AGENTS.md                          # Root rules (always apply)
-/repo/apps/web/AGENTS.md                 # Web app rules (inherit + override)
-/repo/apps/web/src/components/AGENTS.md  # Component-specific (closest precedence)
-```
-
-#### Policy Trace (confirm effective stack)
-
-To see which files were applied for a given source file and in what order, use the **policy‑trace script** (Appendix H) or run:
-
-```bash
-pnpm ts-node scripts/agents-policy-trace.ts apps/web/src/pages/index.tsx
-```
-
-This prints the chain `root → … → closest` so you can confirm inheritance and spot misconfigurations (e.g., wrong `extends:`).
-
-### Large Monorepos (many AGENTS.md files)
-
-- Each package/app gets its own `AGENTS.md` focused on **local concerns**.
-- Root covers **cross‑cutting** rules (CI/CD, security, commit standards).
-- Nested files **must** include frontmatter with `scope: subproject`, `extends: ../../AGENTS.md` (or `../AGENTS.md` as appropriate), and `agents_version`.
-
----
-
-## 2) Task Structure & Naming
-
-- **Directory**: `tasks/<slug>-YYYYMMDD-HHMM/` (UTC).
-  - Slugs: `user-auth-flow`, `payment-gateway-integration`, `fix-avatar-cropping`.
-  - Timestamp: `YYYYMMDD-HHMM` (e.g., `20250110-1430` → 2025‑01‑10 14:30 UTC).
-
-**Required contents**
-
-```
-tasks/<slug>-YYYYMMDD-HHMM/
-├── research.md       # Requirements & analysis (what exists, reuse, constraints)
-├── plan.md           # Design/plan: objective, architecture, API, states, tests, rollout
-├── todo.md           # Live implementation checklist (atomic steps)
-├── verification.md   # Verification: manual QA, tests, perf/a11y budgets, sign-offs
-└── artifacts/        # Evidence: Lighthouse JSON, HAR, traces, screenshots, db diffs
-```
-
-**Frontmatter (add to each task file)**
-
-```markdown
----
-task: <slug>
-timestamp_utc: <ISO-8601 Z>
-owner: github:@<handle>
-reviewers: [github:@<handle>]
-risk: low|medium|high
-flags: [<feature_flag_keys>]
-related_tickets: [<TICKET-123>]
----
-```
-
----
-
-## 3) SDLC at a Glance (Map → Artifacts → MCP)
-
-| SDLC Phase                       | What happens                                       | Primary Artifacts             | Gate / Exit Criteria                                                 | Required MCP(s)                             |
-| -------------------------------- | -------------------------------------------------- | ----------------------------- | -------------------------------------------------------------------- | ------------------------------------------- |
-| **0. Initiation**                | Create task, define scope stub                     | Task folder, stubs            | Folder exists; basic scope noted                                     | —                                           |
-| **1. Requirements & Analysis**   | Inventory code, clarify requirements, risks        | `research.md`                 | **DoR met**; justified approach; constraints/risks explicit          | **Context7**, **DeepWiki**                  |
-| **2. Design & Planning**         | Architecture, contracts, UX states, tests, rollout | `plan.md`                     | Reviewer can approve build without a meeting                         | **Shadcn**, **Supabase**, **Next DevTools** |
-| **3. Implementation**            | Code, migrations, components, unit tests           | `todo.md` (live)              | Core complete; local tests pass                                      | **Shadcn**, **Supabase**, **Next DevTools** |
-| **4. Verification & Validation** | Manual QA, a11y, perf, E2E, cross‑browser          | `verification.md` + artifacts | **DoD met**; budgets met; no P0/P1; sign‑offs; artifacts present     | **Chrome DevTools**                         |
-| **5. Review & Merge**            | PR, review, evidence, CI green                     | PR links to task              | Approvals obtained; CI green; merge per policy                       | **GitHub tool** (if configured)             |
-| **6. Release & Deployment**      | Gradual rollout; metrics & logs                    | Release notes, runbook notes  | Stable at 100%; rollback path documented; monitors/alerts configured | **Supabase** (if DB), Observability stack   |
-| **7. Operate & Improve**         | Monitor, hotfix, retrospective                     | Post‑release notes            | Learnings captured; tickets filed                                    | —                                           |
-
-> MCP names refer to your configured servers (see §8). Use env/secrets—never commit real tokens.
-
----
-
-## 4) Detailed SDLC Phases (with DoR/DoD & MCP)
-
-### Phase 0 — **Initiation (Task Setup)**
-
-**Inputs**: Ticket or problem statement.
-
-**Activities**:
-
-- Create `tasks/<slug>-YYYYMMDD-HHMM/` (UTC).
-- Stub `research.md` and `plan.md` with frontmatter.
-
-**Exit**: Task folder exists; scope stub recorded.
-
----
-
-### Phase 1 — **Requirements & Analysis** (`research.md`) — **Definition of Ready**
-
-**Goal**: Understand before building.
-
-**Activities**:
-
-- Inventory codebase for reuse and anti‑patterns.
-- Gather functional + non‑functional requirements (a11y, perf, security, privacy, i18n).
-- Identify domain constraints/risks; record recommended approach with rationale.
-- Capture open questions with owners & due dates.
-
-**Use MCP**:
-
-- **Context7** for internal prior art; **DeepWiki** for external references.
-- **Gate (medium/high risk)**: Run at least one relevant MCP query and reference its result in `research.md`. If MCP is unavailable, note manual equivalent investigation and evidence in `artifacts/`.
-
-**Outputs**:
-
-- Reuse list; constraints; risks; external refs and why they matter; recommended direction.
-
-**Definition of Ready (DoR)**
-
-- [ ] Scope & success criteria are clear/measurable.
-- [ ] Reuse or “no reusable pattern” is documented.
-- [ ] Risks & open questions listed with owners/dates.
-- [ ] Owner & reviewers assigned.
-
-Template:
-
-```markdown
-# Research: <Feature/Change Name>
-
-## Requirements
-
-- Functional:
-- Non‑functional (a11y, perf, security, privacy, i18n):
-
-## Existing Patterns & Reuse
-
-- ...
-
-## External Resources
-
-- [Spec/Doc](url) — why it matters
-
-## Constraints & Risks
-
-- ...
-
-## Open Questions (owner, due)
-
-- Q: ...
-  A: ...
-
-## Recommended Direction (with rationale)
-
-- ...
-```
-
----
-
-### Phase 2 — **Design & Planning** (`plan.md`)
-
-**Goal**: Turn analysis into an implementable blueprint.
-
-**Activities**:
-
-- Mobile‑first, progressive enhancement; prefer existing components (Shadcn).
-- Define architecture, data flow, API contracts, error paths, UI states.
-- Define tests and rollout (flags, metrics, kill‑switch).
-- **DB:** “staging‑first” migration strategy; expansion→backfill→contraction; rollback plan.
-
-**Use MCP**:
-
-- **Shadcn** for components; **Supabase** for remote migrations (dry‑run → plan → apply); **Next DevTools** for routing/bundle inspection.
-
-**Outputs**:
-
-- Objective; success criteria; components; contracts; states; edge cases; testing; rollout & observability.
-
-Template:
-
-```markdown
-# Implementation Plan: <Feature/Change Name>
-
-## Objective
-
-We will enable <user> to <goal> so that <outcome>.
-
-## Success Criteria
-
-- [ ] <metric/condition>
-- [ ] <metric/condition>
-
-## Architecture & Components
-
-- <ComponentA>: role
-- <ComponentB>: role
-  State: <where/why> | URL state: <...>
-
-## Data Flow & API Contracts
-
-Endpoint: METHOD /api/...
-Request: { ... }
-Response: { ... }
-Errors: { code, message }
-
-## UI/UX States
-
-- Loading / Empty / Error / Success
-
-## Edge Cases
-
-- ...
-
-## Testing Strategy
-
-- Unit / Integration / E2E / Accessibility
-
-## Rollout
-
-- Feature flag: <flag_name> (namespace: feat.<area>.<name>)
-- Exposure: 10% → 50% → 100%
-- Monitoring: <dashboards/metrics>
-- Kill‑switch: <how to disable safely>
-
-## DB Change Plan (if applicable)
-
-- Target envs: staging → production (window: <time>)
-- Backup reference: <snapshot/PITR link>
-- Dry‑run evidence: `artifacts/db-diff.txt`
-- Backfill strategy: <chunk size, idempotency>
-- Rollback plan: <steps/compensating migration>
-```
-
----
-
-### Phase 3 — **Implementation** (`todo.md`)
-
-**Goal**: Execute with momentum and traceability.
-
-**Activities**:
-
-- Track atomic steps; log deviations & assumptions.
-- Implement code, components, remote migrations, and tests.
-- Keep changes **narrow and focused** per §1B (no opportunistic refactors).
-
-**Use MCP**:
-
-- **Shadcn**, **Supabase**, **Next DevTools** as needed.
-
-Template:
-
-```markdown
-# Implementation Checklist
-
-## Setup
-
-- [ ] Create/extend components (Shadcn-first; exception noted if any)
-- [ ] Add feature flag <flag_name> (default off)
-
-## Core
-
-- [ ] Data fetching / mutations
-- [ ] Validation & error surfaces
-- [ ] URL/state sync & navigation
-
-## UI/UX
-
-- [ ] Responsive layout
-- [ ] Loading/empty/error states
-- [ ] A11y roles, labels, focus mgmt
-
-## Tests
-
-- [ ] Unit
-- [ ] Integration
-- [ ] E2E (critical flows)
-- [ ] Axe/Accessibility checks
-
-## Notes
-
-- Assumptions:
-- Deviations:
-
-## Batched Questions
-
-- ...
-```
-
----
-
-### Phase 4 — **Verification & Validation** (`verification.md`) — **Definition of Done**
-
-**Goal**: Prove it works, is accessible, and performs.
-
-**Activities**:
-
-- **Chrome DevTools MCP Manual QA**: console/network; device emulation; profiling; Lighthouse; a11y.
-- Cross‑browser smoke where relevant.
-- Validate edge cases & error paths; perf budgets; basic security checks.
-- Attach artifacts in `artifacts/` (Lighthouse JSON, HAR, traces, screenshots, db diff).
-
-**Budgets (mobile; 4× CPU; 4G)**
-
-- FCP ≤ **2.0 s** · LCP ≤ **2.5 s** · CLS ≤ **0.10** · TBT ≤ **200 ms**
-- Axe: **0** critical/serious issues
-- Critical interaction latency: **P95 ≤ 500 ms**
-
-**Definition of Done (DoD)**
-
-- [ ] Requirements met; success criteria satisfied.
-- [ ] All tests pass (unit/integration/E2E/a11y).
-- [ ] Perf/a11y budgets met; no P0/P1.
-- [ ] `verification.md` completed with artifacts.
-- [ ] Docs/changelogs updated; flags & runbooks documented.
-
-Template:
-
-```markdown
-# Verification Report
-
-## Manual QA — Chrome DevTools (MCP)
-
-Tool: Chrome DevTools MCP
-
-### Console & Network
-
-- [x] No Console errors
-- [x] Network requests match contract
-
-### DOM & Accessibility
-
-- [x] Semantic HTML verified
-- [x] ARIA attributes correct
-- [x] Focus order logical & visible
-- [x] Keyboard-only flows succeed
-
-### Performance (profiled; mobile; 4× CPU; 4G)
-
-- FCP: <value> s | LCP: <value> s | CLS: <value> | TBT: <value> ms
-- Budgets met: [ ] Yes [ ] No (notes)
-
-### Device Emulation
-
-- [x] Mobile (≈375px) [x] Tablet (≈768px) [x] Desktop (≥1280px)
-
-## Test Outcomes
-
-- [x] Happy paths
-- [x] Error handling
-- [x] A11y (axe): 0 critical/serious
-
-## Artifacts
-
-- Lighthouse: `artifacts/lighthouse-report.json`
-- Network: `artifacts/network.har`
-- Traces/Screens: `artifacts/`
-- DB diff (if DB change): `artifacts/db-diff.txt`
-
-## Known Issues
-
-- [ ] <issue> (owner, priority)
-
-## Sign‑off
-
-- [ ] Engineering
-- [ ] Design/PM
-- [ ] QA
-```
-
----
-
-### Phase 5 — **Review & Merge**
-
-**Activities**:
-
-- Open PR; reference task directory; include evidence and checklists.
-- Use **Conventional Commits** in PR title (`feat: ...`, `fix: ...`).
-- Attach UI screenshots/clips and link to `verification.md`.
-
-**Exit**: Approvals obtained; CI green; merged per repo policy.
-
-PR Checklist (include in PR description):
-
-```text
-[ ] Links to task folder and ticket
-[ ] Screenshots/clips (UI) + verification.md
-[ ] Tests added/updated
-[ ] A11y verified (keyboard, SR cues)
-[ ] Perf budgets met (Lighthouse attached)
-[ ] Docs/changelogs updated if needed
-```
-
----
-
-### Phase 6 — **Release & Deployment**
-
-**Activities**:
-
-- Roll out per plan; monitor metrics/logs; keep flag guardrails.
-- Apply DB changes **staging first**, then production in a window with approvals.
-- Document outcomes in task folder.
-
-**Exit**: Stable at 100%; final notes added to task.
-
----
-
-### Phase 7 — **Operate & Improve**
-
-**Activities**:
-
-- Monitor SLOs; triage incidents; capture learnings.
-- File follow‑ups; schedule refactors/tech debt as tasks.
-
-**Exit**: Learnings captured; backlog updated.
-
----
-
-## 5) Frontend: Component & UX Standards
-
-### Components
-
-- **Use SHADCN UI via Shadcn MCP**; extend rather than rebuild.
-- **Exceptions**: Only if no Shadcn equivalent supports required a11y/UX; document justification in `plan.md` and get design sign‑off.
-
-### Mobile‑First & Progressive Enhancement
-
-- Build for small screens first; enhance for larger screens.
-- Core flows should degrade gracefully with minimal JS where reasonable.
-
-### Accessibility (must‑haves)
-
-- Full keyboard navigation; manage focus (trap in modals; restore on close).
-- Visible focus via `:focus-visible`.
-- Prefer semantic HTML; add ARIA only when necessary.
-- Provide accessible names/labels; avoid color‑only cues.
-- Hierarchical headings; per‑view titles.
-- Toasts/validation use polite `aria-live`.
-
-### Forms
-
-- Inputs ≥16px font on mobile.
-- Correct `type`, `inputmode`, `autocomplete`.
-- Submit triggers inline validation; focus first error.
-- Submit remains enabled until request starts; show non‑blocking spinners.
-- Permit paste; trim values; warn on unsaved changes.
-- `Enter` submits single‑line; `Ctrl/⌘+Enter` submits textareas.
-
-### Navigation & State
-
-- Reflect state in URL (filters, tabs, pagination).
-- Restore scroll on back/forward.
-- Use `<a>/<Link>` for new‑tab & middle‑click.
-
-### Touch & Targets
-
-- Hit area ≥24px (mobile ≥44px). Increase padding if visuals are smaller.
-- `touch-action: manipulation` where appropriate.
-
-### Motion & Layout
-
-- Respect `prefers-reduced-motion`.
-- Animate only `transform`/`opacity`; animations are interruptible.
-- Test mobile, laptop, ultra‑wide; avoid accidental scrollbars.
-- Respect safe areas with `env(safe-area-inset-*)`.
-
-### Performance
-
-- Minimize re‑renders; virtualize large lists.
-- Prevent image‑induced CLS (reserve space).
-- Target <500ms for common user‑visible mutations (P95).
-
----
-
-## 6) Back End & Data
-
-### Supabase — **Remote Only**
-
-- **Never** run local Supabase for this project.
-- All migrations/seeds target **remote** environments (staging/prod per plan).
-- **Staging‑first** apply; production requires protected env + approval.
-
-**MCP‑first operations**
-
-- Use **Supabase MCP** to:
-  - Preview migrations (dry run) → attach output to `artifacts/db-diff.txt`.
-  - Apply to **target remote** (staging → prod).
-  - Capture migration IDs and rollback steps in `verification.md`.
-
-**Safety**
-
-- Expansion → backfill → contraction.
-- Avoid long‑running locking transactions; chunk backfills with idempotency.
-- Verify backups/PITR before impactful schema changes.
-- Production applies occur in a change window with on‑call acknowledged.
-
----
-
-## 7) Nested AGENTS.md (Subprojects)
-
-> Discovery rules in §1.5 apply. Additions/overrides only; root rules remain in force.
-
-### Template (Nested)
-
-```markdown
----
-agents_version: 5.3
-scope: subproject
-extends: ../../AGENTS.md
-last_updated: 2025-11-30
-owner: github:@<team>
-profile: web-next|mobile|service-python|package-ui
----
-
-# AGENTS.md — <Subproject Name>
-
-> Inherits main AGENTS.md. Additions/overrides below.
-
-## Overview
-
-<Brief purpose and scope>
-
-## Build & Test Commands
-
-- `pnpm run dev`
-- `pnpm run build`
-- `pnpm run test`
-- `pnpm run lint`
-
-## Subproject-Specific Guidelines
-
-### Code Conventions
-
-- <Naming, file organization>
-
-### Testing
-
-- <Location/structure, coverage expectations>
-
-### Deployment
-
-- <Process for this subproject>
-
-## Links
-
-- Main docs: <url>
-- API reference: <url>
-```
-
-### Example Monorepo Layout
-
-```text
-/
-├── AGENTS.md
-├── apps/
-│   ├── web/AGENTS.md
-│   ├── mobile/AGENTS.md
-│   └── admin/AGENTS.md
-├── packages/
-│   ├── ui/AGENTS.md
-│   ├── api-client/AGENTS.md
-│   └── database/AGENTS.md
-└── infrastructure/AGENTS.md
-```
-
----
-
-## 8) MCP Tooling & Integrations (Catalog + Rules)
-
-> Use MCP when it provides **repeatability, safety, or scale**. Configure via env/secrets; do not commit tokens.
-
-- **Chrome DevTools MCP** — Manual QA (console/network, emulation, performance, Lighthouse/a11y).  
-  **Phase**: 4. **Rule**: Required for any UI change; attach artifacts.
-- **Shadcn MCP** — Discover/scaffold UI components, synchronize tokens.  
-  **Phases**: 2, 3. **Rule**: Prefer SHADCN before custom.
-- **Next DevTools MCP** — Next.js routing/data‑fetch, server/client boundaries, bundle hints.  
-  **Phases**: 2, 3.
-- **Supabase MCP** — Remote migrations/seeds; schema drift; rollback plans.  
-  **Phases**: 2, 3, 6. **Rule**: **Remote only**; connections via secrets.
-- **Context7 MCP** — Semantic search over internal knowledge.  
-  **Phase**: 1.
-- **DeepWiki MCP** — External/domain research summaries.  
-  **Phase**: 1.
-
-**If MCP unavailable temporarily**: run equivalent CLI/manual steps and attach artifacts. MCP usage is still **required** long‑term.
-
----
-
-## 9) Git & Branching
-
-- **Branch**: `task/<slug>-YYYYMMDD-HHMM` (short‑lived; trunk‑based; squash merges).
-- **Commits**: Conventional Commits (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`).
-- **PRs**: Must reference the task folder path and include evidence (screens, clips, Lighthouse, HAR, traces).
-
----
-
-## 10) Red Flags, Stop Signs & Waivers
-
-Escalate or stop immediately if:
-
-- No reusable pattern exists for a risky area → **request design/arch review**.
-- Requirements ambiguous → **clarify in Phase 1** before coding.
-- Scope too large → **split into multiple tasks**.
-- Assumptions stack up → **document & validate with maintainer**.
-- No verification plan → **define success criteria** first.
-- Skipping **DevTools MCP** QA for UI → **not allowed**.
-- Attempting **local** Supabase migrations/seeds → **not allowed**.
-- Secrets appear in diffs or artifacts → **block PR** until removed.
-
-### 10.1 Waiver / Hotfix Flow (exception path)
-
-- **Use only for urgent hotfixes (P0/P1).**
-- Branch: `hotfix/<slug>-YYYYMMDD-HHMM>`.
-- Minimal `research.md`/`plan.md` allowed if risk explicitly documented.
-- **Post‑merge within 24h**: complete full Phase 4, attach artifacts, and file retro in Phase 7.
-- Approvals: Maintainer + QA Lead; time‑boxed waiver (≤72h).
-
----
-
-## 11) Quick Reference Checklists
-
-**Task Lifecycle**
-
-```text
-[ ] Check for AGENTS.md (§1.5); create if missing
-[ ] Create task dir (UTC timestamp)
-[ ] Requirements & analysis → research.md (DoR met)
-[ ] Design/plan → plan.md
-[ ] Implementation → todo.md
-[ ] Verification → verification.md + artifacts (DoD met)
-[ ] Approvals & merge
-[ ] Release & monitor; notes added
-[ ] Post‑release learnings filed (tickets)
-```
-
-**UI/A11y Essentials**
-
-```text
-[ ] Keyboard‑only flows succeed
-[ ] Visible focus management
-[ ] Semantic roles/labels
-[ ] URL reflects state
-[ ] Loading/empty/error states implemented
-[ ] No CLS from media; images sized
-```
-
-**Perf Budgets (mobile; 4× CPU; 4G)**
-
-```text
-[ ] FCP ≤ 2.0 s
-[ ] LCP ≤ 2.5 s
-[ ] CLS ≤ 0.10
-[ ] TBT ≤ 200 ms
-[ ] Critical interaction P95 ≤ 500 ms
-```
-
-**Data & Migrations**
-
-```text
-[ ] Remote Supabase only (via MCP)
-[ ] Staging first, then production (window + approval)
-[ ] Backup/rollback plan noted
-[ ] Dry-run(diff) artifact attached
-```
-
-**Security & Privacy**
-
-```text
-[ ] Secrets not committed; env only
-[ ] PII minimized/redacted in logs
-[ ] Auth & authorization paths tested
-```
-
----
-
-## 12) Key Questions Before You Start
-
-1. Who is the user and what exact problem are we solving?
-2. What can we **reuse** from the codebase?
-3. What are the edge cases and failure modes?
-4. What does **success** look like (metrics, states, acceptance criteria)?
-5. What could go wrong, and what is our mitigation/rollback?
-
----
-
-## 13) Appendices
-
-### A) RACI (by Phase)
-
-| Phase             | Responsible            | Accountable     | Consulted            | Informed |
-| ----------------- | ---------------------- | --------------- | -------------------- | -------- |
-| 1. Requirements   | Feature Eng / AI Agent | Tech Lead       | PM, Design, Security | QA       |
-| 2. Design         | Feature Eng            | Tech Lead       | DB Eng, A11y SME     | QA       |
-| 3. Implementation | Feature Eng            | Tech Lead       | Maintainers          | PM       |
-| 4. Verification   | QA + Feature Eng       | QA Lead         | A11y SME, Perf       | PM       |
-| 5. Review/Merge   | Reviewers              | Repo Maintainer | Security             | All      |
-| 6. Release        | Release Manager        | Eng Manager     | SRE, Support         | All      |
-| 7. Operate        | SRE/On‑call            | Eng Manager     | PM                   | All      |
-
-### B) Style Principles
-
-- **DRY**: Reuse patterns/components.
-- **KISS**: Prefer simple, obvious solutions.
-- **YAGNI**: Build only what's needed now.
-
-### C) MCP Pre‑Flight (copy into `verification.md` when MCP is used)
-
-```text
-[ ] Server reachable (version printed)
-[ ] Session token valid (if required)
-[ ] Secrets sourced via env (not logged)
-[ ] Target environment confirmed (staging/prod)
-```
-
-### D) Security Baselines
-
-- **Secret scanning** required (e.g., Gitleaks/Trufflehog) on every PR.
-- **SAST** (e.g., CodeQL/Semgrep) on default branches and PRs.
-- **Dependency audit** (pnpm/yarn/npm audit) with allowlisted exceptions only.
-- **SBOM** generation for release builds if applicable.
-- **Commit signing** recommended; protected environments for production.
-
-### E) PR Template (drop in `.github/PULL_REQUEST_TEMPLATE.md`)
-
-```markdown
-## Summary
-
-<What and why>
-
-## Task & Tickets
-
-- Task folder: `tasks/<slug>-YYYYMMDD-HHMM>`
-- Ticket: <link>
-
-## Evidence
-
-- [ ] `verification.md` updated
-- [ ] Screenshots/clips for UI changes
-- [ ] Metrics/perf notes (if applicable)
-- [ ] Lighthouse JSON + HAR attached in `artifacts/`
-
-## Checklists
-
-**Definition of Ready (Phase 1)**
-
-- [ ] Scope & success criteria clear
-- [ ] Reuse identified or N/A
-- [ ] Risks & open Qs tracked with owners
-
-**Definition of Done (Phase 4)**
-
-- [ ] All tests pass (unit/integration/E2E/a11y)
-- [ ] Perf/a11y thresholds met; no P0/P1
-- [ ] Docs/changelog updated
-- [ ] Rollout plan & flag documented
-
-## Notes
-
-<assumptions/deviations>
-```
-
-### F) CODEOWNERS (excerpt)
-
-```text
-# Cross-cutting
-/AGENTS.md                 @maintainers
-/tasks/                    @release-managers @maintainers
-/supabase/migrations/      @db-owners
-
-# Apps
-/apps/web/                 @web-core
-/apps/mobile/              @mobile-core
-/packages/ui/              @design-systems
-```
-
-### G) CI Enforcement (policy‑as‑code)
-
-**agents-guards.yml** (example)
-
-```yaml
-name: Agents Guards
-on: [pull_request]
-jobs:
-  guards:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
-      - uses: actions/setup-node@v4
-        with: { node-version: '20' }
-      - run: pnpm install --frozen-lockfile || npm ci
-      - run: node scripts/check-agents-compliance.cjs
-```
-
-**scripts/check-agents-compliance.cjs**
-
-```js
-const fs = require('fs');
-const path = require('path');
-
-function read(file) {
-  return fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
-}
-
-// 1) Root file must be exactly /AGENTS.md
-if (!fs.existsSync(path.join(process.cwd(), 'AGENTS.md'))) {
-  console.error('Missing required root /AGENTS.md (exact casing).');
-  process.exit(1);
-}
-
-// 2) Validate all nested AGENTS.md have scope: subproject and a non-null extends:
-function* walk(dir) {
-  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    const p = path.join(dir, e.name);
-    if (e.isDirectory()) yield* walk(p);
-    else if (e.isFile() && e.name === 'AGENTS.md' && p !== path.join(process.cwd(), 'AGENTS.md'))
-      yield p;
-  }
-}
-let ok = true;
-for (const p of walk(process.cwd())) {
-  const content = read(p);
-  const hasScope = /scope:\s*subproject\b/.test(content);
-  const hasExt = /extends:\s+(\.\.\/)+AGENTS\.md\b/.test(content);
-  if (!hasScope || !hasExt) {
-    console.error(
-      `Nested ${p} must declare 'scope: subproject' and a valid 'extends: ../../AGENTS.md' path.`,
-    );
-    ok = false;
-  }
-}
-if (!ok) process.exit(1);
-console.log('AGENTS policy checks passed.');
-```
-
-### H) Policy‑Trace Script (confirm effective stack)
-
-**scripts/agents-policy-trace.ts**
-
-```ts
-import fs from 'fs';
-import path from 'path';
-
-function walkAgents(startFile: string) {
-  const stack: string[] = [];
-  let dir = path.resolve(path.dirname(startFile));
-  while (true) {
-    const p = path.join(dir, 'AGENTS.md'); // exact casing
-    if (fs.existsSync(p)) stack.push(p);
-    const parent = path.resolve(dir, '..');
-    if (parent === dir) break;
-    dir = parent;
-  }
-  return stack.reverse(); // root -> ... -> closest
-}
-
-const targets = process.argv.slice(2);
-if (targets.length === 0) {
-  console.error('Usage: ts-node scripts/agents-policy-trace.ts <path/to/file>');
-  process.exit(1);
-}
-for (const f of targets) {
-  const stack = walkAgents(f);
-  console.log(`\n${f}\nEffective AGENTS stack:`);
-  stack.forEach((p, i) => console.log(`  ${i + 1}. ${p}`));
-}
-```
-
-Usage:
-
-```bash
-pnpm ts-node scripts/agents-policy-trace.ts apps/web/src/pages/index.tsx
-```
-
----
-
-**Last Updated**: 2025‑11-30  
-**Version**: 5.3
+and - and - and - and
+and a and g and e and n and t and s and _ and v and e and r and s and i and o and n and : and and 5 and . and 3 and
+and s and c and o and p and e and : and and r and o and o and t and
+and e and x and t and e and n and d and s and : and and n and u and l and l and
+and l and a and s and t and _ and u and p and d and a and t and e and d and : and and 2 and 0 and 2 and 5 and - and 1 and 1 and - and 3 and 0 and
+and o and w and n and e and r and : and and g and i and t and h and u and b and : and @ and m and a and i and n and t and a and i and n and e and r and s and
+and - and - and - and
+and
+and # and and A and G and E and N and T and S and . and m and d and
+and
+and _ and _ and S and D and L and C and � and � and � and a and l and i and g and n and e and d and and o and p and e and r and a and t and i and n and g and and h and a and n and d and b and o and o and k and and f and o and r and and A and I and and c and o and d and i and n and g and and a and g and e and n and t and s and and a and n and d and and h and u and m and a and n and and c and o and n and t and r and i and b and u and t and o and r and s and and ( and w and i and t and h and and M and C and P and and t and o and o and l and i and n and g and ) and _ and _ and
+and
+and > and and D and e and l and i and v and e and r and and r and e and l and i and a and b and l and e and and s and o and f and t and w and a and r and e and and c and h and a and n and g and e and s and and u and s and i and n and g and and t and h and e and and s and a and m and e and and s and t and r and u and c and t and u and r and e and and e and v and e and r and y and and t and i and m and e and � and � and � and m and a and p and p and e and d and and t and o and and a and and c and l and e and a and r and and S and D and L and C and and a and n and d and and e and n and f and o and r and c and e and d and and b and y and and p and o and l and i and c and y and � and � and � and a and s and � and � and � and c and o and d and e and . and
+and
+and - and - and - and
+and
+and # and # and and 0 and ) and and S and c and o and p and e and and & and and A and u and d and i and e and n and c and e and
+and
+and - and and _ and _ and W and h and o and _ and _ and : and and A and I and and c and o and d and i and n and g and and a and g and e and n and t and s and , and and h and u and m and a and n and and e and n and g and i and n and e and e and r and s and , and and r and e and v and i and e and w and e and r and s and , and and m and a and i and n and t and a and i and n and e and r and s and , and and r and e and l and e and a and s and e and and m and a and n and a and g and e and r and s and . and
+and - and and _ and _ and W and h and a and t and _ and _ and : and and T and h and e and and a and u and t and h and o and r and i and t and a and t and i and v and e and and S and D and L and C and , and and w and o and r and k and f and l and o and w and , and and q and u and a and l and i and t and y and and b and a and r and s and , and and f and i and l and e and and s and t and r and u and c and t and u and r and e and , and and c and o and n and v and e and n and t and i and o and n and s and , and and a and n and d and and M and C and P and and t and o and o and l and and u and s and a and g and e and and f and o and r and and a and n and y and and c and h and a and n and g and e and and ( and f and e and a and t and u and r and e and , and and f and i and x and , and and r and e and f and a and c and t and o and r and , and and e and x and p and e and r and i and m and e and n and t and ) and . and
+and - and and _ and _ and W and h and y and _ and _ and : and and C and o and n and s and i and s and t and e and n and c and y and , and and t and r and a and c and e and a and b and i and l and i and t and y and , and and s and a and f and e and and i and t and e and r and a and t and i and o and n and � and � and � and e and s and p and e and c and i and a and l and l and y and and i and n and and m and o and n and o and r and e and p and o and s and and a and n and d and and m and u and l and t and i and � and � and � and a and p and p and and r and e and p and o and s and . and
+and
+and F and o and r and and c and h and e and c and k and l and i and s and t and s and , and and s and e and e and and _ and _ and � and � and 1 and 1 and and Q and u and i and c and k and and R and e and f and e and r and e and n and c and e and _ and _ and . and
+and
+and - and - and - and
+and
+and # and # and and 1 and ) and and N and o and n and � and � and � and N and e and g and o and t and i and a and b and l and e and s and and ( and R and e and a and d and and F and i and r and s and t and ) and
+and
+and 1 and . and and _ and _ and F and o and l and l and o and w and and S and D and L and C and and p and h and a and s and e and s and and i and n and and o and r and d and e and r and . and _ and _ and and N and o and and c and o and d and i and n and g and and b and e and f and o and r and e and and r and e and q and u and i and r and e and m and e and n and t and s and and & and and p and l and a and n and and a and r and e and and r and e and v and i and e and w and e and d and . and
+and 2 and . and and _ and _ and E and v and e and r and y and t and h and i and n and g and and i and s and and a and and T and a and s and k and _ and _ and and w and i and t and h and and i and t and s and and o and w and n and and U and T and C and � and � and � and t and i and m and e and s and t and a and m and p and e and d and and d and i and r and e and c and t and o and r and y and and a and n and d and and a and r and t and i and f and a and c and t and s and . and
+and 3 and . and and _ and _ and M and a and n and u and a and l and and U and I and and Q and A and and v and i and a and and C and h and r and o and m and e and and D and e and v and T and o and o and l and s and and ( and M and C and P and ) and and i and s and and m and a and n and d and a and t and o and r and y and _ and _ and and f and o and r and and a and n and y and and U and I and and c and h and a and n and g and e and . and
+and 4 and . and and _ and _ and S and u and p and a and b and a and s and e and : and and r and e and m and o and t and e and and o and n and l and y and . and _ and _ and and N and e and v and e and r and and r and u and n and and m and i and g and r and a and t and i and o and n and s and and o and r and and s and e and e and d and s and and a and g and a and i and n and s and t and and a and and l and o and c and a and l and and i and n and s and t and a and n and c and e and . and
+and 5 and . and and _ and _ and P and r and e and f and e and r and and e and x and i and s and t and i and n and g and and p and a and t and t and e and r and n and s and _ and _ and and ( and D and R and Y and / and K and I and S and S and / and Y and A and G and N and I and ) and . and and _ and _ and U and s and e and and S and H and A and D and C and N and and U and I and _ and _ and and ( and v and i and a and and _ and _ and S and h and a and d and c and n and and M and C and P and _ and _ and ) and and b and e and f and o and r and e and and c and u and s and t and o and m and and c and o and m and p and o and n and e and n and t and s and . and
+and 6 and . and and _ and _ and A and c and c and e and s and s and i and b and i and l and i and t and y and and i and s and and r and e and q and u and i and r and e and d and _ and _ and and ( and W and C and A and G and / and W and A and I and � and � and � and A and R and I and A and and A and P and G and ) and . and and N and o and and e and x and c and e and p and t and i and o and n and s and . and
+and 7 and . and and _ and _ and D and o and c and u and m and e and n and t and and a and s and s and u and m and p and t and i and o and n and s and and & and and d and e and v and i and a and t and i and o and n and s and _ and _ and and i and n and and t and h and e and and t and a and s and k and and f and o and l and d and e and r and . and
+and 8 and . and and _ and _ and S and e and c and r and e and t and s and and n and e and v and e and r and and i and n and and s and o and u and r and c and e and . and _ and _ and and U and s and e and and e and n and v and and v and a and r and s and / and s and e and c and r and e and t and and s and t and o and r and e and s and ; and and n and e and v and e and r and and c and o and m and m and i and t and and t and o and k and e and n and s and . and
+and 9 and . and and _ and _ and C and o and n and v and e and n and t and i and o and n and a and l and and C and o and m and m and i and t and s and _ and _ and and a and n and d and and _ and _ and P and R and and t and e and m and p and l and a and t and e and s and _ and _ and and a and r and e and and e and n and f and o and r and c and e and d and . and
+and 1 and 0 and . and and _ and _ and P and R and s and and m and u and s and t and and r and e and f and e and r and e and n and c and e and and a and and v and a and l and i and d and and t and a and s and k and and f and o and l and d and e and r and _ and _ and and ( and `and t and a and s and k and s and / and < and s and l and u and g and > and - and Y and Y and Y and Y and M and M and D and D and - and H and H and M and M and > and` and ) and . and and C and I and and b and l and o and c and k and s and and m and e and r and g and e and s and and o and t and h and e and r and w and i and s and e and . and
+and 1 and 1 and . and and _ and _ and R and o and o and t and and p and o and l and i and c and y and and p and a and t and h and and i and s and and e and x and a and c and t and . and _ and _ and and T and h and e and and r and o and o and t and and f and i and l and e and and _ and _ and m and u and s and t and and b and e and _ and _ and and `and / and A and G and E and N and T and S and . and m and d and` and and ( and u and p and p and e and r and c and a and s and e and ) and . and and A and n and y and and o and t and h and e and r and and p and a and t and h and / and c and a and s and i and n and g and and f and a and i and l and s and and C and I and . and
+and
+and # and # and # and and 1 and A and ) and and N and o and n and � and � and � and O and v and e and r and r and i and d and a and b and l and e and and C and o and r and e and and R and u and l and e and s and and ( and R and o and o and t and � and � and � and e and n and f and o and r and c and e and d and ; and and c and l and o and s and e and s and t and and c and a and n and n and o and t and and r and e and l and a and x and ) and
+and
+and N and e and s and t and e and d and and `and A and G and E and N and T and S and . and m and d and` and and f and i and l and e and s and and _ and _ and c and a and n and n and o and t and and r and e and l and a and x and and o and r and and o and v and e and r and r and i and d and e and _ and _ and and t and h and e and s and e and : and
+and
+and - and and S and e and c and r and e and t and s and and n and e and v and e and r and and i and n and and s and o and u and r and c and e and ; and and o and n and l and y and and v and i and a and and e and n and v and / and s and e and c and r and e and t and and s and t and o and r and e and . and
+and - and and S and u and p and a and b and a and s and e and and i and s and and _ and _ and r and e and m and o and t and e and � and � and � and o and n and l and y and _ and _ and ; and and m and i and g and r and a and t and i and o and n and s and and r and e and q and u and i and r and e and and b and a and c and k and u and p and / and r and o and l and l and b and a and c and k and and p and l and a and n and and a and n and d and and e and v and i and d and e and n and c and e and . and
+and - and and A and c and c and e and s and s and i and b and i and l and i and t and y and and b and a and s and e and l and i and n and e and and ( and k and e and y and b and o and a and r and d and and n and a and v and i and g and a and t and i and o and n and ; and and W and C and A and G and / and W and A and I and � and � and � and A and R and I and A and and c and o and m and p and l and i and a and n and c and e and ) and . and
+and - and and M and a and n and u and a and l and and U and I and and Q and A and and v and i and a and and C and h and r and o and m and e and and D and e and v and T and o and o and l and s and and M and C and P and and f and o and r and and U and I and and c and h and a and n and g and e and s and and ( and w and i and t and h and and a and r and t and i and f and a and c and t and s and ) and . and
+and - and and C and o and n and v and e and n and t and i and o and n and a and l and and C and o and m and m and i and t and s and ; and and P and R and and m and u and s and t and and i and n and c and l and u and d and e and and t and a and s and k and and a and r and t and i and f and a and c and t and s and and a and n and d and and v and e and r and i and f and i and c and a and t and i and o and n and and e and v and i and d and e and n and c and e and . and
+and
+and > and and A and n and y and t and h and i and n and g and and l and i and s and t and e and d and and h and e and r and e and and w and i and n and s and and e and v and e and n and and a and g and a and i and n and s and t and and � and � and � and c and l and o and s and e and s and t and � and � and � and w and i and n and s and � and � and � and and p and r and e and c and e and d and e and n and c and e and . and
+and
+and # and # and # and and 1 and B and ) and and S and i and m and p and l and i and c and i and t and y and and & and and S and c and o and p and e and and R and u and l and e and s and
+and
+and - and and _ and _ and A and v and o and i and d and and o and v and e and r and � and � and � and e and n and g and i and n and e and e and r and i and n and g and . and _ and _ and and O and n and l and y and and m and a and k and e and and c and h and a and n and g and e and s and and d and i and r and e and c and t and l and y and and r and e and q and u and e and s and t and e and d and and o and r and and c and l and e and a and r and l and y and and n and e and c and e and s and s and a and r and y and . and
+and - and and _ and _ and D and o and n and � and � and � and t and and a and d and d and and f and e and a and t and u and r and e and s and and o and r and and c and o and n and f and i and g and u and r and a and b and i and l and i and t and y and _ and _ and and b and e and y and o and n and d and and t and h and e and and a and s and k and . and and A and and b and u and g and and f and i and x and and d and o and e and s and n and � and � and � and t and and r and e and q and u and i and r and e and and r and e and f and a and c and t and o and r and i and n and g and and t and h and e and and w and h and o and l and e and and m and o and d and u and l and e and . and
+and - and and _ and _ and V and a and l and i and d and a and t and e and and o and n and l and y and and a and t and and s and y and s and t and e and m and and b and o and u and n and d and a and r and i and e and s and _ and _ and and ( and u and s and e and r and and i and n and p and u and t and , and and e and x and t and e and r and n and a and l and and A and P and I and s and ) and . and and T and r and u and s and t and and i and n and t and e and r and n and a and l and and i and n and v and a and r and i and a and n and t and s and and a and n and d and and f and r and a and m and e and w and o and r and k and and g and u and a and r and a and n and t and e and e and s and . and
+and - and and _ and _ and D and o and n and � and � and � and t and and b and u and i and l and d and and a and b and s and t and r and a and c and t and i and o and n and s and and f and o and r and and o and n and e and � and � and � and o and f and f and and o and p and e and r and a and t and i and o and n and s and . and _ and _ and and R and e and u and s and e and and e and x and i and s and t and i and n and g and and h and e and l and p and e and r and s and ; and and d and o and n and � and � and � and t and and d and e and s and i and g and n and and f and o and r and and h and y and p and o and t and h and e and t and i and c and a and l and and f and u and t and u and r and e and and r and e and q and u and i and r and e and m and e and n and t and s and . and
+and - and and _ and _ and D and o and n and � and � and � and t and and a and d and d and and b and a and c and k and w and a and r and d and s and � and � and � and c and o and m and p and a and t and and s and h and i and m and s and _ and _ and and i and f and and y and o and u and and c and a and n and and s and a and f and e and l and y and and c and h and a and n and g and e and and t and h and e and and o and n and l and y and and c and a and l and l and e and r and . and
+and - and and _ and _ and K and e and e and p and and e and d and i and t and s and and f and o and c and u and s and e and d and . and _ and _ and and D and o and n and � and � and � and t and and � and � and � and c and l and e and a and n and and u and p and � and � and � and and u and n and r and e and l and a and t and e and d and and c and o and d and e and and i and n and and t and h and e and and s and a and m and e and and c and h and a and n and g and e and . and
+and - and and _ and _ and A and l and w and a and y and s and and r and e and a and d and and r and e and l and e and v and a and n and t and and f and i and l and e and s and and b and e and f and o and r and e and and e and d and i and t and i and n and g and . and _ and _ and and D and o and and n and o and t and and s and p and e and c and u and l and a and t and e and and a and b and o and u and t and and c and o and d and e and and y and o and u and and h and a and v and e and n and � and � and � and t and and i and n and s and p and e and c and t and e and d and ; and and f and o and l and l and o and w and and e and x and i and s and t and i and n and g and and p and a and t and t and e and r and n and s and and a and n and d and and s and t and y and l and e and . and
+and
+and # and # and # and and A and g and e and n and t and and Q and u and i and c and k and s and t and a and r and t and and ( and A and I and and & and and N and e and w and and E and n and g and i and n and e and e and r and s and ) and
+and
+and F and o and r and and _ and _ and a and n and y and and c and h and a and n and g and e and _ and _ and and ( and f and e and a and t and u and r and e and , and and f and i and x and , and and r and e and f and a and c and t and o and r and ) and : and
+and
+and 1 and . and and _ and _ and F and i and n and d and and A and G and E and N and T and S and and p and o and l and i and c and y and _ and _ and : and and F and r and o and m and and t and h and e and and f and i and l and e and and y and o and u and � and � and � and r and e and and t and o and u and c and h and i and n and g and , and and w and a and l and k and and u and p and and d and i and r and e and c and t and o and r and i and e and s and and a and n and d and and c and o and l and l and e and c and t and and a and l and l and and `and A and G and E and N and T and S and . and m and d and` and and ( and r and o and o and t and and � and � and � and and c and l and o and s and e and s and t and ) and . and
+and 2 and . and and _ and _ and C and r and e and a and t and e and and a and and t and a and s and k and and f and o and l and d and e and r and _ and _ and : and and `and t and a and s and k and s and / and < and s and l and u and g and > and - and Y and Y and Y and Y and M and M and D and D and - and H and H and M and M and / and` and and ( and U and T and C and ) and . and
+and 3 and . and and _ and _ and P and h and a and s and e and and 1 and and � and � and � and and R and e and q and u and i and r and e and m and e and n and t and s and _ and _ and : and and F and i and l and l and and `and r and e and s and e and a and r and c and h and . and m and d and` and and u and n and t and i and l and and _ and _ and D and e and f and i and n and i and t and i and o and n and and o and f and and R and e and a and d and y and _ and _ and and i and s and and m and e and t and and ( and � and � and 4 and , and and P and h and a and s and e and and 1 and ) and . and
+and 4 and . and and _ and _ and P and h and a and s and e and and 2 and and � and � and � and and P and l and a and n and _ and _ and : and and F and i and l and l and and `and p and l and a and n and . and m and d and` and and w and i and t and h and and a and r and c and h and i and t and e and c and t and u and r and e and , and and c and o and n and t and r and a and c and t and s and , and and t and e and s and t and s and , and and r and o and l and l and o and u and t and and ( and � and � and 4 and , and and P and h and a and s and e and and 2 and ) and . and
+and 5 and . and and _ and _ and P and h and a and s and e and and 3 and and � and � and � and and I and m and p and l and e and m and e and n and t and _ and _ and : and and U and s and e and and `and t and o and d and o and . and m and d and` and and a and s and and a and and l and i and v and e and and c and h and e and c and k and l and i and s and t and ; and and k and e and e and p and and n and o and t and e and s and and a and n and d and and d and e and v and i and a and t and i and o and n and s and and u and p and and t and o and and d and a and t and e and . and
+and 6 and . and and _ and _ and P and h and a and s and e and and 4 and and � and � and � and and V and e and r and i and f and y and _ and _ and : and
+and and and and - and and R and u and n and and t and e and s and t and s and and ( and u and n and i and t and / and i and n and t and e and g and r and a and t and i and o and n and / and E and 2 and E and / and a and 1 and 1 and y and ) and . and
+and and and and - and and R and u and n and and _ and _ and C and h and r and o and m and e and and D and e and v and T and o and o and l and s and and M and C and P and _ and _ and and ( and r and e and q and u and i and r and e and d and and f and o and r and and U and I and ) and and a and n and d and and r and e and c and o and r and d and and p and e and r and f and / and a and 1 and 1 and y and . and
+and and and and - and and C and a and p and t and u and r and e and and a and r and t and i and f and a and c and t and s and and i and n and t and o and and `and a and r and t and i and f and a and c and t and s and / and` and and a and n and d and and s and u and m and m and a and r and i and z and e and and i and n and and `and v and e and r and i and f and i and c and a and t and i and o and n and . and m and d and` and . and
+and 7 and . and and _ and _ and P and h and a and s and e and and 5 and + and and � and � and � and and P and R and and & and and R and e and l and e and a and s and e and _ and _ and : and
+and and and and - and and O and p and e and n and and P and R and and w and i and t and h and and _ and _ and C and o and n and v and e and n and t and i and o and n and a and l and and C and o and m and m and i and t and _ and _ and and t and i and t and l and e and , and and l and i and n and k and and t and a and s and k and and f and o and l and d and e and r and , and and a and n and d and and a and t and t and a and c and h and and e and v and i and d and e and n and c and e and . and
+and and and and - and and O and n and c and e and and m and e and r and g and e and d and , and and f and o and l and l and o and w and and r and o and l and l and o and u and t and and p and l and a and n and and a and n and d and and d and o and c and u and m and e and n and t and and o and u and t and c and o and m and e and s and and i and n and and t and h and e and and t and a and s and k and and f and o and l and d and e and r and . and
+and
+and - and - and - and
+and
+and # and # and and 1 and . and 5 and ) and and A and G and E and N and T and S and . and m and d and and I and n and i and t and i and a and l and i and z and a and t and i and o and n and and & and and D and i and s and c and o and v and e and r and y and
+and
+and # and # and # and and B and e and f and o and r and e and and S and t and a and r and t and i and n and g and and A and n and y and and T and a and s and k and
+and
+and I and f and and n and o and and `and A and G and E and N and T and S and . and m and d and` and and e and x and i and s and t and s and and i and n and and t and h and e and and w and o and r and k and i and n and g and and c and o and n and t and e and x and t and : and
+and
+and 1 and . and and _ and _ and W and a and l and k and and u and p and and t and h and e and and d and i and r and e and c and t and o and r and y and and t and r and e and e and _ and _ and and f and r and o and m and and t and h and e and and c and u and r and r and e and n and t and and p and a and t and h and and t and o and and t and h and e and and r and e and p and o and and r and o and o and t and . and
+and 2 and . and and _ and _ and C and h and e and c and k and and f and o and r and and `and A and G and E and N and T and S and . and m and d and` and _ and _ and and a and t and and e and a and c and h and and l and e and v and e and l and and ( and _ and _ and e and x and a and c and t and and c and a and s and i and n and g and _ and _ and ) and . and
+and 3 and . and and _ and _ and I and f and and n and o and n and e and and f and o and u and n and d and _ and _ and , and and c and r and e and a and t and e and and o and n and e and and u and s and i and n and g and and t and h and e and and i and n and i and t and i and a and l and i and z and a and t and i and o and n and and w and o and r and k and f and l and o and w and and b and e and l and o and w and . and
+and
+and # and # and # and and I and n and i and t and i and a and l and i and z and a and t and i and o and n and and W and o and r and k and f and l and o and w and
+and
+and _ and _ and S and t and e and p and and 1 and : and and D and e and t and e and r and m and i and n and e and and S and c and o and p and e and _ and _ and
+and
+and - and and _ and _ and R and o and o and t and - and l and e and v and e and l and _ and _ and : and and C and r and e and a and t and i and n and g and and `and / and A and G and E and N and T and S and . and m and d and` and and � and � and � and and u and s and e and and f and u and l and l and and t and e and m and p and l and a and t and e and and ( and t and h and i and s and and f and i and l and e and ) and . and
+and - and and _ and _ and S and u and b and p and r and o and j and e and c and t and _ and _ and : and and C and r and e and a and t and i and n and g and and `and / and a and p and p and s and / and w and e and b and / and A and G and E and N and T and S and . and m and d and` and and � and � and � and and u and s and e and and n and e and s and t and e and d and and t and e and m and p and l and a and t and e and and ( and � and � and 7 and ) and . and
+and
+and _ and _ and S and t and e and p and and 2 and : and and S and c and a and f and f and o and l and d and and t and h and e and and F and i and l and e and _ and _ and
+and
+and - and and A and d and d and and m and a and c and h and i and n and e and � and � and � and r and e and a and d and a and b and l and e and and _ and _ and f and r and o and n and t and m and a and t and t and e and r and _ and _ and and t and o and and e and v and e and r and y and and `and A and G and E and N and T and S and . and m and d and` and . and
+and
+and _ and _ and R and o and o and t and and A and G and E and N and T and S and . and m and d and and ( and m and i and n and i and m and a and l and and v and i and a and b and l and e and and t and e and m and p and l and a and t and e and ) and _ and _ and
+and
+and `and` and `and m and a and r and k and d and o and w and n and 
+ and - and - and - and 
+ and a and g and e and n and t and s and _ and v and e and r and s and i and o and n and : and   and 5 and . and 3 and 
+ and s and c and o and p and e and : and   and r and o and o and t and 
+ and e and x and t and e and n and d and s and : and   and n and u and l and l and 
+ and l and a and s and t and _ and u and p and d and a and t and e and d and : and   and 2 and 0 and 2 and 5 and - and 1 and 1 and - and 3 and 0 and 
+ and o and w and n and e and r and : and   and g and i and t and h and u and b and : and @ and m and a and i and n and t and a and i and n and e and r and s and 
+ and - and - and - and 
+ and 
+ and # and   and A and G and E and N and T and S and . and m and d and 
+ and 
+ and # and # and   and P and r and o and j and e and c and t and   and O and v and e and r and v and i and e and w and 
+ and 
+ and < and B and r and i and e and f and   and d and e and s and c and r and i and p and t and i and o and n and > and 
+ and # and # and   and B and u and i and l and d and   and & and   and T and e and s and t and   and C and o and m and m and a and n and d and s and 
+ and - and   and` and p and n and p and m and and i and n and s and t and a and l and l and `and   and � and � and � and   and I and n and s and t and a and l and l and 
+ and - and   and` and p and n and p and m and and r and u and n and and d and e and v and `and   and � and � and � and   and D and e and v and   and s and e and r and v and e and r and 
+ and - and   and` and p and n and p and m and and r and u and n and and b and u and i and l and d and `and   and � and � and � and   and P and r and o and d and u and c and t and i and o and n and   and b and u and i and l and d and 
+ and - and   and` and p and n and p and m and and r and u and n and and t and e and s and t and `and   and � and � and � and   and T and e and s and t and s and 
+ and - and   and` and p and n and p and m and and r and u and n and and l and i and n and t and `and   and � and � and � and   and L and i and n and t and 
+ and # and # and   and C and o and d and e and   and S and t and y and l and e and   and G and u and i and d and e and l and i and n and e and s and 
+ and - and   and < and C and o and n and v and e and n and t and i and o and n and s and , and   and n and a and m and i and n and g and , and   and f and i and l and e and   and o and r and g and > and 
+ and # and # and   and T and e and s and t and i and n and g and   and I and n and s and t and r and u and c and t and i and o and n and s and 
+ and - and   and < and H and o and w and / and w and h and e and r and e and / and c and o and v and e and r and a and g and e and > and 
+ and # and # and   and S and e and c and u and r and i and t and y and   and C and o and n and s and i and d and e and r and a and t and i and o and n and s and 
+ and - and   and N and e and v and e and r and   and c and o and m and m and i and t and   and s and e and c and r and e and t and s and ; and   and u and s and e and   and . and e and n and v and   and / and   and s and e and c and r and e and t and   and s and t and o and r and e and 
+ and - and   and < and A and u and t and h and   and p and a and t and t and e and r and n and s and   and / and   and d and a and t and a and   and h and a and n and d and l and i and n and g and > and 
+ and # and # and   and A and d and d and i and t and i and o and n and a and l and   and C and o and n and t and e and x and t and 
+ and - and   and C and o and n and v and e and n and t and i and o and n and a and l and   and C and o and m and m and i and t and s and ; and   and P and R and   and t and e and m and p and l and a and t and e and ; and   and D and e and p and l and o and y and m and e and n and t and   and n and o and t and e and s and 
+ and` and `and` and
+and
+and _ and _ and S and t and e and p and and 3 and : and and C and o and m and m and i and t and and I and t and _ and _ and
+and
+and `and` and `and b and a and s and h and 
+ and g and i and t and   and a and d and d and   and A and G and E and N and T and S and . and m and d and 
+ and g and i and t and   and c and o and m and m and i and t and   and - and m and   and " and d and o and c and s and : and   and i and n and i and t and i and a and l and i and z and e and   and A and G and E and N and T and S and . and m and d and   and f and o and r and   and c and o and d and i and n and g and   and a and g and e and n and t and s and " and 
+ and` and `and` and
+and
+and # and # and # and and D and i and s and c and o and v and e and r and y and and R and u and l and e and s and and ( and f and o and r and and A and g and e and n and t and s and and & and and T and o and o and l and s and ) and
+and
+and - and and F and r and o and m and and p and a and t and h and and `and X and` and , and and _ and _ and w and a and l and k and and u and p and _ and _ and and t and o and and r and o and o and t and and c and o and l and l and e and c and t and i and n and g and and `and A and G and E and N and T and S and . and m and d and` and and ( and e and x and a and c and t and and c and a and s and i and n and g and ) and . and
+and - and and A and p and p and l and y and and r and u and l and e and s and and i and n and and o and r and d and e and r and : and and _ and _ and r and o and o and t and and � and � and � and and i and n and t and e and r and m and e and d and i and a and t and e and and � and � and � and and c and l and o and s and e and s and t and _ and _ and and ( and _ and _ and c and l and o and s and e and s and t and and w and i and n and s and _ and _ and and o and n and and c and o and n and f and l and i and c and t and s and ) and , and and e and x and c and e and p and t and and _ and _ and N and o and n and � and � and � and O and v and e and r and r and i and d and a and b and l and e and and C and o and r and e and and R and u and l and e and s and _ and _ and and w and h and i and c and h and and a and l and w and a and y and s and and w and i and n and . and
+and - and and O and n and and U and n and i and x and and ( and c and a and s and e and � and � and � and s and e and n and s and i and t and i and v and e and ) and and a and n and d and and m and a and c and O and S and / and W and i and n and d and o and w and s and and ( and d and e and f and a and u and l and t and and c and a and s and e and � and � and � and i and n and s and e and n and s and i and t and i and v and e and ) and , and and o and n and l and y and and `and A and G and E and N and T and S and . and m and d and` and and ( and u and p and p and e and r and c and a and s and e and ) and and i and s and and v and a and l and i and d and . and and F and i and l and e and s and and l and i and k and e and and `and a and g and e and n and t and s and . and m and d and` and and _ and _ and f and a and i and l and and C and I and _ and _ and . and
+and - and and I and f and and n and o and n and e and and f and o and u and n and d and and a and t and and r and o and o and t and : and and _ and _ and S and t and o and p and and a and n and d and and c and r and e and a and t and e and and o and n and e and _ and _ and and a and t and and r and o and o and t and and b and e and f and o and r and e and and p and r and o and c and e and e and d and i and n and g and and ( and u and s and e and and m and i and n and i and m and a and l and and t and e and m and p and l and a and t and e and and a and b and o and v and e and ) and . and and T and a and i and l and o and r and and t and o and and d and i and s and c and o and v and e and r and e and d and and f and i and l and e and s and and ( and `and p and a and c and k and a and g and e and . and j and s and o and n and` and , and and `and M and a and k and e and f and i and l and e and` and , and and e and t and c and . and ) and . and
+and
+and _ and _ and E and x and a and m and p and l and e and _ and _ and
+and
+and `and` and `and 
+ and / and r and e and p and o and / and A and G and E and N and T and S and . and m and d and   and   and   and   and   and   and   and   and   and   and   and   and   and   and   and   and   and   and   and   and   and   and   and   and   and   and # and   and R and o and o and t and   and r and u and l and e and s and   and ( and a and l and w and a and y and s and   and a and p and p and l and y and ) and 
+ and / and r and e and p and o and / and a and p and p and s and / and w and e and b and / and A and G and E and N and T and S and . and m and d and   and   and   and   and   and   and   and   and   and   and   and   and   and   and   and   and   and # and   and W and e and b and   and a and p and p and   and r and u and l and e and s and   and ( and i and n and h and e and r and i and t and   and + and   and o and v and e and r and r and i and d and e and ) and 
+ and / and r and e and p and o and / and a and p and p and s and / and w and e and b and / and s and r and c and / and c and o and m and p and o and n and e and n and t and s and / and A and G and E and N and T and S and . and m and d and   and   and # and   and C and o and m and p and o and n and e and n and t and - and s and p and e and c and i and f and i and c and   and ( and c and l and o and s and e and s and t and   and p and r and e and c and e and d and e and n and c and e and ) and 
+ and` and `and` and
+and
+and # and # and # and # and and P and o and l and i and c and y and and T and r and a and c and e and and ( and c and o and n and f and i and r and m and and e and f and f and e and c and t and i and v and e and and s and t and a and c and k and ) and
+and
+and T and o and and s and e and e and and w and h and i and c and h and and f and i and l and e and s and and w and e and r and e and and a and p and p and l and i and e and d and and f and o and r and and a and and g and i and v and e and n and and s and o and u and r and c and e and and f and i and l and e and and a and n and d and and i and n and and w and h and a and t and and o and r and d and e and r and , and and u and s and e and and t and h and e and and _ and _ and p and o and l and i and c and y and � and � and � and t and r and a and c and e and and s and c and r and i and p and t and _ and _ and and ( and A and p and p and e and n and d and i and x and and H and ) and and o and r and and r and u and n and : and
+and
+and `and` and `and b and a and s and h and 
+ and p and n and p and m and   and t and s and - and n and o and d and e and   and s and c and r and i and p and t and s and / and a and g and e and n and t and s and - and p and o and l and i and c and y and - and t and r and a and c and e and . and t and s and   and a and p and p and s and / and w and e and b and / and s and r and c and / and p and a and g and e and s and / and i and n and d and e and x and . and t and s and x and 
+ and` and `and` and
+and
+and T and h and i and s and and p and r and i and n and t and s and and t and h and e and and c and h and a and i and n and and `and r and o and o and t and   and � and � and � and   and � and � and � and   and � and � and � and   and c and l and o and s and e and s and t and` and and s and o and and y and o and u and and c and a and n and and c and o and n and f and i and r and m and and i and n and h and e and r and i and t and a and n and c and e and and a and n and d and and s and p and o and t and and m and i and s and c and o and n and f and i and g and u and r and a and t and i and o and n and s and and ( and e and . and g and . and , and and w and r and o and n and g and and `and e and x and t and e and n and d and s and : and` and ) and . and
+and
+and # and # and # and and L and a and r and g and e and and M and o and n and o and r and e and p and o and s and and ( and m and a and n and y and and A and G and E and N and T and S and . and m and d and and f and i and l and e and s and ) and
+and
+and - and and E and a and c and h and and p and a and c and k and a and g and e and / and a and p and p and and g and e and t and s and and i and t and s and and o and w and n and and `and A and G and E and N and T and S and . and m and d and` and and f and o and c and u and s and e and d and and o and n and and _ and _ and l and o and c and a and l and and c and o and n and c and e and r and n and s and _ and _ and . and
+and - and and R and o and o and t and and c and o and v and e and r and s and and _ and _ and c and r and o and s and s and � and � and � and c and u and t and t and i and n and g and _ and _ and and r and u and l and e and s and and ( and C and I and / and C and D and , and and s and e and c and u and r and i and t and y and , and and c and o and m and m and i and t and and s and t and a and n and d and a and r and d and s and ) and . and
+and - and and N and e and s and t and e and d and and f and i and l and e and s and and _ and _ and m and u and s and t and _ and _ and and i and n and c and l and u and d and e and and f and r and o and n and t and m and a and t and t and e and r and and w and i and t and h and and `and s and c and o and p and e and : and   and s and u and b and p and r and o and j and e and c and t and` and , and and `and e and x and t and e and n and d and s and : and   and . and . and / and . and . and / and A and G and E and N and T and S and . and m and d and` and and ( and o and r and and `and . and . and / and A and G and E and N and T and S and . and m and d and` and and a and s and and a and p and p and r and o and p and r and i and a and t and e and ) and , and and a and n and d and and `and a and g and e and n and t and s and _ and v and e and r and s and i and o and n and` and . and
+and - and and S and u and b and p and r and o and j and e and c and t and and o and w and n and e and r and s and and _ and _ and m and u and s and t and and k and e and e and p and and t and h and e and i and r and and A and G and E and N and T and S and . and m and d and and t and a and i and l and o and r and e and d and and t and o and and t and h and i and s and and r and e and p and o and _ and _ and : and and w and h and e and n and e and v and e and r and and a and and d and i and r and e and c and t and o and r and y and � and � and � and s and and p and u and r and p and o and s and e and , and and b and u and i and l and d and and c and o and m and m and a and n and d and s and , and and o and r and and t and o and o and l and i and n and g and and c and h and a and n and g and e and s and , and and u and p and d and a and t and e and and i and t and s and and l and o and c and a and l and and A and G and E and N and T and and i and m and m and e and d and i and a and t and e and l and y and and ( and o and r and and a and d and d and and a and and n and e and w and and o and n and e and ) and and s and o and and d and o and w and n and s and t and r and e and a and m and and t and a and s and k and s and and i and n and h and e and r and i and t and and a and c and c and u and r and a and t and e and , and and r and e and p and o and - and s and p and e and c and i and f and i and c and and i and n and s and t and r and u and c and t and i and o and n and s and . and
+and
+and - and - and - and
+and
+and # and # and and 2 and ) and and T and a and s and k and and S and t and r and u and c and t and u and r and e and and & and and N and a and m and i and n and g and
+and
+and - and and _ and _ and D and i and r and e and c and t and o and r and y and _ and _ and : and and `and t and a and s and k and s and / and < and s and l and u and g and > and - and Y and Y and Y and Y and M and M and D and D and - and H and H and M and M and / and` and and ( and U and T and C and ) and . and
+and and and - and and S and l and u and g and s and : and and `and u and s and e and r and - and a and u and t and h and - and f and l and o and w and` and , and and `and p and a and y and m and e and n and t and - and g and a and t and e and w and a and y and - and i and n and t and e and g and r and a and t and i and o and n and` and , and and `and f and i and x and - and a and v and a and t and a and r and - and c and r and o and p and p and i and n and g and` and . and
+and and and - and and T and i and m and e and s and t and a and m and p and : and and `and Y and Y and Y and Y and M and M and D and D and - and H and H and M and M and` and and ( and e and . and g and . and , and and `and 2 and 0 and 2 and 5 and 0 and 1 and 1 and 0 and - and 1 and 4 and 3 and 0 and` and and � and � and � and and 2 and 0 and 2 and 5 and � and � and � and 0 and 1 and � and � and � and 1 and 0 and and 1 and 4 and : and 3 and 0 and and U and T and C and ) and . and
+and
+and _ and _ and R and e and q and u and i and r and e and d and and c and o and n and t and e and n and t and s and _ and _ and
+and
+and `and` and `and 
+ and t and a and s and k and s and / and < and s and l and u and g and > and - and Y and Y and Y and Y and M and M and D and D and - and H and H and M and M and / and 
+ and � and � and � and � and � and � and � and � and � and   and r and e and s and e and a and r and c and h and . and m and d and   and   and   and   and   and   and   and # and   and R and e and q and u and i and r and e and m and e and n and t and s and   and & and   and a and n and a and l and y and s and i and s and   and ( and w and h and a and t and   and e and x and i and s and t and s and , and   and r and e and u and s and e and , and   and c and o and n and s and t and r and a and i and n and t and s and ) and 
+ and � and � and � and � and � and � and � and � and � and   and p and l and a and n and . and m and d and   and   and   and   and   and   and   and   and   and   and   and # and   and D and e and s and i and g and n and / and p and l and a and n and : and   and o and b and j and e and c and t and i and v and e and , and   and a and r and c and h and i and t and e and c and t and u and r and e and , and   and A and P and I and , and   and s and t and a and t and e and s and , and   and t and e and s and t and s and , and   and r and o and l and l and o and u and t and 
+ and � and � and � and � and � and � and � and � and � and   and t and o and d and o and . and m and d and   and   and   and   and   and   and   and   and   and   and   and # and   and L and i and v and e and   and i and m and p and l and e and m and e and n and t and a and t and i and o and n and   and c and h and e and c and k and l and i and s and t and   and ( and a and t and o and m and i and c and   and s and t and e and p and s and ) and 
+ and � and � and � and � and � and � and � and � and � and   and v and e and r and i and f and i and c and a and t and i and o and n and . and m and d and   and   and   and # and   and V and e and r and i and f and i and c and a and t and i and o and n and : and   and m and a and n and u and a and l and   and Q and A and , and   and t and e and s and t and s and , and   and p and e and r and f and / and a and 1 and 1 and y and   and b and u and d and g and e and t and s and , and   and s and i and g and n and - and o and f and f and s and 
+ and � and � and � and � and � and � and � and � and � and   and a and r and t and i and f and a and c and t and s and / and   and   and   and   and   and   and   and   and # and   and E and v and i and d and e and n and c and e and : and   and L and i and g and h and t and h and o and u and s and e and   and J and S and O and N and , and   and H and A and R and , and   and t and r and a and c and e and s and , and   and s and c and r and e and e and n and s and h and o and t and s and , and   and d and b and   and d and i and f and f and s and 
+ and` and `and` and
+and
+and _ and _ and F and r and o and n and t and m and a and t and t and e and r and and ( and a and d and d and and t and o and and e and a and c and h and and t and a and s and k and and f and i and l and e and ) and _ and _ and
+and
+and `and` and `and m and a and r and k and d and o and w and n and 
+ and - and - and - and 
+ and t and a and s and k and : and   and < and s and l and u and g and > and 
+ and t and i and m and e and s and t and a and m and p and _ and u and t and c and : and   and < and I and S and O and - and 8 and 6 and 0 and 1 and   and Z and > and 
+ and o and w and n and e and r and : and   and g and i and t and h and u and b and : and @ and < and h and a and n and d and l and e and > and 
+ and r and e and v and i and e and w and e and r and s and : and   and [ and g and i and t and h and u and b and : and @ and < and h and a and n and d and l and e and > and ] and 
+ and r and i and s and k and : and   and l and o and w and | and m and e and d and i and u and m and | and h and i and g and h and 
+ and f and l and a and g and s and : and   and [ and < and f and e and a and t and u and r and e and _ and f and l and a and g and _ and k and e and y and s and > and ] and 
+ and r and e and l and a and t and e and d and _ and t and i and c and k and e and t and s and : and   and [ and < and T and I and C and K and E and T and - and 1 and 2 and 3 and > and ] and 
+ and - and - and - and 
+ and` and `and` and
+and
+and - and - and - and
+and
+and # and # and and 3 and ) and and S and D and L and C and and a and t and and a and and G and l and a and n and c and e and and ( and M and a and p and and � and � and � and and A and r and t and i and f and a and c and t and s and and � and � and � and and M and C and P and ) and
+and
+and | and and S and D and L and C and and P and h and a and s and e and and and and and and and and and and and and and and and and and and and and and and and and | and and W and h and a and t and and h and a and p and p and e and n and s and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and | and and P and r and i and m and a and r and y and and A and r and t and i and f and a and c and t and s and and and and and and and and and and and and and and | and and G and a and t and e and and / and and E and x and i and t and and C and r and i and t and e and r and i and a and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and | and and R and e and q and u and i and r and e and d and and M and C and P and ( and s and ) and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and | and
+and | and and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and and | and and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and and | and and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and and | and and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and and | and and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and and | and
+and | and and _ and _ and 0 and . and and I and n and i and t and i and a and t and i and o and n and _ and _ and and and and and and and and and and and and and and and and and | and and C and r and e and a and t and e and and t and a and s and k and , and and d and e and f and i and n and e and and s and c and o and p and e and and s and t and u and b and and and and and and and and and and and and and and and and and and and and and and | and and T and a and s and k and and f and o and l and d and e and r and , and and s and t and u and b and s and and and and and and and and and and and and and | and and F and o and l and d and e and r and and e and x and i and s and t and s and ; and and b and a and s and i and c and and s and c and o and p and e and and n and o and t and e and d and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and | and and � and � and � and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and | and
+and | and and _ and _ and 1 and . and and R and e and q and u and i and r and e and m and e and n and t and s and and & and and A and n and a and l and y and s and i and s and _ and _ and and and and | and and I and n and v and e and n and t and o and r and y and and c and o and d and e and , and and c and l and a and r and i and f and y and and r and e and q and u and i and r and e and m and e and n and t and s and , and and r and i and s and k and s and and and and and and and and and | and and `and r and e and s and e and a and r and c and h and . and m and d and` and and and and and and and and and and and and and and and and and and | and and _ and _ and D and o and R and and m and e and t and _ and _ and ; and and j and u and s and t and i and f and i and e and d and and a and p and p and r and o and a and c and h and ; and and c and o and n and s and t and r and a and i and n and t and s and / and r and i and s and k and s and and e and x and p and l and i and c and i and t and and and and and and and and and and and | and and _ and _ and C and o and n and t and e and x and t and 7 and _ and _ and , and and _ and _ and D and e and e and p and W and i and k and i and _ and _ and and and and and and and and and and and and and and and and and and and | and
+and | and and _ and _ and 2 and . and and D and e and s and i and g and n and and & and and P and l and a and n and n and i and n and g and _ and _ and and and and and and and and and and | and and A and r and c and h and i and t and e and c and t and u and r and e and , and and c and o and n and t and r and a and c and t and s and , and and U and X and and s and t and a and t and e and s and , and and t and e and s and t and s and , and and r and o and l and l and o and u and t and and | and and `and p and l and a and n and . and m and d and` and and and and and and and and and and and and and and and and and and and and and and | and and R and e and v and i and e and w and e and r and and c and a and n and and a and p and p and r and o and v and e and and b and u and i and l and d and and w and i and t and h and o and u and t and and a and and m and e and e and t and i and n and g and and and and and and and and and and and and and and and and and and and and and and and and and and | and and _ and _ and S and h and a and d and c and n and _ and _ and , and and _ and _ and S and u and p and a and b and a and s and e and _ and _ and , and and _ and _ and N and e and x and t and and D and e and v and T and o and o and l and s and _ and _ and and | and
+and | and and _ and _ and 3 and . and and I and m and p and l and e and m and e and n and t and a and t and i and o and n and _ and _ and and and and and and and and and and and and and | and and C and o and d and e and , and and m and i and g and r and a and t and i and o and n and s and , and and c and o and m and p and o and n and e and n and t and s and , and and u and n and i and t and and t and e and s and t and s and and and and and and and and and and and and | and and `and t and o and d and o and . and m and d and` and and ( and l and i and v and e and ) and and and and and and and and and and and and and and and | and and C and o and r and e and and c and o and m and p and l and e and t and e and ; and and l and o and c and a and l and and t and e and s and t and s and and p and a and s and s and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and | and and _ and _ and S and h and a and d and c and n and _ and _ and , and and _ and _ and S and u and p and a and b and a and s and e and _ and _ and , and and _ and _ and N and e and x and t and and D and e and v and T and o and o and l and s and _ and _ and and | and
+and | and and _ and _ and 4 and . and and V and e and r and i and f and i and c and a and t and i and o and n and and & and and V and a and l and i and d and a and t and i and o and n and _ and _ and and | and and M and a and n and u and a and l and and Q and A and , and and a and 1 and 1 and y and , and and p and e and r and f and , and and E and 2 and E and , and and c and r and o and s and s and � and � and � and b and r and o and w and s and e and r and and and and and and and and and and and | and and `and v and e and r and i and f and i and c and a and t and i and o and n and . and m and d and` and and + and and a and r and t and i and f and a and c and t and s and and | and and _ and _ and D and o and D and and m and e and t and _ and _ and ; and and b and u and d and g and e and t and s and and m and e and t and ; and and n and o and and P and 0 and / and P and 1 and ; and and s and i and g and n and � and � and � and o and f and f and s and ; and and a and r and t and i and f and a and c and t and s and and p and r and e and s and e and n and t and and and and and and | and and _ and _ and C and h and r and o and m and e and and D and e and v and T and o and o and l and s and _ and _ and and and and and and and and and and and and and and and and and and and and and and and and and and | and
+and | and and _ and _ and 5 and . and and R and e and v and i and e and w and and & and and M and e and r and g and e and _ and _ and and and and and and and and and and and and and | and and P and R and , and and r and e and v and i and e and w and , and and e and v and i and d and e and n and c and e and , and and C and I and and g and r and e and e and n and and and and and and and and and and and and and and and and and and and and and and | and and P and R and and l and i and n and k and s and and t and o and and t and a and s and k and and and and and and and and and and and and and and and | and and A and p and p and r and o and v and a and l and s and and o and b and t and a and i and n and e and d and ; and and C and I and and g and r and e and e and n and ; and and m and e and r and g and e and and p and e and r and and p and o and l and i and c and y and and and and and and and and and and and and and and and and and and and and and and and and | and and _ and _ and G and i and t and H and u and b and and t and o and o and l and _ and _ and and ( and i and f and and c and o and n and f and i and g and u and r and e and d and ) and and and and and and and and and and and and and and | and
+and | and and _ and _ and 6 and . and and R and e and l and e and a and s and e and and & and and D and e and p and l and o and y and m and e and n and t and _ and _ and and and and and and and | and and G and r and a and d and u and a and l and and r and o and l and l and o and u and t and ; and and m and e and t and r and i and c and s and and & and and l and o and g and s and and and and and and and and and and and and and and and and and and and and and | and and R and e and l and e and a and s and e and and n and o and t and e and s and , and and r and u and n and b and o and o and k and and n and o and t and e and s and and and | and and S and t and a and b and l and e and and a and t and and 1 and 0 and 0 and % and ; and and r and o and l and l and b and a and c and k and and p and a and t and h and and d and o and c and u and m and e and n and t and e and d and ; and and m and o and n and i and t and o and r and s and / and a and l and e and r and t and s and and c and o and n and f and i and g and u and r and e and d and and | and and _ and _ and S and u and p and a and b and a and s and e and _ and _ and and ( and i and f and and D and B and ) and , and and O and b and s and e and r and v and a and b and i and l and i and t and y and and s and t and a and c and k and and and and | and
+and | and and _ and _ and 7 and . and and O and p and e and r and a and t and e and and & and and I and m and p and r and o and v and e and _ and _ and and and and and and and and and and | and and M and o and n and i and t and o and r and , and and h and o and t and f and i and x and , and and r and e and t and r and o and s and p and e and c and t and i and v and e and and and and and and and and and and and and and and and and and and and and and and | and and P and o and s and t and � and � and � and r and e and l and e and a and s and e and and n and o and t and e and s and and and and and and and and and and and and and | and and L and e and a and r and n and i and n and g and s and and c and a and p and t and u and r and e and d and ; and and t and i and c and k and e and t and s and and f and i and l and e and d and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and | and and � and � and � and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and | and
+and
+and > and and M and C and P and and n and a and m and e and s and and r and e and f and e and r and and t and o and and y and o and u and r and and c and o and n and f and i and g and u and r and e and d and and s and e and r and v and e and r and s and and ( and s and e and e and and � and � and 8 and ) and . and and U and s and e and and e and n and v and / and s and e and c and r and e and t and s and � and � and � and n and e and v and e and r and and c and o and m and m and i and t and and r and e and a and l and and t and o and k and e and n and s and . and
+and
+and - and - and - and
+and
+and # and # and and 4 and ) and and D and e and t and a and i and l and e and d and and S and D and L and C and and P and h and a and s and e and s and and ( and w and i and t and h and and D and o and R and / and D and o and D and and & and and M and C and P and ) and
+and
+and # and # and # and and P and h and a and s and e and and 0 and and � and � and � and and _ and _ and I and n and i and t and i and a and t and i and o and n and and ( and T and a and s and k and and S and e and t and u and p and ) and _ and _ and
+and
+and _ and _ and I and n and p and u and t and s and _ and _ and : and and T and i and c and k and e and t and and o and r and and p and r and o and b and l and e and m and and s and t and a and t and e and m and e and n and t and . and
+and
+and _ and _ and A and c and t and i and v and i and t and i and e and s and _ and _ and : and
+and
+and - and and C and r and e and a and t and e and and `and t and a and s and k and s and / and < and s and l and u and g and > and - and Y and Y and Y and Y and M and M and D and D and - and H and H and M and M and / and` and and ( and U and T and C and ) and . and
+and - and and S and t and u and b and and `and r and e and s and e and a and r and c and h and . and m and d and` and and a and n and d and and `and p and l and a and n and . and m and d and` and and w and i and t and h and and f and r and o and n and t and m and a and t and t and e and r and . and
+and
+and _ and _ and E and x and i and t and _ and _ and : and and T and a and s and k and and f and o and l and d and e and r and and e and x and i and s and t and s and ; and and s and c and o and p and e and and s and t and u and b and and r and e and c and o and r and d and e and d and . and
+and
+and - and - and - and
+and
+and # and # and # and and P and h and a and s and e and and 1 and and � and � and � and and _ and _ and R and e and q and u and i and r and e and m and e and n and t and s and and & and and A and n and a and l and y and s and i and s and _ and _ and and ( and `and r and e and s and e and a and r and c and h and . and m and d and` and ) and and � and � and � and and _ and _ and D and e and f and i and n and i and t and i and o and n and and o and f and and R and e and a and d and y and _ and _ and
+and
+and _ and _ and G and o and a and l and _ and _ and : and and U and n and d and e and r and s and t and a and n and d and and b and e and f and o and r and e and and b and u and i and l and d and i and n and g and . and
+and
+and _ and _ and A and c and t and i and v and i and t and i and e and s and _ and _ and : and
+and
+and - and and I and n and v and e and n and t and o and r and y and and c and o and d and e and b and a and s and e and and f and o and r and and r and e and u and s and e and and a and n and d and and a and n and t and i and � and � and � and p and a and t and t and e and r and n and s and . and
+and - and and G and a and t and h and e and r and and f and u and n and c and t and i and o and n and a and l and and + and and n and o and n and � and � and � and f and u and n and c and t and i and o and n and a and l and and r and e and q and u and i and r and e and m and e and n and t and s and and ( and a and 1 and 1 and y and , and and p and e and r and f and , and and s and e and c and u and r and i and t and y and , and and p and r and i and v and a and c and y and , and and i and 1 and 8 and n and ) and . and
+and - and and I and d and e and n and t and i and f and y and and d and o and m and a and i and n and and c and o and n and s and t and r and a and i and n and t and s and / and r and i and s and k and s and ; and and r and e and c and o and r and d and and r and e and c and o and m and m and e and n and d and e and d and and a and p and p and r and o and a and c and h and and w and i and t and h and and r and a and t and i and o and n and a and l and e and . and
+and - and and C and a and p and t and u and r and e and and o and p and e and n and and q and u and e and s and t and i and o and n and s and and w and i and t and h and and o and w and n and e and r and s and and & and and d and u and e and and d and a and t and e and s and . and
+and
+and _ and _ and U and s and e and and M and C and P and _ and _ and : and
+and
+and - and and _ and _ and C and o and n and t and e and x and t and 7 and _ and _ and and f and o and r and and i and n and t and e and r and n and a and l and and p and r and i and o and r and and a and r and t and ; and and _ and _ and D and e and e and p and W and i and k and i and _ and _ and and f and o and r and and e and x and t and e and r and n and a and l and and r and e and f and e and r and e and n and c and e and s and . and
+and - and and _ and _ and G and a and t and e and and ( and m and e and d and i and u and m and / and h and i and g and h and and r and i and s and k and ) and _ and _ and : and and R and u and n and and a and t and and l and e and a and s and t and and o and n and e and and r and e and l and e and v and a and n and t and and M and C and P and and q and u and e and r and y and and a and n and d and and r and e and f and e and r and e and n and c and e and and i and t and s and and r and e and s and u and l and t and and i and n and and `and r and e and s and e and a and r and c and h and . and m and d and` and . and and I and f and and M and C and P and and i and s and and u and n and a and v and a and i and l and a and b and l and e and , and and n and o and t and e and and m and a and n and u and a and l and and e and q and u and i and v and a and l and e and n and t and and i and n and v and e and s and t and i and g and a and t and i and o and n and and a and n and d and and e and v and i and d and e and n and c and e and and i and n and and `and a and r and t and i and f and a and c and t and s and / and` and . and
+and
+and _ and _ and O and u and t and p and u and t and s and _ and _ and : and
+and
+and - and and R and e and u and s and e and and l and i and s and t and ; and and c and o and n and s and t and r and a and i and n and t and s and ; and and r and i and s and k and s and ; and and e and x and t and e and r and n and a and l and and r and e and f and s and and a and n and d and and w and h and y and and t and h and e and y and and m and a and t and t and e and r and ; and and r and e and c and o and m and m and e and n and d and e and d and and d and i and r and e and c and t and i and o and n and . and
+and
+and _ and _ and D and e and f and i and n and i and t and i and o and n and and o and f and and R and e and a and d and y and and ( and D and o and R and ) and _ and _ and
+and
+and - and and [ and and ] and and S and c and o and p and e and and & and and s and u and c and c and e and s and s and and c and r and i and t and e and r and i and a and and a and r and e and and c and l and e and a and r and / and m and e and a and s and u and r and a and b and l and e and . and
+and - and and [ and and ] and and R and e and u and s and e and and o and r and and � and � and � and n and o and and r and e and u and s and a and b and l and e and and p and a and t and t and e and r and n and � and � and � and and i and s and and d and o and c and u and m and e and n and t and e and d and . and
+and - and and [ and and ] and and R and i and s and k and s and and & and and o and p and e and n and and q and u and e and s and t and i and o and n and s and and l and i and s and t and e and d and and w and i and t and h and and o and w and n and e and r and s and / and d and a and t and e and s and . and
+and - and and [ and and ] and and O and w and n and e and r and and & and and r and e and v and i and e and w and e and r and s and and a and s and s and i and g and n and e and d and . and
+and
+and T and e and m and p and l and a and t and e and : and
+and
+and `and` and `and m and a and r and k and d and o and w and n and 
+ and # and   and R and e and s and e and a and r and c and h and : and   and < and F and e and a and t and u and r and e and / and C and h and a and n and g and e and   and N and a and m and e and > and 
+ and 
+ and # and # and   and R and e and q and u and i and r and e and m and e and n and t and s and 
+ and 
+ and - and   and F and u and n and c and t and i and o and n and a and l and : and 
+ and - and   and N and o and n and � and � and � and f and u and n and c and t and i and o and n and a and l and   and ( and a and 1 and 1 and y and , and   and p and e and r and f and , and   and s and e and c and u and r and i and t and y and , and   and p and r and i and v and a and c and y and , and   and i and 1 and 8 and n and ) and : and 
+ and 
+ and # and # and   and E and x and i and s and t and i and n and g and   and P and a and t and t and e and r and n and s and   and & and   and R and e and u and s and e and 
+ and 
+ and - and   and . and . and . and 
+ and 
+ and # and # and   and E and x and t and e and r and n and a and l and   and R and e and s and o and u and r and c and e and s and 
+ and 
+ and - and   and [ and S and p and e and c and / and D and o and c and ] and ( and u and r and l and ) and   and � and � and � and   and w and h and y and   and i and t and   and m and a and t and t and e and r and s and 
+ and 
+ and # and # and   and C and o and n and s and t and r and a and i and n and t and s and   and & and   and R and i and s and k and s and 
+ and 
+ and - and   and . and . and . and 
+ and 
+ and # and # and   and O and p and e and n and   and Q and u and e and s and t and i and o and n and s and   and ( and o and w and n and e and r and , and   and d and u and e and ) and 
+ and 
+ and - and   and Q and : and   and . and . and . and 
+ and   and   and A and : and   and . and . and . and 
+ and 
+ and # and # and   and R and e and c and o and m and m and e and n and d and e and d and   and D and i and r and e and c and t and i and o and n and   and ( and w and i and t and h and   and r and a and t and i and o and n and a and l and e and ) and 
+ and 
+ and - and   and . and . and . and 
+ and` and `and` and
+and
+and - and - and - and
+and
+and # and # and # and and P and h and a and s and e and and 2 and and � and � and � and and _ and _ and D and e and s and i and g and n and and & and and P and l and a and n and n and i and n and g and _ and _ and and ( and `and p and l and a and n and . and m and d and` and ) and
+and
+and _ and _ and G and o and a and l and _ and _ and : and and T and u and r and n and and a and n and a and l and y and s and i and s and and i and n and t and o and and a and n and and i and m and p and l and e and m and e and n and t and a and b and l and e and and b and l and u and e and p and r and i and n and t and . and
+and
+and _ and _ and A and c and t and i and v and i and t and i and e and s and _ and _ and : and
+and
+and - and and M and o and b and i and l and e and � and � and � and f and i and r and s and t and , and and p and r and o and g and r and e and s and s and i and v and e and and e and n and h and a and n and c and e and m and e and n and t and ; and and p and r and e and f and e and r and and e and x and i and s and t and i and n and g and and c and o and m and p and o and n and e and n and t and s and and ( and S and h and a and d and c and n and ) and . and
+and - and and D and e and f and i and n and e and and a and r and c and h and i and t and e and c and t and u and r and e and , and and d and a and t and a and and f and l and o and w and , and and A and P and I and and c and o and n and t and r and a and c and t and s and , and and e and r and r and o and r and and p and a and t and h and s and , and and U and I and and s and t and a and t and e and s and . and
+and - and and D and e and f and i and n and e and and t and e and s and t and s and and a and n and d and and r and o and l and l and o and u and t and and ( and f and l and a and g and s and , and and m and e and t and r and i and c and s and , and and k and i and l and l and � and � and � and s and w and i and t and c and h and ) and . and
+and - and and _ and _ and D and B and : and _ and _ and and � and � and � and s and t and a and g and i and n and g and � and � and � and f and i and r and s and t and � and � and � and and m and i and g and r and a and t and i and o and n and and s and t and r and a and t and e and g and y and ; and and e and x and p and a and n and s and i and o and n and � and � and � and b and a and c and k and f and i and l and l and � and � and � and c and o and n and t and r and a and c and t and i and o and n and ; and and r and o and l and l and b and a and c and k and and p and l and a and n and . and
+and
+and _ and _ and U and s and e and and M and C and P and _ and _ and : and
+and
+and - and and _ and _ and S and h and a and d and c and n and _ and _ and and f and o and r and and c and o and m and p and o and n and e and n and t and s and ; and and _ and _ and S and u and p and a and b and a and s and e and _ and _ and and f and o and r and and r and e and m and o and t and e and and m and i and g and r and a and t and i and o and n and s and and ( and d and r and y and � and � and � and r and u and n and and � and � and � and and p and l and a and n and and � and � and � and and a and p and p and l and y and ) and ; and and _ and _ and N and e and x and t and and D and e and v and T and o and o and l and s and _ and _ and and f and o and r and and r and o and u and t and i and n and g and / and b and u and n and d and l and e and and i and n and s and p and e and c and t and i and o and n and . and
+and
+and _ and _ and O and u and t and p and u and t and s and _ and _ and : and
+and
+and - and and O and b and j and e and c and t and i and v and e and ; and and s and u and c and c and e and s and s and and c and r and i and t and e and r and i and a and ; and and c and o and m and p and o and n and e and n and t and s and ; and and c and o and n and t and r and a and c and t and s and ; and and s and t and a and t and e and s and ; and and e and d and g and e and and c and a and s and e and s and ; and and t and e and s and t and i and n and g and ; and and r and o and l and l and o and u and t and and & and and o and b and s and e and r and v and a and b and i and l and i and t and y and . and
+and
+and T and e and m and p and l and a and t and e and : and
+and
+and `and` and `and m and a and r and k and d and o and w and n and 
+ and # and   and I and m and p and l and e and m and e and n and t and a and t and i and o and n and   and P and l and a and n and : and   and < and F and e and a and t and u and r and e and / and C and h and a and n and g and e and   and N and a and m and e and > and 
+ and 
+ and # and # and   and O and b and j and e and c and t and i and v and e and 
+ and 
+ and W and e and   and w and i and l and l and   and e and n and a and b and l and e and   and < and u and s and e and r and > and   and t and o and   and < and g and o and a and l and > and   and s and o and   and t and h and a and t and   and < and o and u and t and c and o and m and e and > and . and 
+ and 
+ and # and # and   and S and u and c and c and e and s and s and   and C and r and i and t and e and r and i and a and 
+ and 
+ and - and   and [ and   and ] and   and < and m and e and t and r and i and c and / and c and o and n and d and i and t and i and o and n and > and 
+ and - and   and [ and   and ] and   and < and m and e and t and r and i and c and / and c and o and n and d and i and t and i and o and n and > and 
+ and 
+ and # and # and   and A and r and c and h and i and t and e and c and t and u and r and e and   and & and   and C and o and m and p and o and n and e and n and t and s and 
+ and 
+ and - and   and < and C and o and m and p and o and n and e and n and t and A and > and : and   and r and o and l and e and 
+ and - and   and < and C and o and m and p and o and n and e and n and t and B and > and : and   and r and o and l and e and 
+ and   and   and S and t and a and t and e and : and   and < and w and h and e and r and e and / and w and h and y and > and   and | and   and U and R and L and   and s and t and a and t and e and : and   and < and . and . and . and > and 
+ and 
+ and # and # and   and D and a and t and a and   and F and l and o and w and   and & and   and A and P and I and   and C and o and n and t and r and a and c and t and s and 
+ and 
+ and E and n and d and p and o and i and n and t and : and   and M and E and T and H and O and D and   and / and a and p and i and / and . and . and . and 
+ and R and e and q and u and e and s and t and : and   and { and   and . and . and . and   and } and 
+ and R and e and s and p and o and n and s and e and : and   and { and   and . and . and . and   and } and 
+ and E and r and r and o and r and s and : and   and { and   and c and o and d and e and , and   and m and e and s and s and a and g and e and   and } and 
+ and 
+ and # and # and   and U and I and / and U and X and   and S and t and a and t and e and s and 
+ and 
+ and - and   and L and o and a and d and i and n and g and   and / and   and E and m and p and t and y and   and / and   and E and r and r and o and r and   and / and   and S and u and c and c and e and s and s and 
+ and 
+ and # and # and   and E and d and g and e and   and C and a and s and e and s and 
+ and 
+ and - and   and . and . and . and 
+ and 
+ and # and # and   and T and e and s and t and i and n and g and   and S and t and r and a and t and e and g and y and 
+ and 
+ and - and   and U and n and i and t and   and / and   and I and n and t and e and g and r and a and t and i and o and n and   and / and   and E and 2 and E and   and / and   and A and c and c and e and s and s and i and b and i and l and i and t and y and 
+ and 
+ and # and # and   and R and o and l and l and o and u and t and 
+ and 
+ and - and   and F and e and a and t and u and r and e and   and f and l and a and g and : and   and < and f and l and a and g and _ and n and a and m and e and > and   and ( and n and a and m and e and s and p and a and c and e and : and   and f and e and a and t and . and < and a and r and e and a and > and . and < and n and a and m and e and > and ) and 
+ and - and   and E and x and p and o and s and u and r and e and : and   and 1 and 0 and % and   and � and � and � and   and 5 and 0 and % and   and � and � and � and   and 1 and 0 and 0 and % and 
+ and - and   and M and o and n and i and t and o and r and i and n and g and : and   and < and d and a and s and h and b and o and a and r and d and s and / and m and e and t and r and i and c and s and > and 
+ and - and   and K and i and l and l and � and � and � and s and w and i and t and c and h and : and   and < and h and o and w and   and t and o and   and d and i and s and a and b and l and e and   and s and a and f and e and l and y and > and 
+ and 
+ and # and # and   and D and B and   and C and h and a and n and g and e and   and P and l and a and n and   and ( and i and f and   and a and p and p and l and i and c and a and b and l and e and ) and 
+ and 
+ and - and   and T and a and r and g and e and t and   and e and n and v and s and : and   and s and t and a and g and i and n and g and   and � and � and � and   and p and r and o and d and u and c and t and i and o and n and   and ( and w and i and n and d and o and w and : and   and < and t and i and m and e and > and ) and 
+ and - and   and B and a and c and k and u and p and   and r and e and f and e and r and e and n and c and e and : and   and < and s and n and a and p and s and h and o and t and / and P and I and T and R and   and l and i and n and k and > and 
+ and - and   and D and r and y and � and � and � and r and u and n and   and e and v and i and d and e and n and c and e and : and   and` and a and r and t and i and f and a and c and t and s and / and d and b and - and d and i and f and f and . and t and x and t and `and 
+ and - and   and B and a and c and k and f and i and l and l and   and s and t and r and a and t and e and g and y and : and   and < and c and h and u and n and k and   and s and i and z and e and , and   and i and d and e and m and p and o and t and e and n and c and y and > and 
+ and - and   and R and o and l and l and b and a and c and k and   and p and l and a and n and : and   and < and s and t and e and p and s and / and c and o and m and p and e and n and s and a and t and i and n and g and   and m and i and g and r and a and t and i and o and n and > and 
+ and` and `and` and
+and
+and - and - and - and
+and
+and # and # and # and and P and h and a and s and e and and 3 and and � and � and � and and _ and _ and I and m and p and l and e and m and e and n and t and a and t and i and o and n and _ and _ and and ( and `and t and o and d and o and . and m and d and` and ) and
+and
+and _ and _ and G and o and a and l and _ and _ and : and and E and x and e and c and u and t and e and and w and i and t and h and and m and o and m and e and n and t and u and m and and a and n and d and and t and r and a and c and e and a and b and i and l and i and t and y and . and
+and
+and _ and _ and A and c and t and i and v and i and t and i and e and s and _ and _ and : and
+and
+and - and and T and r and a and c and k and and a and t and o and m and i and c and and s and t and e and p and s and ; and and l and o and g and and d and e and v and i and a and t and i and o and n and s and and & and and a and s and s and u and m and p and t and i and o and n and s and . and
+and - and and I and m and p and l and e and m and e and n and t and and c and o and d and e and , and and c and o and m and p and o and n and e and n and t and s and , and and r and e and m and o and t and e and and m and i and g and r and a and t and i and o and n and s and , and and a and n and d and and t and e and s and t and s and . and
+and - and and K and e and e and p and and c and h and a and n and g and e and s and and _ and _ and n and a and r and r and o and w and and a and n and d and and f and o and c and u and s and e and d and _ and _ and and p and e and r and and � and � and 1 and B and and ( and n and o and and o and p and p and o and r and t and u and n and i and s and t and i and c and and r and e and f and a and c and t and o and r and s and ) and . and
+and
+and _ and _ and U and s and e and and M and C and P and _ and _ and : and
+and
+and - and and _ and _ and S and h and a and d and c and n and _ and _ and , and and _ and _ and S and u and p and a and b and a and s and e and _ and _ and , and and _ and _ and N and e and x and t and and D and e and v and T and o and o and l and s and _ and _ and and a and s and and n and e and e and d and e and d and . and
+and
+and T and e and m and p and l and a and t and e and : and
+and
+and `and` and `and m and a and r and k and d and o and w and n and 
+ and # and   and I and m and p and l and e and m and e and n and t and a and t and i and o and n and   and C and h and e and c and k and l and i and s and t and 
+ and 
+ and # and # and   and S and e and t and u and p and 
+ and 
+ and - and   and [ and   and ] and   and C and r and e and a and t and e and / and e and x and t and e and n and d and   and c and o and m and p and o and n and e and n and t and s and   and ( and S and h and a and d and c and n and - and f and i and r and s and t and ; and   and e and x and c and e and p and t and i and o and n and   and n and o and t and e and d and   and i and f and   and a and n and y and ) and 
+ and - and   and [ and   and ] and   and A and d and d and   and f and e and a and t and u and r and e and   and f and l and a and g and   and < and f and l and a and g and _ and n and a and m and e and > and   and ( and d and e and f and a and u and l and t and   and o and f and f and ) and 
+ and 
+ and # and # and   and C and o and r and e and 
+ and 
+ and - and   and [ and   and ] and   and D and a and t and a and   and f and e and t and c and h and i and n and g and   and / and   and m and u and t and a and t and i and o and n and s and 
+ and - and   and [ and   and ] and   and V and a and l and i and d and a and t and i and o and n and   and & and   and e and r and r and o and r and   and s and u and r and f and a and c and e and s and 
+ and - and   and [ and   and ] and   and U and R and L and / and s and t and a and t and e and   and s and y and n and c and   and & and   and n and a and v and i and g and a and t and i and o and n and 
+ and 
+ and # and # and   and U and I and / and U and X and 
+ and 
+ and - and   and [ and   and ] and   and R and e and s and p and o and n and s and i and v and e and   and l and a and y and o and u and t and 
+ and - and   and [ and   and ] and   and L and o and a and d and i and n and g and / and e and m and p and t and y and / and e and r and r and o and r and   and s and t and a and t and e and s and 
+ and - and   and [ and   and ] and   and A and 1 and 1 and y and   and r and o and l and e and s and , and   and l and a and b and e and l and s and , and   and f and o and c and u and s and   and m and g and m and t and 
+ and 
+ and # and # and   and T and e and s and t and s and 
+ and 
+ and - and   and [ and   and ] and   and U and n and i and t and 
+ and - and   and [ and   and ] and   and I and n and t and e and g and r and a and t and i and o and n and 
+ and - and   and [ and   and ] and   and E and 2 and E and   and ( and c and r and i and t and i and c and a and l and   and f and l and o and w and s and ) and 
+ and - and   and [ and   and ] and   and A and x and e and / and A and c and c and e and s and s and i and b and i and l and i and t and y and   and c and h and e and c and k and s and 
+ and 
+ and # and # and   and N and o and t and e and s and 
+ and 
+ and - and   and A and s and s and u and m and p and t and i and o and n and s and : and 
+ and - and   and D and e and v and i and a and t and i and o and n and s and : and 
+ and 
+ and # and # and   and B and a and t and c and h and e and d and   and Q and u and e and s and t and i and o and n and s and 
+ and 
+ and - and   and . and . and . and 
+ and` and `and` and
+and
+and - and - and - and
+and
+and # and # and # and and P and h and a and s and e and and 4 and and � and � and � and and _ and _ and V and e and r and i and f and i and c and a and t and i and o and n and and & and and V and a and l and i and d and a and t and i and o and n and _ and _ and and ( and `and v and e and r and i and f and i and c and a and t and i and o and n and . and m and d and` and ) and and � and � and � and and _ and _ and D and e and f and i and n and i and t and i and o and n and and o and f and and D and o and n and e and _ and _ and
+and
+and _ and _ and G and o and a and l and _ and _ and : and and P and r and o and v and e and and i and t and and w and o and r and k and s and , and and i and s and and a and c and c and e and s and s and i and b and l and e and , and and a and n and d and and p and e and r and f and o and r and m and s and . and
+and
+and _ and _ and A and c and t and i and v and i and t and i and e and s and _ and _ and : and
+and
+and - and and _ and _ and C and h and r and o and m and e and and D and e and v and T and o and o and l and s and and M and C and P and and M and a and n and u and a and l and and Q and A and _ and _ and : and and c and o and n and s and o and l and e and / and n and e and t and w and o and r and k and ; and and d and e and v and i and c and e and and e and m and u and l and a and t and i and o and n and ; and and p and r and o and f and i and l and i and n and g and ; and and L and i and g and h and t and h and o and u and s and e and ; and and a and 1 and 1 and y and . and
+and - and and C and r and o and s and s and � and � and � and b and r and o and w and s and e and r and and s and m and o and k and e and and w and h and e and r and e and and r and e and l and e and v and a and n and t and . and
+and - and and V and a and l and i and d and a and t and e and and e and d and g and e and and c and a and s and e and s and and & and and e and r and r and o and r and and p and a and t and h and s and ; and and p and e and r and f and and b and u and d and g and e and t and s and ; and and b and a and s and i and c and and s and e and c and u and r and i and t and y and and c and h and e and c and k and s and . and
+and - and and A and t and t and a and c and h and and a and r and t and i and f and a and c and t and s and and i and n and and `and a and r and t and i and f and a and c and t and s and / and` and and ( and L and i and g and h and t and h and o and u and s and e and and J and S and O and N and , and and H and A and R and , and and t and r and a and c and e and s and , and and s and c and r and e and e and n and s and h and o and t and s and , and and d and b and and d and i and f and f and ) and . and
+and
+and _ and _ and B and u and d and g and e and t and s and and ( and m and o and b and i and l and e and ; and and 4 and � and � and and C and P and U and ; and and 4 and G and ) and _ and _ and
+and
+and - and and F and C and P and and � and � and � and and _ and _ and 2 and . and 0 and and s and _ and _ and and � and � and and L and C and P and and � and � and � and and _ and _ and 2 and . and 5 and and s and _ and _ and and � and � and and C and L and S and and � and � and � and and _ and _ and 0 and . and 1 and 0 and _ and _ and and � and � and and T and B and T and and � and � and � and and _ and _ and 2 and 0 and 0 and and m and s and _ and _ and
+and - and and A and x and e and : and and _ and _ and 0 and _ and _ and and c and r and i and t and i and c and a and l and / and s and e and r and i and o and u and s and and i and s and s and u and e and s and
+and - and and C and r and i and t and i and c and a and l and and i and n and t and e and r and a and c and t and i and o and n and and l and a and t and e and n and c and y and : and and _ and _ and P and 9 and 5 and and � and � and � and and 5 and 0 and 0 and and m and s and _ and _ and
+and
+and _ and _ and D and e and f and i and n and i and t and i and o and n and and o and f and and D and o and n and e and and ( and D and o and D and ) and _ and _ and
+and
+and - and and [ and and ] and and R and e and q and u and i and r and e and m and e and n and t and s and and m and e and t and ; and and s and u and c and c and e and s and s and and c and r and i and t and e and r and i and a and and s and a and t and i and s and f and i and e and d and . and
+and - and and [ and and ] and and A and l and l and and t and e and s and t and s and and p and a and s and s and and ( and u and n and i and t and / and i and n and t and e and g and r and a and t and i and o and n and / and E and 2 and E and / and a and 1 and 1 and y and ) and . and
+and - and and [ and and ] and and P and e and r and f and / and a and 1 and 1 and y and and b and u and d and g and e and t and s and and m and e and t and ; and and n and o and and P and 0 and / and P and 1 and . and
+and - and and [ and and ] and and `and v and e and r and i and f and i and c and a and t and i and o and n and . and m and d and` and and c and o and m and p and l and e and t and e and d and and w and i and t and h and and a and r and t and i and f and a and c and t and s and . and
+and - and and [ and and ] and and D and o and c and s and / and c and h and a and n and g and e and l and o and g and s and and u and p and d and a and t and e and d and ; and and f and l and a and g and s and and & and and r and u and n and b and o and o and k and s and and d and o and c and u and m and e and n and t and e and d and . and
+and
+and T and e and m and p and l and a and t and e and : and
+and
+and `and` and `and m and a and r and k and d and o and w and n and 
+ and # and   and V and e and r and i and f and i and c and a and t and i and o and n and   and R and e and p and o and r and t and 
+ and 
+ and # and # and   and M and a and n and u and a and l and   and Q and A and   and � and � and � and   and C and h and r and o and m and e and   and D and e and v and T and o and o and l and s and   and ( and M and C and P and ) and 
+ and 
+ and T and o and o and l and : and   and C and h and r and o and m and e and   and D and e and v and T and o and o and l and s and   and M and C and P and 
+ and 
+ and # and # and # and   and C and o and n and s and o and l and e and   and & and   and N and e and t and w and o and r and k and 
+ and 
+ and - and   and [ and x and ] and   and N and o and   and C and o and n and s and o and l and e and   and e and r and r and o and r and s and 
+ and - and   and [ and x and ] and   and N and e and t and w and o and r and k and   and r and e and q and u and e and s and t and s and   and m and a and t and c and h and   and c and o and n and t and r and a and c and t and 
+ and 
+ and # and # and # and   and D and O and M and   and & and   and A and c and c and e and s and s and i and b and i and l and i and t and y and 
+ and 
+ and - and   and [ and x and ] and   and S and e and m and a and n and t and i and c and   and H and T and M and L and   and v and e and r and i and f and i and e and d and 
+ and - and   and [ and x and ] and   and A and R and I and A and   and a and t and t and r and i and b and u and t and e and s and   and c and o and r and r and e and c and t and 
+ and - and   and [ and x and ] and   and F and o and c and u and s and   and o and r and d and e and r and   and l and o and g and i and c and a and l and   and & and   and v and i and s and i and b and l and e and 
+ and - and   and [ and x and ] and   and K and e and y and b and o and a and r and d and - and o and n and l and y and   and f and l and o and w and s and   and s and u and c and c and e and e and d and 
+ and 
+ and # and # and # and   and P and e and r and f and o and r and m and a and n and c and e and   and ( and p and r and o and f and i and l and e and d and ; and   and m and o and b and i and l and e and ; and   and 4 and � and � and   and C and P and U and ; and   and 4 and G and ) and 
+ and 
+ and - and   and F and C and P and : and   and < and v and a and l and u and e and > and   and s and   and | and   and L and C and P and : and   and < and v and a and l and u and e and > and   and s and   and | and   and C and L and S and : and   and < and v and a and l and u and e and > and   and | and   and T and B and T and : and   and < and v and a and l and u and e and > and   and m and s and 
+ and - and   and B and u and d and g and e and t and s and   and m and e and t and : and   and [ and   and ] and   and Y and e and s and   and [ and   and ] and   and N and o and   and ( and n and o and t and e and s and ) and 
+ and 
+ and # and # and # and   and D and e and v and i and c and e and   and E and m and u and l and a and t and i and o and n and 
+ and 
+ and - and   and [ and x and ] and   and M and o and b and i and l and e and   and ( and � and � and � and 3 and 7 and 5 and p and x and ) and   and [ and x and ] and   and T and a and b and l and e and t and   and ( and � and � and � and 7 and 6 and 8 and p and x and ) and   and [ and x and ] and   and D and e and s and k and t and o and p and   and ( and � and � and � and 1 and 2 and 8 and 0 and p and x and ) and 
+ and 
+ and # and # and   and T and e and s and t and   and O and u and t and c and o and m and e and s and 
+ and 
+ and - and   and [ and x and ] and   and H and a and p and p and y and   and p and a and t and h and s and 
+ and - and   and [ and x and ] and   and E and r and r and o and r and   and h and a and n and d and l and i and n and g and 
+ and - and   and [ and x and ] and   and A and 1 and 1 and y and   and ( and a and x and e and ) and : and   and 0 and   and c and r and i and t and i and c and a and l and / and s and e and r and i and o and u and s and 
+ and 
+ and # and # and   and A and r and t and i and f and a and c and t and s and 
+ and 
+ and - and   and L and i and g and h and t and h and o and u and s and e and : and   and` and a and r and t and i and f and a and c and t and s and / and l and i and g and h and t and h and o and u and s and e and - and r and e and p and o and r and t and . and j and s and o and n and `and 
+ and - and   and N and e and t and w and o and r and k and : and   and` and a and r and t and i and f and a and c and t and s and / and n and e and t and w and o and r and k and . and h and a and r and `and 
+ and - and   and T and r and a and c and e and s and / and S and c and r and e and e and n and s and : and   and` and a and r and t and i and f and a and c and t and s and / and `and 
+ and - and   and D and B and   and d and i and f and f and   and ( and i and f and   and D and B and   and c and h and a and n and g and e and ) and : and   and` and a and r and t and i and f and a and c and t and s and / and d and b and - and d and i and f and f and . and t and x and t and `and 
+ and 
+ and # and # and   and K and n and o and w and n and   and I and s and s and u and e and s and 
+ and 
+ and - and   and [ and   and ] and   and < and i and s and s and u and e and > and   and ( and o and w and n and e and r and , and   and p and r and i and o and r and i and t and y and ) and 
+ and 
+ and # and # and   and S and i and g and n and � and � and � and o and f and f and 
+ and 
+ and - and   and [ and   and ] and   and E and n and g and i and n and e and e and r and i and n and g and 
+ and - and   and [ and   and ] and   and D and e and s and i and g and n and / and P and M and 
+ and - and   and [ and   and ] and   and Q and A and 
+ and` and `and` and
+and
+and - and - and - and
+and
+and # and # and # and and P and h and a and s and e and and 5 and and � and � and � and and _ and _ and R and e and v and i and e and w and and & and and M and e and r and g and e and _ and _ and
+and
+and _ and _ and A and c and t and i and v and i and t and i and e and s and _ and _ and : and
+and
+and - and and O and p and e and n and and P and R and ; and and r and e and f and e and r and e and n and c and e and and t and a and s and k and and d and i and r and e and c and t and o and r and y and ; and and i and n and c and l and u and d and e and and e and v and i and d and e and n and c and e and and a and n and d and and c and h and e and c and k and l and i and s and t and s and . and
+and - and and U and s and e and and _ and _ and C and o and n and v and e and n and t and i and o and n and a and l and and C and o and m and m and i and t and s and _ and _ and and i and n and and P and R and and t and i and t and l and e and and ( and `and f and e and a and t and : and   and . and . and . and` and , and and `and f and i and x and : and   and . and . and . and` and ) and . and
+and - and and A and t and t and a and c and h and and U and I and and s and c and r and e and e and n and s and h and o and t and s and / and c and l and i and p and s and and a and n and d and and l and i and n and k and and t and o and and `and v and e and r and i and f and i and c and a and t and i and o and n and . and m and d and` and . and
+and
+and _ and _ and E and x and i and t and _ and _ and : and and A and p and p and r and o and v and a and l and s and and o and b and t and a and i and n and e and d and ; and and C and I and and g and r and e and e and n and ; and and m and e and r and g and e and d and and p and e and r and and r and e and p and o and and p and o and l and i and c and y and . and
+and
+and P and R and and C and h and e and c and k and l and i and s and t and and ( and i and n and c and l and u and d and e and and i and n and and P and R and and d and e and s and c and r and i and p and t and i and o and n and ) and : and
+and
+and `and` and `and t and e and x and t and 
+ and [ and   and ] and   and L and i and n and k and s and   and t and o and   and t and a and s and k and   and f and o and l and d and e and r and   and a and n and d and   and t and i and c and k and e and t and 
+ and [ and   and ] and   and S and c and r and e and e and n and s and h and o and t and s and / and c and l and i and p and s and   and ( and U and I and ) and   and + and   and v and e and r and i and f and i and c and a and t and i and o and n and . and m and d and 
+ and [ and   and ] and   and T and e and s and t and s and   and a and d and d and e and d and / and u and p and d and a and t and e and d and 
+ and [ and   and ] and   and A and 1 and 1 and y and   and v and e and r and i and f and i and e and d and   and ( and k and e and y and b and o and a and r and d and , and   and S and R and   and c and u and e and s and ) and 
+ and [ and   and ] and   and P and e and r and f and   and b and u and d and g and e and t and s and   and m and e and t and   and ( and L and i and g and h and t and h and o and u and s and e and   and a and t and t and a and c and h and e and d and ) and 
+ and [ and   and ] and   and D and o and c and s and / and c and h and a and n and g and e and l and o and g and s and   and u and p and d and a and t and e and d and   and i and f and   and n and e and e and d and e and d and 
+ and` and `and` and
+and
+and - and - and - and
+and
+and # and # and # and and P and h and a and s and e and and 6 and and � and � and � and and _ and _ and R and e and l and e and a and s and e and and & and and D and e and p and l and o and y and m and e and n and t and _ and _ and
+and
+and _ and _ and A and c and t and i and v and i and t and i and e and s and _ and _ and : and
+and
+and - and and R and o and l and l and and o and u and t and and p and e and r and and p and l and a and n and ; and and m and o and n and i and t and o and r and and m and e and t and r and i and c and s and / and l and o and g and s and ; and and k and e and e and p and and f and l and a and g and and g and u and a and r and d and r and a and i and l and s and . and
+and - and and A and p and p and l and y and and D and B and and c and h and a and n and g and e and s and and _ and _ and s and t and a and g and i and n and g and and f and i and r and s and t and _ and _ and , and and t and h and e and n and and p and r and o and d and u and c and t and i and o and n and and i and n and and a and and w and i and n and d and o and w and and w and i and t and h and and a and p and p and r and o and v and a and l and s and . and
+and - and and D and o and c and u and m and e and n and t and and o and u and t and c and o and m and e and s and and i and n and and t and a and s and k and and f and o and l and d and e and r and . and
+and
+and _ and _ and E and x and i and t and _ and _ and : and and S and t and a and b and l and e and and a and t and and 1 and 0 and 0 and % and ; and and f and i and n and a and l and and n and o and t and e and s and and a and d and d and e and d and and t and o and and t and a and s and k and . and
+and
+and - and - and - and
+and
+and # and # and # and and P and h and a and s and e and and 7 and and � and � and � and and _ and _ and O and p and e and r and a and t and e and and & and and I and m and p and r and o and v and e and _ and _ and
+and
+and _ and _ and A and c and t and i and v and i and t and i and e and s and _ and _ and : and
+and
+and - and and M and o and n and i and t and o and r and and S and L and O and s and ; and and t and r and i and a and g and e and and i and n and c and i and d and e and n and t and s and ; and and c and a and p and t and u and r and e and and l and e and a and r and n and i and n and g and s and . and
+and - and and F and i and l and e and and f and o and l and l and o and w and � and � and � and u and p and s and ; and and s and c and h and e and d and u and l and e and and r and e and f and a and c and t and o and r and s and / and t and e and c and h and and d and e and b and t and and a and s and and t and a and s and k and s and . and
+and
+and _ and _ and E and x and i and t and _ and _ and : and and L and e and a and r and n and i and n and g and s and and c and a and p and t and u and r and e and d and ; and and b and a and c and k and l and o and g and and u and p and d and a and t and e and d and . and
+and
+and - and - and - and
+and
+and # and # and and 5 and ) and and F and r and o and n and t and e and n and d and : and and C and o and m and p and o and n and e and n and t and and & and and U and X and and S and t and a and n and d and a and r and d and s and
+and
+and # and # and # and and C and o and m and p and o and n and e and n and t and s and
+and
+and - and and _ and _ and U and s and e and and S and H and A and D and C and N and and U and I and and v and i and a and and S and h and a and d and c and n and and M and C and P and _ and _ and ; and and e and x and t and e and n and d and and r and a and t and h and e and r and and t and h and a and n and and r and e and b and u and i and l and d and . and
+and - and and _ and _ and A and d and h and e and r and e and and t and o and and D and e and s and i and g and n and and S and y and s and t and e and m and _ and _ and : and and A and l and l and and f and r and o and n and t and e and n and d and and c and o and d and e and and m and u and s and t and and s and t and r and i and c and t and l and y and and f and o and l and l and o and w and and t and h and e and and t and o and k and e and n and s and , and and l and o and g and i and c and , and and a and n and d and and p and a and t and t and e and r and n and s and and d and e and f and i and n and e and d and and i and n and and `and D and e and s and i and g and n and S and y and s and t and e and m and . and m and d and` and and ( and c and o and m and b and i and n and i and n and g and and S and h and a and d and c and n and and w and i and t and h and and c and u and s and t and o and m and and s and t and y and l and e and and o and v and e and r and r and i and d and e and s and and r and e and l and a and t and i and v and e and and t and o and and t and h and e and and d and e and s and i and g and n and and s and y and s and t and e and m and ) and . and
+and - and and _ and _ and E and x and c and e and p and t and i and o and n and s and _ and _ and : and and O and n and l and y and and i and f and and n and o and and S and h and a and d and c and n and and e and q and u and i and v and a and l and e and n and t and and s and u and p and p and o and r and t and s and and r and e and q and u and i and r and e and d and and a and 1 and 1 and y and / and U and X and ; and and d and o and c and u and m and e and n and t and and j and u and s and t and i and f and i and c and a and t and i and o and n and and i and n and and `and p and l and a and n and . and m and d and` and and a and n and d and and g and e and t and and d and e and s and i and g and n and and s and i and g and n and � and � and � and o and f and f and . and
+and
+and # and # and # and and M and o and b and i and l and e and � and � and � and F and i and r and s and t and and & and and P and r and o and g and r and e and s and s and i and v and e and and E and n and h and a and n and c and e and m and e and n and t and
+and
+and - and and B and u and i and l and d and and f and o and r and and s and m and a and l and l and and s and c and r and e and e and n and s and and f and i and r and s and t and ; and and e and n and h and a and n and c and e and and f and o and r and and l and a and r and g and e and r and and s and c and r and e and e and n and s and . and
+and - and and C and o and r and e and and f and l and o and w and s and and s and h and o and u and l and d and and d and e and g and r and a and d and e and and g and r and a and c and e and f and u and l and l and y and and w and i and t and h and and m and i and n and i and m and a and l and and J and S and and w and h and e and r and e and and r and e and a and s and o and n and a and b and l and e and . and
+and
+and # and # and # and and A and c and c and e and s and s and i and b and i and l and i and t and y and and ( and m and u and s and t and � and � and � and h and a and v and e and s and ) and
+and
+and - and and F and u and l and l and and k and e and y and b and o and a and r and d and and n and a and v and i and g and a and t and i and o and n and ; and and m and a and n and a and g and e and and f and o and c and u and s and and ( and t and r and a and p and and i and n and and m and o and d and a and l and s and ; and and r and e and s and t and o and r and e and and o and n and and c and l and o and s and e and ) and . and
+and - and and V and i and s and i and b and l and e and and f and o and c and u and s and and v and i and a and and `and : and f and o and c and u and s and - and v and i and s and i and b and l and e and` and . and
+and - and and P and r and e and f and e and r and and s and e and m and a and n and t and i and c and and H and T and M and L and ; and and a and d and d and and A and R and I and A and and o and n and l and y and and w and h and e and n and and n and e and c and e and s and s and a and r and y and . and
+and - and and P and r and o and v and i and d and e and and a and c and c and e and s and s and i and b and l and e and and n and a and m and e and s and / and l and a and b and e and l and s and ; and and a and v and o and i and d and and c and o and l and o and r and � and � and � and o and n and l and y and and c and u and e and s and . and
+and - and and H and i and e and r and a and r and c and h and i and c and a and l and and h and e and a and d and i and n and g and s and ; and and p and e and r and � and � and � and v and i and e and w and and t and i and t and l and e and s and . and
+and - and and T and o and a and s and t and s and / and v and a and l and i and d and a and t and i and o and n and and u and s and e and and p and o and l and i and t and e and and `and a and r and i and a and - and l and i and v and e and` and . and
+and
+and # and # and # and and F and o and r and m and s and
+and
+and - and and I and n and p and u and t and s and and � and � and � and 1 and 6 and p and x and and f and o and n and t and and o and n and and m and o and b and i and l and e and . and
+and - and and C and o and r and r and e and c and t and and `and t and y and p and e and` and , and and `and i and n and p and u and t and m and o and d and e and` and , and and `and a and u and t and o and c and o and m and p and l and e and t and e and` and . and
+and - and and S and u and b and m and i and t and and t and r and i and g and g and e and r and s and and i and n and l and i and n and e and and v and a and l and i and d and a and t and i and o and n and ; and and f and o and c and u and s and and f and i and r and s and t and and e and r and r and o and r and . and
+and - and and S and u and b and m and i and t and and r and e and m and a and i and n and s and and e and n and a and b and l and e and d and and u and n and t and i and l and and r and e and q and u and e and s and t and and s and t and a and r and t and s and ; and and s and h and o and w and and n and o and n and � and � and � and b and l and o and c and k and i and n and g and and s and p and i and n and n and e and r and s and . and
+and - and and P and e and r and m and i and t and and p and a and s and t and e and ; and and t and r and i and m and and v and a and l and u and e and s and ; and and w and a and r and n and and o and n and and u and n and s and a and v and e and d and and c and h and a and n and g and e and s and . and
+and - and and `and E and n and t and e and r and` and and s and u and b and m and i and t and s and and s and i and n and g and l and e and � and � and � and l and i and n and e and ; and and `and C and t and r and l and / and � and � and � and + and E and n and t and e and r and` and and s and u and b and m and i and t and s and and t and e and x and t and a and r and e and a and s and . and
+and
+and # and # and # and and N and a and v and i and g and a and t and i and o and n and and & and and S and t and a and t and e and
+and
+and - and and R and e and f and l and e and c and t and and s and t and a and t and e and and i and n and and U and R and L and and ( and f and i and l and t and e and r and s and , and and t and a and b and s and , and and p and a and g and i and n and a and t and i and o and n and ) and . and
+and - and and R and e and s and t and o and r and e and and s and c and r and o and l and l and and o and n and and b and a and c and k and / and f and o and r and w and a and r and d and . and
+and - and and U and s and e and and `and < and a and > and / and < and L and i and n and k and > and` and and f and o and r and and n and e and w and � and � and � and t and a and b and and & and and m and i and d and d and l and e and � and � and � and c and l and i and c and k and . and
+and
+and # and # and # and and T and o and u and c and h and and & and and T and a and r and g and e and t and s and
+and
+and - and and H and i and t and and a and r and e and a and and � and � and � and 2 and 4 and p and x and and ( and m and o and b and i and l and e and and � and � and � and 4 and 4 and p and x and ) and . and and I and n and c and r and e and a and s and e and and p and a and d and d and i and n and g and and i and f and and v and i and s and u and a and l and s and and a and r and e and and s and m and a and l and l and e and r and . and
+and - and and `and t and o and u and c and h and - and a and c and t and i and o and n and : and   and m and a and n and i and p and u and l and a and t and i and o and n and` and and w and h and e and r and e and and a and p and p and r and o and p and r and i and a and t and e and . and
+and
+and # and # and # and and M and o and t and i and o and n and and & and and L and a and y and o and u and t and
+and
+and - and and R and e and s and p and e and c and t and and `and p and r and e and f and e and r and s and - and r and e and d and u and c and e and d and - and m and o and t and i and o and n and` and . and
+and - and and A and n and i and m and a and t and e and and o and n and l and y and and `and t and r and a and n and s and f and o and r and m and` and / and `and o and p and a and c and i and t and y and` and ; and and a and n and i and m and a and t and i and o and n and s and and a and r and e and and i and n and t and e and r and r and u and p and t and i and b and l and e and . and
+and - and and T and e and s and t and and m and o and b and i and l and e and , and and l and a and p and t and o and p and , and and u and l and t and r and a and � and � and � and w and i and d and e and ; and and a and v and o and i and d and and a and c and c and i and d and e and n and t and a and l and and s and c and r and o and l and l and b and a and r and s and . and
+and - and and R and e and s and p and e and c and t and and s and a and f and e and and a and r and e and a and s and and w and i and t and h and and `and e and n and v and ( and s and a and f and e and - and a and r and e and a and - and i and n and s and e and t and - and * and ) and` and . and
+and
+and # and # and # and and P and e and r and f and o and r and m and a and n and c and e and
+and
+and - and and M and i and n and i and m and i and z and e and and r and e and � and � and � and r and e and n and d and e and r and s and ; and and v and i and r and t and u and a and l and i and z and e and and l and a and r and g and e and and l and i and s and t and s and . and
+and - and and P and r and e and v and e and n and t and and i and m and a and g and e and � and � and � and i and n and d and u and c and e and d and and C and L and S and and ( and r and e and s and e and r and v and e and and s and p and a and c and e and ) and . and
+and - and and T and a and r and g and e and t and and < and 5 and 0 and 0 and m and s and and f and o and r and and c and o and m and m and o and n and and u and s and e and r and � and � and � and v and i and s and i and b and l and e and and m and u and t and a and t and i and o and n and s and and ( and P and 9 and 5 and ) and . and
+and
+and - and - and - and
+and
+and # and # and and 6 and ) and and B and a and c and k and and E and n and d and and & and and D and a and t and a and
+and
+and # and # and # and and S and u and p and a and b and a and s and e and and � and � and � and and _ and _ and R and e and m and o and t and e and and O and n and l and y and _ and _ and
+and
+and - and and _ and _ and N and e and v and e and r and _ and _ and and r and u and n and and l and o and c and a and l and and S and u and p and a and b and a and s and e and and f and o and r and and t and h and i and s and and p and r and o and j and e and c and t and . and
+and - and and A and l and l and and m and i and g and r and a and t and i and o and n and s and / and s and e and e and d and s and and t and a and r and g and e and t and and _ and _ and r and e and m and o and t and e and _ and _ and and e and n and v and i and r and o and n and m and e and n and t and s and and ( and s and t and a and g and i and n and g and / and p and r and o and d and and p and e and r and and p and l and a and n and ) and . and
+and - and and _ and _ and S and t and a and g and i and n and g and � and � and � and f and i and r and s and t and _ and _ and and a and p and p and l and y and ; and and p and r and o and d and u and c and t and i and o and n and and r and e and q and u and i and r and e and s and and p and r and o and t and e and c and t and e and d and and e and n and v and and + and and a and p and p and r and o and v and a and l and . and
+and
+and _ and _ and M and C and P and � and � and � and f and i and r and s and t and and o and p and e and r and a and t and i and o and n and s and _ and _ and
+and
+and - and and U and s and e and and _ and _ and S and u and p and a and b and a and s and e and and M and C and P and _ and _ and and t and o and : and
+and and and - and and P and r and e and v and i and e and w and and m and i and g and r and a and t and i and o and n and s and and ( and d and r and y and and r and u and n and ) and and � and � and � and and a and t and t and a and c and h and and o and u and t and p and u and t and and t and o and and `and a and r and t and i and f and a and c and t and s and / and d and b and - and d and i and f and f and . and t and x and t and` and . and
+and and and - and and A and p and p and l and y and and t and o and and _ and _ and t and a and r and g and e and t and and r and e and m and o and t and e and _ and _ and and ( and s and t and a and g and i and n and g and and � and � and � and and p and r and o and d and ) and . and
+and and and - and and C and a and p and t and u and r and e and and m and i and g and r and a and t and i and o and n and and I and D and s and and a and n and d and and r and o and l and l and b and a and c and k and and s and t and e and p and s and and i and n and and `and v and e and r and i and f and i and c and a and t and i and o and n and . and m and d and` and . and
+and
+and _ and _ and S and a and f and e and t and y and _ and _ and
+and
+and - and and E and x and p and a and n and s and i and o and n and and � and � and � and and b and a and c and k and f and i and l and l and and � and � and � and and c and o and n and t and r and a and c and t and i and o and n and . and
+and - and and A and v and o and i and d and and l and o and n and g and � and � and � and r and u and n and n and i and n and g and and l and o and c and k and i and n and g and and t and r and a and n and s and a and c and t and i and o and n and s and ; and and c and h and u and n and k and and b and a and c and k and f and i and l and l and s and and w and i and t and h and and i and d and e and m and p and o and t and e and n and c and y and . and
+and - and and V and e and r and i and f and y and and b and a and c and k and u and p and s and / and P and I and T and R and and b and e and f and o and r and e and and i and m and p and a and c and t and f and u and l and and s and c and h and e and m and a and and c and h and a and n and g and e and s and . and
+and - and and P and r and o and d and u and c and t and i and o and n and and a and p and p and l and i and e and s and and o and c and c and u and r and and i and n and and a and and c and h and a and n and g and e and and w and i and n and d and o and w and and w and i and t and h and and o and n and � and � and � and c and a and l and l and and a and c and k and n and o and w and l and e and d and g and e and d and . and
+and
+and - and - and - and
+and
+and # and # and and 7 and ) and and N and e and s and t and e and d and and A and G and E and N and T and S and . and m and d and and ( and S and u and b and p and r and o and j and e and c and t and s and ) and
+and
+and > and and D and i and s and c and o and v and e and r and y and and r and u and l and e and s and and i and n and and � and � and 1 and . and 5 and and a and p and p and l and y and . and and A and d and d and i and t and i and o and n and s and / and o and v and e and r and r and i and d and e and s and and o and n and l and y and ; and and r and o and o and t and and r and u and l and e and s and and r and e and m and a and i and n and and i and n and and f and o and r and c and e and . and
+and
+and # and # and # and and T and e and m and p and l and a and t and e and and ( and N and e and s and t and e and d and ) and
+and
+and `and` and `and m and a and r and k and d and o and w and n and 
+ and - and - and - and 
+ and a and g and e and n and t and s and _ and v and e and r and s and i and o and n and : and   and 5 and . and 3 and 
+ and s and c and o and p and e and : and   and s and u and b and p and r and o and j and e and c and t and 
+ and e and x and t and e and n and d and s and : and   and . and . and / and . and . and / and A and G and E and N and T and S and . and m and d and 
+ and l and a and s and t and _ and u and p and d and a and t and e and d and : and   and 2 and 0 and 2 and 5 and - and 1 and 1 and - and 3 and 0 and 
+ and o and w and n and e and r and : and   and g and i and t and h and u and b and : and @ and < and t and e and a and m and > and 
+ and p and r and o and f and i and l and e and : and   and w and e and b and - and n and e and x and t and | and m and o and b and i and l and e and | and s and e and r and v and i and c and e and - and p and y and t and h and o and n and | and p and a and c and k and a and g and e and - and u and i and 
+ and - and - and - and 
+ and 
+ and # and   and A and G and E and N and T and S and . and m and d and   and � and � and � and   and < and S and u and b and p and r and o and j and e and c and t and   and N and a and m and e and > and 
+ and 
+ and > and   and I and n and h and e and r and i and t and s and   and m and a and i and n and   and A and G and E and N and T and S and . and m and d and . and   and A and d and d and i and t and i and o and n and s and / and o and v and e and r and r and i and d and e and s and   and b and e and l and o and w and . and 
+ and 
+ and # and # and   and O and v and e and r and v and i and e and w and 
+ and 
+ and < and B and r and i and e and f and   and p and u and r and p and o and s and e and   and a and n and d and   and s and c and o and p and e and > and 
+ and 
+ and # and # and   and B and u and i and l and d and   and & and   and T and e and s and t and   and C and o and m and m and a and n and d and s and 
+ and 
+ and - and   and` and p and n and p and m and and r and u and n and and d and e and v and `and 
+ and - and   and` and p and n and p and m and and r and u and n and and b and u and i and l and d and `and 
+ and - and   and` and p and n and p and m and and r and u and n and and t and e and s and t and `and 
+ and - and   and` and p and n and p and m and and r and u and n and and l and i and n and t and `and 
+ and 
+ and # and # and   and S and u and b and p and r and o and j and e and c and t and - and S and p and e and c and i and f and i and c and   and G and u and i and d and e and l and i and n and e and s and 
+ and 
+ and # and # and # and   and C and o and d and e and   and C and o and n and v and e and n and t and i and o and n and s and 
+ and 
+ and - and   and < and N and a and m and i and n and g and , and   and f and i and l and e and   and o and r and g and a and n and i and z and a and t and i and o and n and > and 
+ and 
+ and # and # and # and   and T and e and s and t and i and n and g and 
+ and 
+ and - and   and < and L and o and c and a and t and i and o and n and / and s and t and r and u and c and t and u and r and e and , and   and c and o and v and e and r and a and g and e and   and e and x and p and e and c and t and a and t and i and o and n and s and > and 
+ and 
+ and # and # and # and   and D and e and p and l and o and y and m and e and n and t and 
+ and 
+ and - and   and < and P and r and o and c and e and s and s and   and f and o and r and   and t and h and i and s and   and s and u and b and p and r and o and j and e and c and t and > and 
+ and 
+ and # and # and   and L and i and n and k and s and 
+ and 
+ and - and   and M and a and i and n and   and d and o and c and s and : and   and < and u and r and l and > and 
+ and - and   and A and P and I and   and r and e and f and e and r and e and n and c and e and : and   and < and u and r and l and > and 
+ and` and `and` and
+and
+and # and # and # and and E and x and a and m and p and l and e and and M and o and n and o and r and e and p and o and and L and a and y and o and u and t and
+and
+and `and` and `and t and e and x and t and 
+ and / and 
+ and � and � and � and � and � and � and � and � and � and   and A and G and E and N and T and S and . and m and d and 
+ and � and � and � and � and � and � and � and � and � and   and a and p and p and s and / and 
+ and � and � and � and   and   and   and � and � and � and � and � and � and � and � and � and   and w and e and b and / and A and G and E and N and T and S and . and m and d and 
+ and � and � and � and   and   and   and � and � and � and � and � and � and � and � and � and   and m and o and b and i and l and e and / and A and G and E and N and T and S and . and m and d and 
+ and � and � and � and   and   and   and � and � and � and � and � and � and � and � and � and   and a and d and m and i and n and / and A and G and E and N and T and S and . and m and d and 
+ and � and � and � and � and � and � and � and � and � and   and p and a and c and k and a and g and e and s and / and 
+ and � and � and � and   and   and   and � and � and � and � and � and � and � and � and � and   and u and i and / and A and G and E and N and T and S and . and m and d and 
+ and � and � and � and   and   and   and � and � and � and � and � and � and � and � and � and   and a and p and i and - and c and l and i and e and n and t and / and A and G and E and N and T and S and . and m and d and 
+ and � and � and � and   and   and   and � and � and � and � and � and � and � and � and � and   and d and a and t and a and b and a and s and e and / and A and G and E and N and T and S and . and m and d and 
+ and � and � and � and � and � and � and � and � and � and   and i and n and f and r and a and s and t and r and u and c and t and u and r and e and / and A and G and E and N and T and S and . and m and d and 
+ and` and `and` and
+and
+and - and - and - and
+and
+and # and # and and 8 and ) and and M and C and P and and T and o and o and l and i and n and g and and & and and I and n and t and e and g and r and a and t and i and o and n and s and and ( and C and a and t and a and l and o and g and and + and and R and u and l and e and s and ) and
+and
+and > and and U and s and e and and M and C and P and and w and h and e and n and and i and t and and p and r and o and v and i and d and e and s and and _ and _ and r and e and p and e and a and t and a and b and i and l and i and t and y and , and and s and a and f and e and t and y and , and and o and r and and s and c and a and l and e and _ and _ and . and and C and o and n and f and i and g and u and r and e and and v and i and a and and e and n and v and / and s and e and c and r and e and t and s and ; and and d and o and and n and o and t and and c and o and m and m and i and t and and t and o and k and e and n and s and . and
+and
+and - and and _ and _ and C and h and r and o and m and e and and D and e and v and T and o and o and l and s and and M and C and P and _ and _ and and � and � and � and and M and a and n and u and a and l and and Q and A and and ( and c and o and n and s and o and l and e and / and n and e and t and w and o and r and k and , and and e and m and u and l and a and t and i and o and n and , and and p and e and r and f and o and r and m and a and n and c and e and , and and L and i and g and h and t and h and o and u and s and e and / and a and 1 and 1 and y and ) and . and and and
+and and and _ and _ and P and h and a and s and e and _ and _ and : and and 4 and . and and _ and _ and R and u and l and e and _ and _ and : and and R and e and q and u and i and r and e and d and and f and o and r and and a and n and y and and U and I and and c and h and a and n and g and e and ; and and a and t and t and a and c and h and and a and r and t and i and f and a and c and t and s and . and
+and - and and _ and _ and S and h and a and d and c and n and and M and C and P and _ and _ and and � and � and � and and D and i and s and c and o and v and e and r and / and s and c and a and f and f and o and l and d and and U and I and and c and o and m and p and o and n and e and n and t and s and , and and s and y and n and c and h and r and o and n and i and z and e and and t and o and k and e and n and s and . and and and
+and and and _ and _ and P and h and a and s and e and s and _ and _ and : and and 2 and , and and 3 and . and and _ and _ and R and u and l and e and _ and _ and : and and P and r and e and f and e and r and and S and H and A and D and C and N and and b and e and f and o and r and e and and c and u and s and t and o and m and . and
+and - and and _ and _ and N and e and x and t and and D and e and v and T and o and o and l and s and and M and C and P and _ and _ and and � and � and � and and N and e and x and t and . and j and s and and r and o and u and t and i and n and g and / and d and a and t and a and � and � and � and f and e and t and c and h and , and and s and e and r and v and e and r and / and c and l and i and e and n and t and and b and o and u and n and d and a and r and i and e and s and , and and b and u and n and d and l and e and and h and i and n and t and s and . and and and
+and and and _ and _ and P and h and a and s and e and s and _ and _ and : and and 2 and , and and 3 and . and
+and - and and _ and _ and S and u and p and a and b and a and s and e and and M and C and P and _ and _ and and � and � and � and and R and e and m and o and t and e and and m and i and g and r and a and t and i and o and n and s and / and s and e and e and d and s and ; and and s and c and h and e and m and a and and d and r and i and f and t and ; and and r and o and l and l and b and a and c and k and and p and l and a and n and s and . and and and
+and and and _ and _ and P and h and a and s and e and s and _ and _ and : and and 2 and , and and 3 and , and and 6 and . and and _ and _ and R and u and l and e and _ and _ and : and and _ and _ and R and e and m and o and t and e and and o and n and l and y and _ and _ and ; and and c and o and n and n and e and c and t and i and o and n and s and and v and i and a and and s and e and c and r and e and t and s and . and
+and - and and _ and _ and C and o and n and t and e and x and t and 7 and and M and C and P and _ and _ and and � and � and � and and S and e and m and a and n and t and i and c and and s and e and a and r and c and h and and o and v and e and r and and i and n and t and e and r and n and a and l and and k and n and o and w and l and e and d and g and e and . and and and
+and and and _ and _ and P and h and a and s and e and _ and _ and : and and 1 and . and
+and - and and _ and _ and D and e and e and p and W and i and k and i and and M and C and P and _ and _ and and � and � and � and and E and x and t and e and r and n and a and l and / and d and o and m and a and i and n and and r and e and s and e and a and r and c and h and and s and u and m and m and a and r and i and e and s and . and and and
+and and and _ and _ and P and h and a and s and e and _ and _ and : and and 1 and . and
+and - and and _ and _ and A and u and g and m and e and n and t and and C and o and d and e and b and a and s and e and and R and e and t and r and i and e and v and a and l and and M and C and P and _ and _ and and � and � and � and and F and u and l and l and - and r and e and p and o and and s and e and m and a and n and t and i and c and and r and e and t and r and i and e and v and a and l and and ( and s and o and u and r and c and e and and + and and e and m and b and e and d and d and i and n and g and s and ) and and f and o and r and and c and o and d and e and and s and e and a and r and c and h and , and and d and e and p and e and n and d and e and n and c and y and and t and r and a and c and i and n and g and , and and a and n and d and and g and r and o and u and n and d and i and n and g and and a and n and s and w and e and r and s and / and e and v and i and d and e and n and c and e and . and and and
+and and and _ and _ and P and h and a and s and e and s and _ and _ and : and and 1 and � and � and � and 4 and . and and _ and _ and R and u and l and e and _ and _ and : and and A and l and w and a and y and s and and u and s and e and and t and h and i and s and and t and o and o and l and and _ and _ and b and e and f and o and r and e and _ and _ and and a and n and y and and o and t and h and e and r and and s and e and a and r and c and h and and a and p and p and r and o and a and c and h and and w and h and e and n and and y and o and u and and a and r and e and and u and n and s and u and r and e and and w and h and e and r and e and and c and o and d and e and and l and i and v and e and s and � and � and � and r and u and n and and a and t and and l and e and a and s and t and and o and n and e and and d and e and t and a and i and l and e and d and and A and u and g and m and e and n and t and and q and u and e and r and y and and p and e and r and and t and a and s and k and and ( and a and n and d and and b and e and f and o and r and e and and a and n and y and and e and d and i and t and ) and and a and n and d and and p and a and s and t and e and and t and h and e and and r and e and l and e and v and a and n and t and and s and n and i and p and p and e and t and / and s and u and m and m and a and r and y and and i and n and t and o and and `and r and e and s and e and a and r and c and h and . and m and d and` and and o and r and and t and h and e and and a and c and t and i and v and e and and t and a and s and k and and d and o and c and . and
+and
+and _ and _ and I and f and and M and C and P and and u and n and a and v and a and i and l and a and b and l and e and and t and e and m and p and o and r and a and r and i and l and y and _ and _ and : and and r and u and n and and e and q and u and i and v and a and l and e and n and t and and C and L and I and / and m and a and n and u and a and l and and s and t and e and p and s and and a and n and d and and a and t and t and a and c and h and and a and r and t and i and f and a and c and t and s and . and and M and C and P and and u and s and a and g and e and and i and s and and s and t and i and l and l and and _ and _ and r and e and q and u and i and r and e and d and _ and _ and and l and o and n and g and � and � and � and t and e and r and m and . and
+and
+and # and # and # and and A and u and g and m and e and n and t and and C and o and d and e and b and a and s and e and and R and e and t and r and i and e and v and a and l and and M and C and P and and � and � and � and and U and s and a and g and e and and P and l and a and y and b and o and o and k and and & and and R and u and l and e and s and
+and
+and > and and A and u and g and m and e and n and t and � and � and � and s and and c and o and d and e and b and a and s and e and - and r and e and t and r and i and e and v and a and l and and M and C and P and and i and s and and t and h and e and and _ and _ and p and r and i and m and a and r and y and _ and _ and and d and i and s and c and o and v and e and r and y and and t and o and o and l and . and and I and t and and a and n and s and w and e and r and s and and n and a and t and u and r and a and l and - and l and a and n and g and u and a and g and e and and c and o and d and e and and q and u and e and s and t and i and o and n and s and and b and y and and p and u and l and l and i and n and g and and f and r and o and m and and a and and r and e and a and l and - and t and i and m and e and and i and n and d and e and x and and o and f and and t and h and e and and w and o and r and k and i and n and g and and t and r and e and e and and ( and n and o and and g and i and t and and h and i and s and t and o and r and y and ) and and a and n and d and and s and p and a and n and s and and a and l and l and and l and a and n and g and u and a and g and e and s and and i and n and and t and h and e and and r and e and p and o and . and
+and
+and | and and U and s and e and and C and a and s and e and and and and and and and and and and and and and and and and and and | and and H and o and w and and I and t and and H and e and l and p and s and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and | and
+and | and and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and and | and and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and and | and
+and | and and S and e and m and a and n and t and i and c and and C and o and d and e and and S and e and a and r and c and h and and and and and and | and and A and s and k and and n and a and t and u and r and a and l and and p and r and o and m and p and t and s and and s and u and c and h and and a and s and and � and � and � and f and i and n and d and and a and u and t and h and e and n and t and i and c and a and t and i and o and n and and l and o and g and i and c and � and � and � and and t and o and and s and u and r and f and a and c and e and and m and a and t and c and h and i and n and g and and f and i and l and e and s and / and f and u and n and c and t and i and o and n and s and and ( and l and i and n and k and and t and o and and s and o and u and r and c and e and s and and i and n and and `and r and e and s and e and a and r and c and h and . and m and d and` and ) and . and and and and and | and
+and | and and F and e and a and t and u and r and e and and I and m and p and l and e and m and e and n and t and a and t and i and o and n and and and and | and and B and e and f and o and r and e and and c and o and d and i and n and g and , and and q and u and e and r and y and and f and o and r and and e and x and i and s and t and i and n and g and and p and a and t and t and e and r and n and s and and s and o and and t and h and e and and A and I and / and y and o and u and and i and n and h and e and r and i and t and and c and o and n and v and e and n and t and i and o and n and s and and w and h and e and n and and i and m and p and l and e and m and e and n and t and i and n and g and and n and e and w and and f and l and o and w and s and . and and and and and and and and and and and and and and and and and and and and and and and and and and and | and
+and | and and C and o and d and e and and U and n and d and e and r and s and t and a and n and d and i and n and g and and and and and and and and | and and Q and u and e and s and t and i and o and n and s and and l and i and k and e and and � and � and � and H and o and w and and d and o and e and s and and t and h and e and and p and a and y and m and e and n and t and and s and y and s and t and e and m and and w and o and r and k and ? and � and � and � and and r and e and t and u and r and n and and s and t and i and t and c and h and e and d and and s and u and m and m and a and r and i and e and s and and s and o and and r and e and q and u and i and r and e and m and e and n and t and s and and a and n and d and and p and l and a and n and s and and s and t and a and y and and g and r and o and u and n and d and e and d and and i and n and and r and e and a and l and and c and o and d and e and . and and | and
+and | and and R and e and f and a and c and t and o and r and i and n and g and and and and and and and and and and and and and and and | and and T and r and a and c and e and and d and e and p and e and n and d and e and n and c and i and e and s and and a and c and r and o and s and s and and m and o and d and u and l and e and s and and b and e and f and o and r and e and and m and o and d and i and f and y and i and n and g and and s and h and a and r and e and d and and p and i and e and c and e and s and and t and o and and a and v and o and i and d and and r and e and g and r and e and s and s and i and o and n and s and . and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and | and
+and | and and B and u and g and and I and n and v and e and s and t and i and g and a and t and i and o and n and and and and and and and and and | and and S and e and a and r and c and h and and f and o and r and and r and e and l and a and t and e and d and and m and o and d and u and l and e and s and , and and g and u and a and r and d and s and , and and o and r and and T and O and D and O and s and and t and i and e and d and and t and o and and t and h and e and and f and a and i and l and u and r and e and and s and i and g and n and a and t and u and r and e and and t and o and and n and a and r and r and o and w and and r and o and o and t and and c and a and u and s and e and s and and q and u and i and c and k and l and y and . and and and and and and and and and and and and and and and and and and and and and and and and and and and | and
+and | and and D and o and c and u and m and e and n and t and a and t and i and o and n and and G and e and n and e and r and a and t and i and o and n and and | and and G and e and n and e and r and a and t and e and and d and o and c and u and m and e and n and t and a and t and i and o and n and and s and n and i and p and p and e and t and s and and b and a and c and k and e and d and and b and y and and A and u and g and m and e and n and t and � and � and � and s and and r and e and t and r and i and e and v and e and d and and c and o and n and t and e and x and t and and i and n and s and t and e and a and d and and o and f and and s and p and e and c and u and l and a and t and i and o and n and . and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and and | and
+and
+and > and and W and h and e and n and and u and s and i and n and g and and t and h and e and s and e and and p and r and o and m and p and t and s and , and and c and a and p and t and u and r and e and and t and h and e and and A and u and g and m and e and n and t and and r and e and s and p and o and n and s and e and and l and i and n and k and and o and r and and s and n and i and p and p and e and t and and i and n and and t and h and e and and r and e and l and e and v and a and n and t and and t and a and s and k and and a and r and t and i and f and a and c and t and and s and o and and r and e and v and i and e and w and e and r and s and and c and a and n and and v and e and r and i and f and y and and t and h and e and and e and v and i and d and e and n and c and e and and t and r and a and i and l and . and
+and
+and _ and _ and O and p and e and r and a and t and i and o and n and a and l and and R and u and l and e and s and and ( and m and u and s and t and and f and o and l and l and o and w and and e and v and e and r and y and and t and i and m and e and ) and : and _ and _ and
+and
+and 1 and . and and _ and _ and P and r and i and m and a and r and y and and d and i and s and c and o and v and e and r and y and and t and o and o and l and _ and _ and and � and � and � and and W and h and e and n and and g and a and t and h and e and r and i and n and g and and c and o and n and t and e and x and t and , and and p and l and a and n and n and i and n and g and , and and o and r and and u and n and d and e and r and s and t and a and n and d and i and n and g and and u and n and f and a and m and i and l and i and a and r and and c and o and d and e and , and and c and a and l and l and and A and u and g and m and e and n and t and and c and o and d and e and b and a and s and e and and r and e and t and r and i and e and v and a and l and and _ and f and i and r and s and t and _ and and ( and b and e and f and o and r and e and and g and r and e and p and / and f and i and n and d and / and s and h and e and l and l and ) and . and and I and f and and y and o and u and and a and l and r and e and a and d and y and and k and n and o and w and and t and h and e and and e and x and a and c and t and and i and d and e and n and t and i and f and i and e and r and and s and t and r and i and n and g and , and and y and o and u and and m and a and y and and f and o and l and l and o and w and and u and p and and w and i and t and h and and `and r and g and` and , and and b and u and t and and A and u and g and m and e and n and t and and s and t and i and l and l and and s and u and p and p and l and i and e and s and and t and h and e and and s and e and m and a and n and t and i and c and and o and v and e and r and v and i and e and w and . and
+and 2 and . and and _ and _ and S and i and n and g and l and e and and r and i and c and h and and q and u and e and r and y and and b and e and f and o and r and e and and e and d and i and t and i and n and g and _ and _ and and � and � and � and and P and r and i and o and r and and t and o and and t and o and u and c and h and i and n and g and and a and n and y and and f and i and l and e and , and and m and a and k and e and and o and n and e and and c and o and m and p and r and e and h and e and n and s and i and v and e and and A and u and g and m and e and n and t and and r and e and q and u and e and s and t and and d and e and s and c and r and i and b and i and n and g and and a and l and l and and s and y and m and b and o and l and s and / and c and l and a and s and s and e and s and / and f and u and n and c and t and i and o and n and s and and i and n and v and o and l and v and e and d and . and and O and n and l and y and and r and u and n and and a and d and d and i and t and i and o and n and a and l and and q and u and e and r and i and e and s and and i and f and and s and c and o and p and e and and c and h and a and n and g and e and s and . and
+and 3 and . and and _ and _ and G and o and o and d and and v and s and . and and b and a and d and and p and r and o and m and p and t and s and _ and _ and and � and � and � and and G and o and o and d and : and and � and � and � and W and h and e and r and e and and i and s and and t and h and e and and f and u and n and c and t and i and o and n and and t and h and a and t and and h and a and n and d and l and e and s and and u and s and e and r and and a and u and t and h and e and n and t and i and c and a and t and i and o and n and ? and � and � and � and , and and � and � and � and W and h and a and t and and t and e and s and t and s and and c and o and v and e and r and and t and h and e and and l and o and g and i and n and and f and l and o and w and ? and � and � and � and , and and � and � and � and H and o and w and and i and s and and t and h and e and and d and a and t and a and b and a and s and e and and w and i and r and i and n and g and and i and m and p and l and e and m and e and n and t and e and d and ? and � and � and � and . and and B and a and d and : and and � and � and � and F and i and n and d and and d and e and f and i and n and i and t and i and o and n and and o and f and and c and o and n and s and t and r and u and c and t and o and r and and F and o and o and � and � and � and and o and r and and � and � and � and S and h and o and w and and c and o and n and t and e and x and t and and o and f and and f and o and o and . and p and y and � and � and � and and ( and u and s and e and and f and i and l and e and and v and i and e and w and / and g and r and e and p and and i and n and s and t and e and a and d and ) and . and
+and 4 and . and and _ and _ and N and o and and s and e and m and a and n and t and i and c and and g and r and e and p and _ and _ and and � and � and � and and B and a and s and h and / and `and r and g and` and / and `and f and i and n and d and` and and a and r and e and and r and e and s and e and r and v and e and d and and f and o and r and and e and x and a and c and t and and s and t and r and i and n and g and and m and a and t and c and h and e and s and and ( and e and r and r and o and r and s and , and and c and o and n and f and i and g and and k and e and y and s and , and and i and d and e and n and t and i and f and i and e and r and s and and y and o and u and and a and l and r and e and a and d and y and and k and n and o and w and ) and . and and N and e and v and e and r and and s and k and i and p and and A and u and g and m and e and n and t and and f and o and r and and s and e and m and a and n and t and i and c and and u and n and d and e and r and s and t and a and n and d and i and n and g and and o and r and and e and x and p and l and o and r and a and t and o and r and y and and s and e and a and r and c and h and e and s and . and
+and 5 and . and and _ and _ and E and v and i and d and e and n and c and e and and l and o and g and g and i and n and g and _ and _ and and � and � and � and and P and a and s and t and e and and t and h and e and and r and e and t and r and i and e and v and e and d and and s and n and i and p and p and e and t and and s and u and m and m and a and r and i and e and s and and o and r and and t and o and o and l and and o and u and t and p and u and t and and r and e and f and e and r and e and n and c and e and s and and i and n and and `and r and e and s and e and a and r and c and h and . and m and d and` and , and and `and p and l and a and n and . and m and d and` and , and and o and r and and `and t and o and d and o and . and m and d and` and and s and o and and r and e and v and i and e and w and e and r and s and and c and a and n and and t and r and a and c and e and and h and o and w and and c and o and n and t and e and x and t and and w and a and s and and g and a and t and h and e and r and e and d and . and
+and
+and - and - and - and
+and
+and # and # and and 9 and ) and and G and i and t and and & and and B and r and a and n and c and h and i and n and g and
+and
+and - and and _ and _ and B and r and a and n and c and h and _ and _ and : and and `and t and a and s and k and / and < and s and l and u and g and > and - and Y and Y and Y and Y and M and M and D and D and - and H and H and M and M and` and and ( and s and h and o and r and t and � and � and � and l and i and v and e and d and ; and and t and r and u and n and k and � and � and � and b and a and s and e and d and ; and and s and q and u and a and s and h and and m and e and r and g and e and s and ) and . and
+and - and and _ and _ and C and o and m and m and i and t and s and _ and _ and : and and C and o and n and v and e and n and t and i and o and n and a and l and and C and o and m and m and i and t and s and and ( and `and f and e and a and t and : and` and , and and `and f and i and x and : and` and , and and `and r and e and f and a and c and t and o and r and : and` and , and and `and d and o and c and s and : and` and , and and `and t and e and s and t and : and` and , and and `and c and h and o and r and e and : and` and ) and . and
+and - and and _ and _ and P and R and s and _ and _ and : and and M and u and s and t and and r and e and f and e and r and e and n and c and e and and t and h and e and and t and a and s and k and and f and o and l and d and e and r and and p and a and t and h and and a and n and d and and i and n and c and l and u and d and e and and e and v and i and d and e and n and c and e and and ( and s and c and r and e and e and n and s and , and and c and l and i and p and s and , and and L and i and g and h and t and h and o and u and s and e and , and and H and A and R and , and and t and r and a and c and e and s and ) and . and
+and
+and - and - and - and
+and
+and # and # and and 1 and 0 and ) and and R and e and d and and F and l and a and g and s and , and and S and t and o and p and and S and i and g and n and s and and & and and W and a and i and v and e and r and s and
+and
+and E and s and c and a and l and a and t and e and and o and r and and s and t and o and p and and i and m and m and e and d and i and a and t and e and l and y and and i and f and : and
+and
+and - and and N and o and and r and e and u and s and a and b and l and e and and p and a and t and t and e and r and n and and e and x and i and s and t and s and and f and o and r and and a and and r and i and s and k and y and and a and r and e and a and and � and � and � and and _ and _ and r and e and q and u and e and s and t and and d and e and s and i and g and n and / and a and r and c and h and and r and e and v and i and e and w and _ and _ and . and
+and - and and R and e and q and u and i and r and e and m and e and n and t and s and and a and m and b and i and g and u and o and u and s and and � and � and � and and _ and _ and c and l and a and r and i and f and y and and i and n and and P and h and a and s and e and and 1 and _ and _ and and b and e and f and o and r and e and and c and o and d and i and n and g and . and
+and - and and S and c and o and p and e and and t and o and o and and l and a and r and g and e and and � and � and � and and _ and _ and s and p and l and i and t and and i and n and t and o and and m and u and l and t and i and p and l and e and and t and a and s and k and s and _ and _ and . and
+and - and and A and s and s and u and m and p and t and i and o and n and s and and s and t and a and c and k and and u and p and and � and � and � and and _ and _ and d and o and c and u and m and e and n and t and and & and and v and a and l and i and d and a and t and e and and w and i and t and h and and m and a and i and n and t and a and i and n and e and r and _ and _ and . and
+and - and and N and o and and v and e and r and i and f and i and c and a and t and i and o and n and and p and l and a and n and and � and � and � and and _ and _ and d and e and f and i and n and e and and s and u and c and c and e and s and s and and c and r and i and t and e and r and i and a and _ and _ and and f and i and r and s and t and . and
+and - and and S and k and i and p and p and i and n and g and and _ and _ and D and e and v and T and o and o and l and s and and M and C and P and _ and _ and and Q and A and and f and o and r and and U and I and and � and � and � and and _ and _ and n and o and t and and a and l and l and o and w and e and d and _ and _ and . and
+and - and and A and t and t and e and m and p and t and i and n and g and and _ and _ and l and o and c and a and l and _ and _ and and S and u and p and a and b and a and s and e and and m and i and g and r and a and t and i and o and n and s and / and s and e and e and d and s and and � and � and � and and _ and _ and n and o and t and and a and l and l and o and w and e and d and _ and _ and . and
+and - and and S and e and c and r and e and t and s and and a and p and p and e and a and r and and i and n and and d and i and f and f and s and and o and r and and a and r and t and i and f and a and c and t and s and and � and � and � and and _ and _ and b and l and o and c and k and and P and R and _ and _ and and u and n and t and i and l and and r and e and m and o and v and e and d and . and
+and
+and # and # and # and and 1 and 0 and . and 1 and and W and a and i and v and e and r and and / and and H and o and t and f and i and x and and F and l and o and w and and ( and e and x and c and e and p and t and i and o and n and and p and a and t and h and ) and
+and
+and - and and _ and _ and U and s and e and and o and n and l and y and and f and o and r and and u and r and g and e and n and t and and h and o and t and f and i and x and e and s and and ( and P and 0 and / and P and 1 and ) and . and _ and _ and
+and - and and B and r and a and n and c and h and : and and `and h and o and t and f and i and x and / and < and s and l and u and g and > and - and Y and Y and Y and Y and M and M and D and D and - and H and H and M and M and > and` and . and
+and - and and M and i and n and i and m and a and l and and `and r and e and s and e and a and r and c and h and . and m and d and` and / and `and p and l and a and n and . and m and d and` and and a and l and l and o and w and e and d and and i and f and and r and i and s and k and and e and x and p and l and i and c and i and t and l and y and and d and o and c and u and m and e and n and t and e and d and . and
+and - and and _ and _ and P and o and s and t and � and � and � and m and e and r and g and e and and w and i and t and h and i and n and and 2 and 4 and h and _ and _ and : and and c and o and m and p and l and e and t and e and and f and u and l and l and and P and h and a and s and e and and 4 and , and and a and t and t and a and c and h and and a and r and t and i and f and a and c and t and s and , and and a and n and d and and f and i and l and e and and r and e and t and r and o and and i and n and and P and h and a and s and e and and 7 and . and
+and - and and A and p and p and r and o and v and a and l and s and : and and M and a and i and n and t and a and i and n and e and r and and + and and Q and A and and L and e and a and d and ; and and t and i and m and e and � and � and � and b and o and x and e and d and and w and a and i and v and e and r and and ( and � and � and � and 7 and 2 and h and ) and . and
+and
+and - and - and - and
+and
+and # and # and and 1 and 1 and ) and and Q and u and i and c and k and and R and e and f and e and r and e and n and c and e and and C and h and e and c and k and l and i and s and t and s and
+and
+and _ and _ and T and a and s and k and and L and i and f and e and c and y and c and l and e and _ and _ and
+and
+and `and` and `and t and e and x and t and 
+ and [ and   and ] and   and C and h and e and c and k and   and f and o and r and   and A and G and E and N and T and S and . and m and d and   and ( and � and � and 1 and . and 5 and ) and ; and   and c and r and e and a and t and e and   and i and f and   and m and i and s and s and i and n and g and 
+ and [ and   and ] and   and C and r and e and a and t and e and   and t and a and s and k and   and d and i and r and   and ( and U and T and C and   and t and i and m and e and s and t and a and m and p and ) and 
+ and [ and   and ] and   and R and e and q and u and i and r and e and m and e and n and t and s and   and & and   and a and n and a and l and y and s and i and s and   and � and � and � and   and r and e and s and e and a and r and c and h and . and m and d and   and ( and D and o and R and   and m and e and t and ) and 
+ and [ and   and ] and   and D and e and s and i and g and n and / and p and l and a and n and   and � and � and � and   and p and l and a and n and . and m and d and 
+ and [ and   and ] and   and I and m and p and l and e and m and e and n and t and a and t and i and o and n and   and � and � and � and   and t and o and d and o and . and m and d and 
+ and [ and   and ] and   and V and e and r and i and f and i and c and a and t and i and o and n and   and � and � and � and   and v and e and r and i and f and i and c and a and t and i and o and n and . and m and d and   and + and   and a and r and t and i and f and a and c and t and s and   and ( and D and o and D and   and m and e and t and ) and 
+ and [ and   and ] and   and A and p and p and r and o and v and a and l and s and   and & and   and m and e and r and g and e and 
+ and [ and   and ] and   and R and e and l and e and a and s and e and   and & and   and m and o and n and i and t and o and r and ; and   and n and o and t and e and s and   and a and d and d and e and d and 
+ and [ and   and ] and   and P and o and s and t and � and � and � and r and e and l and e and a and s and e and   and l and e and a and r and n and i and n and g and s and   and f and i and l and e and d and   and ( and t and i and c and k and e and t and s and ) and 
+ and` and `and` and
+and
+and _ and _ and U and I and / and A and 1 and 1 and y and and E and s and s and e and n and t and i and a and l and s and _ and _ and
+and
+and `and` and `and t and e and x and t and 
+ and [ and   and ] and   and K and e and y and b and o and a and r and d and � and � and � and o and n and l and y and   and f and l and o and w and s and   and s and u and c and c and e and e and d and 
+ and [ and   and ] and   and V and i and s and i and b and l and e and   and f and o and c and u and s and   and m and a and n and a and g and e and m and e and n and t and 
+ and [ and   and ] and   and S and e and m and a and n and t and i and c and   and r and o and l and e and s and / and l and a and b and e and l and s and 
+ and [ and   and ] and   and U and R and L and   and r and e and f and l and e and c and t and s and   and s and t and a and t and e and 
+ and [ and   and ] and   and L and o and a and d and i and n and g and / and e and m and p and t and y and / and e and r and r and o and r and   and s and t and a and t and e and s and   and i and m and p and l and e and m and e and n and t and e and d and 
+ and [ and   and ] and   and N and o and   and C and L and S and   and f and r and o and m and   and m and e and d and i and a and ; and   and i and m and a and g and e and s and   and s and i and z and e and d and 
+ and` and `and` and
+and
+and _ and _ and P and e and r and f and and B and u and d and g and e and t and s and and ( and m and o and b and i and l and e and ; and and 4 and � and � and and C and P and U and ; and and 4 and G and ) and _ and _ and
+and
+and `and` and `and t and e and x and t and 
+ and [ and   and ] and   and F and C and P and   and � and � and � and   and 2 and . and 0 and   and s and 
+ and [ and   and ] and   and L and C and P and   and � and � and � and   and 2 and . and 5 and   and s and 
+ and [ and   and ] and   and C and L and S and   and � and � and � and   and 0 and . and 1 and 0 and 
+ and [ and   and ] and   and T and B and T and   and � and � and � and   and 2 and 0 and 0 and   and m and s and 
+ and [ and   and ] and   and C and r and i and t and i and c and a and l and   and i and n and t and e and r and a and c and t and i and o and n and   and P and 9 and 5 and   and � and � and � and   and 5 and 0 and 0 and   and m and s and 
+ and` and `and` and
+and
+and _ and _ and D and a and t and a and and & and and M and i and g and r and a and t and i and o and n and s and _ and _ and
+and
+and `and` and `and t and e and x and t and 
+ and [ and   and ] and   and R and e and m and o and t and e and   and S and u and p and a and b and a and s and e and   and o and n and l and y and   and ( and v and i and a and   and M and C and P and ) and 
+ and [ and   and ] and   and S and t and a and g and i and n and g and   and f and i and r and s and t and , and   and t and h and e and n and   and p and r and o and d and u and c and t and i and o and n and   and ( and w and i and n and d and o and w and   and + and   and a and p and p and r and o and v and a and l and ) and 
+ and [ and   and ] and   and B and a and c and k and u and p and / and r and o and l and l and b and a and c and k and   and p and l and a and n and   and n and o and t and e and d and 
+ and [ and   and ] and   and D and r and y and - and r and u and n and ( and d and i and f and f and ) and   and a and r and t and i and f and a and c and t and   and a and t and t and a and c and h and e and d and 
+ and` and `and` and
+and
+and _ and _ and S and e and c and u and r and i and t and y and and & and and P and r and i and v and a and c and y and _ and _ and
+and
+and `and` and `and t and e and x and t and 
+ and [ and   and ] and   and S and e and c and r and e and t and s and   and n and o and t and   and c and o and m and m and i and t and t and e and d and ; and   and e and n and v and   and o and n and l and y and 
+ and [ and   and ] and   and P and I and I and   and m and i and n and i and m and i and z and e and d and / and r and e and d and a and c and t and e and d and   and i and n and   and l and o and g and s and 
+ and [ and   and ] and   and A and u and t and h and   and & and   and a and u and t and h and o and r and i and z and a and t and i and o and n and   and p and a and t and h and s and   and t and e and s and t and e and d and 
+ and` and `and` and
+and
+and - and - and - and
+and
+and # and # and and 1 and 2 and ) and and K and e and y and and Q and u and e and s and t and i and o and n and s and and B and e and f and o and r and e and and Y and o and u and and S and t and a and r and t and
+and
+and 1 and . and and W and h and o and and i and s and and t and h and e and and u and s and e and r and and a and n and d and and w and h and a and t and and e and x and a and c and t and and p and r and o and b and l and e and m and and a and r and e and and w and e and and s and o and l and v and i and n and g and ? and
+and 2 and . and and W and h and a and t and and c and a and n and and w and e and and _ and _ and r and e and u and s and e and _ and _ and and f and r and o and m and and t and h and e and and c and o and d and e and b and a and s and e and ? and
+and 3 and . and and W and h and a and t and and a and r and e and and t and h and e and and e and d and g and e and and c and a and s and e and s and and a and n and d and and f and a and i and l and u and r and e and and m and o and d and e and s and ? and
+and 4 and . and and W and h and a and t and and d and o and e and s and and _ and _ and s and u and c and c and e and s and s and _ and _ and and l and o and o and k and and l and i and k and e and and ( and m and e and t and r and i and c and s and , and and s and t and a and t and e and s and , and and a and c and c and e and p and t and a and n and c and e and and c and r and i and t and e and r and i and a and ) and ? and
+and 5 and . and and W and h and a and t and and c and o and u and l and d and and g and o and and w and r and o and n and g and , and and a and n and d and and w and h and a and t and and i and s and and o and u and r and and m and i and t and i and g and a and t and i and o and n and / and r and o and l and l and b and a and c and k and ? and
+and
+and - and - and - and
+and
+and # and # and and 1 and 3 and ) and and A and p and p and e and n and d and i and c and e and s and
+and
+and # and # and # and and A and ) and and R and A and C and I and and ( and b and y and and P and h and a and s and e and ) and
+and
+and | and and P and h and a and s and e and and and and and and and and and and and and and and | and and R and e and s and p and o and n and s and i and b and l and e and and and and and and and and and and and and and | and and A and c and c and o and u and n and t and a and b and l and e and and and and and and | and and C and o and n and s and u and l and t and e and d and and and and and and and and and and and and and | and and I and n and f and o and r and m and e and d and and | and
+and | and and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and and | and and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and and | and and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and and | and and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and - and and | and and - and - and - and - and - and - and - and - and and | and
+and | and and 1 and . and and R and e and q and u and i and r and e and m and e and n and t and s and and and and | and and F and e and a and t and u and r and e and and E and n and g and and / and and A and I and and A and g and e and n and t and and | and and T and e and c and h and and L and e and a and d and and and and and and and and | and and P and M and , and and D and e and s and i and g and n and , and and S and e and c and u and r and i and t and y and and | and and Q and A and and and and and and and and | and
+and | and and 2 and . and and D and e and s and i and g and n and and and and and and and and and and | and and F and e and a and t and u and r and e and and E and n and g and and and and and and and and and and and and and | and and T and e and c and h and and L and e and a and d and and and and and and and and | and and D and B and and E and n and g and , and and A and 1 and 1 and y and and S and M and E and and and and and and | and and Q and A and and and and and and and and | and
+and | and and 3 and . and and I and m and p and l and e and m and e and n and t and a and t and i and o and n and and | and and F and e and a and t and u and r and e and and E and n and g and and and and and and and and and and and and and | and and T and e and c and h and and L and e and a and d and and and and and and and and | and and M and a and i and n and t and a and i and n and e and r and s and and and and and and and and and and and | and and P and M and and and and and and and and | and
+and | and and 4 and . and and V and e and r and i and f and i and c and a and t and i and o and n and and and and | and and Q and A and and + and and F and e and a and t and u and r and e and and E and n and g and and and and and and and and | and and Q and A and and L and e and a and d and and and and and and and and and and | and and A and 1 and 1 and y and and S and M and E and , and and P and e and r and f and and and and and and and and | and and P and M and and and and and and and and | and
+and | and and 5 and . and and R and e and v and i and e and w and / and M and e and r and g and e and and and and | and and R and e and v and i and e and w and e and r and s and and and and and and and and and and and and and and and | and and R and e and p and o and and M and a and i and n and t and a and i and n and e and r and and | and and S and e and c and u and r and i and t and y and and and and and and and and and and and and and and | and and A and l and l and and and and and and and | and
+and | and and 6 and . and and R and e and l and e and a and s and e and and and and and and and and and | and and R and e and l and e and a and s and e and and M and a and n and a and g and e and r and and and and and and and and and | and and E and n and g and and M and a and n and a and g and e and r and and and and and and | and and S and R and E and , and and S and u and p and p and o and r and t and and and and and and and and and and | and and A and l and l and and and and and and and | and
+and | and and 7 and . and and O and p and e and r and a and t and e and and and and and and and and and | and and S and R and E and / and O and n and � and � and � and c and a and l and l and and and and and and and and and and and and and | and and E and n and g and and M and a and n and a and g and e and r and and and and and and | and and P and M and and and and and and and and and and and and and and and and and and and and | and and A and l and l and and and and and and and | and
+and
+and # and # and # and and B and ) and and S and t and y and l and e and and P and r and i and n and c and i and p and l and e and s and
+and
+and - and and _ and _ and D and R and Y and _ and _ and : and and R and e and u and s and e and and p and a and t and t and e and r and n and s and / and c and o and m and p and o and n and e and n and t and s and . and
+and - and and _ and _ and K and I and S and S and _ and _ and : and and P and r and e and f and e and r and and s and i and m and p and l and e and , and and o and b and v and i and o and u and s and and s and o and l and u and t and i and o and n and s and . and
+and - and and _ and _ and Y and A and G and N and I and _ and _ and : and and B and u and i and l and d and and o and n and l and y and and w and h and a and t and ' and s and and n and e and e and d and e and d and and n and o and w and . and
+and
+and # and # and # and and C and ) and and M and C and P and and P and r and e and � and � and � and F and l and i and g and h and t and and ( and c and o and p and y and and i and n and t and o and and `and v and e and r and i and f and i and c and a and t and i and o and n and . and m and d and` and and w and h and e and n and and M and C and P and and i and s and and u and s and e and d and ) and
+and
+and `and` and `and t and e and x and t and 
+ and [ and   and ] and   and S and e and r and v and e and r and   and r and e and a and c and h and a and b and l and e and   and ( and v and e and r and s and i and o and n and   and p and r and i and n and t and e and d and ) and 
+ and [ and   and ] and   and S and e and s and s and i and o and n and   and t and o and k and e and n and   and v and a and l and i and d and   and ( and i and f and   and r and e and q and u and i and r and e and d and ) and 
+ and [ and   and ] and   and S and e and c and r and e and t and s and   and s and o and u and r and c and e and d and   and v and i and a and   and e and n and v and   and ( and n and o and t and   and l and o and g and g and e and d and ) and 
+ and [ and   and ] and   and T and a and r and g and e and t and   and e and n and v and i and r and o and n and m and e and n and t and   and c and o and n and f and i and r and m and e and d and   and ( and s and t and a and g and i and n and g and / and p and r and o and d and ) and 
+ and` and `and` and
+and
+and # and # and # and and D and ) and and S and e and c and u and r and i and t and y and and B and a and s and e and l and i and n and e and s and
+and
+and - and and _ and _ and S and e and c and r and e and t and and s and c and a and n and n and i and n and g and _ and _ and and r and e and q and u and i and r and e and d and and ( and e and . and g and . and , and and G and i and t and l and e and a and k and s and / and T and r and u and f and f and l and e and h and o and g and ) and and o and n and and e and v and e and r and y and and P and R and . and
+and - and and _ and _ and S and A and S and T and _ and _ and and ( and e and . and g and . and , and and C and o and d and e and Q and L and / and S and e and m and g and r and e and p and ) and and o and n and and d and e and f and a and u and l and t and and b and r and a and n and c and h and e and s and and a and n and d and and P and R and s and . and
+and - and and _ and _ and D and e and p and e and n and d and e and n and c and y and and a and u and d and i and t and _ and _ and and ( and p and n and p and m and / and y and a and r and n and / and n and p and m and and a and u and d and i and t and ) and and w and i and t and h and and a and l and l and o and w and l and i and s and t and e and d and and e and x and c and e and p and t and i and o and n and s and and o and n and l and y and . and
+and - and and _ and _ and S and B and O and M and _ and _ and and g and e and n and e and r and a and t and i and o and n and and f and o and r and and r and e and l and e and a and s and e and and b and u and i and l and d and s and and i and f and and a and p and p and l and i and c and a and b and l and e and . and
+and - and and _ and _ and C and o and m and m and i and t and and s and i and g and n and i and n and g and _ and _ and and r and e and c and o and m and m and e and n and d and e and d and ; and and p and r and o and t and e and c and t and e and d and and e and n and v and i and r and o and n and m and e and n and t and s and and f and o and r and and p and r and o and d and u and c and t and i and o and n and . and
+and
+and # and # and # and and E and ) and and P and R and and T and e and m and p and l and a and t and e and and ( and d and r and o and p and and i and n and and `and . and g and i and t and h and u and b and / and P and U and L and L and _ and R and E and Q and U and E and S and T and _ and T and E and M and P and L and A and T and E and . and m and d and` and ) and
+and
+and `and` and `and m and a and r and k and d and o and w and n and 
+ and # and # and   and S and u and m and m and a and r and y and 
+ and 
+ and < and W and h and a and t and   and a and n and d and   and w and h and y and > and 
+ and 
+ and # and # and   and T and a and s and k and   and & and   and T and i and c and k and e and t and s and 
+ and 
+ and - and   and T and a and s and k and   and f and o and l and d and e and r and : and   and` and t and a and s and k and s and / and < and s and l and u and g and > and - and Y and Y and Y and Y and M and M and D and D and - and H and H and M and M and > and `and 
+ and - and   and T and i and c and k and e and t and : and   and < and l and i and n and k and > and 
+ and 
+ and # and # and   and E and v and i and d and e and n and c and e and 
+ and 
+ and - and   and [ and   and ] and   and` and v and e and r and i and f and i and c and a and t and i and o and n and . and m and d and `and   and u and p and d and a and t and e and d and 
+ and - and   and [ and   and ] and   and S and c and r and e and e and n and s and h and o and t and s and / and c and l and i and p and s and   and f and o and r and   and U and I and   and c and h and a and n and g and e and s and 
+ and - and   and [ and   and ] and   and M and e and t and r and i and c and s and / and p and e and r and f and   and n and o and t and e and s and   and ( and i and f and   and a and p and p and l and i and c and a and b and l and e and ) and 
+ and - and   and [ and   and ] and   and L and i and g and h and t and h and o and u and s and e and   and J and S and O and N and   and + and   and H and A and R and   and a and t and t and a and c and h and e and d and   and i and n and   and` and a and r and t and i and f and a and c and t and s and / and `and 
+ and 
+ and # and # and   and C and h and e and c and k and l and i and s and t and s and 
+ and 
+ and * and * and D and e and f and i and n and i and t and i and o and n and   and o and f and   and R and e and a and d and y and   and ( and P and h and a and s and e and   and 1 and ) and * and * and 
+ and 
+ and - and   and [ and   and ] and   and S and c and o and p and e and   and & and   and s and u and c and c and e and s and s and   and c and r and i and t and e and r and i and a and   and c and l and e and a and r and 
+ and - and   and [ and   and ] and   and R and e and u and s and e and   and i and d and e and n and t and i and f and i and e and d and   and o and r and   and N and / and A and 
+ and - and   and [ and   and ] and   and R and i and s and k and s and   and & and   and o and p and e and n and   and Q and s and   and t and r and a and c and k and e and d and   and w and i and t and h and   and o and w and n and e and r and s and 
+ and 
+ and * and * and D and e and f and i and n and i and t and i and o and n and   and o and f and   and D and o and n and e and   and ( and P and h and a and s and e and   and 4 and ) and * and * and 
+ and 
+ and - and   and [ and   and ] and   and A and l and l and   and t and e and s and t and s and   and p and a and s and s and   and ( and u and n and i and t and / and i and n and t and e and g and r and a and t and i and o and n and / and E and 2 and E and / and a and 1 and 1 and y and ) and 
+ and - and   and [ and   and ] and   and P and e and r and f and / and a and 1 and 1 and y and   and t and h and r and e and s and h and o and l and d and s and   and m and e and t and ; and   and n and o and   and P and 0 and / and P and 1 and 
+ and - and   and [ and   and ] and   and D and o and c and s and / and c and h and a and n and g and e and l and o and g and   and u and p and d and a and t and e and d and 
+ and - and   and [ and   and ] and   and R and o and l and l and o and u and t and   and p and l and a and n and   and & and   and f and l and a and g and   and d and o and c and u and m and e and n and t and e and d and 
+ and 
+ and # and # and   and N and o and t and e and s and 
+ and 
+ and < and a and s and s and u and m and p and t and i and o and n and s and / and d and e and v and i and a and t and i and o and n and s and > and 
+ and` and `and` and
+and
+and # and # and # and and F and ) and and C and O and D and E and O and W and N and E and R and S and and ( and e and x and c and e and r and p and t and ) and
+and
+and `and` and `and t and e and x and t and 
+ and # and   and C and r and o and s and s and - and c and u and t and t and i and n and g and 
+ and / and A and G and E and N and T and S and . and m and d and   and   and   and   and   and   and   and   and   and   and   and   and   and   and   and   and   and @ and m and a and i and n and t and a and i and n and e and r and s and 
+ and / and t and a and s and k and s and / and   and   and   and   and   and   and   and   and   and   and   and   and   and   and   and   and   and   and   and   and @ and r and e and l and e and a and s and e and - and m and a and n and a and g and e and r and s and   and @ and m and a and i and n and t and a and i and n and e and r and s and 
+ and / and s and u and p and a and b and a and s and e and / and m and i and g and r and a and t and i and o and n and s and / and   and   and   and   and   and   and @ and d and b and - and o and w and n and e and r and s and 
+ and 
+ and # and   and A and p and p and s and 
+ and / and a and p and p and s and / and w and e and b and / and   and   and   and   and   and   and   and   and   and   and   and   and   and   and   and   and   and @ and w and e and b and - and c and o and r and e and 
+ and / and a and p and p and s and / and m and o and b and i and l and e and / and   and   and   and   and   and   and   and   and   and   and   and   and   and   and @ and m and o and b and i and l and e and - and c and o and r and e and 
+ and / and p and a and c and k and a and g and e and s and / and u and i and / and   and   and   and   and   and   and   and   and   and   and   and   and   and   and @ and d and e and s and i and g and n and - and s and y and s and t and e and m and s and 
+ and` and `and` and
+and
+and # and # and # and and G and ) and and C and I and and E and n and f and o and r and c and e and m and e and n and t and and ( and p and o and l and i and c and y and � and � and � and a and s and � and � and � and c and o and d and e and ) and
+and
+and _ and _ and a and g and e and n and t and s and - and g and u and a and r and d and s and . and y and m and l and _ and _ and and ( and e and x and a and m and p and l and e and ) and
+and
+and `and` and `and y and a and m and l and 
+ and n and a and m and e and : and   and A and g and e and n and t and s and   and G and u and a and r and d and s and 
+ and o and n and : and   and [ and p and u and l and l and _ and r and e and q and u and e and s and t and ] and 
+ and j and o and b and s and : and 
+ and   and   and g and u and a and r and d and s and : and 
+ and   and   and   and   and r and u and n and s and - and o and n and : and   and u and b and u and n and t and u and - and l and a and t and e and s and t and 
+ and   and   and   and   and s and t and e and p and s and : and 
+ and   and   and   and   and   and   and - and   and u and s and e and s and : and   and a and c and t and i and o and n and s and / and c and h and e and c and k and o and u and t and @ and v and 4 and 
+ and   and   and   and   and   and   and   and   and w and i and t and h and : and   and { and   and f and e and t and c and h and - and d and e and p and t and h and : and   and 0 and   and } and 
+ and   and   and   and   and   and   and - and   and u and s and e and s and : and   and a and c and t and i and o and n and s and / and s and e and t and u and p and - and n and o and d and e and @ and v and 4 and 
+ and   and   and   and   and   and   and   and   and w and i and t and h and : and   and { and   and n and o and d and e and - and v and e and r and s and i and o and n and : and   and ' and 2 and 0 and ' and   and } and 
+ and   and   and   and   and   and   and - and   and r and u and n and : and   and p and n and p and m and   and i and n and s and t and a and l and l and   and - and - and f and r and o and z and e and n and - and l and o and c and k and f and i and l and e and   and | and | and   and n and p and m and   and c and i and 
+ and   and   and   and   and   and   and - and   and r and u and n and : and   and n and o and d and e and   and s and c and r and i and p and t and s and / and c and h and e and c and k and - and a and g and e and n and t and s and - and c and o and m and p and l and i and a and n and c and e and . and c and j and s and 
+ and` and `and` and
+and
+and _ and _ and s and c and r and i and p and t and s and / and c and h and e and c and k and - and a and g and e and n and t and s and - and c and o and m and p and l and i and a and n and c and e and . and c and j and s and _ and _ and
+and
+and `and` and `and j and s and 
+ and c and o and n and s and t and   and f and s and   and = and   and r and e and q and u and i and r and e and ( and ' and f and s and ' and ) and ; and 
+ and c and o and n and s and t and   and p and a and t and h and   and = and   and r and e and q and u and i and r and e and ( and ' and p and a and t and h and ' and ) and ; and 
+ and 
+ and f and u and n and c and t and i and o and n and   and r and e and a and d and ( and f and i and l and e and ) and   and { and 
+ and   and   and r and e and t and u and r and n and   and f and s and . and e and x and i and s and t and s and S and y and n and c and ( and f and i and l and e and ) and   and ? and   and f and s and . and r and e and a and d and F and i and l and e and S and y and n and c and ( and f and i and l and e and , and   and ' and u and t and f and 8 and ' and ) and   and : and   and ' and ' and ; and 
+ and } and 
+ and 
+ and / and / and   and 1 and ) and   and R and o and o and t and   and f and i and l and e and   and m and u and s and t and   and b and e and   and e and x and a and c and t and l and y and   and / and A and G and E and N and T and S and . and m and d and 
+ and i and f and   and ( and ! and f and s and . and e and x and i and s and t and s and S and y and n and c and ( and p and a and t and h and . and j and o and i and n and ( and p and r and o and c and e and s and s and . and c and w and d and ( and ) and , and   and ' and A and G and E and N and T and S and . and m and d and ' and ) and ) and ) and   and { and 
+ and   and   and c and o and n and s and o and l and e and . and e and r and r and o and r and ( and ' and M and i and s and s and i and n and g and   and r and e and q and u and i and r and e and d and   and r and o and o and t and   and / and A and G and E and N and T and S and . and m and d and   and ( and e and x and a and c and t and   and c and a and s and i and n and g and ) and . and ' and ) and ; and 
+ and   and   and p and r and o and c and e and s and s and . and e and x and i and t and ( and 1 and ) and ; and 
+ and } and 
+ and 
+ and / and / and   and 2 and ) and   and V and a and l and i and d and a and t and e and   and a and l and l and   and n and e and s and t and e and d and   and A and G and E and N and T and S and . and m and d and   and h and a and v and e and   and s and c and o and p and e and : and   and s and u and b and p and r and o and j and e and c and t and   and a and n and d and   and a and   and n and o and n and - and n and u and l and l and   and e and x and t and e and n and d and s and : and 
+ and f and u and n and c and t and i and o and n and * and   and w and a and l and k and ( and d and i and r and ) and   and { and 
+ and   and   and f and o and r and   and ( and c and o and n and s and t and   and e and   and o and f and   and f and s and . and r and e and a and d and d and i and r and S and y and n and c and ( and d and i and r and , and   and { and   and w and i and t and h and F and i and l and e and T and y and p and e and s and : and   and t and r and u and e and   and } and ) and ) and   and { and 
+ and   and   and   and   and c and o and n and s and t and   and p and   and = and   and p and a and t and h and . and j and o and i and n and ( and d and i and r and , and   and e and . and n and a and m and e and ) and ; and 
+ and   and   and   and   and i and f and   and ( and e and . and i and s and D and i and r and e and c and t and o and r and y and ( and ) and ) and   and y and i and e and l and d and * and   and w and a and l and k and ( and p and ) and ; and 
+ and   and   and   and   and e and l and s and e and   and i and f and   and ( and e and . and i and s and F and i and l and e and ( and ) and   and & and & and   and e and . and n and a and m and e and   and = and = and = and   and ' and A and G and E and N and T and S and . and m and d and ' and   and & and & and   and p and   and ! and = and = and   and p and a and t and h and . and j and o and i and n and ( and p and r and o and c and e and s and s and . and c and w and d and ( and ) and , and   and ' and A and G and E and N and T and S and . and m and d and ' and ) and ) and 
+ and   and   and   and   and   and   and y and i and e and l and d and   and p and ; and 
+ and   and   and } and 
+ and } and 
+ and l and e and t and   and o and k and   and = and   and t and r and u and e and ; and 
+ and f and o and r and   and ( and c and o and n and s and t and   and p and   and o and f and   and w and a and l and k and ( and p and r and o and c and e and s and s and . and c and w and d and ( and ) and ) and ) and   and { and 
+ and   and   and c and o and n and s and t and   and c and o and n and t and e and n and t and   and = and   and r and e and a and d and ( and p and ) and ; and 
+ and   and   and c and o and n and s and t and   and h and a and s and S and c and o and p and e and   and = and   and / and s and c and o and p and e and : and \ and s and * and s and u and b and p and r and o and j and e and c and t and \ and b and / and . and t and e and s and t and ( and c and o and n and t and e and n and t and ) and ; and 
+ and   and   and c and o and n and s and t and   and h and a and s and E and x and t and   and = and   and / and e and x and t and e and n and d and s and : and \ and s and + and ( and \ and . and \ and . and \ and / and ) and + and A and G and E and N and T and S and \ and . and m and d and \ and b and / and . and t and e and s and t and ( and c and o and n and t and e and n and t and ) and ; and 
+ and   and   and i and f and   and ( and ! and h and a and s and S and c and o and p and e and   and | and | and   and ! and h and a and s and E and x and t and ) and   and { and 
+ and   and   and   and   and c and o and n and s and o and l and e and . and e and r and r and o and r and ( and 
+ and   and   and   and   and   and   and` and N and e and s and t and e and d and and $ and { and p and } and and m and u and s and t and and d and e and c and l and a and r and e and and ' and s and c and o and p and e and : and and s and u and b and p and r and o and j and e and c and t and ' and and a and n and d and and a and and v and a and l and i and d and and ' and e and x and t and e and n and d and s and : and and . and . and / and . and . and / and A and G and E and N and T and S and . and m and d and ' and and p and a and t and h and . and `and , and 
+ and   and   and   and   and ) and ; and 
+ and   and   and   and   and o and k and   and = and   and f and a and l and s and e and ; and 
+ and   and   and } and 
+ and } and 
+ and i and f and   and ( and ! and o and k and ) and   and p and r and o and c and e and s and s and . and e and x and i and t and ( and 1 and ) and ; and 
+ and c and o and n and s and o and l and e and . and l and o and g and ( and ' and A and G and E and N and T and S and   and p and o and l and i and c and y and   and c and h and e and c and k and s and   and p and a and s and s and e and d and . and ' and ) and ; and 
+ and` and `and` and
+and
+and # and # and # and and H and ) and and P and o and l and i and c and y and � and � and � and T and r and a and c and e and and S and c and r and i and p and t and and ( and c and o and n and f and i and r and m and and e and f and f and e and c and t and i and v and e and and s and t and a and c and k and ) and
+and
+and _ and _ and s and c and r and i and p and t and s and / and a and g and e and n and t and s and - and p and o and l and i and c and y and - and t and r and a and c and e and . and t and s and _ and _ and
+and
+and `and` and `and t and s and 
+ and i and m and p and o and r and t and   and f and s and   and f and r and o and m and   and ' and f and s and ' and ; and 
+ and i and m and p and o and r and t and   and p and a and t and h and   and f and r and o and m and   and ' and p and a and t and h and ' and ; and 
+ and 
+ and f and u and n and c and t and i and o and n and   and w and a and l and k and A and g and e and n and t and s and ( and s and t and a and r and t and F and i and l and e and : and   and s and t and r and i and n and g and ) and   and { and 
+ and   and   and c and o and n and s and t and   and s and t and a and c and k and : and   and s and t and r and i and n and g and [ and ] and   and = and   and [ and ] and ; and 
+ and   and   and l and e and t and   and d and i and r and   and = and   and p and a and t and h and . and r and e and s and o and l and v and e and ( and p and a and t and h and . and d and i and r and n and a and m and e and ( and s and t and a and r and t and F and i and l and e and ) and ) and ; and 
+ and   and   and w and h and i and l and e and   and ( and t and r and u and e and ) and   and { and 
+ and   and   and   and   and c and o and n and s and t and   and p and   and = and   and p and a and t and h and . and j and o and i and n and ( and d and i and r and , and   and ' and A and G and E and N and T and S and . and m and d and ' and ) and ; and   and / and / and   and e and x and a and c and t and   and c and a and s and i and n and g and 
+ and   and   and   and   and i and f and   and ( and f and s and . and e and x and i and s and t and s and S and y and n and c and ( and p and ) and ) and   and s and t and a and c and k and . and p and u and s and h and ( and p and ) and ; and 
+ and   and   and   and   and c and o and n and s and t and   and p and a and r and e and n and t and   and = and   and p and a and t and h and . and r and e and s and o and l and v and e and ( and d and i and r and , and   and ' and . and . and ' and ) and ; and 
+ and   and   and   and   and i and f and   and ( and p and a and r and e and n and t and   and = and = and = and   and d and i and r and ) and   and b and r and e and a and k and ; and 
+ and   and   and   and   and d and i and r and   and = and   and p and a and r and e and n and t and ; and 
+ and   and   and } and 
+ and   and   and r and e and t and u and r and n and   and s and t and a and c and k and . and r and e and v and e and r and s and e and ( and ) and ; and   and / and / and   and r and o and o and t and   and - and > and   and . and . and . and   and - and > and   and c and l and o and s and e and s and t and 
+ and } and 
+ and 
+ and c and o and n and s and t and   and t and a and r and g and e and t and s and   and = and   and p and r and o and c and e and s and s and . and a and r and g and v and . and s and l and i and c and e and ( and 2 and ) and ; and 
+ and i and f and   and ( and t and a and r and g and e and t and s and . and l and e and n and g and t and h and   and = and = and = and   and 0 and ) and   and { and 
+ and   and   and c and o and n and s and o and l and e and . and e and r and r and o and r and ( and ' and U and s and a and g and e and : and   and t and s and - and n and o and d and e and   and s and c and r and i and p and t and s and / and a and g and e and n and t and s and - and p and o and l and i and c and y and - and t and r and a and c and e and . and t and s and   and < and p and a and t and h and / and t and o and / and f and i and l and e and > and ' and ) and ; and 
+ and   and   and p and r and o and c and e and s and s and . and e and x and i and t and ( and 1 and ) and ; and 
+ and } and 
+ and f and o and r and   and ( and c and o and n and s and t and   and f and   and o and f and   and t and a and r and g and e and t and s and ) and   and { and 
+ and   and   and c and o and n and s and t and   and s and t and a and c and k and   and = and   and w and a and l and k and A and g and e and n and t and s and ( and f and ) and ; and 
+ and   and   and c and o and n and s and o and l and e and . and l and o and g and ( and` and \ and n and $ and { and f and } and \ and n and E and f and f and e and c and t and i and v and e and and A and G and E and N and T and S and and s and t and a and c and k and : and `and ) and ; and 
+ and   and   and s and t and a and c and k and . and f and o and r and E and a and c and h and ( and ( and p and , and   and i and ) and   and = and > and   and c and o and n and s and o and l and e and . and l and o and g and ( and` and and and $ and { and i and and + and and 1 and } and . and and $ and { and p and } and `and ) and ) and ; and 
+ and } and 
+ and` and `and` and
+and
+and U and s and a and g and e and : and
+and
+and `and` and `and b and a and s and h and 
+ and p and n and p and m and   and t and s and - and n and o and d and e and   and s and c and r and i and p and t and s and / and a and g and e and n and t and s and - and p and o and l and i and c and y and - and t and r and a and c and e and . and t and s and   and a and p and p and s and / and w and e and b and / and s and r and c and / and p and a and g and e and s and / and i and n and d and e and x and . and t and s and x and 
+ and` and `and` and
+and
+and - and - and - and
+and
+and _ and _ and L and a and s and t and and U and p and d and a and t and e and d and _ and _ and : and and 2 and 0 and 2 and 5 and � and � and � and 1 and 1 and - and 3 and 0 and and and
+and _ and _ and V and e and r and s and i and o and n and _ and _ and : and and 5 and . and 3 and
+and
+and > and and a and s and k and and m and o and r and e and and q and u and e and s and t and i and o and n and s and and u and n and t and i and l and and y and o and u and and h and a and v and e and and e and n and o and u and g and h and and c and o and n and t and e and x and t and and t and o and and g and i and v and e and and a and n and and a and c and c and u and r and a and t and e and and & and and c and o and n and f and i and d and e and n and t and and a and n and s and w and e and r and
+and

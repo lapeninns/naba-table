@@ -1,12 +1,8 @@
-import { permanentRedirect } from "next/navigation";
+import { generateMetadata as bookingPageGenerateMetadata, BookingDetailPage } from "../../../(public)/bookings/booking-page";
 
 export const dynamic = "force-dynamic";
+export const generateMetadata = bookingPageGenerateMetadata;
 
-export default async function GuestBookingRedirect({ params }: { params: Promise<{ bookingId: string }> }) {
-  const { bookingId } = await params;
-  const normalized = bookingId?.trim();
-  if (!normalized) {
-    permanentRedirect("/guest/bookings");
-  }
-  permanentRedirect(`/bookings/${normalized}`);
+export default function GuestBookingDetailPage(props: Parameters<typeof BookingDetailPage>[0]) {
+  return <BookingDetailPage {...props} pathPrefix="/guest/bookings" />;
 }

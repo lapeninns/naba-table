@@ -7,6 +7,21 @@ const STORAGE_KEY = 'reserve.query-cache';
 const STORAGE_VERSION = 'v1';
 const DEFAULT_MAX_AGE = 1000 * 60 * 60 * 24; // 24 hours
 
+export const buildQueryStorageKey = (userId?: string | null): string =>
+  `${STORAGE_KEY}:${userId && userId.length > 0 ? userId : 'anon'}`;
+
+export const clearPersistedQueryCache = (storageKey?: string): void => {
+  if (typeof window === 'undefined') return;
+  const key = storageKey ?? STORAGE_KEY;
+  try {
+    window.localStorage.removeItem(key);
+  } catch (error) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[query-persist] failed to clear persisted cache', error);
+    }
+  }
+};
+
 const safeParse = <T>(value: string | null): T | undefined => {
   if (!value) return undefined;
   try {

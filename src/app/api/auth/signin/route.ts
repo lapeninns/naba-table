@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { defaultRedirectForHost, parseHostname, sanitizeRedirect, toAbsoluteRedirectTarget } from "@/lib/auth/redirects";
-import { validatePasswordStrength } from "@/lib/security/passwordPolicy";
+import { sendEmail } from "@/libs/resend";
 import { validateCsrfToken } from "@/server/security/csrf";
 import { consumeRateLimit } from "@/server/security/rate-limit";
-import { getRouteHandlerSupabaseClient } from "@/server/supabase";
+import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 
 import type { NextRequest } from "next/server";
 
@@ -17,17 +17,15 @@ const requestSchema = z
     email: z.string().trim().min(1, "Email is required").email("Enter a valid email address").transform((value) => value.toLowerCase()),
     password: z.string().trim().optional(),
     redirectedFrom: z.string().optional(),
+    rememberMe: z.boolean().optional().default(true),
   })
   .superRefine((data, ctx) => {
-    if (data.mode === "password") {
-      const result = validatePasswordStrength(data.password);
-      if (!result.success) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["password"],
-          message: result.error,
-        });
-      }
+    if (data.mode === "password" && !data.password) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["password"],
+        message: "Enter your password",
+      });
     }
   });
 
@@ -36,7 +34,12 @@ const RATE_LIMITS = {
   magic_link: { limit: 5, windowMs: 10 * 60 * 1000 },
 } as const;
 
-function buildCallbackUrl(hostname: string, redirectedFrom: string | undefined) {
+function buildCallbackUrl(
+  hostname: string,
+  redirectedFrom: string | undefined,
+  rememberMe: boolean,
+  pathname: string = "/api/auth/callback",
+) {
   let validHostname = hostname;
 
   // Ensure hostname is one of our allowed public domains
@@ -64,11 +67,12 @@ function buildCallbackUrl(hostname: string, redirectedFrom: string | undefined) 
   }
 
   const protocol = validHostname.includes("localhost") ? "http" : "https";
-  const url = new URL("/api/auth/callback", `${protocol}://${validHostname}`);
+  const url = new URL(pathname, `${protocol}://${validHostname}`);
 
   if (redirectedFrom) {
     url.searchParams.set("redirectedFrom", redirectedFrom);
   }
+  url.searchParams.set("rememberMe", rememberMe ? "1" : "0");
   return url.toString();
 }
 
@@ -86,6 +90,62 @@ function setRateHeaders(response: NextResponse, limitResult: Awaited<ReturnType<
   return response;
 }
 
+async function sendMagicLinkViaResend(email: string, redirectTo: string) {
+  const adminClient = getServiceSupabaseClient();
+  const { data, error } = await adminClient.auth.admin.generateLink({
+    type: "magiclink",
+    email,
+    options: {
+      redirectTo,
+    },
+  });
+
+  if (error || !data?.properties?.action_link) {
+    const normalizedError = error ?? new Error("Missing action link from Supabase admin.generateLink");
+    console.error("[Auth/signin] Resend fallback: failed to generate link", {
+      error: normalizedError instanceof Error ? normalizedError.message : String(normalizedError),
+      status: "status" in normalizedError ? (normalizedError as { status?: number }).status : undefined,
+      code: "code" in normalizedError ? (normalizedError as { code?: string }).code : undefined,
+    });
+    return { ok: false as const, error: normalizedError };
+  }
+
+  const actionLink = data.properties.action_link;
+
+  const subject = "Your sign-in link";
+  const text = `Sign in with this link: ${actionLink}\n\nIf you did not request this, you can ignore this email.`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #0f172a;">
+      <h2 style="margin: 0 0 12px;">Sign in to your account</h2>
+      <p style="margin: 0 0 16px;">Click the button below to complete sign-in.</p>
+      <p style="margin: 0 0 20px;">
+        <a href="${actionLink}" style="display:inline-block;padding:12px 20px;background:#0f172a;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">Sign in</a>
+      </p>
+      <p style="margin: 0 0 8px;">If the button doesn't work, copy and paste this link:</p>
+      <p style="word-break: break-all; margin: 0;">${actionLink}</p>
+      <p style="margin: 16px 0 0; color:#475569;">If you didn't request this, you can safely ignore this email.</p>
+    </div>
+  `;
+
+  try {
+    await sendEmail({
+      to: email,
+      subject,
+      html,
+      text,
+      fromName: "Nab a Table",
+    });
+
+    console.log("[Auth/signin] Resend fallback: magic link email sent");
+    return { ok: true as const };
+  } catch (sendError) {
+    console.error("[Auth/signin] Resend fallback: send failed", {
+      error: sendError instanceof Error ? sendError.message : String(sendError),
+    });
+    return { ok: false as const, error: sendError };
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     if (!validateCsrfToken(req)) {
@@ -95,90 +155,111 @@ export async function POST(req: NextRequest) {
     const hostname = parseHostname(req);
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost";
 
-  let parsedBody: unknown;
-  try {
-    parsedBody = await req.json();
-  } catch {
-    return NextResponse.json({ message: "Invalid request body" }, { status: 400 });
-  }
+    let parsedBody: unknown;
+    try {
+      parsedBody = await req.json();
+    } catch {
+      return NextResponse.json({ message: "Invalid request body" }, { status: 400 });
+    }
 
-  const validated = requestSchema.safeParse(parsedBody);
-  if (!validated.success) {
-    const issue = validated.error.issues[0];
-    return NextResponse.json(
-      { message: issue.message, details: { field: issue.path[0] ?? undefined } },
-      { status: 400 },
-    );
-  }
+    const validated = requestSchema.safeParse(parsedBody);
+    if (!validated.success) {
+      const issue = validated.error.issues[0];
+      return NextResponse.json(
+        { message: issue.message, details: { field: issue.path[0] ?? undefined } },
+        { status: 400 },
+      );
+    }
 
-  const { email, password, mode, redirectedFrom } = validated.data;
-  const redirectTarget = sanitizeRedirect(redirectedFrom, rootDomain) ?? defaultRedirectForHost(hostname, rootDomain);
-  const absoluteRedirect = toAbsoluteRedirectTarget(redirectTarget, rootDomain);
+    const { email, password, mode, redirectedFrom, rememberMe } = validated.data;
+    const redirectTarget = sanitizeRedirect(redirectedFrom, rootDomain) ?? defaultRedirectForHost(hostname, rootDomain);
+    const absoluteRedirect = toAbsoluteRedirectTarget(redirectTarget, rootDomain);
 
-  const rateResult = await consumeRateLimit({
-    identifier: buildRateLimitId(req, email, mode),
-    limit: RATE_LIMITS[mode].limit,
-    windowMs: RATE_LIMITS[mode].windowMs,
-  });
-
-  if (!rateResult.ok) {
-    const retryAfter = Math.max(1, Math.ceil((rateResult.resetAt - Date.now()) / 1000));
-    const response = NextResponse.json({ message: "Too many attempts. Please try again later." }, { status: 429 });
-    response.headers.set("Retry-After", retryAfter.toString());
-    return setRateHeaders(response, rateResult);
-  }
-
-  const supabase = await getRouteHandlerSupabaseClient();
-
-  if (mode === "password") {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password: password!,
+    const rateResult = await consumeRateLimit({
+      identifier: buildRateLimitId(req, email, mode),
+      limit: RATE_LIMITS[mode].limit,
+      windowMs: RATE_LIMITS[mode].windowMs,
     });
 
-    if (error) {
-      const status = error.status ?? 401;
-      const message = status === 401 || status === 400 ? "Invalid email or password" : error.message;
-      const response = NextResponse.json({ message }, { status: status === 400 ? 401 : status });
+    if (!rateResult.ok) {
+      const retryAfter = Math.max(1, Math.ceil((rateResult.resetAt - Date.now()) / 1000));
+      const response = NextResponse.json({ message: "Too many attempts. Please try again later." }, { status: 429 });
+      response.headers.set("Retry-After", retryAfter.toString());
       return setRateHeaders(response, rateResult);
     }
 
-    const response = NextResponse.json({ status: "ok", redirectTo: redirectTarget });
-    return setRateHeaders(response, rateResult);
-  }
+    const supabase = await getRouteHandlerSupabaseClient(undefined, rememberMe);
 
-  const emailRedirectTo = buildCallbackUrl(hostname, absoluteRedirect);
-  console.log("[Auth/signin] Magic link details:", {
-    hostname,
-    rootDomain,
-    redirectTarget,
-    absoluteRedirect,
-    emailRedirectTo,
-  });
+    if (mode === "password") {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password: password!,
+      });
 
-  // Use Supabase's built-in signInWithOtp for proper PKCE flow
-  // This handles code challenges automatically and works reliably with the callback
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: {
+      if (error) {
+        const status = error.status ?? 401;
+        const message = status === 401 || status === 400 ? "Invalid email or password" : error.message;
+        const response = NextResponse.json({ message }, { status: status === 400 ? 401 : status });
+        return setRateHeaders(response, rateResult);
+      }
+
+      const response = NextResponse.json({ status: "ok", redirectTo: redirectTarget });
+      return setRateHeaders(response, rateResult);
+    }
+
+    const emailRedirectTo = buildCallbackUrl(hostname, absoluteRedirect, rememberMe);
+    const implicitFlowRedirectTo = buildCallbackUrl(hostname, absoluteRedirect, rememberMe, "/auth/signin");
+    console.log("[Auth/signin] Magic link details:", {
+      hostname,
+      rootDomain,
+      redirectTarget,
+      absoluteRedirect,
       emailRedirectTo,
-      shouldCreateUser: false,
-    },
-  });
+    });
 
-  console.log("[Auth/signin] OTP result:", { error: error?.message, status: error?.status });
+    // Use Supabase's built-in signInWithOtp for proper PKCE flow.
+    // If delivery fails (common when SMTP is misconfigured), fall back to generating
+    // the link via admin API and sending via Resend.
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo,
+        shouldCreateUser: true,
+      },
+    });
 
-  if (error) {
-    const status = error.status ?? 400;
-    const response = NextResponse.json(
-      { message: error.message ?? "We couldn't send a magic link right now. Please try again shortly." },
-      { status },
-    );
+    console.log("[Auth/signin] OTP result:", { error: error?.message, status: error?.status });
+
+    if (error) {
+      const isSendFailure = (error.status ?? 500) >= 500 || /sending/i.test(error.message ?? "");
+
+      if (isSendFailure) {
+        console.warn("[Auth/signin] Supabase email delivery failed, attempting Resend fallback", {
+          status: error.status,
+          message: error.message,
+          code: (error as { code?: string }).code,
+        });
+
+        const fallback = await sendMagicLinkViaResend(email, implicitFlowRedirectTo);
+        if (fallback.ok) {
+          const response = NextResponse.json(
+            { status: "magic_link_sent", redirectTo: absoluteRedirect, delivery: "resend_fallback" },
+            { status: 202 },
+          );
+          return setRateHeaders(response, rateResult);
+        }
+      }
+
+      const status = error.status ?? 400;
+      const response = NextResponse.json(
+        { message: error.message ?? "We couldn't send a magic link right now. Please try again shortly." },
+        { status },
+      );
+      return setRateHeaders(response, rateResult);
+    }
+
+    const response = NextResponse.json({ status: "magic_link_sent", redirectTo: absoluteRedirect }, { status: 202 });
     return setRateHeaders(response, rateResult);
-  }
-
-  const response = NextResponse.json({ status: "magic_link_sent", redirectTo: absoluteRedirect }, { status: 202 });
-  return setRateHeaders(response, rateResult);
   } catch (err) {
     console.error("[Auth/signin] Unhandled error:", err);
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });

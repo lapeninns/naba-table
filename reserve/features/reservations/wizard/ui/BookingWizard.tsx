@@ -84,8 +84,7 @@ function BookingWizardContent({
   } = useReservationWizard(initialDetails, mode, { returnPath });
   const { analytics } = useWizardDependencies();
   const { user, status: sessionStatus } = useSupabaseSession();
-  const isSessionReady = sessionStatus === 'ready';
-  const isAuthenticated = isSessionReady && Boolean(user);
+  const isAuthenticated = sessionStatus === 'authenticated' && Boolean(user);
   const shouldLockContacts = isAuthenticated && mode !== 'ops';
   const { data: profile } = useProfile({ enabled: shouldLockContacts });
 
@@ -271,6 +270,7 @@ function BookingWizardContent({
         stickyHeight={stickyHeight}
         stickyVisible={stickyVisible}
         onStickyHeightChange={handleStickyHeightChange}
+        restaurantName={state.details.restaurantName || undefined}
         banner={banner}
         layoutElement={layoutElement}
         navigationClassName={navigationClassName}

@@ -2,6 +2,11 @@
 @import 'tw-animate-css';
 @import '../../styles/tokens.css';
 
+/* Theme System - Data Attribute Strategy */
+@import '../../styles/themes/guest.css';
+@import '../../styles/themes/app.css';
+@import '../../styles/guest-design-system.css';
+
 @plugin "tailwindcss-animate";
 @custom-variant dark (&:is(.dark *));
 
@@ -19,6 +24,25 @@
   :root {
     --font-sajilo:
       'Nab a Table Cereal App', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+    /* -------------------------------------------------------------------------
+       NEUTRAL SCALE - Slate (Balance of cool/warm)
+       ------------------------------------------------------------------------- */
+    --color-neutral-0: #ffffff;
+    --color-neutral-50: #f8fafc;
+    /* ... */
+
+    /* Shadow Base for Light Mode */
+    --shadow-color-base: 220 20% 20%;
+    --color-neutral-100: #f1f5f9;
+    --color-neutral-200: #e2e8f0;
+    --color-neutral-300: #cbd5e1;
+    --color-neutral-400: #94a3b8;
+    --color-neutral-500: #64748b;
+    --color-neutral-600: #475569;
+    --color-neutral-700: #334155;
+    --color-neutral-800: #1e293b;
+    --color-neutral-900: #0f172a;
 
     /* Surfaces */
     --background: 0 0% 100%;
@@ -40,7 +64,19 @@
     --accent: 210 40% 96.1%;
     --accent-foreground: 222 47% 11%;
 
-    /* Semantic colors */
+    /* Semantic colors - Success/Warning/Error/Info */
+    --color-success-50: #f0fdf4;
+    --color-success-500: #22c55e;
+    --color-success-700: #15803d;
+
+    --color-warning-50: #fffbeb;
+    --color-warning-500: #f59e0b;
+    --color-warning-700: #b45309;
+
+    --color-error-50: #fef2f2;
+    --color-error-500: #ef4444;
+    --color-error-700: #b91c1c;
+
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
     --success: 142 76% 36%;
@@ -83,12 +119,16 @@
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
 
-    /* Radius scale */
-    --radius: 0.5rem;
-    --radius-sm: 0.375rem;
-    --radius-md: 0.5rem;
-    --radius-lg: 0.75rem;
-    --radius-xl: 1rem;
+    /* Radius scale (Simplified per Audit) */
+    --radius-base: 12px;
+    --radius-lg: 16px;
+    --radius-pill: 9999px;
+
+    /* Legacy mapping for backward compatibility */
+    --radius: var(--radius-base);
+    --radius-sm: 8px;
+    --radius-md: var(--radius-base);
+    --radius-xl: var(--radius-lg);
 
     /* Shadows - layered for depth */
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
@@ -102,30 +142,14 @@
     --safe-area-inset-right: env(safe-area-inset-right);
     --safe-area-inset-bottom: env(safe-area-inset-bottom);
     --safe-area-inset-left: env(safe-area-inset-left);
-
-    /* Legacy SRX tokens (prior brand) still referenced across reserve app */
-    --srx-surface-positive: #e8f3ff;
-    --srx-surface-positive-alt: #f2f7ff;
-    --srx-surface-info: #e7f2ff;
-    --srx-surface-warn: #fdebc8;
-    --srx-border-subtle: rgba(15, 23, 42, 0.08);
-    --srx-border-strong: rgba(15, 23, 42, 0.12);
-    --srx-ink-strong: #111827;
-    --srx-ink-muted: #374151;
-    --srx-ink-soft: #4b5563;
-    --srx-brand: #0f172a;
-    --srx-brand-soft: #1f2937;
-    --srx-type-base: clamp(1rem, 0.95rem + 0.5vw, 1.125rem);
-    --srx-type-sm: clamp(0.9375rem, 0.9rem + 0.35vw, 1rem);
-    --srx-type-helper: clamp(0.875rem, 0.82rem + 0.35vw, 0.95rem);
-    --srx-space-card: clamp(1.5rem, 1.25rem + 1vw, 2.5rem);
-    --srx-space-section: clamp(1.75rem, 1.5rem + 1.4vw, 3rem);
-    --srx-easing-standard: cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .dark {
     --background: 222 47% 11%;
     --foreground: 210 40% 98%;
+
+    /* Shadow Base for Dark Mode */
+    --shadow-color-base: 0 0% 0%;
     --card: 222 40% 13%;
     --card-foreground: 210 40% 98%;
     --popover: 222 40% 13%;
@@ -185,19 +209,171 @@
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.4);
     --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.4), 0 8px 10px -6px rgb(0 0 0 / 0.4);
+  }
 
-    /* Legacy tokens */
-    --srx-surface-positive: rgba(56, 189, 248, 0.12);
-    --srx-surface-positive-alt: rgba(96, 165, 250, 0.12);
-    --srx-surface-info: rgba(45, 212, 191, 0.12);
-    --srx-surface-warn: rgba(251, 191, 36, 0.18);
-    --srx-border-subtle: rgba(148, 163, 184, 0.45);
-    --srx-border-strong: rgba(226, 232, 240, 0.32);
-    --srx-ink-strong: #f8fafc;
-    --srx-ink-muted: rgba(226, 232, 240, 0.82);
-    --srx-ink-soft: rgba(148, 163, 184, 0.72);
-    --srx-brand: #e2e8f0;
-    --srx-brand-soft: rgba(148, 163, 184, 0.85);
+  /* Guest-facing palette (blue scale) — applied via .guest-theme wrapper */
+  .guest-theme {
+    /* -------------------------------------------------------------------------
+       PRIMARY SCALE - Blue (Trust/Reliability)
+       ------------------------------------------------------------------------- */
+    --color-primary-50: #eff6ff;
+    --color-primary-100: #dbeafe;
+    --color-primary-200: #bfdbfe;
+    --color-primary-500: #3b82f6;
+    --color-primary-700: #1d4ed8;
+    --color-primary-900: #1e3a8a;
+
+    --primary: 217 91% 60%;
+    /* primary-500 */
+    --primary-foreground: 210 40% 98%;
+
+    /* -------------------------------------------------------------------------
+       ACCENT SCALE - Coral Pink (Warmth/CTAs)
+       ------------------------------------------------------------------------- */
+    --color-accent-50: #fef2f2;
+    --color-accent-100: #ffe5e5;
+    --color-accent-500: #ff6b6b;
+    --color-accent-700: #e03e3e;
+
+    --secondary: 213 96% 93%;
+    --secondary-foreground: 222 47% 11%;
+
+    --accent: 0 100% 71%;
+    /* accent-500 */
+    --accent-foreground: 222 47% 11%;
+
+    --muted: 213 100% 96%;
+    --muted-foreground: 215 18% 45%;
+
+    --info: 217 91% 60%;
+    --info-foreground: 210 40% 98%;
+
+    --border: 216 33% 90%;
+    --input: 216 33% 90%;
+    --ring: 217 91% 60%;
+
+    /* Interactive States */
+    --color-interactive: var(--color-primary-500);
+    --color-interactive-hover: var(--color-primary-700);
+    --color-interactive-active: var(--color-primary-900);
+
+    /* Charts */
+    --chart-1: 217 91% 60%;
+    --chart-2: 220 83% 53%;
+    --chart-3: 222 85% 45%;
+    --chart-4: 224 76% 34%;
+    --chart-5: 226 71% 25%;
+
+    /* -------------------------------------------------------------------------
+       GUEST DESIGN TOKENS - Standardized spacing, typography, and components
+       ------------------------------------------------------------------------- */
+
+    /* Spacing Scale - 8pt grid system for guest layouts */
+    --guest-space-xs: 0.5rem;
+    /* 8px  - tight gaps */
+    --guest-space-sm: 0.75rem;
+    /* 12px - small gaps */
+    --guest-space-md: 1rem;
+    /* 16px - default gaps */
+    --guest-space-lg: 1.5rem;
+    /* 24px - section padding, card padding */
+    --guest-space-xl: 2rem;
+    /* 32px - larger section gaps */
+    --guest-space-2xl: 2.5rem;
+    /* 40px - page section spacing */
+    --guest-space-3xl: 3rem;
+    /* 48px - major section dividers */
+
+    /* Section & Container Spacing */
+    --guest-section-gap: 2.5rem;
+    /* 40px - between major sections */
+    --guest-section-padding-x: 1.5rem;
+    /* 24px - horizontal page padding */
+    --guest-section-padding-y: 2rem;
+    /* 32px - vertical section padding */
+    --guest-card-padding: 1.5rem;
+    /* 24px - inside cards */
+    --guest-content-gap: 1.5rem;
+    /* 24px - between cards/content items */
+
+    /* Typography Scale - Fluid (clamp) */
+    --guest-text-hero: clamp(2rem, 5vw + 1rem, 3rem);
+    /* 32px -> 48px */
+    --guest-text-hero-lg: clamp(2.5rem, 6vw + 1rem, 4rem);
+    --guest-text-page: clamp(1.5rem, 3vw + 1rem, 2rem);
+    /* 24px -> 32px */
+    --guest-text-section: clamp(1.25rem, 2vw + 0.5rem, 1.5rem);
+    /* 20px -> 24px */
+    --guest-text-card: 1.125rem;
+    /* 18px (fixed typically better for cards) */
+    --guest-text-body: 1rem;
+    /* 16px */
+    --guest-text-caption: 0.875rem;
+    /* 14px */
+    --guest-text-micro: 0.75rem;
+    /* 12px */
+
+    /* Line Heights */
+    --guest-leading-tight: 1.1;
+    /* Headlines */
+    --guest-leading-snug: 1.35;
+    --guest-leading-normal: 1.5;
+    /* Body */
+    --guest-leading-relaxed: 1.75;
+    /* Long-form */
+
+    /* Border Radius - consistent rounded corners */
+    --guest-radius-sm: 0.5rem;
+    --guest-radius-md: 0.75rem;
+    --guest-radius-lg: 1rem;
+    --guest-radius-xl: 1.5rem;
+    --guest-radius-2xl: 2rem;
+    --guest-radius-full: 9999px;
+
+    /* Shadow Color Base */
+    --shadow-color-base: 220 20% 20%;
+
+    /* Shadows - Tokenized & Layered */
+    --guest-shadow-xs: 0 1px 2px hsl(var(--shadow-color-base) / 0.04);
+    --guest-shadow-sm:
+      0 2px 4px hsl(var(--shadow-color-base) / 0.06), 0 1px 2px hsl(var(--shadow-color-base) / 0.04);
+    --guest-shadow-md:
+      0 4px 12px hsl(var(--shadow-color-base) / 0.08),
+      0 2px 4px hsl(var(--shadow-color-base) / 0.04);
+    --guest-shadow-lg:
+      0 8px 24px hsl(var(--shadow-color-base) / 0.1), 0 4px 8px hsl(var(--shadow-color-base) / 0.06);
+    --guest-shadow-xl:
+      0 16px 48px hsl(var(--shadow-color-base) / 0.12),
+      0 8px 16px hsl(var(--shadow-color-base) / 0.08);
+    --guest-shadow-glow: 0 0 24px hsl(var(--primary) / 0.25);
+
+    /* Transitions - smooth, consistent timing */
+    --guest-transition-fast: 150ms ease-out;
+    --guest-transition-base: 200ms ease-out;
+    --guest-transition-slow: 300ms ease-out;
+    --guest-transition-transform: transform 200ms cubic-bezier(0.2, 0, 0, 1);
+
+    /* Interactive states */
+    --guest-hover-lift: -2px;
+    --guest-hover-scale: 1.02;
+    --guest-active-scale: 0.98;
+  }
+
+  /* Audit Fix: Letter Spacing */
+  .guest-heading-hero {
+    letter-spacing: -0.02em;
+  }
+
+  .guest-heading-page {
+    letter-spacing: -0.015em;
+  }
+
+  .guest-heading-section {
+    letter-spacing: 0;
+  }
+
+  .guest-body {
+    letter-spacing: 0.01em;
   }
 
   /* ---------------------------------------------------------------------------
@@ -222,6 +398,7 @@
     html {
       scroll-behavior: auto;
     }
+
     *,
     *::before,
     *::after {
@@ -237,27 +414,13 @@
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
     font-variant-numeric: tabular-nums;
     background-color: hsl(var(--background));
-    background-image:
-      radial-gradient(140% 120% at 0% -10%, hsl(var(--primary) / 0.08), transparent 65%),
-      radial-gradient(120% 100% at 100% 10%, hsl(var(--accent-foreground) / 0.08), transparent 70%),
-      linear-gradient(
-        180deg,
-        hsl(var(--background)),
-        color-mix(in srgb, hsl(var(--background)) 88%, hsl(var(--accent) / 0.12))
-      );
-    background-attachment: fixed;
+    /* Clean, minimalist background (Audit Recommendation: Option C) */
     background-repeat: no-repeat;
   }
 
   .dark body {
-    background-image:
-      radial-gradient(140% 120% at 10% -20%, hsl(var(--primary) / 0.18), transparent 60%),
-      radial-gradient(120% 100% at 90% 0%, hsl(var(--accent-foreground) / 0.12), transparent 65%),
-      linear-gradient(
-        180deg,
-        hsl(var(--background)),
-        color-mix(in srgb, hsl(var(--background)) 75%, hsl(var(--primary) / 0.18))
-      );
+    /* Minimalist dark mode background */
+    background-color: hsl(var(--background));
   }
 
   /* ---------------------------------------------------------------------------
@@ -369,7 +532,8 @@
   input,
   textarea,
   select {
-    font-size: 16px; /* Prevents iOS zoom */
+    font-size: 16px;
+    /* Prevents iOS zoom */
   }
 
   input[type='checkbox'],
@@ -391,6 +555,7 @@
     100% {
       background-position: 0% 50%;
     }
+
     50% {
       background-position: 100% 50%;
     }
@@ -400,6 +565,7 @@
     from {
       opacity: 0;
     }
+
     to {
       opacity: 1;
     }
@@ -410,6 +576,7 @@
       opacity: 0;
       transform: translateY(10px);
     }
+
     to {
       opacity: 1;
       transform: translateY(0);
@@ -421,6 +588,7 @@
       opacity: 0;
       transform: translateY(-10px);
     }
+
     to {
       opacity: 1;
       transform: translateY(0);
@@ -432,9 +600,35 @@
       opacity: 0;
       transform: scale(0.95);
     }
+
     to {
       opacity: 1;
       transform: scale(1);
+    }
+  }
+
+  /* Micro-interaction: Pulse Glow for CTAs */
+  @keyframes pulse-glow {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4);
+    }
+
+    50% {
+      box-shadow: 0 0 0 8px hsl(var(--primary) / 0);
+    }
+  }
+
+  /* Micro-interaction: Status Slide In */
+  @keyframes slide-in-right {
+    from {
+      transform: translateX(10px);
+      opacity: 0;
+    }
+
+    to {
+      transform: translateX(0);
+      opacity: 1;
     }
   }
 
@@ -443,6 +637,7 @@
       transform: translateY(100%);
       opacity: 0;
     }
+
     to {
       transform: translateY(0);
       opacity: 1;
@@ -454,6 +649,7 @@
       transform: translateY(-100%);
       opacity: 0;
     }
+
     to {
       transform: translateY(0);
       opacity: 1;
@@ -464,6 +660,7 @@
     from {
       opacity: 0;
     }
+
     to {
       opacity: 1;
     }
@@ -474,6 +671,7 @@
       opacity: 0.3;
       transform: translate(12%, 0);
     }
+
     to {
       opacity: 1;
       transform: translate(0, 0);
@@ -487,17 +685,21 @@
     100% {
       transform: rotate(0deg);
     }
+
     30%,
     60% {
       transform: rotate(-2deg);
     }
+
     40%,
     70% {
       transform: rotate(2deg);
     }
+
     45% {
       transform: rotate(-4deg);
     }
+
     55% {
       transform: rotate(4deg);
     }
@@ -508,10 +710,12 @@
       transform: scale(0.8);
       opacity: 0.8;
     }
+
     50% {
       transform: scale(1.1);
       opacity: 1;
     }
+
     100% {
       transform: scale(1);
       opacity: 1;
@@ -561,6 +765,52 @@
 
   .animate-popup {
     animation: popup 0.25s ease-in-out;
+  }
+
+  @keyframes shake {
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+
+    10%,
+    30%,
+    50%,
+    70%,
+    90% {
+      transform: translateX(-4px);
+    }
+
+    20%,
+    40%,
+    60%,
+    80% {
+      transform: translateX(4px);
+    }
+  }
+
+  .animate-shake {
+    animation: shake 0.5s ease-in-out;
+  }
+
+  @keyframes celebrate {
+    0% {
+      transform: scale(0.8) rotate(-5deg);
+      opacity: 0;
+    }
+
+    50% {
+      transform: scale(1.1) rotate(3deg);
+    }
+
+    100% {
+      transform: scale(1) rotate(0deg);
+      opacity: 1;
+    }
+  }
+
+  .animate-celebrate {
+    animation: celebrate 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   /* ---------------------------------------------------------------------------
@@ -663,7 +913,419 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* =============================================================================
+   GUEST UTILITY CLASSES
+   Standardized utility classes for guest-facing pages
+   ============================================================================= */
+
+@layer utilities {
+  /* Page Container - consistent max-width and padding */
+  /* Fluid Container System */
+  .container-narrow {
+    max-width: min(48rem, 100vw - 2rem);
+    margin-inline: auto;
+  }
+
+  .container-default {
+    max-width: min(70rem, 100vw - 2rem);
+    margin-inline: auto;
+  }
+
+  .container-wide {
+    max-width: min(90rem, 100vw - 2rem);
+    margin-inline: auto;
+  }
+
+  .container-full {
+    max-width: 100%;
+  }
+
+  /* Page Container - consistent max-width and padding */
+  .guest-boundary,
+  .guest-page {
+    /* Fluid default, replaces rigid 72rem */
+    max-width: min(70rem, 100vw - 2rem);
+    margin-inline: auto;
+    padding-inline: var(--guest-section-padding-x);
+    padding-inline-start: calc(var(--guest-section-padding-x) + env(safe-area-inset-left, 0px));
+    padding-inline-end: calc(var(--guest-section-padding-x) + env(safe-area-inset-right, 0px));
+  }
+
+  .guest-page {
+    padding-block: var(--guest-section-gap);
+  }
+
+  @media (min-width: 640px) {
+    .guest-boundary,
+    .guest-page {
+      padding-inline: var(--guest-space-xl);
+      padding-inline-start: calc(var(--guest-space-xl) + env(safe-area-inset-left, 0px));
+      padding-inline-end: calc(var(--guest-space-xl) + env(safe-area-inset-right, 0px));
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .guest-boundary,
+    .guest-page {
+      padding-inline: var(--guest-space-2xl);
+      padding-inline-start: calc(var(--guest-space-2xl) + env(safe-area-inset-left, 0px));
+      padding-inline-end: calc(var(--guest-space-2xl) + env(safe-area-inset-right, 0px));
+    }
+  }
+
+  /* Section Spacing */
+  .guest-sections {
+    display: flex;
+    flex-direction: column;
+    gap: var(--guest-section-gap);
+  }
+
+  .guest-content-grid {
+    display: grid;
+    gap: var(--guest-content-gap);
+  }
+
+  /* --------------------------------------------------------------------------
+     DEPRECATED: .guest-card-base, .guest-card-interactive
+     
+     These classes are no longer used. Use GuestCard component or Tailwind:
+     - Base: rounded-xl border bg-card shadow-sm transition-all
+     - Interactive: hover:shadow-md hover:-translate-y-0.5 cursor-pointer
+     
+     TODO: Remove after migration complete (target: v2.0)
+     -------------------------------------------------------------------------- */
+  .guest-card-base {
+    background: white;
+    border-radius: var(--guest-radius-xl);
+    border: 1px solid hsl(var(--border));
+    box-shadow: var(--guest-shadow-sm);
+    transition: var(--guest-transition-base);
+  }
+
+  .guest-card-interactive {
+    cursor: pointer;
+  }
+
+  .guest-card-interactive:hover {
+    box-shadow: var(--guest-shadow-md);
+    transform: translateY(var(--guest-hover-lift));
+    border-color: hsl(var(--border) / 0.8);
+  }
+
+  .guest-card-interactive:active {
+    transform: scale(var(--guest-active-scale));
+  }
+
+  /* Section Wrapper */
+  .guest-section {
+    background: white;
+    border-radius: var(--guest-radius-xl);
+    border: 1px solid hsl(214 32% 91%);
+    /* slate-100 */
+    padding: var(--guest-card-padding);
+    box-shadow: var(--guest-shadow-sm);
+  }
+
+  @media (min-width: 640px) {
+    .guest-section {
+      padding: var(--guest-space-xl);
+    }
+  }
+
+  /* --------------------------------------------------------------------------
+     DEPRECATED: .guest-btn-primary
+     
+     Use Tailwind utilities instead:
+     - Base: rounded-full font-semibold transition-all shadow-sm
+     - Hover: hover:shadow-md hover:-translate-y-0.5
+     - Active: active:scale-[0.98]
+     
+     Example replacement:
+     className="rounded-full font-semibold transition-all shadow-sm 
+                hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98]"
+     
+     Or use the primary Button variant with: variant="default" className="rounded-full"
+     
+     TODO: Remove after migration complete (target: v2.0)
+     -------------------------------------------------------------------------- */
+  .guest-btn-primary {
+    border-radius: var(--guest-radius-full);
+    font-weight: 600;
+    transition: var(--guest-transition-base);
+    box-shadow: var(--guest-shadow-sm);
+  }
+
+  .guest-btn-primary:hover {
+    box-shadow: var(--guest-shadow-md);
+    transform: translateY(-1px);
+  }
+
+  .guest-btn-primary:active {
+    transform: scale(var(--guest-active-scale));
+  }
+
+  /* Typography Classes */
+  .guest-heading-hero {
+    font-size: var(--guest-text-hero);
+    font-weight: 700;
+    line-height: var(--guest-leading-tight);
+    letter-spacing: -0.025em;
+  }
+
+  @media (min-width: 640px) {
+    .guest-heading-hero {
+      font-size: var(--guest-text-hero-lg);
+    }
+  }
+
+  .guest-heading-page {
+    font-size: var(--guest-text-page);
+    font-weight: 700;
+    line-height: var(--guest-leading-tight);
+    letter-spacing: -0.02em;
+  }
+
+  .guest-heading-section {
+    font-size: var(--guest-text-section);
+    font-weight: 600;
+    line-height: var(--guest-leading-snug);
+    letter-spacing: -0.015em;
+  }
+
+  .guest-heading-card {
+    font-size: var(--guest-text-card);
+    font-weight: 600;
+    line-height: var(--guest-leading-snug);
+  }
+
+  .guest-body {
+    font-size: var(--guest-text-body);
+    line-height: var(--guest-leading-normal);
+  }
+
+  .guest-caption {
+    font-size: var(--guest-text-caption);
+    line-height: var(--guest-leading-normal);
+  }
+
+  .guest-micro {
+    font-size: var(--guest-text-micro);
+    line-height: var(--guest-leading-normal);
+    font-weight: 500;
+  }
+
+  /* Focus States */
+  .guest-focus {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    transition: outline-color var(--guest-transition-fast);
+  }
+
+  .guest-focus:focus-visible {
+    outline-color: hsl(var(--ring));
+  }
+
+  /* Eyebrow/Overline Text */
+  .guest-eyebrow {
+    font-size: var(--guest-text-micro);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: hsl(217 91% 60%);
+    /* blue-500 */
+  }
+
+  /* Badge Styles */
+  .guest-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.75rem;
+    font-size: var(--guest-text-micro);
+    font-weight: 600;
+    border-radius: var(--guest-radius-full);
+    background: hsl(213 100% 96%);
+    /* blue-50 */
+    color: hsl(217 91% 40%);
+    /* blue-700 */
+  }
+
+  /* Icon Containers */
+  .guest-icon-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--guest-radius-md);
+    background: hsl(213 100% 96%);
+    /* blue-50 */
+    color: hsl(217 91% 40%);
+    /* blue-700 */
+  }
+
+  .guest-icon-box-lg {
+    width: 3rem;
+    height: 3rem;
+    border-radius: var(--guest-radius-lg);
+  }
+
+  /* Hover Card Animation */
+  .guest-hover-card {
+    transition:
+      transform var(--guest-transition-base),
+      box-shadow var(--guest-transition-base),
+      border-color var(--guest-transition-base);
+  }
+
+  .guest-hover-card:hover {
+    transform: translateY(var(--guest-hover-lift));
+    box-shadow: var(--guest-shadow-lg);
+  }
+
+  /* Stagger Animation Helper */
+  .guest-stagger > * {
+    animation: fade-up 0.3s ease-out backwards;
+  }
+
+  .guest-stagger > *:nth-child(1) {
+    animation-delay: 0ms;
+  }
+
+  .guest-stagger > *:nth-child(2) {
+    animation-delay: 50ms;
+  }
+
+  .guest-stagger > *:nth-child(3) {
+    animation-delay: 100ms;
+  }
+
+  .guest-stagger > *:nth-child(4) {
+    animation-delay: 150ms;
+  }
+
+  .guest-stagger > *:nth-child(5) {
+    animation-delay: 200ms;
+  }
+
+  .guest-stagger > *:nth-child(6) {
+    animation-delay: 250ms;
+  }
+
+  /* Status Colors */
+  .guest-status-info {
+    background: hsl(213 100% 96%);
+    color: hsl(217 91% 40%);
+  }
+
+  .guest-status-success {
+    background: hsl(143 85% 96%);
+    color: hsl(142 76% 30%);
+  }
+
+  .guest-status-warning {
+    background: hsl(48 100% 96%);
+    color: hsl(32 95% 35%);
+  }
+
+  .guest-status-error {
+    background: hsl(0 100% 97%);
+    color: hsl(0 72% 45%);
+  }
+
+  /* Input Enhancements */
+  .guest-input {
+    height: 3rem;
+    padding-inline: 1rem;
+    border-radius: var(--guest-radius-md);
+    border: 1px solid hsl(214 32% 91%);
+    background: white;
+    font-size: var(--guest-text-body);
+    transition:
+      border-color var(--guest-transition-fast),
+      box-shadow var(--guest-transition-fast);
+  }
+
+  .guest-input:hover {
+    border-color: hsl(214 32% 85%);
+  }
+
+  .guest-input:focus {
+    border-color: hsl(217 91% 60%);
+    box-shadow: 0 0 0 3px hsl(217 91% 60% / 0.1);
+    outline: none;
+  }
+
+  .guest-input-with-icon {
+    padding-left: 3rem;
+  }
+
+  /* Empty State */
+  .guest-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--guest-space-3xl) var(--guest-space-lg);
+    text-align: center;
+    border-radius: var(--guest-radius-xl);
+    border: 2px dashed hsl(214 32% 91%);
+    background: linear-gradient(180deg, hsl(210 40% 98%) 0%, white 100%);
+  }
+
+  /* Glass Effect for overlays */
+  .guest-glass {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* =============================================================================
+     PHASE 3 ENHANCEMENTS: Delight & Polish
+     ============================================================================= */
+
+  /* Animation Utilities */
+  .animate-pulse-glow {
+    animation: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* Premium Image Treatment */
+  .guest-img-premium {
+    transition:
+      filter 0.4s ease,
+      transform 0.4s ease;
+    filter: saturate(1) contrast(1);
+  }
+
+  .guest-img-premium:hover {
+    filter: saturate(1.05) contrast(1.02);
+    transform: scale(1.01);
+  }
+
+  /* Progressive Disclosure Utilities */
+  /* Hide on desktop until hover, show on mobile always */
+  .guest-reveal-on-hover {
+    opacity: 1;
+    transition:
+      opacity 0.3s ease,
+      transform 0.3s ease;
+  }
+
+  @media (hover: hover) {
+    .group .guest-reveal-on-hover {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+
+    .group:hover .guest-reveal-on-hover {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 }

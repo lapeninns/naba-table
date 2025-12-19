@@ -4,13 +4,23 @@ import { endOfDay } from 'date-fns';
 import { CalendarIcon, ChevronDownIcon, ClockIcon } from 'lucide-react';
 import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
 
-import { formatDateForInput, formatReservationDate } from '@reserve/shared/formatting/booking';
+import { formatDateForInput, formatReservationDateShort } from '@reserve/shared/formatting/booking';
 import { cn } from '@shared/lib/cn';
 import { Button } from '@shared/ui/button';
 import { Calendar } from '@shared/ui/calendar';
 import { Input } from '@shared/ui/input';
 import { Label } from '@shared/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@shared/ui/popover';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from '@shared/ui/select';
 
 import type { TimeSlotDescriptor } from '@reserve/features/reservations/wizard/services';
 
@@ -62,7 +72,7 @@ export function Calendar24Date({
   const dateErrorId = date.error ? `${finalId}-date-error` : undefined;
 
   const label = useMemo(
-    () => (date.value ? formatReservationDate(date.value) : 'Select date'),
+    () => (date.value ? formatReservationDateShort(date.value) : 'Select date'),
     [date.value],
   );
   const selectedDate = useMemo(() => (date.value ? new Date(date.value) : undefined), [date.value]);
@@ -215,7 +225,6 @@ export function Calendar24Time({
   const baseId = useId();
   const finalId = idPrefix ?? baseId;
   const timeInputId = `${finalId}-time`;
-  const timeListId = `${finalId}-time-options`;
   const timeDescriptionId = `${finalId}-time-description`;
   const timeErrorId = time.error ? `${finalId}-time-error` : undefined;
 
@@ -223,6 +232,20 @@ export function Calendar24Time({
     () => suggestions.filter((slot) => !slot.disabled),
     [suggestions],
   );
+
+  const groupedSuggestions = useMemo(() => {
+    const groups = new Map<string, typeof suggestions>();
+    enabledSuggestions.forEach((slot) => {
+      const existing = groups.get(slot.label);
+      if (existing) {
+        existing.push(slot);
+      } else {
+        groups.set(slot.label, [slot]);
+      }
+    });
+    return groups;
+  }, [enabledSuggestions]);
+
   useEffect(() => {
     setHasHydrated(true);
   }, []);
@@ -248,67 +271,124 @@ export function Calendar24Time({
       </Label>
       <div className="flex flex-col gap-2">
         <div className="relative">
-          <Input
-            id={timeInputId}
-            type="time"
-            value={inputValue}
-            step={timeStepSeconds}
-            onChange={(event) => {
-              if (isTimeDisabled) {
-                return;
-              }
-              const value = event.target.value;
-              time.onChange(value, { commit: false });
-            }}
-            onBlur={(event) => {
-              if (isTimeDisabled) {
-                time.onBlur?.();
-                return;
-              }
-              time.onBlur?.();
-              time.onChange(event.target.value, { commit: true });
-            }}
-            aria-invalid={Boolean(time.error)}
-            aria-describedby={
-              [timeDescriptionId, timeErrorId].filter(Boolean).join(' ') || undefined
-            }
-            list={showSuggestions ? timeListId : undefined}
-            placeholder="--:--"
-            className={cn(
-              'h-12 bg-background text-base font-normal appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none',
-              !inputValue ? 'text-foreground' : undefined,
-              time.error && 'border-destructive focus-visible:ring-destructive',
-            )}
-            disabled={isTimeDisabled || isTimeLoading}
-          />
+          {showSuggestions ? (
+            <Select
+              value={inputValue || undefined}
+              onValueChange={(val) => time.onChange(val, { commit: true })}
+              disabled={isTimeDisabled || isTimeLoading}
+            >
+              <SelectTrigger
+                id={timeInputId}
+                className={cn(
+                  'h-12 w-full text-base font-normal bg-background',
+                  !inputValue && 'text-muted-foreground',
+                  time.error && 'border-destructive focus:ring-destructive',
+                )}
+                aria-invalid={Boolean(time.error)}
+                aria-describedby={
+                  [timeDescriptionId, timeErrorId].filter(Boolean).join(' ') || undefined
+                }
+              >
+                <SelectValue placeholder="--:--" />
+              </SelectTrigger>
+              <SelectContent
+                className="max-h-[20rem] w-[var(--radix-select-trigger-width)] min-w-[var(--radix-select-trigger-width)]"
+                position="popper"
+              >
+                {[...groupedSuggestions.entries()].map(([label, slots], index) => {
+                  // Determine icon based on label keywords
+                  const lowerLabel = label.toLowerCase();
+                  let icon = '🕒'; // Default clock
+                  if (lowerLabel.includes('lunch')) icon = '☀️';
+                  else if (lowerLabel.includes('dinner')) icon = '🌙';
+                  else if (lowerLabel.includes('breakfast') || lowerLabel.includes('brunch'))
+                    icon = '🍳';
+                  else if (lowerLabel.includes('happy')) icon = '🍸';
+                  else if (lowerLabel.includes('morning')) icon = '🌅';
+                  else if (lowerLabel.includes('afternoon')) icon = '🌤️';
+                  else if (lowerLabel.includes('evening')) icon = '🌆';
+
+                  return (
+                    <React.Fragment key={label}>
+                      {index > 0 && <SelectSeparator />}
+                      <SelectGroup>
+                        <SelectLabel className="flex items-center gap-2 pl-8 text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">
+                          <span className="text-base leading-none">{icon}</span>
+                          {label}
+                        </SelectLabel>
+                        {slots.map((slot) => (
+                          <SelectItem
+                            key={slot.value}
+                            value={slot.value}
+                            className="pl-8 data-[state=checked]:bg-primary/10 data-[state=checked]:text-primary"
+                          >
+                            <span className="font-medium font-mono tracking-tight">
+                              {slot.display}
+                            </span>
+                            {/* Optional: Add slight dimming to unselected items for better hierarchy? No, keep clean. */}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </React.Fragment>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          ) : (
+            <>
+              <Input
+                id={timeInputId}
+                type="time"
+                value={isTimeDisabled && unavailableMessage ? '' : inputValue}
+                step={timeStepSeconds}
+                onChange={(event) => {
+                  if (isTimeDisabled) {
+                    return;
+                  }
+                  const value = event.target.value;
+                  time.onChange(value, { commit: false });
+                }}
+                onBlur={(event) => {
+                  if (isTimeDisabled) {
+                    time.onBlur?.();
+                    return;
+                  }
+                  time.onBlur?.();
+                  time.onChange(event.target.value, { commit: true });
+                }}
+                aria-invalid={Boolean(time.error)}
+                aria-describedby={
+                  [timeDescriptionId, timeErrorId].filter(Boolean).join(' ') || undefined
+                }
+                placeholder="--:--"
+                className={cn(
+                  'h-12 bg-background text-base font-normal appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none',
+                  !inputValue ? 'text-foreground' : undefined,
+                  time.error && 'border-destructive focus-visible:ring-destructive',
+                )}
+                disabled={isTimeDisabled || isTimeLoading}
+              />
+              {!inputValue && !isTimeLoading && !isTimeDisabled && (
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    'pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-base text-muted-foreground transition-opacity',
+                  )}
+                >
+                  --:--
+                </span>
+              )}
+            </>
+          )}
+
           {isTimeLoading && !inputValue ? (
             <div className="absolute inset-0 flex items-center px-3 pointer-events-none">
               <div className="h-5 w-20 animate-pulse rounded bg-muted/60" />
             </div>
           ) : null}
-          {!inputValue && !isTimeLoading ? (
-            <span
-              aria-hidden="true"
-              className={cn(
-                'pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-base text-muted-foreground transition-opacity',
-                isTimeDisabled ? 'opacity-70' : 'opacity-100',
-              )}
-            >
-              --:--
-            </span>
-          ) : null}
         </div>
-        {showSuggestions ? (
-          <datalist id={timeListId}>
-            {enabledSuggestions.map((slot) => (
-              <option
-                key={slot.value}
-                value={slot.value}
-                label={`${slot.display} • ${slot.label}`}
-              />
-            ))}
-          </datalist>
-        ) : (
+
+        {!showSuggestions && (
           <p className="px-1 text-xs text-muted-foreground sm:text-[0.8rem]" aria-live="polite">
             {resolvedUnavailableMessage}
           </p>

@@ -24,6 +24,12 @@ export type BookingDTO = {
   restaurantName: string;
   restaurantSlug?: string | null;
   restaurantTimezone?: string | null;
+  /** Nested restaurant data from individual booking GET */
+  restaurants?: {
+    name?: string | null;
+    slug?: string | null;
+    timezone?: string | null;
+  } | null;
   partySize: number;
   startIso: string;
   endIso: string;
@@ -33,6 +39,8 @@ export type BookingDTO = {
   customerEmail?: string | null;
   customerPhone?: string | null;
   reservationIntervalMinutes?: number | null;
+  /** Service type: 'drinks', 'lunch', 'dinner' etc - used to filter available slots */
+  booking_type?: string | null;
   // Ops-enriched fields (optional for guest flows)
   reference?: string | null;
   source?: string | null;

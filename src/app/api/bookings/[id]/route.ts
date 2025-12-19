@@ -24,7 +24,7 @@ import {
   softCancelBooking,
   updateBookingRecord,
 } from "@/server/bookings";
-import { TokenValidationError, validateConfirmationToken } from "@/server/bookings/confirmation-token";
+import { TokenValidationError, validateConfirmationToken, toPublicConfirmation } from "@/server/bookings/confirmation-token";
 import { beginBookingModificationFlow } from "@/server/bookings/modification-flow";
 import { PastBookingError, assertBookingNotInPast } from "@/server/bookings/pastTimeValidation";
 import {
@@ -55,7 +55,7 @@ import { formatDateForInput } from "@reserve/shared/formatting/booking";
 import type { BookingType } from "@/lib/enums";
 import type { BookingRecord } from "@/server/bookings";
 import type { Json, Tables } from "@/types/supabase";
-import type { NextRequest} from "next/server";
+import type { NextRequest } from "next/server";
 
 const bookingTypeEnum = z.enum(BOOKING_TYPES);
 
@@ -273,9 +273,9 @@ async function handleDashboardUpdate(params: {
     let schedule = startVenue.date === initialSchedule.date
       ? initialSchedule
       : await getRestaurantSchedule(restaurantId, {
-          date: startVenue.date,
-          client: serviceSupabase,
-        });
+        date: startVenue.date,
+        client: serviceSupabase,
+      });
     const scheduleTimezone = schedule.timezone ?? initialScheduleTimezone;
 
     const explicitEndVenue = convertOptionalIsoToVenueDateTime(data.endIso, scheduleTimezone);
@@ -386,7 +386,7 @@ async function handleDashboardUpdate(params: {
     }
 
     if (endDateTime.toMillis() <= normalizedStartDateTime.toMillis()) {
-    return NextResponse.json({ error: "End time must be after start time", code: "INVALID_TIME_RANGE" }, { status: 400 });
+      return NextResponse.json({ error: "End time must be after start time", code: "INVALID_TIME_RANGE" }, { status: 400 });
     }
 
     const endTime = endDateTime.set({ second: 0, millisecond: 0 }).toFormat("HH:mm");
@@ -653,71 +653,131 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
   // Public token-based access (read-only) for guest flows
   if (token) {
+    const serviceSupabase = getServiceSupabaseClient();
+    let booking: Tables<"bookings"> | null = null;
+
+    // Try confirmation_token first
     try {
-      const booking = await validateConfirmationToken(token, { allowUsed: true });
+      booking = await validateConfirmationToken(token, { allowUsed: true });
       if (booking.id !== bookingId) {
         return NextResponse.json({ error: "Token does not match booking", code: "TOKEN_MISMATCH" }, { status: 403 });
       }
-
-      const serviceSupabase = getServiceSupabaseClient();
-
-      if (!booking.restaurant_id) {
-        console.error("[bookings][GET:id][token] Booking has no restaurant_id", { bookingId: booking.id });
-        return NextResponse.json({
-          error: "This booking is missing restaurant information. Please contact support.",
-          code: "MISSING_RESTAURANT_DATA"
-        }, { status: 500 });
-      }
-
-      const { data: restaurant, error: restaurantError } = await serviceSupabase
-        .from("restaurants")
-        .select("name, slug, timezone")
-        .eq("id", booking.restaurant_id)
-        .maybeSingle();
-
-      if (restaurantError) {
-        console.error("[bookings][GET:id][token] Error fetching restaurant", {
-          restaurantId: booking.restaurant_id,
-          error: restaurantError
-        });
-      }
-
-      if (!restaurant) {
-        console.error("[bookings][GET:id][token] Restaurant not found", {
-          restaurantId: booking.restaurant_id,
-          bookingId: booking.id
-        });
-        return NextResponse.json({
-          error: "Restaurant information not found. Please contact support.",
-          code: "RESTAURANT_NOT_FOUND"
-        }, { status: 500 });
-      }
-
-      if (!restaurant.slug) {
-        console.error("[bookings][GET:id][token] Restaurant has no slug", {
-          restaurantId: booking.restaurant_id,
-          restaurantName: restaurant.name
-        });
-      }
-
-      return NextResponse.json({
-        booking: {
-          ...booking,
-          restaurants: {
-            name: restaurant.name ?? null,
-            slug: restaurant.slug ?? null,
-            timezone: restaurant.timezone ?? null,
-          },
-        },
-      });
     } catch (error: unknown) {
-      if (error instanceof TokenValidationError) {
-        const status = error.code === "TOKEN_NOT_FOUND" ? 404 : error.code === "TOKEN_EXPIRED" ? 410 : 401;
+      // If confirmation_token validation fails, try reference-based lookup
+      if (error instanceof TokenValidationError && error.code === "TOKEN_NOT_FOUND") {
+        // Try to find booking by ID and reference match
+        const { data: refBooking, error: refError } = await serviceSupabase
+          .from("bookings")
+          .select("*, restaurants(name, slug, timezone)")
+          .eq("id", bookingId)
+          .eq("reference", token)
+          .maybeSingle();
+
+        if (refError) {
+          console.error("[bookings][GET:id][reference] Database error", refError);
+          return NextResponse.json({ error: "Unable to load booking", code: "UNKNOWN" }, { status: 500 });
+        }
+
+        if (refBooking) {
+          // Transform joined restaurant data to match expected structure or use downstream logic
+          // Note: The rest of the code expects `booking` to be Tables<"bookings">
+          // and then does a separate fetch for restaurant.
+          // To optimize, we should utilize this data.
+          // However, Typescript types for refBooking will include the joined `restaurants` property.
+          // We can cast it or handle it.
+          // The easiest way is to re-assign it to `booking` and let the separate fetch run IF it's missing,
+          // OR early return here if we have everything.
+          // Let's early return the constructed response here for maximum efficiency.
+
+          const restaurantData = Array.isArray(refBooking.restaurants)
+            ? refBooking.restaurants[0]
+            : refBooking.restaurants;
+
+          if (!restaurantData) {
+            // Fallback to existing logic if join failed for some reason
+            // SECURITY: Sanitize PII for token-based access even in fallback
+            return NextResponse.json({
+              booking: toPublicConfirmation(
+                refBooking,
+                "Unknown Restaurant",
+                null
+              )
+            });
+          } else {
+            // SECURITY: Use toPublicConfirmation to strip PII
+            return NextResponse.json({
+              booking: toPublicConfirmation(
+                refBooking,
+                restaurantData.name,
+                restaurantData.slug
+              ),
+            });
+          }
+        } else {
+          return NextResponse.json({ error: "Booking not found", code: "BOOKING_NOT_FOUND" }, { status: 404 });
+        }
+      } else if (error instanceof TokenValidationError) {
+        const status = error.code === "TOKEN_EXPIRED" ? 410 : 401;
         return NextResponse.json({ error: error.message, code: error.code }, { status });
+      } else {
+        console.error("[bookings][GET:id][token]", stringifyError(error));
+        return NextResponse.json({ error: "Unable to load booking", code: "UNKNOWN" }, { status: 500 });
       }
-      console.error("[bookings][GET:id][token]", stringifyError(error));
-      return NextResponse.json({ error: "Unable to load booking", code: "UNKNOWN" }, { status: 500 });
     }
+
+    if (!booking) {
+      return NextResponse.json({ error: "Booking not found", code: "BOOKING_NOT_FOUND" }, { status: 404 });
+    }
+
+    if (!booking.restaurant_id) {
+      console.error("[bookings][GET:id][token] Booking has no restaurant_id", { bookingId: booking.id });
+      return NextResponse.json({
+        error: "This booking is missing restaurant information. Please contact support.",
+        code: "MISSING_RESTAURANT_DATA"
+      }, { status: 500 });
+    }
+
+    const { data: restaurant, error: restaurantError } = await serviceSupabase
+      .from("restaurants")
+      .select("name, slug, timezone")
+      .eq("id", booking.restaurant_id)
+      .maybeSingle();
+
+    if (restaurantError) {
+      console.error("[bookings][GET:id][token] Error fetching restaurant", {
+        restaurantId: booking.restaurant_id,
+        error: restaurantError
+      });
+    }
+
+    if (!restaurant) {
+      console.error("[bookings][GET:id][token] Restaurant not found", {
+        restaurantId: booking.restaurant_id,
+        bookingId: booking.id
+      });
+      return NextResponse.json({
+        error: "Restaurant information not found. Please contact support.",
+        code: "RESTAURANT_NOT_FOUND"
+      }, { status: 500 });
+    }
+
+    if (!restaurant.slug) {
+      console.error("[bookings][GET:id][token] Restaurant has no slug", {
+        restaurantId: booking.restaurant_id,
+        restaurantName: restaurant.name
+      });
+    }
+
+    return NextResponse.json({
+      booking: {
+        ...booking,
+        restaurants: {
+          name: restaurant.name ?? null,
+          slug: restaurant.slug ?? null,
+          timezone: restaurant.timezone ?? null,
+        },
+      },
+    });
   }
 
   // Require authentication to view booking details (default path)
@@ -749,7 +809,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     }
 
     if (!data) {
-    return NextResponse.json({ error: "Booking not found", code: "BOOKING_NOT_FOUND" }, { status: 404 });
+      return NextResponse.json({ error: "Booking not found", code: "BOOKING_NOT_FOUND" }, { status: 404 });
     }
 
     const seededVia =
@@ -851,7 +911,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
   // Try dashboard format first (minimal update from EditBookingDialog)
   const dashboardParsed = dashboardUpdateSchema.safeParse(body);
-  
+
   if (dashboardParsed.success) {
     try {
       return await processDashboardUpdate(bookingId, dashboardParsed.data);
@@ -980,26 +1040,11 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
     const updated: Tables<"bookings"> = requiresTableRealignment
       ? await beginBookingModificationFlow({
-          client: serviceSupabase,
-          bookingId,
-          existingBooking,
-          source: "guest",
-          payload: {
-            restaurant_id: restaurantId,
-            booking_date: data.date,
-            start_time: startTime,
-            end_time: endTime,
-            party_size: data.party,
-            booking_type: normalizedBookingType,
-            seating_preference: data.seating,
-            customer_name: data.name,
-            customer_email: normalizedEmail,
-            customer_phone: normalizedPhone,
-            notes: data.notes ?? null,
-            marketing_opt_in: data.marketingOptIn ?? existingBooking.marketing_opt_in,
-          },
-        })
-      : await updateBookingRecord(serviceSupabase, bookingId, {
+        client: serviceSupabase,
+        bookingId,
+        existingBooking,
+        source: "guest",
+        payload: {
           restaurant_id: restaurantId,
           booking_date: data.date,
           start_time: startTime,
@@ -1012,7 +1057,22 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
           customer_phone: normalizedPhone,
           notes: data.notes ?? null,
           marketing_opt_in: data.marketingOptIn ?? existingBooking.marketing_opt_in,
-        });
+        },
+      })
+      : await updateBookingRecord(serviceSupabase, bookingId, {
+        restaurant_id: restaurantId,
+        booking_date: data.date,
+        start_time: startTime,
+        end_time: endTime,
+        party_size: data.party,
+        booking_type: normalizedBookingType,
+        seating_preference: data.seating,
+        customer_name: data.name,
+        customer_email: normalizedEmail,
+        customer_phone: normalizedPhone,
+        notes: data.notes ?? null,
+        marketing_opt_in: data.marketingOptIn ?? existingBooking.marketing_opt_in,
+      });
 
     const auditMetadata = {
       restaurant_id: restaurantId,

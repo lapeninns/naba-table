@@ -5,6 +5,10 @@ import { useEffect, useRef } from 'react';
 
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
 
+// Module-level guard to prevent duplicate hash processing across multiple handler instances/layouts
+let handledHashSignature: string | null = null;
+let redirectInFlight = false;
+
 /**
  * Client-side handler for Supabase implicit OAuth flow.
  * 
@@ -27,17 +31,36 @@ export function ImplicitAuthHandler({
     if (typeof window === 'undefined') return;
 
     const hash = window.location.hash;
-    
+
     // Check if URL hash contains access_token (implicit flow)
     if (!hash || !hash.includes('access_token')) {
       return;
     }
 
-    // Prevent double processing using ref (synchronous check)
+    const signature = hash; // include full fragment to avoid double-processing same payload
+    if (handledHashSignature === signature || redirectInFlight) {
+      return;
+    }
+
+    // Prevent double processing using both ref and module-level guard
     if (processingRef.current) return;
     processingRef.current = true;
+    handledHashSignature = signature;
 
-    console.log('[ImplicitAuthHandler] Detected access_token in URL hash');
+    const log = (...args: unknown[]) => {
+      if (process.env.NODE_ENV === 'development') {
+        // eslint-disable-next-line no-console
+        console.log('[ImplicitAuthHandler]', ...args);
+      }
+    };
+
+    log('Detected access_token in URL hash');
+
+    const resetRedirectGuards = () => {
+      redirectInFlight = false;
+      // Allow future implicit logins (even with the same link) after navigation settles
+      handledHashSignature = null;
+    };
 
     const handleImplicitAuth = async () => {
       try {
@@ -49,14 +72,14 @@ export function ImplicitAuthHandler({
         const refreshToken = params.get('refresh_token');
 
         if (!accessToken || !refreshToken) {
-          console.error('[ImplicitAuthHandler] Missing tokens in hash', {
+          log('Missing tokens in hash', {
             hasAccessToken: !!accessToken,
             hasRefreshToken: !!refreshToken,
           });
           return;
         }
 
-        console.log('[ImplicitAuthHandler] Setting session with tokens...');
+        log('Setting session with tokens...');
 
         // Set the session manually
         const { data, error } = await supabase.auth.setSession({
@@ -65,11 +88,12 @@ export function ImplicitAuthHandler({
         });
 
         if (error) {
-          console.error('[ImplicitAuthHandler] Failed to set session:', error);
+          log('Failed to set session:', error);
+          handledHashSignature = null;
           return;
         }
 
-        console.log('[ImplicitAuthHandler] Session set successfully:', {
+        log('Session set successfully:', {
           userId: data.user?.id,
           email: data.user?.email,
         });
@@ -82,24 +106,37 @@ export function ImplicitAuthHandler({
         const redirectedFrom = searchParams.get('redirectedFrom');
         const destination = redirectedFrom || defaultRedirect;
 
-        console.log('[ImplicitAuthHandler] Redirecting to:', destination);
+        log('Redirecting to:', destination);
 
         // Small delay to ensure cookies are flushed before navigation
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 50));
 
-        // Use router.replace to avoid adding to history
+        redirectInFlight = true;
         router.replace(destination);
-        router.refresh();
+
+        // Clear redirect guard after navigation kick-off so subsequent implicit logins work without reload
+        setTimeout(resetRedirectGuards, 200);
       } catch (err) {
-        console.error('[ImplicitAuthHandler] Unexpected error:', err);
+        log('Unexpected error:', err);
+        handledHashSignature = null;
+        redirectInFlight = false;
       } finally {
-        // Reset processing flag if something went wrong
-        // (successful flow redirects away so this won't run)
+        // Reset processing flag if something went wrong (successful flow navigates away)
         processingRef.current = false;
+        // Safety: if navigation did not unmount this handler, allow future attempts
+        if (redirectInFlight) {
+          resetRedirectGuards();
+        }
       }
     };
 
     void handleImplicitAuth();
+
+    return () => {
+      // Ensure guards don't persist across unmounts
+      resetRedirectGuards();
+      processingRef.current = false;
+    };
   }, [router, defaultRedirect]);
 
   // This component doesn't render anything

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useGuestPreferences } from '@/hooks/useGuestPreferences';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { emit } from '@/lib/analytics/emit';
 import { BOOKING_IN_PAST_CUSTOMER_MESSAGE } from '@/lib/bookings/messages';
@@ -46,6 +47,32 @@ const hasMeaningfulDraft = (details: BookingDetails): boolean => {
     Boolean(details.email.trim().length) ||
     Boolean(details.phone.trim().length)
   );
+};
+
+export const buildSafeReturnPath = (params: {
+  returnPath?: string;
+  bookingId?: string | null;
+  bookingReference?: string | null;
+  restaurantSlug?: string | null;
+}): string => {
+  const { returnPath, bookingId, bookingReference, restaurantSlug } = params;
+  if (returnPath) return returnPath;
+
+  if (bookingId) {
+    if (bookingReference) {
+      const url = new URL(`/bookings/${bookingId}/thank-you`, 'https://placeholder.local');
+      url.searchParams.set('token', bookingReference);
+      return `${url.pathname}${url.search}`;
+    }
+    // Without a token, avoid the auth-gated receipt redirect
+    return '/guest/thank-you';
+  }
+
+  if (restaurantSlug) {
+    return `/restaurants/${restaurantSlug}`;
+  }
+
+  return '/';
 };
 
 const OFFLINE_ALERT_MESSAGE = 'You’re offline—reconnect to confirm. Your edits are saved locally.';
@@ -93,19 +120,72 @@ export function useReservationWizard(
   const [stickyHeight, setStickyHeight] = useState(0);
   const { analytics, haptics, navigator, errorReporter } = useWizardDependencies();
   const isOnline = useOnlineStatus();
+  const { preferences, savePreferences } = useGuestPreferences();
   const returnPath = options?.returnPath;
-  const safeReturnPath =
-    returnPath ||
-    (initialDetails?.restaurantSlug ? `/reserve/r/${initialDetails.restaurantSlug}` : null) ||
-    (initialDetails?.bookingId ? `/reserve/${initialDetails.bookingId}` : null) ||
-    '/guest/thank-you';
+  // Build safe return path - user is closing the confirmation (thank you) step
+  // The wizard step 4 IS the thank you experience, so we redirect to:
+  // - Explicit returnPath if provided
+  // - Thank-you with token when booking confirmed
+  // - Restaurant page if we know the slug
+  // - Home page as final fallback
+  const safeReturnPath = useMemo(
+    () =>
+      buildSafeReturnPath({
+        returnPath,
+        bookingId: state.lastConfirmed?.id ?? state.details.bookingId ?? initialDetails?.bookingId,
+        bookingReference: state.lastConfirmed?.reference ?? null,
+        restaurantSlug: state.details.restaurantSlug || initialDetails?.restaurantSlug || null,
+      }),
+    [
+      initialDetails?.bookingId,
+      initialDetails?.restaurantSlug,
+      returnPath,
+      state.details.bookingId,
+      state.details.restaurantSlug,
+      state.lastConfirmed?.id,
+      state.lastConfirmed?.reference,
+    ],
+  );
 
   useRememberedContacts({ details: state.details, actions, enabled: mode === 'customer' });
+
+  // Seed party/time from stored preferences on first load if unset
+  useEffect(() => {
+    if (!preferences) return;
+    if (draftHydratedRef.current) return;
+
+    const updates: Partial<BookingDetails> = {};
+    if (
+      state.details.party === 1 &&
+      preferences.preferredPartySize &&
+      preferences.preferredPartySize > 0
+    ) {
+      updates.party = preferences.preferredPartySize;
+    }
+    if (!state.details.time && preferences.preferredTime) {
+      updates.time = preferences.preferredTime;
+    }
+    if (Object.keys(updates).length > 0) {
+      actions.hydrateDetails(updates);
+    }
+  }, [actions, preferences, state.details.party, state.details.time]);
 
   const wizardRestaurantSlug = useMemo(() => {
     const provided = initialDetails?.restaurantSlug?.trim();
     return provided && provided.length > 0 ? provided : null;
   }, [initialDetails?.restaurantSlug]);
+
+  // Persist preferences when party/time change
+  useEffect(() => {
+    const party = state.details.party;
+    const time = state.details.time;
+    if (party > 0 || (time && time.length > 0)) {
+      void savePreferences({
+        preferredPartySize: party > 0 ? party : undefined,
+        preferredTime: time && time.length > 0 ? time : undefined,
+      });
+    }
+  }, [savePreferences, state.details.party, state.details.time]);
 
   const venueHydratedRef = useRef(false);
 

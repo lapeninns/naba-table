@@ -9,9 +9,7 @@ import { Tooltip } from "react-tooltip";
 import { Toaster as UiToaster } from "@/components/ui/toaster";
 import config from "@/config";
 import { ImplicitAuthHandler } from "@/components/auth/ImplicitAuthHandler";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
-
-import type { User } from "@supabase/supabase-js";
+import { useSupabaseSession } from "@/hooks/useSupabaseSession";
 import type { ReactNode } from "react";
 
 type CrispApi = typeof import("crisp-sdk-web").Crisp | null;
@@ -20,24 +18,8 @@ type CrispApi = typeof import("crisp-sdk-web").Crisp | null;
 // This component is separated from ClientLayout because it needs to be wrapped with <SessionProvider> to use useSession() hook
 const CrispChat = (): null => {
   const pathname = usePathname();
-
-  const supabase = getSupabaseBrowserClient();
-  const [data, setData] = useState<User | null>(null);
+  const { user } = useSupabaseSession();
   const [crisp, setCrisp] = useState<CrispApi>(null);
-
-  // This is used to get the user data from Supabase Auth (if logged in) => user ID is used to identify users in Crisp
-  useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user) {
-        setData(user);
-      }
-    };
-    getUser();
-  }, [supabase]);
 
   useEffect(() => {
     let isMounted = true;
@@ -73,10 +55,10 @@ const CrispChat = (): null => {
 
   // Add User Unique ID to Crisp to easily identify users when reaching support (optional)
   useEffect(() => {
-    if (data && config?.crisp?.id && crisp) {
-      crisp.session.setData({ userId: data.id });
+    if (user?.id && config?.crisp?.id && crisp) {
+      crisp.session.setData({ userId: user.id });
     }
-  }, [data, crisp]);
+  }, [crisp, user?.id]);
 
   return null;
 };
