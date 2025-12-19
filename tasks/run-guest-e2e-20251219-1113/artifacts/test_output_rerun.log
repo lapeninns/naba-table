@@ -1,0 +1,39 @@
+ WARN  Unsupported engine: wanted: {"node":"20.11.1"} (current: {"node":"v22.12.0","pnpm":"10.12.1"})
+
+> nabatable-platform@0.1.0 test:e2e:guest /Users/amankumarshrestha/LapenInns Project/SajiloReserveX
+> playwright test tests/e2e/guest --project=chromium
+
+🎭 Playwright Global Setup Starting...
+📍 Base URL: http://localhost:3000
+🔧 Environment: Local
+Error: browserType.launch: Executable doesn't exist at /Users/amankumarshrestha/Library/Caches/ms-playwright/chromium_headless_shell-1200/chrome-headless-shell-mac-x64/chrome-headless-shell
+╔═════════════════════════════════════════════════════════════════════════╗
+║ Looks like Playwright Test or Playwright was just installed or updated. ║
+║ Please run the following command to download new browsers:              ║
+║                                                                         ║
+║     pnpm exec playwright install                                        ║
+║                                                                         ║
+║ <3 Playwright Team                                                      ║
+╚═════════════════════════════════════════════════════════════════════════╝
+
+   at ../global-setup.ts:44
+
+  42 |
+  43 |     // Health check - verify the app is running
+> 44 |     const browser = await chromium.launch();
+     |                                    ^
+  45 |     const context = await browser.newContext();
+  46 |     const page = await context.newPage();
+  47 |
+    at globalSetup (/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tests/global-setup.ts:44:36)
+
+🎭 Playwright Global Teardown Starting...
+📊 Test reports available at: /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/playwright-report
+🎭 Global Teardown Complete
+
+
+To open last HTML report run:
+[36m[39m
+[36m  pnpm exec playwright show-report[39m
+[36m[39m
+ ELIFECYCLE  Command failed with exit code 1.
