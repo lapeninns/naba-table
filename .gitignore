@@ -44,6 +44,11 @@ pnpm-debug.log*
 
 # stress/load artifacts
 stress-test-*.log
+test_output*.log
+test_single_output.log
+
+# temporary directories
+tmp/
 
 # local env files
 .env
