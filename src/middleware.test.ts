@@ -10,7 +10,7 @@ vi.mock("@/server/supabase", async (importOriginal) => {
 // Import after mocks
 import * as supabaseModule from "@/server/supabase";
 
-import { handleRouting } from "./middleware";
+import { handleRouting } from "./proxy";
 
 const getMiddlewareSupabaseClient = supabaseModule.getMiddlewareSupabaseClient as unknown as vi.Mock;
 
@@ -62,30 +62,30 @@ describe("middleware host routing", () => {
     expect(res.headers.get("location")).toBe("https://app.example.com/app/management");
   });
 
-  it("normalizes app host /app/app* to single /app prefix", async () => {
+  it("strips /app prefix on app host to keep clean URLs", async () => {
     stubAuth();
     const req = buildRequest("/app/app/dashboard", "app.example.com");
     const res = await handleRouting(req);
     expect(res.status).toBe(308);
-    expect(res.headers.get("location")).toBe("https://app.example.com/app/dashboard");
+    expect(res.headers.get("location")).toBe("https://app.example.com/dashboard");
   });
 
-  it("redirects non-app path on app host back to root host", async () => {
+  it("redirects guest path on app host back to root host", async () => {
     stubAuth();
-    const req = buildRequest("/auth/signin", "app.example.com");
+    const req = buildRequest("/guest/dashboard", "app.example.com");
     const res = await handleRouting(req);
     expect(res.status).toBe(308);
-    expect(res.headers.get("location")).toBe("https://example.com/auth/signin");
+    expect(res.headers.get("location")).toBe("https://example.com/guest/dashboard");
   });
 
   it("treats app.localhost.com as an app host when ROOT_DOMAIN is localhost", async () => {
     const previousRoot = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
     process.env.NEXT_PUBLIC_ROOT_DOMAIN = "localhost";
     stubAuth();
-    const req = buildRequest("/auth/signin", "app.localhost.com");
+    const req = buildRequest("/guest/dashboard", "app.localhost.com");
     const res = await handleRouting(req);
     expect(res.status).toBe(308);
-    expect(res.headers.get("location")).toBe("https://localhost/auth/signin");
+    expect(res.headers.get("location")).toBe("https://localhost/guest/dashboard");
     process.env.NEXT_PUBLIC_ROOT_DOMAIN = previousRoot;
   });
 

@@ -12,7 +12,7 @@ All critical production issues have been resolved! Here's what was implemented:
 
 **Files Modified**:
 
-- `src/middleware.ts` - Routing logic with subdomain rewrites
+- `src/proxy.ts` - Routing logic with subdomain rewrites
 - `docs/restaurant-facing-routes.md` - Complete routing documentation
 
 ### 2. Cross-Subdomain Authentication ✅
@@ -25,7 +25,7 @@ All critical production issues have been resolved! Here's what was implemented:
 
 - `server/supabase.ts:34` - Added ROOT_DOMAIN constant
 - `server/supabase.ts:50-66` - Updated cookie configuration with domain
-- `src/middleware.ts:143-167` - Updated CSRF cookie with domain
+- `src/proxy.ts:143-167` - Updated CSRF cookie with domain
 
 ### 3. Environment Configuration ✅
 
@@ -135,7 +135,7 @@ NEXT_PUBLIC_ROOT_DOMAIN=nabatable.com
 
 ## 🔍 What Changed in the Codebase
 
-### Routing Changes (src/middleware.ts)
+### Routing Changes (src/proxy.ts)
 
 **Before**:
 

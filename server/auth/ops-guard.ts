@@ -18,8 +18,11 @@ function guardError(status: number, code: string, message: string): GuardFailure
   return NextResponse.json({ error: message, code }, { status });
 }
 
-export async function requireOpsAuth(req: NextRequest): Promise<GuardResult | GuardFailure> {
-  const next = NextResponse.next();
+export async function requireOpsAuth(
+  req: NextRequest,
+  res?: NextResponse,
+): Promise<GuardResult | GuardFailure> {
+  const next = res ?? NextResponse.next();
   const supabase = getMiddlewareSupabaseClient(req, next);
 
   const { data, error } = await supabase.auth.getUser();

@@ -197,4 +197,4 @@ All routes under `/app/(app)/*` now automatically require authentication via lay
 
 - The `/app/auth/signin` page has auth checks and redirects in place.
 - Guest pages (`/guest/*`) already had proper individual auth checks and were left as-is
-- The middleware handles subdomain routing and is unaffected by these changes
+- The proxy handles subdomain routing and is unaffected by these changes

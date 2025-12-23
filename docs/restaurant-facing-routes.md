@@ -28,6 +28,8 @@
 | `nabatable.com/app/settings` | `app.nabatable.com/settings` | 308 redirect |
 | `nabatable.com/app`          | `app.nabatable.com/`         | 308 redirect |
 
+Note: In preview/single-host mode (`VERCEL_ENV=preview` or host in `NEXT_PUBLIC_LOCAL_APP_HOSTS`), `/app/*` stays on the same host.
+
 | On App Subdomain                | Internal Rewrite            | Description                     |
 | ------------------------------- | --------------------------- | ------------------------------- |
 | `app.nabatable.com/walk-in`     | `/app/walk-in`              | Rewrite for Next.js routing     |
@@ -124,7 +126,7 @@ flowchart LR
 
 ## Implementation Notes
 
-**Middleware Logic (src/middleware.ts):**
+**Proxy Logic (src/proxy.ts):**
 
 1. On `nabatable.com`: `/app/*` → 308 redirect → `app.nabatable.com/*`
 2. On `app.nabatable.com`: `/*` → internal rewrite → `/app/*` (for Next.js routing)

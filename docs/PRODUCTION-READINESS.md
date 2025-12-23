@@ -59,7 +59,7 @@ Could not verify that test endpoints are properly guarded in production.
 ### Security
 
 - ✅ Authentication properly configured (Supabase)
-- ✅ CSRF protection implemented (middleware)
+- ✅ CSRF protection implemented (proxy)
 - ✅ Rate limiting implemented (Redis/Upstash with memory fallback)
 - ✅ Route protection (layout-level auth for restaurant routes)
 - ✅ Environment-based safety checks (DB_TARGET_ENV, ALLOW_PROD_DB_WIPE)
