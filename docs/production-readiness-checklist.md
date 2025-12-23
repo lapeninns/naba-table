@@ -47,12 +47,12 @@
 
 **What was done**:
 
-- Updated `src/middleware.ts` to set cookie domain for CSRF tokens
+- Updated `src/proxy.ts` to set cookie domain for CSRF tokens
 - Modified cookie configuration to include domain for cross-subdomain sharing
 
 **Files Updated**:
 
-- `src/middleware.ts` (lines 143-167)
+- `src/proxy.ts` (lines 143-167)
 
 **How it works**:
 
@@ -147,7 +147,7 @@ After deploying or setting up local subdomain testing:
 
 - [x] ✅ Add `NEXT_PUBLIC_ROOT_DOMAIN` to `.env.example`
 - [x] ✅ Update cookie domain configuration in `server/supabase.ts`
-- [x] ✅ Update CSRF cookie domain in `src/middleware.ts`
+- [x] ✅ Update CSRF cookie domain in `src/proxy.ts`
 - [ ] **REQUIRED**: Add `NEXT_PUBLIC_ROOT_DOMAIN=nabatable.com` to Vercel production env vars
 - [ ] Test locally with subdomain setup (optional but recommended)
 - [ ] Deploy to Vercel
@@ -258,13 +258,13 @@ If you have API calls between subdomains:
 
 1. Add `NEXT_PUBLIC_ROOT_DOMAIN` environment variable
 2. Update cookie domain configuration in `server/supabase.ts`
-3. Update CSRF cookie domain in `src/middleware.ts`
+3. Update CSRF cookie domain in `src/proxy.ts`
 4. Test with subdomain setup (local or staging)
 
 **Nice to Have**:
 
 - Set up monitoring for 404s on app subdomain
-- Add logging for middleware redirects
+- Add logging for proxy redirects
 - Document subdomain architecture for team
 
 **Estimated Time**: 1-2 hours (including testing)

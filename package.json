@@ -217,8 +217,8 @@
     "vitest": "^4.0.15"
   },
   "engines": {
-    "node": "20.11.1",
-    "pnpm": "10.12.1"
+    "node": ">=20",
+    "pnpm": ">=9"
   },
   "packageManager": "pnpm@10.12.1",
   "pnpm": {
