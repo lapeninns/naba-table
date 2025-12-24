@@ -3,6 +3,7 @@ import { env } from "@/lib/env";
 import { buildCalendarEvent, type ReservationCalendarPayload } from "@/lib/reservations/calendar-event";
 import { type VenueDetails } from "@/lib/venue";
 import { sendEmail, type EmailAttachment } from "@/libs/resend";
+import { generateAccessToken } from "@/server/bookings/access-token";
 import {
   COLORS,
   renderBadge,
@@ -183,12 +184,27 @@ function getStatusPresentation(status: BookingRecord["status"] | string): Status
   return STATUS_PRESENTATION[(status as BookingRecord["status"]) ?? "confirmed"] ?? STATUS_PRESENTATION.confirmed;
 }
 
+/**
+ * Builds the manage booking URL with an access token.
+ * 
+ * Uses the new HMAC-based token generation for stateless, self-validating tokens.
+ */
 function buildManageUrl(booking: BookingRecord) {
-  let url = `${bookingSiteUrl}/bookings/${booking.id}`;
-  if (booking.confirmation_token) {
-    url += `?token=${booking.confirmation_token}`;
+  const baseUrl = `${bookingSiteUrl}/bookings/${booking.id}`;
+
+  try {
+    const token = generateAccessToken(booking.id);
+    return `${baseUrl}?token=${token}`;
+  } catch (error) {
+    // Token generation failed (likely missing secret in dev)
+    console.warn("[emails][bookings] HMAC token generation failed", {
+      bookingId: booking.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    // Return URL without token - user will need to sign in
+    return baseUrl;
   }
-  return url;
 }
 
 function buildCalendarPayload(booking: BookingRecord, venue: VenueDetails): ReservationCalendarPayload {

@@ -24,7 +24,6 @@ import {
   softCancelBooking,
   updateBookingRecord,
 } from "@/server/bookings";
-import { TokenValidationError, validateConfirmationToken } from "@/server/bookings/confirmation-token";
 import { beginBookingModificationFlow } from "@/server/bookings/modification-flow";
 import { PastBookingError, assertBookingNotInPast } from "@/server/bookings/pastTimeValidation";
 import {
@@ -55,7 +54,7 @@ import { formatDateForInput } from "@reserve/shared/formatting/booking";
 import type { BookingType } from "@/lib/enums";
 import type { BookingRecord } from "@/server/bookings";
 import type { Json, Tables } from "@/types/supabase";
-import type { NextRequest} from "next/server";
+import type { NextRequest } from "next/server";
 
 const bookingTypeEnum = z.enum(BOOKING_TYPES);
 
@@ -218,67 +217,6 @@ function stringifyError(error: unknown): string {
   }
 }
 
-async function buildBookingResponse(
-  serviceSupabase: ReturnType<typeof getServiceSupabaseClient>,
-  booking: Tables<"bookings">,
-) {
-  if (!booking.restaurant_id) {
-    console.error("[bookings][GET:id] Booking has no restaurant_id", { bookingId: booking.id });
-    return NextResponse.json(
-      {
-        error: "This booking is missing restaurant information. Please contact support.",
-        code: "MISSING_RESTAURANT_DATA",
-      },
-      { status: 500 },
-    );
-  }
-
-  const { data: restaurant, error: restaurantError } = await serviceSupabase
-    .from("restaurants")
-    .select("name, slug, timezone")
-    .eq("id", booking.restaurant_id)
-    .maybeSingle();
-
-  if (restaurantError) {
-    console.error("[bookings][GET:id] Error fetching restaurant", {
-      restaurantId: booking.restaurant_id,
-      error: restaurantError,
-    });
-  }
-
-  if (!restaurant) {
-    console.error("[bookings][GET:id] Restaurant not found", {
-      restaurantId: booking.restaurant_id,
-      bookingId: booking.id,
-    });
-    return NextResponse.json(
-      {
-        error: "Restaurant information not found. Please contact support.",
-        code: "RESTAURANT_NOT_FOUND",
-      },
-      { status: 500 },
-    );
-  }
-
-  if (!restaurant.slug) {
-    console.error("[bookings][GET:id] Restaurant has no slug", {
-      restaurantId: booking.restaurant_id,
-      restaurantName: restaurant.name,
-    });
-  }
-
-  return NextResponse.json({
-    booking: {
-      ...booking,
-      restaurants: {
-        name: restaurant.name ?? null,
-        slug: restaurant.slug ?? null,
-        timezone: restaurant.timezone ?? null,
-      },
-    },
-  });
-}
-
 function handleZodError(error: z.ZodError) {
   return NextResponse.json(
     {
@@ -334,9 +272,9 @@ async function handleDashboardUpdate(params: {
     let schedule = startVenue.date === initialSchedule.date
       ? initialSchedule
       : await getRestaurantSchedule(restaurantId, {
-          date: startVenue.date,
-          client: serviceSupabase,
-        });
+        date: startVenue.date,
+        client: serviceSupabase,
+      });
     const scheduleTimezone = schedule.timezone ?? initialScheduleTimezone;
 
     const explicitEndVenue = convertOptionalIsoToVenueDateTime(data.endIso, scheduleTimezone);
@@ -447,7 +385,7 @@ async function handleDashboardUpdate(params: {
     }
 
     if (endDateTime.toMillis() <= normalizedStartDateTime.toMillis()) {
-    return NextResponse.json({ error: "End time must be after start time", code: "INVALID_TIME_RANGE" }, { status: 400 });
+      return NextResponse.json({ error: "End time must be after start time", code: "INVALID_TIME_RANGE" }, { status: 400 });
     }
 
     const endTime = endDateTime.set({ second: 0, millisecond: 0 }).toFormat("HH:mm");
@@ -713,191 +651,180 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   const rawToken = req.nextUrl.searchParams.get("token") ?? req.cookies.get("sr_confirm")?.value ?? null;
   const token = rawToken?.trim() ?? null;
 
-  // Public token-based access (read-only) for guest flows
-  if (token) {
-    const serviceSupabase = getServiceSupabaseClient();
+  // ============================================================================
+  // STEP 1: LOOKUP BOOKING BY ID (Primary lookup - always first)
+  // ============================================================================
+  const serviceSupabase = getServiceSupabaseClient();
 
-    try {
-      const booking = await validateConfirmationToken(token, { allowUsed: true });
-      if (booking.id !== bookingId) {
-        return NextResponse.json({ error: "Token does not match booking", code: "TOKEN_MISMATCH" }, { status: 403 });
-      }
-      return await buildBookingResponse(serviceSupabase, booking as Tables<"bookings">);
-    } catch (error: unknown) {
-      if (error instanceof TokenValidationError) {
-        // Fallback: lookup booking by ID and check if stored token matches or is missing
-        if (error.code === "TOKEN_NOT_FOUND") {
-          const { data: bookingById, error: bookingLookupError } = await serviceSupabase
-            .from("bookings")
-            .select("*")
-            .eq("id", bookingId)
-            .maybeSingle();
+  const { data: booking, error: bookingError } = await serviceSupabase
+    .from("bookings")
+    .select(
+      "id,restaurant_id,booking_date,start_time,end_time,start_at,end_at,reference,party_size,booking_type,seating_preference,status,customer_name,customer_email,customer_phone,notes,marketing_opt_in,loyalty_points_awarded,client_request_id,pending_ref,idempotency_key,details,created_at,updated_at,confirmation_token,confirmation_token_expires_at",
+    )
+    .eq("id", bookingId)
+    .maybeSingle();
 
-          if (bookingLookupError) {
-            console.error("[bookings][GET:id][token:fallback] lookup failed", stringifyError(bookingLookupError));
-          }
-
-          if (bookingById) {
-            const storedToken = (bookingById.confirmation_token ?? "").trim();
-
-            // Case 1: Token matches stored token (index might be stale)
-            if (storedToken === token) {
-              console.info("[bookings][GET:id][token:fallback] token matched stored token for booking", { bookingId });
-              return await buildBookingResponse(serviceSupabase, bookingById as Tables<"bookings">);
-            }
-
-            // Case 2: Booking has no token - the link was generated but token wasn't persisted
-            // Allow access if this is the first token attempt (backfill the token)
-            if (!storedToken) {
-              console.warn("[bookings][GET:id][token:fallback] booking has no stored token, backfilling", {
-                bookingId,
-                tokenProvided: token.slice(0, 8) + "...",
-              });
-
-              // Backfill the token so future requests work via the normal path
-              const { error: updateError } = await serviceSupabase
-                .from("bookings")
-                .update({
-                  confirmation_token: token,
-                  confirmation_token_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-                })
-                .eq("id", bookingId);
-
-              if (updateError) {
-                console.error("[bookings][GET:id][token:fallback] failed to backfill token", stringifyError(updateError));
-              }
-
-              return await buildBookingResponse(serviceSupabase, bookingById as Tables<"bookings">);
-            }
-
-            // Case 3: Token mismatch - stored token is different from provided
-            console.warn("[bookings][GET:id][token:fallback] token mismatch", {
-              bookingId,
-              storedTokenPrefix: storedToken.slice(0, 8) + "...",
-              providedTokenPrefix: token.slice(0, 8) + "...",
-            });
-          }
-        }
-
-        const status = error.code === "TOKEN_NOT_FOUND" ? 404 : error.code === "TOKEN_EXPIRED" ? 410 : 401;
-        return NextResponse.json({ error: error.message, code: error.code }, { status });
-      }
-      console.error("[bookings][GET:id][token]", stringifyError(error));
-      return NextResponse.json({ error: "Unable to load booking", code: "UNKNOWN" }, { status: 500 });
-    }
+  if (bookingError) {
+    console.error("[bookings][GET:id] Database error during lookup", {
+      bookingId,
+      error: bookingError.message,
+    });
+    return NextResponse.json({ error: "Unable to load booking", code: "DATABASE_ERROR" }, { status: 500 });
   }
 
-  // Require authentication to view booking details (default path)
+  if (!booking) {
+    return NextResponse.json({ error: "Booking not found", code: "BOOKING_NOT_FOUND" }, { status: 404 });
+  }
+
+  // ============================================================================
+  // STEP 2: DETERMINE ACCESS (Token-based or Auth-based)
+  // ============================================================================
+
+  // Import access token utilities
+  const {
+    validateToken,
+    determineAccessLevel,
+    mapTokenErrorToStatus,
+    mapTokenErrorToMessage,
+  } = await import("@/server/bookings/access-token");
+
+  // Try to get authenticated user
   const tenantSupabase = await getRouteHandlerSupabaseClient();
   const { data: { user }, error: authError } = await tenantSupabase.auth.getUser();
 
-  if (authError || !user?.email) {
-    return NextResponse.json(
-      { error: "Authentication required", code: "UNAUTHENTICATED" },
-      { status: 401 }
-    );
+  // Normalize user for access determination
+  const normalizedUser = user && !authError ? { id: user.id, email: user.email } : null;
+
+  // Validate token if provided
+  let tokenResult = null;
+  if (token) {
+    tokenResult = await validateToken(token, bookingId);
+
+    // If token validation failed and no authenticated user, return error
+    if (!tokenResult.valid && !normalizedUser) {
+      const errorCode = tokenResult.error;
+      return NextResponse.json(
+        {
+          error: mapTokenErrorToMessage(errorCode),
+          code: errorCode,
+        },
+        { status: mapTokenErrorToStatus(errorCode) }
+      );
+    }
   }
 
-  const normalizedUserEmail = normalizeEmail(user.email);
+  // Determine access level
+  const accessInfo = determineAccessLevel(booking as Tables<"bookings">, normalizedUser, tokenResult);
 
-  try {
-    // Use service client to bypass RLS and check ownership manually
-    const serviceSupabase = getServiceSupabaseClient();
-    const { data, error } = await serviceSupabase
-      .from("bookings")
-      .select(
-        "id,restaurant_id,booking_date,start_time,end_time,start_at,end_at,reference,party_size,booking_type,seating_preference,status,customer_name,customer_email,customer_phone,notes,marketing_opt_in,loyalty_points_awarded,client_request_id,pending_ref,idempotency_key,details,created_at,updated_at",
-      )
-      .eq("id", bookingId)
-      .maybeSingle();
+  // ============================================================================
+  // STEP 3: CHECK ACCESS PERMISSIONS
+  // ============================================================================
 
-    if (error) {
-      throw error;
-    }
-
-    if (!data) {
-    return NextResponse.json({ error: "Booking not found", code: "BOOKING_NOT_FOUND" }, { status: 404 });
-    }
-
-    const seededVia =
-      data.details && typeof data.details === "object" && "seeded_via" in data.details
-        ? (data.details as Record<string, unknown>).seeded_via
-        : null;
-    const isPlaywrightSeed = seededVia === "playwright.test";
-
-    // Verify ownership: user email must match booking email (except for seeded test bookings)
-    if (data.customer_email !== normalizedUserEmail && !isPlaywrightSeed) {
-      // Log unauthorized access attempt
-      void recordObservabilityEvent({
-        source: "api.bookings",
-        eventType: "booking_details.access_denied",
-        severity: "warning",
-        context: {
-          booking_id: bookingId,
-          user_email: normalizedUserEmail,
-          booking_email: data.customer_email,
-        },
-      });
-
+  if (accessInfo.level === "none") {
+    // No valid access method
+    if (!token && !normalizedUser) {
       return NextResponse.json(
-        { error: "You can only view your own bookings", code: "FORBIDDEN" },
-        { status: 403 }
+        { error: "Authentication required", code: "UNAUTHENTICATED" },
+        { status: 401 }
       );
     }
 
-    if (!data.restaurant_id) {
-      console.error("[bookings][GET:id] Booking has no restaurant_id", { bookingId: data.id });
-      return NextResponse.json({
-        error: "This booking is missing restaurant information. Please contact support.",
-        code: "MISSING_RESTAURANT_DATA"
-      }, { status: 500 });
+    // User is authenticated but doesn't own this booking
+    if (normalizedUser && booking.customer_email) {
+      const normalizedUserEmail = normalizeEmail(normalizedUser.email ?? "");
+      const normalizedBookingEmail = normalizeEmail(booking.customer_email);
+
+      if (normalizedUserEmail !== normalizedBookingEmail) {
+        // Check for test seed bypass
+        const seededVia =
+          booking.details && typeof booking.details === "object" && "seeded_via" in booking.details
+            ? (booking.details as Record<string, unknown>).seeded_via
+            : null;
+        const isPlaywrightSeed = seededVia === "playwright.test";
+
+        if (!isPlaywrightSeed) {
+          void recordObservabilityEvent({
+            source: "api.bookings",
+            eventType: "booking_details.access_denied",
+            severity: "warning",
+            context: {
+              booking_id: bookingId,
+              user_email: normalizedUserEmail,
+              booking_email: normalizedBookingEmail,
+            },
+          });
+
+          return NextResponse.json(
+            { error: "You can only view your own bookings", code: "FORBIDDEN" },
+            { status: 403 }
+          );
+        }
+      }
     }
-
-    const { data: restaurant, error: restaurantError } = await serviceSupabase
-      .from("restaurants")
-      .select("name, slug, timezone")
-      .eq("id", data.restaurant_id)
-      .maybeSingle();
-
-    if (restaurantError) {
-      console.error("[bookings][GET:id] Error fetching restaurant", {
-        restaurantId: data.restaurant_id,
-        error: restaurantError
-      });
-    }
-
-    if (!restaurant) {
-      console.error("[bookings][GET:id] Restaurant not found", {
-        restaurantId: data.restaurant_id,
-        bookingId: data.id
-      });
-      return NextResponse.json({
-        error: "Restaurant information not found. Please contact support.",
-        code: "RESTAURANT_NOT_FOUND"
-      }, { status: 500 });
-    }
-
-    if (!restaurant.slug) {
-      console.error("[bookings][GET:id] Restaurant has no slug", {
-        restaurantId: data.restaurant_id,
-        restaurantName: restaurant.name
-      });
-    }
-
-    return NextResponse.json({
-      booking: {
-        ...data,
-        restaurants: {
-          name: restaurant.name ?? null,
-          slug: restaurant.slug ?? null,
-          timezone: restaurant.timezone ?? null,
-        },
-      },
-    });
-  } catch (error: unknown) {
-    console.error("[bookings][GET:id]", stringifyError(error));
-    return NextResponse.json({ error: stringifyError(error) || "Unable to load booking", code: "UNKNOWN" }, { status: 500 });
   }
+
+  // ============================================================================
+  // STEP 4: BUILD RESPONSE WITH ACCESS INFO
+  // ============================================================================
+
+  if (!booking.restaurant_id) {
+    console.error("[bookings][GET:id] Booking has no restaurant_id", { bookingId: booking.id });
+    return NextResponse.json({
+      error: "This booking is missing restaurant information. Please contact support.",
+      code: "MISSING_RESTAURANT_DATA"
+    }, { status: 500 });
+  }
+
+  const { data: restaurant, error: restaurantError } = await serviceSupabase
+    .from("restaurants")
+    .select("name, slug, timezone")
+    .eq("id", booking.restaurant_id)
+    .maybeSingle();
+
+  if (restaurantError) {
+    console.error("[bookings][GET:id] Error fetching restaurant", {
+      restaurantId: booking.restaurant_id,
+      error: restaurantError
+    });
+  }
+
+  if (!restaurant) {
+    console.error("[bookings][GET:id] Restaurant not found", {
+      restaurantId: booking.restaurant_id,
+      bookingId: booking.id
+    });
+    return NextResponse.json({
+      error: "Restaurant information not found. Please contact support.",
+      code: "RESTAURANT_NOT_FOUND"
+    }, { status: 500 });
+  }
+
+  if (!restaurant.slug) {
+    console.error("[bookings][GET:id] Restaurant has no slug", {
+      restaurantId: booking.restaurant_id,
+      restaurantName: restaurant.name
+    });
+  }
+
+  // Build safe booking response (exclude sensitive token fields)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { confirmation_token, confirmation_token_expires_at, ...safeBooking } = booking;
+
+  return NextResponse.json({
+    booking: {
+      ...safeBooking,
+      restaurants: {
+        name: restaurant.name ?? null,
+        slug: restaurant.slug ?? null,
+        timezone: restaurant.timezone ?? null,
+      },
+    },
+    access: {
+      level: accessInfo.level,
+      canModify: accessInfo.canModify,
+      canCancel: accessInfo.canCancel,
+    },
+  });
 }
 
 export async function PUT(req: NextRequest, { params }: RouteParams) {
@@ -918,7 +845,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
   // Try dashboard format first (minimal update from EditBookingDialog)
   const dashboardParsed = dashboardUpdateSchema.safeParse(body);
-  
+
   if (dashboardParsed.success) {
     try {
       return await processDashboardUpdate(bookingId, dashboardParsed.data);
@@ -1047,26 +974,11 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
     const updated: Tables<"bookings"> = requiresTableRealignment
       ? await beginBookingModificationFlow({
-          client: serviceSupabase,
-          bookingId,
-          existingBooking,
-          source: "guest",
-          payload: {
-            restaurant_id: restaurantId,
-            booking_date: data.date,
-            start_time: startTime,
-            end_time: endTime,
-            party_size: data.party,
-            booking_type: normalizedBookingType,
-            seating_preference: data.seating,
-            customer_name: data.name,
-            customer_email: normalizedEmail,
-            customer_phone: normalizedPhone,
-            notes: data.notes ?? null,
-            marketing_opt_in: data.marketingOptIn ?? existingBooking.marketing_opt_in,
-          },
-        })
-      : await updateBookingRecord(serviceSupabase, bookingId, {
+        client: serviceSupabase,
+        bookingId,
+        existingBooking,
+        source: "guest",
+        payload: {
           restaurant_id: restaurantId,
           booking_date: data.date,
           start_time: startTime,
@@ -1079,7 +991,22 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
           customer_phone: normalizedPhone,
           notes: data.notes ?? null,
           marketing_opt_in: data.marketingOptIn ?? existingBooking.marketing_opt_in,
-        });
+        },
+      })
+      : await updateBookingRecord(serviceSupabase, bookingId, {
+        restaurant_id: restaurantId,
+        booking_date: data.date,
+        start_time: startTime,
+        end_time: endTime,
+        party_size: data.party,
+        booking_type: normalizedBookingType,
+        seating_preference: data.seating,
+        customer_name: data.name,
+        customer_email: normalizedEmail,
+        customer_phone: normalizedPhone,
+        notes: data.notes ?? null,
+        marketing_opt_in: data.marketingOptIn ?? existingBooking.marketing_opt_in,
+      });
 
     const auditMetadata = {
       restaurant_id: restaurantId,

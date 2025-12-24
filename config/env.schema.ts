@@ -142,15 +142,18 @@ const baseEnvSchema = z
     STRATEGIC_DEMAND_MULTIPLIER_OVERRIDE: z.coerce.number().min(0).max(10).optional(),
     STRATEGIC_FUTURE_CONFLICT_PENALTY: z.coerce.number().min(0).max(100000).optional(),
     STRATEGIC_DEMAND_PROFILE_PATH: z.string().optional(),
+    // Booking access token system (HMAC-based guest access)
+    BOOKING_ACCESS_TOKEN_SECRET: z.string().min(32).optional(),
+    BOOKING_ACCESS_TOKEN_EXPIRY_HOURS: z.coerce.number().int().min(1).max(8760).optional(), // Max 1 year
   })
   .passthrough();
 
 const productionEnvSchema = baseEnvSchema.extend({
-    NEXT_PUBLIC_APP_URL: z.string().url(),
-    NEXT_PUBLIC_SITE_URL: z.string().url(),
-    RESEND_API_KEY: z.string().min(1),
-    RESEND_FROM: z.string().email(),
-  });
+  NEXT_PUBLIC_APP_URL: z.string().url(),
+  NEXT_PUBLIC_SITE_URL: z.string().url(),
+  RESEND_API_KEY: z.string().min(1),
+  RESEND_FROM: z.string().email(),
+});
 
 const developmentEnvSchema = baseEnvSchema;
 const testEnvSchema = baseEnvSchema;

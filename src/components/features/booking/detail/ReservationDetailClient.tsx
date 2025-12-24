@@ -8,10 +8,12 @@ import {
   Clock,
   Download,
   Info,
+  LinkIcon,
   Mail,
   MapPin,
   MessageSquare,
   Phone,
+  RefreshCw,
   Share2,
   User,
   Users,
@@ -41,7 +43,7 @@ import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
 import { getPendingSelfServeGraceMinutes, isPendingSelfServeLocked } from '@/lib/bookings/pendingLock';
 import { downloadCalendarEvent, shareReservationDetails, type ShareResult } from '@/lib/reservations/share';
-import { useReservation } from '@features/reservations/wizard/api/useReservation';
+import { useReservation, type AccessInfo } from '@features/reservations/wizard/api/useReservation';
 import { DEFAULT_VENUE } from '@shared/config/venue';
 
 import { ReservationHistory } from './ReservationHistory';
@@ -132,6 +134,7 @@ export type ReservationDetailClientProps = {
   structuredData?: string | null;
   venue?: ReservationVenue | null;
   token?: string | null;
+  /** @deprecated Use access info from API response instead */
   canManage?: boolean;
 };
 
@@ -141,7 +144,7 @@ export function ReservationDetailClient({
   structuredData,
   venue: providedVenue,
   token = null,
-  canManage = false,
+  canManage: canManageProp = false,
 }: ReservationDetailClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -177,7 +180,30 @@ export function ReservationDetailClient({
     return Math.max(0, minutes) * 60_000;
   }, []);
 
-  const { data: reservation, error, isError, isLoading, refetch, isFetching } = useReservation(reservationId, token ?? undefined);
+  const { data, error, isError, isLoading, refetch, isFetching } = useReservation(reservationId, token ?? undefined);
+
+  // Extract reservation and access from the response
+  const reservation = data?.reservation;
+  const accessFromApi: AccessInfo | null = data?.access ?? null;
+
+  // Derive canManage from API access info, falling back to prop for backward compatibility
+  const canManage = accessFromApi?.canModify ?? accessFromApi?.canCancel ?? canManageProp;
+  const accessLevel = accessFromApi?.level ?? (canManageProp ? 'owner' : 'none');
+
+  // Check if error is a token/access error (expired, invalid, etc.)
+  const isTokenError = isError && error && (
+    error.code === 'EXPIRED' ||
+    error.code === 'TOKEN_EXPIRED' ||
+    error.code === 'SIGNATURE_INVALID' ||
+    error.code === 'INVALID_FORMAT' ||
+    error.code === 'INVALID_TOKEN'  // Legacy tokens are rejected with this code
+  );
+
+  const isAccessDenied = isError && error && (
+    error.code === 'BOOKING_MISMATCH' ||
+    error.code === 'FORBIDDEN' ||
+    error.code === 'TOKEN_MISMATCH'
+  );
 
   // Calculate venue info before any early returns
   const venue = useMemo<ReservationVenue>(() => {
@@ -436,6 +462,83 @@ export function ReservationDetailClient({
     );
   }
 
+  // Token/link expired error state
+  if (isTokenError) {
+    return (
+      <section className="mx-auto w-full max-w-[80vw] space-y-6 px-4 py-12">
+        <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20">
+          <CardHeader className="text-center space-y-4 pb-6">
+            <div className="mx-auto w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+              <LinkIcon className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div className="space-y-2">
+              <CardTitle className="text-2xl text-amber-800 dark:text-amber-200">
+                Link Expired
+              </CardTitle>
+              <p className="text-amber-700 dark:text-amber-300">
+                This booking link has expired or is no longer valid.
+              </p>
+            </div>
+          </CardHeader>
+          <CardContent className="text-center space-y-4 pb-8">
+            <p className="text-muted-foreground">
+              For security reasons, booking links expire after 30 days.
+              To view your booking, please sign in to your account.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link
+                href={`/auth/signin?redirectedFrom=/bookings/${reservationId}`}
+                className={buttonVariants({ variant: 'default', size: 'lg' })}
+              >
+                Sign in to view booking
+              </Link>
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => refetch()}
+                disabled={isFetching}
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+                Try again
+              </Button>
+            </div>
+          </CardContent>
+          <CardFooter className="justify-center text-sm text-muted-foreground border-t pt-6">
+            <p>
+              Need help? <a href={`mailto:${supportEmail}`} className="underline hover:text-foreground">Contact support</a>
+            </p>
+          </CardFooter>
+        </Card>
+      </section>
+    );
+  }
+
+  // Access denied error state
+  if (isAccessDenied) {
+    return (
+      <section className="mx-auto w-full max-w-[80vw] space-y-6 px-4 py-12">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <div className="space-y-2">
+            <AlertTitle>Access Denied</AlertTitle>
+            <AlertDescription>
+              You don&apos;t have permission to view this booking. Please sign in with the account used to make the reservation.
+            </AlertDescription>
+          </div>
+          <div className="ml-auto flex flex-wrap gap-3 mt-4">
+            <Link href={`/auth/signin?redirectedFrom=/bookings/${reservationId}`} className={buttonVariants({ variant: 'default' })}>
+              Sign in
+            </Link>
+            <Link href="/guest/dashboard" className={buttonVariants({ variant: 'outline' })}>
+              Back to dashboard
+            </Link>
+          </div>
+        </Alert>
+      </section>
+    );
+  }
+
+  // General error state
   if (isError && !reservation) {
     return (
       <section className="mx-auto w-full max-w-[80vw] space-y-6 px-4 py-12">
@@ -451,7 +554,7 @@ export function ReservationDetailClient({
               Retry
             </Button>
             <Link href="/guest/dashboard" className={buttonVariants({ variant: 'default' })}>
-              Back to booking
+              Back to dashboard
             </Link>
           </div>
         </Alert>
@@ -801,7 +904,26 @@ export function ReservationDetailClient({
             </CardFooter>
           </Card>
 
-          {!canManage && (
+          {/* Token access indicator */}
+          {accessLevel === 'token' && (
+            <Alert variant="info" className="bg-muted/50 border-dashed">
+              <Info className="h-4 w-4" />
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
+                <div>
+                  <AlertTitle>Viewing via email link</AlertTitle>
+                  <AlertDescription>
+                    You&apos;re viewing this booking via a secure link. Sign in for full account access.
+                  </AlertDescription>
+                </div>
+                <Link href={`/auth/signin?redirectedFrom=/bookings/${reservationId}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+                  Sign in
+                </Link>
+              </div>
+            </Alert>
+          )}
+
+          {/* No access - prompt sign in */}
+          {!canManage && accessLevel === 'none' && (
             <Alert variant="info" className="bg-muted/50 border-dashed">
               <Info className="h-4 w-4" />
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">

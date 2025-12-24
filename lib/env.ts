@@ -320,6 +320,14 @@ export const env = {
     } as const;
   },
 
+  get bookingAccess() {
+    const parsed = parseEnv();
+    return {
+      tokenSecret: parsed.BOOKING_ACCESS_TOKEN_SECRET ?? null,
+      tokenExpiryHours: parsed.BOOKING_ACCESS_TOKEN_EXPIRY_HOURS ?? 720, // Default 30 days
+    } as const;
+  },
+
   get testing() {
     const parsed = parseEnv();
     return {
