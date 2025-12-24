@@ -18,6 +18,8 @@ export default defineConfig({
     globals: true,
     environment: "jsdom",
     include: [
+      "server/__tests__/**/*.test.ts",
+      "server/__tests__/**/*.test.tsx",
       "tests/server/**/*.test.ts",
       "tests/server/**/*.test.tsx",
       "tests/emails/**/*.test.ts",

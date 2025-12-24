@@ -9,7 +9,7 @@
 
 import { RESTAURANT_ADMIN_ROLES } from "@/lib/owner/auth/roles";
 
-import type { RestaurantRole } from "@/lib/owner/auth/roles";
+import type { RestaurantAdminRole, RestaurantRole } from "@/lib/owner/auth/roles";
 
 /**
  * Error thrown when a booking time is in the past
@@ -52,7 +52,8 @@ export type PastTimeValidationOptions = {
  * @returns Date object representing "now" in that timezone
  */
 function zonedDateTimeToUtc(timezone: string, isoLocal: string): Date {
-  const date = new Date(isoLocal);
+  const normalizedIsoLocal = normalizeIsoLocalMidnight(isoLocal);
+  const date = new Date(normalizedIsoLocal);
   if (Number.isNaN(date.getTime())) {
     throw new Error(`Invalid date value for timezone conversion: ${isoLocal}`);
   }
@@ -71,6 +72,49 @@ function zonedDateTimeToUtc(timezone: string, isoLocal: string): Date {
 
   const diff = date.getTime() - sameInstantInZone.getTime();
   return new Date(date.getTime() + diff);
+}
+
+function normalizeIsoLocalMidnight(isoLocal: string): string {
+  const match = isoLocal.match(/^([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2})(?::([0-9]{2}))?$/);
+
+  if (!match) {
+    return isoLocal;
+  }
+
+  const [, yearStr, monthStr, dayStr, hourStr, minuteStr, secondStr = "00"] = match;
+
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+  const hour = Number(hourStr);
+  const minute = Number(minuteStr);
+  const second = Number(secondStr);
+
+  const hasInvalidComponent =
+    [year, month, day, hour, minute, second].some(Number.isNaN) ||
+    hour > 24 ||
+    minute > 59 ||
+    second > 59;
+
+  if (hasInvalidComponent) {
+    throw new Error(`Invalid date value for timezone conversion: ${isoLocal}`);
+  }
+
+  if (hour === 24) {
+    const normalizedDate = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+
+    const normalizedYear = String(normalizedDate.getUTCFullYear()).padStart(4, "0");
+    const normalizedMonth = String(normalizedDate.getUTCMonth() + 1).padStart(2, "0");
+    const normalizedDay = String(normalizedDate.getUTCDate()).padStart(2, "0");
+    const normalizedMinute = String(normalizedDate.getUTCMinutes()).padStart(2, "0");
+    const normalizedSecond = String(normalizedDate.getUTCSeconds()).padStart(2, "0");
+
+    return `${normalizedYear}-${normalizedMonth}-${normalizedDay}T00:${normalizedMinute}:${normalizedSecond}`;
+  }
+
+  const normalizedSecond = String(second).padStart(2, "0");
+
+  return `${yearStr}-${monthStr}-${dayStr}T${hourStr}:${minuteStr}:${normalizedSecond}`;
 }
 
 export function getCurrentTimeInTimezone(timezone: string): Date {
@@ -161,7 +205,7 @@ function formatDateTimeForDisplay(date: Date, timezone: string): string {
  */
 export function canOverridePastBooking(role: RestaurantRole | null | undefined): boolean {
   if (!role) return false;
-  return RESTAURANT_ADMIN_ROLES.includes(role as any);
+  return RESTAURANT_ADMIN_ROLES.includes(role as RestaurantAdminRole);
 }
 
 /**
