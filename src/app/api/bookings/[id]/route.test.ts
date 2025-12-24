@@ -334,6 +334,54 @@ describe('/api/bookings/[id] GET', () => {
     expect(response.status).toBe(404);
   });
 
+  it('backfills token and returns booking when stored token is null', async () => {
+    const request = new NextRequest('http://localhost/api/bookings/booking-1?token=new-token-xyz', { method: 'GET' });
+    const params = { params: Promise.resolve({ id: 'booking-1' }) } as const;
+
+    validateConfirmationTokenMock.mockRejectedValue(new TokenValidationError('Token not found', 'TOKEN_NOT_FOUND'));
+
+    const updateMock = vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    });
+
+    const serviceSupabase = createServiceSupabase({
+      booking: { ...existingBooking, confirmation_token: null },
+    });
+    (serviceSupabase.from as ReturnType<typeof vi.fn>).mockImplementation((table: string) => {
+      if (table === 'bookings') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: { ...existingBooking, confirmation_token: null },
+                error: null,
+              }),
+            }),
+          }),
+          update: updateMock,
+        };
+      }
+      if (table === 'restaurants') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({ data: existingRestaurant, error: null }),
+            }),
+          }),
+        };
+      }
+      return {};
+    });
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+
+    const response = await GET(request, params);
+
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.booking.id).toBe('booking-1');
+    expect(updateMock).toHaveBeenCalled();
+  });
+
   it('returns 401 when user is not authenticated', async () => {
     const request = new NextRequest('http://localhost/api/bookings/booking-1', { method: 'GET' });
     const params = { params: Promise.resolve({ id: 'booking-1' }) } as const;

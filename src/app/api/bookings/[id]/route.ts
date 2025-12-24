@@ -715,17 +715,18 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
   // Public token-based access (read-only) for guest flows
   if (token) {
+    const serviceSupabase = getServiceSupabaseClient();
+
     try {
       const booking = await validateConfirmationToken(token, { allowUsed: true });
       if (booking.id !== bookingId) {
         return NextResponse.json({ error: "Token does not match booking", code: "TOKEN_MISMATCH" }, { status: 403 });
       }
-      const serviceSupabase = getServiceSupabaseClient();
       return await buildBookingResponse(serviceSupabase, booking as Tables<"bookings">);
     } catch (error: unknown) {
       if (error instanceof TokenValidationError) {
+        // Fallback: lookup booking by ID and check if stored token matches or is missing
         if (error.code === "TOKEN_NOT_FOUND") {
-          const serviceSupabase = getServiceSupabaseClient();
           const { data: bookingById, error: bookingLookupError } = await serviceSupabase
             .from("bookings")
             .select("*")
@@ -736,8 +737,45 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
             console.error("[bookings][GET:id][token:fallback] lookup failed", stringifyError(bookingLookupError));
           }
 
-          if (bookingById && (bookingById.confirmation_token ?? "").trim() === token) {
-            return await buildBookingResponse(serviceSupabase, bookingById as Tables<"bookings">);
+          if (bookingById) {
+            const storedToken = (bookingById.confirmation_token ?? "").trim();
+
+            // Case 1: Token matches stored token (index might be stale)
+            if (storedToken === token) {
+              console.info("[bookings][GET:id][token:fallback] token matched stored token for booking", { bookingId });
+              return await buildBookingResponse(serviceSupabase, bookingById as Tables<"bookings">);
+            }
+
+            // Case 2: Booking has no token - the link was generated but token wasn't persisted
+            // Allow access if this is the first token attempt (backfill the token)
+            if (!storedToken) {
+              console.warn("[bookings][GET:id][token:fallback] booking has no stored token, backfilling", {
+                bookingId,
+                tokenProvided: token.slice(0, 8) + "...",
+              });
+
+              // Backfill the token so future requests work via the normal path
+              const { error: updateError } = await serviceSupabase
+                .from("bookings")
+                .update({
+                  confirmation_token: token,
+                  confirmation_token_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                })
+                .eq("id", bookingId);
+
+              if (updateError) {
+                console.error("[bookings][GET:id][token:fallback] failed to backfill token", stringifyError(updateError));
+              }
+
+              return await buildBookingResponse(serviceSupabase, bookingById as Tables<"bookings">);
+            }
+
+            // Case 3: Token mismatch - stored token is different from provided
+            console.warn("[bookings][GET:id][token:fallback] token mismatch", {
+              bookingId,
+              storedTokenPrefix: storedToken.slice(0, 8) + "...",
+              providedTokenPrefix: token.slice(0, 8) + "...",
+            });
           }
         }
 
