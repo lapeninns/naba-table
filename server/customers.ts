@@ -63,6 +63,7 @@ export async function upsertCustomer(
   },
 ): Promise<CustomerRow> {
   const email = normalizeEmail(params.email);
+  const normalizedPhone = normalizePhone(params.phone);
   const phoneForStorage = sanitizePhoneValue(params.phone);
   const marketingOptIn = params.marketingOptIn ?? false;
 
@@ -140,15 +141,32 @@ export async function upsertCustomer(
   };
 
   if (lastError && isUniqueViolationError(lastError)) {
-    const { data: existing, error: existingError } = await client
+    const { data: existingByEmail, error: existingEmailError } = await client
       .from("customers")
       .select(CUSTOMER_COLUMNS)
       .eq("restaurant_id", params.restaurantId)
       .eq("email_normalized", email)
       .maybeSingle();
 
-    if (existingError && existingError.code !== "PGRST116") {
-      throw existingError;
+    if (existingEmailError && existingEmailError.code !== "PGRST116") {
+      throw existingEmailError;
+    }
+
+    let existing = existingByEmail ?? null;
+
+    if (!existing) {
+      const { data: existingByPhone, error: existingPhoneError } = await client
+        .from("customers")
+        .select(CUSTOMER_COLUMNS)
+        .eq("restaurant_id", params.restaurantId)
+        .eq("phone_normalized", normalizedPhone)
+        .maybeSingle();
+
+      if (existingPhoneError && existingPhoneError.code !== "PGRST116") {
+        throw existingPhoneError;
+      }
+
+      existing = existingByPhone ?? null;
     }
 
     if (existing) {
@@ -156,9 +174,8 @@ export async function upsertCustomer(
       lastError = null;
 
       const existingNormalizedPhone = normalizePhone(existing.phone);
-      const incomingNormalizedPhone = normalizePhone(params.phone);
 
-      if (incomingNormalizedPhone && existingNormalizedPhone !== incomingNormalizedPhone) {
+      if (normalizedPhone && existingNormalizedPhone !== normalizedPhone) {
         const { data: updated, error: phoneUpdateError } = await client
           .from("customers")
           .update({ phone: phoneForStorage })

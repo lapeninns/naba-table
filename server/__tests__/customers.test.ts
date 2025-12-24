@@ -78,4 +78,80 @@ describe("upsertCustomer", () => {
 
     expect(result).toEqual(existingRow);
   });
+
+  it("returns an existing customer when a phone conflict occurs", async () => {
+    const existingRow = {
+      id: "cust-456",
+      restaurant_id: "rest-456",
+      email: "other@example.com",
+      phone: "447467586751",
+      full_name: "Guest Phone",
+      marketing_opt_in: true,
+      created_at: "2025-01-18T00:00:00.000Z",
+      updated_at: "2025-01-18T00:00:00.000Z",
+      email_normalized: "other@example.com",
+      phone_normalized: "447467586751",
+      auth_user_id: null,
+      user_profile_id: null,
+      notes: null,
+    } satisfies CustomerRow;
+
+    const upsertError = {
+      code: "23505",
+      message:
+        'duplicate key value violates unique constraint "customers_restaurant_id_phone_normalized_key"',
+    };
+
+    const upsertChain = {
+      select: vi.fn().mockReturnValue({
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: upsertError }),
+      }),
+    };
+
+    const emailSelectChain = {
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    };
+
+    const phoneSelectChain = {
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: existingRow, error: null }),
+    };
+
+    const updateChain = {
+      eq: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({ data: existingRow, error: null }),
+      }),
+    };
+
+    const customersRepo = {
+      upsert: vi.fn().mockReturnValue(upsertChain),
+      select: vi
+        .fn()
+        .mockReturnValueOnce(emailSelectChain)
+        .mockReturnValueOnce(phoneSelectChain),
+      update: vi.fn().mockReturnValue(updateChain),
+    };
+
+    const client = {
+      from: vi.fn().mockImplementation((table: string) => {
+        if (table === "customers") {
+          return customersRepo;
+        }
+        throw new Error(`Unexpected table ${table}`);
+      }),
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await upsertCustomer(client as any, {
+      restaurantId: existingRow.restaurant_id,
+      email: "new@example.com",
+      phone: existingRow.phone,
+      name: existingRow.full_name,
+      marketingOptIn: existingRow.marketing_opt_in,
+    });
+
+    expect(result).toEqual(existingRow);
+  });
 });
