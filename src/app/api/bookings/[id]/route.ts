@@ -218,6 +218,67 @@ function stringifyError(error: unknown): string {
   }
 }
 
+async function buildBookingResponse(
+  serviceSupabase: ReturnType<typeof getServiceSupabaseClient>,
+  booking: Tables<"bookings">,
+) {
+  if (!booking.restaurant_id) {
+    console.error("[bookings][GET:id] Booking has no restaurant_id", { bookingId: booking.id });
+    return NextResponse.json(
+      {
+        error: "This booking is missing restaurant information. Please contact support.",
+        code: "MISSING_RESTAURANT_DATA",
+      },
+      { status: 500 },
+    );
+  }
+
+  const { data: restaurant, error: restaurantError } = await serviceSupabase
+    .from("restaurants")
+    .select("name, slug, timezone")
+    .eq("id", booking.restaurant_id)
+    .maybeSingle();
+
+  if (restaurantError) {
+    console.error("[bookings][GET:id] Error fetching restaurant", {
+      restaurantId: booking.restaurant_id,
+      error: restaurantError,
+    });
+  }
+
+  if (!restaurant) {
+    console.error("[bookings][GET:id] Restaurant not found", {
+      restaurantId: booking.restaurant_id,
+      bookingId: booking.id,
+    });
+    return NextResponse.json(
+      {
+        error: "Restaurant information not found. Please contact support.",
+        code: "RESTAURANT_NOT_FOUND",
+      },
+      { status: 500 },
+    );
+  }
+
+  if (!restaurant.slug) {
+    console.error("[bookings][GET:id] Restaurant has no slug", {
+      restaurantId: booking.restaurant_id,
+      restaurantName: restaurant.name,
+    });
+  }
+
+  return NextResponse.json({
+    booking: {
+      ...booking,
+      restaurants: {
+        name: restaurant.name ?? null,
+        slug: restaurant.slug ?? null,
+        timezone: restaurant.timezone ?? null,
+      },
+    },
+  });
+}
+
 function handleZodError(error: z.ZodError) {
   return NextResponse.json(
     {
@@ -649,7 +710,8 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "Missing booking id", code: "MISSING_BOOKING_ID" }, { status: 400 });
   }
 
-  const token = req.nextUrl.searchParams.get("token") ?? req.cookies.get("sr_confirm")?.value ?? null;
+  const rawToken = req.nextUrl.searchParams.get("token") ?? req.cookies.get("sr_confirm")?.value ?? null;
+  const token = rawToken?.trim() ?? null;
 
   // Public token-based access (read-only) for guest flows
   if (token) {
@@ -658,60 +720,27 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       if (booking.id !== bookingId) {
         return NextResponse.json({ error: "Token does not match booking", code: "TOKEN_MISMATCH" }, { status: 403 });
       }
-
       const serviceSupabase = getServiceSupabaseClient();
-
-      if (!booking.restaurant_id) {
-        console.error("[bookings][GET:id][token] Booking has no restaurant_id", { bookingId: booking.id });
-        return NextResponse.json({
-          error: "This booking is missing restaurant information. Please contact support.",
-          code: "MISSING_RESTAURANT_DATA"
-        }, { status: 500 });
-      }
-
-      const { data: restaurant, error: restaurantError } = await serviceSupabase
-        .from("restaurants")
-        .select("name, slug, timezone")
-        .eq("id", booking.restaurant_id)
-        .maybeSingle();
-
-      if (restaurantError) {
-        console.error("[bookings][GET:id][token] Error fetching restaurant", {
-          restaurantId: booking.restaurant_id,
-          error: restaurantError
-        });
-      }
-
-      if (!restaurant) {
-        console.error("[bookings][GET:id][token] Restaurant not found", {
-          restaurantId: booking.restaurant_id,
-          bookingId: booking.id
-        });
-        return NextResponse.json({
-          error: "Restaurant information not found. Please contact support.",
-          code: "RESTAURANT_NOT_FOUND"
-        }, { status: 500 });
-      }
-
-      if (!restaurant.slug) {
-        console.error("[bookings][GET:id][token] Restaurant has no slug", {
-          restaurantId: booking.restaurant_id,
-          restaurantName: restaurant.name
-        });
-      }
-
-      return NextResponse.json({
-        booking: {
-          ...booking,
-          restaurants: {
-            name: restaurant.name ?? null,
-            slug: restaurant.slug ?? null,
-            timezone: restaurant.timezone ?? null,
-          },
-        },
-      });
+      return await buildBookingResponse(serviceSupabase, booking as Tables<"bookings">);
     } catch (error: unknown) {
       if (error instanceof TokenValidationError) {
+        if (error.code === "TOKEN_NOT_FOUND") {
+          const serviceSupabase = getServiceSupabaseClient();
+          const { data: bookingById, error: bookingLookupError } = await serviceSupabase
+            .from("bookings")
+            .select("*")
+            .eq("id", bookingId)
+            .maybeSingle();
+
+          if (bookingLookupError) {
+            console.error("[bookings][GET:id][token:fallback] lookup failed", stringifyError(bookingLookupError));
+          }
+
+          if (bookingById && (bookingById.confirmation_token ?? "").trim() === token) {
+            return await buildBookingResponse(serviceSupabase, bookingById as Tables<"bookings">);
+          }
+        }
+
         const status = error.code === "TOKEN_NOT_FOUND" ? 404 : error.code === "TOKEN_EXPIRED" ? 410 : 401;
         return NextResponse.json({ error: error.message, code: error.code }, { status });
       }

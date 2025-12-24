@@ -6,6 +6,16 @@ last_updated: 2025-11-30
 owner: github:@maintainers
 ---
 
+## Technology Stack
+
+- **Framework**: Next.js 14+ (App Router)
+- **Language**: TypeScript
+- **UI Library**: React 18+, Shadcn UI
+- **Styling**: Tailwind CSS
+- **Database**: Supabase (PostgreSQL)
+- **Auth**: Supabase Auth
+- **Package Manager**: pnpm
+
 # AGENTS.md
 
 **SDLC‑aligned operating handbook for AI coding agents and human contributors (with MCP tooling)**

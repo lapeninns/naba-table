@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { GuardError } from '@/server/auth/guards';
+import { TokenValidationError } from '@/server/bookings/confirmation-token';
 import { OperatingHoursError } from '@/server/bookings/timeValidation';
 
 import { DELETE, GET, PUT } from './route';
@@ -73,6 +74,7 @@ const getRestaurantScheduleMock = vi.hoisted(() => vi.fn());
 const getDefaultRestaurantIdMock = vi.hoisted(() => vi.fn());
 const getRouteHandlerSupabaseClientMock = vi.hoisted(() => vi.fn());
 const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn());
+const validateConfirmationTokenMock = vi.hoisted(() => vi.fn());
 const fetchBookingsForContactMock = vi.hoisted(() => vi.fn());
 const updateBookingRecordMock = vi.hoisted(() => vi.fn());
 const beginBookingModificationFlowMock = vi.hoisted(() => vi.fn());
@@ -146,6 +148,19 @@ vi.mock('@/server/observability', () => ({
   recordObservabilityEvent: (...args: unknown[]) => recordObservabilityEventMock(...args),
 }));
 
+vi.mock('@/server/bookings/confirmation-token', () => ({
+  validateConfirmationToken: (...args: unknown[]) => validateConfirmationTokenMock(...args),
+  TokenValidationError: class TokenValidationErrorMock extends Error {
+    code: 'TOKEN_NOT_FOUND' | 'TOKEN_EXPIRED' | 'TOKEN_USED';
+
+    constructor(message: string, code: 'TOKEN_NOT_FOUND' | 'TOKEN_EXPIRED' | 'TOKEN_USED') {
+      super(message);
+      this.name = 'TokenValidationError';
+      this.code = code;
+    }
+  },
+}));
+
 const RESTAURANT_ID = '11111111-1111-4111-8111-111111111111';
 
 const DEFAULT_SCHEDULE = {
@@ -189,6 +204,7 @@ const existingBooking = {
   created_at: '2025-10-01T10:00:00Z',
   updated_at: '2025-10-01T10:05:00Z',
   slot: null,
+  confirmation_token: 'token-123',
 };
 
 const existingRestaurant = {
@@ -267,6 +283,55 @@ describe('/api/bookings/[id] GET', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.clearAllMocks();
+  });
+
+  it('returns booking via token when token matches booking and id', async () => {
+    const request = new NextRequest('http://localhost/api/bookings/booking-1?token=token-123', { method: 'GET' });
+    const params = { params: Promise.resolve({ id: 'booking-1' }) } as const;
+
+    validateConfirmationTokenMock.mockResolvedValue({ ...existingBooking });
+
+    const serviceSupabase = createServiceSupabase({ booking: existingBooking });
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+
+    const response = await GET(request, params);
+
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.booking.id).toBe('booking-1');
+    expect(json.booking.restaurants.slug).toBe('test-restaurant');
+  });
+
+  it('falls back to booking lookup when token is not found but matches stored token for id', async () => {
+    const request = new NextRequest('http://localhost/api/bookings/booking-1?token=token-123', { method: 'GET' });
+    const params = { params: Promise.resolve({ id: 'booking-1' }) } as const;
+
+    validateConfirmationTokenMock.mockRejectedValue(new TokenValidationError('Token not found', 'TOKEN_NOT_FOUND'));
+
+    const serviceSupabase = createServiceSupabase({ booking: existingBooking });
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+
+    const response = await GET(request, params);
+
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.booking.id).toBe('booking-1');
+  });
+
+  it('returns 404 when token is not found and stored token does not match booking id', async () => {
+    const request = new NextRequest('http://localhost/api/bookings/booking-1?token=token-123', { method: 'GET' });
+    const params = { params: Promise.resolve({ id: 'booking-1' }) } as const;
+
+    validateConfirmationTokenMock.mockRejectedValue(new TokenValidationError('Token not found', 'TOKEN_NOT_FOUND'));
+
+    const serviceSupabase = createServiceSupabase({
+      booking: { ...existingBooking, confirmation_token: 'different-token' },
+    });
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+
+    const response = await GET(request, params);
+
+    expect(response.status).toBe(404);
   });
 
   it('returns 401 when user is not authenticated', async () => {
