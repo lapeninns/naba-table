@@ -262,17 +262,102 @@ WHERE profile_id = (SELECT auth.uid())
 
 ---
 
+## Issue 8: POST /api/bookings Returning 503 (INTERNAL_ERROR)
+
+### Severity: **ERROR** (Application Breaking)
+
+### Problem
+
+The `POST /api/bookings` endpoint was returning a 503 Service Unavailable error with `code: "INTERNAL_ERROR"` when creating bookings for the White Horse pub.
+
+### Symptom
+
+```
+POST /api/bookings 503 in 2.6s
+Response: {"error":"An unexpected error occurred while creating the booking","code":"INTERNAL_ERROR"}
+```
+
+### Root Cause Investigation
+
+1. **RPC Function**: The `create_booking_with_capacity_check` PostgreSQL function exists in Supabase
+2. **Error Source**: The function's `WHEN OTHERS` exception handler was catching an unhandled error
+3. **Error Details**: The actual error was in `sqlstate` and `sqlerrm` fields of the response
+
+### PostgreSQL Function Location
+
+The error handling in the RPC function:
+
+```sql
+WHEN OTHERS THEN
+    RAISE WARNING 'Unexpected error in create_booking_with_capacity_check: % %', SQLERRM, SQLSTATE;
+    RETURN jsonb_build_object(
+        'success', false,
+        'error', 'INTERNAL_ERROR',
+        'message', 'An unexpected error occurred while creating the booking',
+        'sqlstate', SQLSTATE,
+        'sqlerrm', SQLERRM
+    );
+```
+
+### Debug Logging Added
+
+Temporary debug logging was added to `server/capacity/transaction.ts` to capture RPC responses:
+
+```typescript
+console.log('[DEBUG] Calling create_booking_with_capacity_check RPC...');
+// After RPC call:
+console.log('[DEBUG] RPC result - data:', JSON.stringify(data, null, 2));
+console.log('[DEBUG] RPC result - error:', JSON.stringify(error, null, 2));
+```
+
+### Possible Root Causes
+
+1. **Missing capacity rules** for the restaurant
+2. **Missing operating hours** configuration
+3. **Constraint violations** in the INSERT statement
+4. **`generate_booking_reference()` function** failing
+
+### Diagnostic Query
+
+Run in Supabase SQL Editor to test directly:
+
+```sql
+DO $$
+DECLARE
+    result jsonb;
+BEGIN
+    SELECT create_booking_with_capacity_check(
+        '486de541-a307-4414-b0b1-f774a0e4a9fa'::uuid,  -- White Horse
+        (SELECT id FROM customers LIMIT 1),
+        '2025-12-27'::date,
+        '18:00'::time,
+        '20:00'::time,
+        2, 'dinner', 'Test', 'test@example.com', '+447000000000',
+        'indoor', NULL, false, 'test-' || now()::text,
+        'api', NULL, NULL, '{}'::jsonb, 0
+    ) INTO result;
+    RAISE NOTICE 'Result: %', result;
+END $$;
+```
+
+### Status
+
+🔍 **Under Investigation** - Need to check Supabase logs for `sqlerrm` details
+
+---
+
 ## Summary of Fixes
 
-| Issue                         | Severity | Status                     |
-| ----------------------------- | -------- | -------------------------- |
-| RLS disabled on 7 tables      | ERROR    | ✅ Fixed (re-apply needed) |
-| Mutable function search paths | WARNING  | ✅ Fixed (re-apply needed) |
-| Missing audit_logs table      | ERROR    | ✅ Fixed (re-apply needed) |
-| pgcrypto not in search path   | WARNING  | ✅ Fixed (re-apply needed) |
-| RLS auth.uid() performance    | WARNING  | ✅ Fixed (re-apply needed) |
-| Duplicate RLS policies        | WARNING  | ✅ Fixed (re-apply needed) |
-| Wrong column in policy        | ERROR    | ✅ Fixed in script         |
+| Issue                                 | Severity | Status                     |
+| ------------------------------------- | -------- | -------------------------- |
+| RLS disabled on 7 tables              | ERROR    | ✅ Fixed (re-apply needed) |
+| Mutable function search paths         | WARNING  | ✅ Fixed (re-apply needed) |
+| Missing audit_logs table              | ERROR    | ✅ Fixed (re-apply needed) |
+| pgcrypto not in search path           | WARNING  | ✅ Fixed (re-apply needed) |
+| RLS auth.uid() performance            | WARNING  | ✅ Fixed (re-apply needed) |
+| Duplicate RLS policies                | WARNING  | ✅ Fixed (re-apply needed) |
+| Wrong column in policy                | ERROR    | ✅ Fixed in script         |
+| 503 on booking creation (White Horse) | ERROR    | 🔍 Investigating           |
 
 ---
 
@@ -342,4 +427,5 @@ Restored from daily backup (24 Dec 2025 05:25:20 UTC) via Supabase Pro plan.
 ---
 
 **Document Created**: 2025-12-24T18:50:00Z  
+**Last Updated**: 2025-12-24T18:51:00Z  
 **Author**: AI Assistant + @amankumarshrestha

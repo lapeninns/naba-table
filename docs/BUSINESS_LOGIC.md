@@ -634,9 +634,9 @@ Once a booking reaches these statuses, it cannot be modified:
 
 ### Bar Tables
 
-**Rule**: Bar tables (category: "bar") only for drinks bookings
-**Reason**: Prevent DB constraint failures, ensure proper experience matching
-**Source**: `server/capacity/table-assignment/quote.ts:323-327`
+**Rule**: Bar tables (category: "bar") can be used for any booking type
+**Note**: Previously restricted to drinks-only bookings; this restriction has been removed (Dec 2024)
+**Source**: `server/capacity/table-assignment/quote.ts`
 
 ### Booking Window Fallback
 

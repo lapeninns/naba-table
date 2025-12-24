@@ -131,14 +131,14 @@ function composePlannerConfig(params: {
     demandMultiplier: params.demandMultiplier,
     demandRule: params.demandRule
       ? {
-          label: params.demandRule.label ?? null,
-          source: params.demandRule.source,
-          serviceWindow: params.demandRule.serviceWindow ?? null,
-          days: params.demandRule.days,
-          start: params.demandRule.start ?? null,
-          end: params.demandRule.end ?? null,
-          priority: params.demandRule.priority ?? null,
-        }
+        label: params.demandRule.label ?? null,
+        source: params.demandRule.source,
+        serviceWindow: params.demandRule.serviceWindow ?? null,
+        days: params.demandRule.days,
+        start: params.demandRule.start ?? null,
+        end: params.demandRule.end ?? null,
+        priority: params.demandRule.priority ?? null,
+      }
       : null,
     lookahead: {
       enabled: params.lookahead.enabled,
@@ -324,15 +324,8 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     client: supabase,
   });
 
-  const tables = (await tablesPromise).filter((table) => {
-    const category = (table.category ?? "").toString().toLowerCase();
-    const bookingType = (booking.booking_type ?? "").toString().toLowerCase();
-    // Bar tables are drinks-only; avoid them for non-drinks bookings to prevent DB constraint failures.
-    if (category === "bar" && bookingType && bookingType !== "drinks") {
-      return false;
-    }
-    return true;
-  });
+  // All tables (including bar category) can now be used for any booking type
+  const tables = await tablesPromise;
   const adjacency = await loadAdjacency(
     booking.restaurant_id,
     tables.map((table) => table.id),
@@ -361,20 +354,20 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
 
     const holdsPromise = isHoldsEnabled()
       ? loadActiveHoldsForDate(booking.restaurant_id, booking.booking_date ?? null, policy, supabase, signal).catch((error: unknown) => {
-          const code = extractErrorCode(error);
-          // Missing table, FK relationship, or schema cache error - skip hold hydration silently
-          if (code === "42P01" || code === "PGRST200" || code === "PGRST205") {
-            console.warn("[capacity.quote] holds table unavailable; skipping hold hydration", {
-              restaurantId: booking.restaurant_id,
-            });
-          } else {
-            console.warn("[capacity.quote] failed to load active holds", {
-              restaurantId: booking.restaurant_id,
-              error,
-            });
-          }
-          return [] as TableHold[];
-        })
+        const code = extractErrorCode(error);
+        // Missing table, FK relationship, or schema cache error - skip hold hydration silently
+        if (code === "42P01" || code === "PGRST200" || code === "PGRST205") {
+          console.warn("[capacity.quote] holds table unavailable; skipping hold hydration", {
+            restaurantId: booking.restaurant_id,
+          });
+        } else {
+          console.warn("[capacity.quote] failed to load active holds", {
+            restaurantId: booking.restaurant_id,
+            error,
+          });
+        }
+        return [] as TableHold[];
+      })
       : Promise.resolve([] as TableHold[]);
 
     const [contextResult, holdsResult] = await Promise.all([contextPromise, holdsPromise]);
@@ -413,12 +406,12 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     timeFilter:
       busyForPlanner && timePruningEnabled
         ? {
-            busy: busyForPlanner,
-            mode: "strict" as TimeFilterMode,
-            captureStats: (stats: TimeFilterStats) => {
-              timePruningStats = stats;
-            },
-          }
+          busy: busyForPlanner,
+          mode: "strict" as TimeFilterMode,
+          captureStats: (stats: TimeFilterStats) => {
+            timePruningStats = stats;
+          },
+        }
         : undefined,
   });
 
@@ -821,15 +814,15 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
           recordHoldConflictSkip(
             hold
               ? [
-                  {
-                    holdId: hold.id,
-                    bookingId,
-                    tableIds: requestedTableIds,
-                    startAt: requestedWindowStart,
-                    endAt: requestedWindowEnd,
-                    expiresAt: hold.expiresAt,
-                  },
-                ]
+                {
+                  holdId: hold.id,
+                  bookingId,
+                  tableIds: requestedTableIds,
+                  startAt: requestedWindowStart,
+                  endAt: requestedWindowEnd,
+                  expiresAt: hold.expiresAt,
+                },
+              ]
               : [],
             candidateSummary,
             plan,
