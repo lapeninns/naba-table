@@ -698,7 +698,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   // Validate token if provided
   let tokenResult = null;
   if (token) {
-    tokenResult = await validateToken(token, bookingId);
+    tokenResult = await validateToken(token, bookingId, { booking: booking as Tables<"bookings"> });
 
     // If token validation failed and no authenticated user, return error
     if (!tokenResult.valid && !normalizedUser) {

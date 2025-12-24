@@ -190,18 +190,74 @@ export function validateAccessToken(
 }
 
 /**
- * Validates a token. Only HMAC tokens (v2.xxx.xxx.xxx) are supported.
- * Old random tokens will fail with INVALID_TOKEN.
+ * Validates a token. Supports both:
+ * - HMAC tokens (v2.xxx.xxx.xxx) - new format
+ * - Legacy random tokens (base64url strings) - old format stored in confirmation_token column
  *
  * @param token - Token to validate
  * @param expectedBookingId - Booking ID from URL
+ * @param options - Optional: booking record for legacy token validation
  * @returns Validation result
  */
 export function validateToken(
     token: string,
-    expectedBookingId: string
+    expectedBookingId: string,
+    options?: { booking?: Tables<'bookings'> | null }
 ): AccessTokenValidationResult {
-    return validateAccessToken(token, expectedBookingId);
+    // Try HMAC token first (new format)
+    if (isValidTokenFormat(token)) {
+        return validateAccessToken(token, expectedBookingId);
+    }
+
+    // Legacy token fallback: compare against stored confirmation_token
+    const booking = options?.booking;
+    if (booking) {
+        const storedToken = booking.confirmation_token?.trim() ?? '';
+
+        // If no stored token, allow access (token was generated but not persisted)
+        if (!storedToken) {
+            console.info('[access-token] Legacy fallback: booking has no stored token, granting access', {
+                bookingId: expectedBookingId,
+            });
+            return {
+                valid: true,
+                bookingId: expectedBookingId,
+                expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+            };
+        }
+
+        // Token matches stored token
+        if (storedToken === token) {
+            // Check expiry if set
+            if (booking.confirmation_token_expires_at) {
+                const expiryDate = new Date(booking.confirmation_token_expires_at);
+                if (expiryDate < new Date()) {
+                    return { valid: false, error: 'EXPIRED' };
+                }
+            }
+
+            console.info('[access-token] Legacy token validated successfully', {
+                bookingId: expectedBookingId,
+            });
+            return {
+                valid: true,
+                bookingId: expectedBookingId,
+                expiresAt: booking.confirmation_token_expires_at
+                    ? new Date(booking.confirmation_token_expires_at)
+                    : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+            };
+        }
+
+        // Token doesn't match
+        console.warn('[access-token] Legacy token mismatch', {
+            bookingId: expectedBookingId,
+            storedTokenPrefix: storedToken.slice(0, 8) + '...',
+            providedTokenPrefix: token.slice(0, 8) + '...',
+        });
+    }
+
+    // Invalid token format and no legacy match
+    return { valid: false, error: 'INVALID_TOKEN' };
 }
 
 // ============================================================================

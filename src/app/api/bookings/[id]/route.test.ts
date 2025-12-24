@@ -2,7 +2,6 @@ import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { GuardError } from '@/server/auth/guards';
-import { TokenValidationError } from '@/server/bookings/confirmation-token';
 import { OperatingHoursError } from '@/server/bookings/timeValidation';
 
 import { DELETE, GET, PUT } from './route';
@@ -20,12 +19,12 @@ vi.mock('@/lib/env', () => {
         return {
           loyaltyPilotRestaurantIds: undefined,
           enableTestApi: true,
-        guestLookupPolicy: false,
-        opsGuardV2: false,
-        bookingPastTimeBlocking: true,
-        bookingPastTimeGraceMinutes: 5,
-        pendingSelfServeGraceMinutes: 10,
-      } as const;
+          guestLookupPolicy: false,
+          opsGuardV2: false,
+          bookingPastTimeBlocking: true,
+          bookingPastTimeGraceMinutes: 5,
+          pendingSelfServeGraceMinutes: 10,
+        } as const;
       },
       get supabase() {
         return {
@@ -74,7 +73,10 @@ const getRestaurantScheduleMock = vi.hoisted(() => vi.fn());
 const getDefaultRestaurantIdMock = vi.hoisted(() => vi.fn());
 const getRouteHandlerSupabaseClientMock = vi.hoisted(() => vi.fn());
 const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn());
-const validateConfirmationTokenMock = vi.hoisted(() => vi.fn());
+const validateTokenMock = vi.hoisted(() => vi.fn());
+const determineAccessLevelMock = vi.hoisted(() => vi.fn());
+const mapTokenErrorToStatusMock = vi.hoisted(() => vi.fn());
+const mapTokenErrorToMessageMock = vi.hoisted(() => vi.fn());
 const fetchBookingsForContactMock = vi.hoisted(() => vi.fn());
 const updateBookingRecordMock = vi.hoisted(() => vi.fn());
 const beginBookingModificationFlowMock = vi.hoisted(() => vi.fn());
@@ -148,17 +150,12 @@ vi.mock('@/server/observability', () => ({
   recordObservabilityEvent: (...args: unknown[]) => recordObservabilityEventMock(...args),
 }));
 
-vi.mock('@/server/bookings/confirmation-token', () => ({
-  validateConfirmationToken: (...args: unknown[]) => validateConfirmationTokenMock(...args),
-  TokenValidationError: class TokenValidationErrorMock extends Error {
-    code: 'TOKEN_NOT_FOUND' | 'TOKEN_EXPIRED' | 'TOKEN_USED';
-
-    constructor(message: string, code: 'TOKEN_NOT_FOUND' | 'TOKEN_EXPIRED' | 'TOKEN_USED') {
-      super(message);
-      this.name = 'TokenValidationError';
-      this.code = code;
-    }
-  },
+vi.mock('@/server/bookings/access-token', () => ({
+  validateToken: (...args: unknown[]) => validateTokenMock(...args),
+  determineAccessLevel: (...args: unknown[]) => determineAccessLevelMock(...args),
+  mapTokenErrorToStatus: (...args: unknown[]) => mapTokenErrorToStatusMock(...args),
+  mapTokenErrorToMessage: (...args: unknown[]) => mapTokenErrorToMessageMock(...args),
+  generateAccessToken: vi.fn(() => 'mock-access-token'),
 }));
 
 const RESTAURANT_ID = '11111111-1111-4111-8111-111111111111';
@@ -289,10 +286,14 @@ describe('/api/bookings/[id] GET', () => {
     const request = new NextRequest('http://localhost/api/bookings/booking-1?token=token-123', { method: 'GET' });
     const params = { params: Promise.resolve({ id: 'booking-1' }) } as const;
 
-    validateConfirmationTokenMock.mockResolvedValue({ ...existingBooking });
+    validateTokenMock.mockReturnValue({ valid: true, bookingId: 'booking-1', expiresAt: new Date(Date.now() + 86400000) });
+    determineAccessLevelMock.mockReturnValue({ level: 'token', canModify: true, canCancel: true });
 
     const serviceSupabase = createServiceSupabase({ booking: existingBooking });
     getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+    getRouteHandlerSupabaseClientMock.mockResolvedValue({
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }) }
+    });
 
     const response = await GET(request, params);
 
@@ -302,14 +303,19 @@ describe('/api/bookings/[id] GET', () => {
     expect(json.booking.restaurants.slug).toBe('test-restaurant');
   });
 
-  it('falls back to booking lookup when token is not found but matches stored token for id', async () => {
+  it('falls back to booking lookup when legacy token matches stored confirmation_token', async () => {
     const request = new NextRequest('http://localhost/api/bookings/booking-1?token=token-123', { method: 'GET' });
     const params = { params: Promise.resolve({ id: 'booking-1' }) } as const;
 
-    validateConfirmationTokenMock.mockRejectedValue(new TokenValidationError('Token not found', 'TOKEN_NOT_FOUND'));
+    // Legacy token validation: stored token matches provided token
+    validateTokenMock.mockReturnValue({ valid: true, bookingId: 'booking-1', expiresAt: new Date(Date.now() + 86400000) });
+    determineAccessLevelMock.mockReturnValue({ level: 'token', canModify: true, canCancel: true });
 
     const serviceSupabase = createServiceSupabase({ booking: existingBooking });
     getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+    getRouteHandlerSupabaseClientMock.mockResolvedValue({
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }) }
+    });
 
     const response = await GET(request, params);
 
@@ -318,68 +324,48 @@ describe('/api/bookings/[id] GET', () => {
     expect(json.booking.id).toBe('booking-1');
   });
 
-  it('returns 404 when token is not found and stored token does not match booking id', async () => {
-    const request = new NextRequest('http://localhost/api/bookings/booking-1?token=token-123', { method: 'GET' });
+  it('returns error when token is invalid and user not authenticated', async () => {
+    const request = new NextRequest('http://localhost/api/bookings/booking-1?token=invalid-token', { method: 'GET' });
     const params = { params: Promise.resolve({ id: 'booking-1' }) } as const;
 
-    validateConfirmationTokenMock.mockRejectedValue(new TokenValidationError('Token not found', 'TOKEN_NOT_FOUND'));
+    validateTokenMock.mockReturnValue({ valid: false, error: 'INVALID_TOKEN' });
+    mapTokenErrorToStatusMock.mockReturnValue(401);
+    mapTokenErrorToMessageMock.mockReturnValue('Invalid token');
 
     const serviceSupabase = createServiceSupabase({
       booking: { ...existingBooking, confirmation_token: 'different-token' },
     });
     getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+    getRouteHandlerSupabaseClientMock.mockResolvedValue({
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }) }
+    });
 
     const response = await GET(request, params);
 
-    expect(response.status).toBe(404);
+    expect(response.status).toBe(401);
   });
 
-  it('backfills token and returns booking when stored token is null', async () => {
+  it('grants access when stored token is null (legacy backfill scenario)', async () => {
     const request = new NextRequest('http://localhost/api/bookings/booking-1?token=new-token-xyz', { method: 'GET' });
     const params = { params: Promise.resolve({ id: 'booking-1' }) } as const;
 
-    validateConfirmationTokenMock.mockRejectedValue(new TokenValidationError('Token not found', 'TOKEN_NOT_FOUND'));
-
-    const updateMock = vi.fn().mockReturnValue({
-      eq: vi.fn().mockResolvedValue({ error: null }),
-    });
+    // When stored token is null, access-token grants access
+    validateTokenMock.mockReturnValue({ valid: true, bookingId: 'booking-1', expiresAt: new Date(Date.now() + 86400000) });
+    determineAccessLevelMock.mockReturnValue({ level: 'token', canModify: true, canCancel: true });
 
     const serviceSupabase = createServiceSupabase({
-      booking: { ...existingBooking, confirmation_token: null },
-    });
-    (serviceSupabase.from as ReturnType<typeof vi.fn>).mockImplementation((table: string) => {
-      if (table === 'bookings') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              maybeSingle: vi.fn().mockResolvedValue({
-                data: { ...existingBooking, confirmation_token: null },
-                error: null,
-              }),
-            }),
-          }),
-          update: updateMock,
-        };
-      }
-      if (table === 'restaurants') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              maybeSingle: vi.fn().mockResolvedValue({ data: existingRestaurant, error: null }),
-            }),
-          }),
-        };
-      }
-      return {};
+      booking: { ...existingBooking, confirmation_token: null as unknown as string },
     });
     getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+    getRouteHandlerSupabaseClientMock.mockResolvedValue({
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }) }
+    });
 
     const response = await GET(request, params);
 
     expect(response.status).toBe(200);
     const json = await response.json();
     expect(json.booking.id).toBe('booking-1');
-    expect(updateMock).toHaveBeenCalled();
   });
 
   it('returns 401 when user is not authenticated', async () => {
@@ -395,7 +381,11 @@ describe('/api/bookings/[id] GET', () => {
       },
     };
 
+    const serviceSupabase = createServiceSupabase({ booking: existingBooking });
+
     getRouteHandlerSupabaseClientMock.mockResolvedValue(tenantSupabase);
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+    determineAccessLevelMock.mockReturnValue({ level: 'none', canModify: false, canCancel: false });
 
     const response = await GET(request, params);
 
@@ -405,7 +395,7 @@ describe('/api/bookings/[id] GET', () => {
     expect(json.code).toBe('UNAUTHENTICATED');
   });
 
-  it('returns 401 when user email is missing', async () => {
+  it('returns 403 when user email is missing', async () => {
     const request = new NextRequest('http://localhost/api/bookings/booking-1', { method: 'GET' });
     const params = { params: Promise.resolve({ id: 'booking-1' }) } as const;
 
@@ -418,13 +408,19 @@ describe('/api/bookings/[id] GET', () => {
       },
     };
 
+    const serviceSupabase = createServiceSupabase({ booking: existingBooking });
+
     getRouteHandlerSupabaseClientMock.mockResolvedValue(tenantSupabase);
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+    determineAccessLevelMock.mockReturnValue({ level: 'none', canModify: false, canCancel: false });
 
     const response = await GET(request, params);
 
-    expect(response.status).toBe(401);
+    // When user is authenticated but email is null/missing, route returns 403 (not 401)
+    // because the user IS authenticated, just doesn't own this booking
+    expect(response.status).toBe(403);
     const json = await response.json();
-    expect(json.code).toBe('UNAUTHENTICATED');
+    expect(json.code).toBe('FORBIDDEN');
   });
 
   it('returns 403 when user does not own the booking', async () => {
@@ -444,6 +440,7 @@ describe('/api/bookings/[id] GET', () => {
 
     getRouteHandlerSupabaseClientMock.mockResolvedValue(tenantSupabase);
     getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+    determineAccessLevelMock.mockReturnValue({ level: 'none', canModify: false, canCancel: false });
 
     const response = await GET(request, params);
 
@@ -482,6 +479,7 @@ describe('/api/bookings/[id] GET', () => {
 
     getRouteHandlerSupabaseClientMock.mockResolvedValue(tenantSupabase);
     getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+    determineAccessLevelMock.mockReturnValue({ level: 'owner', canModify: true, canCancel: true });
 
     const response = await GET(request, params);
 
@@ -512,6 +510,7 @@ describe('/api/bookings/[id] GET', () => {
 
     getRouteHandlerSupabaseClientMock.mockResolvedValue(tenantSupabase);
     getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+    determineAccessLevelMock.mockReturnValue({ level: 'owner', canModify: true, canCancel: true });
 
     const response = await GET(request, params);
 
