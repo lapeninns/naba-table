@@ -940,7 +940,8 @@ export function ReservationDetailClient({
             </Alert>
           )}
 
-          {canManage && <ReservationHistory reservationId={reservationId} />}
+          {/* History requires authenticated session, not just token access */}
+          {canManage && accessLevel === 'owner' && <ReservationHistory reservationId={reservationId} />}
 
           {bookingDto ? (
             <>

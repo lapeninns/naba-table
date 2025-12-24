@@ -183,6 +183,7 @@ x7Kp2mNwQr5sVt8yBz3jLf9a
 
 ## Notes
 
+- **History requires auth**: The `ReservationHistory` component is only shown when `accessLevel === 'owner'` (logged in), not for token-based access. This prevents 401 errors since the history API requires session authentication.
 - **ID-first lookup**: Booking is found by ID before any token validation
 - **Stateless HMAC tokens**: No database storage needed for new tokens
 - **Backward compatible**: Legacy tokens work via DB fallback during migration
