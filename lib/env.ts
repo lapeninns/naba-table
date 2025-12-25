@@ -317,6 +317,12 @@ export const env = {
     const parsed = parseEnv();
     return {
       guestLookupPepper: parsed.GUEST_LOOKUP_PEPPER ?? null,
+      sessionRecoveryAccessTokenSecret: parsed.SESSION_RECOVERY_ACCESS_TOKEN_SECRET ?? null,
+      sessionRecoveryAccessTokenTtlSeconds: (() => {
+        const value = parsed.SESSION_RECOVERY_ACCESS_TOKEN_TTL_SECONDS ?? 900;
+        if (typeof value !== "number" || Number.isNaN(value)) return 900;
+        return Math.max(60, Math.min(value, 86_400));
+      })(),
     } as const;
   },
 
