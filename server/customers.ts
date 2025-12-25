@@ -1,14 +1,8 @@
-import type { Database, Tables, TablesInsert } from "@/types/supabase";
+import type { Database, Tables, TablesInsert, TablesUpdate } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-
-const CUSTOMER_CONFLICT_KEY = "restaurant_id,email_normalized,phone_normalized";
-const CUSTOMER_CONFLICT_FALLBACK_KEYS = [
-  "restaurant_id,email_normalized",
-  "restaurant_id,phone_normalized",
-];
 const CUSTOMER_COLUMNS =
-  "id,restaurant_id,email,phone,full_name,marketing_opt_in,created_at,updated_at,email_normalized,phone_normalized,auth_user_id,user_profile_id";
+  "id,restaurant_id,email,phone,full_name,marketing_opt_in,created_at,updated_at,email_normalized,phone_normalized,auth_user_id,user_profile_id,notes";
 
 export type CustomerRow = Tables<"customers">;
 
@@ -62,158 +56,112 @@ export async function upsertCustomer(
     userProfileId?: string | null;
   },
 ): Promise<CustomerRow> {
-  const email = normalizeEmail(params.email);
+  const normalizedEmail = normalizeEmail(params.email);
+  const normalizedPhone = normalizePhone(params.phone);
   const phoneForStorage = sanitizePhoneValue(params.phone);
   const marketingOptIn = params.marketingOptIn ?? false;
 
-  const insertPayload: TablesInsert<"customers"> = {
-    restaurant_id: params.restaurantId,
-    email,
-    phone: phoneForStorage,
-    full_name: params.name || '',
-    marketing_opt_in: marketingOptIn,
-  };
+  console.log(`[upsertCustomer] Resolving customer`, {
+    restaurantId: params.restaurantId,
+    email: normalizedEmail,
+    phone: normalizedPhone
+  });
 
-  if (params.authUserId !== undefined) {
-    insertPayload.auth_user_id = params.authUserId;
-  }
-  if (params.userProfileId !== undefined) {
-    insertPayload.user_profile_id = params.userProfileId;
-  }
-
-  const { data, error } = await client
+  // 1. Find existing customer by normalized contact info
+  // Use quotes for values in .or() to handle special characters correctly in PostgREST
+  const { data: existing, error: findError } = await client
     .from("customers")
-    .upsert(insertPayload, {
-      onConflict: CUSTOMER_CONFLICT_KEY,
-      ignoreDuplicates: false,
-    })
     .select(CUSTOMER_COLUMNS)
+    .eq("restaurant_id", params.restaurantId)
+    .or(`email_normalized.eq."${normalizedEmail}",phone_normalized.eq."${normalizedPhone}"`)
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle();
 
-  const isMissingConflictConstraintError = (value: unknown): boolean => {
-    if (!value || typeof value !== "object") {
-      return false;
-    }
-    const record = value as { code?: unknown; message?: unknown };
-    const code = typeof record.code === "string" ? record.code : "";
-    if (code === "42P10") {
-      return true;
-    }
-    const message = typeof record.message === "string" ? record.message : "";
-    return /no unique or exclusion constraint matching the on conflict specification/i.test(message);
-  };
+  if (findError && findError.code !== "PGRST116") {
+    console.error(`[upsertCustomer] Find error`, findError);
+    throw findError;
+  }
 
-  let customerData = data;
-  let lastError = error ?? null;
+  let customerData: CustomerRow | null = existing as CustomerRow | null;
 
-  if (error && isMissingConflictConstraintError(error)) {
-    // Some environments may be missing the composite conflict target. Retry with the available uniques.
-    for (const fallbackKey of CUSTOMER_CONFLICT_FALLBACK_KEYS) {
-      const { data: fallbackData, error: fallbackError } = await client
+  if (existing) {
+    console.log(`[upsertCustomer] Found existing customer: ${existing.id}`);
+    // 2. Update existing customer
+    const updates: TablesUpdate<"customers"> = {};
+
+    if (!existing.full_name && params.name) {
+      updates.full_name = params.name;
+    }
+
+    if (marketingOptIn && !existing.marketing_opt_in) {
+      updates.marketing_opt_in = true;
+    }
+
+    if (existing.phone_normalized !== normalizedPhone) {
+      updates.phone = phoneForStorage;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      console.log(`[upsertCustomer] Updating customer: ${existing.id}`, updates);
+      const { data: updated, error: updateError } = await client
         .from("customers")
-        .upsert(insertPayload, {
-          onConflict: fallbackKey,
-          ignoreDuplicates: false,
-        })
+        .update(updates)
+        .eq("id", existing.id)
         .select(CUSTOMER_COLUMNS)
-        .maybeSingle();
+        .single();
 
-      customerData = fallbackData;
-      lastError = fallbackError ?? null;
-
-      if (!fallbackError) {
-        break;
+      if (updateError) {
+        console.error(`[upsertCustomer] Update error`, updateError);
+        throw updateError;
       }
-
-      if (!isMissingConflictConstraintError(fallbackError)) {
-        break;
-      }
+      customerData = updated as CustomerRow;
     }
-  }
+  } else {
+    console.log(`[upsertCustomer] No existing customer found, inserting new.`);
+    // 3. Insert new customer
+    const insertPayload: TablesInsert<"customers"> = {
+      restaurant_id: params.restaurantId,
+      email: normalizedEmail,
+      phone: phoneForStorage,
+      full_name: params.name || '',
+      marketing_opt_in: marketingOptIn,
+    };
 
-  const isUniqueViolationError = (value: unknown): boolean => {
-    if (!value || typeof value !== "object") {
-      return false;
-    }
-    const record = value as { code?: unknown };
-    return record.code === "23505";
-  };
+    if (params.authUserId) insertPayload.auth_user_id = params.authUserId;
+    if (params.userProfileId) insertPayload.user_profile_id = params.userProfileId;
 
-  if (lastError && isUniqueViolationError(lastError)) {
-    const { data: existing, error: existingError } = await client
+    const { data: inserted, error: insertError } = await client
       .from("customers")
+      .insert(insertPayload)
       .select(CUSTOMER_COLUMNS)
-      .eq("restaurant_id", params.restaurantId)
-      .eq("email_normalized", email)
-      .maybeSingle();
+      .single();
 
-    if (existingError && existingError.code !== "PGRST116") {
-      throw existingError;
-    }
-
-    if (existing) {
-      customerData = existing;
-      lastError = null;
-
-      const existingNormalizedPhone = normalizePhone(existing.phone);
-      const incomingNormalizedPhone = normalizePhone(params.phone);
-
-      if (incomingNormalizedPhone && existingNormalizedPhone !== incomingNormalizedPhone) {
-        const { data: updated, error: phoneUpdateError } = await client
+    if (insertError) {
+      console.warn(`[upsertCustomer] Insert error (code ${insertError.code})`, insertError);
+      // Final fallback for race conditions
+      if (insertError.code === "23505") {
+        console.log(`[upsertCustomer] Race condition detected, retrying find.`);
+        const { data: secondFind } = await client
           .from("customers")
-          .update({ phone: phoneForStorage })
-          .eq("id", existing.id)
           .select(CUSTOMER_COLUMNS)
-          .single();
+          .eq("restaurant_id", params.restaurantId)
+          .or(`email_normalized.eq."${normalizedEmail}",phone_normalized.eq."${normalizedPhone}"`)
+          .maybeSingle();
 
-        if (!phoneUpdateError && updated) {
-          customerData = updated;
-        }
+        if (secondFind) return secondFind as CustomerRow;
       }
+      throw insertError;
     }
-  }
-
-  if (lastError) {
-    throw lastError;
+    customerData = inserted as CustomerRow;
+    console.log(`[upsertCustomer] Created new customer: ${customerData.id}`);
   }
 
   if (!customerData) {
-    throw new Error("Failed to upsert customer contact");
+    throw new Error("Failed to resolve customer record");
   }
 
-  // Ensure marketing opt-in is sticky when true.
-  if (marketingOptIn && !customerData.marketing_opt_in) {
-    const { data: patched, error: updateError } = await client
-      .from("customers")
-      .update({
-        marketing_opt_in: true,
-        full_name: customerData.full_name ?? params.name ?? null,
-      })
-      .eq("id", customerData.id)
-      .select(CUSTOMER_COLUMNS)
-      .single();
-
-    if (updateError) {
-      throw updateError;
-    }
-
-    return patched as CustomerRow;
-  }
-
-  if (!customerData.full_name && params.name) {
-    const { data: patched, error: nameUpdateError } = await client
-      .from("customers")
-      .update({ full_name: params.name })
-      .eq("id", customerData.id)
-      .select(CUSTOMER_COLUMNS)
-      .single();
-
-    if (!nameUpdateError && patched) {
-      return patched as CustomerRow;
-    }
-  }
-
-  return customerData as CustomerRow;
+  return customerData;
 }
 
 export async function recordBookingForCustomerProfile(

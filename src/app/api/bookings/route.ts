@@ -207,30 +207,85 @@ async function resolveRestaurantId(options: {
   }
 }
 
-type BookingCreationError = Error & {
-  code?: string;
-  details?: Json | null;
-};
+
 
 function stringifyError(error: unknown): string {
   if (error instanceof Error) {
-    return error.message;
+    return error.stack || error.message;
   }
   if (typeof error === 'string') {
     return error;
   }
   try {
-    return JSON.stringify(error);
+    return JSON.stringify(error, null, 2);
   } catch {
     return String(error);
   }
 }
 
+/**
+ * Maps an unknown error to a structured API response
+ */
+function toApiError(error: unknown) {
+  if (error instanceof OperatingHoursError) {
+    return {
+      status: 400,
+      body: {
+        error: error.message,
+        code: 'OPERATING_HOURS_CLOSED',
+        details: error.reason
+      }
+    };
+  }
+
+  if (error instanceof PastBookingError) {
+    return {
+      status: 422,
+      body: {
+        error: error.message,
+        code: error.code,
+        details: error.details
+      }
+    };
+  }
+
+  // Handle Supabase/Postgrest errors
+  const dbError = (error && typeof error === 'object') ? (error as Record<string, unknown>) : {};
+  if (dbError.code === '23505') {
+    return {
+      status: 409,
+      body: {
+        error: 'This booking conflicts with an existing record (duplicate phone or email).',
+        code: 'DUPLICATE_RESOURCE',
+      }
+    };
+  }
+
+  const message = (error instanceof Error)
+    ? error.message
+    : (typeof error === 'string' ? error : 'An unexpected error occurred');
+
+  return {
+    status: 500,
+    body: {
+      error: message,
+      code: String(dbError.code || 'INTERNAL_SERVER_ERROR'),
+      ...(process.env.NODE_ENV === 'development' ? { stack: (error instanceof Error) ? error.stack : undefined } : {})
+    }
+  };
+}
+
 function handleZodError(error: z.ZodError) {
+  const flattened = error.flatten();
+  // Get the first field error as a more descriptive top-level message
+  const firstField = Object.keys(flattened.fieldErrors)[0];
+  const firstErrorMessage = firstField ? `${firstField}: ${(flattened.fieldErrors as Record<string, string[] | undefined>)[firstField]?.[0]}` : 'Invalid payload';
+
   return NextResponse.json(
     {
-      error: 'Invalid payload',
-      details: error.flatten(),
+      error: `Validation failed - ${firstErrorMessage}`,
+      code: 'VALIDATION_FAILED',
+      details: flattened,
     },
     { status: 400 },
   );
@@ -592,9 +647,10 @@ export async function POST(req: NextRequest) {
   });
 
   if (!restaurantResolution.ok) {
+    const errorRes = restaurantResolution;
     return NextResponse.json(
-      { error: restaurantResolution.error, code: restaurantResolution.code },
-      { status: restaurantResolution.status },
+      { error: errorRes.error, code: errorRes.code },
+      { status: errorRes.status || 400 },
     );
   }
 
@@ -608,10 +664,10 @@ export async function POST(req: NextRequest) {
   const bookingSource = isOpsWalkIn ? 'ops.walkin' : 'api';
   const bookingDetails = isOpsWalkIn
     ? ({
-        channel: bookingSource,
-        created_by: 'ops.walkin',
-        staff_request_id: clientRequestId,
-      } satisfies Json)
+      channel: bookingSource,
+      created_by: 'ops.walkin',
+      staff_request_id: clientRequestId,
+    } satisfies Json)
     : null;
 
   // Rate limiting for booking creation
@@ -957,7 +1013,7 @@ export async function POST(req: NextRequest) {
     } else {
       const awardedFromRecord =
         'loyalty_points_awarded' in finalBooking &&
-        typeof finalBooking.loyalty_points_awarded === 'number'
+          typeof finalBooking.loyalty_points_awarded === 'number'
           ? finalBooking.loyalty_points_awarded
           : (finalBooking as Record<string, unknown>).loyalty_points_awarded;
       loyaltyAward = typeof awardedFromRecord === 'number' ? awardedFromRecord : 0;
@@ -1400,16 +1456,20 @@ export async function POST(req: NextRequest) {
     }
     return res;
   } catch (error: unknown) {
-    const message = stringifyError(error);
-    const enriched = error as BookingCreationError | undefined;
-    const errorCode = enriched?.code;
-    const errorDetails = enriched?.details ?? null;
+    const apiError = toApiError(error);
 
-    if (errorDetails) {
-      console.error('[bookings][POST][details]', errorDetails);
-    }
-
-    console.error('[bookings][POST]', message);
+    // Detailed logging for server-side debugging
+    console.error(`[bookings][POST] Error finishing booking:`, {
+      message: (error instanceof Error) ? error.message : String(error),
+      code: apiError.body.code,
+      stack: (error instanceof Error) ? error.stack : undefined,
+      debugInfo: {
+        restaurantId: body?.restaurantId,
+        date: body?.date,
+        party: body?.party,
+        email: (typeof body?.email === 'string') ? `${body.email.split('@')[0].slice(0, 3)}...` : null
+      }
+    });
 
     const emailDomain = data.email.includes('@') ? data.email.split('@')[1] : null;
     const phoneSuffix = data.phone ? data.phone.slice(-4) : null;
@@ -1419,17 +1479,17 @@ export async function POST(req: NextRequest) {
       eventType: 'booking.create.failure',
       severity: 'error',
       context: {
-        message,
+        message: apiError.body.error,
         restaurantId,
         bookingDate: data.date,
         emailDomain,
         phoneSuffix,
-        errorCode,
-        details: errorDetails,
-      } as Json,
+        errorCode: apiError.body.code,
+        details: ((apiError.body as { details?: unknown }).details as Json) || null,
+      },
     });
 
-    return NextResponse.json({ error: message || 'Unable to create booking' }, { status: 500 });
+    return NextResponse.json(apiError.body, { status: apiError.status });
   }
 }
 async function handleMyBookings(req: NextRequest) {
@@ -1479,19 +1539,19 @@ async function handleMyBookings(req: NextRequest) {
   let query =
     params.status === 'active'
       ? client
-          .from('current_bookings')
-          .select(
-            'id, restaurant_id, booking_date, start_time, end_time, party_size, status, notes, restaurants(id, name, slug, timezone, reservation_interval_minutes)',
-            { count: 'exact' },
-          )
-          .eq('customer_email', email)
+        .from('current_bookings')
+        .select(
+          'id, restaurant_id, booking_date, start_time, end_time, party_size, status, notes, restaurants(id, name, slug, timezone, reservation_interval_minutes)',
+          { count: 'exact' },
+        )
+        .eq('customer_email', email)
       : client
-          .from('bookings')
-          .select(
-            'id, restaurant_id, booking_date, start_time, end_time, party_size, status, notes, restaurants(id, name, slug, timezone, reservation_interval_minutes)',
-            { count: 'exact' },
-          )
-          .eq('customer_email', email);
+        .from('bookings')
+        .select(
+          'id, restaurant_id, booking_date, start_time, end_time, party_size, status, notes, restaurants(id, name, slug, timezone, reservation_interval_minutes)',
+          { count: 'exact' },
+        )
+        .eq('customer_email', email);
 
   if (params.restaurantId) {
     query = query.eq('restaurant_id', params.restaurantId);
@@ -1523,21 +1583,21 @@ async function handleMyBookings(req: NextRequest) {
     status: BookingDTO['status'];
     notes: string | null;
     restaurants:
-      | {
-          id?: string | null;
-          name: string;
-          slug?: string | null;
-          timezone?: string | null;
-          reservation_interval_minutes?: number | null;
-        }
-      | {
-          id?: string | null;
-          name: string;
-          slug?: string | null;
-          timezone?: string | null;
-          reservation_interval_minutes?: number | null;
-        }[]
-      | null;
+    | {
+      id?: string | null;
+      name: string;
+      slug?: string | null;
+      timezone?: string | null;
+      reservation_interval_minutes?: number | null;
+    }
+    | {
+      id?: string | null;
+      name: string;
+      slug?: string | null;
+      timezone?: string | null;
+      reservation_interval_minutes?: number | null;
+    }[]
+    | null;
   };
 
   const { data, error, count } = await query.range(offset, offset + pageSize - 1);
