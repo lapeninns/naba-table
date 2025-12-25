@@ -43,6 +43,7 @@ import { getRestaurantSchedule } from "@/server/restaurants/schedule";
 import { computeGuestLookupHash } from "@/server/security/guest-lookup";
 import { consumeRateLimit } from "@/server/security/rate-limit";
 import { anonymizeIp, extractClientIp } from "@/server/security/request";
+import { validateSessionRecoveryAccessToken } from "@/server/security/session-recovery-access-token";
 import {
   getDefaultRestaurantId,
   getRouteHandlerSupabaseClient,
@@ -312,35 +313,116 @@ export async function GET(req: NextRequest) {
       return await handleMyBookings(req);
     }
 
-    const parsedQuery = contactQuerySchema.safeParse({
-      email: req.nextUrl.searchParams.get("email"),
-      phone: req.nextUrl.searchParams.get("phone"),
-      restaurantId: req.nextUrl.searchParams.get("restaurantId") ?? undefined,
-    });
-
-    if (!parsedQuery.success) {
-      return handleZodError(parsedQuery.error);
-    }
-
-    const { email, phone, restaurantId } = parsedQuery.data;
-    const supabase = await getRouteHandlerSupabaseClient();
-    let targetRestaurantId: string;
-    try {
-      targetRestaurantId = restaurantId ?? (await getDefaultRestaurantId());
-    } catch (error) {
-      if (error instanceof MissingRestaurantContextError) {
-        return NextResponse.json({ error: "restaurantId is required" }, { status: 400 });
-      }
-      throw error;
-    }
-    const tenantServiceClient = getTenantServiceSupabaseClient(targetRestaurantId);
     const clientIp = extractClientIp(req);
+
+    const accessToken =
+      req.headers.get("x-session-recovery-token") ??
+      req.nextUrl.searchParams.get("access_token") ??
+      req.nextUrl.searchParams.get("accessToken");
+
+    const access = {
+      mode: accessToken ? ("token" as const) : ("contact_query" as const),
+      token: {
+        provided: Boolean(accessToken),
+        valid: false,
+        reason: null as string | null,
+        restaurantId: null as string | null,
+      },
+      restaurantId: null as string | null,
+      restaurantSource: "query" as "query" | "default" | "token",
+      lookupStrategy: "unknown" as "unknown" | "policy" | "legacy" | "legacy-fallback",
+      policyEnabled: false,
+      rateSource: "unknown" as "unknown" | "redis" | "memory" | "none",
+    };
+
+    let email: string;
+    let phone: string;
+    let targetRestaurantId: string;
+
+    if (accessToken) {
+      const secret = env.security.sessionRecoveryAccessTokenSecret;
+      if (!secret) {
+        access.token.reason = "secret_not_configured";
+        void recordObservabilityEvent({
+          source: requestSource,
+          eventType: "guest_lookup.access_token_rejected",
+          severity: "warning",
+          context: {
+            reason: access.token.reason,
+            ip_scope: anonymizeIp(clientIp),
+          },
+        });
+        return NextResponse.json(
+          { error: "Session recovery token not configured", code: "ACCESS_TOKEN_NOT_CONFIGURED", access },
+          { status: 503 },
+        );
+      }
+
+      const tokenResult = validateSessionRecoveryAccessToken(accessToken, { secret });
+      if (!tokenResult.ok) {
+        access.token.reason = tokenResult.reason;
+        access.token.restaurantId = tokenResult.restaurantId ?? null;
+        access.restaurantId = tokenResult.restaurantId ?? null;
+        void recordObservabilityEvent({
+          source: requestSource,
+          eventType: "guest_lookup.access_token_rejected",
+          severity: "warning",
+          context: {
+            reason: tokenResult.reason,
+            ip_scope: anonymizeIp(clientIp),
+            restaurant_id: tokenResult.restaurantId ?? null,
+          },
+        });
+        return NextResponse.json(
+          { error: "Invalid session recovery token", code: "INVALID_ACCESS_TOKEN", access },
+          { status: 401 },
+        );
+      }
+
+      email = tokenResult.payload.email;
+      phone = tokenResult.payload.phone;
+      targetRestaurantId = tokenResult.payload.restaurantId;
+      access.token.valid = true;
+      access.token.restaurantId = targetRestaurantId;
+      access.restaurantId = targetRestaurantId;
+      access.restaurantSource = "token";
+    } else {
+      const parsedQuery = contactQuerySchema.safeParse({
+        email: req.nextUrl.searchParams.get("email"),
+        phone: req.nextUrl.searchParams.get("phone"),
+        restaurantId: req.nextUrl.searchParams.get("restaurantId") ?? undefined,
+      });
+
+      if (!parsedQuery.success) {
+        return handleZodError(parsedQuery.error);
+      }
+
+      const { email: queryEmail, phone: queryPhone, restaurantId } = parsedQuery.data;
+      email = queryEmail;
+      phone = queryPhone;
+
+      try {
+        targetRestaurantId = restaurantId ?? (await getDefaultRestaurantId());
+        access.restaurantSource = restaurantId ? "query" : "default";
+        access.restaurantId = targetRestaurantId;
+      } catch (error) {
+        if (error instanceof MissingRestaurantContextError) {
+          return NextResponse.json({ error: "restaurantId is required" }, { status: 400 });
+        }
+        throw error;
+      }
+    }
+
+    const supabase = await getRouteHandlerSupabaseClient();
+    const tenantServiceClient = getTenantServiceSupabaseClient(targetRestaurantId);
 
     const rateResult = await consumeRateLimit({
       identifier: `bookings:lookup:${targetRestaurantId}:${clientIp}`,
       limit: 20,
       windowMs: 60_000,
     });
+
+    access.rateSource = rateResult.source;
 
     if (!rateResult.ok) {
       const retryAfterSeconds = Math.max(1, Math.ceil((rateResult.resetAt - Date.now()) / 1000));
@@ -355,6 +437,8 @@ export async function GET(req: NextRequest) {
           limit: rateResult.limit,
           window_ms: 60_000,
           rate_source: rateResult.source,
+          access_mode: access.mode,
+          access_token_used: access.token.provided,
         },
       });
 
@@ -363,6 +447,7 @@ export async function GET(req: NextRequest) {
           error: "Too many requests",
           code: "RATE_LIMITED",
           retryAfter: retryAfterSeconds,
+          access,
         },
         {
           status: 429,
@@ -375,6 +460,8 @@ export async function GET(req: NextRequest) {
 
     const shouldUseGuestLookupPolicy =
       env.featureFlags.guestLookupPolicy && !!env.security.guestLookupPepper;
+
+    access.policyEnabled = shouldUseGuestLookupPolicy;
 
     if (shouldUseGuestLookupPolicy) {
       const contactHash = computeGuestLookupHash({
@@ -391,6 +478,7 @@ export async function GET(req: NextRequest) {
           });
 
           if (!guestError && Array.isArray(guestRows)) {
+            access.lookupStrategy = "policy";
             void recordObservabilityEvent({
               source: requestSource,
               eventType: "guest_lookup.allowed",
@@ -402,10 +490,12 @@ export async function GET(req: NextRequest) {
                 policy_enabled: true,
                 lookup_strategy: "policy",
                 rate_source: rateResult.source,
+                access_mode: access.mode,
+                access_token_used: access.token.provided,
               },
             });
 
-            return NextResponse.json({ bookings: guestRows });
+            return NextResponse.json({ bookings: guestRows, access });
           }
 
           if (guestError) {
@@ -426,6 +516,7 @@ export async function GET(req: NextRequest) {
 
     const bookings = await fetchBookingsForContact(tenantServiceClient, targetRestaurantId, email, phone);
 
+    access.lookupStrategy = shouldUseGuestLookupPolicy ? "legacy-fallback" : "legacy";
     void recordObservabilityEvent({
       source: "api.bookings",
       eventType: "guest_lookup.allowed",
@@ -437,10 +528,12 @@ export async function GET(req: NextRequest) {
         policy_enabled: shouldUseGuestLookupPolicy,
         lookup_strategy: shouldUseGuestLookupPolicy ? "legacy-fallback" : "legacy",
         rate_source: rateResult.source,
+        access_mode: access.mode,
+        access_token_used: access.token.provided,
       },
     });
 
-    return NextResponse.json({ bookings });
+    return NextResponse.json({ bookings, access });
   } catch (error: unknown) {
     console.error("[bookings][GET]", stringifyError(error));
     return NextResponse.json(

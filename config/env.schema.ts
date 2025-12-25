@@ -90,6 +90,8 @@ const baseEnvSchema = z
     NEXT_PUBLIC_FEATURE_MANUAL_SESSION_ENABLED: booleanStringOptional,
     BOOKING_PAST_TIME_GRACE_MINUTES: z.coerce.number().int().min(0).max(60).optional(),
     GUEST_LOOKUP_PEPPER: z.string().min(1).optional(),
+    SESSION_RECOVERY_ACCESS_TOKEN_SECRET: z.string().min(1).optional(),
+    SESSION_RECOVERY_ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().min(60).max(86_400).optional(),
     TEST_ROUTE_API_KEY: z.string().optional(),
     TEST_EMAIL_ACCESS_TOKEN: z.string().optional(),
     TEST_EMAIL_RATE_LIMIT: z.coerce.number().int().nonnegative().optional(),
