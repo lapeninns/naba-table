@@ -37,7 +37,6 @@ const resolveOrigin = (requestHeaders: Headers): string => {
 async function prefetchReservation(
   queryClient: QueryClient,
   reservationId: string,
-  token?: string | null,
 ) {
   const requestHeaders = await headers();
   const cookieStore = await cookies();
@@ -45,9 +44,6 @@ async function prefetchReservation(
   const origin = resolveOrigin(requestHeaders);
 
   const url = new URL(`${origin}/api/bookings/${reservationId}`);
-  if (token) {
-    url.searchParams.set('token', token);
-  }
 
   try {
     const response = await fetch(url.toString(), {
@@ -93,7 +89,7 @@ export default async function BookingDetailPage({
   const { bookingId } = await params;
   const normalized = bookingId?.trim();
   const resolvedSearchParams = (await searchParams) ?? {};
-  const token = resolvedSearchParams.token ?? null;
+  const legacyToken = resolvedSearchParams.token ?? null;
   const accessToken = resolvedSearchParams.access_token ?? resolvedSearchParams.accessToken ?? null;
 
   if (!normalized) {
@@ -105,6 +101,10 @@ export default async function BookingDetailPage({
     redirect(`/bookings/recover?access_token=${encodeURIComponent(accessToken)}&next=${next}`);
   }
 
+  if (legacyToken) {
+    redirect('/bookings/recover/error?code=LEGACY_TOKEN_DEPRECATED');
+  }
+
   const supabase = await getServerComponentSupabaseClient();
   const {
     data: { user },
@@ -113,14 +113,14 @@ export default async function BookingDetailPage({
   const cookieStore = await cookies();
   const hasRecoveryCookie = Boolean(cookieStore.get('sr_access')?.value);
 
-  if (!user && !token && !hasRecoveryCookie) {
+  if (!user && !hasRecoveryCookie) {
     redirect(withRedirectedFrom('/auth/signin', `/bookings/${normalized}`));
   }
 
   const queryClient = new QueryClient();
-  // Prefetch only when authenticated or token provided
-  if (user || token || hasRecoveryCookie) {
-    await prefetchReservation(queryClient, normalized, token);
+  // Prefetch only when authenticated or recovery cookie provided
+  if (user || hasRecoveryCookie) {
+    await prefetchReservation(queryClient, normalized);
   }
   const dehydratedState = dehydrate(queryClient);
 
@@ -129,7 +129,6 @@ export default async function BookingDetailPage({
       <ReservationDetailClient
         reservationId={normalized}
         restaurantName={null}
-        token={token}
         canManage={Boolean(user) || hasRecoveryCookie}
       />
     </HydrationBoundary>

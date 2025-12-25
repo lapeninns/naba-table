@@ -204,30 +204,36 @@ function buildManageUrl(booking: BookingRecord) {
   const email = booking.customer_email;
   const phone = booking.customer_phone;
 
-  if (secret && restaurantId && email && phone) {
-    try {
-      const accessToken = createSessionRecoveryAccessToken({
-        restaurantId,
-        email,
-        phone,
-        secret,
-        ttlSeconds,
-      });
+  const buildRecoverErrorUrl = (code: string) => {
+    const errorUrl = new URL(`${bookingSiteUrl}/bookings/recover/error`);
+    errorUrl.searchParams.set('code', code);
+    return errorUrl.toString();
+  };
 
-      const recoverUrl = new URL(`${bookingSiteUrl}/bookings/recover`);
-      recoverUrl.searchParams.set('access_token', accessToken);
-      recoverUrl.searchParams.set('next', `/bookings/${booking.id}`);
-      return recoverUrl.toString();
-    } catch {
-      // Non-fatal: fall back to legacy link formats
-    }
+  if (!secret) {
+    return buildRecoverErrorUrl('ACCESS_TOKEN_NOT_CONFIGURED');
   }
 
-  let url = `${bookingSiteUrl}/bookings/${booking.id}`;
-  if (booking.confirmation_token) {
-    url += `?token=${booking.confirmation_token}`;
+  if (!restaurantId || !email || !phone) {
+    return buildRecoverErrorUrl('MISSING_ACCESS_TOKEN');
   }
-  return url;
+
+  try {
+    const accessToken = createSessionRecoveryAccessToken({
+      restaurantId,
+      email,
+      phone,
+      secret,
+      ttlSeconds,
+    });
+
+    const recoverUrl = new URL(`${bookingSiteUrl}/bookings/recover`);
+    recoverUrl.searchParams.set('access_token', accessToken);
+    recoverUrl.searchParams.set('next', `/bookings/${booking.id}`);
+    return recoverUrl.toString();
+  } catch {
+    return buildRecoverErrorUrl('INVALID_ACCESS_TOKEN');
+  }
 }
 
 function buildCalendarPayload(

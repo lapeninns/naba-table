@@ -24,10 +24,6 @@ import {
   softCancelBooking,
   updateBookingRecord,
 } from '@/server/bookings';
-import {
-  TokenValidationError,
-  validateConfirmationToken,
-} from '@/server/bookings/confirmation-token';
 import { beginBookingModificationFlow } from '@/server/bookings/modification-flow';
 import { PastBookingError, assertBookingNotInPast } from '@/server/bookings/pastTimeValidation';
 import {
@@ -699,91 +695,15 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     );
   }
 
-  const token =
-    req.nextUrl.searchParams.get('token') ?? req.cookies.get('sr_confirm')?.value ?? null;
-
-  // Public token-based access (read-only) for guest flows
-  if (token) {
-    try {
-      const booking = await validateConfirmationToken(token, { allowUsed: true });
-      if (booking.id !== bookingId) {
-        return NextResponse.json(
-          { error: 'Token does not match booking', code: 'TOKEN_MISMATCH' },
-          { status: 403 },
-        );
-      }
-
-      const serviceSupabase = getServiceSupabaseClient();
-
-      if (!booking.restaurant_id) {
-        console.error('[bookings][GET:id][token] Booking has no restaurant_id', {
-          bookingId: booking.id,
-        });
-        return NextResponse.json(
-          {
-            error: 'This booking is missing restaurant information. Please contact support.',
-            code: 'MISSING_RESTAURANT_DATA',
-          },
-          { status: 500 },
-        );
-      }
-
-      const { data: restaurant, error: restaurantError } = await serviceSupabase
-        .from('restaurants')
-        .select('name, slug, timezone')
-        .eq('id', booking.restaurant_id)
-        .maybeSingle();
-
-      if (restaurantError) {
-        console.error('[bookings][GET:id][token] Error fetching restaurant', {
-          restaurantId: booking.restaurant_id,
-          error: restaurantError,
-        });
-      }
-
-      if (!restaurant) {
-        console.error('[bookings][GET:id][token] Restaurant not found', {
-          restaurantId: booking.restaurant_id,
-          bookingId: booking.id,
-        });
-        return NextResponse.json(
-          {
-            error: 'Restaurant information not found. Please contact support.',
-            code: 'RESTAURANT_NOT_FOUND',
-          },
-          { status: 500 },
-        );
-      }
-
-      if (!restaurant.slug) {
-        console.error('[bookings][GET:id][token] Restaurant has no slug', {
-          restaurantId: booking.restaurant_id,
-          restaurantName: restaurant.name,
-        });
-      }
-
-      return NextResponse.json({
-        booking: {
-          ...booking,
-          restaurants: {
-            name: restaurant.name ?? null,
-            slug: restaurant.slug ?? null,
-            timezone: restaurant.timezone ?? null,
-          },
-        },
-      });
-    } catch (error: unknown) {
-      if (error instanceof TokenValidationError) {
-        const status =
-          error.code === 'TOKEN_NOT_FOUND' ? 404 : error.code === 'TOKEN_EXPIRED' ? 410 : 401;
-        return NextResponse.json({ error: error.message, code: error.code }, { status });
-      }
-      console.error('[bookings][GET:id][token]', stringifyError(error));
-      return NextResponse.json(
-        { error: 'Unable to load booking', code: 'UNKNOWN' },
-        { status: 500 },
-      );
-    }
+  const legacyToken = req.nextUrl.searchParams.get('token');
+  if (legacyToken) {
+    return NextResponse.json(
+      {
+        error: 'Legacy booking tokens are no longer supported. Request a new link.',
+        code: 'LEGACY_TOKEN_DEPRECATED',
+      },
+      { status: 410 },
+    );
   }
 
   const recoveryToken = extractSessionRecoveryAccessToken(req);

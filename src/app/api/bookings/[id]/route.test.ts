@@ -280,6 +280,19 @@ describe('/api/bookings/[id] GET', () => {
     vi.clearAllMocks();
   });
 
+  it('returns 410 when legacy token query is provided', async () => {
+    const request = new NextRequest('http://localhost/api/bookings/booking-1?token=legacy', {
+      method: 'GET',
+    });
+    const params = { params: Promise.resolve({ id: 'booking-1' }) } as const;
+
+    const response = await GET(request, params);
+
+    expect(response.status).toBe(410);
+    const json = await response.json();
+    expect(json.code).toBe('LEGACY_TOKEN_DEPRECATED');
+  });
+
   it('returns 401 when user is not authenticated', async () => {
     const request = new NextRequest('http://localhost/api/bookings/booking-1', { method: 'GET' });
     const params = { params: Promise.resolve({ id: 'booking-1' }) } as const;

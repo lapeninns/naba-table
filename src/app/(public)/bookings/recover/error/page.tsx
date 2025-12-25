@@ -33,6 +33,11 @@ const copyByCode: Record<string, { title: string; description: string }> = {
     description:
       'This booking link has expired. Please request a new link or sign in to manage your booking.',
   },
+  LEGACY_TOKEN_DEPRECATED: {
+    title: 'Link is outdated',
+    description:
+      'This booking link is no longer supported. Please use the latest link from your email or sign in to manage your booking.',
+  },
 };
 
 export default async function BookingRecoverErrorPage({
