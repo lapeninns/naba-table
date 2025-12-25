@@ -67,12 +67,11 @@ const nextConfig = {
 
     return [
       // --- WWW Canonicalization ---
-      // Redirect all www.domain requests to the naked domain (nabatable.com)
-      // This ensures consistent URL handling and fixes API routing issues
+      // Redirect naked domain to www (aligns with DNS/hosting provider settings)
       {
         source: "/:path*",
-        has: [{ type: "host", value: `www.${rootDomain}` }],
-        destination: `https://${rootDomain}/:path*`,
+        has: [{ type: "host", value: rootDomain }],
+        destination: `https://www.${rootDomain}/:path*`,
         permanent: true,
       },
 
