@@ -1,3 +1,4 @@
+import { AlertCircle } from 'lucide-react';
 import { redirect } from 'next/navigation';
 
 import { OpsSignInForm } from '@/components/auth/OpsSignInForm';
@@ -13,6 +14,8 @@ export const metadata: Metadata = {
 
 type OpsLoginSearchParams = {
   redirectedFrom?: string | string[];
+  error?: string;
+  message?: string;
 };
 
 type OpsLoginPageProps = {
@@ -35,16 +38,24 @@ function resolveRedirectTarget(raw: string | string[] | undefined): string {
 export default async function OpsAuthSignInPage({ searchParams }: OpsLoginPageProps) {
   await ensureCsrfCookie();
 
-  const supabase = await getServerComponentSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   const resolvedParams = await searchParams;
   const redirectTarget = resolveRedirectTarget(resolvedParams?.redirectedFrom);
 
-  if (user) {
-    redirect(redirectTarget);
+  // Extract error info from URL params
+  const errorType = resolvedParams?.error;
+  const errorMessage = resolvedParams?.message;
+  const hasError = !!errorType;
+
+  // Only redirect authenticated users if there's no error
+  // Using getSession() which validates the JWT, not just reads cached user
+  if (!hasError) {
+    const supabase = await getServerComponentSupabaseClient();
+    const { data: { session }, error } = await supabase.auth.getSession();
+
+    // Only redirect if we have a valid session AND no error
+    if (session?.user && !error) {
+      redirect(redirectTarget);
+    }
   }
 
   return (
@@ -64,9 +75,24 @@ export default async function OpsAuthSignInPage({ searchParams }: OpsLoginPagePr
             Sign in to restaurant operations
           </h1>
           <p className="text-sm text-muted-foreground">
-            Manage service, confirm covers, and keep your team aligned for today’s shifts.
+            Manage service, confirm covers, and keep your team aligned for today&apos;s shifts.
           </p>
         </div>
+
+        {/* Error Alert */}
+        {hasError && errorMessage && (
+          <div
+            role="alert"
+            className="w-full max-w-xl flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800"
+          >
+            <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-500" aria-hidden="true" />
+            <div className="text-sm">
+              <p className="font-medium">Unable to sign in</p>
+              <p className="mt-1 text-red-700">{decodeURIComponent(errorMessage)}</p>
+            </div>
+          </div>
+        )}
+
         <div className="w-full max-w-xl rounded-3xl border border-border bg-white p-8 shadow-[0_35px_70px_-45px_rgba(15,23,42,0.35)]">
           <OpsSignInForm redirectedFrom={redirectTarget} />
         </div>
@@ -74,3 +100,4 @@ export default async function OpsAuthSignInPage({ searchParams }: OpsLoginPagePr
     </main>
   );
 }
+
