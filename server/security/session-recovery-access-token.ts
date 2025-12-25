@@ -1,13 +1,14 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
-import { z } from "zod";
+import { createHmac, timingSafeEqual } from 'node:crypto';
+import { z } from 'zod';
 
-import { normalizeEmail, normalizePhone } from "@/server/customers";
+import { normalizeEmail, normalizePhone } from '@/server/customers';
 
-const TOKEN_PREFIX = "sr1" as const;
+const TOKEN_PREFIX = 'sr1' as const;
+const MAX_TTL_SECONDS = 2_592_000; // 30 days
 
 const payloadSchema = z.object({
   v: z.literal(1),
-  purpose: z.literal("session_recovery"),
+  purpose: z.literal('session_recovery'),
   restaurantId: z.string().uuid(),
   email: z.string().email(),
   phone: z.string().min(7).max(50),
@@ -18,36 +19,36 @@ const payloadSchema = z.object({
 export type SessionRecoveryAccessTokenPayload = z.infer<typeof payloadSchema>;
 
 export type SessionRecoveryAccessTokenValidationError =
-  | "invalid_format"
-  | "invalid_prefix"
-  | "invalid_payload"
-  | "invalid_signature"
-  | "expired";
+  | 'invalid_format'
+  | 'invalid_prefix'
+  | 'invalid_payload'
+  | 'invalid_signature'
+  | 'expired';
 
 export type SessionRecoveryAccessTokenValidationResult =
   | { ok: true; payload: SessionRecoveryAccessTokenPayload }
   | { ok: false; reason: SessionRecoveryAccessTokenValidationError; restaurantId?: string | null };
 
 function base64UrlEncode(value: string): string {
-  return Buffer.from(value, "utf8")
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/g, "");
+  return Buffer.from(value, 'utf8')
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
 }
 
 function base64UrlDecode(value: string): string | null {
-  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
-  const padding = normalized.length % 4 === 0 ? "" : "=".repeat(4 - (normalized.length % 4));
+  const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+  const padding = normalized.length % 4 === 0 ? '' : '='.repeat(4 - (normalized.length % 4));
   try {
-    return Buffer.from(`${normalized}${padding}`, "base64").toString("utf8");
+    return Buffer.from(`${normalized}${padding}`, 'base64').toString('utf8');
   } catch {
     return null;
   }
 }
 
 function computeSignature(secret: string, payloadB64: string): string {
-  return createHmac("sha256", secret).update(`${TOKEN_PREFIX}.${payloadB64}`).digest("base64url");
+  return createHmac('sha256', secret).update(`${TOKEN_PREFIX}.${payloadB64}`).digest('base64url');
 }
 
 function safeEqual(a: string, b: string): boolean {
@@ -66,13 +67,13 @@ export function createSessionRecoveryAccessToken(params: {
   ttlSeconds?: number;
 }): string {
   const nowMs = params.now?.getTime() ?? Date.now();
-  const ttlSeconds = Math.max(60, Math.min(params.ttlSeconds ?? 900, 86_400));
+  const ttlSeconds = Math.max(60, Math.min(params.ttlSeconds ?? 900, MAX_TTL_SECONDS));
   const issuedAt = Math.floor(nowMs / 1000);
   const expiresAt = issuedAt + ttlSeconds;
 
   const payload: SessionRecoveryAccessTokenPayload = {
     v: 1,
-    purpose: "session_recovery",
+    purpose: 'session_recovery',
     restaurantId: params.restaurantId,
     email: normalizeEmail(params.email),
     phone: normalizePhone(params.phone),
@@ -89,33 +90,33 @@ export function validateSessionRecoveryAccessToken(
   token: string,
   params: { secret: string; now?: Date },
 ): SessionRecoveryAccessTokenValidationResult {
-  const parts = token.split(".");
+  const parts = token.split('.');
   if (parts.length !== 3) {
-    return { ok: false, reason: "invalid_format" };
+    return { ok: false, reason: 'invalid_format' };
   }
 
   const [prefix, payloadB64, signature] = parts;
   if (prefix !== TOKEN_PREFIX) {
-    return { ok: false, reason: "invalid_prefix" };
+    return { ok: false, reason: 'invalid_prefix' };
   }
 
   const decoded = base64UrlDecode(payloadB64);
   if (!decoded) {
-    return { ok: false, reason: "invalid_payload" };
+    return { ok: false, reason: 'invalid_payload' };
   }
 
   let parsedPayload: SessionRecoveryAccessTokenPayload;
   try {
     parsedPayload = payloadSchema.parse(JSON.parse(decoded));
   } catch {
-    return { ok: false, reason: "invalid_payload" };
+    return { ok: false, reason: 'invalid_payload' };
   }
 
   const expectedSignature = computeSignature(params.secret, payloadB64);
   if (!safeEqual(signature, expectedSignature)) {
     return {
       ok: false,
-      reason: "invalid_signature",
+      reason: 'invalid_signature',
       restaurantId: parsedPayload.restaurantId,
     };
   }
@@ -124,11 +125,10 @@ export function validateSessionRecoveryAccessToken(
   if (nowSeconds > parsedPayload.exp) {
     return {
       ok: false,
-      reason: "expired",
+      reason: 'expired',
       restaurantId: parsedPayload.restaurantId,
     };
   }
 
   return { ok: true, payload: parsedPayload };
 }
-

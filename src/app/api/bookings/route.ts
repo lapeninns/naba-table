@@ -1,15 +1,15 @@
-import { randomUUID } from "crypto";
-import { NextResponse } from "next/server";
-import { z } from "zod";
+import { randomUUID } from 'crypto';
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
 
-import { env } from "@/lib/env";
+import { env } from '@/lib/env';
 import {
   createBookingValidationService,
   BookingValidationError,
   type BookingInput,
   type ValidationContext,
-} from "@/server/booking";
-import { mapValidationFailure, withValidationHeaders } from "@/server/booking/http";
+} from '@/server/booking';
+import { mapValidationFailure, withValidationHeaders } from '@/server/booking/http';
 import {
   BOOKING_TYPES,
   SEATING_OPTIONS,
@@ -22,39 +22,49 @@ import {
   calculateDurationMinutes,
   insertBookingRecord,
   generateUniqueBookingReference,
-} from "@/server/bookings";
+} from '@/server/bookings';
 import {
   generateConfirmationToken,
   computeTokenExpiry,
   attachTokenToBooking,
-} from "@/server/bookings/confirmation-token";
-import { PastBookingError, assertBookingNotInPast } from "@/server/bookings/pastTimeValidation";
-import { OperatingHoursError, assertBookingWithinOperatingWindow } from "@/server/bookings/timeValidation";
-import { createBookingWithCapacityCheck } from "@/server/capacity";
-import { buildInlineLastResult } from "@/server/capacity/auto-assign-last-result";
-import { classifyPlannerReason } from "@/server/capacity/planner-reason";
-import { recordPlannerQuoteTelemetry } from "@/server/capacity/planner-telemetry";
-import { normalizeEmail, upsertCustomer } from "@/server/customers";
-import { enqueueBookingCreatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
-import { getActiveLoyaltyProgram, calculateLoyaltyAward, applyLoyaltyAward } from "@/server/loyalty";
-import { recordObservabilityEvent } from "@/server/observability";
-import { getRestaurantBySlug } from "@/server/restaurants/getRestaurantBySlug";
-import { getRestaurantSchedule } from "@/server/restaurants/schedule";
-import { computeGuestLookupHash } from "@/server/security/guest-lookup";
-import { consumeRateLimit } from "@/server/security/rate-limit";
-import { anonymizeIp, extractClientIp } from "@/server/security/request";
-import { validateSessionRecoveryAccessToken } from "@/server/security/session-recovery-access-token";
+} from '@/server/bookings/confirmation-token';
+import { PastBookingError, assertBookingNotInPast } from '@/server/bookings/pastTimeValidation';
+import {
+  OperatingHoursError,
+  assertBookingWithinOperatingWindow,
+} from '@/server/bookings/timeValidation';
+import { createBookingWithCapacityCheck } from '@/server/capacity';
+import { buildInlineLastResult } from '@/server/capacity/auto-assign-last-result';
+import { classifyPlannerReason } from '@/server/capacity/planner-reason';
+import { recordPlannerQuoteTelemetry } from '@/server/capacity/planner-telemetry';
+import { normalizeEmail, upsertCustomer } from '@/server/customers';
+import {
+  enqueueBookingCreatedSideEffects,
+  safeBookingPayload,
+} from '@/server/jobs/booking-side-effects';
+import {
+  getActiveLoyaltyProgram,
+  calculateLoyaltyAward,
+  applyLoyaltyAward,
+} from '@/server/loyalty';
+import { recordObservabilityEvent } from '@/server/observability';
+import { getRestaurantBySlug } from '@/server/restaurants/getRestaurantBySlug';
+import { getRestaurantSchedule } from '@/server/restaurants/schedule';
+import { computeGuestLookupHash } from '@/server/security/guest-lookup';
+import { consumeRateLimit } from '@/server/security/rate-limit';
+import { anonymizeIp, extractClientIp } from '@/server/security/request';
+import { validateSessionRecoveryAccessToken } from '@/server/security/session-recovery-access-token';
 import {
   getDefaultRestaurantId,
   getRouteHandlerSupabaseClient,
   getServiceSupabaseClient,
   getTenantServiceSupabaseClient,
   MissingRestaurantContextError,
-} from "@/server/supabase";
+} from '@/server/supabase';
 
-import type { BookingRecord } from "@/server/bookings";
-import type { Json } from "@/types/supabase";
-import type { NextRequest } from "next/server";
+import type { BookingRecord } from '@/server/bookings';
+import type { Json } from '@/types/supabase';
+import type { NextRequest } from 'next/server';
 
 const baseQuerySchema = z.object({
   restaurantId: z.string().uuid().optional(),
@@ -66,16 +76,16 @@ const contactQuerySchema = baseQuerySchema.extend({
 });
 
 const statusFilterSchema = z.union([
-  z.enum(["pending", "pending_allocation", "confirmed", "cancelled"]),
-  z.literal("active"),
+  z.enum(['pending', 'pending_allocation', 'confirmed', 'cancelled']),
+  z.literal('active'),
 ]);
 
 const myBookingsQuerySchema = baseQuerySchema.extend({
-  me: z.literal("1"),
+  me: z.literal('1'),
   status: statusFilterSchema.optional(),
   from: z.string().datetime({ offset: true }).optional(),
   to: z.string().datetime({ offset: true }).optional(),
-  sort: z.enum(["asc", "desc"]).default("asc"),
+  sort: z.enum(['asc', 'desc']).default('asc'),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(50).default(10),
 });
@@ -112,7 +122,7 @@ function coerceUuid(value: string | null): string | null {
 }
 
 type RestaurantResolutionResult =
-  | { ok: true; restaurantId: string; source: "payload" | "slug" | "default" }
+  | { ok: true; restaurantId: string; source: 'payload' | 'slug' | 'default' }
   | { ok: false; status: number; code: string; error: string };
 
 async function resolveRestaurantId(options: {
@@ -124,46 +134,46 @@ async function resolveRestaurantId(options: {
     try {
       const restaurant = await getRestaurantBySlug(slug);
       if (restaurant?.id) {
-        return { ok: true, restaurantId: restaurant.id, source: "slug" };
+        return { ok: true, restaurantId: restaurant.id, source: 'slug' };
       }
       return {
         ok: false,
         status: 404,
-        code: "RESTAURANT_NOT_FOUND",
-        error: "Restaurant not found",
+        code: 'RESTAURANT_NOT_FOUND',
+        error: 'Restaurant not found',
       };
     } catch (error) {
-      console.error("[bookings][POST][slug-lookup]", stringifyError(error));
+      console.error('[bookings][POST][slug-lookup]', stringifyError(error));
       return {
         ok: false,
         status: 500,
-        code: "RESTAURANT_LOOKUP_FAILED",
-        error: "Unable to resolve restaurant",
+        code: 'RESTAURANT_LOOKUP_FAILED',
+        error: 'Unable to resolve restaurant',
       };
     }
   }
 
   const directId = options.restaurantId?.trim();
   if (directId) {
-    return { ok: true, restaurantId: directId, source: "payload" };
+    return { ok: true, restaurantId: directId, source: 'payload' };
   }
 
   try {
     const fallbackId = await getDefaultRestaurantId();
     const supabase = getServiceSupabaseClient();
     const { data, error } = await supabase
-      .from("restaurants")
-      .select("id")
-      .eq("id", fallbackId)
+      .from('restaurants')
+      .select('id')
+      .eq('id', fallbackId)
       .maybeSingle();
 
     if (error) {
-      console.error("[bookings][POST][default-restaurant]", stringifyError(error));
+      console.error('[bookings][POST][default-restaurant]', stringifyError(error));
       return {
         ok: false,
         status: 500,
-        code: "RESTAURANT_LOOKUP_FAILED",
-        error: "Unable to resolve restaurant",
+        code: 'RESTAURANT_LOOKUP_FAILED',
+        error: 'Unable to resolve restaurant',
       };
     }
 
@@ -171,28 +181,28 @@ async function resolveRestaurantId(options: {
       return {
         ok: false,
         status: 404,
-        code: "RESTAURANT_NOT_FOUND",
-        error: "Restaurant not found",
+        code: 'RESTAURANT_NOT_FOUND',
+        error: 'Restaurant not found',
       };
     }
 
-    return { ok: true, restaurantId: data.id, source: "default" };
+    return { ok: true, restaurantId: data.id, source: 'default' };
   } catch (error) {
     if (error instanceof MissingRestaurantContextError) {
       return {
         ok: false,
         status: 400,
-        code: "RESTAURANT_REQUIRED",
-        error: "restaurantId or restaurantSlug is required",
+        code: 'RESTAURANT_REQUIRED',
+        error: 'restaurantId or restaurantSlug is required',
       };
     }
 
-    console.error("[bookings][POST][default-restaurant]", stringifyError(error));
+    console.error('[bookings][POST][default-restaurant]', stringifyError(error));
     return {
       ok: false,
       status: 500,
-      code: "RESTAURANT_LOOKUP_FAILED",
-      error: "Unable to resolve restaurant",
+      code: 'RESTAURANT_LOOKUP_FAILED',
+      error: 'Unable to resolve restaurant',
     };
   }
 }
@@ -206,7 +216,7 @@ function stringifyError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
-  if (typeof error === "string") {
+  if (typeof error === 'string') {
     return error;
   }
   try {
@@ -219,7 +229,7 @@ function stringifyError(error: unknown): string {
 function handleZodError(error: z.ZodError) {
   return NextResponse.json(
     {
-      error: "Invalid payload",
+      error: 'Invalid payload',
       details: error.flatten(),
     },
     { status: 400 },
@@ -232,7 +242,7 @@ type BookingDTO = {
   partySize: number;
   startIso: string;
   endIso: string;
-  status: "pending" | "pending_allocation" | "confirmed" | "cancelled";
+  status: 'pending' | 'pending_allocation' | 'confirmed' | 'cancelled';
   notes?: string | null;
   customerName?: string | null;
   customerEmail?: string | null;
@@ -254,7 +264,7 @@ type PageResponse<T> = {
 function toIsoStringOrThrow(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
-    throw new Error("Invalid date");
+    throw new Error('Invalid date');
   }
   return date.toISOString();
 }
@@ -273,10 +283,10 @@ async function recoverBookingRecord(
   // 1) Try idempotency key (strongest signal)
   if (args.idempotencyKey) {
     const { data, error } = await client
-      .from("bookings")
-      .select("*")
-      .eq("restaurant_id", args.restaurantId)
-      .eq("idempotency_key", args.idempotencyKey)
+      .from('bookings')
+      .select('*')
+      .eq('restaurant_id', args.restaurantId)
+      .eq('idempotency_key', args.idempotencyKey)
       .maybeSingle();
 
     if (!error && data) {
@@ -286,14 +296,14 @@ async function recoverBookingRecord(
 
   // 2) Fallback by booking signature
   const { data: sigData, error: sigError } = await client
-    .from("bookings")
-    .select("*")
-    .eq("restaurant_id", args.restaurantId)
-    .eq("customer_id", args.customerId)
-    .eq("booking_date", args.bookingDate)
-    .eq("start_time", args.startTime)
-    .eq("end_time", args.endTime)
-    .order("created_at", { ascending: false })
+    .from('bookings')
+    .select('*')
+    .eq('restaurant_id', args.restaurantId)
+    .eq('customer_id', args.customerId)
+    .eq('booking_date', args.bookingDate)
+    .eq('start_time', args.startTime)
+    .eq('end_time', args.endTime)
+    .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 
@@ -306,22 +316,23 @@ async function recoverBookingRecord(
 
 export async function GET(req: NextRequest) {
   try {
-    const requestSource = "api.bookings";
-    const meParam = req.nextUrl.searchParams.get("me");
+    const requestSource = 'api.bookings';
+    const meParam = req.nextUrl.searchParams.get('me');
 
-    if (meParam === "1") {
+    if (meParam === '1') {
       return await handleMyBookings(req);
     }
 
     const clientIp = extractClientIp(req);
 
     const accessToken =
-      req.headers.get("x-session-recovery-token") ??
-      req.nextUrl.searchParams.get("access_token") ??
-      req.nextUrl.searchParams.get("accessToken");
+      req.headers.get('x-session-recovery-token') ??
+      req.nextUrl.searchParams.get('access_token') ??
+      req.nextUrl.searchParams.get('accessToken') ??
+      req.cookies.get('sr_access')?.value;
 
     const access = {
-      mode: accessToken ? ("token" as const) : ("contact_query" as const),
+      mode: accessToken ? ('token' as const) : ('contact_query' as const),
       token: {
         provided: Boolean(accessToken),
         valid: false,
@@ -329,10 +340,10 @@ export async function GET(req: NextRequest) {
         restaurantId: null as string | null,
       },
       restaurantId: null as string | null,
-      restaurantSource: "query" as "query" | "default" | "token",
-      lookupStrategy: "unknown" as "unknown" | "policy" | "legacy" | "legacy-fallback",
+      restaurantSource: 'query' as 'query' | 'default' | 'token',
+      lookupStrategy: 'unknown' as 'unknown' | 'policy' | 'legacy' | 'legacy-fallback',
       policyEnabled: false,
-      rateSource: "unknown" as "unknown" | "redis" | "memory" | "none",
+      rateSource: 'unknown' as 'unknown' | 'redis' | 'memory' | 'none',
     };
 
     let email: string;
@@ -342,18 +353,22 @@ export async function GET(req: NextRequest) {
     if (accessToken) {
       const secret = env.security.sessionRecoveryAccessTokenSecret;
       if (!secret) {
-        access.token.reason = "secret_not_configured";
+        access.token.reason = 'secret_not_configured';
         void recordObservabilityEvent({
           source: requestSource,
-          eventType: "guest_lookup.access_token_rejected",
-          severity: "warning",
+          eventType: 'guest_lookup.access_token_rejected',
+          severity: 'warning',
           context: {
             reason: access.token.reason,
             ip_scope: anonymizeIp(clientIp),
           },
         });
         return NextResponse.json(
-          { error: "Session recovery token not configured", code: "ACCESS_TOKEN_NOT_CONFIGURED", access },
+          {
+            error: 'Session recovery token not configured',
+            code: 'ACCESS_TOKEN_NOT_CONFIGURED',
+            access,
+          },
           { status: 503 },
         );
       }
@@ -365,8 +380,8 @@ export async function GET(req: NextRequest) {
         access.restaurantId = tokenResult.restaurantId ?? null;
         void recordObservabilityEvent({
           source: requestSource,
-          eventType: "guest_lookup.access_token_rejected",
-          severity: "warning",
+          eventType: 'guest_lookup.access_token_rejected',
+          severity: 'warning',
           context: {
             reason: tokenResult.reason,
             ip_scope: anonymizeIp(clientIp),
@@ -374,7 +389,7 @@ export async function GET(req: NextRequest) {
           },
         });
         return NextResponse.json(
-          { error: "Invalid session recovery token", code: "INVALID_ACCESS_TOKEN", access },
+          { error: 'Invalid session recovery token', code: 'INVALID_ACCESS_TOKEN', access },
           { status: 401 },
         );
       }
@@ -385,12 +400,12 @@ export async function GET(req: NextRequest) {
       access.token.valid = true;
       access.token.restaurantId = targetRestaurantId;
       access.restaurantId = targetRestaurantId;
-      access.restaurantSource = "token";
+      access.restaurantSource = 'token';
     } else {
       const parsedQuery = contactQuerySchema.safeParse({
-        email: req.nextUrl.searchParams.get("email"),
-        phone: req.nextUrl.searchParams.get("phone"),
-        restaurantId: req.nextUrl.searchParams.get("restaurantId") ?? undefined,
+        email: req.nextUrl.searchParams.get('email'),
+        phone: req.nextUrl.searchParams.get('phone'),
+        restaurantId: req.nextUrl.searchParams.get('restaurantId') ?? undefined,
       });
 
       if (!parsedQuery.success) {
@@ -403,11 +418,11 @@ export async function GET(req: NextRequest) {
 
       try {
         targetRestaurantId = restaurantId ?? (await getDefaultRestaurantId());
-        access.restaurantSource = restaurantId ? "query" : "default";
+        access.restaurantSource = restaurantId ? 'query' : 'default';
         access.restaurantId = targetRestaurantId;
       } catch (error) {
         if (error instanceof MissingRestaurantContextError) {
-          return NextResponse.json({ error: "restaurantId is required" }, { status: 400 });
+          return NextResponse.json({ error: 'restaurantId is required' }, { status: 400 });
         }
         throw error;
       }
@@ -427,9 +442,9 @@ export async function GET(req: NextRequest) {
     if (!rateResult.ok) {
       const retryAfterSeconds = Math.max(1, Math.ceil((rateResult.resetAt - Date.now()) / 1000));
       void recordObservabilityEvent({
-        source: "api.bookings",
-        eventType: "guest_lookup.rate_limited",
-        severity: "warning",
+        source: 'api.bookings',
+        eventType: 'guest_lookup.rate_limited',
+        severity: 'warning',
         context: {
           restaurant_id: targetRestaurantId,
           ip_scope: anonymizeIp(clientIp),
@@ -444,15 +459,15 @@ export async function GET(req: NextRequest) {
 
       return NextResponse.json(
         {
-          error: "Too many requests",
-          code: "RATE_LIMITED",
+          error: 'Too many requests',
+          code: 'RATE_LIMITED',
           retryAfter: retryAfterSeconds,
           access,
         },
         {
           status: 429,
           headers: {
-            "Retry-After": retryAfterSeconds.toString(),
+            'Retry-After': retryAfterSeconds.toString(),
           },
         },
       );
@@ -472,23 +487,23 @@ export async function GET(req: NextRequest) {
 
       if (contactHash) {
         try {
-          const { data: guestRows, error: guestError } = await supabase.rpc("get_guest_bookings", {
+          const { data: guestRows, error: guestError } = await supabase.rpc('get_guest_bookings', {
             p_restaurant_id: targetRestaurantId,
             p_hash: contactHash,
           });
 
           if (!guestError && Array.isArray(guestRows)) {
-            access.lookupStrategy = "policy";
+            access.lookupStrategy = 'policy';
             void recordObservabilityEvent({
               source: requestSource,
-              eventType: "guest_lookup.allowed",
+              eventType: 'guest_lookup.allowed',
               context: {
                 restaurant_id: targetRestaurantId,
                 ip_scope: anonymizeIp(clientIp),
                 matched: guestRows.length > 0,
                 count: guestRows.length,
                 policy_enabled: true,
-                lookup_strategy: "policy",
+                lookup_strategy: 'policy',
                 rate_source: rateResult.source,
                 access_mode: access.mode,
                 access_token_used: access.token.provided,
@@ -499,34 +514,44 @@ export async function GET(req: NextRequest) {
           }
 
           if (guestError) {
-            const guestCode = typeof guestError.code === "string" ? guestError.code : undefined;
+            const guestCode = typeof guestError.code === 'string' ? guestError.code : undefined;
             const message = stringifyError(guestError);
             const isMissingFunction =
-              guestCode === "PGRST100" || guestCode === "42883" || message.includes("get_guest_bookings");
+              guestCode === 'PGRST100' ||
+              guestCode === '42883' ||
+              message.includes('get_guest_bookings');
 
             if (!isMissingFunction) {
-              console.error("[bookings][GET][guest-lookup] rpc failed", message);
+              console.error('[bookings][GET][guest-lookup] rpc failed', message);
             }
           }
         } catch (guestError) {
-          console.error("[bookings][GET][guest-lookup] unexpected error", stringifyError(guestError));
+          console.error(
+            '[bookings][GET][guest-lookup] unexpected error',
+            stringifyError(guestError),
+          );
         }
       }
     }
 
-    const bookings = await fetchBookingsForContact(tenantServiceClient, targetRestaurantId, email, phone);
+    const bookings = await fetchBookingsForContact(
+      tenantServiceClient,
+      targetRestaurantId,
+      email,
+      phone,
+    );
 
-    access.lookupStrategy = shouldUseGuestLookupPolicy ? "legacy-fallback" : "legacy";
+    access.lookupStrategy = shouldUseGuestLookupPolicy ? 'legacy-fallback' : 'legacy';
     void recordObservabilityEvent({
-      source: "api.bookings",
-      eventType: "guest_lookup.allowed",
+      source: 'api.bookings',
+      eventType: 'guest_lookup.allowed',
       context: {
         restaurant_id: targetRestaurantId,
         ip_scope: anonymizeIp(clientIp),
         matched: bookings.length > 0,
         count: bookings.length,
         policy_enabled: shouldUseGuestLookupPolicy,
-        lookup_strategy: shouldUseGuestLookupPolicy ? "legacy-fallback" : "legacy",
+        lookup_strategy: shouldUseGuestLookupPolicy ? 'legacy-fallback' : 'legacy',
         rate_source: rateResult.source,
         access_mode: access.mode,
         access_token_used: access.token.provided,
@@ -535,11 +560,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ bookings, access });
   } catch (error: unknown) {
-    console.error("[bookings][GET]", stringifyError(error));
-    return NextResponse.json(
-      { error: "Unable to fetch bookings" },
-      { status: 500 },
-    );
+    console.error('[bookings][GET]', stringifyError(error));
+    return NextResponse.json({ error: 'Unable to fetch bookings' }, { status: 500 });
   }
 }
 
@@ -549,7 +571,7 @@ export async function POST(req: NextRequest) {
   try {
     payload = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
   }
 
   const body = (payload ?? {}) as Record<string, unknown>;
@@ -578,18 +600,18 @@ export async function POST(req: NextRequest) {
 
   const restaurantId = restaurantResolution.restaurantId;
   const clientIp = extractClientIp(req);
-  const idempotencyKey = normalizeIdempotencyKey(req.headers.get("Idempotency-Key"));
+  const idempotencyKey = normalizeIdempotencyKey(req.headers.get('Idempotency-Key'));
   const clientRequestId = coerceUuid(idempotencyKey) ?? randomUUID();
-  const opsEmailProvidedHeader = req.headers.get("x-ops-email-provided") === "true";
-  const isOpsWalkIn = req.headers.get("x-ops-walk-in") === "true";
-  const requestSource = isOpsWalkIn ? "ops.walkin" : "api.bookings";
-  const bookingSource = isOpsWalkIn ? "ops.walkin" : "api";
+  const opsEmailProvidedHeader = req.headers.get('x-ops-email-provided') === 'true';
+  const isOpsWalkIn = req.headers.get('x-ops-walk-in') === 'true';
+  const requestSource = isOpsWalkIn ? 'ops.walkin' : 'api.bookings';
+  const bookingSource = isOpsWalkIn ? 'ops.walkin' : 'api';
   const bookingDetails = isOpsWalkIn
     ? ({
-      channel: bookingSource,
-      created_by: "ops.walkin",
-      staff_request_id: clientRequestId,
-    } satisfies Json)
+        channel: bookingSource,
+        created_by: 'ops.walkin',
+        staff_request_id: clientRequestId,
+      } satisfies Json)
     : null;
 
   // Rate limiting for booking creation
@@ -605,8 +627,8 @@ export async function POST(req: NextRequest) {
     // Log rate limit event
     void recordObservabilityEvent({
       source: requestSource,
-      eventType: "booking_creation.rate_limited",
-      severity: "warning",
+      eventType: 'booking_creation.rate_limited',
+      severity: 'warning',
       context: {
         restaurant_id: restaurantId,
         ip_scope: anonymizeIp(clientIp),
@@ -619,17 +641,17 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(
       {
-        error: "Too many booking requests. Please try again in a moment.",
-        code: "RATE_LIMITED",
+        error: 'Too many booking requests. Please try again in a moment.',
+        code: 'RATE_LIMITED',
         retryAfter: retryAfterSeconds,
       },
       {
         status: 429,
         headers: {
-          "Retry-After": retryAfterSeconds.toString(),
-          "X-RateLimit-Limit": rateResult.limit.toString(),
-          "X-RateLimit-Remaining": rateResult.remaining.toString(),
-          "X-RateLimit-Reset": rateResult.resetAt.toString(),
+          'Retry-After': retryAfterSeconds.toString(),
+          'X-RateLimit-Limit': rateResult.limit.toString(),
+          'X-RateLimit-Remaining': rateResult.remaining.toString(),
+          'X-RateLimit-Reset': rateResult.resetAt.toString(),
         },
       },
     );
@@ -637,7 +659,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const supabase = getServiceSupabaseClient();
-    const normalizedBookingType = data.bookingType === "drinks" ? "drinks" : inferMealTypeFromTime(data.time);
+    const normalizedBookingType =
+      data.bookingType === 'drinks' ? 'drinks' : inferMealTypeFromTime(data.time);
 
     let startTime = data.time;
     let scheduleTimezone: string | null = null;
@@ -663,24 +686,19 @@ export async function POST(req: NextRequest) {
       // Validate booking is not in the past (if feature flag enabled)
       if (env.featureFlags.bookingPastTimeBlocking) {
         try {
-          assertBookingNotInPast(
-            schedule.timezone,
-            data.date,
-            startTime,
-            {
-              graceMinutes: env.featureFlags.bookingPastTimeGraceMinutes,
-            }
-          );
+          assertBookingNotInPast(schedule.timezone, data.date, startTime, {
+            graceMinutes: env.featureFlags.bookingPastTimeGraceMinutes,
+          });
         } catch (pastTimeError) {
           if (pastTimeError instanceof PastBookingError) {
             // Log blocked attempt
             void recordObservabilityEvent({
               source: requestSource,
-              eventType: "booking.past_time.blocked",
-              severity: "warning",
+              eventType: 'booking.past_time.blocked',
+              severity: 'warning',
               context: {
                 restaurantId,
-                endpoint: "bookings.create",
+                endpoint: 'bookings.create',
                 actorRole: null,
                 ipScope: anonymizeIp(clientIp),
                 ...pastTimeError.details,
@@ -693,7 +711,7 @@ export async function POST(req: NextRequest) {
                 code: pastTimeError.code,
                 details: pastTimeError.details,
               },
-              { status: 422 }
+              { status: 422 },
             );
           }
           throw pastTimeError;
@@ -702,14 +720,15 @@ export async function POST(req: NextRequest) {
     } catch (validationError) {
       if (validationError instanceof OperatingHoursError) {
         const firstOpenSlot = lastSchedule?.slots.find((slot) => !slot.disabled)?.value ?? null;
-        const lastOpenSlot = lastSchedule?.slots
-          .slice()
-          .reverse()
-          .find((slot) => !slot.disabled)?.value ?? null;
+        const lastOpenSlot =
+          lastSchedule?.slots
+            .slice()
+            .reverse()
+            .find((slot) => !slot.disabled)?.value ?? null;
         return NextResponse.json(
           {
             error: validationError.message,
-            code: "OPERATING_HOURS_CLOSED",
+            code: 'OPERATING_HOURS_CLOSED',
             details: {
               reason: validationError.reason,
               requestedTime: data.time,
@@ -721,7 +740,7 @@ export async function POST(req: NextRequest) {
               timezone: lastSchedule?.timezone,
             },
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
       throw validationError;
@@ -770,9 +789,9 @@ export async function POST(req: NextRequest) {
 
       const context = {
         actorId: clientRequestId,
-        actorRoles: ["customer"],
+        actorRoles: ['customer'],
         actorCapabilities: [],
-        tz: scheduleTimezone ?? "Europe/London",
+        tz: scheduleTimezone ?? 'Europe/London',
         flags: {
           bookingPastTimeBlocking: env.featureFlags.bookingPastTimeBlocking ?? false,
           bookingPastTimeGraceMinutes: env.featureFlags.bookingPastTimeGraceMinutes ?? 5,
@@ -833,12 +852,12 @@ export async function POST(req: NextRequest) {
           booking = recovered;
           void recordObservabilityEvent({
             source: requestSource,
-            eventType: "booking.create.recovered",
-            severity: "warning",
+            eventType: 'booking.create.recovered',
+            severity: 'warning',
             context: {
               restaurantId,
               idempotencyKey: idempotencyKey ?? undefined,
-              method: idempotencyKey ? "idempotency_key" : "signature",
+              method: idempotencyKey ? 'idempotency_key' : 'signature',
             },
           });
         } else {
@@ -854,7 +873,7 @@ export async function POST(req: NextRequest) {
               party_size: data.party,
               booking_type: normalizedBookingType,
               seating_preference: data.seating,
-              status: "pending",
+              status: 'pending',
               reference,
               customer_name: data.name,
               customer_email: normalizeEmail(data.email),
@@ -862,17 +881,17 @@ export async function POST(req: NextRequest) {
               notes: data.notes ?? null,
               marketing_opt_in: data.marketingOptIn ?? false,
               loyalty_points_awarded: 0,
-              source: "api",
+              source: 'api',
               client_request_id: clientRequestId,
               idempotency_key: idempotencyKey ?? null,
-              details: { fallback: "missing_rpc_booking_record" } as Json,
+              details: { fallback: 'missing_rpc_booking_record' } as Json,
             });
 
             booking = created as BookingRecord;
             void recordObservabilityEvent({
               source: requestSource,
-              eventType: "booking.create.insert_fallback",
-              severity: "warning",
+              eventType: 'booking.create.insert_fallback',
+              severity: 'warning',
               context: {
                 restaurantId,
                 idempotencyKey: idempotencyKey ?? undefined,
@@ -880,8 +899,9 @@ export async function POST(req: NextRequest) {
             });
           } catch (createFallbackError) {
             throw new Error(
-              `Booking creation succeeded but booking record could not be retrieved or created: ${stringifyError(createFallbackError)
-              }`,
+              `Booking creation succeeded but booking record could not be retrieved or created: ${stringifyError(
+                createFallbackError,
+              )}`,
             );
           }
         }
@@ -890,11 +910,11 @@ export async function POST(req: NextRequest) {
       reusedExisting = bookingResult.duplicate === true;
 
       // Enforce default initial status to 'pending' for newly created bookings (RPC may return 'confirmed').
-      if (!reusedExisting && booking.status !== "pending") {
+      if (!reusedExisting && booking.status !== 'pending') {
         try {
-          booking = await updateBookingRecord(supabase, booking.id, { status: "pending" });
+          booking = await updateBookingRecord(supabase, booking.id, { status: 'pending' });
         } catch (statusError) {
-          console.error("[bookings][POST][status-enforce]", stringifyError(statusError));
+          console.error('[bookings][POST][status-enforce]', stringifyError(statusError));
         }
       }
     }
@@ -914,7 +934,7 @@ export async function POST(req: NextRequest) {
             points: loyaltyAward,
             metadata: {
               reference: booking.reference,
-              source: "api",
+              source: 'api',
             },
             occurredAt: booking.created_at,
           });
@@ -923,7 +943,7 @@ export async function POST(req: NextRequest) {
             loyalty_points_awarded: loyaltyAward,
           });
         } catch (error) {
-          console.error("[bookings][POST][loyalty] Failed to record loyalty award", {
+          console.error('[bookings][POST][loyalty] Failed to record loyalty award', {
             bookingId: booking.id,
             error: stringifyError(error),
           });
@@ -935,10 +955,12 @@ export async function POST(req: NextRequest) {
         }
       }
     } else {
-      const awardedFromRecord = "loyalty_points_awarded" in finalBooking && typeof finalBooking.loyalty_points_awarded === "number"
-        ? finalBooking.loyalty_points_awarded
-        : (finalBooking as Record<string, unknown>).loyalty_points_awarded;
-      loyaltyAward = typeof awardedFromRecord === "number" ? awardedFromRecord : 0;
+      const awardedFromRecord =
+        'loyalty_points_awarded' in finalBooking &&
+        typeof finalBooking.loyalty_points_awarded === 'number'
+          ? finalBooking.loyalty_points_awarded
+          : (finalBooking as Record<string, unknown>).loyalty_points_awarded;
+      loyaltyAward = typeof awardedFromRecord === 'number' ? awardedFromRecord : 0;
     }
 
     if (!reusedExisting) {
@@ -950,8 +972,8 @@ export async function POST(req: NextRequest) {
       } as Json;
 
       await logAuditEvent(supabase, {
-        action: "booking.created",
-        entity: "booking",
+        action: 'booking.created',
+        entity: 'booking',
         entityId: booking.id,
         metadata: auditMetadata,
         actor: data.email,
@@ -968,8 +990,8 @@ export async function POST(req: NextRequest) {
       const inlineAttemptId = randomUUID();
       let inlineAttemptStartedAt = 0;
       const inlinePlannerStrategy = { requireAdjacency: null, maxTables: null };
-      const inlinePlannerTrigger = "inline_creation";
-      const inlineEmailVariant = "standard";
+      const inlinePlannerTrigger = 'inline_creation';
+      const inlineEmailVariant = 'standard';
       let inlineTimeoutPersisted = false;
       const persistInlinePlanResult = async (params: {
         success: boolean;
@@ -977,7 +999,7 @@ export async function POST(req: NextRequest) {
         durationMs: number;
         alternates?: number;
         emailSent: boolean;
-        emailVariant: "standard" | "modified" | null;
+        emailVariant: 'standard' | 'modified' | null;
       }) => {
         const inlineResult = buildInlineLastResult({
           durationMs: params.durationMs,
@@ -995,29 +1017,32 @@ export async function POST(req: NextRequest) {
             auto_assign_last_result: inlineResult,
           });
         } catch (updateError) {
-          console.warn("[bookings][POST][inline-auto-assign] persist inline result failed", {
+          console.warn('[bookings][POST][inline-auto-assign] persist inline result failed', {
             bookingId: finalBooking.id,
             error: stringifyError(updateError),
           });
         }
       };
       try {
-        const { CancellableAutoAssign } = await import("@/server/booking/auto-assign/cancellable-auto-assign");
-        const inlineIdempotencyKey = finalBooking.auto_assign_idempotency_key ?? `api-${finalBooking.id}`;
+        const { CancellableAutoAssign } =
+          await import('@/server/booking/auto-assign/cancellable-auto-assign');
+        const inlineIdempotencyKey =
+          finalBooking.auto_assign_idempotency_key ?? `api-${finalBooking.id}`;
         const autoAssign = new CancellableAutoAssign(inlineTimeoutMs);
         inlineAttemptStartedAt = Date.now();
 
-        console.info("[bookings][POST][inline-auto-assign] start", {
+        console.info('[bookings][POST][inline-auto-assign] start', {
           bookingId: finalBooking.id,
           attemptId: inlineAttemptId,
           timeoutMs: inlineTimeoutMs,
         });
 
         const handleInlineTimeout = async () => {
-          const elapsedMs = inlineAttemptStartedAt > 0 ? Date.now() - inlineAttemptStartedAt : undefined;
+          const elapsedMs =
+            inlineAttemptStartedAt > 0 ? Date.now() - inlineAttemptStartedAt : undefined;
           await recordObservabilityEvent({
-            source: "bookings.inline_auto_assign",
-            eventType: "inline_auto_assign.timeout",
+            source: 'bookings.inline_auto_assign',
+            eventType: 'inline_auto_assign.timeout',
             restaurantId,
             bookingId: finalBooking.id,
             context: {
@@ -1025,11 +1050,11 @@ export async function POST(req: NextRequest) {
               elapsedMs,
               attemptId: inlineAttemptId,
             },
-            severity: "warning",
+            severity: 'warning',
           });
           await persistInlinePlanResult({
             success: false,
-            reason: "INLINE_TIMEOUT",
+            reason: 'INLINE_TIMEOUT',
             durationMs: elapsedMs ?? inlineTimeoutMs,
             alternates: 0,
             emailSent: false,
@@ -1038,232 +1063,231 @@ export async function POST(req: NextRequest) {
           inlineTimeoutPersisted = true;
         };
 
-        const { quoteTablesForBooking, atomicConfirmAndTransition } = await import("@/server/capacity/tables");
-        await autoAssign.runWithTimeout(
-          async (signal) => {
-            const quoteStartedAt = Date.now();
-            let quoteDurationMs = 0;
-            let quote: Awaited<ReturnType<typeof quoteTablesForBooking>> | null = null;
-            try {
-              quote = await quoteTablesForBooking({
-                bookingId: finalBooking.id,
-                createdBy: "api-booking",
-                holdTtlSeconds: 120,
-                signal,
-              });
-              quoteDurationMs = Date.now() - quoteStartedAt;
-              const classification = classifyPlannerReason(quote?.reason ?? null);
-              await recordPlannerQuoteTelemetry({
-                restaurantId,
-                bookingId: finalBooking.id,
-                durationMs: quoteDurationMs,
-                success: Boolean(quote?.hold),
-                reason: quote?.reason ?? null,
-                reasonCode: classification.code,
-                reasonCategory: classification.category,
-                strategy: inlinePlannerStrategy,
-                trigger: inlinePlannerTrigger,
-                attemptIndex: 0,
-                internalStats: quote?.plannerStats ?? null,
-                extraContext: { attemptId: inlineAttemptId },
-              });
-            } catch (quoteError) {
-              quoteDurationMs = Date.now() - quoteStartedAt;
-              const inlineQuoteErrorReason =
-                quoteError instanceof Error && quoteError.name ? quoteError.name : "QUOTE_ERROR";
-              const classification = classifyPlannerReason(inlineQuoteErrorReason);
-              await persistInlinePlanResult({
-                success: false,
-                reason: inlineQuoteErrorReason,
-                durationMs: quoteDurationMs,
-                alternates: 0,
-                emailSent: false,
-                emailVariant: inlineEmailVariant,
-              });
-              await recordPlannerQuoteTelemetry({
-                restaurantId,
-                bookingId: finalBooking.id,
-                durationMs: quoteDurationMs,
-                success: false,
-                reason: inlineQuoteErrorReason,
-                reasonCode: classification.code,
-                reasonCategory: classification.category,
-                strategy: inlinePlannerStrategy,
-                trigger: inlinePlannerTrigger,
-                attemptIndex: 0,
-                errorMessage: stringifyError(quoteError),
-                severity: "warning",
-                extraContext: { attemptId: inlineAttemptId },
-              });
-              console.error("[bookings][POST][inline-auto-assign] quote error", {
-                bookingId: finalBooking.id,
-                attemptId: inlineAttemptId,
-                durationMs: quoteDurationMs,
-                error: stringifyError(quoteError),
-              });
-              await recordObservabilityEvent({
-                source: "bookings.inline_auto_assign",
-                eventType: "inline_auto_assign.quote_error",
-                restaurantId,
-                bookingId: finalBooking.id,
-                context: {
-                  durationMs: quoteDurationMs,
-                  attemptId: inlineAttemptId,
-                },
-                severity: "warning",
-              });
-              throw quoteError;
-            }
-
-            console.info("[bookings][POST][inline-auto-assign] quote result", {
+        const { quoteTablesForBooking, atomicConfirmAndTransition } =
+          await import('@/server/capacity/tables');
+        await autoAssign.runWithTimeout(async (signal) => {
+          const quoteStartedAt = Date.now();
+          let quoteDurationMs = 0;
+          let quote: Awaited<ReturnType<typeof quoteTablesForBooking>> | null = null;
+          try {
+            quote = await quoteTablesForBooking({
+              bookingId: finalBooking.id,
+              createdBy: 'api-booking',
+              holdTtlSeconds: 120,
+              signal,
+            });
+            quoteDurationMs = Date.now() - quoteStartedAt;
+            const classification = classifyPlannerReason(quote?.reason ?? null);
+            await recordPlannerQuoteTelemetry({
+              restaurantId,
+              bookingId: finalBooking.id,
+              durationMs: quoteDurationMs,
+              success: Boolean(quote?.hold),
+              reason: quote?.reason ?? null,
+              reasonCode: classification.code,
+              reasonCategory: classification.category,
+              strategy: inlinePlannerStrategy,
+              trigger: inlinePlannerTrigger,
+              attemptIndex: 0,
+              internalStats: quote?.plannerStats ?? null,
+              extraContext: { attemptId: inlineAttemptId },
+            });
+          } catch (quoteError) {
+            quoteDurationMs = Date.now() - quoteStartedAt;
+            const inlineQuoteErrorReason =
+              quoteError instanceof Error && quoteError.name ? quoteError.name : 'QUOTE_ERROR';
+            const classification = classifyPlannerReason(inlineQuoteErrorReason);
+            await persistInlinePlanResult({
+              success: false,
+              reason: inlineQuoteErrorReason,
+              durationMs: quoteDurationMs,
+              alternates: 0,
+              emailSent: false,
+              emailVariant: inlineEmailVariant,
+            });
+            await recordPlannerQuoteTelemetry({
+              restaurantId,
+              bookingId: finalBooking.id,
+              durationMs: quoteDurationMs,
+              success: false,
+              reason: inlineQuoteErrorReason,
+              reasonCode: classification.code,
+              reasonCategory: classification.category,
+              strategy: inlinePlannerStrategy,
+              trigger: inlinePlannerTrigger,
+              attemptIndex: 0,
+              errorMessage: stringifyError(quoteError),
+              severity: 'warning',
+              extraContext: { attemptId: inlineAttemptId },
+            });
+            console.error('[bookings][POST][inline-auto-assign] quote error', {
               bookingId: finalBooking.id,
               attemptId: inlineAttemptId,
               durationMs: quoteDurationMs,
+              error: stringifyError(quoteError),
+            });
+            await recordObservabilityEvent({
+              source: 'bookings.inline_auto_assign',
+              eventType: 'inline_auto_assign.quote_error',
+              restaurantId,
+              bookingId: finalBooking.id,
+              context: {
+                durationMs: quoteDurationMs,
+                attemptId: inlineAttemptId,
+              },
+              severity: 'warning',
+            });
+            throw quoteError;
+          }
+
+          console.info('[bookings][POST][inline-auto-assign] quote result', {
+            bookingId: finalBooking.id,
+            attemptId: inlineAttemptId,
+            durationMs: quoteDurationMs,
+            hasHold: Boolean(quote?.hold),
+            reason: quote?.reason ?? null,
+            alternates: quote?.alternates?.length ?? 0,
+          });
+
+          await recordObservabilityEvent({
+            source: 'bookings.inline_auto_assign',
+            eventType: 'inline_auto_assign.quote_result',
+            restaurantId,
+            bookingId: finalBooking.id,
+            context: {
+              durationMs: quoteDurationMs,
               hasHold: Boolean(quote?.hold),
+              attemptId: inlineAttemptId,
               reason: quote?.reason ?? null,
               alternates: quote?.alternates?.length ?? 0,
-            });
+            },
+          });
 
-            await recordObservabilityEvent({
-              source: "bookings.inline_auto_assign",
-              eventType: "inline_auto_assign.quote_result",
-              restaurantId,
-              bookingId: finalBooking.id,
-              context: {
-                durationMs: quoteDurationMs,
-                hasHold: Boolean(quote?.hold),
-                attemptId: inlineAttemptId,
-                reason: quote?.reason ?? null,
-                alternates: quote?.alternates?.length ?? 0,
-              },
-            });
-
-            if (!quote?.hold) {
-              await persistInlinePlanResult({
-                success: false,
-                reason: quote?.reason ?? null,
-                alternates: quote?.alternates?.length ?? 0,
-                durationMs: quoteDurationMs,
-                emailSent: false,
-                emailVariant: inlineEmailVariant,
-              });
-              console.warn("[bookings][POST][inline-auto-assign] hold not available", {
-                bookingId: finalBooking.id,
-                reason: quote?.reason ?? "NO_HOLD",
-                alternates: quote?.alternates?.length ?? 0,
-                attemptId: inlineAttemptId,
-                durationMs: quoteDurationMs,
-              });
-              await recordObservabilityEvent({
-                source: "bookings.inline_auto_assign",
-                eventType: "inline_auto_assign.no_hold",
-                restaurantId,
-                bookingId: finalBooking.id,
-                context: {
-                  reason: quote?.reason ?? "NO_HOLD",
-                  alternates: quote?.alternates?.length ?? 0,
-                  durationMs: quoteDurationMs,
-                  attemptId: inlineAttemptId,
-                },
-                severity: "info",
-              });
-              return;
-            }
-
-            const confirmStartedAt = Date.now();
-            try {
-              await atomicConfirmAndTransition({
-                bookingId: finalBooking.id,
-                holdId: quote.hold.id,
-                idempotencyKey: inlineIdempotencyKey,
-                assignedBy: null,
-                historyReason: "api_inline_auto_assign",
-                historyMetadata: { source: "api-inline", holdId: quote.hold.id },
-                signal,
-              });
-            } catch (confirmError) {
-              const confirmDurationMs = Date.now() - confirmStartedAt;
-              console.error("[bookings][POST][inline-auto-assign] confirm error", {
-                bookingId: finalBooking.id,
-                attemptId: inlineAttemptId,
-                holdId: quote.hold.id,
-                durationMs: confirmDurationMs,
-                error: stringifyError(confirmError),
-              });
-              await recordObservabilityEvent({
-                source: "bookings.inline_auto_assign",
-                eventType: "inline_auto_assign.confirm_failed",
-                restaurantId,
-                bookingId: finalBooking.id,
-                context: {
-                  attemptId: inlineAttemptId,
-                  holdId: quote.hold.id,
-                  durationMs: confirmDurationMs,
-                },
-                severity: "error",
-              });
-              throw confirmError;
-            }
-
-            const confirmDurationMs = Date.now() - confirmStartedAt;
-            console.info("[bookings][POST][inline-auto-assign] confirm completed", {
-              bookingId: finalBooking.id,
-              attemptId: inlineAttemptId,
-              holdId: quote.hold.id,
-              durationMs: confirmDurationMs,
-            });
-
-            await recordObservabilityEvent({
-              source: "bookings.inline_auto_assign",
-              eventType: "inline_auto_assign.confirm_succeeded",
-              restaurantId,
-              bookingId: finalBooking.id,
-              context: {
-                attemptId: inlineAttemptId,
-                holdId: quote.hold.id,
-                durationMs: confirmDurationMs,
-              },
-            });
-
-            const { data: reloaded } = await supabase
-              .from("bookings")
-              .select("*")
-              .eq("id", finalBooking.id)
-              .maybeSingle();
-
-            if (reloaded) {
-              finalBooking = reloaded as BookingRecord;
-            }
-
+          if (!quote?.hold) {
             await persistInlinePlanResult({
-              success: true,
-              reason: quote.reason ?? null,
+              success: false,
+              reason: quote?.reason ?? null,
               alternates: quote?.alternates?.length ?? 0,
               durationMs: quoteDurationMs,
               emailSent: false,
               emailVariant: inlineEmailVariant,
             });
-
+            console.warn('[bookings][POST][inline-auto-assign] hold not available', {
+              bookingId: finalBooking.id,
+              reason: quote?.reason ?? 'NO_HOLD',
+              alternates: quote?.alternates?.length ?? 0,
+              attemptId: inlineAttemptId,
+              durationMs: quoteDurationMs,
+            });
             await recordObservabilityEvent({
-              source: "bookings.inline_auto_assign",
-              eventType: "inline_auto_assign.succeeded",
+              source: 'bookings.inline_auto_assign',
+              eventType: 'inline_auto_assign.no_hold',
               restaurantId,
               bookingId: finalBooking.id,
               context: {
-                holdId: quote.hold.id,
-                idempotencyKey: inlineIdempotencyKey,
+                reason: quote?.reason ?? 'NO_HOLD',
+                alternates: quote?.alternates?.length ?? 0,
+                durationMs: quoteDurationMs,
                 attemptId: inlineAttemptId,
-                quoteDurationMs,
-                confirmDurationMs,
               },
+              severity: 'info',
             });
-          },
-          handleInlineTimeout,
-        );
+            return;
+          }
+
+          const confirmStartedAt = Date.now();
+          try {
+            await atomicConfirmAndTransition({
+              bookingId: finalBooking.id,
+              holdId: quote.hold.id,
+              idempotencyKey: inlineIdempotencyKey,
+              assignedBy: null,
+              historyReason: 'api_inline_auto_assign',
+              historyMetadata: { source: 'api-inline', holdId: quote.hold.id },
+              signal,
+            });
+          } catch (confirmError) {
+            const confirmDurationMs = Date.now() - confirmStartedAt;
+            console.error('[bookings][POST][inline-auto-assign] confirm error', {
+              bookingId: finalBooking.id,
+              attemptId: inlineAttemptId,
+              holdId: quote.hold.id,
+              durationMs: confirmDurationMs,
+              error: stringifyError(confirmError),
+            });
+            await recordObservabilityEvent({
+              source: 'bookings.inline_auto_assign',
+              eventType: 'inline_auto_assign.confirm_failed',
+              restaurantId,
+              bookingId: finalBooking.id,
+              context: {
+                attemptId: inlineAttemptId,
+                holdId: quote.hold.id,
+                durationMs: confirmDurationMs,
+              },
+              severity: 'error',
+            });
+            throw confirmError;
+          }
+
+          const confirmDurationMs = Date.now() - confirmStartedAt;
+          console.info('[bookings][POST][inline-auto-assign] confirm completed', {
+            bookingId: finalBooking.id,
+            attemptId: inlineAttemptId,
+            holdId: quote.hold.id,
+            durationMs: confirmDurationMs,
+          });
+
+          await recordObservabilityEvent({
+            source: 'bookings.inline_auto_assign',
+            eventType: 'inline_auto_assign.confirm_succeeded',
+            restaurantId,
+            bookingId: finalBooking.id,
+            context: {
+              attemptId: inlineAttemptId,
+              holdId: quote.hold.id,
+              durationMs: confirmDurationMs,
+            },
+          });
+
+          const { data: reloaded } = await supabase
+            .from('bookings')
+            .select('*')
+            .eq('id', finalBooking.id)
+            .maybeSingle();
+
+          if (reloaded) {
+            finalBooking = reloaded as BookingRecord;
+          }
+
+          await persistInlinePlanResult({
+            success: true,
+            reason: quote.reason ?? null,
+            alternates: quote?.alternates?.length ?? 0,
+            durationMs: quoteDurationMs,
+            emailSent: false,
+            emailVariant: inlineEmailVariant,
+          });
+
+          await recordObservabilityEvent({
+            source: 'bookings.inline_auto_assign',
+            eventType: 'inline_auto_assign.succeeded',
+            restaurantId,
+            bookingId: finalBooking.id,
+            context: {
+              holdId: quote.hold.id,
+              idempotencyKey: inlineIdempotencyKey,
+              attemptId: inlineAttemptId,
+              quoteDurationMs,
+              confirmDurationMs,
+            },
+          });
+        }, handleInlineTimeout);
       } catch (inlineError) {
-        if (inlineError instanceof Error && inlineError.name === "AbortError") {
-          const durationMs = inlineAttemptStartedAt > 0 ? Date.now() - inlineAttemptStartedAt : undefined;
-          console.warn("[bookings][POST][inline-auto-assign] aborted", {
+        if (inlineError instanceof Error && inlineError.name === 'AbortError') {
+          const durationMs =
+            inlineAttemptStartedAt > 0 ? Date.now() - inlineAttemptStartedAt : undefined;
+          console.warn('[bookings][POST][inline-auto-assign] aborted', {
             bookingId: finalBooking.id,
             durationMs,
             timeoutMs: inlineTimeoutMs,
@@ -1272,7 +1296,7 @@ export async function POST(req: NextRequest) {
           if (!inlineTimeoutPersisted) {
             await persistInlinePlanResult({
               success: false,
-              reason: "INLINE_TIMEOUT",
+              reason: 'INLINE_TIMEOUT',
               durationMs: durationMs ?? inlineTimeoutMs,
               alternates: 0,
               emailSent: false,
@@ -1281,8 +1305,8 @@ export async function POST(req: NextRequest) {
             inlineTimeoutPersisted = true;
           }
           await recordObservabilityEvent({
-            source: "bookings.inline_auto_assign",
-            eventType: "inline_auto_assign.operation_aborted",
+            source: 'bookings.inline_auto_assign',
+            eventType: 'inline_auto_assign.operation_aborted',
             restaurantId,
             bookingId: finalBooking.id,
             context: {
@@ -1290,10 +1314,12 @@ export async function POST(req: NextRequest) {
               durationMs,
               timeoutMs: inlineTimeoutMs,
             },
-            severity: "warning",
+            severity: 'warning',
           });
         } else {
-          console.warn("[bookings][POST][inline-auto-assign] failed", { error: stringifyError(inlineError) });
+          console.warn('[bookings][POST][inline-auto-assign] failed', {
+            error: stringifyError(inlineError),
+          });
         }
       }
     }
@@ -1310,18 +1336,18 @@ export async function POST(req: NextRequest) {
           { supabase },
         );
       } catch (jobError: unknown) {
-        console.error("[bookings][POST][side-effects]", stringifyError(jobError));
+        console.error('[bookings][POST][side-effects]', stringifyError(jobError));
       }
 
       // If inline attempt did not confirm and retries are configured, run background job
       try {
         if (env.featureFlags.autoAssignOnBooking && finalBooking.status !== 'confirmed') {
-          const { autoAssignAndConfirmIfPossible } = await import("@/server/jobs/auto-assign");
+          const { autoAssignAndConfirmIfPossible } = await import('@/server/jobs/auto-assign');
           // Always schedule a background attempt at least once
           void autoAssignAndConfirmIfPossible(finalBooking.id);
         }
       } catch (autoError: unknown) {
-        console.error("[bookings][POST][auto-assign]", stringifyError(autoError));
+        console.error('[bookings][POST][auto-assign]', stringifyError(autoError));
       }
     }
 
@@ -1334,7 +1360,7 @@ export async function POST(req: NextRequest) {
 
         await attachTokenToBooking(finalBooking.id, confirmationToken, tokenExpiry);
       } catch (tokenError: unknown) {
-        console.error("[bookings][POST][confirmation-token]", stringifyError(tokenError));
+        console.error('[bookings][POST][confirmation-token]', stringifyError(tokenError));
         // Non-fatal: booking still succeeded, just no token for guest confirmation
         confirmationToken = null;
       }
@@ -1380,18 +1406,18 @@ export async function POST(req: NextRequest) {
     const errorDetails = enriched?.details ?? null;
 
     if (errorDetails) {
-      console.error("[bookings][POST][details]", errorDetails);
+      console.error('[bookings][POST][details]', errorDetails);
     }
 
-    console.error("[bookings][POST]", message);
+    console.error('[bookings][POST]', message);
 
-    const emailDomain = data.email.includes("@") ? data.email.split("@")[1] : null;
+    const emailDomain = data.email.includes('@') ? data.email.split('@')[1] : null;
     const phoneSuffix = data.phone ? data.phone.slice(-4) : null;
 
     void recordObservabilityEvent({
-      source: "api.bookings",
-      eventType: "booking.create.failure",
-      severity: "error",
+      source: 'api.bookings',
+      eventType: 'booking.create.failure',
+      severity: 'error',
       context: {
         message,
         restaurantId,
@@ -1403,10 +1429,7 @@ export async function POST(req: NextRequest) {
       } as Json,
     });
 
-    return NextResponse.json(
-      { error: message || "Unable to create booking" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: message || 'Unable to create booking' }, { status: 500 });
   }
 }
 async function handleMyBookings(req: NextRequest) {
@@ -1417,18 +1440,18 @@ async function handleMyBookings(req: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (authError || !user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const rawParams = {
-    me: req.nextUrl.searchParams.get("me"),
-    status: req.nextUrl.searchParams.get("status") ?? undefined,
-    from: req.nextUrl.searchParams.get("from") ?? undefined,
-    to: req.nextUrl.searchParams.get("to") ?? undefined,
-    sort: req.nextUrl.searchParams.get("sort") ?? undefined,
-    page: req.nextUrl.searchParams.get("page") ?? undefined,
-    pageSize: req.nextUrl.searchParams.get("pageSize") ?? undefined,
-    restaurantId: req.nextUrl.searchParams.get("restaurantId") ?? undefined,
+    me: req.nextUrl.searchParams.get('me'),
+    status: req.nextUrl.searchParams.get('status') ?? undefined,
+    from: req.nextUrl.searchParams.get('from') ?? undefined,
+    to: req.nextUrl.searchParams.get('to') ?? undefined,
+    sort: req.nextUrl.searchParams.get('sort') ?? undefined,
+    page: req.nextUrl.searchParams.get('page') ?? undefined,
+    pageSize: req.nextUrl.searchParams.get('pageSize') ?? undefined,
+    restaurantId: req.nextUrl.searchParams.get('restaurantId') ?? undefined,
   };
 
   const parsed = myBookingsQuerySchema.safeParse(rawParams);
@@ -1449,44 +1472,46 @@ async function handleMyBookings(req: NextRequest) {
     fromIso = params.from ? toIsoStringOrThrow(params.from) : undefined;
     toIso = params.to ? toIsoStringOrThrow(params.to) : undefined;
   } catch {
-    return NextResponse.json({ error: "Invalid date range" }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid date range' }, { status: 400 });
   }
 
   const client = getServiceSupabaseClient();
   let query =
-    params.status === "active"
+    params.status === 'active'
       ? client
-        .from("current_bookings")
-        .select(
-          "id, restaurant_id, booking_date, start_time, end_time, party_size, status, notes, restaurants(id, name, slug, timezone, reservation_interval_minutes)",
-          { count: "exact" },
-        )
-        .eq("customer_email", email)
+          .from('current_bookings')
+          .select(
+            'id, restaurant_id, booking_date, start_time, end_time, party_size, status, notes, restaurants(id, name, slug, timezone, reservation_interval_minutes)',
+            { count: 'exact' },
+          )
+          .eq('customer_email', email)
       : client
-        .from("bookings")
-        .select(
-          "id, restaurant_id, booking_date, start_time, end_time, party_size, status, notes, restaurants(id, name, slug, timezone, reservation_interval_minutes)",
-          { count: "exact" },
-        )
-        .eq("customer_email", email);
+          .from('bookings')
+          .select(
+            'id, restaurant_id, booking_date, start_time, end_time, party_size, status, notes, restaurants(id, name, slug, timezone, reservation_interval_minutes)',
+            { count: 'exact' },
+          )
+          .eq('customer_email', email);
 
   if (params.restaurantId) {
-    query = query.eq("restaurant_id", params.restaurantId);
+    query = query.eq('restaurant_id', params.restaurantId);
   }
 
-  if (params.status && params.status !== "active") {
-    query = query.eq("status", params.status);
+  if (params.status && params.status !== 'active') {
+    query = query.eq('status', params.status);
   }
 
   if (fromIso) {
-    query = query.gte("booking_date", fromIso);
+    query = query.gte('booking_date', fromIso);
   }
 
   if (toIso) {
-    query = query.lt("booking_date", toIso);
+    query = query.lt('booking_date', toIso);
   }
 
-  query = query.order("booking_date", { ascending: params.sort === "asc" }).order("start_time", { ascending: params.sort === "asc" });
+  query = query
+    .order('booking_date', { ascending: params.sort === 'asc' })
+    .order('start_time', { ascending: params.sort === 'asc' });
 
   type BookingRow = {
     id: string;
@@ -1495,48 +1520,48 @@ async function handleMyBookings(req: NextRequest) {
     start_time: string;
     end_time: string;
     party_size: number;
-    status: BookingDTO["status"];
+    status: BookingDTO['status'];
     notes: string | null;
     restaurants:
-    | {
-      id?: string | null;
-      name: string;
-      slug?: string | null;
-      timezone?: string | null;
-      reservation_interval_minutes?: number | null;
-    }
-    | {
-      id?: string | null;
-      name: string;
-      slug?: string | null;
-      timezone?: string | null;
-      reservation_interval_minutes?: number | null;
-    }[]
-    | null;
+      | {
+          id?: string | null;
+          name: string;
+          slug?: string | null;
+          timezone?: string | null;
+          reservation_interval_minutes?: number | null;
+        }
+      | {
+          id?: string | null;
+          name: string;
+          slug?: string | null;
+          timezone?: string | null;
+          reservation_interval_minutes?: number | null;
+        }[]
+      | null;
   };
 
   const { data, error, count } = await query.range(offset, offset + pageSize - 1);
 
   if (error) {
-    console.error("[bookings][GET][me]", error);
-    return NextResponse.json({ error: "Unable to fetch bookings" }, { status: 500 });
+    console.error('[bookings][GET][me]', error);
+    return NextResponse.json({ error: 'Unable to fetch bookings' }, { status: 500 });
   }
 
   const rows: BookingRow[] = (data ?? []) as BookingRow[];
 
   const items: BookingDTO[] = rows.map((booking) => {
     const restaurant = Array.isArray(booking.restaurants)
-      ? booking.restaurants[0] ?? null
+      ? (booking.restaurants[0] ?? null)
       : booking.restaurants;
     const interval =
-      restaurant && typeof restaurant.reservation_interval_minutes === "number"
+      restaurant && typeof restaurant.reservation_interval_minutes === 'number'
         ? restaurant.reservation_interval_minutes
         : null;
 
     return {
       id: booking.id,
       restaurantId: booking.restaurant_id ?? null,
-      restaurantName: restaurant?.name ?? "",
+      restaurantName: restaurant?.name ?? '',
       restaurantSlug: restaurant?.slug ?? null,
       restaurantTimezone: restaurant?.timezone ?? null,
       partySize: booking.party_size,
@@ -1544,8 +1569,8 @@ async function handleMyBookings(req: NextRequest) {
       endIso: `${booking.booking_date}T${booking.end_time}`,
       status: booking.status,
       notes: booking.notes,
-      customerName: null as BookingDTO["customerName"],
-      customerEmail: null as BookingDTO["customerEmail"],
+      customerName: null as BookingDTO['customerName'],
+      customerEmail: null as BookingDTO['customerEmail'],
       reservationIntervalMinutes: interval,
     };
   });

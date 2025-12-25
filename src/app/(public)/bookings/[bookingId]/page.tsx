@@ -1,20 +1,20 @@
-import { HydrationBoundary, QueryClient, dehydrate } from "@tanstack/react-query";
-import { cookies, headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
+import { cookies, headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 
-import ReservationDetailClient from "@/components/features/booking/detail/ReservationDetailClient";
-import { getCanonicalSiteUrl } from "@/lib/site-url";
-import { withRedirectedFrom } from "@/lib/url/withRedirectedFrom";
-import { getServerComponentSupabaseClient } from "@/server/supabase";
-import { reservationAdapter } from "@entities/reservation/adapter";
-import { reservationKeys } from "@shared/api/queryKeys";
+import ReservationDetailClient from '@/components/features/booking/detail/ReservationDetailClient';
+import { getCanonicalSiteUrl } from '@/lib/site-url';
+import { withRedirectedFrom } from '@/lib/url/withRedirectedFrom';
+import { getServerComponentSupabaseClient } from '@/server/supabase';
+import { reservationAdapter } from '@entities/reservation/adapter';
+import { reservationKeys } from '@shared/api/queryKeys';
 
-import type { Metadata } from "next";
+import type { Metadata } from 'next';
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 type RouteParams = Promise<{ bookingId: string }>;
-type SearchParams = Promise<{ token?: string }>;
+type SearchParams = Promise<{ token?: string; access_token?: string; accessToken?: string }>;
 
 const shortenId = (value: string): string => (value.length > 8 ? value.slice(0, 8) : value);
 
@@ -22,19 +22,23 @@ const cookieHeaderFromStore = (cookieStore: Awaited<ReturnType<typeof cookies>>)
   return cookieStore
     .getAll()
     .map(({ name, value }) => `${name}=${value}`)
-    .join("; ");
+    .join('; ');
 };
 
 const resolveOrigin = (requestHeaders: Headers): string => {
-  const forwardedHost = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
-  const forwardedProto = requestHeaders.get("x-forwarded-proto");
+  const forwardedHost = requestHeaders.get('x-forwarded-host') ?? requestHeaders.get('host');
+  const forwardedProto = requestHeaders.get('x-forwarded-proto');
   if (forwardedHost) {
-    return `${forwardedProto ?? "https"}://${forwardedHost}`;
+    return `${forwardedProto ?? 'https'}://${forwardedHost}`;
   }
   return process.env.NEXT_PUBLIC_SITE_URL ?? getCanonicalSiteUrl();
 };
 
-async function prefetchReservation(queryClient: QueryClient, reservationId: string, token?: string | null) {
+async function prefetchReservation(
+  queryClient: QueryClient,
+  reservationId: string,
+  token?: string | null,
+) {
   const requestHeaders = await headers();
   const cookieStore = await cookies();
   const cookieHeader = cookieHeaderFromStore(cookieStore);
@@ -42,16 +46,16 @@ async function prefetchReservation(queryClient: QueryClient, reservationId: stri
 
   const url = new URL(`${origin}/api/bookings/${reservationId}`);
   if (token) {
-    url.searchParams.set("token", token);
+    url.searchParams.set('token', token);
   }
 
   try {
     const response = await fetch(url.toString(), {
       headers: {
-        accept: "application/json",
+        accept: 'application/json',
         ...(cookieHeader ? { cookie: cookieHeader } : {}),
       },
-      cache: "no-store",
+      cache: 'no-store',
     });
 
     if (!response.ok) {
@@ -66,16 +70,16 @@ async function prefetchReservation(queryClient: QueryClient, reservationId: stri
     const normalizedReservation = reservationAdapter(payload.booking);
     queryClient.setQueryData(reservationKeys.detail(reservationId), normalizedReservation);
   } catch (error) {
-    console.error("[reservation-detail][prefetch]", error);
+    console.error('[reservation-detail][prefetch]', error);
   }
 }
 
 export async function generateMetadata({ params }: { params: RouteParams }): Promise<Metadata> {
   const { bookingId } = await params;
-  const safeId = bookingId?.trim() || "reservation";
+  const safeId = bookingId?.trim() || 'reservation';
   return {
     title: `Booking ${shortenId(safeId)} · Nab a Table`,
-    description: "Review the latest status, timing, and actions for your Nab a Table booking.",
+    description: 'Review the latest status, timing, and actions for your Nab a Table booking.',
   };
 }
 
@@ -90,9 +94,15 @@ export default async function BookingDetailPage({
   const normalized = bookingId?.trim();
   const resolvedSearchParams = (await searchParams) ?? {};
   const token = resolvedSearchParams.token ?? null;
+  const accessToken = resolvedSearchParams.access_token ?? resolvedSearchParams.accessToken ?? null;
 
   if (!normalized) {
-    redirect("/bookings");
+    redirect('/bookings');
+  }
+
+  if (accessToken) {
+    const next = encodeURIComponent(`/bookings/${normalized}`);
+    redirect(`/bookings/recover?access_token=${encodeURIComponent(accessToken)}&next=${next}`);
   }
 
   const supabase = await getServerComponentSupabaseClient();
@@ -100,20 +110,28 @@ export default async function BookingDetailPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user && !token) {
-    redirect(withRedirectedFrom("/auth/signin", `/bookings/${normalized}`));
+  const cookieStore = await cookies();
+  const hasRecoveryCookie = Boolean(cookieStore.get('sr_access')?.value);
+
+  if (!user && !token && !hasRecoveryCookie) {
+    redirect(withRedirectedFrom('/auth/signin', `/bookings/${normalized}`));
   }
 
   const queryClient = new QueryClient();
   // Prefetch only when authenticated or token provided
-  if (user || token) {
+  if (user || token || hasRecoveryCookie) {
     await prefetchReservation(queryClient, normalized, token);
   }
   const dehydratedState = dehydrate(queryClient);
 
   return (
     <HydrationBoundary state={dehydratedState}>
-      <ReservationDetailClient reservationId={normalized} restaurantName={null} token={token} canManage={Boolean(user)} />
+      <ReservationDetailClient
+        reservationId={normalized}
+        restaurantName={null}
+        token={token}
+        canManage={Boolean(user) || hasRecoveryCookie}
+      />
     </HydrationBoundary>
   );
 }
