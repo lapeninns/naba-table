@@ -118,7 +118,16 @@ export async function GET(req: NextRequest) {
 
   if (code || tokenHash) {
     const cookieStore = await cookies();
-    
+
+    // Debug: Log all cookies to identify if PKCE code verifier is present
+    const allCookies = cookieStore.getAll();
+    const supabaseCookies = allCookies.filter(c => c.name.includes('sb-') || c.name.includes('supabase'));
+    console.log("[auth/callback] Cookies received:", {
+      total: allCookies.length,
+      supabaseRelated: supabaseCookies.map(c => ({ name: c.name, hasValue: !!c.value, length: c.value?.length })),
+      hasCodeVerifier: allCookies.some(c => c.name.includes('code-verifier')),
+    });
+
     // Create Supabase client that writes cookies to the cookie store
     const supabase = createServerClient<Database>(
       env.supabase.url,
@@ -154,9 +163,25 @@ export async function GET(req: NextRequest) {
           name: error.name,
         });
 
+        // Provide more specific error messages based on error type
+        let userMessage = "Authentication link has expired or is invalid. Please try again.";
+        let errorType = "auth_failed";
+
+        if (error.message?.includes("expired") || error.code === "otp_expired") {
+          userMessage = "Your magic link has expired. Please request a new one.";
+          errorType = "link_expired";
+        } else if (error.message?.includes("already been used") || error.code === "otp_disabled") {
+          userMessage = "This magic link has already been used. Please request a new one.";
+          errorType = "link_used";
+        } else if (error.message?.includes("code verifier") || error.code === "bad_code_verifier") {
+          userMessage = "Authentication failed. Please use the same browser where you requested the magic link.";
+          errorType = "pkce_mismatch";
+          console.error("[auth/callback] PKCE code verifier mismatch - user may have opened link in different browser");
+        }
+
         const loginUrl = new URL(config.auth.loginUrl, requestUrl.origin);
-        loginUrl.searchParams.set("error", "auth_failed");
-        loginUrl.searchParams.set("message", "Authentication link has expired or is invalid. Please try again.");
+        loginUrl.searchParams.set("error", errorType);
+        loginUrl.searchParams.set("message", userMessage);
         console.log("[auth/callback] Redirecting to login due to error:", loginUrl.toString());
         return NextResponse.redirect(loginUrl.toString());
       } else {
@@ -187,9 +212,22 @@ export async function GET(req: NextRequest) {
           code: error.code,
           name: error.name,
         });
+
+        // Provide more specific error messages based on error type
+        let userMessage = "Authentication link has expired or is invalid. Please try again.";
+        let errorType = "auth_failed";
+
+        if (error.message?.includes("expired") || error.code === "otp_expired") {
+          userMessage = "Your magic link has expired. Please request a new one.";
+          errorType = "link_expired";
+        } else if (error.message?.includes("already been used") || error.code === "otp_disabled") {
+          userMessage = "This magic link has already been used. Please request a new one.";
+          errorType = "link_used";
+        }
+
         const loginUrl = new URL(config.auth.loginUrl, requestUrl.origin);
-        loginUrl.searchParams.set("error", "auth_failed");
-        loginUrl.searchParams.set("message", "Authentication link has expired or is invalid. Please try again.");
+        loginUrl.searchParams.set("error", errorType);
+        loginUrl.searchParams.set("message", userMessage);
         return NextResponse.redirect(loginUrl.toString());
       }
 

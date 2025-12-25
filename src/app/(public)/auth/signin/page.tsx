@@ -1,4 +1,4 @@
-import { LogIn } from 'lucide-react';
+import { AlertCircle, LogIn } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
@@ -16,6 +16,8 @@ export const metadata: Metadata = {
 
 type SignInPageSearchParams = {
   redirectedFrom?: string | string[];
+  error?: string;
+  message?: string;
 };
 
 type SignInPageProps = {
@@ -40,13 +42,22 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   const resolvedParams = await searchParams;
   const redirectedFromParam = resolveRedirectTarget(resolvedParams?.redirectedFrom);
 
-  // Redirect authenticated users to their intended destination or dashboard
-  const supabase = await getServerComponentSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  // Extract error info from URL params
+  const errorType = resolvedParams?.error;
+  const errorMessage = resolvedParams?.message;
+  const hasError = !!errorType;
 
-  if (user) {
-    const redirectTarget = redirectedFromParam ?? '/guest/dashboard';
-    redirect(redirectTarget);
+  // Only redirect authenticated users if there's no error
+  // Using getSession() which validates the JWT, not just reads cached user
+  if (!hasError) {
+    const supabase = await getServerComponentSupabaseClient();
+    const { data: { session }, error } = await supabase.auth.getSession();
+
+    // Only redirect if we have a valid session AND no error
+    if (session?.user && !error) {
+      const redirectTarget = redirectedFromParam ?? '/guest/dashboard';
+      redirect(redirectTarget);
+    }
   }
 
   return (
@@ -64,6 +75,20 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
             Sign in to manage your reservations
           </p>
         </div>
+
+        {/* Error Alert */}
+        {hasError && errorMessage && (
+          <div
+            role="alert"
+            className="mb-6 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800"
+          >
+            <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-500" aria-hidden="true" />
+            <div className="text-sm">
+              <p className="font-medium">Unable to sign in</p>
+              <p className="mt-1 text-red-700">{decodeURIComponent(errorMessage)}</p>
+            </div>
+          </div>
+        )}
 
         {/* Sign-in Card */}
         <div className="rounded-2xl border border-border bg-card p-6 shadow-xl sm:p-8">
@@ -83,3 +108,4 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
     </main>
   );
 }
+
