@@ -5,6 +5,8 @@ import { validateSessionRecoveryAccessToken } from '@/server/security/session-re
 
 import type { NextRequest } from 'next/server';
 
+const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost';
+
 function sanitizeNextPath(value: string | null): string {
   if (!value) return '/';
   if (!value.startsWith('/')) return '/';
@@ -70,6 +72,7 @@ export async function GET(req: NextRequest) {
     secure: isHttps,
     path: '/',
     maxAge,
+    ...(ROOT_DOMAIN !== 'localhost' ? { domain: `.${ROOT_DOMAIN}` } : {}),
   });
   return res;
 }
