@@ -1,7 +1,7 @@
-import { envSchemas, type Env } from "@/config/env.schema";
-import { getCanonicalSiteUrl } from "@/lib/site-url";
+import { envSchemas, type Env } from '@/config/env.schema';
+import { getCanonicalSiteUrl } from '@/lib/site-url';
 
-const DEFAULT_RESEND_DOMAIN = "no-reply-notifications.nabatable.com";
+const DEFAULT_RESEND_DOMAIN = 'no-reply-notifications.nabatable.com';
 const DEFAULT_RESEND_FROM = `no-reply@${DEFAULT_RESEND_DOMAIN}`;
 
 let cachedEnv: Env | null = null;
@@ -11,7 +11,11 @@ function parseEnv(): Env {
     const value = process.env[key];
     if (typeof value === 'string') {
       const normalized = value.trim();
-      if (normalized.length === 0 || normalized === '/' || normalized.toLowerCase() === 'undefined') {
+      if (
+        normalized.length === 0 ||
+        normalized === '/' ||
+        normalized.toLowerCase() === 'undefined'
+      ) {
         delete process.env[key];
       } else {
         process.env[key] = normalized;
@@ -31,7 +35,7 @@ function parseEnv(): Env {
 
     const trimmed = value.trim();
 
-    if (!trimmed.includes("@") && trimmed === DEFAULT_RESEND_DOMAIN) {
+    if (!trimmed.includes('@') && trimmed === DEFAULT_RESEND_DOMAIN) {
       process.env.RESEND_FROM = DEFAULT_RESEND_FROM;
     }
   };
@@ -39,7 +43,8 @@ function parseEnv(): Env {
   normalizeResendFrom();
 
   if (!process.env.BASE_URL) {
-    const fallback = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? getCanonicalSiteUrl();
+    const fallback =
+      process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? getCanonicalSiteUrl();
     process.env.BASE_URL = fallback;
   }
 
@@ -47,15 +52,15 @@ function parseEnv(): Env {
     return cachedEnv;
   }
 
-  const nodeEnv = (process.env.NODE_ENV ?? "development") as keyof typeof envSchemas;
+  const nodeEnv = (process.env.NODE_ENV ?? 'development') as keyof typeof envSchemas;
   const schema = envSchemas[nodeEnv] ?? envSchemas.development;
 
   const result = schema.safeParse(process.env);
 
   if (!result.success) {
     const formatted = result.error.issues
-      .map((issue) => `${issue.path.join(".") || "<root>"}: ${issue.message}`)
-      .join("\n");
+      .map((issue) => `${issue.path.join('.') || '<root>'}: ${issue.message}`)
+      .join('\n');
 
     throw new Error(`Environment validation failed at runtime:\n${formatted}`);
   }
@@ -127,9 +132,9 @@ export const env = {
   get reserve() {
     const parsed = parseEnv();
     return {
-      apiBaseUrl: parsed.RESERVE_API_BASE_URL ?? "/api/v1",
+      apiBaseUrl: parsed.RESERVE_API_BASE_URL ?? '/api/v1',
       apiTimeoutMs: parsed.RESERVE_API_TIMEOUT_MS ?? 15_000,
-      routerBasePath: parsed.RESERVE_ROUTER_BASE_PATH ?? "/reserve",
+      routerBasePath: parsed.RESERVE_ROUTER_BASE_PATH ?? '/reserve',
       buildOutDir: parsed.RESERVE_BUILD_OUT_DIR,
       defaultDurationMinutes: parsed.RESERVE_RESERVATION_DEFAULT_DURATION_MINUTES ?? 90,
       intervalMinutes: parsed.RESERVE_RESERVATION_INTERVAL_MINUTES ?? 15,
@@ -146,10 +151,9 @@ export const env = {
   get resend() {
     const parsed = parseEnv();
     const explicitMock =
-      typeof parsed.RESEND_USE_MOCK === "boolean" ? parsed.RESEND_USE_MOCK : null;
+      typeof parsed.RESEND_USE_MOCK === 'boolean' ? parsed.RESEND_USE_MOCK : null;
     const hasCredentials = Boolean(parsed.RESEND_API_KEY && parsed.RESEND_FROM);
-    const defaultUseMock =
-      explicitMock ?? (parsed.NODE_ENV !== "production" && !hasCredentials);
+    const defaultUseMock = explicitMock ?? (parsed.NODE_ENV !== 'production' && !hasCredentials);
     return {
       apiKey: parsed.RESEND_API_KEY,
       from: parsed.RESEND_FROM,
@@ -159,37 +163,39 @@ export const env = {
 
   get featureFlags() {
     const parsed = parseEnv();
-    const isProduction = parsed.NODE_ENV === "production";
+    const isProduction = parsed.NODE_ENV === 'production';
     const allocatorKMax = Math.max(1, Math.min(parsed.FEATURE_ALLOCATOR_K_MAX ?? 3, 5));
     const allocatorMergesDefault = parsed.FEATURE_ALLOCATOR_MERGES_ENABLED ?? !isProduction;
     const combinationPlannerDefault = parsed.FEATURE_COMBINATION_PLANNER ?? allocatorMergesDefault;
     const plannerTimePruningDefault = parsed.FEATURE_PLANNER_TIME_PRUNING_ENABLED ?? true;
     const plannerCacheTtlMs = 60_000;
     const adjacencyMinPartySize = null;
-    const adjacencyMode = "connected" as const;
+    const adjacencyMode = 'connected' as const;
     const manualAssignmentMaxSlack =
-      typeof parsed.FEATURE_MANUAL_ASSIGNMENT_MAX_SLACK === "number"
+      typeof parsed.FEATURE_MANUAL_ASSIGNMENT_MAX_SLACK === 'number'
         ? Math.max(0, Math.min(parsed.FEATURE_MANUAL_ASSIGNMENT_MAX_SLACK, 12))
         : null;
-    const manualAssignmentSessionEnabled = parsed.FEATURE_MANUAL_ASSIGNMENT_SESSION_ENABLED ?? false;
-    const manualAssignmentSnapshotValidation = parsed.FEATURE_MANUAL_ASSIGNMENT_SNAPSHOT_VALIDATION !== false;
+    const manualAssignmentSessionEnabled =
+      parsed.FEATURE_MANUAL_ASSIGNMENT_SESSION_ENABLED ?? false;
+    const manualAssignmentSnapshotValidation =
+      parsed.FEATURE_MANUAL_ASSIGNMENT_SNAPSHOT_VALIDATION !== false;
     const selectorMaxPlansPerSlack =
-      typeof parsed.FEATURE_SELECTOR_MAX_PLANS_PER_SLACK === "number"
+      typeof parsed.FEATURE_SELECTOR_MAX_PLANS_PER_SLACK === 'number'
         ? Math.max(1, Math.min(parsed.FEATURE_SELECTOR_MAX_PLANS_PER_SLACK, 500))
         : null;
     const selectorMaxCombinationEvaluations =
-      typeof parsed.FEATURE_SELECTOR_MAX_COMBINATION_EVALUATIONS === "number"
+      typeof parsed.FEATURE_SELECTOR_MAX_COMBINATION_EVALUATIONS === 'number'
         ? Math.max(1, Math.min(parsed.FEATURE_SELECTOR_MAX_COMBINATION_EVALUATIONS, 5000))
         : null;
     const selectorEnumerationTimeoutMs =
-      typeof parsed.FEATURE_SELECTOR_ENUMERATION_TIMEOUT_MS === "number"
+      typeof parsed.FEATURE_SELECTOR_ENUMERATION_TIMEOUT_MS === 'number'
         ? Math.max(50, Math.min(parsed.FEATURE_SELECTOR_ENUMERATION_TIMEOUT_MS, 10_000))
         : null;
     const adjacencyQueryUndirectedDefault = true;
     const strictConflictsDefault =
-      typeof parsed.FEATURE_HOLDS_STRICT_CONFLICTS_ENABLED === "boolean"
+      typeof parsed.FEATURE_HOLDS_STRICT_CONFLICTS_ENABLED === 'boolean'
         ? parsed.FEATURE_HOLDS_STRICT_CONFLICTS_ENABLED
-        : parsed.APP_ENV === "staging";
+        : parsed.APP_ENV === 'staging';
     return {
       loyaltyPilotRestaurantIds: parsed.LOYALTY_PILOT_RESTAURANT_IDS,
       enableTestApi: parsed.ENABLE_TEST_API ?? false,
@@ -254,7 +260,10 @@ export const env = {
         enumerationTimeoutMs: selectorEnumerationTimeoutMs,
       },
       context: {
-        queryPaddingMinutes: Math.max(0, Math.min(parsed.FEATURE_CONTEXT_QUERY_PADDING_MINUTES ?? 60, 240)),
+        queryPaddingMinutes: Math.max(
+          0,
+          Math.min(parsed.FEATURE_CONTEXT_QUERY_PADDING_MINUTES ?? 60, 240),
+        ),
       },
       holds: {
         enabled: parsed.FEATURE_HOLDS_ENABLED ?? true,
@@ -269,18 +278,25 @@ export const env = {
       inlineAutoAssignTimeoutMs: (() => {
         const raw = parsed.FEATURE_INLINE_AUTO_ASSIGN_TIMEOUT_MS;
         const fallback = 12_000;
-        if (typeof raw === "number" && Number.isFinite(raw)) {
+        if (typeof raw === 'number' && Number.isFinite(raw)) {
           return Math.max(2_000, Math.min(raw, 20_000));
         }
         return fallback;
       })(),
       autoAssign: {
         maxRetries: Math.max(0, Math.min(parsed.FEATURE_AUTO_ASSIGN_MAX_RETRIES ?? 3, 10)),
-        retryDelaysMs: typeof parsed.FEATURE_AUTO_ASSIGN_RETRY_DELAYS_MS === 'string'
-          ? parsed.FEATURE_AUTO_ASSIGN_RETRY_DELAYS_MS
-          : undefined,
-        startCutoffMinutes: Math.max(0, Math.min(parsed.FEATURE_AUTO_ASSIGN_START_CUTOFF_MINUTES ?? 10, 240)),
-        createdEmailDeferMinutes: Math.max(0, Math.min(parsed.FEATURE_AUTO_ASSIGN_CREATED_EMAIL_DEFER_MINUTES ?? 5, 120)),
+        retryDelaysMs:
+          typeof parsed.FEATURE_AUTO_ASSIGN_RETRY_DELAYS_MS === 'string'
+            ? parsed.FEATURE_AUTO_ASSIGN_RETRY_DELAYS_MS
+            : undefined,
+        startCutoffMinutes: Math.max(
+          0,
+          Math.min(parsed.FEATURE_AUTO_ASSIGN_START_CUTOFF_MINUTES ?? 10, 240),
+        ),
+        createdEmailDeferMinutes: Math.max(
+          0,
+          Math.min(parsed.FEATURE_AUTO_ASSIGN_CREATED_EMAIL_DEFER_MINUTES ?? 5, 120),
+        ),
       },
       emailQueueEnabled: parsed.FEATURE_EMAIL_QUEUE_ENABLED ?? false,
       policyRequoteEnabled: parsed.FEATURE_POLICY_REQUOTE_ENABLED ?? true,
@@ -290,18 +306,23 @@ export const env = {
 
   get strategic() {
     const parsed = parseEnv();
-    const clamp = (value: number | undefined | null, min: number, max: number, fallback: number) => {
-      if (typeof value !== "number" || Number.isNaN(value)) return fallback;
+    const clamp = (
+      value: number | undefined | null,
+      min: number,
+      max: number,
+      fallback: number,
+    ) => {
+      if (typeof value !== 'number' || Number.isNaN(value)) return fallback;
       return Math.max(min, Math.min(max, value));
     };
 
     const scarcityWeight = clamp(parsed.STRATEGIC_SCARCITY_WEIGHT, 0, 1000, 22);
     const demandMultiplierOverride =
-      typeof parsed.STRATEGIC_DEMAND_MULTIPLIER_OVERRIDE === "number"
+      typeof parsed.STRATEGIC_DEMAND_MULTIPLIER_OVERRIDE === 'number'
         ? clamp(parsed.STRATEGIC_DEMAND_MULTIPLIER_OVERRIDE, 0, 10, NaN)
         : null;
     const futureConflictPenalty =
-      typeof parsed.STRATEGIC_FUTURE_CONFLICT_PENALTY === "number"
+      typeof parsed.STRATEGIC_FUTURE_CONFLICT_PENALTY === 'number'
         ? clamp(parsed.STRATEGIC_FUTURE_CONFLICT_PENALTY, 0, 100_000, NaN)
         : null;
 
@@ -320,8 +341,8 @@ export const env = {
       sessionRecoveryAccessTokenSecret: parsed.SESSION_RECOVERY_ACCESS_TOKEN_SECRET ?? null,
       sessionRecoveryAccessTokenTtlSeconds: (() => {
         const value = parsed.SESSION_RECOVERY_ACCESS_TOKEN_TTL_SECONDS ?? 900;
-        if (typeof value !== "number" || Number.isNaN(value)) return 900;
-        return Math.max(60, Math.min(value, 86_400));
+        if (typeof value !== 'number' || Number.isNaN(value)) return 900;
+        return Math.max(60, Math.min(value, 2_592_000));
       })(),
     } as const;
   },
@@ -382,7 +403,7 @@ export const env = {
     const parsed = parseEnv();
 
     const clamp = (value: number | undefined, min: number, max: number, fallback: number) => {
-      if (typeof value !== "number" || Number.isNaN(value)) return fallback;
+      if (typeof value !== 'number' || Number.isNaN(value)) return fallback;
       return Math.min(max, Math.max(min, value));
     };
 

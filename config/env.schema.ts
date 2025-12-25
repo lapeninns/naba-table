@@ -1,18 +1,18 @@
-import { z } from "zod";
+import { z } from 'zod';
 
-const booleanString = z.enum(["true", "false"]).transform((value) => value === "true");
+const booleanString = z.enum(['true', 'false']).transform((value) => value === 'true');
 
 const booleanStringOptional = booleanString.optional();
 
 const normalizeOptionalUrl = (value: unknown) =>
-  typeof value === "string" && value.trim().length === 0 ? undefined : value;
+  typeof value === 'string' && value.trim().length === 0 ? undefined : value;
 
-const appEnvSchema = z.enum(["development", "staging", "production", "test"]);
+const appEnvSchema = z.enum(['development', 'staging', 'production', 'test']);
 
 const baseEnvSchema = z
   .object({
-    APP_ENV: appEnvSchema.default("development"),
-    NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+    APP_ENV: appEnvSchema.default('development'),
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     ALLOW_PROD_RESOURCES_IN_NONPROD: booleanStringOptional,
     ALLOW_MEMORY_RATE_LIMIT_IN_PROD: booleanStringOptional,
     NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
@@ -70,13 +70,28 @@ const baseEnvSchema = z
     FEATURE_SELECTOR_SCORING: booleanStringOptional,
     FEATURE_SELECTOR_LOOKAHEAD: booleanStringOptional,
     FEATURE_SELECTOR_LOOKAHEAD_WINDOW_MINUTES: z.coerce.number().int().min(5).max(480).optional(),
-    FEATURE_SELECTOR_LOOKAHEAD_PENALTY_WEIGHT: z.coerce.number().int().min(1).max(100000).optional(),
-    FEATURE_SELECTOR_LOOKAHEAD_BLOCK_THRESHOLD: z.coerce.number().int().min(0).max(100000).optional(),
+    FEATURE_SELECTOR_LOOKAHEAD_PENALTY_WEIGHT: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(100000)
+      .optional(),
+    FEATURE_SELECTOR_LOOKAHEAD_BLOCK_THRESHOLD: z.coerce
+      .number()
+      .int()
+      .min(0)
+      .max(100000)
+      .optional(),
     FEATURE_COMBINATION_PLANNER: booleanStringOptional,
     FEATURE_PLANNER_TIME_PRUNING_ENABLED: booleanStringOptional,
     // Adjacency graph is always treated as connected/undirected
     FEATURE_SELECTOR_MAX_PLANS_PER_SLACK: z.coerce.number().int().min(1).max(500).optional(),
-    FEATURE_SELECTOR_MAX_COMBINATION_EVALUATIONS: z.coerce.number().int().min(1).max(5000).optional(),
+    FEATURE_SELECTOR_MAX_COMBINATION_EVALUATIONS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(5000)
+      .optional(),
     FEATURE_SELECTOR_ENUMERATION_TIMEOUT_MS: z.coerce.number().int().min(50).max(10000).optional(),
     FEATURE_CONTEXT_QUERY_PADDING_MINUTES: z.coerce.number().int().min(0).max(240).optional(),
     FEATURE_ADJACENCY_VALIDATION: booleanStringOptional,
@@ -91,7 +106,12 @@ const baseEnvSchema = z
     BOOKING_PAST_TIME_GRACE_MINUTES: z.coerce.number().int().min(0).max(60).optional(),
     GUEST_LOOKUP_PEPPER: z.string().min(1).optional(),
     SESSION_RECOVERY_ACCESS_TOKEN_SECRET: z.string().min(1).optional(),
-    SESSION_RECOVERY_ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().min(60).max(86_400).optional(),
+    SESSION_RECOVERY_ACCESS_TOKEN_TTL_SECONDS: z.coerce
+      .number()
+      .int()
+      .min(60)
+      .max(2_592_000)
+      .optional(),
     TEST_ROUTE_API_KEY: z.string().optional(),
     TEST_EMAIL_ACCESS_TOKEN: z.string().optional(),
     TEST_EMAIL_RATE_LIMIT: z.coerce.number().int().nonnegative().optional(),
@@ -106,7 +126,7 @@ const baseEnvSchema = z
     PLAYWRIGHT_TEST_PASSWORD: z.string().optional(),
     PLAYWRIGHT_TEST_IFRAME: booleanString.optional(),
     PLAYWRIGHT_TEST_OFFLINE: booleanString.optional(),
-    PLAYWRIGHT_TEST_AUTH_FLOW: z.enum(["legacy", "reserve-v2"]).optional(),
+    PLAYWRIGHT_TEST_AUTH_FLOW: z.enum(['legacy', 'reserve-v2']).optional(),
     PLAYWRIGHT_AUTH_EMAIL: z.string().email().optional(),
     PLAYWRIGHT_AUTH_NAME: z.string().optional(),
     PLAYWRIGHT_AUTH_PASSWORD: z.string().optional(),
@@ -136,7 +156,12 @@ const baseEnvSchema = z
     FEATURE_AUTO_ASSIGN_MAX_RETRIES: z.coerce.number().int().min(0).max(10).optional(),
     FEATURE_AUTO_ASSIGN_RETRY_DELAYS_MS: z.string().optional(),
     FEATURE_AUTO_ASSIGN_START_CUTOFF_MINUTES: z.coerce.number().int().min(0).max(240).optional(),
-    FEATURE_AUTO_ASSIGN_CREATED_EMAIL_DEFER_MINUTES: z.coerce.number().int().min(0).max(120).optional(),
+    FEATURE_AUTO_ASSIGN_CREATED_EMAIL_DEFER_MINUTES: z.coerce
+      .number()
+      .int()
+      .min(0)
+      .max(120)
+      .optional(),
     // Auto-assign retry policy unified; v2 flag removed
     FEATURE_INLINE_AUTO_ASSIGN_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60000).optional(),
     DEBUG_CAPACITY_PROFILING: booleanStringOptional,
@@ -148,11 +173,11 @@ const baseEnvSchema = z
   .passthrough();
 
 const productionEnvSchema = baseEnvSchema.extend({
-    NEXT_PUBLIC_APP_URL: z.string().url(),
-    NEXT_PUBLIC_SITE_URL: z.string().url(),
-    RESEND_API_KEY: z.string().min(1),
-    RESEND_FROM: z.string().email(),
-  });
+  NEXT_PUBLIC_APP_URL: z.string().url(),
+  NEXT_PUBLIC_SITE_URL: z.string().url(),
+  RESEND_API_KEY: z.string().min(1),
+  RESEND_FROM: z.string().email(),
+});
 
 const developmentEnvSchema = baseEnvSchema;
 const testEnvSchema = baseEnvSchema;
