@@ -152,6 +152,18 @@ function isPendingBookingLocked(
   return Date.now() - createdAtMs >= pendingSelfServeGraceWindowMs;
 }
 
+function isBookingOwnedByUser(
+  booking: Pick<Tables<'bookings'>, 'customer_email' | 'auth_user_id'>,
+  userId: string,
+  normalizedUserEmail: string | null,
+): boolean {
+  const bookingEmail = booking.customer_email ? normalizeEmail(booking.customer_email) : null;
+  const emailMatches =
+    Boolean(normalizedUserEmail) && Boolean(bookingEmail) && normalizedUserEmail === bookingEmail;
+  const authMatches = booking.auth_user_id ? booking.auth_user_id === userId : false;
+  return emailMatches || authMatches;
+}
+
 function respondWithPendingLock() {
   return NextResponse.json(
     {
@@ -597,6 +609,7 @@ function respondWithGuardError(error: GuardError) {
 async function processDashboardUpdate(bookingId: string, data: DashboardUpdateInput) {
   const { supabase, user } = await requireSession();
   const actor: DashboardActor = { id: user.id, email: user.email ?? null };
+  const normalizedUserEmail = user.email ? normalizeEmail(user.email) : null;
 
   const { data: tenantBooking, error: tenantError } = await supabase
     .from('bookings')
@@ -615,30 +628,19 @@ async function processDashboardUpdate(bookingId: string, data: DashboardUpdateIn
   }
 
   if (tenantBooking) {
-    return handleDashboardUpdate({
-      bookingId,
-      data,
-      existingBooking: tenantBooking as Tables<'bookings'>,
-      actor,
-      serviceSupabase: getServiceSupabaseClient(),
-    });
+    const bookingRecord = tenantBooking as Tables<'bookings'>;
+    if (isBookingOwnedByUser(bookingRecord, user.id, normalizedUserEmail)) {
+      return handleDashboardUpdate({
+        bookingId,
+        data,
+        existingBooking: bookingRecord,
+        actor,
+        serviceSupabase: getServiceSupabaseClient(),
+      });
+    }
   }
 
   const memberships = await listUserRestaurantMemberships(supabase, user.id);
-
-  if (memberships.length === 0) {
-    throw new GuardError({
-      status: 403,
-      code: 'FORBIDDEN',
-      message: 'You do not have permission to modify bookings',
-    });
-  }
-
-  const membershipIds = new Set(
-    memberships
-      .map((membership) => membership.restaurant_id)
-      .filter((id): id is string => typeof id === 'string' && id.length > 0),
-  );
 
   const serviceSupabase = getServiceSupabaseClient();
   const { data: serviceBooking, error: serviceError } = await serviceSupabase
@@ -665,6 +667,31 @@ async function processDashboardUpdate(bookingId: string, data: DashboardUpdateIn
   }
 
   const bookingRecord = serviceBooking as Tables<'bookings'>;
+
+  if (memberships.length === 0) {
+    if (!isBookingOwnedByUser(bookingRecord, user.id, normalizedUserEmail)) {
+      throw new GuardError({
+        status: 403,
+        code: 'FORBIDDEN',
+        message: 'You do not have permission to modify this booking',
+      });
+    }
+
+    return handleDashboardUpdate({
+      bookingId,
+      data,
+      existingBooking: bookingRecord,
+      actor,
+      serviceSupabase,
+    });
+  }
+
+  const membershipIds = new Set(
+    memberships
+      .map((membership) => membership.restaurant_id)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0),
+  );
+
   const restaurantId = bookingRecord.restaurant_id;
 
   if (!restaurantId || !membershipIds.has(restaurantId)) {

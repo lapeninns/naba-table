@@ -602,6 +602,98 @@ describe('/api/bookings/[id] PUT', () => {
     expect(requireSessionMock).not.toHaveBeenCalled();
   });
 
+  it('allows dashboard updates when authenticated guest owns booking by email', async () => {
+    const payload = {
+      startIso: '2025-10-10T19:00:00.000Z',
+      endIso: '2025-10-10T21:00:00.000Z',
+      partySize: 3,
+      notes: 'Need high chair',
+    };
+
+    const request = createRequest(payload);
+    const params = { params: Promise.resolve({ id: existingBooking.id }) } as const;
+
+    const tenantSupabase = createTenantSupabase(existingBooking);
+    requireSessionMock.mockResolvedValue({
+      supabase: tenantSupabase,
+      user: { id: 'user-1', email: existingBooking.customer_email },
+    });
+    listUserRestaurantMembershipsMock.mockResolvedValue([]);
+
+    const updatedBooking = {
+      ...existingBooking,
+      party_size: 3,
+      notes: 'Need high chair',
+      start_at: '2025-10-10T19:00:00.000Z',
+      end_at: '2025-10-10T21:00:00.000Z',
+    };
+
+    beginBookingModificationFlowMock.mockResolvedValue(updatedBooking);
+    buildBookingAuditSnapshotMock.mockReturnValue({ diff: 'changed' });
+    logAuditEventMock.mockResolvedValue(undefined);
+    enqueueBookingUpdatedSideEffectsMock.mockResolvedValue(undefined);
+    assertBookingWithinOperatingWindowMock.mockReturnValue({ time: '19:00' });
+
+    const serviceSupabase = createServiceSupabase({ booking: existingBooking });
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+
+    const response = await PUT(request, params);
+
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.id).toBe(existingBooking.id);
+    expect(listUserRestaurantMembershipsMock).not.toHaveBeenCalled();
+  });
+
+  it('allows dashboard updates when authenticated guest owns booking by auth_user_id', async () => {
+    const ownedBooking = {
+      ...existingBooking,
+      customer_email: 'someoneelse@example.com',
+      auth_user_id: 'user-1',
+    };
+
+    const payload = {
+      startIso: '2025-10-10T19:00:00.000Z',
+      endIso: '2025-10-10T21:00:00.000Z',
+      partySize: 4,
+      notes: 'Birthday',
+    };
+
+    const request = createRequest(payload);
+    const params = { params: Promise.resolve({ id: ownedBooking.id }) } as const;
+
+    const tenantSupabase = createTenantSupabase(ownedBooking);
+    requireSessionMock.mockResolvedValue({
+      supabase: tenantSupabase,
+      user: { id: 'user-1', email: 'guest@example.com' },
+    });
+    listUserRestaurantMembershipsMock.mockResolvedValue([]);
+
+    const updatedBooking = {
+      ...ownedBooking,
+      party_size: 4,
+      notes: 'Birthday',
+      start_at: '2025-10-10T19:00:00.000Z',
+      end_at: '2025-10-10T21:00:00.000Z',
+    };
+
+    beginBookingModificationFlowMock.mockResolvedValue(updatedBooking);
+    buildBookingAuditSnapshotMock.mockReturnValue({ diff: 'changed' });
+    logAuditEventMock.mockResolvedValue(undefined);
+    enqueueBookingUpdatedSideEffectsMock.mockResolvedValue(undefined);
+    assertBookingWithinOperatingWindowMock.mockReturnValue({ time: '19:00' });
+
+    const serviceSupabase = createServiceSupabase({ booking: ownedBooking });
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+
+    const response = await PUT(request, params);
+
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.id).toBe(ownedBooking.id);
+    expect(listUserRestaurantMembershipsMock).not.toHaveBeenCalled();
+  });
+
   it('returns 403 when staff has no memberships for dashboard updates', async () => {
     const payload = {
       startIso: '2025-10-10T19:00:00.000Z',
@@ -618,13 +710,15 @@ describe('/api/bookings/[id] PUT', () => {
       user: { id: 'user-1', email: 'ops@example.com' },
     });
     listUserRestaurantMembershipsMock.mockResolvedValue([]);
+    const serviceSupabase = createServiceSupabase({ booking: existingBooking });
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
 
     const response = await PUT(request, params);
 
     expect(response.status).toBe(403);
     const json = await response.json();
     expect(json.code).toBe('FORBIDDEN');
-    expect(getServiceSupabaseClientMock).not.toHaveBeenCalled();
+    expect(getServiceSupabaseClientMock).toHaveBeenCalled();
   });
 
   it('returns 403 when staff is not a member of the booking restaurant', async () => {
