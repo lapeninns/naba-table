@@ -45,7 +45,7 @@ function getAppHosts(rootDomain: string) {
 }
 
 function getWebHosts(rootDomain: string) {
-  return new Set([rootDomain, `www.${rootDomain}`, "localhost"]);
+  return new Set([rootDomain, `www.${rootDomain}`, "localhost", "www.localhost"]);
 }
 
 const STATIC_PATHS = new Set(["/favicon.ico", "/robots.txt", "/sitemap.xml"]);
