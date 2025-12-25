@@ -3,7 +3,9 @@
 -- ============================================================================
 -- 
 -- Generated: 2025-12-24T18:56:42Z
+-- Updated: 2025-12-25T00:37:00Z (Added bar table constraint fixes)
 -- Purpose: Single script containing ALL database fixes from task folders
+-- Date Range: December 23-25, 2025
 -- 
 -- EXECUTION ORDER (Dependencies):
 -- 1. Create extensions schema and move extensions
@@ -12,6 +14,7 @@
 -- 4. Enable RLS on unprotected tables
 -- 5. Fix RLS performance (auth.uid() optimization)
 -- 6. Remove duplicate policies
+-- 7. Fix bar table booking type constraint (Dec 25)
 -- 
 -- IMPORTANT:
 -- - Run this in Supabase SQL Editor
@@ -23,6 +26,7 @@
 -- - guest-booking-access-revamp-20251224-0124
 -- - customer-phone-duplicate-20251224-0025
 -- - fix-booking-time-validation-20251224-0003
+-- - bar-table-constraint-fix-20251225 (Dec 25)
 -- ============================================================================
 
 -- ############################################################################
@@ -67,7 +71,7 @@ GRANT ALL ON ALL FUNCTIONS IN SCHEMA extensions TO postgres, anon, authenticated
 -- Update database search_path to include extensions schema
 ALTER DATABASE postgres SET search_path = public, extensions;
 
-RAISE NOTICE '[SECTION 1] Extensions schema configured ✓';
+DO $$ BEGIN RAISE NOTICE '[SECTION 1] Extensions schema configured ✓'; END $$;
 
 -- ############################################################################
 -- SECTION 2: FIX FUNCTION SEARCH PATHS (Security Hardening)
@@ -188,7 +192,7 @@ DO $$ BEGIN
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
-RAISE NOTICE '[SECTION 3] audit_logs table created ✓';
+DO $$ BEGIN RAISE NOTICE '[SECTION 3] audit_logs table created ✓'; END $$;
 
 -- ############################################################################
 -- SECTION 4: ENABLE RLS ON UNPROTECTED TABLES
@@ -318,7 +322,7 @@ DO $$ BEGIN
         );
 EXCEPTION WHEN undefined_table THEN NULL; END $$;
 
-RAISE NOTICE '[SECTION 4] RLS enabled on unprotected tables ✓';
+DO $$ BEGIN RAISE NOTICE '[SECTION 4] RLS enabled on unprotected tables ✓'; END $$;
 
 -- ############################################################################
 -- SECTION 5: FIX RLS PERFORMANCE (auth_rls_initplan optimization)
@@ -615,29 +619,29 @@ CREATE POLICY "owners_can_delete" ON public.restaurants
         )
     );
 
--- profile_update_requests
+-- profile_update_requests (uses profile_id, NOT user_id)
 DROP POLICY IF EXISTS "profile_update_requests_insert" ON public.profile_update_requests;
 CREATE POLICY "profile_update_requests_insert" ON public.profile_update_requests
     FOR INSERT
-    WITH CHECK (user_id = (SELECT auth.uid()));
+    WITH CHECK (profile_id = (SELECT auth.uid()));
 
 DROP POLICY IF EXISTS "profile_update_requests_select" ON public.profile_update_requests;
 CREATE POLICY "profile_update_requests_select" ON public.profile_update_requests
     FOR SELECT
-    USING (user_id = (SELECT auth.uid()));
+    USING (profile_id = (SELECT auth.uid()));
 
 DROP POLICY IF EXISTS "profile_update_requests_update" ON public.profile_update_requests;
 CREATE POLICY "profile_update_requests_update" ON public.profile_update_requests
     FOR UPDATE
-    USING (user_id = (SELECT auth.uid()))
-    WITH CHECK (user_id = (SELECT auth.uid()));
+    USING (profile_id = (SELECT auth.uid()))
+    WITH CHECK (profile_id = (SELECT auth.uid()));
 
 DROP POLICY IF EXISTS "profile_update_requests_delete" ON public.profile_update_requests;
 CREATE POLICY "profile_update_requests_delete" ON public.profile_update_requests
     FOR DELETE
-    USING (user_id = (SELECT auth.uid()));
+    USING (profile_id = (SELECT auth.uid()));
 
-RAISE NOTICE '[SECTION 5] RLS policies optimized with (SELECT auth.uid()) ✓';
+DO $$ BEGIN RAISE NOTICE '[SECTION 5] RLS policies optimized with (SELECT auth.uid()) ✓'; END $$;
 
 -- ############################################################################
 -- SECTION 6: REMOVE DUPLICATE POLICIES
@@ -717,10 +721,48 @@ DO $$ BEGIN
         FOR ALL TO service_role USING (true) WITH CHECK (true);
 EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
-RAISE NOTICE '[SECTION 6] Duplicate policies removed ✓';
+DO $$ BEGIN RAISE NOTICE '[SECTION 6] Duplicate policies removed ✓'; END $$;
 
 -- ############################################################################
--- SECTION 7: VERIFICATION QUERIES
+-- SECTION 7: FIX BAR TABLE BOOKING TYPE CONSTRAINT (Dec 25, 2025)
+-- ############################################################################
+-- Addresses: "Bar tables are drinks-only; booking_type lunch/dinner is not allowed"
+-- Risk: LOW - removes outdated business constraint
+-- Root Cause: Trigger function `enforce_bar_drinks_only` was blocking non-drinks bookings
+-- ############################################################################
+
+-- Replace the trigger function with a no-op to allow all booking types on bar tables
+CREATE OR REPLACE FUNCTION public.enforce_bar_drinks_only()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- =========================================================================
+  -- Bar table restriction REMOVED (2025-12-25)
+  -- =========================================================================
+  -- Previously, this function blocked non-drinks bookings on:
+  --   - Tables with category = 'bar'
+  --   - Tables in zones with names starting with 'bar%'
+  -- 
+  -- This restriction has been removed per business requirements.
+  -- Bar tables and bar zones can now be used for any booking type:
+  --   - lunch
+  --   - dinner  
+  --   - drinks
+  --
+  -- See: docs/ANTIGRAVITY_SESSION_HISTORY_20251225.md
+  -- See: docs/BUSINESS_LOGIC.md (line 637-638)
+  -- =========================================================================
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Set secure search_path for the updated function
+ALTER FUNCTION public.enforce_bar_drinks_only() SET search_path = public, extensions;
+
+DO $$ BEGIN RAISE NOTICE '[SECTION 7] Bar table booking constraint removed ✓'; END $$;
+
+-- ############################################################################
+-- SECTION 8: VERIFICATION QUERIES
 -- ############################################################################
 
 -- Check RLS is enabled on all public tables
@@ -779,6 +821,22 @@ SELECT
         THEN '✓ audit_logs table exists'
         ELSE '✗ audit_logs table MISSING'
     END AS status;
+
+-- Check bar table constraint function
+SELECT 
+    '=== BAR TABLE CONSTRAINT ===' AS section;
+
+SELECT 
+    p.proname AS function_name,
+    CASE 
+        WHEN p.prosrc ILIKE '%RETURN NEW%' AND p.prosrc NOT ILIKE '%RAISE EXCEPTION%' 
+        THEN '✓ Constraint removed (no-op)'
+        ELSE '✗ Constraint still active'
+    END AS status
+FROM pg_proc p
+JOIN pg_namespace n ON p.pronamespace = n.oid
+WHERE n.nspname = 'public'
+  AND p.proname = 'enforce_bar_drinks_only';
 
 -- Summary
 SELECT 

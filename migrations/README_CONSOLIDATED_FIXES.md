@@ -1,7 +1,9 @@
 # Consolidated Database Fixes - SajiloReserveX
 
 **Generated**: 2025-12-24T18:56:42Z  
-**Script**: `CONSOLIDATED_DATABASE_FIXES_20251224.sql`
+**Updated**: 2025-12-25T00:37:00Z  
+**Script**: `CONSOLIDATED_DATABASE_FIXES_20251223-25.sql`  
+**Date Range**: December 23-25, 2025
 
 ---
 
@@ -15,6 +17,7 @@ This single SQL script contains **ALL database fixes** from the following tasks:
 | `guest-booking-access-revamp-20251224-0124` | Dec 24, 2025 | Token system (no SQL changes)                  |
 | `customer-phone-duplicate-20251224-0025`    | Dec 24, 2025 | Phone lookup (app code, no SQL)                |
 | `fix-booking-time-validation-20251224-0003` | Dec 24, 2025 | Time validation (app code, no SQL)             |
+| `bar-table-constraint-fix-20251225`         | Dec 25, 2025 | Remove bar table drinks-only constraint        |
 
 ---
 
@@ -91,12 +94,22 @@ Tables cleaned:
 - user_profiles
 - waiting_list
 
-### Section 7: Verification
+### Section 7: Bar Table Booking Constraint
+
+**Addresses**: "Bar tables are drinks-only; booking_type lunch/dinner is not allowed"  
+**Risk**: LOW
+
+- Replaces `enforce_bar_drinks_only()` trigger function with a no-op
+- Allows bar tables (category='bar' or zone name 'bar%') for any booking type
+- Sets secure search_path on the function
+
+### Section 8: Verification
 
 - Query to check RLS status on all tables
 - Query to verify function search paths
 - Query to verify extension locations
 - Query to confirm audit_logs exists
+- Query to confirm bar table constraint removed
 
 ---
 
@@ -111,7 +124,7 @@ Tables cleaned:
 2. **Test in staging first**:
    ```bash
    # Connect to staging
-   psql $STAGING_DATABASE_URL -f CONSOLIDATED_DATABASE_FIXES_20251224.sql
+   psql $STAGING_DATABASE_URL -f CONSOLIDATED_DATABASE_FIXES_20251223-25.sql
    ```
 
 ### Running the Migration
@@ -130,6 +143,7 @@ Tables cleaned:
 [SECTION 4] RLS enabled on unprotected tables ✓
 [SECTION 5] RLS policies optimized with (SELECT auth.uid()) ✓
 [SECTION 6] Duplicate policies removed ✓
+[SECTION 7] Bar table booking constraint removed ✓
 === MIGRATION COMPLETE ===
 ```
 
