@@ -66,6 +66,7 @@ export async function GET(req: NextRequest) {
       contactPhone: restaurant.contactPhone,
       address: restaurant.address,
       googleMapUrl: restaurant.googleMapUrl,
+      googleReviewUrl: restaurant.googleReviewUrl,
       bookingPolicy: restaurant.bookingPolicy,
       logoUrl: restaurant.logoUrl,
       emailSendReminder24h: restaurant.emailSendReminder24h ?? true,
@@ -115,7 +116,7 @@ export async function POST(req: NextRequest) {
   let body: unknown;
   try {
     body = await req.json();
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
@@ -138,6 +139,7 @@ export async function POST(req: NextRequest) {
         contactPhone: input.contactPhone,
         address: input.address,
         googleMapUrl: input.googleMapUrl,
+        googleReviewUrl: input.googleReviewUrl,
         bookingPolicy: input.bookingPolicy,
         logoUrl: input.logoUrl,
         emailSendReminder24h: input.emailSendReminder24h,
@@ -162,6 +164,7 @@ export async function POST(req: NextRequest) {
         contactPhone: restaurant.contactPhone,
         address: restaurant.address,
         googleMapUrl: restaurant.googleMapUrl,
+        googleReviewUrl: restaurant.googleReviewUrl,
         bookingPolicy: restaurant.bookingPolicy,
         logoUrl: restaurant.logoUrl,
         emailSendReminder24h: restaurant.emailSendReminder24h,

@@ -21,6 +21,7 @@ export type RestaurantDetailsFormValues = {
   contactPhone: string | null;
   address: string | null;
   googleMapUrl: string | null;
+  googleReviewUrl: string | null;
   bookingPolicy: string | null;
   reservationIntervalMinutes: number;
   reservationDefaultDurationMinutes: number;
@@ -44,6 +45,7 @@ type FormState = {
   contactPhone: string;
   address: string;
   googleMapUrl: string;
+  googleReviewUrl: string;
   bookingPolicy: string;
   reservationIntervalMinutes: string;
   reservationDefaultDurationMinutes: string;
@@ -65,7 +67,8 @@ const FIELD_TOOLTIPS = {
     'Minutes before closing when you stop seating guests so everyone can finish before the kitchen closes.',
   bookingPolicy:
     'Optional message shown to guests during booking and in confirmations (e.g., deposits, grace periods).',
-  googleMapUrl: 'Link for customers to leave a Google review. This is sent in post-visit emails.',
+  googleReviewUrl: 'Link for customers to leave a Google review. This is sent in post-visit emails.',
+  googleMapUrl: 'Link shared with guests for directions in Google Maps.',
 } as const;
 
 export const COMMON_TIMEZONES = [
@@ -103,6 +106,7 @@ function mapInitialValues(values: RestaurantDetailsFormValues): FormState {
         ? String(values.reservationLastSeatingBufferMinutes)
         : '',
     googleMapUrl: values.googleMapUrl ?? '',
+    googleReviewUrl: values.googleReviewUrl ?? '',
   };
 }
 
@@ -115,6 +119,7 @@ function sanitizePayload(state: FormState): UpdateRestaurantInput {
   const trimmedPhone = trim(state.contactPhone);
   const trimmedAddress = trim(state.address);
   const trimmedMapUrl = trim(state.googleMapUrl);
+  const trimmedReviewUrl = trim(state.googleReviewUrl);
   const trimmedPolicy = trim(state.bookingPolicy);
   const intervalMinutes = Number.parseInt(state.reservationIntervalMinutes, 10);
   const defaultDurationMinutes = Number.parseInt(state.reservationDefaultDurationMinutes, 10);
@@ -128,6 +133,7 @@ function sanitizePayload(state: FormState): UpdateRestaurantInput {
     contactPhone: trimmedPhone.length > 0 ? trimmedPhone : null,
     address: trimmedAddress.length > 0 ? trimmedAddress : null,
     googleMapUrl: trimmedMapUrl.length > 0 ? trimmedMapUrl : null,
+    googleReviewUrl: trimmedReviewUrl.length > 0 ? trimmedReviewUrl : null,
     bookingPolicy: trimmedPolicy.length > 0 ? trimmedPolicy : null,
     reservationIntervalMinutes: intervalMinutes,
     reservationDefaultDurationMinutes: defaultDurationMinutes,
@@ -202,6 +208,15 @@ function validate(state: FormState): FormErrors {
   const phone = state.contactPhone.trim();
   if (phone && phone.length < 5) {
     errors.contactPhone = 'Phone number must be at least 5 characters';
+  }
+
+  const reviewUrl = state.googleReviewUrl.trim();
+  if (reviewUrl) {
+    try {
+      new URL(reviewUrl);
+    } catch (error) {
+      errors.googleReviewUrl = 'Enter a valid URL (e.g., https://g.page/.../review)';
+    }
   }
 
   const mapUrl = state.googleMapUrl.trim();
@@ -505,17 +520,45 @@ export function RestaurantDetailsForm({
 
           <div className="space-y-1.5 sm:col-span-2">
             <div className="flex items-center gap-1">
-              <Label htmlFor="restaurant-google-map">Google Maps Review Link</Label>
+              <Label htmlFor="restaurant-google-review">Google Review URL</Label>
               <HelpTooltip
-                description={FIELD_TOOLTIPS.googleMapUrl}
-                ariaLabel="Why add a Google Maps review link?"
+                description={FIELD_TOOLTIPS.googleReviewUrl}
+                ariaLabel="Why add a Google review link?"
               />
+            </div>
+            <Input
+              id="restaurant-google-review"
+              type="url"
+              inputMode="url"
+              placeholder="https://g.page/r/YourRestaurant/review"
+              value={state.googleReviewUrl}
+              onChange={(event) => handleChange('googleReviewUrl', event.target.value)}
+              aria-invalid={Boolean(errors.googleReviewUrl)}
+              aria-describedby={
+                errors.googleReviewUrl ? 'restaurant-google-review-error' : 'restaurant-google-review-help'
+              }
+              className={cn(errors.googleReviewUrl && 'border-destructive focus-visible:ring-destructive/60')}
+            />
+            <p id="restaurant-google-review-help" className="text-xs text-muted-foreground">
+              Optional link sent to customers to ask for a review.
+            </p>
+            {errors.googleReviewUrl && (
+              <p id="restaurant-google-review-error" className="text-xs text-destructive" role="alert">
+                {errors.googleReviewUrl}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5 sm:col-span-2">
+            <div className="flex items-center gap-1">
+              <Label htmlFor="restaurant-google-map">Google Maps URL</Label>
+              <HelpTooltip description={FIELD_TOOLTIPS.googleMapUrl} ariaLabel="Why add a Google Maps link?" />
             </div>
             <Input
               id="restaurant-google-map"
               type="url"
               inputMode="url"
-              placeholder="https://g.page/r/YourRestaurant/review"
+              placeholder="https://maps.google.com/..."
               value={state.googleMapUrl}
               onChange={(event) => handleChange('googleMapUrl', event.target.value)}
               aria-invalid={Boolean(errors.googleMapUrl)}
@@ -525,7 +568,7 @@ export function RestaurantDetailsForm({
               className={cn(errors.googleMapUrl && 'border-destructive focus-visible:ring-destructive/60')}
             />
             <p id="restaurant-google-map-help" className="text-xs text-muted-foreground">
-              Optional link sent to customers to ask for a review.
+              Optional link shared with guests for directions.
             </p>
             {errors.googleMapUrl && (
               <p id="restaurant-google-map-error" className="text-xs text-destructive" role="alert">

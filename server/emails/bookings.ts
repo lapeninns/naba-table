@@ -108,8 +108,7 @@ async function resolveVenueDetails(restaurantId: string | null | undefined): Pro
     policy: restaurant.booking_policy || '',
     logoUrl: restaurant.logo_url || null,
     googleMapUrl: restaurant.google_map_url || null,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- google_review_url pending type regeneration
-    googleReviewUrl: (restaurant as any).google_review_url || null,
+    googleReviewUrl: restaurant.google_review_url || null,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- email_templates pending type regeneration
     emailTemplates: (restaurant as any).email_templates || null,
   };

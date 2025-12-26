@@ -1,46 +1,50 @@
 # Continuity Ledger
 
-Last updated: 2025-12-26T00:08:54Z
+Last updated: 2025-12-26T15:36:58Z
 
 ## Goal (incl. success criteria)
 
-- Clean the repo by removing unnecessary files/folders, all SQL files, all migration files, all pgsql/postgres artifacts, and all past task folders after approval of a dry-run list.
+- Add separate restaurant profile fields for Google Review URL (post-email review CTA) and Google Map URL (directions), wired end-to-end (schema, API, UI) with existing DB columns.
 
 ## Constraints/Assumptions
 
-- Follow AGENTS SDLC; no destructive changes before research/plan and explicit approval of the dry-run list.
-- Preserve required policy files (e.g., `/AGENTS.md`) to avoid CI failures.
-- Remove all SQL and migration files, plus pgsql/postgres artifacts, per user confirmation.
-- Remove all past `tasks/*` folders (retain the new task folder).
+- Follow AGENTS SDLC phases with task artifacts.
+- UI change requires Chrome DevTools MCP QA and artifacts in verification.
+- Supabase remote-only; no local migrations.
+- Use existing patterns and keep scope narrow.
 
 ## Key decisions
 
-- Use a dry-run inventory grouped by category; delete only after explicit approval.
-- Default task metadata set to `github:@maintainers` (can be revised if needed).
+- Expose googleReviewUrl separately in profile UI and API while keeping googleMapUrl for directions.
 
 ## State
 
-- Phase 1/2 complete for repo cleanup; dry-run inventory pending.
+- Phase 3 implementation starting for googleReviewUrl field wiring.
 
 ## Done
 
-- Created `tasks/repo-cleanup-20251226-0008/` with `research.md`, `plan.md`, `todo.md`, and `verification.md`.
-- Captured cleanup scope, constraints, and approach in Phase 1/2 artifacts.
+- Identified current code paths for google map URL and review URL in prior exploration.
+- Created task folder `tasks/google-review-map-fields-20251226-1516/` with SDLC stubs.
+- Implemented googleReviewUrl wiring across schema, services, server handlers, and profile UI.
+- Fixed ESLint warnings by removing unused catch bindings in ops restaurant routes.
 
 ## Now
 
-- Produce dry-run inventory for deletion approval.
+- Re-run lint/tests as needed and prep for manual QA.
 
 ## Next
 
-- Share dry-run list for approval.
-- Delete approved files/folders and summarize the result.
+- Run manual UI QA via Chrome DevTools MCP; capture artifacts.
+- Update `verification.md` with QA results and artifacts.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- None.
+- Owner/reviewer handles for task frontmatter.
 
 ## Working set (files/ids/commands)
 
-- `tasks/repo-cleanup-20251226-0008/`
 - `CONTINUITY.md`
+- `tasks/google-review-map-fields-20251226-1516/research.md`
+- `tasks/google-review-map-fields-20251226-1516/plan.md`
+- `tasks/google-review-map-fields-20251226-1516/todo.md`
+- `tasks/google-review-map-fields-20251226-1516/verification.md`
