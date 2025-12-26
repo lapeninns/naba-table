@@ -1,44 +1,40 @@
 # Continuity Ledger
 
-Last updated: 2025-12-25T23:28:37Z
+Last updated: 2025-12-26T00:08:54Z
 
 ## Goal (incl. success criteria)
 
-- Enable guests to edit their own bookings end-to-end (guest-facing self-serve) for date/time/party/notes.
+- Clean the repo by removing unnecessary files/folders, all SQL files, all migration files, all pgsql/postgres artifacts, and all past task folders after approval of a dry-run list.
 
 ## Constraints/Assumptions
 
-- Follow AGENTS SDLC; no coding before requirements & plan are reviewed.
-- Manual UI QA via Chrome DevTools MCP required for UI changes.
-- Supabase remote-only if DB changes are needed.
-- Nested AGENTS apply for `src/app`, `src/components`, `src/hooks`.
+- Follow AGENTS SDLC; no destructive changes before research/plan and explicit approval of the dry-run list.
+- Preserve required policy files (e.g., `/AGENTS.md`) to avoid CI failures.
+- Remove all SQL and migration files, plus pgsql/postgres artifacts, per user confirmation.
+- Remove all past `tasks/*` folders (retain the new task folder).
 
 ## Key decisions
 
-- Allow edits for logged-in guests OR via recovery link; ownership by email or auth_user_id.
-- Keep pending lock and past booking blocks.
-- No feature flag.
+- Use a dry-run inventory grouped by category; delete only after explicit approval.
+- Default task metadata set to `github:@maintainers` (can be revised if needed).
 
 ## State
 
-- Phase 3 implementation in progress (API + tests updated). UI verification pending.
+- Phase 1/2 complete for repo cleanup; dry-run inventory pending.
 
 ## Done
 
-- Updated `tasks/guest-booking-self-edit-20251225-2328/research.md` with confirmed requirements.
-- Drafted `tasks/guest-booking-self-edit-20251225-2328/plan.md`.
-- Added ownership check helper and updated dashboard update authorization in `src/app/api/bookings/[id]/route.ts`.
-- Added/updated PUT tests in `src/app/api/bookings/[id]/route.test.ts`.
-- Updated `tasks/guest-booking-self-edit-20251225-2328/todo.md`.
+- Created `tasks/repo-cleanup-20251226-0008/` with `research.md`, `plan.md`, `todo.md`, and `verification.md`.
+- Captured cleanup scope, constraints, and approach in Phase 1/2 artifacts.
 
 ## Now
 
-- Review code changes and consider running tests / manual QA plan.
+- Produce dry-run inventory for deletion approval.
 
 ## Next
 
-- Run relevant tests (at least `src/app/api/bookings/[id]/route.test.ts`).
-- Perform Chrome DevTools MCP manual QA for guest edit flow and update `verification.md`.
+- Share dry-run list for approval.
+- Delete approved files/folders and summarize the result.
 
 ## Open questions (UNCONFIRMED if needed)
 
@@ -46,6 +42,5 @@ Last updated: 2025-12-25T23:28:37Z
 
 ## Working set (files/ids/commands)
 
-- `src/app/api/bookings/[id]/route.ts`
-- `src/app/api/bookings/[id]/route.test.ts`
-- `tasks/guest-booking-self-edit-20251225-2328/`
+- `tasks/repo-cleanup-20251226-0008/`
+- `CONTINUITY.md`
