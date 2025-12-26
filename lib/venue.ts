@@ -10,6 +10,7 @@ export type VenueDetails = {
   logoUrl: string | null;
   googleMapUrl: string | null;
   googleReviewUrl: string | null;
+  emailTemplates: Record<string, { headline?: string; intro?: string }> | null;
 };
 
 export const DEFAULT_VENUE: VenueDetails = {
@@ -25,4 +26,5 @@ export const DEFAULT_VENUE: VenueDetails = {
   logoUrl: null,
   googleMapUrl: null,
   googleReviewUrl: null,
+  emailTemplates: null,
 };
