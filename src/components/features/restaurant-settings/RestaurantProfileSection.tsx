@@ -30,9 +30,6 @@ const EMPTY_VALUES: RestaurantDetailsFormValues = {
   reservationIntervalMinutes: 15,
   reservationDefaultDurationMinutes: 90,
   reservationLastSeatingBufferMinutes: 15,
-  emailSendReminder24h: true,
-  emailSendReminderShort: true,
-  emailSendReviewRequest: true,
 };
 
 type RestaurantProfileSectionProps = {
@@ -60,9 +57,6 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
       reservationIntervalMinutes: data.reservationIntervalMinutes,
       reservationDefaultDurationMinutes: data.reservationDefaultDurationMinutes,
       reservationLastSeatingBufferMinutes: data.reservationLastSeatingBufferMinutes,
-      emailSendReminder24h: data.emailSendReminder24h,
-      emailSendReminderShort: data.emailSendReminderShort,
-      emailSendReviewRequest: data.emailSendReviewRequest,
     };
   }, [data]);
 
@@ -82,9 +76,6 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
         reservationIntervalMinutes: values.reservationIntervalMinutes,
         reservationDefaultDurationMinutes: values.reservationDefaultDurationMinutes,
         reservationLastSeatingBufferMinutes: values.reservationLastSeatingBufferMinutes,
-        emailSendReminder24h: values.emailSendReminder24h,
-        emailSendReminderShort: values.emailSendReminderShort,
-        emailSendReviewRequest: values.emailSendReviewRequest,
       });
       toast.success('Restaurant details updated');
     } catch (submitError) {

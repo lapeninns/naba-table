@@ -38,32 +38,32 @@ export async function sendTeamInviteEmail(params: { invite: RestaurantInvite; to
 
   const contentHtml = `
     <div style="text-align:center;">
-      <h1 style="margin:0 0 16px;font-family:${EMAIL_FONT_STACK};font-size:24px;font-weight:700;color:${COLORS.text.main};line-height:1.3;">${escapeHtml(greeting)}</h1>
-      <p style="margin:0 0 24px;font-family:${EMAIL_FONT_STACK};font-size:16px;color:${COLORS.text.secondary};line-height:1.6;">
+      <h1 style="margin:0 0 16px;font-family:${EMAIL_FONT_STACK};font-size:24px;font-weight:700;color:${COLORS.brand};line-height:1.3;">${escapeHtml(greeting)}</h1>
+      <p style="margin:0 0 24px;font-family:${EMAIL_FONT_STACK};font-size:16px;color:${COLORS.text};line-height:1.6;">
         Join <strong>${escapeHtml(restaurantName)}</strong> on Nab a Table and manage bookings with the team.
       </p>
       
-      <div style="background:${COLORS.background};padding:20px;border-radius:16px;margin-bottom:24px;text-align:left;">
-        <p style="margin:0 0 8px;font-family:${EMAIL_FONT_STACK};font-size:14px;color:${COLORS.text.secondary};">
+      <div style="background:${COLORS.gridBg};padding:24px;border-radius:12px;margin-bottom:24px;text-align:left;border:1px solid ${COLORS.border};">
+        <p style="margin:0 0 8px;font-family:${EMAIL_FONT_STACK};font-size:14px;color:${COLORS.text};">
           <strong>Role:</strong> ${escapeHtml(invite.role.charAt(0).toUpperCase() + invite.role.slice(1))}
         </p>
-        <p style="margin:0;font-family:${EMAIL_FONT_STACK};font-size:14px;color:${COLORS.text.secondary};">
+        <p style="margin:0;font-family:${EMAIL_FONT_STACK};font-size:14px;color:${COLORS.text};">
           <strong>Expires:</strong> ${escapeHtml(expiry.date)} at ${escapeHtml(expiry.time)}
         </p>
       </div>
 
-      ${renderButton('Accept Invite', inviteUrl, { variant: 'primary', fullWidth: true })}
+      ${renderButton('Accept Invite', inviteUrl)}
       
-      <p style="margin:24px 0 0;font-family:${EMAIL_FONT_STACK};font-size:13px;color:${COLORS.text.muted};">
+      <p style="margin:24px 0 0;font-family:${EMAIL_FONT_STACK};font-size:13px;color:${COLORS.muted};">
         If the button doesn't work, copy and paste this link:
       </p>
       <p style="margin:4px 0 0;font-family:${EMAIL_FONT_STACK};font-size:13px;word-break:break-all;">
-        <a href="${inviteUrl}" style="color:${COLORS.primary};text-decoration:none;">${inviteUrl}</a>
+        <a href="${inviteUrl}" style="color:${COLORS.brand};text-decoration:none;">${inviteUrl}</a>
       </p>
 
       ${renderDivider()}
 
-      <p style="margin:0;font-family:${EMAIL_FONT_STACK};font-size:12px;color:${COLORS.text.light};line-height:1.5;">
+      <p style="margin:0;font-family:${EMAIL_FONT_STACK};font-size:12px;color:${COLORS.text};line-height:1.5;">
         You received this because <strong>${escapeHtml(restaurantName)}</strong> wants to collaborate with you on Nab a Table. If you weren't expecting this invite, you can ignore it.
       </p>
     </div>
@@ -88,3 +88,4 @@ export async function sendTeamInviteEmail(params: { invite: RestaurantInvite; to
     fromName: config.email.fromSupport ?? "Nab a Table",
   });
 }
+

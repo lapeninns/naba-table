@@ -25,9 +25,6 @@ export type RestaurantDetailsFormValues = {
   reservationIntervalMinutes: number;
   reservationDefaultDurationMinutes: number;
   reservationLastSeatingBufferMinutes: number;
-  emailSendReminder24h?: boolean;
-  emailSendReminderShort?: boolean;
-  emailSendReviewRequest?: boolean;
 };
 
 export type RestaurantDetailsFormProps = PropsWithChildren<{
@@ -51,9 +48,6 @@ type FormState = {
   reservationIntervalMinutes: string;
   reservationDefaultDurationMinutes: string;
   reservationLastSeatingBufferMinutes: string;
-  emailSendReminder24h: boolean;
-  emailSendReminderShort: boolean;
-  emailSendReviewRequest: boolean;
 };
 
 type FormErrors = Partial<Record<keyof FormState, string>>;
@@ -108,9 +102,6 @@ function mapInitialValues(values: RestaurantDetailsFormValues): FormState {
       values.reservationLastSeatingBufferMinutes !== undefined && values.reservationLastSeatingBufferMinutes !== null
         ? String(values.reservationLastSeatingBufferMinutes)
         : '',
-    emailSendReminder24h: values.emailSendReminder24h ?? true,
-    emailSendReminderShort: values.emailSendReminderShort ?? true,
-    emailSendReviewRequest: values.emailSendReviewRequest ?? true,
     googleMapUrl: values.googleMapUrl ?? '',
   };
 }
@@ -141,9 +132,10 @@ function sanitizePayload(state: FormState): UpdateRestaurantInput {
     reservationIntervalMinutes: intervalMinutes,
     reservationDefaultDurationMinutes: defaultDurationMinutes,
     reservationLastSeatingBufferMinutes: lastSeatingBufferMinutes,
-    emailSendReminder24h: state.emailSendReminder24h,
-    emailSendReminderShort: state.emailSendReminderShort,
-    emailSendReviewRequest: state.emailSendReviewRequest,
+    // Email preferences are always enabled - no longer configurable
+    emailSendReminder24h: true,
+    emailSendReminderShort: true,
+    emailSendReviewRequest: true,
   };
 }
 
@@ -251,9 +243,7 @@ export function RestaurantDetailsForm({
     }
   };
 
-  const handleToggle = (field: 'emailSendReminder24h' | 'emailSendReminderShort' | 'emailSendReviewRequest', value: boolean) => {
-    setState((prev) => ({ ...prev, [field]: value }));
-  };
+  // handleToggle removed - email preferences are no longer configurable
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -275,349 +265,303 @@ export function RestaurantDetailsForm({
   return (
     <TooltipProvider delayDuration={100}>
       <form onSubmit={handleSubmit} className={cn('space-y-4', className)}>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label htmlFor="restaurant-name">
-            Restaurant Name <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="restaurant-name"
-            value={state.name}
-            onChange={(event) => handleChange('name', event.target.value)}
-            aria-invalid={Boolean(errors.name)}
-            aria-describedby={errors.name ? 'restaurant-name-error' : undefined}
-            className={cn(errors.name && 'border-destructive focus-visible:ring-destructive/60')}
-            autoFocus
-          />
-          {errors.name && (
-            <p id="restaurant-name-error" className="text-xs text-destructive" role="alert">
-              {errors.name}
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-1.5 sm:col-span-2">
-          <div className="flex items-center gap-1">
-            <Label htmlFor="restaurant-slug" className="inline-flex items-center gap-1">
-              Slug <span className="text-destructive">*</span>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="restaurant-name">
+              Restaurant Name <span className="text-destructive">*</span>
             </Label>
-            <HelpTooltip description={FIELD_TOOLTIPS.slug} ariaLabel="What is a restaurant slug?" />
-          </div>
-          <Input
-            id="restaurant-slug"
-            value={state.slug}
-            onChange={(event) => handleChange('slug', event.target.value)}
-            aria-invalid={Boolean(errors.slug)}
-            aria-describedby={errors.slug ? 'restaurant-slug-error' : undefined}
-            className={cn(errors.slug && 'border-destructive focus-visible:ring-destructive/60')}
-          />
-          {errors.slug && (
-            <p id="restaurant-slug-error" className="text-xs text-destructive" role="alert">
-              {errors.slug}
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-1">
-            <Label htmlFor="restaurant-timezone" className="inline-flex items-center gap-1">
-              Timezone <span className="text-destructive">*</span>
-            </Label>
-            <HelpTooltip description={FIELD_TOOLTIPS.timezone} ariaLabel="Why does timezone matter?" />
-          </div>
-          <select
-            id="restaurant-timezone"
-            value={state.timezone}
-            onChange={(event) => handleChange('timezone', event.target.value)}
-            className={cn(
-              'h-10 w-full rounded-md border border-border bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
-              errors.timezone && 'border-destructive focus-visible:ring-destructive/60',
-            )}
-            aria-invalid={Boolean(errors.timezone)}
-            aria-describedby={errors.timezone ? 'restaurant-timezone-error' : undefined}
-          >
-            {COMMON_TIMEZONES.map((timezone) => (
-              <option key={timezone} value={timezone}>
-                {timezone}
-              </option>
-            ))}
-          </select>
-          {errors.timezone && (
-            <p id="restaurant-timezone-error" className="text-xs text-destructive" role="alert">
-              {errors.timezone}
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-1">
-            <Label htmlFor="restaurant-interval" className="inline-flex items-center gap-1">
-              Reservation Interval (minutes) <span className="text-destructive">*</span>
-            </Label>
-            <HelpTooltip
-              description={FIELD_TOOLTIPS.reservationInterval}
-              ariaLabel="Reservation interval details"
+            <Input
+              id="restaurant-name"
+              value={state.name}
+              onChange={(event) => handleChange('name', event.target.value)}
+              aria-invalid={Boolean(errors.name)}
+              aria-describedby={errors.name ? 'restaurant-name-error' : undefined}
+              className={cn(errors.name && 'border-destructive focus-visible:ring-destructive/60')}
+              autoFocus
             />
-          </div>
-          <Input
-            id="restaurant-interval"
-            type="number"
-            inputMode="numeric"
-            min={1}
-            max={180}
-            step={1}
-            value={state.reservationIntervalMinutes}
-            onChange={(event) => handleChange('reservationIntervalMinutes', event.target.value)}
-            aria-invalid={Boolean(errors.reservationIntervalMinutes)}
-            aria-describedby={
-              errors.reservationIntervalMinutes
-                ? 'restaurant-interval-error'
-                : 'restaurant-interval-help'
-            }
-            className={cn(
-              errors.reservationIntervalMinutes && 'border-destructive focus-visible:ring-destructive/60',
+            {errors.name && (
+              <p id="restaurant-name-error" className="text-xs text-destructive" role="alert">
+                {errors.name}
+              </p>
             )}
-          />
-          <p id="restaurant-interval-help" className="text-xs text-muted-foreground">
-            Controls slot spacing; must be between 1 and 180 minutes.
-          </p>
-          {errors.reservationIntervalMinutes && (
-            <p id="restaurant-interval-error" className="text-xs text-destructive" role="alert">
-              {errors.reservationIntervalMinutes}
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-1">
-            <Label htmlFor="restaurant-duration" className="inline-flex items-center gap-1">
-              Default Reservation Duration (minutes) <span className="text-destructive">*</span>
-            </Label>
-            <HelpTooltip
-              description={FIELD_TOOLTIPS.reservationDuration}
-              ariaLabel="Reservation duration details"
-            />
           </div>
-          <Input
-            id="restaurant-duration"
-            type="number"
-            inputMode="numeric"
-            min={15}
-            max={300}
-            step={1}
-            value={state.reservationDefaultDurationMinutes}
-            onChange={(event) => handleChange('reservationDefaultDurationMinutes', event.target.value)}
-            aria-invalid={Boolean(errors.reservationDefaultDurationMinutes)}
-            aria-describedby={
-              errors.reservationDefaultDurationMinutes
-                ? 'restaurant-duration-error'
-                : 'restaurant-duration-help'
-            }
-            className={cn(
-              errors.reservationDefaultDurationMinutes &&
+
+          <div className="space-y-1.5 sm:col-span-2">
+            <div className="flex items-center gap-1">
+              <Label htmlFor="restaurant-slug" className="inline-flex items-center gap-1">
+                Slug <span className="text-destructive">*</span>
+              </Label>
+              <HelpTooltip description={FIELD_TOOLTIPS.slug} ariaLabel="What is a restaurant slug?" />
+            </div>
+            <Input
+              id="restaurant-slug"
+              value={state.slug}
+              onChange={(event) => handleChange('slug', event.target.value)}
+              aria-invalid={Boolean(errors.slug)}
+              aria-describedby={errors.slug ? 'restaurant-slug-error' : undefined}
+              className={cn(errors.slug && 'border-destructive focus-visible:ring-destructive/60')}
+            />
+            {errors.slug && (
+              <p id="restaurant-slug-error" className="text-xs text-destructive" role="alert">
+                {errors.slug}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1">
+              <Label htmlFor="restaurant-timezone" className="inline-flex items-center gap-1">
+                Timezone <span className="text-destructive">*</span>
+              </Label>
+              <HelpTooltip description={FIELD_TOOLTIPS.timezone} ariaLabel="Why does timezone matter?" />
+            </div>
+            <select
+              id="restaurant-timezone"
+              value={state.timezone}
+              onChange={(event) => handleChange('timezone', event.target.value)}
+              className={cn(
+                'h-10 w-full rounded-md border border-border bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                errors.timezone && 'border-destructive focus-visible:ring-destructive/60',
+              )}
+              aria-invalid={Boolean(errors.timezone)}
+              aria-describedby={errors.timezone ? 'restaurant-timezone-error' : undefined}
+            >
+              {COMMON_TIMEZONES.map((timezone) => (
+                <option key={timezone} value={timezone}>
+                  {timezone}
+                </option>
+              ))}
+            </select>
+            {errors.timezone && (
+              <p id="restaurant-timezone-error" className="text-xs text-destructive" role="alert">
+                {errors.timezone}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1">
+              <Label htmlFor="restaurant-interval" className="inline-flex items-center gap-1">
+                Reservation Interval (minutes) <span className="text-destructive">*</span>
+              </Label>
+              <HelpTooltip
+                description={FIELD_TOOLTIPS.reservationInterval}
+                ariaLabel="Reservation interval details"
+              />
+            </div>
+            <Input
+              id="restaurant-interval"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={180}
+              step={1}
+              value={state.reservationIntervalMinutes}
+              onChange={(event) => handleChange('reservationIntervalMinutes', event.target.value)}
+              aria-invalid={Boolean(errors.reservationIntervalMinutes)}
+              aria-describedby={
+                errors.reservationIntervalMinutes
+                  ? 'restaurant-interval-error'
+                  : 'restaurant-interval-help'
+              }
+              className={cn(
+                errors.reservationIntervalMinutes && 'border-destructive focus-visible:ring-destructive/60',
+              )}
+            />
+            <p id="restaurant-interval-help" className="text-xs text-muted-foreground">
+              Controls slot spacing; must be between 1 and 180 minutes.
+            </p>
+            {errors.reservationIntervalMinutes && (
+              <p id="restaurant-interval-error" className="text-xs text-destructive" role="alert">
+                {errors.reservationIntervalMinutes}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1">
+              <Label htmlFor="restaurant-duration" className="inline-flex items-center gap-1">
+                Default Reservation Duration (minutes) <span className="text-destructive">*</span>
+              </Label>
+              <HelpTooltip
+                description={FIELD_TOOLTIPS.reservationDuration}
+                ariaLabel="Reservation duration details"
+              />
+            </div>
+            <Input
+              id="restaurant-duration"
+              type="number"
+              inputMode="numeric"
+              min={15}
+              max={300}
+              step={1}
+              value={state.reservationDefaultDurationMinutes}
+              onChange={(event) => handleChange('reservationDefaultDurationMinutes', event.target.value)}
+              aria-invalid={Boolean(errors.reservationDefaultDurationMinutes)}
+              aria-describedby={
+                errors.reservationDefaultDurationMinutes
+                  ? 'restaurant-duration-error'
+                  : 'restaurant-duration-help'
+              }
+              className={cn(
+                errors.reservationDefaultDurationMinutes &&
                 'border-destructive focus-visible:ring-destructive/60',
-            )}
-          />
-          <p id="restaurant-duration-help" className="text-xs text-muted-foreground">
-            Default booking length; must be between 15 and 300 minutes.
-          </p>
-          {errors.reservationDefaultDurationMinutes && (
-            <p id="restaurant-duration-error" className="text-xs text-destructive" role="alert">
-              {errors.reservationDefaultDurationMinutes}
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-1">
-            <Label htmlFor="restaurant-last-seating" className="inline-flex items-center gap-1">
-              Last Seating Buffer (minutes) <span className="text-destructive">*</span>
-            </Label>
-            <HelpTooltip
-              description={FIELD_TOOLTIPS.lastSeatingBuffer}
-              ariaLabel="Last seating buffer details"
+              )}
             />
+            <p id="restaurant-duration-help" className="text-xs text-muted-foreground">
+              Default booking length; must be between 15 and 300 minutes.
+            </p>
+            {errors.reservationDefaultDurationMinutes && (
+              <p id="restaurant-duration-error" className="text-xs text-destructive" role="alert">
+                {errors.reservationDefaultDurationMinutes}
+              </p>
+            )}
           </div>
-          <Input
-            id="restaurant-last-seating"
-            type="number"
-            inputMode="numeric"
-            min={15}
-            max={300}
-            step={1}
-            value={state.reservationLastSeatingBufferMinutes}
-            onChange={(event) => handleChange('reservationLastSeatingBufferMinutes', event.target.value)}
-            aria-invalid={Boolean(errors.reservationLastSeatingBufferMinutes)}
-            aria-describedby={
-              errors.reservationLastSeatingBufferMinutes
-                ? 'restaurant-last-seating-error'
-                : 'restaurant-last-seating-help'
-            }
-            className={cn(
-              errors.reservationLastSeatingBufferMinutes &&
+
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1">
+              <Label htmlFor="restaurant-last-seating" className="inline-flex items-center gap-1">
+                Last Seating Buffer (minutes) <span className="text-destructive">*</span>
+              </Label>
+              <HelpTooltip
+                description={FIELD_TOOLTIPS.lastSeatingBuffer}
+                ariaLabel="Last seating buffer details"
+              />
+            </div>
+            <Input
+              id="restaurant-last-seating"
+              type="number"
+              inputMode="numeric"
+              min={15}
+              max={300}
+              step={1}
+              value={state.reservationLastSeatingBufferMinutes}
+              onChange={(event) => handleChange('reservationLastSeatingBufferMinutes', event.target.value)}
+              aria-invalid={Boolean(errors.reservationLastSeatingBufferMinutes)}
+              aria-describedby={
+                errors.reservationLastSeatingBufferMinutes
+                  ? 'restaurant-last-seating-error'
+                  : 'restaurant-last-seating-help'
+              }
+              className={cn(
+                errors.reservationLastSeatingBufferMinutes &&
                 'border-destructive focus-visible:ring-destructive/60',
+              )}
+            />
+            <p id="restaurant-last-seating-help" className="text-xs text-muted-foreground">
+              Controls the latest start time relative to closing; choose a value between 15 and 300 minutes.
+            </p>
+            {errors.reservationLastSeatingBufferMinutes && (
+              <p id="restaurant-last-seating-error" className="text-xs text-destructive" role="alert">
+                {errors.reservationLastSeatingBufferMinutes}
+              </p>
             )}
-          />
-          <p id="restaurant-last-seating-help" className="text-xs text-muted-foreground">
-            Controls the latest start time relative to closing; choose a value between 15 and 300 minutes.
-          </p>
-          {errors.reservationLastSeatingBufferMinutes && (
-            <p id="restaurant-last-seating-error" className="text-xs text-destructive" role="alert">
-              {errors.reservationLastSeatingBufferMinutes}
-            </p>
-          )}
-        </div>
+          </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="restaurant-email">Contact Email</Label>
-          <Input
-            id="restaurant-email"
-            type="email"
-            value={state.contactEmail}
-            onChange={(event) => handleChange('contactEmail', event.target.value)}
-            aria-invalid={Boolean(errors.contactEmail)}
-            aria-describedby={errors.contactEmail ? 'restaurant-email-error' : undefined}
-            className={cn(errors.contactEmail && 'border-destructive focus-visible:ring-destructive/60')}
-          />
-          {errors.contactEmail && (
-            <p id="restaurant-email-error" className="text-xs text-destructive" role="alert">
-              {errors.contactEmail}
-            </p>
-          )}
-        </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="restaurant-email">Contact Email</Label>
+            <Input
+              id="restaurant-email"
+              type="email"
+              value={state.contactEmail}
+              onChange={(event) => handleChange('contactEmail', event.target.value)}
+              aria-invalid={Boolean(errors.contactEmail)}
+              aria-describedby={errors.contactEmail ? 'restaurant-email-error' : undefined}
+              className={cn(errors.contactEmail && 'border-destructive focus-visible:ring-destructive/60')}
+            />
+            {errors.contactEmail && (
+              <p id="restaurant-email-error" className="text-xs text-destructive" role="alert">
+                {errors.contactEmail}
+              </p>
+            )}
+          </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="restaurant-phone">Contact Phone</Label>
-          <Input
-            id="restaurant-phone"
-            type="tel"
-            value={state.contactPhone}
-            onChange={(event) => handleChange('contactPhone', event.target.value)}
-            aria-invalid={Boolean(errors.contactPhone)}
-            aria-describedby={errors.contactPhone ? 'restaurant-phone-error' : undefined}
-            className={cn(errors.contactPhone && 'border-destructive focus-visible:ring-destructive/60')}
-          />
-          {errors.contactPhone && (
-            <p id="restaurant-phone-error" className="text-xs text-destructive" role="alert">
-              {errors.contactPhone}
-            </p>
-          )}
-        </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="restaurant-phone">Contact Phone</Label>
+            <Input
+              id="restaurant-phone"
+              type="tel"
+              value={state.contactPhone}
+              onChange={(event) => handleChange('contactPhone', event.target.value)}
+              aria-invalid={Boolean(errors.contactPhone)}
+              aria-describedby={errors.contactPhone ? 'restaurant-phone-error' : undefined}
+              className={cn(errors.contactPhone && 'border-destructive focus-visible:ring-destructive/60')}
+            />
+            {errors.contactPhone && (
+              <p id="restaurant-phone-error" className="text-xs text-destructive" role="alert">
+                {errors.contactPhone}
+              </p>
+            )}
+          </div>
 
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label htmlFor="restaurant-address">Address</Label>
-          <Input
-            id="restaurant-address"
-            value={state.address}
-            onChange={(event) => handleChange('address', event.target.value)}
-          />
-        </div>
-
-        <div className="space-y-1.5 sm:col-span-2">
-          <div className="flex items-center gap-1">
-            <Label htmlFor="restaurant-google-map">Google Maps Review Link</Label>
-            <HelpTooltip
-              description={FIELD_TOOLTIPS.googleMapUrl}
-              ariaLabel="Why add a Google Maps review link?"
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="restaurant-address">Address</Label>
+            <Input
+              id="restaurant-address"
+              value={state.address}
+              onChange={(event) => handleChange('address', event.target.value)}
             />
           </div>
-          <Input
-            id="restaurant-google-map"
-            type="url"
-            inputMode="url"
-            placeholder="https://g.page/r/YourRestaurant/review"
-            value={state.googleMapUrl}
-            onChange={(event) => handleChange('googleMapUrl', event.target.value)}
-            aria-invalid={Boolean(errors.googleMapUrl)}
-            aria-describedby={
-              errors.googleMapUrl ? 'restaurant-google-map-error' : 'restaurant-google-map-help'
-            }
-            className={cn(errors.googleMapUrl && 'border-destructive focus-visible:ring-destructive/60')}
-          />
-          <p id="restaurant-google-map-help" className="text-xs text-muted-foreground">
-            Optional link sent to customers to ask for a review.
-          </p>
-          {errors.googleMapUrl && (
-            <p id="restaurant-google-map-error" className="text-xs text-destructive" role="alert">
-              {errors.googleMapUrl}
+
+          <div className="space-y-1.5 sm:col-span-2">
+            <div className="flex items-center gap-1">
+              <Label htmlFor="restaurant-google-map">Google Maps Review Link</Label>
+              <HelpTooltip
+                description={FIELD_TOOLTIPS.googleMapUrl}
+                ariaLabel="Why add a Google Maps review link?"
+              />
+            </div>
+            <Input
+              id="restaurant-google-map"
+              type="url"
+              inputMode="url"
+              placeholder="https://g.page/r/YourRestaurant/review"
+              value={state.googleMapUrl}
+              onChange={(event) => handleChange('googleMapUrl', event.target.value)}
+              aria-invalid={Boolean(errors.googleMapUrl)}
+              aria-describedby={
+                errors.googleMapUrl ? 'restaurant-google-map-error' : 'restaurant-google-map-help'
+              }
+              className={cn(errors.googleMapUrl && 'border-destructive focus-visible:ring-destructive/60')}
+            />
+            <p id="restaurant-google-map-help" className="text-xs text-muted-foreground">
+              Optional link sent to customers to ask for a review.
             </p>
-          )}
-        </div>
-
-        <div className="space-y-1.5 sm:col-span-2">
-          <div className="flex items-center gap-1">
-            <Label htmlFor="restaurant-policy">Booking Policy</Label>
-            <HelpTooltip description={FIELD_TOOLTIPS.bookingPolicy} ariaLabel="Booking policy guidance" />
+            {errors.googleMapUrl && (
+              <p id="restaurant-google-map-error" className="text-xs text-destructive" role="alert">
+                {errors.googleMapUrl}
+              </p>
+            )}
           </div>
-          <Textarea
-            id="restaurant-policy"
-            value={state.bookingPolicy}
-            onChange={(event) => handleChange('bookingPolicy', event.target.value)}
-            rows={3}
-          />
-        </div>
 
-        <div className="space-y-2 rounded-lg border border-border/80 p-3 sm:col-span-2">
-          <div className="flex items-center gap-2">
-            <Label className="text-sm font-semibold">Guest Emails</Label>
-            <HelpTooltip
-              description="Control which automated guest emails are sent for this restaurant (reminders, reviews)."
-              ariaLabel="Guest email settings help"
+          <div className="space-y-1.5 sm:col-span-2">
+            <div className="flex items-center gap-1">
+              <Label htmlFor="restaurant-policy">Booking Policy</Label>
+              <HelpTooltip description={FIELD_TOOLTIPS.bookingPolicy} ariaLabel="Booking policy guidance" />
+            </div>
+            <Textarea
+              id="restaurant-policy"
+              value={state.bookingPolicy}
+              onChange={(event) => handleChange('bookingPolicy', event.target.value)}
+              rows={3}
             />
           </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <label className="flex items-start gap-2 text-sm text-foreground">
-              <input
-                type="checkbox"
-                className="mt-1 h-4 w-4"
-                checked={state.emailSendReminder24h}
-                onChange={(e) => handleToggle('emailSendReminder24h', e.target.checked)}
-              />
-              <span>
-                Send 24h reminder
-                <p className="text-xs text-muted-foreground">Pre-visit reminder roughly one day before arrival.</p>
-              </span>
-            </label>
-            <label className="flex items-start gap-2 text-sm text-foreground">
-              <input
-                type="checkbox"
-                className="mt-1 h-4 w-4"
-                checked={state.emailSendReminderShort}
-                onChange={(e) => handleToggle('emailSendReminderShort', e.target.checked)}
-              />
-              <span>
-                Send same-day reminder
-                <p className="text-xs text-muted-foreground">Short heads-up closer to arrival time.</p>
-              </span>
-            </label>
-            <label className="flex items-start gap-2 text-sm text-foreground sm:col-span-2">
-              <input
-                type="checkbox"
-                className="mt-1 h-4 w-4"
-                checked={state.emailSendReviewRequest}
-                onChange={(e) => handleToggle('emailSendReviewRequest', e.target.checked)}
-              />
-              <span>
-                Send post-visit review request
-                <p className="text-xs text-muted-foreground">Quick feedback ask after the visit is completed.</p>
-              </span>
-            </label>
-          </div>
+
+          {/* Guest email settings removed - all emails are always enabled */}
         </div>
-      </div>
 
-      {children}
+        {children}
 
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        {onCancel ? (
-          <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
-            Cancel
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          {onCancel ? (
+            <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
+              Cancel
+            </Button>
+          ) : null}
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Saving…' : submitLabel}
           </Button>
-        ) : null}
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Saving…' : submitLabel}
-        </Button>
-      </div>
+        </div>
       </form>
     </TooltipProvider>
   );
