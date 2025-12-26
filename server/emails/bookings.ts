@@ -493,6 +493,10 @@ async function dispatchEmail(
 
 
 
+  // Helper for rotating copy to prevent email fatigue
+  // Use booking ID to ensuring consistent variant for the same booking (deterministic)
+  const copyVariant = (booking.id.charCodeAt(0) + booking.id.charCodeAt(booking.id.length - 1)) % 3;
+
   // Restaurant-specific booking URL (for "Book Again" etc)
   const restaurantBookingUrl = venue.slug
     ? `${bookingSiteUrl}/restaurants/${venue.slug}/book`
@@ -508,12 +512,21 @@ async function dispatchEmail(
   switch (type) {
     case 'created':
       if (isPending) {
-        headline = 'Request Received';
-        intro = `We've received your request for ${venue.name}. We are checking availability right now.`;
+        headline = 'Request Received 🤞';
+        intro = `We've received your request for ${venue.name}. Hang tight while we check availability!`;
         ctaLabel = 'Check Status';
       } else {
-        headline = 'Booking Confirmed';
-        intro = `Great news, ${guestFirstName}. Your table at ${venue.name} is secured. We've added this to your upcoming bookings.`;
+        // Rotating copy for Confirmations
+        if (copyVariant === 0) {
+          headline = 'Booking Confirmed 🎉';
+          intro = `Great news, ${guestFirstName}! Your table at ${venue.name} is secured. We've added this to your upcoming bookings.`;
+        } else if (copyVariant === 1) {
+          headline = 'You\'re In! 🥂';
+          intro = `${guestFirstName}, your reservation at ${venue.name} is confirmed. We can't wait to host you!`;
+        } else {
+          headline = 'Table Secured 🍽️';
+          intro = `All set, ${guestFirstName}. We've reserved a spot for you at ${venue.name}. See you soon!`;
+        }
         ctaLabel = 'Manage Booking';
       }
       break;
@@ -521,41 +534,50 @@ async function dispatchEmail(
     case 'updated':  // Fallthrough - 'updated' uses same template as 'modification_confirmed'
 
     case 'cancelled':
-      headline = 'Booking Cancelled';
-      intro = `As requested, we have cancelled your reservation at ${venue.name}. We hope to welcome you another time.`;
+      headline = 'Booking Cancelled 😔';
+      intro = `As requested, we have cancelled your reservation at ${venue.name}. We hope to welcome you another time. 👋`;
       ctaLabel = 'Book Again';
       ctaUrl = restaurantBookingUrl;
       break;
 
     case 'modification_pending':
-      headline = 'Change Requested';
-      intro = `We're reviewing your requested changes at ${venue.name}. We'll confirm everything shortly.`;
+      headline = 'Change Requested 📝';
+      intro = `We're reviewing your requested changes at ${venue.name}. We'll get back to you and confirm shortly.`;
       ctaLabel = 'View Request';
       break;
 
     case 'modification_confirmed':
-      headline = 'Changes Confirmed';
-      intro = `Your updated reservation at ${venue.name} is all set! Here are your new details.`;
+      headline = 'Changes Confirmed ✅';
+      intro = `Your updated reservation at ${venue.name} is all set! Here are the new details.`;
       ctaLabel = 'View Booking';
       break;
 
     case 'booking_rejected':
-      headline = 'Unavailable';
-      intro = `Unfortunately, ${venue.name} is fully booked for your requested time. Try a different date or time?`;
+      headline = 'Unavailable 🚫';
+      intro = `We're sorry, ${venue.name} is fully booked for your requested time. Maybe try a different date or time? ⏰`;
       ctaLabel = 'Try Another Time';
       ctaUrl = restaurantBookingUrl;
       break;
 
     case 'restaurant_cancellation':
-      headline = 'Booking Cancelled';
+      headline = 'Booking Cancelled 😔';
       intro = `We sincerely apologize. ${venue.name} had to cancel your reservation due to unforeseen circumstances.`;
       ctaLabel = 'Rebook Now';
       ctaUrl = restaurantBookingUrl;
       break;
 
     case 'review_request':
-      headline = 'How was dinner?';
-      intro = `We hope you enjoyed ${venue.name}. Would you mind taking 10 seconds to rate your experience?`;
+      // Rotating copy for Reviews
+      if (copyVariant === 0) {
+        headline = 'How was meal? ⭐';
+        intro = `We hope you enjoyed ${venue.name}! Would you mind taking 10 seconds to rate your experience? ❤️`;
+      } else if (copyVariant === 1) {
+        headline = 'Rate your experience 📝';
+        intro = `Hi ${guestFirstName}, thanks for dining with us at ${venue.name}! How did we do?`;
+      } else {
+        headline = 'We\'d love your feedback 💬';
+        intro = `It was a pleasure hosting you at ${venue.name}. Would you share your thoughts with us?`;
+      }
       ctaLabel = 'Leave a Review';
       // Prioritize dedicated review URL, then Google Maps, then fallback
       ctaUrl = venue.googleReviewUrl || venue.googleMapUrl || `${bookingSiteUrl}/reviews/${booking.id}`;
@@ -563,12 +585,21 @@ async function dispatchEmail(
 
     case 'reminder':
       if (options?.reminderVariant === 'short') { // Same day / Arrival
-        headline = 'Table Ready';
-        intro = `We've prepped your table at ${venue.name}. Head to the host stand when you arrive.`;
+        headline = 'Table Ready 🍽️';
+        intro = `We've prepped your table at ${venue.name}. Please head to the host stand when you arrive.`;
         ctaLabel = 'I\'m Here';
       } else {
-        headline = 'Tomorrow\'s the day'; // 24h
-        intro = `Just a quick reminder about your reservation at ${venue.name} tomorrow.`;
+        // Rotating copy for 24h Reminders
+        if (copyVariant === 0) {
+          headline = 'Tomorrow\'s the day 🥂';
+          intro = `Just a quick reminder about your reservation at ${venue.name} tomorrow. We can't wait to host you!`;
+        } else if (copyVariant === 1) {
+          headline = 'Upcoming Reservation 📅';
+          intro = `Hi ${guestFirstName}, getting excited? Your table at ${venue.name} is ready for tomorrow.`;
+        } else {
+          headline = 'See you soon! 👋';
+          intro = `This is a quick confirmation that we're ready for your visit to ${venue.name} tomorrow.`;
+        }
         ctaLabel = 'Get Directions';
         ctaUrl = venue.googleMapUrl || manageUrl;
       }
