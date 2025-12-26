@@ -8,6 +8,7 @@ const RESTAURANT_BASE_COLUMNS = [
   'contact_phone',
   'address',
   'google_map_url',
+  'google_review_url',
   'booking_policy',
   'email_send_reminder_24h',
   'email_send_reminder_short',

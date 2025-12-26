@@ -8,16 +8,13 @@ import { type VenueDetails } from '@/lib/venue';
 import { sendEmail, type EmailAttachment } from '@/libs/resend';
 import {
   COLORS,
-  renderBadge,
   renderButton,
-  renderDivider,
   renderEmailBase,
-  renderKeyValueGrid,
-  renderQuickActions,
+  renderGridBox,
+  renderNote,
   escapeHtml,
   EMAIL_FONT_STACK,
-  type QuickAction,
-  type KeyValueItem,
+  type EmailAnnotation,
 } from '@/server/emails/base';
 import {
   ensureLogoColumnOnRow,
@@ -63,25 +60,6 @@ function parseTimestamp(value: string | null | undefined): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function titleize(value: string | null | undefined) {
-  if (!value) return '';
-  return value
-    .replace(/[_-]+/g, ' ')
-    .split(' ')
-    .filter(Boolean)
-    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-    .join(' ');
-}
-
-function formatBookingTypeLabel(value: string | null | undefined) {
-  return titleize(value) || 'Dining';
-}
-
-function formatSeatingLabel(value: string | null | undefined) {
-  if (!value || value === 'any') return 'Any available';
-  return titleize(value);
-}
-
 async function resolveVenueDetails(restaurantId: string | null | undefined): Promise<VenueDetails> {
   if (!restaurantId) {
     throw new Error('[emails][bookings] restaurantId is required');
@@ -121,6 +99,7 @@ async function resolveVenueDetails(restaurantId: string | null | undefined): Pro
   const restaurant = ensureLogoColumnOnRow(data);
   return {
     id: restaurant.id,
+    slug: restaurant.slug || '',
     name: restaurant.name || 'Restaurant',
     timezone: restaurant.timezone || 'Europe/London',
     address: restaurant.address || '',
@@ -129,72 +108,9 @@ async function resolveVenueDetails(restaurantId: string | null | undefined): Pro
     policy: restaurant.booking_policy || '',
     logoUrl: restaurant.logo_url || null,
     googleMapUrl: restaurant.google_map_url || null,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- google_review_url pending type regeneration
+    googleReviewUrl: (restaurant as any).google_review_url || null,
   };
-}
-
-type StatusPresentation = {
-  label: string;
-  badgeBg: string;
-  badgeText: string;
-  note: string;
-};
-
-const STATUS_PRESENTATION: Record<BookingRecord['status'], StatusPresentation> = {
-  confirmed: {
-    label: 'Confirmed',
-    badgeBg: COLORS.success.bg,
-    badgeText: COLORS.success.text,
-    note: 'Show this ticket on arrival and we will take care of the rest.',
-  },
-  pending: {
-    label: 'Awaiting confirmation',
-    badgeBg: '#fef9c3', // Yellow 100
-    badgeText: '#854d0e', // Yellow 800
-    note: 'We will follow up as soon as the restaurant confirms your table.',
-  },
-  pending_allocation: {
-    label: 'Allocation in progress',
-    badgeBg: '#fef9c3',
-    badgeText: '#854d0e',
-    note: "You're on the list and we are securing the best table for your party.",
-  },
-  checked_in: {
-    label: 'Checked in',
-    badgeBg: COLORS.success.bg,
-    badgeText: COLORS.success.text,
-    note: 'Thanks for arriving on time. We hope you enjoy your experience.',
-  },
-  cancelled: {
-    label: 'Cancelled',
-    badgeBg: '#fee2e2', // Red 100
-    badgeText: '#b91c1c', // Red 700
-    note: 'Keep this for your records. Let us know if you need to book again.',
-  },
-  completed: {
-    label: 'Completed',
-    badgeBg: '#dbeafe', // Blue 100
-    badgeText: '#1d4ed8', // Blue 700
-    note: 'Thanks for dining with us. We hope to welcome you back soon.',
-  },
-  no_show: {
-    label: 'No show',
-    badgeBg: '#fee2e2',
-    badgeText: '#b91c1c',
-    note: "We missed you this time. Reach out if you'd like to rebook.",
-  },
-  PRIORITY_WAITLIST: {
-    label: 'Priority Waitlist',
-    badgeBg: '#f3e8ff', // Purple 100
-    badgeText: '#6b21a8', // Purple 700
-    note: 'You are on the priority waitlist. We will notify you as soon as a table becomes available.',
-  },
-};
-
-function getStatusPresentation(status: BookingRecord['status'] | string): StatusPresentation {
-  return (
-    STATUS_PRESENTATION[(status as BookingRecord['status']) ?? 'confirmed'] ??
-    STATUS_PRESENTATION.confirmed
-  );
 }
 
 function buildManageUrl(booking: BookingRecord) {
@@ -259,24 +175,7 @@ function buildCalendarPayload(
   };
 }
 
-function buildGoogleCalendarUrl(booking: BookingRecord, venue: VenueDetails): string {
-  const startAt = parseTimestamp(booking.start_at);
-  const endAt = parseTimestamp(booking.end_at);
 
-  if (!startAt || !endAt) return '';
-
-  const formatGCalDate = (date: Date) => date.toISOString().replace(/-|:|\.\d\d\d/g, '');
-
-  const params = new URLSearchParams({
-    action: 'TEMPLATE',
-    text: `Reservation at ${venue.name}`,
-    dates: `${formatGCalDate(startAt)}/${formatGCalDate(endAt)}`,
-    details: `Reservation for ${booking.party_size} people.\nReference: ${booking.reference}\n\nManage booking: ${buildManageUrl(booking)}`,
-    location: venue.address,
-  });
-
-  return `https://www.google.com/calendar/render?${params.toString()}`;
-}
 
 type BookingSummary = {
   date: string;
@@ -301,35 +200,63 @@ function buildSummary(booking: BookingRecord, venue: VenueDetails): BookingSumma
   const endTime = endAt
     ? formatReservationTimeFromDate(endAt, { timezone })
     : formatReservationTime(normalizeTimeLoose(booking.end_time), { timezone });
-  const party = `${booking.party_size} ${booking.party_size === 1 ? 'guest' : 'guests'}`;
+  const party = `${booking.party_size} ${booking.party_size === 1 ? 'Person' : 'People'}`;
 
   return { date, startTime, endTime, party };
 }
 
-function renderBrandHeader(venue: VenueDetails) {
-  const safeName = escapeHtml(venue.name);
-  if (venue.logoUrl) {
-    const safeLogo = escapeHtml(venue.logoUrl);
-    return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-      <tr>
-        <td align="center" style="padding-bottom:12px;">
-          <img src="${safeLogo}" alt="${safeName} logo" width="80" style="max-width:80px;height:auto;border-radius:16px;" />
-        </td>
-      </tr>
-      <tr>
-        <td align="center" style="font-family:${EMAIL_FONT_STACK};font-size:14px;font-weight:600;color:${COLORS.text.main};">${safeName}</td>
-      </tr>
-    </table>`;
+
+// --- Template Logic ---
+
+type TemplateConfig = {
+  color: string;
+  bgColor: string;
+  icon: string; // SVG string
+};
+
+const ICONS = {
+  pending: `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
+  confirmed: `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>`,
+  info: `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>`,
+  arrival: `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>`,
+  review: `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>`,
+  cancel: `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>`,
+  error: `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>`,
+}
+
+function getDescription(
+  type: string,
+  isPending: boolean,
+  status: BookingRecord['status'],
+  reminderVariant?: 'short' | 'standard'
+): TemplateConfig {
+
+  // Logic to determine visual style
+  if (type === 'reminder') {
+    return reminderVariant === 'short'
+      ? { color: COLORS.arrival, bgColor: COLORS.arrivalBg, icon: ICONS.arrival }
+      : { color: COLORS.info, bgColor: COLORS.infoBg, icon: ICONS.info };
   }
 
-  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-    <tr>
-      <td align="center" style="padding-bottom:12px;">
-        <span style="display:inline-block;padding:8px 16px;border-radius:999px;background:${COLORS.background};color:${COLORS.primary};font-family:${EMAIL_FONT_STACK};font-weight:600;font-size:14px;">${safeName}</span>
-      </td>
-    </tr>
-  </table>`;
+  if (type === 'review_request') {
+    return { color: COLORS.review, bgColor: COLORS.reviewBg, icon: ICONS.review };
+  }
+
+  if (type === 'restaurant_cancellation' || type === 'booking_rejected') {
+    return { color: COLORS.error, bgColor: COLORS.errorBg, icon: ICONS.error };
+  }
+
+  if (status === 'cancelled' || status === 'no_show') {
+    return { color: COLORS.cancel, bgColor: COLORS.cancelBg, icon: ICONS.cancel };
+  }
+
+  if (isPending || status === 'pending_allocation') {
+    return { color: COLORS.pending, bgColor: COLORS.pendingBg, icon: ICONS.pending };
+  }
+
+  return { color: COLORS.success, bgColor: COLORS.successBg, icon: ICONS.confirmed };
 }
+
 
 export function renderHtml({
   booking,
@@ -339,6 +266,9 @@ export function renderHtml({
   intro,
   ctaLabel,
   ctaUrl,
+  iconOverwrite,
+  colorOverwrite,
+  emailType
 }: {
   booking: BookingRecord;
   venue: VenueDetails;
@@ -350,109 +280,140 @@ export function renderHtml({
   calendarActionUrl?: string;
   walletActionUrl?: string;
   calendarAttachmentName?: string;
+  iconOverwrite?: string;
+  colorOverwrite?: string;
+  emailType?: string;
 }) {
+  const isPending = booking.status === 'pending' || booking.status === 'pending_allocation';
+  const templateConfig = getDescription(emailType || 'created', isPending, booking.status);
+
+  const ui = {
+    color: colorOverwrite || templateConfig.color,
+    bg: templateConfig.bgColor,
+    icon: iconOverwrite || templateConfig.icon
+  };
+
   const manageUrl = buildManageUrl(booking);
-  const statusPresentation = getStatusPresentation(booking.status);
-  const bookingTypeLabel = formatBookingTypeLabel(booking.booking_type);
-  const seatingLabel = formatSeatingLabel(booking.seating_preference);
-  const timeRange = summary.endTime
-    ? `${summary.startTime} – ${summary.endTime}`
-    : summary.startTime;
-  const notes = booking.notes?.trim();
-  const preheader = `${summary.date} at ${summary.startTime} · ${venue.name}`;
 
-  // Quick Actions
-  const quickActions: QuickAction[] = [];
-
-  // 1. Add to Calendar (Google)
-  const googleCalendarUrl = buildGoogleCalendarUrl(booking, venue);
-  if (googleCalendarUrl && booking.status !== 'cancelled' && booking.status !== 'no_show') {
-    quickActions.push({
-      label: 'Calendar',
-      href: googleCalendarUrl,
-      icon: '📅',
-    });
-  }
-
-  // 2. Directions
-  if (venue.googleMapUrl) {
-    quickActions.push({
-      label: 'Directions',
-      href: venue.googleMapUrl,
-      icon: '📍',
-    });
-  }
-
-  // 3. Manage
-  quickActions.push({
-    label: 'Manage',
-    href: manageUrl,
-    icon: '⚙️',
-  });
-
-  // Key Value Grid
-  const gridItems: KeyValueItem[] = [
-    { label: 'Date', value: summary.date },
-    { label: 'Time', value: `${timeRange} (${venue.timezone})` },
-    { label: 'Guests', value: summary.party },
-    { label: 'Reference', value: booking.reference ?? booking.id.slice(0, 8).toUpperCase() },
-    { label: 'Seating', value: seatingLabel },
-    { label: 'Type', value: bookingTypeLabel },
-  ];
-
-  if (venue.phone) {
-    gridItems.push({
-      label: 'Phone',
-      value: venue.phone,
-      isLink: true,
-      href: `tel:${venue.phone}`,
-    });
-  }
-
-  const contentHtml = `
-    <div style="text-align:center;margin-bottom:32px;">
-      ${renderBadge(statusPresentation.label, statusPresentation.badgeText, statusPresentation.badgeBg)}
-      <h1 style="margin-top:16px;margin-bottom:12px;font-family:${EMAIL_FONT_STACK};font-size:24px;font-weight:700;color:${COLORS.text.main};line-height:1.3;">${escapeHtml(headline)}</h1>
-      <p style="font-family:${EMAIL_FONT_STACK};font-size:16px;color:${COLORS.text.secondary};line-height:1.6;margin:0;">${escapeHtml(intro)}</p>
-      ${statusPresentation.note ? `<p style="margin-top:12px;font-family:${EMAIL_FONT_STACK};font-size:14px;color:${COLORS.text.muted};line-height:1.5;">${escapeHtml(statusPresentation.note)}</p>` : ''}
-    </div>
-
-    ${ctaLabel && ctaUrl ? renderButton(ctaLabel, ctaUrl, { fullWidth: true }) : ''}
-
-    ${renderQuickActions(quickActions)}
-
-    ${renderDivider()}
-
-    <h3 style="margin-bottom:20px;font-family:${EMAIL_FONT_STACK};font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:${COLORS.text.muted};">Reservation Details</h3>
-    
-    ${renderKeyValueGrid(gridItems)}
-
-    ${
-      notes
-        ? `
-      ${renderDivider()}
-      <h3 style="margin-bottom:12px;font-family:${EMAIL_FONT_STACK};font-size:14px;font-weight:600;color:${COLORS.text.main};">Guest Notes</h3>
-      <div style="background:${COLORS.background};padding:16px;border-radius:12px;">
-        <p style="margin:0;font-family:${EMAIL_FONT_STACK};font-size:14px;color:${COLORS.text.secondary};line-height:1.6;">${escapeHtml(notes)}</p>
-      </div>
-    `
-        : ''
+  // Schema.org Annotation
+  const annotation: EmailAnnotation = {
+    actionName: ctaLabel,
+    actionUrl: ctaUrl || manageUrl,
+    reservation: {
+      confirmationNumber: booking.reference || booking.id,
+      status: booking.status === 'cancelled' ? 'ReservationCancelled' : (isPending ? 'ReservationPending' : 'ReservationConfirmed'),
+      startTime: parseTimestamp(booking.start_at)?.toISOString() || new Date().toISOString(),
+      partySize: booking.party_size,
+      venue: {
+        name: venue.name,
+        address: venue.address
+      }
     }
+  };
 
-    ${renderDivider()}
+  // Build table-based content HTML for email client compatibility
+  const contentHtml = `
+    <!-- Status Bar -->
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+      <tr>
+        <td style="height:6px;background-color:${ui.color};font-size:6px;line-height:6px;">&nbsp;</td>
+      </tr>
+    </table>
+    
+    <!-- Main Content -->
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+      <tr>
+        <td align="center" class="mobile-padding" style="padding:40px 40px 32px;">
+          
+          <!-- Logo -->
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+            <tr>
+              <td align="center" style="padding-bottom:24px;">
+                <a href="${bookingSiteUrl}" style="font-size:18px;font-weight:700;color:${COLORS.brand};text-decoration:none;letter-spacing:-0.02em;font-family:${EMAIL_FONT_STACK};">
+                  ${escapeHtml(venue.name)}
+                </a>
+              </td>
+            </tr>
+          </table>
 
-    <div style="text-align:center;">
-      <p style="margin:0 0 8px;font-family:${EMAIL_FONT_STACK};font-size:14px;font-weight:600;color:${COLORS.text.main};">${escapeHtml(venue.name)}</p>
-      <p style="margin:0 0 8px;font-family:${EMAIL_FONT_STACK};font-size:14px;color:${COLORS.text.secondary};">${escapeHtml(venue.address)}</p>
-      ${venue.policy ? `<p style="margin-top:16px;font-family:${EMAIL_FONT_STACK};font-size:12px;color:${COLORS.text.muted};line-height:1.5;">${escapeHtml(venue.policy)}</p>` : ''}
-    </div>
+          <!-- Hero Icon -->
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+            <tr>
+              <td align="center" style="padding-bottom:24px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td align="center" valign="middle" style="width:72px;height:72px;border-radius:50%;background-color:${ui.bg};">
+                      <div style="width:32px;height:32px;color:${ui.color};">
+                        ${ui.icon}
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+
+          <!-- Title -->
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+            <tr>
+              <td align="center" style="padding-bottom:16px;">
+                <h1 style="margin:0;color:${COLORS.brand};font-size:24px;font-weight:800;line-height:1.2;letter-spacing:-0.02em;font-family:${EMAIL_FONT_STACK};">${escapeHtml(headline)}</h1>
+              </td>
+            </tr>
+          </table>
+
+          <!-- Intro Text -->
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+            <tr>
+              <td align="center" style="padding-bottom:32px;">
+                <p style="margin:0;color:${COLORS.text};font-size:16px;line-height:1.6;font-family:${EMAIL_FONT_STACK};">${escapeHtml(intro)}</p>
+              </td>
+            </tr>
+          </table>
+
+          <!-- Data Grid -->
+          ${renderGridBox([
+    { label: 'Date', value: summary.date },
+    { label: 'Time', value: summary.startTime },
+    { label: 'Guests', value: summary.party },
+    { label: 'Reference', value: booking.reference ?? 'N/A' }
+  ])}
+
+          <!-- Notes -->
+          ${booking.notes ? renderNote('📝', booking.notes) : ''}
+
+          <!-- CTA Button -->
+          ${ctaLabel && ctaUrl ? `
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+            <tr>
+              <td align="center" style="padding-bottom:8px;">
+                ${renderButton(ctaLabel, ctaUrl)}
+              </td>
+            </tr>
+          </table>
+          ` : ''}
+
+          <!-- Venue Info -->
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+            <tr>
+              <td align="center" style="padding-top:24px;">
+                <p style="margin:0;font-size:14px;color:${COLORS.muted};font-family:${EMAIL_FONT_STACK};">${escapeHtml(venue.address)}</p>
+              </td>
+            </tr>
+          </table>
+
+        </td>
+      </tr>
+    </table>
   `;
 
   return renderEmailBase({
     title: headline,
-    preheader,
+    preheader: intro,
     contentHtml,
-    headerHtml: renderBrandHeader(venue),
+    annotation,
+    manageUrl,
+    helpUrl: `${bookingSiteUrl}/help`
   });
 }
 
@@ -462,64 +423,27 @@ function renderText(
   summary: BookingSummary,
   headline: string,
   intro: string,
-  options?: {
-    calendarActionUrl?: string;
-    walletActionUrl?: string;
-    calendarAttachmentName?: string;
-  },
+  manageUrl: string
 ) {
-  const manageUrl = buildManageUrl(booking);
-  const statusPresentation = getStatusPresentation(booking.status);
-  const bookingTypeLabel = formatBookingTypeLabel(booking.booking_type);
-  const seatingLabel = formatSeatingLabel(booking.seating_preference);
-  const timeRange = summary.endTime
-    ? `${summary.startTime} – ${summary.endTime}`
-    : summary.startTime;
-  const notes = booking.notes?.trim();
+  return `
+${headline.toUpperCase()}
+${'-'.repeat(headline.length)}
 
-  const lines = [
-    headline,
-    '',
-    intro,
-    '',
-    `Status: ${statusPresentation.label}`,
-    statusPresentation.note,
-    `Reference: ${booking.reference}`,
-    `When: ${summary.date} at ${timeRange} (${venue.timezone})`,
-    `Party: ${summary.party}`,
-    `Booking type: ${bookingTypeLabel}`,
-    `Seating: ${seatingLabel}`,
-    `Lead guest: ${booking.customer_name} (${booking.customer_phone})`,
-    '',
-    `Restaurant: ${venue.name}`,
-    `Address: ${venue.address}`,
-    venue.googleMapUrl ? `Google Maps: ${venue.googleMapUrl}` : null,
-    `Phone: ${venue.phone}`,
-    `Email: ${venue.email}`,
-    `Policy: ${venue.policy}`,
-  ];
+${intro}
 
-  const filteredLines = lines.filter((line): line is string => Boolean(line && line.length > 0));
+DETAILS:
+Date: ${summary.date}
+Time: ${summary.startTime}
+Guests: ${summary.party}
+Reference: ${booking.reference || booking.id}
 
-  if (notes) {
-    filteredLines.push('', `Guest notes: ${notes}`);
-  }
+VENUE:
+${venue.name}
+${venue.address}
+${venue.phone}
 
-  filteredLines.push('', `Manage this booking: ${manageUrl}`);
-
-  if (options?.calendarActionUrl) {
-    filteredLines.push('', `Add to calendar: ${options.calendarActionUrl}`);
-  }
-
-  if (options?.calendarAttachmentName) {
-    filteredLines.push(`Calendar file attached: ${options.calendarAttachmentName}`);
-  }
-
-  if (options?.walletActionUrl) {
-    filteredLines.push('', `Add to wallet/share: ${options.walletActionUrl}`);
-  }
-
-  return filteredLines.join('\n');
+Manage your booking: ${manageUrl}
+  `.trim();
 }
 
 type BookingEmailType =
@@ -567,6 +491,14 @@ async function dispatchEmail(
     });
   }
 
+
+
+  // Restaurant-specific booking URL (for "Book Again" etc)
+  const restaurantBookingUrl = venue.slug
+    ? `${bookingSiteUrl}/restaurants/${venue.slug}/book`
+    : bookingSiteUrl;
+
+  // Initialize email content variables
   let headline = '';
   let intro = '';
   let ctaLabel = 'Manage Booking';
@@ -576,63 +508,82 @@ async function dispatchEmail(
   switch (type) {
     case 'created':
       if (isPending) {
-        headline = 'Reservation Received';
-        intro = `Hi ${guestFirstName}, we've received your request for ${venue.name}. We'll notify you as soon as the restaurant confirms your table.`;
+        headline = 'Request Received';
+        intro = `We've received your request for ${venue.name}. We are checking availability right now.`;
+        ctaLabel = 'Check Status';
       } else {
-        headline = 'Reservation Confirmed';
-        intro = `Hi ${guestFirstName}, your table at ${venue.name} is confirmed. We look forward to seeing you!`;
+        headline = 'Booking Confirmed';
+        intro = `Great news, ${guestFirstName}. Your table at ${venue.name} is secured. We've added this to your upcoming bookings.`;
+        ctaLabel = 'Manage Booking';
       }
       break;
+
     case 'updated':
-      headline = 'Reservation Updated';
-      intro = `Hi ${guestFirstName}, your reservation details for ${venue.name} have been updated.`;
+      headline = 'Booking Updated';
+      intro = `${guestFirstName}, we've updated your reservation at ${venue.name}. Here are your new details.`;
+      ctaLabel = 'Review Changes';
       break;
+
     case 'cancelled':
-      headline = 'Reservation Cancelled';
-      intro = `Hi ${guestFirstName}, your reservation at ${venue.name} has been cancelled as requested.`;
+      headline = 'Booking Cancelled';
+      intro = `As requested, we have cancelled your reservation at ${venue.name}. We hope to welcome you another time.`;
       ctaLabel = 'Book Again';
-      ctaUrl = bookingSiteUrl;
+      ctaUrl = restaurantBookingUrl;
       break;
+
     case 'modification_pending':
-      headline = 'Change Request Received';
-      intro = `Hi ${guestFirstName}, we've received your request to change your reservation at ${venue.name}. We'll confirm shortly.`;
+      headline = 'Change Requested';
+      intro = `We're reviewing your requested changes at ${venue.name}. We'll confirm everything shortly.`;
+      ctaLabel = 'View Request';
       break;
+
     case 'modification_confirmed':
-      headline = 'Change Confirmed';
-      intro = `Hi ${guestFirstName}, your reservation change at ${venue.name} has been confirmed.`;
+      headline = 'Changes Confirmed';
+      intro = `Your updated reservation at ${venue.name} is all set! Here are your new details.`;
+      ctaLabel = 'View Booking';
       break;
+
     case 'booking_rejected':
-      headline = 'Reservation Declined';
-      intro = `Hi ${guestFirstName}, unfortunately ${venue.name} could not accommodate your request at this time.`;
-      ctaLabel = 'Find Another Table';
-      ctaUrl = bookingSiteUrl;
+      headline = 'Unavailable';
+      intro = `Unfortunately, ${venue.name} is fully booked for your requested time. Try a different date or time?`;
+      ctaLabel = 'Try Another Time';
+      ctaUrl = restaurantBookingUrl;
       break;
+
     case 'restaurant_cancellation':
-      headline = 'Reservation Cancelled by Restaurant';
-      intro = `Hi ${guestFirstName}, we're sorry but ${venue.name} had to cancel your reservation.`;
-      ctaLabel = 'Find Another Table';
-      ctaUrl = bookingSiteUrl;
+      headline = 'Booking Cancelled';
+      intro = `We sincerely apologize. ${venue.name} had to cancel your reservation due to unforeseen circumstances.`;
+      ctaLabel = 'Rebook Now';
+      ctaUrl = restaurantBookingUrl;
       break;
+
     case 'review_request':
-      headline = 'How was your meal?';
-      intro = `Hi ${guestFirstName}, we hope you enjoyed your experience at ${venue.name}. We'd love to hear your feedback.`;
+      headline = 'How was dinner?';
+      intro = `We hope you enjoyed ${venue.name}. Would you mind taking 10 seconds to rate your experience?`;
       ctaLabel = 'Leave a Review';
-      ctaUrl = `${bookingSiteUrl}/reviews/${booking.id}`;
+      // Prioritize dedicated review URL, then Google Maps, then fallback
+      ctaUrl = venue.googleReviewUrl || venue.googleMapUrl || `${bookingSiteUrl}/reviews/${booking.id}`;
       break;
+
     case 'reminder':
-      headline = 'Reservation Reminder';
-      if (options?.reminderVariant === 'short') {
-        intro = `Hi ${guestFirstName}, your table at ${venue.name} is ready for you soon. See you there!`;
+      if (options?.reminderVariant === 'short') { // Same day / Arrival
+        headline = 'Table Ready';
+        intro = `We've prepped your table at ${venue.name}. Head to the host stand when you arrive.`;
+        ctaLabel = 'I\'m Here';
       } else {
-        intro = `Hi ${guestFirstName}, this is a reminder about your upcoming reservation at ${venue.name}. We look forward to welcoming you.`;
+        headline = 'Tomorrow\'s the day'; // 24h
+        intro = `Just a quick reminder about your reservation at ${venue.name} tomorrow.`;
+        ctaLabel = 'Get Directions';
+        ctaUrl = venue.googleMapUrl || manageUrl;
       }
       break;
+
     case 'pending_attention':
-      headline = 'Action Required: Booking Pending';
-      intro = `A booking at ${venue.name} requires attention. Reason: ${options?.reason ?? 'Manual assignment needed'}.`;
-      ctaLabel = 'View in Dashboard';
+      headline = 'Action Required';
+      intro = `A booking at ${venue.name} requires immediate attention. Reason: ${options?.reason ?? 'Manual assignment needed'}.`;
+      ctaLabel = 'Review Now';
       ctaUrl = `${bookingSiteUrl}/dashboard/bookings/${booking.id}`;
-      toEmail = venue.email || config.email.supportEmail || ''; // Send to restaurant
+      toEmail = venue.email || config.email.supportEmail || '';
       break;
   }
 
@@ -645,11 +596,10 @@ async function dispatchEmail(
     ctaLabel,
     ctaUrl,
     calendarAttachmentName,
+    emailType: type === 'reminder' ? (options?.reminderVariant === 'short' ? 'arrival' : 'reminder') : type,
   });
 
-  const text = renderText(booking, venue, summary, headline, intro, {
-    calendarAttachmentName,
-  });
+  const text = renderText(booking, venue, summary, headline, intro, manageUrl);
 
   if (!toEmail) {
     console.warn(
