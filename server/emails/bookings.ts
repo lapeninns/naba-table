@@ -518,11 +518,7 @@ async function dispatchEmail(
       }
       break;
 
-    case 'updated':
-      headline = 'Booking Updated';
-      intro = `${guestFirstName}, we've updated your reservation at ${venue.name}. Here are your new details.`;
-      ctaLabel = 'Review Changes';
-      break;
+    case 'updated':  // Fallthrough - 'updated' uses same template as 'modification_confirmed'
 
     case 'cancelled':
       headline = 'Booking Cancelled';
@@ -620,7 +616,8 @@ async function dispatchEmail(
 
 export const sendBookingConfirmationEmail = (booking: BookingRecord) =>
   dispatchEmail('created', booking);
-export const sendBookingUpdateEmail = (booking: BookingRecord) => dispatchEmail('updated', booking);
+export const sendBookingUpdateEmail = (booking: BookingRecord) =>
+  dispatchEmail('modification_confirmed', booking);
 export const sendBookingCancellationEmail = (booking: BookingRecord) =>
   dispatchEmail('cancelled', booking);
 export const sendBookingModificationPendingEmail = (booking: BookingRecord) =>
