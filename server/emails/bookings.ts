@@ -110,6 +110,43 @@ async function resolveVenueDetails(restaurantId: string | null | undefined): Pro
     googleMapUrl: restaurant.google_map_url || null,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- google_review_url pending type regeneration
     googleReviewUrl: (restaurant as any).google_review_url || null,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- email_templates pending type regeneration
+    emailTemplates: (restaurant as any).email_templates || null,
+  };
+}
+
+function resolveTemplate(
+  baseHeadline: string,
+  baseIntro: string,
+  ctx: {
+    type: string;
+    venue: VenueDetails;
+    guestName: string;
+    booking: BookingRecord;
+    summary: BookingSummary;
+  }
+) {
+  const custom = ctx.venue.emailTemplates?.[ctx.type];
+  if (!custom) {
+    return { headline: baseHeadline, intro: baseIntro };
+  }
+
+  const vars: Record<string, string> = {
+    '{{name}}': ctx.guestName,
+    '{{firstName}}': ctx.guestName,
+    '{{venue}}': ctx.venue.name,
+    '{{date}}': ctx.summary.date,
+    '{{time}}': ctx.summary.startTime,
+    '{{party}}': String(ctx.booking.party_size),
+  };
+
+  const traverse = (text: string) => {
+    return text.replace(/\{\{([\w]+)\}\}/g, (_, key) => vars[key] || '');
+  };
+
+  return {
+    headline: custom.headline ? traverse(custom.headline) : baseHeadline,
+    intro: custom.intro ? traverse(custom.intro) : baseIntro,
   };
 }
 
@@ -503,8 +540,8 @@ async function dispatchEmail(
     : bookingSiteUrl;
 
   // Initialize email content variables
-  let headline = '';
-  let intro = '';
+  let baseHeadline = '';
+  let baseIntro = '';
   let ctaLabel = 'Manage Booking';
   let ctaUrl = manageUrl;
   let toEmail = booking.customer_email;
@@ -512,20 +549,20 @@ async function dispatchEmail(
   switch (type) {
     case 'created':
       if (isPending) {
-        headline = 'Request Received 🤞';
-        intro = `We've received your request for ${venue.name}. Hang tight while we check availability!`;
+        baseHeadline = 'Request Received 🤞';
+        baseIntro = `We've received your request for ${venue.name}. Hang tight while we check availability!`;
         ctaLabel = 'Check Status';
       } else {
         // Rotating copy for Confirmations
         if (copyVariant === 0) {
-          headline = 'Booking Confirmed 🎉';
-          intro = `Great news, ${guestFirstName}! Your table at ${venue.name} is secured. We've added this to your upcoming bookings.`;
+          baseHeadline = 'Booking Confirmed 🎉';
+          baseIntro = `Great news, ${guestFirstName}! Your table at ${venue.name} is secured. We've added this to your upcoming bookings.`;
         } else if (copyVariant === 1) {
-          headline = 'You\'re In! 🥂';
-          intro = `${guestFirstName}, your reservation at ${venue.name} is confirmed. We can't wait to host you!`;
+          baseHeadline = 'You\'re In! 🥂';
+          baseIntro = `${guestFirstName}, your reservation at ${venue.name} is confirmed. We can't wait to host you!`;
         } else {
-          headline = 'Table Secured 🍽️';
-          intro = `All set, ${guestFirstName}. We've reserved a spot for you at ${venue.name}. See you soon!`;
+          baseHeadline = 'Table Secured 🍽️';
+          baseIntro = `All set, ${guestFirstName}. We've reserved a spot for you at ${venue.name}. See you soon!`;
         }
         ctaLabel = 'Manage Booking';
       }
@@ -534,34 +571,34 @@ async function dispatchEmail(
     case 'updated':  // Fallthrough - 'updated' uses same template as 'modification_confirmed'
 
     case 'cancelled':
-      headline = 'Booking Cancelled 😔';
-      intro = `As requested, we have cancelled your reservation at ${venue.name}. We hope to welcome you another time. 👋`;
+      baseHeadline = 'Booking Cancelled 😔';
+      baseIntro = `As requested, we have cancelled your reservation at ${venue.name}. We hope to welcome you another time. 👋`;
       ctaLabel = 'Book Again';
       ctaUrl = restaurantBookingUrl;
       break;
 
     case 'modification_pending':
-      headline = 'Change Requested 📝';
-      intro = `We're reviewing your requested changes at ${venue.name}. We'll get back to you and confirm shortly.`;
+      baseHeadline = 'Change Requested 📝';
+      baseIntro = `We're reviewing your requested changes at ${venue.name}. We'll get back to you and confirm shortly.`;
       ctaLabel = 'View Request';
       break;
 
     case 'modification_confirmed':
-      headline = 'Changes Confirmed ✅';
-      intro = `Your updated reservation at ${venue.name} is all set! Here are the new details.`;
+      baseHeadline = 'Changes Confirmed ✅';
+      baseIntro = `Your updated reservation at ${venue.name} is all set! Here are the new details.`;
       ctaLabel = 'View Booking';
       break;
 
     case 'booking_rejected':
-      headline = 'Unavailable 🚫';
-      intro = `We're sorry, ${venue.name} is fully booked for your requested time. Maybe try a different date or time? ⏰`;
+      baseHeadline = 'Unavailable 🚫';
+      baseIntro = `We're sorry, ${venue.name} is fully booked for your requested time. Maybe try a different date or time? ⏰`;
       ctaLabel = 'Try Another Time';
       ctaUrl = restaurantBookingUrl;
       break;
 
     case 'restaurant_cancellation':
-      headline = 'Booking Cancelled 😔';
-      intro = `We sincerely apologize. ${venue.name} had to cancel your reservation due to unforeseen circumstances.`;
+      baseHeadline = 'Booking Cancelled 😔';
+      baseIntro = `We sincerely apologize. ${venue.name} had to cancel your reservation due to unforeseen circumstances.`;
       ctaLabel = 'Rebook Now';
       ctaUrl = restaurantBookingUrl;
       break;
@@ -569,14 +606,14 @@ async function dispatchEmail(
     case 'review_request':
       // Rotating copy for Reviews
       if (copyVariant === 0) {
-        headline = 'How was meal? ⭐';
-        intro = `We hope you enjoyed ${venue.name}! Would you mind taking 10 seconds to rate your experience? ❤️`;
+        baseHeadline = 'How was dinner? ⭐';
+        baseIntro = `We hope you enjoyed ${venue.name}! Would you mind taking 10 seconds to rate your experience? ❤️`;
       } else if (copyVariant === 1) {
-        headline = 'Rate your experience 📝';
-        intro = `Hi ${guestFirstName}, thanks for dining with us at ${venue.name}! How did we do?`;
+        baseHeadline = 'Rate your experience 📝';
+        baseIntro = `Hi ${guestFirstName}, thanks for dining with us at ${venue.name}! How did we do?`;
       } else {
-        headline = 'We\'d love your feedback 💬';
-        intro = `It was a pleasure hosting you at ${venue.name}. Would you share your thoughts with us?`;
+        baseHeadline = 'We\'d love your feedback 💬';
+        baseIntro = `It was a pleasure hosting you at ${venue.name}. Would you share your thoughts with us?`;
       }
       ctaLabel = 'Leave a Review';
       // Prioritize dedicated review URL, then Google Maps, then fallback
@@ -585,20 +622,20 @@ async function dispatchEmail(
 
     case 'reminder':
       if (options?.reminderVariant === 'short') { // Same day / Arrival
-        headline = 'Table Ready 🍽️';
-        intro = `We've prepped your table at ${venue.name}. Please head to the host stand when you arrive.`;
+        baseHeadline = 'Table Ready 🍽️';
+        baseIntro = `We've prepped your table at ${venue.name}. Please head to the host stand when you arrive.`;
         ctaLabel = 'I\'m Here';
       } else {
         // Rotating copy for 24h Reminders
         if (copyVariant === 0) {
-          headline = 'Tomorrow\'s the day 🥂';
-          intro = `Just a quick reminder about your reservation at ${venue.name} tomorrow. We can't wait to host you!`;
+          baseHeadline = 'Tomorrow\'s the day 🥂';
+          baseIntro = `Just a quick reminder about your reservation at ${venue.name} tomorrow. We can't wait to host you!`;
         } else if (copyVariant === 1) {
-          headline = 'Upcoming Reservation 📅';
-          intro = `Hi ${guestFirstName}, getting excited? Your table at ${venue.name} is ready for tomorrow.`;
+          baseHeadline = 'Upcoming Reservation 📅';
+          baseIntro = `Hi ${guestFirstName}, getting excited? Your table at ${venue.name} is ready for tomorrow.`;
         } else {
-          headline = 'See you soon! 👋';
-          intro = `This is a quick confirmation that we're ready for your visit to ${venue.name} tomorrow.`;
+          baseHeadline = 'See you soon! 👋';
+          baseIntro = `This is a quick confirmation that we're ready for your visit to ${venue.name} tomorrow.`;
         }
         ctaLabel = 'Get Directions';
         ctaUrl = venue.googleMapUrl || manageUrl;
@@ -606,13 +643,22 @@ async function dispatchEmail(
       break;
 
     case 'pending_attention':
-      headline = 'Action Required';
-      intro = `A booking at ${venue.name} requires immediate attention. Reason: ${options?.reason ?? 'Manual assignment needed'}.`;
+      baseHeadline = 'Action Required';
+      baseIntro = `A booking at ${venue.name} requires immediate attention. Reason: ${options?.reason ?? 'Manual assignment needed'}.`;
       ctaLabel = 'Review Now';
       ctaUrl = `${bookingSiteUrl}/dashboard/bookings/${booking.id}`;
       toEmail = venue.email || config.email.supportEmail || '';
       break;
   }
+
+  // Apply custom template if exists
+  const { headline, intro } = resolveTemplate(baseHeadline, baseIntro, {
+    type: type === 'reminder' ? (options?.reminderVariant === 'short' ? 'reminder_short' : 'reminder') : type,
+    venue,
+    guestName: guestFirstName,
+    booking,
+    summary,
+  });
 
   const html = renderHtml({
     booking,
