@@ -5,6 +5,7 @@ import { getServiceSupabaseClient } from '@/server/supabase';
 
 import { updateRestaurant } from './update';
 
+import type { UpdateRestaurantInput } from './update';
 import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -165,13 +166,19 @@ export async function updateRestaurantDetails(
   };
 
   const validated = validateDetailsInput(merged);
-  const payload = { ...validated };
-  if (validated.googleMapUrl === null) {
-    delete payload.googleMapUrl;
-  }
-  if (validated.googleReviewUrl === null) {
-    delete payload.googleReviewUrl;
-  }
+  const payload: UpdateRestaurantInput = {
+    name: validated.name,
+    slug: validated.slug,
+    timezone: validated.timezone,
+    capacity: validated.capacity,
+    contactEmail: validated.contactEmail,
+    contactPhone: validated.contactPhone,
+    address: validated.address,
+    bookingPolicy: validated.bookingPolicy,
+    logoUrl: validated.logoUrl,
+    ...(validated.googleMapUrl !== null ? { googleMapUrl: validated.googleMapUrl } : {}),
+    ...(validated.googleReviewUrl !== null ? { googleReviewUrl: validated.googleReviewUrl } : {}),
+  };
   const updated = await updateRestaurant(restaurantId, payload, client);
 
   return {

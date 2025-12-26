@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2025-12-26T15:41:50Z
+Last updated: 2025-12-26T15:45:03Z
 
 ## Goal (incl. success criteria)
 
@@ -28,6 +28,7 @@ Last updated: 2025-12-26T15:41:50Z
 - Implemented googleReviewUrl wiring across schema, services, server handlers, and profile UI.
 - Fixed ESLint warnings by removing unused catch bindings in ops restaurant routes.
 - Added googleReviewUrl field to create restaurant payload to satisfy new type requirement.
+- Replaced delete-based payload pruning with conditional spreads to satisfy TS in `server/restaurants/details.ts`.
 
 ## Now
 
