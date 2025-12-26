@@ -107,6 +107,20 @@ export async function enqueueEmailJob(payload: EmailJobPayload, options: Enqueue
       restaurantId: payload.restaurantId ?? undefined,
       bookingId: payload.bookingId,
     });
-    throw error;
   }
+}
+
+export async function removeEmailJob(jobId: string): Promise<boolean> {
+  const queue = getEmailQueue();
+  const job = await queue.getJob(jobId);
+  if (job) {
+    try {
+      await job.remove();
+      return true;
+    } catch (error) {
+      console.warn(`[queue] failed to remove job ${jobId}`, error);
+      return false;
+    }
+  }
+  return false;
 }

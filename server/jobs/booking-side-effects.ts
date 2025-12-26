@@ -15,7 +15,7 @@ import {
   isAutoAssignOnBookingEnabled,
   isEmailQueueEnabled,
 } from "@/server/feature-flags";
-import { enqueueEmailJob } from "@/server/queue/email";
+import { enqueueEmailJob, removeEmailJob } from "@/server/queue/email";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
 
@@ -574,6 +574,9 @@ async function processBookingUpdatedSideEffects(
             delayMs: 0,
           },
         );
+        // Try to cancel any pending "request received" email to avoid confusion/spam
+        // If it was scheduled with a delay, and we confirm before that delay, we should axe it.
+        await removeEmailJob(`request_received:${current.id}`);
       } catch (error) {
         console.error("[jobs][booking.updated][queue-confirmation]", error);
         try {
