@@ -62,6 +62,13 @@ export const createRestaurantSchema = z.object({
     .nullable()
     .optional()
     .transform((val) => val || null),
+  googleReviewUrl: z
+    .string()
+    .trim()
+    .url('Google review link must be a valid URL')
+    .nullable()
+    .optional()
+    .transform((val) => val || null),
   bookingPolicy: z
     .string()
     .trim()
@@ -116,6 +123,13 @@ export const updateRestaurantSchema = z.object({
     .nullable()
     .optional()
     .transform((val) => val || null),
+  googleReviewUrl: z
+    .string()
+    .trim()
+    .url('Google review link must be a valid URL')
+    .nullable()
+    .optional()
+    .transform((val) => val || null),
   bookingPolicy: z
     .string()
     .trim()
@@ -143,6 +157,7 @@ export type RestaurantDTO = {
   contactPhone: string | null;
   address: string | null;
   googleMapUrl: string | null;
+  googleReviewUrl: string | null;
   bookingPolicy: string | null;
   logoUrl: string | null;
   emailSendReminder24h: boolean;

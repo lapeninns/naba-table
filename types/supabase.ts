@@ -1509,6 +1509,7 @@ export type Database = {
           contact_phone: string | null
           created_at: string
           google_map_url: string | null
+          google_review_url: string | null
           email_send_reminder_24h: boolean
           email_send_reminder_short: boolean
           email_send_review_request: boolean
@@ -1531,6 +1532,7 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           google_map_url?: string | null
+          google_review_url?: string | null
           email_send_reminder_24h?: boolean
           email_send_reminder_short?: boolean
           email_send_review_request?: boolean
@@ -1553,6 +1555,7 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           google_map_url?: string | null
+          google_review_url?: string | null
           email_send_reminder_24h?: boolean
           email_send_reminder_short?: boolean
           email_send_review_request?: boolean

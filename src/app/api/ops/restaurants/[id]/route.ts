@@ -109,6 +109,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
       contactPhone: restaurantRow.contact_phone,
       address: restaurantRow.address,
       googleMapUrl: restaurantRow.google_map_url,
+      googleReviewUrl: restaurantRow.google_review_url,
       bookingPolicy: restaurantRow.booking_policy,
       logoUrl: restaurantRow.logo_url,
       emailSendReminder24h: restaurantRow.email_send_reminder_24h ?? true,
@@ -170,7 +171,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
   let body: unknown;
   try {
     body = await req.json();
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
@@ -194,6 +195,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
         contactPhone: input.contactPhone,
         address: input.address,
         googleMapUrl: input.googleMapUrl,
+        googleReviewUrl: input.googleReviewUrl,
         bookingPolicy: input.bookingPolicy,
         logoUrl: input.logoUrl,
         reservationIntervalMinutes: input.reservationIntervalMinutes,
@@ -217,6 +219,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
         contactPhone: restaurant.contactPhone,
         address: restaurant.address,
         googleMapUrl: restaurant.googleMapUrl,
+        googleReviewUrl: restaurant.googleReviewUrl,
         bookingPolicy: restaurant.bookingPolicy,
         logoUrl: restaurant.logoUrl,
         emailSendReminder24h: restaurant.emailSendReminder24h,

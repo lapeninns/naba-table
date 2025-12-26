@@ -115,8 +115,7 @@ export async function updateRestaurant(
 
   if (input.googleReviewUrl !== undefined) {
     const trimmed = input.googleReviewUrl?.trim();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- google_review_url pending type regeneration
-    (updateData as any).google_review_url = trimmed && trimmed.length > 0 ? trimmed : null;
+    updateData.google_review_url = trimmed && trimmed.length > 0 ? trimmed : null;
   }
 
   if (input.bookingPolicy !== undefined) {
@@ -201,8 +200,7 @@ export async function updateRestaurant(
     contactPhone: data.contact_phone,
     address: data.address,
     googleMapUrl: data.google_map_url,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- google_review_url pending type regeneration
-    googleReviewUrl: (data as any).google_review_url ?? null,
+    googleReviewUrl: data.google_review_url ?? null,
     bookingPolicy: data.booking_policy,
     logoUrl: data.logo_url,
     emailSendReminder24h: data.email_send_reminder_24h ?? true,
