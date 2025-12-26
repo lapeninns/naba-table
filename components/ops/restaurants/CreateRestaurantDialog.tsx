@@ -184,6 +184,7 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
       contactPhone: formData.contactPhone.trim() || null,
       address: formData.address.trim() || null,
       googleMapUrl: formData.googleMapUrl.trim() || null,
+      googleReviewUrl: null,
       bookingPolicy: formData.bookingPolicy.trim() || null,
       logoUrl: null,
     };
