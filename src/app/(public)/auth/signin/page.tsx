@@ -1,4 +1,5 @@
-import { AlertCircle, LogIn } from 'lucide-react';
+import { AlertCircle, Sparkles, ChevronLeft } from 'lucide-react';
+import { headers } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
@@ -25,6 +26,16 @@ type SignInPageProps = {
 };
 
 const ALLOWED_REDIRECT_PREFIXES = ['/guest', '/bookings', '/restaurants', '/app'] as const;
+const OPS_REDIRECT_PREFIXES = [
+  '/app',
+  '/dashboard',
+  '/bookings',
+  '/customers',
+  '/seating',
+  '/settings',
+  '/management',
+  '/new-bookings',
+] as const;
 
 function resolveRedirectTarget(raw: string | string[] | undefined): string | undefined {
   const candidate = Array.isArray(raw) ? raw[0] : raw;
@@ -40,10 +51,65 @@ function resolveRedirectTarget(raw: string | string[] | undefined): string | und
   return isAllowed ? candidate : undefined;
 }
 
+function resolveOpsRedirectTarget(raw: string | string[] | undefined): string | undefined {
+  const candidate = Array.isArray(raw) ? raw[0] : raw;
+  if (typeof candidate !== 'string' || !candidate.startsWith('/') || candidate.startsWith('//')) return undefined;
+
+  const parsed = new URL(candidate, 'https://sajiloreservex.local');
+  const pathname = parsed.pathname;
+
+  const isAllowed = OPS_REDIRECT_PREFIXES.some((prefix) =>
+    pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+
+  return isAllowed ? candidate : undefined;
+}
+
+function isOpsRedirectTarget(target: string | undefined): boolean {
+  if (!target) return false;
+  return OPS_REDIRECT_PREFIXES.some((prefix) => target === prefix || target.startsWith(`${prefix}/`));
+}
+
+function isAppHost(hostname: string, rootDomain: string): boolean {
+  if (!hostname) return false;
+  const normalizedHost = hostname.toLowerCase();
+  const normalizedRoot = rootDomain.toLowerCase().replace(/^www\./, '');
+  if (normalizedRoot === 'localhost') {
+    return normalizedHost.startsWith('app.localhost');
+  }
+  return normalizedHost === `app.${normalizedRoot}`;
+}
+
 export default async function SignInPage({ searchParams }: SignInPageProps) {
   await ensureCsrfCookie();
+  const headersList = await headers();
+  const hostHeader = headersList.get('host') ?? '';
+  const hostname = hostHeader.replace(/:\d+$/, '');
+  const hostPort = hostHeader.includes(':') ? hostHeader.split(':').pop() : undefined;
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost';
   const resolvedParams = await searchParams;
   const redirectedFromParam = resolveRedirectTarget(resolvedParams?.redirectedFrom);
+  const opsRedirectedFromParam = resolveOpsRedirectTarget(resolvedParams?.redirectedFrom);
+
+  if (!isAppHost(hostname, rootDomain) && isOpsRedirectTarget(opsRedirectedFromParam)) {
+    const appHost = rootDomain === 'localhost'
+      ? `app.localhost${hostPort ? `:${hostPort}` : ''}`
+      : `app.${rootDomain.toLowerCase().replace(/^www\./, '')}`;
+    const targetUrl = new URL('/auth/signin', `http://${appHost}`);
+    if (rootDomain !== 'localhost') {
+      targetUrl.protocol = 'https:';
+    }
+    if (opsRedirectedFromParam) {
+      targetUrl.searchParams.set('redirectedFrom', opsRedirectedFromParam);
+    }
+    if (resolvedParams?.error) {
+      targetUrl.searchParams.set('error', resolvedParams.error);
+    }
+    if (resolvedParams?.message) {
+      targetUrl.searchParams.set('message', resolvedParams.message);
+    }
+    redirect(targetUrl.toString());
+  }
 
   // Extract error info from URL params
   const errorType = resolvedParams?.error;
@@ -111,4 +177,3 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
     </div>
   );
 }
-

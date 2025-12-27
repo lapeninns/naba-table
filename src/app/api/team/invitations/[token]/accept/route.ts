@@ -14,7 +14,7 @@ import type { Database } from "@/types/supabase";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { NextRequest} from "next/server";
 
-type SupabaseAdminClient = SupabaseClient<Database, "public", any>;
+type SupabaseAdminClient = SupabaseClient<Database>;
 
 const LIST_USERS_PAGE_LIMIT = 100;
 

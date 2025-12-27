@@ -22,7 +22,7 @@ import { OnboardingProvider, useOnboarding } from './context/OnboardingContext';
 import { OnboardingNavigation } from './ui/OnboardingNavigation';
 import { OnboardingShell } from './ui/OnboardingShell';
 
-import type { OnboardingState, OnboardingStep, OperatingHour, TableInventoryItem, Zone } from './types';
+import type { OnboardingState, OnboardingStep, OperatingHour, Zone } from './types';
 
 const steps = [
   { id: 1 as OnboardingStep, title: 'Account', description: 'Create your owner login' },
@@ -49,7 +49,7 @@ const profileSchema = z.object({
   name: z.string().trim().min(1, 'Restaurant name is required'),
   slug: z.string().trim().min(1, 'Slug is required'),
   timezone: z.string().trim().min(1, 'Timezone is required'),
-  contactEmail: z.string().email().optional().or(z.literal('')).transform((v) => v || undefined),
+  contactEmail: z.union([z.string().email(), z.literal('')]).optional(),
   contactPhone: z.string().optional(),
   bookingPolicy: z.string().optional(),
 });
@@ -58,7 +58,7 @@ const DEFAULT_BOOKING_OPTIONS = ['lunch', 'dinner', 'drinks', 'tasting'];
 
 const servicePeriodSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  dayOfWeek: z.union([z.number().int().min(0).max(6), z.null()]).default(null),
+  dayOfWeek: z.number().int().min(0).max(6).nullable(),
   startTime: z.string().min(1, 'Start time required'),
   endTime: z.string().min(1, 'End time required'),
   bookingOption: z.string().min(1, 'Select a booking option'),
@@ -71,8 +71,14 @@ const servicePeriodsFormSchema = z.object({
 const tableSchema = z.object({
   tableNumber: z.string().trim().min(1, 'Table number required'),
   capacity: z.coerce.number().int().min(1, 'Capacity required'),
-  zoneId: z.string().uuid().optional().or(z.literal('')).transform((value) => (value ? value : undefined)),
+  zoneId: z.string().nullish(),
 });
+
+const tablesFormSchema = z.object({
+  tables: z.array(tableSchema),
+});
+
+type TablesFormValues = z.input<typeof tablesFormSchema>;
 
 const timeInputPlaceholder = 'e.g. 17:00';
 
@@ -463,7 +469,7 @@ function ServicePeriodsStep({ onComplete }: { onComplete: () => void }) {
             <h3 className="text-lg font-semibold">Service windows</h3>
             <p className="text-sm text-muted-foreground">Add lunch, dinner, or custom services.</p>
           </div>
-        <Button type="button" variant="outline" onClick={addPeriod}>
+          <Button type="button" variant="outline" onClick={addPeriod}>
             <Plus className="h-4 w-4" />
             Add period
           </Button>
@@ -594,10 +600,10 @@ function ServicePeriodsStep({ onComplete }: { onComplete: () => void }) {
 function TablesStep({ onComplete }: { onComplete: () => void }) {
   const { state, setZones, setTables, setStep, setError, setLoading } = useOnboarding();
   const [zones, updateZones] = useState<Zone[]>(state.zones.length ? state.zones : [{ name: 'Main Dining', areaType: 'indoor' }]);
-  const tablesForm = useForm<{ tables: TableInventoryItem[] }>({
-    resolver: zodResolver(z.object({ tables: z.array(tableSchema) })),
+  const tablesForm = useForm<TablesFormValues>({
+    resolver: zodResolver(tablesFormSchema),
     defaultValues: {
-      tables: state.tables.length ? state.tables : [{ tableNumber: 'T1', capacity: 2 } as TableInventoryItem],
+      tables: state.tables.length ? state.tables : [{ tableNumber: 'T1', capacity: 2 }],
     },
   });
   const { fields, append, remove } = useFieldArray({ control: tablesForm.control, name: 'tables' });
@@ -625,9 +631,9 @@ function TablesStep({ onComplete }: { onComplete: () => void }) {
       );
       setZones(zoneResponse.zones);
 
-      const tablesPayload = values.tables.map((table) => ({
+      const tablesPayload = values.tables.map((table: TablesFormValues['tables'][number]) => ({
         tableNumber: table.tableNumber,
-        capacity: table.capacity,
+        capacity: Number(table.capacity),
         zoneId: table.zoneId ?? zoneResponse.zones[0]?.id,
       }));
       const tableResponse = await fetchJson<{ tables: Array<{ id: string }> }>(
@@ -638,7 +644,13 @@ function TablesStep({ onComplete }: { onComplete: () => void }) {
           body: JSON.stringify({ tables: tablesPayload }),
         },
       );
-      setTables(values.tables.map((table, index) => ({ ...table, id: tableResponse.tables[index]?.id })));
+      setTables(
+        values.tables.map((table: TablesFormValues['tables'][number], index: number) => ({
+          ...table,
+          capacity: Number(table.capacity),
+          id: tableResponse.tables[index]?.id,
+        })),
+      );
       setStep(6);
       onComplete();
     } catch (error) {
@@ -693,15 +705,32 @@ function TablesStep({ onComplete }: { onComplete: () => void }) {
                 <FormField
                   control={tablesForm.control}
                   name={`tables.${index}.capacity` as const}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Capacity</FormLabel>
-                      <FormControl>
-                        <Input type="number" min={1} {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field }) => {
+                    const value =
+                      typeof field.value === 'number' || typeof field.value === 'string'
+                        ? field.value
+                        : '';
+                    return (
+                      <FormItem>
+                        <FormLabel>Capacity</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min={1}
+                            name={field.name}
+                            onBlur={field.onBlur}
+                            ref={field.ref}
+                            value={value}
+                            onChange={(event) => {
+                              const nextValue = event.target.value;
+                              field.onChange(nextValue === '' ? '' : Number(nextValue));
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
                 <div className="flex items-end justify-end">
                   <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} aria-label="Remove table">
@@ -799,7 +828,7 @@ function StepError() {
 function OnboardingContent() {
   const { state } = useOnboarding();
 
-  const noop = () => {};
+  const noop = () => { };
 
   return (
     <OnboardingShell steps={steps} current={state.step} title="Launch your restaurant in minutes">

@@ -839,7 +839,10 @@ Escalate or stop immediately if:
 [ ] Staging first, then production (window + approval)
 [ ] Backup/rollback plan noted
 [ ] Dry-run(diff) artifact attached
+[ ] Migration logged in docs/DATABASE_MIGRATIONS.md
 ```
+
+> **Migration Log**: See `docs/DATABASE_MIGRATIONS.md` for tracking staging → production database changes.
 
 **Security & Privacy**
 

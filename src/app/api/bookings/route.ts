@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -561,16 +561,6 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // SECURITY: Fetch restaurant details for sanitization
-    const { data: restaurantData } = await (await getServiceSupabaseClient())
-      .from("restaurants")
-      .select("name, slug")
-      .eq("id", targetRestaurantId)
-      .single();
-
-    const restaurantName = restaurantData?.name ?? "Unknown Restaurant";
-    const restaurantSlug = restaurantData?.slug ?? null;
-
     const shouldUseGuestLookupPolicy =
       env.featureFlags.guestLookupPolicy && !!env.security.guestLookupPepper;
 
@@ -699,8 +689,8 @@ export async function POST(req: NextRequest) {
 
   const restaurantId = restaurantResolution.restaurantId;
   const clientIp = extractClientIp(req);
-  const idempotencyKey = normalizeIdempotencyKey(req.headers.get('Idempotency-Key'));
-  const clientRequestId = coerceUuid(idempotencyKey) ?? randomUUID();
+  const headerIdempotencyKey = normalizeIdempotencyKey(req.headers.get('Idempotency-Key'));
+  const clientRequestId = coerceUuid(headerIdempotencyKey) ?? randomUUID();
   const opsEmailProvidedHeader = req.headers.get('x-ops-email-provided') === 'true';
   const isOpsWalkIn = req.headers.get('x-ops-walk-in') === 'true';
   const requestSource = isOpsWalkIn ? 'ops.walkin' : 'api.bookings';
@@ -760,6 +750,7 @@ export async function POST(req: NextRequest) {
     const supabase = getServiceSupabaseClient();
     const normalizedBookingType =
       data.bookingType === 'drinks' ? 'drinks' : inferMealTypeFromTime(data.time);
+    const pastTimeBlocking = env.featureFlags.bookingPastTimeBlocking;
 
     let startTime = data.time;
     let scheduleTimezone: string | null = null;
@@ -897,7 +888,6 @@ export async function POST(req: NextRequest) {
         details: bookingDetails,
       };
 
-      const effectiveTimezone = scheduleTimezone ?? "UTC";
       const context = {
         actorId: clientRequestId,
         actorRoles: ['customer'],

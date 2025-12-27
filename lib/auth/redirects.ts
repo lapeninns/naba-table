@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 
-const ALLOWED_REDIRECT_PREFIXES = ["/app", "/guest", "/bookings", "/restaurants"] as const;
+const ALLOWED_REDIRECT_PREFIXES = ["/app", "/guest", "/bookings", "/restaurants", "/dashboard"] as const;
 
 function isAllowedPath(path: string) {
   return ALLOWED_REDIRECT_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
@@ -20,6 +20,29 @@ function allowedHosts(rootDomain: string): Set<string> {
   return hosts;
 }
 
+function isLocalLikeHost(hostname: string): boolean {
+  const normalized = hostname.toLowerCase();
+  return (
+    normalized === "localhost"
+    || normalized === "127.0.0.1"
+    || normalized.endsWith(".localhost")
+    || normalized.startsWith("app.localhost")
+  );
+}
+
+function normalizeRootDomain(rootDomain: string): string {
+  return rootDomain.toLowerCase().replace(/^www\./, "");
+}
+
+function buildAppHost(rootDomain: string): string {
+  return `app.${normalizeRootDomain(rootDomain)}`;
+}
+
+function buildWwwHost(rootDomain: string): string {
+  const normalized = normalizeRootDomain(rootDomain);
+  return rootDomain.toLowerCase().startsWith("www.") ? rootDomain.toLowerCase() : `www.${normalized}`;
+}
+
 function toAbsoluteRedirect(target: string, rootDomain: string): string {
   if (/^https?:\/\//i.test(target)) return target;
   if (rootDomain === "localhost") return target;
@@ -37,10 +60,21 @@ export function parseHostname(req: NextRequest): string {
 }
 
 export function defaultRedirectForHost(hostname: string, rootDomain: string): string {
-  const appHosts = new Set([`app.${rootDomain}`, "app.localhost"]);
-  if (rootDomain === "localhost") appHosts.add("app.localhost.com");
-  const path = appHosts.has(hostname) ? "/app/dashboard" : "/guest/dashboard";
-  return path;
+  const normalizedHost = hostname.toLowerCase();
+  const appHost = buildAppHost(rootDomain);
+  const isAppHost = isLocalLikeHost(normalizedHost)
+    ? normalizedHost.startsWith("app.")
+    : normalizedHost === appHost;
+
+  if (isAppHost) {
+    // On app subdomain, return /dashboard directly - proxy rewrites to /app/dashboard
+    if (isLocalLikeHost(normalizedHost)) return "/dashboard";
+    return `https://${appHost}/dashboard`;
+  }
+
+  // On root domain, return /guest/dashboard for guest-facing flows
+  if (isLocalLikeHost(normalizedHost)) return "/guest/dashboard";
+  return `https://${buildWwwHost(rootDomain)}/guest/dashboard`;
 }
 
 export function sanitizeRedirect(target: string | undefined | null, rootDomain: string): string | undefined {

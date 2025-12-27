@@ -35,6 +35,7 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
 
   let supabaseUser: OpsUser | null = null;
   let memberships: RestaurantMembershipWithDetails[] = [];
+  let initialSession: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] | null = null;
 
   try {
     const {
@@ -63,6 +64,19 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
     console.error("[app/layout] unexpected error while resolving account", authError);
   }
 
+  if (supabaseUser) {
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error("[app/layout] failed to load session", error.message);
+      } else {
+        initialSession = data.session ?? null;
+      }
+    } catch (sessionError) {
+      console.error("[app/layout] unexpected error while resolving session", sessionError);
+    }
+  }
+
   // Redirect to login if not authenticated
   // All pages under this layout require authentication
   if (!supabaseUser) {
@@ -88,7 +102,7 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
       featureFlags={featureFlags}
     >
       <OpsServicesProvider>
-        <AppProviders>
+        <AppProviders initialSession={initialSession}>
           <OpsShell defaultSidebarOpen={defaultOpen}>{children}</OpsShell>
         </AppProviders>
       </OpsServicesProvider>

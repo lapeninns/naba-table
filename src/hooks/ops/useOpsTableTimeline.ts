@@ -28,9 +28,13 @@ export function useOpsTableTimeline({
 }: UseOpsTableTimelineOptions) {
   const tableService = useTableInventoryService();
   const queryClient = useQueryClient();
-  const queryKey = restaurantId
-    ? queryKeys.opsTables.timeline(restaurantId, { date: date ?? null, zoneId: zoneId ?? null, service })
-    : (['ops', 'tables', 'timeline', 'disabled'] as const);
+  const queryKey = useMemo(
+    () =>
+      restaurantId
+        ? queryKeys.opsTables.timeline(restaurantId, { date: date ?? null, zoneId: zoneId ?? null, service })
+        : (['ops', 'tables', 'timeline', 'disabled'] as const),
+    [date, restaurantId, service, zoneId],
+  );
   const shouldEnable = Boolean(restaurantId) && enabled;
 
   const query = useQuery<TableTimelineResponse>({

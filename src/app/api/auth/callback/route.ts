@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+
 import config from "@/config";
 import { defaultRedirectForHost, parseHostname, sanitizeRedirect, toAbsoluteRedirectTarget } from "@/lib/auth/redirects";
 import { normalizeEmail } from "@/server/customers";
@@ -10,7 +11,7 @@ import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-const FALLBACK_REDIRECT_CONFIG = config.auth.callbackUrl ?? "/app";
+
 
 async function linkAuthUserToCustomers(authUserId: string, email: string): Promise<void> {
   try {
@@ -59,8 +60,6 @@ export async function GET(req: NextRequest) {
   const code = requestUrl.searchParams.get("code");
   const tokenHash = requestUrl.searchParams.get("token_hash");
   const redirectedFrom = requestUrl.searchParams.get("redirectedFrom");
-  const rememberParam = requestUrl.searchParams.get("rememberMe");
-  const rememberMe = rememberParam === null ? true : !(rememberParam === "0" || rememberParam?.toLowerCase() === "false");
   const hostname = parseHostname(req);
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost";
 
@@ -83,8 +82,9 @@ export async function GET(req: NextRequest) {
       if (redirectedFrom) {
         console.warn("[auth/callback] rejected redirect param", redirectedFrom);
       }
-      const fallback = FALLBACK_REDIRECT_CONFIG ?? defaultRedirectForHost(hostname, rootDomain);
-      console.log("[auth/callback] Using fallback destination:", fallback);
+      // Use host-aware default redirect: app subdomain -> /dashboard, root domain -> /guest/dashboard
+      const fallback = defaultRedirectForHost(hostname, rootDomain);
+      console.log("[auth/callback] Using fallback destination:", fallback, "for hostname:", hostname);
       return fallback;
     }
     console.log("[auth/callback] Using sanitized destination:", sanitized);
@@ -108,27 +108,7 @@ export async function GET(req: NextRequest) {
     });
 
     // Create Supabase client that writes cookies to the cookie store
-    const supabase = createServerClient<Database>(
-      env.supabase.url,
-      env.supabase.anonKey,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll().map(({ name, value }) => ({ name, value }));
-          },
-          setAll(cookiesToSet) {
-            try {
-              cookiesToSet.forEach(({ name, value, options }) => {
-                cookieStore.set({ name, value, ...applyCookieDefaults(options) });
-              });
-            } catch (error) {
-              // Cookie writes can fail in certain server contexts; log but continue
-              console.warn("[auth/callback] Cookie write warning:", error instanceof Error ? error.message : String(error));
-            }
-          },
-        },
-      }
-    );
+    const supabase = await getRouteHandlerSupabaseClient(cookieStore);
 
     if (code) {
       console.log("[auth/callback] Attempting to exchange code for session...");

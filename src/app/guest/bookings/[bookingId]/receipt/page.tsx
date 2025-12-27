@@ -116,7 +116,6 @@ export default async function GuestBookingReceiptPage({
     <HydrationBoundary state={dehydratedState}>
       <ReceiptClient
         reservationId={normalized}
-        token={token}
         hasSession={Boolean(user)}
         prefetchedStatus={reservation?.status ?? null}
       />

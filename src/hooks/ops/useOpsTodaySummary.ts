@@ -3,6 +3,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import { useBookingService } from '@/contexts/ops-services';
+import { useSupabaseSession } from '@/hooks/useSupabaseSession';
 import { queryKeys } from '@/lib/query/keys';
 
 import type { OpsTodayBookingsSummary } from '@/types/ops';
@@ -15,11 +16,13 @@ export type UseOpsTodaySummaryOptions = {
 
 export function useOpsTodaySummary(options: UseOpsTodaySummaryOptions) {
   const bookingService = useBookingService();
+  const { status } = useSupabaseSession();
   const restaurantId = options.restaurantId ?? null;
   const targetDate = options.targetDate ?? null;
   const queryKey = restaurantId
     ? queryKeys.opsDashboard.summary(restaurantId, targetDate)
     : (['ops', 'dashboard', 'summary', 'disabled'] as const);
+  const isEnabled = Boolean(restaurantId) && (options.enabled ?? true) && status !== 'loading';
 
   return useQuery<OpsTodayBookingsSummary>({
     queryKey,
@@ -29,10 +32,9 @@ export function useOpsTodaySummary(options: UseOpsTodaySummaryOptions) {
       }
       return bookingService.getTodaySummary({ restaurantId, date: targetDate ?? undefined });
     },
-    enabled: Boolean(restaurantId) && (options.enabled ?? true),
+    enabled: isEnabled,
     staleTime: 60_000,
     // Keep previous data visible while fetching new date - enables smooth stale-while-revalidate UX
     placeholderData: keepPreviousData,
   });
 }
-

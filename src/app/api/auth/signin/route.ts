@@ -2,10 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { defaultRedirectForHost, parseHostname, sanitizeRedirect, toAbsoluteRedirectTarget } from "@/lib/auth/redirects";
-import { sendEmail } from "@/libs/resend";
 import { validateCsrfToken } from "@/server/security/csrf";
 import { consumeRateLimit } from "@/server/security/rate-limit";
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
+import { getRouteHandlerSupabaseClient } from "@/server/supabase";
 
 import type { NextRequest } from "next/server";
 
@@ -90,61 +89,7 @@ function setRateHeaders(response: NextResponse, limitResult: Awaited<ReturnType<
   return response;
 }
 
-async function sendMagicLinkViaResend(email: string, redirectTo: string) {
-  const adminClient = getServiceSupabaseClient();
-  const { data, error } = await adminClient.auth.admin.generateLink({
-    type: "magiclink",
-    email,
-    options: {
-      redirectTo,
-    },
-  });
 
-  if (error || !data?.properties?.action_link) {
-    const normalizedError = error ?? new Error("Missing action link from Supabase admin.generateLink");
-    console.error("[Auth/signin] Resend fallback: failed to generate link", {
-      error: normalizedError instanceof Error ? normalizedError.message : String(normalizedError),
-      status: "status" in normalizedError ? (normalizedError as { status?: number }).status : undefined,
-      code: "code" in normalizedError ? (normalizedError as { code?: string }).code : undefined,
-    });
-    return { ok: false as const, error: normalizedError };
-  }
-
-  const actionLink = data.properties.action_link;
-
-  const subject = "Your sign-in link";
-  const text = `Sign in with this link: ${actionLink}\n\nIf you did not request this, you can ignore this email.`;
-  const html = `
-    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #0f172a;">
-      <h2 style="margin: 0 0 12px;">Sign in to your account</h2>
-      <p style="margin: 0 0 16px;">Click the button below to complete sign-in.</p>
-      <p style="margin: 0 0 20px;">
-        <a href="${actionLink}" style="display:inline-block;padding:12px 20px;background:#0f172a;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">Sign in</a>
-      </p>
-      <p style="margin: 0 0 8px;">If the button doesn't work, copy and paste this link:</p>
-      <p style="word-break: break-all; margin: 0;">${actionLink}</p>
-      <p style="margin: 16px 0 0; color:#475569;">If you didn't request this, you can safely ignore this email.</p>
-    </div>
-  `;
-
-  try {
-    await sendEmail({
-      to: email,
-      subject,
-      html,
-      text,
-      fromName: "Nab a Table",
-    });
-
-    console.log("[Auth/signin] Resend fallback: magic link email sent");
-    return { ok: true as const };
-  } catch (sendError) {
-    console.error("[Auth/signin] Resend fallback: send failed", {
-      error: sendError instanceof Error ? sendError.message : String(sendError),
-    });
-    return { ok: false as const, error: sendError };
-  }
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -171,7 +116,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { email, password, mode, redirectedFrom } = validated.data;
+    const { email, password, mode, redirectedFrom, rememberMe } = validated.data;
     const redirectTarget = sanitizeRedirect(redirectedFrom, rootDomain) ?? defaultRedirectForHost(hostname, rootDomain);
     const absoluteRedirect = toAbsoluteRedirectTarget(redirectTarget, rootDomain);
 
@@ -207,7 +152,7 @@ export async function POST(req: NextRequest) {
       return setRateHeaders(response, rateResult);
     }
 
-    const emailRedirectTo = buildCallbackUrl(hostname, absoluteRedirect);
+    const emailRedirectTo = buildCallbackUrl(hostname, absoluteRedirect, rememberMe);
     console.log("[Auth/signin] Magic link details:", {
       hostname,
       rootDomain,

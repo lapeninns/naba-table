@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { toast } from 'react-hot-toast';
 
 import { Button } from '@/components/ui/button';
+
 import type { CustomerListParams } from '@/services/ops/customers';
 
 type ExportCustomersButtonProps = {
@@ -30,13 +31,13 @@ function extractFilename(headerValue: string | null, fallback: string): string {
   const filenameStarMatch = headerValue.match(/filename\*=(?:UTF-8'')?([^;]+)/i);
   if (filenameStarMatch?.[1]) {
     try {
-      return decodeURIComponent(filenameStarMatch[1].replace(/\"/g, '').trim());
+      return decodeURIComponent(filenameStarMatch[1].replace(/"/g, '').trim());
     } catch {
       // fall through to other strategies
     }
   }
 
-  const filenameMatch = headerValue.match(/filename=\"?([^\";]+)\"?/i);
+  const filenameMatch = headerValue.match(/filename="?([^";]+)"?/i);
   if (filenameMatch?.[1]) {
     return filenameMatch[1];
   }
