@@ -118,8 +118,15 @@ async function processJob(payload: EmailJobPayload): Promise<{ success: boolean;
 
 export async function GET(request: Request) {
     // Verify cron secret to prevent unauthorized access
+    // Vercel cron jobs send the secret in the 'x-vercel-cron-signature' or 'authorization' header
     const authHeader = request.headers.get("authorization");
-    if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
+    const vercelCronHeader = request.headers.get("x-vercel-cron-signature");
+
+    // Check if this is a Vercel cron request or has valid Bearer token
+    const isVercelCron = vercelCronHeader !== null;
+    const hasValidBearerToken = CRON_SECRET && authHeader === `Bearer ${CRON_SECRET}`;
+
+    if (CRON_SECRET && !isVercelCron && !hasValidBearerToken) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
