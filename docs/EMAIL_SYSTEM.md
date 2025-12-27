@@ -45,9 +45,10 @@ TEST_ENDPOINT_TOKEN=your-secure-test-token
 ## Email Feature Flags
 
 ```bash
-# Enable email queue (BullMQ) instead of inline sending
-# When true: Emails are queued and processed by worker/cron
-# When false: Emails are sent immediately (inline)
+# Enable email queue (BullMQ) for scheduled emails
+# When true: Scheduled emails are queued and processed by worker/cron
+# Instant types still send inline: request_received, confirmation, updated, cancelled, restaurant_cancellation, booking_rejected
+# When false: All emails are sent immediately (inline)
 ENABLE_EMAIL_QUEUE=true
 
 # Suppress all outbound emails (for load testing)
