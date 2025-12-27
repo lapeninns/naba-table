@@ -86,7 +86,7 @@ export async function enqueueEmailJob(payload: EmailJobPayload, options: Enqueue
   const backoff = options.backoff ?? DEFAULT_BACKOFF;
 
   try {
-    await queue.add("pending-booking-email", payload, {
+    const job = await queue.add("pending-booking-email", payload, {
       jobId,
       delay,
       attempts,
@@ -94,7 +94,9 @@ export async function enqueueEmailJob(payload: EmailJobPayload, options: Enqueue
       removeOnComplete: true,
       removeOnFail: false,
     });
+    console.log(`[queue][email] ✅ Job added: ${job.id}, delay: ${delay}ms, queue: ${queue.name}`);
   } catch (error) {
+    console.error(`[queue][email] ❌ Failed to add job: ${jobId}`, error);
     await recordObservabilityEvent({
       source: "queue.email",
       eventType: "email_queue.enqueue_failed",

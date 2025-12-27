@@ -273,7 +273,7 @@ export async function POST(req: NextRequest) {
                         scheduledFor,
                     },
                     {
-                        jobId: `test:${type}:${targetBookingId}:${Date.now()}`,
+                        jobId: `test-${type}-${targetBookingId}-${Date.now()}`,
                         delayMs,
                     }
                 );
@@ -339,7 +339,7 @@ export async function POST(req: NextRequest) {
                 scheduledFor,
             },
             {
-                jobId: `test:${type}:${targetBookingId}:${Date.now()}`,
+                jobId: `test-${type}-${targetBookingId}-${Date.now()}`,
                 delayMs,
             }
         );
