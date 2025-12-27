@@ -2,7 +2,7 @@ process.env.BASE_URL ??= "http://localhost:3000";
 
 import { createHash } from 'crypto';
 import { NextRequest } from 'next/server';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi, type SpyInstance } from 'vitest';
 
 vi.mock('@/lib/env', () => {
   return {
@@ -55,6 +55,8 @@ vi.mock('@/lib/env', () => {
       get security() {
         return {
           guestLookupPepper: null,
+          sessionRecoveryAccessTokenSecret: null,
+          sessionRecoveryAccessTokenTtlSeconds: 900,
         } as const;
       },
     },
@@ -63,10 +65,10 @@ vi.mock('@/lib/env', () => {
 
 import { env } from '@/lib/env';
 import { OperatingHoursError } from '@/server/bookings/timeValidation';
+import { createSessionRecoveryAccessToken } from '@/server/security/session-recovery-access-token';
 
 import { GET, POST } from './route';
 
-import type { SpyInstance } from 'vitest';
 
 const assertBookingWithinOperatingWindowMock = vi.hoisted(() => vi.fn());
 const assertBookingNotInPastMock = vi.hoisted(() => vi.fn());
@@ -95,7 +97,7 @@ const computeTokenExpiryMock = vi.hoisted(() => vi.fn(() => "2099-01-01T00:00:00
 const attemptInlineAutoAssignMock = vi.hoisted(() => vi.fn((_client, booking) => booking));
 
 vi.mock('@/server/bookings/timeValidation', async () => {
-  const actual = await vi.importActual('@/server/bookings/timeValidation');
+  const actual = await vi.importActual<Record<string, unknown>>('@/server/bookings/timeValidation');
   return {
     ...actual,
     assertBookingWithinOperatingWindow: assertBookingWithinOperatingWindowMock,
@@ -128,6 +130,7 @@ vi.mock('@/server/supabase', () => ({
 vi.mock('@/server/customers', () => ({
   upsertCustomer: (...args: unknown[]) => upsertCustomerMock(...args),
   normalizeEmail: (email: string) => email.trim().toLowerCase(),
+  normalizePhone: (phone: string) => phone.replace(/[^0-9]/g, ""),
 }));
 
 vi.mock('@/server/loyalty', () => ({
@@ -156,7 +159,7 @@ vi.mock('@/server/security/guest-lookup', () => ({
 }));
 
 vi.mock('@/server/bookings', async () => {
-  const actual = await vi.importActual('@/server/bookings');
+  const actual = await vi.importActual<Record<string, unknown>>('@/server/bookings');
   return {
     ...actual,
     fetchBookingsForContact: (...args: unknown[]) => fetchBookingsForContactMock(...args),
@@ -884,6 +887,8 @@ describe('/api/bookings GET', () => {
       .spyOn(env, 'security', 'get')
       .mockReturnValue({
         guestLookupPepper: 'test-pepper',
+        sessionRecoveryAccessTokenSecret: 'test-session-recovery-secret',
+        sessionRecoveryAccessTokenTtlSeconds: 900,
       });
 
     getDefaultRestaurantIdMock.mockResolvedValue(RESTAURANT_ID);
@@ -956,7 +961,7 @@ describe('/api/bookings GET', () => {
     ];
 
     const rpcMock = vi.fn().mockResolvedValue({ data: bookings, error: null });
-    getRouteHandlerSupabaseClientMock.mockResolvedValue({
+    getRouteHandlerSupabaseClientMock.mockResolvedValueOnce({
       rpc: rpcMock,
     });
 
@@ -981,6 +986,82 @@ describe('/api/bookings GET', () => {
     expect(recordObservabilityEventMock).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: 'guest_lookup.allowed',
+      }),
+    );
+  });
+
+  it('rejects session recovery access token with invalid signature', async () => {
+    const token = createSessionRecoveryAccessToken({
+      restaurantId: RESTAURANT_ID,
+      email: 'test@example.com',
+      phone: '1234567890',
+      secret: 'wrong-secret',
+      now: new Date('2025-10-01T10:00:00Z'),
+    });
+
+    const response = await GET(
+      createGetRequest(`?access_token=${encodeURIComponent(token)}`, { 'x-forwarded-for': '203.0.113.10' }),
+    );
+
+    expect(response.status).toBe(401);
+    const json = await response.json();
+    expect(json.code).toBe('INVALID_ACCESS_TOKEN');
+    expect(fetchBookingsForContactMock).not.toHaveBeenCalled();
+    expect(recordObservabilityEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'guest_lookup.access_token_rejected',
+      }),
+    );
+  });
+
+  it('returns bookings when session recovery access token is valid', async () => {
+    const bookings = [
+      {
+        id: 'booking-456',
+        restaurant_id: RESTAURANT_ID,
+        start_at: '2025-10-11T19:00:00.000Z',
+        end_at: '2025-10-11T21:00:00.000Z',
+        party_size: 2,
+        status: 'confirmed',
+        notes: null,
+      },
+    ];
+
+    const token = createSessionRecoveryAccessToken({
+      restaurantId: RESTAURANT_ID,
+      email: 'test@example.com',
+      phone: '1234567890',
+      secret: 'test-session-recovery-secret',
+      now: new Date(),
+      ttlSeconds: 86_400,
+    });
+
+    const rpcMock = vi.fn().mockResolvedValue({ data: bookings, error: null });
+    getRouteHandlerSupabaseClientMock.mockResolvedValue({
+      rpc: rpcMock,
+    });
+
+    const response = await GET(
+      createGetRequest(`?access_token=${encodeURIComponent(token)}`, { 'x-forwarded-for': '198.51.100.25' }),
+    );
+
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.bookings).toEqual(bookings);
+    expect(json.access).toEqual(
+      expect.objectContaining({
+        mode: 'token',
+        restaurantSource: 'token',
+        lookupStrategy: 'policy',
+      }),
+    );
+    expect(recordObservabilityEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'guest_lookup.allowed',
+        context: expect.objectContaining({
+          access_mode: 'token',
+          access_token_used: true,
+        }),
       }),
     );
   });

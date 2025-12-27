@@ -191,6 +191,7 @@
     "autoprefixer": "^10.4.22",
     "baseline-browser-mapping": "^2.9.0",
     "chrome-devtools-mcp": "^0.11.0",
+    "dotenv-cli": "^11.0.0",
     "eslint": "^9.39.1",
     "eslint-config-next": "^16.0.7",
     "eslint-config-prettier": "^10.1.8",
@@ -217,8 +218,8 @@
     "vitest": "^4.0.15"
   },
   "engines": {
-    "node": ">=20",
-    "pnpm": ">=9"
+    "node": ">=20.11.1",
+    "pnpm": ">=10.12.1"
   },
   "packageManager": "pnpm@10.12.1",
   "pnpm": {

@@ -22,6 +22,7 @@ export type RestaurantListItem = {
   contactPhone: string | null;
   address: string | null;
   googleMapUrl: string | null;
+  googleReviewUrl: string | null;
   bookingPolicy: string | null;
   logoUrl: string | null;
   emailSendReminder24h: boolean;
@@ -127,6 +128,7 @@ export async function listRestaurantsForOps(
       contactPhone: row.contact_phone,
       address: row.address,
       googleMapUrl: row.google_map_url,
+      googleReviewUrl: row.google_review_url,
       bookingPolicy: row.booking_policy,
       logoUrl: row.logo_url,
       emailSendReminder24h: row.email_send_reminder_24h ?? true,

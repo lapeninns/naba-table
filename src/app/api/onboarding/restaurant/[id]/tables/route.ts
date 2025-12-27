@@ -17,8 +17,8 @@ const tableSchema = z.object({
   zoneId: z.string().uuid().nullable().optional(),
   category: z.enum(['dining', 'bar', 'lounge', 'patio', 'private']).optional(),
   seatingType: z.enum(['standard', 'booth', 'high_top', 'sofa']).optional(),
-  mobility: z.enum(['fixed', 'movable', 'adjustable']).optional(),
-  status: z.enum(['available', 'maintenance', 'reserved']).optional(),
+  mobility: z.enum(['fixed', 'movable']).optional(),
+  status: z.enum(['available', 'out_of_service', 'reserved']).optional(),
 });
 
 const requestSchema = z.object({

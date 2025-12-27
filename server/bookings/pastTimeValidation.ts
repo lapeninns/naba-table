@@ -7,9 +7,32 @@
  * @see tasks/prevent-past-bookings-20251015-1323/plan.md
  */
 
-import { RESTAURANT_ADMIN_ROLES } from "@/lib/owner/auth/roles";
+import { isRestaurantAdminRole } from "@/lib/owner/auth/roles";
 
 import type { RestaurantRole } from "@/lib/owner/auth/roles";
+
+function normalizeIsoLocal24HourRollover(isoLocal: string): string {
+  const match = isoLocal.match(
+    /^(\d{4}-\d{2}-\d{2})T24:(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/,
+  );
+  if (!match) {
+    return isoLocal;
+  }
+
+  const [, datePart, minute, secondRaw, fractionalRaw] = match;
+  const baseDate = new Date(`${datePart}T00:00:00Z`);
+  if (Number.isNaN(baseDate.getTime())) {
+    return isoLocal;
+  }
+
+  baseDate.setUTCDate(baseDate.getUTCDate() + 1);
+  const nextDate = baseDate.toISOString().slice(0, 10);
+
+  const second = (secondRaw ?? "00").padStart(2, "0");
+  const fractional = fractionalRaw ? `.${fractionalRaw.padEnd(3, "0")}` : "";
+
+  return `${nextDate}T00:${minute}:${second}${fractional}`;
+}
 
 /**
  * Error thrown when a booking time is in the past
@@ -52,7 +75,8 @@ export type PastTimeValidationOptions = {
  * @returns Date object representing "now" in that timezone
  */
 function zonedDateTimeToUtc(timezone: string, isoLocal: string): Date {
-  const date = new Date(isoLocal);
+  const normalizedIsoLocal = normalizeIsoLocal24HourRollover(isoLocal);
+  const date = new Date(normalizedIsoLocal);
   if (Number.isNaN(date.getTime())) {
     throw new Error(`Invalid date value for timezone conversion: ${isoLocal}`);
   }
@@ -160,8 +184,7 @@ function formatDateTimeForDisplay(date: Date, timezone: string): string {
  * @returns true if role can override (owner or manager)
  */
 export function canOverridePastBooking(role: RestaurantRole | null | undefined): boolean {
-  if (!role) return false;
-  return RESTAURANT_ADMIN_ROLES.includes(role as any);
+  return isRestaurantAdminRole(role);
 }
 
 /**
@@ -251,3 +274,7 @@ export function assertBookingNotInPast(
     );
   }
 }
+
+export const __test__ = {
+  normalizeIsoLocal24HourRollover,
+};

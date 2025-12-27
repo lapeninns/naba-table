@@ -1,5 +1,6 @@
 export type VenueDetails = {
   id: string;
+  slug: string;
   name: string;
   address: string;
   phone: string;
@@ -8,10 +9,13 @@ export type VenueDetails = {
   timezone: string;
   logoUrl: string | null;
   googleMapUrl: string | null;
+  googleReviewUrl: string | null;
+  emailTemplates: Record<string, { headline?: string; intro?: string }> | null;
 };
 
 export const DEFAULT_VENUE: VenueDetails = {
   id: '',
+  slug: '',
   name: '',
   address: '',
   phone: "",
@@ -21,4 +25,6 @@ export const DEFAULT_VENUE: VenueDetails = {
   timezone: "",
   logoUrl: null,
   googleMapUrl: null,
+  googleReviewUrl: null,
+  emailTemplates: null,
 };

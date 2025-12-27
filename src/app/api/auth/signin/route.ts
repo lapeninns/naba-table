@@ -171,7 +171,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { email, password, mode, redirectedFrom, rememberMe } = validated.data;
+    const { email, password, mode, redirectedFrom } = validated.data;
     const redirectTarget = sanitizeRedirect(redirectedFrom, rootDomain) ?? defaultRedirectForHost(hostname, rootDomain);
     const absoluteRedirect = toAbsoluteRedirectTarget(redirectTarget, rootDomain);
 
@@ -188,7 +188,7 @@ export async function POST(req: NextRequest) {
       return setRateHeaders(response, rateResult);
     }
 
-    const supabase = await getRouteHandlerSupabaseClient(undefined, rememberMe);
+    const supabase = await getRouteHandlerSupabaseClient();
 
     if (mode === "password") {
       const { error } = await supabase.auth.signInWithPassword({
@@ -207,8 +207,7 @@ export async function POST(req: NextRequest) {
       return setRateHeaders(response, rateResult);
     }
 
-    const emailRedirectTo = buildCallbackUrl(hostname, absoluteRedirect, rememberMe);
-    const implicitFlowRedirectTo = buildCallbackUrl(hostname, absoluteRedirect, rememberMe, "/auth/signin");
+    const emailRedirectTo = buildCallbackUrl(hostname, absoluteRedirect);
     console.log("[Auth/signin] Magic link details:", {
       hostname,
       rootDomain,
@@ -217,9 +216,9 @@ export async function POST(req: NextRequest) {
       emailRedirectTo,
     });
 
-    // Use Supabase's built-in signInWithOtp for proper PKCE flow.
-    // If delivery fails (common when SMTP is misconfigured), fall back to generating
-    // the link via admin API and sending via Resend.
+    // Use Supabase's built-in signInWithOtp for proper PKCE flow
+    // This handles code challenges automatically and works reliably with the callback
+    // shouldCreateUser: true allows new guests to sign up via magic link
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
@@ -231,25 +230,6 @@ export async function POST(req: NextRequest) {
     console.log("[Auth/signin] OTP result:", { error: error?.message, status: error?.status });
 
     if (error) {
-      const isSendFailure = (error.status ?? 500) >= 500 || /sending/i.test(error.message ?? "");
-
-      if (isSendFailure) {
-        console.warn("[Auth/signin] Supabase email delivery failed, attempting Resend fallback", {
-          status: error.status,
-          message: error.message,
-          code: (error as { code?: string }).code,
-        });
-
-        const fallback = await sendMagicLinkViaResend(email, implicitFlowRedirectTo);
-        if (fallback.ok) {
-          const response = NextResponse.json(
-            { status: "magic_link_sent", redirectTo: absoluteRedirect, delivery: "resend_fallback" },
-            { status: 202 },
-          );
-          return setRateHeaders(response, rateResult);
-        }
-      }
-
       const status = error.status ?? 400;
       const response = NextResponse.json(
         { message: error.message ?? "We couldn't send a magic link right now. Please try again shortly." },

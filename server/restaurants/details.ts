@@ -5,6 +5,7 @@ import { getServiceSupabaseClient } from '@/server/supabase';
 
 import { updateRestaurant } from './update';
 
+import type { UpdateRestaurantInput } from './update';
 import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -21,6 +22,7 @@ export type RestaurantDetails = {
   contactPhone: string | null;
   address: string | null;
   googleMapUrl: string | null;
+  googleReviewUrl: string | null;
   bookingPolicy: string | null;
   logoUrl: string | null;
 };
@@ -34,6 +36,7 @@ export type UpdateRestaurantDetailsInput = {
   contactPhone?: string | null;
   address?: string | null;
   googleMapUrl?: string | null;
+  googleReviewUrl?: string | null;
   bookingPolicy?: string | null;
   logoUrl?: string | null;
 };
@@ -57,6 +60,7 @@ type NormalizedDetailsInput = {
   contactPhone: string | null;
   address: string | null;
   googleMapUrl: string | null;
+  googleReviewUrl: string | null;
   bookingPolicy: string | null;
   logoUrl: string | null;
 };
@@ -91,6 +95,7 @@ function validateDetailsInput(input: NormalizedDetailsInput): NormalizedDetailsI
     contactPhone: sanitizeString(input.contactPhone),
     address: sanitizeString(input.address),
     googleMapUrl: sanitizeString(input.googleMapUrl),
+    googleReviewUrl: sanitizeString(input.googleReviewUrl),
     bookingPolicy: sanitizeString(input.bookingPolicy),
     logoUrl: sanitizeString(input.logoUrl),
   };
@@ -134,6 +139,7 @@ export async function getRestaurantDetails(
     contactPhone: restaurant.contact_phone,
     address: restaurant.address,
     googleMapUrl: restaurant.google_map_url,
+    googleReviewUrl: restaurant.google_review_url,
     bookingPolicy: restaurant.booking_policy,
     logoUrl: restaurant.logo_url,
   };
@@ -154,13 +160,25 @@ export async function updateRestaurantDetails(
     contactPhone: input.contactPhone ?? current.contactPhone,
     address: input.address ?? current.address,
     googleMapUrl: input.googleMapUrl ?? current.googleMapUrl,
+    googleReviewUrl: input.googleReviewUrl ?? current.googleReviewUrl,
     bookingPolicy: input.bookingPolicy ?? current.bookingPolicy,
     logoUrl: input.logoUrl ?? current.logoUrl,
   };
 
   const validated = validateDetailsInput(merged);
-  const payload =
-    validated.googleMapUrl === null ? (({ googleMapUrl: _googleMapUrl, ...rest }) => rest)(validated) : validated;
+  const payload: UpdateRestaurantInput = {
+    name: validated.name,
+    slug: validated.slug,
+    timezone: validated.timezone,
+    capacity: validated.capacity,
+    contactEmail: validated.contactEmail,
+    contactPhone: validated.contactPhone,
+    address: validated.address,
+    bookingPolicy: validated.bookingPolicy,
+    logoUrl: validated.logoUrl,
+    ...(validated.googleMapUrl !== null ? { googleMapUrl: validated.googleMapUrl } : {}),
+    ...(validated.googleReviewUrl !== null ? { googleReviewUrl: validated.googleReviewUrl } : {}),
+  };
   const updated = await updateRestaurant(restaurantId, payload, client);
 
   return {
@@ -173,6 +191,7 @@ export async function updateRestaurantDetails(
     contactPhone: updated.contactPhone,
     address: updated.address,
     googleMapUrl: updated.googleMapUrl,
+    googleReviewUrl: updated.googleReviewUrl,
     bookingPolicy: updated.bookingPolicy,
     logoUrl: updated.logoUrl,
   };

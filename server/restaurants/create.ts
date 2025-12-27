@@ -19,6 +19,7 @@ export type CreateRestaurantInput = {
   contactPhone?: string | null;
   address?: string | null;
   googleMapUrl?: string | null;
+  googleReviewUrl?: string | null;
   bookingPolicy?: string | null;
   logoUrl?: string | null;
   emailSendReminder24h?: boolean;
@@ -40,6 +41,7 @@ export type CreatedRestaurant = {
   contactPhone: string | null;
   address: string | null;
   googleMapUrl: string | null;
+  googleReviewUrl: string | null;
   bookingPolicy: string | null;
   logoUrl: string | null;
   emailSendReminder24h: boolean;
@@ -141,6 +143,7 @@ export async function createRestaurant(
     contact_phone: input.contactPhone ?? null,
     address: input.address ?? null,
     google_map_url: input.googleMapUrl ?? null,
+    google_review_url: input.googleReviewUrl ?? null,
     booking_policy: input.bookingPolicy ?? null,
     logo_url: input.logoUrl ?? null,
     email_send_reminder_24h: input.emailSendReminder24h ?? true,
@@ -205,6 +208,7 @@ export async function createRestaurant(
     contactPhone: restaurant.contact_phone,
     address: restaurant.address,
     googleMapUrl: restaurant.google_map_url,
+    googleReviewUrl: restaurant.google_review_url,
     bookingPolicy: restaurant.booking_policy,
     logoUrl: restaurant.logo_url,
     emailSendReminder24h: restaurant.email_send_reminder_24h ?? true,

@@ -6,6 +6,8 @@ import { recordObservabilityEvent } from "@/server/observability";
 export type EmailJobType =
   | "request_received"
   | "confirmation"
+  | "updated"
+  | "cancelled"
   | "reminder_24h"
   | "reminder_short"
   | "review_request"
@@ -22,13 +24,22 @@ export type EmailJobPayload = {
 };
 
 export const EMAIL_QUEUE_NAME = "pending-booking-emails";
-export const EMAIL_DLQ_NAME = `${EMAIL_QUEUE_NAME}:dlq`;
+export const EMAIL_DLQ_NAME = `${EMAIL_QUEUE_NAME}-dlq`;
 
 const DEFAULT_ATTEMPTS = 5;
 const DEFAULT_BACKOFF = { type: "exponential", delay: 60_000 } as const;
+const EMAIL_JOB_ID_SEPARATOR = "__";
 
 let emailQueue: Queue<EmailJobPayload> | null = null;
 let emailDlq: Queue<EmailJobPayload> | null = null;
+
+function buildEmailJobId(type: EmailJobType, bookingId: string): string {
+  return `email${EMAIL_JOB_ID_SEPARATOR}${type}${EMAIL_JOB_ID_SEPARATOR}${bookingId}`;
+}
+
+function sanitizeEmailJobId(jobId: string): string {
+  return jobId.replace(/:/g, EMAIL_JOB_ID_SEPARATOR);
+}
 
 function ensureQueueSetup(): void {
   if (!emailQueue) {
@@ -78,13 +89,13 @@ type EnqueueEmailOptions = {
 
 export async function enqueueEmailJob(payload: EmailJobPayload, options: EnqueueEmailOptions = {}): Promise<void> {
   const queue = getEmailQueue();
-  const jobId = options.jobId ?? `${payload.type}:${payload.bookingId}`;
+  const jobId = sanitizeEmailJobId(options.jobId ?? buildEmailJobId(payload.type, payload.bookingId));
   const delay = Math.max(0, Math.floor(options.delayMs ?? 0));
   const attempts = options.attempts ?? DEFAULT_ATTEMPTS;
   const backoff = options.backoff ?? DEFAULT_BACKOFF;
 
   try {
-    await queue.add("pending-booking-email", payload, {
+    const job = await queue.add("pending-booking-email", payload, {
       jobId,
       delay,
       attempts,
@@ -92,7 +103,9 @@ export async function enqueueEmailJob(payload: EmailJobPayload, options: Enqueue
       removeOnComplete: true,
       removeOnFail: false,
     });
+    console.log(`[queue][email] ✅ Job added: ${job.id}, delay: ${delay}ms, queue: ${queue.name}`);
   } catch (error) {
+    console.error(`[queue][email] ❌ Failed to add job: ${jobId}`, error);
     await recordObservabilityEvent({
       source: "queue.email",
       eventType: "email_queue.enqueue_failed",
@@ -107,6 +120,24 @@ export async function enqueueEmailJob(payload: EmailJobPayload, options: Enqueue
       restaurantId: payload.restaurantId ?? undefined,
       bookingId: payload.bookingId,
     });
-    throw error;
   }
+}
+
+export async function removeEmailJob(jobId: string): Promise<boolean> {
+  const queue = getEmailQueue();
+  const normalizedId = sanitizeEmailJobId(jobId);
+  let job = await queue.getJob(normalizedId);
+  if (!job && normalizedId !== jobId) {
+    job = await queue.getJob(jobId);
+  }
+  if (job) {
+    try {
+      await job.remove();
+      return true;
+    } catch (error) {
+      console.warn(`[queue] failed to remove job ${jobId}`, error);
+      return false;
+    }
+  }
+  return false;
 }

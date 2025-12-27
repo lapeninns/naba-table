@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { GuardError } from '@/server/auth/guards';
 import { OperatingHoursError } from '@/server/bookings/timeValidation';
+import { createSessionRecoveryAccessToken } from '@/server/security/session-recovery-access-token';
 
 import { DELETE, GET, PUT } from './route';
 
@@ -10,7 +11,7 @@ import type * as AuthGuardsModule from '@/server/auth/guards';
 import type * as BookingsModule from '@/server/bookings';
 import type * as BookingTimeValidationModule from '@/server/bookings/timeValidation';
 
-process.env.BASE_URL ??= "http://localhost:3000";
+process.env.BASE_URL ??= 'http://localhost:3000';
 
 vi.mock('@/lib/env', () => {
   return {
@@ -19,12 +20,12 @@ vi.mock('@/lib/env', () => {
         return {
           loyaltyPilotRestaurantIds: undefined,
           enableTestApi: true,
-        guestLookupPolicy: false,
-        opsGuardV2: false,
-        bookingPastTimeBlocking: true,
-        bookingPastTimeGraceMinutes: 5,
-        pendingSelfServeGraceMinutes: 10,
-      } as const;
+          guestLookupPolicy: false,
+          opsGuardV2: false,
+          bookingPastTimeBlocking: true,
+          bookingPastTimeGraceMinutes: 5,
+          pendingSelfServeGraceMinutes: 10,
+        } as const;
       },
       get supabase() {
         return {
@@ -52,6 +53,8 @@ vi.mock('@/lib/env', () => {
       get security() {
         return {
           guestLookupPepper: null,
+          sessionRecoveryAccessTokenSecret: 'test-session-recovery-secret',
+          sessionRecoveryAccessTokenTtlSeconds: 2_592_000,
         } as const;
       },
       get reserve() {
@@ -110,7 +113,8 @@ vi.mock('@/server/auth/guards', async () => {
   return {
     ...actual,
     requireSession: (...args: unknown[]) => requireSessionMock(...args),
-    listUserRestaurantMemberships: (...args: unknown[]) => listUserRestaurantMembershipsMock(...args),
+    listUserRestaurantMemberships: (...args: unknown[]) =>
+      listUserRestaurantMembershipsMock(...args),
   };
 });
 
@@ -132,7 +136,8 @@ vi.mock('@/server/bookings/modification-flow', () => ({
 }));
 
 vi.mock('@/server/jobs/booking-side-effects', () => ({
-  enqueueBookingUpdatedSideEffects: (...args: unknown[]) => enqueueBookingUpdatedSideEffectsMock(...args),
+  enqueueBookingUpdatedSideEffects: (...args: unknown[]) =>
+    enqueueBookingUpdatedSideEffectsMock(...args),
   enqueueBookingCreatedSideEffects: vi.fn(),
   enqueueBookingCancelledSideEffects: vi.fn(),
   safeBookingPayload: (payload: unknown) => payload,
@@ -140,6 +145,7 @@ vi.mock('@/server/jobs/booking-side-effects', () => ({
 
 vi.mock('@/server/customers', () => ({
   normalizeEmail: (email: string) => email.trim().toLowerCase(),
+  normalizePhone: (phone: string) => phone.replace(/[^0-9]/g, ''),
 }));
 
 vi.mock('@/server/observability', () => ({
@@ -220,7 +226,12 @@ function createTenantSupabase(booking: typeof existingBooking | null = existingB
   };
 }
 
-function createServiceSupabase(options: { booking?: typeof existingBooking | null; restaurant?: typeof existingRestaurant | null } = {}) {
+function createServiceSupabase(
+  options: {
+    booking?: typeof existingBooking | null;
+    restaurant?: typeof existingRestaurant | null;
+  } = {},
+) {
   const booking = 'booking' in options ? options.booking : existingBooking;
   const restaurant = 'restaurant' in options ? options.restaurant : existingRestaurant;
 
@@ -267,6 +278,19 @@ describe('/api/bookings/[id] GET', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.clearAllMocks();
+  });
+
+  it('returns 410 when legacy token query is provided', async () => {
+    const request = new NextRequest('http://localhost/api/bookings/booking-1?token=legacy', {
+      method: 'GET',
+    });
+    const params = { params: Promise.resolve({ id: 'booking-1' }) } as const;
+
+    const response = await GET(request, params);
+
+    expect(response.status).toBe(410);
+    const json = await response.json();
+    expect(json.code).toBe('LEGACY_TOKEN_DEPRECATED');
   });
 
   it('returns 401 when user is not authenticated', async () => {
@@ -461,6 +485,35 @@ describe('/api/bookings/[id] GET', () => {
     const json = await response.json();
     expect(json.booking.id).toBe('booking-1');
   });
+
+  it('returns 200 when session recovery cookie is present (unauthenticated)', async () => {
+    const accessToken = createSessionRecoveryAccessToken({
+      restaurantId: RESTAURANT_ID,
+      email: existingBooking.customer_email,
+      phone: existingBooking.customer_phone,
+      secret: 'test-session-recovery-secret',
+      now: DEFAULT_NOW,
+      ttlSeconds: 60 * 60,
+    });
+
+    const request = new NextRequest('http://localhost/api/bookings/booking-1', {
+      method: 'GET',
+      headers: {
+        cookie: `sr_access=${accessToken}`,
+      },
+    });
+    const params = { params: Promise.resolve({ id: 'booking-1' }) } as const;
+
+    const serviceSupabase = createServiceSupabase({ booking: existingBooking });
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+
+    const response = await GET(request, params);
+
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.booking.id).toBe('booking-1');
+    expect(json.booking.customer_email).toBe('test@example.com');
+  });
 });
 
 describe('/api/bookings/[id] PUT', () => {
@@ -497,6 +550,150 @@ describe('/api/bookings/[id] PUT', () => {
     expect(json.code).toBe('UNAUTHENTICATED');
   });
 
+  it('allows dashboard updates when session recovery cookie is present', async () => {
+    const accessToken = createSessionRecoveryAccessToken({
+      restaurantId: RESTAURANT_ID,
+      email: existingBooking.customer_email,
+      phone: existingBooking.customer_phone,
+      secret: 'test-session-recovery-secret',
+      now: DEFAULT_NOW,
+      ttlSeconds: 60 * 60,
+    });
+
+    const payload = {
+      startIso: '2025-10-10T19:00:00.000+01:00',
+      endIso: '2025-10-10T21:00:00.000+01:00',
+      partySize: 4,
+      notes: 'Window seat',
+    };
+
+    const request = new NextRequest('http://localhost/api/bookings/booking-1', {
+      method: 'PUT',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `sr_access=${accessToken}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    const params = { params: Promise.resolve({ id: existingBooking.id }) } as const;
+
+    const updatedBooking = {
+      ...existingBooking,
+      party_size: 4,
+      notes: 'Window seat',
+      start_at: '2025-10-10T19:00:00.000Z',
+      end_at: '2025-10-10T21:00:00.000Z',
+    };
+
+    beginBookingModificationFlowMock.mockResolvedValue(updatedBooking);
+    buildBookingAuditSnapshotMock.mockReturnValue({ diff: 'changed' });
+    logAuditEventMock.mockResolvedValue(undefined);
+    enqueueBookingUpdatedSideEffectsMock.mockResolvedValue(undefined);
+    assertBookingWithinOperatingWindowMock.mockReturnValue({ time: '19:00' });
+
+    const serviceSupabase = createServiceSupabase({ booking: existingBooking });
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+
+    const response = await PUT(request, params);
+
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.id).toBe(existingBooking.id);
+    expect(requireSessionMock).not.toHaveBeenCalled();
+  });
+
+  it('allows dashboard updates when authenticated guest owns booking by email', async () => {
+    const payload = {
+      startIso: '2025-10-10T19:00:00.000Z',
+      endIso: '2025-10-10T21:00:00.000Z',
+      partySize: 3,
+      notes: 'Need high chair',
+    };
+
+    const request = createRequest(payload);
+    const params = { params: Promise.resolve({ id: existingBooking.id }) } as const;
+
+    const tenantSupabase = createTenantSupabase(existingBooking);
+    requireSessionMock.mockResolvedValue({
+      supabase: tenantSupabase,
+      user: { id: 'user-1', email: existingBooking.customer_email },
+    });
+    listUserRestaurantMembershipsMock.mockResolvedValue([]);
+
+    const updatedBooking = {
+      ...existingBooking,
+      party_size: 3,
+      notes: 'Need high chair',
+      start_at: '2025-10-10T19:00:00.000Z',
+      end_at: '2025-10-10T21:00:00.000Z',
+    };
+
+    beginBookingModificationFlowMock.mockResolvedValue(updatedBooking);
+    buildBookingAuditSnapshotMock.mockReturnValue({ diff: 'changed' });
+    logAuditEventMock.mockResolvedValue(undefined);
+    enqueueBookingUpdatedSideEffectsMock.mockResolvedValue(undefined);
+    assertBookingWithinOperatingWindowMock.mockReturnValue({ time: '19:00' });
+
+    const serviceSupabase = createServiceSupabase({ booking: existingBooking });
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+
+    const response = await PUT(request, params);
+
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.id).toBe(existingBooking.id);
+    expect(listUserRestaurantMembershipsMock).not.toHaveBeenCalled();
+  });
+
+  it('allows dashboard updates when authenticated guest owns booking by auth_user_id', async () => {
+    const ownedBooking = {
+      ...existingBooking,
+      customer_email: 'someoneelse@example.com',
+      auth_user_id: 'user-1',
+    };
+
+    const payload = {
+      startIso: '2025-10-10T19:00:00.000Z',
+      endIso: '2025-10-10T21:00:00.000Z',
+      partySize: 4,
+      notes: 'Birthday',
+    };
+
+    const request = createRequest(payload);
+    const params = { params: Promise.resolve({ id: ownedBooking.id }) } as const;
+
+    const tenantSupabase = createTenantSupabase(ownedBooking);
+    requireSessionMock.mockResolvedValue({
+      supabase: tenantSupabase,
+      user: { id: 'user-1', email: 'guest@example.com' },
+    });
+    listUserRestaurantMembershipsMock.mockResolvedValue([]);
+
+    const updatedBooking = {
+      ...ownedBooking,
+      party_size: 4,
+      notes: 'Birthday',
+      start_at: '2025-10-10T19:00:00.000Z',
+      end_at: '2025-10-10T21:00:00.000Z',
+    };
+
+    beginBookingModificationFlowMock.mockResolvedValue(updatedBooking);
+    buildBookingAuditSnapshotMock.mockReturnValue({ diff: 'changed' });
+    logAuditEventMock.mockResolvedValue(undefined);
+    enqueueBookingUpdatedSideEffectsMock.mockResolvedValue(undefined);
+    assertBookingWithinOperatingWindowMock.mockReturnValue({ time: '19:00' });
+
+    const serviceSupabase = createServiceSupabase({ booking: ownedBooking });
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+
+    const response = await PUT(request, params);
+
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.id).toBe(ownedBooking.id);
+    expect(listUserRestaurantMembershipsMock).not.toHaveBeenCalled();
+  });
+
   it('returns 403 when staff has no memberships for dashboard updates', async () => {
     const payload = {
       startIso: '2025-10-10T19:00:00.000Z',
@@ -513,13 +710,15 @@ describe('/api/bookings/[id] PUT', () => {
       user: { id: 'user-1', email: 'ops@example.com' },
     });
     listUserRestaurantMembershipsMock.mockResolvedValue([]);
+    const serviceSupabase = createServiceSupabase({ booking: existingBooking });
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
 
     const response = await PUT(request, params);
 
     expect(response.status).toBe(403);
     const json = await response.json();
     expect(json.code).toBe('FORBIDDEN');
-    expect(getServiceSupabaseClientMock).not.toHaveBeenCalled();
+    expect(getServiceSupabaseClientMock).toHaveBeenCalled();
   });
 
   it('returns 403 when staff is not a member of the booking restaurant', async () => {
@@ -568,7 +767,12 @@ describe('/api/bookings/[id] PUT', () => {
       user: { id: 'user-1', email: 'ops@example.com' },
     });
     listUserRestaurantMembershipsMock.mockResolvedValue([
-      { restaurant_id: existingBooking.restaurant_id, role: 'manager', created_at: '', restaurants: null },
+      {
+        restaurant_id: existingBooking.restaurant_id,
+        role: 'manager',
+        created_at: '',
+        restaurants: null,
+      },
     ]);
 
     const pendingBooking = {
@@ -638,12 +842,15 @@ describe('/api/bookings/[id] PUT', () => {
       }),
     });
     expect(updateBookingRecordMock).not.toHaveBeenCalled();
-    expect(logAuditEventMock).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({
-      metadata: expect.objectContaining({
-        actor_user_id: 'user-1',
-        restaurant_id: existingBooking.restaurant_id,
+    expect(logAuditEventMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          actor_user_id: 'user-1',
+          restaurant_id: existingBooking.restaurant_id,
+        }),
       }),
-    }));
+    );
   });
 
   it('updates booking inline when dashboard edits do not impact allocation', async () => {
@@ -663,7 +870,12 @@ describe('/api/bookings/[id] PUT', () => {
       user: { id: 'user-2', email: 'ops@example.com' },
     });
     listUserRestaurantMembershipsMock.mockResolvedValue([
-      { restaurant_id: existingBooking.restaurant_id, role: 'manager', created_at: '', restaurants: null },
+      {
+        restaurant_id: existingBooking.restaurant_id,
+        role: 'manager',
+        created_at: '',
+        restaurants: null,
+      },
     ]);
 
     const updatedBooking = {
@@ -717,9 +929,13 @@ describe('/api/bookings/[id] PUT', () => {
     expect(json.partySize).toBe(2);
     expect(json.status).toBe(updatedBooking.status);
     expect(beginBookingModificationFlowMock).not.toHaveBeenCalled();
-    expect(updateBookingRecordMock).toHaveBeenCalledWith(expect.any(Object), existingBooking.id, expect.objectContaining({
-      notes: 'Birthday',
-    }));
+    expect(updateBookingRecordMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      existingBooking.id,
+      expect.objectContaining({
+        notes: 'Birthday',
+      }),
+    );
   });
 
   it('rejects updates to past bookings', async () => {
@@ -740,7 +956,12 @@ describe('/api/bookings/[id] PUT', () => {
       user: { id: 'user-1', email: existingBooking.customer_email },
     });
     listUserRestaurantMembershipsMock.mockResolvedValue([
-      { restaurant_id: existingBooking.restaurant_id, role: 'manager', created_at: '', restaurants: null },
+      {
+        restaurant_id: existingBooking.restaurant_id,
+        role: 'manager',
+        created_at: '',
+        restaurants: null,
+      },
     ]);
 
     const serviceSupabase = createServiceSupabase({ booking: existingBooking });
@@ -903,7 +1124,11 @@ describe('/api/bookings/[id] PUT', () => {
       ],
     });
     assertBookingWithinOperatingWindowMock.mockReturnValue({ time: '19:00' });
-    updateBookingRecordMock.mockResolvedValue({ ...existingBooking, start_time: '19:00', end_time: '21:00' });
+    updateBookingRecordMock.mockResolvedValue({
+      ...existingBooking,
+      start_time: '19:00',
+      end_time: '21:00',
+    });
     fetchBookingsForContactMock.mockResolvedValue([existingBooking]);
     buildBookingAuditSnapshotMock.mockReturnValue({ previous: null, current: null, changes: [] });
     logAuditEventMock.mockResolvedValue(undefined);
@@ -917,9 +1142,13 @@ describe('/api/bookings/[id] PUT', () => {
       requestedTime: '19:00',
       bookingType: 'dinner',
     });
-    expect(updateBookingRecordMock).toHaveBeenCalledWith(serviceSupabase, 'booking-1', expect.objectContaining({
-      start_time: '19:00',
-    }));
+    expect(updateBookingRecordMock).toHaveBeenCalledWith(
+      serviceSupabase,
+      'booking-1',
+      expect.objectContaining({
+        start_time: '19:00',
+      }),
+    );
     expect(json.booking.start_time).toBe('19:00');
   });
 
@@ -1066,7 +1295,9 @@ describe('/api/bookings/[id] DELETE', () => {
   });
 
   it('blocks cancellations once a pending booking ages past the grace window', async () => {
-    const request = new NextRequest('http://localhost/api/bookings/booking-1', { method: 'DELETE' });
+    const request = new NextRequest('http://localhost/api/bookings/booking-1', {
+      method: 'DELETE',
+    });
     const params = { params: Promise.resolve({ id: existingBooking.id }) } as const;
 
     const pendingBooking = {
@@ -1167,7 +1398,9 @@ describe('/api/bookings/[id] DELETE', () => {
   it('rejects cancellations for past bookings', async () => {
     vi.setSystemTime(new Date('2025-10-11T10:00:00.000Z'));
 
-    const request = new NextRequest('http://localhost/api/bookings/booking-1', { method: 'DELETE' });
+    const request = new NextRequest('http://localhost/api/bookings/booking-1', {
+      method: 'DELETE',
+    });
     const params = { params: Promise.resolve({ id: existingBooking.id }) } as const;
 
     const tenantSupabase = {
@@ -1191,5 +1424,40 @@ describe('/api/bookings/[id] DELETE', () => {
     expect(json.code).toBe('SERVICE_STARTED');
     expect(softCancelBookingMock).not.toHaveBeenCalled();
     expect(clearBookingTableAssignmentsMock).not.toHaveBeenCalled();
+  });
+
+  it('cancels booking when session recovery cookie is present', async () => {
+    const accessToken = createSessionRecoveryAccessToken({
+      restaurantId: RESTAURANT_ID,
+      email: existingBooking.customer_email,
+      phone: existingBooking.customer_phone,
+      secret: 'test-session-recovery-secret',
+      now: DEFAULT_NOW,
+      ttlSeconds: 60 * 60,
+    });
+
+    const request = new NextRequest('http://localhost/api/bookings/booking-1', {
+      method: 'DELETE',
+      headers: {
+        cookie: `sr_access=${accessToken}`,
+      },
+    });
+    const params = { params: Promise.resolve({ id: existingBooking.id }) } as const;
+
+    const cancelledBooking = { ...existingBooking, status: 'cancelled' as const };
+    softCancelBookingMock.mockResolvedValue(cancelledBooking);
+    clearBookingTableAssignmentsMock.mockResolvedValue(undefined);
+    buildBookingAuditSnapshotMock.mockReturnValue({ diff: 'cancelled' });
+    logAuditEventMock.mockResolvedValue(undefined);
+
+    const serviceSupabase = createServiceSupabase({ booking: existingBooking });
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+
+    const response = await DELETE(request, params);
+
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.id).toBe(existingBooking.id);
+    expect(json.status).toBe('cancelled');
   });
 });
