@@ -1,11 +1,12 @@
 # Continuity Ledger
 
-Last updated: 2025-12-27T07:46:20Z
+Last updated: 2025-12-27T07:54:30Z
 
 ## Goal (incl. success criteria)
 
 - Make instant booking emails send inline even when the queue is enabled.
-- Success: instant types bypass queue; scheduled types remain queued; docs updated.
+- Ensure scheduled emails enqueue successfully without jobId errors.
+- Success: instant types bypass queue; scheduled types remain queued and can be added.
 
 ## Constraints/Assumptions
 
@@ -17,25 +18,25 @@ Last updated: 2025-12-27T07:46:20Z
 
 - Instant types: request_received, confirmation, updated, cancelled, restaurant_cancellation, booking_rejected.
 - Scheduled types (reminder_24h, reminder_short, review_request) remain queued.
-- Auto-assign deferral for request_received will no longer apply when queue is enabled.
+- Sanitize email queue job IDs to remove `:` and keep removal compatible.
 
 ## State
 
-- Phase 3 implementation done; verification notes pending.
+- Implementation done; not re-verified after jobId fix.
 
 ## Done
 
-- Created task folder tasks/instant-email-inline-20251227-0741/ with SDLC stubs.
 - Updated booking-side-effects to bypass queue for instant types.
-- Updated docs/EMAIL_SYSTEM.md to reflect queue scope.
+- Added jobId sanitization in email queue helper.
+- Updated docs/EMAIL_SYSTEM.md for queue scope.
 
 ## Now
 
-- Update verification notes and summarize changes.
+- Await user confirmation to run tests or re-check logs.
 
 ## Next
 
-- Optionally run tests.
+- Optional: trigger a booking to verify reminder jobs enqueue.
 
 ## Open questions (UNCONFIRMED if needed)
 
@@ -45,6 +46,7 @@ Last updated: 2025-12-27T07:46:20Z
 
 - CONTINUITY.md
 - server/jobs/booking-side-effects.ts
+- server/queue/email.ts
 - docs/EMAIL_SYSTEM.md
 - tasks/instant-email-inline-20251227-0741/research.md
 - tasks/instant-email-inline-20251227-0741/plan.md

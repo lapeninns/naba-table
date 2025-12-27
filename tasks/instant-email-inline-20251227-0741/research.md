@@ -16,6 +16,7 @@ related_tickets: []
   - Treat these as instant: `request_received`, `confirmation`, `updated`, `cancelled`, `restaurant_cancellation`, `booking_rejected`.
   - Instant emails must send inline even when `ENABLE_EMAIL_QUEUE=true`.
   - Scheduled emails (`reminder_24h`, `reminder_short`, `review_request`) remain queued/scheduled.
+  - Queue job IDs must not contain `:` (BullMQ rejects custom IDs with colons).
   - Keep existing suppression envs (`SUPPRESS_EMAILS`, `LOAD_TEST_DISABLE_EMAILS`).
   - Update docs to reflect new behavior.
 - Non-functional (a11y, perf, security, privacy, i18n):
@@ -38,6 +39,7 @@ related_tickets: []
 
 - Current auto-assign deferral for `request_received` only applies when queuing; bypassing the queue removes this delay.
 - Inline sending could increase request-time work if side effects run synchronously.
+- Scheduled reminders currently fail to enqueue because job IDs contain `:` (per logs).
 
 ## Open Questions (owner, due)
 
@@ -46,4 +48,5 @@ related_tickets: []
 ## Recommended Direction (with rationale)
 
 - Add an explicit instant-email allowlist and bypass the queue for those types even when the queue is enabled; keep reminders/review queued.
+- Sanitize job IDs in the email queue helper so scheduled jobs can enqueue.
 - Update docs so operators understand that the queue only governs scheduled emails after this change.

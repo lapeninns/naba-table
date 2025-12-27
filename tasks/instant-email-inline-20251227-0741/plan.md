@@ -18,11 +18,13 @@ We will send instant booking emails inline even when the queue is enabled so tha
 
 - [ ] Instant types (`request_received`, `confirmation`, `updated`, `cancelled`, `restaurant_cancellation`, `booking_rejected`) bypass the queue when `ENABLE_EMAIL_QUEUE=true`.
 - [ ] Scheduled types (`reminder_24h`, `reminder_short`, `review_request`) still queue/schedule as before.
+- [ ] Scheduled jobs enqueue without `jobId` colon errors.
 - [ ] `docs/EMAIL_SYSTEM.md` reflects the new behavior.
 
 ## Architecture & Components
 
 - `server/jobs/booking-side-effects.ts`: add an instant-type allowlist and route those sends inline regardless of queue flag.
+- `server/queue/email.ts`: sanitize job IDs before enqueuing/removing jobs.
 - `docs/EMAIL_SYSTEM.md`: clarify queue vs inline behavior post-change.
 
 ## Data Flow & API Contracts
@@ -38,6 +40,7 @@ We will send instant booking emails inline even when the queue is enabled so tha
 
 - Auto-assign deferral for `request_received` no longer applies when queue is enabled; email will send immediately.
 - Queue-enabled deployments still rely on cron/worker only for scheduled types.
+- Job IDs with `:` are rejected by BullMQ in this environment; sanitize in queue helper.
 
 ## Testing Strategy
 

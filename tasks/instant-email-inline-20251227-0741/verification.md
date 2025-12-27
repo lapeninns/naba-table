@@ -17,6 +17,7 @@ related_tickets: []
 ## Test Outcomes
 
 - Not run (not requested).
+- Note: observed queue error for reminder jobs due to `jobId` containing `:`; fix applied but not re-verified.
 
 ## Artifacts
 

@@ -18,6 +18,8 @@ related_tickets: []
 
 - [x] Add instant-email allowlist and bypass queue in booking side-effects
 - [x] Keep reminder/review scheduling queue behavior unchanged
+- [ ] Sanitize email queue job IDs to avoid `:` rejection
+- [x] Sanitize email queue job IDs to avoid `:` rejection
 - [x] Update documentation
 
 ## Tests
