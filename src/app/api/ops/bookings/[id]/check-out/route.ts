@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { clearBookingTableAssignments } from "@/server/bookings";
-import { enqueueBookingUpdatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
+import { enqueueCheckOutSideEffects } from "@/server/jobs/booking-side-effects";
 import { prepareCheckOutTransition } from "@/server/ops/booking-lifecycle/actions";
 import { BookingLifecycleError } from "@/server/ops/booking-lifecycle/stateMachine";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
@@ -174,7 +174,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     });
   }
 
-  // Trigger side effects (review request email scheduling) after successful check-out
+  // Schedule review request email after successful check-out
+  // Note: This ONLY schedules the review email - no "update" notification is sent
+  // because check-out is an internal operational action, not a booking modification
   try {
     const { data: fullBooking } = await serviceSupabase
       .from("bookings")
@@ -183,20 +185,10 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       .maybeSingle();
 
     if (fullBooking && bookingRow.restaurant_id) {
-      const previousPayload = safeBookingPayload({
-        ...fullBooking,
-        status: bookingRow.status, // Use the previous status
-      });
-      const currentPayload = safeBookingPayload(fullBooking);
-
-      await enqueueBookingUpdatedSideEffects({
-        previous: previousPayload,
-        current: currentPayload,
-        restaurantId: bookingRow.restaurant_id,
-      });
+      await enqueueCheckOutSideEffects(fullBooking, bookingRow.restaurant_id);
     }
   } catch (sideEffectsError) {
-    console.warn("[ops][booking-check-out] failed to trigger side effects", {
+    console.warn("[ops][booking-check-out] failed to schedule review email", {
       bookingId: bookingRow.id,
       error: sideEffectsError instanceof Error ? sideEffectsError.message : sideEffectsError,
     });

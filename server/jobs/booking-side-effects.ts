@@ -755,6 +755,29 @@ export async function enqueueBookingCancelledSideEffects(
   return { queued: false } as const;
 }
 
+/**
+ * Dedicated function for check-out side effects.
+ * Only schedules the review request email - does NOT send booking update emails.
+ * 
+ * This should be called when a booking transitions to 'completed' status via check-out.
+ * Unlike enqueueBookingUpdatedSideEffects, this will NOT notify the guest of "changes"
+ * because a check-out is an internal operational action, not a booking modification.
+ */
+export async function enqueueCheckOutSideEffects(
+  booking: BookingRecord,
+  restaurantId: string,
+  options?: { supabase?: SupabaseLike },
+): Promise<void> {
+  if (SUPPRESS_EMAILS) return;
+
+  const prefs = await fetchRestaurantEmailPrefs(restaurantId, resolveSupabase(options?.supabase));
+
+  if (!prefs.sendReviewRequest) return;
+
+  const timezone = await fetchRestaurantTimezone(restaurantId, resolveSupabase(options?.supabase));
+  await scheduleReviewJob(booking, restaurantId, timezone);
+}
+
 export {
   processBookingCreatedSideEffects,
   processBookingUpdatedSideEffects,
