@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { clearBookingTableAssignments } from "@/server/bookings";
+import { enqueueBookingUpdatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
 import { prepareCheckOutTransition } from "@/server/ops/booking-lifecycle/actions";
 import { BookingLifecycleError } from "@/server/ops/booking-lifecycle/stateMachine";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 import { requireMembershipForRestaurant } from "@/server/team/access";
 
 import type { Tables } from "@/types/supabase";
-import type { NextRequest} from "next/server";
+import type { NextRequest } from "next/server";
 
 const bodySchema = z
   .object({
@@ -162,7 +163,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     console.error("[ops][booking-check-out] failed to persist transition", transitionError.message);
     return NextResponse.json({ error: "Unable to check out booking" }, { status: 500 });
   }
- 
+
   // Release any table assignments once the booking has been checked out/completed
   try {
     await clearBookingTableAssignments(serviceSupabase, bookingRow.id);
@@ -170,6 +171,34 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     console.warn("[ops][booking-check-out] failed to clear table assignments", {
       bookingId: bookingRow.id,
       error: clearError instanceof Error ? clearError.message : clearError,
+    });
+  }
+
+  // Trigger side effects (review request email scheduling) after successful check-out
+  try {
+    const { data: fullBooking } = await serviceSupabase
+      .from("bookings")
+      .select("*")
+      .eq("id", bookingRow.id)
+      .maybeSingle();
+
+    if (fullBooking && bookingRow.restaurant_id) {
+      const previousPayload = safeBookingPayload({
+        ...fullBooking,
+        status: bookingRow.status, // Use the previous status
+      });
+      const currentPayload = safeBookingPayload(fullBooking);
+
+      await enqueueBookingUpdatedSideEffects({
+        previous: previousPayload,
+        current: currentPayload,
+        restaurantId: bookingRow.restaurant_id,
+      });
+    }
+  } catch (sideEffectsError) {
+    console.warn("[ops][booking-check-out] failed to trigger side effects", {
+      bookingId: bookingRow.id,
+      error: sideEffectsError instanceof Error ? sideEffectsError.message : sideEffectsError,
     });
   }
 
