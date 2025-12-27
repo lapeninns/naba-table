@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 
-import { getRedisConnection } from "@/lib/queue/redis";
 import {
     sendBookingCancellationEmail,
     sendBookingConfirmationEmail,
@@ -10,7 +9,7 @@ import {
     sendBookingUpdateEmail,
     sendRestaurantCancellationEmail,
 } from "@/server/emails/bookings";
-import { EMAIL_QUEUE_NAME, type EmailJobPayload, type EmailJobType } from "@/server/queue/email";
+import { type EmailJobPayload, type EmailJobType } from "@/server/queue/email";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
 import type { BookingRecord } from "@/server/bookings";
@@ -138,54 +137,77 @@ export async function GET(request: Request) {
         console.warn("[cron][process-emails] CRON_SECRET not set - endpoint is unprotected");
     }
 
-    const redis = getRedisConnection();
+    const { getEmailQueue } = await import("@/server/queue/email");
+    const queue = getEmailQueue();
     const results: Array<{ jobId: string; success: boolean; skipped?: boolean; error?: string }> = [];
 
     try {
-        // Get jobs that are ready to be processed (score <= current timestamp)
         const now = Date.now();
 
-        // Check delayed jobs that are ready
-        const delayedKey = `bull:${EMAIL_QUEUE_NAME}:delayed`;
-        const readyJobs = await redis.zrangebyscore(delayedKey, 0, now, "LIMIT", 0, MAX_JOBS_PER_RUN);
+        // Get delayed jobs that are ready to be processed
+        const delayedJobs = await queue.getDelayed(0, MAX_JOBS_PER_RUN * 2);
+
+        // Filter to only jobs that are ready (scheduled time has passed)
+        const readyJobs = delayedJobs.filter(job => {
+            const processAt = job.timestamp + (job.opts.delay ?? 0);
+            return processAt <= now;
+        }).slice(0, MAX_JOBS_PER_RUN);
 
         if (readyJobs.length === 0) {
-            return NextResponse.json({
-                success: true,
-                message: "No pending emails to process",
-                processed: 0,
-            });
-        }
-
-        for (const jobId of readyJobs) {
-            try {
-                // Get job data
-                const jobKey = `bull:${EMAIL_QUEUE_NAME}:${jobId}`;
-                const jobData = await redis.hget(jobKey, "data");
-
-                if (!jobData) {
-                    // Job doesn't exist, remove from delayed set
-                    await redis.zrem(delayedKey, jobId);
-                    continue;
-                }
-
-                const payload: EmailJobPayload = JSON.parse(jobData);
-                const result = await processJob(payload);
-
-                // Remove job from delayed set and delete job data
-                await redis.zrem(delayedKey, jobId);
-                await redis.del(jobKey);
-
-                results.push({ jobId, ...result });
-
-                console.log(`[cron][process-emails] Processed job ${jobId}:`, result);
-            } catch (error) {
-                console.error(`[cron][process-emails] Failed to process job ${jobId}:`, error);
-                results.push({
-                    jobId,
-                    success: false,
-                    error: error instanceof Error ? error.message : String(error)
+            // Also check waiting jobs
+            const waitingJobs = await queue.getWaiting(0, MAX_JOBS_PER_RUN);
+            if (waitingJobs.length === 0) {
+                return NextResponse.json({
+                    success: true,
+                    message: "No pending emails to process",
+                    processed: 0,
+                    debug: {
+                        delayedCount: delayedJobs.length,
+                        waitingCount: 0,
+                    }
                 });
+            }
+
+            // Process waiting jobs
+            for (const job of waitingJobs) {
+                try {
+                    const payload = job.data;
+                    const result = await processJob(payload);
+
+                    // Remove job after processing
+                    await job.remove();
+
+                    results.push({ jobId: job.id ?? "unknown", ...result });
+                    console.log(`[cron][process-emails] Processed waiting job ${job.id}:`, result);
+                } catch (error) {
+                    console.error(`[cron][process-emails] Failed to process job ${job.id}:`, error);
+                    results.push({
+                        jobId: job.id ?? "unknown",
+                        success: false,
+                        error: error instanceof Error ? error.message : String(error)
+                    });
+                }
+            }
+        } else {
+            // Process delayed jobs that are ready
+            for (const job of readyJobs) {
+                try {
+                    const payload = job.data;
+                    const result = await processJob(payload);
+
+                    // Remove job after processing
+                    await job.remove();
+
+                    results.push({ jobId: job.id ?? "unknown", ...result });
+                    console.log(`[cron][process-emails] Processed delayed job ${job.id}:`, result);
+                } catch (error) {
+                    console.error(`[cron][process-emails] Failed to process job ${job.id}:`, error);
+                    results.push({
+                        jobId: job.id ?? "unknown",
+                        success: false,
+                        error: error instanceof Error ? error.message : String(error)
+                    });
+                }
             }
         }
 

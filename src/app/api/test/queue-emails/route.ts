@@ -151,7 +151,38 @@ export async function GET(req: NextRequest) {
     const guard = guardTestEndpoint(req);
     if (guard) return guard;
 
+    // Import queue to get status
+    const { getEmailQueue } = await import('@/server/queue/email');
+    const queue = getEmailQueue();
+
+    // Get job counts
+    const [waiting, active, delayed, completed, failed] = await Promise.all([
+        queue.getWaitingCount(),
+        queue.getActiveCount(),
+        queue.getDelayedCount(),
+        queue.getCompletedCount(),
+        queue.getFailedCount(),
+    ]);
+
+    // Get delayed jobs details
+    const delayedJobs = await queue.getDelayed(0, 20);
+    const delayedDetails = delayedJobs.map(job => ({
+        id: job.id,
+        type: job.data.type,
+        bookingId: job.data.bookingId,
+        delay: job.opts.delay,
+        processAt: job.opts.delay ? new Date(job.timestamp + job.opts.delay).toISOString() : null,
+    }));
+
     return NextResponse.json({
+        queueStatus: {
+            waiting,
+            active,
+            delayed,
+            completed,
+            failed,
+        },
+        delayedJobs: delayedDetails,
         availableEmailTypes: ALL_EMAIL_TYPES,
         usage: {
             method: 'POST',
