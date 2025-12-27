@@ -6,6 +6,8 @@ import { recordObservabilityEvent } from "@/server/observability";
 export type EmailJobType =
   | "request_received"
   | "confirmation"
+  | "updated"
+  | "cancelled"
   | "reminder_24h"
   | "reminder_short"
   | "review_request"

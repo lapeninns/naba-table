@@ -4,10 +4,27 @@ import { env } from "@/lib/env";
 
 let sharedConnection: IORedis | null = null;
 
-function buildRedisOptions(): RedisOptions | string {
+function buildRedisOptions(): RedisOptions {
   const config = env.queue;
+
+  // BullMQ requires maxRetriesPerRequest: null for blocking commands
+  const baseOptions: RedisOptions = {
+    maxRetriesPerRequest: null,
+    enableReadyCheck: false,
+  };
+
   if (config.redisUrl) {
-    return config.redisUrl;
+    // Parse URL and merge with base options (URL alone doesn't set maxRetriesPerRequest)
+    const url = new URL(config.redisUrl);
+    const useTls = url.protocol === "rediss:";
+    return {
+      ...baseOptions,
+      host: url.hostname,
+      port: parseInt(url.port, 10) || 6379,
+      username: url.username || undefined,
+      password: url.password || undefined,
+      ...(useTls ? { tls: {} } : {}),
+    };
   }
 
   if (!config.host) {
@@ -17,12 +34,11 @@ function buildRedisOptions(): RedisOptions | string {
   }
 
   const options: RedisOptions = {
+    ...baseOptions,
     host: config.host,
     port: config.port ?? 6379,
     username: config.username,
     password: config.password,
-    maxRetriesPerRequest: null,
-    enableReadyCheck: false,
   };
 
   if (config.tls) {
@@ -38,7 +54,7 @@ export function getRedisConnection(): IORedis {
   }
 
   const options = buildRedisOptions();
-  sharedConnection = typeof options === "string" ? new IORedis(options) : new IORedis(options);
+  sharedConnection = new IORedis(options);
 
   sharedConnection.on("error", (error) => {
     console.error("[queue][redis] connection error", {

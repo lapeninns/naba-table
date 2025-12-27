@@ -617,10 +617,34 @@ async function processBookingUpdatedSideEffects(
   }
 
   if (!SUPPRESS_EMAILS && current.customer_email && current.customer_email.trim().length > 0) {
-    try {
-      await sendBookingUpdateEmail(current as BookingRecord);
-    } catch (error) {
-      console.error("[jobs][booking.updated][email]", error);
+    if (isEmailQueueEnabled()) {
+      try {
+        await enqueueEmailJob(
+          {
+            bookingId: current.id,
+            restaurantId,
+            type: "updated",
+            scheduledFor: null,
+          },
+          {
+            jobId: `updated:${current.id}`,
+            delayMs: 0,
+          },
+        );
+      } catch (error) {
+        console.error("[jobs][booking.updated][queue-update]", error);
+        try {
+          await sendBookingUpdateEmail(current as BookingRecord);
+        } catch (fallbackError) {
+          console.error("[jobs][booking.updated][email-fallback]", fallbackError);
+        }
+      }
+    } else {
+      try {
+        await sendBookingUpdateEmail(current as BookingRecord);
+      } catch (error) {
+        console.error("[jobs][booking.updated][email]", error);
+      }
     }
   }
 
@@ -652,12 +676,38 @@ async function processBookingCancelledSideEffects(
   }
 
   if (!SUPPRESS_EMAILS && cancelled.customer_email && cancelled.customer_email.trim().length > 0) {
-    try {
-      const sendFn =
-        cancelledBy === "customer" ? sendBookingCancellationEmail : sendRestaurantCancellationEmail;
-      await sendFn(cancelled as BookingRecord);
-    } catch (error) {
-      console.error("[jobs][booking.cancelled][email]", error);
+    const jobType = cancelledBy === "customer" ? "cancelled" : "restaurant_cancellation";
+    const sendFn =
+      cancelledBy === "customer" ? sendBookingCancellationEmail : sendRestaurantCancellationEmail;
+
+    if (isEmailQueueEnabled()) {
+      try {
+        await enqueueEmailJob(
+          {
+            bookingId: cancelled.id,
+            restaurantId,
+            type: jobType,
+            scheduledFor: null,
+          },
+          {
+            jobId: `${jobType}:${cancelled.id}`,
+            delayMs: 0,
+          },
+        );
+      } catch (error) {
+        console.error("[jobs][booking.cancelled][queue]", error);
+        try {
+          await sendFn(cancelled as BookingRecord);
+        } catch (fallbackError) {
+          console.error("[jobs][booking.cancelled][email-fallback]", fallbackError);
+        }
+      }
+    } else {
+      try {
+        await sendFn(cancelled as BookingRecord);
+      } catch (error) {
+        console.error("[jobs][booking.cancelled][email]", error);
+      }
     }
   }
 }
