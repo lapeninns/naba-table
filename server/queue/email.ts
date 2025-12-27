@@ -28,9 +28,18 @@ export const EMAIL_DLQ_NAME = `${EMAIL_QUEUE_NAME}-dlq`;
 
 const DEFAULT_ATTEMPTS = 5;
 const DEFAULT_BACKOFF = { type: "exponential", delay: 60_000 } as const;
+const EMAIL_JOB_ID_SEPARATOR = "__";
 
 let emailQueue: Queue<EmailJobPayload> | null = null;
 let emailDlq: Queue<EmailJobPayload> | null = null;
+
+function buildEmailJobId(type: EmailJobType, bookingId: string): string {
+  return `email${EMAIL_JOB_ID_SEPARATOR}${type}${EMAIL_JOB_ID_SEPARATOR}${bookingId}`;
+}
+
+function sanitizeEmailJobId(jobId: string): string {
+  return jobId.replace(/:/g, EMAIL_JOB_ID_SEPARATOR);
+}
 
 function ensureQueueSetup(): void {
   if (!emailQueue) {
@@ -80,7 +89,7 @@ type EnqueueEmailOptions = {
 
 export async function enqueueEmailJob(payload: EmailJobPayload, options: EnqueueEmailOptions = {}): Promise<void> {
   const queue = getEmailQueue();
-  const jobId = options.jobId ?? `${payload.type}:${payload.bookingId}`;
+  const jobId = sanitizeEmailJobId(options.jobId ?? buildEmailJobId(payload.type, payload.bookingId));
   const delay = Math.max(0, Math.floor(options.delayMs ?? 0));
   const attempts = options.attempts ?? DEFAULT_ATTEMPTS;
   const backoff = options.backoff ?? DEFAULT_BACKOFF;
@@ -116,7 +125,11 @@ export async function enqueueEmailJob(payload: EmailJobPayload, options: Enqueue
 
 export async function removeEmailJob(jobId: string): Promise<boolean> {
   const queue = getEmailQueue();
-  const job = await queue.getJob(jobId);
+  const normalizedId = sanitizeEmailJobId(jobId);
+  let job = await queue.getJob(normalizedId);
+  if (!job && normalizedId !== jobId) {
+    job = await queue.getJob(jobId);
+  }
   if (job) {
     try {
       await job.remove();
