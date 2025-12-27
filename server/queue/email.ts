@@ -24,7 +24,7 @@ export type EmailJobPayload = {
 };
 
 export const EMAIL_QUEUE_NAME = "pending-booking-emails";
-export const EMAIL_DLQ_NAME = `${EMAIL_QUEUE_NAME}:dlq`;
+export const EMAIL_DLQ_NAME = `${EMAIL_QUEUE_NAME}-dlq`;
 
 const DEFAULT_ATTEMPTS = 5;
 const DEFAULT_BACKOFF = { type: "exponential", delay: 60_000 } as const;

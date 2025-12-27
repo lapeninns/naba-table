@@ -118,16 +118,24 @@ async function processJob(payload: EmailJobPayload): Promise<{ success: boolean;
 
 export async function GET(request: Request) {
     // Verify cron secret to prevent unauthorized access
-    // Vercel cron jobs send the secret in the 'x-vercel-cron-signature' or 'authorization' header
+    // Vercel cron jobs automatically send CRON_SECRET in the Authorization header as Bearer token
+    // See: https://vercel.com/docs/cron-jobs/manage-cron-jobs#securing-cron-jobs
     const authHeader = request.headers.get("authorization");
-    const vercelCronHeader = request.headers.get("x-vercel-cron-signature");
 
-    // Check if this is a Vercel cron request or has valid Bearer token
-    const isVercelCron = vercelCronHeader !== null;
+    // Check if request has valid Bearer token (Vercel sends CRON_SECRET automatically)
     const hasValidBearerToken = CRON_SECRET && authHeader === `Bearer ${CRON_SECRET}`;
 
-    if (CRON_SECRET && !isVercelCron && !hasValidBearerToken) {
+    if (CRON_SECRET && !hasValidBearerToken) {
+        console.warn("[cron][process-emails] Unauthorized request", {
+            hasAuthHeader: !!authHeader,
+            hasCronSecret: !!CRON_SECRET,
+        });
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // If no CRON_SECRET is set, log a warning (endpoint is unprotected)
+    if (!CRON_SECRET) {
+        console.warn("[cron][process-emails] CRON_SECRET not set - endpoint is unprotected");
     }
 
     const redis = getRedisConnection();
