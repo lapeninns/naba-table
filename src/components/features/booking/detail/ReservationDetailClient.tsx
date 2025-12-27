@@ -110,7 +110,6 @@ export type ReservationDetailClientProps = {
   restaurantName: string | null;
   _structuredData?: string | null;
   venue?: ReservationVenue | null;
-  token?: string | null;
   canManage?: boolean;
 };
 
@@ -119,7 +118,6 @@ export function ReservationDetailClient({
   restaurantName,
   _structuredData,
   venue: providedVenue,
-  token = null,
   canManage = false,
 }: ReservationDetailClientProps) {
   const router = useRouter();
@@ -138,7 +136,7 @@ export function ReservationDetailClient({
     return Math.max(0, minutes) * 60_000;
   }, []);
 
-  const { data: reservation, error, isError, isLoading, refetch, isFetching } = useReservation(reservationId, token ?? undefined);
+  const { data: reservation, error, isError, isLoading, refetch, isFetching } = useReservation(reservationId);
 
   const venue = useMemo<ReservationVenue>(() => {
     if (providedVenue) {

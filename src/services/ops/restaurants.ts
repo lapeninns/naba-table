@@ -17,6 +17,7 @@ type RestaurantsListResponse = {
     contactPhone: string | null;
     address: string | null;
     googleMapUrl: string | null;
+    googleReviewUrl: string | null;
     bookingPolicy: string | null;
     createdAt: string;
     updatedAt: string;
@@ -41,6 +42,7 @@ type RestaurantResponse = {
     contactPhone: string | null;
     address: string | null;
     googleMapUrl: string | null;
+    googleReviewUrl: string | null;
     bookingPolicy: string | null;
     logoUrl: string | null;
     emailSendReminder24h: boolean;
@@ -71,6 +73,7 @@ export type RestaurantProfile = {
   contactPhone: string | null;
   address: string | null;
   googleMapUrl: string | null;
+  googleReviewUrl: string | null;
   bookingPolicy: string | null;
   logoUrl: string | null;
   emailSendReminder24h: boolean;
@@ -183,6 +186,7 @@ function mapRestaurant(dto: RestaurantResponse['restaurant']): RestaurantProfile
     contactPhone: dto.contactPhone ?? null,
     address: dto.address ?? null,
     googleMapUrl: dto.googleMapUrl ?? null,
+    googleReviewUrl: dto.googleReviewUrl ?? null,
     bookingPolicy: dto.bookingPolicy ?? null,
     logoUrl: dto.logoUrl ?? null,
     emailSendReminder24h: dto.emailSendReminder24h ?? true,

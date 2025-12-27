@@ -20,6 +20,7 @@ export type UpdateRestaurantInput = {
   contactPhone?: string | null;
   address?: string | null;
   googleMapUrl?: string | null;
+  googleReviewUrl?: string | null;
   bookingPolicy?: string | null;
   logoUrl?: string | null;
   emailSendReminder24h?: boolean;
@@ -41,6 +42,7 @@ export type UpdatedRestaurant = {
   contactPhone: string | null;
   address: string | null;
   googleMapUrl: string | null;
+  googleReviewUrl: string | null;
   bookingPolicy: string | null;
   logoUrl: string | null;
   emailSendReminder24h: boolean;
@@ -111,6 +113,11 @@ export async function updateRestaurant(
   if (input.googleMapUrl !== undefined) {
     const trimmed = input.googleMapUrl?.trim();
     updateData.google_map_url = trimmed && trimmed.length > 0 ? trimmed : null;
+  }
+
+  if (input.googleReviewUrl !== undefined) {
+    const trimmed = input.googleReviewUrl?.trim();
+    updateData.google_review_url = trimmed && trimmed.length > 0 ? trimmed : null;
   }
 
   if (input.bookingPolicy !== undefined) {
@@ -203,6 +210,7 @@ export async function updateRestaurant(
     contactPhone: data.contact_phone,
     address: data.address,
     googleMapUrl: data.google_map_url,
+    googleReviewUrl: data.google_review_url ?? null,
     bookingPolicy: data.booking_policy,
     logoUrl: data.logo_url,
     emailSendReminder24h: data.email_send_reminder_24h ?? true,

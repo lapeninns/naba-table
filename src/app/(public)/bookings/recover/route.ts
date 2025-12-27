@@ -1,0 +1,78 @@
+import { NextResponse } from 'next/server';
+
+import { env } from '@/lib/env';
+import { validateSessionRecoveryAccessToken } from '@/server/security/session-recovery-access-token';
+
+import type { NextRequest } from 'next/server';
+
+const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost';
+
+function sanitizeNextPath(value: string | null): string {
+  if (!value) return '/';
+  if (!value.startsWith('/')) return '/';
+  if (value.startsWith('//')) return '/';
+  return value;
+}
+
+/**
+ * GET /bookings/recover?access_token=...&next=/bookings/<id>
+ *
+ * Captures a session recovery access token into an httpOnly cookie and redirects
+ * to the requested destination, enabling token-authenticated booking management
+ * without leaking the token in subsequent navigations.
+ */
+export async function GET(req: NextRequest) {
+  const accessToken =
+    req.nextUrl.searchParams.get('access_token') ??
+    req.nextUrl.searchParams.get('accessToken') ??
+    null;
+
+  const nextPath = sanitizeNextPath(req.nextUrl.searchParams.get('next'));
+  const redirectTarget = new URL(nextPath, req.nextUrl.origin);
+
+  if (!accessToken) {
+    const errorUrl = new URL('/bookings/recover/error', req.nextUrl.origin);
+    errorUrl.searchParams.set('code', 'MISSING_ACCESS_TOKEN');
+    return NextResponse.redirect(errorUrl, { status: 302 });
+  }
+
+  const secret = env.security.sessionRecoveryAccessTokenSecret;
+  if (!secret) {
+    const errorUrl = new URL('/bookings/recover/error', req.nextUrl.origin);
+    errorUrl.searchParams.set('code', 'ACCESS_TOKEN_NOT_CONFIGURED');
+    return NextResponse.redirect(errorUrl, { status: 302 });
+  }
+
+  const result = validateSessionRecoveryAccessToken(accessToken, { secret });
+  if (!result.ok) {
+    const errorUrl = new URL('/bookings/recover/error', req.nextUrl.origin);
+    errorUrl.searchParams.set('code', 'INVALID_ACCESS_TOKEN');
+    errorUrl.searchParams.set('reason', result.reason);
+    return NextResponse.redirect(errorUrl, { status: 302 });
+  }
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const maxAge = Math.max(0, result.payload.exp - nowSeconds);
+  if (maxAge <= 0) {
+    const errorUrl = new URL('/bookings/recover/error', req.nextUrl.origin);
+    errorUrl.searchParams.set('code', 'ACCESS_TOKEN_EXPIRED');
+    return NextResponse.redirect(errorUrl, { status: 302 });
+  }
+
+  const forwardedProto = req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() ?? null;
+  const resolvedProto = forwardedProto ?? req.nextUrl.protocol;
+  const isHttps = resolvedProto.replace(':', '') === 'https';
+
+  const res = NextResponse.redirect(redirectTarget, { status: 302 });
+  res.headers.set('Cache-Control', 'no-store');
+  res.headers.set('Referrer-Policy', 'no-referrer');
+  res.cookies.set('sr_access', accessToken, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: isHttps,
+    path: '/',
+    maxAge,
+    ...(ROOT_DOMAIN !== 'localhost' ? { domain: `.${ROOT_DOMAIN}` } : {}),
+  });
+  return res;
+}

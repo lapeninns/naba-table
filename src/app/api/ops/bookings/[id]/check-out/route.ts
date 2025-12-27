@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
 import { clearBookingTableAssignments } from "@/server/bookings";
+import { enqueueCheckOutSideEffects } from "@/server/jobs/booking-side-effects";
 import { prepareCheckOutTransition } from "@/server/ops/booking-lifecycle/actions";
 import { isBookingLifecycleAllowedToday } from "@/server/ops/booking-lifecycle/availability";
 import { BookingLifecycleError } from "@/server/ops/booking-lifecycle/stateMachine";
@@ -189,7 +190,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     console.error("[ops][booking-check-out] failed to persist transition", transitionError.message);
     return NextResponse.json({ error: "Unable to check out booking" }, { status: 500 });
   }
- 
+
   // Release any table assignments once the booking has been checked out/completed
   try {
     await clearBookingTableAssignments(serviceSupabase, bookingRow.id);
@@ -197,6 +198,26 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     console.warn("[ops][booking-check-out] failed to clear table assignments", {
       bookingId: bookingRow.id,
       error: clearError instanceof Error ? clearError.message : clearError,
+    });
+  }
+
+  // Schedule review request email after successful check-out
+  // Note: This ONLY schedules the review email - no "update" notification is sent
+  // because check-out is an internal operational action, not a booking modification
+  try {
+    const { data: fullBooking } = await serviceSupabase
+      .from("bookings")
+      .select("*")
+      .eq("id", bookingRow.id)
+      .maybeSingle();
+
+    if (fullBooking && bookingRow.restaurant_id) {
+      await enqueueCheckOutSideEffects(fullBooking, bookingRow.restaurant_id);
+    }
+  } catch (sideEffectsError) {
+    console.warn("[ops][booking-check-out] failed to schedule review email", {
+      bookingId: bookingRow.id,
+      error: sideEffectsError instanceof Error ? sideEffectsError.message : sideEffectsError,
     });
   }
 

@@ -63,7 +63,18 @@ const nextConfig = {
     remotePatterns: imageRemotePatterns,
   },
   async redirects() {
+    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'nabatable.com';
+
     return [
+      // --- WWW Canonicalization ---
+      // Redirect naked domain to www (aligns with DNS/hosting provider settings)
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: rootDomain }],
+        destination: `https://www.${rootDomain}/:path*`,
+        permanent: true,
+      },
+
       // --- Auth ---
       { source: "/signin", destination: "/auth/signin", permanent: true },
 
@@ -73,7 +84,7 @@ const nextConfig = {
       { source: "/browse", destination: "/restaurants", permanent: true },
       { source: "/restaurant", destination: "/restaurants", permanent: true },
       { source: "/guest/restaurant", destination: "/restaurants", permanent: true },
-      
+
       // --- Items ---
       { source: "/guest/item/:slug", destination: "/item/:slug", permanent: true },
       // Removed legacy /item/:slug -> /restaurants/:slug to enable the actual item page
@@ -82,14 +93,14 @@ const nextConfig = {
       // Specific /reserve/r/ must come before generic /reserve/:id
       { source: "/reserve/r/:slug", destination: "/restaurants/:slug/book", permanent: true },
       { source: "/book/:slug", destination: "/restaurants/:slug/book", permanent: true },
-      
-      { source: "/reserve", destination: "/restaurants", permanent: true },
-      { source: "/booking", destination: "/restaurants", permanent: true },
+
+      { source: "/reserve", destination: "/bookings", permanent: true },
+      { source: "/booking", destination: "/bookings", permanent: true },
 
       // Reservation detail -> /bookings/:id
       { source: "/reserve/:bookingId", destination: "/bookings/:bookingId", permanent: true },
       { source: "/guest/bookings/:bookingId", destination: "/bookings/:bookingId", permanent: true },
-      
+
       // Legacy query param redirect for thank-you
       { source: "/thank-you", has: [{ type: "query", key: "bookingId", value: "(?<bookingId>.*)" }], destination: "/bookings/:bookingId/thank-you", permanent: true },
 
@@ -98,10 +109,10 @@ const nextConfig = {
       { source: "/account/bookings", destination: "/guest/bookings", permanent: true },
       { source: "/my-bookings", destination: "/guest/bookings", permanent: true },
       { source: "/guest/my-bookings", destination: "/guest/bookings", permanent: true },
-      
+
       { source: "/account/profile", destination: "/guest/profile", permanent: true },
       { source: "/profile/manage", destination: "/guest/profile", permanent: true },
-      
+
       // Invite (Preserve invite token flow, move to account/invite for now if that's where the page lives)
       { source: "/invite/:token", destination: "/account/invite/:token", permanent: true },
 

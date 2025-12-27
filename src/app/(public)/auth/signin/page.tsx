@@ -1,4 +1,4 @@
-import { ChevronLeft, Sparkles } from 'lucide-react';
+import { AlertCircle, LogIn } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
@@ -16,6 +16,8 @@ export const metadata: Metadata = {
 
 type SignInPageSearchParams = {
   redirectedFrom?: string | string[];
+  error?: string;
+  message?: string;
 };
 
 type SignInPageProps = {
@@ -43,15 +45,22 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   const resolvedParams = await searchParams;
   const redirectedFromParam = resolveRedirectTarget(resolvedParams?.redirectedFrom);
 
-  // Redirect authenticated users to their intended destination or dashboard
-  const supabase = await getServerComponentSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Extract error info from URL params
+  const errorType = resolvedParams?.error;
+  const errorMessage = resolvedParams?.message;
+  const hasError = !!errorType;
 
-  if (user) {
-    const redirectTarget = redirectedFromParam ?? '/guest/dashboard';
-    redirect(redirectTarget);
+  // Only redirect authenticated users if there's no error
+  // Using getSession() which validates the JWT, not just reads cached user
+  if (!hasError) {
+    const supabase = await getServerComponentSupabaseClient();
+    const { data: { session }, error } = await supabase.auth.getSession();
+
+    // Only redirect if we have a valid session AND no error
+    if (session?.user && !error) {
+      const redirectTarget = redirectedFromParam ?? '/guest/dashboard';
+      redirect(redirectTarget);
+    }
   }
 
   return (
@@ -71,31 +80,23 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           </div>
         </div>
 
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-slate-900">
-          Welcome back
-        </h1>
-        <p className="mt-2 text-sm sm:text-base text-slate-500">
-          Sign in to manage your reservations.
-        </p>
-      </div>
-
-      {/* Sign-in Card */}
-      <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white/90 shadow-xl backdrop-blur-sm">
-        <GuestSignInForm redirectedFrom={redirectedFromParam} />
-      </div>
-
-      {/* Footer Links */}
-      <div className="mt-6 space-y-3 text-center">
-        {/* Restaurant Login Link */}
-        <div className="rounded-xl border border-slate-100 bg-white/70 px-5 py-3 backdrop-blur-sm shadow-sm">
-          <p className="text-xs sm:text-sm text-slate-500">Restaurant owner?</p>
-          <Link
-            href="/app/auth/signin"
-            className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-slate-900 hover:text-slate-700 transition-colors"
+        {/* Error Alert */}
+        {hasError && errorMessage && (
+          <div
+            role="alert"
+            className="mb-6 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800"
           >
-            Sign in to operations
-            <ChevronLeft className="h-4 w-4 rotate-180" />
-          </Link>
+            <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-500" aria-hidden="true" />
+            <div className="text-sm">
+              <p className="font-medium">Unable to sign in</p>
+              <p className="mt-1 text-red-700">{decodeURIComponent(errorMessage)}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Sign-in Card */}
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-xl sm:p-8">
+          <GuestSignInForm redirectedFrom={redirectedFromParam} />
         </div>
 
         {/* Back to Home */}
@@ -110,3 +111,4 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
     </div>
   );
 }
+
