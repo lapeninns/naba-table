@@ -15,7 +15,7 @@ import {
   isAutoAssignOnBookingEnabled,
   isEmailQueueEnabled,
 } from "@/server/feature-flags";
-import { enqueueEmailJob, removeEmailJob } from "@/server/queue/email";
+import { enqueueEmailJob, removeEmailJob, type EmailJobType } from "@/server/queue/email";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
 
@@ -95,6 +95,16 @@ const REMINDER_24H_MINUTES = 24 * 60;
 const REMINDER_SHORT_MINUTES = 2 * 60;
 const REVIEW_DELAY_MINUTES = 180; // 3 hours after visit ends
 const INLINE_EMAIL_DELAY_CAP_MS = 48 * 60 * 60 * 1000;
+const INSTANT_EMAIL_TYPES: ReadonlySet<EmailJobType> = new Set([
+  "request_received",
+  "confirmation",
+  "updated",
+  "cancelled",
+  "restaurant_cancellation",
+  "booking_rejected",
+]);
+
+const shouldQueueEmail = (type: EmailJobType) => isEmailQueueEnabled() && !INSTANT_EMAIL_TYPES.has(type);
 
 type EmailPrefs = {
   sendReminder24h: boolean;
@@ -443,12 +453,14 @@ async function processBookingCreatedSideEffects(
 
   if (!SUPPRESS_EMAILS && shouldSendEmail) {
     const isPending = booking.status === "pending" || booking.status === "pending_allocation";
+    const shouldQueueRequest = shouldQueueEmail("request_received");
     const deferMinutes = isAutoAssignOnBookingEnabled() ? getAutoAssignCreatedEmailDeferMinutes() : 0;
     const shouldDeferPending = deferMinutes > 0 && isPending;
-    const delayMs = shouldDeferPending ? Math.max(0, Math.min(deferMinutes, 120)) * 60_000 : 0;
+    const delayMs =
+      shouldQueueRequest && shouldDeferPending ? Math.max(0, Math.min(deferMinutes, 120)) * 60_000 : 0;
 
     if (isPending) {
-      if (isEmailQueueEnabled()) {
+      if (shouldQueueRequest) {
         try {
           await enqueueEmailJob(
             {
@@ -479,7 +491,8 @@ async function processBookingCreatedSideEffects(
         }
       }
     } else {
-      if (isEmailQueueEnabled()) {
+      const shouldQueueConfirmation = shouldQueueEmail("confirmation");
+      if (shouldQueueConfirmation) {
         try {
           await enqueueEmailJob(
             {
@@ -560,7 +573,8 @@ async function processBookingUpdatedSideEffects(
     currStatus === "confirmed";
 
   if (confirmedFromPending && !SUPPRESS_EMAILS && isValidEmail(current.customer_email)) {
-    if (isEmailQueueEnabled()) {
+    const shouldQueueConfirmation = shouldQueueEmail("confirmation");
+    if (shouldQueueConfirmation) {
       try {
         await enqueueEmailJob(
           {
@@ -588,6 +602,9 @@ async function processBookingUpdatedSideEffects(
     } else {
       try {
         await sendBookingConfirmationEmail(current as BookingRecord);
+        if (isEmailQueueEnabled()) {
+          await removeEmailJob(`request_received:${current.id}`);
+        }
       } catch (error) {
         console.error("[jobs][booking.updated][email]", error);
       }
@@ -617,7 +634,8 @@ async function processBookingUpdatedSideEffects(
   }
 
   if (!SUPPRESS_EMAILS && current.customer_email && current.customer_email.trim().length > 0) {
-    if (isEmailQueueEnabled()) {
+    const shouldQueueUpdate = shouldQueueEmail("updated");
+    if (shouldQueueUpdate) {
       try {
         await enqueueEmailJob(
           {
@@ -679,8 +697,9 @@ async function processBookingCancelledSideEffects(
     const jobType = cancelledBy === "customer" ? "cancelled" : "restaurant_cancellation";
     const sendFn =
       cancelledBy === "customer" ? sendBookingCancellationEmail : sendRestaurantCancellationEmail;
+    const shouldQueueCancel = shouldQueueEmail(jobType);
 
-    if (isEmailQueueEnabled()) {
+    if (shouldQueueCancel) {
       try {
         await enqueueEmailJob(
           {
