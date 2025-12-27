@@ -31,36 +31,35 @@ import { DEFAULT_VENUE } from '@shared/config/venue';
 
 
 const formatDateFull = (iso: string | null | undefined) => {
-    if (!iso) return '—';
-    const parsed = new Date(iso);
-    if (Number.isNaN(parsed.getTime())) return '—';
-    return new Intl.DateTimeFormat(undefined, {
-        weekday: 'long',
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric',
-    }).format(parsed);
+  if (!iso) return '—';
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return '—';
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(parsed);
 };
 
 const formatTime = (iso: string | null | undefined) => {
-    if (!iso) return '—';
-    const parsed = new Date(iso);
-    if (Number.isNaN(parsed.getTime())) return '—';
-    return new Intl.DateTimeFormat(undefined, {
-        hour: 'numeric',
-        minute: 'numeric',
-    }).format(parsed);
+  if (!iso) return '—';
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return '—';
+  return new Intl.DateTimeFormat(undefined, {
+    hour: 'numeric',
+    minute: 'numeric',
+  }).format(parsed);
 };
 
 type ReceiptClientProps = {
   reservationId: string;
-  token: string | null;
   hasSession: boolean;
   prefetchedStatus: string | null;
 };
 
-export function ReceiptClient({ reservationId, token, hasSession }: ReceiptClientProps) {
-  const { data: reservation, isLoading, isError } = useReservation(reservationId, token ?? undefined);
+export function ReceiptClient({ reservationId, hasSession }: ReceiptClientProps) {
+  const { data: reservation, isLoading, isError } = useReservation(reservationId);
 
   const venue = useMemo(() => {
     if (!reservation) return DEFAULT_VENUE;

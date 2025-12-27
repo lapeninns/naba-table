@@ -46,12 +46,12 @@ beforeEach(() => {
 });
 
 describe("middleware host routing", () => {
-  it("redirects root /app/* to app host preserving /app prefix", async () => {
+  it("redirects root /app/* to app host without /app prefix", async () => {
     stubAuth();
     const req = buildRequest("/app/dashboard", "example.com");
     const res = await handleRouting(req);
     expect(res.status).toBe(308);
-    expect(res.headers.get("location")).toBe("https://app.example.com/app/dashboard");
+    expect(res.headers.get("location")).toBe("https://app.example.com/dashboard");
   });
 
   it("redirects root /ops to app management", async () => {

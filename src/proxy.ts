@@ -32,7 +32,7 @@ function getRootDomain() {
 }
 
 function parseHost(req: NextRequest) {
-    const host = (req.headers.get("host") || "").toLowerCase();
+    const host = (req.headers.get("host") || req.nextUrl.host || "").toLowerCase();
     const [hostname, port] = host.split(":");
     return { host, hostname, port };
 }
@@ -46,10 +46,12 @@ function getLocalAppHosts() {
     return new Set(entries);
 }
 
-function isSingleHostMode(hostname: string, host: string, rootDomain: string) {
-    const vercelEnv = process.env.VERCEL_ENV;
-    if (vercelEnv === "preview" || vercelEnv === "development") return true;
-    if (rootDomain === "localhost") return true;
+function isSingleHostMode(hostname: string, host: string) {
+    // Allow multi-host in development/preview if we want to test subdomains
+    // if (vercelEnv === "preview" || vercelEnv === "development") return true;
+
+    // if (rootDomain === "localhost") return true; 
+
     const localHosts = getLocalAppHosts();
     return localHosts.has(host) || localHosts.has(hostname);
 }
@@ -84,7 +86,11 @@ function buildHostWithPort(hostname: string, port?: string) {
 function buildRedirect(req: NextRequest, targetHost: string, pathname: string, searchParams: string, status = 308) {
     const base = `${req.nextUrl.protocol}//${targetHost}`;
     const suffix = searchParams ? `?${searchParams}` : "";
-    return NextResponse.redirect(new URL(`${pathname}${suffix}`, base), status);
+    const url = new URL(`${pathname}${suffix}`, base);
+    const response = NextResponse.redirect(url, status);
+    // Ensure cross-host redirects are absolute for clarity and correctness.
+    response.headers.set("location", url.toString());
+    return response;
 }
 
 function stripLeadingAppPrefix(pathname: string) {
@@ -117,7 +123,7 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
     const rootDomain = getRootDomain().toLowerCase();
     const { host, hostname, port } = parseHost(req);
     const isApp = isAppHost(hostname, rootDomain);
-    const isSingleHost = isSingleHostMode(hostname, host, rootDomain);
+    const isSingleHost = isSingleHostMode(hostname, host);
 
     if (isStaticOrFramework(url.pathname)) {
         return NextResponse.next();
@@ -239,7 +245,10 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
 
         // In multi-host mode, redirect to app subdomain
         if (!isSingleHost) {
-            return buildRedirect(req, appHost, url.pathname, searchParams);
+            // Strip /app prefix before redirecting to avoid double redirect
+            // localhost/app/dashboard -> app.localhost/dashboard
+            const stripped = stripLeadingAppPrefix(url.pathname);
+            return buildRedirect(req, appHost, stripped, searchParams);
         }
 
         // In single-host mode, redirect /app to /app/dashboard

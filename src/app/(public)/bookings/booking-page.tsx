@@ -117,7 +117,7 @@ export async function BookingDetailPage({
       <ReservationDetailClient
         reservationId={normalized}
         restaurantName={null}
-        token={token}
+
         canManage={Boolean(user)}
       />
     </HydrationBoundary>

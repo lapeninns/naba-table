@@ -60,19 +60,19 @@ export async function POST(req: NextRequest, context: RouteContext) {
   try {
     const client = getServiceSupabaseClient();
     const created = await Promise.all(
-      parsed.data.tables.map((table, index) =>
+      parsed.data.tables.map((table) =>
         insertTable(client, {
           restaurant_id: restaurantId,
           table_number: table.tableNumber,
           capacity: table.capacity,
-          min_party_size: table.minPartySize ?? null,
-          max_party_size: table.maxPartySize ?? null,
-          zone_id: table.zoneId ?? null,
+          min_party_size: table.minPartySize || undefined,
+          max_party_size: table.maxPartySize || undefined,
+          zone_id: table.zoneId as string,
           category: table.category ?? 'dining',
           seating_type: table.seatingType ?? 'standard',
           mobility: table.mobility ?? 'fixed',
           status: table.status ?? 'available',
-          sort_order: index,
+
         }),
       ),
     );

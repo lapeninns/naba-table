@@ -68,15 +68,7 @@ export function OpsServicesProvider({ factories, children }: OpsServicesProvider
       occasionService: createOccasionService(factories?.occasionService),
       zoneService: factories?.zoneService ? factories.zoneService() : new ZoneService(),
     }),
-    [
-      factories?.bookingService,
-      factories?.restaurantService,
-      factories?.teamService,
-      factories?.customerService,
-      factories?.tableInventoryService,
-      factories?.occasionService,
-      factories?.zoneService,
-    ],
+    [factories],
   );
 
   return <OpsServicesContext.Provider value={services}>{children}</OpsServicesContext.Provider>;

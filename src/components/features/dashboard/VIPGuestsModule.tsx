@@ -3,7 +3,6 @@
 import { Award, Mail, Users } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
@@ -63,7 +62,7 @@ export function VIPGuestsModule({ vips, loading, totalVipCovers }: VIPGuestsModu
       <div className="flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-base font-semibold text-foreground sm:text-lg">
           <Award className="h-5 w-5 text-yellow-500" aria-hidden />
-          Today's VIP Arrivals
+          Today&apos;s VIP Arrivals
         </h3>
         {totalVipCovers && totalVipCovers > 0 ? (
           <span className="text-sm font-normal text-muted-foreground">{totalVipCovers} covers</span>

@@ -58,6 +58,8 @@ vi.mock("@/lib/env", () => {
 
 import { DELETE, PATCH } from "./route";
 
+import type * as ServerBookingsModule from "@/server/bookings";
+
 const getUserMock = vi.fn();
 const getRouteHandlerSupabaseClientMock = vi.fn(async () => ({
   auth: {
@@ -91,7 +93,7 @@ vi.mock("@/server/team/access", () => ({
 }));
 
 vi.mock("@/server/bookings", async () => {
-  const actual = await vi.importActual<typeof import("@/server/bookings")>("@/server/bookings");
+  const actual = await vi.importActual<ServerBookingsModule>("@/server/bookings");
   return {
     ...actual,
     updateBookingRecord: (...args: unknown[]) => updateBookingRecordMock(...args),

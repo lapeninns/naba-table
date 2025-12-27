@@ -2,8 +2,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 import type { OpsTodayTotals } from '@/types/ops';
 
-const metricOrder: Array<keyof OpsTodayTotals> = ['total', 'upcoming', 'completed', 'noShow', 'covers'];
-
 const METRIC_LABELS: Record<keyof OpsTodayTotals, string> = {
   total: 'Bookings',
   upcoming: 'Upcoming',

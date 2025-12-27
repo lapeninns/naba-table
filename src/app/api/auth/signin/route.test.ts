@@ -236,7 +236,7 @@ describe("POST /api/auth/signin", () => {
       email: "user@example.com",
       options: {
         emailRedirectTo:
-          "https://app.nabatable.com/api/auth/callback?redirectedFrom=https%3A%2F%2Fwww.nabatable.com%2Fapp%2Fdashboard&rememberMe=1",
+          "https://app.nabatable.com/api/auth/callback?redirectedFrom=https%3A%2F%2Fapp.nabatable.com%2Fdashboard&rememberMe=1",
         shouldCreateUser: true,
       },
     });
