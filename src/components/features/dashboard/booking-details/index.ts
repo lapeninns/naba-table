@@ -1,50 +1,80 @@
-// Main component
-export { BookingDetailsDialog } from './BookingDetailsDialogV2';
+/**
+ * BOOKING DETAILS DIALOG
+ *
+ * A fresh, from-scratch booking dialog built with shadcn/ui primitives.
+ * Follows SOLID principles with modular, well-named components.
+ */
 
-// Sub-components (for extension/customization)
-export {
-  BookingHeader,
-  BookingHistoryDialog,
-  BookingOverviewTab,
-  DetailCard,
-  GuestProfilePanel,
-  KeyboardShortcutsDialog,
-  ShortcutHint,
-} from './components';
+// =============================================================================
+// MAIN COMPONENT
+// =============================================================================
 
-// Hooks (for custom implementations)
-export {
-  useBookingCountdown,
-  useBookingDialogState,
-  useKeyboardShortcuts,
-} from './hooks';
-
-// Types (for consumers)
+export { BookingDialog, BookingDialog as BookingDetailsDialog } from './BookingDialog';
 export type {
-  BookingCountdownState,
-  BookingDetailsDialogProps,
-  BookingDetailsTab,
-  BookingDialogState,
-  BookingHeaderProps,
-  BookingHistoryDialogProps,
-  BookingOverviewTabProps,
-  DetailCardProps,
-  GuestProfilePanelProps,
-  KeyboardShortcut,
-  KeyboardShortcutsDialogProps,
-  LifecycleActionHandlers,
-  ShortcutHintProps,
-  TimeStatus,
+  BookingDialogProps,
+  BookingDetailsProps,
+  BookingActionType,
+  Booking,
+  Guest,
+  BookingStatus,
+  Table,
+  Zone,
+  TableAssignment,
+  AssignmentValidation,
 } from './types';
 
-// Constants (for extension)
-export {
-  COUNTDOWN_THRESHOLDS,
-  DIALOG_SHORTCUTS,
-  KEYBOARD_SHORTCUTS,
-  TIER_COLORS,
-  TIER_EMOJIS,
-} from './constants';
+// =============================================================================
+// SUB-COMPONENTS (For advanced customization)
+// =============================================================================
 
-// Re-export existing sub-component
-export { BookingAssignmentTabContent } from './BookingAssignmentTabContent';
+export {
+  BookingStatusBadge,
+  ClickToCopy,
+  ContactInfoRow,
+  ArrivalCountdown,
+  BookingStatCard,
+  SelectableTableCard,
+  TableAssignmentPanel,
+} from './components';
+
+export type {
+  BookingStatusBadgeProps,
+  ClickToCopyProps,
+  ContactInfoRowProps,
+  ArrivalCountdownProps,
+  BookingStatCardProps,
+  SelectableTableCardProps,
+  TableAssignmentPanelProps,
+} from './components';
+
+// =============================================================================
+// HOOKS (For custom implementations)
+// =============================================================================
+
+export { useTableAssignment } from './hooks';
+
+// =============================================================================
+// UTILITIES (For formatting and calculations)
+// =============================================================================
+
+export {
+  formatBookingTime,
+  formatBookingDate,
+  getMinutesUntilTime,
+  formatCountdown,
+  parseBookingDateTime,
+  getStatusConfig,
+  getGuestInitials,
+  flattenTableAssignments,
+  calculateTotalCapacity,
+  calculateCapacityPercent,
+  getCapacityFit,
+  getCapacityFitLabel,
+  validateTableSelection,
+  groupTablesBySection,
+  copyToClipboard,
+  canCheckIn,
+  canMarkNoShow,
+  shouldShowCountdown,
+  formatPhoneForTel,
+} from './utils';

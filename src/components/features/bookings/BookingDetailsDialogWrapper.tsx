@@ -4,7 +4,6 @@ import { DateTime } from 'luxon';
 import { useMemo } from 'react';
 
 import { BookingDetailsDialog } from '@/components/features/dashboard/BookingDetailsDialog';
-import { useOpsTableAssignmentActions } from '@/hooks';
 import { useOpsBooking } from '@/hooks/ops/useOpsBooking';
 import { useOpsBookingLifecycleActions } from '@/hooks/ops/useOpsBookingStatusActions';
 import { getTodayInTimezone } from '@/lib/utils/datetime';
@@ -84,7 +83,7 @@ export function BookingDetailsDialogWrapper({
   open,
   onOpenChange,
 }: BookingDetailsDialogWrapperProps) {
-  const { data: fetchedBooking } = useOpsBooking(open ? bookingId : null);
+  const { data: fetchedBooking, isLoading, isError, error, refetch } = useOpsBooking(open ? bookingId : null);
   const bookingSource = fetchedBooking ?? initialData ?? null;
   const normalized = useMemo(() => {
     if (!bookingSource) return null;
@@ -125,8 +124,6 @@ export function BookingDetailsDialogWrapper({
   }, [booking, restaurantId, startIso, timezone]);
 
   const { checkIn, checkOut, markNoShow, undoNoShow } = useOpsBookingLifecycleActions();
-  const assignmentDate = summary?.date ?? null;
-  const tableAssignmentActions = useOpsTableAssignmentActions({ restaurantId, date: assignmentDate });
   const allowTableAssignments = useMemo(() => {
     if (!summary) return false;
     const today = getTodayInTimezone(summary.timezone);
@@ -165,29 +162,6 @@ export function BookingDetailsDialogWrapper({
     });
   };
 
-  const tableActionState = useMemo(() => {
-    if (tableAssignmentActions.assignTable.isPending) {
-      const variables = tableAssignmentActions.assignTable.variables;
-      return {
-        type: 'assign' as const,
-        tableId: variables?.tableId ?? null,
-      };
-    }
-    if (tableAssignmentActions.unassignTable.isPending) {
-      const variables = tableAssignmentActions.unassignTable.variables;
-      return {
-        type: 'unassign' as const,
-        tableId: variables?.tableId ?? null,
-      };
-    }
-    return null;
-  }, [
-    tableAssignmentActions.assignTable.isPending,
-    tableAssignmentActions.assignTable.variables,
-    tableAssignmentActions.unassignTable.isPending,
-    tableAssignmentActions.unassignTable.variables,
-  ]);
-
   // Determine lifecycle pending state
   const pendingLifecycleAction = useMemo(() => {
     if (checkIn.isPending && checkIn.variables?.bookingId === bookingId) return 'check-in';
@@ -198,22 +172,18 @@ export function BookingDetailsDialogWrapper({
   }, [checkIn.isPending, checkIn.variables, checkOut.isPending, checkOut.variables, markNoShow.isPending, markNoShow.variables, undoNoShow.isPending, undoNoShow.variables, bookingId]);
 
   if (!open) return null;
-  if (!booking || !summary) return null;
   return (
     <BookingDetailsDialog
       booking={booking}
       summary={summary}
+      isLoading={isLoading}
+      errorMessage={isError ? error?.message ?? 'Unable to load booking.' : null}
+      onRetry={() => refetch()}
       onCheckIn={handleCheckIn}
       onCheckOut={handleCheckOut}
       onMarkNoShow={handleMarkNoShow}
       onUndoNoShow={handleUndoNoShow}
       pendingLifecycleAction={pendingLifecycleAction}
-      onUnassignTable={async (tableId) => {
-        if (!bookingId) throw new Error('No booking ID');
-        const result = await tableAssignmentActions.unassignTable.mutateAsync({ bookingId, tableId });
-        return result.tableAssignments;
-      }}
-      tableActionState={tableActionState}
       allowTableAssignments={allowTableAssignments}
       // Pass controlled props
       open={open}

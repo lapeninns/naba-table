@@ -7,23 +7,27 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 
 import { BookingOfflineBanner } from '@/components/features/booking-state-machine';
+import { BookingDetailsDialogWrapper } from '@/components/features/bookings/BookingDetailsDialogWrapper';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { BookingStateMachineProvider } from '@/contexts/booking-state-machine';
 import { useOpsActiveMembership } from '@/contexts/ops-session';
-import { useOpsBookingHeatmap, useOpsBookingLifecycleActions, useOpsTableAssignmentActions, useOpsTodaySummary } from '@/hooks';
+import { useOpsBookingChanges, useOpsBookingHeatmap, useOpsBookingLifecycleActions, useOpsTableAssignmentActions, useOpsTodaySummary } from '@/hooks';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
 import { formatDateKey, getTodayInTimezone } from '@/lib/utils/datetime';
 import { computeCalendarRange, sanitizeDateParam } from '@/utils/ops/dashboard';
 
-import { BookingsList } from './BookingsList';
+import { BookingChangeFeed } from './BookingChangeFeed';
+import { BookingsFilterBar } from './BookingsFilterBar';
 import { DashboardErrorState } from './DashboardErrorState';
 import { DashboardSkeleton } from './DashboardSkeleton';
+import { DashboardSummaryCard } from './DashboardSummaryCard';
 import { HeatmapCalendar } from './HeatmapCalendar';
 
 import type { BookingFilter } from './BookingsFilterBar';
+import type { BookingDTO } from '@/hooks/useBookings';
 
 /* 
   Using 'all' as default to show complete overview first.
@@ -54,6 +58,8 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState<string | null>(sanitizeDateParam(initialDate ?? undefined));
   const [pendingBookingAction, setPendingBookingAction] = useState<{ bookingId: string; action: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show' } | null>(null);
+  const [detailsBooking, setDetailsBooking] = useState<BookingDTO | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
   const [, startTransition] = useTransition();
 
@@ -64,6 +70,7 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
 
   useEffect(() => {
     if (!summary) return;
+    if (selectedDate) return;
     if (summary.date !== selectedDate) {
       // Normalize "today" to a concrete date key without forcing a second network fetch:
       // when we update selectedDate, the summary query key changes. Prime the new key with the
@@ -97,6 +104,14 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
     return targetDate >= today;
   }, [selectedDate, summary?.date, summary?.timezone]);
 
+  // Booking Changes feed
+  const changesQuery = useOpsBookingChanges({
+    restaurantId,
+    targetDate: selectedDate ?? summary?.date ?? null,
+    limit: 20,
+    enabled: Boolean(restaurantId && (selectedDate || summary?.date)),
+  });
+
   // Handle Tab switching
   const handleSelectFilter = (nextFilter: BookingFilter) => {
     setFilter(nextFilter);
@@ -126,6 +141,18 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
     handleSelectDate(formatDateKey(nextDate));
   };
 
+  const handleDetails = (booking: BookingDTO) => {
+    setDetailsBooking(booking);
+    setIsDetailsOpen(true);
+  };
+
+  const handleDetailsOpenChange = (open: boolean) => {
+    setIsDetailsOpen(open);
+    if (!open) {
+      setDetailsBooking(null);
+    }
+  };
+
   // Real-time Guest Stats
   const guestStats = useMemo(() => {
     if (!summary) return { upcoming: 0, seated: 0 };
@@ -144,7 +171,7 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
 
   // Tab counts for badges
   const tabCounts = useMemo(() => {
-    if (!summary) return { all: 0, upcoming: 0, seated: 0, finished: 0 };
+    if (!summary) return { all: 0, upcoming: 0, seated: 0, finished: 0, no_show: 0 };
 
     const bookings = summary.bookings;
     return {
@@ -157,6 +184,7 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
       finished: bookings.filter(b =>
         ['completed', 'cancelled', 'no_show'].includes(b.status)
       ).length,
+      no_show: bookings.filter(b => b.status === 'no_show').length,
     };
   }, [summary]);
 
@@ -317,39 +345,12 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
         </section>
 
         {/* TOOLBAR */}
-        <div className="sticky top-0 z-10 -mx-4 bg-background/80 px-4 py-3 backdrop-blur-md transition-all sm:-mx-6 sm:px-6 md:mx-0 md:rounded-xl md:border md:border-border/60 md:bg-card/80 md:px-4 md:shadow-sm">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="sticky top-0 z-10 -mx-4 bg-background/80 px-5 py-4 backdrop-blur-md transition-all sm:-mx-6 sm:px-6 md:mx-0 md:rounded-xl md:border md:border-border/60 md:bg-card/80 md:px-6 md:shadow-sm">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
 
-            {/* TABS - horizontally scrollable on mobile */}
             <div className="-mx-1 overflow-x-auto scrollbar-hide">
-              <div className="flex items-center gap-1 rounded-lg bg-muted/80 p-1 min-w-max">
-                {(['all', 'upcoming', 'seated', 'finished'] as const).map((tab) => {
-                  const count = tabCounts[tab];
-                  return (
-                    <button
-                      key={tab}
-                      onClick={() => handleSelectFilter(tab as BookingFilter)}
-                      className={cn(
-                        "relative flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-all whitespace-nowrap touch-manipulation",
-                        filter === tab
-                          ? "bg-card text-foreground shadow-sm ring-1 ring-border"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground active:bg-muted"
-                      )}
-                    >
-                      {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                      {count > 0 && (
-                        <span className={cn(
-                          "inline-flex items-center justify-center rounded-full min-w-[20px] px-1.5 py-0.5 text-[10px] font-semibold leading-none",
-                          filter === tab
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted-foreground/20 text-muted-foreground"
-                        )}>
-                          {count}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
+              <div className="min-w-max px-1">
+                <BookingsFilterBar value={filter} onChange={handleSelectFilter} counts={tabCounts} />
               </div>
             </div>
 
@@ -376,34 +377,60 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
           </div>
         </div>
 
-        {/* LIST SECTION */}
-        <div className="space-y-4">
-          {/* If assignments locked warning */}
-          {!allowTableAssignments ? (
-            <div className="flex justify-end">
-              <Badge variant="secondary" className="bg-amber-50 text-amber-700">
-                Past date · Assignments locked
-              </Badge>
-            </div>
-          ) : null}
+        {/* MAIN CONTENT */}
+        <div className="space-y-6">
+          {/* Bookings List */}
+          <div className="space-y-4">
+            {/* If assignments locked warning */}
+            {!allowTableAssignments ? (
+              <div className="flex justify-end">
+                <Badge variant="secondary" className="bg-amber-50 text-amber-700">
+                  Past date · Assignments locked
+                </Badge>
+              </div>
+            ) : null}
 
-          <BookingsList
-            bookings={summary.bookings}
-            filter={filter}
-            searchQuery={searchQuery}
-            summary={summary}
-            allowTableAssignments={allowTableAssignments}
-            isRefetching={isRefetching}
-            onMarkNoShow={handleMarkNoShow}
-            onUndoNoShow={handleUndoNoShow}
-            onCheckIn={handleCheckIn}
-            onCheckOut={handleCheckOut}
-            pendingLifecycleAction={pendingBookingAction}
-            onAssignTable={handleAssignTable}
-            onUnassignTable={handleUnassignTable}
-            tableActionState={tableActionState}
-          />
+            <DashboardSummaryCard
+              summary={summary}
+              restaurantName={membership?.restaurantName ?? 'Restaurant'}
+              selectedDate={summary.date}
+              onSelectDate={handleSelectDate}
+              heatmap={heatmapQuery.data}
+              heatmapLoading={heatmapQuery.isLoading}
+              heatmapError={heatmapQuery.error ?? null}
+              filter={filter}
+              onFilterChange={handleSelectFilter}
+              searchQuery={searchQuery}
+              isRefetching={isRefetching}
+              showFilterBar={false}
+              showHeatmap={false}
+              allowTableAssignments={allowTableAssignments}
+              onDetails={handleDetails}
+              onAssignTable={handleAssignTable}
+              onUnassignTable={handleUnassignTable}
+              tableActionState={tableActionState}
+              onMarkNoShow={handleMarkNoShow}
+              onUndoNoShow={handleUndoNoShow}
+              onCheckIn={handleCheckIn}
+              onCheckOut={handleCheckOut}
+              pendingLifecycleAction={pendingBookingAction}
+            />
+          </div>
         </div>
+        {/* Recent Changes Feed */}
+        <section aria-label="Recent activity">
+          <BookingChangeFeed
+            changes={changesQuery.data?.changes ?? []}
+            loading={changesQuery.isLoading}
+            totalChanges={changesQuery.data?.totalChanges}
+          />
+        </section>
+        <BookingDetailsDialogWrapper
+          bookingId={detailsBooking?.id ?? null}
+          initialData={detailsBooking}
+          open={isDetailsOpen}
+          onOpenChange={handleDetailsOpenChange}
+        />
       </main>
     </div>
   );

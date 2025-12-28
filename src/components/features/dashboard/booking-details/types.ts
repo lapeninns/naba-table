@@ -1,174 +1,147 @@
-import type { BookingAction } from '@/components/features/booking-state-machine';
-import type { OpsBookingStatus, OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
-
 /**
- * Props for the main BookingDetailsDialog component
- * Following Interface Segregation Principle - main dialog props
+ * Booking details domain types.
+ *
+ * Times are ISO strings (or HH:mm strings for OpsTodayBooking start/end), normalized to Date in utils.
  */
-export type BookingDetailsDialogProps = {
-  booking: OpsTodayBooking;
-  summary: OpsTodayBookingsSummary;
+
+
+import type { AssignmentContext, ManualAssignmentTable } from '@/services/ops/bookings';
+import type { OpsBookingStatus, OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
+import type { Dispatch, SetStateAction } from 'react';
+
+// =============================================================================
+// DOMAIN TYPES
+// =============================================================================
+
+export type BookingStatus = OpsBookingStatus;
+
+export type Guest = {
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+};
+
+export type Booking = {
+  id: string;
+  status: BookingStatus;
+  startTime: string | null;
+  endTime: string | null;
+  partySize: number;
+  guest: Guest;
+  reference?: string | null;
+  notes?: string | null;
+  details?: Record<string, unknown> | null;
+  source?: string | null;
+  allergies?: string[] | null;
+  dietaryRestrictions?: string[] | null;
+  seatingPreference?: string | null;
+  loyaltyTier?: string | null;
+  loyaltyPoints?: number | null;
+  requiresTableAssignment?: boolean;
+  checkedInAt?: string | null;
+  checkedOutAt?: string | null;
+};
+
+export type Zone = {
+  id: string;
+  name: string;
+  active?: boolean | null;
+};
+
+export type Table = {
+  id: string;
+  tableNumber: string;
+  name?: string | null;
+  capacity: number;
+  minPartySize?: number;
+  maxPartySize?: number | null;
+  section?: string | null;
+  zoneId?: string | null;
+  zoneName?: string | null;
+  status?: string | null;
+  active?: boolean | null;
+  category?: string | null;
+  seatingType?: string | null;
+  mobility?: string | null;
+};
+
+export type TableAssignment = {
+  tableIds: string[];
+  tables?: Table[];
+};
+
+export type AssignmentValidation = {
+  status: 'idle' | 'ok' | 'warn' | 'error';
+  warnings: string[];
+  errors: string[];
+  summary: {
+    selectedCount: number;
+    selectedCapacity: number;
+    requiredCapacity: number;
+  };
+  needsConfirmation: boolean;
+};
+
+// =============================================================================
+// COMPONENT CONTRACTS
+// =============================================================================
+
+export type BookingActionType = 'check-in' | 'check-out' | 'no-show' | 'undo-no-show';
+
+export type BookingDetailsProps = {
+  booking: OpsTodayBooking | null;
+  summary: OpsTodayBookingsSummary | null;
   allowTableAssignments: boolean;
+  isLoading?: boolean;
+  errorMessage?: string | null;
+  onRetry?: () => void;
   onCheckIn?: () => Promise<void>;
   onCheckOut?: () => Promise<void>;
   onMarkNoShow?: (options?: { performedAt?: string | null; reason?: string | null }) => Promise<void>;
   onUndoNoShow?: (reason?: string | null) => Promise<void>;
-  pendingLifecycleAction?: BookingAction | null;
-  onAssignTable?: (tableId: string) => Promise<OpsTodayBooking['tableAssignments']>;
-  onUnassignTable?: (tableId: string) => Promise<OpsTodayBooking['tableAssignments']>;
-  tableActionState?: {
-    type: 'assign' | 'unassign';
-    tableId?: string | null;
-  } | null;
+  pendingLifecycleAction?: BookingActionType | null;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 };
 
-/**
- * Tab identifiers for the booking dialog
- */
-export type BookingDetailsTab = 'overview' | 'tables';
+export type BookingDialogProps = BookingDetailsProps;
 
-/**
- * Props for GuestProfilePanel - ISP: only what it needs
- */
-export type GuestProfilePanelProps = {
-  booking: Pick<
-    OpsTodayBooking,
-    | 'customerName'
-    | 'customerEmail'
-    | 'customerPhone'
-    | 'loyaltyTier'
-    | 'allergies'
-    | 'dietaryRestrictions'
-    | 'seatingPreference'
-    | 'notes'
-    | 'profileNotes'
-  >;
-};
+// =============================================================================
+// HOOK TYPES
+// =============================================================================
 
-/**
- * Props for BookingHeader component
- */
-export type BookingHeaderProps = {
-  booking: OpsTodayBooking;
-  summary: OpsTodayBookingsSummary;
-  effectiveStatus: OpsBookingStatus;
-  minutesRemaining: number | null;
-  timeStatus: TimeStatus;
-  checkedInRelativeTime: string | null;
-  supportsTableAssignment: boolean;
-  onOpenHistory: () => void;
-  onOpenShortcuts: () => void;
-};
-
-/**
- * Props for BookingOverviewTab component
- */
-export type BookingOverviewTabProps = {
-  booking: OpsTodayBooking;
-  summary: OpsTodayBookingsSummary;
-  effectiveStatus: OpsBookingStatus;
-  isCancelled: boolean;
-  supportsTableAssignment: boolean;
-  lifecycleAvailability: { isToday: boolean };
-  lifecyclePending: BookingAction | null;
-  relativeStartTime: string | null;
-  checkedInRelativeTime: string | null;
-  onCheckIn: () => Promise<void>;
-  onCheckOut: () => Promise<void>;
-  onMarkNoShow: (options?: { performedAt?: string | null; reason?: string | null }) => Promise<void>;
-  onUndoNoShow: (reason?: string | null) => Promise<void>;
-};
-
-/**
- * Props for DetailCard component - reusable UI
- */
-export type DetailCardProps = {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: string;
-  href?: string;
-  actionLabel?: string;
-  copyable?: boolean;
-  relativeTime?: string;
-  compact?: boolean;
-};
-
-/**
- * Props for ShortcutHint component
- */
-export type ShortcutHintProps = {
-  keys: readonly string[] | string[];
-  description: string;
-};
-
-/**
- * Props for BookingHistoryDialog
- */
-export type BookingHistoryDialogProps = {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+export type UseTableAssignmentOptions = {
   bookingId: string;
-  timezone: string;
+  restaurantId: string;
+  partySize: number;
+  currentAssignments?: string[];
+  onAssignmentComplete?: () => void;
 };
 
-/**
- * Props for KeyboardShortcutsDialog
- */
-export type KeyboardShortcutsDialogProps = {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+export type UseTableAssignmentReturn = {
+  context: AssignmentContext | undefined;
+  isLoading: boolean;
+  error: Error | null;
+  refetch: () => void;
+  tables: ManualAssignmentTable[];
+  suggestedTables: ManualAssignmentTable[];
+  selectedTables: string[];
+  setSelectedTables: Dispatch<SetStateAction<string[]>>;
+  selectedCapacity: number;
+  assignedCapacity: number;
+  assignedTableIds: Set<string>;
+  conflictedTableIds: Set<string>;
+  validation: AssignmentValidation;
+  apply: () => Promise<{ ok: boolean; error?: string }>;
+  unassignAll: () => Promise<{ ok: boolean; error?: string }>;
+  isAssigning: boolean;
+  isUnassigning: boolean;
+  isPending: boolean;
 };
 
-/**
- * Keyboard shortcut configuration
- */
-export type KeyboardShortcut = {
-  key: string;
-  keys: string[];
-  description: string;
-  action: BookingAction;
-  enabledStatuses: string[];
-};
+// =============================================================================
+// RE-EXPORTS (Aligned with Ops domain)
+// =============================================================================
 
-/**
- * Return type for useBookingDialogState hook
- */
-export type BookingDialogState = {
-  isOpen: boolean;
-  setIsOpen: (value: boolean) => void;
-  activeTab: BookingDetailsTab;
-  setActiveTab: (tab: BookingDetailsTab) => void;
-  showShortcuts: boolean;
-  setShowShortcuts: (show: boolean) => void;
-  isHistoryOpen: boolean;
-  setIsHistoryOpen: (open: boolean) => void;
-  localPendingAction: BookingAction | null;
-  setLocalPendingAction: (action: BookingAction | null) => void;
-};
-
-/**
- * Time status from countdown hook
- */
-export type TimeStatus = 'upcoming' | 'imminent' | 'started' | 'past';
-
-/**
- * Return type for useBookingCountdown hook
- */
-export type BookingCountdownState = {
-  minutesRemaining: number | null;
-  timeStatus: TimeStatus;
-  relativeStartTime: string | null;
-  checkedInRelativeTime: string | null;
-};
-
-/**
- * Lifecycle action handlers interface
- */
-export type LifecycleActionHandlers = {
-  handleCheckIn: () => Promise<void>;
-  handleCheckOut: () => Promise<void>;
-  handleMarkNoShow: (options?: { performedAt?: string | null; reason?: string | null }) => Promise<void>;
-  handleUndoNoShow: (reason?: string | null) => Promise<void>;
-};
+export type { OpsTodayBooking, OpsTodayBookingsSummary, OpsBookingStatus };
+export type { ManualAssignmentTable, AssignmentContext };
