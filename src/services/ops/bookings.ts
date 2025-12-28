@@ -17,8 +17,8 @@ import type {
 import type { Tables } from '@/types/supabase';
 
 const OPS_BOOKINGS_BASE = '/api/ops/bookings';
-const OPS_DASHBOARD_BASE = '/api/dashboard';
-const OPS_SETTINGS_BASE = '/api/settings';
+const OPS_DASHBOARD_BASE = '/api/ops/dashboard';
+const OPS_SETTINGS_BASE = '/api/ops/settings';
 const STAFF_AUTO_BASE = '/api/staff/auto';
 
 type SummaryParams = {

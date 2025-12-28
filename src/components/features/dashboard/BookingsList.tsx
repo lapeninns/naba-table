@@ -57,6 +57,7 @@ type BookingsListProps = {
   summary: OpsTodayBookingsSummary;
   allowTableAssignments: boolean;
   isRefetching?: boolean; // Show list skeletons while data is being refetched
+  onDetails?: (booking: BookingDTO) => void;
   onMarkNoShow: (bookingId: string, options?: { performedAt?: string | null; reason?: string | null }) => Promise<void>;
   onUndoNoShow: (bookingId: string, reason?: string | null) => Promise<void>;
   onCheckIn: (bookingId: string) => Promise<void>;
@@ -130,6 +131,7 @@ function BookingsListContent({
   summary,
   allowTableAssignments,
   isRefetching = false,
+  onDetails,
   onMarkNoShow,
   onUndoNoShow,
   onCheckIn,
@@ -300,12 +302,27 @@ function BookingsListContent({
 
             const pendingAction = pendingLifecycleAction?.bookingId === booking.id ? pendingLifecycleAction.action : null;
 
+            const toIsoTime = (date: string, time: string | null) => {
+              if (!time) return '';
+              const match = time.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+              if (!match) {
+                return `${date}T${time}`;
+              }
+              const hours = match[1]?.padStart(2, '0') ?? '00';
+              const minutes = match[2] ?? '00';
+              const seconds = match[3] ?? '00';
+              return `${date}T${hours}:${minutes}:${seconds}`;
+            };
+
+            const startIso = toIsoTime(summary.date, booking.startTime ?? null);
+            const endIso = toIsoTime(summary.date, booking.endTime ?? null);
+
             const bookingDTO: BookingDTO = {
               id: booking.id,
               reference: booking.reference ?? null,
               status: booking.status,
-              startIso: `${summary.date}T${booking.startTime ?? '00:00'}:00`,
-              endIso: booking.endTime ? `${summary.date}T${booking.endTime}:00` : `${summary.date}T${booking.startTime ?? '00:00'}:00`,
+              startIso,
+              endIso: endIso || startIso,
               partySize: booking.partySize,
               customerName: booking.customerName,
               customerEmail: booking.customerEmail ?? null,
@@ -335,6 +352,7 @@ function BookingsListContent({
                   onCheckOut={onCheckOut}
                   onMarkNoShow={onMarkNoShow}
                   onUndoNoShow={onUndoNoShow}
+                  onDetails={onDetails}
                   onAssignTable={onAssignTable}
                   onUnassignTable={onUnassignTable}
                   pendingAction={pendingAction}

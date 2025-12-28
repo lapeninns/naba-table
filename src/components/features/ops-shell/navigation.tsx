@@ -6,6 +6,7 @@ import {
   LayoutGrid,
   Sparkles,
   Clock3,
+  TrendingDown,
   UtensilsCrossed,
   SlidersHorizontal,
   Users,
@@ -52,6 +53,14 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         href: path('/bookings'),
         icon: CalendarDays,
         match: (pathname) => pathname === path('/bookings') || pathname.startsWith(path('/bookings/')),
+      },
+      {
+        title: 'Rejections',
+        description: 'Analyze booking rejections',
+        href: path('/rejections'),
+        icon: TrendingDown,
+        match: (pathname) => pathname === path('/rejections'),
+        requiresFeatureFlag: 'rejectionAnalytics',
       },
       {
         title: 'New Bookings',

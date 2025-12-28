@@ -109,6 +109,9 @@ function ChangeItem({ change }: { change: BookingChange }) {
                 {label}
               </Badge>
               <span className="text-xs text-muted-foreground">{formatTimestamp(change.changedAt)}</span>
+              <span className="text-xs text-muted-foreground">
+                · {change.changedBy ? `by ${change.changedBy}` : 'by System'}
+              </span>
             </div>
             {(change.oldData || change.newData) ? (
               <Button

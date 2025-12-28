@@ -1,19 +1,14 @@
 /**
- * BookingDetailsDialog - Modularized Component
+ * BookingDetailsDialog - Re-export for Backward Compatibility
  *
- * This file re-exports from the modular implementation for backward compatibility.
- * The implementation has been refactored following SOLID principles:
+ * This file re-exports from the modular implementation.
+ * The implementation has been completely rebuilt from scratch using shadcn/ui primitives.
  *
- * - SRP: Each module has a single responsibility
- * - OCP: New tabs/dialogs can be added via composition
- * - DIP: Components depend on abstractions (interfaces)
- * - ISP: Props are scoped per component needs
- *
- * @see ./booking-details/index.ts for the full module structure
+ * @see ./booking-details/BookingDialog.tsx for the main implementation
  */
 
 // Main component export
-export { BookingDetailsDialog } from './booking-details';
+export { BookingDetailsDialog, BookingDialog } from './booking-details';
 
 // Type exports for consumers
-export type { BookingDetailsDialogProps, BookingDetailsTab } from './booking-details';
+export type { BookingDialogProps } from './booking-details';

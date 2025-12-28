@@ -1,12 +1,12 @@
 'use client';
 
 import { CalendarIcon } from 'lucide-react';
-import { useMemo, type ComponentProps } from 'react';
+import { useMemo, useState, type ComponentProps } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Calendar, CalendarDayButton } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { SkeletonCalendarGrid, SkeletonText } from '@/components/ui/skeletons';
+import { SkeletonText } from '@/components/ui/skeletons';
 import { cn } from '@/lib/utils';
 import { formatDateKey, formatDateReadable } from '@/lib/utils/datetime';
 
@@ -43,20 +43,31 @@ export function HeatmapCalendar({ summary, heatmap, selectedDate, onSelectDate, 
   }, [selectedDate]);
 
   const heatmapMeta = useMemo(() => deriveHeatmapMeta(heatmap), [heatmap]);
+  const selectedMeta = useMemo(() => heatmapMeta.get(selectedDate) ?? null, [heatmapMeta, selectedDate]);
+
+  const [open, setOpen] = useState(false);
 
   if (isLoading) {
     return (
-      <div className="space-y-3">
-        <SkeletonText className="w-32" />
-        <SkeletonCalendarGrid />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="space-y-1">
+          <SkeletonText className="h-4 w-24" />
+          <SkeletonText className="h-3 w-32" />
+        </div>
+        <div className="h-9 w-56 rounded-md bg-muted/40" aria-hidden />
       </div>
     );
   }
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <p className="text-sm font-medium text-foreground">Service date</p>
-      <Popover>
+      <div className="space-y-0.5">
+        <p className="text-sm font-medium text-foreground">Service date</p>
+        <p className="text-xs text-muted-foreground">
+          {selectedMeta ? `${selectedMeta.bookings} bookings · ${selectedMeta.covers} covers` : 'No bookings'}
+        </p>
+      </div>
+      <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button variant="outline" size="sm" disabled={isLoading} className="gap-2">
             <CalendarIcon className="h-4 w-4" aria-hidden />
@@ -70,6 +81,7 @@ export function HeatmapCalendar({ summary, heatmap, selectedDate, onSelectDate, 
             onSelect={(date) => {
               if (!date) return;
               onSelectDate(formatDateKey(date));
+              setOpen(false);
             }}
             components={{
               DayButton: (props) => {

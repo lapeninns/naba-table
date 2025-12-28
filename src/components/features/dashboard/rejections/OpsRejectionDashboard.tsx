@@ -325,7 +325,7 @@ export function OpsRejectionDashboard() {
         headers[CSRF_HEADER_NAME] = csrfToken;
       }
 
-      const response = await fetch('/api/strategies/simulate', {
+      const response = await fetch('/api/ops/strategies/simulate', {
         method: 'POST',
         headers,
         body: JSON.stringify({
