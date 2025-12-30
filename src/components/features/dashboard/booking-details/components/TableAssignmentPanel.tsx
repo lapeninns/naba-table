@@ -9,12 +9,13 @@
 import {
   AlertTriangle,
   CheckCircle2,
+  Clock,
   Filter,
   Grid3X3,
-  LayoutGrid,
   Loader2,
   MapPin,
   RefreshCw,
+  Sparkles,
   Trash2,
   Users,
 } from 'lucide-react';
@@ -34,11 +35,12 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { cn } from '@/lib/utils';
 
 import { useTableAssignment } from '../hooks/useTableAssignment';
 import { getCapacityFit, groupTablesBySection } from '../utils';
@@ -255,19 +257,53 @@ export function TableAssignmentPanel({
         </Alert>
       )}
 
-      <Card>
-        <CardContent className="space-y-4 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3 text-sm">
-              <Users className="h-4 w-4 text-muted-foreground" />
-              <span>
-                <span className="font-semibold">{partySize}</span> covers
-              </span>
-              <Separator orientation="vertical" className="h-4" />
-              <span className="text-muted-foreground">
-                {selectedCapacity + assignedCapacity} / {partySize} seats
-              </span>
+      <Card className="bg-gradient-to-r from-slate-50 to-slate-100/50">
+        <CardContent className="space-y-3 p-3">
+          {/* Capacity Summary Header */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className={cn(
+                  'h-9 w-9 rounded-full flex items-center justify-center',
+                  (selectedCapacity + assignedCapacity) >= partySize
+                    ? 'bg-emerald-100 text-emerald-600'
+                    : 'bg-amber-100 text-amber-600'
+                )}>
+                  <Users className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="text-base font-semibold text-slate-900">
+                    {partySize} covers
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    {(selectedCapacity + assignedCapacity) >= partySize
+                      ? '✓ Capacity met'
+                      : `Need ${partySize - selectedCapacity - assignedCapacity} more seats`
+                    }
+                  </div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-xl font-bold text-slate-900">
+                  {selectedCapacity + assignedCapacity}
+                  <span className="text-base text-slate-400">/{partySize}</span>
+                </div>
+                <div className="text-xs text-slate-500">seats assigned</div>
+              </div>
             </div>
+            <Progress
+              value={Math.min(((selectedCapacity + assignedCapacity) / partySize) * 100, 100)}
+              className={cn(
+                'h-2',
+                (selectedCapacity + assignedCapacity) >= partySize
+                  ? '[&>div]:bg-emerald-500'
+                  : '[&>div]:bg-amber-500'
+              )}
+            />
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               {selectedTables.length > 0 && (
                 <Button
@@ -276,7 +312,7 @@ export function TableAssignmentPanel({
                   onClick={() => setSelectedTables([])}
                   disabled={isPending}
                 >
-                  Clear
+                  Clear selection
                 </Button>
               )}
               {assignedTableIds.size > 0 && (
@@ -288,28 +324,34 @@ export function TableAssignmentPanel({
                   className="text-rose-600 hover:text-rose-700"
                 >
                   <Trash2 className="h-3.5 w-3.5 mr-1" />
-                  Unassign
+                  Unassign all
                 </Button>
               )}
-              <Button
-                size="sm"
-                onClick={handleApply}
-                disabled={isPending || selectedTables.length === 0 || validation.errors.length > 0}
-                className="bg-emerald-600 hover:bg-emerald-700"
-              >
-                {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-                Apply tables
-              </Button>
             </div>
+            <Button
+              size="sm"
+              onClick={handleApply}
+              disabled={isPending || selectedTables.length === 0 || validation.errors.length > 0}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+              Apply tables
+            </Button>
           </div>
 
+          {/* Currently Assigned Tables */}
           {assignedTables.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {assignedTables.map((table) => (
-                <Badge key={table.id} variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
-                  Table {table.tableNumber}
-                </Badge>
-              ))}
+            <div className="pt-2 border-t">
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                Currently Assigned
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {assignedTables.map((table) => (
+                  <Badge key={table.id} variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                    Table {table.tableNumber} · {table.capacity} seats
+                  </Badge>
+                ))}
+              </div>
             </div>
           )}
 
@@ -374,35 +416,67 @@ export function TableAssignmentPanel({
 
       {suggestedTables.length > 0 && (
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-2">
-            <LayoutGrid className="h-3.5 w-3.5" />
-            Suggested tables
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="h-6 w-6 rounded-full bg-amber-100 flex items-center justify-center">
+                <Sparkles className="h-3.5 w-3.5 text-amber-600" />
+              </div>
+              <span className="text-sm font-semibold text-slate-900">Smart Suggestions</span>
+            </div>
+            <Badge variant="secondary" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
+              AI Optimized
+            </Badge>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {suggestedTables.slice(0, 6).map((table) => (
-              <SelectableTableCard
-                key={table.id}
-                table={table}
-                partySize={partySize}
-                isSelected={selectedTables.includes(table.id)}
-                isAssigned={assignedTableIds.has(table.id)}
-                isConflicted={conflictedTableIds.has(table.id)}
-                onToggle={() =>
-                  setSelectedTables((prev) =>
-                    prev.includes(table.id) ? prev.filter((id) => id !== table.id) : [...prev, table.id],
-                  )
-                }
-                disabled={isPending}
-              />
-            ))}
+            {suggestedTables.slice(0, 6).map((table, index) => {
+              // Determine recommendation badge
+              const fit = getCapacityFit(partySize, table);
+              const recommendationLabel =
+                index === 0 ? 'Best Match' :
+                  fit === 'exact' ? 'Exact Fit' :
+                    fit === 'within' ? 'Good Fit' : null;
+
+              return (
+                <div key={table.id} className="relative">
+                  {recommendationLabel && (
+                    <div className={cn(
+                      'absolute -top-2 left-2 z-10 px-2 py-0.5 rounded-full text-[10px] font-semibold',
+                      index === 0
+                        ? 'bg-amber-500 text-white'
+                        : fit === 'exact'
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-blue-500 text-white'
+                    )}>
+                      {recommendationLabel}
+                    </div>
+                  )}
+                  <SelectableTableCard
+                    table={table}
+                    partySize={partySize}
+                    isSelected={selectedTables.includes(table.id)}
+                    isAssigned={assignedTableIds.has(table.id)}
+                    isConflicted={conflictedTableIds.has(table.id)}
+                    onToggle={() =>
+                      setSelectedTables((prev) =>
+                        prev.includes(table.id) ? prev.filter((id) => id !== table.id) : [...prev, table.id],
+                      )
+                    }
+                    disabled={isPending}
+                  />
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
 
       <div>
-        <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-2">
-          <MapPin className="h-3.5 w-3.5" />
-          All tables
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-slate-500" />
+            <span className="text-sm font-semibold text-slate-900">All Tables</span>
+          </div>
+          <span className="text-xs text-muted-foreground">{filteredTables.length} tables</span>
         </div>
         {filteredTables.length === 0 ? (
           <Card className="border-dashed">
@@ -413,31 +487,61 @@ export function TableAssignmentPanel({
         ) : (
           <ScrollArea className="h-[320px] pr-2">
             <div className="space-y-4">
-              {Array.from(groupedTables.entries()).map(([section, sectionTables]) => (
-                <div key={section} className="space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {section}
+              {Array.from(groupedTables.entries()).map(([section, sectionTables], zoneIndex) => {
+                // Generate zone color based on index
+                const zoneColors = [
+                  'bg-blue-500',
+                  'bg-purple-500',
+                  'bg-teal-500',
+                  'bg-rose-500',
+                  'bg-orange-500',
+                  'bg-cyan-500',
+                ];
+                const zoneColor = zoneColors[zoneIndex % zoneColors.length];
+
+                // Check for conflicted tables in this zone
+                const conflictedInZone = sectionTables.filter(t => conflictedTableIds.has(t.id));
+
+                return (
+                  <div key={section} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={cn('w-2.5 h-2.5 rounded-full', zoneColor)} />
+                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+                          {section}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          ({sectionTables.length} tables)
+                        </span>
+                      </div>
+                      {conflictedInZone.length > 0 && (
+                        <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700 bg-amber-50 gap-1">
+                          <Clock className="h-3 w-3" />
+                          {conflictedInZone.length} conflict{conflictedInZone.length > 1 ? 's' : ''}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
+                      {sectionTables.map((table) => (
+                        <SelectableTableCard
+                          key={table.id}
+                          table={table}
+                          partySize={partySize}
+                          isSelected={selectedTables.includes(table.id)}
+                          isAssigned={assignedTableIds.has(table.id)}
+                          isConflicted={conflictedTableIds.has(table.id)}
+                          onToggle={() =>
+                            setSelectedTables((prev) =>
+                              prev.includes(table.id) ? prev.filter((id) => id !== table.id) : [...prev, table.id],
+                            )
+                          }
+                          disabled={isPending}
+                        />
+                      ))}
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
-                    {sectionTables.map((table) => (
-                      <SelectableTableCard
-                        key={table.id}
-                        table={table}
-                        partySize={partySize}
-                        isSelected={selectedTables.includes(table.id)}
-                        isAssigned={assignedTableIds.has(table.id)}
-                        isConflicted={conflictedTableIds.has(table.id)}
-                        onToggle={() =>
-                          setSelectedTables((prev) =>
-                            prev.includes(table.id) ? prev.filter((id) => id !== table.id) : [...prev, table.id],
-                          )
-                        }
-                        disabled={isPending}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </ScrollArea>
         )}

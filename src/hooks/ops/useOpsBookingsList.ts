@@ -24,6 +24,7 @@ function normalizeFilters(filters: OpsBookingsFilters) {
     restaurantId: filters.restaurantId,
   };
 
+  if (filters.tableId) normalized.tableId = filters.tableId;
   if (filters.page) normalized.page = filters.page;
   if (filters.pageSize) normalized.pageSize = filters.pageSize;
   if (filters.status && filters.status !== 'all') normalized.status = filters.status;

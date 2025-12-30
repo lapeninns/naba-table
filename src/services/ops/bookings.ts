@@ -486,6 +486,7 @@ function buildSearch(filters: OpsBookingsFilters): string {
   const params = new URLSearchParams();
 
   params.set('restaurantId', filters.restaurantId);
+  if (filters.tableId) params.set('tableId', filters.tableId);
   if (filters.page) params.set('page', String(filters.page));
   if (filters.pageSize) params.set('pageSize', String(filters.pageSize));
   if (filters.status && filters.status !== 'all') params.set('status', filters.status);

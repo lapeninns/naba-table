@@ -72,7 +72,7 @@ export function SelectableTableCard({
           <span className={cn('text-base font-semibold text-slate-800', isAssigned && 'text-emerald-700')}>
             Table {table.tableNumber}
           </span>
-          {table.name ? <div className="text-xs text-slate-500 truncate">{table.name}</div> : null}
+          {table.name ? <div className="text-xs text-slate-500">{table.name}</div> : null}
         </div>
         {isConflicted ? (
           <Badge variant="outline" className="border-amber-300 text-amber-700 bg-amber-50">
@@ -82,7 +82,7 @@ export function SelectableTableCard({
         ) : null}
       </div>
 
-      <div className="mt-2 flex items-center gap-2 text-xs text-slate-600">
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
         <Users className="h-3.5 w-3.5 text-slate-400" />
         <span>{table.capacity} seats</span>
         {table.section ? <span className="text-slate-400">· {table.section}</span> : null}

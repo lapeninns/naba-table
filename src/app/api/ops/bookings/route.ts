@@ -189,6 +189,7 @@ function sanitizeSearchTerm(input: string): string {
 
 const opsBookingsQuerySchema = z.object({
   restaurantId: z.string().uuid().optional(),
+  tableId: z.string().uuid().optional(),
   status: z.enum(OPS_BOOKING_STATUSES).optional(),
   statuses: z
     .string()
@@ -224,6 +225,7 @@ type OpsBookingRow = Pick<
   | { name: string | null; slug?: string | null; timezone?: string | null; reservation_interval_minutes?: number | null }
   | { name: string | null; slug?: string | null; timezone?: string | null; reservation_interval_minutes?: number | null }[]
   | null;
+  booking_table_assignments?: Array<{ table_id: string | null }> | null;
 };
 
 type BookingDTO = {
@@ -330,6 +332,7 @@ export async function GET(req: NextRequest) {
 
   const rawParams = {
     restaurantId: req.nextUrl.searchParams.get("restaurantId") ?? undefined,
+    tableId: req.nextUrl.searchParams.get("tableId") ?? undefined,
     status: req.nextUrl.searchParams.get("status") ?? undefined,
     statuses: req.nextUrl.searchParams.get("statuses") ?? undefined,
     from: req.nextUrl.searchParams.get("from") ?? undefined,
@@ -406,10 +409,14 @@ export async function GET(req: NextRequest) {
   let query = serviceSupabase
     .from("bookings")
     .select(
-      "id, start_at, end_at, booking_date, start_time, end_time, party_size, status, notes, restaurant_id, customer_name, customer_email, customer_phone, created_at, restaurants(name, slug, timezone, reservation_interval_minutes)",
+      "id, start_at, end_at, booking_date, start_time, end_time, party_size, status, notes, restaurant_id, customer_name, customer_email, customer_phone, created_at, restaurants(name, slug, timezone, reservation_interval_minutes), booking_table_assignments(table_id)",
       { count: "exact" },
     )
     .eq("restaurant_id", targetRestaurantId);
+
+  if (params.tableId) {
+    query = query.eq("booking_table_assignments.table_id", params.tableId);
+  }
 
   if (params.statuses.length > 0) {
     query = query.in("status", params.statuses);

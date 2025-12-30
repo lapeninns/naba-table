@@ -304,7 +304,7 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background font-sans text-foreground">
+    <div className="w-full bg-background font-sans text-foreground">
       <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
 
         {/* HEADER SECTION */}
@@ -321,11 +321,11 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center rounded-lg border border-border bg-card p-1 shadow-sm">
               <DateNavigationButton direction="prev" onClick={() => handleShiftDate(-1)} />
               <div className="flex items-center gap-2 px-2">
-                <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <HeatmapCalendar
                   summary={summary}
                   heatmap={heatmapQuery.data}
@@ -345,11 +345,11 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
         </section>
 
         {/* TOOLBAR */}
-        <div className="sticky top-0 z-10 -mx-4 bg-background/80 px-5 py-4 backdrop-blur-md transition-all sm:-mx-6 sm:px-6 md:mx-0 md:rounded-xl md:border md:border-border/60 md:bg-card/80 md:px-6 md:shadow-sm">
+        <div className="sticky top-0 z-[5] bg-background/80 px-4 py-4 backdrop-blur-md transition-all sm:px-6 md:rounded-xl md:border md:border-border/60 md:bg-card/80 md:px-6 md:shadow-sm">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
 
-            <div className="-mx-1 overflow-x-auto scrollbar-hide">
-              <div className="min-w-max px-1">
+            <div className="overflow-x-auto scrollbar-hide -mx-2 px-2 md:mx-0 md:px-0">
+              <div className="min-w-max">
                 <BookingsFilterBar value={filter} onChange={handleSelectFilter} counts={tabCounts} />
               </div>
             </div>
