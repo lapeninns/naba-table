@@ -1,68 +1,76 @@
 # Continuity Ledger
 
-Last updated: 2025-12-28T15:37:55Z
+Last updated: 2025-12-30T18:53:55Z
 
 ## Goal (incl. success criteria)
 
-- Revamp booking-details UX/UI module per AGENTS SDLC and user specs, building on existing local changes.
-- Success: New booking-details module structure with shadcn/ui, TS types/utils/hooks/components.
-- Success: Tests for utils/hooks + BookingDialog smoke states.
-- Success: Manual Chrome DevTools MCP QA recorded in verification.md.
+- Revamp `/floor-plan` UX/UI from scratch while preserving core behaviors.
+- Success: Floor plan supports add booking + check bookings on all device sizes.
+- Success: A11y and performance budgets pass with Chrome DevTools MCP evidence.
 
 ## Constraints/Assumptions
 
-- Follow AGENTS policy and SDLC; task folder required.
+- Follow AGENTS SDLC; no coding before requirements and plan are reviewed.
+- Everything is a task with `tasks/<slug>-YYYYMMDD-HHMM>/` artifacts.
 - Manual UI QA via Chrome DevTools MCP required for UI changes.
-- Use shadcn/ui primitives (Radix) and repo Tailwind tokens.
-- Secrets never in source.
-- No coding before requirements and plan are reviewed.
-- Proceed on top of existing local changes (user confirmed).
+- Prefer Shadcn components before custom UI.
+- Scope confirmed: ops `/floor-plan` only.
+- UX changes allowed; keep most existing capabilities unless removal is justified.
+- Visual consistency: align with dashboard, bookings, and new-bookings pages (Shadcn base).
+- Add booking action routes to `/new-bookings`.
+- Browse bookings should route to `/bookings` with contextual filters (table/time) and a toggle for day vs window.
+- API/contract changes allowed; add non-breaking filters if needed.
+- Default nearby window size: ±90 minutes.
 
 ## Key decisions
 
-- Use Sheet on mobile (bottom) and Dialog on desktop for BookingDialog layout.
-- Treat booking time values as ISO strings in types; normalize to `Date` in utilities.
-- Require confirmation before applying table assignment changes.
-- Add sr-only Dialog/Sheet titles for accessibility compliance.
+- Start a new task folder for the revamp and complete Phase 1/2 before implementation.
+- `/new-bookings` does not accept `tableId`; only pass date/time/party size context.
 
 ## State
 
-- Added missing `useOpsTodayVIPs` hook file to resolve module-not-found. Manual Chrome DevTools QA still blocked because existing dev server instance on port 3000 is running older code and errors on `BookingAssignmentTabContent`.
+- Phase 4 (Verification): Chrome DevTools MCP QA attempted; blocked by ops auth redirect.
 
 ## Done
 
-- Read AGENTS policies and skills guidance.
-- Located existing booking-details module and related files.
-- Created task folder `tasks/booking-details-revamp-20251228-1429/` with research/plan/todo/verification stubs.
-- Updated research/plan with dialog/sheet and time-type decisions.
-- Implemented booking-details module, table assignment flow, and a11y titles.
-- Fixed query invalidation to use ops dashboard summary key with `null` date.
-- Added tests for utils/hooks/dialog; renamed utils test to `.test.tsx`.
-- Ran targeted Vitest tests for booking-details (utils/hook/dialog) successfully.
-- Restored `src/hooks/ops/useOpsTodayVIPs.ts` to satisfy hooks export.
+- Read root and relevant AGENTS/skills guidance.
+- Created task folder `tasks/floor-plan-revamp-20251230-1742/` with required stubs.
+- Located floor plan-related files via code search.
+- Captured requirements from user in research.md.
+- Drafted plan.md with architecture, data flow, and rollout notes.
+- Updated plan/research to include contextual booking filters and API changes.
+- Ran Shadcn registry discovery (sheet/tabs/slider/tooltip available).
+- Implemented `/bookings` table/time window filters + toggle and URL params.
+- Added `tableId` filter to `GET /api/ops/bookings` and client filter plumbing.
+- Rebuilt `/floor-plan` UI with Shadcn primitives, responsive inspector, and new actions.
+- Attempted `pnpm dev`; validation passed but port 3000 already in use.
+- Opened `/floor-plan` via Chrome DevTools MCP; redirected to ops sign-in (auth blocked).
+- Captured DevTools screenshot of auth block.
+- Updated task todo/verification with QA block and deviation note.
 
 ## Now
 
-- Coordinate with user to resolve dev server build error so Chrome DevTools QA can complete.
+- Await ops credentials or authenticated session to complete MCP QA.
 
 ## Next
 
-- Re-run Chrome DevTools MCP QA once dev server error is resolved.
-- Update verification.md with QA results and artifacts.
+- Re-run Chrome DevTools MCP QA for `/floor-plan` and `/bookings` once authenticated.
+- Run targeted lint/tests if needed.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- None.
+- Need ops credentials or an authenticated session to complete UI QA. (UNCONFIRMED)
 
 ## Working set (files/ids/commands)
 
-- tasks/booking-details-revamp-20251228-1429/research.md
-- tasks/booking-details-revamp-20251228-1429/plan.md
-- tasks/booking-details-revamp-20251228-1429/todo.md
-- tasks/booking-details-revamp-20251228-1429/verification.md
-- src/components/features/dashboard/booking-details/BookingDialog.tsx
-- src/components/features/dashboard/booking-details/
-- tests/ops/booking-details-utils.test.tsx
-- tests/ops/booking-details-hook.test.tsx
-- tests/ops/booking-details-dialog.test.tsx
 - CONTINUITY.md
+- AGENTS.md
+- src/components/AGENTS.md
+- src/app/AGENTS.md
+- src/components/features/seating/FloorPlanPage.tsx
+- src/components/features/dashboard/TableFloorPlan.tsx
+- tasks/floor-plan-revamp-20251230-1742/research.md
+- tasks/floor-plan-revamp-20251230-1742/plan.md
+- tasks/floor-plan-revamp-20251230-1742/todo.md
+- tasks/floor-plan-revamp-20251230-1742/verification.md
+- tasks/floor-plan-revamp-20251230-1742/artifacts/devtools-auth-blocked.png

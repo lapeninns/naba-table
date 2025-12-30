@@ -14,6 +14,7 @@ import { OpsStatusFilter as OpsStatusFilterPopover } from '@/components/features
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { BookingStateMachineProvider, useBookingStateMachine } from '@/contexts/booking-state-machine';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import {
@@ -27,16 +28,25 @@ import {
 import { useOpsBooking } from '@/hooks/ops/useOpsBooking';
 import { useToast } from '@/hooks/use-toast';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
-import { buildOpsDateRange } from '@/utils/ops/bookings';
+import {
+  DEFAULT_OPS_BOOKINGS_WINDOW_MINUTES,
+  buildOpsDateRange,
+  buildOpsTimeWindowRange,
+  sanitizeTimeParam,
+} from '@/utils/ops/bookings';
 
 import type { StatusOption } from '@/components/dashboard/StatusFilterGroup';
 import type { BookingDTO } from '@/hooks/useBookings';
 import type { StatusFilter } from '@/hooks/useBookingsTableState';
-import type { OpsBookingListItem, OpsBookingStatus } from '@/types/ops';
+import type { OpsBookingListItem, OpsBookingStatus, OpsBookingsFilters } from '@/types/ops';
 
 const DEFAULT_FILTER: OpsStatusFilter = 'recent';
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = DASHBOARD_DEFAULT_PAGE_SIZE;
+const MIN_WINDOW_MINUTES = 15;
+const MAX_WINDOW_MINUTES = 240;
+
+export type OpsBookingsWindowMode = 'day' | 'window';
 
 const OPS_STATUS_TABS: StatusOption[] = [
   { value: 'recent', label: 'Recent' },
@@ -63,6 +73,11 @@ export type OpsBookingsClientProps = {
   initialQuery?: string | null;
   initialStatuses?: OpsBookingStatus[] | null;
   initialDate?: string | null;
+  initialTableId?: string | null;
+  initialTableLabel?: string | null;
+  initialTime?: string | null;
+  initialWindowMode?: OpsBookingsWindowMode | null;
+  initialWindowMinutes?: number | null;
 };
 
 function BookingStateRegistrar({ bookings }: { bookings: BookingDTO[] }) {
@@ -79,7 +94,19 @@ function BookingStateRegistrar({ bookings }: { bookings: BookingDTO[] }) {
   return null;
 }
 
-export function OpsBookingsClient({ initialFilter, initialPage, initialRestaurantId, initialQuery, initialStatuses, initialDate }: OpsBookingsClientProps) {
+export function OpsBookingsClient({
+  initialFilter,
+  initialPage,
+  initialRestaurantId,
+  initialQuery,
+  initialStatuses,
+  initialDate,
+  initialTableId,
+  initialTableLabel,
+  initialTime,
+  initialWindowMode,
+  initialWindowMinutes,
+}: OpsBookingsClientProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -89,9 +116,37 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
   const isOnline = useOnlineStatus();
   const { toast } = useToast();
   const focusBookingId = searchParams?.get('focus') ?? null;
+  const resolvedTableId = searchParams?.get('tableId') ?? initialTableId ?? null;
+  const resolvedTableLabel = searchParams?.get('tableLabel') ?? initialTableLabel ?? null;
+  const resolvedTime = sanitizeTimeParam(searchParams?.get('time') ?? initialTime) ?? null;
+
+  const resolvedWindowMode = useMemo<OpsBookingsWindowMode>(() => {
+    const raw = searchParams?.get('windowMode');
+    if (raw === 'day' || raw === 'window') return raw;
+    if (initialWindowMode === 'day' || initialWindowMode === 'window') return initialWindowMode;
+    return resolvedTableId && resolvedTime ? 'window' : 'day';
+  }, [initialWindowMode, resolvedTableId, resolvedTime, searchParams]);
+
+  const resolvedWindowMinutes = useMemo(() => {
+    const fallback = typeof initialWindowMinutes === 'number'
+      ? initialWindowMinutes
+      : DEFAULT_OPS_BOOKINGS_WINDOW_MINUTES;
+    const raw = searchParams?.get('windowMinutes');
+    if (!raw) return fallback;
+    const parsed = Number.parseInt(raw, 10);
+    if (Number.isNaN(parsed)) return fallback;
+    if (parsed < MIN_WINDOW_MINUTES || parsed > MAX_WINDOW_MINUTES) return fallback;
+    return parsed;
+  }, [initialWindowMinutes, searchParams]);
 
   const restaurantTimezone = restaurantDetails.data?.timezone ?? null;
-  const appliedDateRange = useMemo(() => buildOpsDateRange(initialDate, restaurantTimezone), [initialDate, restaurantTimezone]);
+  const appliedDateRange = useMemo(() => {
+    if (resolvedWindowMode === 'window' && resolvedTime) {
+      const windowRange = buildOpsTimeWindowRange(initialDate, resolvedTime, resolvedWindowMinutes, restaurantTimezone);
+      if (windowRange) return windowRange;
+    }
+    return buildOpsDateRange(initialDate, restaurantTimezone);
+  }, [initialDate, restaurantTimezone, resolvedTime, resolvedWindowMinutes, resolvedWindowMode]);
 
   const effectiveFilter = initialFilter ?? (initialDate ? 'all' : DEFAULT_FILTER);
   const effectivePage = initialPage ?? DEFAULT_PAGE;
@@ -166,10 +221,13 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
 
   const filters = useMemo(() => {
     if (!activeRestaurantId) return null;
-    const base = {
+    const base: OpsBookingsFilters = {
       restaurantId: activeRestaurantId,
       ...queryFilters,
     };
+    if (resolvedTableId) {
+      base.tableId = resolvedTableId;
+    }
     if (appliedDateRange) {
       return {
         ...base,
@@ -180,7 +238,7 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
       };
     }
     return base;
-  }, [activeRestaurantId, appliedDateRange, queryFilters]);
+  }, [activeRestaurantId, appliedDateRange, queryFilters, resolvedTableId]);
 
   const bookingsQuery = useOpsBookingsList(filters);
   const bookingsPage = bookingsQuery.data ?? {
@@ -237,6 +295,30 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
     },
     [handleStatusFilterChange, updateSearchParams],
   );
+
+  const handleWindowModeChange = useCallback(
+    (value: string) => {
+      if (!value) return;
+      if (value !== 'day' && value !== 'window') return;
+      updateSearchParams({
+        windowMode: value,
+        windowMinutes: value === 'window' ? String(resolvedWindowMinutes) : null,
+        page: null,
+      });
+    },
+    [resolvedWindowMinutes, updateSearchParams],
+  );
+
+  const handleClearTableFilter = useCallback(() => {
+    updateSearchParams({
+      tableId: null,
+      tableLabel: null,
+      time: null,
+      windowMode: null,
+      windowMinutes: null,
+      page: null,
+    });
+  }, [updateSearchParams]);
 
   const handlePageRequest = useCallback(
     (nextPage: number) => {
@@ -507,22 +589,59 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
                 />
               </div>
 
-              {/* SEARCH */}
-              <div className="relative w-full md:w-60 md:flex-none">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="Search guests..."
-                  value={search}
-                  onChange={(e) => handleSearchInput(e.target.value)}
-                  className="h-9 w-full rounded-lg border border-border bg-background pl-10 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 touch-manipulation"
-                />
+              <div className="flex flex-col gap-2 md:flex-row md:items-center">
+                {resolvedTime ? (
+                  <ToggleGroup
+                    type="single"
+                    value={resolvedWindowMode}
+                    onValueChange={handleWindowModeChange}
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-start md:w-auto"
+                    aria-label="Booking window"
+                  >
+                    <ToggleGroupItem value="window">Nearby</ToggleGroupItem>
+                    <ToggleGroupItem value="day">All day</ToggleGroupItem>
+                  </ToggleGroup>
+                ) : null}
+
+                {/* SEARCH */}
+                <div className="relative w-full md:w-60 md:flex-none">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Search guests..."
+                    value={search}
+                    onChange={(e) => handleSearchInput(e.target.value)}
+                    className="h-9 w-full rounded-lg border border-border bg-background pl-10 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 touch-manipulation"
+                  />
+                </div>
               </div>
             </div>
           </div>
 
           {/* TABLE SECTION */}
           <section className="space-y-3">
+            {resolvedTableId ? (
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                <Badge variant="outline" className="rounded-md text-xs font-medium text-foreground">
+                  {resolvedTableLabel ? resolvedTableLabel : 'Table filter'}
+                </Badge>
+                {resolvedTime ? (
+                  <Badge variant="secondary" className="rounded-md text-xs font-medium">
+                    {resolvedTime}
+                  </Badge>
+                ) : null}
+                <Badge variant="secondary" className="rounded-md text-xs font-medium">
+                  {resolvedWindowMode === 'window'
+                    ? `Nearby ±${resolvedWindowMinutes}m`
+                    : 'All day'}
+                </Badge>
+                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={handleClearTableFilter}>
+                  Clear filter
+                </Button>
+              </div>
+            ) : null}
             <BookingOfflineBanner />
             <BookingsTable
               bookings={bookings}

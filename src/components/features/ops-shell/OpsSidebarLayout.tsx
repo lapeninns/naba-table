@@ -51,7 +51,7 @@ export function OpsSidebarLayout({ children, defaultSidebarOpen = true, headerSl
         <SidebarInset className="bg-background">
           <a
             href="#ops-content"
-            className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow"
+            className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[40] focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow"
           >
             Skip to content
           </a>

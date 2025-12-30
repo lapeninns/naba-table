@@ -1,6 +1,7 @@
 import { BookingErrorBoundary } from "@/components/features/booking-state-machine";
 import { OpsBookingsClient } from "@/components/features/bookings";
 import { BookingOfflineQueueProvider } from "@/contexts/booking-offline-queue";
+import { DEFAULT_OPS_BOOKINGS_WINDOW_MINUTES, sanitizeTimeParam } from "@/utils/ops/bookings";
 import { sanitizeDateParam } from "@/utils/ops/dashboard";
 
 import type { OpsStatusFilter } from "@/hooks";
@@ -21,6 +22,11 @@ type OpsBookingsSearchParams = {
   query?: string;
   statuses?: string;
   date?: string;
+  tableId?: string;
+  tableLabel?: string;
+  time?: string;
+  windowMode?: string;
+  windowMinutes?: string;
 };
 
 const VALID_FILTERS: OpsStatusFilter[] = [
@@ -58,6 +64,26 @@ function parseStatuses(raw: string | undefined): OpsBookingStatus[] {
   return Array.from(valid);
 }
 
+function parseWindowMode(raw: string | undefined, fallback: "day" | "window"): "day" | "window" {
+  if (raw === "day" || raw === "window") return raw;
+  return fallback;
+}
+
+function parseWindowMinutes(raw: string | undefined): number | null {
+  if (!raw) return null;
+  const parsed = Number.parseInt(raw, 10);
+  if (Number.isNaN(parsed)) return null;
+  if (parsed < 15 || parsed > 240) return null;
+  return parsed;
+}
+
+function parseTableId(raw: string | undefined): string | null {
+  if (!raw) return null;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw)
+    ? raw
+    : null;
+}
+
 export default async function OpsBookingsPage({
   searchParams,
 }: {
@@ -73,6 +99,13 @@ export default async function OpsBookingsPage({
   const initialQuery = rawQuery.length > 0 ? rawQuery : null;
   const initialStatuses = parseStatuses(resolvedParams.statuses);
   const initialDate = sanitizeDateParam(resolvedParams.date);
+  const initialTableId = parseTableId(resolvedParams.tableId);
+  const initialTableLabel = resolvedParams.tableLabel?.trim() || null;
+  const initialTime = sanitizeTimeParam(resolvedParams.time);
+  const fallbackMode = initialTableId && initialTime ? "window" : "day";
+  const initialWindowMode = parseWindowMode(resolvedParams.windowMode, fallbackMode);
+  const initialWindowMinutes =
+    parseWindowMinutes(resolvedParams.windowMinutes) ?? DEFAULT_OPS_BOOKINGS_WINDOW_MINUTES;
 
   return (
     <BookingErrorBoundary>
@@ -84,6 +117,11 @@ export default async function OpsBookingsPage({
           initialQuery={initialQuery}
           initialStatuses={initialStatuses}
           initialDate={initialDate}
+          initialTableId={initialTableId}
+          initialTableLabel={initialTableLabel}
+          initialTime={initialTime}
+          initialWindowMode={initialWindowMode}
+          initialWindowMinutes={initialWindowMinutes}
         />
       </BookingOfflineQueueProvider>
     </BookingErrorBoundary>
