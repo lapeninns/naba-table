@@ -18,23 +18,6 @@ type OpsReservationError = {
   status?: number;
 };
 
-function ensureFallbackContact(
-  value: string | null | undefined,
-  clientRequestId: string,
-  kind: 'email' | 'phone',
-): string {
-  const trimmed = (value ?? '').trim();
-  if (trimmed) {
-    return trimmed;
-  }
-
-  const slug = clientRequestId.replace(/[^a-z0-9]/gi, '').slice(0, 24) || `${Date.now()}`;
-  if (kind === 'email') {
-    return `walkin+${slug}@system.local`;
-  }
-  return `000-${slug}`;
-}
-
 export function useCreateOpsReservation() {
   const queryClient = useQueryClient();
   const idempotencyKeyRef = useRef<string | null>(null);
@@ -75,25 +58,19 @@ export function useCreateOpsReservation() {
           : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
       idempotencyKeyRef.current = idempotencyKey;
 
-      const emailProvided = Boolean((draft.email ?? '').trim());
-      const email = ensureFallbackContact(draft.email, idempotencyKey, 'email');
-      const phone = ensureFallbackContact(draft.phone, idempotencyKey, 'phone');
-
       const response = await fetchJson<{
         booking?: unknown;
         bookings?: unknown;
-      }>('/api/bookings', {
+      }>('/api/ops/bookings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Idempotency-Key': idempotencyKey,
-          'X-Ops-Walk-In': 'true',
-          'X-Ops-Email-Provided': emailProvided ? 'true' : 'false',
         },
         body: JSON.stringify({
           ...payload,
-          email,
-          phone,
+          email: draft.email ?? null,
+          phone: draft.phone ?? null,
         }),
       });
 

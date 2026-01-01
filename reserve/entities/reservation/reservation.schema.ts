@@ -42,7 +42,7 @@ export const reservationSchema = z.object({
   seatingPreference: z.string(),
   status: z.string(),
   customerName: z.string(),
-  customerEmail: z.string().email(),
+  customerEmail: z.union([z.string().email(), z.literal('')]),
   customerPhone: z.string(),
   marketingOptIn: z.boolean(),
   notes: z.string().nullable(),
