@@ -361,17 +361,51 @@ async function scheduleReminderJob(
 
   console.log(`[reminder-job] Booking ${booking.id} (${variant}): Base delay ${Math.round(baseDelayMs / 60000)} min, Optimized delay ${Math.round(optimizedDelayMs / 60000)} min`);
 
-  if (isEmailQueueEnabled()) {
-    await enqueueEmailJob(
-      {
+  const queueEnabled = isEmailQueueEnabled();
+  console.log('[DEBUG][reminder-job] Queue status', {
+    bookingId: booking.id,
+    variant,
+    queueEnabled,
+    FEATURE_EMAIL_QUEUE_ENABLED: process.env.FEATURE_EMAIL_QUEUE_ENABLED,
+  });
+
+  if (queueEnabled) {
+    console.log('[DEBUG][reminder-job] Attempting to enqueue', {
+      bookingId: booking.id,
+      variant,
+      delayMinutes: Math.round(optimizedDelayMs / 60000),
+    });
+
+    try {
+      await enqueueEmailJob(
+        {
+          bookingId: booking.id,
+          restaurantId,
+          type: variant,
+          scheduledFor: new Date(Date.now() + optimizedDelayMs).toISOString(),
+        },
+        { jobId: `${variant}:${booking.id}`, delayMs: optimizedDelayMs },
+      );
+
+      console.log('[DEBUG][reminder-job] Successfully enqueued', {
         bookingId: booking.id,
-        restaurantId,
-        type: variant,
-        scheduledFor: new Date(Date.now() + optimizedDelayMs).toISOString(),
-      },
-      { jobId: `${variant}:${booking.id}`, delayMs: optimizedDelayMs },
-    );
+        variant,
+      });
+    } catch (error) {
+      console.error('[DEBUG][reminder-job] Failed to enqueue', {
+        bookingId: booking.id,
+        variant,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      throw error;
+    }
   } else if (optimizedDelayMs >= 0) {
+    console.log('[DEBUG][reminder-job] Queue disabled, using inline send', {
+      bookingId: booking.id,
+      variant,
+    });
+
     await sendEmailInlineWithDelay(
       optimizedDelayMs,
       () => sendBookingReminderEmail(booking, { variant: variant === "reminder_short" ? "short" : "standard" }),
@@ -426,9 +460,26 @@ async function processBookingCreatedSideEffects(
 ): Promise<boolean> {
   const client = resolveSupabase(_supabase);
   const { booking, idempotencyKey, restaurantId } = payload;
+
+  // DEBUG: Track job creation
+  console.log('[DEBUG][booking.created] START', {
+    bookingId: booking.id,
+    status: booking.status,
+    email: booking.customer_email,
+    source: booking.source,
+  });
+
   let queuedViaQueue = false;
   const normalizedEmail = booking.customer_email?.trim?.() ?? '';
   const shouldSendEmail = (payload.emailProvided ?? true) && normalizedEmail.length > 0;
+
+  console.log('[DEBUG][booking.created] Email check', {
+    bookingId: booking.id,
+    shouldSendEmail,
+    normalizedEmail: normalizedEmail ? 'present' : 'missing',
+    emailProvided: payload.emailProvided,
+  });
+
   const emailPrefs = await fetchRestaurantEmailPrefs(restaurantId, client);
 
   try {
@@ -527,23 +578,52 @@ async function processBookingCreatedSideEffects(
 
   // Schedule pre-visit reminders if already confirmed at creation.
   if (!SUPPRESS_EMAILS && shouldSendEmail && booking.status === "confirmed") {
-    const timezone = await fetchRestaurantTimezone(restaurantId, client);
-    await scheduleReminderJob(
-      booking as BookingRecord,
-      restaurantId,
-      "reminder_24h",
-      REMINDER_24H_MINUTES,
-      emailPrefs,
-      timezone,
-    );
-    await scheduleReminderJob(
-      booking as BookingRecord,
-      restaurantId,
-      "reminder_short",
-      REMINDER_SHORT_MINUTES,
-      emailPrefs,
-      timezone,
-    );
+    console.log('[DEBUG][booking.created] Scheduling reminders', {
+      bookingId: booking.id,
+      status: booking.status,
+      shouldSendEmail,
+    });
+
+    try {
+      const timezone = await fetchRestaurantTimezone(restaurantId, client);
+
+      console.log('[DEBUG][booking.created] Scheduling 24h reminder...');
+      await scheduleReminderJob(
+        booking as BookingRecord,
+        restaurantId,
+        "reminder_24h",
+        REMINDER_24H_MINUTES,
+        emailPrefs,
+        timezone,
+      );
+
+      console.log('[DEBUG][booking.created] Scheduling 2h reminder...');
+      await scheduleReminderJob(
+        booking as BookingRecord,
+        restaurantId,
+        "reminder_short",
+        REMINDER_SHORT_MINUTES,
+        emailPrefs,
+        timezone,
+      );
+
+      console.log('[DEBUG][booking.created] Reminders scheduled successfully');
+    } catch (error) {
+      console.error('[DEBUG][booking.created] Failed to schedule reminders', {
+        bookingId: booking.id,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      throw error;
+    }
+  } else {
+    console.log('[DEBUG][booking.created] Skipping reminders', {
+      bookingId: booking.id,
+      SUPPRESS_EMAILS,
+      shouldSendEmail,
+      status: booking.status,
+      reason: !shouldSendEmail ? 'no email' : booking.status !== 'confirmed' ? 'not confirmed' : 'emails suppressed',
+    });
   }
 
   // Edge: if created as completed (rare), schedule review with smart timing.
