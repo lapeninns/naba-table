@@ -106,6 +106,11 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
 
             <section className={CONTACT_SECTION_CLASS}>
               <h3 className="text-lg font-semibold text-foreground">Contact details</h3>
+              {mode === 'ops' ? (
+                <p className="text-sm text-muted-foreground">
+                  At least one contact method (email or phone) is required.
+                </p>
+              ) : null}
               <div className="space-y-4">
                 <FormField
                   control={form.control}
@@ -156,6 +161,10 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                         <FormDescription className="text-xs text-muted-foreground">
                           Email is linked to your account. Update it from your profile to change it.
                         </FormDescription>
+                      ) : mode === 'ops' && !errors.email ? (
+                        <FormDescription className="text-xs text-muted-foreground">
+                          Optional if phone number is provided
+                        </FormDescription>
                       ) : null}
                       <FormMessage>{errors.email?.message}</FormMessage>
                     </FormItem>
@@ -183,6 +192,11 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                           }}
                         />
                       </FormControl>
+                      {mode === 'ops' && !errors.phone ? (
+                        <FormDescription className="text-xs text-muted-foreground">
+                          Optional if email address is provided
+                        </FormDescription>
+                      ) : null}
                       <FormMessage>{errors.phone?.message}</FormMessage>
                     </FormItem>
                   )}

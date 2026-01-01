@@ -238,7 +238,8 @@ describe("POST /api/ops/bookings", () => {
   });
 
   it("accepts optional contact fields in schema", () => {
-    const result = opsWalkInBookingSchema.safeParse({
+    // Should reject when both email and phone are empty
+    const bothEmpty = opsWalkInBookingSchema.safeParse({
       restaurantId: RESTAURANT_ID,
       date: "2025-05-01",
       time: "18:00",
@@ -251,8 +252,59 @@ describe("POST /api/ops/bookings", () => {
       phone: "",
       marketingOptIn: false,
     });
+    expect(bothEmpty.success).toBe(false);
+    if (!bothEmpty.success) {
+      expect(bothEmpty.error.issues.some(issue => issue.path.includes("email"))).toBe(true);
+      expect(bothEmpty.error.issues.some(issue => issue.path.includes("phone"))).toBe(true);
+    }
 
-    expect(result.success).toBe(true);
+    // Should accept when email is provided
+    const emailOnly = opsWalkInBookingSchema.safeParse({
+      restaurantId: RESTAURANT_ID,
+      date: "2025-05-01",
+      time: "18:00",
+      party: 2,
+      bookingType: "dinner",
+      seating: "indoor",
+      notes: null,
+      name: "Walk In",
+      email: "test@example.com",
+      phone: "",
+      marketingOptIn: false,
+    });
+    expect(emailOnly.success).toBe(true);
+
+    // Should accept when phone is provided
+    const phoneOnly = opsWalkInBookingSchema.safeParse({
+      restaurantId: RESTAURANT_ID,
+      date: "2025-05-01",
+      time: "18:00",
+      party: 2,
+      bookingType: "dinner",
+      seating: "indoor",
+      notes: null,
+      name: "Walk In",
+      email: "",
+      phone: "07467586751",
+      marketingOptIn: false,
+    });
+    expect(phoneOnly.success).toBe(true);
+
+    // Should accept when both are provided
+    const bothProvided = opsWalkInBookingSchema.safeParse({
+      restaurantId: RESTAURANT_ID,
+      date: "2025-05-01",
+      time: "18:00",
+      party: 2,
+      bookingType: "dinner",
+      seating: "indoor",
+      notes: null,
+      name: "Walk In",
+      email: "test@example.com",
+      phone: "07467586751",
+      marketingOptIn: false,
+    });
+    expect(bothProvided.success).toBe(true);
   });
 
   it("creates a walk-in booking without contact info", async () => {
@@ -312,6 +364,8 @@ describe("POST /api/ops/bookings", () => {
       seating: "indoor",
       notes: null,
       name: "Walk In",
+      email: "walkin@example.com",
+      phone: null,
       marketingOptIn: false,
     };
 

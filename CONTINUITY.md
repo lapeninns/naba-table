@@ -1,54 +1,52 @@
 # Continuity Ledger
 
-Last updated: 2025-12-27T07:54:30Z
+Last updated: 2026-01-01T11:50:13Z
 
 ## Goal (incl. success criteria)
 
-- Make instant booking emails send inline even when the queue is enabled.
-- Ensure scheduled emails enqueue successfully without jobId errors.
-- Success: instant types bypass queue; scheduled types remain queued and can be added.
+- Allow ops admins to create bookings with email-only, phone-only, or both; at least one contact field required.
+- Success: ops booking flow accepts email-only or phone-only without validation errors.
+- Success: validation errors are accurate when both are missing or invalid.
 
 ## Constraints/Assumptions
 
-- Follow AGENTS SDLC phases with task artifacts.
-- No UI changes; no DB changes; no new flags.
+- Follow AGENTS SDLC phases; no coding before requirements and plan are reviewed.
+- Manual UI QA via Chrome DevTools MCP required for UI changes.
+- Supabase remote-only if DB changes are needed.
 - Secrets never in source.
 
 ## Key decisions
 
-- Instant types: request_received, confirmation, updated, cancelled, restaurant_cancellation, booking_rejected.
-- Scheduled types (reminder_24h, reminder_short, review_request) remain queued.
-- Sanitize email queue job IDs to remove `:` and keep removal compatible.
+- Allow empty string emails in reservation schema to tolerate ops bookings with missing email.
 
 ## State
 
-- Implementation done; not re-verified after jobId fix.
+- Phase 3 (Implementation) in progress.
 
 ## Done
 
-- Updated booking-side-effects to bypass queue for instant types.
-- Added jobId sanitization in email queue helper.
-- Updated docs/EMAIL_SYSTEM.md for queue scope.
+- Updated reservation schema to accept empty-string emails.
+- Removed unused vars causing eslint warnings in ops reservation mutation.
+- Replaced `any` cast in inline auto-assign payload with Json type.
 
 ## Now
 
-- Await user confirmation to run tests or re-check logs.
+- Re-run lint/commit checks; prepare verification.
 
 ## Next
 
-- Optional: trigger a booking to verify reminder jobs enqueue.
+- Manual QA via Chrome DevTools MCP for ops booking flow.
+- Update `verification.md` with artifacts.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- None.
+- Which ops booking entry points are in scope (wizard only vs other ops forms)? (UNCONFIRMED)
+- Should phone validation remain UK-only for ops, or should ops accept international formats? (UNCONFIRMED)
+- Should missing email be stored as null instead of empty string, and is that acceptable for downstream exports? (UNCONFIRMED)
 
 ## Working set (files/ids/commands)
 
-- CONTINUITY.md
-- server/jobs/booking-side-effects.ts
-- server/queue/email.ts
-- docs/EMAIL_SYSTEM.md
-- tasks/instant-email-inline-20251227-0741/research.md
-- tasks/instant-email-inline-20251227-0741/plan.md
-- tasks/instant-email-inline-20251227-0741/todo.md
-- tasks/instant-email-inline-20251227-0741/verification.md
+- reserve/entities/reservation/reservation.schema.ts
+- reserve/features/reservations/wizard/api/useCreateOpsReservation.ts
+- src/services/inline-auto-assign.ts
+- tasks/ops-booking-optional-contact-20260101-1143/verification.md

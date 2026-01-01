@@ -53,19 +53,39 @@ const overrideSchema = z
     }
   });
 
-export const opsWalkInBookingSchema = z.object({
-  restaurantId: z.string().uuid(),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  time: z.string().regex(/^\d{2}:\d{2}$/),
-  party: z.number().int().min(1),
-  bookingType: z.enum(["breakfast", "lunch", "dinner", "drinks"]),
-  seating: z.string().min(1),
-  notes: z.string().max(500).optional().nullable(),
-  name: z.string().min(2).max(120),
-  email: optionalEmailSchema,
-  phone: optionalPhoneSchema,
-  marketingOptIn: z.coerce.boolean().optional().default(false),
-  override: overrideSchema.optional(),
-});
+export const opsWalkInBookingSchema = z
+  .object({
+    restaurantId: z.string().uuid(),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    time: z.string().regex(/^\d{2}:\d{2}$/),
+    party: z.number().int().min(1),
+    bookingType: z.enum(["breakfast", "lunch", "dinner", "drinks"]),
+    seating: z.string().min(1),
+    notes: z.string().max(500).optional().nullable(),
+    name: z.string().min(2).max(120),
+    email: optionalEmailSchema,
+    phone: optionalPhoneSchema,
+    marketingOptIn: z.coerce.boolean().optional().default(false),
+    override: overrideSchema.optional(),
+  })
+  .superRefine((data, ctx) => {
+    // At least one contact method (email or phone) is required
+    const hasEmail = data.email !== null && data.email !== undefined && data.email.trim().length > 0;
+    const hasPhone = data.phone !== null && data.phone !== undefined && data.phone.trim().length > 0;
+
+    if (!hasEmail && !hasPhone) {
+      // Add error to both fields so the UI can highlight them
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["email"],
+        message: "Please provide at least one contact method (email or phone).",
+      });
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["phone"],
+        message: "Please provide at least one contact method (email or phone).",
+      });
+    }
+  });
 
 export type OpsWalkInBookingPayload = z.infer<typeof opsWalkInBookingSchema>;
