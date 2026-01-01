@@ -1,12 +1,10 @@
 'use client';
 
-import { CalendarIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMemo, useState, type ComponentProps } from 'react';
 
-import { Button } from '@/components/ui/button';
 import { Calendar, CalendarDayButton } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { SkeletonText } from '@/components/ui/skeletons';
 import { cn } from '@/lib/utils';
 import { formatDateKey, formatDateReadable } from '@/lib/utils/datetime';
 
@@ -27,6 +25,7 @@ type HeatmapCalendarProps = {
   heatmap?: OpsBookingHeatmap;
   selectedDate: string;
   onSelectDate: (date: string) => void;
+  onShiftDate?: (days: number) => void;
   isLoading?: boolean;
 };
 
@@ -36,45 +35,65 @@ type HeatmapMeta = {
   intensity: HeatIntensity;
 };
 
-export function HeatmapCalendar({ summary, heatmap, selectedDate, onSelectDate, isLoading }: HeatmapCalendarProps) {
+export function HeatmapCalendar({ summary, heatmap, selectedDate, onSelectDate, onShiftDate, isLoading }: HeatmapCalendarProps) {
   const selectedDateObj = useMemo(() => {
     const next = new Date(`${selectedDate}T00:00:00`);
     return Number.isNaN(next.getTime()) ? undefined : next;
   }, [selectedDate]);
 
   const heatmapMeta = useMemo(() => deriveHeatmapMeta(heatmap), [heatmap]);
-  const selectedMeta = useMemo(() => heatmapMeta.get(selectedDate) ?? null, [heatmapMeta, selectedDate]);
 
   const [open, setOpen] = useState(false);
 
   if (isLoading) {
-    return (
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="space-y-1">
-          <SkeletonText className="h-4 w-24" />
-          <SkeletonText className="h-3 w-32" />
-        </div>
-        <div className="h-9 w-56 rounded-md bg-muted/40" aria-hidden />
-      </div>
-    );
+    return <span className="px-2 text-sm font-medium text-muted-foreground animate-pulse">Loading...</span>;
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <div className="space-y-0.5">
-        <p className="text-sm font-medium text-foreground">Service date</p>
-        <p className="text-xs text-muted-foreground">
-          {selectedMeta ? `${selectedMeta.bookings} bookings · ${selectedMeta.covers} covers` : 'No bookings'}
-        </p>
-      </div>
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button variant="outline" size="sm" disabled={isLoading} className="gap-2">
-            <CalendarIcon className="h-4 w-4" aria-hidden />
-            {formatDateReadable(selectedDate, summary.timezone)}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent align="end" className="p-2">
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          disabled={isLoading}
+          className="px-2 text-sm font-medium text-foreground transition-colors hover:text-primary whitespace-nowrap"
+        >
+          {formatDateReadable(selectedDate, summary.timezone)}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="center" className="p-0 w-auto">
+        {/* Navigation header inside popover */}
+        {onShiftDate && (
+          <div className="flex items-center justify-between border-b border-border px-3 py-2">
+            <button
+              type="button"
+              onClick={() => {
+                onShiftDate(-1);
+                setOpen(false);
+              }}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring active:scale-95 motion-reduce:active:scale-100"
+              aria-label="Previous day"
+            >
+              <ChevronLeft className="h-4 w-4" aria-hidden />
+            </button>
+            <span className="text-sm font-medium text-foreground">
+              {formatDateReadable(selectedDate, summary.timezone)}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                onShiftDate(1);
+                setOpen(false);
+              }}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring active:scale-95 motion-reduce:active:scale-100"
+              aria-label="Next day"
+            >
+              <ChevronRight className="h-4 w-4" aria-hidden />
+            </button>
+          </div>
+        )}
+
+        {/* Calendar picker */}
+        <div className="p-2">
           <Calendar
             mode="single"
             selected={selectedDateObj}
@@ -100,9 +119,9 @@ export function HeatmapCalendar({ summary, heatmap, selectedDate, onSelectDate, 
               },
             }}
           />
-        </PopoverContent>
-      </Popover>
-    </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 

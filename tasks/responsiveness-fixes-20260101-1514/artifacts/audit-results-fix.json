@@ -1,0 +1,1756 @@
+{
+  "bookings": {
+    "375": {
+      "metrics": {
+        "overflowInfo": {
+          "innerWidth": 375,
+          "scrollWidth": 375,
+          "overflow": false
+        },
+        "shrinkInfo": {
+          "mainClass": "relative flex min-w-0 w-full flex-1 flex-col md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 bg-background",
+          "parentClass": "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full bg-background",
+          "mainMinWidth": "0px",
+          "parentMinWidth": "0px",
+          "mainFlex": "1 1 0%",
+          "parentFlex": "0 1 auto"
+        },
+        "grids": [
+          {
+            "className": "grid grid-cols-1 gap-3",
+            "columns": 1,
+            "width": 343
+          },
+          {
+            "className": "grid grid-cols-1 gap-3",
+            "columns": 3,
+            "width": 0
+          }
+        ],
+        "tables": [],
+        "smallTargets": [
+          {
+            "tag": "a",
+            "text": "Skip to content",
+            "ariaLabel": null,
+            "width": 143,
+            "height": 40
+          },
+          {
+            "tag": "a",
+            "text": "Skip to content",
+            "ariaLabel": null,
+            "width": 1,
+            "height": 1
+          }
+        ]
+      }
+    },
+    "768": {
+      "metrics": {
+        "overflowInfo": {
+          "innerWidth": 768,
+          "scrollWidth": 768,
+          "overflow": false
+        },
+        "shrinkInfo": {
+          "mainClass": "relative flex min-w-0 w-full flex-1 flex-col md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 bg-background",
+          "parentClass": "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full bg-background",
+          "mainMinWidth": "0px",
+          "parentMinWidth": "0px",
+          "mainFlex": "1 1 0%",
+          "parentFlex": "0 1 auto"
+        },
+        "grids": [
+          {
+            "className": "grid grid-cols-1 gap-3",
+            "columns": 3,
+            "width": 0
+          },
+          {
+            "className": "grid grid-cols-1 gap-3",
+            "columns": 1,
+            "width": 672
+          }
+        ],
+        "tables": [],
+        "smallTargets": [
+          {
+            "tag": "a",
+            "text": "Skip to content",
+            "ariaLabel": null,
+            "width": 143,
+            "height": 40
+          },
+          {
+            "tag": "a",
+            "text": "Dashboard",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Bookings",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "New Bookings",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Customers",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Floor Plan",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Restaurant Profile",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Operating Hours",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Booking Occasions",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Service Periods",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Tables",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Team",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          }
+        ]
+      },
+      "sidebarToggledOverflow": {
+        "innerWidth": 768,
+        "scrollWidth": 768,
+        "overflow": false
+      }
+    },
+    "1024": {
+      "metrics": {
+        "overflowInfo": {
+          "innerWidth": 1024,
+          "scrollWidth": 1024,
+          "overflow": false
+        },
+        "shrinkInfo": {
+          "mainClass": "relative flex min-w-0 w-full flex-1 flex-col md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 bg-background",
+          "parentClass": "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full bg-background",
+          "mainMinWidth": "0px",
+          "parentMinWidth": "0px",
+          "mainFlex": "1 1 0%",
+          "parentFlex": "0 1 auto"
+        },
+        "grids": [
+          {
+            "className": "grid grid-cols-1 gap-3",
+            "columns": 3,
+            "width": 0
+          },
+          {
+            "className": "grid grid-cols-1 gap-3",
+            "columns": 1,
+            "width": 912
+          }
+        ],
+        "tables": [],
+        "smallTargets": [
+          {
+            "tag": "a",
+            "text": "Skip to content",
+            "ariaLabel": null,
+            "width": 143,
+            "height": 40
+          },
+          {
+            "tag": "a",
+            "text": "Dashboard",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Bookings",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "New Bookings",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Customers",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Floor Plan",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Restaurant Profile",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Operating Hours",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Booking Occasions",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Service Periods",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Tables",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Team",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          }
+        ]
+      },
+      "sidebarToggledOverflow": {
+        "innerWidth": 1024,
+        "scrollWidth": 1024,
+        "overflow": false
+      }
+    },
+    "1440": {
+      "metrics": {
+        "overflowInfo": {
+          "innerWidth": 1440,
+          "scrollWidth": 1440,
+          "overflow": false
+        },
+        "shrinkInfo": {
+          "mainClass": "relative flex min-w-0 w-full flex-1 flex-col md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 bg-background",
+          "parentClass": "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full bg-background",
+          "mainMinWidth": "0px",
+          "parentMinWidth": "0px",
+          "mainFlex": "1 1 0%",
+          "parentFlex": "0 1 auto"
+        },
+        "grids": [
+          {
+            "className": "grid grid-cols-1 gap-3",
+            "columns": 3,
+            "width": 0
+          },
+          {
+            "className": "grid grid-cols-1 gap-3",
+            "columns": 1,
+            "width": 1088
+          }
+        ],
+        "tables": [],
+        "smallTargets": [
+          {
+            "tag": "a",
+            "text": "Skip to content",
+            "ariaLabel": null,
+            "width": 143,
+            "height": 40
+          },
+          {
+            "tag": "a",
+            "text": "Dashboard",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Bookings",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "New Bookings",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Customers",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Floor Plan",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Restaurant Profile",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Operating Hours",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Booking Occasions",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Service Periods",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Tables",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Team",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          }
+        ]
+      }
+    }
+  },
+  "customers": {
+    "375": {
+      "metrics": {
+        "overflowInfo": {
+          "innerWidth": 375,
+          "scrollWidth": 375,
+          "overflow": false
+        },
+        "shrinkInfo": {
+          "mainClass": "relative flex min-w-0 w-full flex-1 flex-col md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 bg-background",
+          "parentClass": "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full bg-background",
+          "mainMinWidth": "0px",
+          "parentMinWidth": "0px",
+          "mainFlex": "1 1 0%",
+          "parentFlex": "0 1 auto"
+        },
+        "grids": [
+          {
+            "className": "grid grid-cols-1 gap-3",
+            "columns": 1,
+            "width": 343
+          },
+          {
+            "className": "grid grid-cols-2 gap-2",
+            "columns": 2,
+            "width": 309
+          },
+          {
+            "className": "grid grid-cols-2 gap-2",
+            "columns": 2,
+            "width": 309
+          },
+          {
+            "className": "grid grid-cols-2 gap-2",
+            "columns": 2,
+            "width": 309
+          },
+          {
+            "className": "grid grid-cols-2 gap-2",
+            "columns": 2,
+            "width": 309
+          },
+          {
+            "className": "grid grid-cols-2 gap-2",
+            "columns": 2,
+            "width": 309
+          },
+          {
+            "className": "grid grid-cols-1 gap-3",
+            "columns": 3,
+            "width": 0
+          }
+        ],
+        "tables": [],
+        "smallTargets": [
+          {
+            "tag": "a",
+            "text": "Skip to content",
+            "ariaLabel": null,
+            "width": 143,
+            "height": 40
+          },
+          {
+            "tag": "a",
+            "text": "Skip to content",
+            "ariaLabel": null,
+            "width": 1,
+            "height": 1
+          }
+        ]
+      }
+    },
+    "768": {
+      "metrics": {
+        "overflowInfo": {
+          "innerWidth": 768,
+          "scrollWidth": 768,
+          "overflow": false
+        },
+        "shrinkInfo": {
+          "mainClass": "relative flex min-w-0 w-full flex-1 flex-col md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 bg-background",
+          "parentClass": "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full bg-background",
+          "mainMinWidth": "0px",
+          "parentMinWidth": "0px",
+          "mainFlex": "1 1 0%",
+          "parentFlex": "0 1 auto"
+        },
+        "grids": [
+          {
+            "className": "grid grid-cols-1 gap-3",
+            "columns": 3,
+            "width": 0
+          },
+          {
+            "className": "grid grid-cols-2 gap-2",
+            "columns": 3,
+            "width": 0
+          },
+          {
+            "className": "grid grid-cols-2 gap-2",
+            "columns": 3,
+            "width": 0
+          },
+          {
+            "className": "grid grid-cols-2 gap-2",
+            "columns": 3,
+            "width": 0
+          },
+          {
+            "className": "grid grid-cols-2 gap-2",
+            "columns": 3,
+            "width": 0
+          },
+          {
+            "className": "grid grid-cols-2 gap-2",
+            "columns": 3,
+            "width": 0
+          },
+          {
+            "className": "grid grid-cols-1 gap-3",
+            "columns": 1,
+            "width": 672
+          }
+        ],
+        "tables": [],
+        "smallTargets": [
+          {
+            "tag": "a",
+            "text": "Skip to content",
+            "ariaLabel": null,
+            "width": 143,
+            "height": 40
+          },
+          {
+            "tag": "a",
+            "text": "Dashboard",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Bookings",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "New Bookings",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Customers",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Floor Plan",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Restaurant Profile",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Operating Hours",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Booking Occasions",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Service Periods",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Tables",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Team",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          }
+        ]
+      },
+      "sidebarToggledOverflow": {
+        "innerWidth": 768,
+        "scrollWidth": 768,
+        "overflow": false
+      }
+    },
+    "1024": {
+      "metrics": {
+        "overflowInfo": {
+          "innerWidth": 1024,
+          "scrollWidth": 1024,
+          "overflow": false
+        },
+        "shrinkInfo": {
+          "mainClass": "relative flex min-w-0 w-full flex-1 flex-col md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 bg-background",
+          "parentClass": "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full bg-background",
+          "mainMinWidth": "0px",
+          "parentMinWidth": "0px",
+          "mainFlex": "1 1 0%",
+          "parentFlex": "0 1 auto"
+        },
+        "grids": [
+          {
+            "className": "grid grid-cols-1 gap-3",
+            "columns": 3,
+            "width": 0
+          },
+          {
+            "className": "grid grid-cols-2 gap-2",
+            "columns": 3,
+            "width": 0
+          },
+          {
+            "className": "grid grid-cols-2 gap-2",
+            "columns": 3,
+            "width": 0
+          },
+          {
+            "className": "grid grid-cols-2 gap-2",
+            "columns": 3,
+            "width": 0
+          },
+          {
+            "className": "grid grid-cols-2 gap-2",
+            "columns": 3,
+            "width": 0
+          },
+          {
+            "className": "grid grid-cols-2 gap-2",
+            "columns": 3,
+            "width": 0
+          },
+          {
+            "className": "grid grid-cols-1 gap-3",
+            "columns": 1,
+            "width": 912
+          }
+        ],
+        "tables": [],
+        "smallTargets": [
+          {
+            "tag": "a",
+            "text": "Skip to content",
+            "ariaLabel": null,
+            "width": 143,
+            "height": 40
+          },
+          {
+            "tag": "a",
+            "text": "Dashboard",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Bookings",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "New Bookings",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Customers",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Floor Plan",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Restaurant Profile",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Operating Hours",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Booking Occasions",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Service Periods",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Tables",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Team",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          }
+        ]
+      },
+      "sidebarToggledOverflow": {
+        "innerWidth": 1024,
+        "scrollWidth": 1024,
+        "overflow": false
+      }
+    },
+    "1440": {
+      "metrics": {
+        "overflowInfo": {
+          "innerWidth": 1440,
+          "scrollWidth": 1440,
+          "overflow": false
+        },
+        "shrinkInfo": {
+          "mainClass": "relative flex min-w-0 w-full flex-1 flex-col md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 bg-background",
+          "parentClass": "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full bg-background",
+          "mainMinWidth": "0px",
+          "parentMinWidth": "0px",
+          "mainFlex": "1 1 0%",
+          "parentFlex": "0 1 auto"
+        },
+        "grids": [
+          {
+            "className": "grid grid-cols-1 gap-3",
+            "columns": 3,
+            "width": 0
+          },
+          {
+            "className": "grid grid-cols-2 gap-2",
+            "columns": 3,
+            "width": 0
+          },
+          {
+            "className": "grid grid-cols-2 gap-2",
+            "columns": 3,
+            "width": 0
+          },
+          {
+            "className": "grid grid-cols-2 gap-2",
+            "columns": 3,
+            "width": 0
+          },
+          {
+            "className": "grid grid-cols-2 gap-2",
+            "columns": 3,
+            "width": 0
+          },
+          {
+            "className": "grid grid-cols-2 gap-2",
+            "columns": 3,
+            "width": 0
+          },
+          {
+            "className": "grid grid-cols-1 gap-3",
+            "columns": 1,
+            "width": 1088
+          }
+        ],
+        "tables": [],
+        "smallTargets": [
+          {
+            "tag": "a",
+            "text": "Skip to content",
+            "ariaLabel": null,
+            "width": 143,
+            "height": 40
+          },
+          {
+            "tag": "a",
+            "text": "Dashboard",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Bookings",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "New Bookings",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Customers",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Floor Plan",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Restaurant Profile",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Operating Hours",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Booking Occasions",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Service Periods",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Tables",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Team",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          }
+        ]
+      }
+    }
+  },
+  "new-bookings": {
+    "375": {
+      "metrics": {
+        "overflowInfo": {
+          "innerWidth": 375,
+          "scrollWidth": 375,
+          "overflow": false
+        },
+        "shrinkInfo": {
+          "mainClass": "relative flex min-w-0 w-full flex-1 flex-col md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 bg-background",
+          "parentClass": "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full bg-background",
+          "mainMinWidth": "0px",
+          "parentMinWidth": "0px",
+          "mainFlex": "1 1 0%",
+          "parentFlex": "0 1 auto"
+        },
+        "grids": [
+          {
+            "className": "grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
+            "columns": 1,
+            "width": 216
+          }
+        ],
+        "tables": [],
+        "smallTargets": [
+          {
+            "tag": "a",
+            "text": "Skip to content",
+            "ariaLabel": null,
+            "width": 143,
+            "height": 40
+          },
+          {
+            "tag": "a",
+            "text": "Skip to content",
+            "ariaLabel": null,
+            "width": 1,
+            "height": 1
+          }
+        ]
+      }
+    },
+    "768": {
+      "metrics": {
+        "overflowInfo": {
+          "innerWidth": 768,
+          "scrollWidth": 768,
+          "overflow": false
+        },
+        "shrinkInfo": {
+          "mainClass": "relative flex min-w-0 w-full flex-1 flex-col md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 bg-background",
+          "parentClass": "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full bg-background",
+          "mainMinWidth": "0px",
+          "parentMinWidth": "0px",
+          "mainFlex": "1 1 0%",
+          "parentFlex": "0 1 auto"
+        },
+        "grids": [
+          {
+            "className": "grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
+            "columns": 2,
+            "width": 498
+          }
+        ],
+        "tables": [],
+        "smallTargets": [
+          {
+            "tag": "a",
+            "text": "Skip to content",
+            "ariaLabel": null,
+            "width": 143,
+            "height": 40
+          },
+          {
+            "tag": "a",
+            "text": "Dashboard",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Bookings",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "New Bookings",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Customers",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Floor Plan",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Restaurant Profile",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Operating Hours",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Booking Occasions",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Service Periods",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Tables",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Team",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          }
+        ]
+      },
+      "sidebarToggledOverflow": {
+        "innerWidth": 768,
+        "scrollWidth": 768,
+        "overflow": false
+      }
+    },
+    "1024": {
+      "metrics": {
+        "overflowInfo": {
+          "innerWidth": 1024,
+          "scrollWidth": 1024,
+          "overflow": false
+        },
+        "shrinkInfo": {
+          "mainClass": "relative flex min-w-0 w-full flex-1 flex-col md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 bg-background",
+          "parentClass": "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full bg-background",
+          "mainMinWidth": "0px",
+          "parentMinWidth": "0px",
+          "mainFlex": "1 1 0%",
+          "parentFlex": "0 1 auto"
+        },
+        "grids": [
+          {
+            "className": "grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
+            "columns": 3,
+            "width": 671
+          }
+        ],
+        "tables": [],
+        "smallTargets": [
+          {
+            "tag": "a",
+            "text": "Skip to content",
+            "ariaLabel": null,
+            "width": 143,
+            "height": 40
+          },
+          {
+            "tag": "a",
+            "text": "Dashboard",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Bookings",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "New Bookings",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Customers",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Floor Plan",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Restaurant Profile",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Operating Hours",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Booking Occasions",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Service Periods",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Tables",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Team",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          }
+        ]
+      },
+      "sidebarToggledOverflow": {
+        "innerWidth": 1024,
+        "scrollWidth": 1024,
+        "overflow": false
+      }
+    },
+    "1440": {
+      "metrics": {
+        "overflowInfo": {
+          "innerWidth": 1440,
+          "scrollWidth": 1440,
+          "overflow": false
+        },
+        "shrinkInfo": {
+          "mainClass": "relative flex min-w-0 w-full flex-1 flex-col md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 bg-background",
+          "parentClass": "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full bg-background",
+          "mainMinWidth": "0px",
+          "parentMinWidth": "0px",
+          "mainFlex": "1 1 0%",
+          "parentFlex": "0 1 auto"
+        },
+        "grids": [
+          {
+            "className": "grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
+            "columns": 3,
+            "width": 846
+          }
+        ],
+        "tables": [],
+        "smallTargets": [
+          {
+            "tag": "a",
+            "text": "Skip to content",
+            "ariaLabel": null,
+            "width": 143,
+            "height": 40
+          },
+          {
+            "tag": "a",
+            "text": "Dashboard",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Bookings",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "New Bookings",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Customers",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Floor Plan",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Restaurant Profile",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Operating Hours",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Booking Occasions",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Service Periods",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Tables",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Team",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          }
+        ]
+      }
+    }
+  },
+  "floor-plan": {
+    "375": {
+      "metrics": {
+        "overflowInfo": {
+          "innerWidth": 375,
+          "scrollWidth": 375,
+          "overflow": false
+        },
+        "shrinkInfo": {
+          "mainClass": "relative flex min-w-0 w-full flex-1 flex-col md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 bg-background",
+          "parentClass": "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full bg-background",
+          "mainMinWidth": "0px",
+          "parentMinWidth": "0px",
+          "mainFlex": "1 1 0%",
+          "parentFlex": "0 1 auto"
+        },
+        "grids": [
+          {
+            "className": "grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]",
+            "columns": 1,
+            "width": 351
+          }
+        ],
+        "tables": [],
+        "smallTargets": [
+          {
+            "tag": "a",
+            "text": "Skip to content",
+            "ariaLabel": null,
+            "width": 143,
+            "height": 40
+          },
+          {
+            "tag": "a",
+            "text": "Skip to content",
+            "ariaLabel": null,
+            "width": 1,
+            "height": 1
+          },
+          {
+            "tag": "button",
+            "text": "Bar",
+            "ariaLabel": null,
+            "width": 36,
+            "height": 44
+          },
+          {
+            "tag": "button",
+            "text": "BAR-2F01",
+            "ariaLabel": "Table BAR-2F01, available",
+            "width": 33,
+            "height": 33
+          },
+          {
+            "tag": "button",
+            "text": "BAR-2M01",
+            "ariaLabel": "Table BAR-2M01, available",
+            "width": 33,
+            "height": 33
+          },
+          {
+            "tag": "button",
+            "text": "BAR-4F01",
+            "ariaLabel": "Table BAR-4F01, available",
+            "width": 33,
+            "height": 33
+          },
+          {
+            "tag": "button",
+            "text": "BAR-4F02",
+            "ariaLabel": "Table BAR-4F02, available",
+            "width": 33,
+            "height": 33
+          },
+          {
+            "tag": "button",
+            "text": "BAR-4M01",
+            "ariaLabel": "Table BAR-4M01, available",
+            "width": 33,
+            "height": 33
+          },
+          {
+            "tag": "button",
+            "text": "BAR-4M02",
+            "ariaLabel": "Table BAR-4M02, available",
+            "width": 33,
+            "height": 33
+          },
+          {
+            "tag": "button",
+            "text": "MD1-I-201",
+            "ariaLabel": "Table MD1-I-201, available",
+            "width": 33,
+            "height": 33
+          },
+          {
+            "tag": "button",
+            "text": "MD1-I-202",
+            "ariaLabel": "Table MD1-I-202, available",
+            "width": 33,
+            "height": 33
+          },
+          {
+            "tag": "button",
+            "text": "MD1-I-401",
+            "ariaLabel": "Table MD1-I-401, available",
+            "width": 33,
+            "height": 33
+          }
+        ]
+      }
+    },
+    "768": {
+      "metrics": {
+        "overflowInfo": {
+          "innerWidth": 768,
+          "scrollWidth": 768,
+          "overflow": false
+        },
+        "shrinkInfo": {
+          "mainClass": "relative flex min-w-0 w-full flex-1 flex-col md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 bg-background",
+          "parentClass": "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full bg-background",
+          "mainMinWidth": "0px",
+          "parentMinWidth": "0px",
+          "mainFlex": "1 1 0%",
+          "parentFlex": "0 1 auto"
+        },
+        "grids": [
+          {
+            "className": "grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]",
+            "columns": 1,
+            "width": 672
+          }
+        ],
+        "tables": [],
+        "smallTargets": [
+          {
+            "tag": "a",
+            "text": "Skip to content",
+            "ariaLabel": null,
+            "width": 143,
+            "height": 40
+          },
+          {
+            "tag": "a",
+            "text": "Dashboard",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Bookings",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "New Bookings",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Customers",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Floor Plan",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Restaurant Profile",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Operating Hours",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Booking Occasions",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Service Periods",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Tables",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Team",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          }
+        ]
+      },
+      "sidebarToggledOverflow": {
+        "innerWidth": 768,
+        "scrollWidth": 768,
+        "overflow": false
+      }
+    },
+    "1024": {
+      "metrics": {
+        "overflowInfo": {
+          "innerWidth": 1024,
+          "scrollWidth": 1024,
+          "overflow": false
+        },
+        "shrinkInfo": {
+          "mainClass": "relative flex min-w-0 w-full flex-1 flex-col md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 bg-background",
+          "parentClass": "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full bg-background",
+          "mainMinWidth": "0px",
+          "parentMinWidth": "0px",
+          "mainFlex": "1 1 0%",
+          "parentFlex": "0 1 auto"
+        },
+        "grids": [
+          {
+            "className": "grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]",
+            "columns": 2,
+            "width": 912
+          }
+        ],
+        "tables": [],
+        "smallTargets": [
+          {
+            "tag": "a",
+            "text": "Skip to content",
+            "ariaLabel": null,
+            "width": 143,
+            "height": 40
+          },
+          {
+            "tag": "a",
+            "text": "Dashboard",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Bookings",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "New Bookings",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Customers",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Floor Plan",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Restaurant Profile",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Operating Hours",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Booking Occasions",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Service Periods",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Tables",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Team",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          }
+        ]
+      },
+      "sidebarToggledOverflow": {
+        "innerWidth": 1024,
+        "scrollWidth": 1024,
+        "overflow": false
+      }
+    },
+    "1440": {
+      "metrics": {
+        "overflowInfo": {
+          "innerWidth": 1440,
+          "scrollWidth": 1440,
+          "overflow": false
+        },
+        "shrinkInfo": {
+          "mainClass": "relative flex min-w-0 w-full flex-1 flex-col md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 bg-background",
+          "parentClass": "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full bg-background",
+          "mainMinWidth": "0px",
+          "parentMinWidth": "0px",
+          "mainFlex": "1 1 0%",
+          "parentFlex": "0 1 auto"
+        },
+        "grids": [
+          {
+            "className": "grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]",
+            "columns": 2,
+            "width": 1328
+          }
+        ],
+        "tables": [],
+        "smallTargets": [
+          {
+            "tag": "a",
+            "text": "Skip to content",
+            "ariaLabel": null,
+            "width": 143,
+            "height": 40
+          },
+          {
+            "tag": "a",
+            "text": "Dashboard",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Bookings",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "New Bookings",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Customers",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Floor Plan",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Restaurant Profile",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Operating Hours",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Booking Occasions",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Service Periods",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Tables",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          },
+          {
+            "tag": "a",
+            "text": "Team",
+            "ariaLabel": null,
+            "width": 32,
+            "height": 32
+          }
+        ]
+      }
+    }
+  }
+}

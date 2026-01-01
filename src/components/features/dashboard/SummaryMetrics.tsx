@@ -26,7 +26,8 @@ export function SummaryMetrics({ totals }: SummaryMetricsProps) {
 
   return (
     <div className="space-y-3">
-      <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+      {/* Primary metrics: 2 cols on mobile, 4 cols on xl+ (accounting for sidebar width) */}
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {primaryMetrics.map((metric) => (
           <Card key={metric} className="border-border/60 bg-muted/10">
             <CardHeader className="pb-2">
@@ -43,7 +44,7 @@ export function SummaryMetrics({ totals }: SummaryMetricsProps) {
         ))}
       </div>
       {secondaryMetrics.length > 0 ? (
-        <div className="grid gap-2 grid-cols-2 md:grid-cols-4">
+        <div className="grid gap-2 grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {secondaryMetrics.map((metric) => (
             <div
               key={metric}

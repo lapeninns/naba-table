@@ -1,0 +1,31 @@
+{
+  "floor-plan": {
+    "375": {
+      "metrics": {
+        "smallTargets": [
+          {
+            "tag": "a",
+            "text": "Skip to content",
+            "ariaLabel": null,
+            "width": 143,
+            "height": 40
+          },
+          {
+            "tag": "a",
+            "text": "Skip to content",
+            "ariaLabel": null,
+            "width": 1,
+            "height": 1
+          },
+          {
+            "tag": "button",
+            "text": "Bar",
+            "ariaLabel": null,
+            "width": 44,
+            "height": 44
+          }
+        ]
+      }
+    }
+  }
+}

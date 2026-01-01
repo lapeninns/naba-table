@@ -62,7 +62,7 @@ export function OpsSidebarLayout({ children, defaultSidebarOpen = true, headerSl
             ) : null}
           </div>
           <OpsOfflineIndicator />
-          <div id="ops-content" tabIndex={-1} className="flex flex-1 flex-col overflow-auto">
+          <div id="ops-content" tabIndex={-1} className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
             {children}
           </div>
         </SidebarInset>

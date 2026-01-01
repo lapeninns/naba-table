@@ -68,6 +68,7 @@ export function Calendar24Date({
   const baseId = useId();
   const finalId = idPrefix ?? baseId;
   const dateButtonId = `${finalId}-date`;
+  const dateLabelId = `${finalId}-date-label`;
   const dateDescriptionId = `${finalId}-date-description`;
   const dateErrorId = date.error ? `${finalId}-date-error` : undefined;
 
@@ -133,7 +134,7 @@ export function Calendar24Date({
   return (
     <div className="flex flex-col gap-3">
       <Label
-        htmlFor={dateButtonId}
+        id={dateLabelId}
         className="flex items-center gap-1.5 px-1 text-sm font-semibold sm:text-base"
       >
         <CalendarIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
@@ -152,6 +153,7 @@ export function Calendar24Date({
             aria-haspopup="dialog"
             aria-expanded={open}
             aria-invalid={Boolean(date.error)}
+            aria-labelledby={dateLabelId}
             aria-describedby={
               [dateDescriptionId, dateErrorId].filter(Boolean).join(' ') || undefined
             }
@@ -227,6 +229,7 @@ export function Calendar24Time({
   const timeInputId = `${finalId}-time`;
   const timeDescriptionId = `${finalId}-time-description`;
   const timeErrorId = time.error ? `${finalId}-time-error` : undefined;
+  const timeLabelId = `${finalId}-time-label`;
 
   const enabledSuggestions = useMemo(
     () => suggestions.filter((slot) => !slot.disabled),
@@ -263,7 +266,7 @@ export function Calendar24Time({
       )}
     >
       <Label
-        htmlFor={timeInputId}
+        id={timeLabelId}
         className="flex items-center gap-1.5 px-1 text-sm font-semibold sm:text-base"
       >
         <ClockIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
@@ -273,7 +276,8 @@ export function Calendar24Time({
         <div className="relative">
           {showSuggestions ? (
             <Select
-              value={inputValue || undefined}
+              name="time"
+              value={inputValue}
               onValueChange={(val) => time.onChange(val, { commit: true })}
               disabled={isTimeDisabled || isTimeLoading}
             >
@@ -285,6 +289,7 @@ export function Calendar24Time({
                   time.error && 'border-destructive focus:ring-destructive',
                 )}
                 aria-invalid={Boolean(time.error)}
+                aria-labelledby={timeLabelId}
                 aria-describedby={
                   [timeDescriptionId, timeErrorId].filter(Boolean).join(' ') || undefined
                 }
@@ -357,6 +362,7 @@ export function Calendar24Time({
                   time.onChange(event.target.value, { commit: true });
                 }}
                 aria-invalid={Boolean(time.error)}
+                aria-labelledby={timeLabelId}
                 aria-describedby={
                   [timeDescriptionId, timeErrorId].filter(Boolean).join(' ') || undefined
                 }

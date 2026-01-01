@@ -865,11 +865,11 @@ export default function FloorPlanPage() {
                                     className="flex flex-wrap justify-start gap-2"
                                     aria-label="Zone filter"
                                 >
-                                    <ToggleGroupItem value="all" className="text-xs">
+                                    <ToggleGroupItem value="all" className="h-12 px-3 text-xs sm:h-9">
                                         All zones
                                     </ToggleGroupItem>
                                     {zones.map(zone => (
-                                        <ToggleGroupItem key={zone.id} value={zone.id} className="text-xs">
+                                        <ToggleGroupItem key={zone.id} value={zone.id} className="h-12 px-3 text-xs sm:h-9">
                                             {zone.name}
                                         </ToggleGroupItem>
                                     ))}
@@ -1020,6 +1020,8 @@ export default function FloorPlanPage() {
                                             }
                                         }
 
+                                        const minTapSize = Math.round(44 / Math.max(zoom, 0.5));
+
                                         return (
                                             <button
                                                 key={table.id}
@@ -1032,6 +1034,8 @@ export default function FloorPlanPage() {
                                                     left: `${table.xPercent}%`,
                                                     top: `${table.yPercent}%`,
                                                     width: `${widthPercent}%`,
+                                                    minWidth: `${minTapSize}px`,
+                                                    minHeight: `${minTapSize}px`,
                                                     aspectRatio: aspectRatio,
                                                     transform: `rotate(${table.rotation}deg)`
                                                 }}

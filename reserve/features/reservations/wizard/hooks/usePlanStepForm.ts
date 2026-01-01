@@ -225,6 +225,21 @@ function useUnavailableDateTracking({
         })
         .catch((error) => {
           maskPrefetchedMonthsRef.current.delete(monthKey);
+          const isAbort =
+            error instanceof DOMException
+              ? error.name === 'AbortError'
+              : typeof error === 'object' &&
+                error !== null &&
+                'name' in error &&
+                error.name === 'AbortError';
+          const isSilent =
+            typeof error === 'object' &&
+            error !== null &&
+            'silent' in error &&
+            Boolean(error.silent);
+          if (isAbort || isSilent) {
+            return;
+          }
           if (process.env.NODE_ENV !== 'production') {
             console.warn('[plan-step] failed to fetch calendar mask', {
               restaurantSlug: slug,

@@ -32,11 +32,14 @@ const log = (...args: unknown[]) => {
 export function SupabaseSessionProvider({ children, initialSession }: SupabaseSessionProviderProps) {
   const supabase = getSupabaseBrowserClient();
   const hasHydratedFromInitialRef = useRef(false);
+  const lastAccessTokenRef = useRef<string | null>(null);
+  const lastUserRef = useRef<User | null>(null);
 
   const [state, setState] = useState<SupabaseSessionState>(() => {
     let nextState: SupabaseSessionState;
-    if (initialSession?.user) {
-      nextState = { session: initialSession, user: initialSession.user, status: "authenticated" };
+    if (initialSession) {
+      // Avoid trusting user from session; hydrate user via getUser().
+      nextState = { session: initialSession, user: null, status: "loading" };
     } else if (initialSession === null) {
       nextState = { session: null, user: null, status: "unauthenticated" };
     } else {
@@ -48,6 +51,8 @@ export function SupabaseSessionProvider({ children, initialSession }: SupabaseSe
 
   useEffect(() => {
     setSupabaseSessionSnapshot(state);
+    lastUserRef.current = state.user;
+    lastAccessTokenRef.current = state.session?.access_token ?? null;
   }, [state]);
 
   // Hydrate browser client with server-issued session if present
@@ -67,6 +72,45 @@ export function SupabaseSessionProvider({ children, initialSession }: SupabaseSe
   useEffect(() => {
     let active = true;
 
+    const setUnauthenticated = () => {
+      setState({ session: null, user: null, status: "unauthenticated" });
+    };
+
+    const resolveUser = async (session: Session | null, options?: { allowCached?: boolean }) => {
+      if (!session) {
+        setUnauthenticated();
+        return;
+      }
+
+      const accessToken = session.access_token ?? null;
+      const canUseCached =
+        options?.allowCached && lastUserRef.current && accessToken && accessToken === lastAccessTokenRef.current;
+      if (canUseCached) {
+        setState({ session, user: lastUserRef.current, status: "authenticated" });
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase.auth.getUser();
+
+        if (!active) return;
+
+        if (error || !data.user) {
+          log("getUser error", error?.message ?? "no user");
+          setUnauthenticated();
+          return;
+        }
+
+        lastAccessTokenRef.current = accessToken;
+        lastUserRef.current = data.user;
+        setState({ session, user: data.user, status: "authenticated" });
+      } catch (error) {
+        if (!active) return;
+        log("getUser unexpected error", error);
+        setUnauthenticated();
+      }
+    };
+
     const syncSession = async () => {
       try {
         const { data, error } = await supabase.auth.getSession();
@@ -75,19 +119,19 @@ export function SupabaseSessionProvider({ children, initialSession }: SupabaseSe
 
         if (error) {
           log("getSession error", error.message);
-          setState((prev) => ({ ...prev, status: "unauthenticated", user: null, session: null }));
+          setUnauthenticated();
           return;
         }
 
-        if (data.session?.user) {
-          setState({ session: data.session, user: data.session.user, status: "authenticated" });
+        if (data.session) {
+          await resolveUser(data.session, { allowCached: true });
         } else {
-          setState({ session: null, user: null, status: "unauthenticated" });
+          setUnauthenticated();
         }
       } catch (error) {
         if (!active) return;
         log("getSession unexpected error", error);
-        setState({ session: null, user: null, status: "unauthenticated" });
+        setUnauthenticated();
       }
     };
 
@@ -98,13 +142,19 @@ export function SupabaseSessionProvider({ children, initialSession }: SupabaseSe
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) return;
 
-      if (event === "SIGNED_OUT" || !session?.user) {
-        setState({ session: null, user: null, status: "unauthenticated" });
+      if (event === "SIGNED_OUT" || !session) {
+        setUnauthenticated();
         return;
       }
 
-      // SIGNED_IN, TOKEN_REFRESHED, USER_UPDATED, INITIAL_SESSION, etc.
-      setState({ session, user: session.user ?? null, status: session.user ? "authenticated" : "unauthenticated" });
+      if (event === "TOKEN_REFRESHED" && lastUserRef.current) {
+        lastAccessTokenRef.current = session.access_token ?? null;
+        setState({ session, user: lastUserRef.current, status: "authenticated" });
+        return;
+      }
+
+      // SIGNED_IN, USER_UPDATED, INITIAL_SESSION, etc.
+      void resolveUser(session, { allowCached: true });
     });
 
     return () => {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Filter, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, Search } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition } from 'react';
@@ -14,10 +14,12 @@ import { Card } from '@/components/ui/card';
 import { BookingStateMachineProvider } from '@/contexts/booking-state-machine';
 import { useOpsActiveMembership } from '@/contexts/ops-session';
 import { useOpsBookingChanges, useOpsBookingHeatmap, useOpsBookingLifecycleActions, useOpsTableAssignmentActions, useOpsTodaySummary } from '@/hooks';
+import { useDateSwipe } from '@/hooks/useDateSwipe';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
 import { formatDateKey, getTodayInTimezone } from '@/lib/utils/datetime';
 import { computeCalendarRange, sanitizeDateParam } from '@/utils/ops/dashboard';
+
 
 import { BookingChangeFeed } from './BookingChangeFeed';
 import { BookingsFilterBar } from './BookingsFilterBar';
@@ -285,6 +287,14 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
     return result.tableAssignments;
   };
 
+  // ALL HOOKS MUST BE CALLED BEFORE EARLY RETURNS
+  // Swipe gesture for touch devices
+  const headerSwipeRef = useDateSwipe<HTMLElement>({
+    onSwipeLeft: () => handleShiftDate(1),  // Swipe left = next day
+    onSwipeRight: () => handleShiftDate(-1), // Swipe right = previous day
+    threshold: 50,
+  });
+
   // Early returns must come after all hooks
   if (!restaurantId) {
     return <NoAccessState />;
@@ -304,37 +314,101 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
   }
 
   return (
-    <div className="w-full bg-background font-sans text-foreground">
-      <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+    <div className="w-full min-w-0 bg-background font-sans text-foreground">
+      <div className="mx-auto w-full min-w-0 max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
 
-        {/* HEADER SECTION */}
-        <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Operations</h1>
+        {/* HEADER SECTION - Mobile-First Responsive with Swipe Support */}
+        {/* HEADER SECTION - Fully Responsive (Mobile Center -> Tablet Left -> Desktop Row) */}
+        {/* Changed split to xl (1280px) to prevent cramping on tablet/small laptop */}
+        <header ref={headerSwipeRef} className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+          {/* Title Section - Always full width */}
+          <div className="flex flex-col gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl lg:text-4xl">
+              Operations
+            </h1>
             <p className={cn(
               "text-sm text-muted-foreground sm:text-base transition-opacity duration-300",
               isRefetching && "opacity-50"
             )}>
-              <span className="font-medium text-foreground">{guestStats.upcoming} guests</span> expecting arrival,{' '}
-              <span className="font-medium text-foreground">{guestStats.seated} seated</span> now.
-              {isRefetching && <span className="ml-2 text-xs text-muted-foreground">(Updating...)</span>}
+              <span className="font-semibold text-foreground">{guestStats.upcoming} guests</span> expecting arrival
+              <span className="mx-1.5 text-muted-foreground/50">·</span>
+              <span className="font-semibold text-foreground">{guestStats.seated} seated</span> now
+              {isRefetching && <span className="ml-2 text-xs text-amber-600 animate-pulse">(Updating...)</span>}
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center rounded-lg border border-border bg-card p-1 shadow-sm">
-              <DateNavigationButton direction="prev" onClick={() => handleShiftDate(-1)} />
-              <div className="flex items-center gap-2 px-2">
-                <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+          {/* Right Side: Date Controls Wrapper */}
+          <div className="flex flex-col gap-4 xl:items-end">
+            {/* Service Date Info (Badges) */}
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start xl:justify-end">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-muted/70 px-3 py-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground transition-all duration-200 ease-out hover:bg-muted motion-reduce:transition-none">
+                Service Date
+              </div>
+              {summary && (() => {
+                const meta = heatmapQuery.data?.[summary.date];
+                return meta ? (
+                  <>
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition-all duration-200 ease-out hover:scale-105 hover:shadow-md active:scale-95 dark:bg-blue-900/30 dark:text-blue-300 motion-reduce:transition-none motion-reduce:hover:scale-100">
+                      <span className="text-blue-600 dark:text-blue-400" aria-hidden>📋</span>
+                      {meta.bookings} {meta.bookings === 1 ? 'booking' : 'bookings'}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-all duration-200 ease-out hover:scale-105 hover:shadow-md active:scale-95 dark:bg-emerald-900/30 dark:text-emerald-300 motion-reduce:transition-none motion-reduce:hover:scale-100">
+                      <span className="text-emerald-600 dark:text-emerald-400" aria-hidden>👥</span>
+                      {meta.covers} {meta.covers === 1 ? 'cover' : 'covers'}
+                    </span>
+                  </>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-500 dark:bg-gray-800/50 dark:text-gray-400">
+                    No bookings
+                  </span>
+                );
+              })()}
+            </div>
+
+            {/* Unified Date Navigation Control */}
+            <div className="relative flex items-center justify-center gap-2 sm:justify-start xl:justify-end">
+              {/* Swipe hint - left */}
+              <div className="pointer-events-none absolute left-0 flex items-center opacity-30 animate-pulse xl:hidden" aria-hidden="true">
+                <ChevronsLeft className="h-4 w-4 text-muted-foreground" />
+              </div>
+
+              {/* Single Unified Navigation Control */}
+              <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-card/80 p-1.5 shadow-sm backdrop-blur-sm transition-shadow hover:shadow-md">
+                {/* Previous button */}
+                <button
+                  type="button"
+                  onClick={() => handleShiftDate(-1)}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transitionall duration-200 hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring active:scale-95 motion-reduce:active:scale-100"
+                  aria-label="Previous day"
+                >
+                  <ChevronLeft className="h-4 w-4" aria-hidden />
+                </button>
+
+                {/* Clickable date that opens calendar */}
                 <HeatmapCalendar
                   summary={summary}
                   heatmap={heatmapQuery.data}
                   selectedDate={summary.date}
                   onSelectDate={handleSelectDate}
+                  onShiftDate={handleShiftDate}
                   isLoading={heatmapQuery.isLoading}
                 />
+
+                {/* Next button */}
+                <button
+                  type="button"
+                  onClick={() => handleShiftDate(1)}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring active:scale-95 motion-reduce:active:scale-100"
+                  aria-label="Next day"
+                >
+                  <ChevronRight className="h-4 w-4" aria-hidden />
+                </button>
               </div>
-              <DateNavigationButton direction="next" onClick={() => handleShiftDate(1)} />
+
+              {/* Swipe hint - right */}
+              <div className="pointer-events-none absolute right-0 flex items-center opacity-30 animate-pulse xl:hidden" aria-hidden="true">
+                <ChevronsRight className="h-4 w-4 text-muted-foreground" />
+              </div>
             </div>
           </div>
         </header>
@@ -377,10 +451,12 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
           </div>
         </div>
 
-        {/* MAIN CONTENT */}
-        <div className="space-y-6">
-          {/* Bookings List */}
-          <div className="space-y-4">
+        {/* RESPONSIVE GRID LAYOUT (Main Content + Sidebar) */}
+        {/* Changed grid breakpoint to xl (1280px) */}
+        <div className="grid grid-cols-1 gap-8 xl:grid-cols-12 xl:items-start xl:gap-8">
+
+          {/* LEFT COLUMN: Booking List (Main) */}
+          <div className="space-y-6 xl:col-span-9 2xl:col-span-9">
             {/* If assignments locked warning */}
             {!allowTableAssignments ? (
               <div className="flex justify-end">
@@ -416,44 +492,34 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
               pendingLifecycleAction={pendingBookingAction}
             />
           </div>
+
+          {/* RIGHT COLUMN: Activity Feed (Sidebar) */}
+          <aside className="space-y-4 xl:col-span-3 2xl:col-span-3 xl:sticky xl:top-24">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold tracking-tight text-foreground/90">
+                Recent Activity
+              </h3>
+              {/* Optional: Add 'View All' or similar link here if needed */}
+            </div>
+
+            <div className="rounded-xl border border-border/60 bg-card/50 shadow-sm backdrop-blur-sm">
+              <BookingChangeFeed
+                changes={changesQuery.data?.changes ?? []}
+                loading={changesQuery.isLoading}
+                totalChanges={changesQuery.data?.totalChanges}
+              />
+            </div>
+          </aside>
+
         </div>
-        {/* Recent Changes Feed */}
-        <section aria-label="Recent activity">
-          <BookingChangeFeed
-            changes={changesQuery.data?.changes ?? []}
-            loading={changesQuery.isLoading}
-            totalChanges={changesQuery.data?.totalChanges}
-          />
-        </section>
         <BookingDetailsDialogWrapper
           bookingId={detailsBooking?.id ?? null}
           initialData={detailsBooking}
           open={isDetailsOpen}
           onOpenChange={handleDetailsOpenChange}
         />
-      </main>
+      </div>
     </div>
-  );
-}
-
-type DateNavigationButtonProps = {
-  direction: 'prev' | 'next';
-  onClick: () => void;
-};
-
-function DateNavigationButton({ direction, onClick }: DateNavigationButtonProps) {
-  const Icon = direction === 'prev' ? ChevronLeft : ChevronRight;
-  const label = direction === 'prev' ? 'Previous day' : 'Next day';
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex h-8 w-8 touch-manipulation items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-      aria-label={label}
-    >
-      <Icon className="h-4 w-4" aria-hidden />
-    </button>
   );
 }
 
