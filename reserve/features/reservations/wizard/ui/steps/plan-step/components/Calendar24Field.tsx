@@ -255,6 +255,7 @@ export function Calendar24Time({
 
   const showSuggestions = hasHydrated && !isTimeDisabled && enabledSuggestions.length > 0;
   const inputValue = time.value ?? '';
+  const selectValue = inputValue ? inputValue : undefined;
   const resolvedUnavailableMessage =
     unavailableMessage ?? 'No available times for the selected date.';
 
@@ -277,7 +278,7 @@ export function Calendar24Time({
           {showSuggestions ? (
             <Select
               name="time"
-              value={inputValue}
+              value={selectValue}
               onValueChange={(val) => time.onChange(val, { commit: true })}
               disabled={isTimeDisabled || isTimeLoading}
             >
