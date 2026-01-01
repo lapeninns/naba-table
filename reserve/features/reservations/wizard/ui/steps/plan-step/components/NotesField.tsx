@@ -1,7 +1,7 @@
 'use client';
 
 import { MessageSquareIcon } from 'lucide-react';
-import React, { useMemo } from 'react';
+import React, { useId, useMemo } from 'react';
 
 import { FormControl, FormDescription, FormItem, FormLabel, FormMessage } from '@shared/ui/form';
 import { Textarea } from '@shared/ui/textarea';
@@ -17,17 +17,22 @@ export type NotesFieldProps = {
 };
 
 export function NotesField({ value, onChange, onBlur, error }: NotesFieldProps) {
+  const notesId = useId();
   const lengthLabel = useMemo(() => `${value.length} / ${MAX_LENGTH}`, [value.length]);
   const isNearLimit = value.length > MAX_LENGTH * 0.9;
 
   return (
     <FormItem className="space-y-3">
-      <FormLabel className="flex items-center gap-1.5 text-sm font-semibold sm:text-base">
+      <FormLabel
+        htmlFor={notesId}
+        className="flex items-center gap-1.5 text-sm font-semibold sm:text-base"
+      >
         <MessageSquareIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
         <span>Notes</span>
       </FormLabel>
       <FormControl>
         <Textarea
+          id={notesId}
           placeholder="Birthday, accessibility needs, allergies…"
           value={value}
           onChange={(event) => onChange(event.target.value)}
