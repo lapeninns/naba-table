@@ -111,6 +111,7 @@ export function ExportCustomersButton({ restaurantId, restaurantName, disabled, 
       type="button"
       variant="outline"
       size="sm"
+      className="h-11 sm:h-9"
       aria-label={isExporting ? 'Exporting customers...' : 'Export customers to CSV'}
     >
       <Download className="mr-2 h-4 w-4" />

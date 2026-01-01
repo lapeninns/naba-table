@@ -1,49 +1,64 @@
 # Continuity Ledger
 
-Last updated: 2026-01-01T12:10:30Z
+Last updated: 2026-01-01T16:11:12Z
 
 ## Goal (incl. success criteria)
 
-- Sync `Frontend-2025-Dec-19` with `main` so commit `4e6d5ebfe55ab8d5252dbbe4b8cf37268fa9a31e` is included.
-- Success: merge completes with conflicts resolved.
-- Success: branch history shows the merge commit on `Frontend-2025-Dec-19`.
+- Implement fixes from responsiveness audit (touch targets + new-bookings a11y/console warnings + auth rate limit + preload warnings).
+- Success: touch targets meet 44x44px on mobile; new-bookings label/id warnings resolved; 429 auth rate limit resolved; preload warnings resolved.
 
 ## Constraints/Assumptions
 
 - Follow AGENTS SDLC phases; no coding before requirements and plan are reviewed.
 - Manual UI QA via Chrome DevTools MCP required for UI changes.
-- Supabase remote-only if DB changes are needed.
-- Secrets never in source.
+- Use task folder with required artifacts.
 
 ## Key decisions
 
-- Resolve merge conflicts by taking `main` versions to keep the commit as the base.
+- Keep fixes scoped to touch targets and plan-step form labeling/console noise.
+- Throttle Supabase user fetches by caching user across token refreshes.
+- Eager-load wizard step chunks to eliminate preload warnings.
 
 ## State
 
-- Merge in progress on `Frontend-2025-Dec-19`.
+- Phase 4 (Verification) completed for responsiveness-fixes task.
 
 ## Done
 
-- Checked out `Frontend-2025-Dec-19`.
-- Started merge from `main`; conflicts identified.
-- Selected `main` versions for conflict files.
+- Increased mobile button heights for bookings/customers primary actions.
+- Enforced min tap sizes for floor plan table buttons and zone toggles.
+- Fixed new-bookings plan step label/id issues and suppressed silent calendar mask warnings.
+- Reduced Supabase user polling to avoid 429 rate limits.
+- Eager-loaded wizard step chunks to remove preload warnings.
+- Updated verification.md and todo.md.
 
 ## Now
 
-- Stage resolved files and complete merge commit.
+- Await review or additional fix requests.
 
 ## Next
 
-- Confirm merge status and report any remaining conflicts.
+- Optional: adjust sidebar icon sizes if required.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Should the merge be pushed to origin after commit? (UNCONFIRMED)
+- Confirm if sidebar icon sizing should change on tablet/desktop. (UNCONFIRMED)
 
 ## Working set (files/ids/commands)
 
 - CONTINUITY.md
-- reserve/features/reservations/wizard/ui/steps/DetailsStep.tsx
-- tsconfig.eslint.json
-- git merge main
+- tasks/responsiveness-fixes-20260101-1514/research.md
+- tasks/responsiveness-fixes-20260101-1514/plan.md
+- tasks/responsiveness-fixes-20260101-1514/todo.md
+- tasks/responsiveness-fixes-20260101-1514/verification.md
+- tasks/responsiveness-fixes-20260101-1514/artifacts/
+- hooks/useSupabaseSession.tsx
+- src/components/features/bookings/OpsBookingsClient.tsx
+- src/components/features/customers/OpsCustomersClient.tsx
+- src/components/features/customers/ExportCustomersButton.tsx
+- src/components/features/seating/FloorPlanPage.tsx
+- reserve/features/reservations/wizard/ui/BookingWizard.tsx
+- reserve/features/reservations/wizard/ui/steps/plan-step/components/Calendar24Field.tsx
+- reserve/features/reservations/wizard/ui/steps/plan-step/components/PartySizeField.tsx
+- reserve/features/reservations/wizard/ui/steps/plan-step/components/NotesField.tsx
+- reserve/features/reservations/wizard/hooks/usePlanStepForm.ts

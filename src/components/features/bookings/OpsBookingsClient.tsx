@@ -564,10 +564,10 @@ export function OpsBookingsClient({
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <Button asChild size="sm" variant="outline" className="h-9">
+              <Button asChild size="sm" variant="outline" className="h-11 sm:h-9">
                 <Link href="/dashboard">Back to dashboard</Link>
               </Button>
-              <Button asChild size="sm" className="h-9">
+              <Button asChild size="sm" className="h-11 sm:h-9">
                 <Link href="/new-bookings">New booking</Link>
               </Button>
             </div>

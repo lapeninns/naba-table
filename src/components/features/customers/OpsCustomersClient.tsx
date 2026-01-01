@@ -392,14 +392,14 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <Button asChild size="sm" variant="outline" className="h-9">
+            <Button asChild size="sm" variant="outline" className="h-11 sm:h-9">
               <Link href="/dashboard">Back to dashboard</Link>
             </Button>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="h-9"
+              className="h-11 sm:h-9"
               onClick={() => refetch()}
               disabled={isFetching || isLoading}
             >

@@ -4,7 +4,8 @@ import { MinusIcon, PlusIcon, UsersIcon } from 'lucide-react';
 import React from 'react';
 
 import { Button } from '@shared/ui/button';
-import { FormDescription, FormItem, FormLabel, FormMessage } from '@shared/ui/form';
+import { FormDescription, FormItem, FormMessage } from '@shared/ui/form';
+import { Label } from '@shared/ui/label';
 
 const DESCRIPTION = "Tables for 12+? Give us a call and we'll help you out.";
 
@@ -16,6 +17,7 @@ export type PartySizeFieldProps = {
 
 export function PartySizeField({ value, onChange, error }: PartySizeFieldProps) {
   const [isAnimating, setIsAnimating] = React.useState(false);
+  const labelId = React.useId();
 
   const handleChange = (direction: 'decrement' | 'increment') => {
     setIsAnimating(true);
@@ -25,11 +27,11 @@ export function PartySizeField({ value, onChange, error }: PartySizeFieldProps) 
 
   return (
     <FormItem className="space-y-3">
-      <FormLabel className="flex items-center gap-1.5 text-sm font-semibold sm:text-base">
+      <Label id={labelId} className="flex items-center gap-1.5 text-sm font-semibold sm:text-base">
         <UsersIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
         <span>Party size</span>
-      </FormLabel>
-      <div className="flex items-center gap-4 sm:gap-5">
+      </Label>
+      <div className="flex items-center gap-4 sm:gap-5" role="group" aria-labelledby={labelId}>
         <Button
           type="button"
           variant="outline"
@@ -43,7 +45,7 @@ export function PartySizeField({ value, onChange, error }: PartySizeFieldProps) 
         <div
           className="flex min-w-[60px] items-center justify-center"
           aria-live="polite"
-          arig-atomic="true"
+          aria-atomic="true"
         >
           <span
             className={`text-2xl font-bold text-foreground tabular-nums transition-transform duration-200 sm:text-3xl ${
