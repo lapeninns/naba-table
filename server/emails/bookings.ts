@@ -623,7 +623,8 @@ async function dispatchEmail(
       if (options?.reminderVariant === 'short') { // Same day / Arrival
         baseHeadline = 'Table Ready 🍽️';
         baseIntro = `We've prepped your table at ${venue.name}. Please head to the host stand when you arrive.`;
-        ctaLabel = 'I\'m Here';
+        ctaLabel = 'Get Directions';
+        ctaUrl = venue.googleMapUrl || manageUrl;
       } else {
         // Rotating copy for 24h Reminders
         if (copyVariant === 0) {

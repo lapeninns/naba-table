@@ -8,15 +8,18 @@ export type CustomerRow = Tables<"customers">;
 
 type DbClient = SupabaseClient<Database>;
 
-export function normalizeEmail(email: string): string {
+export function normalizeEmail(email: string | null | undefined): string {
+  if (!email) return '';
   return email.trim().toLowerCase();
 }
 
-export function normalizePhone(phone: string): string {
+export function normalizePhone(phone: string | null | undefined): string {
+  if (!phone) return '';
   return phone.replace(/[^0-9]/g, "");
 }
 
-function sanitizePhoneValue(phone: string): string {
+function sanitizePhoneValue(phone: string | null | undefined): string {
+  if (!phone) return '';
   return phone.trim();
 }
 
@@ -48,8 +51,8 @@ export async function upsertCustomer(
   client: DbClient,
   params: {
     restaurantId: string;
-    email: string;
-    phone: string;
+    email: string | null;
+    phone: string | null;
     name?: string | null;
     marketingOptIn?: boolean;
     authUserId?: string | null;
@@ -60,6 +63,11 @@ export async function upsertCustomer(
   const normalizedPhone = normalizePhone(params.phone);
   const phoneForStorage = sanitizePhoneValue(params.phone);
   const marketingOptIn = params.marketingOptIn ?? false;
+
+  // Validate at least one contact method exists
+  if (!normalizedEmail && !normalizedPhone) {
+    throw new Error('At least one contact method (email or phone) is required');
+  }
 
   console.log(`[upsertCustomer] Resolving customer`, {
     restaurantId: params.restaurantId,

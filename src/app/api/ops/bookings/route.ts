@@ -26,7 +26,6 @@ import { PastBookingError, assertBookingNotInPast, canOverridePastBooking } from
 import { validateBookingWindow } from "@/server/capacity";
 import { normalizeEmail, upsertCustomer } from "@/server/customers";
 import { isAutoAssignOnBookingEnabled } from "@/server/feature-flags";
-import { autoAssignAndConfirmIfPossible } from "@/server/jobs/auto-assign";
 import { enqueueBookingCreatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
 import { recordObservabilityEvent } from "@/server/observability";
 import { getRestaurantSchedule } from "@/server/restaurants/schedule";
@@ -851,13 +850,6 @@ export async function POST(req: NextRequest) {
 
   const bookings = await fetchBookingsForContact(service, payload.restaurantId, fallbackEmail, fallbackPhone);
 
-  await enqueueBookingCreatedSideEffects({
-    booking: safeBookingPayload(booking),
-    idempotencyKey: normalizedIdempotencyKey,
-    restaurantId: payload.restaurantId,
-    emailProvided,
-  });
-
   const responseBody = {
     booking,
     bookings,
@@ -865,11 +857,47 @@ export async function POST(req: NextRequest) {
     clientRequestId,
   };
 
+  // Run auto-assign BEFORE sending emails so the correct email type is sent
   if (isAutoAssignOnBookingEnabled()) {
+    const { runInlineAutoAssign } = await import('@/services/inline-auto-assign');
+    const inlineTimeoutMs = env.featureFlags.inlineAutoAssignTimeoutMs ?? 4000;
+
     try {
-      await autoAssignAndConfirmIfPossible(booking.id, { reason: "creation", maxAttemptsOverride: 1 });
+      const updatedBooking = await runInlineAutoAssign({
+        bookingId: booking.id,
+        restaurantId: payload.restaurantId,
+        timeoutMs: inlineTimeoutMs,
+        createdBy: 'ops-walk-in',
+        historyReason: 'ops_walk_in_inline_auto_assign',
+        observabilitySource: 'api.ops.bookings.inline_auto_assign',
+        client: service,
+      });
+
+      // Update booking in response if assignment succeeded
+      if (updatedBooking) {
+        responseBody.booking = updatedBooking;
+      }
     } catch (error) {
-      console.error("[ops/bookings] auto-assign inline attempt failed", error);
+      console.error('[ops/bookings] auto-assign inline attempt failed', error);
+    }
+  }
+
+  // Send emails AFTER auto-assign so status reflects final state (pending vs confirmed)
+  await enqueueBookingCreatedSideEffects({
+    booking: safeBookingPayload(responseBody.booking),
+    idempotencyKey: normalizedIdempotencyKey,
+    restaurantId: payload.restaurantId,
+    emailProvided,
+  });
+
+  // If inline attempt did not confirm and retries are configured, run background job
+  // This matches public booking behavior for resilience
+  if (isAutoAssignOnBookingEnabled() && responseBody.booking.status !== 'confirmed') {
+    try {
+      const { autoAssignAndConfirmIfPossible } = await import('@/server/jobs/auto-assign');
+      void autoAssignAndConfirmIfPossible(responseBody.booking.id);
+    } catch (autoError) {
+      console.error('[ops/bookings] background auto-assign scheduling failed', autoError);
     }
   }
 
@@ -987,12 +1015,38 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
 
   try {
     const commit = await validationService.createWithEnforcement(bookingInput, context);
-    const booking = commit.booking as BookingRecord;
+    let booking = commit.booking as BookingRecord;
     const reusedExisting = commit.duplicate === true;
     const validationResponse = commit.response;
 
     const bookings = await fetchBookingsForContact(service, payload.restaurantId, fallbackEmail, fallbackPhone);
 
+    // Run auto-assign BEFORE sending emails (if enabled and not a duplicate)
+    if (!reusedExisting && isAutoAssignOnBookingEnabled()) {
+      const { runInlineAutoAssign } = await import('@/services/inline-auto-assign');
+      const inlineTimeoutMs = env.featureFlags.inlineAutoAssignTimeoutMs ?? 4000;
+
+      try {
+        const updatedBooking = await runInlineAutoAssign({
+          bookingId: booking.id,
+          restaurantId: payload.restaurantId,
+          timeoutMs: inlineTimeoutMs,
+          createdBy: 'ops-walk-in',
+          historyReason: 'ops_walk_in_inline_auto_assign',
+          observabilitySource: 'api.ops.bookings.inline_auto_assign',
+          client: service,
+        });
+
+        // Update booking variable if assignment succeeded
+        if (updatedBooking) {
+          booking = updatedBooking;
+        }
+      } catch (error) {
+        console.error('[ops/bookings] auto-assign inline attempt failed', error);
+      }
+    }
+
+    // Send emails AFTER auto-assign so the correct email (confirmation vs request) is sent
     if (!reusedExisting) {
       await enqueueBookingCreatedSideEffects({
         booking: safeBookingPayload(booking),
@@ -1000,13 +1054,16 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
         restaurantId: payload.restaurantId,
         emailProvided,
       });
-    }
 
-    if (!reusedExisting && isAutoAssignOnBookingEnabled()) {
-      try {
-        await autoAssignAndConfirmIfPossible(booking.id, { reason: "creation", maxAttemptsOverride: 1 });
-      } catch (error) {
-        console.error("[ops/bookings] auto-assign inline attempt failed", error);
+      // If inline attempt did not confirm and retries are configured, run background job
+      // This matches public booking behavior for resilience
+      if (isAutoAssignOnBookingEnabled() && booking.status !== 'confirmed') {
+        try {
+          const { autoAssignAndConfirmIfPossible } = await import('@/server/jobs/auto-assign');
+          void autoAssignAndConfirmIfPossible(booking.id);
+        } catch (autoError) {
+          console.error('[ops/bookings] background auto-assign scheduling failed', autoError);
+        }
       }
     }
 
