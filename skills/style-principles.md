@@ -140,6 +140,12 @@ async function createBooking(input: BookingCreateInput) {
 
 #### Don't ❌
 
+## UI Primitives Policy
+
+Use Shadcn UI primitives for all UI. Do not create custom primitives or base components; compose and extend existing Shadcn components instead. Exceptions require maintainer approval and a documented justification in `plan.md`.
+
+---
+
 ```typescript
 // Bad: Building for imaginary future requirements
 interface BookingCreateInput {
