@@ -1,54 +1,56 @@
 # Continuity Ledger
 
-Last updated: 2026-01-01T16:37:52Z
+Last updated: 2026-01-02T20:08:00Z
 
 ## Goal (incl. success criteria)
 
-- Fix booking wizard plan-step regressions (time placeholder + notes label association).
-- Success: time select shows placeholder when empty; Notes label focuses/announces textarea.
+- Implement Booking Details Dialog UX/UI overhaul (component split, smart logic, shortcuts, filters) using existing data only.
+- Success: no console errors; keyboard shortcuts work; responsive layout on <=768px; all new UI surfaces handle missing data gracefully.
 
 ## Constraints/Assumptions
 
-- Follow AGENTS SDLC phases; no coding before requirements and plan are reviewed.
+- Follow AGENTS SDLC phases; create required task artifacts.
 - Manual UI QA via Chrome DevTools MCP required for UI changes.
-- Use task folder with required artifacts.
+- Zero backend changes; use existing booking/guest/table data only.
+- Keep comments minimal; avoid README/docs updates unless explicitly required by policy.
 
 ## Key decisions
 
-- Restore Radix Select placeholder by passing undefined when input is empty.
-- Reinstate Notes label `htmlFor` and textarea `id` pairing.
+- Refactored BookingDialog into DialogHeader, GuestProfilePanel, and TableAssignmentPanel with status header tone and stacked layout.
+- Added smart-assign, Perfect Fit filter, conflict timeline bar, and keyboard shortcuts.
 
 ## State
 
-- Phase 3 (Implementation) in progress; code changes applied, QA pending.
+- Phase 3 implementation done; Phase 4 blocked by failing tests and pending manual UI QA (MCP auth unavailable).
 
 ## Done
 
-- Created task folder `tasks/fix-plan-step-a11y-20260101-1636` with SDLC artifacts.
-- Documented requirements and plan for plan-step regressions.
-- Updated Calendar24Field to pass undefined when empty for placeholder rendering.
-- Restored NotesField label/textarea association with id/htmlFor.
+- Created task folder and SDLC artifacts in `tasks/booking-dialog-overhaul-20260102-1919/`.
+- Implemented component split, header tone, shortcuts, WhatsApp action, smart assign, filters, and conflict timeline.
+- Updated eslint config to register react-hooks/import plugins; added ignore for `scripts/**/*.cjs`.
+- Lint passes with existing warnings; typecheck passes after clearing stale `.next`.
 
 ## Now
 
-- Run manual QA via Chrome DevTools MCP and update verification artifacts.
+- Resolve failing `pnpm run test` (multiple API tests failing; likely pre-existing).
+- Attempt Chrome DevTools MCP QA once auth is available; capture artifacts.
 
 ## Next
 
-- Update todo.md progress and run manual QA via Chrome DevTools MCP.
-- Fill verification artifacts.
+- Update `tasks/booking-dialog-overhaul-20260102-1919/verification.md` with test/QA results.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- None.
+- Confirm default service window for conflict timeline (fallback currently 18:00-22:00).
+- Confirm whether to keep/remove BookingAssignmentTabContent references elsewhere.
+- MCP auth unavailable error (500 auth_unavailable) needs resolution for manual QA.
+- Should we investigate/resolve existing failing tests or document as pre-existing?
 
 ## Working set (files/ids/commands)
 
-- CONTINUITY.md
-- tasks/fix-plan-step-a11y-20260101-1636/research.md
-- tasks/fix-plan-step-a11y-20260101-1636/plan.md
-- tasks/fix-plan-step-a11y-20260101-1636/todo.md
-- tasks/fix-plan-step-a11y-20260101-1636/verification.md
-- tasks/fix-plan-step-a11y-20260101-1636/artifacts/
-- reserve/features/reservations/wizard/ui/steps/plan-step/components/Calendar24Field.tsx
-- reserve/features/reservations/wizard/ui/steps/plan-step/components/NotesField.tsx
+- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/components/features/dashboard/booking-details/BookingDialog.tsx
+- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/components/features/dashboard/booking-details/components/GuestProfilePanel.tsx
+- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/components/features/dashboard/booking-details/components/TableAssignmentPanel.tsx
+- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/components/features/dashboard/booking-details/components/SelectableTableCard.tsx
+- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/eslint.config.mjs
+- tasks/booking-dialog-overhaul-20260102-1919/\*
