@@ -52,9 +52,11 @@ export interface TableAssignmentPanelProps {
   partySize: number;
   currentAssignments: string[];
   onAssignmentComplete: () => void;
+  bookingStartTime?: string | null;
+  bookingEndTime?: string | null;
 }
 
-type FitFilter = 'all' | 'exact' | 'within' | 'oversized' | 'too_small';
+type FitFilter = 'all' | 'perfect' | 'exact' | 'within' | 'oversized' | 'too_small';
 type SortOption = 'best' | 'capacity' | 'table';
 
 export function TableAssignmentPanel({
@@ -63,8 +65,11 @@ export function TableAssignmentPanel({
   partySize,
   currentAssignments,
   onAssignmentComplete,
+  bookingStartTime,
+  bookingEndTime,
 }: TableAssignmentPanelProps) {
   const {
+    context,
     isLoading,
     error,
     refetch,
@@ -95,12 +100,12 @@ export function TableAssignmentPanel({
   const [confirmApply, setConfirmApply] = useState(false);
   const [confirmUnassign, setConfirmUnassign] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
+  const [smartAssignError, setSmartAssignError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (applyError) {
-      setApplyError(null);
-    }
-  }, [selectedTables, assignedTableIds, applyError]);
+    if (applyError) setApplyError(null);
+    if (smartAssignError) setSmartAssignError(null);
+  }, [selectedTables, assignedTableIds, applyError, smartAssignError]);
 
   const fitById = useMemo(() => {
     const map = new Map<string, FitFilter>();
@@ -131,7 +136,9 @@ export function TableAssignmentPanel({
       list = list.filter((table) => isAvailable(table.id));
     }
 
-    if (fitFilter !== 'all') {
+    if (fitFilter === 'perfect') {
+      list = list.filter((table) => table.capacity === partySize || table.capacity === partySize + 1);
+    } else if (fitFilter !== 'all') {
       list = list.filter((table) => fitById.get(table.id) === fitFilter);
     }
 
@@ -157,9 +164,42 @@ export function TableAssignmentPanel({
     [assignedTableIds, tables],
   );
 
+  const timelineBookingStart = bookingStartTime ?? context?.booking.start_time ?? null;
+  const timelineBookingEnd = bookingEndTime ?? null;
+  const timelineWindowStart = context?.window?.startAt ?? null;
+  const timelineWindowEnd = context?.window?.endAt ?? null;
+
   const handleApply = () => {
     if (validation.errors.length > 0 || selectedTables.length === 0) return;
     setConfirmApply(true);
+  };
+
+  const handleSmartAssign = () => {
+    if (assignedTableIds.size > 0) {
+      setSmartAssignError('Remove current table assignments before using smart assign.');
+      return;
+    }
+
+    const candidates = tables
+      .filter(
+        (table) =>
+          table.active &&
+          table.status === 'available' &&
+          !conflictedTableIds.has(table.id) &&
+          !assignedTableIds.has(table.id) &&
+          table.capacity >= partySize,
+      )
+      .sort((a, b) => {
+        if (a.capacity !== b.capacity) return a.capacity - b.capacity;
+        return a.tableNumber.localeCompare(b.tableNumber);
+      });
+
+    if (candidates.length === 0) {
+      setSmartAssignError('No available tables fit this party size.');
+      return;
+    }
+
+    setSelectedTables([candidates[0].id]);
   };
 
   const handleConfirmApply = async () => {
@@ -229,6 +269,12 @@ export function TableAssignmentPanel({
         <Alert variant="destructive">
           <AlertTitle>Action failed</AlertTitle>
           <AlertDescription>{applyError}</AlertDescription>
+        </Alert>
+      )}
+      {smartAssignError && (
+        <Alert>
+          <AlertTitle>Smart assign unavailable</AlertTitle>
+          <AlertDescription>{smartAssignError}</AlertDescription>
         </Alert>
       )}
       {validation.errors.length > 0 && (
@@ -305,6 +351,16 @@ export function TableAssignmentPanel({
           {/* Action Buttons */}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSmartAssign}
+                disabled={isPending || tables.length === 0}
+                className="gap-1.5"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Smart assign
+              </Button>
               {selectedTables.length > 0 && (
                 <Button
                   variant="ghost"
@@ -392,6 +448,9 @@ export function TableAssignmentPanel({
                 <ToggleGroupItem value="all" aria-label="All fits">
                   All
                 </ToggleGroupItem>
+                <ToggleGroupItem value="perfect" aria-label="Perfect fit">
+                  Perfect
+                </ToggleGroupItem>
                 <ToggleGroupItem value="exact" aria-label="Exact fit">
                   Exact
                 </ToggleGroupItem>
@@ -435,6 +494,7 @@ export function TableAssignmentPanel({
                 index === 0 ? 'Best Match' :
                   fit === 'exact' ? 'Exact Fit' :
                     fit === 'within' ? 'Good Fit' : null;
+              const isTableConflicted = conflictedTableIds.has(table.id) || table.status === 'conflicted';
 
               return (
                 <div key={table.id} className="relative">
@@ -455,13 +515,17 @@ export function TableAssignmentPanel({
                     partySize={partySize}
                     isSelected={selectedTables.includes(table.id)}
                     isAssigned={assignedTableIds.has(table.id)}
-                    isConflicted={conflictedTableIds.has(table.id)}
+                    isConflicted={isTableConflicted}
                     onToggle={() =>
                       setSelectedTables((prev) =>
                         prev.includes(table.id) ? prev.filter((id) => id !== table.id) : [...prev, table.id],
                       )
                     }
                     disabled={isPending}
+                    bookingStartTime={timelineBookingStart}
+                    bookingEndTime={timelineBookingEnd}
+                    serviceWindowStart={timelineWindowStart}
+                    serviceWindowEnd={timelineWindowEnd}
                   />
                 </div>
               );
@@ -522,22 +586,29 @@ export function TableAssignmentPanel({
                       )}
                     </div>
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
-                      {sectionTables.map((table) => (
-                        <SelectableTableCard
-                          key={table.id}
-                          table={table}
-                          partySize={partySize}
-                          isSelected={selectedTables.includes(table.id)}
-                          isAssigned={assignedTableIds.has(table.id)}
-                          isConflicted={conflictedTableIds.has(table.id)}
-                          onToggle={() =>
-                            setSelectedTables((prev) =>
-                              prev.includes(table.id) ? prev.filter((id) => id !== table.id) : [...prev, table.id],
-                            )
-                          }
-                          disabled={isPending}
-                        />
-                      ))}
+                      {sectionTables.map((table) => {
+                        const isTableConflicted = conflictedTableIds.has(table.id) || table.status === 'conflicted';
+                        return (
+                          <SelectableTableCard
+                            key={table.id}
+                            table={table}
+                            partySize={partySize}
+                            isSelected={selectedTables.includes(table.id)}
+                            isAssigned={assignedTableIds.has(table.id)}
+                            isConflicted={isTableConflicted}
+                            onToggle={() =>
+                              setSelectedTables((prev) =>
+                                prev.includes(table.id) ? prev.filter((id) => id !== table.id) : [...prev, table.id],
+                              )
+                            }
+                            disabled={isPending}
+                            bookingStartTime={timelineBookingStart}
+                            bookingEndTime={timelineBookingEnd}
+                            serviceWindowStart={timelineWindowStart}
+                            serviceWindowEnd={timelineWindowEnd}
+                          />
+                        );
+                      })}
                     </div>
                   </div>
                 );

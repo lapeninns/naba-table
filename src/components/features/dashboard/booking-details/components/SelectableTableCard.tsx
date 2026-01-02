@@ -23,6 +23,10 @@ export interface SelectableTableCardProps {
   isConflicted: boolean;
   onToggle: () => void;
   disabled: boolean;
+  bookingStartTime?: string | null;
+  bookingEndTime?: string | null;
+  serviceWindowStart?: string | null;
+  serviceWindowEnd?: string | null;
 }
 
 export function SelectableTableCard({
@@ -33,9 +37,40 @@ export function SelectableTableCard({
   isConflicted,
   onToggle,
   disabled,
+  bookingStartTime,
+  bookingEndTime,
+  serviceWindowStart,
+  serviceWindowEnd,
 }: SelectableTableCardProps) {
   const isUnavailable = isConflicted || !table.active || table.status !== 'available';
   const fit = getCapacityFit(partySize, table);
+  const showTimeline = table.status === 'conflicted' || isConflicted;
+  const conflictTone = table.status === 'conflicted' || isConflicted;
+
+  const parseTimeMinutes = (value?: string | null) => {
+    if (!value) return null;
+    const timePart = value.includes('T') ? value.split('T')[1] : value;
+    const match = timePart.match(/(\d{2}):(\d{2})/);
+    if (!match) return null;
+    const hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+    return hours * 60 + minutes;
+  };
+
+  const defaultServiceStart = 18 * 60;
+  const defaultServiceEnd = 22 * 60;
+  const serviceStart = parseTimeMinutes(serviceWindowStart) ?? defaultServiceStart;
+  const serviceEnd = parseTimeMinutes(serviceWindowEnd) ?? defaultServiceEnd;
+  const bookingStart = parseTimeMinutes(bookingStartTime);
+  const bookingEnd = parseTimeMinutes(bookingEndTime);
+  const serviceDuration = Math.max(1, serviceEnd - serviceStart);
+  const rawStart = bookingStart ?? serviceStart;
+  const rawEnd = bookingEnd && bookingEnd > rawStart ? bookingEnd : rawStart + 60;
+  const clampedStart = Math.min(Math.max(rawStart, serviceStart), serviceEnd);
+  const clampedEnd = Math.min(Math.max(rawEnd, serviceStart), serviceEnd);
+  const blockLeft = ((clampedStart - serviceStart) / serviceDuration) * 100;
+  const blockWidth = Math.max(8, ((clampedEnd - clampedStart) / serviceDuration) * 100);
 
   return (
     <button
@@ -115,6 +150,29 @@ export function SelectableTableCard({
           </Badge>
         ) : null}
       </div>
+
+      {showTimeline ? (
+        <div className="mt-3 w-full">
+          <div
+            className={cn(
+              'relative h-2 w-full rounded-full border',
+              conflictTone ? 'bg-rose-100 border-rose-200' : 'bg-slate-100 border-slate-200',
+            )}
+          >
+            {bookingStart !== null && (
+              <div
+                className="absolute top-0 h-full rounded-full bg-blue-500"
+                style={{ left: `${blockLeft}%`, width: `${blockWidth}%` }}
+                aria-label="Current booking"
+              />
+            )}
+          </div>
+          <div className="mt-1 flex items-center justify-between text-[10px] text-slate-500">
+            <span>{conflictTone ? 'Busy' : 'Unknown'}</span>
+            {bookingStart !== null ? <span>Current booking</span> : null}
+          </div>
+        </div>
+      ) : null}
     </button>
   );
 }

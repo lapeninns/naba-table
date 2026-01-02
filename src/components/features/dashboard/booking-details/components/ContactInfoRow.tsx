@@ -12,18 +12,21 @@ import { ClickToCopy } from './ClickToCopy';
 
 import type { ElementType } from 'react';
 
+export type ContactInfoRowAction = {
+  label: string;
+  href?: string;
+  onClick?: () => void;
+  icon?: ElementType;
+};
+
 export interface ContactInfoRowProps {
   icon: ElementType;
   label: string;
   value: string;
   href?: string;
   copyable?: boolean;
-  action?: {
-    label: string;
-    href?: string;
-    onClick?: () => void;
-    icon?: ElementType;
-  };
+  action?: ContactInfoRowAction;
+  actions?: ContactInfoRowAction[];
 }
 
 export function ContactInfoRow({
@@ -33,8 +36,9 @@ export function ContactInfoRow({
   href,
   copyable = false,
   action,
+  actions,
 }: ContactInfoRowProps) {
-  const ActionIcon = action?.icon;
+  const resolvedActions = actions ?? (action ? [action] : []);
   const content = copyable ? (
     <ClickToCopy text={value} label={label} />
   ) : href ? (
@@ -54,27 +58,35 @@ export function ContactInfoRow({
         <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">{label}</span>
         {content}
       </div>
-      {action && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="ml-auto h-8"
-          asChild={Boolean(action.href)}
-          onClick={action.href ? undefined : action.onClick}
-        >
-          {action.href ? (
-            <a href={action.href} aria-label={action.label}>
-              {ActionIcon ? <ActionIcon className="h-3.5 w-3.5 mr-1" /> : null}
-              {action.label}
-            </a>
-          ) : (
-            <>
-              {ActionIcon ? <ActionIcon className="h-3.5 w-3.5 mr-1" /> : null}
-              {action.label}
-            </>
-          )}
-        </Button>
+      {resolvedActions.length > 0 && (
+        <div className="ml-auto flex items-center gap-2">
+          {resolvedActions.map((item, index) => {
+            const ActionIcon = item.icon;
+            return (
+              <Button
+                key={`${item.label}-${index}`}
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8"
+                asChild={Boolean(item.href)}
+                onClick={item.href ? undefined : item.onClick}
+              >
+                {item.href ? (
+                  <a href={item.href} aria-label={item.label}>
+                    {ActionIcon ? <ActionIcon className="h-3.5 w-3.5 mr-1" /> : null}
+                    {item.label}
+                  </a>
+                ) : (
+                  <>
+                    {ActionIcon ? <ActionIcon className="h-3.5 w-3.5 mr-1" /> : null}
+                    {item.label}
+                  </>
+                )}
+              </Button>
+            );
+          })}
+        </div>
       )}
     </div>
   );

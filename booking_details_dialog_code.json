@@ -1,0 +1,336 @@
+{
+  "feature": "Booking Details Dialog",
+  "description": "A comprehensive booking dialog component built with shadcn/ui primitives following SOLID principles. Displays booking information, guest details, and provides table assignment functionality.",
+  "basePath": "src/components/features/dashboard/booking-details",
+  "files": {
+    "mainComponent": {
+      "path": "BookingDialog.tsx",
+      "description": "Main orchestrator component for the booking details dialog. Handles dialog/sheet rendering, header, body sections (overview, contact, tables), and footer actions.",
+      "exports": ["BookingDialog"],
+      "dependencies": [
+        "@/components/ui/dialog",
+        "@/components/ui/sheet",
+        "@/components/ui/button",
+        "@/components/ui/badge",
+        "@/components/ui/tabs",
+        "@/components/ui/avatar",
+        "@/components/ui/separator",
+        "@/components/ui/skeleton",
+        "@/components/ui/progress",
+        "@/components/ui/scroll-area",
+        "lucide-react"
+      ],
+      "internalDependencies": [
+        "./components/BookingStatusBadge",
+        "./components/ArrivalCountdown",
+        "./components/BookingStatCard",
+        "./components/ContactInfoRow",
+        "./components/ClickToCopy",
+        "./components/TableAssignmentPanel",
+        "./utils",
+        "./types"
+      ],
+      "keyFunctions": [
+        "BookingDialog",
+        "HeaderContent",
+        "renderOverview",
+        "renderContact",
+        "renderTables",
+        "renderBody"
+      ],
+      "lines": 1011
+    },
+    "BookingAssignmentTabContent": {
+      "path": "BookingAssignmentTabContent.tsx",
+      "description": "Alternative table assignment content using mutation-based approach with validation checks.",
+      "exports": ["BookingAssignmentTabContent"],
+      "lines": 551
+    },
+    "types": {
+      "path": "types.ts",
+      "description": "TypeScript type definitions for the booking dialog domain including Booking, Guest, Table, Zone, and hook contracts.",
+      "exports": [
+        "BookingStatus",
+        "Guest",
+        "Booking",
+        "Zone",
+        "Table",
+        "TableAssignment",
+        "AssignmentValidation",
+        "BookingActionType",
+        "BookingDetailsProps",
+        "BookingDialogProps",
+        "UseTableAssignmentOptions",
+        "UseTableAssignmentReturn"
+      ],
+      "lines": 148
+    },
+    "utils": {
+      "path": "utils.ts",
+      "description": "Pure utility functions for time/date formatting, status handling, guest info, table calculations, and clipboard operations.",
+      "exports": [
+        "parseBookingDateTime",
+        "formatBookingTime",
+        "formatBookingDate",
+        "getMinutesUntilTime",
+        "formatCountdown",
+        "getStatusConfig",
+        "canCheckIn",
+        "canMarkNoShow",
+        "shouldShowCountdown",
+        "getGuestInitials",
+        "formatPhoneForTel",
+        "getCapacityFit",
+        "getCapacityFitLabel",
+        "flattenTableAssignments",
+        "calculateTotalCapacity",
+        "calculateCapacityPercent",
+        "groupTablesBySection",
+        "validateTableSelection",
+        "copyToClipboard"
+      ],
+      "lines": 273
+    },
+    "index": {
+      "path": "index.ts",
+      "description": "Barrel export file that re-exports all public components, types, hooks, and utilities.",
+      "lines": 81
+    }
+  },
+  "components": {
+    "atomic": {
+      "BookingStatusBadge": {
+        "path": "components/BookingStatusBadge.tsx",
+        "description": "Displays booking status with color-coded badge styling based on status type.",
+        "props": {
+          "status": "OpsBookingStatus",
+          "className": "string (optional)"
+        },
+        "lines": 31
+      },
+      "ClickToCopy": {
+        "path": "components/ClickToCopy.tsx",
+        "description": "Click-to-copy button with tooltip and toast feedback for copying text to clipboard.",
+        "props": {
+          "text": "string",
+          "label": "string",
+          "className": "string (optional)",
+          "compact": "boolean (optional)"
+        },
+        "lines": 76
+      },
+      "ContactInfoRow": {
+        "path": "components/ContactInfoRow.tsx",
+        "description": "Contact information display row with icon, label, value, and optional action button.",
+        "props": {
+          "icon": "ElementType",
+          "label": "string",
+          "value": "string",
+          "href": "string (optional)",
+          "copyable": "boolean (optional)",
+          "action": "{ label, href?, onClick?, icon? } (optional)"
+        },
+        "lines": 82
+      },
+      "ArrivalCountdown": {
+        "path": "components/ArrivalCountdown.tsx",
+        "description": "Real-time countdown timer showing time until booking arrival with pulsing indicators for imminent arrivals and late status.",
+        "props": {
+          "status": "OpsBookingStatus",
+          "startTime": "string | null",
+          "date": "string | null",
+          "timezone": "string",
+          "now": "DateTime (optional)"
+        },
+        "visualStates": ["late (red)", "imminent (amber, pulsing)", "upcoming (dark)"],
+        "lines": 64
+      },
+      "BookingStatCard": {
+        "path": "components/BookingStatCard.tsx",
+        "description": "Statistic display card with icon, label, value, and optional subtext. Used for party size, arrival time, and table info.",
+        "props": {
+          "icon": "ElementType",
+          "label": "string",
+          "value": "string | number",
+          "subtext": "string (optional)",
+          "highlight": "boolean (optional)",
+          "variant": "'default' | 'compact' (optional)",
+          "className": "string (optional)"
+        },
+        "lines": 63
+      },
+      "SelectableTableCard": {
+        "path": "components/SelectableTableCard.tsx",
+        "description": "Interactive table card for table selection in assignment panel. Shows capacity fit, conflict status, and selection state.",
+        "props": {
+          "table": "ManualAssignmentTable",
+          "partySize": "number",
+          "isSelected": "boolean",
+          "isAssigned": "boolean",
+          "isConflicted": "boolean",
+          "onToggle": "() => void",
+          "disabled": "boolean"
+        },
+        "visualStates": [
+          "selected (blue)",
+          "assigned (emerald)",
+          "conflicted (amber)",
+          "unavailable (gray)"
+        ],
+        "lines": 121
+      }
+    },
+    "composite": {
+      "TableAssignmentPanel": {
+        "path": "components/TableAssignmentPanel.tsx",
+        "description": "Complete table assignment panel with capacity stats, filtering, sorting, table grid, validation warnings, and action buttons.",
+        "props": {
+          "bookingId": "string",
+          "restaurantId": "string",
+          "partySize": "number",
+          "currentAssignments": "string[]",
+          "onAssignmentComplete": "() => void"
+        },
+        "features": [
+          "Capacity progress indicator",
+          "Available only toggle",
+          "Fit filter (exact, comfort, large)",
+          "Sort by (capacity, table number)",
+          "Grouped by section display",
+          "Validation warnings/errors",
+          "Apply/Unassign actions with confirmation"
+        ],
+        "internalHooks": ["useTableAssignment"],
+        "lines": 600
+      }
+    },
+    "componentIndex": {
+      "path": "components/index.ts",
+      "description": "Barrel export for all sub-components.",
+      "lines": 36
+    }
+  },
+  "hooks": {
+    "useTableAssignment": {
+      "path": "hooks/useTableAssignment.ts",
+      "description": "Custom hook encapsulating table selection state, validation, intelligent suggestions, and API mutations for applying/unassigning tables.",
+      "options": {
+        "bookingId": "string",
+        "restaurantId": "string",
+        "partySize": "number",
+        "currentAssignments": "string[] (optional)",
+        "onAssignmentComplete": "() => void (optional)"
+      },
+      "returns": {
+        "context": "AssignmentContext | undefined",
+        "isLoading": "boolean",
+        "error": "Error | null",
+        "refetch": "() => void",
+        "tables": "ManualAssignmentTable[]",
+        "suggestedTables": "ManualAssignmentTable[]",
+        "selectedTables": "string[]",
+        "setSelectedTables": "Dispatch<SetStateAction<string[]>>",
+        "selectedCapacity": "number",
+        "assignedCapacity": "number",
+        "assignedTableIds": "Set<string>",
+        "conflictedTableIds": "Set<string>",
+        "validation": "AssignmentValidation",
+        "apply": "() => Promise<{ ok: boolean; error?: string }>",
+        "unassignAll": "() => Promise<{ ok: boolean; error?: string }>",
+        "isAssigning": "boolean",
+        "isUnassigning": "boolean",
+        "isPending": "boolean"
+      },
+      "apiEndpoints": [
+        "GET /api/ops/bookings/[id]/tables/context",
+        "POST /api/ops/bookings/[id]/tables/assign",
+        "POST /api/ops/bookings/[id]/tables/unassign"
+      ],
+      "lines": 272
+    },
+    "hooksIndex": {
+      "path": "hooks/index.ts",
+      "description": "Barrel export for all hooks.",
+      "lines": 10
+    }
+  },
+  "uiSections": {
+    "header": {
+      "description": "Dialog header with guest avatar, name, status badge, date, time, party size, countdown, and reference ID.",
+      "components": ["Avatar", "BookingStatusBadge", "ArrivalCountdown", "Badge"]
+    },
+    "leftPanel": {
+      "description": "Guest info panel with avatar, name, loyalty tier, call button, stats (covers, time), source, occasion, countdown progress, and table assignment warning.",
+      "components": ["Avatar", "Button", "BookingStatCard", "Progress", "Alert"]
+    },
+    "rightPanel": {
+      "description": "Table assignment panel showing capacity stats, available tables toggle, assign button, and table selection grid grouped by section.",
+      "components": ["TableAssignmentPanel", "SelectableTableCard", "Switch", "Button"]
+    },
+    "footer": {
+      "description": "Action bar with copy summary, call guest, no-show marking, and primary action button (check-in/check-out/assign table).",
+      "components": ["Button"]
+    }
+  },
+  "statusConfigs": {
+    "confirmed": {
+      "label": "Confirmed",
+      "color": "blue"
+    },
+    "pending": {
+      "label": "Pending",
+      "color": "amber"
+    },
+    "pending_allocation": {
+      "label": "Needs Table",
+      "color": "amber"
+    },
+    "PRIORITY_WAITLIST": {
+      "label": "Waitlist",
+      "color": "purple"
+    },
+    "checked_in": {
+      "label": "Seated",
+      "color": "emerald"
+    },
+    "completed": {
+      "label": "Completed",
+      "color": "slate"
+    },
+    "cancelled": {
+      "label": "Cancelled",
+      "color": "red"
+    },
+    "no_show": {
+      "label": "No Show",
+      "color": "orange"
+    }
+  },
+  "fileTree": [
+    "src/components/features/dashboard/booking-details/",
+    "├── BookingDialog.tsx              # Main dialog component (1011 lines)",
+    "├── BookingAssignmentTabContent.tsx # Alt assignment content (551 lines)",
+    "├── index.ts                        # Barrel exports (81 lines)",
+    "├── types.ts                        # Type definitions (148 lines)",
+    "├── utils.ts                        # Pure utilities (273 lines)",
+    "├── components/",
+    "│   ├── index.ts                    # Component exports (36 lines)",
+    "│   ├── ArrivalCountdown.tsx        # Countdown timer (64 lines)",
+    "│   ├── BookingStatCard.tsx         # Stat display (63 lines)",
+    "│   ├── BookingStatusBadge.tsx      # Status badge (31 lines)",
+    "│   ├── ClickToCopy.tsx             # Copy helper (76 lines)",
+    "│   ├── ContactInfoRow.tsx          # Contact row (82 lines)",
+    "│   ├── SelectableTableCard.tsx     # Table card (121 lines)",
+    "│   └── TableAssignmentPanel.tsx    # Assignment panel (600 lines)",
+    "└── hooks/",
+    "    ├── index.ts                    # Hook exports (10 lines)",
+    "    └── useTableAssignment.ts       # Assignment hook (272 lines)"
+  ],
+  "totalLineCount": 3461,
+  "externalDependencies": [
+    "@tanstack/react-query",
+    "lucide-react",
+    "luxon",
+    "shadcn/ui (dialog, sheet, button, badge, tabs, avatar, separator, skeleton, progress, scroll-area, switch, tooltip, alert)"
+  ]
+}
