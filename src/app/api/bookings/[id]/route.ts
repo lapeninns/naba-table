@@ -631,7 +631,11 @@ async function handleDashboardUpdate(params: {
           current: safeBookingPayload(updated),
           restaurantId: targetRestaurantId,
         },
-        { supabase: serviceSupabase },
+        {
+          supabase: serviceSupabase,
+          // Skip email when modification flow was used (not unified) - it already sent the confirmation email
+          skipEmail: requiresTableRealignment && !useUnifiedValidation,
+        },
       );
     } catch (jobError: unknown) {
       console.error('[bookings][PUT:dashboard][side-effects]', stringifyError(jobError));
@@ -1342,7 +1346,11 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
           current: safeBookingPayload(updated),
           restaurantId,
         },
-        { supabase: serviceSupabase },
+        {
+          supabase: serviceSupabase,
+          // Skip email when modification flow was used - it already sent the confirmation email
+          skipEmail: requiresTableRealignment,
+        },
       );
     } catch (jobError: unknown) {
       console.error('[bookings][PUT:id][side-effects]', stringifyError(jobError));
