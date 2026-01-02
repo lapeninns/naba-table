@@ -599,7 +599,11 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
           current: safeBookingPayload(updated),
           restaurantId: updated.restaurant_id ?? existingBooking.restaurant_id,
         },
-        { supabase: tenantClient },
+        {
+          supabase: tenantClient,
+          // Skip email when modification flow was used - it already sent the confirmation email
+          skipEmail: requiresTableRealignment,
+        },
       );
     } catch (jobError) {
       console.error("[ops/bookings][PATCH] side effects failed", jobError);

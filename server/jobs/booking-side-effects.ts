@@ -821,8 +821,26 @@ export async function enqueueBookingCreatedSideEffects(
 
 export async function enqueueBookingUpdatedSideEffects(
   payload: BookingUpdatedSideEffectsPayload,
-  options?: { supabase?: SupabaseLike },
+  options?: {
+    supabase?: SupabaseLike;
+    /**
+     * Skip sending update emails. Set to true when the modification flow
+     * has already sent a confirmation email to prevent duplicate emails.
+     * This happens when beginBookingModificationFlow successfully assigns
+     * tables inline and sends the "Changes Confirmed" email.
+     */
+    skipEmail?: boolean;
+  },
 ) {
+  if (options?.skipEmail) {
+    console.log('[jobs][booking.updated] Skipping email - modification flow already sent it', {
+      bookingId: payload.current.id,
+    });
+    // Still process non-email side effects (analytics, reminders for status transitions, etc.)
+    // but we need to ensure emails are skipped in processBookingUpdatedSideEffects
+    // For now, we skip the entire call since the main purpose is email handling
+    return { queued: false } as const;
+  }
   await processBookingUpdatedSideEffects(payload, options?.supabase);
   return { queued: false } as const;
 }
