@@ -1,0 +1,227 @@
+{
+  "name": "Floor Plan Feature",
+  "description": "Complete floor plan implementation for visualizing and managing restaurant table layouts with real-time status updates",
+  "lastUpdated": "2026-01-02",
+  "files": {
+    "routes": {
+      "floor-plan/page.tsx": {
+        "path": "src/app/app/(app)/floor-plan/page.tsx",
+        "description": "Main floor plan route that renders the FloorPlanPage component",
+        "code": "import FloorPlanPage from '@/components/features/seating/FloorPlanPage';\n\nexport default function FloorPlanRoute() {\n  return <FloorPlanPage />;\n}\n"
+      },
+      "seating/floor-plan/page.tsx": {
+        "path": "src/app/app/(app)/seating/floor-plan/page.tsx",
+        "description": "Redirect from legacy seating route to main floor-plan route",
+        "code": "import { redirect } from 'next/navigation';\n\nexport default function SeatingFloorPlanPage() {\n  redirect('/floor-plan');\n}\n"
+      }
+    },
+    "components": {
+      "FloorPlanPage.tsx": {
+        "path": "src/components/features/seating/FloorPlanPage.tsx",
+        "description": "Main floor plan page component with canvas, table rendering, zoom/pan controls, and table inspector",
+        "exports": ["FloorPlanPage (default)"],
+        "dependencies": [
+          "@tanstack/react-query",
+          "date-fns",
+          "lucide-react",
+          "next/navigation",
+          "@/components/ui/*",
+          "@/contexts/ops-services",
+          "@/contexts/ops-session",
+          "@/hooks/ops/useOpsTableTimeline",
+          "@/hooks/use-toast",
+          "@/hooks/useOnlineStatus",
+          "@/lib/query/keys",
+          "@/lib/utils"
+        ],
+        "utilities": {
+          "parseTimeToMinutes": "Parses time string (HH:mm) to minutes",
+          "useMediaQuery": "Custom hook for responsive media queries",
+          "formatTimeParam": "Formats timestamp to HH:mm string",
+          "formatMinutesLabel": "Formats total minutes to localized time label",
+          "normalizePosition": "Normalizes position object with x, y, rotation",
+          "getTableStateAtTime": "Gets table status segment at a specific timestamp",
+          "getStatusTheme": "Returns color theme based on table status (available, reserved, hold, out_of_service)"
+        },
+        "features": [
+          "Interactive canvas with zoom/pan controls",
+          "Table status visualization with color coding",
+          "Zone filtering",
+          "Date and time selection",
+          "Table inspector panel (desktop sidebar / mobile sheet)",
+          "Merged table group visualization with connecting lines",
+          "Real-time status updates",
+          "Add booking and browse bookings actions"
+        ],
+        "code": "'use client';\n\nimport { useQuery } from '@tanstack/react-query';\nimport { format } from 'date-fns';\nimport {\n    Calendar as CalendarIcon,\n    Loader2,\n    Map as MapIcon,\n    MapPin,\n    Minus,\n    Plus,\n    RotateCcw,\n    X\n} from 'lucide-react';\nimport { useRouter } from 'next/navigation';\nimport React, { useCallback, useMemo, useRef, useState } from 'react';\n\nimport { Badge } from '@/components/ui/badge';\nimport { Button } from '@/components/ui/button';\nimport { Calendar } from '@/components/ui/calendar';\nimport { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';\nimport { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';\nimport { Separator } from '@/components/ui/separator';\nimport { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';\nimport { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';\nimport { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';\nimport { useRestaurantService, useTableInventoryService, useZoneService } from '@/contexts/ops-services';\nimport { useOpsSession } from '@/contexts/ops-session';\nimport { useOpsTableTimeline } from '@/hooks/ops/useOpsTableTimeline';\nimport { useToast } from '@/hooks/use-toast';\nimport useOnlineStatus from '@/hooks/useOnlineStatus';\nimport { queryKeys } from '@/lib/query/keys';\nimport { cn } from '@/lib/utils';\nimport { DEFAULT_OPS_BOOKINGS_WINDOW_MINUTES } from '@/utils/ops/bookings';\n\nimport type { TableTimelineSegment } from '@/types/ops';\n\n// --- Utilities ---\n\nfunction parseTimeToMinutes(timeStr: string | null): number {\n    if (!timeStr) return 0;\n    const [hours, minutes] = timeStr.split(':').map(Number);\n    return hours * 60 + minutes;\n}\n\nfunction useMediaQuery(query: string) {\n    const [matches, setMatches] = useState(false);\n\n    React.useEffect(() => {\n        if (typeof window === 'undefined') return;\n        const mediaQuery = window.matchMedia(query);\n        const handleChange = () => setMatches(mediaQuery.matches);\n        handleChange();\n        mediaQuery.addEventListener('change', handleChange);\n        return () => mediaQuery.removeEventListener('change', handleChange);\n    }, [query]);\n\n    return matches;\n}\n\nfunction formatTimeParam(timestamp: number): string {\n    return format(new Date(timestamp), 'HH:mm');\n}\n\nfunction formatMinutesLabel(totalMinutes: number) {\n    const minutesInDay = 24 * 60;\n    const normalized = ((totalMinutes % minutesInDay) + minutesInDay) % minutesInDay;\n    const date = new Date();\n    date.setHours(0, normalized, 0, 0);\n    return date.toLocaleTimeString([], { hour: 'numeric' });\n}\n\n// --- Logic Helpers ---\n\nfunction normalizePosition(value: unknown): { x: number; y: number; rotation: number } | null {\n    if (!value || typeof value !== 'object') {\n        return null;\n    }\n    const record = value as Record<string, unknown>;\n    const x = typeof record.x === 'number' ? record.x : null;\n    const y = typeof record.y === 'number' ? record.y : null;\n    if (x === null || y === null) {\n        return null;\n    }\n    const rotation = typeof record.rotation === 'number' ? record.rotation : 0;\n    return { x, y, rotation };\n}\n\nfunction getTableStateAtTime(segments: TableTimelineSegment[], timestamp: number): TableTimelineSegment {\n    const segment = segments.find(s => {\n        const start = new Date(s.start).getTime();\n        const end = new Date(s.end).getTime();\n        return timestamp >= start && timestamp < end;\n    });\n\n    if (segment) return segment;\n\n    // Return a default available segment if none found\n    return {\n        start: new Date(timestamp).toISOString(),\n        end: new Date(timestamp + 3600000).toISOString(),\n        state: 'available',\n        serviceKey: 'other',\n        disabled: false\n    } as TableTimelineSegment;\n}\n\nfunction getStatusTheme(state: string) {\n    switch (state) {\n        case 'reserved':\n            return {\n                bg: 'bg-rose-50',\n                border: 'border-rose-300',\n                text: 'text-rose-700',\n                fill: 'bg-rose-400',\n                shadow: 'shadow-rose-100',\n                chair: 'bg-rose-200 border-rose-300'\n            };\n        case 'hold':\n            return {\n                bg: 'bg-amber-50',\n                border: 'border-amber-300',\n                text: 'text-amber-700',\n                fill: 'bg-amber-400',\n                shadow: 'shadow-amber-100',\n                chair: 'bg-amber-200 border-amber-300'\n            };\n        case 'occupied':\n            return {\n                bg: 'bg-blue-50',\n                border: 'border-blue-300',\n                text: 'text-blue-700',\n                fill: 'bg-blue-400',\n                shadow: 'shadow-blue-100',\n                chair: 'bg-blue-200 border-blue-300'\n            };\n        case 'out_of_service':\n            return {\n                bg: 'bg-slate-100',\n                border: 'border-slate-300',\n                text: 'text-slate-700',\n                fill: 'bg-slate-400',\n                shadow: 'shadow-slate-100',\n                chair: 'bg-slate-200 border-slate-300'\n            };\n        case 'available':\n        default:\n            return {\n                bg: 'bg-emerald-50',\n                border: 'border-emerald-300',\n                text: 'text-emerald-700',\n                fill: 'bg-emerald-400',\n                shadow: 'shadow-emerald-100',\n                chair: 'bg-emerald-200 border-emerald-300'\n            };\n    }\n}\n\n// --- Main Component ---\n// (Full implementation - 1187 lines total)\n// See source file for complete implementation"
+      },
+      "TableFloorPlan.tsx": {
+        "path": "src/components/features/dashboard/TableFloorPlan.tsx",
+        "description": "Simplified floor plan component for table assignment in booking dialog",
+        "exports": ["TableFloorPlan", "TableFloorPlanProps"],
+        "props": {
+          "bookingId": "string - Current booking ID",
+          "tables": "ManualAssignmentTable[] - Available tables",
+          "holds": "ManualAssignmentContextHold[] - Current table holds",
+          "conflicts": "ManualAssignmentConflict[] - Table conflicts",
+          "bookingAssignments": "string[] - Tables already assigned to this booking",
+          "selectedTableIds": "string[] - Currently selected table IDs",
+          "onToggle": "(tableId: string) => void - Toggle table selection",
+          "disabled": "boolean - Disable all interactions",
+          "onlyAvailable": "boolean - Hide unavailable tables",
+          "className": "string - Additional CSS classes"
+        },
+        "types": {
+          "DerivedTable": {
+            "table": "ManualAssignmentTable",
+            "xPercent": "number",
+            "yPercent": "number",
+            "rotation": "number",
+            "holdOwned": "ManualAssignmentContextHold | null",
+            "holdOther": "ManualAssignmentContextHold | null",
+            "conflicts": "ManualAssignmentConflict[]",
+            "isAssignedToBooking": "boolean",
+            "isSelected": "boolean",
+            "isInactive": "boolean"
+          }
+        },
+        "utilities": {
+          "normalizePosition": "Normalizes position object with x, y, rotation",
+          "formatTableTitle": "Creates tooltip text for table",
+          "formatTableAriaLabel": "Creates accessible label for table",
+          "formatCountdown": "Formats hold countdown timer",
+          "computeLayout": "Computes table positions and derives state",
+          "getVariant": "Determines table variant (selected, owned, blocked, assigned, inactive, default)",
+          "getVariantClasses": "Returns CSS classes for variant"
+        },
+        "code": "'use client';\n\nimport { memo, useMemo } from 'react';\n\nimport { cn } from '@/lib/utils';\n\nimport type {\n  ManualAssignmentConflict,\n  ManualAssignmentContextHold,\n  ManualAssignmentTable,\n} from '@/services/ops/bookings';\n\ntype TableFloorPlanProps = {\n  bookingId: string;\n  tables: ManualAssignmentTable[];\n  holds: ManualAssignmentContextHold[];\n  conflicts: ManualAssignmentConflict[];\n  bookingAssignments: string[];\n  selectedTableIds: string[];\n  onToggle: (tableId: string) => void;\n  disabled?: boolean;\n  onlyAvailable?: boolean;\n  className?: string;\n};\n\ntype DerivedTable = {\n  table: ManualAssignmentTable;\n  xPercent: number;\n  yPercent: number;\n  rotation: number;\n  holdOwned: ManualAssignmentContextHold | null;\n  holdOther: ManualAssignmentContextHold | null;\n  conflicts: ManualAssignmentConflict[];\n  isAssignedToBooking: boolean;\n  isSelected: boolean;\n  isInactive: boolean;\n};\n\nconst TABLE_SIZE_PX = 64;\n\nfunction normalizePosition(value: unknown): { x: number; y: number; rotation: number } | null {\n  if (!value || typeof value !== 'object') {\n    return null;\n  }\n  const record = value as Record<string, unknown>;\n  const x = typeof record.x === 'number' ? record.x : null;\n  const y = typeof record.y === 'number' ? record.y : null;\n  if (x === null || y === null) {\n    return null;\n  }\n  const rotation = typeof record.rotation === 'number' ? record.rotation : 0;\n  return { x, y, rotation };\n}\n\nfunction formatTableTitle(entry: DerivedTable): string {\n  const { table, holdOwned, holdOther, conflicts } = entry;\n  const lines: string[] = [\n    table.name ? `Table ${table.tableNumber} - ${table.name}` : `Table ${table.tableNumber}`,\n    `${table.capacity} seats`,\n  ];\n  if (holdOwned) {\n    lines.push('Held by you');\n  }\n  if (holdOther) {\n    lines.push(`Held by ${holdOther.createdByName ?? 'another staff member'}`);\n  }\n  if (conflicts.length > 0) {\n    lines.push(`Blocked (${conflicts.length} overlapping booking${conflicts.length === 1 ? '' : 's'})`);\n  }\n  if (!table.active || (table.status && table.status !== 'available')) {\n    lines.push(`Status: ${table.status ?? 'inactive'}`);\n  }\n  return lines.join('\\n');\n}\n\nfunction formatTableAriaLabel(entry: DerivedTable, isSelected: boolean, isBlocked: boolean): string {\n  const parts: string[] = [];\n  if (entry.table.name) {\n    parts.push(`Table ${entry.table.tableNumber}, ${entry.table.name}`);\n  } else {\n    parts.push(`Table ${entry.table.tableNumber}`);\n  }\n  parts.push(`${entry.table.capacity} seats`);\n  if (isSelected) parts.push('selected');\n  if (isBlocked) parts.push('unavailable');\n  if (entry.holdOwned) parts.push('held by you');\n  if (entry.holdOther) parts.push('held by another booking');\n  if (entry.conflicts.length > 0) parts.push(`${entry.conflicts.length} conflict${entry.conflicts.length === 1 ? '' : 's'}`);\n  return parts.join(', ');\n}\n\nfunction formatCountdown(seconds: number | null): string | null {\n  if (seconds === null || !Number.isFinite(seconds)) {\n    return null;\n  }\n  const clamped = Math.max(0, seconds);\n  const mins = Math.floor(clamped / 60).toString().padStart(2, '0');\n  const secs = Math.floor(clamped % 60).toString().padStart(2, '0');\n  return `${mins}:${secs}`;\n}\n\nfunction computeLayout(\n  bookingId: string,\n  tables: ManualAssignmentTable[],\n  holds: ManualAssignmentContextHold[],\n  conflicts: ManualAssignmentConflict[],\n  bookingAssignments: Set<string>,\n  selectedTableIds: Set<string>,\n): { positioned: DerivedTable[]; unpositioned: ManualAssignmentTable[] } {\n  // ... full implementation\n}\n\nfunction getVariant(entry: DerivedTable): 'selected' | 'owned' | 'blocked' | 'assigned' | 'inactive' | 'default' {\n  if (entry.isInactive) return 'inactive';\n  if (entry.isSelected) return 'selected';\n  if (entry.holdOwned) return 'owned';\n  if (entry.isAssignedToBooking) return 'assigned';\n  if (entry.holdOther || entry.conflicts.length > 0) return 'blocked';\n  return 'default';\n}\n\nfunction getVariantClasses(variant: ReturnType<typeof getVariant>): string {\n  switch (variant) {\n    case 'selected':\n      return 'bg-primary text-primary-foreground border-primary shadow-sm';\n    case 'owned':\n      return 'bg-blue-100 text-blue-900 border-blue-300';\n    case 'assigned':\n      return 'bg-emerald-100 text-emerald-900 border-emerald-300';\n    case 'blocked':\n      return 'bg-amber-50 text-amber-900 border-amber-400';\n    case 'inactive':\n      return 'bg-muted text-muted-foreground border-muted-foreground/30 opacity-70';\n    default:\n      return 'bg-background text-foreground border-border';\n  }\n}\n\nexport const TableFloorPlan = memo(function TableFloorPlan(props: TableFloorPlanProps) {\n  // ... full implementation (445 lines total)\n});\n\nexport type { TableFloorPlanProps };"
+      }
+    },
+    "hooks": {
+      "useOpsTableTimeline.ts": {
+        "path": "src/hooks/ops/useOpsTableTimeline.ts",
+        "description": "Hook for fetching table timeline data with real-time updates",
+        "exports": ["useOpsTableTimeline", "UseOpsTableTimelineOptions"],
+        "options": {
+          "restaurantId": "string | null - Restaurant ID",
+          "date": "string | null - Date in YYYY-MM-DD format",
+          "zoneId": "string | null - Optional zone filter",
+          "service": "'lunch' | 'dinner' | 'all' - Service period filter",
+          "enabled": "boolean - Enable/disable the query"
+        },
+        "features": [
+          "Automatic polling every 10 seconds when realtime is disabled",
+          "Supabase realtime subscriptions for allocations and table_holds tables",
+          "Query key management via lib/query/keys"
+        ],
+        "code": "'use client';\n\nimport { useQuery, useQueryClient } from '@tanstack/react-query';\nimport { useEffect, useMemo } from 'react';\n\nimport { useTableInventoryService } from '@/contexts/ops-services';\nimport { queryKeys } from '@/lib/query/keys';\nimport { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';\n\nimport type { TableTimelineResponse } from '@/types/ops';\n\nexport type UseOpsTableTimelineOptions = {\n  restaurantId?: string | null;\n  date?: string | null;\n  zoneId?: string | null;\n  service?: 'lunch' | 'dinner' | 'all';\n  enabled?: boolean;\n};\n\nconst POLL_INTERVAL_MS = 10_000;\n\nexport function useOpsTableTimeline({\n  restaurantId,\n  date,\n  zoneId,\n  service = 'all',\n  enabled = true,\n}: UseOpsTableTimelineOptions) {\n  const tableService = useTableInventoryService();\n  const queryClient = useQueryClient();\n  const queryKey = useMemo(\n    () =>\n      restaurantId\n        ? queryKeys.opsTables.timeline(restaurantId, { date: date ?? null, zoneId: zoneId ?? null, service })\n        : (['ops', 'tables', 'timeline', 'disabled'] as const),\n    [date, restaurantId, service, zoneId],\n  );\n  const shouldEnable = Boolean(restaurantId) && enabled;\n\n  const query = useQuery<TableTimelineResponse>({\n    queryKey,\n    queryFn: () => {\n      if (!restaurantId) {\n        throw new Error('Restaurant ID is required to fetch table timeline');\n      }\n      return tableService.timeline(restaurantId, {\n        date: date ?? undefined,\n        zoneId: zoneId ?? undefined,\n        service,\n      });\n    },\n    enabled: shouldEnable,\n    refetchInterval: shouldEnable && !realtimeEnabled() ? POLL_INTERVAL_MS : false,\n    refetchOnWindowFocus: false,\n    staleTime: 5_000,\n  });\n\n  useEffect(() => {\n    if (!shouldEnable || !restaurantId || !realtimeEnabled()) {\n      return;\n    }\n\n    const client = getRealtimeSupabaseClient();\n    const channel = client.channel(`ops-table-timeline:${restaurantId}:${date ?? 'all'}`, {\n      config: { broadcast: { self: false } },\n    });\n\n    const handleChange = () => {\n      queryClient.invalidateQueries({ queryKey, exact: true });\n    };\n\n    channel.on(\n      'postgres_changes',\n      { event: '*', schema: 'public', table: 'allocations', filter: `restaurant_id=eq.${restaurantId}` },\n      handleChange,\n    );\n\n    channel.on(\n      'postgres_changes',\n      { event: '*', schema: 'public', table: 'table_holds', filter: `restaurant_id=eq.${restaurantId}` },\n      handleChange,\n    );\n\n    channel.subscribe();\n\n    return () => {\n      client.removeChannel(channel);\n    };\n  }, [date, queryClient, queryKey, restaurantId, shouldEnable]);\n\n  return query;\n}\n\nfunction realtimeEnabled() {\n  return typeof window !== 'undefined' && process.env.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN === 'true';\n}"
+      },
+      "useManualAssignmentContext.ts": {
+        "path": "src/hooks/ops/useManualAssignmentContext.ts",
+        "description": "Hook for managing manual table assignment context with holds and conflicts",
+        "exports": ["useManualAssignmentContext"],
+        "features": [
+          "Fetches assignment context for a specific booking",
+          "Real-time updates via Supabase subscriptions",
+          "Session-based hold management"
+        ]
+      }
+    },
+    "types": {
+      "TableTimelineSegment": {
+        "path": "src/types/ops.ts",
+        "fields": {
+          "start": "string - ISO timestamp",
+          "end": "string - ISO timestamp",
+          "state": "'available' | 'reserved' | 'hold' | 'occupied' | 'out_of_service'",
+          "serviceKey": "string",
+          "disabled": "boolean",
+          "booking": "optional booking details"
+        }
+      },
+      "ManualAssignmentTable": {
+        "path": "src/services/ops/bookings.ts",
+        "fields": {
+          "id": "string",
+          "tableNumber": "string",
+          "name": "string | null",
+          "capacity": "number",
+          "position": "{ x: number; y: number; rotation: number } | null",
+          "zoneId": "string | null",
+          "section": "string | null",
+          "active": "boolean",
+          "status": "string | null",
+          "zoneActive": "boolean | null"
+        }
+      },
+      "ManualAssignmentContextHold": {
+        "path": "src/services/ops/bookings.ts",
+        "fields": {
+          "bookingId": "string",
+          "tableIds": "string[]",
+          "createdByName": "string | null",
+          "countdownSeconds": "number | null"
+        }
+      },
+      "ManualAssignmentConflict": {
+        "path": "src/services/ops/bookings.ts",
+        "fields": {
+          "tableId": "string",
+          "conflictingBookingId": "string"
+        }
+      }
+    }
+  },
+  "architecture": {
+    "dataFlow": [
+      "1. FloorPlanPage fetches operating hours, zones, and tables via React Query",
+      "2. useOpsTableTimeline fetches real-time table status timeline",
+      "3. Tables are positioned using normalized coordinates (0-100%)",
+      "4. Status is determined by finding segment at current timestamp",
+      "5. Real-time updates via Supabase postgres_changes subscriptions"
+    ],
+    "stateManagement": {
+      "currentTimeVal": "Selected time in minutes from midnight",
+      "selectedTableId": "Currently inspected table ID",
+      "date": "Selected date",
+      "selectedZoneId": "Active zone filter",
+      "zoom": "Canvas zoom level (0.5-3)",
+      "pan": "Canvas pan offset { x, y }"
+    },
+    "canvasInteraction": {
+      "zoom": "Button controls for zoom in/out/reset",
+      "pan": "Pointer events for drag-to-pan",
+      "tableSelection": "Click to select/deselect table"
+    }
+  },
+  "statusColors": {
+    "available": {
+      "bg": "bg-emerald-50",
+      "border": "border-emerald-300",
+      "text": "text-emerald-700"
+    },
+    "reserved": {
+      "bg": "bg-rose-50",
+      "border": "border-rose-300",
+      "text": "text-rose-700"
+    },
+    "hold": {
+      "bg": "bg-amber-50",
+      "border": "border-amber-300",
+      "text": "text-amber-700"
+    },
+    "occupied": {
+      "bg": "bg-blue-50",
+      "border": "border-blue-300",
+      "text": "text-blue-700"
+    },
+    "out_of_service": {
+      "bg": "bg-slate-100",
+      "border": "border-slate-300",
+      "text": "text-slate-700"
+    }
+  },
+  "featureFlags": {
+    "NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN": "Enables real-time Supabase subscriptions for floor plan updates"
+  }
+}

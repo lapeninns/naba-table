@@ -4,26 +4,31 @@ import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import {
     Calendar as CalendarIcon,
+    ChevronDown,
+    Clock,
+    LayoutTemplate,
     Loader2,
-    Map as MapIcon,
     MapPin,
     Minus,
     Plus,
-    RotateCcw,
-    X
+    Search,
+    Users,
+    Utensils,
+    X,
+    ZoomIn,
+    ZoomOut
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useRestaurantService, useTableInventoryService, useZoneService } from '@/contexts/ops-services';
 import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsTableTimeline } from '@/hooks/ops/useOpsTableTimeline';
@@ -31,7 +36,6 @@ import { useToast } from '@/hooks/use-toast';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
-import { DEFAULT_OPS_BOOKINGS_WINDOW_MINUTES } from '@/utils/ops/bookings';
 
 import type { TableTimelineSegment } from '@/types/ops';
 
@@ -46,7 +50,7 @@ function parseTimeToMinutes(timeStr: string | null): number {
 function useMediaQuery(query: string) {
     const [matches, setMatches] = useState(false);
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (typeof window === 'undefined') return;
         const mediaQuery = window.matchMedia(query);
         const handleChange = () => setMatches(mediaQuery.matches);
@@ -62,12 +66,12 @@ function formatTimeParam(timestamp: number): string {
     return format(new Date(timestamp), 'HH:mm');
 }
 
-function formatMinutesLabel(totalMinutes: number) {
+function formatMinutes(totalMinutes: number) {
     const minutesInDay = 24 * 60;
     const normalized = ((totalMinutes % minutesInDay) + minutesInDay) % minutesInDay;
-    const date = new Date();
-    date.setHours(0, normalized, 0, 0);
-    return date.toLocaleTimeString([], { hour: 'numeric' });
+    const hours = Math.floor(normalized / 60);
+    const minutes = normalized % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }
 
 // --- Logic Helpers ---
@@ -105,56 +109,378 @@ function getTableStateAtTime(segments: TableTimelineSegment[], timestamp: number
     } as TableTimelineSegment;
 }
 
-function getStatusTheme(state: string) {
-    switch (state) {
+type FloorPlanStatus = 'available' | 'reserved' | 'seated' | 'closing';
+type FloorPlanTableType = 'round' | 'rect' | 'booth';
+
+const getStatusColor = (status: FloorPlanStatus) => {
+    switch (status) {
+        case 'seated':
+            return {
+                bg: 'bg-emerald-500',
+                stroke: 'border-emerald-600',
+                text: 'text-white',
+                glow: 'shadow-emerald-500/20'
+            };
         case 'reserved':
             return {
-                bg: 'bg-rose-50',
-                border: 'border-rose-300',
-                text: 'text-rose-700',
-                fill: 'bg-rose-400',
-                shadow: 'shadow-rose-100',
-                chair: 'bg-rose-200 border-rose-300'
+                bg: 'bg-amber-400',
+                stroke: 'border-amber-500',
+                text: 'text-white',
+                glow: 'shadow-amber-500/20'
             };
-        case 'hold':
+        case 'closing':
             return {
-                bg: 'bg-amber-50',
-                border: 'border-amber-300',
-                text: 'text-amber-700',
-                fill: 'bg-amber-400',
-                shadow: 'shadow-amber-100',
-                chair: 'bg-amber-200 border-amber-300'
-            };
-        case 'occupied':
-            return {
-                bg: 'bg-blue-50',
-                border: 'border-blue-300',
-                text: 'text-blue-700',
-                fill: 'bg-blue-400',
-                shadow: 'shadow-blue-100',
-                chair: 'bg-blue-200 border-blue-300'
-            };
-        case 'out_of_service':
-            return {
-                bg: 'bg-slate-100',
-                border: 'border-slate-300',
-                text: 'text-slate-700',
-                fill: 'bg-slate-400',
-                shadow: 'shadow-slate-100',
-                chair: 'bg-slate-200 border-slate-300'
+                bg: 'bg-slate-200',
+                stroke: 'border-slate-300',
+                text: 'text-slate-400',
+                glow: 'shadow-none'
             };
         case 'available':
         default:
             return {
-                bg: 'bg-emerald-50',
-                border: 'border-emerald-300',
-                text: 'text-emerald-700',
-                fill: 'bg-emerald-400',
-                shadow: 'shadow-emerald-100',
-                chair: 'bg-emerald-200 border-emerald-300'
+                bg: 'bg-white',
+                stroke: 'border-slate-200',
+                text: 'text-slate-700',
+                glow: 'shadow-slate-200/50'
             };
     }
-}
+};
+
+// --- UI Components ---
+
+type FloorPlanTableRender = {
+    id: string;
+    tableNumber: string;
+    capacity: number;
+    xPercent: number;
+    yPercent: number;
+    rotation: number;
+    displayStatus: FloorPlanStatus;
+    displayType: FloorPlanTableType;
+    partyName: string | null;
+};
+
+type FloorPlanTableInspector = FloorPlanTableRender & {
+    seatingType: string;
+    zoneName: string | null;
+    currentStatus: TableTimelineSegment;
+    timeLabel: string | null;
+};
+
+const ArchTable = ({
+    table,
+    isSelected,
+    onClick,
+    zoom
+}: {
+    table: FloorPlanTableRender;
+    isSelected: boolean;
+    onClick: (id: string) => void;
+    zoom: number;
+}) => {
+    const theme = getStatusColor(table.displayStatus);
+    const width = table.displayType === 'round' ? 60 : table.displayType === 'booth' ? 70 : table.capacity > 4 ? 90 : 60;
+    const height = table.displayType === 'round' ? 60 : table.displayType === 'booth' ? 50 : 60;
+    const scale = zoom < 0.8 ? 1.5 : 1;
+
+    return (
+        <button
+            type="button"
+            onClick={(event) => {
+                event.stopPropagation();
+                onClick(table.id);
+            }}
+            className="absolute cursor-pointer transition-all duration-300 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/60"
+            data-table-id={table.id}
+            style={{
+                left: `${table.xPercent}%`,
+                top: `${table.yPercent}%`,
+                transform: `translate(-50%, -50%) rotate(${table.rotation}deg) scale(${isSelected ? 1.1 : 1})`,
+                zIndex: isSelected ? 50 : 10,
+            }}
+            aria-pressed={isSelected}
+            aria-label={`Table ${table.tableNumber}`}
+        >
+            <div
+                className={cn(
+                    'absolute -inset-4 rounded-full border-2 border-indigo-500 opacity-0 scale-90 transition-all duration-300',
+                    isSelected ? 'opacity-100 scale-100' : '',
+                )}
+            />
+
+            {table.displayType !== 'booth' ? (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="absolute -top-3 w-8 h-2 bg-slate-300 rounded-full opacity-50" />
+                    <div className="absolute -bottom-3 w-8 h-2 bg-slate-300 rounded-full opacity-50" />
+                    {table.capacity > 2 ? (
+                        <>
+                            <div className="absolute -left-3 w-2 h-8 bg-slate-300 rounded-full opacity-50" />
+                            <div className="absolute -right-3 w-2 h-8 bg-slate-300 rounded-full opacity-50" />
+                        </>
+                    ) : null}
+                </div>
+            ) : null}
+
+            <div
+                className={cn(
+                    'relative flex items-center justify-center border-2 shadow-lg transition-colors duration-300',
+                    theme.bg,
+                    theme.stroke,
+                    theme.glow,
+                )}
+                style={{
+                    width: `${width}px`,
+                    height: `${height}px`,
+                    borderRadius: table.displayType === 'round' ? '50%' : '12px',
+                }}
+            >
+                <div
+                    className="flex flex-col items-center"
+                    style={{ transform: `rotate(-${table.rotation}deg) scale(${scale})` }}
+                >
+                    <span className={cn('text-sm font-bold leading-none', theme.text)}>{table.tableNumber}</span>
+                    {zoom > 0.6 && table.partyName ? (
+                        <div className="absolute -bottom-6 bg-slate-900 text-white text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap shadow-md">
+                            {table.partyName}
+                        </div>
+                    ) : null}
+                    {table.displayStatus === 'seated' ? (
+                        <Utensils className="w-3 h-3 text-white/80 mt-1" aria-hidden />
+                    ) : null}
+                    {table.displayStatus === 'reserved' ? (
+                        <Clock className="w-3 h-3 text-white/80 mt-1" aria-hidden />
+                    ) : null}
+                </div>
+            </div>
+        </button>
+    );
+};
+
+const TimeScrubber = ({
+    time,
+    min,
+    max,
+    step,
+    bars,
+    onChange,
+    onStep,
+    className
+}: {
+    time: number;
+    min: number;
+    max: number;
+    step: number;
+    bars: number[];
+    onChange: (next: number) => void;
+    onStep: (delta: number) => void;
+    className?: string;
+}) => {
+    const formatted = formatMinutes(time);
+    const range = Math.max(1, max - min);
+    const playhead = Math.max(0, Math.min(100, ((time - min) / range) * 100));
+
+    return (
+        <Card className={cn('w-full max-w-2xl', className)}>
+            <CardContent className="flex h-20 items-center gap-4 px-6">
+                <div className="flex flex-col items-center min-w-[60px]">
+                    <span className="text-xl font-bold text-slate-900 tabular-nums">{formatted}</span>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Timeline</span>
+                </div>
+
+                <div className="flex-1 relative h-12 flex items-end gap-1 group cursor-crosshair">
+                    {bars.map((height, i) => (
+                        <div
+                            key={i}
+                            className={cn(
+                                'flex-1 rounded-t-sm transition-all duration-300',
+                                i > bars.length * 0.55 && i < bars.length * 0.75 ? 'bg-primary/60' : 'bg-muted'
+                            )}
+                            style={{ height: `${height}%` }}
+                        />
+                    ))}
+
+                    <input
+                        type="range"
+                        min={min}
+                        max={max}
+                        step={step}
+                        value={time}
+                        onChange={(e) => onChange(Number(e.target.value))}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                        aria-label="Select time"
+                    />
+
+                    <div
+                        className="absolute top-0 bottom-0 w-0.5 bg-primary pointer-events-none transition-all duration-75"
+                        style={{ left: `${playhead}%` }}
+                    >
+                        <div className="absolute -top-1 -left-1.5 w-3 h-3 bg-primary rounded-full shadow-sm" />
+                    </div>
+                </div>
+
+                <div className="flex gap-2">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onStep(-step)}
+                        aria-label="Step time backward"
+                    >
+                        <Minus className="w-4 h-4" />
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onStep(step)}
+                        aria-label="Step time forward"
+                    >
+                        <Plus className="w-4 h-4" />
+                    </Button>
+                </div>
+            </CardContent>
+        </Card>
+    );
+};
+
+const FloatingInspector = ({
+    table,
+    onClose,
+    onAddBooking,
+    onBrowseBookings,
+    isOnline,
+    isLaunchingBooking,
+    variant = 'floating'
+}: {
+    table: FloorPlanTableInspector | null;
+    onClose: () => void;
+    onAddBooking: () => void;
+    onBrowseBookings: () => void;
+    isOnline: boolean;
+    isLaunchingBooking: boolean;
+    variant?: 'floating' | 'sheet' | 'panel';
+}) => {
+    if (!table) return null;
+    const theme = getStatusColor(table.displayStatus);
+    const statusLabel = table.displayStatus === 'closing' ? 'out of service' : table.displayStatus;
+    const partyLabel = table.partyName ?? 'Unknown guest';
+    const partySize = table.currentStatus.booking?.partySize ?? table.capacity;
+
+    const containerClassName =
+        variant === 'floating'
+            ? 'absolute right-6 top-24 w-80 z-40 animate-in slide-in-from-right-10 fade-in duration-300'
+            : 'relative w-full';
+
+    const cardClassName =
+        variant === 'floating'
+            ? 'overflow-hidden'
+            : variant === 'panel'
+              ? 'overflow-hidden h-full'
+              : 'overflow-hidden rounded-none border-0 shadow-none';
+
+    return (
+        <div className={containerClassName}>
+            <Card className={cardClassName}>
+                <div className={cn('h-24 relative overflow-hidden flex items-center justify-center', theme.bg)}>
+                    <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle,_rgba(255,255,255,0.4)_1px,_transparent_1px)] [background-size:18px_18px]" />
+                    <span className="text-4xl font-bold text-white opacity-90">{table.tableNumber}</span>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={onClose}
+                        className="absolute top-2 right-2 h-7 w-7 rounded-full text-white hover:bg-black/20"
+                        aria-label="Close table details"
+                    >
+                        <X className="w-4 h-4" />
+                    </Button>
+                </div>
+
+                <CardContent className="p-5">
+                    <div className="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                                Table {table.tableNumber}
+                                {table.displayType === 'booth' ? (
+                                    <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full font-normal">Booth</span>
+                                ) : null}
+                            </h3>
+                            <p className="text-sm text-slate-500 capitalize">{statusLabel}</p>
+                        </div>
+                        <div className="flex items-center gap-1 bg-slate-100 px-2 py-1 rounded-md">
+                            <Users className="w-3.5 h-3.5 text-slate-500" />
+                            <span className="text-sm font-semibold text-slate-700">{table.capacity}</span>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-xs text-slate-500 mb-4">
+                        <MapPin className="w-3.5 h-3.5" />
+                        <span>{table.zoneName ?? 'No zone'}</span>
+                        <span className="text-slate-300">•</span>
+                        <span className="capitalize">{table.seatingType.split('_').join(' ')}</span>
+                    </div>
+
+                    {table.displayStatus === 'seated' || table.displayStatus === 'reserved' ? (
+                        <div className="space-y-3">
+                            <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
+                                <div className="text-xs text-emerald-600 font-bold uppercase tracking-wide mb-1">
+                                    Current party
+                                </div>
+                                <div className="font-semibold text-slate-900">{partyLabel}</div>
+                                {table.timeLabel ? (
+                                    <div className="text-sm text-slate-500 flex items-center gap-1">
+                                        <Clock className="w-3.5 h-3.5" />
+                                        {table.displayStatus === 'seated' ? 'Seated at' : 'Reserved at'} {table.timeLabel}
+                                    </div>
+                                ) : null}
+                                <div className="text-xs text-slate-500 mt-1">Party size {partySize}</div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={onBrowseBookings}
+                                    disabled={!isOnline}
+                                >
+                                    Browse bookings
+                                </Button>
+                                <Button
+                                    type="button"
+                                    onClick={onAddBooking}
+                                    disabled={!isOnline || isLaunchingBooking}
+                                >
+                                    New booking
+                                </Button>
+                            </div>
+                        </div>
+                    ) : table.displayStatus === 'available' ? (
+                        <div className="space-y-3">
+                            <div className="text-sm text-slate-500 leading-relaxed">
+                                This table is available for walk-ins or assignment.
+                            </div>
+                            <Button
+                                type="button"
+                                className="w-full"
+                                onClick={onAddBooking}
+                                disabled={!isOnline || isLaunchingBooking}
+                            >
+                                Assign booking
+                            </Button>
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            <div className="text-sm text-slate-500 leading-relaxed">
+                                This table is currently unavailable.
+                            </div>
+                            <div className="text-xs text-slate-400">Check zone status or reopen the table.</div>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+        </div>
+    );
+};
 
 // --- Main Component ---
 
@@ -168,7 +494,7 @@ export default function FloorPlanPage() {
     const zoneService = useZoneService();
     const restaurantService = useRestaurantService();
 
-    const [currentTimeVal, setCurrentTimeVal] = useState(18.5 * 60); // Default start
+    const [currentTimeVal, setCurrentTimeVal] = useState(19 * 60 + 30);
     const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
     const [date, setDate] = useState<Date | undefined>(new Date());
     const selectedDate = useMemo(() => date ? format(date, 'yyyy-MM-dd') : new Date().toISOString().split('T')[0], [date]);
@@ -202,7 +528,7 @@ export default function FloorPlanPage() {
 
     // Calculate Timeline Range & Periods for Selected Date
     const timelineConfig = useMemo(() => {
-        if (!operatingData) return { min: 11 * 60, max: 23 * 60, periods: [] };
+        if (!operatingData) return { min: 11 * 60, max: 23 * 60, periods: [], interval: 15 };
 
         const dayOfWeek = new Date(selectedDate).getDay(); // 0 = Sunday
         // Adjust for JS getDay() (0=Sun) vs likely DB (1=Mon...7=Sun or 0=Sun) - Assuming 0=Sun matches for now
@@ -383,69 +709,66 @@ export default function FloorPlanPage() {
         });
     }, [tables, timelineData, currentTimestamp, selectedZoneId]);
 
-    const statusCounts = useMemo(() => {
-        const counts = {
-            available: 0,
-            reserved: 0,
-            hold: 0,
-            out_of_service: 0,
-        };
+    const displayTables = useMemo<FloorPlanTableInspector[]>(() => {
+        return tablesWithStatus.map((table) => {
+            const normalizedStatus = table.currentStatus.state;
+            const isInactive =
+                !table.active ||
+                table.zoneActive === false ||
+                (table.status && String(table.status).toLowerCase() !== 'available') ||
+                normalizedStatus === 'out_of_service';
 
-        tablesWithStatus.forEach(table => {
-            const state = table.currentStatus.state;
-            if (state === 'available') counts.available += 1;
-            if (state === 'reserved') counts.reserved += 1;
-            if (state === 'hold') counts.hold += 1;
-            if (state === 'out_of_service') counts.out_of_service += 1;
+            let displayStatus: FloorPlanStatus = 'available';
+            if (isInactive) {
+                displayStatus = 'closing';
+            } else if (
+                normalizedStatus === 'reserved' &&
+                table.currentStatus.booking?.status === 'checked_in'
+            ) {
+                displayStatus = 'seated';
+            } else if (normalizedStatus === 'reserved' || normalizedStatus === 'hold') {
+                displayStatus = 'reserved';
+            }
+
+            const displayType: FloorPlanTableType =
+                table.seatingType === 'booth' ? 'booth' : table.mobility === 'fixed' ? 'round' : 'rect';
+
+            const partyName = table.currentStatus.booking?.customerName ?? null;
+
+            const timeLabel = table.currentStatus.start
+                ? format(new Date(table.currentStatus.start), 'HH:mm')
+                : null;
+
+            return {
+                ...table,
+                displayStatus,
+                displayType,
+                partyName,
+                timeLabel,
+                seatingType: table.seatingType ?? 'standard',
+                zoneName: table.zoneName ?? null,
+            };
         });
-
-        return counts;
     }, [tablesWithStatus]);
 
-    const legendThemes = useMemo(
-        () => ({
-            available: getStatusTheme('available'),
-            reserved: getStatusTheme('reserved'),
-            hold: getStatusTheme('hold'),
-            out_of_service: getStatusTheme('out_of_service'),
-        }),
+    const selectedTable = useMemo(() => {
+        if (!selectedTableId) return null;
+        return displayTables.find((table) => table.id === selectedTableId) ?? null;
+    }, [displayTables, selectedTableId]);
+
+    const histogramBars = useMemo(
+        () =>
+            Array.from({ length: 48 }, (_, i) => {
+                const wave = Math.sin(i / 5) * 18;
+                const offset = (i % 6) * 3;
+                const height = 34 + wave + offset;
+                return Math.max(12, Math.min(88, Math.round(height)));
+            }),
         [],
     );
 
-    // Identify merged table groups (tables assigned to the same booking)
-    const mergedGroups = useMemo(() => {
-        const groups = new Map<string, typeof tablesWithStatus>();
-
-        tablesWithStatus.forEach(table => {
-            const booking = table.currentStatus.booking;
-            if (booking && booking.tableIds && booking.tableIds.length > 1) {
-                if (!groups.has(booking.id)) {
-                    groups.set(booking.id, []);
-                }
-                groups.get(booking.id)!.push(table);
-            }
-        });
-
-        // Filter to only include groups where multiple tables are visible on this floor plan
-        const visibleGroups = new Map<string, typeof tablesWithStatus>();
-        groups.forEach((groupTables, bookingId) => {
-            if (groupTables.length > 1) {
-                visibleGroups.set(bookingId, groupTables);
-            }
-        });
-
-        return visibleGroups;
-    }, [tablesWithStatus]);
-
-    const selectedTableData = useMemo(() => {
-        if (!selectedTableId) return null;
-        const table = tablesWithStatus.find(t => t.id === selectedTableId);
-        if (!table) return null;
-        return table;
-    }, [selectedTableId, tablesWithStatus]);
-
     const handleAddBooking = useCallback(
-        (table = selectedTableData) => {
+        (table = selectedTable) => {
             if (!isOnline) {
                 toast({
                     title: 'Offline',
@@ -482,11 +805,11 @@ export default function FloorPlanPage() {
                 setIsLaunchingBooking(false);
             }
         },
-        [isLaunchingBooking, isOnline, router, selectedDate, selectedTableData, timeParam, timeString, toast],
+        [isLaunchingBooking, isOnline, router, selectedDate, selectedTable, timeParam, timeString, toast],
     );
 
     const handleBrowseBookings = useCallback(
-        (table = selectedTableData) => {
+        (table = selectedTable) => {
             if (!isOnline) {
                 toast({
                     title: 'Offline',
@@ -502,24 +825,21 @@ export default function FloorPlanPage() {
                 params.set('tableId', table.id);
                 params.set('tableLabel', `Table ${table.tableNumber}`);
                 params.set('time', timeParam);
-                params.set('windowMode', 'window');
-                params.set('windowMinutes', String(DEFAULT_OPS_BOOKINGS_WINDOW_MINUTES));
-            } else {
-                params.set('windowMode', 'day');
             }
 
             router.push(`/bookings?${params.toString()}`);
         },
-        [isOnline, router, selectedDate, selectedTableData, timeParam, toast],
+        [isOnline, router, selectedDate, selectedTable, timeParam, toast],
     );
 
     const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-        if ((e.target as HTMLElement).closest('.no-drag')) return;
+        if ((e.target as HTMLElement).closest('[data-table-id]')) return;
         e.currentTarget.setPointerCapture(e.pointerId);
         setIsDragging(true);
         hasDraggedRef.current = false;
         dragStartRef.current = { x: e.clientX, y: e.clientY };
         panStartRef.current = { ...pan };
+        setSelectedTableId(null);
     };
 
     const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -547,194 +867,22 @@ export default function FloorPlanPage() {
     };
 
     // Zoom controls
-    const handleZoomIn = () => setZoom(z => Math.min(z + 0.25, 3));
-    const handleZoomOut = () => setZoom(z => Math.max(z - 0.25, 0.5));
-    const handleReset = () => { setZoom(1); setPan({ x: 0, y: 0 }); };
+    const handleZoomIn = () => setZoom((z) => Math.min(2, z + 0.1));
+    const handleZoomOut = () => setZoom((z) => Math.max(0.5, z - 0.1));
 
-    const inspectorContent = selectedTableData ? (() => {
-        const status = selectedTableData.currentStatus;
-        const theme = getStatusTheme(status.state);
-        const booking = status.booking;
-        const mergedTableIds = booking?.tableIds ?? [];
-        const hasMergedTables = mergedTableIds.length > 1;
+    const clampTime = useCallback(
+        (value: number) => Math.min(timelineConfig.max, Math.max(timelineConfig.min, value)),
+        [timelineConfig.max, timelineConfig.min],
+    );
 
-        return (
-            <div className="flex h-full flex-col">
-                <div className="border-b border-border/60 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                        <div className="space-y-1">
-                            <p className="text-xs uppercase tracking-wide text-muted-foreground">Table</p>
-                            <div className="text-xl font-semibold text-foreground">Table {selectedTableData.tableNumber}</div>
-                            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                                <Badge variant="outline" className="flex items-center gap-1 rounded-md border-border/60">
-                                    <MapPin className="h-3 w-3" />
-                                    {selectedTableData.zoneName || 'No zone'}
-                                </Badge>
-                                <Badge variant="secondary" className="rounded-md">
-                                    {selectedTableData.capacity} seats
-                                </Badge>
-                                <Badge variant="outline" className="rounded-md capitalize">
-                                    {selectedTableData.seatingType.replace('_', ' ')}
-                                </Badge>
-                            </div>
-                        </div>
-                        {isDesktop ? (
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setSelectedTableId(null)}
-                                className="h-8 w-8"
-                                aria-label="Close table details"
-                            >
-                                <X className="h-4 w-4" />
-                            </Button>
-                        ) : null}
-                    </div>
+    const handleTimeChange = useCallback(
+        (value: number) => setCurrentTimeVal(clampTime(value)),
+        [clampTime],
+    );
 
-                    <div className="mt-3 flex flex-wrap gap-2">
-                        <Button
-                            size="sm"
-                            onClick={() => handleAddBooking(selectedTableData)}
-                            disabled={!isOnline || isLaunchingBooking}
-                            aria-busy={isLaunchingBooking}
-                        >
-                            {isLaunchingBooking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : null}
-                            Add booking
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleBrowseBookings(selectedTableData)}
-                            disabled={!isOnline}
-                        >
-                            Browse bookings
-                        </Button>
-                    </div>
-                </div>
-
-                <div className="flex-1 space-y-4 overflow-y-auto p-4">
-                    <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
-                        <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                Status at {timeString}
-                            </span>
-                            <Badge variant="outline" className={cn("rounded-md border border-transparent capitalize", theme.bg, theme.text)}>
-                                {status.state.replace('_', ' ')}
-                            </Badge>
-                        </div>
-
-                        {status.state === 'reserved' ? (
-                            <div className="mt-3 space-y-3 text-sm text-foreground">
-                                <div className="flex items-center justify-between gap-2">
-                                    <div>
-                                        <p className="font-semibold">{booking?.customerName || 'Unknown guest'}</p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {new Date(status.start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} –{' '}
-                                            {new Date(status.end).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                                        </p>
-                                    </div>
-                                    <Badge variant="secondary" className="rounded-md text-xs font-semibold">
-                                        p{booking?.partySize ?? selectedTableData.capacity}
-                                    </Badge>
-                                </div>
-
-                                {(booking?.customerEmail || booking?.customerPhone) ? (
-                                    <div className="space-y-1 text-xs text-muted-foreground">
-                                        {booking?.customerEmail ? (
-                                            <div>Email: {booking.customerEmail}</div>
-                                        ) : null}
-                                        {booking?.customerPhone ? (
-                                            <div>Phone: {booking.customerPhone}</div>
-                                        ) : null}
-                                    </div>
-                                ) : null}
-
-                                {booking?.notes ? (
-                                    <div className="rounded-lg border border-border/60 bg-background p-2 text-xs text-muted-foreground">
-                                        “{booking.notes}”
-                                    </div>
-                                ) : null}
-
-                                {hasMergedTables ? (
-                                    <div className="space-y-2">
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                            Merged tables
-                                        </p>
-                                        <div className="flex flex-wrap gap-2">
-                                            {mergedTableIds.map((tableId) => {
-                                                const mergedTable = tablesWithStatus.find(t => t.id === tableId);
-                                                const isCurrent = tableId === selectedTableData.id;
-                                                if (!mergedTable) return null;
-                                                return (
-                                                    <Button
-                                                        key={tableId}
-                                                        size="sm"
-                                                        variant={isCurrent ? "default" : "outline"}
-                                                        className="h-7 px-2 text-xs"
-                                                        onClick={() => !isCurrent && setSelectedTableId(tableId)}
-                                                    >
-                                                        {mergedTable.tableNumber} ({mergedTable.capacity})
-                                                    </Button>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                ) : null}
-                            </div>
-                        ) : status.state === 'available' ? (
-                            <div className="mt-3 space-y-2 text-sm text-muted-foreground">
-                                <p>This table is free at {timeString}.</p>
-                                <Button
-                                    size="sm"
-                                    onClick={() => handleAddBooking(selectedTableData)}
-                                    disabled={!isOnline || isLaunchingBooking}
-                                    aria-busy={isLaunchingBooking}
-                                >
-                                    {isLaunchingBooking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : null}
-                                    Add booking
-                                </Button>
-                            </div>
-                        ) : (
-                            <div className="mt-3 text-sm text-muted-foreground">
-                                <p className="capitalize">{status.state.replace('_', ' ')}</p>
-                                <p className="text-xs">
-                                    Until {new Date(status.end).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                                </p>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="space-y-2">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Coming up next</p>
-                        <div className="space-y-2">
-                            {selectedTableData.segments
-                                .filter((s: TableTimelineSegment) => new Date(s.start).getTime() > currentTimestamp)
-                                .slice(0, 3)
-                                .map((seg: TableTimelineSegment, idx: number) => (
-                                    <div key={idx} className="rounded-lg border border-border/60 bg-background p-3 text-sm">
-                                        <div className="text-xs font-medium text-muted-foreground">
-                                            {new Date(seg.start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                                        </div>
-                                        <div className="mt-1 text-foreground">
-                                            {seg.state === 'reserved'
-                                                ? `${seg.booking?.customerName ?? 'Guest'} (p${seg.booking?.partySize ?? '?'})`
-                                                : seg.state.replace('_', ' ')}
-                                        </div>
-                                    </div>
-                                ))}
-                            {selectedTableData.segments.filter((s: TableTimelineSegment) => new Date(s.start).getTime() > currentTimestamp).length === 0 ? (
-                                <p className="text-sm text-muted-foreground">No more activity for today.</p>
-                            ) : null}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    })() : (
-        <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
-            <MapIcon className="h-8 w-8 text-muted-foreground/60" />
-            <p className="text-sm">Select a table to review bookings and actions.</p>
-        </div>
+    const handleTimeStep = useCallback(
+        (delta: number) => setCurrentTimeVal((current) => clampTime(current + delta)),
+        [clampTime],
     );
 
     if (!activeRestaurantId) {
@@ -743,7 +891,7 @@ export default function FloorPlanPage() {
                 <Card className="border-dashed">
                     <CardHeader className="items-center text-center">
                         <div className="flex size-12 items-center justify-center rounded-2xl bg-muted/60 text-muted-foreground">
-                            <MapIcon className="h-6 w-6" />
+                            <LayoutTemplate className="h-6 w-6" aria-hidden />
                         </div>
                         <CardTitle>No restaurant selected</CardTitle>
                         <CardDescription>Select a restaurant to load the floor plan.</CardDescription>
@@ -759,7 +907,7 @@ export default function FloorPlanPage() {
                 <Card>
                     <CardHeader className="items-center text-center">
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden />
-                        <CardTitle className="text-base font-semibold">Loading floor plan…</CardTitle>
+                        <CardTitle className="text-base font-semibold">Loading floor plan...</CardTitle>
                         <CardDescription>Fetching tables, zones, and live status.</CardDescription>
                     </CardHeader>
                 </Card>
@@ -767,16 +915,37 @@ export default function FloorPlanPage() {
         );
     }
 
+    const formattedDate = date ? format(date, 'MMM d, yyyy') : 'Today';
+
+    const inspectorPanel = selectedTable ? (
+        <FloatingInspector
+            table={selectedTable}
+            onClose={() => setSelectedTableId(null)}
+            onAddBooking={() => handleAddBooking(selectedTable)}
+            onBrowseBookings={() => handleBrowseBookings(selectedTable)}
+            isOnline={isOnline}
+            isLaunchingBooking={isLaunchingBooking}
+            variant="panel"
+        />
+    ) : (
+        <Card className="h-full">
+            <CardHeader>
+                <CardTitle className="text-base">Table details</CardTitle>
+                <CardDescription>Select a table to review bookings and actions.</CardDescription>
+            </CardHeader>
+        </Card>
+    );
+
     return (
-        <div className="mx-auto flex w-full max-w-[90rem] flex-col gap-4 px-3 py-6 sm:px-6 lg:px-8">
-            <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="space-y-3">
+        <div className="mx-auto flex w-full max-w-[90rem] flex-col gap-6 px-3 py-6 sm:px-6 lg:px-8">
+            <header className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+                <div className="flex flex-col gap-3">
                     <div className="flex items-center gap-3">
                         <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                            <MapIcon className="h-5 w-5" />
+                            <LayoutTemplate className="h-5 w-5" aria-hidden />
                         </div>
                         <div>
-                            <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">Floor plan</h1>
+                            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Floor plan</h1>
                             <p className="text-sm text-muted-foreground">
                                 Manage table availability and jump into bookings quickly.
                             </p>
@@ -788,30 +957,73 @@ export default function FloorPlanPage() {
                             {selectedZoneLabel}
                         </Badge>
                         <Badge variant="outline" className="rounded-md">
-                            {date ? format(date, 'MMM d, yyyy') : 'Today'}
+                            {formattedDate}
                         </Badge>
                         <Badge variant="outline" className="rounded-md">
                             {timeString}
                         </Badge>
                     </div>
-
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <Badge variant="outline" className={cn("rounded-md border", legendThemes.available.bg, legendThemes.available.border, legendThemes.available.text)}>
-                            Available {statusCounts.available}
-                        </Badge>
-                        <Badge variant="outline" className={cn("rounded-md border", legendThemes.reserved.bg, legendThemes.reserved.border, legendThemes.reserved.text)}>
-                            Reserved {statusCounts.reserved}
-                        </Badge>
-                        <Badge variant="outline" className={cn("rounded-md border", legendThemes.hold.bg, legendThemes.hold.border, legendThemes.hold.text)}>
-                            Holds {statusCounts.hold}
-                        </Badge>
-                        <Badge variant="outline" className={cn("rounded-md border", legendThemes.out_of_service.bg, legendThemes.out_of_service.border, legendThemes.out_of_service.text)}>
-                            Out of service {statusCounts.out_of_service}
-                        </Badge>
-                    </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className="gap-2">
+                                <LayoutTemplate className="h-4 w-4" />
+                                {selectedZoneLabel}
+                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-56 p-2" align="start">
+                            <div className="px-2 py-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+                                Zones
+                            </div>
+                            <div className="space-y-1">
+                                <Button
+                                    type="button"
+                                    variant={selectedZoneId === 'all' ? 'secondary' : 'ghost'}
+                                    className="w-full justify-start"
+                                    onClick={() => setSelectedZoneId('all')}
+                                >
+                                    All zones
+                                </Button>
+                                {zones.map((zone) => (
+                                    <Button
+                                        key={zone.id}
+                                        type="button"
+                                        variant={selectedZoneId === zone.id ? 'secondary' : 'ghost'}
+                                        className="w-full justify-start"
+                                        onClick={() => setSelectedZoneId(zone.id)}
+                                    >
+                                        {zone.name}
+                                    </Button>
+                                ))}
+                            </div>
+                        </PopoverContent>
+                    </Popover>
+
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className="gap-2">
+                                <CalendarIcon className="h-4 w-4" />
+                                {formattedDate}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                            <Calendar mode="single" selected={date} onSelect={setDate} initialFocus />
+                        </PopoverContent>
+                    </Popover>
+
+                    <div className="relative w-full sm:w-64">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            type="text"
+                            placeholder="Search guests, tables..."
+                            className="pl-9"
+                            aria-label="Search guests or tables"
+                        />
+                    </div>
+
                     <Button variant="outline" onClick={() => handleBrowseBookings()} disabled={!isOnline}>
                         Browse bookings
                     </Button>
@@ -824,103 +1036,6 @@ export default function FloorPlanPage() {
 
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
                 <div className="flex flex-col gap-4">
-                    <Card className="shadow-sm">
-                        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                                <CardTitle className="text-base">Controls</CardTitle>
-                                <CardDescription>Pick a zone, date, and time.</CardDescription>
-                            </div>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        className={cn(
-                                            "w-[180px] justify-start text-left text-sm font-normal",
-                                            !date && "text-muted-foreground"
-                                        )}
-                                    >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {date ? format(date, "PPP") : <span>Pick a date</span>}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="end">
-                                    <Calendar
-                                        mode="single"
-                                        selected={date}
-                                        onSelect={setDate}
-                                        initialFocus
-                                    />
-                                </PopoverContent>
-                            </Popover>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="space-y-2">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Zones</p>
-                                <ToggleGroup
-                                    type="single"
-                                    value={selectedZoneId}
-                                    onValueChange={(value) => {
-                                        if (value) setSelectedZoneId(value);
-                                    }}
-                                    className="flex flex-wrap justify-start gap-2"
-                                    aria-label="Zone filter"
-                                >
-                                    <ToggleGroupItem value="all" className="h-12 px-3 text-xs sm:h-9">
-                                        All zones
-                                    </ToggleGroupItem>
-                                    {zones.map(zone => (
-                                        <ToggleGroupItem key={zone.id} value={zone.id} className="h-12 px-3 text-xs sm:h-9">
-                                            {zone.name}
-                                        </ToggleGroupItem>
-                                    ))}
-                                </ToggleGroup>
-                            </div>
-
-                            <Separator />
-
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                    <span className="font-semibold uppercase tracking-wide">Time</span>
-                                    <Badge variant="outline" className="rounded-md">
-                                        {timeString}
-                                    </Badge>
-                                </div>
-                                <input
-                                    type="range"
-                                    min={timelineConfig.min}
-                                    max={timelineConfig.max}
-                                    step={timelineConfig.interval}
-                                    value={currentTimeVal}
-                                    onChange={(e) => setCurrentTimeVal(parseFloat(e.target.value))}
-                                    className="w-full accent-foreground"
-                                    aria-label="Select time"
-                                />
-                                <div className="flex justify-between text-[11px] text-muted-foreground">
-                                    <span>{formatMinutesLabel(timelineConfig.min)}</span>
-                                    <span>{formatMinutesLabel(timelineConfig.max)}</span>
-                                </div>
-                            </div>
-
-                            <Separator />
-
-                            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Legend</span>
-                                <Badge variant="outline" className={cn("rounded-md border", legendThemes.available.bg, legendThemes.available.border, legendThemes.available.text)}>
-                                    Available
-                                </Badge>
-                                <Badge variant="outline" className={cn("rounded-md border", legendThemes.reserved.bg, legendThemes.reserved.border, legendThemes.reserved.text)}>
-                                    Reserved
-                                </Badge>
-                                <Badge variant="outline" className={cn("rounded-md border", legendThemes.hold.bg, legendThemes.hold.border, legendThemes.hold.text)}>
-                                    Hold
-                                </Badge>
-                                <Badge variant="outline" className={cn("rounded-md border", legendThemes.out_of_service.bg, legendThemes.out_of_service.border, legendThemes.out_of_service.text)}>
-                                    Out of service
-                                </Badge>
-                            </div>
-                        </CardContent>
-                    </Card>
-
                     <Card className="relative overflow-hidden">
                         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <div>
@@ -936,8 +1051,8 @@ export default function FloorPlanPage() {
                         <CardContent className="relative p-0">
                             <div
                                 className={cn(
-                                    "relative flex h-[60vh] min-h-[420px] w-full items-center justify-center overflow-hidden bg-muted/30 touch-none",
-                                    isDragging ? "cursor-grabbing" : "cursor-grab"
+                                    'relative flex h-[65vh] min-h-[520px] w-full items-center justify-center overflow-hidden bg-muted/20 touch-none',
+                                    isDragging ? 'cursor-grabbing' : 'cursor-grab'
                                 )}
                                 onPointerDown={handlePointerDown}
                                 onPointerMove={handlePointerMove}
@@ -947,213 +1062,75 @@ export default function FloorPlanPage() {
                                 role="region"
                                 aria-label="Floor plan canvas"
                             >
-                                <div className="absolute inset-0 bg-[radial-gradient(circle,_rgba(15,23,42,0.12)_1px,_transparent_1px)] [background-size:18px_18px] opacity-40" />
-
                                 <div
-                                    className="relative h-full w-full max-w-5xl aspect-[4/3] rounded-3xl border border-border/60 bg-background/70 shadow-lg ring-1 ring-border/30 backdrop-blur-sm transition-transform duration-75 ease-out"
-                                    style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
-                                >
-                                    <svg className="absolute inset-0 h-full w-full pointer-events-none" style={{ zIndex: 5 }}>
-                                        {Array.from(mergedGroups.entries()).map(([bookingId, groupTables]) => {
-                                            const lines = [];
-                                            const theme = legendThemes.reserved;
+                                    className="absolute inset-0 opacity-[0.08] pointer-events-none"
+                                    style={{
+                                        backgroundImage: `
+                                            linear-gradient(to right, hsl(var(--border)) 1px, transparent 1px),
+                                            linear-gradient(to bottom, hsl(var(--border)) 1px, transparent 1px)
+                                        `,
+                                        backgroundSize: `${40 * zoom}px ${40 * zoom}px`,
+                                        backgroundPosition: `${pan.x}px ${pan.y}px`,
+                                    }}
+                                />
 
-                                            for (let i = 0; i < groupTables.length - 1; i++) {
-                                                for (let j = i + 1; j < groupTables.length; j++) {
-                                                    const table1 = groupTables[i];
-                                                    const table2 = groupTables[j];
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <div
+                                        className="relative transition-transform duration-75 ease-out will-change-transform"
+                                        style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
+                                    >
+                                        <div className="relative w-[90vw] max-w-[900px] aspect-[4/3] rounded-[32px] border border-border/60 bg-background shadow-lg">
+                                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-2 bg-muted rounded-b-xl" />
+                                            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-64 h-2 bg-muted rounded-t-xl" />
 
-                                                    lines.push(
-                                                        <line
-                                                            key={`${bookingId}-${table1.id}-${table2.id}`}
-                                                            x1={`${table1.xPercent}%`}
-                                                            y1={`${table1.yPercent}%`}
-                                                            x2={`${table2.xPercent}%`}
-                                                            y2={`${table2.yPercent}%`}
-                                                            stroke="currentColor"
-                                                            strokeWidth="2"
-                                                            strokeDasharray="4 4"
-                                                            className={cn("opacity-40", theme.text)}
-                                                        />
-                                                    );
-                                                }
-                                            }
-
-                                            return lines;
-                                        })}
-                                    </svg>
-
-                                    {tablesWithStatus.map((table) => {
-                                        const status = table.currentStatus;
-                                        const isSelected = selectedTableId === table.id;
-                                        const theme = getStatusTheme(status.state);
-
-                                        const booking = status.booking;
-                                        const isMerged = booking && booking.tableIds && booking.tableIds.length > 1;
-                                        const mergedTableCount = isMerged && booking?.tableIds ? booking.tableIds.length : 0;
-
-                                        const isRound = table.mobility === 'fixed';
-                                        const capacity = table.capacity || 2;
-
-                                        let widthPercent = 5;
-                                        let aspectRatio = '1/1';
-
-                                        if (isRound) {
-                                            if (capacity <= 2) widthPercent = 4;
-                                            else if (capacity <= 4) widthPercent = 5.5;
-                                            else if (capacity <= 6) widthPercent = 7;
-                                            else widthPercent = 8.5;
-                                            aspectRatio = '1/1';
-                                        } else {
-                                            if (capacity <= 2) {
-                                                widthPercent = 4;
-                                                aspectRatio = '1/1';
-                                            } else if (capacity <= 4) {
-                                                widthPercent = 6;
-                                                aspectRatio = '1.4/1';
-                                            } else if (capacity <= 6) {
-                                                widthPercent = 8;
-                                                aspectRatio = '1.8/1';
-                                            } else {
-                                                widthPercent = 10;
-                                                aspectRatio = '2.2/1';
-                                            }
-                                        }
-
-                                        const minTapSize = Math.round(44 / Math.max(zoom, 0.5));
-
-                                        return (
-                                            <button
-                                                key={table.id}
-                                                onClick={() => handleTableClick(table.id)}
-                                                className={cn(
-                                                    "absolute group z-10 flex items-center justify-center transition-transform duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-                                                    isSelected ? "z-20 scale-110" : "hover:scale-105"
-                                                )}
-                                                style={{
-                                                    left: `${table.xPercent}%`,
-                                                    top: `${table.yPercent}%`,
-                                                    width: `${widthPercent}%`,
-                                                    minWidth: `${minTapSize}px`,
-                                                    minHeight: `${minTapSize}px`,
-                                                    aspectRatio: aspectRatio,
-                                                    transform: `rotate(${table.rotation}deg)`
-                                                }}
-                                                aria-pressed={isSelected}
-                                                aria-label={`Table ${table.tableNumber}, ${status.state.replace('_', ' ')}`}
-                                            >
-                                                <div className={cn(
-                                                    "absolute inset-0 border-2 shadow-sm transition-colors",
-                                                    isRound ? "rounded-full" : "rounded-lg",
-                                                    theme.bg,
-                                                    theme.border,
-                                                    isMerged && "ring-2 ring-offset-1 ring-current/30"
-                                                )}>
-                                                    <div className={cn(
-                                                        "absolute inset-2 opacity-20 rounded-full",
-                                                        theme.fill
-                                                    )} />
-
-                                                    <div className={cn(
-                                                        "absolute inset-0 flex flex-col items-center justify-center",
-                                                        theme.text
-                                                    )}>
-                                                        <span className="text-[8px] sm:text-[10px] font-semibold leading-none">{table.tableNumber}</span>
-                                                        {status.state === 'reserved' && !isMerged ? (
-                                                            <div className={cn("mt-0.5 h-1 w-1 rounded-full", theme.fill)} />
-                                                        ) : null}
-                                                        {isMerged ? (
-                                                            <div className="mt-0.5 rounded-full bg-white/60 px-1 text-[7px] font-semibold">
-                                                                {mergedTableCount}x
-                                                            </div>
-                                                        ) : null}
-                                                    </div>
-
-                                                    {isMerged ? (
-                                                        <div className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-white text-[6px] font-bold text-muted-foreground shadow-sm">
-                                                            +
-                                                        </div>
-                                                    ) : null}
-                                                </div>
-
-                                                {isRound ? (
-                                                    Array.from({ length: Math.min(capacity, 8) }).map((_, i) => {
-                                                        const count = Math.min(capacity, 8);
-                                                        const angle = (i * 360) / count;
-                                                        return (
-                                                            <div
-                                                                key={i}
-                                                                className={cn(
-                                                                    "absolute h-1/3 w-1/3 rounded-full border shadow-sm transition-colors",
-                                                                    theme.chair
-                                                                )}
-                                                                style={{
-                                                                    top: '50%',
-                                                                    left: '50%',
-                                                                    transform: `translate(-50%, -50%) rotate(${angle}deg) translate(0, -160%)`
-                                                                }}
-                                                            />
-                                                        );
-                                                    })
-                                                ) : (
-                                                    <>
-                                                        <div className="absolute -top-1/2 left-0 flex h-1/2 w-full items-end justify-around px-[10%] pointer-events-none">
-                                                            {Array.from({ length: Math.ceil(capacity / 2) }).map((_, i) => (
-                                                                <div
-                                                                    key={`top-${i}`}
-                                                                    className={cn(
-                                                                        "mx-0.5 h-2/3 w-1/2 max-w-[30%] rounded-t-md border shadow-sm",
-                                                                        theme.chair
-                                                                    )}
-                                                                />
-                                                            ))}
-                                                        </div>
-                                                        <div className="absolute -bottom-1/2 left-0 flex h-1/2 w-full items-start justify-around px-[10%] pointer-events-none">
-                                                            {Array.from({ length: Math.floor(capacity / 2) }).map((_, i) => (
-                                                                <div
-                                                                    key={`bottom-${i}`}
-                                                                    className={cn(
-                                                                        "mx-0.5 h-2/3 w-1/2 max-w-[30%] rounded-b-md border shadow-sm",
-                                                                        theme.chair
-                                                                    )}
-                                                                />
-                                                            ))}
-                                                        </div>
-                                                    </>
-                                                )}
-                                            </button>
-                                        );
-                                    })}
+                                            {displayTables.map((table) => (
+                                                <ArchTable
+                                                    key={table.id}
+                                                    table={table}
+                                                    isSelected={selectedTableId === table.id}
+                                                    onClick={handleTableClick}
+                                                    zoom={zoom}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <div className="absolute left-4 top-4 z-20 flex flex-col gap-1 rounded-xl border border-border/60 bg-background/80 p-1 shadow-sm no-drag">
-                                    <TooltipProvider delayDuration={100}>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" onClick={handleZoomIn} className="h-8 w-8 rounded-lg">
-                                                    <Plus className="h-4 w-4" />
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>Zoom in</TooltipContent>
-                                        </Tooltip>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" onClick={handleZoomOut} className="h-8 w-8 rounded-lg">
-                                                    <Minus className="h-4 w-4" />
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>Zoom out</TooltipContent>
-                                        </Tooltip>
+                                <Card className="absolute right-4 top-4 z-20">
+                                    <CardContent className="p-1 flex flex-col gap-1">
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={handleZoomIn}
+                                            aria-label="Zoom in"
+                                        >
+                                            <ZoomIn className="h-4 w-4" />
+                                        </Button>
                                         <Separator />
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" onClick={handleReset} className="h-8 w-8 rounded-lg">
-                                                    <RotateCcw className="h-4 w-4" />
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>Reset view</TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={handleZoomOut}
+                                            aria-label="Zoom out"
+                                        >
+                                            <ZoomOut className="h-4 w-4" />
+                                        </Button>
+                                    </CardContent>
+                                </Card>
+
+                                <div className="absolute bottom-4 left-1/2 z-20 w-full max-w-2xl -translate-x-1/2 px-4">
+                                    <TimeScrubber
+                                        time={currentTimeVal}
+                                        min={timelineConfig.min}
+                                        max={timelineConfig.max}
+                                        step={timelineConfig.interval}
+                                        bars={histogramBars}
+                                        onChange={handleTimeChange}
+                                        onStep={handleTimeStep}
+                                        className="w-full"
+                                    />
                                 </div>
                             </div>
                         </CardContent>
@@ -1161,13 +1138,13 @@ export default function FloorPlanPage() {
                 </div>
 
                 <aside className="hidden lg:block">
-                    <Card className="flex h-full min-h-[640px] flex-col">{inspectorContent}</Card>
+                    {inspectorPanel}
                 </aside>
             </div>
 
             {!isDesktop ? (
                 <Sheet
-                    open={Boolean(selectedTableData)}
+                    open={Boolean(selectedTable)}
                     onOpenChange={(open) => {
                         if (!open) setSelectedTableId(null);
                     }}
@@ -1175,9 +1152,17 @@ export default function FloorPlanPage() {
                     <SheetContent side="bottom" className="h-[85vh] p-0">
                         <SheetHeader className="sr-only">
                             <SheetTitle>Table details</SheetTitle>
-                            <SheetDescription>Review table status and upcoming bookings.</SheetDescription>
+                            <SheetDescription>Review table status and actions.</SheetDescription>
                         </SheetHeader>
-                        {inspectorContent}
+                        <FloatingInspector
+                            table={selectedTable}
+                            onClose={() => setSelectedTableId(null)}
+                            onAddBooking={() => handleAddBooking(selectedTable)}
+                            onBrowseBookings={() => handleBrowseBookings(selectedTable)}
+                            isOnline={isOnline}
+                            isLaunchingBooking={isLaunchingBooking}
+                            variant="sheet"
+                        />
                     </SheetContent>
                 </Sheet>
             ) : null}

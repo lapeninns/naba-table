@@ -125,7 +125,7 @@ updated: 2025-12-22
 
 **Phases**: 2 (Design), 3 (Implementation)
 
-**Rule**: **Prefer Shadcn** before building custom components
+**Rule**: **Shadcn UI primitives are required** for all UI; custom primitives are not allowed without maintainer approval and plan.md justification.
 
 #### Capabilities
 
@@ -150,6 +150,7 @@ updated: 2025-12-22
 [ ] Verify component supports required a11y features
 [ ] Check customization options
 [ ] Confirm no styling conflicts
+[ ] If no Shadcn equivalent exists, stop and request maintainer approval before creating any custom primitive
 
 ### 3. Installation
 

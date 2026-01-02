@@ -1,0 +1,75 @@
+{
+  "technicalTruthHero": {
+    "headline": "Automated table assignment with adjacency, holds, and conflict checks",
+    "subheadline": "The booking pipeline validates capacity, slack budget, zone, movable-table rules, adjacency, and conflicts/holds, then attempts inline auto-assign and schedules background retries if confirmation is still pending.",
+    "keyStat": "Default table holds lock inventory for 180 seconds (3 minutes)."
+  },
+  "featuresGrid": [
+    {
+      "featureName": "Interactive Floor Plan Assignment",
+      "operationalBenefit": "Seat guests without double-booking by seeing held, conflicted, and assigned tables at a glance.",
+      "technicalDetail": "`TableFloorPlan` renders per-table holds/conflicts with countdownSeconds and supports an only-available view to hide blocked tables."
+    },
+    {
+      "featureName": "Ops Booking Console",
+      "operationalBenefit": "Run service flow faster with check-in, check-out, and no-show actions tied to the live booking list.",
+      "technicalDetail": "Lifecycle actions use optimistic updates with conflict handling and an offline queue so staff can keep moving even during connectivity blips."
+    },
+    {
+      "featureName": "Customer CRM and VIP Segmentation",
+      "operationalBenefit": "Recognize repeat guests, prioritize VIPs, and respect marketing opt-ins without digging through spreadsheets.",
+      "technicalDetail": "`OpsCustomer` tracks totalBookings, totalCovers, lastBookingAt, and marketingOptIn; bookings include loyaltyTier, allergies, dietaryRestrictions, and seatingPreference."
+    },
+    {
+      "featureName": "Table Timeline and Inventory Control",
+      "operationalBenefit": "Visualize service windows and keep every table's status accurate for smoother turn planning.",
+      "technicalDetail": "Timeline segments are typed as reserved/hold/available/out_of_service with lunch/dinner services; table inventory stores category, seatingType, mobility, and status."
+    }
+  ],
+  "workflow": {
+    "input": "Bookings enter via POST /api/bookings (public reserve widget) or ops walk-ins flagged with x-ops-walk-in headers, including party size, time, and contact info.",
+    "processing": "Requests are schema-validated, rate-limited (60/min per restaurant + IP), capacity-checked, and persisted; inline auto-assign runs with a bounded timeout and falls back to background auto-assign with holds and conflict checks.",
+    "output": "The API returns the booking plus confirmation token; OpsBookingsClient and the BookingStateMachine refresh lists via React Query and show status transitions, while the floor plan highlights assigned, held, or conflicted tables."
+  },
+  "integrationsAndData": {
+    "integrations": [
+      "Supabase (database + auth)",
+      "Resend (transactional email + webhook processing)",
+      "Redis/Upstash (queues and rate limiting)",
+      "Crisp (support chat)",
+      "Plausible (analytics)"
+    ],
+    "guestDataPoints": [
+      "customerName",
+      "customerEmail",
+      "customerPhone",
+      "notes",
+      "reference",
+      "loyaltyTier",
+      "loyaltyPoints",
+      "profileNotes",
+      "allergies",
+      "dietaryRestrictions",
+      "seatingPreference",
+      "marketingOptIn",
+      "totalBookings",
+      "totalCovers",
+      "lastBookingAt",
+      "totalCancellations"
+    ]
+  },
+  "faq": [
+    {
+      "objection": "What if the internet goes down?",
+      "answer": "The booking offline queue captures actions and the offline banner shows queued items; when connectivity returns, queued mutations can sync automatically or on demand."
+    },
+    {
+      "objection": "Can I handle large parties?",
+      "answer": "Multi-table assignments are supported with capacity, slack, zone, adjacency, and movable-table checks; the allocator max tables per booking is configurable (FEATURE_ALLOCATOR_K_MAX, 1-5)."
+    },
+    {
+      "objection": "Is it hard to learn?",
+      "answer": "Ops surfaces use focused dialogs and status badges, plus global shortcuts (Cmd/Ctrl+N to add tables) to speed up common tasks."
+    }
+  ]
+}

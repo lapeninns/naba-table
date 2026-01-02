@@ -1,56 +1,48 @@
 # Continuity Ledger
 
-Last updated: 2026-01-02T20:08:00Z
+Last updated: 2026-01-02T21:56:50Z
 
 ## Goal (incl. success criteria)
 
-- Implement Booking Details Dialog UX/UI overhaul (component split, smart logic, shortcuts, filters) using existing data only.
-- Success: no console errors; keyboard shortcuts work; responsive layout on <=768px; all new UI surfaces handle missing data gracefully.
+- Replace the public landing page with the updated UK pubs client component content and styles.
+- Success: `src/components/landing/FactoryHomeClient.tsx` matches the supplied layout (Problem section + UK copy) and renders on `src/app/(public)/page.tsx` with named + default export.
 
 ## Constraints/Assumptions
 
-- Follow AGENTS SDLC phases; create required task artifacts.
-- Manual UI QA via Chrome DevTools MCP required for UI changes.
-- Zero backend changes; use existing booking/guest/table data only.
-- Keep comments minimal; avoid README/docs updates unless explicitly required by policy.
+- Use Shadcn UI primitives for landing buttons/badges.
+- Manual UI QA via Chrome DevTools MCP is required for UI changes.
+- Run lint, typecheck, and tests; record outcomes even if pre-existing failures exist.
 
 ## Key decisions
 
-- Refactored BookingDialog into DialogHeader, GuestProfilePanel, and TableAssignmentPanel with status header tone and stacked layout.
-- Added smart-assign, Perfect Fit filter, conflict timeline bar, and keyboard shortcuts.
+- Use Shadcn `Button`/`Badge` and keep `FactoryHomeClient` named + default export for the public page import.
+- Respect prefers-reduced-motion by disabling reveal observer and live feed auto-rotation.
 
 ## State
 
-- Phase 3 implementation done; Phase 4 blocked by failing tests and pending manual UI QA (MCP auth unavailable).
+- Landing component updated with UK pubs copy and Problem section; tests re-run with same failures.
 
 ## Done
 
-- Created task folder and SDLC artifacts in `tasks/booking-dialog-overhaul-20260102-1919/`.
-- Implemented component split, header tone, shortcuts, WhatsApp action, smart assign, filters, and conflict timeline.
-- Updated eslint config to register react-hooks/import plugins; added ignore for `scripts/**/*.cjs`.
-- Lint passes with existing warnings; typecheck passes after clearing stale `.next`.
+- Replaced `src/components/landing/FactoryHomeClient.tsx` with UK pubs layout using Shadcn primitives and reduced-motion handling.
+- Kept named + default export for `src/app/(public)/page.tsx` import.
+- Re-ran `pnpm run lint` (warnings), `pnpm run typecheck` (pass), `pnpm run test` (fails in API route suites).
 
 ## Now
 
-- Resolve failing `pnpm run test` (multiple API tests failing; likely pre-existing).
-- Attempt Chrome DevTools MCP QA once auth is available; capture artifacts.
+- Await Chrome DevTools MCP QA and capture artifacts.
 
 ## Next
 
-- Update `tasks/booking-dialog-overhaul-20260102-1919/verification.md` with test/QA results.
+- Run Chrome DevTools MCP manual QA and capture artifacts.
+- Decide whether to address existing API test failures or leave as known issues.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Confirm default service window for conflict timeline (fallback currently 18:00-22:00).
-- Confirm whether to keep/remove BookingAssignmentTabContent references elsewhere.
-- MCP auth unavailable error (500 auth_unavailable) needs resolution for manual QA.
-- Should we investigate/resolve existing failing tests or document as pre-existing?
+- None.
 
 ## Working set (files/ids/commands)
 
-- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/components/features/dashboard/booking-details/BookingDialog.tsx
-- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/components/features/dashboard/booking-details/components/GuestProfilePanel.tsx
-- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/components/features/dashboard/booking-details/components/TableAssignmentPanel.tsx
-- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/components/features/dashboard/booking-details/components/SelectableTableCard.tsx
-- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/eslint.config.mjs
-- tasks/booking-dialog-overhaul-20260102-1919/\*
+- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/app/(public)/page.tsx
+- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/components/landing/FactoryHomeClient.tsx
+- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/landing-page-replace-20260102-2136/{research,plan,todo,verification}.md

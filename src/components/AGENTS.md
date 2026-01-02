@@ -2,7 +2,7 @@
 agents_version: 5.3
 scope: subproject
 extends: ../../AGENTS.md
-last_updated: 2025-12-19
+last_updated: 2026-01-02
 owner: github:@amanshresthaa
 profile: package-ui
 ---
@@ -30,6 +30,7 @@ Applies to shared and feature components for the Next.js app.
 - Prefer composition over inheritance.
 - Avoid inline styles unless absolutely necessary.
 - Use repo tokens and utilities (`styles/tokens.css`, `src/app/globals.css`).
+- Shadcn UI primitives are mandatory; do not introduce custom primitives or base components outside `src/components/ui`.
 
 ## Accessibility
 
@@ -43,5 +44,5 @@ Applies to shared and feature components for the Next.js app.
 
 ## MCP usage
 
-- Shadcn MCP for new primitives.
+- Shadcn MCP is required for new or updated primitives.
 - Chrome DevTools MCP for UI verification.

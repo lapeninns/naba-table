@@ -17,6 +17,13 @@ updated: 2025-12-22
 
 ---
 
+## Implementation Guardrails
+
+- Use Shadcn UI primitives for all UI; compose and extend instead of introducing custom base components.
+- Any exception requires maintainer approval and documentation in `plan.md`.
+
+---
+
 ## Core Philosophy: Avoid "AI Slop"
 
 "AI slop" refers to the homogeneous, lifeless aesthetic that emerges when AI generates without intentional design direction. Characteristics include:
