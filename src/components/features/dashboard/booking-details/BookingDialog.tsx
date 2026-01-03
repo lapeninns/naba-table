@@ -18,7 +18,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { Copy, LayoutGrid, LogIn, LogOut, Phone, RotateCcw, UserX } from 'lucide-react';
+import { Ban, Copy, LayoutGrid, LogIn, LogOut, Phone, RotateCcw, UserX } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -86,7 +86,9 @@ export function BookingDialog({
   onCheckOut,
   onMarkNoShow,
   onUndoNoShow,
+  onCancel,
   pendingLifecycleAction,
+  cancelPending,
   open,
   onOpenChange,
 }: BookingDialogProps) {
@@ -97,6 +99,7 @@ export function BookingDialog({
   const [isOpen, setIsOpen] = useState(Boolean(open));
   const [pendingAction, setPendingAction] = useState<BookingActionType | null>(null);
   const [confirmNoShow, setConfirmNoShow] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
   const tablePanelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -147,7 +150,8 @@ export function BookingDialog({
   const needsAssignment =
     Boolean(booking?.requiresTableAssignment) && allowTableAssignments && assignedTableRows.length === 0;
 
-  const isActionPending = Boolean(pendingLifecycleAction || pendingAction);
+  const isActionPending = Boolean(pendingLifecycleAction || pendingAction || cancelPending);
+  const canCancel = Boolean(booking) && !['cancelled', 'completed', 'no_show', 'checked_in'].includes(status);
 
   const handleAction = useCallback(
     async (action: BookingActionType) => {
@@ -209,6 +213,15 @@ export function BookingDialog({
     summary,
     toast,
   ]);
+
+  const handleCancel = useCallback(async () => {
+    if (!onCancel) return;
+    try {
+      await onCancel();
+    } finally {
+      setConfirmCancel(false);
+    }
+  }, [onCancel]);
 
   const primaryAction: PrimaryAction = useMemo(() => {
     if (!booking) return null;
@@ -408,6 +421,18 @@ export function BookingDialog({
                 No-show
               </Button>
             )}
+            {onCancel && canCancel ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setConfirmCancel(true)}
+                disabled={isActionPending}
+                className="text-destructive hover:text-destructive"
+              >
+                <Ban className="h-3.5 w-3.5 mr-1" />
+                Cancel booking
+              </Button>
+            ) : null}
             {primaryAction ? (() => {
               const PrimaryIcon = primaryAction.icon;
               return (
@@ -466,6 +491,27 @@ export function BookingDialog({
               className="bg-rose-600 hover:bg-rose-700"
             >
               Confirm no-show
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmCancel} onOpenChange={setConfirmCancel}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this booking?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will mark the booking as cancelled and notify the guest.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={Boolean(cancelPending)}>Keep booking</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCancel}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={Boolean(cancelPending)}
+            >
+              Confirm cancellation
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

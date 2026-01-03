@@ -124,6 +124,50 @@
 
 ---
 
+## The Booking Process Flowchart ("Under the Hood")
+
+**Section Headline:** Visualizing the Flow: From "Book Now" to "Seated"  
+**Section Description:** A transparent view of how the system handles bookings so you don't have to.
+
+### 1. The Customer Journey (Frictionless)
+
+1.  **Selection:** Guest selects Date, Time, and Party Size on your branded widget.
+2.  **Smart Check:** System instantly verifies table availability and operating hours.
+3.  **Details:** Guest enters contact info and special requests (allergies, occasions).
+4.  **Confirmation:** Guest receives an **immediate** confirmation via Email/SMS.
+    - _No manual approval needed (unless you want it)._
+
+### 2. The Admin Experience (Real-Time Control)
+
+1.  **Instant Notification:** New booking appears instantly on your **Live Dashboard** and **Activity Feed**.
+2.  **Auto-Pilot:** System deducts inventory and optionally auto-assigns the best table (using the "Kitchen-Safe" logic).
+3.  **Visual Status:** Booking shows as "Upcoming" on the floor plan.
+4.  **Guest Arrival:** Staff simply clicks "Check-In" when the guest arrives.
+
+### 3. Visual Flowchart
+
+```mermaid
+graph TD
+    subgraph Customer_Journey ["Customer Journey"]
+    A[Lands on Booking Widget] --> B{Availability Check}
+    B -- Available --> C[Selects Time & Table]
+    B -- Full --> D[Joins Waitlist]
+    C --> E[Enters Details & Special Requests]
+    E --> F[Booking Confirmed]
+    F --> G[Receives Instant Confirmation (Email/SMS)]
+    end
+
+    subgraph Admin_System ["Admin System (You)"]
+    F -.-> H[Admin Dashboard Updates Instantly]
+    H --> I[Appears in 'Upcoming' Tab]
+    H --> J[Logged in Activity Feed]
+    H --> L[Inventory Deducted]
+    I --> K[Staff Check-In Guest]
+    end
+```
+
+---
+
 ## Enhancing the Offer (Scarcity & Urgency)
 
 **Scarcity (Quantity-based):**

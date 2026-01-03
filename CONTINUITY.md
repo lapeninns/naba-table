@@ -1,48 +1,59 @@
 # Continuity Ledger
 
-Last updated: 2026-01-02T21:56:50Z
+Last updated: 2026-01-03T03:45:00Z
 
 ## Goal (incl. success criteria)
 
-- Replace the public landing page with the updated UK pubs client component content and styles.
-- Success: `src/components/landing/FactoryHomeClient.tsx` matches the supplied layout (Problem section + UK copy) and renders on `src/app/(public)/page.tsx` with named + default export.
+- **NEW**: Revamp BookingDialog to use only Shadcn UI primitives (Card, Badge, Button, etc.) for better consistency and maintainability.
+- Success: All custom components replaced with Shadcn compositions, no functionality regressions, all tests pass, perf/a11y budgets met.
 
 ## Constraints/Assumptions
 
-- Use Shadcn UI primitives for landing buttons/badges.
-- Manual UI QA via Chrome DevTools MCP is required for UI changes.
-- Run lint, typecheck, and tests; record outcomes even if pre-existing failures exist.
+- Follow AGENTS SDLC: create task folder, research.md, plan.md, todo.md, verification.md.
+- Manual UI QA via Chrome DevTools MCP is required for UI changes (attach artifacts).
+- Use Shadcn UI primitives for UI work; avoid custom primitives.
+- No API or backend changes for this refactor.
+- Preserve all existing functionality (booking lifecycle, table assignment, shortcuts).
 
 ## Key decisions
 
-- Use Shadcn `Button`/`Badge` and keep `FactoryHomeClient` named + default export for the public page import.
-- Respect prefers-reduced-motion by disabling reveal observer and live feed auto-rotation.
+- **Incremental refactor**: Replace custom components one at a time (BookingStatusBadge, ClickToCopy, BookingStatCard, etc.)
+- **Preserve logic**: Keep hooks, mutations, validations, shortcuts intact; only change UI layer.
+- **Shadcn Card compositions**: Use Card + CardHeader + CardContent for all panel sections.
+- **Semantic variants**: Replace hardcoded colors with Shadcn variants (primary, destructive, default, outline).
 
 ## State
 
-- Landing component updated with UK pubs copy and Problem section; tests re-run with same failures.
+- ✅ Task folder created: `tasks/booking-dialog-shadcn-revamp-20260103-0345/`
+- ✅ Research.md, plan.md, todo.md, verification.md initialized.
 
 ## Done
 
-- Replaced `src/components/landing/FactoryHomeClient.tsx` with UK pubs layout using Shadcn primitives and reduced-motion handling.
-- Kept named + default export for `src/app/(public)/page.tsx` import.
-- Re-ran `pnpm run lint` (warnings), `pnpm run typecheck` (pass), `pnpm run test` (fails in API route suites).
+- Created task folder and SDLC artifacts (research, plan, todo, verification).
+- Analyzed current BookingDialog structure and identified custom components to replace.
+- Documented Shadcn primitives available and replacement strategy.
 
 ## Now
 
-- Await Chrome DevTools MCP QA and capture artifacts.
+- Ready to begin Phase 1: Replace simple custom components (BookingStatusBadge, ClickToCopy, ContactInfoRow).
 
 ## Next
 
-- Run Chrome DevTools MCP manual QA and capture artifacts.
-- Decide whether to address existing API test failures or leave as known issues.
+- Phase 2: Refactor Card-based components (BookingStatCard, GuestProfilePanel, DialogHeader).
+- Phase 3: Simplify layout & colors (replace hardcoded classes with Shadcn variants).
+- Phase 4: Footer actions cleanup.
+- Phase 5: Testing & validation (unit, integration, E2E, a11y).
+- Phase 6: Manual QA via Chrome DevTools MCP and capture artifacts.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- None.
+- Should we add Storybook stories for refactored components? (UNCONFIRMED)
+- Do we need to update design system documentation? (UNCONFIRMED)
+- Should we use Tabs instead of 2-column grid for mobile? (UNCONFIRMED - current grid works well)
 
 ## Working set (files/ids/commands)
 
-- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/app/(public)/page.tsx
-- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/components/landing/FactoryHomeClient.tsx
-- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/landing-page-replace-20260102-2136/{research,plan,todo,verification}.md
+- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/components/features/dashboard/booking-details/BookingDialog.tsx
+- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/components/features/dashboard/booking-details/BookingAssignmentTabContent.tsx
+- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/components/features/dashboard/booking-details/components/\*.tsx
+- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/booking-dialog-shadcn-revamp-20260103-0345/

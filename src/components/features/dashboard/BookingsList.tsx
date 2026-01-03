@@ -319,6 +319,7 @@ function BookingsListContent({
 
             const bookingDTO: BookingDTO = {
               id: booking.id,
+              restaurantId: summary.restaurantId,
               reference: booking.reference ?? null,
               status: booking.status,
               startIso,
@@ -329,6 +330,7 @@ function BookingsListContent({
               customerPhone: booking.customerPhone ?? null,
               restaurantName: 'Restaurant',
               restaurantSlug: null,
+              restaurantTimezone: summary.timezone,
               notes: booking.notes ?? null,
               allergies: booking.allergies ?? null,
               dietaryRestrictions: booking.dietaryRestrictions ?? null,

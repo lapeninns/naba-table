@@ -6,6 +6,7 @@ import { useMemo } from 'react';
 import { BookingDetailsDialog } from '@/components/features/dashboard/BookingDetailsDialog';
 import { useOpsBooking } from '@/hooks/ops/useOpsBooking';
 import { useOpsBookingLifecycleActions } from '@/hooks/ops/useOpsBookingStatusActions';
+import { useOpsCancelBooking } from '@/hooks/ops/useOpsCancelBooking';
 import { getTodayInTimezone } from '@/lib/utils/datetime';
 
 import type { BookingDTO } from '@/hooks/useBookings';
@@ -96,6 +97,8 @@ export function BookingDetailsDialogWrapper({
   const timezone = normalized?.timezone ?? 'UTC';
   const startIso = normalized?.startIso ?? null;
 
+  const cancelBooking = useOpsCancelBooking();
+
   const summary = useMemo<OpsTodayBookingsSummary | null>(() => {
     if (!booking || !restaurantId) return null;
 
@@ -171,6 +174,15 @@ export function BookingDetailsDialogWrapper({
     return null;
   }, [checkIn.isPending, checkIn.variables, checkOut.isPending, checkOut.variables, markNoShow.isPending, markNoShow.variables, undoNoShow.isPending, undoNoShow.variables, bookingId]);
 
+  const handleCancel = async () => {
+    if (!restaurantId || !bookingId) return;
+    await cancelBooking.mutateAsync({
+      bookingId,
+      restaurantId,
+      targetDate: summary?.date ?? null,
+    });
+  };
+
   if (!open) return null;
   return (
     <BookingDetailsDialog
@@ -183,7 +195,9 @@ export function BookingDetailsDialogWrapper({
       onCheckOut={handleCheckOut}
       onMarkNoShow={handleMarkNoShow}
       onUndoNoShow={handleUndoNoShow}
+      onCancel={handleCancel}
       pendingLifecycleAction={pendingLifecycleAction}
+      cancelPending={cancelBooking.isPending}
       allowTableAssignments={allowTableAssignments}
       // Pass controlled props
       open={open}

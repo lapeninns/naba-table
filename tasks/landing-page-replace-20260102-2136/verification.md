@@ -54,11 +54,12 @@ Status: Not run in this environment.
   - server/team/invitations.ts:13:52 @typescript-eslint/no-explicit-any
 - [x] Typecheck: pass (`pnpm run typecheck`)
 - [x] Tests: failed (`pnpm run test`)
+  - tests/server/homepage-redirect.test.tsx (2 failed)
   - src/app/api/auth/signin/route.test.ts (2 failed)
   - src/app/api/bookings/route.test.ts (4 failed)
   - src/app/api/bookings/[id]/route.test.ts (3 failed)
   - src/app/api/ops/bookings/route.test.ts (2 failed)
-- Notes: Re-ran after UK pubs landing copy update; failures unchanged.
+- Notes: Re-ran after logo + beta sticker update; failures include homepage redirect tests.
 
 ## Artifacts
 
@@ -68,7 +69,7 @@ Status: Not run in this environment.
 
 ## Known Issues
 
-- [ ] Test failures in API route suites listed above.
+- [ ] Test failures in homepage redirect + API route suites listed above.
 
 ## Sign-off
 
