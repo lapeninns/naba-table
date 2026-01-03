@@ -99,7 +99,9 @@ export type BookingDetailsProps = {
   onCheckOut?: () => Promise<void>;
   onMarkNoShow?: (options?: { performedAt?: string | null; reason?: string | null }) => Promise<void>;
   onUndoNoShow?: (reason?: string | null) => Promise<void>;
+  onCancel?: () => Promise<void>;
   pendingLifecycleAction?: BookingActionType | null;
+  cancelPending?: boolean;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 };

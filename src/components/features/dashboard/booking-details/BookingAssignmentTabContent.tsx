@@ -100,15 +100,15 @@ export function BookingAssignmentTabContent({ booking, restaurantId: _restaurant
     // -- Mutations --
     // SIMPLIFIED: Direct table assignment - single atomic operation
     const directAssignMutation = useMutation({
-        mutationFn: async () => {
+        mutationFn: async (tableIds: string[]) => {
             return await bookingService.assignTablesDirect({
                 bookingId: booking.id,
-                tableIds: selectedTables,
+                tableIds,
                 idempotencyKey: generateIdempotencyKey(),
                 requireAdjacency: false,
             });
         },
-        onSuccess: async () => {
+        onSuccess: async (_data, tableIds) => {
             setErrorBanner(null);
             // Clear local state
             setSelectedTables([]);
@@ -133,7 +133,7 @@ export function BookingAssignmentTabContent({ booking, restaurantId: _restaurant
             // Show success message
             toast({
                 title: 'Tables assigned',
-                description: `Successfully assigned ${selectedTables.length} table(s) to booking.`,
+                description: `Successfully assigned ${tableIds.length} table(s) to booking.`,
                 duration: 3000,
             });
         },
@@ -143,6 +143,17 @@ export function BookingAssignmentTabContent({ booking, restaurantId: _restaurant
             // Handle HttpError with validation details
             if (error instanceof HttpError) {
                 const details = error.details as { checks?: Array<{ id: string; passed: boolean; message: string }> } | undefined;
+                if (error.code === 'TABLES_NOT_FOUND') {
+                    const missing = (error.details as { missingTableIds?: string[] } | undefined)?.missingTableIds ?? [];
+                    setSelectedTables((prev) => prev.filter((id) => !missing.includes(id)));
+                    refetchAssignmentContext();
+                    const message = missing.length > 0
+                        ? `Selected tables were removed: ${missing.join(', ')}`
+                        : 'Selected tables were removed. Please reselect.';
+                    setErrorBanner(message);
+                    toast({ title: 'Tables unavailable', description: message, variant: 'destructive', duration: 8000 });
+                    return;
+                }
                 if (details?.checks && details.checks.length > 0) {
                     const failedChecks = details.checks.filter((c) => !c.passed);
                     setValidationResult({
@@ -213,9 +224,42 @@ export function BookingAssignmentTabContent({ booking, restaurantId: _restaurant
             return;
         }
 
+        // Pre-flight validation: filter out any stale table IDs that no longer exist
+        const validTableIds = selectedTables.filter((id) => tableMap.has(id));
+        const staleTableIds = selectedTables.filter((id) => !tableMap.has(id));
+
+        if (staleTableIds.length > 0) {
+            // Some selected tables no longer exist - clear selection and refresh
+            console.warn('[BookingAssignmentTabContent] Detected stale table IDs, filtering and refreshing', {
+                staleTableIds,
+                validTableIds,
+            });
+            setSelectedTables(validTableIds);
+            refetchAssignmentContext();
+
+            if (validTableIds.length === 0) {
+                toast({
+                    title: 'Tables unavailable',
+                    description: 'Selected tables are no longer available. Please select again.',
+                    variant: 'destructive',
+                });
+                return;
+            }
+            // If some valid tables remain, show a partial warning and proceed with them
+            toast({
+                title: 'Some tables unavailable',
+                description: `${staleTableIds.length} table(s) removed. Proceeding with ${validTableIds.length} table(s).`,
+            });
+            // Use validTableIds for the mutation since we filtered out stale ones
+            setErrorBanner(null);
+            directAssignMutation.mutate(validTableIds);
+            return;
+        }
+
         setErrorBanner(null);
-        directAssignMutation.mutate();
-    }, [assignedTables.length, selectedTables.length, directAssignMutation, toast]);
+        // Use the full selectedTables since all are valid
+        directAssignMutation.mutate(selectedTables);
+    }, [assignedTables.length, selectedTables, tableMap, directAssignMutation, toast, refetchAssignmentContext]);
 
     const handleClear = useCallback(() => {
         setSelectedTables([]);

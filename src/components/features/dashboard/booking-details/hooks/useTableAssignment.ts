@@ -7,9 +7,10 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
+import { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
 import { generateIdempotencyKey } from '@/lib/utils/idempotency';
 
@@ -29,6 +30,7 @@ export function useTableAssignment({
   const bookingService = useBookingService();
 
   const [selectedTables, setSelectedTables] = useState<string[]>([]);
+  const previousBookingIdRef = useRef<string | null>(null);
 
   const {
     data: context,
@@ -43,6 +45,23 @@ export function useTableAssignment({
   });
 
   const tables = useMemo(() => context?.tables ?? [], [context?.tables]);
+
+  const tableIdSet = useMemo(() => new Set(tables.map((table) => table.id)), [tables]);
+
+  useEffect(() => {
+    if (previousBookingIdRef.current && previousBookingIdRef.current !== bookingId) {
+      setSelectedTables([]);
+    }
+    previousBookingIdRef.current = bookingId;
+  }, [bookingId]);
+
+  useEffect(() => {
+    if (selectedTables.length === 0 || tableIdSet.size === 0) return;
+    const filtered = selectedTables.filter((id) => tableIdSet.has(id));
+    if (filtered.length !== selectedTables.length) {
+      setSelectedTables(filtered);
+    }
+  }, [selectedTables, tableIdSet]);
 
   const assignedTableIds = useMemo(
     () => new Set(context?.bookingAssignments ?? currentAssignments),
@@ -220,6 +239,12 @@ export function useTableAssignment({
   });
 
   const apply = useCallback(async () => {
+    if (selectedTables.some((id) => !tableIdSet.has(id))) {
+      const filtered = selectedTables.filter((id) => tableIdSet.has(id));
+      setSelectedTables(filtered);
+      refetch();
+      return { ok: false, error: 'Selected tables are no longer available. Please reselect.' };
+    }
     if (selectedTables.length === 0) {
       return { ok: false, error: 'Select at least one table.' };
     }
@@ -230,10 +255,15 @@ export function useTableAssignment({
       await assignMutation.mutateAsync(selectedTables);
       return { ok: true };
     } catch (err) {
+      if (err instanceof HttpError && err.code === 'TABLES_NOT_FOUND') {
+        setSelectedTables([]);
+        refetch();
+        return { ok: false, error: 'Some tables were removed. The list has been refreshed.' };
+      }
       const message = err instanceof Error ? err.message : 'Failed to assign tables.';
       return { ok: false, error: message };
     }
-  }, [assignMutation, selectedTables, validation.errors]);
+  }, [assignMutation, refetch, selectedTables, tableIdSet, validation.errors]);
 
   const unassignAll = useCallback(async () => {
     if (assignedTableIds.size === 0) {

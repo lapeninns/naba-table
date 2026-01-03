@@ -11,7 +11,7 @@
  * - Clear error messages
  * - Fast and reliable
  */
- 
+
 import { evaluateAdjacency, isAdjacencySatisfied, summarizeAdjacencyStatus } from "@/server/capacity/adjacency";
 import { getVenuePolicy, ServiceOverrunError } from "@/server/capacity/policy";
 import { getAllocatorAdjacencyMode } from "@/server/feature-flags";
@@ -363,8 +363,8 @@ async function validateSelection(params: {
       unavailableTables.length === 0
         ? "All selected tables are active"
         : `Cannot assign to disabled or out-of-service tables: ${unavailableTables
-            .map((t) => t.tableNumber)
-            .join(", ")}`,
+          .map((t) => t.tableNumber)
+          .join(", ")}`,
     details: {
       tableIds: unavailableTables.map((t) => t.id),
       statuses: unavailableTables.map((t) => t.status ?? null),
@@ -572,6 +572,61 @@ export async function unassignTablesDirect(params: {
       });
     }
   }
+
+  return {
+    success: true,
+    removedCount: count ?? 0,
+  };
+}
+
+/**
+ * Clean up orphaned table assignments for a booking.
+ * 
+ * Orphaned assignments occur when a table is deleted from the inventory
+ * but the assignment record still exists. This function removes those
+ * stale records.
+ * 
+ * @param bookingId - The booking to clean up
+ * @param orphanedTableIds - Array of table IDs that no longer exist
+ * @param client - Optional Supabase client
+ */
+export async function cleanupOrphanedAssignments(params: {
+  bookingId: string;
+  orphanedTableIds: string[];
+  client?: DbClient;
+}): Promise<{ success: true; removedCount: number }> {
+  const { bookingId, orphanedTableIds, client } = params;
+
+  if (!bookingId || !Array.isArray(orphanedTableIds) || orphanedTableIds.length === 0) {
+    return { success: true, removedCount: 0 };
+  }
+
+  const supabase = ensureClient(client);
+
+  const { error, count } = await supabase
+    .from("booking_table_assignments")
+    .delete({ count: "exact" })
+    .eq("booking_id", bookingId)
+    .in("table_id", orphanedTableIds);
+
+  if (error) {
+    console.error("[direct-assignment] failed to cleanup orphaned assignments", {
+      bookingId,
+      orphanedTableIds,
+      error,
+    });
+    throw new DirectAssignmentError(
+      `Failed to cleanup orphaned assignments: ${error.message}`,
+      "CLEANUP_FAILED",
+      500,
+    );
+  }
+
+  console.info("[direct-assignment] cleaned up orphaned assignments", {
+    bookingId,
+    orphanedTableIds,
+    removedCount: count ?? 0,
+  });
 
   return {
     success: true,

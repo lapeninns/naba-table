@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import React, { useEffect, useState, type CSSProperties } from 'react';
+import React, { useEffect, useRef, useState, type CSSProperties } from 'react';
 
+import { BrandIcon } from '@/components/shared/BrandIcon';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -71,9 +72,11 @@ const BRAND_NAME = 'Nab a Table';
 const HERO_BADGE = 'Installed in 24 Hours';
 
 const METRICS = [
-  { label: 'Added Revenue/Mo', value: '£4,200+', detail: 'Proven Result', icon: 'chart' as const },
-  { label: 'Labor Hours Saved', value: '20h+', detail: 'Per Week', icon: 'zap' as const },
+  { label: 'Added Revenue/Mo', value: 4200, prefix: '£', suffix: '+', detail: 'Proven Result', icon: 'chart' as const },
+  { label: 'Labor Hours Saved', value: 20, suffix: 'h+', detail: 'Per Week', icon: 'zap' as const },
 ];
+
+type Metric = (typeof METRICS)[number];
 
 const INTEGRATIONS = ['Toast', 'Square', 'Lightspeed', 'Stripe', 'Twilio'];
 
@@ -193,11 +196,14 @@ const BADGE_STYLES = {
 
 const BUTTON_STYLES = {
   primary:
-    'bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)] shadow-sm transform hover:scale-105 transition-transform duration-200',
+    'bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)] shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg active:scale-95',
   secondary:
     'bg-white text-[var(--slate-900)] border border-[var(--border)] hover:bg-[var(--slate-50)]',
   ghost: 'bg-transparent text-[var(--slate-600)] hover:bg-[var(--slate-100)]',
 };
+
+const FOOTER_LINK_STYLES =
+  "relative inline-flex items-center text-slate-400 hover:text-white transition-colors duration-200 ease-out after:content-[''] after:absolute after:left-0 after:-bottom-0.5 after:h-px after:w-0 after:bg-current after:transition-all after:duration-200 after:ease-out after:origin-left hover:after:w-full";
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(' ');
@@ -223,6 +229,65 @@ function usePrefersReducedMotion() {
     return () => query.removeEventListener('change', listener);
   }, []);
   return prefersReducedMotion;
+}
+
+function useCountUp(endValue: number, duration: number, enabled: boolean) {
+  const [value, setValue] = useState(0);
+  const elementRef = useRef<HTMLDivElement | null>(null);
+  const hasStartedRef = useRef(false);
+
+  useEffect(() => {
+    if (!enabled) {
+      setValue(endValue);
+      hasStartedRef.current = true;
+      return;
+    }
+    setValue(0);
+    hasStartedRef.current = false;
+  }, [endValue, enabled]);
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+    const node = elementRef.current;
+    if (!node) return undefined;
+
+    let startTime: number | null = null;
+    let animationFrame = 0;
+
+    const step = (timestamp: number) => {
+      if (startTime === null) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / duration, 1);
+      const nextValue = Math.round(progress * endValue);
+      setValue(progress === 1 ? endValue : nextValue);
+      if (progress < 1) animationFrame = window.requestAnimationFrame(step);
+    };
+
+    const start = () => {
+      if (hasStartedRef.current) return;
+      hasStartedRef.current = true;
+      animationFrame = window.requestAnimationFrame(step);
+    };
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            start();
+            observer.disconnect();
+          }
+        });
+      },
+      { threshold: 0.4 },
+    );
+
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+    };
+  }, [duration, enabled, endValue]);
+
+  return { ref: elementRef, value };
 }
 
 function GlobalStyles() {
@@ -268,6 +333,41 @@ function GlobalStyles() {
         transform: none;
         transition: none;
       }
+
+      @keyframes float {
+        0% { transform: translate(var(--tw-translate-x, 0px), var(--tw-translate-y, 0px)) translate(0, 0); }
+        25% { transform: translate(var(--tw-translate-x, 0px), var(--tw-translate-y, 0px)) translate(12px, -8px); }
+        50% { transform: translate(var(--tw-translate-x, 0px), var(--tw-translate-y, 0px)) translate(0, -16px); }
+        75% { transform: translate(var(--tw-translate-x, 0px), var(--tw-translate-y, 0px)) translate(-12px, -8px); }
+        100% { transform: translate(var(--tw-translate-x, 0px), var(--tw-translate-y, 0px)) translate(0, 0); }
+      }
+
+      @keyframes shimmer {
+        0% { background-position: 0% 50%; }
+        100% { background-position: 200% 50%; }
+      }
+
+      @keyframes draw-check {
+        0% { stroke-dashoffset: 24; }
+        100% { stroke-dashoffset: 0; }
+      }
+
+      .text-shimmer {
+        background: linear-gradient(90deg, #2563EB, #22D3EE, #2563EB);
+        background-size: 200% 100%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        animation: shimmer 3s linear infinite;
+      }
+
+      .animate-float-slow { animation: float 10s ease-in-out infinite; }
+      .animate-count-up {
+        font-variant-numeric: tabular-nums;
+        transition: color 0.2s ease-out, transform 0.2s ease-out;
+      }
+      .reduce-motion .text-shimmer,
+      .reduce-motion .animate-float-slow { animation: none; }
 
       .factory-card {
         background: var(--card);
@@ -381,8 +481,13 @@ function Navbar({ isAuthenticated }: { isAuthenticated: boolean }) {
     >
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-[var(--primary)] rounded-lg flex items-center justify-center font-bold text-white">N</div>
-          <div className="font-bold text-lg text-slate-900">{BRAND_NAME}</div>
+          <BrandIcon size="sm" className="shrink-0 transition-transform duration-200 ease-out hover:rotate-3" />
+          <div className="relative flex items-center">
+            <span className="font-bold text-lg text-slate-900">{BRAND_NAME}</span>
+            <span className="absolute -top-3 -right-10 -rotate-12 text-[10px] font-bold uppercase tracking-[0.2em] text-blue-700 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded-full">
+              ^ beta
+            </span>
+          </div>
         </div>
         <div className="hidden md:flex items-center gap-1 bg-slate-100/50 p-1 rounded-full border border-slate-200/50 backdrop-blur-sm">
           {NAV_LINKS.map((link) => (
@@ -400,7 +505,7 @@ function Navbar({ isAuthenticated }: { isAuthenticated: boolean }) {
             {authLabel}
           </Link>
           <Button asChild className={cx('py-2 px-4 text-xs font-bold uppercase tracking-wide', BUTTON_STYLES.primary)}>
-            <Link href="/demo">Scale Now</Link>
+            <Link href="/contact">Contact Sales</Link>
           </Button>
         </div>
       </div>
@@ -412,7 +517,7 @@ function Hero({ reduceMotion }: { reduceMotion: boolean }) {
   return (
     <section id="hero" className="relative pt-32 pb-20 px-6 border-b border-slate-200 overflow-hidden bg-white">
       <div className="absolute top-0 inset-x-0 h-64 bg-gradient-to-b from-blue-50 to-transparent pointer-events-none" />
-      <div className="absolute right-0 top-20 w-[800px] h-[800px] bg-blue-100/30 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
+      <div className="absolute right-0 top-20 w-[800px] h-[800px] bg-blue-100/30 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none animate-float-slow" />
 
       <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center relative z-10">
         <div className="space-y-8 text-center lg:text-left reveal-up active">
@@ -427,7 +532,7 @@ function Hero({ reduceMotion }: { reduceMotion: boolean }) {
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl text-slate-900 font-extrabold tracking-tight leading-[1.1]">
             The Zero-Risk No-Show <br />
-            <span className="text-[var(--primary)]">Lockdown System for Food-Led UK Pubs</span>
+            <span className="text-shimmer">Lockdown System</span> for Food-Led UK Pubs
             <br />
           </h1>
 
@@ -513,10 +618,10 @@ function ProblemSection() {
           {problems.map((problem, index) => (
             <div
               key={problem.title}
-              className="p-8 rounded-2xl bg-red-50/30 border border-red-100 hover:bg-red-50 transition-colors reveal-up"
+              className="group p-8 rounded-2xl bg-red-50/30 border border-red-100 transition-all duration-200 ease-out hover:bg-red-50 group-hover:-translate-y-2 group-hover:shadow-xl reveal-up"
               style={{ transitionDelay: `${index * 100}ms` }}
             >
-              <div className="w-12 h-12 bg-red-100 text-red-600 rounded-xl flex items-center justify-center mb-6">
+              <div className="w-12 h-12 bg-red-100 text-red-600 rounded-xl flex items-center justify-center mb-6 transition-all duration-200 ease-out group-hover:bg-red-200 group-hover:text-red-700 group-hover:rotate-6 group-hover:scale-110">
                 <Icon name={problem.icon} className="w-6 h-6" />
               </div>
               <h3 className="text-xl font-bold text-slate-900 mb-3">{problem.title}</h3>
@@ -529,7 +634,31 @@ function ProblemSection() {
   );
 }
 
-function MetricsSection() {
+function formatMetricValue(metric: Metric, value: number) {
+  const formatted = value.toLocaleString('en-GB');
+  return `${metric.prefix ?? ''}${formatted}${metric.suffix ?? ''}`;
+}
+
+function MetricCard({ metric, reduceMotion }: { metric: Metric; reduceMotion: boolean }) {
+  const { ref, value } = useCountUp(metric.value, 1200, !reduceMotion);
+
+  return (
+    <div className="factory-card p-6 rounded-xl bg-white">
+      <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4">
+        <Icon name={metric.icon} className="w-6 h-6" />
+      </div>
+      <div ref={ref} className="text-4xl font-extrabold text-slate-900 mb-1 animate-count-up">
+        {formatMetricValue(metric, value)}
+      </div>
+      <div className="text-sm font-semibold text-slate-500 uppercase tracking-wide">{metric.label}</div>
+      <div className="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-400 font-mono">
+        {metric.detail}
+      </div>
+    </div>
+  );
+}
+
+function MetricsSection({ reduceMotion }: { reduceMotion: boolean }) {
   return (
     <section id="metrics" className="py-20 bg-slate-50 border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-6">
@@ -541,16 +670,7 @@ function MetricsSection() {
             </p>
           </div>
           {METRICS.map((metric) => (
-            <div key={metric.label} className="factory-card p-6 rounded-xl bg-white">
-              <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4">
-                <Icon name={metric.icon} className="w-6 h-6" />
-              </div>
-              <div className="text-4xl font-extrabold text-slate-900 mb-1">{metric.value}</div>
-              <div className="text-sm font-semibold text-slate-500 uppercase tracking-wide">{metric.label}</div>
-              <div className="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-400 font-mono">
-                {metric.detail}
-              </div>
-            </div>
+            <MetricCard key={metric.label} metric={metric} reduceMotion={reduceMotion} />
           ))}
         </div>
       </div>
@@ -577,13 +697,13 @@ function BenefitsSection() {
               <div
                 key={benefit.title}
                 className={cx(
-                  'group p-6 rounded-2xl bg-slate-50 hover:bg-white hover:shadow-xl transition-all duration-300 border border-transparent hover:border-slate-100 reveal-up',
+                  'group p-6 rounded-2xl bg-slate-50 transition-all duration-200 ease-out border border-transparent hover:border-slate-100 hover:bg-white group-hover:-translate-y-2 group-hover:shadow-xl reveal-up',
                   isFeatured ? 'md:col-span-2 lg:col-span-3 bg-gradient-to-r from-slate-50 to-blue-50 border-blue-100' : '',
                 )}
                 style={{ transitionDelay: `${index * 100}ms` }}
               >
                 <div className="flex justify-between items-start mb-6">
-                  <div className="w-12 h-12 bg-white text-blue-600 rounded-xl shadow-sm flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                  <div className="w-12 h-12 bg-white text-blue-600 rounded-xl shadow-sm flex items-center justify-center transition-all duration-200 ease-out group-hover:bg-blue-600 group-hover:text-white group-hover:rotate-6 group-hover:scale-110">
                     <Icon name={benefit.icon} className="w-6 h-6" />
                   </div>
                   <Badge
@@ -654,10 +774,15 @@ function Testimonials() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-8">
-          {TESTIMONIALS.map((testimonial) => (
+          {TESTIMONIALS.map((testimonial, index) => {
+            const delayClass = index === 0 ? 'delay-100' : index === 1 ? 'delay-200' : 'delay-300';
+            return (
             <div
               key={testimonial.name}
-              className="p-8 rounded-2xl bg-slate-800/50 border border-slate-700 reveal-up hover:bg-slate-800 transition-colors"
+              className={cx(
+                'p-8 rounded-2xl bg-slate-800/50 border border-slate-700 reveal-up hover:bg-slate-800 transition-colors',
+                delayClass,
+              )}
             >
               <div className="mb-6 text-blue-400">
                 {[1, 2, 3, 4, 5].map((star) => (
@@ -670,7 +795,8 @@ function Testimonials() {
                 <div className="text-sm text-slate-400">{testimonial.city}</div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>
@@ -743,22 +869,22 @@ function Footer() {
           <h4 className="text-white font-bold mb-4">Product</h4>
           <ul className="space-y-2 text-sm text-slate-400">
             <li>
-              <a href="#" className="hover:text-white transition-colors">
+              <a href="#" className={FOOTER_LINK_STYLES}>
                 Features
               </a>
             </li>
             <li>
-              <a href="#" className="hover:text-white transition-colors">
+              <a href="#" className={FOOTER_LINK_STYLES}>
                 Integrations
               </a>
             </li>
             <li>
-              <a href="#" className="hover:text-white transition-colors">
+              <a href="#" className={FOOTER_LINK_STYLES}>
                 Pricing
               </a>
             </li>
             <li>
-              <a href="#" className="hover:text-white transition-colors">
+              <a href="#" className={FOOTER_LINK_STYLES}>
                 Changelog
               </a>
             </li>
@@ -768,22 +894,22 @@ function Footer() {
           <h4 className="text-white font-bold mb-4">Company</h4>
           <ul className="space-y-2 text-sm text-slate-400">
             <li>
-              <a href="#" className="hover:text-white transition-colors">
+              <a href="#" className={FOOTER_LINK_STYLES}>
                 About Us
               </a>
             </li>
             <li>
-              <a href="#" className="hover:text-white transition-colors">
+              <a href="#" className={FOOTER_LINK_STYLES}>
                 Careers
               </a>
             </li>
             <li>
-              <a href="#" className="hover:text-white transition-colors">
+              <a href="#" className={FOOTER_LINK_STYLES}>
                 Legal
               </a>
             </li>
             <li>
-              <a href="#" className="hover:text-white transition-colors">
+              <a href="#" className={FOOTER_LINK_STYLES}>
                 Contact
               </a>
             </li>
@@ -837,7 +963,7 @@ function FactoryHomeClient({ isAuthenticated }: { isAuthenticated: boolean }) {
       <main>
         <Hero reduceMotion={prefersReducedMotion} />
         <ProblemSection />
-        <MetricsSection />
+        <MetricsSection reduceMotion={prefersReducedMotion} />
         <BenefitsSection />
         <HowItWorks />
         <Testimonials />
