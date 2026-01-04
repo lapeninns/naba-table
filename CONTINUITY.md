@@ -1,45 +1,53 @@
 # Continuity Ledger
 
-Last updated: 2026-01-04T19:00:00Z
+Last updated: 2026-01-04T19:20:00Z
 
 ## Goal (incl. success criteria)
 
-- Clean slate. Previous task (renaming Context7 to Augment Code) was reverted.
+- Install and configure missing MCP tools: **Next DevTools MCP** and **DeepWiki MCP**.
+- Configure the already installed **Supabase MCP**.
+- Ensure all required MCPs from `AGENTS.md` are operational.
 
 ## Constraints/Assumptions
 
-- "Context7" remains the canonical name for the semantic search tool in documentation.
-- "Augment Code" (Auggie) renaming is cancelled.
+- Supabase MCP is already installed (`@supabase/mcp-server-supabase`).
+- Chrome DevTools MCP is already installed (`chrome-devtools-mcp`).
+- "DeepWiki" and "Next DevTools" specific packages need identification.
+- Configuration location needs to be identified (likely `.cursor/mcp.json` or similar).
 
 ## Key decisions
 
-- Reverted all documentation changes related to "Augment Code" renaming.
-- Deleted `tasks/install-auggie-mcp-20260104-1845`.
+- (Pending) Selection of packages for Next DevTools and DeepWiki.
 
 ## State
 
-- Codebase documentation is back to original state (referencing Context7).
-- No active tasks.
+- Task folder created: `tasks/install-missing-mcps-20260104-1915`.
+- Initial package inventory complete.
+- Searching for configuration standards in the repo.
 
 ## Done
 
-- Attempted to rename "Context7" to "Augment Code (Auggie)" but reverted due to user request.
-- Verified revert (grep "Augment Code" returns nothing).
-- Verified integrity (grep "Context7" returns expected hits).
-- Cleaned up task folder `tasks/install-auggie-mcp-20260104-1845`.
+- Verified `package.json` for existing MCP packages.
+- Updated `CONTINUITY.md` with new task.
 
 ## Now
 
-- Awaiting new instructions.
+- Researching "DeepWiki" and "Next DevTools" package availability.
+- Locating MCP configuration file.
 
 ## Next
 
-- User choice.
+- Create/Update MCP configuration.
+- Install missing packages.
+- Verify installation.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- None.
+- Is "DeepWiki" a public package or an internal/hallucinated reference?
+- Does "Next DevTools MCP" refer to a specific package or just using Next.js features via an MCP wrapper?
 
 ## Working set (files/ids/commands)
 
-- None.
+- `tasks/install-missing-mcps-20260104-1915/`
+- `package.json`
+- `.vscode/settings.json`
