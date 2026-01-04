@@ -1,20 +1,21 @@
 # Continuity Ledger
 
-Last updated: 2026-01-04T13:15:00Z
+Last updated: 2026-01-04T13:35:00Z
 
 ## Goal (incl. success criteria)
 
-- ✅ Improve table assignment error handling to show clear, actionable messages when validation fails
-- ✅ Specifically handle `MOVABLE` error code (fixed tables cannot be merged)
-- ✅ Display which specific tables caused the validation failure
-- ✅ Help users understand what they need to do differently
+- Fix ESLint warnings blocking pre-commit (hooks deps and queryKey memoization)
+- Keep prior table assignment error handling intact
 
 ## Constraints/Assumptions
 
-- API returns structured errors with `code`, `error`, and `details` fields
-- Error code `MOVABLE` indicates user tried to assign fixed (non-movable) tables when merging is required
-- Error handling consolidated in `BookingAssignmentTabContent.tsx` (lines 140-203)
-- Error messages must be accessible (ARIA live regions via toast)
+- Must resolve warnings in:
+  - `src/components/features/dashboard/booking-details/BookingAssignmentTabContent.tsx`
+  - `src/hooks/ops/useOpsBooking.ts`
+  - `src/hooks/ops/useOpsBookingChanges.ts`
+  - `src/hooks/ops/useOpsBookingHeatmap.ts`
+  - `src/hooks/ops/useOpsTodaySummary.ts`
+- Avoid unrelated refactors; only adjust deps/memoization
 
 ## Key decisions
 
@@ -26,31 +27,20 @@ Last updated: 2026-01-04T13:15:00Z
 
 ## State
 
-Task completed; ready for user testing.
+ESLint warnings reported; no code changes made yet.
 
 ## Done
 
-- Fixed auth redirect 404 (`/auth` → `/auth/signin`)
-- Removed flashing offline indicator
-- Analyzed API error response structure
-- Located table assignment UI and error handling code
-- Improved error handling in `BookingAssignmentTabContent.tsx`:
-  - Consolidated duplicate 422 error handling
-  - Prioritized main error message with specific table names
-  - Added validation check details as bullet points
-  - Increased toast duration to 10s
-- Created task documentation in `tasks/improve-table-assignment-errors-20260104-1310/`
-- Verified build succeeds with no errors
+- Captured pre-commit ESLint warnings list from user output
 
 ## Now
 
-- Awaiting user verification and testing
+- Identify code causing hook deps/queryKey warnings
 
 ## Next
 
-- User to test improved error messages
-- Monitor for additional error codes that may need special handling
-- Consider future UX improvement: disable fixed tables when merging is required
+- Update hook deps or memoize queryKey
+- Rerun/advise lint check
 
 ## Open questions (UNCONFIRMED if needed)
 
@@ -59,5 +49,8 @@ Task completed; ready for user testing.
 
 ## Working set (files/ids/commands)
 
-- `src/components/features/dashboard/booking-details/BookingAssignmentTabContent.tsx` (lines 140-203)
-- `tasks/improve-table-assignment-errors-20260104-1310/`
+- `src/components/features/dashboard/booking-details/BookingAssignmentTabContent.tsx` (lines 371, 421)
+- `src/hooks/ops/useOpsBooking.ts` (queryKey/useEffect deps)
+- `src/hooks/ops/useOpsBookingChanges.ts` (queryKey/useEffect deps)
+- `src/hooks/ops/useOpsBookingHeatmap.ts` (queryKey/useEffect deps)
+- `src/hooks/ops/useOpsTodaySummary.ts` (queryKey/useEffect deps)

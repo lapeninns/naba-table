@@ -56,6 +56,7 @@ export interface TableAssignmentPanelProps {
   bookingId: string;
   restaurantId: string;
   partySize: number;
+  date: string | null;
   currentAssignments: string[];
   onAssignmentComplete: () => void;
   bookingStartTime?: string | null;
@@ -69,6 +70,7 @@ export function TableAssignmentPanel({
   bookingId,
   restaurantId,
   partySize,
+  date,
   currentAssignments,
   onAssignmentComplete,
   bookingStartTime,
@@ -96,6 +98,7 @@ export function TableAssignmentPanel({
     bookingId,
     restaurantId,
     partySize,
+    date,
     currentAssignments,
     onAssignmentComplete,
   });

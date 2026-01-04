@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 let browserClient: SupabaseClient | null = null;
 
@@ -8,7 +8,9 @@ export function getRealtimeSupabaseClient(): SupabaseClient {
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     if (!url || !anonKey) {
-      throw new Error("Supabase realtime client requires NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY");
+      throw new Error(
+        'Supabase realtime client requires NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY',
+      );
     }
 
     browserClient = createClient(url, anonKey, {
@@ -17,7 +19,7 @@ export function getRealtimeSupabaseClient(): SupabaseClient {
       },
       realtime: {
         params: {
-          eventsPerSecond: 2,
+          eventsPerSecond: 10, // Increased from 2 to handle more frequent updates
         },
       },
     });

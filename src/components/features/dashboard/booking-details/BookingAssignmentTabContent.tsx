@@ -140,6 +140,11 @@ export function BookingAssignmentTabContent({
         }),
         // Invalidate the specific booking detail
         queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(booking.id) }),
+        // Invalidate the dashboard summary to update the list view
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.opsDashboard.summary(_restaurantId, _date || null),
+          refetchType: 'active',
+        }),
         // Invalidate the bookings list
         queryClient.invalidateQueries({ queryKey: queryKeys.bookings.list({}) }),
         // Invalidate ops bookings list
@@ -341,6 +346,11 @@ export function BookingAssignmentTabContent({
           queryKey: queryKeys.opsBookings.assignmentContext(booking.id),
         }),
         queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(booking.id) }),
+        // Invalidate the dashboard summary to update the list view
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.opsDashboard.summary(_restaurantId, _date || null),
+          refetchType: 'active',
+        }),
         queryClient.invalidateQueries({ queryKey: queryKeys.bookings.list({}) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.list({}) }),
       ]);
@@ -364,6 +374,8 @@ export function BookingAssignmentTabContent({
     refetchAssignmentContext,
     queryClient,
     booking.id,
+    _restaurantId,
+    _date,
     onAssignmentComplete,
     toast,
   ]);
@@ -388,6 +400,11 @@ export function BookingAssignmentTabContent({
           queryKey: queryKeys.opsBookings.assignmentContext(booking.id),
         }),
         queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(booking.id) }),
+        // Invalidate the dashboard summary to update the list view
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.opsDashboard.summary(_restaurantId, _date || null),
+          refetchType: 'active',
+        }),
         queryClient.invalidateQueries({ queryKey: queryKeys.bookings.list({}) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.list({}) }),
       ]);
@@ -409,6 +426,8 @@ export function BookingAssignmentTabContent({
     booking.id,
     refetchAssignmentContext,
     queryClient,
+    _restaurantId,
+    _date,
     onAssignmentComplete,
     toast,
   ]);

@@ -40,18 +40,28 @@ function useInvalidateLifecycle(queryClient: ReturnType<typeof useQueryClient>) 
   return (
     restaurantId: string,
     targetDate?: string | null,
-    options?: { invalidateSummary?: boolean; refetchSummary?: boolean },
+    options: {
+      invalidateSummary?: boolean;
+      refetchSummary?: boolean;
+    } = { invalidateSummary: true, refetchSummary: true },
   ) => {
+    const { invalidateSummary = true, refetchSummary = true } = options;
     const summaryKey = queryKeys.opsDashboard.summary(restaurantId, targetDate ?? null);
-    if (options?.invalidateSummary) {
+    if (invalidateSummary) {
+      console.log('[booking-lifecycle] Invalidating summary cache:', {
+        summaryKey,
+        refetchSummary,
+      });
       queryClient.invalidateQueries({
         queryKey: summaryKey,
-        // The ops summary endpoint is server-cached (default ~5s) and can return stale data immediately after a mutation.
-        // Avoid refetching the active summary query right away to prevent "bounce back" overwrites of optimistic cache.
-        refetchType: options.refetchSummary ? 'active' : 'none',
+        // Ensure active queries are refetched to update the UI immediately
+        refetchType: refetchSummary ? 'active' : 'none',
       });
     }
-    queryClient.invalidateQueries({ queryKey: ['ops', 'dashboard', restaurantId, 'heatmap'], exact: false });
+    queryClient.invalidateQueries({
+      queryKey: ['ops', 'dashboard', restaurantId, 'heatmap'],
+      exact: false,
+    });
     queryClient.invalidateQueries({ queryKey: ['ops', 'bookings'], exact: false });
   };
 }
@@ -114,10 +124,10 @@ export function useOpsBookingLifecycleActions() {
       onReload:
         variables.restaurantId && typeof variables.restaurantId === 'string'
           ? () =>
-              invalidate(variables.restaurantId as string, variables.targetDate ?? null, {
-                invalidateSummary: true,
-                refetchSummary: true,
-              })
+            invalidate(variables.restaurantId as string, variables.targetDate ?? null, {
+              invalidateSummary: true,
+              refetchSummary: true,
+            })
           : null,
     });
     return true;

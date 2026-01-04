@@ -24,6 +24,7 @@ export function useTableAssignment({
   bookingId,
   restaurantId,
   partySize,
+  date,
   currentAssignments = [],
   onAssignmentComplete,
 }: UseTableAssignmentOptions): UseTableAssignmentReturn {
@@ -287,7 +288,8 @@ export function useTableAssignment({
       refetch();
       queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(bookingId) });
       queryClient.invalidateQueries({
-        queryKey: queryKeys.opsDashboard.summary(restaurantId, null),
+        queryKey: queryKeys.opsDashboard.summary(restaurantId, date ?? null),
+        refetchType: 'active',
       });
       onAssignmentComplete?.();
     },
@@ -301,7 +303,8 @@ export function useTableAssignment({
       refetch();
       queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(bookingId) });
       queryClient.invalidateQueries({
-        queryKey: queryKeys.opsDashboard.summary(restaurantId, null),
+        queryKey: queryKeys.opsDashboard.summary(restaurantId, date ?? null),
+        refetchType: 'active',
       });
       onAssignmentComplete?.();
     },
@@ -336,7 +339,8 @@ export function useTableAssignment({
       refetch();
       queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(bookingId) });
       queryClient.invalidateQueries({
-        queryKey: queryKeys.opsDashboard.summary(restaurantId, null),
+        queryKey: queryKeys.opsDashboard.summary(restaurantId, date ?? null),
+        refetchType: 'active',
       });
       onAssignmentComplete?.();
     },

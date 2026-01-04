@@ -41,7 +41,9 @@ function applyAssignOptimistic(params: {
   };
 
   const existingGroups = Array.isArray(booking.tableAssignments) ? booking.tableAssignments : [];
-  const hasMemberAlready = existingGroups.some((group) => group.members.some((m) => m.tableId === tableId));
+  const hasMemberAlready = existingGroups.some((group) =>
+    group.members.some((m) => m.tableId === tableId),
+  );
   if (hasMemberAlready) {
     return booking;
   }
@@ -73,7 +75,10 @@ function applyAssignOptimistic(params: {
   };
 }
 
-function applyUnassignOptimistic(params: { booking: OpsTodayBooking; tableId: string }): OpsTodayBooking {
+function applyUnassignOptimistic(params: {
+  booking: OpsTodayBooking;
+  tableId: string;
+}): OpsTodayBooking {
   const { booking, tableId } = params;
 
   const nextGroups = (booking.tableAssignments ?? [])
@@ -92,17 +97,22 @@ function applyUnassignOptimistic(params: { booking: OpsTodayBooking; tableId: st
   }
 
   // Backend business rule: if all tables are unassigned and the booking was 'confirmed', revert to 'pending'.
-  const nextStatus = nextGroups.length === 0 && booking.status === 'confirmed' ? 'pending' : booking.status;
+  const nextStatus =
+    nextGroups.length === 0 && booking.status === 'confirmed' ? 'pending' : booking.status;
 
   return {
     ...booking,
     status: nextStatus,
     tableAssignments: nextGroups,
-    requiresTableAssignment: nextGroups.length === 0 && nextStatus !== 'cancelled' && nextStatus !== 'no_show',
+    requiresTableAssignment:
+      nextGroups.length === 0 && nextStatus !== 'cancelled' && nextStatus !== 'no_show',
   };
 }
 
-export function useOpsTableAssignmentActions(params: { restaurantId: string | null; date: string | null }) {
+export function useOpsTableAssignmentActions(params: {
+  restaurantId: string | null;
+  date: string | null;
+}) {
   const bookingService = useBookingService();
   const queryClient = useQueryClient();
   const { restaurantId, date } = params;
@@ -110,15 +120,25 @@ export function useOpsTableAssignmentActions(params: { restaurantId: string | nu
   const summaryKey = restaurantId
     ? queryKeys.opsDashboard.summary(restaurantId, date ?? null)
     : (['ops', 'dashboard', 'summary', 'disabled'] as const);
-  const heatmapKeyPrefix = restaurantId ? (['ops', 'dashboard', restaurantId, 'heatmap'] as const) : null;
+  const heatmapKeyPrefix = restaurantId
+    ? (['ops', 'dashboard', restaurantId, 'heatmap'] as const)
+    : null;
 
-  const invalidateCaches = (options?: { invalidateSummary?: boolean; refetchSummary?: boolean }) => {
-    if (options?.invalidateSummary) {
+  const invalidateCaches = (options: {
+    invalidateSummary?: boolean;
+    refetchSummary?: boolean;
+  } = { invalidateSummary: true, refetchSummary: true }) => {
+    const { invalidateSummary = true, refetchSummary = true } = options;
+
+    if (invalidateSummary) {
+      console.log('[table-assignments] Invalidating summary cache:', {
+        summaryKey,
+        refetchSummary,
+      });
       queryClient.invalidateQueries({
         queryKey: summaryKey,
-        // The ops summary endpoint is server-cached (default ~5s) and can return stale data immediately after a mutation.
-        // Avoid refetching the active summary query right away to prevent "bounce back" overwrites of optimistic cache.
-        refetchType: options.refetchSummary ? 'active' : 'none',
+        // Ensure active queries are refetched to update the UI immediately
+        refetchType: refetchSummary ? 'active' : 'none',
       });
     }
     if (heatmapKeyPrefix) {
@@ -127,8 +147,109 @@ export function useOpsTableAssignmentActions(params: { restaurantId: string | nu
     queryClient.invalidateQueries({ queryKey: ['ops', 'bookings'], exact: false });
   };
 
-  const assignTable = useMutation<TableAssignmentsResponse, unknown, TableAssignmentVariables, MutationContext>({
-    mutationFn: ({ bookingId, tableId }: TableAssignmentVariables) => bookingService.assignTable({ bookingId, tableId }),
+  const assignTable = useMutation<
+    TableAssignmentsResponse,
+    unknown,
+    TableAssignmentVariables,
+    MutationContext
+  >({
+    mutationFn: ({ bookingId, tableId }: TableAssignmentVariables) =>
+      bookingService.assignTable({ bookingId, tableId }),
+    onMutate: async (variables) => {
+      if (!restaurantId) {
+        return {
+          bookingId: variables.bookingId,
+        };
+      }
+
+      const key = queryKeys.opsDashboard.summary(restaurantId, date ?? null);
+
+      await queryClient.cancelQueries({ queryKey: key });
+
+      const previousSummary = queryClient.getQueryData<OpsTodayBookingsSummary>(key);
+
+      queryClient.setQueryData<OpsTodayBookingsSummary>(key, (current) => {
+        if (!current) return current;
+        const updated = {
+          ...current,
+          bookings: current.bookings.map((booking) =>
+            booking.id === variables.bookingId
+              ? applyAssignOptimistic({
+                booking,
+                tableId: variables.tableId,
+                tableName: variables.tableName,
+              })
+              : booking,
+          ),
+        };
+        console.log('[table-assign] Optimistic update applied:', {
+          bookingId: variables.bookingId,
+          tableId: variables.tableId,
+          tableName: variables.tableName,
+        });
+        return updated;
+      });
+
+      return { bookingId: variables.bookingId, summaryKey: key, previousSummary };
+    },
+    onError: (error: unknown, _variables, context) => {
+      if (context?.summaryKey && context.previousSummary) {
+        queryClient.setQueryData(context.summaryKey, context.previousSummary);
+      }
+      const message = error instanceof Error ? error.message : 'Unable to assign table';
+      toast.error(message);
+    },
+    onSuccess: (data, variables, context) => {
+      if (context?.summaryKey) {
+        queryClient.setQueryData<OpsTodayBookingsSummary>(context.summaryKey, (current) => {
+          if (!current) return current;
+          const updated = {
+            ...current,
+            bookings: current.bookings.map((booking) => {
+              if (booking.id !== variables.bookingId) return booking;
+              const nextAssignments = data.tableAssignments ?? [];
+              const nextStatus =
+                nextAssignments.length === 0 && booking.status === 'confirmed'
+                  ? 'pending'
+                  : booking.status;
+              return {
+                ...booking,
+                status: nextStatus,
+                tableAssignments: nextAssignments,
+                requiresTableAssignment:
+                  nextAssignments.length === 0 &&
+                  nextStatus !== 'cancelled' &&
+                  nextStatus !== 'no_show',
+              };
+            }),
+          };
+          console.log('[table-assign] Server response applied:', {
+            bookingId: variables.bookingId,
+            tableAssignments: data.tableAssignments,
+          });
+          return updated;
+        });
+      }
+
+      // Invalidate caches with refetch to ensure UI updates
+      console.log('[table-assign] Scheduling cache invalidation with refetch');
+      setTimeout(() => {
+        invalidateCaches({ invalidateSummary: true, refetchSummary: true });
+        console.log('[table-assign] Cache invalidated and refetch triggered');
+      }, 500);
+
+      toast.success('Table assigned');
+    },
+  });
+
+  const unassignTable = useMutation<
+    TableAssignmentsResponse,
+    unknown,
+    TableAssignmentVariables,
+    MutationContext
+  >({
+    mutationFn: ({ bookingId, tableId }: TableAssignmentVariables) =>
+      bookingService.unassignTable({ bookingId, tableId }),
     onMutate: async (variables) => {
       if (!restaurantId) {
         return {
@@ -148,66 +269,8 @@ export function useOpsTableAssignmentActions(params: { restaurantId: string | nu
           ...current,
           bookings: current.bookings.map((booking) =>
             booking.id === variables.bookingId
-              ? applyAssignOptimistic({ booking, tableId: variables.tableId, tableName: variables.tableName })
+              ? applyUnassignOptimistic({ booking, tableId: variables.tableId })
               : booking,
-          ),
-        };
-      });
-
-      return { bookingId: variables.bookingId, summaryKey: key, previousSummary };
-    },
-    onError: (error: unknown, _variables, context) => {
-      if (context?.summaryKey && context.previousSummary) {
-        queryClient.setQueryData(context.summaryKey, context.previousSummary);
-      }
-      const message = error instanceof Error ? error.message : 'Unable to assign table';
-      toast.error(message);
-    },
-    onSuccess: (data, variables, context) => {
-      if (context?.summaryKey) {
-        queryClient.setQueryData<OpsTodayBookingsSummary>(context.summaryKey, (current) => {
-          if (!current) return current;
-          return {
-            ...current,
-            bookings: current.bookings.map((booking) => {
-              if (booking.id !== variables.bookingId) return booking;
-              const nextAssignments = data.tableAssignments ?? [];
-              return {
-                ...booking,
-                tableAssignments: nextAssignments,
-                requiresTableAssignment: nextAssignments.length === 0 && booking.status !== 'cancelled' && booking.status !== 'no_show',
-              };
-            }),
-          };
-        });
-      }
-
-      invalidateCaches();
-      toast.success('Table assigned');
-    },
-  });
-
-  const unassignTable = useMutation<TableAssignmentsResponse, unknown, TableAssignmentVariables, MutationContext>({
-    mutationFn: ({ bookingId, tableId }: TableAssignmentVariables) => bookingService.unassignTable({ bookingId, tableId }),
-    onMutate: async (variables) => {
-      if (!restaurantId) {
-        return {
-          bookingId: variables.bookingId,
-        };
-      }
-
-      const key = queryKeys.opsDashboard.summary(restaurantId, date ?? null);
-
-      await queryClient.cancelQueries({ queryKey: key });
-
-      const previousSummary = queryClient.getQueryData<OpsTodayBookingsSummary>(key);
-
-      queryClient.setQueryData<OpsTodayBookingsSummary>(key, (current) => {
-        if (!current) return current;
-        return {
-          ...current,
-          bookings: current.bookings.map((booking) =>
-            booking.id === variables.bookingId ? applyUnassignOptimistic({ booking, tableId: variables.tableId }) : booking,
           ),
         };
       });
@@ -230,19 +293,26 @@ export function useOpsTableAssignmentActions(params: { restaurantId: string | nu
             bookings: current.bookings.map((booking) => {
               if (booking.id !== variables.bookingId) return booking;
               const nextAssignments = data.tableAssignments ?? [];
-              const nextStatus = nextAssignments.length === 0 && booking.status === 'confirmed' ? 'pending' : booking.status;
+              const nextStatus =
+                nextAssignments.length === 0 && booking.status === 'confirmed'
+                  ? 'pending'
+                  : booking.status;
               return {
                 ...booking,
                 status: nextStatus,
                 tableAssignments: nextAssignments,
-                requiresTableAssignment: nextAssignments.length === 0 && nextStatus !== 'cancelled' && nextStatus !== 'no_show',
+                requiresTableAssignment:
+                  nextAssignments.length === 0 &&
+                  nextStatus !== 'cancelled' &&
+                  nextStatus !== 'no_show',
               };
             }),
           };
         });
       }
 
-      invalidateCaches();
+      // Ensure cache is invalidated and refetched
+      invalidateCaches({ invalidateSummary: true, refetchSummary: true });
       toast.success('Table unassigned');
     },
   });
