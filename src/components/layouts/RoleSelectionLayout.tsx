@@ -1,0 +1,64 @@
+'use client';
+
+import Link from 'next/link';
+
+import { Footer } from '@/components/layouts/Footer';
+import { GuestBackground } from '@/components/layouts/GuestBackground';
+import { ThemeProvider } from '@/components/providers/ThemeProvider';
+import { BrandIcon } from '@/components/shared/BrandIcon';
+import { cn } from '@/lib/utils';
+
+const BRAND_NAME = 'Nab a Table';
+
+function RoleSelectionNavbar() {
+  return (
+    <nav
+      className={cn(
+        'fixed top-0 left-0 w-full z-50 px-6 transition-all duration-200 border-b',
+        'bg-white/90 backdrop-blur-md py-3 border-slate-200 shadow-sm',
+      )}
+    >
+      <div className="max-w-7xl mx-auto flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
+            <BrandIcon
+              size="sm"
+              className="shrink-0 transition-transform duration-200 ease-out hover:rotate-3"
+            />
+            <div className="relative flex items-center">
+              <span className="font-bold text-lg text-slate-900">{BRAND_NAME}</span>
+              <span className="absolute -top-3 -right-10 -rotate-12 text-[10px] font-bold uppercase tracking-[0.2em] text-blue-700 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded-full">
+                ^ beta
+              </span>
+            </div>
+          </Link>
+        </div>
+        <div className="flex items-center gap-3">
+          <Link href="/" className="text-sm font-semibold text-slate-600 hover:text-slate-900">
+            Back to Home
+          </Link>
+        </div>
+      </div>
+    </nav>
+  );
+}
+
+export function RoleSelectionLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <ThemeProvider theme="guest">
+      <div className="guest-theme relative min-h-screen bg-muted text-foreground">
+        <GuestBackground />
+        <div className="relative z-10 flex min-h-screen flex-col bg-surface">
+          <RoleSelectionNavbar />
+          <main
+            id="main-content"
+            className="flex flex-1 items-center justify-center py-10 sm:py-12 pt-24"
+          >
+            <div className="guest-boundary flex w-full justify-center">{children}</div>
+          </main>
+          <Footer variant="auth" />
+        </div>
+      </div>
+    </ThemeProvider>
+  );
+}
