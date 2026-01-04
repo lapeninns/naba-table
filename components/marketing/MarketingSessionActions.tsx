@@ -1,17 +1,17 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { useMemo } from "react";
+import Link from 'next/link';
+import { useMemo } from 'react';
 
-import { buttonVariants } from "@/components/ui/button";
-import config from "@/config";
-import { useSupabaseSession } from "@/hooks/useSupabaseSession";
-import { cn } from "@/lib/utils";
+import { buttonVariants } from '@/components/ui/button';
+import config from '@/config';
+import { useSupabaseSession } from '@/hooks/useSupabaseSession';
+import { cn } from '@/lib/utils';
 
-import type { VariantProps } from "class-variance-authority";
+import type { VariantProps } from 'class-variance-authority';
 
-type ButtonVariant = VariantProps<typeof buttonVariants>["variant"];
-type ButtonSize = VariantProps<typeof buttonVariants>["size"];
+type ButtonVariant = VariantProps<typeof buttonVariants>['variant'];
+type ButtonSize = VariantProps<typeof buttonVariants>['size'];
 
 type Action = {
   href: string;
@@ -24,68 +24,75 @@ type ResolveResult = {
   secondary?: Action;
 };
 
-type Mode = "booking" | "account" | "restaurant";
+type Mode = 'booking' | 'account' | 'restaurant';
 
 type MarketingSessionActionsProps = {
   mode?: Mode;
-  size?: Extract<ButtonSize, "sm" | "primary" | "lg">;
+  size?: Extract<ButtonSize, 'sm' | 'primary' | 'lg'>;
   showSecondary?: boolean;
   className?: string;
   primaryVariant?: ButtonVariant;
   secondaryVariant?: ButtonVariant;
 };
 
-const defaultsByMode: Record<Mode, {
-  primary: ButtonVariant;
-  secondary: ButtonVariant;
-  showSecondary: boolean;
-}> = {
+const defaultsByMode: Record<
+  Mode,
+  {
+    primary: ButtonVariant;
+    secondary: ButtonVariant;
+    showSecondary: boolean;
+  }
+> = {
   booking: {
-    primary: "default",
-    secondary: "outline",
+    primary: 'default',
+    secondary: 'outline',
     showSecondary: true,
   },
   account: {
-    primary: "default",
-    secondary: "outline",
+    primary: 'default',
+    secondary: 'outline',
     showSecondary: false,
   },
   restaurant: {
-    primary: "default",
-    secondary: "outline",
+    primary: 'default',
+    secondary: 'outline',
     showSecondary: true,
   },
 };
 
-const partnerContactEmail = config.email?.supportEmail ?? "support@example.com";
+const partnerContactEmail = config.email?.supportEmail ?? 'support@example.com';
 
 function resolveActions(mode: Mode, isAuthenticated: boolean): ResolveResult {
-  if (mode === "account") {
+  if (mode === 'account') {
     if (isAuthenticated) {
       return {
-        primary: { href: "/guest/bookings", label: "Go to My bookings" },
-        secondary: { href: "/guest/profile", label: "Manage profile" },
+        primary: {
+          href: '#restaurants',
+          label: 'Browse restaurants',
+          ariaLabel: 'Browse partner restaurants',
+        },
+        secondary: { href: '/auth', label: 'Sign in' },
       };
     }
 
     return {
-      primary: { href: "/auth/signin", label: "Sign in" },
+      primary: { href: '/auth', label: 'Sign in' },
       secondary: undefined,
     };
   }
 
-  if (mode === "restaurant") {
+  if (mode === 'restaurant') {
     if (isAuthenticated) {
       return {
-        primary: { href: "/ops", label: "Go to Ops console" },
-        secondary: { href: "/ops/team", label: "Manage team" },
+        primary: { href: '/ops', label: 'Go to Ops console' },
+        secondary: { href: '/ops/team', label: 'Manage team' },
       };
     }
 
     return {
       primary: {
         href: `mailto:${partnerContactEmail}`,
-        label: "Talk to partnerships",
+        label: 'Talk to partnerships',
         ariaLabel: `Contact Nab a Table partnerships at ${partnerContactEmail}`,
       },
       secondary: undefined,
@@ -94,20 +101,24 @@ function resolveActions(mode: Mode, isAuthenticated: boolean): ResolveResult {
 
   if (isAuthenticated) {
     return {
-      primary: { href: "/guest/bookings", label: "Go to My bookings" },
-      secondary: { href: "/guest/profile", label: "Manage profile" },
+      primary: { href: '/guest/bookings', label: 'Go to My bookings' },
+      secondary: { href: '/guest/profile', label: 'Manage profile' },
     };
   }
 
   return {
-    primary: { href: "#restaurants", label: "Browse restaurants", ariaLabel: "Browse partner restaurants" },
-    secondary: { href: "/auth/signin", label: "Sign in" },
+    primary: {
+      href: '#restaurants',
+      label: 'Browse restaurants',
+      ariaLabel: 'Browse partner restaurants',
+    },
+    secondary: { href: '/auth/signin', label: 'Sign in' },
   };
 }
 
 export function MarketingSessionActions({
-  mode = "booking",
-  size = "sm",
+  mode = 'booking',
+  size = 'sm',
   showSecondary,
   className,
   primaryVariant,
@@ -125,7 +136,7 @@ export function MarketingSessionActions({
   const secondaryButtonVariant = secondaryVariant ?? defaults.secondary;
 
   return (
-    <div className={cn("flex flex-col gap-3 sm:flex-row sm:items-center", className)}>
+    <div className={cn('flex flex-col gap-3 sm:flex-row sm:items-center', className)}>
       <Link
         href={resolved.primary.href}
         className={cn(buttonVariants({ variant: primaryButtonVariant, size }))}

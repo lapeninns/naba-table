@@ -10,6 +10,10 @@ import { cn } from '@/lib/utils';
 
 type Role = 'guest' | 'owner';
 
+interface RoleSelectionPageProps {
+  searchParams?: Record<string, string | string[] | undefined>;
+}
+
 interface RoleCardProps {
   type: Role;
   title: string;
@@ -122,9 +126,24 @@ function RoleCard({
   return cardContent;
 }
 
-export function RoleSelectionPage() {
+export function RoleSelectionPage({ searchParams }: RoleSelectionPageProps) {
   const [preferredRole, setPreferredRole] = useState<Role | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+
+  // Helper to build URL with preserved search params
+  const buildUrl = (base: string) => {
+    if (!searchParams || Object.keys(searchParams).length === 0) return base;
+    const params = new URLSearchParams();
+    Object.entries(searchParams).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        value.forEach((v) => params.append(key, v));
+      } else if (value !== undefined) {
+        params.append(key, value as string);
+      }
+    });
+    const queryString = params.toString();
+    return queryString ? `${base}?${queryString}` : base;
+  };
 
   useEffect(() => {
     // Load saved role preference from localStorage
@@ -158,10 +177,10 @@ export function RoleSelectionPage() {
       'Calendar-ready receipts',
     ],
     ctaText: 'Sign in as Guest',
-    ctaHref: '/auth/signin',
+    ctaHref: buildUrl('/auth/signin'),
     icon: <Users className="w-8 h-8" />,
     isSelected: preferredRole === 'guest',
-    onClick: () => handleRoleSelect('guest', '/auth/signin'),
+    onClick: () => handleRoleSelect('guest', buildUrl('/auth/signin')),
   };
 
   const ownerCard: RoleCardProps = {
@@ -175,10 +194,10 @@ export function RoleSelectionPage() {
       'Analytics & insights',
     ],
     ctaText: 'Sign in as Owner',
-    ctaHref: '/app/auth/signin',
+    ctaHref: buildUrl('/app/auth/signin'),
     icon: <Building2 className="w-8 h-8" />,
     isSelected: preferredRole === 'owner',
-    onClick: () => handleRoleSelect('owner', '/app/auth/signin'),
+    onClick: () => handleRoleSelect('owner', buildUrl('/app/auth/signin')),
   };
 
   return (

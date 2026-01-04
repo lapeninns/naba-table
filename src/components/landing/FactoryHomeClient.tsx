@@ -3,13 +3,13 @@
 import Link from 'next/link';
 import React, { useEffect, useRef, useState, type CSSProperties } from 'react';
 
-import { BrandIcon } from '@/components/shared/BrandIcon';
+import { BrandLogo } from '@/components/shared/BrandLogo';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
 const LOCAL_VENUES = [
   'The Barley Mow Pub — Hartford',
-  "The Queen Elizabeth Pub — King’s Lynn",
+  'The Queen Elizabeth Pub — King’s Lynn',
   'Prince of Wales Pub — Bromham',
   'White Horse Pub — Waterbeach',
   'The Corner House Pub — Cambridge',
@@ -68,11 +68,17 @@ type LiveFeedItem = {
   status: LiveFeedStatus;
 };
 
-const BRAND_NAME = 'Nab a Table';
 const HERO_BADGE = 'Installed in 24 Hours';
 
 const METRICS = [
-  { label: 'Added Revenue/Mo', value: 4200, prefix: '£', suffix: '+', detail: 'Proven Result', icon: 'chart' as const },
+  {
+    label: 'Added Revenue/Mo',
+    value: 4200,
+    prefix: '£',
+    suffix: '+',
+    detail: 'Proven Result',
+    icon: 'chart' as const,
+  },
   { label: 'Labor Hours Saved', value: 20, suffix: 'h+', detail: 'Per Week', icon: 'zap' as const },
 ];
 
@@ -83,37 +89,43 @@ const INTEGRATIONS = ['Toast', 'Square', 'Lightspeed', 'Stripe', 'Twilio'];
 const BENEFITS = [
   {
     title: 'The Core Engine',
-    description: 'Automated bookings and SMS confirmations. No-shows drop to near zero immediately.',
+    description:
+      'Automated bookings and SMS confirmations. No-shows drop to near zero immediately.',
     value: '£5,000 Value',
     icon: 'check' as const,
   },
   {
     title: 'Sunday Roast Capacity Calc',
-    description: 'An algorithm that stops kitchen meltdowns by pacing covers perfectly during peak service.',
+    description:
+      'An algorithm that stops kitchen meltdowns by pacing covers perfectly during peak service.',
     value: '£1,500 Value',
     icon: 'clock' as const,
   },
   {
     title: 'No-Show Prevention Pack',
-    description: 'Deposit and card pre-auth templates designed specifically for UK legal standards.',
+    description:
+      'Deposit and card pre-auth templates designed specifically for UK legal standards.',
     value: '£1,000 Value',
     icon: 'shield' as const,
   },
   {
     title: 'Host Stand Playbook',
-    description: '10-minute pre-shift checklist and scripts so staff stop "playing Tetris" with your floor.',
+    description:
+      '10-minute pre-shift checklist and scripts so staff stop "playing Tetris" with your floor.',
     value: '£2,000 Value',
     icon: 'user' as const,
   },
   {
     title: 'Whale-Watcher CRM',
-    description: 'Identify high-spenders instantly. Ensure VIPs get the treatment that drives 3x loyalty.',
+    description:
+      'Identify high-spenders instantly. Ensure VIPs get the treatment that drives 3x loyalty.',
     value: '£2,000 Value',
     icon: 'chart' as const,
   },
   {
     title: 'White Glove Migration',
-    description: 'We handle the entire tech switch from old systems or spreadsheets. You do zero work.',
+    description:
+      'We handle the entire tech switch from old systems or spreadsheets. You do zero work.',
     value: 'PRICELESS',
     icon: 'zap' as const,
   },
@@ -122,15 +134,18 @@ const BENEFITS = [
 const HOW_IT_WORKS_STEPS = [
   {
     title: 'We Clone Your Floor',
-    description: 'We map your tables and turn times. You do nothing. We handle the setup in < 24 hours.',
+    description:
+      'We map your tables and turn times. You do nothing. We handle the setup in < 24 hours.',
   },
   {
     title: 'We Plug The Leaks',
-    description: 'We integrate with your site. Every booking is captured, confirmed, and locked in.',
+    description:
+      'We integrate with your site. Every booking is captured, confirmed, and locked in.',
   },
   {
     title: 'You Scale Revenue',
-    description: 'Fill the empty seats. Upsell the VIPs. Cut the labor costs. Watch profit margins jump.',
+    description:
+      'Fill the empty seats. Upsell the VIPs. Cut the labor costs. Watch profit margins jump.',
   },
 ];
 
@@ -160,7 +175,12 @@ const NAV_LINKS = [
   { href: '#faq', label: 'Guarantee' },
 ];
 
-const OBJECTION_POINTS = ['Zero Setup Fee', 'Cancel Anytime', '100% Satisfaction', 'We Import Your Data'];
+const OBJECTION_POINTS = [
+  'Zero Setup Fee',
+  'Cancel Anytime',
+  '100% Satisfaction',
+  'We Import Your Data',
+];
 
 const LIVE_FEED_VENUES: string[] = LOCAL_VENUES;
 const LIVE_FEED_VISIBLE_COUNT = 3;
@@ -177,12 +197,14 @@ const TESTIMONIALS = [
     city: 'Owner, The Barley Mow',
   },
   {
-    quote: 'We used to lose 5 tables a night to no-shows. Now? Zero. That’s an extra £100k a year in my pocket.',
+    quote:
+      'We used to lose 5 tables a night to no-shows. Now? Zero. That’s an extra £100k a year in my pocket.',
     name: 'Marcus H.',
     city: 'GM, Riverstone Kitchen',
   },
   {
-    quote: 'The Sunday Roast Capacity Calculator saved our kitchen. No more meltdowns, just steady revenue.',
+    quote:
+      'The Sunday Roast Capacity Calculator saved our kitchen. No more meltdowns, just steady revenue.',
     name: 'Chef David L.',
     city: 'Harbor & Hearth',
   },
@@ -386,21 +408,41 @@ function GlobalStyles() {
 }
 
 function Icon({ name, className }: { name: string; className?: string }) {
-  const common = { viewBox: '0 0 24 24', fill: 'currentColor', className: cx('w-5 h-5 inline-block shrink-0', className) };
+  const common = {
+    viewBox: '0 0 24 24',
+    fill: 'currentColor',
+    className: cx('w-5 h-5 inline-block shrink-0', className),
+  };
   const icons: Record<string, React.ReactElement> = {
     menu: <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z" />,
-    close: <path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />,
+    close: (
+      <path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+    ),
     check: <path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />,
     arrowRight: <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z" />,
     chart: <path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z" />,
-    shield: <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" />,
-    search: <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />,
-    clock: <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z" />,
-    user: <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />,
-    lock: <path d="M12 17a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm5-9V6a5 5 0 0 0-10 0v2a3 3 0 0 0-3 3v7a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-7a3 3 0 0 0-3-3zM9 6a3 3 0 0 1 6 0v2H9V6z" />,
+    shield: (
+      <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" />
+    ),
+    search: (
+      <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+    ),
+    clock: (
+      <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
+    ),
+    user: (
+      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+    ),
+    lock: (
+      <path d="M12 17a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm5-9V6a5 5 0 0 0-10 0v2a3 3 0 0 0-3 3v7a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-7a3 3 0 0 0-3-3zM9 6a3 3 0 0 1 6 0v2H9V6z" />
+    ),
     zap: <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />,
-    logo: <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" />,
-    star: <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />,
+    logo: (
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" />
+    ),
+    star: (
+      <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+    ),
   };
   return <svg {...common}>{icons[name] || icons.check}</svg>;
 }
@@ -413,7 +455,10 @@ function LiveFeedCard({ reduceMotion }: { reduceMotion: boolean }) {
   useEffect(() => {
     if (reduceMotion) return undefined;
     const interval = window.setInterval(() => {
-      setItems((prev) => [createUpdatedLiveFeedItem(), ...prev.slice(0, LIVE_FEED_VISIBLE_COUNT - 1)]);
+      setItems((prev) => [
+        createUpdatedLiveFeedItem(),
+        ...prev.slice(0, LIVE_FEED_VISIBLE_COUNT - 1),
+      ]);
     }, 3000);
     return () => window.clearInterval(interval);
   }, [reduceMotion]);
@@ -426,7 +471,9 @@ function LiveFeedCard({ reduceMotion }: { reduceMotion: boolean }) {
             <span className="motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
             <span className="motion-safe:animate-pulse relative inline-flex rounded-full h-2 w-2 bg-green-500" />
           </div>
-          <span className="text-xs font-bold uppercase tracking-wider text-[var(--muted)]">Automated Bookings</span>
+          <span className="text-xs font-bold uppercase tracking-wider text-[var(--muted)]">
+            Automated Bookings
+          </span>
         </div>
         <Badge variant="secondary" className={BADGE_STYLES.success}>
           Active
@@ -447,7 +494,9 @@ function LiveFeedCard({ reduceMotion }: { reduceMotion: boolean }) {
             <div
               className={cx(
                 'font-medium',
-                LIVE_FEED_SUCCESS_STATUSES.includes(item.status) ? 'text-green-600' : 'text-amber-600',
+                LIVE_FEED_SUCCESS_STATUSES.includes(item.status)
+                  ? 'text-green-600'
+                  : 'text-amber-600',
               )}
             >
               {item.status}
@@ -461,7 +510,7 @@ function LiveFeedCard({ reduceMotion }: { reduceMotion: boolean }) {
 
 function Navbar({ isAuthenticated }: { isAuthenticated: boolean }) {
   const [scrolled, setScrolled] = useState(false);
-  const authHref = isAuthenticated ? '/guest/dashboard' : '/login';
+  const authHref = isAuthenticated ? '/guest/dashboard' : '/auth';
   const authLabel = isAuthenticated ? 'Dashboard' : 'Sign In';
 
   useEffect(() => {
@@ -480,15 +529,7 @@ function Navbar({ isAuthenticated }: { isAuthenticated: boolean }) {
       )}
     >
       <div className="max-w-7xl mx-auto flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <BrandIcon size="sm" className="shrink-0 transition-transform duration-200 ease-out hover:rotate-3" />
-          <div className="relative flex items-center">
-            <span className="font-bold text-lg text-slate-900">{BRAND_NAME}</span>
-            <span className="absolute -top-3 -right-10 -rotate-12 text-[10px] font-bold uppercase tracking-[0.2em] text-blue-700 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded-full">
-              ^ beta
-            </span>
-          </div>
-        </div>
+        <BrandLogo href="/" />
         <div className="hidden md:flex items-center gap-1 bg-slate-100/50 p-1 rounded-full border border-slate-200/50 backdrop-blur-sm">
           {NAV_LINKS.map((link) => (
             <a
@@ -501,10 +542,19 @@ function Navbar({ isAuthenticated }: { isAuthenticated: boolean }) {
           ))}
         </div>
         <div className="flex items-center gap-3">
-          <Link href={authHref} className="text-sm font-semibold text-slate-600 hover:text-slate-900">
+          <Link
+            href={authHref}
+            className="text-sm font-semibold text-slate-600 hover:text-slate-900"
+          >
             {authLabel}
           </Link>
-          <Button asChild className={cx('py-2 px-4 text-xs font-bold uppercase tracking-wide', BUTTON_STYLES.primary)}>
+          <Button
+            asChild
+            className={cx(
+              'py-2 px-4 text-xs font-bold uppercase tracking-wide',
+              BUTTON_STYLES.primary,
+            )}
+          >
             <Link href="/contact">Contact Sales</Link>
           </Button>
         </div>
@@ -515,7 +565,10 @@ function Navbar({ isAuthenticated }: { isAuthenticated: boolean }) {
 
 function Hero({ reduceMotion }: { reduceMotion: boolean }) {
   return (
-    <section id="hero" className="relative pt-32 pb-20 px-6 border-b border-slate-200 overflow-hidden bg-white">
+    <section
+      id="hero"
+      className="relative pt-32 pb-20 px-6 border-b border-slate-200 overflow-hidden bg-white"
+    >
       <div className="absolute top-0 inset-x-0 h-64 bg-gradient-to-b from-blue-50 to-transparent pointer-events-none" />
       <div className="absolute right-0 top-20 w-[800px] h-[800px] bg-blue-100/30 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none animate-float-slow" />
 
@@ -537,8 +590,8 @@ function Hero({ reduceMotion }: { reduceMotion: boolean }) {
           </h1>
 
           <p className="text-lg text-slate-600 max-w-xl mx-auto lg:mx-0 leading-relaxed font-medium">
-            Using Nab a Table is like moving from a manual bicycle to a self-driving car. Set the destination (more
-            profit) and let the system navigate the traffic of bookings for you.
+            Using Nab a Table is like moving from a manual bicycle to a self-driving car. Set the
+            destination (more profit) and let the system navigate the traffic of bookings for you.
           </p>
 
           <div className="flex flex-wrap justify-center lg:justify-start gap-4">
@@ -556,7 +609,9 @@ function Hero({ reduceMotion }: { reduceMotion: boolean }) {
           </div>
 
           <div className="pt-8">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-4">Integrated with your stack</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-4">
+              Integrated with your stack
+            </p>
             <div className="flex flex-wrap justify-center lg:justify-start gap-4">
               {INTEGRATIONS.map((tech) => (
                 <span
@@ -577,7 +632,9 @@ function Hero({ reduceMotion }: { reduceMotion: boolean }) {
               <div className="w-2 h-2 rounded-full bg-green-500 motion-safe:animate-pulse" />
               <div className="font-mono text-xs text-green-300">Revenue Optimized</div>
             </div>
-            <div className="font-mono text-[12px] text-white font-bold leading-relaxed">+£4,250/mo Extra Profit</div>
+            <div className="font-mono text-[12px] text-white font-bold leading-relaxed">
+              +£4,250/mo Extra Profit
+            </div>
           </div>
         </div>
       </div>
@@ -608,10 +665,15 @@ function ProblemSection() {
     <section id="problem" className="py-24 bg-white border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center max-w-3xl mx-auto mb-16 reveal-up">
-          <p className="text-xs font-bold uppercase tracking-widest text-red-500 mb-2">The Pain is The Pitch</p>
-          <h2 className="text-3xl font-bold text-slate-900 mb-4">The &quot;Old Way&quot; is Broken.</h2>
+          <p className="text-xs font-bold uppercase tracking-widest text-red-500 mb-2">
+            The Pain is The Pitch
+          </p>
+          <h2 className="text-3xl font-bold text-slate-900 mb-4">
+            The &quot;Old Way&quot; is Broken.
+          </h2>
           <p className="text-lg text-slate-600">
-            Most operators accept these problems as &quot;part of the business&quot;. They aren&apos;t. They are leaks in your bucket.
+            Most operators accept these problems as &quot;part of the business&quot;. They
+            aren&apos;t. They are leaks in your bucket.
           </p>
         </div>
         <div className="grid md:grid-cols-3 gap-8">
@@ -650,7 +712,9 @@ function MetricCard({ metric, reduceMotion }: { metric: Metric; reduceMotion: bo
       <div ref={ref} className="text-4xl font-extrabold text-slate-900 mb-1 animate-count-up">
         {formatMetricValue(metric, value)}
       </div>
-      <div className="text-sm font-semibold text-slate-500 uppercase tracking-wide">{metric.label}</div>
+      <div className="text-sm font-semibold text-slate-500 uppercase tracking-wide">
+        {metric.label}
+      </div>
       <div className="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-400 font-mono">
         {metric.detail}
       </div>
@@ -666,7 +730,8 @@ function MetricsSection({ reduceMotion }: { reduceMotion: boolean }) {
           <div className="lg:col-span-1 space-y-4">
             <h2 className="text-3xl font-bold text-slate-900">Numbers Don&apos;t Lie.</h2>
             <p className="text-slate-600">
-              Stop guessing. See exactly how automated confirmations and waitlist monetization impact your bottom line.
+              Stop guessing. See exactly how automated confirmations and waitlist monetization
+              impact your bottom line.
             </p>
           </div>
           {METRICS.map((metric) => (
@@ -687,7 +752,9 @@ function BenefitsSection() {
             The UK Pub Profit Stack
           </Badge>
           <h2 className="text-4xl font-bold text-slate-900">The Total Lockdown Bundle</h2>
-          <p className="text-lg text-slate-600">Total Value: £12,500+ / Yours for less than a missed 4-top.</p>
+          <p className="text-lg text-slate-600">
+            Total Value: £12,500+ / Yours for less than a missed 4-top.
+          </p>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -698,7 +765,9 @@ function BenefitsSection() {
                 key={benefit.title}
                 className={cx(
                   'group p-6 rounded-2xl bg-slate-50 transition-all duration-200 ease-out border border-transparent hover:border-slate-100 hover:bg-white group-hover:-translate-y-2 group-hover:shadow-xl reveal-up',
-                  isFeatured ? 'md:col-span-2 lg:col-span-3 bg-gradient-to-r from-slate-50 to-blue-50 border-blue-100' : '',
+                  isFeatured
+                    ? 'md:col-span-2 lg:col-span-3 bg-gradient-to-r from-slate-50 to-blue-50 border-blue-100'
+                    : '',
                 )}
                 style={{ transitionDelay: `${index * 100}ms` }}
               >
@@ -759,7 +828,9 @@ function Testimonials() {
         <div className="grid lg:grid-cols-2 gap-12 items-center mb-16">
           <div>
             <h2 className="text-3xl font-bold mb-4">Proof it Works.</h2>
-            <p className="text-slate-400 text-lg">Food-led pubs using Nab a Table to print money.</p>
+            <p className="text-slate-400 text-lg">
+              Food-led pubs using Nab a Table to print money.
+            </p>
           </div>
           <div className="flex flex-wrap gap-4 lg:justify-end">
             {OBJECTION_POINTS.map((point) => (
@@ -777,24 +848,30 @@ function Testimonials() {
           {TESTIMONIALS.map((testimonial, index) => {
             const delayClass = index === 0 ? 'delay-100' : index === 1 ? 'delay-200' : 'delay-300';
             return (
-            <div
-              key={testimonial.name}
-              className={cx(
-                'p-8 rounded-2xl bg-slate-800/50 border border-slate-700 reveal-up hover:bg-slate-800 transition-colors',
-                delayClass,
-              )}
-            >
-              <div className="mb-6 text-blue-400">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <Icon key={star} name="star" className="w-4 h-4 inline-block mr-1 fill-current" />
-                ))}
+              <div
+                key={testimonial.name}
+                className={cx(
+                  'p-8 rounded-2xl bg-slate-800/50 border border-slate-700 reveal-up hover:bg-slate-800 transition-colors',
+                  delayClass,
+                )}
+              >
+                <div className="mb-6 text-blue-400">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Icon
+                      key={star}
+                      name="star"
+                      className="w-4 h-4 inline-block mr-1 fill-current"
+                    />
+                  ))}
+                </div>
+                <p className="text-lg text-slate-200 italic mb-6 leading-relaxed">
+                  &quot;{testimonial.quote}&quot;
+                </p>
+                <div>
+                  <div className="font-bold text-white">{testimonial.name}</div>
+                  <div className="text-sm text-slate-400">{testimonial.city}</div>
+                </div>
               </div>
-              <p className="text-lg text-slate-200 italic mb-6 leading-relaxed">&quot;{testimonial.quote}&quot;</p>
-              <div>
-                <div className="font-bold text-white">{testimonial.name}</div>
-                <div className="text-sm text-slate-400">{testimonial.city}</div>
-              </div>
-            </div>
             );
           })}
         </div>
@@ -807,10 +884,15 @@ function FAQ() {
   return (
     <section id="faq" className="py-24 bg-slate-50 border-b border-slate-200">
       <div className="max-w-3xl mx-auto px-6">
-        <h2 className="text-3xl font-bold text-slate-900 mb-12 text-center">Guarantees & Objections</h2>
+        <h2 className="text-3xl font-bold text-slate-900 mb-12 text-center">
+          Guarantees & Objections
+        </h2>
         <div className="space-y-4">
           {FAQ_ITEMS.map((item) => (
-            <div key={item.question} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm reveal-up">
+            <div
+              key={item.question}
+              className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm reveal-up"
+            >
               <h3 className="font-bold text-slate-900 mb-2 flex items-start gap-3">
                 <span className="text-blue-600 mt-1">
                   <Icon name="arrowRight" className="w-4 h-4" />
@@ -838,14 +920,23 @@ function CTA() {
           We’ll show you exactly how to automate the busy work and reclaim 20 hours of your week.
         </p>
         <div className="flex flex-col sm:flex-row justify-center gap-4">
-          <Button asChild className={cx('px-8 py-4 text-base font-bold uppercase', BUTTON_STYLES.primary)}>
+          <Button
+            asChild
+            className={cx('px-8 py-4 text-base font-bold uppercase', BUTTON_STYLES.primary)}
+          >
             <Link href="/demo">Get A Demo</Link>
           </Button>
-          <Button asChild variant="outline" className={cx('px-8 py-4 text-base', BUTTON_STYLES.secondary)}>
+          <Button
+            asChild
+            variant="outline"
+            className={cx('px-8 py-4 text-base', BUTTON_STYLES.secondary)}
+          >
             <Link href="/contact">Contact Sales</Link>
           </Button>
         </div>
-        <p className="mt-6 text-sm text-slate-500 font-medium">Setup takes &lt; 24h. We handle the heavy lifting.</p>
+        <p className="mt-6 text-sm text-slate-500 font-medium">
+          Setup takes &lt; 24h. We handle the heavy lifting.
+        </p>
       </div>
     </section>
   );
@@ -856,13 +947,10 @@ function Footer() {
     <footer className="py-16 bg-slate-900 text-slate-300 border-t border-slate-800">
       <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-4 gap-12">
         <div className="col-span-1 md:col-span-2">
-          <div className="flex items-center gap-2 text-white font-bold text-2xl mb-4">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">N</div>
-            {BRAND_NAME}
-          </div>
+          <BrandLogo href="/" showBeta={false} variant="dark" size="lg" className="mb-4" />
           <p className="text-sm text-slate-400 max-w-xs leading-relaxed">
-            The operating system for modern hospitality. Empowering venues to deliver exceptional guest experiences
-            through data and automation.
+            The operating system for modern hospitality. Empowering venues to deliver exceptional
+            guest experiences through data and automation.
           </p>
         </div>
         <div>

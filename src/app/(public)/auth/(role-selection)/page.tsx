@@ -16,7 +16,11 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-export default async function AuthPage() {
+export default async function AuthPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const supabase = await getServerComponentSupabaseClient();
   const {
     data: { user },
@@ -38,6 +42,8 @@ export default async function AuthPage() {
     }
   }
 
+  const resolvedParams = await searchParams;
+
   // Show role selection page for unauthenticated users
-  return <RoleSelectionPage />;
+  return <RoleSelectionPage searchParams={resolvedParams} />;
 }

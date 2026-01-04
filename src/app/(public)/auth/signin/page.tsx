@@ -94,10 +94,19 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   const opsRedirectedFromParam = resolveOpsRedirectTarget(resolvedParams?.redirectedFrom);
 
   // Build restaurant sign-in URL for cross-subdomain navigation
-  const restaurantSignInUrl =
+  const restaurantSignInUrlBase =
     rootDomain === 'localhost'
       ? `http://app.localhost${hostPort ? `:${hostPort}` : ''}/auth/signin`
       : `https://app.${rootDomain.toLowerCase().replace(/^www\./, '')}/auth/signin`;
+
+  const restaurantSignInUrlObj = new URL(restaurantSignInUrlBase);
+  if (resolvedParams?.redirectedFrom) {
+    const rawParam = Array.isArray(resolvedParams.redirectedFrom)
+      ? resolvedParams.redirectedFrom[0]
+      : resolvedParams.redirectedFrom;
+    restaurantSignInUrlObj.searchParams.set('redirectedFrom', rawParam);
+  }
+  const restaurantSignInUrl = restaurantSignInUrlObj.toString();
 
   if (!isAppHost(hostname, rootDomain) && isOpsRedirectTarget(opsRedirectedFromParam)) {
     const appHost =

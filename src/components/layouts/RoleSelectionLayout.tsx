@@ -5,10 +5,8 @@ import Link from 'next/link';
 import { Footer } from '@/components/layouts/Footer';
 import { GuestBackground } from '@/components/layouts/GuestBackground';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
-import { BrandIcon } from '@/components/shared/BrandIcon';
+import { BrandLogo } from '@/components/shared';
 import { cn } from '@/lib/utils';
-
-const BRAND_NAME = 'Nab a Table';
 
 function RoleSelectionNavbar() {
   return (
@@ -20,18 +18,7 @@ function RoleSelectionNavbar() {
     >
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         <div className="flex items-center gap-2">
-          <Link href="/" className="flex items-center gap-2">
-            <BrandIcon
-              size="sm"
-              className="shrink-0 transition-transform duration-200 ease-out hover:rotate-3"
-            />
-            <div className="relative flex items-center">
-              <span className="font-bold text-lg text-slate-900">{BRAND_NAME}</span>
-              <span className="absolute -top-3 -right-10 -rotate-12 text-[10px] font-bold uppercase tracking-[0.2em] text-blue-700 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded-full">
-                ^ beta
-              </span>
-            </div>
-          </Link>
+          <BrandLogo href="/auth" />
         </div>
         <div className="flex items-center gap-3">
           <Link href="/" className="text-sm font-semibold text-slate-600 hover:text-slate-900">

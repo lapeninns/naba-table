@@ -370,4 +370,162 @@
   progress::-webkit-progress-value {
     transition: width 0.6s ease-out;
   }
+
+  /* ---------------------------------------------------------------------------
+     LANDING PAGE ANIMATIONS
+     --------------------------------------------------------------------------- */
+  @keyframes float {
+    0% {
+      transform: translate(0, 0);
+    }
+    25% {
+      transform: translate(12px, -8px);
+    }
+    50% {
+      transform: translate(0, -16px);
+    }
+    75% {
+      transform: translate(-12px, -8px);
+    }
+    100% {
+      transform: translate(0, 0);
+    }
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: 0% 50%;
+    }
+    100% {
+      background-position: 200% 50%;
+    }
+  }
+
+  @keyframes bounce-slow {
+    0%,
+    100% {
+      animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+      transform: translateY(0);
+    }
+    50% {
+      animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+      transform: translateY(-10px);
+    }
+  }
+
+  .animate-float-slow {
+    animation: float 10s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-float-slow {
+      animation: none;
+    }
+  }
+
+  .animate-bounce-slow {
+    animation: bounce-slow 3s infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-bounce-slow {
+      animation: none;
+    }
+  }
+
+  .animate-shimmer {
+    background: linear-gradient(90deg, #2563eb, #22d3ee, #2563eb);
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: shimmer 3s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-shimmer {
+      animation: none;
+      background-clip: unset;
+      color: #2563eb;
+    }
+  }
+
+  .motion-safe\:reveal-up {
+    opacity: 0;
+    transform: translateY(20px);
+    transition:
+      opacity 0.6s ease-out,
+      transform 0.6s ease-out;
+  }
+
+  .motion-safe\:reveal-up.active {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .motion-safe\:reveal-up {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+  }
+
+  .factory-card {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition:
+      transform 0.2s,
+      box-shadow 0.2s;
+  }
+
+  .factory-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  }
+
+  .pattern-grid-lg {
+    background-image:
+      linear-gradient(to right, rgba(37, 99, 235, 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(37, 99, 235, 0.05) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  .font-variant-numeric {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  .animate-ping {
+    animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+
+  @keyframes ping {
+    75%,
+    100% {
+      transform: scale(2);
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-pulse,
+    .animate-ping {
+      animation: none;
+    }
+  }
 }

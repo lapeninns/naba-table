@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 
-import { FactoryHomeClient } from '@/components/landing/FactoryHomeClient';
+import { LandingPage } from '@/components/landing/LandingPage';
 import { MarketingLayout } from '@/components/layouts/MarketingLayout';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
 
@@ -19,6 +19,13 @@ export const metadata: Metadata = {
     description: `Instant confirmations, live availability, and clear hold windows for every booking across ${PRIMARY_REGION}.`,
     type: 'website',
   },
+  twitter: {
+    card: 'summary_large_image',
+    site: '@nabatable',
+  },
+  alternates: {
+    canonical: 'https://nabatable.com',
+  },
 };
 
 export default async function Home() {
@@ -34,7 +41,7 @@ export default async function Home() {
 
   return (
     <MarketingLayout showNavbar={false} showFooter={false}>
-      <FactoryHomeClient isAuthenticated={isAuthenticated} />
+      <LandingPage isAuthenticated={isAuthenticated} />
     </MarketingLayout>
   );
 }
