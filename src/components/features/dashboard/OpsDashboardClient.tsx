@@ -1,7 +1,14 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, Search } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Filter,
+  Search,
+} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition } from 'react';
@@ -13,13 +20,18 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { BookingStateMachineProvider } from '@/contexts/booking-state-machine';
 import { useOpsActiveMembership } from '@/contexts/ops-session';
-import { useOpsBookingChanges, useOpsBookingHeatmap, useOpsBookingLifecycleActions, useOpsTableAssignmentActions, useOpsTodaySummary } from '@/hooks';
+import {
+  useOpsBookingChanges,
+  useOpsBookingHeatmap,
+  useOpsBookingLifecycleActions,
+  useOpsTableAssignmentActions,
+  useOpsTodaySummary,
+} from '@/hooks';
 import { useDateSwipe } from '@/hooks/useDateSwipe';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
 import { formatDateKey, getTodayInTimezone } from '@/lib/utils/datetime';
 import { computeCalendarRange, sanitizeDateParam } from '@/utils/ops/dashboard';
-
 
 import { BookingChangeFeed } from './BookingChangeFeed';
 import { BookingsFilterBar } from './BookingsFilterBar';
@@ -27,6 +39,7 @@ import { DashboardErrorState } from './DashboardErrorState';
 import { DashboardSkeleton } from './DashboardSkeleton';
 import { DashboardSummaryCard } from './DashboardSummaryCard';
 import { HeatmapCalendar } from './HeatmapCalendar';
+import { RealtimeStatus } from './RealtimeStatus';
 
 import type { BookingFilter } from './BookingsFilterBar';
 import type { BookingDTO } from '@/hooks/useBookings';
@@ -58,8 +71,13 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
   // State
   const [filter, setFilter] = useState<BookingFilter>(DEFAULT_FILTER);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedDate, setSelectedDate] = useState<string | null>(sanitizeDateParam(initialDate ?? undefined));
-  const [pendingBookingAction, setPendingBookingAction] = useState<{ bookingId: string; action: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show' } | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(
+    sanitizeDateParam(initialDate ?? undefined),
+  );
+  const [pendingBookingAction, setPendingBookingAction] = useState<{
+    bookingId: string;
+    action: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show';
+  } | null>(null);
   const [detailsBooking, setDetailsBooking] = useState<BookingDTO | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
@@ -86,7 +104,10 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
   }, [queryClient, restaurantId, selectedDate, summary]);
 
   // Heatmap data for modified calendar popover
-  const heatmapRange = useMemo(() => (summary ? computeCalendarRange(summary.date) : null), [summary]);
+  const heatmapRange = useMemo(
+    () => (summary ? computeCalendarRange(summary.date) : null),
+    [summary],
+  );
   const heatmapQuery = useOpsBookingHeatmap({
     restaurantId,
     startDate: heatmapRange?.start ?? null,
@@ -96,7 +117,10 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
 
   const bookingLifecycleMutations = useOpsBookingLifecycleActions();
   const assignmentDate = selectedDate;
-  const tableAssignmentActions = useOpsTableAssignmentActions({ restaurantId, date: assignmentDate });
+  const tableAssignmentActions = useOpsTableAssignmentActions({
+    restaurantId,
+    date: assignmentDate,
+  });
   const allowTableAssignments = useMemo(() => {
     const targetDate = selectedDate ?? summary?.date ?? null;
     if (!targetDate) return true;
@@ -161,11 +185,11 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
 
     // Calculate guests (sum of partySize)
     const upcoming = summary.bookings
-      .filter(b => b.status === 'confirmed' || b.status === 'PRIORITY_WAITLIST')
+      .filter((b) => b.status === 'confirmed' || b.status === 'PRIORITY_WAITLIST')
       .reduce((sum, b) => sum + b.partySize, 0);
 
     const seated = summary.bookings
-      .filter(b => b.status === 'checked_in')
+      .filter((b) => b.status === 'checked_in')
       .reduce((sum, b) => sum + b.partySize, 0);
 
     return { upcoming, seated };
@@ -178,15 +202,17 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
     const bookings = summary.bookings;
     return {
       all: bookings.length,
-      upcoming: bookings.filter(b =>
-        b.status === 'confirmed' || b.status === 'PRIORITY_WAITLIST' ||
-        b.status === 'pending' || b.status === 'pending_allocation'
+      upcoming: bookings.filter(
+        (b) =>
+          b.status === 'confirmed' ||
+          b.status === 'PRIORITY_WAITLIST' ||
+          b.status === 'pending' ||
+          b.status === 'pending_allocation',
       ).length,
-      seated: bookings.filter(b => b.status === 'checked_in').length,
-      finished: bookings.filter(b =>
-        ['completed', 'cancelled', 'no_show'].includes(b.status)
-      ).length,
-      no_show: bookings.filter(b => b.status === 'no_show').length,
+      seated: bookings.filter((b) => b.status === 'checked_in').length,
+      finished: bookings.filter((b) => ['completed', 'cancelled', 'no_show'].includes(b.status))
+        .length,
+      no_show: bookings.filter((b) => b.status === 'no_show').length,
     };
   }, [summary]);
 
@@ -218,7 +244,10 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
   ]);
 
   // Handler functions
-  const handleMarkNoShow = async (bookingId: string, options?: { performedAt?: string | null; reason?: string | null }) => {
+  const handleMarkNoShow = async (
+    bookingId: string,
+    options?: { performedAt?: string | null; reason?: string | null },
+  ) => {
     if (!restaurantId) return;
     setPendingBookingAction({ bookingId, action: 'no-show' });
     try {
@@ -278,7 +307,11 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
   };
 
   const handleAssignTable = async (bookingId: string, tableId: string, tableName?: string) => {
-    const result = await tableAssignmentActions.assignTable.mutateAsync({ bookingId, tableId, tableName });
+    const result = await tableAssignmentActions.assignTable.mutateAsync({
+      bookingId,
+      tableId,
+      tableName,
+    });
     return result.tableAssignments;
   };
 
@@ -290,7 +323,7 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
   // ALL HOOKS MUST BE CALLED BEFORE EARLY RETURNS
   // Swipe gesture for touch devices
   const headerSwipeRef = useDateSwipe<HTMLElement>({
-    onSwipeLeft: () => handleShiftDate(1),  // Swipe left = next day
+    onSwipeLeft: () => handleShiftDate(1), // Swipe left = next day
     onSwipeRight: () => handleShiftDate(-1), // Swipe right = previous day
     threshold: 50,
   });
@@ -316,7 +349,7 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
     return <DashboardErrorState onRetry={() => summaryQuery.refetch()} />;
   }
 
-  // Safety fallback: if for any reason summary is missing but we're not loading or showing error, 
+  // Safety fallback: if for any reason summary is missing but we're not loading or showing error,
   // we might still be initializing session/memberships. Show skeleton.
   if (!summary) {
     return <DashboardSkeleton />;
@@ -325,24 +358,31 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
   return (
     <div className="w-full min-w-0 bg-background font-sans text-foreground">
       <div className="mx-auto w-full min-w-0 max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-
         {/* HEADER SECTION - Mobile-First Responsive with Swipe Support */}
         {/* HEADER SECTION - Fully Responsive (Mobile Center -> Tablet Left -> Desktop Row) */}
         {/* Changed split to xl (1280px) to prevent cramping on tablet/small laptop */}
-        <header ref={headerSwipeRef} className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+        <header
+          ref={headerSwipeRef}
+          className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between"
+        >
           {/* Title Section - Always full width */}
           <div className="flex flex-col gap-2">
             <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl lg:text-4xl">
               Operations
             </h1>
-            <p className={cn(
-              "text-sm text-muted-foreground sm:text-base transition-opacity duration-300",
-              isRefetching && "opacity-50"
-            )}>
-              <span className="font-semibold text-foreground">{guestStats.upcoming} guests</span> expecting arrival
+            <p
+              className={cn(
+                'text-sm text-muted-foreground sm:text-base transition-opacity duration-300',
+                isRefetching && 'opacity-50',
+              )}
+            >
+              <span className="font-semibold text-foreground">{guestStats.upcoming} guests</span>{' '}
+              expecting arrival
               <span className="mx-1.5 text-muted-foreground/50">·</span>
               <span className="font-semibold text-foreground">{guestStats.seated} seated</span> now
-              {isRefetching && <span className="ml-2 text-xs text-amber-600 animate-pulse">(Updating...)</span>}
+              {isRefetching && (
+                <span className="ml-2 text-xs text-amber-600 animate-pulse">(Updating...)</span>
+              )}
             </p>
           </div>
 
@@ -353,31 +393,39 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
               <div className="inline-flex items-center gap-1.5 rounded-full bg-muted/70 px-3 py-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground transition-all duration-200 ease-out hover:bg-muted motion-reduce:transition-none">
                 Service Date
               </div>
-              {summary && (() => {
-                const meta = heatmapQuery.data?.[summary.date];
-                return meta ? (
-                  <>
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition-all duration-200 ease-out hover:scale-105 hover:shadow-md active:scale-95 dark:bg-blue-900/30 dark:text-blue-300 motion-reduce:transition-none motion-reduce:hover:scale-100">
-                      <span className="text-blue-600 dark:text-blue-400" aria-hidden>📋</span>
-                      {meta.bookings} {meta.bookings === 1 ? 'booking' : 'bookings'}
+              {summary &&
+                (() => {
+                  const meta = heatmapQuery.data?.[summary.date];
+                  return meta ? (
+                    <>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition-all duration-200 ease-out hover:scale-105 hover:shadow-md active:scale-95 dark:bg-blue-900/30 dark:text-blue-300 motion-reduce:transition-none motion-reduce:hover:scale-100">
+                        <span className="text-blue-600 dark:text-blue-400" aria-hidden>
+                          📋
+                        </span>
+                        {meta.bookings} {meta.bookings === 1 ? 'booking' : 'bookings'}
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-all duration-200 ease-out hover:scale-105 hover:shadow-md active:scale-95 dark:bg-emerald-900/30 dark:text-emerald-300 motion-reduce:transition-none motion-reduce:hover:scale-100">
+                        <span className="text-emerald-600 dark:text-emerald-400" aria-hidden>
+                          👥
+                        </span>
+                        {meta.covers} {meta.covers === 1 ? 'cover' : 'covers'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-500 dark:bg-gray-800/50 dark:text-gray-400">
+                      No bookings
                     </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-all duration-200 ease-out hover:scale-105 hover:shadow-md active:scale-95 dark:bg-emerald-900/30 dark:text-emerald-300 motion-reduce:transition-none motion-reduce:hover:scale-100">
-                      <span className="text-emerald-600 dark:text-emerald-400" aria-hidden>👥</span>
-                      {meta.covers} {meta.covers === 1 ? 'cover' : 'covers'}
-                    </span>
-                  </>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-500 dark:bg-gray-800/50 dark:text-gray-400">
-                    No bookings
-                  </span>
-                );
-              })()}
+                  );
+                })()}
             </div>
 
             {/* Unified Date Navigation Control */}
             <div className="relative flex items-center justify-center gap-2 sm:justify-start xl:justify-end">
               {/* Swipe hint - left */}
-              <div className="pointer-events-none absolute left-0 flex items-center opacity-30 animate-pulse xl:hidden" aria-hidden="true">
+              <div
+                className="pointer-events-none absolute left-0 flex items-center opacity-30 animate-pulse xl:hidden"
+                aria-hidden="true"
+              >
                 <ChevronsLeft className="h-4 w-4 text-muted-foreground" />
               </div>
 
@@ -415,7 +463,10 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
               </div>
 
               {/* Swipe hint - right */}
-              <div className="pointer-events-none absolute right-0 flex items-center opacity-30 animate-pulse xl:hidden" aria-hidden="true">
+              <div
+                className="pointer-events-none absolute right-0 flex items-center opacity-30 animate-pulse xl:hidden"
+                aria-hidden="true"
+              >
                 <ChevronsRight className="h-4 w-4 text-muted-foreground" />
               </div>
             </div>
@@ -430,10 +481,13 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
         {/* TOOLBAR */}
         <div className="sticky top-0 z-[5] bg-background/80 px-4 py-4 backdrop-blur-md transition-all sm:px-6 md:rounded-xl md:border md:border-border/60 md:bg-card/80 md:px-6 md:shadow-sm">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-
             <div className="overflow-x-auto scrollbar-hide -mx-2 px-2 md:mx-0 md:px-0">
               <div className="min-w-max">
-                <BookingsFilterBar value={filter} onChange={handleSelectFilter} counts={tabCounts} />
+                <BookingsFilterBar
+                  value={filter}
+                  onChange={handleSelectFilter}
+                  counts={tabCounts}
+                />
               </div>
             </div>
 
@@ -453,7 +507,11 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
                   className="h-10 w-full rounded-lg border border-border bg-background pl-10 pr-4 text-sm outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 touch-manipulation"
                 />
               </div>
-              <Button variant="outline" size="icon" className="shrink-0 h-10 w-10 bg-card touch-manipulation">
+              <Button
+                variant="outline"
+                size="icon"
+                className="shrink-0 h-10 w-10 bg-card touch-manipulation"
+              >
                 <Filter className="h-4 w-4 text-muted-foreground" />
               </Button>
             </div>
@@ -463,7 +521,6 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
         {/* RESPONSIVE GRID LAYOUT (Main Content + Sidebar) */}
         {/* Changed grid breakpoint to xl (1280px) */}
         <div className="grid grid-cols-1 gap-8 xl:grid-cols-12 xl:items-start xl:gap-8">
-
           {/* LEFT COLUMN: Booking List (Main) */}
           <div className="space-y-6 xl:col-span-9 2xl:col-span-9">
             {/* If assignments locked warning */}
@@ -519,7 +576,6 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
               />
             </div>
           </aside>
-
         </div>
         <BookingDetailsDialogWrapper
           bookingId={detailsBooking?.id ?? null}
@@ -527,6 +583,7 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
           open={isDetailsOpen}
           onOpenChange={handleDetailsOpenChange}
         />
+        <RealtimeStatus />
       </div>
     </div>
   );

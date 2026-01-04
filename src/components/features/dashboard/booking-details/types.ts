@@ -118,6 +118,7 @@ export type UseTableAssignmentOptions = {
   bookingId: string;
   restaurantId: string;
   partySize: number;
+  date?: string | null;
   currentAssignments?: string[];
   onAssignmentComplete?: () => void;
 };

@@ -354,6 +354,7 @@ export function BookingDialog({
                 bookingId={booking.id}
                 restaurantId={summary.restaurantId}
                 partySize={booking.partySize}
+                date={summary.date}
                 currentAssignments={assignedTableRows.map((row) => row.id)}
                 onAssignmentComplete={() => {
                   queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(booking.id) });
