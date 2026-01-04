@@ -110,9 +110,28 @@ export function OpsBookingCard({
   highlightUrgency = true,
 }: OpsBookingCardProps) {
   const now = useMemo(() => propNow ?? DateTime.now().setZone(timezone), [propNow, timezone]);
+  const startIso = DateTime.fromISO(booking.startIso).setZone(timezone);
+  const endIso = booking.endIso ? DateTime.fromISO(booking.endIso).setZone(timezone) : null;
+  const startTimeStr = startIso.isValid ? startIso.toFormat('h:mm a') : '--:--';
+  const endTimeStr = endIso?.isValid ? endIso.toFormat('h:mm a') : null;
+  const startDateStr = startIso.isValid ? startIso.toFormat('EEE, MMM d') : '';
+  const timeRangeLabel = endTimeStr ? `${startTimeStr}–${endTimeStr}` : startTimeStr;
 
   const { displayStatus } = deriveBookingDisplayState(booking, { isPastView: false });
-  const isPastBooking = isBookingPast(booking);
+  const isToday = useMemo(() => {
+    if (!startIso.isValid) return false;
+    return startIso.toISODate() === now.toISODate();
+  }, [startIso, now]);
+
+  const isActuallyPastDay = useMemo(() => {
+    if (!startIso.isValid) return false;
+    return startIso.startOf('day') < now.startOf('day');
+  }, [startIso, now]);
+
+  const isActuallyFutureDay = useMemo(() => {
+    if (!startIso.isValid) return false;
+    return startIso.startOf('day') > now.startOf('day');
+  }, [startIso, now]);
 
   const isDone = booking.status === 'completed' || booking.status === 'cancelled' || booking.status === 'no_show';
   const isSeated = booking.status === 'checked_in';
@@ -129,13 +148,6 @@ export function OpsBookingCard({
   const phoneLabel = booking.customerPhone?.trim() || null;
   const referenceLabel = booking.reference?.trim() || booking.id.slice(0, 8);
   const tableLabel = getTableLabel(booking.tableAssignments);
-
-  const startIso = DateTime.fromISO(booking.startIso).setZone(timezone);
-  const endIso = booking.endIso ? DateTime.fromISO(booking.endIso).setZone(timezone) : null;
-  const startTimeStr = startIso.isValid ? startIso.toFormat('h:mm a') : '--:--';
-  const endTimeStr = endIso?.isValid ? endIso.toFormat('h:mm a') : null;
-  const startDateStr = startIso.isValid ? startIso.toFormat('EEE, MMM d') : '';
-  const timeRangeLabel = endTimeStr ? `${startTimeStr}–${endTimeStr}` : startTimeStr;
 
   const timeUrgency = useMemo(() => {
     if (!highlightUrgency || !isUpcoming || !startIso.isValid) return null;
@@ -254,11 +266,11 @@ export function OpsBookingCard({
                 className={cn(
                   'h-5 gap-1 rounded-full px-1.5 py-0 text-[10px]',
                   timeUrgency.type === 'overdue' &&
-                    'border-amber-200 bg-amber-100 text-amber-700 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+                  'border-amber-200 bg-amber-100 text-amber-700 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
                   timeUrgency.type === 'soon' &&
-                    'border-amber-100 bg-amber-50 text-amber-600 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300',
+                  'border-amber-100 bg-amber-50 text-amber-600 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300',
                   timeUrgency.type === 'approaching' &&
-                    'border-blue-100 bg-blue-50 text-blue-600 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
+                  'border-blue-100 bg-blue-50 text-blue-600 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
                 )}
               >
                 <Clock className="h-3 w-3" aria-hidden />
@@ -376,7 +388,7 @@ export function OpsBookingCard({
                 className="h-9 w-full justify-center md:w-auto"
                 variant={isSeated ? 'outline' : 'default'}
                 onClick={handleMainAction}
-                disabled={isLoading || isPastBooking}
+                disabled={isLoading || !isToday}
               >
                 {isSeated ? <LogOut className="mr-2 h-3.5 w-3.5" /> : <LogIn className="mr-2 h-3.5 w-3.5" />}
                 {isSeated ? 'Finish' : 'Seat'}
@@ -393,7 +405,7 @@ export function OpsBookingCard({
                     onClick={() => onMarkNoShow(booking.id)}
                     aria-label="Mark as no-show"
                     title="Mark as no-show"
-                    disabled={isLoading || isPastBooking}
+                    disabled={isLoading || !isToday}
                   >
                     <X className="h-4 w-4" aria-hidden />
                   </Button>
@@ -422,7 +434,7 @@ export function OpsBookingCard({
                     variant="ghost"
                     size="sm"
                     onClick={() => onEdit(booking)}
-                    disabled={isLoading || isPastBooking}
+                    disabled={isLoading || isActuallyPastDay}
                     className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
                   >
                     Edit
@@ -433,7 +445,7 @@ export function OpsBookingCard({
                     variant="ghost"
                     size="sm"
                     onClick={() => onCancel(booking)}
-                    disabled={isLoading || isPastBooking}
+                    disabled={isLoading || isActuallyPastDay}
                     className="h-8 px-2 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                   >
                     Cancel

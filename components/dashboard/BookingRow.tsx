@@ -1,5 +1,6 @@
 'use client';
 
+import { DateTime } from 'luxon';
 import { useMemo, useState } from 'react';
 
 import { BookingActionButton, BookingStatusBadge, StatusTransitionAnimator, type BookingActionSubject, type BookingAction } from '@/components/features/booking-state-machine';
@@ -32,9 +33,13 @@ export type BookingRowProps = {
 };
 
 export function isBookingPast(booking: BookingDTO): boolean {
-  const startDate = new Date(booking.startIso);
-  const isPastByTime = !Number.isNaN(startDate.getTime()) && startDate.getTime() < Date.now();
-  return isPastByTime || booking.status === 'completed' || booking.status === 'no_show';
+  const startDate = DateTime.fromISO(booking.startIso);
+  if (!startDate.isValid) return false;
+
+  const now = DateTime.now().setZone(startDate.zoneName);
+  const isPastDay = startDate.startOf('day') < now.startOf('day');
+
+  return isPastDay || booking.status === 'completed' || booking.status === 'no_show';
 }
 
 export function deriveBookingDisplayState(

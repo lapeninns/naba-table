@@ -91,6 +91,7 @@ export function BookingDialog({
   cancelPending,
   open,
   onOpenChange,
+  isToday = true,
 }: BookingDialogProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -143,7 +144,8 @@ export function BookingDialog({
   const totalCapacity = calculateTotalCapacity(assignedTableRows);
   const capacityPercent = booking ? calculateCapacityPercent(totalCapacity, booking.partySize) : 0;
 
-  const shouldShowNoShow = booking ? canMarkNoShow(booking.status) && Boolean(onMarkNoShow) : false;
+  const shouldShowNoShow =
+    booking && isToday ? canMarkNoShow(booking.status) && Boolean(onMarkNoShow) : false;
   const canUndoNoShow = booking?.status === 'no_show';
   const canCheckOut = booking?.status === 'checked_in';
 
@@ -258,7 +260,7 @@ export function BookingDialog({
       };
     }
 
-    if (canCheckIn(booking.status) && onCheckIn) {
+    if (isToday && canCheckIn(booking.status) && onCheckIn) {
       return {
         id: 'check-in',
         label: 'Mark arrived',
@@ -269,7 +271,7 @@ export function BookingDialog({
     }
 
     return null;
-  }, [booking, canCheckOut, canUndoNoShow, handleAction, needsAssignment, onCheckIn, onCheckOut, onUndoNoShow]);
+  }, [booking, canCheckOut, canUndoNoShow, handleAction, isToday, needsAssignment, onCheckIn, onCheckOut, onUndoNoShow]);
 
   useGlobalShortcuts([
     {
