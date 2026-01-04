@@ -21,7 +21,6 @@ import { Card } from '@/components/ui/card';
 import { BookingStateMachineProvider } from '@/contexts/booking-state-machine';
 import { useOpsActiveMembership } from '@/contexts/ops-session';
 import {
-  useOpsBookingChanges,
   useOpsBookingHeatmap,
   useOpsBookingLifecycleActions,
   useOpsTableAssignmentActions,
@@ -33,7 +32,6 @@ import { cn } from '@/lib/utils';
 import { formatDateKey, getTodayInTimezone } from '@/lib/utils/datetime';
 import { computeCalendarRange, sanitizeDateParam } from '@/utils/ops/dashboard';
 
-import { BookingChangeFeed } from './BookingChangeFeed';
 import { BookingsFilterBar } from './BookingsFilterBar';
 import { DashboardErrorState } from './DashboardErrorState';
 import { DashboardSkeleton } from './DashboardSkeleton';
@@ -129,14 +127,6 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
     const today = getTodayInTimezone(timezone);
     return targetDate >= today;
   }, [selectedDate, summary?.date, summary?.timezone]);
-
-  // Booking Changes feed
-  const changesQuery = useOpsBookingChanges({
-    restaurantId,
-    targetDate: selectedDate ?? summary?.date ?? null,
-    limit: 20,
-    enabled: Boolean(restaurantId && (selectedDate || summary?.date)),
-  });
 
   // Handle Tab switching
   const handleSelectFilter = (nextFilter: BookingFilter) => {
@@ -518,64 +508,42 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
           </div>
         </div>
 
-        {/* RESPONSIVE GRID LAYOUT (Main Content + Sidebar) */}
-        {/* Changed grid breakpoint to xl (1280px) */}
-        <div className="grid grid-cols-1 gap-8 xl:grid-cols-12 xl:items-start xl:gap-8">
-          {/* LEFT COLUMN: Booking List (Main) */}
-          <div className="space-y-6 xl:col-span-9 2xl:col-span-9">
-            {/* If assignments locked warning */}
-            {!allowTableAssignments ? (
-              <div className="flex justify-end">
-                <Badge variant="secondary" className="bg-amber-50 text-amber-700">
-                  Past date · Assignments locked
-                </Badge>
-              </div>
-            ) : null}
-
-            <DashboardSummaryCard
-              summary={summary}
-              restaurantName={membership?.restaurantName ?? 'Restaurant'}
-              selectedDate={summary.date}
-              onSelectDate={handleSelectDate}
-              heatmap={heatmapQuery.data}
-              heatmapLoading={heatmapQuery.isLoading}
-              heatmapError={heatmapQuery.error ?? null}
-              filter={filter}
-              onFilterChange={handleSelectFilter}
-              searchQuery={searchQuery}
-              isRefetching={isRefetching}
-              showFilterBar={false}
-              showHeatmap={false}
-              allowTableAssignments={allowTableAssignments}
-              onDetails={handleDetails}
-              onAssignTable={handleAssignTable}
-              onUnassignTable={handleUnassignTable}
-              tableActionState={tableActionState}
-              onMarkNoShow={handleMarkNoShow}
-              onUndoNoShow={handleUndoNoShow}
-              onCheckIn={handleCheckIn}
-              onCheckOut={handleCheckOut}
-              pendingLifecycleAction={pendingBookingAction}
-            />
-          </div>
-
-          {/* RIGHT COLUMN: Activity Feed (Sidebar) */}
-          <aside className="space-y-4 xl:col-span-3 2xl:col-span-3 xl:sticky xl:top-24">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold tracking-tight text-foreground/90">
-                Recent Activity
-              </h3>
-              {/* Optional: Add 'View All' or similar link here if needed */}
+        {/* RESPONSIVE LAYOUT (Booking List - Full Width) */}
+        <div className="space-y-6">
+          {/* If assignments locked warning */}
+          {!allowTableAssignments ? (
+            <div className="flex justify-end">
+              <Badge variant="secondary" className="bg-amber-50 text-amber-700">
+                Past date · Assignments locked
+              </Badge>
             </div>
+          ) : null}
 
-            <div className="rounded-xl border border-border/60 bg-card/50 shadow-sm backdrop-blur-sm">
-              <BookingChangeFeed
-                changes={changesQuery.data?.changes ?? []}
-                loading={changesQuery.isLoading}
-                totalChanges={changesQuery.data?.totalChanges}
-              />
-            </div>
-          </aside>
+          <DashboardSummaryCard
+            summary={summary}
+            restaurantName={membership?.restaurantName ?? 'Restaurant'}
+            selectedDate={summary.date}
+            onSelectDate={handleSelectDate}
+            heatmap={heatmapQuery.data}
+            heatmapLoading={heatmapQuery.isLoading}
+            heatmapError={heatmapQuery.error ?? null}
+            filter={filter}
+            onFilterChange={handleSelectFilter}
+            searchQuery={searchQuery}
+            isRefetching={isRefetching}
+            showFilterBar={false}
+            showHeatmap={false}
+            allowTableAssignments={allowTableAssignments}
+            onDetails={handleDetails}
+            onAssignTable={handleAssignTable}
+            onUnassignTable={handleUnassignTable}
+            tableActionState={tableActionState}
+            onMarkNoShow={handleMarkNoShow}
+            onUndoNoShow={handleUndoNoShow}
+            onCheckIn={handleCheckIn}
+            onCheckOut={handleCheckOut}
+            pendingLifecycleAction={pendingBookingAction}
+          />
         </div>
         <BookingDetailsDialogWrapper
           bookingId={detailsBooking?.id ?? null}
