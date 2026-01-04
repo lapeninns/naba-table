@@ -1,53 +1,45 @@
 # Continuity Ledger
 
-Last updated: 2026-01-04T12:30:00Z
+Last updated: 2026-01-04T19:00:00Z
 
 ## Goal (incl. success criteria)
 
-- Fix duplicate navbar/footer on Guest Sign-in page.
-- Refine spacing and margins for the sign-in cards.
-- Perform responsive audit across all breakpoints.
+- Clean slate. Previous task (renaming Context7 to Augment Code) was reverted.
 
 ## Constraints/Assumptions
 
-- Mobile-first approach is mandatory.
-- Use Shadcn UI primitives.
-- Cross-subdomain navigation must remain functional.
+- "Context7" remains the canonical name for the semantic search tool in documentation.
+- "Augment Code" (Auggie) renaming is cancelled.
 
 ## Key decisions
 
-- Decouple `RoleSelectionLayout` from `EnhancedAuthLayout` to fix nesting.
+- Reverted all documentation changes related to "Augment Code" renaming.
+- Deleted `tasks/install-auggie-mcp-20260104-1845`.
 
 ## State
 
-- Task folder created.
-- Initial identified issues from previous session being addressed.
+- Codebase documentation is back to original state (referencing Context7).
+- No active tasks.
 
 ## Done
 
-- (From previous session) Form component revamp.
-- (From previous session) Initial layout updates.
-- Fixed duplicate navbar/footer on Guest Sign-in page using route groups.
-- Standardized padding on sign-in cards for Guest and Restaurant pages.
-- Verified responsive integrity (zero horizontal scroll) at 375px.
-- Fixed linting issues (unused imports) in sign-in page.
+- Attempted to rename "Context7" to "Augment Code (Auggie)" but reverted due to user request.
+- Verified revert (grep "Augment Code" returns nothing).
+- Verified integrity (grep "Context7" returns expected hits).
+- Cleaned up task folder `tasks/install-auggie-mcp-20260104-1845`.
 
 ## Now
 
-- All changes verified and linted. Proceeding to commit.
+- Awaiting new instructions.
 
 ## Next
 
-- User feedback and next feature phase.
+- User choice.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- None currently.
+- None.
 
 ## Working set (files/ids/commands)
 
-- `src/app/(public)/auth/layout.tsx`
-- `src/app/(public)/auth/signin/layout.tsx`
-- `src/components/layouts/EnhancedAuthLayout.tsx`
-- `src/components/layouts/RoleSelectionLayout.tsx`
-- `src/app/(public)/auth/signin/page.tsx`
+- None.

@@ -1,8 +1,11 @@
+'use client';
+
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
 import { ImplicitAuthHandler } from '@/components/auth/ImplicitAuthHandler';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
-import { BrandIcon } from '@/components/shared/BrandIcon';
+import { BrandLogo } from '@/components/shared';
 
 type EnhancedAuthLayoutProps = {
   children: React.ReactNode;
@@ -16,6 +19,9 @@ export function EnhancedAuthLayout({
   defaultRedirect,
 }: EnhancedAuthLayoutProps) {
   const isGuest = variant === 'guest';
+  const searchParams = useSearchParams();
+  const queryString = searchParams.toString();
+  const searchSuffix = queryString ? `?${queryString}` : '';
 
   return (
     <ThemeProvider theme={isGuest ? 'guest' : 'app'}>
@@ -28,16 +34,13 @@ export function EnhancedAuthLayout({
         {/* Header/Navbar */}
         <header className="relative z-20 border-b border-slate-200/60 bg-white/80 backdrop-blur-md">
           <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-            <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
-              <BrandIcon size="sm" />
-              <span className="text-lg font-bold text-slate-900">Nab a Table</span>
-            </Link>
+            <BrandLogo href={`/auth${searchSuffix}`} />
 
             <div className="flex items-center gap-4 text-sm">
               {isGuest ? (
                 <>
                   <Link
-                    href="/app/auth/signin"
+                    href={`/app/auth/signin${searchSuffix}`}
                     className="hidden text-slate-600 transition-colors hover:text-slate-900 sm:block"
                   >
                     Restaurant owners
@@ -52,7 +55,7 @@ export function EnhancedAuthLayout({
               ) : (
                 <>
                   <Link
-                    href="/auth/signin"
+                    href={`/auth/signin${searchSuffix}`}
                     className="hidden text-slate-600 transition-colors hover:text-slate-900 sm:block"
                   >
                     Guest sign-in
@@ -80,10 +83,7 @@ export function EnhancedAuthLayout({
             <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
               {/* Brand Column */}
               <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <BrandIcon size="sm" />
-                  <span className="font-bold text-slate-900">Nab a Table</span>
-                </div>
+                <BrandLogo href={`/auth${searchSuffix}`} size="sm" />
                 <p className="text-sm text-slate-600">
                   {isGuest
                     ? 'Reserve the best tables without the back-and-forth.'

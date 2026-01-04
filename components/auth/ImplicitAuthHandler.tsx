@@ -11,17 +11,17 @@ let redirectInFlight = false;
 
 /**
  * Client-side handler for Supabase implicit OAuth flow.
- * 
+ *
  * When using admin.generateLink(), Supabase returns tokens via URL hash (#access_token=...).
  * The server-side callback cannot see URL fragments, so this component handles
  * the token exchange on the client side.
- * 
+ *
  * Place this component in layouts that might receive implicit auth redirects.
  */
-export function ImplicitAuthHandler({ 
-  defaultRedirect = '/guest/dashboard' 
-}: { 
-  defaultRedirect?: string 
+export function ImplicitAuthHandler({
+  defaultRedirect = '/guest/dashboard',
+}: {
+  defaultRedirect?: string;
 }) {
   const router = useRouter();
   const processingRef = useRef(false);
@@ -104,7 +104,12 @@ export function ImplicitAuthHandler({
         // Get redirect destination from search params or use default
         const searchParams = new URLSearchParams(window.location.search);
         const redirectedFrom = searchParams.get('redirectedFrom');
-        const destination = redirectedFrom || defaultRedirect;
+
+        // Validate destination is an internal path to prevent open redirect vulnerabilities
+        let destination = defaultRedirect;
+        if (redirectedFrom && redirectedFrom.startsWith('/') && !redirectedFrom.startsWith('//')) {
+          destination = redirectedFrom;
+        }
 
         log('Redirecting to:', destination);
 

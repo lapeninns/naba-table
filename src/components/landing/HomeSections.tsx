@@ -1,48 +1,104 @@
-import { ArrowRight, CalendarCheck, CheckCircle2, Clock3, Lock, MapPin, ShieldCheck, Sparkles, Timer, Wand2 } from "lucide-react";
-import Link from "next/link";
+import {
+  ArrowRight,
+  CalendarCheck,
+  CheckCircle2,
+  Clock3,
+  Lock,
+  MapPin,
+  ShieldCheck,
+  Sparkles,
+  Timer,
+  Wand2,
+} from 'lucide-react';
+import Link from 'next/link';
 
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import LOCAL_VENUES from './local-venues.json';
 
-import LOCAL_VENUES from "./local-venues.json";
-
-const BOOKING_PATH = "/restaurants";
-const SIGN_IN_PATH = "/auth/signin";
-const BOOKINGS_PATH = "/guest/bookings";
-const PRIMARY_REGION = "Cambridgeshire, Norfolk and Bedfordshire";
-const BRAND_NAME = "Nab a Table";
+const BOOKING_PATH = '/restaurants';
+const SIGN_IN_PATH = '/auth';
+const BOOKINGS_PATH = '/guest/bookings';
+const PRIMARY_REGION = 'Cambridgeshire, Norfolk and Bedfordshire';
+const BRAND_NAME = 'Nab a Table';
 
 const METRICS = [
-  { label: "Avg. confirmation", value: "2.4s", detail: "from tap to ticket" },
-  { label: "Guests seated on time", value: "92%", detail: "during peak slots" },
-  { label: "NPS", value: "+72", detail: "last 30 days" },
+  { label: 'Avg. confirmation', value: '2.4s', detail: 'from tap to ticket' },
+  { label: 'Guests seated on time', value: '92%', detail: 'during peak slots' },
+  { label: 'NPS', value: '+72', detail: 'last 30 days' },
 ];
 
 const HERO_POINTS = [
-  { title: "Concierge-speed", copy: "Instant confirms and receipts in under three taps.", icon: Sparkles },
-  { title: "Trust on display", copy: "Availability mirrors what guests see post-booking.", icon: ShieldCheck },
-  { title: "Premium feel", copy: "Calm layout with guided actions and visible focus states.", icon: Wand2 },
+  {
+    title: 'Concierge-speed',
+    copy: 'Instant confirms and receipts in under three taps.',
+    icon: Sparkles,
+  },
+  {
+    title: 'Trust on display',
+    copy: 'Availability mirrors what guests see post-booking.',
+    icon: ShieldCheck,
+  },
+  {
+    title: 'Premium feel',
+    copy: 'Calm layout with guided actions and visible focus states.',
+    icon: Wand2,
+  },
 ];
 
 const STEPS = [
-  { title: "Pick a spot", copy: "Search by restaurant, city, or ambience with live capacity cues.", icon: MapPin },
-  { title: "Lock it in", copy: "One guided booking flow with inline checks and instant status.", icon: CheckCircle2 },
-  { title: "Stay synced", copy: "Calendar file, share link, and live status available anytime.", icon: Sparkles },
+  {
+    title: 'Pick a spot',
+    copy: 'Search by restaurant, city, or ambience with live capacity cues.',
+    icon: MapPin,
+  },
+  {
+    title: 'Lock it in',
+    copy: 'One guided booking flow with inline checks and instant status.',
+    icon: CheckCircle2,
+  },
+  {
+    title: 'Stay synced',
+    copy: 'Calendar file, share link, and live status available anytime.',
+    icon: Sparkles,
+  },
 ];
 
 const ASSURANCES = [
-  { title: "Secure & accessible", copy: "Keyboard friendly, visible focus, secure share links.", icon: Lock },
-  { title: "Reliable timing", copy: "92% seated on time during peak slots.", icon: Timer },
-  { title: "Local expertise", copy: "Curated venues across the region—no filler results.", icon: MapPin },
+  {
+    title: 'Secure & accessible',
+    copy: 'Keyboard friendly, visible focus, secure share links.',
+    icon: Lock,
+  },
+  { title: 'Reliable timing', copy: '92% seated on time during peak slots.', icon: Timer },
+  {
+    title: 'Local expertise',
+    copy: 'Curated venues across the region—no filler results.',
+    icon: MapPin,
+  },
 ];
 
 const LIVE_FEED = LOCAL_VENUES.slice(0, 6).map((venue, idx) => {
-  const times = ["6:45 PM · tonight", "7:10 PM · tonight", "7:45 PM · tonight", "12:30 PM · tomorrow", "8:05 PM · tonight", "1:00 PM · tomorrow"];
-  const parties = ["Table for 2", "Party of 4", "Table for 3", "Lunch for 2", "Table for 5", "Brunch for 3"];
-  const statuses = ["Confirmed", "Pending", "Confirmed", "Confirmed", "Pending", "Confirmed"];
+  const times = [
+    '6:45 PM · tonight',
+    '7:10 PM · tonight',
+    '7:45 PM · tonight',
+    '12:30 PM · tomorrow',
+    '8:05 PM · tonight',
+    '1:00 PM · tomorrow',
+  ];
+  const parties = [
+    'Table for 2',
+    'Party of 4',
+    'Table for 3',
+    'Lunch for 2',
+    'Table for 5',
+    'Brunch for 3',
+  ];
+  const statuses = ['Confirmed', 'Pending', 'Confirmed', 'Confirmed', 'Pending', 'Confirmed'];
   return {
     venue,
     time: times[idx % times.length],
@@ -51,7 +107,7 @@ const LIVE_FEED = LOCAL_VENUES.slice(0, 6).map((venue, idx) => {
   };
 });
 
-const TRUST_PILLS = ["Instant confirm", "Calendar-ready receipts", "Secure links"];
+const TRUST_PILLS = ['Instant confirm', 'Calendar-ready receipts', 'Secure links'];
 
 type HomeHeroSectionProps = {
   isAuthenticated?: boolean;
@@ -59,7 +115,10 @@ type HomeHeroSectionProps = {
 
 export function HomeHeroSection({ isAuthenticated = false }: HomeHeroSectionProps) {
   return (
-    <section className="relative overflow-hidden px-4 py-12 sm:px-6 lg:py-16" aria-labelledby="home-hero-heading">
+    <section
+      className="relative overflow-hidden px-4 py-12 sm:px-6 lg:py-16"
+      aria-labelledby="home-hero-heading"
+    >
       <div className="pointer-events-none absolute inset-0 opacity-70">
         <div className="absolute -left-32 top-0 h-80 w-80 rounded-full bg-blue-500/15 blur-3xl" />
         <div className="absolute right-0 top-24 h-96 w-96 rounded-full bg-amber-400/12 blur-3xl" />
@@ -69,9 +128,15 @@ export function HomeHeroSection({ isAuthenticated = false }: HomeHeroSectionProp
         {/* Narrative + CTA */}
         <div className="space-y-8 rounded-[var(--guest-radius-2xl)] border-sem bg-white/90 p-6 shadow-card">
           <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-subtle">
-            <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-blue-800">Instant confirm</span>
-            <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1">{PRIMARY_REGION}</span>
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">Concierge-level speed</span>
+            <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-blue-800">
+              Instant confirm
+            </span>
+            <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1">
+              {PRIMARY_REGION}
+            </span>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
+              Concierge-level speed
+            </span>
           </div>
 
           <div className="space-y-3">
@@ -79,7 +144,8 @@ export function HomeHeroSection({ isAuthenticated = false }: HomeHeroSectionProp
               Premium dining, confirmed in seconds.
             </h1>
             <p className="text-body text-subtle max-w-2xl">
-              A calmer, guided flow that mirrors what guests see after booking—no surprises, no relearning.
+              A calmer, guided flow that mirrors what guests see after booking—no surprises, no
+              relearning.
             </p>
           </div>
 
@@ -101,7 +167,11 @@ export function HomeHeroSection({ isAuthenticated = false }: HomeHeroSectionProp
           </div>
 
           <div className="flex flex-wrap items-center gap-3" aria-label="Primary actions">
-            <Button size="lg" className="rounded-full px-6 bg-primary text-white shadow-card hover:bg-primary/90" asChild>
+            <Button
+              size="lg"
+              className="rounded-full px-6 bg-primary text-white shadow-card hover:bg-primary/90"
+              asChild
+            >
               <Link href={BOOKING_PATH}>Find a table</Link>
             </Button>
             <Button
@@ -113,7 +183,12 @@ export function HomeHeroSection({ isAuthenticated = false }: HomeHeroSectionProp
               <Link href={BOOKINGS_PATH}>View my bookings</Link>
             </Button>
             {!isAuthenticated ? (
-              <Button variant="ghost" size="sm" className="text-blue-700 hover:text-blue-800" asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-blue-700 hover:text-blue-800"
+                asChild
+              >
                 <Link href={SIGN_IN_PATH}>Sign in</Link>
               </Button>
             ) : null}
@@ -125,7 +200,9 @@ export function HomeHeroSection({ isAuthenticated = false }: HomeHeroSectionProp
           <Card className="relative overflow-hidden rounded-[var(--guest-radius-2xl)] border-sem bg-gradient-to-br from-blue-600/90 via-blue-500/90 to-blue-700/90 p-6 text-white shadow-card">
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-1">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-blue-100">Live snapshot</p>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-blue-100">
+                  Live snapshot
+                </p>
                 <p className="text-xl font-semibold">Fast, reliable, ready</p>
               </div>
               <Badge className="rounded-full bg-white/90 text-blue-700">
@@ -147,7 +224,10 @@ export function HomeHeroSection({ isAuthenticated = false }: HomeHeroSectionProp
             <div className="mt-6 rounded-[var(--guest-radius-xl)] border border-white/15 bg-white/10 p-4">
               <div className="flex items-center justify-between text-sm text-blue-50">
                 <span>Recent confirmations</span>
-                <Link href={BOOKING_PATH} className="inline-flex items-center gap-1 text-white underline-offset-4 hover:underline">
+                <Link
+                  href={BOOKING_PATH}
+                  className="inline-flex items-center gap-1 text-white underline-offset-4 hover:underline"
+                >
                   See availability
                   <ArrowRight className="h-4 w-4" aria-hidden />
                 </Link>
@@ -167,8 +247,10 @@ export function HomeHeroSection({ isAuthenticated = false }: HomeHeroSectionProp
                     <Badge
                       variant="outline"
                       className={cn(
-                        "w-fit rounded-full px-3 py-1 text-[11px] border-white/60",
-                        slot.status === "Confirmed" ? "bg-white text-blue-700" : "bg-amber-100 text-amber-800",
+                        'w-fit rounded-full px-3 py-1 text-[11px] border-white/60',
+                        slot.status === 'Confirmed'
+                          ? 'bg-white text-blue-700'
+                          : 'bg-amber-100 text-amber-800',
                       )}
                     >
                       {slot.status}
@@ -182,7 +264,10 @@ export function HomeHeroSection({ isAuthenticated = false }: HomeHeroSectionProp
             </div>
           </Card>
 
-          <div className="rounded-[var(--guest-radius-2xl)] border-sem bg-white/95 p-5 shadow-card" aria-label="Assurance chips">
+          <div
+            className="rounded-[var(--guest-radius-2xl)] border-sem bg-white/95 p-5 shadow-card"
+            aria-label="Assurance chips"
+          >
             <div className="flex flex-wrap items-center gap-2 text-xs text-subtle">
               {TRUST_PILLS.map((pill) => (
                 <span
@@ -213,19 +298,27 @@ export function HomeMetricsSection() {
               Live stats, real venues, zero guesswork.
             </h2>
             <p className="text-body text-subtle max-w-2xl">
-              Every card here mirrors what guests experience after booking—speed, reliability, and clarity.
+              Every card here mirrors what guests experience after booking—speed, reliability, and
+              clarity.
             </p>
           </div>
           <div className="flex flex-wrap gap-2 text-xs text-subtle">
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">Live feed</span>
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">Peak reliability</span>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
+              Live feed
+            </span>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
+              Peak reliability
+            </span>
           </div>
         </div>
 
         <div className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
           <div className="grid gap-4 sm:grid-cols-3">
             {METRICS.map((stat) => (
-              <article key={stat.label} className="rounded-[var(--guest-radius-xl)] border-sem bg-elevated p-5 shadow-card">
+              <article
+                key={stat.label}
+                className="rounded-[var(--guest-radius-xl)] border-sem bg-elevated p-5 shadow-card"
+              >
                 <p className="text-xs uppercase tracking-wide text-subtle">{stat.label}</p>
                 <p className="mt-2 text-4xl font-semibold text-slate-900">{stat.value}</p>
                 <p className="text-sm text-subtle">{stat.detail}</p>
@@ -236,7 +329,9 @@ export function HomeMetricsSection() {
           <div className="space-y-3 rounded-[var(--guest-radius-xl)] border-sem bg-muted p-4 shadow-card">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
-                <p className="text-xs uppercase tracking-[0.18em] text-subtle">Recent confirmations</p>
+                <p className="text-xs uppercase tracking-[0.18em] text-subtle">
+                  Recent confirmations
+                </p>
                 <p className="text-lg font-semibold text-slate-900">Always-on availability</p>
               </div>
               <Button variant="ghost" size="sm" className="text-blue-700" asChild>
@@ -258,8 +353,10 @@ export function HomeMetricsSection() {
                   <Badge
                     variant="outline"
                     className={cn(
-                      "w-fit rounded-full px-3 py-1 text-xs",
-                      slot.status === "Confirmed" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700",
+                      'w-fit rounded-full px-3 py-1 text-xs',
+                      slot.status === 'Confirmed'
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-amber-100 text-amber-700',
                     )}
                   >
                     {slot.status}
@@ -280,12 +377,15 @@ export function HomeTrustedSection() {
       <div className="mx-auto max-w-6xl space-y-6 rounded-[var(--guest-radius-2xl)] border-sem bg-elevated p-6 shadow-card">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.2em] text-subtle">Trusted by local favourites</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-subtle">
+              Trusted by local favourites
+            </p>
             <h2 id="home-trusted-heading" className="heading-lg font-semibold text-slate-900">
               Partners across {PRIMARY_REGION}
             </h2>
             <p className="text-body text-subtle">
-              {BRAND_NAME} powers bookings for curated venues—what you see here matches their live availability.
+              {BRAND_NAME} powers bookings for curated venues—what you see here matches their live
+              availability.
             </p>
           </div>
           <Badge className="rounded-full bg-blue-50 text-blue-700">Instant confirm partners</Badge>
@@ -301,7 +401,9 @@ export function HomeTrustedSection() {
             </div>
           ))}
         </div>
-        <p className="text-center text-sm text-subtle">Trusted by local favourites across {PRIMARY_REGION}</p>
+        <p className="text-center text-sm text-subtle">
+          Trusted by local favourites across {PRIMARY_REGION}
+        </p>
       </div>
     </section>
   );
@@ -326,7 +428,10 @@ export function HomeJourneySection() {
           </p>
           <div className="mt-4 grid gap-4 md:grid-cols-3">
             {STEPS.map((step, index) => (
-              <article key={step.title} className="rounded-[var(--guest-radius-lg)] border-sem bg-white/90 p-4 shadow-card">
+              <article
+                key={step.title}
+                className="rounded-[var(--guest-radius-lg)] border-sem bg-white/90 p-4 shadow-card"
+              >
                 <div className="flex items-center gap-3">
                   <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-700">
                     <step.icon className="h-5 w-5" aria-hidden />
@@ -342,7 +447,9 @@ export function HomeJourneySection() {
 
         <div className="space-y-3 rounded-[var(--guest-radius-2xl)] border-sem bg-muted p-6 shadow-card">
           <p className="text-xs uppercase tracking-[0.18em] text-subtle">Why it’s trustworthy</p>
-          <h3 className="heading-md font-semibold text-slate-900">Built to match confirmation & receipt views</h3>
+          <h3 className="heading-md font-semibold text-slate-900">
+            Built to match confirmation & receipt views
+          </h3>
           <div className="mt-3 space-y-3">
             {ASSURANCES.map((item) => (
               <article
@@ -375,7 +482,8 @@ export function HomeCTASection() {
             Ready to book your next table?
           </h2>
           <p className="text-base text-blue-100">
-            Book from the same interface guests use after sign-in—pre-styled inputs, cards, and receipts.
+            Book from the same interface guests use after sign-in—pre-styled inputs, cards, and
+            receipts.
           </p>
         </div>
 
@@ -436,21 +544,27 @@ export function HomeReceiptsSection() {
               <CalendarCheck className="mt-0.5 h-5 w-5 text-blue-700" aria-hidden />
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-slate-900">Calendar-ready receipts</p>
-                <p className="text-sm text-subtle">Add to calendar instantly and keep status in sync across devices.</p>
+                <p className="text-sm text-subtle">
+                  Add to calendar instantly and keep status in sync across devices.
+                </p>
               </div>
             </div>
             <div className="flex items-start gap-3 rounded-[var(--guest-radius-lg)] border-sem bg-white/90 p-3 shadow-card">
               <ShieldCheck className="mt-0.5 h-5 w-5 text-blue-700" aria-hidden />
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-slate-900">Secure share links</p>
-                <p className="text-sm text-subtle">Send a token link or sign in to view your receipt at /guest/bookings/[id]/receipt.</p>
+                <p className="text-sm text-subtle">
+                  Send a token link or sign in to view your receipt at /guest/bookings/[id]/receipt.
+                </p>
               </div>
             </div>
             <div className="flex items-start gap-3 rounded-[var(--guest-radius-lg)] border-sem bg-white/90 p-3 shadow-card">
               <Clock3 className="mt-0.5 h-5 w-5 text-blue-700" aria-hidden />
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-slate-900">Always-on access</p>
-                <p className="text-sm text-subtle">Check or update your status from My Bookings without re-learning the flow.</p>
+                <p className="text-sm text-subtle">
+                  Check or update your status from My Bookings without re-learning the flow.
+                </p>
               </div>
             </div>
           </div>
@@ -509,7 +623,15 @@ function ReservationIllustration() {
           <stop offset="100%" stopColor="#6EE7B7" stopOpacity="0.4" />
         </linearGradient>
       </defs>
-      <rect x="16" y="22" width="248" height="96" rx="16" fill="url(#heroGradient)" opacity="0.16" />
+      <rect
+        x="16"
+        y="22"
+        width="248"
+        height="96"
+        rx="16"
+        fill="url(#heroGradient)"
+        opacity="0.16"
+      />
       <rect x="28" y="36" width="110" height="18" rx="8" fill="var(--primary)" opacity="0.9" />
       <rect x="28" y="60" width="90" height="12" rx="6" fill="var(--primary)" opacity="0.35" />
       <rect x="28" y="80" width="140" height="10" rx="5" fill="var(--primary)" opacity="0.18" />
@@ -518,7 +640,13 @@ function ReservationIllustration() {
       <rect x="168" y="66" width="56" height="10" rx="5" fill="var(--primary)" opacity="0.8" />
       <rect x="168" y="82" width="68" height="8" rx="4" fill="white" opacity="0.4" />
       <circle cx="230" cy="72" r="10" fill="white" />
-      <path d="M226 72l3 3 6-7" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M226 72l3 3 6-7"
+        stroke="var(--primary)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
       <rect x="192" y="100" width="60" height="10" rx="5" fill="white" opacity="0.25" />
       <rect x="70" y="106" width="88" height="10" rx="5" fill="white" opacity="0.2" />
     </svg>

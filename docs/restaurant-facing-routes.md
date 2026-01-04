@@ -21,12 +21,13 @@
 
 ### Routing Examples
 
-| From Main Domain             | Redirects To                 | Description  |
-| ---------------------------- | ---------------------------- | ------------ |
-| `nabatable.com/app/walk-in`  | `app.nabatable.com/walk-in`  | 308 redirect |
-| `nabatable.com/app/bookings` | `app.nabatable.com/bookings` | 308 redirect |
-| `nabatable.com/app/settings` | `app.nabatable.com/settings` | 308 redirect |
-| `nabatable.com/app`          | `app.nabatable.com/`         | 308 redirect |
+| From Main Domain             | Redirects To                 | Description                   |
+| ---------------------------- | ---------------------------- | ----------------------------- |
+| `nabatable.com/app/walk-in`  | `app.nabatable.com/walk-in`  | 308 redirect                  |
+| `nabatable.com/app/bookings` | `app.nabatable.com/bookings` | 308 redirect                  |
+| `nabatable.com/app/settings` | `app.nabatable.com/settings` | 308 redirect                  |
+| `nabatable.com/app`          | `app.nabatable.com/`         | 308 redirect                  |
+| `nabatable.com/login`        | `nabatable.com/auth`         | Internal redirect to Auth Hub |
 
 Note: In preview/single-host mode (`VERCEL_ENV=preview` or host in `NEXT_PUBLIC_LOCAL_APP_HOSTS`), `/app/*` stays on the same host.
 
@@ -36,6 +37,18 @@ Note: In preview/single-host mode (`VERCEL_ENV=preview` or host in `NEXT_PUBLIC_
 | `app.nabatable.com/bookings`    | `/app/bookings`             | Rewrite for Next.js routing     |
 | `app.nabatable.com/app/walk-in` | `app.nabatable.com/walk-in` | 308 redirect (remove duplicate) |
 
+## Authentication Flow
+
+Unauthenticated users attempting to access protected routes are redirected to the **Auth Hub** at `/auth`.
+
+1. **Owner Routes (`/app/*` or `app.*`):** Redirected to `/auth?redirectedFrom=<path>`
+2. **Protected Guest Routes:** Redirected to `/auth?redirectedFrom=<path>`
+3. **Auth Hub (`/auth`):** Allows user to choose their role (Guest or Owner).
+   - Choosing **Guest** leads to `/auth/signin`
+   - Choosing **Owner** leads to `app.nabatable.com/auth/signin` (or `/app/auth/signin` on local)
+
+The `redirectedFrom` parameter is preserved throughout the flow to ensure users return to their intended destination after successful sign-in.
+
 ## Restaurant-Facing UI Routes
 
 All routes are accessible at `app.nabatable.com/<route>`:
@@ -43,7 +56,7 @@ All routes are accessible at `app.nabatable.com/<route>`:
 ### Core Pages
 
 - `/` — Dashboard home
-- `/login` — Restaurant staff login
+- `/auth` — Role selection and login
 - `/dashboard` — Dashboard overview
 
 ### Bookings & Walk-ins
@@ -111,17 +124,24 @@ API routes on `app.nabatable.com` are automatically rewritten from `/api/<servic
 ## Entry Flow Diagram
 
 ```mermaid
-flowchart LR
-    A[nabatable.com/app/*] -- "308 redirect" --> B[app.nabatable.com/*]
-    B --> C[/dashboard]
-    B --> D[/bookings]
-    B --> E[/walk-in]
-    B --> F[/settings]
+flowchart TD
+    subgraph MainDomain [nabatable.com]
+        A[/*] -->|Unauthenticated| B[/auth Hub]
+        A -->|Guest Route| C[Guest Pages]
+        A -->|/app/*| D[Redirect to Subdomain]
+    end
 
-    G[nabatable.com/*] --> H[Guest-facing routes]
-    H --> I[/restaurants]
-    H --> J[/bookings/123]
-    H --> K[/menu]
+    subgraph AppSubdomain [app.nabatable.com]
+        E[/*] -->|Unauthenticated| B
+        E -->|Authenticated| F[Ops Pages]
+    end
+
+    B --> G{Choose Role}
+    G -->|Guest| H[/auth/signin]
+    G -->|Owner| I[app.nabatable.com/auth/signin]
+
+    H --> J[/guest/dashboard]
+    I --> F
 ```
 
 ## Implementation Notes
