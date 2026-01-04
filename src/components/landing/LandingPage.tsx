@@ -5,8 +5,8 @@ import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 
 import { ClarityProvider } from './analytics/ClarityProvider';
-import { ExitIntentPopup } from './analytics/ExitIntentPopup';
-import { LazySection, StickyCTA } from './optimizations';
+// import { ExitIntentPopup } from './analytics/ExitIntentPopup';
+import { LazySection } from './optimizations';
 import {
   HeroSection,
   ProblemSection,
@@ -20,7 +20,6 @@ import {
 import { SchemaOrg } from './seo';
 import { SkipLinks } from './seo/SkipLinks';
 import { Navbar, Footer } from './shared';
-
 
 interface LandingPageProps {
   isAuthenticated: boolean;
@@ -92,8 +91,8 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
         <CTASection />
       </main>
 
-      <StickyCTA />
-      <ExitIntentPopup />
+      {/* <StickyCTA /> */}
+      {/* <ExitIntentPopup /> */}
       <Footer />
     </div>
   );

@@ -31,7 +31,7 @@ import { signOutFromSupabase } from '@/lib/supabase/signOut';
 import { cn } from '@/lib/utils';
 
 import { OPS_NAV_SECTIONS, OPS_SUPPORT_ITEM, isNavItemActive } from './navigation';
-import { OpsOfflineIndicator } from './OpsOfflineIndicator';
+// import { OpsOfflineIndicator } from './OpsOfflineIndicator';
 import { OpsRestaurantSwitch } from './OpsRestaurantSwitch';
 
 import type { OpsNavigationSection } from './navigation';
@@ -42,7 +42,11 @@ type OpsSidebarLayoutProps = {
   headerSlot?: ReactNode;
 };
 
-export function OpsSidebarLayout({ children, defaultSidebarOpen = true, headerSlot }: OpsSidebarLayoutProps) {
+export function OpsSidebarLayout({
+  children,
+  defaultSidebarOpen = true,
+  headerSlot,
+}: OpsSidebarLayoutProps) {
   return (
     <ThemeProvider theme="app">
       <SidebarProvider defaultOpen={defaultSidebarOpen} className="bg-background">
@@ -58,11 +62,17 @@ export function OpsSidebarLayout({ children, defaultSidebarOpen = true, headerSl
           <div className="flex h-14 items-center gap-3 border-b border-border/60 px-4 sm:px-6">
             <SidebarTrigger className="-ml-1" aria-label="Toggle navigation menu" />
             {headerSlot ? (
-              <div className="flex-1 truncate text-sm font-medium text-muted-foreground">{headerSlot}</div>
+              <div className="flex-1 truncate text-sm font-medium text-muted-foreground">
+                {headerSlot}
+              </div>
             ) : null}
           </div>
-          <OpsOfflineIndicator />
-          <div id="ops-content" tabIndex={-1} className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
+          {/* <OpsOfflineIndicator /> */}
+          <div
+            id="ops-content"
+            tabIndex={-1}
+            className="flex min-w-0 flex-1 flex-col overflow-x-hidden"
+          >
             {children}
           </div>
         </SidebarInset>
@@ -85,12 +95,19 @@ function OpsSidebarPanel() {
   }, [featureFlags]);
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-border/40 bg-sidebar text-sidebar-foreground">
+    <Sidebar
+      collapsible="icon"
+      className="border-r border-border/40 bg-sidebar text-sidebar-foreground"
+    >
       <SidebarHeader className="px-3 pt-4">
         <OpsRestaurantSwitch />
       </SidebarHeader>
       <SidebarContent className="gap-4 px-2">
-        {!pathname ? <OpsSidebarSkeleton /> : <OpsSidebarNav sections={sections} pathname={pathname} />}
+        {!pathname ? (
+          <OpsSidebarSkeleton />
+        ) : (
+          <OpsSidebarNav sections={sections} pathname={pathname} />
+        )}
       </SidebarContent>
       <SidebarFooter className="px-3 pb-4">
         <OpsAccountActions />
@@ -101,7 +118,13 @@ function OpsSidebarPanel() {
   );
 }
 
-function OpsSidebarNav({ sections, pathname }: { sections: OpsNavigationSection[]; pathname: string }) {
+function OpsSidebarNav({
+  sections,
+  pathname,
+}: {
+  sections: OpsNavigationSection[];
+  pathname: string;
+}) {
   const isOnline = useOnlineStatus();
   const { toast } = useToast();
 
@@ -144,7 +167,10 @@ function OpsSidebarNav({ sections, pathname }: { sections: OpsNavigationSection[
                         prefetch={false}
                         onClick={(event) => handleOfflineNavigation(event, item.title)}
                       >
-                        <Icon aria-hidden className={cn('size-4', active && 'text-sidebar-accent-foreground')} />
+                        <Icon
+                          aria-hidden
+                          className={cn('size-4', active && 'text-sidebar-accent-foreground')}
+                        />
                         <span className="truncate">{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -234,7 +260,11 @@ function OpsSupportLink() {
       <SidebarGroupContent>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Contact Nab a Table support" className="touch-manipulation">
+            <SidebarMenuButton
+              asChild
+              tooltip="Contact Nab a Table support"
+              className="touch-manipulation"
+            >
               <a href={OPS_SUPPORT_ITEM.href}>
                 <SupportIcon className="size-4" aria-hidden />
                 <span className="truncate">{OPS_SUPPORT_ITEM.title}</span>

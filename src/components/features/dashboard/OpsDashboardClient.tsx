@@ -309,8 +309,17 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
     return <DashboardSkeleton />;
   }
 
-  if (summaryQuery.isError || !summary) {
+  // ONLY return error state if there is a REAL error AND no cached summary data.
+  // This prevents transient error UI during reloads or navigation when stale data is available.
+  const hasError = summaryQuery.isError && !summary;
+  if (hasError) {
     return <DashboardErrorState onRetry={() => summaryQuery.refetch()} />;
+  }
+
+  // Safety fallback: if for any reason summary is missing but we're not loading or showing error, 
+  // we might still be initializing session/memberships. Show skeleton.
+  if (!summary) {
+    return <DashboardSkeleton />;
   }
 
   return (

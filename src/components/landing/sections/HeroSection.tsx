@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
-import { Icon } from '../shared/Icons';
 import { LiveFeedCard } from '../shared/LiveFeedCard';
 
 const HERO_BADGE = 'Installed in 24 Hours';
@@ -53,18 +52,6 @@ export function HeroSection({ reduceMotion }: HeroSectionProps) {
           </p>
 
           <div className="flex flex-wrap justify-center lg:justify-start gap-4">
-            <Button
-              size="lg"
-              className="bg-blue-600 text-white hover:bg-blue-700 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg active:scale-95"
-              asChild
-            >
-              <Link href="/demo">
-                Get A Demo
-                <span className="ml-2">
-                  <Icon name="arrowRight" />
-                </span>
-              </Link>
-            </Button>
             <Button
               variant="outline"
               size="lg"

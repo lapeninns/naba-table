@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 
 import { ImplicitAuthHandler } from '@/components/auth/ImplicitAuthHandler';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
@@ -13,7 +14,7 @@ type EnhancedAuthLayoutProps = {
   defaultRedirect?: string;
 };
 
-export function EnhancedAuthLayout({
+function EnhancedAuthLayoutContent({
   children,
   variant,
   defaultRedirect,
@@ -204,5 +205,13 @@ export function EnhancedAuthLayout({
         </footer>
       </div>
     </ThemeProvider>
+  );
+}
+
+export function EnhancedAuthLayout(props: EnhancedAuthLayoutProps) {
+  return (
+    <Suspense fallback={null}>
+      <EnhancedAuthLayoutContent {...props} />
+    </Suspense>
   );
 }

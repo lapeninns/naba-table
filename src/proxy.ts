@@ -224,7 +224,7 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
     if (!data?.user) {
       const redirectedFrom = `${url.pathname}${searchParams ? `?${searchParams}` : ''}`;
       return NextResponse.redirect(
-        new URL(withRedirectedFrom('/auth', redirectedFrom), req.url),
+        new URL(withRedirectedFrom('/auth/signin', redirectedFrom), req.url),
         307,
       );
     }

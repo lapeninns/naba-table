@@ -4,7 +4,6 @@
  * Times are ISO strings (or HH:mm strings for OpsTodayBooking start/end), normalized to Date in utils.
  */
 
-
 import type { AssignmentContext, ManualAssignmentTable } from '@/services/ops/bookings';
 import type { OpsBookingStatus, OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
 import type { Dispatch, SetStateAction } from 'react';
@@ -97,7 +96,10 @@ export type BookingDetailsProps = {
   onRetry?: () => void;
   onCheckIn?: () => Promise<void>;
   onCheckOut?: () => Promise<void>;
-  onMarkNoShow?: (options?: { performedAt?: string | null; reason?: string | null }) => Promise<void>;
+  onMarkNoShow?: (options?: {
+    performedAt?: string | null;
+    reason?: string | null;
+  }) => Promise<void>;
   onUndoNoShow?: (reason?: string | null) => Promise<void>;
   onCancel?: () => Promise<void>;
   pendingLifecycleAction?: BookingActionType | null;
@@ -136,8 +138,10 @@ export type UseTableAssignmentReturn = {
   validation: AssignmentValidation;
   apply: () => Promise<{ ok: boolean; error?: string }>;
   unassignAll: () => Promise<{ ok: boolean; error?: string }>;
+  autoAssign: () => Promise<{ ok: boolean; error?: string }>;
   isAssigning: boolean;
   isUnassigning: boolean;
+  isAutoAssigning: boolean;
   isPending: boolean;
 };
 

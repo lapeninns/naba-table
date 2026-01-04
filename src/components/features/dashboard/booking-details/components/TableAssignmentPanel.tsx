@@ -37,7 +37,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
@@ -84,6 +90,7 @@ export function TableAssignmentPanel({
     validation,
     apply,
     unassignAll,
+    autoAssign,
     isPending,
   } = useTableAssignment({
     bookingId,
@@ -137,7 +144,9 @@ export function TableAssignmentPanel({
     }
 
     if (fitFilter === 'perfect') {
-      list = list.filter((table) => table.capacity === partySize || table.capacity === partySize + 1);
+      list = list.filter(
+        (table) => table.capacity === partySize || table.capacity === partySize + 1,
+      );
     } else if (fitFilter !== 'all') {
       list = list.filter((table) => fitById.get(table.id) === fitFilter);
     }
@@ -155,7 +164,16 @@ export function TableAssignmentPanel({
     }
 
     return list;
-  }, [availabilityOnly, conflictedTableIds, fitById, fitFilter, partySize, sortBy, tables, zoneFilter]);
+  }, [
+    availabilityOnly,
+    conflictedTableIds,
+    fitById,
+    fitFilter,
+    partySize,
+    sortBy,
+    tables,
+    zoneFilter,
+  ]);
 
   const groupedTables = useMemo(() => groupTablesBySection(filteredTables), [filteredTables]);
 
@@ -174,38 +192,24 @@ export function TableAssignmentPanel({
     setConfirmApply(true);
   };
 
-  const handleSmartAssign = () => {
+  const handleSmartAssign = async () => {
     if (assignedTableIds.size > 0) {
       setSmartAssignError('Remove current table assignments before using smart assign.');
       return;
     }
 
-    const candidates = tables
-      .filter(
-        (table) =>
-          table.active &&
-          table.status === 'available' &&
-          !conflictedTableIds.has(table.id) &&
-          !assignedTableIds.has(table.id) &&
-          table.capacity >= partySize,
-      )
-      .sort((a, b) => {
-        if (a.capacity !== b.capacity) return a.capacity - b.capacity;
-        return a.tableNumber.localeCompare(b.tableNumber);
-      });
+    setSmartAssignError(null);
+    const result = await autoAssign();
 
-    if (candidates.length === 0) {
-      setSmartAssignError('No available tables fit this party size.');
-      return;
+    if (!result.ok) {
+      setSmartAssignError(result.error ?? 'Smart assign failed.');
     }
-
-    setSelectedTables([candidates[0].id]);
   };
 
   const handleConfirmApply = async () => {
     setConfirmApply(false);
     const result = await apply();
-    setApplyError(result.ok ? null : result.error ?? 'Unable to apply tables.');
+    setApplyError(result.ok ? null : (result.error ?? 'Unable to apply tables.'));
   };
 
   const handleUnassign = () => {
@@ -215,7 +219,7 @@ export function TableAssignmentPanel({
   const handleConfirmUnassign = async () => {
     setConfirmUnassign(false);
     const result = await unassignAll();
-    setApplyError(result.ok ? null : result.error ?? 'Unable to unassign tables.');
+    setApplyError(result.ok ? null : (result.error ?? 'Unable to unassign tables.'));
   };
 
   if (isLoading) {
@@ -309,23 +313,22 @@ export function TableAssignmentPanel({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className={cn(
-                  'h-9 w-9 rounded-full flex items-center justify-center',
-                  (selectedCapacity + assignedCapacity) >= partySize
-                    ? 'bg-emerald-100 text-emerald-600'
-                    : 'bg-amber-100 text-amber-600'
-                )}>
+                <div
+                  className={cn(
+                    'h-9 w-9 rounded-full flex items-center justify-center',
+                    selectedCapacity + assignedCapacity >= partySize
+                      ? 'bg-emerald-100 text-emerald-600'
+                      : 'bg-amber-100 text-amber-600',
+                  )}
+                >
                   <Users className="h-4 w-4" />
                 </div>
                 <div>
-                  <div className="text-base font-semibold text-slate-900">
-                    {partySize} covers
-                  </div>
+                  <div className="text-base font-semibold text-slate-900">{partySize} covers</div>
                   <div className="text-xs text-slate-500">
-                    {(selectedCapacity + assignedCapacity) >= partySize
+                    {selectedCapacity + assignedCapacity >= partySize
                       ? '✓ Capacity met'
-                      : `Need ${partySize - selectedCapacity - assignedCapacity} more seats`
-                    }
+                      : `Need ${partySize - selectedCapacity - assignedCapacity} more seats`}
                   </div>
                 </div>
               </div>
@@ -341,9 +344,9 @@ export function TableAssignmentPanel({
               value={Math.min(((selectedCapacity + assignedCapacity) / partySize) * 100, 100)}
               className={cn(
                 'h-2',
-                (selectedCapacity + assignedCapacity) >= partySize
+                selectedCapacity + assignedCapacity >= partySize
                   ? '[&>div]:bg-emerald-500'
-                  : '[&>div]:bg-amber-500'
+                  : '[&>div]:bg-amber-500',
               )}
             />
           </div>
@@ -390,7 +393,11 @@ export function TableAssignmentPanel({
               disabled={isPending || selectedTables.length === 0 || validation.errors.length > 0}
               className="bg-emerald-600 hover:bg-emerald-700"
             >
-              {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+              {isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+              )}
               Apply tables
             </Button>
           </div>
@@ -403,7 +410,11 @@ export function TableAssignmentPanel({
               </div>
               <div className="flex flex-wrap gap-2">
                 {assignedTables.map((table) => (
-                  <Badge key={table.id} variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                  <Badge
+                    key={table.id}
+                    variant="outline"
+                    className="bg-emerald-50 text-emerald-700 border-emerald-200"
+                  >
                     Table {table.tableNumber} · {table.capacity} seats
                   </Badge>
                 ))}
@@ -482,7 +493,10 @@ export function TableAssignmentPanel({
               </div>
               <span className="text-sm font-semibold text-slate-900">Smart Suggestions</span>
             </div>
-            <Badge variant="secondary" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
+            <Badge
+              variant="secondary"
+              className="text-xs bg-amber-50 text-amber-700 border-amber-200"
+            >
               AI Optimized
             </Badge>
           </div>
@@ -491,22 +505,29 @@ export function TableAssignmentPanel({
               // Determine recommendation badge
               const fit = getCapacityFit(partySize, table);
               const recommendationLabel =
-                index === 0 ? 'Best Match' :
-                  fit === 'exact' ? 'Exact Fit' :
-                    fit === 'within' ? 'Good Fit' : null;
-              const isTableConflicted = conflictedTableIds.has(table.id) || table.status === 'conflicted';
+                index === 0
+                  ? 'Best Match'
+                  : fit === 'exact'
+                    ? 'Exact Fit'
+                    : fit === 'within'
+                      ? 'Good Fit'
+                      : null;
+              const isTableConflicted =
+                conflictedTableIds.has(table.id) || table.status === 'conflicted';
 
               return (
                 <div key={table.id} className="relative">
                   {recommendationLabel && (
-                    <div className={cn(
-                      'absolute -top-2 left-2 z-10 px-2 py-0.5 rounded-full text-[10px] font-semibold',
-                      index === 0
-                        ? 'bg-amber-500 text-white'
-                        : fit === 'exact'
-                          ? 'bg-emerald-500 text-white'
-                          : 'bg-blue-500 text-white'
-                    )}>
+                    <div
+                      className={cn(
+                        'absolute -top-2 left-2 z-10 px-2 py-0.5 rounded-full text-[10px] font-semibold',
+                        index === 0
+                          ? 'bg-amber-500 text-white'
+                          : fit === 'exact'
+                            ? 'bg-emerald-500 text-white'
+                            : 'bg-blue-500 text-white',
+                      )}
+                    >
                       {recommendationLabel}
                     </div>
                   )}
@@ -518,7 +539,9 @@ export function TableAssignmentPanel({
                     isConflicted={isTableConflicted}
                     onToggle={() =>
                       setSelectedTables((prev) =>
-                        prev.includes(table.id) ? prev.filter((id) => id !== table.id) : [...prev, table.id],
+                        prev.includes(table.id)
+                          ? prev.filter((id) => id !== table.id)
+                          : [...prev, table.id],
                       )
                     }
                     disabled={isPending}
@@ -564,7 +587,7 @@ export function TableAssignmentPanel({
                 const zoneColor = zoneColors[zoneIndex % zoneColors.length];
 
                 // Check for conflicted tables in this zone
-                const conflictedInZone = sectionTables.filter(t => conflictedTableIds.has(t.id));
+                const conflictedInZone = sectionTables.filter((t) => conflictedTableIds.has(t.id));
 
                 return (
                   <div key={section} className="space-y-2">
@@ -579,7 +602,10 @@ export function TableAssignmentPanel({
                         </span>
                       </div>
                       {conflictedInZone.length > 0 && (
-                        <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700 bg-amber-50 gap-1">
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] border-amber-300 text-amber-700 bg-amber-50 gap-1"
+                        >
                           <Clock className="h-3 w-3" />
                           {conflictedInZone.length} conflict{conflictedInZone.length > 1 ? 's' : ''}
                         </Badge>
@@ -587,7 +613,8 @@ export function TableAssignmentPanel({
                     </div>
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
                       {sectionTables.map((table) => {
-                        const isTableConflicted = conflictedTableIds.has(table.id) || table.status === 'conflicted';
+                        const isTableConflicted =
+                          conflictedTableIds.has(table.id) || table.status === 'conflicted';
                         return (
                           <SelectableTableCard
                             key={table.id}
@@ -598,7 +625,9 @@ export function TableAssignmentPanel({
                             isConflicted={isTableConflicted}
                             onToggle={() =>
                               setSelectedTables((prev) =>
-                                prev.includes(table.id) ? prev.filter((id) => id !== table.id) : [...prev, table.id],
+                                prev.includes(table.id)
+                                  ? prev.filter((id) => id !== table.id)
+                                  : [...prev, table.id],
                               )
                             }
                             disabled={isPending}
@@ -642,7 +671,10 @@ export function TableAssignmentPanel({
           )}
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmApply} className="bg-emerald-600 hover:bg-emerald-700">
+            <AlertDialogAction
+              onClick={handleConfirmApply}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
               Confirm assignment
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -659,7 +691,10 @@ export function TableAssignmentPanel({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmUnassign} className="bg-rose-600 hover:bg-rose-700">
+            <AlertDialogAction
+              onClick={handleConfirmUnassign}
+              className="bg-rose-600 hover:bg-rose-700"
+            >
               Remove tables
             </AlertDialogAction>
           </AlertDialogFooter>

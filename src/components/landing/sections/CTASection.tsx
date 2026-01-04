@@ -18,13 +18,6 @@ export function CTASection() {
         <div className="flex flex-col sm:flex-row justify-center gap-4">
           <Button
             size="lg"
-            className="px-8 py-4 text-base font-bold uppercase bg-blue-600 text-white hover:bg-blue-700 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg active:scale-95"
-            asChild
-          >
-            <Link href="/demo">Get A Demo</Link>
-          </Button>
-          <Button
-            size="lg"
             className="px-8 py-4 text-base bg-white text-slate-900 border border-slate-200 hover:bg-slate-50"
             variant="outline"
             asChild
