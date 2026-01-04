@@ -106,6 +106,7 @@ export type BookingDetailsProps = {
   cancelPending?: boolean;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  isToday?: boolean;
 };
 
 export type BookingDialogProps = BookingDetailsProps;

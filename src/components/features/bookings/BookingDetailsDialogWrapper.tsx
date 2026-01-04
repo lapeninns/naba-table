@@ -127,10 +127,13 @@ export function BookingDetailsDialogWrapper({
   }, [booking, restaurantId, startIso, timezone]);
 
   const { checkIn, checkOut, markNoShow, undoNoShow } = useOpsBookingLifecycleActions();
-  const allowTableAssignments = useMemo(() => {
-    if (!summary) return false;
+  const { allowTableAssignments, isToday } = useMemo(() => {
+    if (!summary) return { allowTableAssignments: false, isToday: false };
     const today = getTodayInTimezone(summary.timezone);
-    return summary.date >= today;
+    return {
+      allowTableAssignments: summary.date >= today,
+      isToday: summary.date === today,
+    };
   }, [summary]);
 
   // Lifecycle handlers
@@ -202,6 +205,7 @@ export function BookingDetailsDialogWrapper({
       // Pass controlled props
       open={open}
       onOpenChange={onOpenChange}
+      isToday={isToday}
     />
   );
 }
