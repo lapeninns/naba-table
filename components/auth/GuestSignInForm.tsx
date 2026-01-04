@@ -7,7 +7,14 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { GuestStatus } from '@/components/guest/ui';
 import { track } from '@/lib/analytics';
@@ -172,14 +179,14 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
   const submitLabel = magicCooldown > 0 ? `Resend in ${magicCooldown}s` : 'Send magic link';
 
   return (
-    <div id="guest-signin-form" className="p-6 sm:p-8">
+    <div id="guest-signin-form" className="space-y-6">
       {/* Header */}
-      <div className="mb-6 text-center">
+      <div className="space-y-2 text-center">
         <h2 className="text-2xl font-bold tracking-tight text-slate-900">
-          Sign in as a guest
+          Sign in to your account
         </h2>
-        <p className="mt-2 text-slate-500">
-          We&apos;ll send you a secure link — no password needed.
+        <p className="text-sm text-slate-600">
+          We'll send you a secure magic link—no password needed
         </p>
       </div>
 
@@ -191,21 +198,25 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-slate-700 font-medium">Email address</FormLabel>
+                <FormLabel className="text-sm font-medium text-slate-700">Email address</FormLabel>
                 <FormControl>
                   <div className="relative">
-                    <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                    <Mail
+                      className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400"
+                      aria-hidden="true"
+                    />
                     <Input
                       {...field}
                       type="email"
                       inputMode="email"
                       autoComplete="email"
                       placeholder="you@example.com"
-                      className="h-12 pl-12 rounded-xl border-slate-200 bg-white text-base focus:border-slate-400 focus:ring-slate-400"
+                      className="h-12 rounded-xl border-slate-300 bg-white pl-12 text-base transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 touch-manipulation"
+                      style={{ fontSize: '16px' }}
                     />
                   </div>
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-sm" />
               </FormItem>
             )}
           />
@@ -225,23 +236,41 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
           <Button
             type="submit"
             size="lg"
-            className="w-full rounded-xl bg-slate-900 text-base font-semibold hover:bg-slate-800 shadow-lg transition-all"
+            className="h-12 w-full rounded-xl bg-blue-600 text-base font-semibold shadow-lg shadow-blue-600/25 transition-all hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-600/30 active:scale-[0.98] disabled:active:scale-100 touch-manipulation"
             disabled={submitDisabled}
           >
             {isSubmitting ? (
               <span className="flex items-center justify-center gap-2">
-                <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
                 Sending...
               </span>
             ) : (
               <span className="flex items-center justify-center gap-2">
-                <Send className="h-5 w-5" aria-hidden />
+                <Send className="h-5 w-5" aria-hidden="true" />
                 {submitLabel}
               </span>
             )}
           </Button>
         </form>
       </Form>
+
+      {/* Helper Text */}
+      <div className="text-center text-xs leading-relaxed text-slate-500">
+        By signing in, you agree to our{' '}
+        <a
+          href="/terms"
+          className="font-medium text-blue-600 underline-offset-2 hover:text-blue-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded-sm"
+        >
+          Terms of Service
+        </a>{' '}
+        and{' '}
+        <a
+          href="/privacy"
+          className="font-medium text-blue-600 underline-offset-2 hover:text-blue-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded-sm"
+        >
+          Privacy Policy
+        </a>
+      </div>
     </div>
   );
 }

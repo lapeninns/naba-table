@@ -1,4 +1,5 @@
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, BarChart3, Users, Calendar, Shield } from 'lucide-react';
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { OpsSignInForm } from '@/components/auth/OpsSignInForm';
@@ -37,13 +38,14 @@ const ALLOWED_REDIRECT_PREFIXES = [
 
 function resolveRedirectTarget(raw: string | string[] | undefined): string {
   const candidate = Array.isArray(raw) ? raw[0] : raw;
-  if (typeof candidate !== 'string' || !candidate.startsWith('/') || candidate.startsWith('//')) return '/app';
+  if (typeof candidate !== 'string' || !candidate.startsWith('/') || candidate.startsWith('//'))
+    return '/app';
 
   const parsed = new URL(candidate, 'https://sajiloreservex.local');
   const pathname = parsed.pathname;
 
-  const isAllowed = ALLOWED_REDIRECT_PREFIXES.some((prefix) =>
-    pathname === prefix || pathname.startsWith(`${prefix}/`),
+  const isAllowed = ALLOWED_REDIRECT_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
 
   return isAllowed ? candidate : '/app';
@@ -55,6 +57,16 @@ export default async function OpsAuthSignInPage({ searchParams }: OpsLoginPagePr
   const resolvedParams = await searchParams;
   const redirectTarget = resolveRedirectTarget(resolvedParams?.redirectedFrom);
 
+  // Build guest sign-in URL for cross-subdomain navigation
+  const headersList = await headers();
+  const hostHeader = headersList.get('host') ?? '';
+  const hostPort = hostHeader.includes(':') ? hostHeader.split(':').pop() : undefined;
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost';
+  const guestSignInUrl =
+    rootDomain === 'localhost'
+      ? `http://localhost${hostPort ? `:${hostPort}` : ''}/auth/signin`
+      : `https://${rootDomain.toLowerCase().replace(/^www\./, '')}/auth/signin`;
+
   // Extract error info from URL params
   const errorType = resolvedParams?.error;
   const errorMessage = resolvedParams?.message;
@@ -64,7 +76,10 @@ export default async function OpsAuthSignInPage({ searchParams }: OpsLoginPagePr
   // Using getSession() which validates the JWT, not just reads cached user
   if (!hasError) {
     const supabase = await getServerComponentSupabaseClient();
-    const { data: { session }, error } = await supabase.auth.getSession();
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession();
 
     // Only redirect if we have a valid session AND no error
     if (session?.user && !error) {
@@ -73,45 +88,137 @@ export default async function OpsAuthSignInPage({ searchParams }: OpsLoginPagePr
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center bg-slate-50 text-slate-900">
-      <a
-        href="#signin-form"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-slate-900 focus:shadow"
-      >
-        Skip to content
-      </a>
-      <div className="flex w-full max-w-[80vw] flex-1 flex-col items-center justify-center gap-10 px-6 py-16">
-        <div className="space-y-3 text-center">
-          <a href="https://www.sajiloreserve.com" className="text-sm font-semibold text-primary hover:underline">
-            ← Back to marketing site
-          </a>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-            Sign in to restaurant operations
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Manage service, confirm covers, and keep your team aligned for today&apos;s shifts.
-          </p>
-        </div>
+    <div className="w-full">
+      {/* Hero Section */}
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+        <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
+          {/* Left Column - Value Proposition */}
+          <div className="order-2 flex flex-col justify-center space-y-6 lg:order-1">
+            <div className="space-y-4">
+              <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-4 py-1.5 text-sm font-medium text-blue-700">
+                <Shield className="h-4 w-4" />
+                Trusted by 200+ restaurants
+              </div>
 
-        {/* Error Alert */}
-        {hasError && errorMessage && (
-          <div
-            role="alert"
-            className="w-full max-w-xl flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800"
-          >
-            <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-500" aria-hidden="true" />
-            <div className="text-sm">
-              <p className="font-medium">Unable to sign in</p>
-              <p className="mt-1 text-red-700">{decodeURIComponent(errorMessage)}</p>
+              <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
+                Streamline your restaurant operations
+              </h1>
+
+              <p className="text-lg text-slate-600">
+                Access your operations console to manage bookings, optimize seating, and keep your
+                team aligned—all in real-time.
+              </p>
+            </div>
+
+            {/* Features Grid */}
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-3.5">
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-blue-100">
+                  <Calendar className="h-5 w-5 text-blue-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-slate-900">Real-time bookings</h3>
+                  <p className="mt-0.5 text-xs text-slate-600">
+                    Manage all reservations with live updates
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-3.5">
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-green-100">
+                  <BarChart3 className="h-5 w-5 text-green-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-slate-900">Powerful analytics</h3>
+                  <p className="mt-0.5 text-xs text-slate-600">
+                    Track covers, peak hours, and revenue trends
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-3.5">
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-purple-100">
+                  <Users className="h-5 w-5 text-purple-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-slate-900">Team collaboration</h3>
+                  <p className="mt-0.5 text-xs text-slate-600">
+                    Role-based access with activity logs
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Trust Indicators */}
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-4">
+              <Shield className="h-4 w-4 flex-shrink-0 text-blue-600" />
+              <span className="text-xs font-semibold text-blue-900">Enterprise Security:</span>
+              <span className="text-xs text-blue-800">SOC 2 Type II</span>
+              <span className="text-blue-400">•</span>
+              <span className="text-xs text-blue-800">99.9% uptime</span>
+              <span className="text-blue-400">•</span>
+              <span className="text-xs text-blue-800">End-to-end encryption</span>
             </div>
           </div>
-        )}
 
-        <div className="w-full max-w-xl rounded-3xl border border-border bg-white p-8 shadow-[0_35px_70px_-45px_rgba(15,23,42,0.35)]">
-          <OpsSignInForm redirectedFrom={redirectTarget} />
+          {/* Right Column - Sign In Form */}
+          <div className="order-1 flex flex-col justify-center lg:order-2">
+            {/* Error Alert */}
+            {hasError && errorMessage && (
+              <div
+                role="alert"
+                className="mb-6 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800"
+              >
+                <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-500" aria-hidden="true" />
+                <div className="text-sm">
+                  <p className="font-medium">Unable to sign in</p>
+                  <p className="mt-1 text-red-700">{decodeURIComponent(errorMessage)}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Sign-in Card */}
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-xl">
+              <div className="p-6 sm:p-8">
+                <OpsSignInForm redirectedFrom={redirectTarget} />
+              </div>
+
+              {/* Divider */}
+              <div className="relative px-6">
+                <div className="relative flex items-center">
+                  <div className="flex-grow border-t border-slate-200"></div>
+                  <span className="mx-4 flex-shrink text-sm text-slate-500">or</span>
+                  <div className="flex-grow border-t border-slate-200"></div>
+                </div>
+              </div>
+
+              {/* Guest CTA */}
+              <div className="rounded-b-2xl bg-slate-50 p-6">
+                <p className="mb-3 text-center text-sm text-slate-600">
+                  Looking to make a reservation?
+                </p>
+                <a
+                  href={guestSignInUrl}
+                  className="flex w-full items-center justify-center rounded-xl border-2 border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition-all hover:border-blue-400 hover:bg-blue-50"
+                >
+                  Sign in as a guest →
+                </a>
+              </div>
+            </div>
+
+            {/* Support Link */}
+            <div className="mt-6 text-center text-sm text-slate-600">
+              Need help?{' '}
+              <a
+                href="mailto:support@sajiloreserve.com"
+                className="font-medium text-blue-600 hover:text-blue-700"
+              >
+                Contact support
+              </a>
+            </div>
+          </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
-
