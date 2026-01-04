@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useBookingService } from '@/contexts/ops-services';
 import { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
+import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
 import { generateIdempotencyKey } from '@/lib/utils/idempotency';
 
 import { validateTableSelection } from '../utils';
@@ -43,6 +44,70 @@ export function useTableAssignment({
     enabled: Boolean(bookingId),
     staleTime: 30_000,
   });
+
+  // Realtime subscription for assignment context updates
+  useEffect(() => {
+    const realtimeEnabled =
+      typeof window !== 'undefined' &&
+      process.env.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN === 'true';
+    if (!bookingId || !restaurantId || !realtimeEnabled) {
+      return;
+    }
+
+    const client = getRealtimeSupabaseClient();
+    const channelName = `ops-table-assignment:${restaurantId}:${bookingId}`;
+    const channel = client.channel(channelName, {
+      config: {
+        broadcast: { self: false },
+      },
+    });
+
+    const handleChange = () => {
+      void refetch();
+    };
+
+    // Listen to allocations changes for this restaurant
+    channel.on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'allocations',
+        filter: `restaurant_id=eq.${restaurantId}`,
+      },
+      handleChange,
+    );
+
+    // Listen to table holds for this restaurant
+    channel.on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'table_holds',
+        filter: `restaurant_id=eq.${restaurantId}`,
+      },
+      handleChange,
+    );
+
+    // Listen to booking table assignments for this specific booking
+    channel.on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'booking_table_assignments',
+        filter: `booking_id=eq.${bookingId}`,
+      },
+      handleChange,
+    );
+
+    channel.subscribe();
+
+    return () => {
+      client.removeChannel(channel);
+    };
+  }, [bookingId, restaurantId, refetch]);
 
   const tables = useMemo(() => context?.tables ?? [], [context?.tables]);
 
@@ -121,7 +186,7 @@ export function useTableAssignment({
 
     // Step 3: Score each table using algorithm-aligned scoring
     type ScoredTable = {
-      table: typeof candidates[0];
+      table: (typeof candidates)[0];
       score: number;
       fit: 'exact' | 'comfort' | 'large' | 'undersized';
       overage: number;
@@ -221,7 +286,9 @@ export function useTableAssignment({
       setSelectedTables([]);
       refetch();
       queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(bookingId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.opsDashboard.summary(restaurantId, null) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.opsDashboard.summary(restaurantId, null),
+      });
       onAssignmentComplete?.();
     },
   });
@@ -233,7 +300,44 @@ export function useTableAssignment({
     onSuccess: () => {
       refetch();
       queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(bookingId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.opsDashboard.summary(restaurantId, null) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.opsDashboard.summary(restaurantId, null),
+      });
+      onAssignmentComplete?.();
+    },
+  });
+
+  const autoAssignMutation = useMutation({
+    mutationFn: async () => {
+      // Step 1: Get auto-quote for optimal table selection
+      const quoteResult = await bookingService.autoQuoteTables({
+        bookingId,
+        requireAdjacency: false,
+      });
+
+      if (
+        !quoteResult.candidate ||
+        !quoteResult.candidate.tableIds ||
+        quoteResult.candidate.tableIds.length === 0
+      ) {
+        throw new Error(quoteResult.reason || 'No suitable tables found for this booking');
+      }
+
+      // Step 2: Directly assign the quoted tables
+      return bookingService.assignTablesDirect({
+        bookingId,
+        tableIds: quoteResult.candidate.tableIds,
+        idempotencyKey: generateIdempotencyKey(),
+        requireAdjacency: false,
+      });
+    },
+    onSuccess: () => {
+      setSelectedTables([]);
+      refetch();
+      queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(bookingId) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.opsDashboard.summary(restaurantId, null),
+      });
       onAssignmentComplete?.();
     },
   });
@@ -278,6 +382,19 @@ export function useTableAssignment({
     }
   }, [assignedTableIds, unassignMutation]);
 
+  const autoAssign = useCallback(async () => {
+    if (assignedTableIds.size > 0) {
+      return { ok: false, error: 'Remove current table assignments before using smart assign.' };
+    }
+    try {
+      await autoAssignMutation.mutateAsync();
+      return { ok: true };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Auto-assign failed.';
+      return { ok: false, error: message };
+    }
+  }, [assignedTableIds, autoAssignMutation]);
+
   return {
     context,
     isLoading,
@@ -294,8 +411,11 @@ export function useTableAssignment({
     validation,
     apply,
     unassignAll,
+    autoAssign,
     isAssigning: assignMutation.isPending,
     isUnassigning: unassignMutation.isPending,
-    isPending: assignMutation.isPending || unassignMutation.isPending,
+    isAutoAssigning: autoAssignMutation.isPending,
+    isPending:
+      assignMutation.isPending || unassignMutation.isPending || autoAssignMutation.isPending,
   };
 }

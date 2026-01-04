@@ -595,14 +595,6 @@ function Hero({ reduceMotion }: { reduceMotion: boolean }) {
           </p>
 
           <div className="flex flex-wrap justify-center lg:justify-start gap-4">
-            <Button asChild className={BUTTON_STYLES.primary}>
-              <Link href="/demo">
-                Get A Demo
-                <span className="ml-2">
-                  <Icon name="arrowRight" />
-                </span>
-              </Link>
-            </Button>
             <Button asChild variant="outline" className={BUTTON_STYLES.secondary}>
               <Link href="/contact">Contact Sales</Link>
             </Button>
@@ -920,12 +912,6 @@ function CTA() {
           We’ll show you exactly how to automate the busy work and reclaim 20 hours of your week.
         </p>
         <div className="flex flex-col sm:flex-row justify-center gap-4">
-          <Button
-            asChild
-            className={cx('px-8 py-4 text-base font-bold uppercase', BUTTON_STYLES.primary)}
-          >
-            <Link href="/demo">Get A Demo</Link>
-          </Button>
           <Button
             asChild
             variant="outline"

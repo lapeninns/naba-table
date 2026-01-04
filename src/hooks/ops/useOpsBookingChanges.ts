@@ -18,17 +18,20 @@ type UseOpsBookingChangesParams = {
 };
 
 export function useOpsBookingChanges({ restaurantId, targetDate, limit = 50, enabled = true }: UseOpsBookingChangesParams) {
+  const isUuid = (val: string | null) => !!val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+  const isEnabled = enabled && isUuid(restaurantId) && Boolean(targetDate);
+
   return useQuery<BookingChangeFeedResponse>({
     queryKey: ['ops', 'changes', restaurantId, targetDate, limit],
     queryFn: async () => {
-      if (!restaurantId || !targetDate) {
-        throw new Error('Restaurant ID and target date are required');
+      if (!restaurantId || !targetDate || !isUuid(restaurantId)) {
+        throw new Error('Valid Restaurant ID and target date are required');
       }
 
       const params = new URLSearchParams({ restaurantId, date: targetDate, limit: limit.toString() });
       return fetchJson<BookingChangeFeedResponse>(`/api/ops/dashboard/changes?${params.toString()}`);
     },
-    enabled: enabled && Boolean(restaurantId) && Boolean(targetDate),
+    enabled: isEnabled,
     staleTime: 1000 * 30,
     refetchInterval: 1000 * 60,
   });

@@ -37,10 +37,7 @@ export function StickyCTA() {
           className="rounded-full bg-blue-600 text-white hover:bg-blue-700 shadow-sm transition-all"
           asChild
         >
-          <a href="/demo">
-            <Icon name="arrowRight" className="mr-2 h-4 w-4" />
-            Get A Demo
-          </a>
+          <a href="/contact">Contact Sales</a>
         </Button>
         <button
           onClick={() => setIsHidden(true)}

@@ -22,7 +22,8 @@ export function useOpsTodaySummary(options: UseOpsTodaySummaryOptions) {
   const queryKey = restaurantId
     ? queryKeys.opsDashboard.summary(restaurantId, targetDate)
     : (['ops', 'dashboard', 'summary', 'disabled'] as const);
-  const isEnabled = Boolean(restaurantId) && (options.enabled ?? true) && status !== 'loading';
+  const isUuid = (val: string | null) => !!val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+  const isEnabled = Boolean(restaurantId) && isUuid(restaurantId) && (options.enabled ?? true) && status !== 'loading';
 
   return useQuery<OpsTodayBookingsSummary>({
     queryKey,

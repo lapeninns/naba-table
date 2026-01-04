@@ -313,13 +313,19 @@ function Button({
       )}
       {...(asChild ? props : { ...props })}
     >
-      {loading ? (
-        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+      {asChild ? (
+        children
       ) : (
-        leftIcon && <span className="mr-2">{leftIcon}</span>
+        <>
+          {loading ? (
+            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+          ) : (
+            leftIcon && <span className="mr-2">{leftIcon}</span>
+          )}
+          {children}
+          {!loading && rightIcon && <span className="ml-2">{rightIcon}</span>}
+        </>
       )}
-      {children}
-      {!loading && rightIcon && <span className="ml-2">{rightIcon}</span>}
     </Component>
   );
 }

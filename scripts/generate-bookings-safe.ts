@@ -28,6 +28,8 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 const RESTAURANT_ID = process.env.RESTAURANT_ID ?? "486de541-a307-4414-b0b1-f774a0e4a9fa";
 const BOOKING_DATE = process.env.BOOKING_DATE ?? "2025-12-28";
+const START_HOUR = process.env.START_HOUR ?? "12";
+const BOOKING_COUNT = parseInt(process.env.BOOKING_COUNT ?? "15", 10);
 
 async function generateBookings() {
   console.log("Starting booking generation with corrected schema...");
@@ -46,10 +48,10 @@ async function generateBookings() {
   const tableIds = tables.map((table) => table.id);
   console.log(`Found ${tableIds.length} active tables.`);
 
-  for (let i = 1; i <= 15; i += 1) {
+  for (let i = 1; i <= BOOKING_COUNT; i += 1) {
     const guestName = `Staging Guest ${i} ${Math.floor(Math.random() * 900) + 100}`;
 
-    const startTimeDate = new Date(`${BOOKING_DATE}T12:00:00Z`);
+    const startTimeDate = new Date(`${BOOKING_DATE}T${START_HOUR.padStart(2, "0")}:00:00Z`);
     startTimeDate.setMinutes(startTimeDate.getMinutes() + i * 30);
 
     const startAt = startTimeDate.toISOString();
@@ -65,20 +67,40 @@ async function generateBookings() {
       .toString()
       .padStart(2, "0")}`;
 
-    const { data: customer, error: customerError } = await supabase
-      .from("customers")
-      .insert({
-        restaurant_id: RESTAURANT_ID,
-        full_name: guestName,
-        email: `${guestName.toLowerCase().replace(/ /g, ".")}@example.com`,
-        phone: `+447000000${i.toString().padStart(2, "0")}`,
-      })
-      .select("id")
-      .single();
+    let customerId: string;
 
-    if (customerError) {
-      console.error(`Error creating customer ${i}:`, customerError);
+    const { data: existingCustomer, error: findError } = await supabase
+      .from("customers")
+      .select("id")
+      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("phone", `+447000000${i.toString().padStart(2, "0")}`)
+      .maybeSingle();
+
+    if (findError) {
+      console.error(`Error searching customer ${i}:`, findError);
       continue;
+    }
+
+    if (existingCustomer) {
+      console.log(`Using existing customer for ${guestName}`);
+      customerId = existingCustomer.id;
+    } else {
+      const { data: customer, error: customerError } = await supabase
+        .from("customers")
+        .insert({
+          restaurant_id: RESTAURANT_ID,
+          full_name: guestName,
+          email: `${guestName.toLowerCase().replace(/ /g, ".")}@example.com`,
+          phone: `+447000000${i.toString().padStart(2, "0")}`,
+        })
+        .select("id")
+        .single();
+
+      if (customerError) {
+        console.error(`Error creating customer ${i}:`, customerError);
+        continue;
+      }
+      customerId = customer.id;
     }
 
     const tableId = tableIds[i % tableIds.length];
@@ -87,7 +109,7 @@ async function generateBookings() {
       .from("bookings")
       .insert({
         restaurant_id: RESTAURANT_ID,
-        customer_id: customer.id,
+        customer_id: customerId,
         customer_name: guestName,
         customer_email: `${guestName.toLowerCase().replace(/ /g, ".")}@example.com`,
         customer_phone: `+447000000${i.toString().padStart(2, "0")}`,

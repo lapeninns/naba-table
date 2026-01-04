@@ -78,7 +78,7 @@ export function ExitIntentPopup() {
               className="w-full h-12 text-base font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
               asChild
             >
-              <a href="/demo">Get Your Free Demo</a>
+              <a href="/contact">Contact Sales</a>
             </Button>
             <div className="flex items-center gap-2 justify-center text-sm text-slate-500">
               <Icon name="check" className="h-4 w-4 text-green-600" />
