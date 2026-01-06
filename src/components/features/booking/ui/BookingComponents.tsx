@@ -1,29 +1,27 @@
+import Link from 'next/link';
 
-import Link from "next/link";
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
+import type { ElementType, ReactNode } from 'react';
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
-
-import type { ElementType, ReactNode } from "react";
-
-type StatusTone = "default" | "success" | "warning" | "danger" | "info";
+type StatusTone = 'default' | 'success' | 'warning' | 'danger' | 'info';
 
 const toneClasses: Record<StatusTone, { badge: string; text: string }> = {
-  default: { badge: "bg-slate-100 text-slate-700", text: "text-slate-600" },
-  success: { badge: "bg-emerald-50 text-emerald-700 border-emerald-100", text: "text-emerald-600" },
-  warning: { badge: "bg-amber-50 text-amber-700 border-amber-100", text: "text-amber-600" },
-  danger: { badge: "bg-red-50 text-red-700 border-red-100", text: "text-red-600" },
-  info: { badge: "bg-blue-50 text-blue-700 border-blue-100", text: "text-blue-600" },
+  default: { badge: 'bg-slate-100 text-slate-700', text: 'text-slate-600' },
+  success: { badge: 'bg-emerald-50 text-emerald-700 border-emerald-100', text: 'text-emerald-600' },
+  warning: { badge: 'bg-amber-50 text-amber-700 border-amber-100', text: 'text-amber-600' },
+  danger: { badge: 'bg-red-50 text-red-700 border-red-100', text: 'text-red-600' },
+  info: { badge: 'bg-blue-50 text-blue-700 border-blue-100', text: 'text-blue-600' },
 };
 
 export function BookingDetailShell({ children }: { children: ReactNode }) {
   return (
-    <section className="guest-theme min-h-[calc(100vh-80px)] bg-slate-50/50 py-6 sm:py-8">
-      <div className="mx-auto w-full max-w-5xl space-y-6 sm:space-y-8">{children}</div>
+    <section className="min-h-screen bg-surface-warm py-8 sm:py-10 pb-20">
+      <div className="mx-auto w-full max-w-5xl space-y-6 sm:space-y-8 px-6">{children}</div>
     </section>
   );
 }
@@ -32,7 +30,7 @@ export function BookingSummaryCard({
   title,
   reference,
   description,
-  backHref = "/guest/dashboard",
+  backHref = '/guest/dashboard',
   status,
   offlineNotice,
   actions,
@@ -46,25 +44,38 @@ export function BookingSummaryCard({
   actions?: ReactNode;
 }) {
   const Icon = status.icon;
-  const tone = toneClasses[status.tone ?? "default"];
+  const tone = toneClasses[status.tone ?? 'default'];
   return (
-    <Card className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
+    <Card
+      variant="featured"
+      className="space-y-6 p-6 sm:p-8 bg-surface-elevated animate-fade-in-up"
+    >
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-4">
           <div className="flex items-center gap-3">
-            <Link href={backHref} className="inline-flex items-center justify-center rounded-full bg-slate-100 p-2 text-slate-500 hover:bg-slate-200 hover:text-slate-900 transition-colors">
+            <Link
+              href={backHref}
+              className="inline-flex items-center justify-center rounded-full bg-slate-100 p-2 text-slate-500 hover:bg-slate-200 hover:text-slate-900 transition-colors min-h-[44px] min-w-[44px]"
+            >
               <span className="sr-only">Back</span>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z" /></svg>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z" />
+              </svg>
             </Link>
-            <Badge className={cn("rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider border", tone.badge)}>
+            <Badge
+              className={cn(
+                'rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider border',
+                tone.badge,
+              )}
+            >
               <Icon className="mr-1.5 h-3.5 w-3.5" aria-hidden />
               {status.label}
             </Badge>
           </div>
 
           <div>
-            <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">{title}</h1>
-            {description ? <p className="mt-2 text-lg text-slate-500">{description}</p> : null}
+            <h1 className="heading-hero text-heading">{title}</h1>
+            {description ? <p className="mt-2 text-lg text-subtle">{description}</p> : null}
           </div>
 
           <div className="flex items-center gap-2 text-sm text-slate-400 font-mono">
@@ -90,28 +101,29 @@ export function DetailStatCard({
   value: ReactNode;
   subtext?: ReactNode;
 }) {
-  // Reusing MetricTile style but adapted for props
   return (
-    <div className={cn(
-      "relative flex flex-col gap-3 rounded-2xl border p-5 transition-all duration-200",
-      "bg-white border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)]",
-      "hover:shadow-md hover:-translate-y-0.5"
-    )}>
+    <Card variant="interactive" className="flex flex-col gap-3 p-5">
       <div className="flex justify-between items-start">
-        <div className="p-2.5 rounded-xl flex items-center justify-center bg-slate-50 text-slate-600">
+        <div className="p-2.5 rounded-xl flex items-center justify-center bg-blue-50 text-blue-600">
           <Icon className="w-5 h-5" />
         </div>
       </div>
       <div>
-        <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">{label}</div>
+        <div className="text-subtle text-xs font-bold uppercase tracking-wider mb-1">{label}</div>
         <div className="text-slate-900 text-xl font-bold tracking-tight">{value}</div>
-        {subtext ? <div className="text-sm text-slate-500 mt-0.5 font-medium">{subtext}</div> : null}
+        {subtext ? <div className="text-sm text-subtle mt-0.5 font-medium">{subtext}</div> : null}
       </div>
-    </div>
+    </Card>
   );
 }
 
-export function InfoPanel({ title, rows }: { title: string; rows: Array<{ icon: ElementType; label: string; value: ReactNode }> }) {
+export function InfoPanel({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: Array<{ icon: ElementType; label: string; value: ReactNode }>;
+}) {
   return (
     <Card className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-4">
@@ -124,7 +136,9 @@ export function InfoPanel({ title, rows }: { title: string; rows: Array<{ icon: 
               <row.icon className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">{row.label}</p>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">
+                {row.label}
+              </p>
               <p className="truncate font-semibold text-slate-900 text-lg">{row.value}</p>
             </div>
           </div>
@@ -139,7 +153,11 @@ export function ActionButtonRow({ children }: { children: ReactNode }) {
 }
 
 export function BookingSidebarCard({ children }: { children: ReactNode }) {
-  return <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">{children}</Card>;
+  return (
+    <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      {children}
+    </Card>
+  );
 }
 
 export function ManageBookingPanel({
@@ -163,9 +181,25 @@ export function ManageBookingPanel({
   );
 }
 
-export function InlineAlert({ tone = "info", children }: { tone?: StatusTone; children: ReactNode }) {
+export function InlineAlert({
+  tone = 'info',
+  children,
+}: {
+  tone?: StatusTone;
+  children: ReactNode;
+}) {
   const palette = toneClasses[tone];
-  return <div className={cn("rounded-2xl border px-4 py-3 text-sm font-medium", palette.badge, palette.text)}>{children}</div>;
+  return (
+    <div
+      className={cn(
+        'rounded-2xl border px-4 py-3 text-sm font-medium',
+        palette.badge,
+        palette.text,
+      )}
+    >
+      {children}
+    </div>
+  );
 }
 
 export function SummaryActions({ children }: { children: ReactNode }) {
@@ -174,23 +208,52 @@ export function SummaryActions({ children }: { children: ReactNode }) {
 
 export function PrimaryButtonLink({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <Button asChild className="rounded-full bg-slate-900 hover:bg-slate-800 text-white font-semibold px-6">
+    <Button
+      asChild
+      className="rounded-full bg-primary hover:bg-primary/90 text-white font-semibold px-6 min-h-[48px]"
+    >
       <Link href={href}>{children}</Link>
     </Button>
   );
 }
 
-export function SecondaryButton({ onClick, children, disabled }: { onClick?: () => void; children: ReactNode; disabled?: boolean }) {
+export function SecondaryButton({
+  onClick,
+  children,
+  disabled,
+}: {
+  onClick?: () => void;
+  children: ReactNode;
+  disabled?: boolean;
+}) {
   return (
-    <Button variant="outline" className="rounded-full border-slate-200 hover:bg-slate-50 font-medium px-5" onClick={onClick} disabled={disabled}>
+    <Button
+      variant="outline"
+      className="rounded-full border-slate-200 hover:bg-slate-50 font-medium px-5 min-h-[44px]"
+      onClick={onClick}
+      disabled={disabled}
+    >
       {children}
     </Button>
   );
 }
 
-export function GhostButton({ onClick, children, disabled }: { onClick?: () => void; children: ReactNode; disabled?: boolean }) {
+export function GhostButton({
+  onClick,
+  children,
+  disabled,
+}: {
+  onClick?: () => void;
+  children: ReactNode;
+  disabled?: boolean;
+}) {
   return (
-    <Button variant="ghost" className="rounded-full text-slate-500 hover:text-slate-900 hover:bg-slate-100" onClick={onClick} disabled={disabled}>
+    <Button
+      variant="ghost"
+      className="rounded-full text-slate-500 hover:text-slate-900 hover:bg-slate-100 min-h-[44px]"
+      onClick={onClick}
+      disabled={disabled}
+    >
       {children}
     </Button>
   );
