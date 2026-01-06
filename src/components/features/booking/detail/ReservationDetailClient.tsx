@@ -21,13 +21,28 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { BookingDetailShell, BookingSummaryCard, DetailStatCard, InfoPanel, InlineAlert, ManageBookingPanel, SummaryActions, ActionButtonRow, SecondaryButton, GhostButton } from '@/components/features/booking/ui/BookingComponents';
+import {
+  BookingDetailShell,
+  BookingSummaryCard,
+  DetailStatCard,
+  InfoPanel,
+  InlineAlert,
+  ManageBookingPanel,
+  SummaryActions,
+  ActionButtonRow,
+  SecondaryButton,
+  GhostButton,
+} from '@/components/features/booking/ui/BookingComponents';
 import { GuestError } from '@/components/guest/ui';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { emit } from '@/lib/analytics/emit';
-import { getPendingSelfServeGraceMinutes, isPendingSelfServeLocked } from '@/lib/bookings/pendingLock';
+import {
+  getPendingSelfServeGraceMinutes,
+  isPendingSelfServeLocked,
+} from '@/lib/bookings/pendingLock';
 import { shareReservationDetails, type ShareResult } from '@/lib/reservations/share';
 import { useReservation } from '@features/reservations/wizard/api/useReservation';
 import { DEFAULT_VENUE } from '@shared/config/venue';
@@ -37,13 +52,19 @@ import { ReservationHistory } from './ReservationHistory';
 import type { BookingDTO } from '@/hooks/useBookings';
 import type { Reservation } from '@entities/reservation/reservation.schema';
 
-const CancelBookingDialog = dynamic(() => import('@/components/dashboard/CancelBookingDialog').then((m) => m.CancelBookingDialog), {
-  loading: () => <div className="h-10" />, // lightweight placeholder
-});
+const CancelBookingDialog = dynamic(
+  () => import('@/components/dashboard/CancelBookingDialog').then((m) => m.CancelBookingDialog),
+  {
+    loading: () => <div className="h-10" />, // lightweight placeholder
+  },
+);
 
-const EditBookingDialog = dynamic(() => import('@/components/dashboard/EditBookingDialog').then((m) => m.EditBookingDialog), {
-  loading: () => <div className="h-10" />,
-});
+const EditBookingDialog = dynamic(
+  () => import('@/components/dashboard/EditBookingDialog').then((m) => m.EditBookingDialog),
+  {
+    loading: () => <div className="h-10" />,
+  },
+);
 
 export type ReservationVenue = {
   name: string;
@@ -136,7 +157,14 @@ export function ReservationDetailClient({
     return Math.max(0, minutes) * 60_000;
   }, []);
 
-  const { data: reservation, error, isError, isLoading, refetch, isFetching } = useReservation(reservationId);
+  const {
+    data: reservation,
+    error,
+    isError,
+    isLoading,
+    refetch,
+    isFetching,
+  } = useReservation(reservationId);
 
   const venue = useMemo<ReservationVenue>(() => {
     if (providedVenue) {
@@ -153,7 +181,13 @@ export function ReservationDetailClient({
       timezone: reservation?.restaurantTimezone ?? DEFAULT_VENUE.timezone,
       slug: reservation?.restaurantSlug ?? DEFAULT_VENUE.slug,
     };
-  }, [providedVenue, reservation?.restaurantName, reservation?.restaurantSlug, reservation?.restaurantTimezone, restaurantName]);
+  }, [
+    providedVenue,
+    reservation?.restaurantName,
+    reservation?.restaurantSlug,
+    reservation?.restaurantTimezone,
+    restaurantName,
+  ]);
 
   const bookingDto = useMemo(
     () => buildBookingDto(reservation, restaurantName, venue),
@@ -188,7 +222,9 @@ export function ReservationDetailClient({
     }
     const locked = isPendingSelfServeLocked(reservation.status, reservation.createdAt, clockNow);
     const createdMs = reservation.createdAt ? Date.parse(reservation.createdAt) : Number.NaN;
-    const lockTimestamp = Number.isFinite(createdMs) ? createdMs + pendingGraceMinutes * 60_000 : null;
+    const lockTimestamp = Number.isFinite(createdMs)
+      ? createdMs + pendingGraceMinutes * 60_000
+      : null;
     return { locked, lockTimestamp };
   }, [reservation, pendingGraceMinutes, clockNow]);
 
@@ -268,7 +304,7 @@ export function ReservationDetailClient({
   // Loading State
   if (isLoading && !reservation) {
     return (
-      <div className="min-h-screen pb-20">
+      <div className="min-h-screen bg-surface-warm pb-20 px-6">
         <Skeleton className="h-6 w-32 mb-8" />
         <Skeleton className="h-12 w-2/3 mb-4" />
         <Skeleton className="h-6 w-48 mb-10" />
@@ -285,7 +321,7 @@ export function ReservationDetailClient({
   // Error State
   if (isError && !reservation) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
+      <div className="flex min-h-[60vh] items-center justify-center bg-surface-warm">
         <GuestError
           description={error?.message ?? 'We encountered an error loading your reservation.'}
           onRetry={() => refetch()}
@@ -303,7 +339,14 @@ export function ReservationDetailClient({
   const reservationTime = formatTimeRange(reservation.startAt);
 
   const getStatusConfig = (status: string) => {
-    const configs: Record<string, { label: string; tone: 'success' | 'warning' | 'danger' | 'info' | 'default'; icon: React.ElementType }> = {
+    const configs: Record<
+      string,
+      {
+        label: string;
+        tone: 'success' | 'warning' | 'danger' | 'info' | 'default';
+        icon: React.ElementType;
+      }
+    > = {
       confirmed: { label: 'Confirmed', tone: 'success', icon: CheckCircle2 },
       cancelled: { label: 'Cancelled', tone: 'danger', icon: AlertCircle },
       completed: { label: 'Completed', tone: 'default', icon: CheckCircle2 },
@@ -324,7 +367,11 @@ export function ReservationDetailClient({
         description="Update, share, or download your booking in one place."
         reference={reservation.reference ?? reservation.id.slice(0, 8).toUpperCase()}
         status={{ icon: StatusIcon, label: statusConfig.label, tone: statusConfig.tone }}
-        offlineNotice={!isOnline ? <InlineAlert tone="warning">You’re offline — some actions may be limited.</InlineAlert> : null}
+        offlineNotice={
+          !isOnline ? (
+            <InlineAlert tone="warning">You’re offline — some actions may be limited.</InlineAlert>
+          ) : null
+        }
         actions={
           <SummaryActions>
             <SecondaryButton onClick={handleDownload}>
@@ -340,9 +387,24 @@ export function ReservationDetailClient({
       <div className="grid gap-8 xl:grid-cols-[1fr_320px]">
         <div className="space-y-8">
           <div className="grid gap-4 sm:grid-cols-3">
-            <DetailStatCard icon={Calendar} label="Date" value={reservationDate} subtext={reservationDateFull} />
-            <DetailStatCard icon={Clock} label="Time" value={reservationTime} subtext="Local time" />
-            <DetailStatCard icon={Users} label="Party Size" value={`${reservation.partySize}`} subtext={reservation.partySize === 1 ? 'Guest' : 'Guests'} />
+            <DetailStatCard
+              icon={Calendar}
+              label="Date"
+              value={reservationDate}
+              subtext={reservationDateFull}
+            />
+            <DetailStatCard
+              icon={Clock}
+              label="Time"
+              value={reservationTime}
+              subtext="Local time"
+            />
+            <DetailStatCard
+              icon={Users}
+              label="Party Size"
+              value={`${reservation.partySize}`}
+              subtext={reservation.partySize === 1 ? 'Guest' : 'Guests'}
+            />
           </div>
 
           <InfoPanel
@@ -357,8 +419,14 @@ export function ReservationDetailClient({
           <InfoPanel
             title="Preferences"
             rows={[
-              { icon: Utensils, label: 'Seating', value: reservation.seatingPreference || 'Standard' },
-              ...(reservation.notes ? [{ icon: MessageSquare, label: 'Special Requests', value: reservation.notes }] : []),
+              {
+                icon: Utensils,
+                label: 'Seating',
+                value: reservation.seatingPreference || 'Standard',
+              },
+              ...(reservation.notes
+                ? [{ icon: MessageSquare, label: 'Special Requests', value: reservation.notes }]
+                : []),
             ]}
           />
 
@@ -378,7 +446,7 @@ export function ReservationDetailClient({
             actions={
               <div className="space-y-3">
                 <Button
-                  className="w-full rounded-full bg-slate-900 hover:bg-slate-800"
+                  className="w-full rounded-full bg-primary hover:bg-primary/90 text-white min-h-[48px]"
                   size="lg"
                   onClick={handleEdit}
                   disabled={actionDisabled}
@@ -387,7 +455,7 @@ export function ReservationDetailClient({
                 </Button>
                 <Button
                   variant="outline"
-                  className="w-full rounded-full border-slate-200"
+                  className="w-full rounded-full border-slate-200 min-h-[44px]"
                   size="lg"
                   onClick={handleCancel}
                   disabled={actionDisabled}
@@ -418,9 +486,9 @@ export function ReservationDetailClient({
       </div>
 
       {canManage && (
-        <div className="rounded-[var(--guest-radius-2xl)] border border-slate-100 bg-white/80 p-4 shadow-[var(--guest-shadow-lg)]">
+        <Card className="bg-surface-elevated p-4">
           <ReservationHistory reservationId={reservationId} />
-        </div>
+        </Card>
       )}
 
       {bookingDto && (
@@ -432,7 +500,11 @@ export function ReservationDetailClient({
             restaurantSlug={venue.slug ?? bookingDto.restaurantSlug ?? null}
             restaurantTimezone={venue.timezone ?? bookingDto.restaurantTimezone ?? null}
           />
-          <CancelBookingDialog booking={bookingDto} open={isCancelOpen} onOpenChange={closeCancelDialog} />
+          <CancelBookingDialog
+            booking={bookingDto}
+            open={isCancelOpen}
+            onOpenChange={closeCancelDialog}
+          />
         </>
       )}
     </BookingDetailShell>

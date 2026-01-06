@@ -8,13 +8,17 @@ import { useMemo } from 'react';
 import { GuestError } from '@/components/guest/ui';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useGuestBookings, useGuestProfile, useGuestSession } from '@/guest/hooks';
 import { getGreeting } from '@/guest/lib/formatters';
 import { StatusRegion } from '@/guest/routes/shared/StatusRegion';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
-import { formatReservationDateFromDate, formatReservationTimeFromDate } from '@reserve/shared/formatting/booking';
+import {
+  formatReservationDateFromDate,
+  formatReservationTimeFromDate,
+} from '@reserve/shared/formatting/booking';
 
 import { deriveBookingState } from './booking-derivations';
 
@@ -48,7 +52,8 @@ export function GuestDashboardClient() {
 
   const heroName = useMemo(() => {
     const metadata = (user?.user_metadata ?? null) as Record<string, unknown> | null;
-    const fullName = typeof metadata?.['full_name'] === 'string' ? (metadata['full_name'] as string) : null;
+    const fullName =
+      typeof metadata?.['full_name'] === 'string' ? (metadata['full_name'] as string) : null;
     return fullName || profile?.name || user?.email?.split('@')[0] || 'Guest';
   }, [user, profile?.name]);
 
@@ -80,26 +85,42 @@ export function GuestDashboardClient() {
   }
 
   return (
-    <div className="min-h-screen bg-surface pb-20">
+    <div className="min-h-screen bg-surface-warm pb-20">
       {/* Hero */}
-      <section className="border-b border-slate-100 bg-gradient-to-r from-blue-50 to-white">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 py-10 sm:py-12">
-          <div className="space-y-3">
+      <section className="border-b border-slate-100 bg-gradient-hero">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 py-16 sm:py-20 px-6">
+          <div className="space-y-4 animate-fade-in-up">
             <p className="text-xs uppercase tracking-[0.2em] text-subtle">Guest dashboard</p>
-            <h1 className="heading-lg md:heading-xl text-slate-900">
+            <h1 className="heading-hero text-heading">
               {greeting}, {heroName.split(' ')[0]}
             </h1>
-            <p className="text-body text-subtle">Manage your upcoming tables, receipts, and favorites in one place.</p>
+            <p className="text-body-warm max-w-2xl">
+              Manage your upcoming tables, receipts, and favorites in one place.
+            </p>
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <Button asChild size="lg" className="rounded-full bg-primary text-white hover:bg-primary/90">
+            <Button
+              asChild
+              size="lg"
+              className="rounded-full bg-primary text-white hover:bg-primary/90 min-h-[48px]"
+            >
               <Link href="/restaurants">Book a table</Link>
             </Button>
-            <Button asChild size="lg" variant="outline" className="rounded-full border-slate-200 bg-white text-blue-700 hover:border-blue-500">
+            <Button
+              asChild
+              size="lg"
+              variant="outline"
+              className="rounded-full border-slate-200 bg-white text-blue-700 hover:border-blue-500 min-h-[48px]"
+            >
               <Link href="/guest/bookings">My bookings</Link>
             </Button>
-            <Button asChild size="lg" variant="ghost" className="text-blue-700 hover:text-blue-800">
+            <Button
+              asChild
+              size="lg"
+              variant="ghost"
+              className="text-blue-700 hover:text-blue-800 min-h-[48px]"
+            >
               <Link href="/guest/profile">Profile</Link>
             </Button>
           </div>
@@ -107,13 +128,16 @@ export function GuestDashboardClient() {
       </section>
 
       {/* Main content */}
-      <div className="mx-auto grid w-full max-w-6xl gap-8 py-8 sm:py-10 lg:grid-cols-[1.6fr_1fr]">
-        <div className="space-y-8">
+      <div className="mx-auto grid w-full max-w-6xl gap-8 py-8 sm:py-10 lg:grid-cols-[1.6fr_1fr] px-6">
+        <div className="space-y-8 stagger-container">
           {/* Next booking / empty state */}
           <section className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-slate-900">Next up</h2>
-              <Link href="/guest/bookings" className="text-sm font-semibold text-blue-700 hover:text-blue-800 flex items-center gap-1">
+              <h2 className="heading-section">Next up</h2>
+              <Link
+                href="/guest/bookings"
+                className="text-sm font-semibold text-blue-700 hover:text-blue-800 flex items-center gap-1"
+              >
                 View all <ChevronRight className="h-4 w-4" />
               </Link>
             </div>
@@ -123,23 +147,27 @@ export function GuestDashboardClient() {
           {/* Upcoming list */}
           <section className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-slate-900">Upcoming</h2>
+              <h2 className="heading-section">Upcoming</h2>
               {upcomingList.length > 0 ? (
-                <span className="text-sm text-subtle">{upcomingList.length} reservation(s)</span>
+                <Badge variant="metric" className="rounded-full">
+                  {upcomingList.length} reservation(s)
+                </Badge>
               ) : null}
             </div>
             {upcomingList.length === 0 ? (
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
+              <Card className="p-6 bg-surface-elevated">
                 <p className="text-base font-semibold text-slate-900">No upcoming reservations</p>
-                <p className="text-sm text-subtle mt-1">Book a table now and it will appear here.</p>
+                <p className="text-sm text-subtle mt-1">
+                  Book a table now and it will appear here.
+                </p>
                 <div className="mt-4">
-                  <Button asChild className="rounded-full">
+                  <Button asChild className="rounded-full min-h-[44px]">
                     <Link href="/restaurants">Find a table</Link>
                   </Button>
                 </div>
-              </div>
+              </Card>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-2 stagger-container">
                 {upcomingList.slice(0, 4).map((booking) => (
                   <UpcomingBookingCard key={booking.id} booking={booking} />
                 ))}
@@ -151,7 +179,7 @@ export function GuestDashboardClient() {
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Quick stats */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
+          <Card className="p-5">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-slate-900">At a glance</p>
               <Badge variant="secondary" className="rounded-full px-3 py-1 text-blue-900">
@@ -159,21 +187,32 @@ export function GuestDashboardClient() {
               </Badge>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3">
-              <StatPill label="Upcoming" value={stats.upcoming} icon={<Calendar className="h-4 w-4" />} />
-              <StatPill label="Favorites" value={stats.favorites} icon={<Heart className="h-4 w-4" />} />
+              <StatPill
+                label="Upcoming"
+                value={stats.upcoming}
+                icon={<Calendar className="h-4 w-4" />}
+              />
+              <StatPill
+                label="Favorites"
+                value={stats.favorites}
+                icon={<Heart className="h-4 w-4" />}
+              />
             </div>
-          </div>
+          </Card>
 
           {/* Favorites */}
           {derived.favorites.length > 0 && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card space-y-3">
+            <Card className="p-5 space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-slate-900">Favorites</p>
                 <Badge className="rounded-full bg-blue-50 text-blue-700">Top picks</Badge>
               </div>
               <ul className="space-y-3">
                 {derived.favorites.slice(0, 5).map((fav) => (
-                  <li key={fav.name} className="flex items-center justify-between text-sm text-slate-700">
+                  <li
+                    key={fav.name}
+                    className="flex items-center justify-between text-sm text-slate-700"
+                  >
                     <span className="flex items-center gap-2">
                       <Heart className="h-4 w-4 text-blue-600" aria-hidden />
                       {fav.name}
@@ -182,11 +221,11 @@ export function GuestDashboardClient() {
                   </li>
                 ))}
               </ul>
-            </div>
+            </Card>
           )}
 
           {/* Profile quick access */}
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 shadow-card">
+          <Card className="p-5 bg-slate-50">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-full bg-white shadow-card flex items-center justify-center">
                 <User className="h-5 w-5 text-blue-700" />
@@ -204,7 +243,7 @@ export function GuestDashboardClient() {
                 <Link href="/guest/bookings">View receipts</Link>
               </Button>
             </div>
-          </div>
+          </Card>
         </div>
       </div>
     </div>
@@ -224,9 +263,9 @@ function FeaturedBooking({
 }) {
   if (isLoading) {
     return (
-      <div className="rounded-3xl bg-white p-8 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.08)] border border-slate-200">
+      <Card variant="featured" className="p-8">
         <Skeleton className="h-48 w-full rounded-2xl" />
-      </div>
+      </Card>
     );
   }
 
@@ -242,7 +281,10 @@ function FeaturedBooking({
             Explore our curated list of restaurants and secure your table for tonight.
           </p>
           <div className="flex gap-4">
-            <Button asChild className="rounded-full bg-white text-slate-900 hover:bg-slate-100 px-8 py-6 text-lg font-semibold border-none">
+            <Button
+              asChild
+              className="rounded-full bg-white text-slate-900 hover:bg-slate-100 px-8 py-6 text-lg font-semibold border-none"
+            >
               <Link href="/restaurants">Find a Table</Link>
             </Button>
           </div>
@@ -258,16 +300,17 @@ function FeaturedBooking({
   const isToday = isSameDay(bookingDate, new Date());
 
   return (
-    <div className="group relative overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-card transition-transform hover:-translate-y-1">
+    <Card variant="featured" className="card-interactive overflow-hidden">
       <div className="grid md:grid-cols-[1fr_260px]">
         <div className="p-6 md:p-8 space-y-6">
           <Badge
+            variant={isToday ? 'status-confirmed' : 'default'}
             className={cn(
-              "rounded-full px-3 py-1 font-semibold border-none",
-              isToday ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-700",
+              'rounded-full px-3 py-1 font-semibold',
+              !isToday && 'bg-slate-100 text-slate-700 border-none',
             )}
           >
-            {isToday ? "Happening today" : "Upcoming reservation"}
+            {isToday ? 'Happening today' : 'Upcoming reservation'}
           </Badge>
 
           <div>
@@ -276,7 +319,7 @@ function FeaturedBooking({
             </h2>
             <div className="flex items-center text-slate-500 font-medium">
               <MapPin className="w-4 h-4 mr-2" />
-              {booking.restaurantSlug ? "View details" : "Restaurant"}
+              {booking.restaurantSlug ? 'View details' : 'Restaurant'}
             </div>
           </div>
 
@@ -294,49 +337,53 @@ function FeaturedBooking({
               {booking.id.slice(0, 8).toUpperCase()}
             </div>
           </div>
-          <p className="text-xs text-slate-500 uppercase tracking-wide">Show this code at check-in</p>
+          <p className="text-xs text-slate-500 uppercase tracking-wide">
+            Show this code at check-in
+          </p>
 
           <Button asChild className="w-full rounded-full" size="lg">
             <Link href={`/guest/bookings/${booking.id}`}>Manage booking</Link>
           </Button>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
 
 function UpcomingBookingCard({ booking }: { booking: BookingDTO }) {
   const bookingDate = new Date(booking.startIso);
   return (
-    <Link
-      href={`/guest/bookings/${booking.id}`}
-      className="group bg-white rounded-2xl p-4 border border-slate-200 shadow-card hover:-translate-y-1 transition-all flex items-center gap-4"
-    >
-      <div className="flex-shrink-0 w-16 h-16 bg-blue-50 text-blue-700 rounded-xl flex flex-col items-center justify-center leading-none">
-        <span className="text-xs font-bold uppercase mb-1">{bookingDate.toLocaleString('en-US', { month: 'short' })}</span>
-        <span className="text-2xl font-bold">{bookingDate.getDate()}</span>
-      </div>
-      <div className="flex-1 min-w-0">
-        <h4 className="font-bold text-slate-900 truncate">{booking.restaurantName}</h4>
-        <div className="text-sm text-slate-500 flex items-center mt-1">
-          <Clock className="w-3.5 h-3.5 mr-1.5" />
-          {formatReservationTimeFromDate(bookingDate)}
+    <Link href={`/guest/bookings/${booking.id}`}>
+      <Card variant="interactive" className="p-4 flex items-center gap-4 group">
+        <div className="flex-shrink-0 w-16 h-16 bg-blue-50 text-blue-700 rounded-xl flex flex-col items-center justify-center leading-none">
+          <span className="text-xs font-bold uppercase mb-1">
+            {bookingDate.toLocaleString('en-US', { month: 'short' })}
+          </span>
+          <span className="text-2xl font-bold">{bookingDate.getDate()}</span>
         </div>
-      </div>
-      <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-slate-600 transition-colors" />
+        <div className="flex-1 min-w-0">
+          <h4 className="font-bold text-slate-900 truncate">{booking.restaurantName}</h4>
+          <div className="text-sm text-slate-500 flex items-center mt-1">
+            <Clock className="w-3.5 h-3.5 mr-1.5" />
+            {formatReservationTimeFromDate(bookingDate)}
+          </div>
+        </div>
+        <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-slate-600 transition-colors" />
+      </Card>
     </Link>
   );
 }
-
 
 /* ============================================================================
    UTILITY FUNCTIONS
    ============================================================================ */
 
 function isSameDay(d1: Date, d2: Date): boolean {
-  return d1.getFullYear() === d2.getFullYear() &&
+  return (
+    d1.getFullYear() === d2.getFullYear() &&
     d1.getMonth() === d2.getMonth() &&
-    d1.getDate() === d2.getDate();
+    d1.getDate() === d2.getDate()
+  );
 }
 
 function StatPill({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
