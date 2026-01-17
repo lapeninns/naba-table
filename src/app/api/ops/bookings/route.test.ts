@@ -594,6 +594,50 @@ describe('GET /api/ops/bookings', () => {
     expect(queryStub.range).toHaveBeenCalledWith(0, 9);
   });
 
+  it('derives fallback ISO timestamps using restaurant timezone', async () => {
+    getUserMock.mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'staff@example.com' } },
+      error: null,
+    });
+    fetchUserMembershipsMock.mockResolvedValue([{ restaurant_id: RESTAURANT_ID }]);
+
+    const queryStub = createQueryStub({
+      data: [
+        {
+          id: 'booking-1',
+          restaurant_id: RESTAURANT_ID,
+          party_size: 2,
+          status: 'confirmed',
+          start_at: null,
+          end_at: null,
+          booking_date: '2025-01-15',
+          start_time: '18:00',
+          end_time: '19:30',
+          notes: null,
+          restaurants: {
+            name: 'Nab a Table',
+            reservation_interval_minutes: 15,
+            timezone: 'America/Los_Angeles',
+          },
+        },
+      ],
+      count: 1,
+    });
+
+    const fromMock = vi.fn(() => queryStub);
+    getServiceSupabaseClientMock.mockReturnValue({ from: fromMock });
+
+    const request = new NextRequest(
+      `http://localhost/api/ops/bookings?restaurantId=${RESTAURANT_ID}&page=1&pageSize=10`,
+    );
+    const response = await GET(request);
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.items).toHaveLength(1);
+    expect(json.items[0].startIso).toBe('2025-01-16T02:00:00.000Z');
+    expect(json.items[0].endIso).toBe('2025-01-16T03:30:00.000Z');
+  });
+
   it('returns 429 when rate limit exceeded', async () => {
     getUserMock.mockResolvedValue({
       data: { user: { id: 'user-1', email: 'staff@example.com' } },

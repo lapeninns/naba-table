@@ -111,13 +111,28 @@ function RoleCard({
               : 'bg-amber-500 text-white hover:bg-amber-600 shadow-amber-200',
           )}
         >
-          <Link href={ctaHref} onClick={onClick}>
-            {ctaText}
-            <ArrowRight
-              className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1"
-              aria-hidden
-            />
-          </Link>
+          {/* 
+            Use native anchor for 'owner' type to prevent RSC navigation glitch.
+            Cross-subdomain navigation (localhost -> app.localhost) fails with Next.js Link
+            because RSC fetch fails across subdomains, causing a white flash before fallback.
+          */}
+          {type === 'owner' ? (
+            <a href={ctaHref} onClick={onClick}>
+              {ctaText}
+              <ArrowRight
+                className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1"
+                aria-hidden
+              />
+            </a>
+          ) : (
+            <Link href={ctaHref} onClick={onClick}>
+              {ctaText}
+              <ArrowRight
+                className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1"
+                aria-hidden
+              />
+            </Link>
+          )}
         </Button>
       </div>
     </Card>
@@ -149,7 +164,17 @@ export function RoleSelectionPage({ searchParams }: RoleSelectionPageProps) {
     // Load saved role preference from localStorage
     const savedRole = localStorage.getItem('preferred-role') as Role | null;
     if (savedRole) {
-      setPreferredRole(savedRole);
+      // Parse if it's the JSON object format we set below, or string if legacy
+      try {
+        // handleRoleSelect sets it as JSON string with expiry
+        const parsed = JSON.parse(savedRole as string);
+        if (parsed && parsed.role) {
+          setPreferredRole(parsed.role);
+        }
+      } catch {
+        // Fallback for simple string if it exists
+        setPreferredRole(savedRole);
+      }
     }
     setIsLoaded(true);
   }, []);
@@ -216,21 +241,10 @@ export function RoleSelectionPage({ searchParams }: RoleSelectionPageProps) {
       <div className="grid md:grid-cols-2 gap-6 lg:gap-8 mb-8">
         {isLoaded && (
           <>
-            <div
-              className={cn(
-                'motion-safe:reveal-up',
-                preferredRole === 'owner' ? 'md:order-last' : '',
-              )}
-            >
+            <div className="motion-safe:reveal-up">
               <RoleCard {...guestCard} />
             </div>
-            <div
-              className={cn(
-                'motion-safe:reveal-up',
-                preferredRole === 'guest' ? 'md:order-last' : '',
-                'md:delay-100',
-              )}
-            >
+            <div className="motion-safe:reveal-up md:delay-100">
               <RoleCard {...ownerCard} />
             </div>
           </>
