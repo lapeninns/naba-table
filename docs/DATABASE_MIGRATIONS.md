@@ -21,12 +21,117 @@
 
 | Date (UTC) | Description                                                | Staging | Production | Priority |
 | ---------- | ---------------------------------------------------------- | ------- | ---------- | -------- |
+| 2026-01-18 | CASCADE delete on booking_table_assignments FKs            | ⏳      | ⏳         | High     |
 | 2026-01-17 | Add table_soft_holds for race condition prevention         | ✅      | ⏳         | Medium   |
 | 2025-12-27 | Add FK: booking_table_assignments.booking_id → bookings.id | ✅      | ⏳         | High     |
 
 ---
 
 ## Migration Details
+
+### 2026-01-18: CASCADE delete on booking_table_assignments FKs
+
+**Status**: ⏳ Staging | ⏳ Production  
+**Priority**: High  
+**Related Issue**: [7b] Orphaned assignments when tables/bookings deleted  
+**Migration File**: `supabase/migrations/20260118_cascade_delete_table_assignments.sql`
+
+#### Problem
+
+When a table from `table_inventory` or a booking is deleted, the referencing rows in `booking_table_assignments` become orphaned because the FK constraints use `ON DELETE RESTRICT`. This causes:
+
+1. Deletion failures when trying to remove tables/bookings
+2. Manual cleanup required to delete assignments first
+3. Potential data integrity issues if cleanup is missed
+
+#### Solution
+
+Change both FK constraints to use `ON DELETE CASCADE` so that when a table or booking is deleted, the related assignments are automatically cleaned up.
+
+#### SQL to Apply
+
+```sql
+-- Change table_id FK to CASCADE
+ALTER TABLE public.booking_table_assignments
+  DROP CONSTRAINT IF EXISTS booking_table_assignments_table_id_fkey;
+
+ALTER TABLE public.booking_table_assignments
+  ADD CONSTRAINT booking_table_assignments_table_id_fkey
+    FOREIGN KEY (table_id)
+    REFERENCES public.table_inventory(id)
+    ON DELETE CASCADE;
+
+-- Change booking_id FK to CASCADE (if not already)
+ALTER TABLE public.booking_table_assignments
+  DROP CONSTRAINT IF EXISTS booking_table_assignments_booking_id_fkey;
+
+ALTER TABLE public.booking_table_assignments
+  ADD CONSTRAINT booking_table_assignments_booking_id_fkey
+    FOREIGN KEY (booking_id)
+    REFERENCES public.bookings(id)
+    ON DELETE CASCADE;
+
+-- Reload PostgREST schema
+NOTIFY pgrst, 'reload schema';
+```
+
+#### Pre-flight Checks
+
+- [ ] Backup verified/available
+- [ ] Verify no critical bookings in progress during window
+- [ ] Check current constraint definitions:
+  ```sql
+  SELECT conname, confdeltype
+  FROM pg_constraint
+  WHERE conrelid = 'public.booking_table_assignments'::regclass
+  AND contype = 'f';
+  ```
+
+#### Verification
+
+After applying:
+
+1. Verify CASCADE is set:
+
+   ```sql
+   SELECT conname, confdeltype
+   FROM pg_constraint
+   WHERE conrelid = 'public.booking_table_assignments'::regclass
+   AND contype = 'f';
+   -- confdeltype should be 'c' (cascade) for both FKs
+   ```
+
+2. Test cascade behavior (in staging only):
+   ```sql
+   -- Create test data, delete parent, verify child deleted
+   ```
+
+#### Rollback
+
+```sql
+-- Revert to RESTRICT
+ALTER TABLE public.booking_table_assignments
+  DROP CONSTRAINT IF EXISTS booking_table_assignments_table_id_fkey;
+
+ALTER TABLE public.booking_table_assignments
+  ADD CONSTRAINT booking_table_assignments_table_id_fkey
+    FOREIGN KEY (table_id)
+    REFERENCES public.table_inventory(id)
+    ON DELETE RESTRICT;
+
+ALTER TABLE public.booking_table_assignments
+  DROP CONSTRAINT IF EXISTS booking_table_assignments_booking_id_fkey;
+
+ALTER TABLE public.booking_table_assignments
+  ADD CONSTRAINT booking_table_assignments_booking_id_fkey
+    FOREIGN KEY (booking_id)
+    REFERENCES public.bookings(id)
+    ON DELETE RESTRICT;
+
+NOTIFY pgrst, 'reload schema';
+```
+
+---
 
 ### 2026-01-17: Add table_soft_holds for race condition prevention
 

@@ -1,14 +1,14 @@
-import { computePayloadChecksum } from "../v2";
-import { TABLE_RESOURCE_TYPE } from "./constants";
+import { computePayloadChecksum } from '../v2';
+import { TABLE_RESOURCE_TYPE } from './constants';
 import {
   applyAbortSignal,
   loadTableAssignmentsForTables,
   type BookingRow,
   type DbClient,
-} from "./supabase";
-import { normalizeIsoString } from "./utils";
+} from './supabase';
+import { normalizeIsoString } from './utils';
 
-import type { TableAssignmentMember } from "./types";
+import type { TableAssignmentMember } from './types';
 
 export type RawAssignmentRecord = {
   tableId: string;
@@ -34,13 +34,21 @@ export type AssignmentSyncParams = {
   signal?: AbortSignal;
 };
 
-const ASSIGNMENT_REFRESH_ATTEMPTS = 2;
-const ASSIGNMENT_REFRESH_DELAY_MS = 15;
+const ASSIGNMENT_REFRESH_ATTEMPTS = 4;
+const ASSIGNMENT_REFRESH_BASE_DELAY_MS = 25;
 
 const sleep = (ms: number): Promise<void> =>
   ms > 0 ? new Promise((resolve) => setTimeout(resolve, ms)) : Promise.resolve();
 
-export async function synchronizeAssignments(params: AssignmentSyncParams): Promise<TableAssignmentMember[]> {
+/**
+ * Exponential backoff delay: 25ms, 50ms, 100ms, 200ms
+ */
+const getBackoffDelay = (attempt: number): number =>
+  ASSIGNMENT_REFRESH_BASE_DELAY_MS * Math.pow(2, attempt);
+
+export async function synchronizeAssignments(
+  params: AssignmentSyncParams,
+): Promise<TableAssignmentMember[]> {
   const {
     supabase,
     booking,
@@ -59,27 +67,39 @@ export async function synchronizeAssignments(params: AssignmentSyncParams): Prom
 
   // Prune allocations that belong to this booking but no longer match the requested tables to prevent
   // stale exclusion conflicts (e.g., after reschedules/reassignments).
-  try {
-    const { data: existingAllocations, error: allocationLoadError } = await supabase
-      .from("allocations")
-      .select("id, resource_id")
-      .eq("booking_id", booking.id)
-      .eq("resource_type", TABLE_RESOURCE_TYPE);
+  // This is a required operation - stale allocations cause conflicts and must be removed.
+  const { data: existingAllocations, error: allocationLoadError } = await supabase
+    .from('allocations')
+    .select('id, resource_id')
+    .eq('booking_id', booking.id)
+    .eq('resource_type', TABLE_RESOURCE_TYPE);
 
-    if (!allocationLoadError && existingAllocations?.length) {
-      const staleAllocationIds = existingAllocations
-        .filter((allocation) => !uniqueTableIds.includes(allocation.resource_id))
-        .map((allocation) => allocation.id);
+  if (allocationLoadError) {
+    throw new Error(
+      `Failed to load existing allocations for cleanup: ${allocationLoadError.message}`,
+    );
+  }
 
-      if (staleAllocationIds.length > 0) {
-        await supabase.from("allocations").delete().in("id", staleAllocationIds);
+  if (existingAllocations?.length) {
+    const staleAllocationIds = existingAllocations
+      .filter((allocation) => !uniqueTableIds.includes(allocation.resource_id))
+      .map((allocation) => allocation.id);
+
+    if (staleAllocationIds.length > 0) {
+      const { error: deleteError } = await supabase
+        .from('allocations')
+        .delete()
+        .in('id', staleAllocationIds);
+
+      if (deleteError) {
+        throw new Error(`Failed to remove stale allocations: ${deleteError.message}`);
       }
+
+      console.info('[capacity.assignments] removed stale allocations', {
+        bookingId: booking.id,
+        removedCount: staleAllocationIds.length,
+      });
     }
-  } catch (error) {
-    console.warn("[capacity.assignments] prune stale allocations failed", {
-      bookingId: booking.id,
-      error: error instanceof Error ? error.message : String(error),
-    });
   }
 
   let assignmentRows = await loadAssignments();
@@ -104,7 +124,7 @@ export async function synchronizeAssignments(params: AssignmentSyncParams): Prom
 
     try {
       const rpcCall = applyAbortSignal(
-        supabase.rpc("sync_confirmed_assignment_windows", {
+        supabase.rpc('sync_confirmed_assignment_windows', {
           p_booking_id: booking.id,
           p_table_ids: uniqueTableIds,
           p_window_start: startIso,
@@ -127,7 +147,7 @@ export async function synchronizeAssignments(params: AssignmentSyncParams): Prom
         syncedViaRpc = true;
       }
     } catch (error) {
-      console.warn("[capacity.confirm] sync_confirmed_assignment_windows failed", {
+      console.warn('[capacity.confirm] sync_confirmed_assignment_windows failed', {
         bookingId: booking.id,
         holdId: holdContext?.holdId ?? null,
         error: error instanceof Error ? error.message : String(error),
@@ -137,21 +157,21 @@ export async function synchronizeAssignments(params: AssignmentSyncParams): Prom
     if (!syncedViaRpc) {
       try {
         await supabase
-          .from("booking_table_assignments")
+          .from('booking_table_assignments')
           .update({ start_at: startIso, end_at: endIso })
-          .eq("booking_id", booking.id)
-          .in("table_id", uniqueTableIds);
+          .eq('booking_id', booking.id)
+          .in('table_id', uniqueTableIds);
       } catch {
         // Ignore in mocked environments.
       }
 
       try {
         await supabase
-          .from("allocations")
+          .from('allocations')
           .update({ window: windowRange })
-          .eq("booking_id", booking.id)
-          .eq("resource_type", TABLE_RESOURCE_TYPE)
-          .in("resource_id", uniqueTableIds);
+          .eq('booking_id', booking.id)
+          .eq('resource_type', TABLE_RESOURCE_TYPE)
+          .in('resource_id', uniqueTableIds);
       } catch {
         // Ignore missing allocation support in mocked environments.
       }
@@ -159,14 +179,14 @@ export async function synchronizeAssignments(params: AssignmentSyncParams): Prom
       if (idempotencyKey) {
         try {
           await supabase
-            .from("booking_assignment_idempotency")
+            .from('booking_assignment_idempotency')
             .update({
               assignment_window: windowRange,
               merge_group_allocation_id: mergeGroupId ?? null,
               payload_checksum: payloadChecksum,
             } as Record<string, unknown>)
-            .eq("booking_id", booking.id)
-            .eq("idempotency_key", idempotencyKey);
+            .eq('booking_id', booking.id)
+            .eq('idempotency_key', idempotencyKey);
         } catch {
           // Ignore ledger updates in mocked environments.
         }
@@ -184,8 +204,12 @@ export async function synchronizeAssignments(params: AssignmentSyncParams): Prom
   let tableRowLookup = new Map(assignmentRows.map((row) => [row.table_id, row]));
   const missingTableIds = new Set(uniqueTableIds.filter((tableId) => !tableRowLookup.has(tableId)));
 
-  for (let attempt = 0; attempt < ASSIGNMENT_REFRESH_ATTEMPTS && missingTableIds.size > 0; attempt += 1) {
-    await sleep(ASSIGNMENT_REFRESH_DELAY_MS);
+  for (
+    let attempt = 0;
+    attempt < ASSIGNMENT_REFRESH_ATTEMPTS && missingTableIds.size > 0;
+    attempt += 1
+  ) {
+    await sleep(getBackoffDelay(attempt));
     assignmentRows = await loadAssignments();
     tableRowLookup = new Map(assignmentRows.map((row) => [row.table_id, row]));
     for (const tableId of Array.from(missingTableIds)) {
@@ -195,11 +219,17 @@ export async function synchronizeAssignments(params: AssignmentSyncParams): Prom
     }
   }
 
+  // Data integrity check: fail if assignments are still missing after retries
+  // This prevents returning incomplete data that could cause downstream issues
   if (missingTableIds.size > 0) {
-    console.warn("[capacity.assignments] assignment rows missing after refresh", {
+    const errorMsg = `Assignment synchronization failed: ${missingTableIds.size} table(s) missing after ${ASSIGNMENT_REFRESH_ATTEMPTS} retries`;
+    console.error('[capacity.assignments] ' + errorMsg, {
       bookingId: booking.id,
       missingTableIds: Array.from(missingTableIds),
+      totalRetryTimeMs:
+        ASSIGNMENT_REFRESH_BASE_DELAY_MS * (Math.pow(2, ASSIGNMENT_REFRESH_ATTEMPTS) - 1),
     });
+    throw new Error(errorMsg);
   }
 
   const result: TableAssignmentMember[] = uniqueTableIds.map((tableId) => {
@@ -207,7 +237,7 @@ export async function synchronizeAssignments(params: AssignmentSyncParams): Prom
     const assignment = assignmentLookup.get(tableId);
     return {
       tableId,
-      assignmentId: row?.id ?? "",
+      assignmentId: row?.id ?? '',
       startAt: startIso,
       endAt: endIso,
       mergeGroupId: assignment?.mergeGroupId ?? mergeGroupId ?? null,
@@ -215,12 +245,12 @@ export async function synchronizeAssignments(params: AssignmentSyncParams): Prom
   });
 
   if (holdContext) {
-    const zoneId = holdContext.zoneId ?? "";
+    const zoneId = holdContext.zoneId ?? '';
     const telemetryMetadata = holdContext.zoneId ? undefined : { unknownZone: true };
     try {
-      const { enqueueOutboxEvent } = await import("@/server/outbox");
+      const { enqueueOutboxEvent } = await import('@/server/outbox');
       await enqueueOutboxEvent({
-        eventType: "capacity.hold.confirmed",
+        eventType: 'capacity.hold.confirmed',
         restaurantId: booking.restaurant_id,
         bookingId: booking.id,
         idempotencyKey: idempotencyKey ?? null,
@@ -239,18 +269,21 @@ export async function synchronizeAssignments(params: AssignmentSyncParams): Prom
         },
       });
     } catch (e) {
-      console.warn("[capacity.outbox] enqueue hold.confirmed failed", { bookingId: booking.id, error: e });
+      console.warn('[capacity.outbox] enqueue hold.confirmed failed', {
+        bookingId: booking.id,
+        error: e,
+      });
     }
   }
 
   try {
-    const { enqueueOutboxEvent } = await import("@/server/outbox");
+    const { enqueueOutboxEvent } = await import('@/server/outbox');
     await enqueueOutboxEvent({
-      eventType: "capacity.assignment.sync",
+      eventType: 'capacity.assignment.sync',
       restaurantId: booking.restaurant_id,
       bookingId: booking.id,
       idempotencyKey: idempotencyKey ?? null,
-      dedupeKey: `${booking.id}:${startIso}:${endIso}:${result.map((assignment) => assignment.tableId).join(",")}`,
+      dedupeKey: `${booking.id}:${startIso}:${endIso}:${result.map((assignment) => assignment.tableId).join(',')}`,
       payload: {
         bookingId: booking.id,
         restaurantId: booking.restaurant_id,
@@ -262,7 +295,10 @@ export async function synchronizeAssignments(params: AssignmentSyncParams): Prom
       },
     });
   } catch (e) {
-    console.warn("[capacity.outbox] enqueue assignment.sync failed", { bookingId: booking.id, error: e });
+    console.warn('[capacity.outbox] enqueue assignment.sync failed', {
+      bookingId: booking.id,
+      error: e,
+    });
   }
 
   return result;
