@@ -124,10 +124,12 @@ export function useOpsTableAssignmentActions(params: {
     ? (['ops', 'dashboard', restaurantId, 'heatmap'] as const)
     : null;
 
-  const invalidateCaches = (options: {
-    invalidateSummary?: boolean;
-    refetchSummary?: boolean;
-  } = { invalidateSummary: true, refetchSummary: true }) => {
+  const invalidateCaches = (
+    options: {
+      invalidateSummary?: boolean;
+      refetchSummary?: boolean;
+    } = { invalidateSummary: true, refetchSummary: true },
+  ) => {
     const { invalidateSummary = true, refetchSummary = true } = options;
 
     if (invalidateSummary) {
@@ -175,10 +177,10 @@ export function useOpsTableAssignmentActions(params: {
           bookings: current.bookings.map((booking) =>
             booking.id === variables.bookingId
               ? applyAssignOptimistic({
-                booking,
-                tableId: variables.tableId,
-                tableName: variables.tableName,
-              })
+                  booking,
+                  tableId: variables.tableId,
+                  tableName: variables.tableName,
+                })
               : booking,
           ),
         };
@@ -231,12 +233,11 @@ export function useOpsTableAssignmentActions(params: {
         });
       }
 
-      // Invalidate caches with refetch to ensure UI updates
-      console.log('[table-assign] Scheduling cache invalidation with refetch');
-      setTimeout(() => {
-        invalidateCaches({ invalidateSummary: true, refetchSummary: true });
-        console.log('[table-assign] Cache invalidated and refetch triggered');
-      }, 500);
+      // Cache is already updated with server response above via setQueryData.
+      // Invalidate related caches (heatmap, booking details) but NOT the summary
+      // since we just updated it - this avoids the race condition from the previous
+      // 500ms delay workaround.
+      invalidateCaches({ invalidateSummary: false, refetchSummary: false });
 
       toast.success('Table assigned');
     },
@@ -311,8 +312,9 @@ export function useOpsTableAssignmentActions(params: {
         });
       }
 
-      // Ensure cache is invalidated and refetched
-      invalidateCaches({ invalidateSummary: true, refetchSummary: true });
+      // Cache is already updated with server response above via setQueryData.
+      // Invalidate related caches (heatmap, booking details) but NOT the summary.
+      invalidateCaches({ invalidateSummary: false, refetchSummary: false });
       toast.success('Table unassigned');
     },
   });
