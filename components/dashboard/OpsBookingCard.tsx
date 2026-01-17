@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
-import { deriveBookingDisplayState, isBookingPast } from './BookingRow';
+import { deriveBookingDisplayState } from './BookingRow';
 
 import type { BookingDTO } from '@/hooks/useBookings';
 
@@ -87,7 +87,9 @@ function StatusPill({ status }: { status: string }) {
     <span
       className={cn(
         'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium',
-        muted ? 'border-border/50 bg-muted/30 text-muted-foreground' : 'border-border/60 bg-background/60 text-foreground',
+        muted
+          ? 'border-border/50 bg-muted/30 text-muted-foreground'
+          : 'border-border/60 bg-background/60 text-foreground',
       )}
     >
       <span className={cn('h-1.5 w-1.5 rounded-full', dotClass)} aria-hidden />
@@ -117,7 +119,7 @@ export function OpsBookingCard({
   const startDateStr = startIso.isValid ? startIso.toFormat('EEE, MMM d') : '';
   const timeRangeLabel = endTimeStr ? `${startTimeStr}–${endTimeStr}` : startTimeStr;
 
-  const { displayStatus } = deriveBookingDisplayState(booking, { isPastView: false });
+  const { displayStatus } = deriveBookingDisplayState(booking, { isPastView: false, timezone });
   const isToday = useMemo(() => {
     if (!startIso.isValid) return false;
     return startIso.toISODate() === now.toISODate();
@@ -133,7 +135,10 @@ export function OpsBookingCard({
     return startIso.startOf('day') > now.startOf('day');
   }, [startIso, now]);
 
-  const isDone = booking.status === 'completed' || booking.status === 'cancelled' || booking.status === 'no_show';
+  const isDone =
+    booking.status === 'completed' ||
+    booking.status === 'cancelled' ||
+    booking.status === 'no_show';
   const isSeated = booking.status === 'checked_in';
   const isUpcoming =
     !isDone &&
@@ -221,7 +226,12 @@ export function OpsBookingCard({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <Avatar className={cn(isDone ? 'bg-muted' : 'bg-primary/10')}>
-                <AvatarFallback className={cn('text-xs font-bold', isDone ? 'text-muted-foreground' : 'text-primary')}>
+                <AvatarFallback
+                  className={cn(
+                    'text-xs font-bold',
+                    isDone ? 'text-muted-foreground' : 'text-primary',
+                  )}
+                >
                   {guestInitials || '—'}
                 </AvatarFallback>
               </Avatar>
@@ -231,7 +241,9 @@ export function OpsBookingCard({
                   <p
                     className={cn(
                       'truncate text-[15px] font-semibold leading-tight',
-                      isDone ? 'text-muted-foreground line-through decoration-border/60' : 'text-foreground',
+                      isDone
+                        ? 'text-muted-foreground line-through decoration-border/60'
+                        : 'text-foreground',
                     )}
                     title={customerLabel}
                   >
@@ -266,11 +278,11 @@ export function OpsBookingCard({
                 className={cn(
                   'h-5 gap-1 rounded-full px-1.5 py-0 text-[10px]',
                   timeUrgency.type === 'overdue' &&
-                  'border-amber-200 bg-amber-100 text-amber-700 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+                    'border-amber-200 bg-amber-100 text-amber-700 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
                   timeUrgency.type === 'soon' &&
-                  'border-amber-100 bg-amber-50 text-amber-600 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300',
+                    'border-amber-100 bg-amber-50 text-amber-600 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300',
                   timeUrgency.type === 'approaching' &&
-                  'border-blue-100 bg-blue-50 text-blue-600 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
+                    'border-blue-100 bg-blue-50 text-blue-600 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
                 )}
               >
                 <Clock className="h-3 w-3" aria-hidden />
@@ -338,7 +350,11 @@ export function OpsBookingCard({
           ) : null}
 
           {booking.seatingPreference ? (
-            <Badge variant="secondary" className="h-5 max-w-[220px] gap-1 rounded-full px-2 py-0 text-[10px]" title={booking.seatingPreference}>
+            <Badge
+              variant="secondary"
+              className="h-5 max-w-[220px] gap-1 rounded-full px-2 py-0 text-[10px]"
+              title={booking.seatingPreference}
+            >
               <Armchair className="h-3 w-3" aria-hidden />
               <span className="truncate">{booking.seatingPreference}</span>
             </Badge>
@@ -390,7 +406,11 @@ export function OpsBookingCard({
                 onClick={handleMainAction}
                 disabled={isLoading || !isToday}
               >
-                {isSeated ? <LogOut className="mr-2 h-3.5 w-3.5" /> : <LogIn className="mr-2 h-3.5 w-3.5" />}
+                {isSeated ? (
+                  <LogOut className="mr-2 h-3.5 w-3.5" />
+                ) : (
+                  <LogIn className="mr-2 h-3.5 w-3.5" />
+                )}
                 {isSeated ? 'Finish' : 'Seat'}
               </Button>
             ) : null}

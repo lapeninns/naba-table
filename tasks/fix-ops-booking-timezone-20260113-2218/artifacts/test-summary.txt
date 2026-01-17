@@ -1,0 +1,11 @@
+Test run (UTC): 2026-01-14T23:50:49Z
+
+Commands:
+- pnpm vitest run src/app/api/ops/bookings/route.test.ts -t "derives fallback ISO timestamps using restaurant timezone"
+  Result: PASS (1 test, 11 skipped)
+- pnpm vitest run "src/app/api/ops/bookings/[id]/route.test.ts" -t "derives fallback ISO timestamps using restaurant timezone"
+  Result: PASS (1 test, 4 skipped)
+
+Notes:
+- Running the full suite is currently failing due to pre-existing failures/import errors in unrelated tests.
+- Running both files together currently reports 2 failing tests in `src/app/api/ops/bookings/route.test.ts` unrelated to the new timezone-fallback assertions; not addressed in this task.

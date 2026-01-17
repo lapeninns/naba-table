@@ -1,37 +1,37 @@
-import { NextRequest } from "next/server";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { NextRequest } from 'next/server';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock("@/lib/env", () => {
+vi.mock('@/lib/env', () => {
   return {
     env: {
       get featureFlags() {
         return {
           loyaltyPilotRestaurantIds: undefined,
           enableTestApi: true,
-        guestLookupPolicy: false,
-        opsGuardV2: false,
-        bookingPastTimeBlocking: false,
-        bookingPastTimeGraceMinutes: 5,
-      } as const;
+          guestLookupPolicy: false,
+          opsGuardV2: false,
+          bookingPastTimeBlocking: false,
+          bookingPastTimeGraceMinutes: 5,
+        } as const;
       },
       get supabase() {
         return {
-          url: "http://localhost:54321",
-          anonKey: "test-anon-key",
-          serviceKey: "test-service-role-key",
+          url: 'http://localhost:54321',
+          anonKey: 'test-anon-key',
+          serviceKey: 'test-service-role-key',
         } as const;
       },
       get app() {
         return {
-          url: "http://localhost:3000",
-          version: "test",
+          url: 'http://localhost:3000',
+          version: 'test',
           commitSha: null,
         } as const;
       },
       get misc() {
         return {
-          siteUrl: "http://localhost:3000",
-          baseUrl: "http://localhost:3000",
+          siteUrl: 'http://localhost:3000',
+          baseUrl: 'http://localhost:3000',
           openAiKey: null,
           analyzeBuild: false,
           bookingDefaultRestaurantId: null,
@@ -49,16 +49,16 @@ vi.mock("@/lib/env", () => {
       },
       get node() {
         return {
-          env: "test",
+          env: 'test',
         } as const;
       },
     },
   };
 });
 
-import { DELETE, PATCH } from "./route";
+import { DELETE, GET, PATCH } from './route';
 
-import type * as ServerBookingsModule from "@/server/bookings";
+import type * as ServerBookingsModule from '@/server/bookings';
 
 const getUserMock = vi.fn();
 const getRouteHandlerSupabaseClientMock = vi.fn(async () => ({
@@ -78,22 +78,24 @@ const enqueueBookingUpdatedSideEffectsMock = vi.fn();
 const enqueueBookingCancelledSideEffectsMock = vi.fn();
 const beginBookingModificationFlowMock = vi.fn();
 
-vi.mock("@/server/supabase", () => ({
+vi.mock('@/server/supabase', () => ({
   getRouteHandlerSupabaseClient: () => getRouteHandlerSupabaseClientMock(),
   getServiceSupabaseClient: () => getServiceSupabaseClientMock(),
-  getTenantServiceSupabaseClient: (...args: unknown[]) => getTenantServiceSupabaseClientMock(...args),
+  getTenantServiceSupabaseClient: (...args: unknown[]) =>
+    getTenantServiceSupabaseClientMock(...args),
 }));
 
-vi.mock("@/server/restaurants/schedule", () => ({
+vi.mock('@/server/restaurants/schedule', () => ({
   getRestaurantSchedule: (...args: unknown[]) => getRestaurantScheduleMock(...args),
 }));
 
-vi.mock("@/server/team/access", () => ({
-  requireMembershipForRestaurant: (...args: unknown[]) => requireMembershipForRestaurantMock(...args),
+vi.mock('@/server/team/access', () => ({
+  requireMembershipForRestaurant: (...args: unknown[]) =>
+    requireMembershipForRestaurantMock(...args),
 }));
 
-vi.mock("@/server/bookings", async () => {
-  const actual = await vi.importActual<ServerBookingsModule>("@/server/bookings");
+vi.mock('@/server/bookings', async () => {
+  const actual = await vi.importActual<ServerBookingsModule>('@/server/bookings');
   return {
     ...actual,
     updateBookingRecord: (...args: unknown[]) => updateBookingRecordMock(...args),
@@ -102,16 +104,17 @@ vi.mock("@/server/bookings", async () => {
   };
 });
 
-vi.mock("@/server/bookings/modification-flow", () => ({
+vi.mock('@/server/bookings/modification-flow', () => ({
   beginBookingModificationFlow: (...args: unknown[]) => beginBookingModificationFlowMock(...args),
 }));
 
-vi.mock("@/server/jobs/booking-side-effects", () => ({
-  enqueueBookingUpdatedSideEffects: (...args: unknown[]) => enqueueBookingUpdatedSideEffectsMock(...args),
-  enqueueBookingCancelledSideEffects: (...args: unknown[]) => enqueueBookingCancelledSideEffectsMock(...args),
+vi.mock('@/server/jobs/booking-side-effects', () => ({
+  enqueueBookingUpdatedSideEffects: (...args: unknown[]) =>
+    enqueueBookingUpdatedSideEffectsMock(...args),
+  enqueueBookingCancelledSideEffects: (...args: unknown[]) =>
+    enqueueBookingCancelledSideEffectsMock(...args),
   safeBookingPayload: (payload: unknown) => payload,
 }));
-
 
 function createServiceClient(booking: Record<string, unknown> | null) {
   const maybeSingle = vi.fn().mockResolvedValue({ data: booking, error: null });
@@ -125,7 +128,53 @@ function createTenantClient() {
   return { from: vi.fn(), rpc: vi.fn() };
 }
 
-describe("/api/ops/bookings/[id] PATCH", () => {
+describe('/api/ops/bookings/[id] GET', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('derives fallback ISO timestamps using restaurant timezone', async () => {
+    const bookingId = 'booking-1';
+    getUserMock.mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'ops@example.com' } },
+      error: null,
+    });
+    requireMembershipForRestaurantMock.mockResolvedValue({});
+
+    getServiceSupabaseClientMock.mockReturnValue(
+      createServiceClient({
+        id: bookingId,
+        restaurant_id: 'rest-1',
+        party_size: 2,
+        status: 'confirmed',
+        start_at: null,
+        end_at: null,
+        booking_date: '2025-01-15',
+        start_time: '18:00',
+        end_time: '19:30',
+        notes: null,
+        customer_name: 'Alex',
+        customer_email: 'alex@example.com',
+        customer_phone: null,
+        restaurants: {
+          name: 'Sajilo',
+          slug: 'sajilo',
+          timezone: 'America/Los_Angeles',
+          reservation_interval_minutes: 15,
+        },
+      }),
+    );
+
+    const request = new NextRequest(`http://localhost/api/ops/bookings/${bookingId}`);
+    const response = await GET(request, { params: Promise.resolve({ id: bookingId }) });
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.startIso).toBe('2025-01-16T02:00:00.000Z');
+    expect(json.endIso).toBe('2025-01-16T03:30:00.000Z');
+  });
+});
+
+describe('/api/ops/bookings/[id] PATCH', () => {
   beforeEach(() => {
     beginBookingModificationFlowMock.mockResolvedValue(undefined);
   });
@@ -134,10 +183,13 @@ describe("/api/ops/bookings/[id] PATCH", () => {
     vi.clearAllMocks();
   });
 
-  it("updates a booking when the staff member has access", async () => {
-    const bookingId = "booking-1";
-    const restaurantId = "rest-1";
-    getUserMock.mockResolvedValue({ data: { user: { id: "user-1", email: "ops@example.com" } }, error: null });
+  it('updates a booking when the staff member has access', async () => {
+    const bookingId = 'booking-1';
+    const restaurantId = 'rest-1';
+    getUserMock.mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'ops@example.com' } },
+      error: null,
+    });
     requireMembershipForRestaurantMock.mockResolvedValue({});
     const tenantClient = createTenantClient();
     getTenantServiceSupabaseClientMock.mockReturnValue(tenantClient);
@@ -146,25 +198,25 @@ describe("/api/ops/bookings/[id] PATCH", () => {
       id: bookingId,
       restaurant_id: restaurantId,
       party_size: 2,
-      status: "confirmed",
-      start_at: "2025-05-01T18:00:00.000Z",
-      end_at: "2025-05-01T20:00:00.000Z",
-      booking_date: "2025-05-01",
-      start_time: "18:00",
-      end_time: "20:00",
+      status: 'confirmed',
+      start_at: '2025-05-01T18:00:00.000Z',
+      end_at: '2025-05-01T20:00:00.000Z',
+      booking_date: '2025-05-01',
+      start_time: '18:00',
+      end_time: '20:00',
       notes: null,
-      restaurants: { name: "Sajilo" },
-      booking_type: "dinner",
+      restaurants: { name: 'Sajilo' },
+      booking_type: 'dinner',
     };
 
     const updatedBooking = {
       ...existingBooking,
       party_size: 4,
-      start_at: "2025-05-01T19:00:00.000Z",
-      end_at: "2025-05-01T21:00:00.000Z",
-      start_time: "19:00",
-      end_time: "21:00",
-      status: "pending",
+      start_at: '2025-05-01T19:00:00.000Z',
+      end_at: '2025-05-01T21:00:00.000Z',
+      start_time: '19:00',
+      end_time: '21:00',
+      status: 'pending',
     };
 
     beginBookingModificationFlowMock.mockResolvedValue(updatedBooking);
@@ -172,22 +224,22 @@ describe("/api/ops/bookings/[id] PATCH", () => {
     getRestaurantScheduleMock.mockResolvedValue({
       defaultDurationMinutes: 120,
       lastSeatingBufferMinutes: 120,
-      timezone: "Europe/London",
+      timezone: 'Europe/London',
     });
 
     const request = new NextRequest(`http://localhost/api/ops/bookings/${bookingId}`, {
-      method: "PATCH",
+      method: 'PATCH',
       body: JSON.stringify({
-        startIso: "2025-05-01T19:00:00.000Z",
-        endIso: "2025-05-01T21:00:00.000Z",
+        startIso: '2025-05-01T19:00:00.000Z',
+        endIso: '2025-05-01T21:00:00.000Z',
         partySize: 4,
-        notes: "VIP guests",
+        notes: 'VIP guests',
       }),
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       // @ts-expect-error Node's fetch requires duplex for request bodies
-      duplex: "half",
+      duplex: 'half',
     });
 
     const response = await PATCH(request, { params: Promise.resolve({ id: bookingId }) });
@@ -195,110 +247,124 @@ describe("/api/ops/bookings/[id] PATCH", () => {
     expect(response.status).toBe(200);
     expect(json.id).toBe(bookingId);
     expect(json.partySize).toBe(4);
-    expect(json.startIso).toBe("2025-05-01T19:00:00.000Z");
-    expect(json.status).toBe("pending");
+    expect(json.startIso).toBe('2025-05-01T19:00:00.000Z');
+    expect(json.status).toBe('pending');
     expect(beginBookingModificationFlowMock).toHaveBeenCalledWith({
       client: tenantClient,
       bookingId,
       existingBooking,
-      source: "ops",
+      source: 'ops',
       payload: expect.objectContaining({
         party_size: 4,
-        notes: "VIP guests",
-        booking_date: "2025-05-01",
+        notes: 'VIP guests',
+        booking_date: '2025-05-01',
       }),
     });
     expect(updateBookingRecordMock).not.toHaveBeenCalled();
     expect(enqueueBookingUpdatedSideEffectsMock).toHaveBeenCalled();
   });
 
-  it("returns 404 when membership check fails to avoid leaking booking existence", async () => {
-    const bookingId = "booking-1";
-    getUserMock.mockResolvedValue({ data: { user: { id: "user-1", email: "ops@example.com" } }, error: null });
-    requireMembershipForRestaurantMock.mockRejectedValue(new Error("Forbidden"));
-    getServiceSupabaseClientMock.mockReturnValue(createServiceClient({
-      id: bookingId,
-      restaurant_id: "rest-1",
-      start_at: "2025-05-01T18:00:00.000Z",
-      end_at: "2025-05-01T20:00:00.000Z",
-      party_size: 2,
-      status: "confirmed",
-    }));
+  it('returns 404 when membership check fails to avoid leaking booking existence', async () => {
+    const bookingId = 'booking-1';
+    getUserMock.mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'ops@example.com' } },
+      error: null,
+    });
+    requireMembershipForRestaurantMock.mockRejectedValue(new Error('Forbidden'));
+    getServiceSupabaseClientMock.mockReturnValue(
+      createServiceClient({
+        id: bookingId,
+        restaurant_id: 'rest-1',
+        start_at: '2025-05-01T18:00:00.000Z',
+        end_at: '2025-05-01T20:00:00.000Z',
+        party_size: 2,
+        status: 'confirmed',
+      }),
+    );
 
     const request = new NextRequest(`http://localhost/api/ops/bookings/${bookingId}`, {
-      method: "PATCH",
+      method: 'PATCH',
       body: JSON.stringify({
-        startIso: "2025-05-01T19:00:00.000Z",
-        endIso: "2025-05-01T21:00:00.000Z",
+        startIso: '2025-05-01T19:00:00.000Z',
+        endIso: '2025-05-01T21:00:00.000Z',
         partySize: 4,
       }),
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       // @ts-expect-error duplex flag for node fetch
-      duplex: "half",
+      duplex: 'half',
     });
 
     const response = await PATCH(request, { params: Promise.resolve({ id: bookingId }) });
     expect(response.status).toBe(404);
     const json = await response.json();
-    expect(json.error).toBe("Booking not found");
+    expect(json.error).toBe('Booking not found');
   });
-
 });
 
-describe("/api/ops/bookings/[id] DELETE", () => {
+describe('/api/ops/bookings/[id] DELETE', () => {
   afterEach(() => {
     vi.clearAllMocks();
   });
 
-  it("cancels a booking when the staff member has access", async () => {
-    const bookingId = "booking-1";
-    const restaurantId = "rest-1";
-    getUserMock.mockResolvedValue({ data: { user: { id: "user-1", email: "ops@example.com" } }, error: null });
+  it('cancels a booking when the staff member has access', async () => {
+    const bookingId = 'booking-1';
+    const restaurantId = 'rest-1';
+    getUserMock.mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'ops@example.com' } },
+      error: null,
+    });
     requireMembershipForRestaurantMock.mockResolvedValue({});
     const cancelledBooking = {
       id: bookingId,
       restaurant_id: restaurantId,
-      status: "cancelled",
+      status: 'cancelled',
     };
     softCancelBookingMock.mockResolvedValue(cancelledBooking);
-    getServiceSupabaseClientMock.mockReturnValue(createServiceClient({
-      id: bookingId,
-      restaurant_id: restaurantId,
-      status: "confirmed",
-    }));
+    getServiceSupabaseClientMock.mockReturnValue(
+      createServiceClient({
+        id: bookingId,
+        restaurant_id: restaurantId,
+        status: 'confirmed',
+      }),
+    );
 
     const request = new NextRequest(`http://localhost/api/ops/bookings/${bookingId}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
 
     const response = await DELETE(request, { params: Promise.resolve({ id: bookingId }) });
     expect(response.status).toBe(200);
     const json = await response.json();
     expect(json.id).toBe(bookingId);
-    expect(json.status).toBe("cancelled");
+    expect(json.status).toBe('cancelled');
     expect(softCancelBookingMock).toHaveBeenCalled();
     expect(enqueueBookingCancelledSideEffectsMock).toHaveBeenCalled();
   });
 
-  it("returns 404 when membership check fails to avoid leaking booking existence", async () => {
-    const bookingId = "booking-1";
-    getUserMock.mockResolvedValue({ data: { user: { id: "user-1", email: "ops@example.com" } }, error: null });
-    requireMembershipForRestaurantMock.mockRejectedValue(new Error("Forbidden"));
-    getServiceSupabaseClientMock.mockReturnValue(createServiceClient({
-      id: bookingId,
-      restaurant_id: "rest-1",
-      status: "confirmed",
-    }));
+  it('returns 404 when membership check fails to avoid leaking booking existence', async () => {
+    const bookingId = 'booking-1';
+    getUserMock.mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'ops@example.com' } },
+      error: null,
+    });
+    requireMembershipForRestaurantMock.mockRejectedValue(new Error('Forbidden'));
+    getServiceSupabaseClientMock.mockReturnValue(
+      createServiceClient({
+        id: bookingId,
+        restaurant_id: 'rest-1',
+        status: 'confirmed',
+      }),
+    );
 
     const request = new NextRequest(`http://localhost/api/ops/bookings/${bookingId}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
 
     const response = await DELETE(request, { params: Promise.resolve({ id: bookingId }) });
     expect(response.status).toBe(404);
     const json = await response.json();
-    expect(json.error).toBe("Booking not found");
+    expect(json.error).toBe('Booking not found');
   });
 });

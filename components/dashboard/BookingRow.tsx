@@ -3,7 +3,13 @@
 import { DateTime } from 'luxon';
 import { useMemo, useState } from 'react';
 
-import { BookingActionButton, BookingStatusBadge, StatusTransitionAnimator, type BookingActionSubject, type BookingAction } from '@/components/features/booking-state-machine';
+import {
+  BookingActionButton,
+  BookingStatusBadge,
+  StatusTransitionAnimator,
+  type BookingActionSubject,
+  type BookingAction,
+} from '@/components/features/booking-state-machine';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -27,26 +33,48 @@ export type BookingRowProps = {
     pendingAction: BookingAction | null;
     onCheckIn: (booking: BookingDTO) => Promise<void>;
     onCheckOut: (booking: BookingDTO) => Promise<void>;
-    onMarkNoShow: (booking: BookingDTO, options?: { performedAt?: string | null; reason?: string | null }) => Promise<void>;
+    onMarkNoShow: (
+      booking: BookingDTO,
+      options?: { performedAt?: string | null; reason?: string | null },
+    ) => Promise<void>;
     onUndoNoShow: (booking: BookingDTO, reason?: string | null) => Promise<void>;
   };
 };
 
-export function isBookingPast(booking: BookingDTO): boolean {
-  const startDate = DateTime.fromISO(booking.startIso);
-  if (!startDate.isValid) return false;
+function normalizeTimezone(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
 
-  const now = DateTime.now().setZone(startDate.zoneName);
-  const isPastDay = startDate.startOf('day') < now.startOf('day');
+export function isBookingPast(booking: BookingDTO, timezone?: string | null): boolean {
+  const parsed = DateTime.fromISO(booking.startIso, { setZone: true });
+  if (!parsed.isValid) return false;
+
+  const preferredZone = normalizeTimezone(timezone);
+
+  const start = preferredZone
+    ? parsed.setZone(preferredZone)
+    : parsed.setZone(DateTime.local().zoneName);
+  const effectiveStart = start.isValid ? start : parsed.setZone(DateTime.local().zoneName);
+
+  const now = DateTime.now().setZone(effectiveStart.zoneName ?? DateTime.local().zoneName);
+  const isPastDay = effectiveStart.startOf('day') < now.startOf('day');
 
   return isPastDay || booking.status === 'completed' || booking.status === 'no_show';
 }
 
 export function deriveBookingDisplayState(
   booking: BookingDTO,
-  { isPastView = false }: { isPastView?: boolean } = {},
+  {
+    isPastView = false,
+    timezone,
+  }: {
+    isPastView?: boolean;
+    timezone?: string | null;
+  } = {},
 ): { displayStatus: BookingDTO['status']; isPast: boolean } {
-  const isPast = isPastView || isBookingPast(booking);
+  const isPast = isPastView || isBookingPast(booking, timezone);
 
   let displayStatus: BookingDTO['status'] = booking.status;
   if (isPast) {
@@ -73,23 +101,41 @@ export function BookingRow({
   opsLifecycle,
 }: BookingRowProps) {
   const isCancelled = booking.status === 'cancelled';
-  const { displayStatus, isPast } = deriveBookingDisplayState(booking, { isPastView });
   const isOpsVariant = variant === 'ops';
-  const pendingAction = opsLifecycle && opsLifecycle.pendingBookingId === booking.id ? opsLifecycle.pendingAction : null;
-  const actionSubject = useMemo<BookingActionSubject>(() => ({
-    id: booking.id,
-    status: booking.status as OpsBookingStatus,
-    checkedInAt: null,
-    checkedOutAt: null,
-  }), [booking.id, booking.status]);
+  const bookingTimezone = isOpsVariant
+    ? (booking.restaurantTimezone ?? booking.restaurants?.timezone ?? null)
+    : null;
+  const { displayStatus, isPast } = deriveBookingDisplayState(booking, {
+    isPastView,
+    timezone: bookingTimezone,
+  });
+  const pendingAction =
+    opsLifecycle && opsLifecycle.pendingBookingId === booking.id
+      ? opsLifecycle.pendingAction
+      : null;
+  const actionSubject = useMemo<BookingActionSubject>(
+    () => ({
+      id: booking.id,
+      status: booking.status as OpsBookingStatus,
+      checkedInAt: null,
+      checkedOutAt: null,
+    }),
+    [booking.id, booking.status],
+  );
   const lifecycleAvailability = useMemo(() => {
-    const start = new Date(booking.startIso);
-    if (Number.isNaN(start.getTime())) {
+    const parsed = DateTime.fromISO(booking.startIso, { setZone: true });
+    if (!parsed.isValid) {
       return { isToday: false } as const;
     }
-    const today = new Date();
-    return { isToday: start.toDateString() === today.toDateString() } as const;
-  }, [booking.startIso]);
+
+    const start = bookingTimezone
+      ? parsed.setZone(bookingTimezone)
+      : parsed.setZone(DateTime.local().zoneName);
+    const effectiveStart = start.isValid ? start : parsed.setZone(DateTime.local().zoneName);
+
+    const now = DateTime.now().setZone(effectiveStart.zoneName ?? DateTime.local().zoneName);
+    return { isToday: effectiveStart.toISODate() === now.toISODate() } as const;
+  }, [booking.startIso, bookingTimezone]);
 
   const textClass = (extra?: string) =>
     cn('px-4 py-4 text-sm', extra, isPast ? 'text-muted-foreground' : 'text-foreground');
@@ -226,9 +272,7 @@ export function BookingRow({
           </StatusTransitionAnimator>
         </td>
 
-        <td className={textClass('py-3 text-right')}>
-          {renderActions()}
-        </td>
+        <td className={textClass('py-3 text-right')}>{renderActions()}</td>
       </tr>
     );
   }
@@ -276,9 +320,7 @@ export function BookingRow({
           <StatusChip status={displayStatus} />
         )}
       </td>
-      <td className={textClass('text-right')}>
-        {renderActions()}
-      </td>
+      <td className={textClass('text-right')}>{renderActions()}</td>
     </tr>
   );
 }

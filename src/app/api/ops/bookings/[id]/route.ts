@@ -1,31 +1,49 @@
-import { NextResponse } from "next/server";
-import { z } from "zod";
+import { DateTime } from 'luxon';
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
 
-import { env } from "@/lib/env";
-import { isRestaurantAdminRole, type RestaurantRole } from "@/lib/owner/auth/roles";
-import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
+import { env } from '@/lib/env';
+import { isRestaurantAdminRole, type RestaurantRole } from '@/lib/owner/auth/roles';
+import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import {
   createBookingValidationService,
   BookingValidationError,
   type BookingInput,
   type ValidationContext,
-} from "@/server/booking";
-import { mapValidationFailure, withValidationHeaders } from "@/server/booking/http";
-import { buildBookingAuditSnapshot, logAuditEvent, softCancelBooking, updateBookingRecord } from "@/server/bookings";
-import { beginBookingModificationFlow } from "@/server/bookings/modification-flow";
-import { PastBookingError, assertBookingNotInPast, canOverridePastBooking } from "@/server/bookings/pastTimeValidation";
-import { mapDbErrorToConstraint, isRetryableConstraintError } from "@/server/db-errors";
-import { enqueueBookingCancelledSideEffects, enqueueBookingUpdatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
-import { recordObservabilityEvent } from "@/server/observability";
-import { getRestaurantSchedule } from "@/server/restaurants/schedule";
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient, getTenantServiceSupabaseClient } from "@/server/supabase";
-import { requireMembershipForRestaurant, fetchUserMemberships } from "@/server/team/access";
-import { formatDateForInput } from "@reserve/shared/formatting/booking";
-import { fromMinutes } from "@reserve/shared/time";
+} from '@/server/booking';
+import { mapValidationFailure, withValidationHeaders } from '@/server/booking/http';
+import {
+  buildBookingAuditSnapshot,
+  logAuditEvent,
+  softCancelBooking,
+  updateBookingRecord,
+} from '@/server/bookings';
+import { beginBookingModificationFlow } from '@/server/bookings/modification-flow';
+import {
+  PastBookingError,
+  assertBookingNotInPast,
+  canOverridePastBooking,
+} from '@/server/bookings/pastTimeValidation';
+import { mapDbErrorToConstraint, isRetryableConstraintError } from '@/server/db-errors';
+import {
+  enqueueBookingCancelledSideEffects,
+  enqueueBookingUpdatedSideEffects,
+  safeBookingPayload,
+} from '@/server/jobs/booking-side-effects';
+import { recordObservabilityEvent } from '@/server/observability';
+import { getRestaurantSchedule } from '@/server/restaurants/schedule';
+import {
+  getRouteHandlerSupabaseClient,
+  getServiceSupabaseClient,
+  getTenantServiceSupabaseClient,
+} from '@/server/supabase';
+import { requireMembershipForRestaurant, fetchUserMemberships } from '@/server/team/access';
+import { formatDateForInput } from '@reserve/shared/formatting/booking';
+import { fromMinutes } from '@reserve/shared/time';
 
-import type { BookingRecord } from "@/server/bookings";
-import type { Json, Tables } from "@/types/supabase";
-import type { NextRequest } from "next/server";
+import type { BookingRecord } from '@/server/bookings';
+import type { Json, Tables } from '@/types/supabase';
+import type { NextRequest } from 'next/server';
 
 const overrideSchema = z
   .object({
@@ -33,18 +51,18 @@ const overrideSchema = z
     reason: z
       .string()
       .trim()
-      .max(500, { message: "Override reason must be 500 characters or fewer." })
+      .max(500, { message: 'Override reason must be 500 characters or fewer.' })
       .optional()
       .nullable(),
   })
   .superRefine((value, ctx) => {
     if (value.apply) {
-      const reason = value.reason?.trim() ?? "";
+      const reason = value.reason?.trim() ?? '';
       if (reason.length < 3) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ["reason"],
-          message: "Override reason must be at least 3 characters when applying override.",
+          path: ['reason'],
+          message: 'Override reason must be at least 3 characters when applying override.',
         });
       }
     }
@@ -72,17 +90,27 @@ type UnifiedOpsUpdateParams = {
   endTime: string;
   durationMinutes: number;
   payload: DashboardUpdatePayload;
-  existingBooking: Tables<"bookings"> & {
+  existingBooking: Tables<'bookings'> & {
     restaurants?:
-    | { name: string | null; slug?: string | null; timezone?: string | null; reservation_interval_minutes?: number | null }
-    | { name: string | null; slug?: string | null; timezone?: string | null; reservation_interval_minutes?: number | null }[]
-    | null;
+      | {
+          name: string | null;
+          slug?: string | null;
+          timezone?: string | null;
+          reservation_interval_minutes?: number | null;
+        }
+      | {
+          name: string | null;
+          slug?: string | null;
+          timezone?: string | null;
+          reservation_interval_minutes?: number | null;
+        }[]
+      | null;
   };
   user: AuthenticatedUser;
   serviceSupabase: ReturnType<typeof getServiceSupabaseClient>;
 };
 
-const BOOKING_OVERRIDE_CAPABILITY = "booking.override";
+const BOOKING_OVERRIDE_CAPABILITY = 'booking.override';
 
 function resolveActorCapabilities(role: RestaurantRole | null | undefined): string[] {
   if (isRestaurantAdminRole(role)) {
@@ -97,35 +125,57 @@ type RouteParams = {
   }>;
 };
 
-function resolveBookingId(paramsPromise: Promise<{ id: string | string[] }> | undefined): Promise<string | null> {
+function resolveBookingId(
+  paramsPromise: Promise<{ id: string | string[] }> | undefined,
+): Promise<string | null> {
   if (!paramsPromise) return Promise.resolve(null);
 
   return paramsPromise.then((params) => {
     const { id } = params;
-    if (typeof id === "string") return id;
+    if (typeof id === 'string') return id;
     if (Array.isArray(id)) return id[0] ?? null;
     return null;
   });
 }
 
 function toIsoString(value: unknown): string {
-  if (typeof value !== "string" && !(value instanceof Date)) {
-    return "";
+  if (typeof value !== 'string' && !(value instanceof Date)) {
+    return '';
   }
 
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) {
-    return "";
+    return '';
   }
 
   return date.toISOString();
+}
+
+function deriveFallbackIso(
+  date: string | null | undefined,
+  time: string | null | undefined,
+  timezone: string | null | undefined,
+): string {
+  if (!date || !time) return '';
+
+  const zone = typeof timezone === 'string' && timezone.trim().length > 0 ? timezone : 'UTC';
+  const trimmedTime = time.trim();
+  if (trimmedTime.length === 0) return '';
+
+  const normalizedTime = trimmedTime.length === 5 ? `${trimmedTime}:00` : trimmedTime;
+  const dt = DateTime.fromISO(`${date}T${normalizedTime}`, { zone });
+  if (!dt.isValid) {
+    return '';
+  }
+
+  return dt.toUTC().toISO() ?? '';
 }
 
 export async function GET(_req: NextRequest, { params }: RouteParams) {
   const bookingId = await resolveBookingId(params);
 
   if (!bookingId) {
-    return NextResponse.json({ error: "Missing booking id" }, { status: 400 });
+    return NextResponse.json({ error: 'Missing booking id' }, { status: 400 });
   }
 
   const tenantSupabase = await getRouteHandlerSupabaseClient();
@@ -135,19 +185,23 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
   } = await tenantSupabase.auth.getUser();
 
   if (authError) {
-    console.error("[ops/bookings][GET] failed to resolve auth", authError.message);
+    console.error('[ops/bookings][GET] failed to resolve auth', authError.message);
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
+    return NextResponse.json(
+      { error: mapped.message, code: mapped.code },
+      { status: mapped.status },
+    );
   }
 
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const serviceSupabase = getServiceSupabaseClient();
   const { data: booking, error } = await serviceSupabase
-    .from("bookings")
-    .select(`
+    .from('bookings')
+    .select(
+      `
       *,
       restaurants (
         name,
@@ -164,17 +218,18 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
           section
         )
       )
-    `)
-    .eq("id", bookingId)
+    `,
+    )
+    .eq('id', bookingId)
     .maybeSingle();
 
   if (error) {
-    console.error("[ops/bookings][GET] failed to load booking", error);
-    return NextResponse.json({ error: "Unable to load booking" }, { status: 500 });
+    console.error('[ops/bookings][GET] failed to load booking', error);
+    return NextResponse.json({ error: 'Unable to load booking' }, { status: 500 });
   }
 
   if (!booking) {
-    return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
   }
 
   try {
@@ -184,31 +239,36 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
       client: tenantSupabase,
     });
   } catch (membershipError) {
-    console.warn("[ops/bookings][GET] membership denied", {
+    console.warn('[ops/bookings][GET] membership denied', {
       bookingId,
       reason: membershipError instanceof Error ? membershipError.message : membershipError,
     });
-    return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
   }
 
   const restaurantRelation = Array.isArray(booking.restaurants)
-    ? booking.restaurants[0] ?? null
-    : booking.restaurants ?? null;
+    ? (booking.restaurants[0] ?? null)
+    : (booking.restaurants ?? null);
 
   const reservationIntervalMinutes =
-    restaurantRelation && typeof restaurantRelation.reservation_interval_minutes === "number"
+    restaurantRelation && typeof restaurantRelation.reservation_interval_minutes === 'number'
       ? restaurantRelation.reservation_interval_minutes
+      : null;
+
+  const restaurantTimezone =
+    restaurantRelation && typeof restaurantRelation.timezone === 'string'
+      ? restaurantRelation.timezone
       : null;
 
   const startIso =
     toIsoString(booking.start_at) ||
-    (booking.booking_date && booking.start_time ? toIsoString(`${booking.booking_date}T${booking.start_time}`) : "");
+    deriveFallbackIso(booking.booking_date, booking.start_time, restaurantTimezone);
 
   const endIso =
     toIsoString(booking.end_at) ||
-    (booking.booking_date && booking.end_time ? toIsoString(`${booking.booking_date}T${booking.end_time}`) : "");
+    deriveFallbackIso(booking.booking_date, booking.end_time, restaurantTimezone);
 
-  const rawPhone = typeof booking.customer_phone === "string" ? booking.customer_phone.trim() : "";
+  const rawPhone = typeof booking.customer_phone === 'string' ? booking.customer_phone.trim() : '';
   const customerPhone = rawPhone.length > 0 ? rawPhone : null;
 
   // Transform table assignments
@@ -223,15 +283,18 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
   }> | null;
 
   const assignments = rawAssignments ?? [];
-  const groupedAssignments = new Map<string, {
-    groupId: string | null;
-    members: Array<{
-      tableId: string;
-      tableNumber: string;
-      capacity: number | null;
-      section: string | null;
-    }>;
-  }>();
+  const groupedAssignments = new Map<
+    string,
+    {
+      groupId: string | null;
+      members: Array<{
+        tableId: string;
+        tableNumber: string;
+        capacity: number | null;
+        section: string | null;
+      }>;
+    }
+  >();
 
   // Group by merge_group_id (or create unique groups for singles if desired, but OpsTodayBooking groups by assignment logic)
   // For now, we'll just group by merge_group_id or put singles in their own group
@@ -247,13 +310,13 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
     const inventory = assignment.table_inventory;
     group.members.push({
       tableId: assignment.table_id,
-      tableNumber: inventory?.table_number ?? "?",
+      tableNumber: inventory?.table_number ?? '?',
       capacity: inventory?.capacity ?? null,
       section: inventory?.section ?? null,
     });
   }
 
-  const tableAssignments = Array.from(groupedAssignments.values()).map(group => ({
+  const tableAssignments = Array.from(groupedAssignments.values()).map((group) => ({
     groupId: group.groupId,
     capacitySum: group.members.reduce((sum, m) => sum + (m.capacity ?? 0), 0),
     members: group.members,
@@ -262,19 +325,19 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
   const response = {
     id: booking.id,
     restaurantId: booking.restaurant_id ?? null,
-    restaurantName: restaurantRelation?.name ?? "",
+    restaurantName: restaurantRelation?.name ?? '',
     restaurantSlug: restaurantRelation?.slug ?? null,
     restaurantTimezone: restaurantRelation?.timezone ?? null,
     reservationIntervalMinutes,
     partySize: booking.party_size,
-    startTime: booking.start_time, // OpsTodayBooking expects startTime/endTime as HH:MM:SS or ISO? 
+    startTime: booking.start_time, // OpsTodayBooking expects startTime/endTime as HH:MM:SS or ISO?
     // OpsTodayBooking type says: startTime: string | null; endTime: string | null;
     // But OpsBookingListItem has startIso/endIso.
     // Let's provide both sets to be safe/compatible.
     startIso,
     endIso,
     // OpsTodayBooking fields:
-    // startIso/endIso are not in OpsTodayBooking type explicitly but widely used. 
+    // startIso/endIso are not in OpsTodayBooking type explicitly but widely used.
     // OpsTodayBooking has startTime/endTime which are usually time strings in dashboard context.
     // But here we can pass startIso as startTime if needed, or actual start_time.
     // Let's pass actual DB columns.
@@ -290,7 +353,10 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
     seatingPreference: booking.seating_preference ?? null,
     marketingOptIn: booking.marketing_opt_in ?? false,
     tableAssignments,
-    requiresTableAssignment: tableAssignments.length === 0 && booking.status !== 'cancelled' && booking.status !== 'no_show',
+    requiresTableAssignment:
+      tableAssignments.length === 0 &&
+      booking.status !== 'cancelled' &&
+      booking.status !== 'no_show',
     checkedInAt: booking.checked_in_at ?? null,
     checkedOutAt: booking.checked_out_at ?? null,
     details: booking.details ?? null,
@@ -303,19 +369,22 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   const bookingId = await resolveBookingId(params);
 
   if (!bookingId) {
-    return NextResponse.json({ error: "Missing booking id" }, { status: 400 });
+    return NextResponse.json({ error: 'Missing booking id' }, { status: 400 });
   }
 
   let payload: unknown;
   try {
     payload = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
   }
 
   const parsed = dashboardUpdateSchema.safeParse(payload);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid payload", details: parsed.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Invalid payload', details: parsed.error.flatten() },
+      { status: 400 },
+    );
   }
 
   const tenantSupabase = await getRouteHandlerSupabaseClient();
@@ -325,38 +394,51 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   } = await tenantSupabase.auth.getUser();
 
   if (authError) {
-    console.error("[ops/bookings][PATCH] failed to resolve auth", authError.message);
+    console.error('[ops/bookings][PATCH] failed to resolve auth', authError.message);
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
+    return NextResponse.json(
+      { error: mapped.message, code: mapped.code },
+      { status: mapped.status },
+    );
   }
 
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const serviceSupabase = getServiceSupabaseClient();
   const { data: existing, error } = await serviceSupabase
-    .from("bookings")
-    .select("*, restaurants(name, slug, timezone, reservation_interval_minutes)")
-    .eq("id", bookingId)
+    .from('bookings')
+    .select('*, restaurants(name, slug, timezone, reservation_interval_minutes)')
+    .eq('id', bookingId)
     .maybeSingle();
 
   if (error) {
-    console.error("[ops/bookings][PATCH] failed to load booking", error);
-    return NextResponse.json({ error: "Unable to load booking" }, { status: 500 });
+    console.error('[ops/bookings][PATCH] failed to load booking', error);
+    return NextResponse.json({ error: 'Unable to load booking' }, { status: 500 });
   }
 
   const existingBooking = existing as
-    | (Tables<"bookings"> & {
-      restaurants?:
-      | { name: string | null; slug?: string | null; timezone?: string | null; reservation_interval_minutes?: number | null }
-      | { name: string | null; slug?: string | null; timezone?: string | null; reservation_interval_minutes?: number | null }[]
-      | null;
-    })
+    | (Tables<'bookings'> & {
+        restaurants?:
+          | {
+              name: string | null;
+              slug?: string | null;
+              timezone?: string | null;
+              reservation_interval_minutes?: number | null;
+            }
+          | {
+              name: string | null;
+              slug?: string | null;
+              timezone?: string | null;
+              reservation_interval_minutes?: number | null;
+            }[]
+          | null;
+      })
     | null;
 
   if (!existingBooking) {
-    return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
   }
 
   try {
@@ -366,19 +448,19 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       client: tenantSupabase,
     });
   } catch (membershipError) {
-    console.warn("[ops/bookings][PATCH] membership denied", {
+    console.warn('[ops/bookings][PATCH] membership denied', {
       bookingId,
       reason: membershipError instanceof Error ? membershipError.message : membershipError,
     });
-    return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
   }
 
   const startDate = new Date(parsed.data.startIso);
   if (Number.isNaN(startDate.getTime())) {
-    return NextResponse.json({ error: "Invalid date values" }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid date values' }, { status: 400 });
   }
 
-  const restaurantId = existingBooking.restaurant_id ?? "";
+  const restaurantId = existingBooking.restaurant_id ?? '';
   const existingStartAt = existingBooking.start_at ? new Date(existingBooking.start_at) : null;
   const existingEndAt = existingBooking.end_at ? new Date(existingBooking.end_at) : null;
   const existingDurationMinutes =
@@ -387,13 +469,12 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       : null;
   const bookingDate = formatDateForInput(startDate);
   const startTime = fromMinutes(startDate.getHours() * 60 + startDate.getMinutes());
-  const explicitEndIso = typeof parsed.data.endIso === "string" ? parsed.data.endIso : null;
+  const explicitEndIso = typeof parsed.data.endIso === 'string' ? parsed.data.endIso : null;
 
   // Determine whether we need schedule data.
   // Time changes should respect restaurant-configured duration, and past-time checks may require schedule info.
   const isTimeChanged =
-    bookingDate !== existingBooking.booking_date ||
-    startTime !== existingBooking.start_time;
+    bookingDate !== existingBooking.booking_date || startTime !== existingBooking.start_time;
 
   const needsScheduleForDuration = isTimeChanged || !explicitEndIso;
   const needsScheduleForPastCheck = env.featureFlags.bookingPastTimeBlocking && isTimeChanged;
@@ -409,7 +490,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   let scheduleDuration: number | null = null;
   if (schedule) {
     const maybeDuration = (schedule as { defaultDurationMinutes?: unknown }).defaultDurationMinutes;
-    if (typeof maybeDuration === "number") {
+    if (typeof maybeDuration === 'number') {
       scheduleDuration = maybeDuration;
     }
   }
@@ -417,7 +498,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   const fallbackDuration =
     existingDurationMinutes && existingDurationMinutes > 0
       ? existingDurationMinutes
-      : env.reserve.defaultDurationMinutes ?? 90;
+      : (env.reserve.defaultDurationMinutes ?? 90);
 
   let durationMinutes: number;
   let endDate: Date;
@@ -429,7 +510,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   } else if (explicitEndIso) {
     const parsedEnd = new Date(explicitEndIso);
     if (Number.isNaN(parsedEnd.getTime())) {
-      return NextResponse.json({ error: "Invalid date values" }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid date values' }, { status: 400 });
     }
     endDate = parsedEnd;
     durationMinutes = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / 60000));
@@ -443,14 +524,14 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   }
 
   if (endDate.getTime() <= startDate.getTime()) {
-    return NextResponse.json({ error: "End time must be after start time" }, { status: 400 });
+    return NextResponse.json({ error: 'End time must be after start time' }, { status: 400 });
   }
 
   const endTime = fromMinutes(endDate.getHours() * 60 + endDate.getMinutes());
   const requiresTableRealignment =
-    bookingDate !== (existingBooking.booking_date ?? "") ||
-    startTime !== (existingBooking.start_time ?? "") ||
-    endTime !== (existingBooking.end_time ?? "") ||
+    bookingDate !== (existingBooking.booking_date ?? '') ||
+    startTime !== (existingBooking.start_time ?? '') ||
+    endTime !== (existingBooking.end_time ?? '') ||
     parsed.data.partySize !== (existingBooking.party_size ?? 0);
   const normalizedNotes = parsed.data.notes ?? null;
 
@@ -473,42 +554,39 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
   // Validate past time if feature enabled and time is changing
   if (isTimeChanged && env.featureFlags.bookingPastTimeBlocking) {
-    const allowPastParam = req.nextUrl.searchParams.get("allow_past");
-    const allowOverride = allowPastParam === "true";
+    const allowPastParam = req.nextUrl.searchParams.get('allow_past');
+    const allowOverride = allowPastParam === 'true';
 
     // Get user's role for the restaurant
     const memberships = await fetchUserMemberships(user.id, serviceSupabase);
-    const membership = memberships.find(m => m.restaurant_id === existingBooking.restaurant_id);
+    const membership = memberships.find((m) => m.restaurant_id === existingBooking.restaurant_id);
     const userRole = membership?.role as RestaurantRole | null;
 
     try {
-      const scheduleForPast = schedule ?? await getRestaurantSchedule(existingBooking.restaurant_id ?? "", {
-        date: bookingDate,
-        client: serviceSupabase,
-      });
+      const scheduleForPast =
+        schedule ??
+        (await getRestaurantSchedule(existingBooking.restaurant_id ?? '', {
+          date: bookingDate,
+          client: serviceSupabase,
+        }));
 
-      assertBookingNotInPast(
-        scheduleForPast.timezone,
-        bookingDate,
-        startTime,
-        {
-          graceMinutes: env.featureFlags.bookingPastTimeGraceMinutes,
-          allowOverride,
-          actorRole: userRole,
-        }
-      );
+      assertBookingNotInPast(scheduleForPast.timezone, bookingDate, startTime, {
+        graceMinutes: env.featureFlags.bookingPastTimeGraceMinutes,
+        allowOverride,
+        actorRole: userRole,
+      });
 
       // Log successful override if admin used it
       if (allowOverride && canOverridePastBooking(userRole)) {
-        void import("@/server/observability").then(({ recordObservabilityEvent }) => {
+        void import('@/server/observability').then(({ recordObservabilityEvent }) => {
           void recordObservabilityEvent({
-            source: "api.ops.bookings",
-            eventType: "booking.past_time.override",
-            severity: "info",
+            source: 'api.ops.bookings',
+            eventType: 'booking.past_time.override',
+            severity: 'info',
             context: {
               bookingId,
               restaurantId: existingBooking.restaurant_id,
-              endpoint: "ops.bookings.update",
+              endpoint: 'ops.bookings.update',
               actorId: user.id,
               actorEmail: user.email,
               actorRole: userRole,
@@ -522,15 +600,15 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     } catch (pastTimeError) {
       if (pastTimeError instanceof PastBookingError) {
         // Log blocked attempt
-        void import("@/server/observability").then(({ recordObservabilityEvent }) => {
+        void import('@/server/observability').then(({ recordObservabilityEvent }) => {
           void recordObservabilityEvent({
-            source: "api.ops.bookings",
-            eventType: "booking.past_time.blocked",
-            severity: "warning",
+            source: 'api.ops.bookings',
+            eventType: 'booking.past_time.blocked',
+            severity: 'warning',
             context: {
               bookingId,
               restaurantId: existingBooking.restaurant_id,
-              endpoint: "ops.bookings.update",
+              endpoint: 'ops.bookings.update',
               actorId: user.id,
               actorEmail: user.email,
               actorRole: userRole,
@@ -546,7 +624,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
             code: pastTimeError.code,
             details: pastTimeError.details,
           },
-          { status: 422 }
+          { status: 422 },
         );
       }
       throw pastTimeError;
@@ -557,27 +635,27 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   const tenantClient = getTenantServiceSupabaseClient(existingBooking.restaurant_id);
 
   try {
-    const updated: Tables<"bookings"> = requiresTableRealignment
+    const updated: Tables<'bookings'> = requiresTableRealignment
       ? await beginBookingModificationFlow({
-        client: tenantClient,
-        bookingId,
-        existingBooking,
-        source: "ops",
-        payload: {
+          client: tenantClient,
+          bookingId,
+          existingBooking,
+          source: 'ops',
+          payload: {
+            booking_date: bookingDate,
+            start_time: startTime,
+            end_time: endTime,
+            party_size: parsed.data.partySize,
+            notes: normalizedNotes,
+          },
+        })
+      : await updateBookingRecord(tenantClient, bookingId, {
           booking_date: bookingDate,
           start_time: startTime,
           end_time: endTime,
           party_size: parsed.data.partySize,
           notes: normalizedNotes,
-        },
-      })
-      : await updateBookingRecord(tenantClient, bookingId, {
-        booking_date: bookingDate,
-        start_time: startTime,
-        end_time: endTime,
-        party_size: parsed.data.partySize,
-        notes: normalizedNotes,
-      });
+        });
 
     const auditMetadata = {
       restaurant_id: updated.restaurant_id ?? existingBooking.restaurant_id,
@@ -585,11 +663,11 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     } as Json;
 
     await logAuditEvent(tenantClient, {
-      action: "booking.updated",
-      entity: "booking",
+      action: 'booking.updated',
+      entity: 'booking',
       entityId: bookingId,
       metadata: auditMetadata,
-      actor: user.email ?? user.id ?? "ops",
+      actor: user.email ?? user.id ?? 'ops',
     });
 
     try {
@@ -606,22 +684,22 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         },
       );
     } catch (jobError) {
-      console.error("[ops/bookings][PATCH] side effects failed", jobError);
+      console.error('[ops/bookings][PATCH] side effects failed', jobError);
     }
 
     const restaurantRelation = Array.isArray(existingBooking.restaurants)
-      ? existingBooking.restaurants[0] ?? null
-      : existingBooking.restaurants ?? null;
+      ? (existingBooking.restaurants[0] ?? null)
+      : (existingBooking.restaurants ?? null);
 
     const reservationIntervalMinutes =
-      restaurantRelation && typeof restaurantRelation.reservation_interval_minutes === "number"
+      restaurantRelation && typeof restaurantRelation.reservation_interval_minutes === 'number'
         ? restaurantRelation.reservation_interval_minutes
         : null;
 
     const response = {
       id: updated.id,
       restaurantId: updated.restaurant_id ?? existingBooking.restaurant_id,
-      restaurantName: restaurantRelation?.name ?? "",
+      restaurantName: restaurantRelation?.name ?? '',
       restaurantSlug: restaurantRelation?.slug ?? null,
       restaurantTimezone: restaurantRelation?.timezone ?? null,
       reservationIntervalMinutes,
@@ -630,32 +708,42 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       endIso: toIsoString(updated.end_at),
       status: updated.status,
       notes: updated.notes ?? null,
-      customerName: typeof updated.customer_name === "string" && updated.customer_name.trim().length > 0 ? updated.customer_name.trim() : null,
-      customerEmail: typeof updated.customer_email === "string" && updated.customer_email.trim().length > 0 ? updated.customer_email.trim() : null,
-      customerPhone: typeof updated.customer_phone === "string" && updated.customer_phone.trim().length > 0 ? updated.customer_phone.trim() : null,
+      customerName:
+        typeof updated.customer_name === 'string' && updated.customer_name.trim().length > 0
+          ? updated.customer_name.trim()
+          : null,
+      customerEmail:
+        typeof updated.customer_email === 'string' && updated.customer_email.trim().length > 0
+          ? updated.customer_email.trim()
+          : null,
+      customerPhone:
+        typeof updated.customer_phone === 'string' && updated.customer_phone.trim().length > 0
+          ? updated.customer_phone.trim()
+          : null,
     };
 
     return NextResponse.json(response);
   } catch (updateError) {
-    console.error("[ops/bookings][PATCH] update failed", updateError);
+    console.error('[ops/bookings][PATCH] update failed', updateError);
 
     if (env.featureFlags.dbStrictConstraints) {
       const mapped = mapDbErrorToConstraint(updateError);
       if (mapped) {
-        const status = mapped.kind === "overlap_conflict" || mapped.kind === "unique_conflict" ? 409 : 422;
+        const status =
+          mapped.kind === 'overlap_conflict' || mapped.kind === 'unique_conflict' ? 409 : 422;
         return NextResponse.json(
           {
             error: mapped.userMessage,
             code:
-              mapped.kind === "overlap_conflict"
-                ? "ALLOCATION_CONFLICT"
-                : mapped.kind === "unique_conflict"
-                  ? "UNIQUE_CONFLICT"
-                  : mapped.kind === "fk_conflict"
-                    ? "FK_CONFLICT"
-                    : mapped.kind === "check_violation"
-                      ? "CHECK_VIOLATION"
-                      : "DB_CONSTRAINT_ERROR",
+              mapped.kind === 'overlap_conflict'
+                ? 'ALLOCATION_CONFLICT'
+                : mapped.kind === 'unique_conflict'
+                  ? 'UNIQUE_CONFLICT'
+                  : mapped.kind === 'fk_conflict'
+                    ? 'FK_CONFLICT'
+                    : mapped.kind === 'check_violation'
+                      ? 'CHECK_VIOLATION'
+                      : 'DB_CONSTRAINT_ERROR',
             retryable: isRetryableConstraintError(updateError),
           },
           { status },
@@ -663,26 +751,37 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       }
     }
 
-    return NextResponse.json({ error: "Unable to update booking" }, { status: 500 });
+    return NextResponse.json({ error: 'Unable to update booking' }, { status: 500 });
   }
 }
 
 async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
-  const { bookingId, bookingDate, durationMinutes, payload, existingBooking, user, serviceSupabase } = params;
+  const {
+    bookingId,
+    bookingDate,
+    durationMinutes,
+    payload,
+    existingBooking,
+    user,
+    serviceSupabase,
+  } = params;
 
-  const schedule = await getRestaurantSchedule(existingBooking.restaurant_id ?? "", {
+  const schedule = await getRestaurantSchedule(existingBooking.restaurant_id ?? '', {
     date: bookingDate,
     client: serviceSupabase,
   });
 
   const memberships = await fetchUserMemberships(user.id, serviceSupabase);
-  const membership = memberships.find((entry) => entry.restaurant_id === existingBooking.restaurant_id) ?? null;
+  const membership =
+    memberships.find((entry) => entry.restaurant_id === existingBooking.restaurant_id) ?? null;
   const userRole = (membership?.role as RestaurantRole | undefined) ?? null;
   const actorCapabilities = resolveActorCapabilities(userRole);
-  const actorRoles = userRole ? [userRole] : ["staff"];
+  const actorRoles = userRole ? [userRole] : ['staff'];
 
   const overrideReason = payload.override?.reason?.trim() ?? null;
-  const overrideRequest = payload.override?.apply ? { apply: true, reason: overrideReason } : undefined;
+  const overrideRequest = payload.override?.apply
+    ? { apply: true, reason: overrideReason }
+    : undefined;
 
   // Use tenant-scoped client for all validation and update operations
   const tenantClient = getTenantServiceSupabaseClient(existingBooking.restaurant_id);
@@ -690,14 +789,14 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
 
   const bookingInput: BookingInput = {
     restaurantId: existingBooking.restaurant_id,
-    serviceId: existingBooking.booking_type ?? "dinner",
+    serviceId: existingBooking.booking_type ?? 'dinner',
     partySize: payload.partySize,
     start: payload.startIso,
     durationMinutes,
     seatingPreference: existingBooking.seating_preference ?? null,
     notes: payload.notes ?? existingBooking.notes ?? null,
     customerId: existingBooking.customer_id ?? null,
-    customerName: existingBooking.customer_name ?? "",
+    customerName: existingBooking.customer_name ?? '',
     customerEmail: existingBooking.customer_email ?? null,
     customerPhone: existingBooking.customer_phone ?? null,
     marketingOptIn: existingBooking.marketing_opt_in ?? false,
@@ -723,8 +822,12 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
   };
 
   try {
-    const commit = await validationService.updateWithEnforcement(existingBooking as unknown as BookingRecord, bookingInput, context);
-    const updated = commit.booking as Tables<"bookings">;
+    const commit = await validationService.updateWithEnforcement(
+      existingBooking as unknown as BookingRecord,
+      bookingInput,
+      context,
+    );
+    const updated = commit.booking as Tables<'bookings'>;
     const validationResponse = commit.response;
 
     const auditMetadata: Json = {
@@ -734,16 +837,17 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
 
     if (validationResponse.overridden) {
       (auditMetadata as Record<string, unknown>).override_reason = overrideReason;
-      (auditMetadata as Record<string, unknown>).override_codes = validationResponse.overrideCodes ?? [];
+      (auditMetadata as Record<string, unknown>).override_codes =
+        validationResponse.overrideCodes ?? [];
       (auditMetadata as Record<string, unknown>).override_applied = true;
     }
 
     await logAuditEvent(tenantClient, {
-      action: "booking.updated",
-      entity: "booking",
+      action: 'booking.updated',
+      entity: 'booking',
       entityId: bookingId,
       metadata: auditMetadata,
-      actor: user.email ?? user.id ?? "ops",
+      actor: user.email ?? user.id ?? 'ops',
     });
 
     try {
@@ -756,14 +860,14 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
         { supabase: tenantClient },
       );
     } catch (jobError) {
-      console.error("[ops/bookings][PATCH][unified] side effects failed", jobError);
+      console.error('[ops/bookings][PATCH][unified] side effects failed', jobError);
     }
 
     if (validationResponse.overridden) {
       recordObservabilityEvent({
-        source: "api.ops.bookings",
-        eventType: "booking.override.applied",
-        severity: "info",
+        source: 'api.ops.bookings',
+        eventType: 'booking.override.applied',
+        severity: 'info',
         context: {
           bookingId,
           restaurantId: existingBooking.restaurant_id,
@@ -777,18 +881,18 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
     }
 
     const restaurantRelation = Array.isArray(existingBooking.restaurants)
-      ? existingBooking.restaurants[0] ?? null
-      : existingBooking.restaurants ?? null;
+      ? (existingBooking.restaurants[0] ?? null)
+      : (existingBooking.restaurants ?? null);
 
     const reservationIntervalMinutes =
-      restaurantRelation && typeof restaurantRelation.reservation_interval_minutes === "number"
+      restaurantRelation && typeof restaurantRelation.reservation_interval_minutes === 'number'
         ? restaurantRelation.reservation_interval_minutes
         : null;
 
     const responsePayload = {
       id: updated.id,
       restaurantId: updated.restaurant_id ?? existingBooking.restaurant_id,
-      restaurantName: restaurantRelation?.name ?? "",
+      restaurantName: restaurantRelation?.name ?? '',
       restaurantSlug: restaurantRelation?.slug ?? null,
       restaurantTimezone: restaurantRelation?.timezone ?? null,
       reservationIntervalMinutes,
@@ -798,15 +902,15 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
       status: updated.status,
       notes: updated.notes ?? null,
       customerName:
-        typeof updated.customer_name === "string" && updated.customer_name.trim().length > 0
+        typeof updated.customer_name === 'string' && updated.customer_name.trim().length > 0
           ? updated.customer_name.trim()
           : null,
       customerEmail:
-        typeof updated.customer_email === "string" && updated.customer_email.trim().length > 0
+        typeof updated.customer_email === 'string' && updated.customer_email.trim().length > 0
           ? updated.customer_email.trim()
           : null,
       customerPhone:
-        typeof updated.customer_phone === "string" && updated.customer_phone.trim().length > 0
+        typeof updated.customer_phone === 'string' && updated.customer_phone.trim().length > 0
           ? updated.customer_phone.trim()
           : null,
       validation: validationResponse,
@@ -816,9 +920,9 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
   } catch (error) {
     if (error instanceof BookingValidationError) {
       recordObservabilityEvent({
-        source: "api.ops.bookings",
-        eventType: "booking.validation_failed",
-        severity: "warning",
+        source: 'api.ops.bookings',
+        eventType: 'booking.validation_failed',
+        severity: 'warning',
         context: {
           bookingId,
           restaurantId: existingBooking.restaurant_id,
@@ -833,8 +937,8 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
       return NextResponse.json(mapped.body, withValidationHeaders({ status: mapped.status }));
     }
 
-    console.error("[ops/bookings][PATCH][unified] update failed", error);
-    return NextResponse.json({ error: "Unable to update booking" }, { status: 500 });
+    console.error('[ops/bookings][PATCH][unified] update failed', error);
+    return NextResponse.json({ error: 'Unable to update booking' }, { status: 500 });
   }
 }
 
@@ -842,7 +946,7 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
   const bookingId = await resolveBookingId(params);
 
   if (!bookingId) {
-    return NextResponse.json({ error: "Missing booking id" }, { status: 400 });
+    return NextResponse.json({ error: 'Missing booking id' }, { status: 400 });
   }
 
   const tenantSupabase = await getRouteHandlerSupabaseClient();
@@ -852,31 +956,34 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
   } = await tenantSupabase.auth.getUser();
 
   if (authError) {
-    console.error("[ops/bookings][DELETE] failed to resolve auth", authError.message);
+    console.error('[ops/bookings][DELETE] failed to resolve auth', authError.message);
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
+    return NextResponse.json(
+      { error: mapped.message, code: mapped.code },
+      { status: mapped.status },
+    );
   }
 
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const serviceSupabase = getServiceSupabaseClient();
   const { data: existing, error } = await serviceSupabase
-    .from("bookings")
-    .select("*")
-    .eq("id", bookingId)
+    .from('bookings')
+    .select('*')
+    .eq('id', bookingId)
     .maybeSingle();
 
   if (error) {
-    console.error("[ops/bookings][DELETE] failed to load booking", error);
-    return NextResponse.json({ error: "Unable to load booking" }, { status: 500 });
+    console.error('[ops/bookings][DELETE] failed to load booking', error);
+    return NextResponse.json({ error: 'Unable to load booking' }, { status: 500 });
   }
 
-  const existingBooking = existing as Tables<"bookings"> | null;
+  const existingBooking = existing as Tables<'bookings'> | null;
 
   if (!existingBooking) {
-    return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
   }
 
   try {
@@ -886,11 +993,11 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
       client: tenantSupabase,
     });
   } catch (membershipError) {
-    console.warn("[ops/bookings][DELETE] membership denied", {
+    console.warn('[ops/bookings][DELETE] membership denied', {
       bookingId,
       reason: membershipError instanceof Error ? membershipError.message : membershipError,
     });
-    return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
   }
 
   // Use tenant-scoped client for all cancellation operations
@@ -905,11 +1012,11 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
     } as Json;
 
     await logAuditEvent(tenantClient, {
-      action: "booking.cancelled",
-      entity: "booking",
+      action: 'booking.cancelled',
+      entity: 'booking',
       entityId: bookingId,
       metadata: auditMetadata,
-      actor: user.email ?? user.id ?? "ops",
+      actor: user.email ?? user.id ?? 'ops',
     });
 
     try {
@@ -918,31 +1025,31 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
           previous: safeBookingPayload(existingBooking as unknown as BookingRecord),
           cancelled: safeBookingPayload(cancelled),
           restaurantId: existingBooking.restaurant_id,
-          cancelledBy: "staff",
+          cancelledBy: 'staff',
         },
         { supabase: tenantClient },
       );
     } catch (jobError) {
-      console.error("[ops/bookings][DELETE] side effects failed", jobError);
+      console.error('[ops/bookings][DELETE] side effects failed', jobError);
     }
 
     return NextResponse.json({ id: bookingId, status: cancelled.status });
   } catch (deleteError) {
-    console.error("[ops/bookings][DELETE] cancellation failed", deleteError);
+    console.error('[ops/bookings][DELETE] cancellation failed', deleteError);
 
-    if (typeof deleteError === "object" && deleteError !== null) {
+    if (typeof deleteError === 'object' && deleteError !== null) {
       const record = deleteError as { code?: string; message?: string };
-      if (record.code === "42501") {
+      if (record.code === '42501') {
         return NextResponse.json(
           {
-            error: "This booking can no longer be cancelled online.",
-            code: "CUTOFF_PASSED",
+            error: 'This booking can no longer be cancelled online.',
+            code: 'CUTOFF_PASSED',
           },
           { status: 403 },
         );
       }
     }
 
-    return NextResponse.json({ error: "Unable to cancel booking" }, { status: 500 });
+    return NextResponse.json({ error: 'Unable to cancel booking' }, { status: 500 });
   }
 }
