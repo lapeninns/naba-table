@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-01-17T23:25:00Z
+Last updated: 2026-01-17T23:30:00Z
 
 ## Goal (incl. success criteria)
 
@@ -29,9 +29,8 @@ Last updated: 2026-01-17T23:25:00Z
 ## State
 
 - Phase 3 (Implementation) **COMPLETE**
-- Phase 4 (Verification) **IN PROGRESS**
-- Unit tests passing (18/18)
-- Integration tests pending (require database)
+- Phase 4 (Verification) **PARTIAL** - Unit tests complete, integration/manual QA pending migration
+- Phase 5 (Review & Merge) **READY** - All changes committed
 
 ## Done
 
@@ -40,32 +39,26 @@ Last updated: 2026-01-17T23:25:00Z
 - Implemented RPCs: `acquire_soft_holds_atomic`, `release_soft_holds`, `cleanup_expired_soft_holds`, `check_soft_hold_ownership`
 - Created `server/capacity/table-assignment/soft-holds.ts` module with error classes and functions
 - Updated Supabase types (`types/supabase.ts`)
-- Integrated soft-holds into `evaluateManualSelection()`:
-  - Acquires soft-holds before validation when feature enabled
-  - Releases on validation failure
-  - Returns session token in result
-- Integrated soft-holds into `createManualHold()`:
-  - Accepts session token from evaluation
-  - Verifies ownership before creating real hold
-  - Releases soft-holds after successful hold creation
+- Integrated soft-holds into `evaluateManualSelection()` and `createManualHold()`
 - Added feature flag: `FEATURE_SOFT_HOLDS_ENABLED`
-  - Added to `config/env.schema.ts`
-  - Added to `lib/env.ts` under `featureFlags.holds.softHoldsEnabled`
-  - Added `isSoftHoldsEnabled()` to `server/feature-flags.ts`
 - Created unit tests: `tests/server/capacity/soft-holds.test.ts` (18 tests passing)
 - Updated task todo.md with completed items
+- **Committed all implementation changes** (commit: `1b724d4c`)
+- **Updated DATABASE_MIGRATIONS.md** with migration details
+- **Updated verification.md** with test results
+- **Committed documentation** (commit: `ca7bb26b`)
 
 ## Now
 
-- Manual verification and documentation
-- Consider integration tests if database access available
+- Ready for PR creation or further review
+- Migration can be applied to staging when ready
 
 ## Next
 
-- Deploy migration to staging
+- Apply migration to staging (`supabase/migrations/20260117_add_soft_holds.sql`)
 - Enable `FEATURE_SOFT_HOLDS_ENABLED=true` on staging
 - Manual QA: test race condition scenario with two browser tabs
-- Document in `docs/TABLE_ASSIGNMENT_SYSTEM.md`
+- Open PR to merge `algorithm/hold-race-condition-fix` → `main`
 
 ## Open questions (UNCONFIRMED if needed)
 
@@ -76,6 +69,9 @@ Last updated: 2026-01-17T23:25:00Z
 - Branch: `algorithm/hold-race-condition-fix`
 - Task: `tasks/hold-race-condition-fix-20260117-2315/`
 - Migration: `supabase/migrations/20260117_add_soft_holds.sql`
+- Commits:
+  - `1b724d4c` - feat(capacity): add soft-hold pattern
+  - `ca7bb26b` - docs: update migration log and verification
 - Key files:
   - `server/capacity/table-assignment/soft-holds.ts`
   - `server/capacity/table-assignment/manual.ts`
