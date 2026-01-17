@@ -8,7 +8,48 @@ owner: github:@amankumarshrestha
 
 ---
 
+## Unit Test Results
+
+**Date**: 2026-01-17  
+**Test File**: `tests/server/capacity/soft-holds.test.ts`  
+**Status**: ✅ All passing (18/18)
+
+```
+ ✓ tests/server/capacity/soft-holds.test.ts (18 tests) 6ms
+
+ Test Files  1 passed (1)
+      Tests  18 passed (18)
+   Start at  23:29:36
+   Duration  610ms
+```
+
+### Test Coverage
+
+- ✅ `isSoftHoldsEnabled()` - feature flag checks (2 tests)
+- ✅ `acquireSoftHolds()` - acquisition logic (6 tests)
+  - Happy path: returns session token
+  - Empty table array handling
+  - Conflict detection: throws `SoftHoldConflictError` with conflicting tables
+  - RPC failure handling (graceful degradation)
+  - Feature flag disabled: returns null
+- ✅ `releaseSoftHolds()` - release logic (3 tests)
+  - Success path: returns count of released
+  - RPC failure handling (logs warning, returns 0)
+  - Null session token handling
+- ✅ `checkSoftHoldOwnership()` - ownership verification (3 tests)
+  - Owned tables: returns true
+  - Not owned: returns false
+  - RPC failure: returns false (safe default)
+- ✅ `cleanupExpiredSoftHolds()` - cleanup logic (2 tests)
+  - Returns count of cleaned
+  - RPC failure handling (logs warning)
+- ✅ Error classes (2 tests)
+  - `SoftHoldConflictError` properties
+  - `SoftHoldExpiredError` properties
+
 ## Manual QA — Chrome DevTools (MCP)
+
+**Status**: ⏳ Pending (requires migration to be applied)
 
 Tool: Chrome DevTools MCP
 
@@ -33,7 +74,9 @@ Tool: Chrome DevTools MCP
 
 - [ ] Mobile (≈375px) [ ] Tablet (≈768px) [ ] Desktop (≥1280px)
 
-## Test Outcomes
+## Integration Test Outcomes
+
+**Status**: ⏳ Pending (requires database migration)
 
 - [ ] Happy paths (single operator, successful hold creation)
 - [ ] Conflict paths (two operators, one blocked)
@@ -42,6 +85,8 @@ Tool: Chrome DevTools MCP
 - [ ] A11y (axe): 0 critical/serious
 
 ## Race Condition Verification
+
+**Status**: ⏳ Pending (requires database migration and feature flag enabled)
 
 ### Test Scenario 1: Concurrent Evaluation
 
@@ -70,14 +115,25 @@ Tool: Chrome DevTools MCP
 
 ## Artifacts
 
-- Lighthouse: `artifacts/lighthouse-report.json`
-- Network: `artifacts/network.har`
-- Traces/Screens: `artifacts/`
-- DB diff: `artifacts/db-diff.txt`
+- Unit test results: See above
+- Lighthouse: `artifacts/lighthouse-report.json` (pending)
+- Network: `artifacts/network.har` (pending)
+- Traces/Screens: `artifacts/` (pending)
+- DB diff: See `supabase/migrations/20260117_add_soft_holds.sql`
 
 ## Known Issues
 
-- [ ] None yet
+- None
+
+## Deployment Checklist
+
+1. [ ] Apply migration to staging: `supabase/migrations/20260117_add_soft_holds.sql`
+2. [ ] Verify `btree_gist` extension is enabled
+3. [ ] Enable feature flag: `FEATURE_SOFT_HOLDS_ENABLED=true`
+4. [ ] Run manual QA tests (race condition scenarios)
+5. [ ] Apply migration to production
+6. [ ] Enable feature flag in production
+7. [ ] Monitor for soft-hold conflict errors in logs
 
 ## Sign-off
 

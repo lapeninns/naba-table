@@ -21,11 +21,81 @@
 
 | Date (UTC) | Description                                                | Staging | Production | Priority |
 | ---------- | ---------------------------------------------------------- | ------- | ---------- | -------- |
+| 2026-01-17 | Add table_soft_holds for race condition prevention         | ⏳      | ⏳         | Medium   |
 | 2025-12-27 | Add FK: booking_table_assignments.booking_id → bookings.id | ✅      | ⏳         | High     |
 
 ---
 
 ## Migration Details
+
+### 2026-01-17: Add table_soft_holds for race condition prevention
+
+**Status**: ⏳ Staging | ⏳ Production  
+**Priority**: Medium  
+**Related Issue**: Race condition when two operators select the same table simultaneously  
+**Migration File**: `supabase/migrations/20260117_add_soft_holds.sql`  
+**Feature Flag**: `FEATURE_SOFT_HOLDS_ENABLED` (default: false)
+
+#### Problem
+
+When two operators select the same table at nearly the same time, both see it as "available" during the evaluation phase. One succeeds in creating the hold, while the other gets a confusing database constraint error.
+
+#### Solution
+
+Add a soft-hold layer that acquires temporary 10-second locks on tables during evaluation. This provides early conflict detection with clear user feedback ("This table is being held by another operator").
+
+#### SQL to Apply
+
+Apply the full migration file: `supabase/migrations/20260117_add_soft_holds.sql`
+
+Key components:
+
+- `table_soft_holds` table with exclusion constraint for overlap detection
+- `acquire_soft_holds_atomic()` - Atomic acquisition with rollback
+- `release_soft_holds()` - Release by session token
+- `cleanup_expired_soft_holds()` - Cron-compatible cleanup
+- `check_soft_hold_ownership()` - Verify session owns tables
+
+#### Pre-flight Checks
+
+- [ ] Backup verified/available
+- [ ] Extension `btree_gist` is enabled (required for exclusion constraint)
+- [ ] Feature flag `FEATURE_SOFT_HOLDS_ENABLED` ready in environment
+
+#### Verification
+
+After applying:
+
+1. Verify table exists:
+
+   ```sql
+   SELECT * FROM public.table_soft_holds LIMIT 1;
+   ```
+
+2. Verify RPCs exist:
+
+   ```sql
+   SELECT routine_name FROM information_schema.routines
+   WHERE routine_name LIKE '%soft_hold%';
+   ```
+
+3. Enable feature flag: `FEATURE_SOFT_HOLDS_ENABLED=true`
+
+4. Test via UI: Open two browser tabs, select same table simultaneously
+
+#### Rollback
+
+```sql
+DROP FUNCTION IF EXISTS check_soft_hold_ownership(uuid, uuid[]);
+DROP FUNCTION IF EXISTS cleanup_expired_soft_holds();
+DROP FUNCTION IF EXISTS release_soft_holds(uuid);
+DROP FUNCTION IF EXISTS acquire_soft_holds_atomic(uuid[], uuid, integer);
+DROP TABLE IF EXISTS public.table_soft_holds;
+
+NOTIFY pgrst, 'reload schema';
+```
+
+---
 
 ### 2025-12-27: Add foreign key constraint for booking_table_assignments
 
