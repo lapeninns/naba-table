@@ -14,11 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useOpsSession } from '@/contexts/ops-session';
-import {
-  useOpsRejectionAnalytics,
-  useOpsStrategicSettings,
-  useUpdateOpsStrategicSettings,
-} from '@/hooks';
+import { useOpsRejectionAnalytics } from '@/hooks/ops/useOpsRejectionAnalytics';
+import { useOpsStrategicSettings, useUpdateOpsStrategicSettings } from '@/hooks/ops/useOpsStrategicSettings';
 import { useToast } from '@/hooks/use-toast';
 import { CSRF_HEADER_NAME, getBrowserCsrfToken } from '@/lib/security/csrf';
 import { cn } from '@/lib/utils';

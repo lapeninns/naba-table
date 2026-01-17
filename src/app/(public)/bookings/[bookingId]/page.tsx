@@ -38,8 +38,7 @@ async function prefetchReservation(
   queryClient: QueryClient,
   reservationId: string,
 ) {
-  const requestHeaders = await headers();
-  const cookieStore = await cookies();
+  const [requestHeaders, cookieStore] = await Promise.all([headers(), cookies()]);
   const cookieHeader = cookieHeaderFromStore(cookieStore);
   const origin = resolveOrigin(requestHeaders);
 

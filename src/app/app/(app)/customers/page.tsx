@@ -1,4 +1,4 @@
-import { OpsCustomersClient } from '@/components/features/customers';
+import { OpsCustomersClient } from '@/components/features/customers/OpsCustomersClient';
 
 import type { Metadata } from 'next';
 

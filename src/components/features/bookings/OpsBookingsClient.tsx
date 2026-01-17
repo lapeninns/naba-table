@@ -17,15 +17,12 @@ import { Input } from '@/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { BookingStateMachineProvider, useBookingStateMachine } from '@/contexts/booking-state-machine';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
-import {
-  useOpsBookingsTableState,
-  type OpsStatusFilter,
-  useOpsBookingStatusSummary,
-  useOpsBookingsList,
-  useOpsRestaurantDetails,
-  useOpsBookingLifecycleActions,
-} from '@/hooks';
 import { useOpsBooking } from '@/hooks/ops/useOpsBooking';
+import { useOpsBookingsList } from '@/hooks/ops/useOpsBookingsList';
+import { useOpsBookingsTableState, type OpsStatusFilter } from '@/hooks/ops/useOpsBookingsTableState';
+import { useOpsBookingLifecycleActions } from '@/hooks/ops/useOpsBookingStatusActions';
+import { useOpsBookingStatusSummary } from '@/hooks/ops/useOpsBookingStatusSummary';
+import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
 import { useToast } from '@/hooks/use-toast';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 import {

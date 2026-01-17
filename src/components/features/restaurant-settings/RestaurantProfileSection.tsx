@@ -11,7 +11,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useOpsRestaurantDetails, useOpsUpdateRestaurantDetails } from '@/hooks';
+import { useOpsRestaurantDetails, useOpsUpdateRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
 
 import { RestaurantLogoUploader } from './RestaurantLogoUploader';
 import { SettingsCard } from './shared/SettingsCard';

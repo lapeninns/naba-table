@@ -7,7 +7,7 @@ import { toast } from 'react-hot-toast';
 
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { useOpsRestaurantLogoUpload } from '@/hooks';
+import { useOpsRestaurantLogoUpload } from '@/hooks/ops/useOpsRestaurantLogoUpload';
 import { cn } from '@/lib/utils';
 
 import type { HttpError } from '@/lib/http/errors';

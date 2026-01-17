@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 
-import { BrandLogo } from '@/components/shared';
+import { BrandLogo } from '@/components/shared/BrandLogo';
 import { useSupabaseSession } from '@/hooks/useSupabaseSession';
 
 type FooterVariant = 'marketing' | 'guest' | 'app' | 'auth' | 'compact';

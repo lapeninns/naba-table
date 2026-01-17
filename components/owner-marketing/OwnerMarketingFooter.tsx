@@ -1,5 +1,5 @@
 import config from '@/config';
-import { BrandLogo } from '@/components/shared';
+import { BrandLogo } from '@/components/shared/BrandLogo';
 
 const SUPPORT_EMAIL = config.email?.supportEmail ?? 'support@example.com';
 

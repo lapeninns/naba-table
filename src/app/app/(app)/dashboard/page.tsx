@@ -1,5 +1,5 @@
 import { BookingErrorBoundary } from "@/components/features/booking-state-machine";
-import { OpsDashboardClient } from "@/components/features/dashboard";
+import { OpsDashboardClient } from "@/components/features/dashboard/OpsDashboardClient";
 import { BookingOfflineQueueProvider } from "@/contexts/booking-offline-queue";
 import { sanitizeDateParam } from "@/utils/ops/dashboard";
 

@@ -6,7 +6,7 @@ import { Suspense } from 'react';
 
 import { ImplicitAuthHandler } from '@/components/auth/ImplicitAuthHandler';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
-import { BrandLogo } from '@/components/shared';
+import { BrandLogo } from '@/components/shared/BrandLogo';
 
 type EnhancedAuthLayoutProps = {
   children: React.ReactNode;

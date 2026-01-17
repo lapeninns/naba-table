@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-import { BrandLogo } from '@/components/shared';
+import { BrandLogo } from '@/components/shared/BrandLogo';
 import config from '@/config';
 import { cn } from '@/lib/utils';
 

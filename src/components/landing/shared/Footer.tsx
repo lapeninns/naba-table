@@ -1,6 +1,6 @@
 'use client';
 
-import { BrandLogo } from '@/components/shared';
+import { BrandLogo } from '@/components/shared/BrandLogo';
 
 const FOOTER_LINK_STYLES =
   "relative inline-flex items-center text-slate-400 hover:text-white transition-colors duration-200 ease-out after:content-[''] after:absolute after:left-0 after:-bottom-0.5 after:h-px after:w-0 after:bg-current after:transition-all after:duration-200 after:ease-out after:origin-left hover:after:w-full";

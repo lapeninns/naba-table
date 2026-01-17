@@ -29,6 +29,29 @@ const LOCAL_VENUES = [
   'The Railway Pub — Whittlesey',
 ];
 const LIVE_FEED_PARTY_SIZES = ['2 guests', '3 guests', '4 guests', '5 guests', '6 guests'];
+const INITIAL_SEED = 42;
+
+const createSeededRandom = (seed: number) => {
+  let value = seed;
+  return () => {
+    value = (value * 1664525 + 1013904223) % 4294967296;
+    return value / 4294967296;
+  };
+};
+
+function createSeededLiveFeedItem(random: () => number): LiveFeedItem {
+  return {
+    venue: LOCAL_VENUES[Math.floor(random() * LOCAL_VENUES.length)],
+    time: TIME_OPTIONS[Math.floor(random() * TIME_OPTIONS.length)],
+    party: LIVE_FEED_PARTY_SIZES[Math.floor(random() * LIVE_FEED_PARTY_SIZES.length)],
+    status: LIVE_FEED_STATUSES[Math.floor(random() * LIVE_FEED_STATUSES.length)],
+  };
+}
+
+const INITIAL_ITEMS = (() => {
+  const random = createSeededRandom(INITIAL_SEED);
+  return Array.from({ length: LIVE_FEED_VISIBLE_COUNT }, () => createSeededLiveFeedItem(random));
+})();
 
 function createUpdatedLiveFeedItem(): LiveFeedItem {
   return {
@@ -44,9 +67,7 @@ interface LiveFeedCardProps {
 }
 
 export function LiveFeedCard({ reduceMotion }: LiveFeedCardProps) {
-  const [items, setItems] = useState<LiveFeedItem[]>(() =>
-    Array.from({ length: LIVE_FEED_VISIBLE_COUNT }, createUpdatedLiveFeedItem),
-  );
+  const [items, setItems] = useState<LiveFeedItem[]>(() => [...INITIAL_ITEMS]);
 
   useEffect(() => {
     if (reduceMotion) return undefined;

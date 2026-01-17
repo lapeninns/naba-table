@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Footer } from '@/components/layouts/Footer';
 import { GuestBackground } from '@/components/layouts/GuestBackground';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
-import { BrandLogo } from '@/components/shared';
+import { BrandLogo } from '@/components/shared/BrandLogo';
 import { cn } from '@/lib/utils';
 
 function RoleSelectionNavbar() {

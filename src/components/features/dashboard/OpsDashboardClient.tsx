@@ -20,12 +20,10 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { BookingStateMachineProvider } from '@/contexts/booking-state-machine';
 import { useOpsActiveMembership } from '@/contexts/ops-session';
-import {
-  useOpsBookingHeatmap,
-  useOpsBookingLifecycleActions,
-  useOpsTableAssignmentActions,
-  useOpsTodaySummary,
-} from '@/hooks';
+import { useOpsBookingHeatmap } from '@/hooks/ops/useOpsBookingHeatmap';
+import { useOpsBookingLifecycleActions } from '@/hooks/ops/useOpsBookingStatusActions';
+import { useOpsTableAssignmentActions } from '@/hooks/ops/useOpsTableAssignments';
+import { useOpsTodaySummary } from '@/hooks/ops/useOpsTodaySummary';
 import { useDateSwipe } from '@/hooks/useDateSwipe';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
