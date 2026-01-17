@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { AppProviders } from '@/app/providers';
-import { OpsShell } from '@/components/features/ops-shell';
+import { OpsShell } from '@/components/features/ops-shell/OpsShell';
 import { OpsServicesProvider } from '@/contexts/ops-services';
 import { OpsSessionProvider } from '@/contexts/ops-session';
 import { env } from '@/lib/env';

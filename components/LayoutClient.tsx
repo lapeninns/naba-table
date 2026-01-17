@@ -1,69 +1,20 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
-import NextTopLoader from "nextjs-toploader";
-import { useEffect, useMemo, useState } from "react";
-import { Toaster as HotToaster } from "react-hot-toast";
-import { Tooltip } from "react-tooltip";
+import { useEffect, useMemo } from "react";
 
 import { Toaster as UiToaster } from "@/components/ui/toaster";
 import config from "@/config";
 import { ImplicitAuthHandler } from "@/components/auth/ImplicitAuthHandler";
 import { toast } from "@/hooks/use-toast";
 import { SESSION_EXPIRED_EVENT } from "@/lib/http/sessionRedirect";
-import { useSupabaseSession } from "@/hooks/useSupabaseSession";
 import type { ReactNode } from "react";
 
-type CrispApi = typeof import("crisp-sdk-web").Crisp | null;
-
-// Crisp customer chat support:
-// This component is separated from ClientLayout because it needs to be wrapped with <SessionProvider> to use useSession() hook
-const CrispChat = (): null => {
-  const pathname = usePathname();
-  const { user } = useSupabaseSession();
-  const [crisp, setCrisp] = useState<CrispApi>(null);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadCrisp = async () => {
-      if (!config?.crisp?.id) return;
-      const module = await import("crisp-sdk-web");
-      if (!isMounted) return;
-      setCrisp(module.Crisp);
-    };
-
-    loadCrisp();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!crisp || !config?.crisp?.id) return;
-
-    crisp.configure(config.crisp.id);
-
-    // (Optional) If onlyShowOnRoutes array is not empty in config.js file, Crisp will be hidden on the routes in the array.
-    // Use <AppButtonSupport> instead to show it (user clicks on the button to show Crisp—it cleans the UI)
-    if (config.crisp.onlyShowOnRoutes && pathname && !config.crisp.onlyShowOnRoutes?.includes(pathname)) {
-      crisp.chat.hide();
-      crisp.chat.onChatClosed(() => {
-        crisp.chat.hide();
-      });
-    }
-  }, [crisp, pathname]);
-
-  // Add User Unique ID to Crisp to easily identify users when reaching support (optional)
-  useEffect(() => {
-    if (user?.id && config?.crisp?.id && crisp) {
-      crisp.session.setData({ userId: user.id });
-    }
-  }, [crisp, user?.id]);
-
-  return null;
-};
+const NextTopLoader = dynamic(() => import("nextjs-toploader"), { ssr: false });
+const HotToaster = dynamic(() => import("react-hot-toast").then((mod) => mod.Toaster), { ssr: false });
+const Tooltip = dynamic(() => import("react-tooltip").then((mod) => mod.Tooltip), { ssr: false });
+const CrispChat = dynamic(() => import("./CrispChat").then((mod) => mod.CrispChat), { ssr: false });
 
 const LEGACY_TOASTER_BLOCKLIST = [/^\/checkout(?:$|\/)/];
 

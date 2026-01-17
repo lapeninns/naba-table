@@ -24,7 +24,7 @@ import {
   useBookingStateMachine,
   useOptionalBookingStateMachine,
 } from '@/contexts/booking-state-machine';
-import { useBookingRealtime } from '@/hooks';
+import { useBookingRealtime } from '@/hooks/ops/useBookingRealtime';
 import { getOpsBookingActionRequirements, getOpsBookingTemporalInfo } from '@/utils/ops/todayBookingsAttention';
 
 const BookingDetailsDialog = dynamic(() => import('./BookingDetailsDialog').then((m) => m.BookingDetailsDialog), {
