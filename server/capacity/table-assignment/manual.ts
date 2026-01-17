@@ -376,12 +376,13 @@ export async function evaluateManualSelection(
           409,
         );
       }
-      // Log but don't fail - soft-holds are an optimization, not a requirement
-      console.warn('[capacity][manual] Soft-hold acquisition failed, continuing without', {
-        bookingId,
-        tableIds,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      // Soft-hold acquisition is required to prevent race conditions
+      // If the RPC fails, we must fail the operation to ensure data integrity
+      throw new ManualSelectionInputError(
+        'Unable to acquire table lock. Please try again.',
+        'SOFT_HOLD_UNAVAILABLE',
+        503,
+      );
     }
   }
 
@@ -518,7 +519,7 @@ export async function createManualHold(options: ManualHoldOptions): Promise<Manu
   // table simultaneously.
   // =========================================================================
 
-  let sessionToken = providedSessionToken;
+  const sessionToken = providedSessionToken;
 
   // If a session token is provided, verify ownership
   if (sessionToken) {
@@ -566,13 +567,13 @@ export async function createManualHold(options: ManualHoldOptions): Promise<Manu
           409,
         );
       }
-      // Log and continue without soft-hold protection
-      console.warn('[capacity][manual] Soft-hold ownership check failed, continuing', {
-        bookingId,
-        sessionToken,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      sessionToken = undefined;
+      // Soft-hold ownership verification is required to prevent race conditions
+      // If the check fails, we must fail the operation to ensure data integrity
+      throw new ManualSelectionInputError(
+        'Unable to verify table lock. Please re-select the tables.',
+        'SOFT_HOLD_VERIFICATION_FAILED',
+        503,
+      );
     }
   }
 
