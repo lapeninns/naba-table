@@ -48,13 +48,14 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   const hasError = !!errorType;
 
   // Only redirect authenticated users if there's no error
-  // Using getSession() which validates the JWT, not just reads cached user
+  // Using getUser() which validates the JWT with the server, not just reads cached session
+  // This prevents redirect loops after logout since getSession() returns stale cached data
   if (!hasError) {
     const supabase = await getServerComponentSupabaseClient();
-    const { data: { session }, error } = await supabase.auth.getSession();
+    const { data: { user }, error } = await supabase.auth.getUser();
 
-    // Only redirect if we have a valid session AND no error
-    if (session?.user && !error) {
+    // Only redirect if we have a valid user AND no error
+    if (user && !error) {
       const redirectTarget = redirectedFromParam ?? '/guest/dashboard';
       redirect(redirectTarget);
     }
