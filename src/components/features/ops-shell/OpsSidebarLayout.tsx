@@ -2,7 +2,7 @@
 
 import { LogOut, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useCallback, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
 
 import {
@@ -176,7 +176,6 @@ function OpsSidebarSkeleton() {
 }
 
 function OpsAccountActions() {
-  const router = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   const handleSignOut = useCallback(async () => {
@@ -184,14 +183,15 @@ function OpsAccountActions() {
     try {
       setIsSigningOut(true);
       await signOutFromSupabase();
-      router.push('/auth/signin');
-      router.refresh();
+      // Use hard redirect to ensure all client-side state is completely cleared
+      // This prevents redirect loops caused by stale React Query cache or React state
+      window.location.href = '/auth/signin';
     } catch (error) {
       console.error('[ops-sidebar] sign out failed', error);
-    } finally {
       setIsSigningOut(false);
     }
-  }, [isSigningOut, router]);
+    // Note: We don't reset isSigningOut on success since we're navigating away
+  }, [isSigningOut]);
 
   return (
     <SidebarGroup>
