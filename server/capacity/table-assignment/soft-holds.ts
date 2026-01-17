@@ -14,7 +14,6 @@
  * @module server/capacity/table-assignment/soft-holds
  */
 
-import { isSoftHoldsEnabled as isSoftHoldsEnabledFlag } from '@/server/feature-flags';
 import { recordObservabilityEvent } from '@/server/observability';
 
 import { ensureClient, type DbClient } from './supabase';
@@ -136,18 +135,6 @@ export class SoftHoldExpiredError extends Error {
     super(message);
     this.name = 'SoftHoldExpiredError';
   }
-}
-
-// =============================================================================
-// Feature Flag
-// =============================================================================
-
-/**
- * Checks if soft-holds feature is enabled.
- * Reads from FEATURE_SOFT_HOLDS_ENABLED via the feature flags system.
- */
-export function isSoftHoldsEnabled(): boolean {
-  return isSoftHoldsEnabledFlag();
 }
 
 // =============================================================================

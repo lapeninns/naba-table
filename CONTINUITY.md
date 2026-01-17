@@ -1,13 +1,13 @@
 # Continuity Ledger
 
-Last updated: 2026-01-17T23:30:00Z
+Last updated: 2026-01-17T23:50:00Z
 
 ## Goal (incl. success criteria)
 
 - Fix race condition in table assignment hold creation using soft-hold pattern
 - Success: Two operators selecting the same table simultaneously get early conflict feedback
 - Success: No double-bookings can occur (database constraints remain the ultimate safety net)
-- Success: Feature is gated behind `FEATURE_SOFT_HOLDS_ENABLED` flag (default: false)
+- Success: Soft-holds always enabled (feature flag removed)
 
 ## Constraints/Assumptions
 
@@ -29,8 +29,8 @@ Last updated: 2026-01-17T23:30:00Z
 ## State
 
 - Phase 3 (Implementation) **COMPLETE**
-- Phase 4 (Verification) **PARTIAL** - Unit tests complete, integration/manual QA pending migration
-- Phase 5 (Review & Merge) **READY** - All changes committed
+- Phase 4 (Verification) **PARTIAL** - Unit tests complete, manual QA pending
+- Phase 5 (Review & Merge) **IN PROGRESS** - PR created
 
 ## Done
 
@@ -40,25 +40,22 @@ Last updated: 2026-01-17T23:30:00Z
 - Created `server/capacity/table-assignment/soft-holds.ts` module with error classes and functions
 - Updated Supabase types (`types/supabase.ts`)
 - Integrated soft-holds into `evaluateManualSelection()` and `createManualHold()`
-- Added feature flag: `FEATURE_SOFT_HOLDS_ENABLED`
 - Created unit tests: `tests/server/capacity/soft-holds.test.ts` (18 tests passing)
-- Updated task todo.md with completed items
-- **Committed all implementation changes** (commit: `1b724d4c`)
-- **Updated DATABASE_MIGRATIONS.md** with migration details
-- **Updated verification.md** with test results
-- **Committed documentation** (commit: `ca7bb26b`)
+- **Committed all implementation changes**
+- **Applied migration to Supabase staging** (2026-01-17)
+- **Created PR #1**: https://github.com/lapeninns/nabatable/pull/1
+- **Removed feature flag** - soft-holds now always enabled
 
 ## Now
 
-- Ready for PR creation or further review
-- Migration can be applied to staging when ready
+- PR review in progress
+- Ready for manual QA testing on staging
 
 ## Next
 
-- Apply migration to staging (`supabase/migrations/20260117_add_soft_holds.sql`)
-- Enable `FEATURE_SOFT_HOLDS_ENABLED=true` on staging
-- Manual QA: test race condition scenario with two browser tabs
-- Open PR to merge `algorithm/hold-race-condition-fix` → `main`
+- Manual QA: test race condition scenario with two browser tabs on staging
+- Get PR approved and merged
+- Apply migration to production
 
 ## Open questions (UNCONFIRMED if needed)
 
@@ -67,11 +64,14 @@ Last updated: 2026-01-17T23:30:00Z
 ## Working set (files/ids/commands)
 
 - Branch: `algorithm/hold-race-condition-fix`
+- PR: https://github.com/lapeninns/nabatable/pull/1
 - Task: `tasks/hold-race-condition-fix-20260117-2315/`
 - Migration: `supabase/migrations/20260117_add_soft_holds.sql`
 - Commits:
   - `1b724d4c` - feat(capacity): add soft-hold pattern
   - `ca7bb26b` - docs: update migration log and verification
+  - `344f2883` - chore: update continuity ledger
+  - `5802e798` - docs: mark migration as applied to staging
 - Key files:
   - `server/capacity/table-assignment/soft-holds.ts`
   - `server/capacity/table-assignment/manual.ts`

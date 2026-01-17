@@ -26,10 +26,6 @@ vi.mock('@/server/observability', () => ({
   recordObservabilityEvent: vi.fn(),
 }));
 
-vi.mock('@/server/feature-flags', () => ({
-  isSoftHoldsEnabled: () => true,
-}));
-
 describe('soft-holds', () => {
   beforeEach(() => {
     vi.clearAllMocks();

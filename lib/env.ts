@@ -269,7 +269,6 @@ export const env = {
         enabled: parsed.FEATURE_HOLDS_ENABLED ?? true,
         strictConflicts: strictConflictsDefault,
         minTtlSeconds: 180,
-        softHoldsEnabled: parsed.FEATURE_SOFT_HOLDS_ENABLED ?? false,
       },
       adjacency: {
         queryUndirected: adjacencyQueryUndirectedDefault,

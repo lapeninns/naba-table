@@ -35,7 +35,6 @@ import {
   acquireSoftHolds,
   releaseSoftHolds,
   checkSoftHoldOwnership,
-  isSoftHoldsEnabled,
   SoftHoldConflictError,
   SoftHoldExpiredError,
   type SoftHoldAcquisitionResult,
@@ -342,11 +341,11 @@ export async function evaluateManualSelection(
   }
 
   // =========================================================================
-  // SOFT-HOLD ACQUISITION (Race Condition Prevention)
+  // SOFT-HOLD ACQUISITION (always enabled)
   // =========================================================================
-  // When soft-holds are enabled, we acquire temporary holds on the tables
-  // before validation to prevent race conditions where two operators select
-  // the same table simultaneously.
+  // To prevent race conditions, acquire soft-holds for the selected tables
+  // before running validation. This ensures that if two operators select
+  // the same table simultaneously, only one will succeed.
   //
   // The soft-hold:
   // - Has a short TTL (10 seconds)
@@ -354,9 +353,8 @@ export async function evaluateManualSelection(
   // - Is converted to a real hold during createManualHold()
   // =========================================================================
   let softHoldResult: SoftHoldAcquisitionResult | null = null;
-  const softHoldsEnabled = isSoftHoldsEnabled();
 
-  if (softHoldsEnabled && !skipSoftHolds) {
+  if (!skipSoftHolds) {
     try {
       softHoldResult = await acquireSoftHolds({
         tableIds,
@@ -508,12 +506,10 @@ export async function createManualHold(options: ManualHoldOptions): Promise<Manu
     softHoldSessionToken: providedSessionToken,
   } = options;
   const supabase = ensureClient(client);
-  const softHoldsEnabled = isSoftHoldsEnabled();
 
   // =========================================================================
-  // SOFT-HOLD HANDLING
+  // SOFT-HOLD HANDLING (always enabled)
   // =========================================================================
-  // When soft-holds are enabled:
   // 1. If a session token is provided, verify ownership before proceeding
   // 2. Skip soft-hold acquisition during evaluation (we already have them)
   // 3. Release soft-holds after successful hold creation
@@ -524,8 +520,8 @@ export async function createManualHold(options: ManualHoldOptions): Promise<Manu
 
   let sessionToken = providedSessionToken;
 
-  // If soft-holds are enabled and a session token is provided, verify ownership
-  if (softHoldsEnabled && sessionToken) {
+  // If a session token is provided, verify ownership
+  if (sessionToken) {
     const booking = await loadBooking(bookingId, supabase);
     const restaurantTimezone =
       (booking.restaurants && !Array.isArray(booking.restaurants)

@@ -33,8 +33,7 @@
 **Status**: ✅ Staging (2026-01-17) | ⏳ Production  
 **Priority**: Medium  
 **Related Issue**: Race condition when two operators select the same table simultaneously  
-**Migration File**: `supabase/migrations/20260117_add_soft_holds.sql`  
-**Feature Flag**: `FEATURE_SOFT_HOLDS_ENABLED` (default: false)
+**Migration File**: `supabase/migrations/20260117_add_soft_holds.sql`
 
 #### Problem
 
@@ -60,7 +59,6 @@ Key components:
 
 - [ ] Backup verified/available
 - [ ] Extension `btree_gist` is enabled (required for exclusion constraint)
-- [ ] Feature flag `FEATURE_SOFT_HOLDS_ENABLED` ready in environment
 
 #### Verification
 
@@ -79,9 +77,7 @@ After applying:
    WHERE routine_name LIKE '%soft_hold%';
    ```
 
-3. Enable feature flag: `FEATURE_SOFT_HOLDS_ENABLED=true`
-
-4. Test via UI: Open two browser tabs, select same table simultaneously
+3. Test via UI: Open two browser tabs, select same table simultaneously
 
 #### Rollback
 

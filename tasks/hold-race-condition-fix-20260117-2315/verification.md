@@ -25,13 +25,11 @@ owner: github:@amankumarshrestha
 
 ### Test Coverage
 
-- ✅ `isSoftHoldsEnabled()` - feature flag checks (2 tests)
 - ✅ `acquireSoftHolds()` - acquisition logic (6 tests)
   - Happy path: returns session token
   - Empty table array handling
   - Conflict detection: throws `SoftHoldConflictError` with conflicting tables
   - RPC failure handling (graceful degradation)
-  - Feature flag disabled: returns null
 - ✅ `releaseSoftHolds()` - release logic (3 tests)
   - Success path: returns count of released
   - RPC failure handling (logs warning, returns 0)
@@ -86,7 +84,7 @@ Tool: Chrome DevTools MCP
 
 ## Race Condition Verification
 
-**Status**: ⏳ Pending (requires database migration and feature flag enabled)
+**Status**: ⏳ Pending (requires database migration applied)
 
 ### Test Scenario 1: Concurrent Evaluation
 
@@ -127,13 +125,11 @@ Tool: Chrome DevTools MCP
 
 ## Deployment Checklist
 
-1. [ ] Apply migration to staging: `supabase/migrations/20260117_add_soft_holds.sql`
-2. [ ] Verify `btree_gist` extension is enabled
-3. [ ] Enable feature flag: `FEATURE_SOFT_HOLDS_ENABLED=true`
-4. [ ] Run manual QA tests (race condition scenarios)
-5. [ ] Apply migration to production
-6. [ ] Enable feature flag in production
-7. [ ] Monitor for soft-hold conflict errors in logs
+1. [x] Apply migration to staging: `supabase/migrations/20260117_add_soft_holds.sql`
+2. [x] Verify `btree_gist` extension is enabled
+3. [ ] Run manual QA tests (race condition scenarios)
+4. [ ] Apply migration to production
+5. [ ] Monitor for soft-hold conflict errors in logs
 
 ## Sign-off
 

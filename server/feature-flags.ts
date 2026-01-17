@@ -196,10 +196,6 @@ export function getHoldMinTtlSeconds(): number {
   return 180;
 }
 
-export function isSoftHoldsEnabled(): boolean {
-  return env.featureFlags.holds.softHoldsEnabled ?? false;
-}
-
 export function isEmailQueueEnabled(): boolean {
   return env.featureFlags.emailQueueEnabled ?? false;
 }
