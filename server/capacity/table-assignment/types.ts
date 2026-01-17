@@ -1,12 +1,16 @@
-import { AssignTablesRpcError, type TableHold, type HoldConflictInfo } from "@/server/capacity/holds";
+import {
+  AssignTablesRpcError,
+  type TableHold,
+  type HoldConflictInfo,
+} from '@/server/capacity/holds';
 
-import type { ServiceKey } from "@/server/capacity/policy";
-import type { CandidateSummary } from "@/server/capacity/telemetry";
-import type { Tables, Database, Json } from "@/types/supabase";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { DateTime } from "luxon";
+import type { ServiceKey } from '@/server/capacity/policy';
+import type { CandidateSummary } from '@/server/capacity/telemetry';
+import type { Tables, Database, Json } from '@/types/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { DateTime } from 'luxon';
 
-export type DbClient = SupabaseClient<Database, "public">;
+export type DbClient = SupabaseClient<Database, 'public'>;
 
 export type Table = {
   id: string;
@@ -25,17 +29,17 @@ export type Table = {
    */
   maxPartySize?: number | null;
   section?: string | null;
-  category?: Tables<"table_inventory">["category"] | string | null;
-  seatingType?: Tables<"table_inventory">["seating_type"] | string | null;
-  mobility?: Tables<"table_inventory">["mobility"] | string | null;
+  category?: Tables<'table_inventory'>['category'] | string | null;
+  seatingType?: Tables<'table_inventory'>['seating_type'] | string | null;
+  mobility?: Tables<'table_inventory'>['mobility'] | string | null;
   zoneId: string;
   /**
    * Whether the parent zone is active. Optional so existing callers can ignore until needed.
    */
   zoneActive?: boolean | null;
-  status?: Tables<"table_inventory">["status"] | string | null;
+  status?: Tables<'table_inventory'>['status'] | string | null;
   active?: boolean | null;
-  position?: Tables<"table_inventory">["position"] | null;
+  position?: Tables<'table_inventory'>['position'] | null;
 };
 
 export type TableMatchParams = {
@@ -55,7 +59,7 @@ export type TableAssignmentMember = {
 };
 
 export type ConfirmHoldTransition = {
-  targetStatus: Tables<"bookings">["status"];
+  targetStatus: Tables<'bookings'>['status'];
   historyReason: string;
   historyMetadata?: Json;
   historyChangedBy?: string | null;
@@ -72,7 +76,7 @@ export type ConfirmHoldAssignmentOptions = {
   transition?: ConfirmHoldTransition;
 };
 
-export type PolicyDriftKind = "policy" | "adjacency";
+export type PolicyDriftKind = 'policy' | 'adjacency';
 
 export type PolicyDriftDetails = {
   expectedHash?: string;
@@ -103,13 +107,13 @@ export class PolicyDriftError extends AssignTablesRpcError {
     const serializedDetails = params.details ? JSON.stringify(params.details) : null;
     super({
       message: params.message,
-      code: "POLICY_DRIFT",
+      code: 'POLICY_DRIFT',
       details: serializedDetails,
-      hint: params.hint ?? "Refresh and revalidate selection before confirming.",
+      hint: params.hint ?? 'Refresh and revalidate selection before confirming.',
     });
     this.kind = params.kind;
     this.driftDetails = params.details;
-    this.name = "PolicyDriftError";
+    this.name = 'PolicyDriftError';
   }
 }
 
@@ -120,8 +124,8 @@ export type TableAssignmentGroup = {
 };
 
 export type ManualSelectionCheck = {
-  id: "capacity" | "slack" | "zone" | "movable" | "adjacency" | "conflict" | "holds" | "active";
-  status: "ok" | "warning" | "error";
+  id: 'capacity' | 'slack' | 'zone' | 'movable' | 'adjacency' | 'conflict' | 'holds' | 'active';
+  status: 'ok' | 'warning' | 'error';
   message: string;
   details?: Record<string, unknown>;
 };
@@ -141,6 +145,10 @@ export type ManualValidationResult = {
   checks: ManualSelectionCheck[];
   policyVersion?: string;
   slackBudget?: number;
+  /** Soft-hold session token (when soft-holds are enabled) */
+  softHoldSessionToken?: string;
+  /** When the soft-hold expires */
+  softHoldExpiresAt?: Date;
 };
 
 export type ManualSelectionOptions = {
@@ -149,12 +157,18 @@ export type ManualSelectionOptions = {
   requireAdjacency?: boolean;
   excludeHoldId?: string | null;
   client?: DbClient;
+  /** Skip soft-hold acquisition (for internal re-evaluation) */
+  skipSoftHolds?: boolean;
+  /** Existing soft-hold session token to reuse */
+  softHoldSessionToken?: string;
 };
 
 export type ManualHoldOptions = ManualSelectionOptions & {
   createdBy: string;
   holdTtlSeconds?: number;
   holdExpiresAt?: string;
+  /** Soft-hold session token from evaluation (required when soft-holds enabled) */
+  softHoldSessionToken?: string;
 };
 
 export type ManualHoldResult = {
@@ -210,7 +224,7 @@ export type ManualAssignmentConflict = {
   bookingId: string | null;
   startAt: string;
   endAt: string;
-  source: "booking" | "hold";
+  source: 'booking' | 'hold';
 };
 
 export type ManualAssignmentContextHold = TableHold & {
@@ -220,7 +234,7 @@ export type ManualAssignmentContextHold = TableHold & {
 };
 
 export type ManualAssignmentContext = {
-  booking: Tables<"bookings">;
+  booking: Tables<'bookings'>;
   tables: Table[];
   bookingAssignments: string[];
   holds: ManualAssignmentContextHold[];
@@ -271,10 +285,10 @@ export type BookingWindow = {
 export class ManualSelectionInputError extends Error {
   constructor(
     message: string,
-    public readonly code: string = "MANUAL_SELECTION_INPUT_INVALID",
+    public readonly code: string = 'MANUAL_SELECTION_INPUT_INVALID',
     public readonly status = 400,
   ) {
     super(message);
-    this.name = "ManualSelectionInputError";
+    this.name = 'ManualSelectionInputError';
   }
 }
