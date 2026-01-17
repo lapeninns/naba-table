@@ -21,7 +21,7 @@
 
 | Date (UTC) | Description                                                | Staging | Production | Priority |
 | ---------- | ---------------------------------------------------------- | ------- | ---------- | -------- |
-| 2026-01-17 | Add table_soft_holds for race condition prevention         | ⏳      | ⏳         | Medium   |
+| 2026-01-17 | Add table_soft_holds for race condition prevention         | ✅      | ⏳         | Medium   |
 | 2025-12-27 | Add FK: booking_table_assignments.booking_id → bookings.id | ✅      | ⏳         | High     |
 
 ---
@@ -30,7 +30,7 @@
 
 ### 2026-01-17: Add table_soft_holds for race condition prevention
 
-**Status**: ⏳ Staging | ⏳ Production  
+**Status**: ✅ Staging (2026-01-17) | ⏳ Production  
 **Priority**: Medium  
 **Related Issue**: Race condition when two operators select the same table simultaneously  
 **Migration File**: `supabase/migrations/20260117_add_soft_holds.sql`  
