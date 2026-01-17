@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-01-17T23:50:00Z
+Last updated: 2026-01-17T23:55:00Z
 
 ## Goal (incl. success criteria)
 
@@ -23,7 +23,7 @@ Last updated: 2026-01-17T23:50:00Z
   - High throughput, early conflict detection, excellent scalability
 - **Session-based ownership** using UUIDs generated server-side
 - **Atomic acquisition with rollback** - if any table blocked, release all acquired
-- **Graceful degradation** - if soft-hold fails, continue without (log warning)
+- **Strict enforcement** - soft-hold failures are hard errors (no graceful degradation)
 - **Skip soft-holds for instantTableAssignment()** - single atomic operation, minimal race window
 
 ## State
@@ -45,6 +45,7 @@ Last updated: 2026-01-17T23:50:00Z
 - **Applied migration to Supabase staging** (2026-01-17)
 - **Created PR #1**: https://github.com/lapeninns/nabatable/pull/1
 - **Removed feature flag** - soft-holds now always enabled
+- **Removed graceful degradation** - soft-hold failures are now hard errors (503)
 
 ## Now
 
