@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-01-18T00:15:00Z
+Last updated: 2026-01-18T00:30:00Z
 
 ## Goal (incl. success criteria)
 
@@ -9,47 +9,46 @@ Last updated: 2026-01-18T00:15:00Z
 
 ## Constraints/Assumptions
 
-- Supabase is remote-only; migrations require staging → production
+- Supabase is remote-only; apply to staging only (no prod yet)
 - Follow SDLC phases; changes must be tested before merge
 - No graceful degradation - prefer hard failures over silent data corruption
-- No feature flags on pitfall fixes - they are always active
+- No feature flags on pitfall fixes - always active
 
 ## Key decisions
 
-- **Soft-holds are required** - failures are hard errors (503), not warnings
-- **No graceful degradation** - data integrity over availability
-- **Exponential backoff** for replication lag (25ms base, 4 retries)
-- **CASCADE deletes** for FK constraints to prevent orphaned records
-- **Remove setTimeout workarounds** - fix root cause instead
+- Soft-holds are required; failures are hard errors (503)
+- Rely on SECURITY DEFINER RPCs; no direct client access to `table_soft_holds`
+- Instant assignment path must also use soft-holds
+- Release soft-holds on any error to avoid TTL leaks
 
 ## State
 
 - Branch: `algorithm/hold-race-condition-fix`
 - PR #1: https://github.com/lapeninns/nabatable/pull/1
-- Staging: All migrations applied
+- Staging: CASCADE FK + soft-holds access lockdown applied
 
 ## Done
 
 - [1d] Race condition fix: soft-holds with strict enforcement
-  - Removed feature flag (always enabled)
-  - Removed graceful degradation (hard errors on failure)
-- [4e] Replication lag retry: exponential backoff (25→50→100→200ms) + hard failure after 4 retries
-- [4b] Stale allocation cleanup: hard errors on load/delete failures (no try-catch swallowing)
-- [6d] Cache invalidation timing: removed 500ms setTimeout delay workaround
-- [7b] Orphaned assignments: CASCADE FK migration applied to staging
-  - table_id FK: RESTRICT → CASCADE ✅
-  - booking_id FK: already CASCADE ✅
+- [4e] Replication lag retry: exponential backoff + hard failure
+- [4b] Stale allocation cleanup: hard errors
+- [6d] Cache invalidation timing: removed setTimeout workaround
+- [7b] Orphaned assignments: CASCADE FK applied to staging
+- Security fix: removed `authenticated` access to `table_soft_holds` (RLS/GRANTS) in staging
+- Code hardening:
+  - `evaluateManualSelection` releases soft-holds on any thrown error
+  - `instantTableAssignment` acquires/releases soft-holds
+  - Removed misleading `ManualSelectionOptions.softHoldSessionToken` (only hold creation uses tokens)
 
 ## Now
 
-- All pitfall fixes complete and pushed
-- Staging verified
+- Commit and push the latest code + migration/log updates
 
 ## Next
 
-- Manual testing on staging to verify fixes
+- Manual QA on staging (ops table assignment flows)
 - Get PR review and merge
-- Schedule production migration window (CASCADE FKs)
+- Plan production change window (separately)
 
 ## Open questions
 
@@ -57,6 +56,7 @@ Last updated: 2026-01-18T00:15:00Z
 
 ## Working set
 
-- Pitfalls doc: `Table_Assignment_System_Pitfalls_Critical_Paths.md`
-- Migration log: `docs/DATABASE_MIGRATIONS.md`
-- PR: https://github.com/lapeninns/nabatable/pull/1
+- `server/capacity/table-assignment/manual.ts`
+- `server/capacity/table-assignment/types.ts`
+- `supabase/migrations/20260118_lock_down_table_soft_holds_access.sql`
+- `docs/DATABASE_MIGRATIONS.md`
