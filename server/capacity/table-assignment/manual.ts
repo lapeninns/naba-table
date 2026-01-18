@@ -17,6 +17,7 @@ import {
   getSelectorScoringConfig,
   getVenuePolicy,
   ServiceOverrunError,
+  type VenuePolicy,
 } from '@/server/capacity/policy';
 import { computePayloadChecksum, hashPolicyVersion } from '@/server/capacity/v2';
 import {
@@ -523,57 +524,64 @@ export async function createManualHold(options: ManualHoldOptions): Promise<Manu
 
   // If a session token is provided, verify ownership
   if (sessionToken) {
-    const booking = await loadBooking(bookingId, supabase);
-    const restaurantTimezone =
-      (booking.restaurants && !Array.isArray(booking.restaurants)
-        ? booking.restaurants.timezone
-        : null) ??
-      (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
-      getVenuePolicy().timezone;
-    const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
-
-    let window: BookingWindow;
     try {
-      ({ window } = computeBookingWindowWithFallback({
-        startISO: booking.start_at,
-        bookingDate: booking.booking_date,
-        startTime: booking.start_time,
-        partySize: booking.party_size,
-        policy,
-      }));
-    } catch (error) {
-      if (error instanceof ServiceOverrunError) {
-        throw new ManualSelectionInputError(error.message, 'SERVICE_OVERRUN', 422);
+      const booking = await loadBooking(bookingId, supabase);
+      const restaurantTimezone =
+        (booking.restaurants && !Array.isArray(booking.restaurants)
+          ? booking.restaurants.timezone
+          : null) ??
+        (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
+        getVenuePolicy().timezone;
+      const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
+
+      let window: BookingWindow;
+      try {
+        ({ window } = computeBookingWindowWithFallback({
+          startISO: booking.start_at,
+          bookingDate: booking.booking_date,
+          startTime: booking.start_time,
+          partySize: booking.party_size,
+          policy,
+        }));
+      } catch (error) {
+        if (error instanceof ServiceOverrunError) {
+          throw new ManualSelectionInputError(error.message, 'SERVICE_OVERRUN', 422);
+        }
+        throw error;
       }
-      throw error;
-    }
 
-    try {
-      await checkSoftHoldOwnership({
-        sessionToken,
-        tableIds,
-        window: {
-          startAt: toIsoUtc(window.block.start),
-          endAt: toIsoUtc(window.block.end),
-        },
-        client: supabase,
-      });
-    } catch (error) {
-      if (error instanceof SoftHoldExpiredError) {
-        // Soft-hold expired, return a user-friendly error
+      try {
+        await checkSoftHoldOwnership({
+          sessionToken,
+          tableIds,
+          window: {
+            startAt: toIsoUtc(window.block.start),
+            endAt: toIsoUtc(window.block.end),
+          },
+          client: supabase,
+        });
+      } catch (error) {
+        if (error instanceof SoftHoldExpiredError) {
+          // Soft-hold expired, return a user-friendly error
+          throw new ManualSelectionInputError(
+            'Your table selection has expired. Please re-select the tables.',
+            'SOFT_HOLD_EXPIRED',
+            409,
+          );
+        }
+        // Soft-hold ownership verification is required to prevent race conditions
+        // If the check fails, we must fail the operation to ensure data integrity
         throw new ManualSelectionInputError(
-          'Your table selection has expired. Please re-select the tables.',
-          'SOFT_HOLD_EXPIRED',
-          409,
+          'Unable to verify table lock. Please re-select the tables.',
+          'SOFT_HOLD_VERIFICATION_FAILED',
+          503,
         );
       }
-      // Soft-hold ownership verification is required to prevent race conditions
-      // If the check fails, we must fail the operation to ensure data integrity
-      throw new ManualSelectionInputError(
-        'Unable to verify table lock. Please re-select the tables.',
-        'SOFT_HOLD_VERIFICATION_FAILED',
-        503,
-      );
+    } catch (error) {
+      // Release soft-holds on any failure during ownership verification
+      // This prevents tables from being locked until TTL expires
+      await releaseSoftHolds({ sessionToken, client: supabase }).catch(() => {});
+      throw error;
     }
   }
 
@@ -602,41 +610,72 @@ export async function createManualHold(options: ManualHoldOptions): Promise<Manu
   // Use session token from validation result if we didn't have one
   const effectiveSessionToken = sessionToken || validation.softHoldSessionToken;
 
-  const booking = await loadBooking(bookingId, supabase);
-  const restaurantTimezone =
-    (booking.restaurants && !Array.isArray(booking.restaurants)
-      ? booking.restaurants.timezone
-      : null) ??
-    (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
-    getVenuePolicy().timezone;
-  const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
-  const policyVersion =
-    typeof (validation as { policyVersion?: string }).policyVersion === 'string'
-      ? (validation as { policyVersion?: string }).policyVersion!
-      : hashPolicyVersion(policy);
-
-  let window: BookingWindow;
-  try {
-    ({ window } = computeBookingWindowWithFallback({
-      startISO: booking.start_at,
-      bookingDate: booking.booking_date,
-      startTime: booking.start_time,
-      partySize: booking.party_size,
-      policy,
-    }));
-  } catch (error) {
-    if (error instanceof ServiceOverrunError) {
-      throw new ManualSelectionInputError(error.message, 'SERVICE_OVERRUN', 422);
+  // Helper to release soft-holds on error - prevents leaking locks on failures
+  const releaseSoftHoldsOnError = async () => {
+    if (effectiveSessionToken) {
+      await releaseSoftHolds({ sessionToken: effectiveSessionToken, client: supabase }).catch(
+        () => {},
+      );
     }
-    throw error;
-  }
+  };
 
-  const selectionTables = await loadTablesByIds(booking.restaurant_id, tableIds, supabase);
-  if (selectionTables.length !== tableIds.length) {
-    throw new ManualSelectionInputError(
-      'Selected tables could not be loaded',
-      'TABLE_LOOKUP_FAILED',
-    );
+  let booking: Awaited<ReturnType<typeof loadBooking>>;
+  let restaurantTimezone: string | null;
+  let policy: VenuePolicy;
+  let policyVersion: string;
+  let window: BookingWindow;
+  let selectionTables: Awaited<ReturnType<typeof loadTablesByIds>>;
+  let zoneIdValue: string;
+
+  try {
+    booking = await loadBooking(bookingId, supabase);
+    restaurantTimezone =
+      (booking.restaurants && !Array.isArray(booking.restaurants)
+        ? booking.restaurants.timezone
+        : null) ??
+      (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
+      getVenuePolicy().timezone;
+    policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
+    policyVersion =
+      typeof (validation as { policyVersion?: string }).policyVersion === 'string'
+        ? (validation as { policyVersion?: string }).policyVersion!
+        : hashPolicyVersion(policy);
+
+    try {
+      ({ window } = computeBookingWindowWithFallback({
+        startISO: booking.start_at,
+        bookingDate: booking.booking_date,
+        startTime: booking.start_time,
+        partySize: booking.party_size,
+        policy,
+      }));
+    } catch (error) {
+      if (error instanceof ServiceOverrunError) {
+        throw new ManualSelectionInputError(error.message, 'SERVICE_OVERRUN', 422);
+      }
+      throw error;
+    }
+
+    selectionTables = await loadTablesByIds(booking.restaurant_id, tableIds, supabase);
+    if (selectionTables.length !== tableIds.length) {
+      throw new ManualSelectionInputError(
+        'Selected tables could not be loaded',
+        'TABLE_LOOKUP_FAILED',
+      );
+    }
+
+    zoneIdValue = validation.summary.zoneId ?? selectionTables[0]?.zoneId ?? '';
+    if (!zoneIdValue) {
+      throw new ManualSelectionInputError(
+        'Unable to determine zone for selected tables',
+        'ZONE_REQUIRED',
+      );
+    }
+  } catch (error) {
+    // Release soft-holds on any failure before hold creation
+    // This prevents tables from being locked until TTL expires
+    await releaseSoftHoldsOnError();
+    throw error;
   }
 
   const startAtIso = toIsoUtc(window.block.start);
@@ -646,14 +685,6 @@ export async function createManualHold(options: ManualHoldOptions): Promise<Manu
     options.holdExpiresAt ??
     toIsoUtc(DateTime.now().plus({ seconds: holdTtlSeconds })) ??
     toIsoUtc(window.block.start.plus({ minutes: 2 }));
-
-  const zoneIdValue = validation.summary.zoneId ?? selectionTables[0]?.zoneId;
-  if (!zoneIdValue) {
-    throw new ManualSelectionInputError(
-      'Unable to determine zone for selected tables',
-      'ZONE_REQUIRED',
-    );
-  }
 
   // Compute adjacency/zone snapshot for freeze semantics
   // =============================================
