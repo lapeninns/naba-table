@@ -159,8 +159,6 @@ export type ManualSelectionOptions = {
   client?: DbClient;
   /** Skip soft-hold acquisition (for internal re-evaluation) */
   skipSoftHolds?: boolean;
-  /** Existing soft-hold session token to reuse */
-  softHoldSessionToken?: string;
 };
 
 export type ManualHoldOptions = ManualSelectionOptions & {

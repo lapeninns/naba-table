@@ -21,6 +21,7 @@
 
 | Date (UTC) | Description                                                | Staging | Production | Priority |
 | ---------- | ---------------------------------------------------------- | ------- | ---------- | -------- |
+| 2026-01-18 | Lock down table_soft_holds access (RLS/GRANTS)             | ✅      | ⏳         | High     |
 | 2026-01-18 | CASCADE delete on booking_table_assignments FKs            | ✅      | ⏳         | High     |
 | 2026-01-17 | Add table_soft_holds for race condition prevention         | ✅      | ⏳         | Medium   |
 | 2025-12-27 | Add FK: booking_table_assignments.booking_id → bookings.id | ✅      | ⏳         | High     |
@@ -28,6 +29,57 @@
 ---
 
 ## Migration Details
+
+### 2026-01-18: Lock down table_soft_holds access (RLS/GRANTS)
+
+**Status**: ✅ Staging (2026-01-18) | ⏳ Production  
+**Priority**: High  
+**Related Issue**: Soft-holds table exposed session tokens via permissive RLS/GRANTS  
+**Migration File**: `supabase/migrations/20260118_lock_down_table_soft_holds_access.sql`
+
+#### Problem
+
+`public.table_soft_holds` was granted to `authenticated` with permissive RLS policies (`USING (true)` / `WITH CHECK (true)`). This allowed any authenticated user to:
+
+- Read `session_token` values (breaking confidentiality)
+- Delete or insert soft-hold rows (breaking integrity)
+
+This can reintroduce the original race condition and enables low-effort denial-of-service by manipulating soft-holds.
+
+#### Solution
+
+- Remove direct table privileges for `authenticated` and `anon`
+- Remove permissive authenticated RLS policies
+- Keep soft-holds operations available via SECURITY DEFINER RPCs only
+
+#### SQL to Apply
+
+Apply the full migration file: `supabase/migrations/20260118_lock_down_table_soft_holds_access.sql`
+
+#### Verification
+
+After applying:
+
+```sql
+-- No authenticated grants
+SELECT privilege_type
+FROM information_schema.role_table_grants
+WHERE table_schema = 'public'
+  AND table_name = 'table_soft_holds'
+  AND grantee = 'authenticated';
+
+-- Only service_role policy remains
+SELECT policyname, roles, cmd
+FROM pg_policies
+WHERE schemaname = 'public'
+  AND tablename = 'table_soft_holds';
+```
+
+#### Rollback
+
+If required (production emergency only), re-add the prior policies/grants. Prefer rolling forward with a corrected policy rather than reopening direct table access.
+
+---
 
 ### 2026-01-18: CASCADE delete on booking_table_assignments FKs
 
