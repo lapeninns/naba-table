@@ -21,7 +21,7 @@
 
 | Date (UTC) | Description                                                | Staging | Production | Priority |
 | ---------- | ---------------------------------------------------------- | ------- | ---------- | -------- |
-| 2026-01-18 | CASCADE delete on booking_table_assignments FKs            | ⏳      | ⏳         | High     |
+| 2026-01-18 | CASCADE delete on booking_table_assignments FKs            | ✅      | ⏳         | High     |
 | 2026-01-17 | Add table_soft_holds for race condition prevention         | ✅      | ⏳         | Medium   |
 | 2025-12-27 | Add FK: booking_table_assignments.booking_id → bookings.id | ✅      | ⏳         | High     |
 
@@ -31,7 +31,7 @@
 
 ### 2026-01-18: CASCADE delete on booking_table_assignments FKs
 
-**Status**: ⏳ Staging | ⏳ Production  
+**Status**: ✅ Staging (2026-01-18) | ⏳ Production  
 **Priority**: High  
 **Related Issue**: [7b] Orphaned assignments when tables/bookings deleted  
 **Migration File**: `supabase/migrations/20260118_cascade_delete_table_assignments.sql`

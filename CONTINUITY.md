@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-01-18T00:05:00Z
+Last updated: 2026-01-18T00:15:00Z
 
 ## Goal (incl. success criteria)
 
@@ -12,6 +12,7 @@ Last updated: 2026-01-18T00:05:00Z
 - Supabase is remote-only; migrations require staging → production
 - Follow SDLC phases; changes must be tested before merge
 - No graceful degradation - prefer hard failures over silent data corruption
+- No feature flags on pitfall fixes - they are always active
 
 ## Key decisions
 
@@ -25,6 +26,7 @@ Last updated: 2026-01-18T00:05:00Z
 
 - Branch: `algorithm/hold-race-condition-fix`
 - PR #1: https://github.com/lapeninns/nabatable/pull/1
+- Staging: All migrations applied
 
 ## Done
 
@@ -34,17 +36,20 @@ Last updated: 2026-01-18T00:05:00Z
 - [4e] Replication lag retry: exponential backoff (25→50→100→200ms) + hard failure after 4 retries
 - [4b] Stale allocation cleanup: hard errors on load/delete failures (no try-catch swallowing)
 - [6d] Cache invalidation timing: removed 500ms setTimeout delay workaround
-- [7b] Orphaned assignments: CASCADE FK migration created
+- [7b] Orphaned assignments: CASCADE FK migration applied to staging
+  - table_id FK: RESTRICT → CASCADE ✅
+  - booking_id FK: already CASCADE ✅
 
 ## Now
 
-- Commit and push all changes to update PR
+- All pitfall fixes complete and pushed
+- Staging verified
 
 ## Next
 
-- Apply CASCADE migration to staging
-- Update PR description with all pitfall fixes
-- Get review and merge
+- Manual testing on staging to verify fixes
+- Get PR review and merge
+- Schedule production migration window (CASCADE FKs)
 
 ## Open questions
 
@@ -53,8 +58,5 @@ Last updated: 2026-01-18T00:05:00Z
 ## Working set
 
 - Pitfalls doc: `Table_Assignment_System_Pitfalls_Critical_Paths.md`
-- Modified files:
-  - `server/capacity/table-assignment/assignment-sync.ts` (backoff + hard failures)
-  - `src/hooks/ops/useOpsTableAssignments.ts` (removed setTimeout)
-  - `supabase/migrations/20260118_cascade_delete_table_assignments.sql` (new)
-  - `docs/DATABASE_MIGRATIONS.md` (added CASCADE entry)
+- Migration log: `docs/DATABASE_MIGRATIONS.md`
+- PR: https://github.com/lapeninns/nabatable/pull/1
