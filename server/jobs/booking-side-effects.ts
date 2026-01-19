@@ -1,7 +1,6 @@
-import { z } from "zod";
+import { z } from 'zod';
 
-
-import { recordBookingCancelledEvent, recordBookingCreatedEvent } from "@/server/analytics";
+import { recordBookingCancelledEvent, recordBookingCreatedEvent } from '@/server/analytics';
 import {
   sendBookingCancellationEmail,
   sendBookingConfirmationEmail,
@@ -9,24 +8,23 @@ import {
   sendBookingReviewRequestEmail,
   sendBookingUpdateEmail,
   sendRestaurantCancellationEmail,
-} from "@/server/emails/bookings";
+} from '@/server/emails/bookings';
 import {
   getAutoAssignCreatedEmailDeferMinutes,
   isAutoAssignOnBookingEnabled,
   isEmailQueueEnabled,
-} from "@/server/feature-flags";
-import { enqueueEmailJob, removeEmailJob, type EmailJobType } from "@/server/queue/email";
-import { getServiceSupabaseClient } from "@/server/supabase";
+} from '@/server/feature-flags';
+import { enqueueEmailJob, removeEmailJob, type EmailJobType } from '@/server/queue/email';
+import { getServiceSupabaseClient } from '@/server/supabase';
 
+import type { BookingRecord } from '@/server/bookings';
+import type { Database } from '@/types/supabase';
+import type { Tables } from '@/types/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { BookingRecord } from "@/server/bookings";
-import type { Database } from "@/types/supabase";
-import type { Tables } from "@/types/supabase";
-import type { SupabaseClient } from "@supabase/supabase-js";
-
-export const BOOKING_CREATED_EVENT = "sajiloreservex/booking.created.side-effects" as const;
-export const BOOKING_UPDATED_EVENT = "sajiloreservex/booking.updated.side-effects" as const;
-export const BOOKING_CANCELLED_EVENT = "sajiloreservex/booking.cancelled.side-effects" as const;
+export const BOOKING_CREATED_EVENT = 'sajiloreservex/booking.created.side-effects' as const;
+export const BOOKING_UPDATED_EVENT = 'sajiloreservex/booking.updated.side-effects' as const;
+export const BOOKING_CANCELLED_EVENT = 'sajiloreservex/booking.cancelled.side-effects' as const;
 
 const bookingPayloadSchema = z
   .object({
@@ -74,7 +72,7 @@ export type BookingCancelledSideEffectsPayload = {
   previous: BookingPayload;
   cancelled: BookingPayload;
   restaurantId: string;
-  cancelledBy: "customer" | "staff" | "system";
+  cancelledBy: 'customer' | 'staff' | 'system';
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -90,21 +88,23 @@ function safeBookingPayload(record: BookingRecord): BookingPayload {
 
 // Allow bypassing all outbound guest emails during load tests or local stress runs.
 // Set LOAD_TEST_DISABLE_EMAILS=true to suppress email sending without changing business logic.
-const SUPPRESS_EMAILS = process.env.LOAD_TEST_DISABLE_EMAILS === 'true' || process.env.SUPPRESS_EMAILS === 'true';
+const SUPPRESS_EMAILS =
+  process.env.LOAD_TEST_DISABLE_EMAILS === 'true' || process.env.SUPPRESS_EMAILS === 'true';
 const REMINDER_24H_MINUTES = 24 * 60;
 const REMINDER_SHORT_MINUTES = 2 * 60;
 const REVIEW_DELAY_MINUTES = 180; // 3 hours after visit ends
 const INLINE_EMAIL_DELAY_CAP_MS = 48 * 60 * 60 * 1000;
 const INSTANT_EMAIL_TYPES: ReadonlySet<EmailJobType> = new Set([
-  "request_received",
-  "confirmation",
-  "updated",
-  "cancelled",
-  "restaurant_cancellation",
-  "booking_rejected",
+  'request_received',
+  'confirmation',
+  'updated',
+  'cancelled',
+  'restaurant_cancellation',
+  'booking_rejected',
 ]);
 
-const shouldQueueEmail = (type: EmailJobType) => isEmailQueueEnabled() && !INSTANT_EMAIL_TYPES.has(type);
+const shouldQueueEmail = (type: EmailJobType) =>
+  isEmailQueueEnabled() && !INSTANT_EMAIL_TYPES.has(type);
 
 type EmailPrefs = {
   sendReminder24h: boolean;
@@ -122,7 +122,7 @@ const ALWAYS_ENABLED_EMAIL_PREFS: EmailPrefs = {
 
 async function fetchRestaurantEmailPrefs(
   _restaurantId: string,
-  _client?: SupabaseClient<Database, "public", "public">,
+  _client?: SupabaseClient<Database, 'public', 'public'>,
 ): Promise<EmailPrefs> {
   // All emails are always enabled - restaurant preferences are no longer checked.
   return ALWAYS_ENABLED_EMAIL_PREFS;
@@ -130,13 +130,13 @@ async function fetchRestaurantEmailPrefs(
 
 async function fetchRestaurantTimezone(
   restaurantId: string,
-  client: SupabaseClient<Database, "public", "public"> = getServiceSupabaseClient(),
+  client: SupabaseClient<Database, 'public', 'public'> = getServiceSupabaseClient(),
 ): Promise<string> {
   try {
     const { data } = await client
-      .from("restaurants")
-      .select("timezone")
-      .eq("id", restaurantId)
+      .from('restaurants')
+      .select('timezone')
+      .eq('id', restaurantId)
       .maybeSingle();
     return data?.timezone || 'Europe/London';
   } catch {
@@ -145,10 +145,13 @@ async function fetchRestaurantTimezone(
 }
 
 function isValidEmail(value?: string | null): boolean {
-  return Boolean(value && value.trim().length > 3 && value.includes("@"));
+  return Boolean(value && value.trim().length > 3 && value.includes('@'));
 }
 
-function computeDelayMs(targetIso: string | null | undefined, minutesBeforeOrAfter: number): number | null {
+function computeDelayMs(
+  targetIso: string | null | undefined,
+  minutesBeforeOrAfter: number,
+): number | null {
   if (!targetIso) return null;
   const ts = new Date(targetIso).getTime();
   if (Number.isNaN(ts)) return null;
@@ -164,10 +167,10 @@ function computeDelayMs(targetIso: string | null | undefined, minutesBeforeOrAft
 // ============================================================================
 
 const OPTIMAL_SEND_HOURS = {
-  morningStart: 9,   // 9 AM - earliest optimal send time
-  eveningEnd: 20,    // 8 PM - latest optimal send time
+  morningStart: 9, // 9 AM - earliest optimal send time
+  eveningEnd: 20, // 8 PM - latest optimal send time
   eveningFallback: 19, // 7 PM - fallback for pre-event emails that would land in sleep hours
-  nextDayStart: 10,  // 10 AM - comfortable start time for pushed emails
+  nextDayStart: 10, // 10 AM - comfortable start time for pushed emails
 };
 
 type ScheduleMode = 'post-event' | 'pre-event';
@@ -198,16 +201,16 @@ function isWithinOptimalHours(hour: number): boolean {
 
 /**
  * Adjusts a scheduled email timestamp to fall within optimal sending hours.
- * 
+ *
  * For POST-EVENT emails (e.g., review requests after a visit):
  *   - If outside 9 AM - 8 PM, delay to 10 AM next morning
- * 
+ *
  * For PRE-EVENT emails (e.g., reminders before a booking):
  *   - If outside 9 AM - 8 PM but would still be before the event, move to:
  *     - Previous evening (7 PM) if there's time
  *     - Same day morning (9 AM) if the event is later that day
  *   - Never schedule a reminder AFTER the event it's reminding about
- * 
+ *
  * @param proposedTimeMs - The initially calculated send time in milliseconds
  * @param timezone - The restaurant/guest timezone (default: Europe/London)
  * @param mode - 'post-event' for review requests, 'pre-event' for reminders
@@ -226,7 +229,9 @@ function adjustToOptimalSendTime(
   // If already within optimal hours, no adjustment needed
   if (isWithinOptimalHours(localHour)) {
     const delayMs = proposedTimeMs - Date.now();
-    console.log(`[smart-schedule] ✅ Already optimal: ${proposedDate.toISOString()} (${localHour}:00 ${timezone})`);
+    console.log(
+      `[smart-schedule] ✅ Already optimal: ${proposedDate.toISOString()} (${localHour}:00 ${timezone})`,
+    );
     return Math.max(0, delayMs);
   }
 
@@ -301,8 +306,12 @@ function adjustToOptimalSendTime(
 
   // Log the adjustment for debugging
   console.log(`[smart-schedule] 📧 Mode: ${mode}`);
-  console.log(`[smart-schedule]    Original: ${proposedDate.toISOString()} (${localHour}:00 ${timezone})`);
-  console.log(`[smart-schedule]    Adjusted: ${adjustedDate.toISOString()} (delay: ${Math.round(adjustedDelayMs / 60000)} min)`);
+  console.log(
+    `[smart-schedule]    Original: ${proposedDate.toISOString()} (${localHour}:00 ${timezone})`,
+  );
+  console.log(
+    `[smart-schedule]    Adjusted: ${adjustedDate.toISOString()} (delay: ${Math.round(adjustedDelayMs / 60000)} min)`,
+  );
 
   return Math.max(0, adjustedDelayMs);
 }
@@ -329,13 +338,13 @@ async function sendEmailInlineWithDelay(
 async function scheduleReminderJob(
   booking: BookingRecord,
   restaurantId: string,
-  variant: "reminder_24h" | "reminder_short",
+  variant: 'reminder_24h' | 'reminder_short',
   minutesBefore: number,
   prefs: EmailPrefs,
   timezone = 'Europe/London',
 ) {
-  if (variant === "reminder_24h" && !prefs.sendReminder24h) return;
-  if (variant === "reminder_short" && !prefs.sendReminderShort) return;
+  if (variant === 'reminder_24h' && !prefs.sendReminder24h) return;
+  if (variant === 'reminder_short' && !prefs.sendReminderShort) return;
   if (!isValidEmail(booking.customer_email) || !booking.start_at) return;
 
   const baseDelayMs = computeDelayMs(booking.start_at, minutesBefore);
@@ -351,7 +360,12 @@ async function scheduleReminderJob(
   // Apply smart scheduling to ensure we only send during optimal hours (9 AM - 8 PM)
   // For pre-event emails, this will try to move to previous evening or next morning
   // while ensuring the reminder still arrives BEFORE the booking
-  const optimizedDelayMs = adjustToOptimalSendTime(proposedSendTime, timezone, 'pre-event', eventTime);
+  const optimizedDelayMs = adjustToOptimalSendTime(
+    proposedSendTime,
+    timezone,
+    'pre-event',
+    eventTime,
+  );
 
   // If smart scheduling returns null, we can't schedule this reminder properly
   if (optimizedDelayMs === null) {
@@ -359,7 +373,9 @@ async function scheduleReminderJob(
     return;
   }
 
-  console.log(`[reminder-job] Booking ${booking.id} (${variant}): Base delay ${Math.round(baseDelayMs / 60000)} min, Optimized delay ${Math.round(optimizedDelayMs / 60000)} min`);
+  console.log(
+    `[reminder-job] Booking ${booking.id} (${variant}): Base delay ${Math.round(baseDelayMs / 60000)} min, Optimized delay ${Math.round(optimizedDelayMs / 60000)} min`,
+  );
 
   const queueEnabled = isEmailQueueEnabled();
   console.log('[DEBUG][reminder-job] Queue status', {
@@ -408,13 +424,20 @@ async function scheduleReminderJob(
 
     await sendEmailInlineWithDelay(
       optimizedDelayMs,
-      () => sendBookingReminderEmail(booking, { variant: variant === "reminder_short" ? "short" : "standard" }),
+      () =>
+        sendBookingReminderEmail(booking, {
+          variant: variant === 'reminder_short' ? 'short' : 'standard',
+        }),
       `booking.${variant}`,
     );
   }
 }
 
-async function scheduleReviewJob(booking: BookingRecord, restaurantId: string, timezone = 'Europe/London') {
+async function scheduleReviewJob(
+  booking: BookingRecord,
+  restaurantId: string,
+  timezone = 'Europe/London',
+) {
   // prefs check will be done by caller and worker
   if (!isValidEmail(booking.customer_email)) return;
 
@@ -437,20 +460,26 @@ async function scheduleReviewJob(booking: BookingRecord, restaurantId: string, t
     return;
   }
 
-  console.log(`[review-job] Booking ${booking.id}: Base delay ${Math.round(baseDelayMs / 60000)} min, Optimized delay ${Math.round(optimizedDelayMs / 60000)} min`);
+  console.log(
+    `[review-job] Booking ${booking.id}: Base delay ${Math.round(baseDelayMs / 60000)} min, Optimized delay ${Math.round(optimizedDelayMs / 60000)} min`,
+  );
 
   if (isEmailQueueEnabled() && optimizedDelayMs > 0) {
     await enqueueEmailJob(
       {
         bookingId: booking.id,
         restaurantId,
-        type: "review_request",
+        type: 'review_request',
         scheduledFor: new Date(Date.now() + optimizedDelayMs).toISOString(),
       },
       { jobId: `review_request:${booking.id}`, delayMs: optimizedDelayMs },
     );
   } else if (optimizedDelayMs >= 0) {
-    await sendEmailInlineWithDelay(optimizedDelayMs, () => sendBookingReviewRequestEmail(booking), "booking.review_request");
+    await sendEmailInlineWithDelay(
+      optimizedDelayMs,
+      () => sendBookingReviewRequestEmail(booking),
+      'booking.review_request',
+    );
   }
 }
 
@@ -487,11 +516,11 @@ async function processBookingCreatedSideEffects(
       bookingId: booking.id,
       restaurantId,
       customerId: booking.customer_id,
-      status: booking.status as Tables<"bookings">["status"],
+      status: booking.status as Tables<'bookings'>['status'],
       partySize: booking.party_size,
-      bookingType: booking.booking_type as Tables<"bookings">["booking_type"],
-      seatingPreference: booking.seating_preference as Tables<"bookings">["seating_preference"],
-      source: booking.source ?? "api",
+      bookingType: booking.booking_type as Tables<'bookings'>['booking_type'],
+      seatingPreference: booking.seating_preference as Tables<'bookings'>['seating_preference'],
+      source: booking.source ?? 'api',
       loyaltyPointsAwarded: booking.loyalty_points_awarded ?? 0,
       occurredAt: booking.created_at,
       clientRequestId: booking.client_request_id ?? undefined,
@@ -499,16 +528,20 @@ async function processBookingCreatedSideEffects(
       pendingRef: booking.pending_ref ?? undefined,
     });
   } catch (error) {
-    console.error("[jobs][booking.created][analytics]", error);
+    console.error('[jobs][booking.created][analytics]', error);
   }
 
   if (!SUPPRESS_EMAILS && shouldSendEmail) {
-    const isPending = booking.status === "pending" || booking.status === "pending_allocation";
-    const shouldQueueRequest = shouldQueueEmail("request_received");
-    const deferMinutes = isAutoAssignOnBookingEnabled() ? getAutoAssignCreatedEmailDeferMinutes() : 0;
+    const isPending = booking.status === 'pending' || booking.status === 'pending_allocation';
+    const shouldQueueRequest = shouldQueueEmail('request_received');
+    const deferMinutes = isAutoAssignOnBookingEnabled()
+      ? getAutoAssignCreatedEmailDeferMinutes()
+      : 0;
     const shouldDeferPending = deferMinutes > 0 && isPending;
     const delayMs =
-      shouldQueueRequest && shouldDeferPending ? Math.max(0, Math.min(deferMinutes, 120)) * 60_000 : 0;
+      shouldQueueRequest && shouldDeferPending
+        ? Math.max(0, Math.min(deferMinutes, 120)) * 60_000
+        : 0;
 
     if (isPending) {
       if (shouldQueueRequest) {
@@ -517,7 +550,7 @@ async function processBookingCreatedSideEffects(
             {
               bookingId: booking.id,
               restaurantId,
-              type: "request_received",
+              type: 'request_received',
               scheduledFor: delayMs > 0 ? new Date(Date.now() + delayMs).toISOString() : null,
             },
             {
@@ -527,29 +560,29 @@ async function processBookingCreatedSideEffects(
           );
           queuedViaQueue = true;
         } catch (error) {
-          console.error("[jobs][booking.created][queue]", error);
+          console.error('[jobs][booking.created][queue]', error);
           try {
             await sendBookingConfirmationEmail(booking as BookingRecord);
           } catch (fallbackError) {
-            console.error("[jobs][booking.created][email-fallback]", fallbackError);
+            console.error('[jobs][booking.created][email-fallback]', fallbackError);
           }
         }
       } else {
         try {
           await sendBookingConfirmationEmail(booking as BookingRecord);
         } catch (error) {
-          console.error("[jobs][booking.created][email]", error);
+          console.error('[jobs][booking.created][email]', error);
         }
       }
     } else {
-      const shouldQueueConfirmation = shouldQueueEmail("confirmation");
+      const shouldQueueConfirmation = shouldQueueEmail('confirmation');
       if (shouldQueueConfirmation) {
         try {
           await enqueueEmailJob(
             {
               bookingId: booking.id,
               restaurantId,
-              type: "confirmation",
+              type: 'confirmation',
               scheduledFor: null,
             },
             {
@@ -559,25 +592,25 @@ async function processBookingCreatedSideEffects(
           );
           queuedViaQueue = true;
         } catch (error) {
-          console.error("[jobs][booking.created][queue-confirmation]", error);
+          console.error('[jobs][booking.created][queue-confirmation]', error);
           try {
             await sendBookingConfirmationEmail(booking as BookingRecord);
           } catch (fallbackError) {
-            console.error("[jobs][booking.created][email-fallback]", fallbackError);
+            console.error('[jobs][booking.created][email-fallback]', fallbackError);
           }
         }
       } else {
         try {
           await sendBookingConfirmationEmail(booking as BookingRecord);
         } catch (error) {
-          console.error("[jobs][booking.created][email]", error);
+          console.error('[jobs][booking.created][email]', error);
         }
       }
     }
   }
 
   // Schedule pre-visit reminders if already confirmed at creation.
-  if (!SUPPRESS_EMAILS && shouldSendEmail && booking.status === "confirmed") {
+  if (!SUPPRESS_EMAILS && shouldSendEmail && booking.status === 'confirmed') {
     console.log('[DEBUG][booking.created] Scheduling reminders', {
       bookingId: booking.id,
       status: booking.status,
@@ -591,7 +624,7 @@ async function processBookingCreatedSideEffects(
       await scheduleReminderJob(
         booking as BookingRecord,
         restaurantId,
-        "reminder_24h",
+        'reminder_24h',
         REMINDER_24H_MINUTES,
         emailPrefs,
         timezone,
@@ -601,7 +634,7 @@ async function processBookingCreatedSideEffects(
       await scheduleReminderJob(
         booking as BookingRecord,
         restaurantId,
-        "reminder_short",
+        'reminder_short',
         REMINDER_SHORT_MINUTES,
         emailPrefs,
         timezone,
@@ -622,12 +655,21 @@ async function processBookingCreatedSideEffects(
       SUPPRESS_EMAILS,
       shouldSendEmail,
       status: booking.status,
-      reason: !shouldSendEmail ? 'no email' : booking.status !== 'confirmed' ? 'not confirmed' : 'emails suppressed',
+      reason: !shouldSendEmail
+        ? 'no email'
+        : booking.status !== 'confirmed'
+          ? 'not confirmed'
+          : 'emails suppressed',
     });
   }
 
   // Edge: if created as completed (rare), schedule review with smart timing.
-  if (!SUPPRESS_EMAILS && shouldSendEmail && booking.status === "completed" && emailPrefs.sendReviewRequest) {
+  if (
+    !SUPPRESS_EMAILS &&
+    shouldSendEmail &&
+    booking.status === 'completed' &&
+    emailPrefs.sendReviewRequest
+  ) {
     const timezone = await fetchRestaurantTimezone(restaurantId, client);
     await scheduleReviewJob(booking as BookingRecord, restaurantId, timezone);
   }
@@ -645,22 +687,20 @@ async function processBookingUpdatedSideEffects(
   const currStatus = current.status ?? null;
 
   const transitionedToPending =
-    (currStatus === "pending" || currStatus === "pending_allocation") &&
-    currStatus !== prevStatus;
+    (currStatus === 'pending' || currStatus === 'pending_allocation') && currStatus !== prevStatus;
 
   const confirmedFromPending =
-    (prevStatus === "pending" || prevStatus === "pending_allocation") &&
-    currStatus === "confirmed";
+    (prevStatus === 'pending' || prevStatus === 'pending_allocation') && currStatus === 'confirmed';
 
   if (confirmedFromPending && !SUPPRESS_EMAILS && isValidEmail(current.customer_email)) {
-    const shouldQueueConfirmation = shouldQueueEmail("confirmation");
+    const shouldQueueConfirmation = shouldQueueEmail('confirmation');
     if (shouldQueueConfirmation) {
       try {
         await enqueueEmailJob(
           {
             bookingId: current.id,
             restaurantId,
-            type: "confirmation",
+            type: 'confirmation',
             scheduledFor: null,
           },
           {
@@ -672,11 +712,11 @@ async function processBookingUpdatedSideEffects(
         // If it was scheduled with a delay, and we confirm before that delay, we should axe it.
         await removeEmailJob(`request_received:${current.id}`);
       } catch (error) {
-        console.error("[jobs][booking.updated][queue-confirmation]", error);
+        console.error('[jobs][booking.updated][queue-confirmation]', error);
         try {
           await sendBookingConfirmationEmail(current as BookingRecord);
         } catch (fallbackError) {
-          console.error("[jobs][booking.updated][email-fallback]", fallbackError);
+          console.error('[jobs][booking.updated][email-fallback]', fallbackError);
         }
       }
     } else {
@@ -686,7 +726,7 @@ async function processBookingUpdatedSideEffects(
           await removeEmailJob(`request_received:${current.id}`);
         }
       } catch (error) {
-        console.error("[jobs][booking.updated][email]", error);
+        console.error('[jobs][booking.updated][email]', error);
       }
     }
 
@@ -694,7 +734,7 @@ async function processBookingUpdatedSideEffects(
     await scheduleReminderJob(
       current as BookingRecord,
       restaurantId,
-      "reminder_24h",
+      'reminder_24h',
       REMINDER_24H_MINUTES,
       prefs,
       timezone,
@@ -702,7 +742,7 @@ async function processBookingUpdatedSideEffects(
     await scheduleReminderJob(
       current as BookingRecord,
       restaurantId,
-      "reminder_short",
+      'reminder_short',
       REMINDER_SHORT_MINUTES,
       prefs,
       timezone,
@@ -714,14 +754,14 @@ async function processBookingUpdatedSideEffects(
   }
 
   if (!SUPPRESS_EMAILS && current.customer_email && current.customer_email.trim().length > 0) {
-    const shouldQueueUpdate = shouldQueueEmail("updated");
+    const shouldQueueUpdate = shouldQueueEmail('updated');
     if (shouldQueueUpdate) {
       try {
         await enqueueEmailJob(
           {
             bookingId: current.id,
             restaurantId,
-            type: "updated",
+            type: 'updated',
             scheduledFor: null,
           },
           {
@@ -730,23 +770,23 @@ async function processBookingUpdatedSideEffects(
           },
         );
       } catch (error) {
-        console.error("[jobs][booking.updated][queue-update]", error);
+        console.error('[jobs][booking.updated][queue-update]', error);
         try {
           await sendBookingUpdateEmail(current as BookingRecord);
         } catch (fallbackError) {
-          console.error("[jobs][booking.updated][email-fallback]", fallbackError);
+          console.error('[jobs][booking.updated][email-fallback]', fallbackError);
         }
       }
     } else {
       try {
         await sendBookingUpdateEmail(current as BookingRecord);
       } catch (error) {
-        console.error("[jobs][booking.updated][email]", error);
+        console.error('[jobs][booking.updated][email]', error);
       }
     }
   }
 
-  const completedFromOtherStatus = currStatus === "completed" && prevStatus !== "completed";
+  const completedFromOtherStatus = currStatus === 'completed' && prevStatus !== 'completed';
   if (!SUPPRESS_EMAILS && completedFromOtherStatus && prefs.sendReviewRequest) {
     const timezone = await fetchRestaurantTimezone(restaurantId, resolveSupabase(_supabase));
     await scheduleReviewJob(current as BookingRecord, restaurantId, timezone);
@@ -765,18 +805,18 @@ async function processBookingCancelledSideEffects(
       bookingId: cancelled.id,
       restaurantId,
       customerId: cancelled.customer_id,
-      previousStatus: previous.status as Tables<"bookings">["status"],
+      previousStatus: previous.status as Tables<'bookings'>['status'],
       cancelledBy,
       occurredAt: cancelled.updated_at,
     });
   } catch (error) {
-    console.error("[jobs][booking.cancelled][analytics]", error);
+    console.error('[jobs][booking.cancelled][analytics]', error);
   }
 
   if (!SUPPRESS_EMAILS && cancelled.customer_email && cancelled.customer_email.trim().length > 0) {
-    const jobType = cancelledBy === "customer" ? "cancelled" : "restaurant_cancellation";
+    const jobType = cancelledBy === 'customer' ? 'cancelled' : 'restaurant_cancellation';
     const sendFn =
-      cancelledBy === "customer" ? sendBookingCancellationEmail : sendRestaurantCancellationEmail;
+      cancelledBy === 'customer' ? sendBookingCancellationEmail : sendRestaurantCancellationEmail;
     const shouldQueueCancel = shouldQueueEmail(jobType);
 
     if (shouldQueueCancel) {
@@ -794,18 +834,18 @@ async function processBookingCancelledSideEffects(
           },
         );
       } catch (error) {
-        console.error("[jobs][booking.cancelled][queue]", error);
+        console.error('[jobs][booking.cancelled][queue]', error);
         try {
           await sendFn(cancelled as BookingRecord);
         } catch (fallbackError) {
-          console.error("[jobs][booking.cancelled][email-fallback]", fallbackError);
+          console.error('[jobs][booking.cancelled][email-fallback]', fallbackError);
         }
       }
     } else {
       try {
         await sendFn(cancelled as BookingRecord);
       } catch (error) {
-        console.error("[jobs][booking.cancelled][email]", error);
+        console.error('[jobs][booking.cancelled][email]', error);
       }
     }
   }
@@ -833,12 +873,19 @@ export async function enqueueBookingUpdatedSideEffects(
   },
 ) {
   if (options?.skipEmail) {
-    console.log('[jobs][booking.updated] Skipping email - modification flow already sent it', {
-      bookingId: payload.current.id,
-    });
-    // Still process non-email side effects (analytics, reminders for status transitions, etc.)
-    // but we need to ensure emails are skipped in processBookingUpdatedSideEffects
-    // For now, we skip the entire call since the main purpose is email handling
+    console.log(
+      '[jobs][booking.updated] Skipping side effects - modification flow already handled emails',
+      {
+        bookingId: payload.current.id,
+      },
+    );
+    // When skipEmail is true, we skip the entire processBookingUpdatedSideEffects call.
+    // This is intentional: skipEmail is only set when table realignment succeeds inline
+    // during modification flow, which means:
+    // - The booking status hasn't changed (still confirmed) → no new reminders needed
+    // - A "Changes Confirmed" email was already sent → no duplicate update email
+    // - Analytics for updates are not tracked here (only in created/cancelled)
+    // - Review requests only trigger on completion → not applicable
     return { queued: false } as const;
   }
   await processBookingUpdatedSideEffects(payload, options?.supabase);
@@ -856,7 +903,7 @@ export async function enqueueBookingCancelledSideEffects(
 /**
  * Dedicated function for check-out side effects.
  * Only schedules the review request email - does NOT send booking update emails.
- * 
+ *
  * This should be called when a booking transitions to 'completed' status via check-out.
  * Unlike enqueueBookingUpdatedSideEffects, this will NOT notify the guest of "changes"
  * because a check-out is an internal operational action, not a booking modification.
