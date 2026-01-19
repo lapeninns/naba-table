@@ -260,7 +260,7 @@ async function fetchEligibleBookings(
     throw error;
   }
 
-  return (data ?? []) as BookingRow[];
+  return (data ?? []) as unknown as BookingRow[];
 }
 
 export async function autoCompletePastBookings(options: AutoCompleteOptions = {}): Promise<AutoCompleteSummary> {

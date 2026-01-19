@@ -292,7 +292,7 @@ async function fetchConfirmedBookings(
       throw error;
     }
 
-    const rows = (data ?? []) as BookingRow[];
+    const rows = (data ?? []) as unknown as BookingRow[];
     if (rows.length === 0) {
       break;
     }
@@ -359,7 +359,7 @@ async function main(): Promise<void> {
 
   for (const restaurant of restaurants) {
     const timezone = normalizeTimezone(restaurant.timezone);
-    const cutoffUtc = computeCutoffUtc(timezone, DateTime);
+    const cutoffUtc = computeCutoffUtc(timezone);
     const actorId = await resolveActorId(supabase, restaurant.id);
     if (!actorId) {
       console.warn(`Skipping restaurant ${restaurant.id} - no actorId resolved.`);
@@ -376,8 +376,8 @@ async function main(): Promise<void> {
         break;
       }
 
-      const startAtUtc = computeStartAtUtc(booking, timezone, DateTime);
-      let endAtUtc = computeEndAtUtc(booking, timezone, DateTime);
+      const startAtUtc = computeStartAtUtc(booking, timezone);
+      let endAtUtc = computeEndAtUtc(booking, timezone);
 
       if (!endAtUtc) {
         continue;
